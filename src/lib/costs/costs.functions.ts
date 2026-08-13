@@ -280,3 +280,25 @@ export const fetchCreditHeadroom = createServerFn({ method: "GET" })
       reason: head.blockedReason ?? (canStart ? null : "floor"),
     };
   });
+
+/**
+ * The account's own credit balance and plain activity list: what they did and
+ * how many credits it cost. No provider cost, margin or pricing internals.
+ */
+export const fetchCreditActivity = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { creditActivity } = await import("./creditAccount.server");
+    return creditActivity(context.userId, 40);
+  });
+
+/** The payer's switch for chargeable actions. */
+export const saveCreditUsageEnabled = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ enabled: z.boolean() }).parse(data))
+  .handler(async ({ context, data }) => {
+    const { setCreditUsageEnabled, creditActivity } = await import("./creditAccount.server");
+    await setCreditUsageEnabled(context.userId, data.enabled);
+    return creditActivity(context.userId, 40);
+  });
+

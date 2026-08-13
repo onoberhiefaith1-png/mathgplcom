@@ -20,6 +20,7 @@ import { Link } from "@/lib/router-compat";
 import { useProfileSummary } from "@/lib/accounts/useProfileSummary";
 import { useChildren, useFamilyActivity, useFamilyConnections } from "@/lib/family/useFamily";
 import PlanSection from "@/components/plans/PlanSection";
+import CreditsSection from "@/components/plans/CreditsSection";
 
 const greeting = () => {
   const hour = new Date().getHours();
@@ -238,6 +239,7 @@ const FamilyDashboard = () => {
         </Button>
       </section>
       <PlanSection />
+      <CreditsSection />
     </WorkspaceLayout>
   );
 };

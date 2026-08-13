@@ -387,20 +387,24 @@ export async function setPrice(metric: string, unitPrice: number | null) {
 export type PricingVersion = {
   id: string;
   profitPercentage: number;
+  costPerCredit: number;
+  sellPrice: number;
+  label: string | null;
   effectiveFrom: string;
   note: string | null;
   current: boolean;
 };
 
 /**
- * Insert-only history of the global Percentage Profit. Old versions are never
- * edited or deleted, so it stays clear why two customers hold different rates.
+ * Insert-only history of the economic inputs. A version records both the cost
+ * per credit and the profit percentage in force, plus the sell price derived
+ * from them, so a credit lot can always be traced back to its own terms.
  */
 export async function pricingHistory(): Promise<PricingVersion[]> {
   const db = await admin();
   const { data } = await db
     .from("pricing_versions")
-    .select("id, profit_percentage, effective_from, note")
+    .select("id, profit_percentage, cost_per_credit, sell_price, label, effective_from, note")
     .order("effective_from", { ascending: false })
     .limit(200);
 
@@ -413,6 +417,9 @@ export async function pricingHistory(): Promise<PricingVersion[]> {
     return {
       id: v.id as string,
       profitPercentage: Number(v.profit_percentage ?? 0),
+      costPerCredit: Number((v as { cost_per_credit?: number }).cost_per_credit ?? 0),
+      sellPrice: Number((v as { sell_price?: number }).sell_price ?? 0),
+      label: ((v as { label?: string }).label as string) ?? null,
       effectiveFrom,
       note: (v.note as string) ?? null,
       current: isCurrent,
@@ -421,9 +428,23 @@ export async function pricingHistory(): Promise<PricingVersion[]> {
 }
 
 /**
+ * Records a new pricing version from the two manual inputs. Called whenever
+ * either input is saved, so history is never overwritten and every credit lot
+ * keeps pointing at the terms it was bought under.
+ */
+async function newPricingVersion(costPerCredit: number, profitPercentage: number, userId?: string) {
+  const db = await admin();
+  await db.rpc("record_pricing_version", {
+    _cost_per_credit: costPerCredit,
+    _profit_percentage: profitPercentage,
+    _created_by: userId ?? null,
+  } as never);
+}
+
+/**
  * Changing the percentage records a new version and updates the live setting.
- * Existing subscriptions keep the rate locked on their own row, so nothing
- * historical is repriced — only new subscriptions and renewals read this.
+ * Credits already purchased keep the multiplier locked on their own lot, so
+ * nothing historical is repriced — only new purchases read this.
  */
 export async function setProfitPercentage(value: number, userId?: string) {
   const db = await admin();
@@ -431,16 +452,14 @@ export async function setProfitPercentage(value: number, userId?: string) {
     .from("platform_cost_settings")
     .update({ profit_percentage: value, updated_at: new Date().toISOString() })
     .eq("id", 1);
-  await db.from("pricing_versions").insert({
-    profit_percentage: value,
-    effective_from: new Date().toISOString(),
-    created_by: userId ?? null,
-  });
+  const base = await resolvePricing("GBP");
+  await newPricingVersion(base.costPrice, value, userId);
   const { syncCatalogReport } = await import("@/lib/payments/catalogSync.server");
   await syncCatalogReport("sandbox");
   await syncCatalogReport("live");
   return value;
 }
+
 
 
 export async function reconcile(sinceDays = 90) {
@@ -506,7 +525,10 @@ export async function setCurrencyRate(currency: string, creditValue: number, use
       .from("platform_cost_settings")
       .update({ credit_rate: creditValue, updated_at: new Date().toISOString() })
       .eq("id", 1);
+    const base = await resolvePricing("GBP");
+    await newPricingVersion(creditValue, base.profitPercentage, userId);
   }
+
   return currencyRates();
 }
 
@@ -752,10 +774,13 @@ export async function setCurrencyPricing(input: {
       .from("platform_cost_settings")
       .update({ credit_rate: input.creditValue, updated_at: new Date().toISOString() })
       .eq("id", 1);
+    const base = await resolvePricing("GBP");
+    await newPricingVersion(input.creditValue, base.profitPercentage, input.userId);
     const { syncCatalogReport } = await import("@/lib/payments/catalogSync.server");
     await syncCatalogReport("sandbox");
     await syncCatalogReport("live");
   }
+
   return currencyPricing();
 }
 

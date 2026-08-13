@@ -66,8 +66,10 @@ export const CREDIT_MESSAGES: Record<string, string> = {
   insufficient: "You have run out of credits. Top up your balance to keep generating.",
   past_due: "Your payment did not go through, so generation is paused. Update your payment method to continue.",
   no_ai_plan: "AI generation is part of a paid plan. Upgrade your plan to generate.",
+  disabled: "Credit usage is currently disabled for this account.",
   stopped: "Your credits ran out while this was running, so it stopped early.",
 };
+
 
 /**
  * Runs `work` only if the account can pay for it. The reservation is settled in

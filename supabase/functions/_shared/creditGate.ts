@@ -23,7 +23,9 @@ const MESSAGES: Record<string, string> = {
   insufficient: "You have run out of credits. Top up your balance to keep generating.",
   past_due: "Your payment did not go through, so generation is paused. Update your payment method to continue.",
   no_ai_plan: "AI generation is part of a paid plan. Upgrade your plan to generate.",
+  disabled: "Credit usage is currently disabled for this account.",
 };
+
 
 /** Reserves credits for one operation. Returns the key to settle it with. */
 export async function openCreditGate(

@@ -10,6 +10,7 @@ import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useConnections, useConnectionCounts } from "@/lib/connections/useConnections";
 import WorkspaceInvitations from "@/components/accounts/WorkspaceInvitations";
 import PlanSection from "@/components/plans/PlanSection";
+import CreditsSection from "@/components/plans/CreditsSection";
 
 const QUICK: { to: string; label: string }[] = [
   { to: "/lesson-notes", label: "Lesson Notes" },
@@ -182,6 +183,7 @@ const TeacherDashboard = () => {
         <ActivityList items={data?.activity ?? []} empty="No lesson notes in this workspace yet." />
       </section>
       <PlanSection />
+      <CreditsSection />
     </WorkspaceLayout>
   );
 };

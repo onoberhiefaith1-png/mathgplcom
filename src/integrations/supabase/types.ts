@@ -1678,6 +1678,7 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          credit_usage_enabled: boolean
           id: string
           org_id: string | null
           owner_kind: string
@@ -1686,6 +1687,7 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
+          credit_usage_enabled?: boolean
           id?: string
           org_id?: string | null
           owner_kind: string
@@ -1694,6 +1696,7 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
+          credit_usage_enabled?: boolean
           id?: string
           org_id?: string | null
           owner_kind?: string
@@ -1908,35 +1911,53 @@ export type Database = {
       }
       credit_grants: {
         Row: {
+          cost_per_credit_at_purchase: number | null
           cost_unit_id: string
           credits: number
+          customer_multiplier: number
           expires_at: string
           granted_at: string
           id: string
           note: string | null
+          pricing_version_id: string | null
+          profit_percentage_at_purchase: number | null
+          purchase_id: string | null
           remaining: number
+          sell_price_at_purchase: number | null
           source: string
           wallet_id: string
         }
         Insert: {
+          cost_per_credit_at_purchase?: number | null
           cost_unit_id: string
           credits: number
+          customer_multiplier?: number
           expires_at?: string
           granted_at?: string
           id?: string
           note?: string | null
+          pricing_version_id?: string | null
+          profit_percentage_at_purchase?: number | null
+          purchase_id?: string | null
           remaining: number
+          sell_price_at_purchase?: number | null
           source?: string
           wallet_id: string
         }
         Update: {
+          cost_per_credit_at_purchase?: number | null
           cost_unit_id?: string
           credits?: number
+          customer_multiplier?: number
           expires_at?: string
           granted_at?: string
           id?: string
           note?: string | null
+          pricing_version_id?: string | null
+          profit_percentage_at_purchase?: number | null
+          purchase_id?: string | null
           remaining?: number
+          sell_price_at_purchase?: number | null
           source?: string
           wallet_id?: string
         }
@@ -1946,6 +1967,20 @@ export type Database = {
             columns: ["cost_unit_id"]
             isOneToOne: false
             referencedRelation: "cost_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_grants_pricing_version_id_fkey"
+            columns: ["pricing_version_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_grants_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "credit_purchases"
             referencedColumns: ["id"]
           },
           {
@@ -1963,9 +1998,11 @@ export type Database = {
           balance_after: number
           cost_unit_id: string
           created_at: string
+          credit_lot_id: string | null
           id: string
           kind: string
           note: string | null
+          pricing_version_id: string | null
           usage_event_id: string | null
           wallet_id: string
         }
@@ -1974,9 +2011,11 @@ export type Database = {
           balance_after?: number
           cost_unit_id: string
           created_at?: string
+          credit_lot_id?: string | null
           id?: string
           kind?: string
           note?: string | null
+          pricing_version_id?: string | null
           usage_event_id?: string | null
           wallet_id: string
         }
@@ -1985,9 +2024,11 @@ export type Database = {
           balance_after?: number
           cost_unit_id?: string
           created_at?: string
+          credit_lot_id?: string | null
           id?: string
           kind?: string
           note?: string | null
+          pricing_version_id?: string | null
           usage_event_id?: string | null
           wallet_id?: string
         }
@@ -4213,28 +4254,37 @@ export type Database = {
       }
       pricing_versions: {
         Row: {
+          cost_per_credit: number | null
           created_at: string
           created_by: string | null
           effective_from: string
           id: string
+          label: string | null
           note: string | null
           profit_percentage: number
+          sell_price: number | null
         }
         Insert: {
+          cost_per_credit?: number | null
           created_at?: string
           created_by?: string | null
           effective_from?: string
           id?: string
+          label?: string | null
           note?: string | null
           profit_percentage: number
+          sell_price?: number | null
         }
         Update: {
+          cost_per_credit?: number | null
           created_at?: string
           created_by?: string | null
           effective_from?: string
           id?: string
+          label?: string | null
           note?: string | null
           profit_percentage?: number
+          sell_price?: number | null
         }
         Relationships: []
       }
@@ -5170,10 +5220,13 @@ export type Database = {
           actor_user_id: string | null
           actual_cost: number
           amount_paid: number
+          balance_after: number | null
+          balance_before: number | null
           category: Database["public"]["Enums"]["cost_category"]
           charge_credits: number
           cost_credits: number
           cost_unit_id: string
+          credit_lot_id: string | null
           credit_price: number | null
           customer_charge: number
           discount_percentage: number
@@ -5186,7 +5239,9 @@ export type Database = {
           occurred_at: string
           operation_key: string | null
           paid_credits: number
+          payer_cost_unit_id: string | null
           payment_status: string
+          pricing_version_id: string | null
           profit: number
           profit_rate: number
           promo_code: string | null
@@ -5201,10 +5256,13 @@ export type Database = {
           actor_user_id?: string | null
           actual_cost?: number
           amount_paid?: number
+          balance_after?: number | null
+          balance_before?: number | null
           category: Database["public"]["Enums"]["cost_category"]
           charge_credits?: number
           cost_credits?: number
           cost_unit_id: string
+          credit_lot_id?: string | null
           credit_price?: number | null
           customer_charge?: number
           discount_percentage?: number
@@ -5217,7 +5275,9 @@ export type Database = {
           occurred_at?: string
           operation_key?: string | null
           paid_credits?: number
+          payer_cost_unit_id?: string | null
           payment_status?: string
+          pricing_version_id?: string | null
           profit?: number
           profit_rate?: number
           promo_code?: string | null
@@ -5232,10 +5292,13 @@ export type Database = {
           actor_user_id?: string | null
           actual_cost?: number
           amount_paid?: number
+          balance_after?: number | null
+          balance_before?: number | null
           category?: Database["public"]["Enums"]["cost_category"]
           charge_credits?: number
           cost_credits?: number
           cost_unit_id?: string
+          credit_lot_id?: string | null
           credit_price?: number | null
           customer_charge?: number
           discount_percentage?: number
@@ -5248,7 +5311,9 @@ export type Database = {
           occurred_at?: string
           operation_key?: string | null
           paid_credits?: number
+          payer_cost_unit_id?: string | null
           payment_status?: string
+          pricing_version_id?: string | null
           profit?: number
           profit_rate?: number
           promo_code?: string | null
@@ -5481,6 +5546,22 @@ export type Database = {
           id: string
           name: string
           org_id: string
+        }[]
+      }
+      consume_cost_credits: {
+        Args: {
+          _cost_credits: number
+          _cost_unit_id: string
+          _note?: string
+          _usage_event_id?: string
+        }
+        Returns: {
+          balance_after: number
+          balance_before: number
+          charged: number
+          cost_covered: number
+          first_lot: string
+          first_version: string
         }[]
       }
       consume_credits: {
@@ -5758,6 +5839,17 @@ export type Database = {
           status: string
         }[]
       }
+      my_credit_activity: {
+        Args: { _limit?: number }
+        Returns: {
+          balance_after: number
+          credits: number
+          id: string
+          kind: string
+          label: string
+          occurred_at: string
+        }[]
+      }
       my_credit_balance: { Args: never; Returns: number }
       my_credit_summary: {
         Args: never
@@ -5893,6 +5985,17 @@ export type Database = {
         Args: { _org_id?: string; _user_id: string }
         Returns: boolean
       }
+      pricing_version_at: {
+        Args: { _at?: string }
+        Returns: {
+          cost_per_credit: number
+          id: string
+          label: string
+          multiplier: number
+          profit_percentage: number
+          sell_price: number
+        }[]
+      }
       profit_percentage_at: { Args: { _at?: string }; Returns: number }
       publish_plan_version: { Args: { _plan_id: string }; Returns: string }
       read_email_batch: {
@@ -5908,6 +6011,15 @@ export type Database = {
         Returns: undefined
       }
       reconcile_usage_costs: { Args: { _since?: string }; Returns: number }
+      record_pricing_version: {
+        Args: {
+          _cost_per_credit: number
+          _created_by?: string
+          _note?: string
+          _profit_percentage: number
+        }
+        Returns: string
+      }
       record_usage_event: {
         Args: {
           _category: Database["public"]["Enums"]["cost_category"]

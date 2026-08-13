@@ -7,6 +7,7 @@ import { ActivityList, EmptyNote, RailCard, StatCard } from "@/components/worksp
 import { useSchoolStats } from "@/lib/workspace/useWorkspaceStats";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import PlanSection from "@/components/plans/PlanSection";
+import CreditsSection from "@/components/plans/CreditsSection";
 
 const QUICK: { to: string; label: string }[] = [
   { to: "/school/teachers", label: "Teachers" },
@@ -96,6 +97,7 @@ const SchoolDashboard = () => {
         <ActivityList items={data?.activity ?? []} empty="No classes have been created inside this school yet." />
       </section>
       <PlanSection />
+      <CreditsSection />
     </WorkspaceLayout>
   );
 };
