@@ -5472,6 +5472,7 @@ export type Database = {
       gateway_by_handle: {
         Args: { _handle: string }
         Returns: {
+          billing_mode: string
           currency: string
           description: string
           items: string[]
@@ -5479,6 +5480,7 @@ export type Database = {
           owner_id: string
           owner_kind: string
           owner_name: string
+          payments_active: boolean
           plan_id: string
           price_amount: number
           slot: string
