@@ -4155,10 +4155,53 @@ export type Database = {
           },
         ]
       }
+      platform_advertisements: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          id: string
+          is_active: boolean
+          label: string | null
+          media_path: string | null
+          media_source: string
+          media_type: string
+          slot: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          media_path?: string | null
+          media_source?: string
+          media_type?: string
+          slot: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          media_path?: string | null
+          media_source?: string
+          media_type?: string
+          slot?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       platform_building_default: {
         Row: {
           background: Json | null
           created_at: string
+          free_building: Json | null
           id: boolean
           updated_at: string
           updated_by: string | null
@@ -4166,6 +4209,7 @@ export type Database = {
         Insert: {
           background?: Json | null
           created_at?: string
+          free_building?: Json | null
           id?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -4173,6 +4217,7 @@ export type Database = {
         Update: {
           background?: Json | null
           created_at?: string
+          free_building?: Json | null
           id?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -5952,6 +5997,7 @@ export type Database = {
           join_code: string
         }[]
       }
+      get_platform_free_building: { Args: never; Returns: Json }
       get_workspace_homepage_config: {
         Args: { _org_id: string }
         Returns: Json
@@ -6435,6 +6481,7 @@ export type Database = {
         Args: { _background: Json }
         Returns: Json
       }
+      set_platform_free_building: { Args: { _config: Json }; Returns: Json }
       set_workspace_visibility: {
         Args: { _org_id: string; _visibility: string }
         Returns: string

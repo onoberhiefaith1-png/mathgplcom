@@ -52,6 +52,15 @@ const writeLocal = (config: HomepageConfig) => {
   }
 };
 
+export type HomepageConfigMode = "self" | "school-readonly" | "platform-free";
+
+/** Read the platform-owned Free/advertisement building configuration. */
+export async function fetchPlatformFreeBuilding(): Promise<HomepageConfig> {
+  const { data } = await supabase.rpc("get_platform_free_building");
+  const remote = (data ?? null) as HomepageConfig | null;
+  return remote && typeof remote === "object" ? remote : {};
+}
+
 /**
  * Local-first homepage config with per-account persistence.
  * Each signed-in account keeps its own homepage; signed-out visitors see defaults.
@@ -59,8 +68,12 @@ const writeLocal = (config: HomepageConfig) => {
  * `mode: "school-readonly"` mirrors the academy configured by the owner of the
  * viewer's organization (used by students). It never writes and never caches
  * someone else's theme into this account's local storage.
+ *
+ * `mode: "platform-free"` is the platform-owned Free/advertisement building.
+ * Everyone reads it; only the platform owner can write it (enforced in the
+ * database), and it is never cached into this account's local storage.
  */
-export function useHomepageConfig(options?: { mode?: "self" | "school-readonly" }) {
+export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
   const mode = options?.mode ?? "self";
   // Start empty so SSR and the first client render agree; local cache is
   // applied after hydration.
@@ -71,6 +84,13 @@ export function useHomepageConfig(options?: { mode?: "self" | "school-readonly" 
   useEffect(() => {
     let alive = true;
     void (async () => {
+      if (mode === "platform-free") {
+        const remote = await fetchPlatformFreeBuilding();
+        if (!alive) return;
+        setConfig(remote);
+        setReady(true);
+        return;
+      }
       if (mode === "school-readonly") {
         // Prefer the workspace the viewer is currently in; fall back to the
         // organisation that owns them.
@@ -113,29 +133,71 @@ export function useHomepageConfig(options?: { mode?: "self" | "school-readonly" 
     };
   }, [mode]);
 
-  /** Merge a patch into the config. Only the given keys are touched. */
-  const save = useCallback(async (patch: Partial<HomepageConfig>) => {
-    setSaving(true);
-    let next: HomepageConfig = {};
-    setConfig((prev) => {
-      next = { ...prev, ...patch };
-      writeLocal(next);
-      return next;
-    });
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData.user) {
-        await supabase
-          .from("profiles")
-          .update({ homepage_config: next as never })
-          .eq("user_id", userData.user.id);
+
+  /**
+   * Merge a patch into the config. Only the given keys are touched.
+   *
+   * The destination is decided by the mode, so a Pro edit can never write the
+   * platform Free building and a Free edit can never write the account's own
+   * building. `school-readonly` never writes at all.
+   */
+  const save = useCallback(
+    async (patch: Partial<HomepageConfig>) => {
+      if (mode === "school-readonly") return;
+      setSaving(true);
+      let next: HomepageConfig = {};
+      setConfig((prev) => {
+        next = { ...prev, ...patch };
+        if (mode === "self") writeLocal(next);
+        return next;
+      });
+      try {
+        if (mode === "platform-free") {
+          const { error } = await supabase.rpc("set_platform_free_building", { _config: next as never });
+          if (error) throw error;
+          return;
+        }
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          await supabase
+            .from("profiles")
+            .update({ homepage_config: next as never })
+            .eq("user_id", userData.user.id);
+        }
+      } finally {
+        setSaving(false);
       }
-    } finally {
-      setSaving(false);
-    }
-  }, []);
+    },
+    [mode],
+  );
+
 
   return { config, save, ready, saving };
+}
+
+/**
+ * Seed the platform Free building from the acting owner's Pro building.
+ *
+ * This runs once: the Free building starts as an exact copy of the current Pro
+ * configuration (background, all 16 artwork slots, replacement building and its
+ * transform), then the two records diverge completely.
+ */
+export async function ensurePlatformFreeSeeded(): Promise<HomepageConfig> {
+  const existing = await fetchPlatformFreeBuilding();
+  if (Object.keys(existing).length > 0) return existing;
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return existing;
+  const { data } = await supabase
+    .from("profiles")
+    .select("homepage_config")
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+  const pro = (data?.homepage_config ?? null) as HomepageConfig | null;
+  // A deep copy — no shared mutable object between the two configurations.
+  const seed: HomepageConfig = pro && typeof pro === "object" ? JSON.parse(JSON.stringify(pro)) : {};
+  await supabase.rpc("set_platform_free_building", { _config: seed as never });
+  return seed;
 }
 
 // Signed URLs are cached per storage path for the page's lifetime. Without

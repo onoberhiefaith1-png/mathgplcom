@@ -38,6 +38,8 @@ interface SignedMediaProps {
   fit?: "cover" | "contain";
   loop?: boolean;
   muted?: boolean;
+  /** Videos only — fires when a non-looping video reaches its end. */
+  onEnded?: () => void;
 }
 
 const SignedMedia = ({
@@ -49,6 +51,7 @@ const SignedMedia = ({
   fit = "contain",
   loop = true,
   muted = true,
+  onEnded,
 }: SignedMediaProps) => {
   const signed = useSignedUrl(source === "storage" ? path : null);
   const url = source === "url" ? path ?? null : signed;
@@ -65,9 +68,11 @@ const SignedMedia = ({
         loop={loop}
         muted={muted}
         playsInline
+        onEnded={onEnded}
       />
     );
   }
+
   return (
     <img
       src={url}
