@@ -1,33 +1,32 @@
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
-import type { AdvertisementRow } from "@/lib/homepage/advertisements";
+import type { AdCreative } from "@/lib/homepage/advertisements";
 
 /**
  * The building's digital billboard.
  *
- * Advertisements play inside this board only — clipped to it, aspect ratio
- * preserved, never spilling over the building or its inner artwork. It is
- * rendered only where the advertisement pipeline allows it (the platform Free
- * building and Community), and never anywhere else in the application.
+ * It receives a provider-agnostic creative from the MathGPL advertisement
+ * system — it never knows whether the advertisement was uploaded manually or
+ * supplied by an external advertising provider. Creatives play inside this
+ * board only: clipped to it, aspect ratio preserved, never spilling over the
+ * building or its inner artwork.
  */
 const BuildingBillboard = ({
-  ad,
+  creative,
   onVideoEnded,
 }: {
-  ad: AdvertisementRow;
+  creative: AdCreative;
   onVideoEnded: () => void;
 }) => {
-  if (!ad.media_path) return null;
-
   return (
     <div className="pointer-events-none absolute inset-x-0 top-[26%] z-10 flex justify-center px-4">
       <div className="w-full max-w-[min(56rem,72vw)]">
         <div className="relative overflow-hidden rounded-lg border-2 border-primary/60 bg-black shadow-[0_0_40px_hsl(var(--primary)/0.35)]">
           <div className="relative aspect-[21/9] w-full">
             <SignedMedia
-              key={ad.id}
-              path={ad.media_path}
-              source={ad.media_source}
-              mediaType={ad.media_type}
+              key={`${creative.slot}:${creative.mediaPath}`}
+              path={creative.mediaPath}
+              source={creative.mediaSource}
+              mediaType={creative.mediaType}
               fit="contain"
               muted
               loop={false}
