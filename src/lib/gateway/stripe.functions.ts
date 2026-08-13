@@ -211,8 +211,7 @@ export const createPlanCheckout = createServerFn({ method: "POST" })
       },
     });
 
-    await supabaseAdmin.from("gateway_payments").upsert(
-      {
+    await supabaseAdmin.from("gateway_payments").insert({
         owner_id: plan.owner_id,
         owner_kind: plan.owner_kind,
         student_id: context.userId,
@@ -223,10 +222,8 @@ export const createPlanCheckout = createServerFn({ method: "POST" })
         status: "pending",
         billing_mode: plan.billing_mode === "subscription" ? "subscription" : "one_off",
         stripe_account_id: account.stripe_account_id,
-        stripe_checkout_session_id: session.id,
-      },
-      { onConflict: "stripe_checkout_session_id" },
-    );
+      stripe_checkout_session_id: session.id,
+    });
 
     await supabaseAdmin.from("gateway_entitlements").upsert(
       {
