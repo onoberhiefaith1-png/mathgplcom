@@ -656,6 +656,39 @@ export type Database = {
           },
         ]
       }
+      building_assets: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          thumbnail: Json | null
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name: string
+          owner_id?: string
+          thumbnail?: Json | null
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          thumbnail?: Json | null
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       class_adventure_notes: {
         Row: {
           assigned_by: string
