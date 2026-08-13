@@ -525,7 +525,10 @@ export async function setCurrencyRate(currency: string, creditValue: number, use
       .from("platform_cost_settings")
       .update({ credit_rate: creditValue, updated_at: new Date().toISOString() })
       .eq("id", 1);
+    const base = await resolvePricing("GBP");
+    await newPricingVersion(creditValue, base.profitPercentage, userId);
   }
+
   return currencyRates();
 }
 
