@@ -80,6 +80,14 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
   const [config, setConfig] = useState<HomepageConfig>({});
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The authoritative copy used when writing. A React state updater runs on the
+  // next render, so it must never be the source of the value we persist.
+  const configRef = useRef<HomepageConfig>({});
+  const apply = useCallback((value: HomepageConfig) => {
+    configRef.current = value;
+    setConfig(value);
+  }, []);
+
 
   useEffect(() => {
     let alive = true;
