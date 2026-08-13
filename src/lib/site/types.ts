@@ -123,3 +123,17 @@ export const SECTION_TITLES: Record<string, string> = {
   final: "12 — Final call to action",
   footer: "13 — Footer",
 };
+
+/** Safe stand-in when site content can't be loaded. */
+export const EMPTY_SITE_CONTENT: SiteContent = {
+  sections: [],
+  testimonials: [],
+  stats: { learners: 0, teachers: 0, schools: 0, questions: 0, adventures: 0 },
+  statsSettings: {
+    show_learners: false,
+    show_teachers: false,
+    show_schools: false,
+    show_questions: false,
+    show_adventures: false,
+  },
+};
