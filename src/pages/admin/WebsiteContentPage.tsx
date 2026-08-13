@@ -57,6 +57,7 @@ const MediaField = ({
 }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   const onFile = async (file: File) => {
     setBusy(true);
