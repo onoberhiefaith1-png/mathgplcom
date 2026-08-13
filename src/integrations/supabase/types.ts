@@ -5217,6 +5217,8 @@ export type Database = {
       staff_codes: {
         Row: {
           active: boolean
+          claimed_at: string | null
+          claimed_by: string | null
           code: string
           created_at: string
           created_by: string | null
@@ -5224,9 +5226,13 @@ export type Database = {
           expires_at: string | null
           id: string
           label: string | null
+          purpose: string
+          revoked_at: string | null
         }
         Insert: {
           active?: boolean
+          claimed_at?: string | null
+          claimed_by?: string | null
           code: string
           created_at?: string
           created_by?: string | null
@@ -5234,9 +5240,13 @@ export type Database = {
           expires_at?: string | null
           id?: string
           label?: string | null
+          purpose?: string
+          revoked_at?: string | null
         }
         Update: {
           active?: boolean
+          claimed_at?: string | null
+          claimed_by?: string | null
           code?: string
           created_at?: string
           created_by?: string | null
@@ -5244,6 +5254,8 @@ export type Database = {
           expires_at?: string | null
           id?: string
           label?: string | null
+          purpose?: string
+          revoked_at?: string | null
         }
         Relationships: []
       }
@@ -6187,6 +6199,7 @@ export type Database = {
         Args: { _feature: string; _user_id: string }
         Returns: boolean
       }
+      has_free_access: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -6509,6 +6522,7 @@ export type Database = {
         }
         Returns: string
       }
+      redeem_access_code: { Args: { _code: string }; Returns: string }
       redeem_promo_code: { Args: { _code: string }; Returns: string }
       redeem_staff_code: { Args: { _code: string }; Returns: string }
       regenerate_my_share_code: { Args: never; Returns: string }
