@@ -107,8 +107,11 @@ import { Route as GamesTallyIndexRouteImport } from './routes/games/tally/index'
 import { Route as GradeNIndexRouteImport } from './routes/grade/$n/index'
 import { Route as HomepageAdvertisementsIndexRouteImport } from './routes/homepage/advertisements/index'
 import { Route as HomepageBackgroundIndexRouteImport } from './routes/homepage/background/index'
+import { Route as HomepageBackgroundFreeRouteImport } from './routes/homepage/background/free'
 import { Route as HomepageBuildingIndexRouteImport } from './routes/homepage/building/index'
+import { Route as HomepageBuildingFreeRouteImport } from './routes/homepage/building/free'
 import { Route as HomepageReplaceBuildingIndexRouteImport } from './routes/homepage/replace-building/index'
+import { Route as HomepageReplaceBuildingFreeRouteImport } from './routes/homepage/replace-building/free'
 import { Route as JoinCodeIndexRouteImport } from './routes/join/$code/index'
 import { Route as LessonNotesIdIndexRouteImport } from './routes/lesson-notes/$id/index'
 import { Route as LevelsIdIndexRouteImport } from './routes/levels/$id/index'
@@ -770,15 +773,31 @@ const HomepageBackgroundIndexRoute = HomepageBackgroundIndexRouteImport.update({
   path: '/homepage/background/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HomepageBackgroundFreeRoute = HomepageBackgroundFreeRouteImport.update({
+  id: '/homepage/background/free',
+  path: '/homepage/background/free',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HomepageBuildingIndexRoute = HomepageBuildingIndexRouteImport.update({
   id: '/homepage/building/',
   path: '/homepage/building/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomepageBuildingFreeRoute = HomepageBuildingFreeRouteImport.update({
+  id: '/homepage/building/free',
+  path: '/homepage/building/free',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomepageReplaceBuildingIndexRoute =
   HomepageReplaceBuildingIndexRouteImport.update({
     id: '/homepage/replace-building/',
     path: '/homepage/replace-building/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const HomepageReplaceBuildingFreeRoute =
+  HomepageReplaceBuildingFreeRouteImport.update({
+    id: '/homepage/replace-building/free',
+    path: '/homepage/replace-building/free',
     getParentRoute: () => rootRouteImport,
   } as any)
 const JoinCodeIndexRoute = JoinCodeIndexRouteImport.update({
@@ -1775,6 +1794,9 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/homepage/background/free': typeof HomepageBackgroundFreeRoute
+  '/homepage/building/free': typeof HomepageBuildingFreeRoute
+  '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
@@ -2028,6 +2050,9 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/homepage/background/free': typeof HomepageBackgroundFreeRoute
+  '/homepage/building/free': typeof HomepageBuildingFreeRoute
+  '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
   '/admin/billing': typeof AdminBillingIndexRoute
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
@@ -2293,6 +2318,9 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/homepage/background/free': typeof HomepageBackgroundFreeRoute
+  '/homepage/building/free': typeof HomepageBuildingFreeRoute
+  '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
@@ -2559,6 +2587,9 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/homepage/background/free'
+    | '/homepage/building/free'
+    | '/homepage/replace-building/free'
     | '/admin/advertisements/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
@@ -2812,6 +2843,9 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/homepage/background/free'
+    | '/homepage/building/free'
+    | '/homepage/replace-building/free'
     | '/admin/advertisements'
     | '/admin/billing'
     | '/admin/cost-analytics'
@@ -3076,6 +3110,9 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/homepage/background/free'
+    | '/homepage/building/free'
+    | '/homepage/replace-building/free'
     | '/admin/advertisements/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
@@ -3330,6 +3367,9 @@ export interface RootRouteChildren {
   SupportIndexRoute: typeof SupportIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
+  HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
+  HomepageReplaceBuildingFreeRoute: typeof HomepageReplaceBuildingFreeRoute
   AgeRangeIndexRoute: typeof AgeRangeIndexRoute
   AssetsCategoryIndexRoute: typeof AssetsCategoryIndexRoute
   CSlugIndexRoute: typeof CSlugIndexRoute
@@ -4098,6 +4138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomepageBackgroundIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/homepage/background/free': {
+      id: '/homepage/background/free'
+      path: '/homepage/background/free'
+      fullPath: '/homepage/background/free'
+      preLoaderRoute: typeof HomepageBackgroundFreeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/homepage/building/': {
       id: '/homepage/building/'
       path: '/homepage/building'
@@ -4105,11 +4152,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomepageBuildingIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/homepage/building/free': {
+      id: '/homepage/building/free'
+      path: '/homepage/building/free'
+      fullPath: '/homepage/building/free'
+      preLoaderRoute: typeof HomepageBuildingFreeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/homepage/replace-building/': {
       id: '/homepage/replace-building/'
       path: '/homepage/replace-building'
       fullPath: '/homepage/replace-building/'
       preLoaderRoute: typeof HomepageReplaceBuildingIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/homepage/replace-building/free': {
+      id: '/homepage/replace-building/free'
+      path: '/homepage/replace-building/free'
+      fullPath: '/homepage/replace-building/free'
+      preLoaderRoute: typeof HomepageReplaceBuildingFreeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/join/$code/': {
@@ -5753,6 +5814,9 @@ const rootRouteChildren: RootRouteChildren = {
   SupportIndexRoute: SupportIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
+  HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
+  HomepageReplaceBuildingFreeRoute: HomepageReplaceBuildingFreeRoute,
   AgeRangeIndexRoute: AgeRangeIndexRoute,
   AssetsCategoryIndexRoute: AssetsCategoryIndexRoute,
   CSlugIndexRoute: CSlugIndexRoute,

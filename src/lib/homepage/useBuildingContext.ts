@@ -27,13 +27,30 @@ export interface BuildingContext {
  * public environment, so its rotating building always carries advertisements —
  * even for a Pro visitor, who does not own or edit that building.
  */
-export function useBuildingContext(options?: { community?: boolean }): BuildingContext {
+export function useBuildingContext(options?: {
+  community?: boolean;
+  /** Platform-owner-only live preview override: render Pro or Free on screen. */
+  previewVersion?: "pro" | "free";
+}): BuildingContext {
   const community = options?.community ?? false;
   const { role, isPlatformOwner, isLoading: accountLoading } = useAccount();
   const { active, isPersonal, isLoading: workspaceLoading } = useWorkspace();
   const { subscription, subscribes, loading: planLoading } = usePlanGate();
 
   const isLoading = accountLoading || workspaceLoading || planLoading;
+
+  // The platform owner can flip the building on screen between the Pro version
+  // and the Free advertising version. Preview only — nobody else is affected.
+  if (isPlatformOwner && options?.previewVersion) {
+    const free = options.previewVersion === "free";
+    return {
+      configMode: free ? "platform-free" : "self",
+      adsEnabled: free,
+      canCustomize: true,
+      canManageAds: true,
+      isLoading,
+    };
+  }
 
   if (community) {
     return {

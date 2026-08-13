@@ -7,7 +7,7 @@ import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
 import { makeTransparent } from "@/lib/games/removeBackground";
 import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
-import { BUILDING_SLOTS, type BuildingSlot } from "@/lib/homepage/buildingSlots";
+import { slotsForVersion, type BuildingSlot } from "@/lib/homepage/buildingSlots";
 import {
   resolveMediaUrl,
   useHomepageConfig,
@@ -21,6 +21,8 @@ import {
 const HomepageBuildingPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
   const { config, save } = useHomepageConfig({ mode: configMode });
+  // Pro and Free are separate pages with their own default artwork.
+  const slots = slotsForVersion(version);
   const overrides = config.slotOverrides ?? {};
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const [cutoutSlot, setCutoutSlot] = useState<string | null>(null);
@@ -107,7 +109,9 @@ const HomepageBuildingPage = () => {
         <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" /> Homepage
         </Link>
-        <h1 className="text-lg font-semibold tracking-wide">Edit MathGPL Building</h1>
+        <h1 className="text-lg font-semibold tracking-wide">
+          {version === "free" ? "Edit Free Building" : "Edit Pro Building"}
+        </h1>
         <div className="w-24" />
       </header>
 
@@ -134,7 +138,7 @@ const HomepageBuildingPage = () => {
         />
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {BUILDING_SLOTS.map((slot, i) => (
+          {slots.map((slot, i) => (
             <div key={slot.id} className="rounded-2xl border border-border bg-card/50 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold">Image {i + 1}</p>
