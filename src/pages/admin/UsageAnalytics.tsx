@@ -13,6 +13,7 @@ import {
   CATEGORY_COLOR,
   CATEGORY_LABEL,
   RANGES,
+  credits,
   money,
   type CostCategory,
   type RangeKey,
