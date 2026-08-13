@@ -7,6 +7,7 @@ import { EmptyNote, RailCard, StatCard } from "@/components/workspace/DashboardP
 import { useMyAdventures, useMyAssignments, useMyProgress, useMySkillBuilders } from "@/lib/student/useLearning";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import PlanSection from "@/components/plans/PlanSection";
+import CreditsSection from "@/components/plans/CreditsSection";
 
 /** The four ways into learning, all reading content teachers already created. */
 const AREAS: { to: string; label: string; blurb: string; icon: typeof Users }[] = [
@@ -181,6 +182,7 @@ const StudentDashboard = () => {
         )}
       </section>
       <PlanSection />
+      <CreditsSection />
     </WorkspaceLayout>
   );
 };
