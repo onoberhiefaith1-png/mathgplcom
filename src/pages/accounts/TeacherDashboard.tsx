@@ -1,4 +1,4 @@
-import { Building2, CalendarClock, ClipboardList, GraduationCap, Users } from "lucide-react";
+import { Building2, CalendarClock, ClipboardList, GraduationCap, Lock, Users } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
@@ -41,6 +41,7 @@ const when = (iso: string) =>
  */
 const TeacherDashboard = () => {
   const { data, isLoading } = useTeacherStats();
+  const { guard, allowed, dialog: upgradeDialog } = useUpgradeGuard();
   const { workspaces, activeOrgId, switchTo } = useWorkspace();
   const schedule = useUpcomingSessions();
   const { counts } = useConnectionCounts();
