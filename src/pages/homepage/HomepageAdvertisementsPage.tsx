@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, Eye, Lock, Monitor, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Check, Eye, Lock, Monitor, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,23 @@ import {
  */
 const HomepageAdvertisementsPage = () => {
   const { isPlatformOwner, isLoading } = useAccount();
-  const { ads, upsert, patch, remove } = useAdvertisements();
+  const { ads, upsert, patch, remove, refetch } = useAdvertisements();
+  const [savingAll, setSavingAll] = useState(false);
+
+  /** Force every pending field edit to commit, then confirm from the database. */
+  const saveAll = async () => {
+    setSavingAll(true);
+    try {
+      (document.activeElement as HTMLElement | null)?.blur();
+      await new Promise((r) => setTimeout(r, 50));
+      await refetch();
+      toast.success("Advertisements saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSavingAll(false);
+    }
+  };
   const [busySlot, setBusySlot] = useState<number | null>(null);
   const [previewSlot, setPreviewSlot] = useState<number | null>(null);
   const [buildingPreview, setBuildingPreview] = useState(false);

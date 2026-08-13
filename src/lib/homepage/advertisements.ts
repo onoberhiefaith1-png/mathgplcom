@@ -181,7 +181,14 @@ export function useAdvertisements() {
     onSuccess: invalidate,
   });
 
-  return { ads: query.data ?? [], isLoading: query.isLoading, upsert, patch, remove };
+  return {
+    ads: query.data ?? [],
+    isLoading: query.isLoading,
+    refetch: query.refetch,
+    upsert,
+    patch,
+    remove,
+  };
 }
 
 /** Only the playable ads, in slot order. Empty slots are simply skipped. */
