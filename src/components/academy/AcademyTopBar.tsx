@@ -105,7 +105,19 @@ const AcademyTopBar = () => {
       <div className="pointer-events-auto flex items-center gap-2">
         <WorkspaceSwitcher />
         <AccountMenu />
+        {ready && user && (
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="Sign out"
+            className="inline-flex items-center gap-2 rounded-full border border-rose-400/60 bg-background/55 px-4 py-2 text-sm font-medium text-rose-200 shadow-[0_4px_22px_hsl(var(--background)/0.6)] backdrop-blur transition hover:border-rose-400 hover:bg-rose-500/20 sm:px-5 sm:text-base"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Log out</span>
+          </button>
+        )}
       </div>
+
     </header>
   );
 };
