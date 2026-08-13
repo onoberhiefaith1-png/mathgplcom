@@ -47,6 +47,8 @@ export type SiteSectionKind =
 export interface SiteSection {
   id: string;
   key: string;
+  /** Owner-chosen display name for sections added from the section library. */
+  title?: string | null;
   kind: SiteSectionKind;
   position: number;
   visible: boolean;
