@@ -287,19 +287,8 @@ export async function setPlanPresentation(input: {
   return planCatalogue();
 }
 
-export async function savePlanFeatures(planId: string, labels: string[]) {
-  const db = await admin();
-  await db.from("plan_features").delete().eq("plan_id", planId);
-  const rows = labels
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((label, i) => ({ plan_id: planId, label, sort_order: i }));
-  if (rows.length) {
-    const { error } = await db.from("plan_features").insert(rows);
-    if (error) throw new Error(error.message);
-  }
-  return planCatalogue();
-}
+/* No hand-written feature list: see generatedFeatures() above. */
+
 
 /* ─────────── subscriptions ─────────── */
 
