@@ -114,26 +114,24 @@ async function generatedFeatures(): Promise<Map<string, string[]>> {
   ]);
 
   const labelOf = new Map((catalogue ?? []).map((f) => [String(f.key), String(f.label)]));
-  const orderOf = new Map((catalogue ?? []).map((f, i) => [String(f.key), Number(f.sort_order ?? i)]));
+  const keysInOrder = (catalogue ?? []).map((f) => String(f.key));
 
-  const out = new Map<string, string[]>();
+  const keysByPlan = new Map<string, Set<string>>();
   for (const row of granted ?? []) {
     const planId = String(row.plan_id);
-    const key = String(row.feature_key);
-    const label = labelOf.get(key);
-    if (!label) continue;
-    const list = out.get(planId) ?? [];
-    list.push(label);
-    out.set(planId, list);
+    const set = keysByPlan.get(planId) ?? new Set<string>();
+    set.add(String(row.feature_key));
+    keysByPlan.set(planId, set);
   }
-  for (const [planId, list] of out) {
-    list.sort(
-      (a, b) =>
-        (orderOf.get([...labelOf].find(([, l]) => l === a)?.[0] ?? "") ?? 0) -
-        (orderOf.get([...labelOf].find(([, l]) => l === b)?.[0] ?? "") ?? 0),
+
+  const out = new Map<string, string[]>();
+  for (const [planId, set] of keysByPlan) {
+    out.set(
+      planId,
+      keysInOrder.filter((k) => set.has(k)).map((k) => labelOf.get(k)!),
     );
-    out.set(planId, list);
   }
+
   for (const row of limits ?? []) {
     const line = LIMIT_LINE[String(row.limit_key)];
     if (!line) continue;
