@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const { role, roles, isPlatformOwner } = useAccount();
-  const { isPersonal, workspaces } = useWorkspace();
+
   const navigate = useNavigate();
   const { user, ready } = useAuth();
   // Anything other than a plain student account keeps the full homepage: the
