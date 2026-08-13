@@ -302,3 +302,15 @@ export const saveCreditUsageEnabled = createServerFn({ method: "POST" })
     return creditActivity(context.userId, 40);
   });
 
+
+/**
+ * Read-only credit lots, newest first. Each lot keeps the economic terms it was
+ * purchased under; consumption is FIFO, oldest lot first.
+ */
+export const fetchCreditLots = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ limit: z.number().min(1).max(200).optional() }).parse(data ?? {}))
+  .handler(async ({ context, data }) => {
+    await costs.assertPlatformAdmin(context.supabase, context.userId);
+    return { rows: await costs.creditLots(data.limit ?? 60) };
+  });

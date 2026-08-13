@@ -231,9 +231,26 @@ export default function UsageAnalytics({ embedded }: { embedded?: boolean } = {}
 
         {/* Summary */}
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Card label="Metered cost" value={money(totals?.cost ?? 0, currency)} hint="What the platform paid" />
-          <Card label="Customer charge" value={money(totals?.charge ?? 0, currency)} hint="At the locked margin" />
-          <Card label="Collected" value={money(totals?.paid ?? 0, currency)} hint="Credits actually deducted" />
+          <Card
+            label="Metered cost"
+            value={credits(totals?.costCredits ?? totals?.credits ?? 0)}
+            hint={`Measured platform usage · GBP equivalent ${money(totals?.cost ?? 0, currency)}`}
+          />
+          <Card
+            label="Customer charge"
+            value={credits(totals?.chargeCredits ?? 0)}
+            hint={`Charged in credits at the locked margin · GBP equivalent ${money(totals?.charge ?? 0, currency)}`}
+          />
+          <Card
+            label="Credits used"
+            value={credits(totals?.paidCredits ?? 0)}
+            hint="Prepaid credits actually deducted"
+          />
+          <Card
+            label="Collected"
+            value={money(totals?.collected ?? 0, currency)}
+            hint="Money actually received in this period"
+          />
           <Card label="Usage events" value={compact(totals?.events ?? 0)} hint="Metered operations in range" />
         </section>
 
