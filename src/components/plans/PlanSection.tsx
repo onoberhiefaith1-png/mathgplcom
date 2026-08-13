@@ -80,10 +80,10 @@ const PlanSection = ({ className = "" }: { className?: string }) => {
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
-          to={subscription ? "/plans" : "/plans/gateway"}
+          to={subscription && !expired ? "/plans" : "/plans/gateway"}
           className="inline-flex min-h-[44px] items-center rounded-xl bg-amber-400 px-4 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"
         >
-          {subscription ? "Manage plan" : "Choose a plan"}
+          {expired ? "Renew plan" : subscription ? "Manage plan" : "Choose a plan"}
         </Link>
         {subscription ? (
           <Link
