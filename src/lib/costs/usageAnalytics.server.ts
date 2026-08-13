@@ -314,6 +314,11 @@ function toLedgerRow(e: EventRow, owners: Map<string, { name: string; code: stri
   const paidCredits = Number(e.paid_credits ?? 0);
   return {
     id: e.id,
+    kind: "usage",
+    cashReceived: 0,
+    creditsIssued: 0,
+    serviceAmount: 0,
+    reference: null,
     occurredAt: e.occurred_at,
     costUnitId: e.cost_unit_id,
     owner: owner?.name ?? "Unknown account",
