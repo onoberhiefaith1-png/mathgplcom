@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "@/lib/router-compat";
+import { useLocation, useNavigate } from "@/lib/router-compat";
 import { Building2, Loader2, Megaphone } from "lucide-react";
 
 import { useAccount } from "@/lib/accounts/useAccount";
@@ -14,9 +14,10 @@ export type BuildingVersion = "pro" | "free";
 /**
  * Which building version the customization pages are editing.
  *
- * "pro" is this account's own building (unchanged behaviour for everyone).
- * "free" is the platform-owned Free/advertisement building and is only ever
- * offered to the platform owner.
+ * Pro and Free are two SEPARATE pages: `/homepage/building` edits this
+ * account's own building, `/homepage/building/free` edits the platform-owned
+ * Free/advertisement building (platform owner only). The selector navigates
+ * between the two pages — it never swaps content inside one page.
  */
 export function useBuildingVersion(): {
   version: BuildingVersion;
@@ -26,9 +27,11 @@ export function useBuildingVersion(): {
   seeding: boolean;
 } {
   const { isPlatformOwner } = useAccount();
-  const [params, setParams] = useSearchParams();
-  const requested = params.get("version") === "free" ? "free" : "pro";
-  const version: BuildingVersion = isPlatformOwner ? requested : "pro";
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const base = pathname.replace(/\/free\/?$/, "").replace(/\/$/, "");
+  const onFreePage = /\/free\/?$/.test(pathname);
+  const version: BuildingVersion = isPlatformOwner && onFreePage ? "free" : "pro";
   const [seeding, setSeeding] = useState(false);
 
   // The Free building starts life as an exact copy of the Pro building.
@@ -45,10 +48,8 @@ export function useBuildingVersion(): {
   }, [version, isPlatformOwner]);
 
   const setVersion = (v: BuildingVersion) => {
-    const next = new URLSearchParams(params);
-    if (v === "free") next.set("version", "free");
-    else next.delete("version");
-    setParams(next, { replace: true });
+    if (v === version) return;
+    navigate(v === "free" ? `${base}/free` : base);
   };
 
   return {
@@ -59,6 +60,7 @@ export function useBuildingVersion(): {
     seeding,
   };
 }
+
 
 /** Pro / Free switch shown on the customization pages, platform owner only. */
 const BuildingVersionSelector = ({
