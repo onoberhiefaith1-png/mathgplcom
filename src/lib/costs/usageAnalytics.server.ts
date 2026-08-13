@@ -289,8 +289,10 @@ export type LedgerRow = {
   cashReceived: number;
   /** Credits issued by a payment row — a liability until they are consumed. */
   creditsIssued: number;
-  /** The subscription (service) component of a payment. */
+  /** The subscription (service) component of a payment, in money. */
   serviceAmount: number;
+  /** The prepaid-credit component of a payment, in money. */
+  creditAmount: number;
   reference: string | null;
 
   status: string;
@@ -365,6 +367,7 @@ function toLedgerRow(e: EventRow, owners: Map<string, { name: string; code: stri
     cashReceived: 0,
     creditsIssued: 0,
     serviceAmount: 0,
+    creditAmount: 0,
     reference: null,
     occurredAt: e.occurred_at,
     costUnitId: e.cost_unit_id,
@@ -521,6 +524,7 @@ async function paymentLedgerRows(from: string, to: string, costUnitId?: string):
       cashReceived: refunded ? -Math.abs(Number(p.amount ?? 0)) : Number(p.amount ?? 0),
       creditsIssued: refunded ? 0 : credits,
       serviceAmount: Number(p.service_amount ?? 0),
+      creditAmount: Number(p.credit_amount ?? 0),
       reference: (p.provider_ref as string) ?? null,
       status: refunded ? "refunded" : "received",
       result: 0,
