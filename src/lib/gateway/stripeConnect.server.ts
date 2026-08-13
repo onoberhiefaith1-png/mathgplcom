@@ -60,6 +60,13 @@ export const stripeRequest = async <T>(
     } catch {
       /* keep raw text */
     }
+    // A teacher should never meet Stripe's platform plumbing. This particular
+    // failure means MathGPL itself has not finished signing up for Connect.
+    if (/signed up for Connect|sign up for Connect/i.test(message)) {
+      throw new Error(
+        "Payments are not finished setting up on the MathGPL platform yet. Please contact support.",
+      );
+    }
     throw new Error(`Stripe: ${message}`);
   }
 
