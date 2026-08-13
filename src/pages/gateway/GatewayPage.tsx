@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { itemLabel, money } from "@/lib/gateway/items";
 import { loadMyEntitlement } from "@/lib/gateway/gateway";
-import { useChoosePlan, useGatewayByHandle } from "@/lib/gateway/useGateway";
+import { useChoosePlan, useGatewayByHandle, usePlanCheckout } from "@/lib/gateway/useGateway";
 
 /**
  * The Gateway.
@@ -23,8 +23,10 @@ const GatewayPage = () => {
   const { toast } = useToast();
   const { data, isLoading } = useGatewayByHandle(handle);
   const choose = useChoosePlan();
+  const checkout = usePlanCheckout();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [chosenPlanId, setChosenPlanId] = useState<string | null>(null);
+  const returned = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("checkout") : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +54,22 @@ const GatewayPage = () => {
       navigate(`/auth?redirect=/g/${handle ?? ""}`);
       return;
     }
+
+    // A paid plan is settled by Stripe on the teacher's or school's own
+    // account; access is granted only when Stripe confirms it.
+    if (price && price > 0) {
+      try {
+        await checkout.mutateAsync(planId);
+      } catch (error) {
+        toast({
+          title: "Could not open payment",
+          description: error instanceof Error ? error.message : "Try again.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
     try {
       const entitlement = await choose.mutateAsync(planId);
       setChosenPlanId(entitlement.planId);
@@ -106,6 +124,16 @@ const GatewayPage = () => {
           <p className="text-sm text-muted-foreground">@{data.username} · choose how you learn here</p>
         </header>
 
+        {returned === "success" ? (
+          <p className="mx-auto mt-6 max-w-xl rounded-xl border border-primary/40 bg-primary/10 p-3 text-center text-sm">
+            Thank you — Stripe is confirming your payment. Your access opens as soon as it clears.
+          </p>
+        ) : returned === "cancelled" ? (
+          <p className="mx-auto mt-6 max-w-xl rounded-xl border border-border/60 bg-muted/30 p-3 text-center text-sm text-muted-foreground">
+            Payment was cancelled. You can choose a plan again whenever you are ready.
+          </p>
+        ) : null}
+
         <div className="mt-10 grid gap-5 md:grid-cols-3">
           {data.plans.map((plan) => {
             const chosen = chosenPlanId === plan.id;
@@ -139,14 +167,21 @@ const GatewayPage = () => {
 
                 <Button
                   onClick={() => void pick(plan.id, plan.price)}
-                  disabled={choose.isPending || chosen}
+                  disabled={choose.isPending || checkout.isPending || chosen}
                   className="min-h-11 w-full"
                 >
-                  {chosen ? "Your plan" : free ? `Choose ${plan.name}` : "Choose plan"}
+                  {chosen
+                    ? "Your plan"
+                    : free
+                      ? `Choose ${plan.name}`
+                      : plan.billingMode === "subscription"
+                        ? "Subscribe with Stripe"
+                        : "Pay with Stripe"}
                 </Button>
                 {!free ? (
                   <p className="text-center text-[11px] text-muted-foreground">
-                    Payment to {data.ownerName} opens soon.
+                    {plan.billingMode === "subscription" ? "Billed monthly by" : "Paid directly to"}{" "}
+                    {data.ownerName} through Stripe.
                   </p>
                 ) : null}
               </section>
