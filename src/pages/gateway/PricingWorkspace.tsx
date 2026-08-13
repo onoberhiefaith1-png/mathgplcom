@@ -11,7 +11,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useUsername } from "@/lib/accounts/useUsername";
 import { GATEWAY_ITEMS, itemLabel, money, type GatewayItem, type GatewayOwnerKind } from "@/lib/gateway/items";
 import type { GatewayPlan, PlanDraft } from "@/lib/gateway/gateway";
-import { useGatewayStudents, useMyGatewayPlans, useSaveGatewayPlan } from "@/lib/gateway/useGateway";
+import {
+  useGatewayPayments,
+  useGatewayStudents,
+  useMyGatewayPlans,
+  useSaveGatewayPlan,
+  useStripeConnectActions,
+  useStripeStatus,
+} from "@/lib/gateway/useGateway";
 
 type Drafts = Record<string, PlanDraft>;
 
@@ -22,6 +29,7 @@ const draftOf = (plan: GatewayPlan): PlanDraft => ({
   items: plan.items,
   isPublished: plan.isPublished,
   autoGrantExisting: plan.autoGrantExisting,
+  billingMode: plan.billingMode,
 });
 
 /**
@@ -36,6 +44,9 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
   const { toast } = useToast();
   const { data: plans, isLoading, error } = useMyGatewayPlans(ownerKind);
   const { data: students } = useGatewayStudents(ownerKind);
+  const { data: payments } = useGatewayPayments(ownerKind);
+  const { data: stripe, isLoading: stripeLoading } = useStripeStatus(ownerKind);
+  const { connect, manage, setActive } = useStripeConnectActions(ownerKind);
   const save = useSaveGatewayPlan(ownerKind);
   const { username } = useUsername();
   const [drafts, setDrafts] = useState<Drafts>({});
@@ -142,11 +153,70 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
         )}
       </RailCard>
 
-      <RailCard title="Payments">
-        <EmptyNote>
-          Plan prices are yours. Connecting your own payment account so students pay you directly comes next — nothing
-          is routed through MathGPL.
-        </EmptyNote>
+      <RailCard title="Payment">
+        {stripeLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Checking Stripe…
+          </div>
+        ) : !stripe?.connected ? (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Payment: <span className="font-semibold text-foreground">Not connected</span>. Connect your own Stripe
+              account — students pay you directly and MathGPL takes no cut.
+            </p>
+            <Button className="w-full" onClick={() => connect.mutate()} disabled={connect.isPending}>
+              {connect.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Connect Stripe
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              {stripe.chargesEnabled ? (
+                <span className="font-semibold text-foreground">Stripe Connected ✓</span>
+              ) : (
+                <span className="font-semibold text-foreground">Stripe verification in progress</span>
+              )}
+              <span className="mt-1 block">
+                {stripe.chargesEnabled
+                  ? "Payouts go straight into your own Stripe account."
+                  : "Finish Stripe's checks to start taking payments."}
+              </span>
+            </p>
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0">
+                Payment active
+                <span className="block text-[11px] text-muted-foreground">
+                  Students only see prices and pay buttons while this is on.
+                </span>
+              </span>
+              <Switch
+                checked={Boolean(stripe.paymentsActive)}
+                disabled={!stripe.chargesEnabled || setActive.isPending}
+                onCheckedChange={(value) => {
+                  setActive.mutate(value, {
+                    onError: (activateError) =>
+                      toast({
+                        title: "Could not change payment",
+                        description: activateError instanceof Error ? activateError.message : "Try again.",
+                        variant: "destructive",
+                      }),
+                  });
+                }}
+              />
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => manage.mutate()}
+              disabled={manage.isPending}
+            >
+              {stripe.chargesEnabled ? "Manage Stripe account" : "Continue Stripe verification"}
+              <ExternalLink className="ml-2 h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
       </RailCard>
     </>
   );
@@ -259,6 +329,30 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
                         ? `Students pay you ${money(draft.price, plan.currency)}.`
                         : "Free for students."}
                     </p>
+                    {draft.price && draft.price > 0 ? (
+                      <div className="flex gap-2 pt-1">
+                        {(["one_off", "subscription"] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => patch(plan.id, { billingMode: mode })}
+                            aria-pressed={draft.billingMode === mode}
+                            className={`min-h-9 flex-1 rounded-lg border px-2 text-xs transition ${
+                              draft.billingMode === mode
+                                ? "border-ws-gold/60 bg-ws-gold/10 text-foreground"
+                                : "border-ws-border/60 text-muted-foreground hover:border-ws-gold/40"
+                            }`}
+                          >
+                            {mode === "one_off" ? "One-off" : "Monthly"}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {draft.price && draft.price > 0 && !stripe?.paymentsActive ? (
+                      <p className="text-[11px] text-amber-500">
+                        Connect Stripe and switch payment on before students can buy this plan.
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="space-y-2 border-t border-ws-border/50 pt-3">
@@ -316,6 +410,33 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
                   </li>
                 );
               })}
+            </ul>
+          </div>
+        ) : null}
+        {payments && payments.length > 0 ? (
+          <div className="rounded-2xl border border-ws-border/70 bg-ws-panel/40 p-4">
+            <h2 className="text-sm font-semibold">Payments</h2>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Your full financial records live in your own Stripe dashboard.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {payments.map((payment) => (
+                <li
+                  key={payment.id}
+                  className="grid gap-1 rounded-xl border border-ws-border/60 p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{payment.planName}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {payment.billingMode === "subscription" ? "Monthly" : "One-off"} ·{" "}
+                      {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString() : ""} ·{" "}
+                      {payment.reference ?? "—"}
+                    </span>
+                  </span>
+                  <span className="font-semibold text-ws-gold">{money(payment.amount, payment.currency)}</span>
+                  <span className="text-xs capitalize text-muted-foreground">{payment.status}</span>
+                </li>
+              ))}
             </ul>
           </div>
         ) : null}
