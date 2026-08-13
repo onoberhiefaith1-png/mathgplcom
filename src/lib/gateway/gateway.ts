@@ -151,9 +151,12 @@ export type PlanDraft = {
   items: GatewayItem[];
   isPublished: boolean;
   autoGrantExisting: boolean;
+  billingMode: GatewayBillingMode;
 };
 
 export const savePlan = async (planId: string, draft: PlanDraft): Promise<GatewayPlan> => {
+  const price = draft.price;
+  const billingMode: GatewayBillingMode = !price || price <= 0 ? "free" : draft.billingMode === "subscription" ? "subscription" : "one_off";
   const { data, error } = await supabase
     .from("gateway_plans")
     .update({
@@ -163,7 +166,9 @@ export const savePlan = async (planId: string, draft: PlanDraft): Promise<Gatewa
       items: draft.items,
       is_published: draft.isPublished,
       auto_grant_existing: draft.autoGrantExisting,
+      billing_mode: billingMode,
     })
+
     .eq("id", planId)
     .select("*")
     .maybeSingle();
