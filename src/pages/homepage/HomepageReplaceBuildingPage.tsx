@@ -89,13 +89,21 @@ const HomepageReplaceBuildingPage = () => {
       toast.error("Upload or choose a building first");
       return;
     }
-    await save({ buildingMode: "custom", customBuilding: building });
-    toast.success("Building applied to your homepage");
+    try {
+      await save({ buildingMode: "custom", customBuilding: building });
+      toast.success("Building saved to your homepage");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
   };
 
   const restore = async () => {
-    await save({ buildingMode: "mathgpl" });
-    toast.success("MathGPL building restored");
+    try {
+      await save({ buildingMode: "mathgpl" });
+      toast.success("MathGPL building restored");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
   };
 
   return (
@@ -110,7 +118,7 @@ const HomepageReplaceBuildingPage = () => {
             <RotateCcw className="mr-2 h-4 w-4" /> Restore MathGPL building
           </Button>
           <Button size="sm" disabled={saving} onClick={() => void apply()}>
-            <Check className="mr-2 h-4 w-4" /> Apply Building
+            <Check className="mr-2 h-4 w-4" /> {saving ? "Saving…" : "Save Building"}
           </Button>
         </div>
       </header>
@@ -122,7 +130,7 @@ const HomepageReplaceBuildingPage = () => {
           )}
           <p className="text-sm text-muted-foreground">
             Upload a building (one image or one looping video), then position, size and preview it here.
-            Your homepage keeps its current building until you press Apply Building.
+            Your homepage keeps its current building until you press Save Building.
           </p>
           <GameCanvas
             elements={elements}

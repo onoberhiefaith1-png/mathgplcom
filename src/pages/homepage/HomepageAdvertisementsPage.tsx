@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, Eye, Lock, Monitor, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Check, Eye, Lock, Monitor, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,23 @@ import {
  */
 const HomepageAdvertisementsPage = () => {
   const { isPlatformOwner, isLoading } = useAccount();
-  const { ads, upsert, patch, remove } = useAdvertisements();
+  const { ads, upsert, patch, remove, refetch } = useAdvertisements();
+  const [savingAll, setSavingAll] = useState(false);
+
+  /** Force every pending field edit to commit, then confirm from the database. */
+  const saveAll = async () => {
+    setSavingAll(true);
+    try {
+      (document.activeElement as HTMLElement | null)?.blur();
+      await new Promise((r) => setTimeout(r, 50));
+      await refetch();
+      toast.success("Advertisements saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSavingAll(false);
+    }
+  };
   const [busySlot, setBusySlot] = useState<number | null>(null);
   const [previewSlot, setPreviewSlot] = useState<number | null>(null);
   const [buildingPreview, setBuildingPreview] = useState(false);
@@ -103,9 +119,15 @@ const HomepageAdvertisementsPage = () => {
           <ArrowLeft className="h-4 w-4" /> Platform console
         </Link>
         <h1 className="text-lg font-semibold tracking-wide">Advertisement Dashboard</h1>
-        <Button size="sm" variant="outline" onClick={() => setBuildingPreview(true)}>
-          <Monitor className="mr-1.5 h-3.5 w-3.5" /> Live building preview
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setBuildingPreview(true)}>
+            <Monitor className="mr-1.5 h-3.5 w-3.5" /> Live building preview
+          </Button>
+          <Button size="sm" disabled={savingAll} onClick={() => void saveAll()}>
+            <Check className="mr-1.5 h-3.5 w-3.5" /> {savingAll ? "Saving…" : "Save advertisements"}
+          </Button>
+        </div>
+
       </header>
 
       <main className="mx-auto max-w-5xl space-y-6 px-6 pb-16">

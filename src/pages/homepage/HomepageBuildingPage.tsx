@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, RotateCcw, Scissors, Upload } from "lucide-react";
+import { ArrowLeft, Check, RotateCcw, Scissors, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
@@ -20,10 +20,34 @@ import {
  */
 const HomepageBuildingPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
-  const { config, save } = useHomepageConfig({ mode: configMode });
+  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode });
   // Pro and Free are separate pages with their own default artwork.
   const slots = slotsForVersion(version);
-  const overrides = config.slotOverrides ?? {};
+  // Draft artwork. Nothing reaches the building until Save is pressed.
+  const [draft, setDraft] = useState<Record<string, HomepageMediaRef>>({});
+  const [dirty, setDirty] = useState(false);
+  const overrides = draft;
+
+  useEffect(() => {
+    if (!ready) return;
+    setDraft(config.slotOverrides ?? {});
+    setDirty(false);
+  }, [ready, configMode, config.slotOverrides]);
+
+  const stage = (next: Record<string, HomepageMediaRef>) => {
+    setDraft(next);
+    setDirty(true);
+  };
+
+  const saveNow = async () => {
+    try {
+      await save({ slotOverrides: draft });
+      setDirty(false);
+      toast.success(version === "free" ? "Free building saved" : "Pro building saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const [cutoutSlot, setCutoutSlot] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,8 +62,8 @@ const HomepageBuildingPage = () => {
         source: "storage",
         mediaType: asset.media_type,
       };
-      await save({ slotOverrides: { ...overrides, [slotId]: ref } });
-      toast.success("Artwork replaced — position and shape kept");
+      stage({ ...overrides, [slotId]: ref });
+      toast.success("Artwork replaced — press Save to apply it");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Replace failed");
     } finally {
@@ -65,13 +89,11 @@ const HomepageBuildingPage = () => {
         "background",
         `${slot.id} artwork (cutout)`,
       );
-      await save({
-        slotOverrides: {
-          ...overrides,
-          [slot.id]: { path: renderPathOf(asset), source: "storage", mediaType: "image" },
-        },
+      stage({
+        ...overrides,
+        [slot.id]: { path: renderPathOf(asset), source: "storage", mediaType: "image" },
       });
-      toast.success("Background removed");
+      toast.success("Background removed — press Save to apply it");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Background removal failed");
     } finally {
@@ -79,11 +101,10 @@ const HomepageBuildingPage = () => {
     }
   };
 
-  const revert = async (slotId: string) => {
+  const revert = (slotId: string) => {
     const next = { ...overrides };
     delete next[slotId];
-    await save({ slotOverrides: next });
-    toast.success("Original artwork restored");
+    stage(next);
   };
 
 
@@ -112,7 +133,9 @@ const HomepageBuildingPage = () => {
         <h1 className="text-lg font-semibold tracking-wide">
           {version === "free" ? "Edit Free Building" : "Edit Pro Building"}
         </h1>
-        <div className="w-24" />
+        <Button size="sm" disabled={saving} onClick={() => void saveNow()}>
+          <Check className="mr-2 h-4 w-4" /> {saving ? "Saving…" : "Save building"}
+        </Button>
       </header>
 
       <main className="mx-auto max-w-5xl space-y-6 px-6 pb-16">
@@ -123,6 +146,11 @@ const HomepageBuildingPage = () => {
           The original MathGPL building is made of 16 artwork slots. The only action is
           Replace Image — position, curve, perspective, size and rotation are kept automatically.
         </p>
+        {dirty && (
+          <p className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+            Unsaved artwork changes — press Save building to apply them to the homepage.
+          </p>
+        )}
 
         <input
           ref={inputRef}
@@ -180,7 +208,7 @@ const HomepageBuildingPage = () => {
                   {busySlot === slot.id ? "Replacing…" : "Replace Image"}
                 </Button>
                 {overrides[slot.id] && (
-                  <Button size="sm" variant="ghost" onClick={() => void revert(slot.id)} aria-label="Revert">
+                  <Button size="sm" variant="ghost" onClick={() => revert(slot.id)} aria-label="Revert">
                     <RotateCcw className="h-3.5 w-3.5" />
                   </Button>
                 )}

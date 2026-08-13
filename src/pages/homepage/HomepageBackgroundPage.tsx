@@ -27,11 +27,13 @@ const HomepageBackgroundPage = () => {
 
   const pickUploaded = (asset: GameAssetRow) => {
     setDraft({ path: renderPathOf(asset), source: "storage", mediaType: asset.media_type });
+    setDirty(true);
     setLibrary(false);
   };
 
   const pickUrl = (pick: UrlPick) => {
     setDraft({ path: pick.src, source: "url", mediaType: pick.mediaType });
+    setDirty(true);
     setLibrary(false);
   };
 
@@ -48,9 +50,16 @@ const HomepageBackgroundPage = () => {
     }
   };
 
+  const [dirty, setDirty] = useState(false);
+
   const apply = async () => {
-    await save({ background: draft });
-    toast.success("Homepage background updated");
+    try {
+      await save({ background: draft });
+      setDirty(false);
+      toast.success("Background saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    }
   };
 
   return (
@@ -97,6 +106,12 @@ const HomepageBackgroundPage = () => {
           </div>
         </div>
 
+        {dirty && (
+          <p className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+            Unsaved background change — press Save background to apply it.
+          </p>
+        )}
+
         <div className="flex flex-wrap gap-3">
           <input
             ref={fileRef}
@@ -115,11 +130,17 @@ const HomepageBackgroundPage = () => {
           <Button variant="outline" onClick={() => setLibrary(true)}>
             Choose from Asset Library
           </Button>
-          <Button variant="ghost" onClick={() => void save({ background: null })}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setDraft(null);
+              setDirty(true);
+            }}
+          >
             <RotateCcw className="mr-2 h-4 w-4" /> Restore default
           </Button>
           <Button disabled={saving} onClick={() => void apply()} className="ml-auto">
-            <Check className="mr-2 h-4 w-4" /> Apply background
+            <Check className="mr-2 h-4 w-4" /> {saving ? "Saving…" : "Save background"}
           </Button>
         </div>
       </main>
