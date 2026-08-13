@@ -22,6 +22,7 @@ import { Route as SchoolRouteRouteImport } from './routes/school/route'
 import { Route as SmartboardRouteRouteImport } from './routes/smartboard/route'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
+import { Route as AccessIndexRouteImport } from './routes/access/index'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
@@ -60,6 +61,7 @@ import { Route as SupportIndexRouteImport } from './routes/support/index'
 import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/index'
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
 import { Route as AdminAdvertisementsIndexRouteImport } from './routes/admin/advertisements/index'
 import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/index'
 import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost-analytics/index'
@@ -341,6 +343,11 @@ const TeachingHubRouteRoute = TeachingHubRouteRouteImport.update({
   path: '/teaching-hub',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccessIndexRoute = AccessIndexRouteImport.update({
+  id: '/access/',
+  path: '/access/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AccountIndexRoute = AccountIndexRouteImport.update({
   id: '/account/',
   path: '/account/',
@@ -530,6 +537,11 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   id: '/.lovable/oauth/consent',
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAccessCodesIndexRoute = AdminAccessCodesIndexRouteImport.update({
+  id: '/access-codes/',
+  path: '/access-codes/',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminAdvertisementsIndexRoute =
   AdminAdvertisementsIndexRouteImport.update({
@@ -1773,6 +1785,7 @@ export interface FileRoutesByFullPath {
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
   '/plans/gateway': typeof PlansGatewayRoute
+  '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -1803,6 +1816,7 @@ export interface FileRoutesByFullPath {
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
+  '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
@@ -2030,6 +2044,7 @@ export interface FileRoutesByTo {
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
   '/plans/gateway': typeof PlansGatewayRoute
+  '/access': typeof AccessIndexRoute
   '/account': typeof AccountIndexRoute
   '/admin': typeof AdminIndexRoute
   '/adventure': typeof AdventureIndexRoute
@@ -2060,6 +2075,7 @@ export interface FileRoutesByTo {
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
+  '/admin/access-codes': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
   '/admin/billing': typeof AdminBillingIndexRoute
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
@@ -2299,6 +2315,7 @@ export interface FileRoutesById {
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
   '/plans/gateway': typeof PlansGatewayRoute
+  '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -2329,6 +2346,7 @@ export interface FileRoutesById {
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
+  '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
@@ -2569,6 +2587,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/g/$handle'
     | '/plans/gateway'
+    | '/access/'
     | '/account/'
     | '/admin/'
     | '/adventure/'
@@ -2599,6 +2618,7 @@ export interface FileRouteTypes {
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
+    | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
@@ -2826,6 +2846,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/g/$handle'
     | '/plans/gateway'
+    | '/access'
     | '/account'
     | '/admin'
     | '/adventure'
@@ -2856,6 +2877,7 @@ export interface FileRouteTypes {
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
+    | '/admin/access-codes'
     | '/admin/advertisements'
     | '/admin/billing'
     | '/admin/cost-analytics'
@@ -3094,6 +3116,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/g/$handle'
     | '/plans/gateway'
+    | '/access/'
     | '/account/'
     | '/admin/'
     | '/adventure/'
@@ -3124,6 +3147,7 @@ export interface FileRouteTypes {
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
+    | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
@@ -3363,6 +3387,7 @@ export interface RootRouteChildren {
   AuthVerifiedRoute: typeof AuthVerifiedRoute
   GHandleRoute: typeof GHandleRoute
   PlansGatewayRoute: typeof PlansGatewayRoute
+  AccessIndexRoute: typeof AccessIndexRoute
   AccountIndexRoute: typeof AccountIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
@@ -3553,6 +3578,13 @@ declare module '@tanstack/react-router' {
       path: '/teaching-hub'
       fullPath: '/teaching-hub'
       preLoaderRoute: typeof TeachingHubRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/access/': {
+      id: '/access/'
+      path: '/access'
+      fullPath: '/access/'
+      preLoaderRoute: typeof AccessIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account/': {
@@ -3820,6 +3852,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.lovable/oauth/consent'
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/access-codes/': {
+      id: '/admin/access-codes/'
+      path: '/access-codes'
+      fullPath: '/admin/access-codes/'
+      preLoaderRoute: typeof AdminAccessCodesIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/admin/advertisements/': {
       id: '/admin/advertisements/'
@@ -5331,6 +5370,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminAccessCodesIndexRoute: typeof AdminAccessCodesIndexRoute
   AdminAdvertisementsIndexRoute: typeof AdminAdvertisementsIndexRoute
   AdminBillingIndexRoute: typeof AdminBillingIndexRoute
   AdminCostAnalyticsIndexRoute: typeof AdminCostAnalyticsIndexRoute
@@ -5346,6 +5386,7 @@ interface AdminRouteRouteChildren {
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
+  AdminAccessCodesIndexRoute: AdminAccessCodesIndexRoute,
   AdminAdvertisementsIndexRoute: AdminAdvertisementsIndexRoute,
   AdminBillingIndexRoute: AdminBillingIndexRoute,
   AdminCostAnalyticsIndexRoute: AdminCostAnalyticsIndexRoute,
@@ -5819,6 +5860,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthVerifiedRoute: AuthVerifiedRoute,
   GHandleRoute: GHandleRoute,
   PlansGatewayRoute: PlansGatewayRoute,
+  AccessIndexRoute: AccessIndexRoute,
   AccountIndexRoute: AccountIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
