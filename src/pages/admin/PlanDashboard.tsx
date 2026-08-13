@@ -5,6 +5,7 @@ import { CheckCircle2, Layers, Loader2, RotateCcw, Save, Upload } from "lucide-r
 import { toast } from "sonner";
 
 import DashboardShell from "@/components/accounts/DashboardShell";
+import PlanEntitlementsEditor from "@/components/admin/PlanEntitlementsEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -524,6 +525,10 @@ function PlanCard({
           <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Save features
         </Button>
       </div>
+
+      {/* Real access configuration — one-to-one with what the application checks */}
+      <PlanEntitlementsEditor planId={plan.id} audience={plan.audience} />
+
 
       {/* Presentation */}
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
