@@ -5,8 +5,6 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import CreditLotsPanel from "@/components/admin/CreditLotsPanel";
-import PricingHistoryPanel from "@/components/admin/PricingHistoryPanel";
 import { credits, money } from "@/lib/costs/categories";
 import { sellPrice } from "@/lib/pricing/sellPrice";
 import {
