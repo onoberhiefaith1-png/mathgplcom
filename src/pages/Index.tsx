@@ -1,5 +1,5 @@
-import { Link } from "@/lib/router-compat";
-import { GraduationCap, Globe2, Image, Package, ShieldCheck, Users } from "lucide-react";
+import { Link, useNavigate } from "@/lib/router-compat";
+import { GraduationCap, Globe2, Image, LogOut, Package, ShieldCheck, Users } from "lucide-react";
 
 import AcademyTopBar from "@/components/academy/AcademyTopBar";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
@@ -8,10 +8,15 @@ import HomepageSettingsButton from "@/components/homepage/HomepageSettingsButton
 import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
+
 
 const Index = () => {
   const { role, roles, isPlatformOwner } = useAccount();
   const { isPersonal, workspaces } = useWorkspace();
+  const navigate = useNavigate();
+  const { user, ready } = useAuth();
   // The building belongs to the workspace you are in: your own when personal,
   // otherwise the one owned by the workspace you are visiting.
   const visiting = workspaces.length > 0 && !isPersonal;
@@ -21,6 +26,12 @@ const Index = () => {
   // Students never teach — their primary entry point is joining a teacher's class.
   const isStudent = role === "student" && !elevated;
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/", { replace: true });
+  };
+
+
 
   // The student Academy page is view-only: the school's background + rotating
   // building, and one way in. No search, account menu, settings or tools.
@@ -28,6 +39,17 @@ const Index = () => {
     return (
       <>
         <RotatingAdventureScene interactive={false} configMode="school-readonly" />
+        {ready && user && (
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="Sign out"
+            className="fixed top-5 right-5 z-50 inline-flex items-center gap-2 rounded-full border border-rose-400/60 bg-background/70 px-4 py-2 text-sm font-medium text-rose-200 shadow-lg backdrop-blur transition hover:border-rose-400 hover:bg-rose-500/20"
+          >
+            <LogOut className="h-4 w-4" />
+            Log out
+          </button>
+        )}
         <Link
           to="/student"
           aria-label="Open my dashboard"
@@ -39,6 +61,7 @@ const Index = () => {
       </>
     );
   }
+
 
 
   return (
