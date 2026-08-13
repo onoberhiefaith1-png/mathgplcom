@@ -72,7 +72,7 @@ export function useSiteAdmin() {
   /** Stage an edit without touching the live site. */
   const saveDraft = useCallback(async (row: SiteSection, patch: SectionPatch) => {
     const draft = { ...(row.draft ?? {}), ...patch };
-    const { error } = await supabase.from("site_sections").update({ draft }).eq("id", row.id);
+    const { error } = await supabase.from("site_sections").update({ draft: draft as never }).eq("id", row.id);
     if (error) throw error;
     setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, draft } : r)));
   }, []);
