@@ -1,6 +1,6 @@
 // Per-account Homepage look: background layer + building layer.
 // The two layers are stored independently and never overwrite each other.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getSignedUrl } from "@/lib/games/urls";
 import type { CanvasElement, MediaSource, MediaType } from "@/lib/games/types";
