@@ -224,7 +224,18 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
               variant="outline"
               size="sm"
               className="w-full"
-              onClick={() => manage.mutate()}
+              onClick={() =>
+                manage.mutate(undefined, {
+                  onError: (manageError) =>
+                    toast({
+                      title: "Could not open Stripe",
+                      description:
+                        manageError instanceof Error ? manageError.message : "Try again in a moment.",
+                      variant: "destructive",
+                    }),
+                })
+              }
+
               disabled={manage.isPending}
             >
               {stripe.chargesEnabled ? "Manage Stripe account" : "Continue Stripe verification"}
