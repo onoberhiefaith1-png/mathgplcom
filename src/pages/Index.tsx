@@ -39,6 +39,17 @@ const Index = () => {
     return (
       <>
         <RotatingAdventureScene interactive={false} configMode="school-readonly" />
+        {ready && user && (
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="Sign out"
+            className="fixed top-5 right-5 z-50 inline-flex items-center gap-2 rounded-full border border-rose-400/60 bg-background/70 px-4 py-2 text-sm font-medium text-rose-200 shadow-lg backdrop-blur transition hover:border-rose-400 hover:bg-rose-500/20"
+          >
+            <LogOut className="h-4 w-4" />
+            Log out
+          </button>
+        )}
         <Link
           to="/student"
           aria-label="Open my dashboard"
@@ -50,6 +61,7 @@ const Index = () => {
       </>
     );
   }
+
 
 
   return (
