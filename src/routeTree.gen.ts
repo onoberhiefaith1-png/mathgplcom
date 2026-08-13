@@ -104,6 +104,7 @@ import { Route as GamesRomanIndexRouteImport } from './routes/games/roman/index'
 import { Route as GamesSubtractionIndexRouteImport } from './routes/games/subtraction/index'
 import { Route as GamesTallyIndexRouteImport } from './routes/games/tally/index'
 import { Route as GradeNIndexRouteImport } from './routes/grade/$n/index'
+import { Route as HomepageAdvertisementsIndexRouteImport } from './routes/homepage/advertisements/index'
 import { Route as HomepageBackgroundIndexRouteImport } from './routes/homepage/background/index'
 import { Route as HomepageBuildingIndexRouteImport } from './routes/homepage/building/index'
 import { Route as HomepageReplaceBuildingIndexRouteImport } from './routes/homepage/replace-building/index'
@@ -751,6 +752,12 @@ const GradeNIndexRoute = GradeNIndexRouteImport.update({
   path: '/grade/$n/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HomepageAdvertisementsIndexRoute =
+  HomepageAdvertisementsIndexRouteImport.update({
+    id: '/homepage/advertisements/',
+    path: '/homepage/advertisements/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const HomepageBackgroundIndexRoute = HomepageBackgroundIndexRouteImport.update({
   id: '/homepage/background/',
   path: '/homepage/background/',
@@ -1805,6 +1812,7 @@ export interface FileRoutesByFullPath {
   '/games/subtraction/': typeof GamesSubtractionIndexRoute
   '/games/tally/': typeof GamesTallyIndexRoute
   '/grade/$n/': typeof GradeNIndexRoute
+  '/homepage/advertisements/': typeof HomepageAdvertisementsIndexRoute
   '/homepage/background/': typeof HomepageBackgroundIndexRoute
   '/homepage/building/': typeof HomepageBuildingIndexRoute
   '/homepage/replace-building/': typeof HomepageReplaceBuildingIndexRoute
@@ -2056,6 +2064,7 @@ export interface FileRoutesByTo {
   '/games/subtraction': typeof GamesSubtractionIndexRoute
   '/games/tally': typeof GamesTallyIndexRoute
   '/grade/$n': typeof GradeNIndexRoute
+  '/homepage/advertisements': typeof HomepageAdvertisementsIndexRoute
   '/homepage/background': typeof HomepageBackgroundIndexRoute
   '/homepage/building': typeof HomepageBuildingIndexRoute
   '/homepage/replace-building': typeof HomepageReplaceBuildingIndexRoute
@@ -2319,6 +2328,7 @@ export interface FileRoutesById {
   '/games/subtraction/': typeof GamesSubtractionIndexRoute
   '/games/tally/': typeof GamesTallyIndexRoute
   '/grade/$n/': typeof GradeNIndexRoute
+  '/homepage/advertisements/': typeof HomepageAdvertisementsIndexRoute
   '/homepage/background/': typeof HomepageBackgroundIndexRoute
   '/homepage/building/': typeof HomepageBuildingIndexRoute
   '/homepage/replace-building/': typeof HomepageReplaceBuildingIndexRoute
@@ -2583,6 +2593,7 @@ export interface FileRouteTypes {
     | '/games/subtraction/'
     | '/games/tally/'
     | '/grade/$n/'
+    | '/homepage/advertisements/'
     | '/homepage/background/'
     | '/homepage/building/'
     | '/homepage/replace-building/'
@@ -2834,6 +2845,7 @@ export interface FileRouteTypes {
     | '/games/subtraction'
     | '/games/tally'
     | '/grade/$n'
+    | '/homepage/advertisements'
     | '/homepage/background'
     | '/homepage/building'
     | '/homepage/replace-building'
@@ -3096,6 +3108,7 @@ export interface FileRouteTypes {
     | '/games/subtraction/'
     | '/games/tally/'
     | '/grade/$n/'
+    | '/homepage/advertisements/'
     | '/homepage/background/'
     | '/homepage/building/'
     | '/homepage/replace-building/'
@@ -3325,6 +3338,7 @@ export interface RootRouteChildren {
   GamesSubtractionIndexRoute: typeof GamesSubtractionIndexRoute
   GamesTallyIndexRoute: typeof GamesTallyIndexRoute
   GradeNIndexRoute: typeof GradeNIndexRoute
+  HomepageAdvertisementsIndexRoute: typeof HomepageAdvertisementsIndexRoute
   HomepageBackgroundIndexRoute: typeof HomepageBackgroundIndexRoute
   HomepageBuildingIndexRoute: typeof HomepageBuildingIndexRoute
   HomepageReplaceBuildingIndexRoute: typeof HomepageReplaceBuildingIndexRoute
@@ -4048,6 +4062,13 @@ declare module '@tanstack/react-router' {
       path: '/grade/$n'
       fullPath: '/grade/$n/'
       preLoaderRoute: typeof GradeNIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/homepage/advertisements/': {
+      id: '/homepage/advertisements/'
+      path: '/homepage/advertisements'
+      fullPath: '/homepage/advertisements/'
+      preLoaderRoute: typeof HomepageAdvertisementsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/homepage/background/': {
@@ -5731,6 +5752,7 @@ const rootRouteChildren: RootRouteChildren = {
   GamesSubtractionIndexRoute: GamesSubtractionIndexRoute,
   GamesTallyIndexRoute: GamesTallyIndexRoute,
   GradeNIndexRoute: GradeNIndexRoute,
+  HomepageAdvertisementsIndexRoute: HomepageAdvertisementsIndexRoute,
   HomepageBackgroundIndexRoute: HomepageBackgroundIndexRoute,
   HomepageBuildingIndexRoute: HomepageBuildingIndexRoute,
   HomepageReplaceBuildingIndexRoute: HomepageReplaceBuildingIndexRoute,
