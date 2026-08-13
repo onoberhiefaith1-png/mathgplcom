@@ -18,7 +18,6 @@ import {
   fetchPlanDashboard,
   publishPlanFn,
   savePlanDraftFn,
-  savePlanFeaturesFn,
   savePlanPresentationFn,
   syncPaymentCatalogFn,
 } from "@/lib/plans/plans.functions";
@@ -31,7 +30,7 @@ const label = "text-[11px] font-semibold uppercase tracking-[0.14em] text-dash-s
 const chip =
   "inline-flex items-center gap-1 rounded-full border border-dash-surface/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]";
 
-type Draft = { label: string; description: string; platform: string; credit: string; features: string };
+type Draft = { label: string; description: string; platform: string; credit: string };
 
 /**
  * Read-only view of what checkout is charging against what the published plans
@@ -165,7 +164,6 @@ export default function PlanDashboard() {
           description: source?.description ?? p.description ?? "",
           platform: String(source?.platformAmount ?? 0),
           credit: String(source?.creditAmount ?? 0),
-          features: p.features.join("\n"),
         };
       }
       return next;
