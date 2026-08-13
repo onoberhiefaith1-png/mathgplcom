@@ -132,6 +132,7 @@ import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
 import { Route as AdventureGamesGameIdIndexRouteImport } from './routes/adventure/games/$gameId/index'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
+import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
 import { Route as AssetsCategorySubcategoryIndexRouteImport } from './routes/assets/$category/$subcategory/index'
 import { Route as AssetsInteractiveQuestionProgressIndexRouteImport } from './routes/assets/interactive/question-progress/index'
 import { Route as CSlugGameIndexRouteImport } from './routes/c/$slug/game/index'
@@ -896,6 +897,11 @@ const ApiPublicPaymentsWebhookRoute =
     path: '/api/public/payments/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWebhooksStripeRoute = ApiPublicWebhooksStripeRouteImport.update({
+  id: '/api/public/webhooks/stripe',
+  path: '/api/public/webhooks/stripe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AssetsCategorySubcategoryIndexRoute =
   AssetsCategorySubcategoryIndexRouteImport.update({
     id: '/assets/$category/$subcategory/',
@@ -1820,6 +1826,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -2069,6 +2076,7 @@ export interface FileRoutesByTo {
   '/teaching-hub/students': typeof TeachingHubStudentsIndexRoute
   '/year/$n': typeof YearNIndexRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -2330,6 +2338,7 @@ export interface FileRoutesById {
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -2592,6 +2601,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/students/'
     | '/year/$n/'
     | '/api/public/payments/webhook'
+    | '/api/public/webhooks/stripe'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -2841,6 +2851,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/students'
     | '/year/$n'
     | '/api/public/payments/webhook'
+    | '/api/public/webhooks/stripe'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -3101,6 +3112,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/students/'
     | '/year/$n/'
     | '/api/public/payments/webhook'
+    | '/api/public/webhooks/stripe'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -3309,6 +3321,7 @@ export interface RootRouteChildren {
   SubjectsSubjectIndexRoute: typeof SubjectsSubjectIndexRoute
   YearNIndexRoute: typeof YearNIndexRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
+  ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -4218,6 +4231,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/payments/webhook'
       fullPath: '/api/public/payments/webhook'
       preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/stripe': {
+      id: '/api/public/webhooks/stripe'
+      path: '/api/public/webhooks/stripe'
+      fullPath: '/api/public/webhooks/stripe'
+      preLoaderRoute: typeof ApiPublicWebhooksStripeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assets/$category/$subcategory/': {
@@ -5699,6 +5719,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubjectsSubjectIndexRoute: SubjectsSubjectIndexRoute,
   YearNIndexRoute: YearNIndexRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
+  ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
