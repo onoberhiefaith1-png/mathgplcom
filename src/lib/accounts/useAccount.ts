@@ -40,7 +40,7 @@ export async function loadAccount(requestedRole?: string): Promise<AccountState>
   if (!user) return EMPTY;
 
   const { data: ensured } = await supabase.rpc("ensure_account", {
-    _requested_role: requestedRole ?? null,
+    _requested_role: requestedRole ?? undefined,
     _org_name: (user.user_metadata?.organization_name as string) ?? null,
   });
 
