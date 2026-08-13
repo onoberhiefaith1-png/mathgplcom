@@ -214,7 +214,12 @@ export type GatewayOwnerView = {
   ownerKind: GatewayOwnerKind;
   ownerName: string;
   username: string;
-  plans: Pick<GatewayPlan, "id" | "slot" | "name" | "description" | "price" | "currency" | "items">[];
+  /** Payment is only real once Stripe has verified the owner and they switched it on. */
+  paymentsActive: boolean;
+  plans: Pick<
+    GatewayPlan,
+    "id" | "slot" | "name" | "description" | "price" | "currency" | "items" | "billingMode"
+  >[];
 };
 
 /** The public gateway for an @handle — what a visiting student sees first. */
@@ -233,6 +238,8 @@ export const loadGatewayByHandle = async (handle: string): Promise<GatewayOwnerV
     price_amount: number | string | null;
     currency: string;
     items: string[];
+    billing_mode: string | null;
+    payments_active: boolean | null;
   }[];
   if (rows.length === 0) return null;
 
@@ -241,6 +248,7 @@ export const loadGatewayByHandle = async (handle: string): Promise<GatewayOwnerV
     ownerKind: rows[0].owner_kind as GatewayOwnerKind,
     ownerName: rows[0].owner_name ?? rows[0].username,
     username: rows[0].username,
+    paymentsActive: Boolean(rows[0].payments_active),
     plans: rows.map((row) => ({
       id: row.plan_id,
       slot: row.slot as GatewaySlot,
@@ -249,9 +257,11 @@ export const loadGatewayByHandle = async (handle: string): Promise<GatewayOwnerV
       price: row.price_amount === null ? null : Number(row.price_amount),
       currency: row.currency ?? "GBP",
       items: (row.items ?? []) as GatewayItem[],
+      billingMode: (row.billing_mode ?? "free") as GatewayBillingMode,
     })),
   };
 };
+
 
 /** The student's own choice. Paid plans wait for payment, which comes later. */
 export const choosePlan = async (planId: string): Promise<GatewayEntitlement> => {
