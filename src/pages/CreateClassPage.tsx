@@ -92,6 +92,7 @@ const CreateClassPage = () => {
         : raw,
       variant: "destructive",
     });
+  };
 
 
   return (
