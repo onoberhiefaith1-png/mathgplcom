@@ -512,18 +512,35 @@ function PlanCard({
         ) : null}
       </div>
 
-      {/* Features */}
+      {/* Yearly — always derived from the monthly amount */}
+      <div className="mt-4 rounded-xl border border-dash-surface/15 bg-dash-surface/5 p-3">
+        <div className={label}>Yearly subscription · derived</div>
+        <p className="mt-1 text-sm font-semibold text-dash-surface">
+          {money(Math.round(derived.total * 12 * 0.8 * 100) / 100, plan.currency)} per year
+          <span className="ml-2 text-xs font-medium text-emerald-300">20% off</span>
+        </p>
+        <p className="mt-1 text-xs text-dash-surface/60">
+          Twelve months at {money(derived.total, plan.currency)} is {money(derived.total * 12, plan.currency)}. Yearly
+          customers pay one annual amount and keep that price until their year ends.
+        </p>
+      </div>
+
+      {/* What this plan includes — generated from Plan Access, never typed */}
       <div className="mt-4">
-        <div className={label}>What this plan includes (one per line)</div>
-        <textarea
-          value={draft?.features ?? ""}
-          onChange={(e) => onChange({ features: e.target.value })}
-          rows={4}
-          className="mt-1 w-full rounded-xl border border-dash-surface/20 bg-dash-surface/5 p-2 text-sm text-dash-surface outline-none focus:border-dash-accent/60"
-        />
-        <Button size="sm" variant="ghost" className="mt-2" onClick={onSaveFeatures}>
-          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Save features
-        </Button>
+        <div className={label}>What this plan includes · generated from Plan Access</div>
+        {plan.features.length ? (
+          <ul className="mt-1 space-y-1 text-xs text-dash-surface/75">
+            {plan.features.map((f) => (
+              <li key={f} className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3 w-3 text-emerald-300" /> {f}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-xs text-dash-surface/55">
+            Nothing enabled yet — switch features on below and the customer-facing list writes itself.
+          </p>
+        )}
       </div>
 
       {/* Real access configuration — one-to-one with what the application checks */}
