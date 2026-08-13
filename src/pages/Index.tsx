@@ -1,5 +1,5 @@
-import { Link } from "@/lib/router-compat";
-import { GraduationCap, Globe2, Image, Package, ShieldCheck, Users } from "lucide-react";
+import { Link, useNavigate } from "@/lib/router-compat";
+import { GraduationCap, Globe2, Image, LogOut, Package, ShieldCheck, Users } from "lucide-react";
 
 import AcademyTopBar from "@/components/academy/AcademyTopBar";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
@@ -8,6 +8,9 @@ import HomepageSettingsButton from "@/components/homepage/HomepageSettingsButton
 import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
+
 
 const Index = () => {
   const { role, roles, isPlatformOwner } = useAccount();
