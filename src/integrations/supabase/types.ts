@@ -5033,6 +5033,7 @@ export type Database = {
           currency: string
           discount_percentage: number
           final_price: number
+          grace_until: string | null
           id: string
           included_credits: number | null
           locked_profit_rate: number
@@ -5063,6 +5064,7 @@ export type Database = {
           currency?: string
           discount_percentage?: number
           final_price?: number
+          grace_until?: string | null
           id?: string
           included_credits?: number | null
           locked_profit_rate?: number
@@ -5093,6 +5095,7 @@ export type Database = {
           currency?: string
           discount_percentage?: number
           final_price?: number
+          grace_until?: string | null
           id?: string
           included_credits?: number | null
           locked_profit_rate?: number
@@ -5625,6 +5628,7 @@ export type Database = {
           username: string
         }[]
       }
+      downgrade_to_free_plan: { Args: { _sub_id: string }; Returns: undefined }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }

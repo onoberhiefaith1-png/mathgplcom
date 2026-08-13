@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { GAME_ASSETS_BUCKET, type Narration, type Scene } from "./types";
 import { getSignedUrl } from "./urls";
 import { playNarration, stopChannel } from "./audio";
+import { bytesToGb, meterClientUsage } from "@/lib/costs/clientMeter";
 
 const rand = () => Math.random().toString(36).slice(2, 10);
 
@@ -30,6 +31,7 @@ export const uploadNarration = async (file: Blob, name: string): Promise<string>
     .from(GAME_ASSETS_BUCKET)
     .upload(path, file, { contentType: file.type || "audio/webm", upsert: false });
   if (error) throw error;
+  meterClientUsage("storage.gb_month", bytesToGb(file.size), "narration", "GB");
   return path;
 };
 

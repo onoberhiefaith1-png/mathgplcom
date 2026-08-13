@@ -11,7 +11,7 @@ import { usePlanGate } from "@/lib/plans/usePlanGate";
  * in the Pricing workspace.
  */
 const PlanSection = ({ className = "" }: { className?: string }) => {
-  const { loading, subscribes, subscription, noPlansYet } = usePlanGate();
+  const { loading, subscribes, subscription, noPlansYet, expired, graceDaysLeft } = usePlanGate();
 
   // Students and the platform owner hold no plan of their own.
   if (!loading && !subscribes) return null;
@@ -28,7 +28,14 @@ const PlanSection = ({ className = "" }: { className?: string }) => {
         </p>
       ) : subscription ? (
         <>
-          <div className="mt-2 text-lg font-semibold">{subscription.planLabel}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-lg font-semibold">
+            {subscription.planLabel}
+            {expired ? (
+              <span className="rounded-full border border-rose-400/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-rose-200">
+                Expired — renewal required
+              </span>
+            ) : null}
+          </div>
           <div className="mt-2 grid gap-3 text-sm sm:grid-cols-3">
             <div>
               <div className="text-xs text-white/50">Price</div>
@@ -39,13 +46,23 @@ const PlanSection = ({ className = "" }: { className?: string }) => {
               <div className="font-semibold">{credits(subscription.includedCredits)}</div>
             </div>
             <div>
-              <div className="text-xs text-white/50">Renews</div>
+              <div className="text-xs text-white/50">{expired ? "Ended" : "Renews"}</div>
               <div className="font-semibold">
                 {subscription.periodEnd ? new Date(subscription.periodEnd).toLocaleDateString() : "—"}
               </div>
             </div>
           </div>
-          {subscription.paymentState === "past_due" ? (
+          {expired ? (
+            <p className="mt-3 flex items-start gap-2 rounded-xl border border-rose-400/40 bg-rose-500/10 p-3 text-xs text-rose-200">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Your plan has ended and credit spending is paused. Everything you have made is safe.{" "}
+                {graceDaysLeft !== null
+                  ? `Renew within ${graceDaysLeft} ${graceDaysLeft === 1 ? "day" : "days"} to carry on where you left off — after that this account moves to the free plan.`
+                  : "Renew to carry on where you left off."}
+              </span>
+            </p>
+          ) : subscription.paymentState === "past_due" ? (
             <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-200">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>Your last payment did not go through. Credit spending is paused until it succeeds.</span>
@@ -63,10 +80,10 @@ const PlanSection = ({ className = "" }: { className?: string }) => {
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
-          to={subscription ? "/plans" : "/plans/gateway"}
+          to={subscription && !expired ? "/plans" : "/plans/gateway"}
           className="inline-flex min-h-[44px] items-center rounded-xl bg-amber-400 px-4 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"
         >
-          {subscription ? "Manage plan" : "Choose a plan"}
+          {expired ? "Renew plan" : subscription ? "Manage plan" : "Choose a plan"}
         </Link>
         {subscription ? (
           <Link

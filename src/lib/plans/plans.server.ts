@@ -245,17 +245,23 @@ export type MySubscription = {
   scheduledPlanId: string | null;
   cancelAt: string | null;
   paymentState: "ok" | "past_due";
+  /** End of the renewal grace window while the plan is expired. */
+  graceUntil: string | null;
 };
 
-/** The caller's own subscription, read through their own session (RLS). */
+/**
+ * The caller's own subscription, read through their own session (RLS).
+ * Expired plans are included: during the renewal grace window the account
+ * keeps its workspace, so the dashboard must still be able to show it.
+ */
 export async function mySubscription(supabase: Client, userId: string): Promise<MySubscription | null> {
   const { data } = await supabase
     .from("subscriptions")
     .select(
-      "plan, plan_id, status, final_price, currency, included_credits, locked_profit_rate, period_start, period_end, scheduled_plan_id, cancel_at, payment_state, plan_version_id",
+      "plan, plan_id, status, final_price, currency, included_credits, locked_profit_rate, period_start, period_end, scheduled_plan_id, cancel_at, payment_state, plan_version_id, grace_until",
     )
     .eq("user_id", userId)
-    .eq("status", "active")
+    .in("status", ["active", "expired"])
     .order("period_start", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -283,6 +289,7 @@ export async function mySubscription(supabase: Client, userId: string): Promise<
     scheduledPlanId: (data.scheduled_plan_id as string) ?? null,
     cancelAt: (data.cancel_at as string) ?? null,
     paymentState: (data.payment_state as "ok" | "past_due") ?? "ok",
+    graceUntil: ((data as { grace_until?: string | null }).grace_until as string) ?? null,
   };
 }
 

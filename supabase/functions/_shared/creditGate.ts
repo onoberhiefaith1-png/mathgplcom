@@ -24,6 +24,7 @@ const MESSAGES: Record<string, string> = {
   past_due: "Your payment did not go through, so generation is paused. Update your payment method to continue.",
   no_ai_plan: "AI generation is part of a paid plan. Upgrade your plan to generate.",
   disabled: "Credit usage is currently disabled for this account.",
+  expired: "Your plan has expired. Renew it to start using credits again — your work is safe in the meantime.",
 };
 
 
