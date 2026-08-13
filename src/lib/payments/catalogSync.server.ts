@@ -37,7 +37,7 @@ async function expected(env: PaddleEnv): Promise<CatalogRow[]> {
   const db = await admin();
   const { resolvePricing } = await import("@/lib/costs/costAdmin.server");
   const [{ data: plans }, { data: versions }, { data: packs }, pricing] = await Promise.all([
-    db.from("plans").select("id, key, label, currency, active"),
+    db.from("plans").select("id, key, label, currency, active, yearly_enabled"),
     db.from("plan_versions").select("plan_id, price, currency, status").eq("status", "published"),
     db.from("credit_packages").select("external_id, credits, label, sort_order").eq("active", true).order("sort_order"),
     resolvePricing("GBP"),
