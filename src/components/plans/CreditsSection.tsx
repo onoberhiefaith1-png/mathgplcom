@@ -74,8 +74,7 @@ const CreditsSection = ({ className = "" }: { className?: string }) => {
           <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
             <div className="text-3xl font-semibold tabular-nums">{fmtCredits(state.balance)}</div>
             <Link
-              to="/plans"
-              hash="buy-credits"
+              to="/plans#buy-credits"
               className="inline-flex min-h-[40px] items-center gap-2 rounded-xl bg-amber-400 px-4 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"
             >
               <Plus className="h-4 w-4" /> Add credits
