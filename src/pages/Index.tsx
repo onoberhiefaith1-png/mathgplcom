@@ -50,7 +50,12 @@ const Index = () => {
   if (isStudent) {
     return (
       <>
-        <RotatingAdventureScene interactive={false} configMode="school-readonly" />
+        <RotatingAdventureScene
+          interactive={false}
+          configMode={building.configMode}
+          showAds={building.adsEnabled}
+        />
+
         {ready && user && (
           <button
             type="button"
