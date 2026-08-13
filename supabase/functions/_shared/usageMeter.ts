@@ -153,20 +153,34 @@ function subjectOf(request: Request): string | null {
 }
 
 /**
- * Meters a whole edge function with one line at the top of the file:
+ * Meters and gates a whole edge function with one line at the top of the file:
  *   meterFunction("notebook-ai");
  * It wraps whatever handler the function later hands to Deno.serve, so the
- * function's own code is untouched and its behaviour is unchanged.
+ * function's own code is untouched. Credits are reserved before the handler
+ * runs and released afterwards; an account that cannot pay is refused here,
+ * on the server, before any chargeable work happens.
  */
-export function meterFunction(feature: string) {
+export function meterFunction(feature: string, estimatedCredits = 0.5) {
   const serve = Deno.serve.bind(Deno) as (...args: any[]) => any;
   (Deno as any).serve = (...args: any[]) => {
     const index = args.findIndex((a) => typeof a === "function");
     if (index < 0) return serve(...args);
     const handler = args[index];
-    args[index] = (request: Request, info: unknown) =>
-      withUsageMeter(subjectOf(request), feature, () => handler(request, info));
+    args[index] = async (request: Request, info: unknown) => {
+      const userId = subjectOf(request);
+      if (!userId || request.method === "OPTIONS") return handler(request, info);
+
+      const gate = await openCreditGate(userId, feature, estimatedCredits);
+      if (!gate.allowed) return creditBlockedResponse(gate);
+
+      try {
+        return await withUsageMeter(userId, feature, () => handler(request, info));
+      } finally {
+        void closeCreditGate(gate.operationKey).catch(() => {});
+      }
+    };
     return serve(...args);
   };
 }
+
 
