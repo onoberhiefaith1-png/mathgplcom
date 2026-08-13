@@ -152,7 +152,7 @@ const SectionCard = ({
 }: {
   row: SiteSection;
   onSave: (patch: SectionPatch) => Promise<void>;
-  onPublish: () => Promise<void>;
+  onPublish: (patch: SectionPatch) => Promise<void>;
   onMove: (direction: -1 | 1) => void;
   onVisible: (visible: boolean) => void;
 }) => {
@@ -275,6 +275,12 @@ const SectionCard = ({
                           const next = [...items];
                           next[index] = { ...item, media };
                           setItems(next);
+                          void run(async () => {
+                            const nextPatch = { ...patch, items: next } as SectionPatch;
+                            await onSave(nextPatch);
+                            await onPublish(nextPatch);
+                            setPatch({});
+                          }, media ? "Media published" : "Media removed");
                         }}
                       />
                     </div>
@@ -304,8 +310,19 @@ const SectionCard = ({
           <MediaField
             label="Section media (image or video)"
             value={(value.media ?? null) as SiteMediaRef | null}
-            onChange={(media) => set("media", media)}
+            onChange={(media) => {
+              // Media goes live straight away — no separate save/publish step,
+              // so the preview and the public homepage always match the editor.
+              set("media", media);
+              void run(async () => {
+                const next = { ...patch, media } as SectionPatch;
+                await onSave(next);
+                await onPublish(next);
+                setPatch({});
+              }, media ? "Media published" : "Media removed");
+            }}
           />
+
         </div>
       )}
 
@@ -329,7 +346,7 @@ const SectionCard = ({
           onClick={() =>
             run(async () => {
               if (dirty) await onSave(patch);
-              await onPublish();
+              await onPublish(patch);
               setPatch({});
             }, "Section published")
           }
@@ -420,7 +437,9 @@ const WebsiteContentPage = () => {
             key={row.id}
             row={row}
             onSave={(patch) => admin.saveDraft(row, patch)}
-            onPublish={() => admin.publish(row)}
+            onPublish={(patch) =>
+              admin.publish({ ...row, draft: { ...(row.draft ?? {}), ...patch } })
+            }
             onMove={(direction) => void admin.move(row, direction)}
             onVisible={(visible) => void admin.setVisible(row, visible)}
           />
