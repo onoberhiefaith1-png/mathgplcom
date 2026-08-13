@@ -8,11 +8,13 @@ import AssetLibraryModal, { type UrlPick } from "@/components/gamebuilder/AssetL
 import { uploadGameAsset, renderPathOf } from "@/lib/games/assets";
 import type { AssetKind, GameAssetRow } from "@/lib/games/types";
 import { useHomepageConfig, type HomepageMediaRef } from "@/lib/homepage/homepageConfig";
+import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 
 /** Change Background — touches the background layer only. */
 const HomepageBackgroundPage = () => {
-  const { config, save, ready, saving } = useHomepageConfig();
+  const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
+  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode });
   const [draft, setDraft] = useState<HomepageMediaRef | null>(null);
   const [library, setLibrary] = useState(false);
   const [kind, setKind] = useState<AssetKind>("background");
@@ -62,6 +64,9 @@ const HomepageBackgroundPage = () => {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-6 px-6 pb-16">
+        {canSwitch && (
+          <BuildingVersionSelector version={version} onChange={setVersion} seeding={seeding} />
+        )}
         <p className="text-sm text-muted-foreground">
           This changes only the scene behind the building — image, animated image or looping video.
           The rotating building, every button and the whole interface stay exactly where they are.
