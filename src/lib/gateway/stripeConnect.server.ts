@@ -103,40 +103,117 @@ export const platformReadiness = async (): Promise<{ ready: boolean; reason: str
 export const PLATFORM_NOT_READY =
   "Payments are not finished setting up on the MathGPL platform yet. Please contact support.";
 
+/**
+ * Stripe's v2 API, used for account creation and onboarding links. Stripe no
+ * longer accepts v1 connected-account creation for new platforms, so this is
+ * the current path; v1 remains in use for reading account state.
+ */
+const V2_VERSION = "2025-11-17.preview";
+
+const stripeV2Request = async <T>(path: string, body: Record<string, unknown>): Promise<T> => {
+  const response = await fetch(`https://api.stripe.com${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${secretKey()}`,
+      "Content-Type": "application/json",
+      "Stripe-Version": V2_VERSION,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error(`Stripe v2 request failed [${response.status}] ${path}: ${text}`);
+    let message = text;
+    try {
+      const parsed = JSON.parse(text) as { error?: { user_message?: string; message?: string } };
+      message = parsed.error?.user_message ?? parsed.error?.message ?? text;
+    } catch {
+      /* keep raw text */
+    }
+    throw new Error(`Stripe: ${message}`);
+  }
+
+  return (await response.json()) as T;
+};
+
+/**
+ * Creates the workspace owner's own Stripe account.
+ *
+ * The account is created with Stripe's own hosted onboarding and dashboard, and
+ * with Stripe collecting its processing fee from that account — MathGPL never
+ * takes a cut and never sees banking or identity details.
+ */
 export const createConnectedAccount = async (input: {
   email: string | null;
   ownerKind: string;
   ownerId: string;
+  displayName?: string | null;
   country?: string;
-}): Promise<StripeAccount> =>
-  stripeRequest<StripeAccount>("/accounts", {
-    method: "POST",
-    body: {
-      type: "express",
-      country: input.country ?? "GB",
-      email: input.email ?? undefined,
-      business_type: input.ownerKind === "school" ? "company" : undefined,
-      capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
-      metadata: { mathgpl_owner_id: input.ownerId, mathgpl_owner_kind: input.ownerKind },
+}): Promise<StripeAccount> => {
+  const country = (input.country ?? "GB").toLowerCase();
+  const account = await stripeV2Request<{ id: string }>("/v2/core/accounts", {
+    contact_email: input.email ?? undefined,
+    display_name: input.displayName ?? undefined,
+    dashboard: "full",
+    identity: { country },
+    defaults: {
+      currency: country === "gb" ? "gbp" : undefined,
+      // Stripe bills its processing fee to the connected account, and MathGPL
+      // adds no application fee anywhere.
+      responsibilities: { fees_collector: "stripe", losses_collector: "stripe" },
     },
+    configuration: {
+      merchant: { capabilities: { card_payments: { requested: true } } },
+    },
+    include: ["configuration.merchant", "requirements"],
+    metadata: { mathgpl_owner_id: input.ownerId, mathgpl_owner_kind: input.ownerKind },
   });
+
+  // Read the freshly created account through v1 so callers get one shape.
+  return retrieveAccount(account.id);
+};
 
 export const retrieveAccount = (accountId: string) =>
-  stripeRequest<StripeAccount>(`/accounts/${accountId}`);
+  stripeRequest<StripeAccount & { type?: string }>(`/v1/accounts/${accountId}`);
 
-export const createAccountLink = (accountId: string, refreshUrl: string, returnUrl: string) =>
-  stripeRequest<{ url: string }>("/account_links", {
-    method: "POST",
-    body: {
-      account: accountId,
-      refresh_url: refreshUrl,
-      return_url: returnUrl,
+/**
+ * A fresh Stripe-hosted onboarding link, generated per owner on every click.
+ * Links are short-lived by design, so none of them is ever stored.
+ */
+export const createAccountLink = async (
+  accountId: string,
+  refreshUrl: string,
+  returnUrl: string,
+): Promise<{ url: string }> => {
+  const link = await stripeV2Request<{ url: string }>("/v2/core/account_links", {
+    account: accountId,
+    use_case: {
       type: "account_onboarding",
+      account_onboarding: {
+        configurations: ["merchant"],
+        refresh_url: refreshUrl,
+        return_url: returnUrl,
+      },
     },
   });
+  return { url: link.url };
+};
 
-export const createLoginLink = (accountId: string) =>
-  stripeRequest<{ url: string }>(`/accounts/${accountId}/login_links`, { method: "POST" });
+/**
+ * Where the owner manages their money. Express accounts need a Stripe-issued
+ * login link; accounts with their own full dashboard simply sign in to Stripe.
+ */
+export const createLoginLink = async (accountId: string): Promise<{ url: string }> => {
+  const account = await retrieveAccount(accountId);
+  if (account.type === "express") {
+    return stripeRequest<{ url: string }>(`/v1/accounts/${accountId}/login_links`, {
+      method: "POST",
+    });
+  }
+  return { url: "https://dashboard.stripe.com/" };
+};
+
 
 export const createDirectCheckoutSession = (input: {
   stripeAccount: string;
