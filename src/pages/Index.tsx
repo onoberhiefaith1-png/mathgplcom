@@ -22,9 +22,6 @@ const Index = () => {
   const { isPersonal, workspaces } = useWorkspace();
   const navigate = useNavigate();
   const { user, ready } = useAuth();
-  // The building belongs to the workspace you are in: your own when personal,
-  // otherwise the one owned by the workspace you are visiting.
-  const visiting = workspaces.length > 0 && !isPersonal;
   // Anything other than a plain student account keeps the full homepage: the
   // owner, school admins and teachers must never be locked into the student view.
   const elevated = isPlatformOwner || roles.some((r) => r !== "student");
