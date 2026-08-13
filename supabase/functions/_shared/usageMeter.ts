@@ -8,6 +8,8 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { closeCreditGate, creditBlockedResponse, openCreditGate } from "./creditGate.ts";
+
 
 type Ctx = {
   userId: string;
