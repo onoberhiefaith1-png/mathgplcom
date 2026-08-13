@@ -1,7 +1,20 @@
 // Platform advertisements: 8 slots that play on the rotating building's
 // billboard. Managed by the platform owner only — owning a building never
 // grants advertisement access.
-import { useCallback, useEffect, useRef, useState } from "react";
+//
+// ARCHITECTURE
+//
+//   external provider (Google, other)        manual upload
+//                        \                    /
+//                     provider adapter (resolveCreative)
+//                                 |
+//                        8 platform slots
+//                                 |
+//                   rotating building billboard
+//
+// The building never learns where a creative came from. It receives a
+// normalised `AdCreative` and renders it inside the billboard.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { MediaSource, MediaType } from "@/lib/games/types";
@@ -9,6 +22,16 @@ import { resolveMediaUrl } from "./homepageConfig";
 
 export const AD_SLOT_COUNT = 8;
 export const AD_SLOTS = Array.from({ length: AD_SLOT_COUNT }, (_, i) => i + 1);
+
+/** Where a creative comes from. Only `manual` renders today. */
+export type AdProvider = "manual" | "google" | "other";
+export const AD_PROVIDERS: AdProvider[] = ["manual", "google", "other"];
+
+export const AD_PROVIDER_LABEL: Record<AdProvider, string> = {
+  manual: "Manual upload",
+  google: "Google advertising",
+  other: "Other provider",
+};
 
 export interface AdvertisementRow {
   id: string;
@@ -19,9 +42,29 @@ export interface AdvertisementRow {
   label: string | null;
   is_active: boolean;
   duration_ms: number;
+  provider: AdProvider;
+  provider_ad_id: string | null;
+  campaign_name: string | null;
+  thumbnail_path: string | null;
+  click_url: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
 }
 
-const SELECT = "id, slot, media_path, media_source, media_type, label, is_active, duration_ms";
+/** What the building renders. Provider-agnostic by design. */
+export interface AdCreative {
+  slot: number;
+  provider: AdProvider;
+  mediaType: MediaType;
+  mediaPath: string;
+  mediaSource: MediaSource;
+  /** How long an image advertisement holds the facing position. */
+  durationMs: number;
+  clickUrl: string | null;
+}
+
+const SELECT =
+  "id, slot, media_path, media_source, media_type, label, is_active, duration_ms, provider, provider_ad_id, campaign_name, thumbnail_path, click_url, starts_at, ends_at";
 
 export async function fetchAdvertisements(): Promise<AdvertisementRow[]> {
   const { data } = await supabase
@@ -32,7 +75,55 @@ export async function fetchAdvertisements(): Promise<AdvertisementRow[]> {
     ...row,
     media_source: (row.media_source ?? "storage") as MediaSource,
     media_type: (row.media_type ?? "image") as MediaType,
+    provider: (row.provider ?? "manual") as AdProvider,
   }));
+}
+
+/** Inside its scheduled window (an empty window means always). */
+export function isScheduled(ad: AdvertisementRow, now = Date.now()): boolean {
+  if (ad.starts_at && new Date(ad.starts_at).getTime() > now) return false;
+  if (ad.ends_at && new Date(ad.ends_at).getTime() < now) return false;
+  return true;
+}
+
+/**
+ * PROVIDER ADAPTER
+ *
+ * Turns a stored slot row into a creative the building can play, or null when
+ * the slot has nothing renderable (empty, disabled, out of schedule, or an
+ * external provider whose integration is not connected yet).
+ */
+export function resolveCreative(ad: AdvertisementRow, now = Date.now()): AdCreative | null {
+  if (!ad.is_active || !isScheduled(ad, now)) return null;
+  // Google/other creatives are stored and previewed, but only render once their
+  // adapter supplies compatible media for the 3D billboard.
+  if (!ad.media_path) return null;
+  return {
+    slot: ad.slot,
+    provider: ad.provider,
+    mediaType: ad.media_type,
+    mediaPath: ad.media_path,
+    mediaSource: ad.media_source,
+    durationMs: Math.max(2000, ad.duration_ms || 6000),
+    clickUrl: ad.click_url,
+  };
+}
+
+export interface AdvertisementInput {
+  slot: number;
+  media_path?: string | null;
+  media_source?: MediaSource;
+  media_type?: MediaType;
+  label?: string | null;
+  is_active?: boolean;
+  duration_ms?: number;
+  provider?: AdProvider;
+  provider_ad_id?: string | null;
+  campaign_name?: string | null;
+  thumbnail_path?: string | null;
+  click_url?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
 }
 
 /** Every configured slot, for the admin editor. */
@@ -43,26 +134,25 @@ export function useAdvertisements() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["platform-advertisements"] });
 
   const upsert = useMutation({
-    mutationFn: async (input: {
-      slot: number;
-      media_path: string | null;
-      media_source: MediaSource;
-      media_type: MediaType;
-      label?: string | null;
-      is_active?: boolean;
-      duration_ms?: number;
-    }) => {
+    mutationFn: async (input: AdvertisementInput) => {
       const { error } = await supabase
         .from("platform_advertisements")
         .upsert(
           {
             slot: input.slot,
-            media_path: input.media_path,
-            media_source: input.media_source,
-            media_type: input.media_type,
+            media_path: input.media_path ?? null,
+            media_source: input.media_source ?? "storage",
+            media_type: input.media_type ?? "image",
             label: input.label ?? null,
             is_active: input.is_active ?? true,
             duration_ms: input.duration_ms ?? 6000,
+            provider: input.provider ?? "manual",
+            provider_ad_id: input.provider_ad_id ?? null,
+            campaign_name: input.campaign_name ?? null,
+            thumbnail_path: input.thumbnail_path ?? null,
+            click_url: input.click_url ?? null,
+            starts_at: input.starts_at ?? null,
+            ends_at: input.ends_at ?? null,
           } as never,
           { onConflict: "slot" },
         );
@@ -72,7 +162,7 @@ export function useAdvertisements() {
   });
 
   const patch = useMutation({
-    mutationFn: async (input: { slot: number; is_active?: boolean; duration_ms?: number; label?: string | null }) => {
+    mutationFn: async (input: AdvertisementInput) => {
       const { slot, ...rest } = input;
       const { error } = await supabase
         .from("platform_advertisements")
@@ -102,7 +192,12 @@ export function usePlayableAds(enabled: boolean) {
     enabled,
     staleTime: 5 * 60 * 1000,
   });
-  return (query.data ?? []).filter((ad) => ad.is_active && ad.media_path);
+  const rows = query.data ?? [];
+  return useMemo(
+    () => rows.filter((ad) => resolveCreative(ad) !== null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows.map((r) => `${r.slot}:${r.media_path}:${r.is_active}:${r.starts_at}:${r.ends_at}`).join("|")],
+  );
 }
 
 /**
@@ -148,43 +243,51 @@ export function useAdImageUrls(ads: AdvertisementRow[]) {
 }
 
 /**
- * Rotation state driven by the building itself.
+ * ROTATION CONTROLLER
  *
  * The advertisement shown is the one belonging to the outer position currently
- * facing the camera. An image advertisement simply sits in the billboard while
- * the building keeps turning. A video advertisement holds the building still,
- * plays from the beginning to the end, and only then lets the building resume
- * and turn to the next advertisement. Empty or disabled slots show nothing and
- * never interrupt the rotation.
+ * facing the camera.
+ *
+ *   image → the building holds for the configured display duration, then resumes
+ *   video → the building holds still until the video has played to the very end
+ *   empty / disabled / out of schedule → nothing shows, rotation never stops
  */
 export function useFacingAdRotation(ads: AdvertisementRow[]) {
   const [facing, setFacing] = useState(0);
-  const [playedSlot, setPlayedSlot] = useState<number | null>(null);
+  /** Slots whose current visit has already been served. */
+  const [servedSlot, setServedSlot] = useState<number | null>(null);
+  const timerRef = useRef<number | undefined>(undefined);
 
-  const current = adForOuterPosition(ads, facing);
-  const isVideo = current?.media_type === "video";
+  const currentRow = adForOuterPosition(ads, facing);
+  const current = currentRow ? resolveCreative(currentRow) : null;
+  const isVideo = current?.mediaType === "video";
+  const served = current ? servedSlot === current.slot : true;
 
   const onFacingChange = useCallback((index: number) => {
-    setFacing(index);
-    setPlayedSlot((played) => {
-      const ad = ads.find((a) => a.slot === index + 1);
-      // A different face arrived → the previous video may play again next time.
-      return ad && played === ad.slot ? played : null;
-    });
-  }, [ads]);
+    setFacing((prev) => (prev === index ? prev : index));
+    setServedSlot((prevServed) => (prevServed === index + 1 ? prevServed : null));
+  }, []);
 
   const onVideoEnded = useCallback(() => {
-    if (current) setPlayedSlot(current.slot);
+    if (current) setServedSlot(current.slot);
   }, [current]);
 
-  const holdingForVideo = Boolean(isVideo && current && playedSlot !== current.slot);
+  // An image advertisement holds the facing position for its display duration.
+  useEffect(() => {
+    window.clearTimeout(timerRef.current);
+    if (!current || isVideo || served) return;
+    const slot = current.slot;
+    timerRef.current = window.setTimeout(() => setServedSlot(slot), current.durationMs);
+    return () => window.clearTimeout(timerRef.current);
+  }, [current, isVideo, served]);
+
+  const holding = Boolean(current && !served);
 
   return {
     current,
-    /** True while a video advertisement plays — the building holds still. */
-    rotationPaused: holdingForVideo,
+    /** True while an advertisement is on screen — the building holds still. */
+    rotationPaused: holding,
     onVideoEnded,
     onFacingChange,
   };
 }
-
