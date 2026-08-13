@@ -152,7 +152,7 @@ const SectionCard = ({
 }: {
   row: SiteSection;
   onSave: (patch: SectionPatch) => Promise<void>;
-  onPublish: () => Promise<void>;
+  onPublish: (patch: SectionPatch) => Promise<void>;
   onMove: (direction: -1 | 1) => void;
   onVisible: (visible: boolean) => void;
 }) => {
