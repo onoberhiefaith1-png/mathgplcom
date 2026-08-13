@@ -261,6 +261,14 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
           </p>
         </div>
 
+        {!stripeLoading && !stripe?.paymentsActive && (plans ?? []).some((plan) => (plan.price ?? 0) > 0) ? (
+          <p className="rounded-2xl border border-ws-gold/40 bg-ws-gold/10 p-4 text-sm">
+            Your paid plans are saved, but they stay hidden from your gateway until Stripe is connected and{" "}
+            <span className="font-semibold">Payment active</span> is switched on. Only free plans are visible to
+            students right now.
+          </p>
+        ) : null}
+
         {error ? (
           <p className="text-sm text-destructive">{(error as Error).message}</p>
         ) : isLoading || !plans ? (
