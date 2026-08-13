@@ -33,7 +33,13 @@ function planKeyOf(items: Item[] | undefined): string | null {
   const product = item?.product?.import_meta?.external_id;
   if (product) return product;
   const price = item?.price?.import_meta?.external_id;
-  return price ? price.replace(/_monthly$/, "") : null;
+  return price ? price.replace(/_(monthly|yearly)$/, "") : null;
+}
+
+/** Monthly or yearly, taken from the price the customer actually bought. */
+function intervalOf(items: Item[] | undefined): "monthly" | "yearly" {
+  const price = items?.[0]?.price?.import_meta?.external_id ?? "";
+  return price.endsWith("_yearly") ? "yearly" : "monthly";
 }
 
 async function subscriptionRow(providerSubId: string) {
@@ -72,6 +78,7 @@ async function activate(input: {
   amount: number | null;
   periodEnd: string | null;
   customerId: string | null;
+  billingInterval?: "monthly" | "yearly";
 }) {
   const { error } = await db().rpc("paddle_activate_paid_plan", {
     _user_id: input.userId,
@@ -80,6 +87,7 @@ async function activate(input: {
     _amount: input.amount,
     _period_end: input.periodEnd,
     _customer_id: input.customerId,
+    _billing_interval: input.billingInterval ?? "monthly",
   });
   if (error) throw new Error(error.message);
 }
@@ -103,6 +111,7 @@ async function onSubscriptionCreated(data: Record<string, any>, _env: PaddleEnv)
     amount: money(data["items"]),
     periodEnd: data["current_billing_period"]?.ends_at ?? null,
     customerId: (data["customer_id"] as string) ?? null,
+    billingInterval: intervalOf(data["items"]),
   });
 }
 
