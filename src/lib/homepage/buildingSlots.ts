@@ -8,6 +8,7 @@ import ring6 from "@/assets/adventure/mathgpl-ring-6.png.asset.json";
 import ring7 from "@/assets/adventure/mathgpl-ring-7.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
 import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
+import freeBillboardPalace from "@/assets/adventure/free-billboard-palace.png.asset.json";
 
 export type SlotGroup = "ring" | "core";
 
@@ -43,3 +44,19 @@ export const CORE_SLOTS: BuildingSlot[] = Array.from({ length: 8 }).map((_, i) =
 
 /** All 16 replaceable artwork slots of the original MathGPL building. */
 export const BUILDING_SLOTS: BuildingSlot[] = [...RING_SLOTS, ...CORE_SLOTS];
+
+/**
+ * FREE BUILDING DEFAULTS
+ *
+ * The platform-owned Free/advertisement building ships with its own artwork for
+ * the eight outer positions (the billboard palace). The eight inner core dome
+ * slots are shared with the Pro building and are untouched.
+ */
+export type BuildingVersionKey = "pro" | "free";
+
+export const defaultUrlFor = (slot: BuildingSlot, version: BuildingVersionKey): string =>
+  version === "free" && slot.group === "ring" ? freeBillboardPalace.url : slot.defaultUrl;
+
+/** The 16 slots as they appear for a given building version. */
+export const slotsForVersion = (version: BuildingVersionKey): BuildingSlot[] =>
+  BUILDING_SLOTS.map((slot) => ({ ...slot, defaultUrl: defaultUrlFor(slot, version) }));
