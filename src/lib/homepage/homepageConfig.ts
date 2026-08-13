@@ -95,7 +95,7 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
       if (mode === "platform-free") {
         const remote = await fetchPlatformFreeBuilding();
         if (!alive) return;
-        setConfig(remote);
+        apply(remote);
         setReady(true);
         return;
       }
@@ -112,12 +112,12 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
           : await supabase.rpc("get_org_homepage_config");
         if (!alive) return;
         const remote = (data ?? null) as HomepageConfig | null;
-        if (remote && typeof remote === "object") setConfig(remote);
+        if (remote && typeof remote === "object") apply(remote);
         setReady(true);
         return;
       }
       const local = readLocal();
-      if (alive && Object.keys(local).length > 0) setConfig(local);
+      if (alive && Object.keys(local).length > 0) apply(local);
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
         if (alive) setReady(true);
@@ -131,7 +131,7 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
       if (!alive) return;
       const remote = (data?.homepage_config ?? null) as HomepageConfig | null;
       if (remote && typeof remote === "object") {
-        setConfig(remote);
+        apply(remote);
         writeLocal(remote);
       }
       setReady(true);
@@ -139,11 +139,13 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
     return () => {
       alive = false;
     };
-  }, [mode]);
+  }, [mode, apply]);
 
 
   /**
-   * Merge a patch into the config. Only the given keys are touched.
+   * Merge a patch into the config and PERSIST it. Only the given keys are
+   * touched. Errors are thrown so the calling Save button can report them
+   * instead of silently pretending the change was stored.
    *
    * The destination is decided by the mode, so a Pro edit can never write the
    * platform Free building and a Free edit can never write the account's own
@@ -153,12 +155,9 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
     async (patch: Partial<HomepageConfig>) => {
       if (mode === "school-readonly") return;
       setSaving(true);
-      let next: HomepageConfig = {};
-      setConfig((prev) => {
-        next = { ...prev, ...patch };
-        if (mode === "self") writeLocal(next);
-        return next;
-      });
+      const next: HomepageConfig = { ...configRef.current, ...patch };
+      apply(next);
+      if (mode === "self") writeLocal(next);
       try {
         if (mode === "platform-free") {
           const { error } = await supabase.rpc("set_platform_free_building", { _config: next as never });
@@ -166,18 +165,19 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
           return;
         }
         const { data: userData } = await supabase.auth.getUser();
-        if (userData.user) {
-          await supabase
-            .from("profiles")
-            .update({ homepage_config: next as never })
-            .eq("user_id", userData.user.id);
-        }
+        if (!userData.user) throw new Error("Sign in to save your homepage");
+        const { error } = await supabase
+          .from("profiles")
+          .update({ homepage_config: next as never })
+          .eq("user_id", userData.user.id);
+        if (error) throw error;
       } finally {
         setSaving(false);
       }
     },
-    [mode],
+    [mode, apply],
   );
+
 
 
   return { config, save, ready, saving };
