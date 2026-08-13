@@ -19,6 +19,12 @@ async function admin() {
 
 export type PlanAudience = "teacher" | "school" | "parent";
 
+/** The yearly discount every paid plan carries. Derived, never typed. */
+export const YEARLY_DISCOUNT = 0.2;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+export const yearlyPriceOf = (monthly: number) => round2(monthly * 12 * (1 - YEARLY_DISCOUNT));
+export const standardAnnualPriceOf = (monthly: number) => round2(monthly * 12);
+
 export type PlanVersion = {
   id: string;
   versionNo: number;
@@ -34,6 +40,10 @@ export type PlanVersion = {
   includedCredits: number;
   status: "draft" | "published" | "archived";
   publishedAt: string | null;
+  /** 12 months less the yearly discount. */
+  yearlyPrice: number;
+  /** 12 months at the monthly price, before the discount. */
+  standardAnnualPrice: number;
 };
 
 export type PlanRecord = {
@@ -47,7 +57,12 @@ export type PlanRecord = {
   isFree: boolean;
   visible: boolean;
   active: boolean;
+  yearlyEnabled: boolean;
   sortOrder: number;
+  /**
+   * The customer-facing list, generated from the plan's Plan Access switches
+   * and limits. There is no separate typed description to drift from it.
+   */
   features: string[];
   live: PlanVersion | null;
   draft: PlanVersion | null;
