@@ -71,6 +71,16 @@ const WelcomePage = ({ content }: { content: SiteContent }) => (
       </section>
     )}
 
+    {/* Secret entrance for authorised access. */}
+    <div className="flex justify-center pb-8 pt-4">
+      <Link
+        to="/access"
+        aria-label="Authorised entrance"
+        className="px-3 py-2 text-lg leading-none tracking-[0.4em] text-white/20 transition hover:text-white/60"
+      >
+        &bull;&bull;&bull;
+      </Link>
+    </div>
   </main>
 );
 
