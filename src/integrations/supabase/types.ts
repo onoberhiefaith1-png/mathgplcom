@@ -4033,6 +4033,7 @@ export type Database = {
           status: string
           updated_at: string
           version_no: number
+          yearly_enabled: boolean
         }
         Insert: {
           created_at?: string
@@ -4053,6 +4054,7 @@ export type Database = {
           status?: string
           updated_at?: string
           version_no?: number
+          yearly_enabled?: boolean
         }
         Update: {
           created_at?: string
@@ -4073,6 +4075,7 @@ export type Database = {
           status?: string
           updated_at?: string
           version_no?: number
+          yearly_enabled?: boolean
         }
         Relationships: [
           {
@@ -4102,6 +4105,7 @@ export type Database = {
           status: string
           subscription_amount: number
           updated_at: string
+          yearly_enabled: boolean
         }
         Insert: {
           active?: boolean
@@ -4120,6 +4124,7 @@ export type Database = {
           status?: string
           subscription_amount?: number
           updated_at?: string
+          yearly_enabled?: boolean
         }
         Update: {
           active?: boolean
@@ -4138,6 +4143,7 @@ export type Database = {
           status?: string
           subscription_amount?: number
           updated_at?: string
+          yearly_enabled?: boolean
         }
         Relationships: [
           {
@@ -5130,8 +5136,77 @@ export type Database = {
           },
         ]
       }
+      subscription_entitlements: {
+        Row: {
+          created_at: string
+          feature_key: string
+          id: string
+          subscription_id: string
+        }
+        Insert: {
+          created_at?: string
+          feature_key: string
+          id?: string
+          subscription_id: string
+        }
+        Update: {
+          created_at?: string
+          feature_key?: string
+          id?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_entitlements_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "feature_entitlements"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "subscription_entitlements_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_limits: {
+        Row: {
+          created_at: string
+          id: string
+          limit_key: string
+          limit_value: number | null
+          subscription_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          limit_key: string
+          limit_value?: number | null
+          subscription_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          limit_key?: string
+          limit_value?: number | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_limits_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
+          billing_interval: string
           cancel_at: string | null
           cost_unit_id: string
           created_at: string
@@ -5144,6 +5219,7 @@ export type Database = {
           id: string
           included_credits: number | null
           locked_profit_rate: number
+          monthly_equivalent: number | null
           org_id: string | null
           payment_state: string
           period_end: string | null
@@ -5157,12 +5233,14 @@ export type Database = {
           provider_subscription_id: string | null
           region: string | null
           scheduled_plan_id: string | null
+          standard_annual_price: number | null
           status: string
           stripe_subscription_id: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          billing_interval?: string
           cancel_at?: string | null
           cost_unit_id: string
           created_at?: string
@@ -5175,6 +5253,7 @@ export type Database = {
           id?: string
           included_credits?: number | null
           locked_profit_rate?: number
+          monthly_equivalent?: number | null
           org_id?: string | null
           payment_state?: string
           period_end?: string | null
@@ -5188,12 +5267,14 @@ export type Database = {
           provider_subscription_id?: string | null
           region?: string | null
           scheduled_plan_id?: string | null
+          standard_annual_price?: number | null
           status?: string
           stripe_subscription_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          billing_interval?: string
           cancel_at?: string | null
           cost_unit_id?: string
           created_at?: string
@@ -5206,6 +5287,7 @@ export type Database = {
           id?: string
           included_credits?: number | null
           locked_profit_rate?: number
+          monthly_equivalent?: number | null
           org_id?: string | null
           payment_state?: string
           period_end?: string | null
@@ -5219,6 +5301,7 @@ export type Database = {
           provider_subscription_id?: string | null
           region?: string | null
           scheduled_plan_id?: string | null
+          standard_annual_price?: number | null
           status?: string
           stripe_subscription_id?: string | null
           updated_at?: string
@@ -5615,23 +5698,45 @@ export type Database = {
       }
       account_activity_score: { Args: { _user_id: string }; Returns: number }
       account_audience: { Args: { _user_id: string }; Returns: string }
+      account_features: {
+        Args: { _user_id: string }
+        Returns: {
+          feature_key: string
+          kind: string
+        }[]
+      }
       account_plan_id: { Args: { _user_id: string }; Returns: string }
       account_role_of: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
-      activate_subscription: {
-        Args: {
-          _amount_paid?: number
-          _org_id?: string
-          _period_days?: number
-          _plan_key: string
-          _provider?: string
-          _provider_subscription_id?: string
-          _user_id: string
-        }
-        Returns: string
-      }
+      account_subscription_id: { Args: { _user_id: string }; Returns: string }
+      activate_subscription:
+        | {
+            Args: {
+              _amount_paid?: number
+              _org_id?: string
+              _period_days?: number
+              _plan_key: string
+              _provider?: string
+              _provider_subscription_id?: string
+              _user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _amount_paid?: number
+              _billing_interval?: string
+              _org_id?: string
+              _period_days?: number
+              _plan_key: string
+              _provider?: string
+              _provider_subscription_id?: string
+              _user_id: string
+            }
+            Returns: string
+          }
       adjust_credits: {
         Args: {
           _amount: number
@@ -6028,17 +6133,30 @@ export type Database = {
       owner_can_access_user: { Args: { _user_id: string }; Returns: boolean }
       owns_org: { Args: { _org_id: string }; Returns: boolean }
       owns_smart_card_preview: { Args: { _name: string }; Returns: boolean }
-      paddle_activate_paid_plan: {
-        Args: {
-          _amount?: number
-          _customer_id?: string
-          _period_end?: string
-          _plan_key: string
-          _provider_sub_id: string
-          _user_id: string
-        }
-        Returns: string
-      }
+      paddle_activate_paid_plan:
+        | {
+            Args: {
+              _amount?: number
+              _customer_id?: string
+              _period_end?: string
+              _plan_key: string
+              _provider_sub_id: string
+              _user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _amount?: number
+              _billing_interval?: string
+              _customer_id?: string
+              _period_end?: string
+              _plan_key: string
+              _provider_sub_id: string
+              _user_id: string
+            }
+            Returns: string
+          }
       paddle_apply_plan_change: {
         Args: { _plan_key: string; _provider_sub_id: string }
         Returns: string
@@ -6329,6 +6447,10 @@ export type Database = {
       signup_role_of: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      snapshot_subscription_terms: {
+        Args: { _plan_id: string; _subscription_id: string }
+        Returns: undefined
       }
       start_subscription_period: {
         Args: {

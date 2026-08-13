@@ -146,18 +146,13 @@ export const savePlanPresentationFn = createServerFn({ method: "POST" })
     return { plans: await setPlanPresentation(data) };
   });
 
-export const savePlanFeaturesFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data) =>
-    z
-      .object({ planId: z.string().uuid(), features: z.array(z.string().max(120)).max(20) })
-      .parse(data),
-  )
-  .handler(async ({ context, data }) => {
-    await guard(context.supabase, context.userId);
-    const { savePlanFeatures } = await import("./plans.server");
-    return { plans: await savePlanFeatures(data.planId, data.features) };
-  });
+/*
+ * There is no "save plan features" any more: what a plan includes is generated
+ * from its Plan Access switches, so the description can never drift from the
+ * access the application enforces.
+ */
+
+
 
 /* ─────────── credits, subscription management, catalogue ─────────── */
 

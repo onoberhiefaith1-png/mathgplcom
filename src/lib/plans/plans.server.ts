@@ -19,6 +19,12 @@ async function admin() {
 
 export type PlanAudience = "teacher" | "school" | "parent";
 
+/** The yearly discount every paid plan carries. Derived, never typed. */
+export const YEARLY_DISCOUNT = 0.2;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+export const yearlyPriceOf = (monthly: number) => round2(monthly * 12 * (1 - YEARLY_DISCOUNT));
+export const standardAnnualPriceOf = (monthly: number) => round2(monthly * 12);
+
 export type PlanVersion = {
   id: string;
   versionNo: number;
@@ -34,6 +40,10 @@ export type PlanVersion = {
   includedCredits: number;
   status: "draft" | "published" | "archived";
   publishedAt: string | null;
+  /** 12 months less the yearly discount. */
+  yearlyPrice: number;
+  /** 12 months at the monthly price, before the discount. */
+  standardAnnualPrice: number;
 };
 
 export type PlanRecord = {
@@ -47,49 +57,104 @@ export type PlanRecord = {
   isFree: boolean;
   visible: boolean;
   active: boolean;
+  yearlyEnabled: boolean;
   sortOrder: number;
+  /**
+   * The customer-facing list, generated from the plan's Plan Access switches
+   * and limits. There is no separate typed description to drift from it.
+   */
   features: string[];
   live: PlanVersion | null;
   draft: PlanVersion | null;
   history: PlanVersion[];
 };
 
-const version = (r: Record<string, unknown> | null | undefined): PlanVersion | null =>
-  r
-    ? {
-        id: String(r["id"]),
-        versionNo: Number(r["version_no"] ?? 0),
-        label: (r["label"] as string) ?? null,
-        description: (r["description"] as string) ?? null,
-        price: Number(r["price"] ?? 0),
-        platformAmount: Number(r["platform_amount"] ?? 0),
-        creditAmount: Number(r["credit_amount"] ?? 0),
-        currency: (r["currency"] as string) ?? "GBP",
-        profitPercentage: Number(r["profit_percentage"] ?? 0),
-        creditCost: Number(r["credit_cost"] ?? 0),
-        creditSellPrice: Number(r["credit_sell_price"] ?? 0),
-        includedCredits: Number(r["included_credits"] ?? 0),
-        status: (r["status"] as PlanVersion["status"]) ?? "draft",
-        publishedAt: (r["published_at"] as string) ?? null,
-      }
-    : null;
+const version = (r: Record<string, unknown> | null | undefined): PlanVersion | null => {
+  if (!r) return null;
+  const price = Number(r["price"] ?? 0);
+  return {
+    id: String(r["id"]),
+    versionNo: Number(r["version_no"] ?? 0),
+    label: (r["label"] as string) ?? null,
+    description: (r["description"] as string) ?? null,
+    price,
+    platformAmount: Number(r["platform_amount"] ?? 0),
+    creditAmount: Number(r["credit_amount"] ?? 0),
+    currency: (r["currency"] as string) ?? "GBP",
+    profitPercentage: Number(r["profit_percentage"] ?? 0),
+    creditCost: Number(r["credit_cost"] ?? 0),
+    creditSellPrice: Number(r["credit_sell_price"] ?? 0),
+    includedCredits: Number(r["included_credits"] ?? 0),
+    status: (r["status"] as PlanVersion["status"]) ?? "draft",
+    publishedAt: (r["published_at"] as string) ?? null,
+    yearlyPrice: yearlyPriceOf(price),
+    standardAnnualPrice: standardAnnualPriceOf(price),
+  };
+};
 
 const VERSION_COLUMNS =
   "id, plan_id, version_no, label, description, price, platform_amount, credit_amount, currency, profit_percentage, credit_cost, credit_sell_price, included_credits, status, published_at";
 
+const LIMIT_LINE: Record<string, (v: number | null) => string> = {
+  max_classes: (v) => (v === null ? "Unlimited classes" : `${v} ${v === 1 ? "class" : "classes"}`),
+  max_students: (v) => (v === null ? "Unlimited students" : `Up to ${v} students per class`),
+};
+
+/**
+ * What a plan includes, generated from the plan's own access switches and
+ * limits. The switches are the single source of truth: whatever the plan
+ * actually unlocks is exactly what the customer reads.
+ */
+async function generatedFeatures(): Promise<Map<string, string[]>> {
+  const db = await admin();
+  const [{ data: catalogue }, { data: granted }, { data: limits }] = await Promise.all([
+    db.from("feature_entitlements").select("key, label, sort_order").order("sort_order"),
+    db.from("plan_entitlements").select("plan_id, feature_key"),
+    db.from("plan_limits").select("plan_id, limit_key, limit_value"),
+  ]);
+
+  const labelOf = new Map((catalogue ?? []).map((f) => [String(f.key), String(f.label)]));
+  const keysInOrder = (catalogue ?? []).map((f) => String(f.key));
+
+  const keysByPlan = new Map<string, Set<string>>();
+  for (const row of granted ?? []) {
+    const planId = String(row.plan_id);
+    const set = keysByPlan.get(planId) ?? new Set<string>();
+    set.add(String(row.feature_key));
+    keysByPlan.set(planId, set);
+  }
+
+  const out = new Map<string, string[]>();
+  for (const [planId, set] of keysByPlan) {
+    out.set(
+      planId,
+      keysInOrder.filter((k) => set.has(k)).map((k) => labelOf.get(k)!),
+    );
+  }
+
+  for (const row of limits ?? []) {
+    const line = LIMIT_LINE[String(row.limit_key)];
+    if (!line) continue;
+    const planId = String(row.plan_id);
+    const value = row.limit_value === null || row.limit_value === undefined ? null : Number(row.limit_value);
+    out.set(planId, [...(out.get(planId) ?? []), line(value)]);
+  }
+  return out;
+}
+
 /** Full catalogue with drafts and history — administrator view. */
 export async function planCatalogue(): Promise<PlanRecord[]> {
   const db = await admin();
-  const [{ data: plans }, { data: versions }, { data: features }] = await Promise.all([
+  const [{ data: plans }, { data: versions }, features] = await Promise.all([
     db
       .from("plans")
       .select(
-        "id, key, audience, label, description, currency, status, is_free, audience_visible, active, sort_order",
+        "id, key, audience, label, description, currency, status, is_free, audience_visible, active, yearly_enabled, sort_order",
       )
       .order("audience")
       .order("sort_order"),
     db.from("plan_versions").select(VERSION_COLUMNS).order("version_no", { ascending: false }),
-    db.from("plan_features").select("plan_id, label, sort_order").order("sort_order"),
+    generatedFeatures(),
   ]);
 
   const byPlan = new Map<string, PlanVersion[]>();
@@ -113,10 +178,9 @@ export async function planCatalogue(): Promise<PlanRecord[]> {
       isFree: p.is_free === true,
       visible: p.audience_visible !== false,
       active: p.active !== false,
+      yearlyEnabled: (p as { yearly_enabled?: boolean }).yearly_enabled !== false,
       sortOrder: Number(p.sort_order ?? 0),
-      features: (features ?? [])
-        .filter((f) => String(f.plan_id) === String(p.id))
-        .map((f) => String(f.label)),
+      features: features.get(String(p.id)) ?? [],
       live: list.find((v) => v.status === "published") ?? null,
       draft: list.find((v) => v.status === "draft") ?? null,
       history: list.filter((v) => v.status !== "draft"),
@@ -129,22 +193,30 @@ export async function publishedPlans(audience?: PlanAudience) {
   const all = await planCatalogue();
   return all
     .filter((p) => p.active && p.visible && (!audience || p.audience === audience))
-    .map((p) => ({
-      key: p.key,
-      audience: p.audience,
-      label: p.live?.label ?? p.label,
-      description: p.live?.description ?? p.description,
-      status: p.status,
-      isFree: (p.live?.price ?? 0) === 0,
-      features: p.features,
-      price: p.live?.price ?? 0,
-      platformAmount: p.live?.platformAmount ?? 0,
-      creditAmount: p.live?.creditAmount ?? 0,
-      currency: p.live?.currency ?? p.currency,
-      includedCredits: p.live?.includedCredits ?? 0,
-      creditSellPrice: p.live?.creditSellPrice ?? 0,
-      versionNo: p.live?.versionNo ?? 0,
-    }));
+    .map((p) => {
+      const price = p.live?.price ?? 0;
+      return {
+        key: p.key,
+        audience: p.audience,
+        label: p.live?.label ?? p.label,
+        description: p.live?.description ?? p.description,
+        status: p.status,
+        isFree: price === 0,
+        features: p.features,
+        price,
+        platformAmount: p.live?.platformAmount ?? 0,
+        creditAmount: p.live?.creditAmount ?? 0,
+        currency: p.live?.currency ?? p.currency,
+        includedCredits: p.live?.includedCredits ?? 0,
+        creditSellPrice: p.live?.creditSellPrice ?? 0,
+        versionNo: p.live?.versionNo ?? 0,
+        /** Yearly is offered whenever the plan is paid and yearly is enabled. */
+        yearlyAvailable: price > 0 && p.yearlyEnabled,
+        yearlyPrice: yearlyPriceOf(price),
+        standardAnnualPrice: standardAnnualPriceOf(price),
+        yearlyDiscountPercentage: Math.round(YEARLY_DISCOUNT * 100),
+      };
+    });
 }
 
 export type PublicPlan = Awaited<ReturnType<typeof publishedPlans>>[number];
@@ -215,19 +287,8 @@ export async function setPlanPresentation(input: {
   return planCatalogue();
 }
 
-export async function savePlanFeatures(planId: string, labels: string[]) {
-  const db = await admin();
-  await db.from("plan_features").delete().eq("plan_id", planId);
-  const rows = labels
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((label, i) => ({ plan_id: planId, label, sort_order: i }));
-  if (rows.length) {
-    const { error } = await db.from("plan_features").insert(rows);
-    if (error) throw new Error(error.message);
-  }
-  return planCatalogue();
-}
+/* No hand-written feature list: see generatedFeatures() above. */
+
 
 /* ─────────── subscriptions ─────────── */
 
@@ -245,6 +306,8 @@ export type MySubscription = {
   scheduledPlanId: string | null;
   cancelAt: string | null;
   paymentState: "ok" | "past_due";
+  /** What the customer bought: a monthly or a yearly period. */
+  billingInterval: "monthly" | "yearly";
   /** End of the renewal grace window while the plan is expired. */
   graceUntil: string | null;
 };
@@ -258,7 +321,7 @@ export async function mySubscription(supabase: Client, userId: string): Promise<
   const { data } = await supabase
     .from("subscriptions")
     .select(
-      "plan, plan_id, status, final_price, currency, included_credits, locked_profit_rate, period_start, period_end, scheduled_plan_id, cancel_at, payment_state, plan_version_id, grace_until",
+      "plan, plan_id, status, final_price, currency, included_credits, locked_profit_rate, period_start, period_end, scheduled_plan_id, cancel_at, payment_state, plan_version_id, grace_until, billing_interval",
     )
     .eq("user_id", userId)
     .in("status", ["active", "expired"])
@@ -289,6 +352,8 @@ export async function mySubscription(supabase: Client, userId: string): Promise<
     scheduledPlanId: (data.scheduled_plan_id as string) ?? null,
     cancelAt: (data.cancel_at as string) ?? null,
     paymentState: (data.payment_state as "ok" | "past_due") ?? "ok",
+    billingInterval:
+      (data as { billing_interval?: string | null }).billing_interval === "yearly" ? "yearly" : "monthly",
     graceUntil: ((data as { grace_until?: string | null }).grace_until as string) ?? null,
   };
 }

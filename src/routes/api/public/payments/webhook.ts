@@ -33,7 +33,13 @@ function planKeyOf(items: Item[] | undefined): string | null {
   const product = item?.product?.import_meta?.external_id;
   if (product) return product;
   const price = item?.price?.import_meta?.external_id;
-  return price ? price.replace(/_monthly$/, "") : null;
+  return price ? price.replace(/_(monthly|yearly)$/, "") : null;
+}
+
+/** Monthly or yearly, taken from the price the customer actually bought. */
+function intervalOf(items: Item[] | undefined): "monthly" | "yearly" {
+  const price = items?.[0]?.price?.import_meta?.external_id ?? "";
+  return price.endsWith("_yearly") ? "yearly" : "monthly";
 }
 
 async function subscriptionRow(providerSubId: string) {
@@ -72,6 +78,7 @@ async function activate(input: {
   amount: number | null;
   periodEnd: string | null;
   customerId: string | null;
+  billingInterval?: "monthly" | "yearly";
 }) {
   const { error } = await db().rpc("paddle_activate_paid_plan", {
     _user_id: input.userId,
@@ -80,6 +87,7 @@ async function activate(input: {
     _amount: input.amount,
     _period_end: input.periodEnd,
     _customer_id: input.customerId,
+    _billing_interval: input.billingInterval ?? "monthly",
   });
   if (error) throw new Error(error.message);
 }
@@ -103,6 +111,7 @@ async function onSubscriptionCreated(data: Record<string, any>, _env: PaddleEnv)
     amount: money(data["items"]),
     periodEnd: data["current_billing_period"]?.ends_at ?? null,
     customerId: (data["customer_id"] as string) ?? null,
+    billingInterval: intervalOf(data["items"]),
   });
 }
 
@@ -143,6 +152,7 @@ async function onSubscriptionUpdated(data: Record<string, any>, _env: PaddleEnv)
       amount: money(data["items"]),
       periodEnd: data["current_billing_period"]?.ends_at ?? null,
       customerId: (data["customer_id"] as string) ?? null,
+      billingInterval: intervalOf(data["items"]),
     });
   } else {
     // Downgrade: the locked rate stands until the period renews.
@@ -192,13 +202,18 @@ async function onTransactionCompleted(data: Record<string, any>) {
 
   const { data: row } = await db()
     .from("subscriptions")
-    .select("user_id, plan_id, scheduled_plan_id")
+    .select("user_id, plan_id, scheduled_plan_id, billing_interval")
     .eq("provider_subscription_id", providerSubId)
     .eq("status", "active")
     .order("period_start", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const sub = row as { user_id: string; plan_id: string | null; scheduled_plan_id: string | null } | null;
+  const sub = row as {
+    user_id: string;
+    plan_id: string | null;
+    scheduled_plan_id: string | null;
+    billing_interval: string | null;
+  } | null;
   if (!sub) return;
 
   const planKey = sub.scheduled_plan_id ?? sub.plan_id;
@@ -211,6 +226,8 @@ async function onTransactionCompleted(data: Record<string, any>) {
     amount: data["details"]?.totals?.grand_total ? Number(data["details"].totals.grand_total) / 100 : null,
     periodEnd: data["billing_period"]?.ends_at ?? null,
     customerId: (data["customer_id"] as string) ?? null,
+    // A renewal keeps the interval the customer originally bought.
+    billingInterval: sub.billing_interval === "yearly" ? "yearly" : "monthly",
   });
 }
 

@@ -38,7 +38,9 @@ const PlanSection = ({ className = "" }: { className?: string }) => {
           </div>
           <div className="mt-2 grid gap-3 text-sm sm:grid-cols-3">
             <div>
-              <div className="text-xs text-white/50">Price</div>
+              <div className="text-xs text-white/50">
+                {subscription.billingInterval === "yearly" ? "Price · yearly" : "Price · monthly"}
+              </div>
               <div className="font-semibold">{money(subscription.price, subscription.currency)}</div>
             </div>
             <div>

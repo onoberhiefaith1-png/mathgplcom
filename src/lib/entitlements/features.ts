@@ -15,6 +15,7 @@ export type FeatureKey =
   | "smartboard"
   | "classes"
   | "students"
+  | "teacher_payments"
   | "assignments"
   | "adventure"
   | "skill_builder"
@@ -95,6 +96,8 @@ export const UPGRADE_COPY: Partial<Record<FeatureKey, string>> = {
   export: "Export is available on a paid plan. Upgrade to download your material.",
   connect_teachers:
     "Connecting directly to a teacher is available on Parent Pro. Upgrade to pay for your child's teacher-led learning.",
+  teacher_payments:
+    "Receiving payments from your students is available on Teacher Pro. Upgrade to charge for access to your classes and be paid directly.",
 };
 
 export const upgradeMessage = (feature: FeatureKey, fallbackLabel?: string) =>
