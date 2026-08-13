@@ -70,6 +70,7 @@ export async function loadAccount(requestedRole?: string): Promise<AccountState>
     capabilities,
     roles,
     isPlatformOwner: roles.includes("platform_owner"),
+    roleMissing: !role,
   };
 }
 
