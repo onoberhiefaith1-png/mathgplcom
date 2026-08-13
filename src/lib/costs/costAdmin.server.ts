@@ -774,10 +774,13 @@ export async function setCurrencyPricing(input: {
       .from("platform_cost_settings")
       .update({ credit_rate: input.creditValue, updated_at: new Date().toISOString() })
       .eq("id", 1);
+    const base = await resolvePricing("GBP");
+    await newPricingVersion(input.creditValue, base.profitPercentage, input.userId);
     const { syncCatalogReport } = await import("@/lib/payments/catalogSync.server");
     await syncCatalogReport("sandbox");
     await syncCatalogReport("live");
   }
+
   return currencyPricing();
 }
 
