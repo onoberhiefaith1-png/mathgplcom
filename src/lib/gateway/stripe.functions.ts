@@ -1,0 +1,246 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+const OWNER_KIND = z.enum(["teacher", "school"]);
+const ORIGIN = z.string().url().max(300);
+
+export type StripeConnectStatus = {
+  connected: boolean;
+  accountId: string | null;
+  chargesEnabled: boolean;
+  detailsSubmitted: boolean;
+  paymentsActive: boolean;
+};
+
+/**
+ * Where this workspace stands with Stripe. Read from Stripe itself whenever an
+ * account exists, so verification progress is never stale.
+ */
+export const getStripeStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ ownerKind: OWNER_KIND }).parse(data))
+  .handler(async ({ data, context }): Promise<StripeConnectStatus> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row } = await supabaseAdmin
+      .from("gateway_payout_accounts")
+      .select("*")
+      .eq("owner_id", context.userId)
+      .eq("owner_kind", data.ownerKind)
+      .maybeSingle();
+
+    if (!row?.stripe_account_id) {
+      return {
+        connected: false,
+        accountId: null,
+        chargesEnabled: false,
+        detailsSubmitted: false,
+        paymentsActive: false,
+      };
+    }
+
+    const { retrieveAccount } = await import("./stripeConnect.server");
+    const account = await retrieveAccount(row.stripe_account_id);
+
+    await supabaseAdmin
+      .from("gateway_payout_accounts")
+      .update({
+        charges_enabled: account.charges_enabled,
+        details_submitted: account.details_submitted,
+        status: account.charges_enabled ? "verified" : "pending",
+        payments_active: account.charges_enabled ? row.payments_active : false,
+      })
+      .eq("id", row.id);
+
+    return {
+      connected: true,
+      accountId: account.id,
+      chargesEnabled: account.charges_enabled,
+      detailsSubmitted: account.details_submitted,
+      paymentsActive: Boolean(account.charges_enabled && row.payments_active),
+    };
+  });
+
+/** Hands the owner over to Stripe's own onboarding and verification flow. */
+export const startStripeOnboarding = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ ownerKind: OWNER_KIND, origin: ORIGIN }).parse(data))
+  .handler(async ({ data, context }): Promise<{ url: string }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { createConnectedAccount, createAccountLink } = await import("./stripeConnect.server");
+
+    const { data: existing } = await supabaseAdmin
+      .from("gateway_payout_accounts")
+      .select("*")
+      .eq("owner_id", context.userId)
+      .eq("owner_kind", data.ownerKind)
+      .maybeSingle();
+
+    let accountId = existing?.stripe_account_id ?? null;
+
+    if (!accountId) {
+      const account = await createConnectedAccount({
+        email: (context.claims as { email?: string } | null)?.email ?? null,
+        ownerKind: data.ownerKind,
+        ownerId: context.userId,
+      });
+      accountId = account.id;
+
+      const payload = {
+        owner_id: context.userId,
+        owner_kind: data.ownerKind,
+        provider: "stripe",
+        stripe_account_id: accountId,
+        external_account_id: accountId,
+        status: "pending",
+        charges_enabled: account.charges_enabled,
+        details_submitted: account.details_submitted,
+      };
+
+      if (existing) {
+        await supabaseAdmin.from("gateway_payout_accounts").update(payload).eq("id", existing.id);
+      } else {
+        await supabaseAdmin.from("gateway_payout_accounts").insert(payload);
+      }
+    }
+
+    const back = `${data.origin}/${data.ownerKind === "school" ? "school" : "teaching-hub"}/pricing`;
+    const link = await createAccountLink(accountId, back, `${back}?stripe=return`);
+    return { url: link.url };
+  });
+
+/** A link straight into the owner's own Stripe dashboard. */
+export const openStripeDashboard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ ownerKind: OWNER_KIND }).parse(data))
+  .handler(async ({ data, context }): Promise<{ url: string }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row } = await supabaseAdmin
+      .from("gateway_payout_accounts")
+      .select("stripe_account_id")
+      .eq("owner_id", context.userId)
+      .eq("owner_kind", data.ownerKind)
+      .maybeSingle();
+    if (!row?.stripe_account_id) throw new Error("Connect Stripe first.");
+
+    const { createLoginLink } = await import("./stripeConnect.server");
+    const link = await createLoginLink(row.stripe_account_id);
+    return { url: link.url };
+  });
+
+/** The owner's own switch. Payment stays invisible to students until it is on. */
+export const setPaymentsActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ ownerKind: OWNER_KIND, active: z.boolean() }).parse(data))
+  .handler(async ({ data, context }): Promise<{ paymentsActive: boolean }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row } = await supabaseAdmin
+      .from("gateway_payout_accounts")
+      .select("*")
+      .eq("owner_id", context.userId)
+      .eq("owner_kind", data.ownerKind)
+      .maybeSingle();
+
+    if (!row?.stripe_account_id) throw new Error("Connect Stripe first.");
+    if (data.active && !row.charges_enabled) {
+      throw new Error("Stripe has not finished verifying this account yet.");
+    }
+
+    await supabaseAdmin
+      .from("gateway_payout_accounts")
+      .update({ payments_active: data.active })
+      .eq("id", row.id);
+
+    return { paymentsActive: data.active };
+  });
+
+/**
+ * Opens Stripe Checkout for a paid gateway plan, on the owner's connected
+ * account. Access is not granted here — only Stripe's webhook may do that.
+ */
+export const createPlanCheckout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ planId: z.string().uuid(), origin: ORIGIN }).parse(data))
+  .handler(async ({ data, context }): Promise<{ url: string }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: plan } = await supabaseAdmin
+      .from("gateway_plans")
+      .select("*")
+      .eq("id", data.planId)
+      .eq("is_published", true)
+      .maybeSingle();
+    if (!plan) throw new Error("That plan is not available.");
+
+    const price = Number(plan.price_amount ?? 0);
+    if (price <= 0) throw new Error("That plan is free — no payment is needed.");
+
+    const { data: account } = await supabaseAdmin
+      .from("gateway_payout_accounts")
+      .select("*")
+      .eq("owner_id", plan.owner_id)
+      .eq("owner_kind", plan.owner_kind)
+      .maybeSingle();
+    if (!account?.stripe_account_id || !account.charges_enabled || !account.payments_active) {
+      throw new Error("This workspace is not accepting payments yet.");
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("username")
+      .eq("user_id", plan.owner_id)
+      .maybeSingle();
+    const back = `${data.origin}/g/${profile?.username ?? ""}`;
+
+    const { createDirectCheckoutSession } = await import("./stripeConnect.server");
+    const session = await createDirectCheckoutSession({
+      stripeAccount: account.stripe_account_id,
+      mode: plan.billing_mode === "subscription" ? "subscription" : "payment",
+      amountMinor: Math.round(price * 100),
+      currency: plan.currency ?? "GBP",
+      productName: plan.name,
+      successUrl: `${back}?checkout=success`,
+      cancelUrl: `${back}?checkout=cancelled`,
+      customerEmail: (context.claims as { email?: string } | null)?.email ?? null,
+      metadata: {
+        mathgpl_plan_id: plan.id,
+        mathgpl_owner_id: plan.owner_id,
+        mathgpl_owner_kind: plan.owner_kind,
+        mathgpl_student_id: context.userId,
+      },
+    });
+
+    await supabaseAdmin.from("gateway_payments").upsert(
+      {
+        owner_id: plan.owner_id,
+        owner_kind: plan.owner_kind,
+        student_id: context.userId,
+        plan_id: plan.id,
+        plan_name: plan.name,
+        amount: price,
+        currency: plan.currency ?? "GBP",
+        status: "pending",
+        billing_mode: plan.billing_mode === "subscription" ? "subscription" : "one_off",
+        stripe_account_id: account.stripe_account_id,
+        stripe_checkout_session_id: session.id,
+      },
+      { onConflict: "stripe_checkout_session_id" },
+    );
+
+    await supabaseAdmin.from("gateway_entitlements").upsert(
+      {
+        owner_id: plan.owner_id,
+        owner_kind: plan.owner_kind,
+        student_id: context.userId,
+        plan_id: plan.id,
+        granted_items: [],
+        source: "paid",
+        status: "pending_payment",
+        stripe_checkout_session_id: session.id,
+      },
+      { onConflict: "owner_id,owner_kind,student_id" },
+    );
+
+    return { url: session.url };
+  });
