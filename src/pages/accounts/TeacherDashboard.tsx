@@ -169,16 +169,30 @@ const TeacherDashboard = () => {
       <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
         <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">Quick actions</h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          {QUICK.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="min-h-[44px] rounded-full border border-ws-border/70 bg-ws-canvas/40 px-4 py-2 text-sm transition hover:border-ws-gold/50"
-            >
-              {item.label}
-            </Link>
-          ))}
+          {QUICK.map((item) =>
+            !item.feature || allowed(item.feature) ? (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="min-h-[44px] rounded-full border border-ws-border/70 bg-ws-canvas/40 px-4 py-2 text-sm transition hover:border-ws-gold/50"
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <button
+                key={item.to}
+                type="button"
+                onClick={() => guard(item.feature!, () => {})}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ws-border/40 bg-ws-canvas/20 px-4 py-2 text-sm text-muted-foreground transition hover:border-ws-gold/40"
+              >
+                <Lock className="h-3.5 w-3.5" />
+                {item.label}
+              </button>
+            ),
+          )}
         </div>
+        {upgradeDialog}
+
       </section>
 
       <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
