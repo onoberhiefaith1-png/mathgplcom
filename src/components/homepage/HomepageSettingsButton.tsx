@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
+import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 
 const OPTIONS = [
   {
@@ -37,6 +38,9 @@ const OPTIONS = [
 const HomepageSettingsButton = () => {
   const { userId, role, isPlatformOwner } = useAccount();
   const { workspaces, isPersonal } = useWorkspace();
+  // Free accounts see the platform-owned advertising building; it is not theirs
+  // to change, so no background / edit / replace controls are offered at all.
+  const { canCustomize, canManageAds } = useBuildingContext();
   const [open, setOpen] = useState(false);
 
   // Signed-out visitors always see the default homepage.
@@ -45,6 +49,7 @@ const HomepageSettingsButton = () => {
   // sees the building its owner set — only the owner can change it.
   if (role === "student" && !isPlatformOwner) return null;
   if (workspaces.length > 0 && !isPersonal && !isPlatformOwner) return null;
+  if (!canCustomize && !canManageAds) return null;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -66,11 +71,11 @@ const HomepageSettingsButton = () => {
           </SheetDescription>
         </SheetHeader>
         <div className="mt-6 space-y-3">
-          {(isPlatformOwner
+          {(canManageAds
             ? [
-                ...OPTIONS,
+                ...(canCustomize ? OPTIONS : []),
                 {
-                  to: "/homepage/advertisements",
+                  to: "/admin/advertisements",
                   icon: Megaphone,
                   title: "Building Advertisements",
                   body: "The eight advertisement slots that play on the Free building's billboard and in Community. Nowhere else in the app shows ads.",
