@@ -46,7 +46,7 @@ export function useBuildingContext(options?: {
     return {
       configMode: free ? "platform-free" : "self",
       adsEnabled: free,
-      canCustomize: !free,
+      canCustomize: true,
       canManageAds: true,
       isLoading,
     };

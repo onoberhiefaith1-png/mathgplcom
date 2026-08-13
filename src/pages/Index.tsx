@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { GraduationCap, Globe2, Image, LogOut, Package, ShieldCheck, Users } from "lucide-react";
 
@@ -31,7 +31,12 @@ const Index = () => {
   // building opens. With nothing published for their type, the gate stays open.
   const { needsPlan } = usePlanGate();
   // Central pipeline decides WHICH building and whether ads play on it.
-  const building = useBuildingContext();
+  // Platform owner only: flip the building on screen between the real Pro
+  // building and the Free advertising building. Preview only.
+  const [preview, setPreview] = useState<"pro" | "free">("pro");
+  const building = useBuildingContext(
+    isPlatformOwner ? { previewVersion: preview } : undefined,
+  );
   useEffect(() => {
     if (needsPlan) navigate("/plans/gateway", { replace: true });
   }, [needsPlan, navigate]);
@@ -85,6 +90,28 @@ const Index = () => {
       <AcademyTopBar />
       <RotatingAdventureScene configMode={building.configMode} showAds={building.adsEnabled} />
       {building.canCustomize && <HomepageSettingsButton />}
+      {isPlatformOwner && (
+        <div className="fixed right-5 top-32 z-50 flex items-center gap-1 rounded-full border border-primary/40 bg-background/70 p-1 text-xs font-semibold backdrop-blur">
+          <span className="px-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+            Building
+          </span>
+          {(["pro", "free"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setPreview(v)}
+              aria-pressed={preview === v}
+              className={
+                preview === v
+                  ? "rounded-full bg-primary px-3 py-1 text-primary-foreground"
+                  : "rounded-full px-3 py-1 text-muted-foreground hover:text-foreground"
+              }
+            >
+              {v === "pro" ? "Pro" : "Free"}
+            </button>
+          ))}
+        </div>
+      )}
       <LevelNavPanel />
       <Link
         to="/backgrounds"
