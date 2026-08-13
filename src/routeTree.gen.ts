@@ -48,6 +48,7 @@ import { Route as LiveIndexRouteImport } from './routes/live/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
 import { Route as PlansIndexRouteImport } from './routes/plans/index'
+import { Route as PlansGatewayRouteImport } from './routes/plans/gateway'
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
 import { Route as RefundPolicyIndexRouteImport } from './routes/refund-policy/index'
 import { Route as RequestsIndexRouteImport } from './routes/requests/index'
@@ -462,6 +463,11 @@ const MathboardIndexRoute = MathboardIndexRouteImport.update({
 const PlansIndexRoute = PlansIndexRouteImport.update({
   id: '/plans/',
   path: '/plans/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlansGatewayRoute = PlansGatewayRouteImport.update({
+  id: '/plans/gateway',
+  path: '/plans/gateway',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyIndexRoute = PrivacyIndexRouteImport.update({
@@ -1727,6 +1733,7 @@ export interface FileRoutesByFullPath {
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
+  '/plans/gateway': typeof PlansGatewayRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -1977,6 +1984,7 @@ export interface FileRoutesByTo {
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
+  '/plans/gateway': typeof PlansGatewayRoute
   '/account': typeof AccountIndexRoute
   '/admin': typeof AdminIndexRoute
   '/adventure': typeof AdventureIndexRoute
@@ -2239,6 +2247,7 @@ export interface FileRoutesById {
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
+  '/plans/gateway': typeof PlansGatewayRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
@@ -2502,6 +2511,7 @@ export interface FileRouteTypes {
     | '/auth/teacher'
     | '/auth/verified'
     | '/g/$handle'
+    | '/plans/gateway'
     | '/account/'
     | '/admin/'
     | '/adventure/'
@@ -2752,6 +2762,7 @@ export interface FileRouteTypes {
     | '/auth/teacher'
     | '/auth/verified'
     | '/g/$handle'
+    | '/plans/gateway'
     | '/account'
     | '/admin'
     | '/adventure'
@@ -3013,6 +3024,7 @@ export interface FileRouteTypes {
     | '/auth/teacher'
     | '/auth/verified'
     | '/g/$handle'
+    | '/plans/gateway'
     | '/account/'
     | '/admin/'
     | '/adventure/'
@@ -3275,6 +3287,7 @@ export interface RootRouteChildren {
   AuthTeacherRoute: typeof AuthTeacherRoute
   AuthVerifiedRoute: typeof AuthVerifiedRoute
   GHandleRoute: typeof GHandleRoute
+  PlansGatewayRoute: typeof PlansGatewayRoute
   AccountIndexRoute: typeof AccountIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
@@ -3643,6 +3656,13 @@ declare module '@tanstack/react-router' {
       path: '/plans'
       fullPath: '/plans/'
       preLoaderRoute: typeof PlansIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plans/gateway': {
+      id: '/plans/gateway'
+      path: '/plans/gateway'
+      fullPath: '/plans/gateway'
+      preLoaderRoute: typeof PlansGatewayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy/': {
@@ -5673,6 +5693,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthTeacherRoute: AuthTeacherRoute,
   AuthVerifiedRoute: AuthVerifiedRoute,
   GHandleRoute: GHandleRoute,
+  PlansGatewayRoute: PlansGatewayRoute,
   AccountIndexRoute: AccountIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
   AuthIndexRoute: AuthIndexRoute,

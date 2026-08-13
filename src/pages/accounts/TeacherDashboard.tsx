@@ -9,6 +9,7 @@ import { useUpcomingSessions } from "@/lib/workspace/useUpcomingSessions";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useConnections, useConnectionCounts } from "@/lib/connections/useConnections";
 import WorkspaceInvitations from "@/components/accounts/WorkspaceInvitations";
+import PlanSection from "@/components/plans/PlanSection";
 
 const QUICK: { to: string; label: string }[] = [
   { to: "/lesson-notes", label: "Lesson Notes" },
@@ -180,6 +181,7 @@ const TeacherDashboard = () => {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">Recent activity</h2>
         <ActivityList items={data?.activity ?? []} empty="No lesson notes in this workspace yet." />
       </section>
+      <PlanSection />
     </WorkspaceLayout>
   );
 };

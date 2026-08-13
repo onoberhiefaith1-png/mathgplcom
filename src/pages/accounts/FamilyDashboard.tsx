@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router-compat";
 import { useProfileSummary } from "@/lib/accounts/useProfileSummary";
 import { useChildren, useFamilyActivity, useFamilyConnections } from "@/lib/family/useFamily";
+import PlanSection from "@/components/plans/PlanSection";
 
 const greeting = () => {
   const hour = new Date().getHours();
@@ -236,6 +237,7 @@ const FamilyDashboard = () => {
           <Link to="/live">Go Live now</Link>
         </Button>
       </section>
+      <PlanSection />
     </WorkspaceLayout>
   );
 };
