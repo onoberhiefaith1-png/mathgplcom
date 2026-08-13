@@ -132,7 +132,7 @@ export function useAdImageUrls(ads: AdvertisementRow[]) {
       const resolved: Record<number, string> = {};
       await Promise.all(
         images.map(async (ad) => {
-          const url = await resolveMediaUrl({ path: ad.media_path!, source: ad.media_source });
+          const url = await resolveMediaUrl({ path: ad.media_path!, source: ad.media_source, mediaType: "image" });
           if (url) resolved[ad.slot - 1] = url;
         }),
       );

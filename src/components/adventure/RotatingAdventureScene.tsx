@@ -10,7 +10,7 @@ import {
   useResolvedSlotUrls,
   type HomepageConfigMode,
 } from "@/lib/homepage/homepageConfig";
-import { useAdRotation, usePlayableAds } from "@/lib/homepage/advertisements";
+import { adForOuterPosition, useAdImageUrls, useFacingAdRotation, usePlayableAds } from "@/lib/homepage/advertisements";
 import BuildingBillboard from "@/components/adventure/BuildingBillboard";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
@@ -174,6 +174,7 @@ const Showcase = ({
   interactive = true,
   onArtworkReady,
   rotationPaused = false,
+  onFrontIndexChange,
 }: {
   ringUrls: string[];
   coreUrls: string[];
@@ -185,6 +186,8 @@ const Showcase = ({
   onArtworkReady?: () => void;
   /** Holds the building still while a video advertisement plays out. */
   rotationPaused?: boolean;
+  /** Reports which outer position (0–7) currently faces the camera. */
+  onFrontIndexChange?: (index: number) => void;
 }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
@@ -278,7 +281,10 @@ const Showcase = ({
         best = i;
       }
     }
-    frontIndexRef.current = best;
+    if (frontIndexRef.current !== best) {
+      frontIndexRef.current = best;
+      onFrontIndexChange?.(best);
+    }
 
     // Gentle breathing bob of the whole world for a living, floating feel.
     worldRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.4) * 0.12;
@@ -412,12 +418,21 @@ export const RotatingAdventureScene = ({
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
   // Advertisements come from the building pipeline, never from the page.
   const ads = usePlayableAds(showAds);
-  const { current: currentAd, rotationPaused, onVideoEnded } = useAdRotation(ads);
+  const { current: currentAd, rotationPaused, onVideoEnded, onFacingChange } = useFacingAdRotation(ads);
+  // Image advertisements also repaint their own outer artwork position, so the
+  // 8 slots read as the building's own advertising surfaces.
+  const adImageUrls = useAdImageUrls(ads);
 
 
   const ringUrls = useMemo(
-    () => RING_SLOTS.map((slot) => slotUrls[slot.id] ?? slot.defaultUrl),
-    [slotUrls],
+    () =>
+      RING_SLOTS.map((slot, i) => {
+        // An empty or disabled slot simply keeps the building's own artwork.
+        const ad = showAds ? adForOuterPosition(ads, i) : null;
+        if (ad && ad.media_type === "image" && adImageUrls[i]) return adImageUrls[i];
+        return slotUrls[slot.id] ?? slot.defaultUrl;
+      }),
+    [slotUrls, showAds, ads, adImageUrls],
   );
   const coreUrls = useMemo(
     () => CORE_SLOTS.map((slot) => slotUrls[slot.id] ?? slot.defaultUrl),
@@ -478,6 +493,7 @@ export const RotatingAdventureScene = ({
                 interactive={interactive}
                 onArtworkReady={handleArtworkReady}
                 rotationPaused={rotationPaused}
+                onFrontIndexChange={onFacingChange}
               />
             </Suspense>
           </Canvas>
