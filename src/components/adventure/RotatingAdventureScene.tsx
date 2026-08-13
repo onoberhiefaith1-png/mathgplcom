@@ -5,7 +5,13 @@ import { useNavigate } from "@/lib/router-compat";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { CORE_SLOTS, RING_SLOTS } from "@/lib/homepage/buildingSlots";
-import { useHomepageConfig, useResolvedSlotUrls } from "@/lib/homepage/homepageConfig";
+import {
+  useHomepageConfig,
+  useResolvedSlotUrls,
+  type HomepageConfigMode,
+} from "@/lib/homepage/homepageConfig";
+import { useAdRotation, usePlayableAds } from "@/lib/homepage/advertisements";
+import BuildingBillboard from "@/components/adventure/BuildingBillboard";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
