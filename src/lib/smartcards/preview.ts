@@ -7,6 +7,7 @@
 
 import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
+import { bytesToGb, meterClientUsage } from "@/lib/costs/clientMeter";
 
 export const PREVIEW_BUCKET = "smart-card-previews";
 // Square poster (1:1) — the card should almost completely fill it.
@@ -121,6 +122,7 @@ export async function captureCardPreview(
     .from(PREVIEW_BUCKET)
     .upload(path, blob, { upsert: true, contentType: "image/png", cacheControl: "60" });
   if (error) return null;
+  meterClientUsage("storage.gb_month", bytesToGb(blob.size), "smart-card-preview", "GB");
 
   await supabase
     .from("smart_cards")

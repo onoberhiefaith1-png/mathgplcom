@@ -15,6 +15,7 @@ import {
 } from "./types";
 import { getSignedUrl } from "./urls";
 import {
+import { bytesToGb, meterClientUsage } from "@/lib/costs/clientMeter";
   enterGameAudio,
   exitGameAudio,
   playChannel,
@@ -38,6 +39,7 @@ export const uploadSound = async (file: Blob, name: string): Promise<string> => 
     .from(GAME_ASSETS_BUCKET)
     .upload(path, file, { contentType: file.type || "audio/mpeg", upsert: false });
   if (error) throw error;
+  meterClientUsage("storage.gb_month", bytesToGb(file.size), "adventure-sound", "GB");
   return path;
 };
 

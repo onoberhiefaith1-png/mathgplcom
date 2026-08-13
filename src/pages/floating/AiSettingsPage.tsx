@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { bytesToGb, meterClientUsage } from "@/lib/costs/clientMeter";
 
 /* ──────────────── types ──────────────── */
 
@@ -320,6 +321,7 @@ const AiSettingsPage = () => {
       const path = `${session.user.id}/${Date.now()}-${file.name}`;
       const up = await supabase.storage.from("floating-knowledge").upload(path, file);
       if (up.error) throw up.error;
+      meterClientUsage("storage.gb_month", bytesToGb(file.size), "floating-knowledge", "GB");
       const { error } = await supabase.from("floating_knowledge_documents").insert({
         owner_id: session.user.id, kind: file.type || "unknown", filename: file.name, storage_path: path,
       } as any);

@@ -1,6 +1,7 @@
 // Stores AI-generated notebook cover artwork in the private game-assets bucket.
 import { supabase } from "@/integrations/supabase/client";
 import { GAME_ASSETS_BUCKET } from "@/lib/games/types";
+import { bytesToGb, meterClientUsage } from "@/lib/costs/clientMeter";
 
 const b64ToBlob = (b64: string): Blob => {
   const bin = atob(b64);
@@ -20,5 +21,6 @@ export const uploadCoverArt = async (b64: string, notebookId: string): Promise<s
     .from(GAME_ASSETS_BUCKET)
     .upload(path, b64ToBlob(b64), { contentType: "image/png", upsert: true });
   if (error) throw error;
+  meterClientUsage("storage.gb_month", bytesToGb(b64.length * 0.75), "notebook-cover", "GB");
   return path;
 };
