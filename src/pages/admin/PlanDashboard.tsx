@@ -410,7 +410,6 @@ function PlanCard({
   onSaveDraft,
   onPublish,
   onDiscard,
-  onSaveFeatures,
   onPresentation,
 }: {
   plan: PlanRecord;
@@ -421,7 +420,6 @@ function PlanCard({
   onSaveDraft: () => void;
   onPublish: () => void;
   onDiscard: () => void;
-  onSaveFeatures: () => void;
   onPresentation: (patch: { status?: "available" | "coming_soon"; visible?: boolean; active?: boolean }) => void;
 }) {
   const live = plan.live;
