@@ -82,8 +82,17 @@ const CreateClassPage = () => {
       if (error && (error as { code?: string }).code !== "23505") break;
     }
     setSubmitting(false);
-    toast({ title: "Could not create class", description: String((lastError as { message?: string })?.message ?? ""), variant: "destructive" });
-  };
+    const raw = String((lastError as { message?: string })?.message ?? "");
+    // The database refuses a class beyond the plan's limit; say so in plain words.
+    const limitReached = raw.includes("plan_limit_reached");
+    toast({
+      title: limitReached ? "Your plan's class limit is reached" : "Could not create class",
+      description: limitReached
+        ? `${raw.split("plan_limit_reached:").pop()?.trim()} Open Plans to upgrade.`
+        : raw,
+      variant: "destructive",
+    });
+
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
