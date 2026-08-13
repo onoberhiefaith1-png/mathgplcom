@@ -307,3 +307,45 @@ export const loadMyPayoutAccount = async (ownerKind: GatewayOwnerKind) => {
   if (error) throw error;
   return data ?? null;
 };
+
+export type GatewayPaymentRecord = {
+  id: string;
+  planName: string;
+  studentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  billingMode: string;
+  reference: string | null;
+  createdAt: string;
+};
+
+/** The owner's own record of what students paid them. Stripe holds the full books. */
+export const loadMyGatewayPayments = async (
+  ownerKind: GatewayOwnerKind,
+): Promise<GatewayPaymentRecord[]> => {
+  const ownerId = await currentUserId();
+  const { data, error } = await supabase
+    .from("gateway_payments")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .eq("owner_kind", ownerKind)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+    id: String(row["id"]),
+    planName: (row["plan_name"] as string | null) ?? "Plan",
+    studentId: String(row["student_id"] ?? ""),
+    amount: Number(row["amount"] ?? 0),
+    currency: (row["currency"] as string | null) ?? "GBP",
+    status: (row["status"] as string | null) ?? "pending",
+    billingMode: (row["billing_mode"] as string | null) ?? "one_off",
+    reference:
+      (row["stripe_payment_intent_id"] as string | null) ??
+      (row["stripe_subscription_id"] as string | null) ??
+      (row["stripe_checkout_session_id"] as string | null) ??
+      null,
+    createdAt: String(row["created_at"] ?? ""),
+  }));
+};
