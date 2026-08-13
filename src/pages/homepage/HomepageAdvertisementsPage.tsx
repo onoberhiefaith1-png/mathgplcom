@@ -19,12 +19,15 @@ import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventure
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
 import { useAccount } from "@/lib/accounts/useAccount";
 import {
+  AD_KINDS,
+  AD_KIND_LABEL,
   AD_PROVIDERS,
   AD_PROVIDER_LABEL,
   AD_SLOTS,
   isScheduled,
   resolveCreative,
   useAdvertisements,
+  type AdKind,
   type AdProvider,
   type AdvertisementRow,
 } from "@/lib/homepage/advertisements";
@@ -177,7 +180,13 @@ const HomepageAdvertisementsPage = () => {
                 </div>
 
                 <div className="h-36 w-full overflow-hidden rounded-lg bg-black">
-                  {ad?.media_path ? (
+                  {ad?.ad_kind === "adsense" ? (
+                    <div className="grid h-full place-items-center px-3 text-center text-xs text-muted-foreground">
+                      {ad.adsense_slot_id
+                        ? `Google AdSense · unit ${ad.adsense_slot_id}`
+                        : "Google AdSense · add the ad-unit ID"}
+                    </div>
+                  ) : ad?.media_path ? (
                     <SignedMedia
                       path={ad.media_path}
                       source={ad.media_source}
@@ -218,6 +227,45 @@ const HomepageAdvertisementsPage = () => {
                           }
                         />
                       </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground" htmlFor={`kind-${slot}`}>
+                          Board content
+                        </label>
+                        <Select
+                          value={ad.ad_kind}
+                          onValueChange={(v) => void patch.mutateAsync({ slot, ad_kind: v as AdKind })}
+                        >
+                          <SelectTrigger id={`kind-${slot}`} className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {AD_KINDS.map((k) => (
+                              <SelectItem key={k} value={k}>
+                                {AD_KIND_LABEL[k]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {ad.ad_kind === "adsense" && (
+                        <div>
+                          <label className="text-xs text-muted-foreground" htmlFor={`adsense-${slot}`}>
+                            AdSense ad-unit ID
+                          </label>
+                          <Input
+                            id={`adsense-${slot}`}
+                            className="h-8"
+                            defaultValue={ad.adsense_slot_id ?? ""}
+                            placeholder="e.g. 1234567890"
+                            onBlur={(e) =>
+                              void patch.mutateAsync({
+                                slot,
+                                adsense_slot_id: e.target.value.trim() || null,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
                       <div>
                         <label className="text-xs text-muted-foreground" htmlFor={`provider-${slot}`}>
                           Provider
@@ -314,7 +362,18 @@ const HomepageAdvertisementsPage = () => {
                     <Upload className="mr-1.5 h-3.5 w-3.5" />
                     {busySlot === slot ? "Uploading…" : ad ? "Replace" : "Upload advertisement"}
                   </Button>
-                  {ad?.media_path && (
+                  {!ad && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        void upsert.mutateAsync({ slot, ad_kind: "adsense", provider: "google" })
+                      }
+                    >
+                      Use AdSense
+                    </Button>
+                  )}
+                  {ad?.media_path && ad.ad_kind !== "adsense" && (
                     <Button size="sm" variant="ghost" onClick={() => setPreviewSlot(slot)}>
                       <Eye className="mr-1.5 h-3.5 w-3.5" /> Preview
                     </Button>

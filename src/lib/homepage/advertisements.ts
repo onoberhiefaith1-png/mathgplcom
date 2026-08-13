@@ -33,9 +33,19 @@ export const AD_PROVIDER_LABEL: Record<AdProvider, string> = {
   other: "Other provider",
 };
 
+/** What fills the board: uploaded media, or a Google AdSense unit. */
+export type AdKind = "media" | "adsense";
+export const AD_KINDS: AdKind[] = ["media", "adsense"];
+export const AD_KIND_LABEL: Record<AdKind, string> = {
+  media: "Uploaded media",
+  adsense: "Google AdSense",
+};
+
 export interface AdvertisementRow {
   id: string;
   slot: number;
+  ad_kind: AdKind;
+  adsense_slot_id: string | null;
   media_path: string | null;
   media_source: MediaSource;
   media_type: MediaType;
@@ -54,9 +64,12 @@ export interface AdvertisementRow {
 /** What the building renders. Provider-agnostic by design. */
 export interface AdCreative {
   slot: number;
+  kind: AdKind;
+  /** AdSense ad-unit id, when kind is "adsense". */
+  adSlotId: string | null;
   provider: AdProvider;
   mediaType: MediaType;
-  mediaPath: string;
+  mediaPath: string | null;
   mediaSource: MediaSource;
   /** How long an image advertisement holds the facing position. */
   durationMs: number;
@@ -64,7 +77,7 @@ export interface AdCreative {
 }
 
 const SELECT =
-  "id, slot, media_path, media_source, media_type, label, is_active, duration_ms, provider, provider_ad_id, campaign_name, thumbnail_path, click_url, starts_at, ends_at";
+  "id, slot, ad_kind, adsense_slot_id, media_path, media_source, media_type, label, is_active, duration_ms, provider, provider_ad_id, campaign_name, thumbnail_path, click_url, starts_at, ends_at";
 
 export async function fetchAdvertisements(): Promise<AdvertisementRow[]> {
   const { data } = await supabase
@@ -76,6 +89,7 @@ export async function fetchAdvertisements(): Promise<AdvertisementRow[]> {
     media_source: (row.media_source ?? "storage") as MediaSource,
     media_type: (row.media_type ?? "image") as MediaType,
     provider: (row.provider ?? "manual") as AdProvider,
+    ad_kind: (row.ad_kind ?? "media") as AdKind,
   }));
 }
 
@@ -97,9 +111,27 @@ export function resolveCreative(ad: AdvertisementRow, now = Date.now()): AdCreat
   if (!ad.is_active || !isScheduled(ad, now)) return null;
   // Google/other creatives are stored and previewed, but only render once their
   // adapter supplies compatible media for the 3D billboard.
+  // An AdSense board needs only its ad-unit id; Google supplies the creative.
+  if (ad.ad_kind === "adsense") {
+    if (!ad.adsense_slot_id) return null;
+    return {
+      slot: ad.slot,
+      kind: "adsense",
+      adSlotId: ad.adsense_slot_id,
+      provider: ad.provider,
+      // An AdSense board behaves like an image: it holds for its duration.
+      mediaType: "image",
+      mediaPath: null,
+      mediaSource: ad.media_source,
+      durationMs: Math.max(2000, ad.duration_ms || 6000),
+      clickUrl: null,
+    };
+  }
   if (!ad.media_path) return null;
   return {
     slot: ad.slot,
+    kind: "media",
+    adSlotId: null,
     provider: ad.provider,
     mediaType: ad.media_type,
     mediaPath: ad.media_path,
@@ -111,6 +143,8 @@ export function resolveCreative(ad: AdvertisementRow, now = Date.now()): AdCreat
 
 export interface AdvertisementInput {
   slot: number;
+  ad_kind?: AdKind;
+  adsense_slot_id?: string | null;
   media_path?: string | null;
   media_source?: MediaSource;
   media_type?: MediaType;
@@ -140,6 +174,8 @@ export function useAdvertisements() {
         .upsert(
           {
             slot: input.slot,
+            ad_kind: input.ad_kind ?? "media",
+            adsense_slot_id: input.adsense_slot_id ?? null,
             media_path: input.media_path ?? null,
             media_source: input.media_source ?? "storage",
             media_type: input.media_type ?? "image",
@@ -203,7 +239,7 @@ export function usePlayableAds(enabled: boolean) {
   return useMemo(
     () => rows.filter((ad) => resolveCreative(ad) !== null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows.map((r) => `${r.slot}:${r.media_path}:${r.is_active}:${r.starts_at}:${r.ends_at}`).join("|")],
+    [rows.map((r) => `${r.slot}:${r.ad_kind}:${r.adsense_slot_id}:${r.media_path}:${r.is_active}:${r.starts_at}:${r.ends_at}`).join("|")],
   );
 }
 
@@ -219,13 +255,15 @@ export function adForOuterPosition(ads: AdvertisementRow[], position: number) {
 export function useAdImageUrls(ads: AdvertisementRow[]) {
   const [urls, setUrls] = useState<Record<number, string>>({});
   const key = ads
-    .filter((ad) => ad.media_type === "image")
+    .filter((ad) => ad.ad_kind !== "adsense" && ad.media_type === "image")
     .map((ad) => `${ad.slot}:${ad.media_path}:${ad.media_source}`)
     .join("|");
 
   useEffect(() => {
     let alive = true;
-    const images = ads.filter((ad) => ad.media_type === "image" && ad.media_path);
+    const images = ads.filter(
+      (ad) => ad.ad_kind !== "adsense" && ad.media_type === "image" && ad.media_path,
+    );
     if (images.length === 0) {
       setUrls({});
       return;
@@ -267,7 +305,7 @@ export function useFacingAdRotation(ads: AdvertisementRow[]) {
 
   const currentRow = adForOuterPosition(ads, facing);
   const current = currentRow ? resolveCreative(currentRow) : null;
-  const isVideo = current?.mediaType === "video";
+  const isVideo = current?.kind === "media" && current.mediaType === "video";
   const served = current ? servedSlot === current.slot : true;
 
   const onFacingChange = useCallback((index: number) => {

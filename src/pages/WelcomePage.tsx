@@ -1,4 +1,5 @@
 import { Link } from "@/lib/router-compat";
+import HomepageAdBlock from "@/components/ads/HomepageAdBlock";
 import SiteSection from "@/components/site/SiteSections";
 import type { SiteContent } from "@/lib/site/types";
 
@@ -37,8 +38,12 @@ const WelcomePage = ({ content }: { content: SiteContent }) => (
     </header>
 
     {content.sections.length > 0 ? (
-      content.sections.map((section) => (
-        <SiteSection key={section.key} section={section} content={content} />
+      content.sections.map((section, index) => (
+        <div key={section.key}>
+          <SiteSection section={section} content={content} />
+          {/* One natural break in the cinematic flow carries the homepage ad. */}
+          {index === Math.min(2, content.sections.length - 1) && <HomepageAdBlock />}
+        </div>
       ))
     ) : (
       <section className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6">
