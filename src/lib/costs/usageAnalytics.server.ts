@@ -526,6 +526,14 @@ export async function revenueLedger(
   };
 
   for (const r of rows) {
+    if (r.kind !== "usage") {
+      // Cash in is not usage revenue; it is counted in the financial summary.
+      const cash = byStatus.get(r.status) ?? { status: r.status, events: 0, charge: 0, paid: 0, result: 0 };
+      cash.events += 1;
+      cash.paid += r.cashReceived;
+      byStatus.set(r.status, cash);
+      continue;
+    }
     summary.cost += r.cost;
     summary.charge += r.charge;
     summary.paid += r.amountPaid;
