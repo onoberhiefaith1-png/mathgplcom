@@ -183,7 +183,9 @@ export const ROLE_LABEL: Record<AppRole, string> = {
  * reports; platform administration never shows teacher authoring tools.
  */
 export const navFor = (role: AppRole | null, workspaceKind?: string): NavItem[] => {
-  const items = ROLE_NAV[role ?? "teacher"];
+  // No role, no menu — a roleless account is never shown a teacher's menu.
+  if (!role) return [];
+  const items = ROLE_NAV[role];
   if (!workspaceKind) return items;
 
   // Visiting a school workspace as a teacher: no school administration.
