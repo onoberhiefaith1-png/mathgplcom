@@ -43,6 +43,9 @@ export const PolicyLinks = () => (
  */
 export default function PublicPricingPage() {
   const [audience, setAudience] = useState<Audience>("teacher");
+  /** Which card is showing the "create an account first" note. */
+  const [selected, setSelected] = useState<string | null>(null);
+
 
   const plans = useQuery({
     queryKey: ["public-plans", audience],
@@ -144,16 +147,28 @@ export default function PublicPricingPage() {
                     </Button>
                   ) : (
                     <>
-                      <Button className="w-full" asChild>
-                        <Link to={`/signup?plan=${encodeURIComponent(plan.key)}`}>
-                          {free ? `Create account — start ${plan.label}` : `Create account — choose ${plan.label}`}
-                        </Link>
+                      <Button className="w-full" onClick={() => setSelected(plan.key)}>
+                        Select
                       </Button>
-                      <Button className="w-full" variant="secondary" asChild>
-                        <Link to="/login?next=%2Fplans">Log in to subscribe</Link>
-                      </Button>
+                      {selected === plan.key ? (
+                        <div className="rounded-xl border border-border bg-background/50 p-3">
+                          <p className="text-xs text-muted-foreground">
+                            Create your {BRAND} account first. Create an account and verify your email before selecting
+                            a plan.
+                          </p>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            <Button size="sm" asChild>
+                              <Link to={`/signup?plan=${encodeURIComponent(plan.key)}`}>Create account</Link>
+                            </Button>
+                            <Button size="sm" variant="secondary" asChild>
+                              <Link to="/login?next=%2Fplans%2Fgateway">Log in</Link>
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
                     </>
                   )}
+
                 </div>
               </div>
             );

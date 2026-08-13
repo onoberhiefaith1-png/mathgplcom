@@ -6,6 +6,7 @@ import DashboardHero from "@/components/workspace/DashboardHero";
 import { EmptyNote, RailCard, StatCard } from "@/components/workspace/DashboardParts";
 import { useMyAdventures, useMyAssignments, useMyProgress, useMySkillBuilders } from "@/lib/student/useLearning";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
+import PlanSection from "@/components/plans/PlanSection";
 
 /** The four ways into learning, all reading content teachers already created. */
 const AREAS: { to: string; label: string; blurb: string; icon: typeof Users }[] = [
@@ -179,6 +180,7 @@ const StudentDashboard = () => {
           </ul>
         )}
       </section>
+      <PlanSection />
     </WorkspaceLayout>
   );
 };

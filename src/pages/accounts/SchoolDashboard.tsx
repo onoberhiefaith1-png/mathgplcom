@@ -6,6 +6,7 @@ import DashboardHero from "@/components/workspace/DashboardHero";
 import { ActivityList, EmptyNote, RailCard, StatCard } from "@/components/workspace/DashboardParts";
 import { useSchoolStats } from "@/lib/workspace/useWorkspaceStats";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
+import PlanSection from "@/components/plans/PlanSection";
 
 const QUICK: { to: string; label: string }[] = [
   { to: "/school/teachers", label: "Teachers" },
@@ -94,6 +95,7 @@ const SchoolDashboard = () => {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Classes in this school</h2>
         <ActivityList items={data?.activity ?? []} empty="No classes have been created inside this school yet." />
       </section>
+      <PlanSection />
     </WorkspaceLayout>
   );
 };

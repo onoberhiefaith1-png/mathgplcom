@@ -1,0 +1,221 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "@/lib/router-compat";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Check, Loader2, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import PaymentTestModeBanner from "@/components/PaymentTestModeBanner";
+import { PolicyLinks } from "./PublicPricingPage";
+import { credits, money } from "@/lib/costs/categories";
+import { supabase } from "@/integrations/supabase/client";
+import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
+import { priceKeyForPlan } from "@/lib/paddle";
+import { startFreeSubscription } from "@/lib/plans/plans.functions";
+import { usePlanGate } from "@/lib/plans/usePlanGate";
+import { useAccount } from "@/lib/accounts/useAccount";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { WORKSPACE_PATH } from "@/lib/accounts/roles";
+
+/**
+ * The Plan Gateway: the one place a new verified account chooses its platform
+ * plan before entering the workspace.
+ *
+ * Free plans start immediately. Paid plans go through checkout and only become
+ * active once the payment is confirmed — this screen never grants a paid plan
+ * itself. An account that already holds a plan is not asked again.
+ */
+export default function PlanGatewayPage() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const { user, ready } = useAuth();
+  const { role } = useAccount();
+  const { loading, subscribes, subscription, choices, noPlansYet } = usePlanGate();
+  const [pending, setPending] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("checkout") === "success",
+  );
+
+  const workspace = role ? WORKSPACE_PATH[role] ?? "/" : "/";
+
+  // Signed-out visitors belong on the public pricing page.
+  useEffect(() => {
+    if (ready && !user) navigate("/plans", { replace: true });
+  }, [ready, user, navigate]);
+
+  // Returning from checkout: poll until the confirmed payment lands.
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setInterval(() => void qc.invalidateQueries({ queryKey: ["my-plan"] }), 4000);
+    const stop = setTimeout(() => setConfirming(false), 60_000);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(stop);
+    };
+  }, [confirming, qc]);
+
+  const startFree = useMutation({
+    mutationFn: (planKey: string) => startFreeSubscription({ data: { planKey } }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["my-plan"] });
+      toast.success("Your plan is active — welcome in.");
+      navigate(workspace, { replace: true });
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setPending(null),
+  });
+
+  const { openCheckout } = usePaddleCheckout();
+
+  const buy = async (planKey: string) => {
+    setPending(planKey);
+    try {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) throw new Error("Please sign in first.");
+      await openCheckout({
+        priceId: priceKeyForPlan(planKey),
+        customerEmail: data.user.email ?? undefined,
+        customData: { userId: data.user.id },
+        successUrl: `${window.location.origin}/plans/gateway?checkout=success`,
+      });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPending(null);
+    }
+  };
+
+  if (!ready || loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading your plan options…
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-background text-foreground">
+      <PaymentTestModeBanner />
+      <div className="mx-auto max-w-5xl px-6 py-14">
+        <p className="text-xs uppercase tracking-[0.4em] text-primary">MathGPL</p>
+        <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">Choose your plan</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Your account is verified. Pick the plan you want to start on — every plan includes a monthly credit allowance,
+          and you can change plan later from your dashboard.
+        </p>
+
+        {subscription ? (
+          <div className="mt-8 rounded-2xl border border-primary/30 bg-card/60 p-6">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              <ShieldCheck className="h-3.5 w-3.5" /> Plan active
+            </div>
+            <p className="mt-2 text-sm">
+              You are on <span className="font-semibold">{subscription.planLabel}</span> at{" "}
+              {money(subscription.price, subscription.currency)} per month, including{" "}
+              {credits(subscription.includedCredits)}.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button asChild>
+                <Link to={workspace}>Continue to my workspace</Link>
+              </Button>
+              <Button variant="secondary" asChild>
+                <Link to="/plans">Manage plan</Link>
+              </Button>
+            </div>
+          </div>
+        ) : confirming ? (
+          <div className="mt-8 flex items-center gap-2 rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> We are confirming your payment. Your plan activates as soon as
+            it clears — this page updates on its own.
+          </div>
+        ) : null}
+
+        {!subscribes ? (
+          <div className="mt-8 rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
+            Your account type does not need a plan.{" "}
+            <Link to={workspace} className="font-semibold text-foreground hover:underline">
+              Continue to your workspace
+            </Link>
+            .
+          </div>
+        ) : null}
+
+        {subscribes && noPlansYet ? (
+          <div className="mt-8 rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
+            No plans are published for your account type yet, so nothing is needed from you right now.
+            <div className="mt-4">
+              <Button asChild>
+                <Link to={workspace}>Continue to my workspace</Link>
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {subscribes && !subscription && choices.length ? (
+          <>
+            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {choices.map((plan) => {
+                const free = plan.price === 0;
+                const busy = pending === plan.key || startFree.isPending;
+                return (
+                  <div key={plan.key} className="flex flex-col rounded-2xl border border-border bg-card/60 p-5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-lg font-semibold">{plan.label}</div>
+                      <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        {free ? "Free" : "Subscription"}
+                      </span>
+                    </div>
+                    {plan.description ? (
+                      <p className="mt-1 text-xs text-muted-foreground">{plan.description}</p>
+                    ) : null}
+                    <div className="mt-4 text-2xl font-semibold">
+                      {free ? "Free" : money(plan.price, plan.currency)}
+                      {free ? null : <span className="text-sm font-normal text-muted-foreground"> / month</span>}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {plan.includedCredits > 0 ? `${credits(plan.includedCredits)} included every month` : "No credits included"}
+                    </div>
+                    {plan.features.length ? (
+                      <ul className="mt-4 space-y-1.5 text-sm">
+                        {plan.features.map((f) => (
+                          <li key={f} className="flex items-start gap-2">
+                            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <div className="mt-auto pt-5">
+                      <Button
+                        className="w-full"
+                        disabled={busy}
+                        onClick={() => {
+                          if (free) {
+                            setPending(plan.key);
+                            startFree.mutate(plan.key);
+                          } else {
+                            void buy(plan.key);
+                          }
+                        }}
+                      >
+                        {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        {free ? `Start ${plan.label}` : `Choose ${plan.label}`}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-6 rounded-2xl border border-border bg-card/60 p-5 text-xs text-muted-foreground">
+              <p>
+                Paid plans are billed monthly and renew automatically until cancelled. A paid plan only becomes active
+                once your payment is confirmed.
+              </p>
+              <PolicyLinks />
+            </div>
+          </>
+        ) : null}
+      </div>
+    </main>
+  );
+}

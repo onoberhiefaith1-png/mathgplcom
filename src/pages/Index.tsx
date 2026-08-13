@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { GraduationCap, Globe2, Image, LogOut, Package, ShieldCheck, Users } from "lucide-react";
 
@@ -10,7 +11,9 @@ import { useAccount } from "@/lib/accounts/useAccount";
 import { WORKSPACE_LABEL, WORKSPACE_PATH } from "@/lib/accounts/roles";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePlanGate } from "@/lib/plans/usePlanGate";
 import { supabase } from "@/integrations/supabase/client";
+
 
 
 const Index = () => {
@@ -27,10 +30,18 @@ const Index = () => {
   // Students never teach — their primary entry point is joining a teacher's class.
   const isStudent = role === "student" && !elevated;
 
+  // Teacher, school and parent accounts pick a platform plan before the
+  // building opens. With nothing published for their type, the gate stays open.
+  const { needsPlan } = usePlanGate();
+  useEffect(() => {
+    if (needsPlan) navigate("/plans/gateway", { replace: true });
+  }, [needsPlan, navigate]);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/", { replace: true });
   };
+
 
 
 
