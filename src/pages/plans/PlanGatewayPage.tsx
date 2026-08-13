@@ -112,7 +112,8 @@ export default function PlanGatewayPage() {
             </div>
             <p className="mt-2 text-sm">
               You are on <span className="font-semibold">{subscription.planLabel}</span> at{" "}
-              {money(subscription.price, subscription.currency)} per month, including{" "}
+              {money(subscription.price, subscription.currency)}{" "}
+              {subscription.billingInterval === "yearly" ? "per year" : "per month"}, including{" "}
               {credits(subscription.includedCredits)}.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">

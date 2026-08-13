@@ -306,6 +306,8 @@ export type MySubscription = {
   scheduledPlanId: string | null;
   cancelAt: string | null;
   paymentState: "ok" | "past_due";
+  /** What the customer bought: a monthly or a yearly period. */
+  billingInterval: "monthly" | "yearly";
   /** End of the renewal grace window while the plan is expired. */
   graceUntil: string | null;
 };
@@ -319,7 +321,7 @@ export async function mySubscription(supabase: Client, userId: string): Promise<
   const { data } = await supabase
     .from("subscriptions")
     .select(
-      "plan, plan_id, status, final_price, currency, included_credits, locked_profit_rate, period_start, period_end, scheduled_plan_id, cancel_at, payment_state, plan_version_id, grace_until",
+      "plan, plan_id, status, final_price, currency, included_credits, locked_profit_rate, period_start, period_end, scheduled_plan_id, cancel_at, payment_state, plan_version_id, grace_until, billing_interval",
     )
     .eq("user_id", userId)
     .in("status", ["active", "expired"])
@@ -350,6 +352,8 @@ export async function mySubscription(supabase: Client, userId: string): Promise<
     scheduledPlanId: (data.scheduled_plan_id as string) ?? null,
     cancelAt: (data.cancel_at as string) ?? null,
     paymentState: (data.payment_state as "ok" | "past_due") ?? "ok",
+    billingInterval:
+      (data as { billing_interval?: string | null }).billing_interval === "yearly" ? "yearly" : "monthly",
     graceUntil: ((data as { grace_until?: string | null }).grace_until as string) ?? null,
   };
 }
