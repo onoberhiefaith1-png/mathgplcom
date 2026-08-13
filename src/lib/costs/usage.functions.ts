@@ -32,7 +32,13 @@ export const fetchCategoryEvents = createServerFn({ method: "GET" })
 export const fetchRevenueLedger = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) =>
-    scope.extend({ status: z.string().max(30).optional(), query: z.string().max(120).optional() }).parse(data),
+    scope
+      .extend({
+        status: z.string().max(30).optional(),
+        query: z.string().max(120).optional(),
+        kind: z.string().max(30).optional(),
+      })
+      .parse(data),
   )
   .handler(async ({ context, data }) => {
     await guard(context.supabase, context.userId);
@@ -41,7 +47,21 @@ export const fetchRevenueLedger = createServerFn({ method: "GET" })
       costUnitId: data.costUnitId,
       status: data.status,
       query: data.query,
+      kind: data.kind,
     });
+  });
+
+/**
+ * The authoritative financial position: cash received, prepaid credits still
+ * outstanding, and the profit realised only when prepaid credits are consumed.
+ */
+export const fetchFinancialSummary = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => scope.parse(data))
+  .handler(async ({ context, data }) => {
+    await guard(context.supabase, context.userId);
+    const { financialSummary } = await import("./financialSummary.server");
+    return financialSummary(data.from, data.to, data.costUnitId);
   });
 
 export const fetchAccountOptions = createServerFn({ method: "GET" })

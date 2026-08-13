@@ -263,7 +263,7 @@ function MemberPlansPage() {
         ) : null}
 
         {audience && packs.length ? (
-          <div className="mt-6 rounded-2xl border border-border bg-card/60 p-5 backdrop-blur">
+          <div id="buy-credits" className="mt-6 scroll-mt-24 rounded-2xl border border-border bg-card/60 p-5 backdrop-blur">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
               <Wallet className="h-3.5 w-3.5" /> Buy credits
             </div>

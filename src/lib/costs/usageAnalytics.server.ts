@@ -207,13 +207,17 @@ export async function usageAnalytics(from: string, to: string, costUnitId?: stri
 }
 
 
+/** What kind of financial event a ledger row is. */
+export type LedgerKind = "usage" | "subscription" | "credit_purchase";
+
 export type LedgerRow = {
   id: string;
+  kind: LedgerKind;
   occurredAt: string;
   costUnitId: string;
   owner: string;
   ownerCode: string;
-  category: CostCategory;
+  category: CostCategory | "payment";
   metric: string;
   resource: string;
   quantity: number;
@@ -234,6 +238,13 @@ export type LedgerRow = {
   amountPaid: number;
   discount: number;
   promoCode: string | null;
+  /** Money collected on a payment row; prepaid value, never usage revenue. */
+  cashReceived: number;
+  /** Credits issued by a payment row — a liability until they are consumed. */
+  creditsIssued: number;
+  /** The subscription (service) component of a payment. */
+  serviceAmount: number;
+  reference: string | null;
 
   status: string;
   result: number;
@@ -303,6 +314,11 @@ function toLedgerRow(e: EventRow, owners: Map<string, { name: string; code: stri
   const paidCredits = Number(e.paid_credits ?? 0);
   return {
     id: e.id,
+    kind: "usage",
+    cashReceived: 0,
+    creditsIssued: 0,
+    serviceAmount: 0,
+    reference: null,
     occurredAt: e.occurred_at,
     costUnitId: e.cost_unit_id,
     owner: owner?.name ?? "Unknown account",
@@ -367,20 +383,122 @@ export type RevenueLedger = {
   };
 };
 
+/**
+ * Money coming in: subscription payments and credit purchases. These are cash
+ * and prepaid value — never usage revenue — so they carry no cost or charge.
+ */
+async function paymentLedgerRows(from: string, to: string, costUnitId?: string): Promise<LedgerRow[]> {
+  const db = await admin();
+
+  let scopeUser: string | null = null;
+  let scopeOrg: string | null = null;
+  let scopeName = "";
+  let scopeCode = "";
+  if (costUnitId) {
+    const { data: unit } = await db
+      .from("cost_units")
+      .select("id, code, user_id, org_id")
+      .eq("id", costUnitId)
+      .maybeSingle();
+    if (!unit) return [];
+    scopeUser = (unit.user_id as string | null) ?? null;
+    scopeOrg = (unit.org_id as string | null) ?? null;
+    scopeCode = (unit.code as string) ?? "";
+    const named = await ownerNames([costUnitId]);
+    scopeName = named.get(costUnitId)?.name ?? "";
+  }
+
+  let q = db
+    .from("payment_transactions")
+    .select(
+      "id, occurred_at, user_id, org_id, plan_id, provider, provider_ref, amount, currency, credits_allocated, status, service_amount, credit_amount",
+    )
+    .gte("occurred_at", from)
+    .lte("occurred_at", to)
+    .order("occurred_at", { ascending: false })
+    .limit(2000);
+  if (scopeOrg) q = q.eq("org_id", scopeOrg);
+  else if (scopeUser) q = q.eq("user_id", scopeUser);
+  const { data } = await q;
+  if (!data?.length) return [];
+
+  const userIds = [...new Set(data.map((p) => p.user_id as string).filter(Boolean))];
+  const orgIds = [...new Set(data.map((p) => p.org_id as string).filter(Boolean))];
+  const [{ data: profiles }, { data: orgs }] = await Promise.all([
+    userIds.length
+      ? db.from("profiles").select("user_id, display_name, username").in("user_id", userIds)
+      : Promise.resolve({ data: [] as never[] }),
+    orgIds.length ? db.from("organizations").select("id, name").in("id", orgIds) : Promise.resolve({ data: [] as never[] }),
+  ]);
+  const profileOf = new Map((profiles ?? []).map((p: any) => [p.user_id as string, p]));
+  const orgOf = new Map((orgs ?? []).map((o: any) => [o.id as string, o]));
+
+  return data.map((p) => {
+    const topUp = String(p.plan_id ?? "") === "credit_topup";
+    const refunded = String(p.status ?? "") === "refunded" || String(p.status ?? "") === "reversed";
+    const org = p.org_id ? orgOf.get(p.org_id as string) : undefined;
+    const profile = p.user_id ? profileOf.get(p.user_id as string) : undefined;
+    const owner =
+      scopeName ||
+      (org?.name as string) ||
+      (profile?.display_name as string) ||
+      (profile?.username as string) ||
+      "MathGPL account";
+    const credits = Number(p.credits_allocated ?? 0);
+    return {
+      id: `pay:${p.id}`,
+      kind: topUp ? "credit_purchase" : "subscription",
+      occurredAt: String(p.occurred_at),
+      costUnitId: costUnitId ?? "",
+      owner,
+      ownerCode: scopeCode,
+      category: "payment",
+      metric: topUp ? "credit_topup" : "subscription",
+      resource: topUp ? "Credit purchase" : `Subscription payment — ${p.plan_id ?? "plan"}`,
+      quantity: credits,
+      unit: "credits",
+      model: null,
+      cost: 0,
+      charge: 0,
+      profitRate: 0,
+      profitAmount: 0,
+      costCredits: 0,
+      chargeCredits: 0,
+      profitCredits: 0,
+      paidCredits: 0,
+      resultCredits: 0,
+      creditPrice: credits > 0 ? Number(p.credit_amount ?? 0) / credits : 0,
+      amountPaid: 0,
+      discount: 0,
+      promoCode: null,
+      cashReceived: refunded ? -Math.abs(Number(p.amount ?? 0)) : Number(p.amount ?? 0),
+      creditsIssued: refunded ? 0 : credits,
+      serviceAmount: Number(p.service_amount ?? 0),
+      reference: (p.provider_ref as string) ?? null,
+      status: refunded ? "refunded" : "received",
+      result: 0,
+    } satisfies LedgerRow;
+  });
+}
+
 export async function revenueLedger(
   from: string,
   to: string,
-  options: { costUnitId?: string; status?: string; query?: string } = {},
+  options: { costUnitId?: string; status?: string; query?: string; kind?: string } = {},
 ): Promise<RevenueLedger> {
   const db = await admin();
-  const [{ data: settings }, events] = await Promise.all([
+  const [{ data: settings }, events, payments] = await Promise.all([
     db.from("platform_cost_settings").select("currency").eq("id", 1).maybeSingle(),
     readEvents(from, to, options.costUnitId, undefined, 4000),
+    paymentLedgerRows(from, to, options.costUnitId),
   ]);
 
   const owners = await ownerNames(events.map((e) => e.cost_unit_id));
-  let rows = events.map((e) => toLedgerRow(e, owners));
+  let rows = [...events.map((e) => toLedgerRow(e, owners)), ...payments].sort((a, b) =>
+    a.occurredAt < b.occurredAt ? 1 : a.occurredAt > b.occurredAt ? -1 : 0,
+  );
 
+  if (options.kind && options.kind !== "all") rows = rows.filter((r) => r.kind === options.kind);
   if (options.status && options.status !== "all") rows = rows.filter((r) => r.status === options.status);
   const q = (options.query ?? "").trim().toLowerCase();
   if (q) {
@@ -408,6 +526,14 @@ export async function revenueLedger(
   };
 
   for (const r of rows) {
+    if (r.kind !== "usage") {
+      // Cash in is not usage revenue; it is counted in the financial summary.
+      const cash = byStatus.get(r.status) ?? { status: r.status, events: 0, charge: 0, paid: 0, result: 0 };
+      cash.events += 1;
+      cash.paid += r.cashReceived;
+      byStatus.set(r.status, cash);
+      continue;
+    }
     summary.cost += r.cost;
     summary.charge += r.charge;
     summary.paid += r.amountPaid;
