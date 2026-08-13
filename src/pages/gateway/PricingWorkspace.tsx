@@ -164,10 +164,25 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
               Payment: <span className="font-semibold text-foreground">Not connected</span>. Connect your own Stripe
               account — students pay you directly and MathGPL takes no cut.
             </p>
-            <Button className="w-full" onClick={() => connect.mutate()} disabled={connect.isPending}>
+            <Button
+              className="w-full"
+              onClick={() =>
+                connect.mutate(undefined, {
+                  onError: (connectError) =>
+                    toast({
+                      title: "Could not start Stripe onboarding",
+                      description:
+                        connectError instanceof Error ? connectError.message : "Try again in a moment.",
+                      variant: "destructive",
+                    }),
+                })
+              }
+              disabled={connect.isPending}
+            >
               {connect.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Connect Stripe
             </Button>
+
           </div>
         ) : (
           <div className="space-y-3">
