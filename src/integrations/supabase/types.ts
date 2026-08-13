@@ -4157,41 +4157,62 @@ export type Database = {
       }
       platform_advertisements: {
         Row: {
+          campaign_name: string | null
+          click_url: string | null
           created_at: string
           duration_ms: number
+          ends_at: string | null
           id: string
           is_active: boolean
           label: string | null
           media_path: string | null
           media_source: string
           media_type: string
+          provider: string
+          provider_ad_id: string | null
           slot: number
+          starts_at: string | null
+          thumbnail_path: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          campaign_name?: string | null
+          click_url?: string | null
           created_at?: string
           duration_ms?: number
+          ends_at?: string | null
           id?: string
           is_active?: boolean
           label?: string | null
           media_path?: string | null
           media_source?: string
           media_type?: string
+          provider?: string
+          provider_ad_id?: string | null
           slot: number
+          starts_at?: string | null
+          thumbnail_path?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          campaign_name?: string | null
+          click_url?: string | null
           created_at?: string
           duration_ms?: number
+          ends_at?: string | null
           id?: string
           is_active?: boolean
           label?: string | null
           media_path?: string | null
           media_source?: string
           media_type?: string
+          provider?: string
+          provider_ad_id?: string | null
           slot?: number
+          starts_at?: string | null
+          thumbnail_path?: string | null
           updated_at?: string
           updated_by?: string | null
         }
