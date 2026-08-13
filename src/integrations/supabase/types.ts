@@ -4190,6 +4190,8 @@ export type Database = {
       }
       platform_advertisements: {
         Row: {
+          ad_kind: string
+          adsense_slot_id: string | null
           campaign_name: string | null
           click_url: string | null
           created_at: string
@@ -4210,6 +4212,8 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          ad_kind?: string
+          adsense_slot_id?: string | null
           campaign_name?: string | null
           click_url?: string | null
           created_at?: string
@@ -4230,6 +4234,8 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          ad_kind?: string
+          adsense_slot_id?: string | null
           campaign_name?: string | null
           click_url?: string | null
           created_at?: string
