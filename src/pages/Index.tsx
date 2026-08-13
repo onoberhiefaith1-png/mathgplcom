@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 const Index = () => {
   const { role, roles, isPlatformOwner } = useAccount();
   const { isPersonal, workspaces } = useWorkspace();
+  const navigate = useNavigate();
+  const { user, ready } = useAuth();
   // The building belongs to the workspace you are in: your own when personal,
   // otherwise the one owned by the workspace you are visiting.
   const visiting = workspaces.length > 0 && !isPersonal;
@@ -23,6 +25,12 @@ const Index = () => {
   const elevated = isPlatformOwner || roles.some((r) => r !== "student");
   // Students never teach — their primary entry point is joining a teacher's class.
   const isStudent = role === "student" && !elevated;
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/", { replace: true });
+  };
+
 
 
   // The student Academy page is view-only: the school's background + rotating
