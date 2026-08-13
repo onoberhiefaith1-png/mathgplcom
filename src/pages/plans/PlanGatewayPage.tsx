@@ -10,7 +10,7 @@ import { PolicyLinks } from "./PublicPricingPage";
 import { credits, money } from "@/lib/costs/categories";
 import { supabase } from "@/integrations/supabase/client";
 import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
-import { priceKeyForPlan } from "@/lib/paddle";
+import { priceKeyForPlan, type BillingInterval } from "@/lib/paddle";
 import { startFreeSubscription } from "@/lib/plans/plans.functions";
 import { usePlanGate } from "@/lib/plans/usePlanGate";
 import { useAccount } from "@/lib/accounts/useAccount";
@@ -32,6 +32,7 @@ export default function PlanGatewayPage() {
   const { role } = useAccount();
   const { loading, subscribes, subscription, choices, noPlansYet } = usePlanGate();
   const [pending, setPending] = useState<string | null>(null);
+  const [interval, setInterval_] = useState<BillingInterval>("monthly");
   const [confirming, setConfirming] = useState(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("checkout") === "success",
   );
@@ -67,13 +68,13 @@ export default function PlanGatewayPage() {
 
   const { openCheckout } = usePaddleCheckout();
 
-  const buy = async (planKey: string) => {
+  const buy = async (planKey: string, interval: BillingInterval) => {
     setPending(planKey);
     try {
       const { data } = await supabase.auth.getUser();
       if (!data.user) throw new Error("Please sign in first.");
       await openCheckout({
-        priceId: priceKeyForPlan(planKey),
+        priceId: priceKeyForPlan(planKey, interval),
         customerEmail: data.user.email ?? undefined,
         customData: { userId: data.user.id },
         successUrl: `${window.location.origin}/plans/gateway?checkout=success`,
@@ -153,9 +154,25 @@ export default function PlanGatewayPage() {
 
         {subscribes && !subscription && choices.length ? (
           <>
-            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-8 inline-flex rounded-xl border border-border bg-card/60 p-1 text-sm">
+              {(["monthly", "yearly"] as BillingInterval[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setInterval_(option)}
+                  className={`min-h-11 rounded-lg px-4 font-medium transition ${
+                    interval === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/40"
+                  }`}
+                >
+                  {option === "monthly" ? "Monthly" : "Yearly — save 20%"}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {choices.map((plan) => {
                 const free = plan.price === 0;
+                const yearly = interval === "yearly" && plan.yearlyAvailable;
                 const busy = pending === plan.key || startFree.isPending;
                 return (
                   <div key={plan.key} className="flex flex-col rounded-2xl border border-border bg-card/60 p-5">
@@ -169,9 +186,21 @@ export default function PlanGatewayPage() {
                       <p className="mt-1 text-xs text-muted-foreground">{plan.description}</p>
                     ) : null}
                     <div className="mt-4 text-2xl font-semibold">
-                      {free ? "Free" : money(plan.price, plan.currency)}
-                      {free ? null : <span className="text-sm font-normal text-muted-foreground"> / month</span>}
+                      {free
+                        ? "Free"
+                        : money(yearly ? plan.yearlyPrice : plan.price, plan.currency)}
+                      {free ? null : (
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {yearly ? " / year" : " / month"}
+                        </span>
+                      )}
                     </div>
+                    {!free && yearly ? (
+                      <div className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                        {money(plan.standardAnnualPrice, plan.currency)} if paid monthly — you save{" "}
+                        {money(plan.standardAnnualPrice - plan.yearlyPrice, plan.currency)} ({plan.yearlyDiscountPercentage}% off)
+                      </div>
+                    ) : null}
                     <div className="mt-1 text-xs text-muted-foreground">
                       {plan.includedCredits > 0 ? `${credits(plan.includedCredits)} included every month` : "No credits included"}
                     </div>
@@ -194,12 +223,16 @@ export default function PlanGatewayPage() {
                             setPending(plan.key);
                             startFree.mutate(plan.key);
                           } else {
-                            void buy(plan.key);
+                            void buy(plan.key, yearly ? "yearly" : "monthly");
                           }
                         }}
                       >
                         {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        {free ? `Start ${plan.label}` : `Choose ${plan.label}`}
+                        {free
+                          ? `Start ${plan.label}`
+                          : yearly
+                            ? `Choose ${plan.label} — yearly`
+                            : `Choose ${plan.label}`}
                       </Button>
                     </div>
                   </div>
@@ -208,8 +241,9 @@ export default function PlanGatewayPage() {
             </div>
             <div className="mt-6 rounded-2xl border border-border bg-card/60 p-5 text-xs text-muted-foreground">
               <p>
-                Paid plans are billed monthly and renew automatically until cancelled. A paid plan only becomes active
-                once your payment is confirmed.
+                Monthly plans are billed every month; yearly plans are one annual payment with 20% off and renew each
+                year until cancelled. Whichever you choose, the price is locked for the whole period you pay for, and a
+                paid plan only becomes active once your payment is confirmed.
               </p>
               <PolicyLinks />
             </div>
