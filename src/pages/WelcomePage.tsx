@@ -36,9 +36,36 @@ const WelcomePage = ({ content }: { content: SiteContent }) => (
       </div>
     </header>
 
-    {content.sections.map((section) => (
-      <SiteSection key={section.key} section={section} content={content} />
-    ))}
+    {content.sections.length > 0 ? (
+      content.sections.map((section) => (
+        <SiteSection key={section.key} section={section} content={content} />
+      ))
+    ) : (
+      <section className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6">
+        <p className="text-xs font-semibold tracking-[0.4em] text-amber-300/80">MATHGPL</p>
+        <h1 className="mt-4 text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
+          Mathematics, Reimagined.
+        </h1>
+        <p className="mt-5 max-w-xl text-lg text-white/70">
+          Learn. Explore. Solve. Experience mathematics differently.
+        </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            to="/signup"
+            className="inline-flex min-h-[48px] items-center rounded-full bg-amber-400 px-7 text-sm font-semibold text-slate-900 transition hover:bg-amber-300"
+          >
+            Get Started
+          </Link>
+          <Link
+            to="/login"
+            className="inline-flex min-h-[48px] items-center rounded-full border border-white/20 px-7 text-sm font-medium text-white/85 transition hover:bg-white/10"
+          >
+            Log In
+          </Link>
+        </div>
+      </section>
+    )}
+
   </main>
 );
 
