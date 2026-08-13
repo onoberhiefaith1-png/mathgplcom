@@ -477,12 +477,17 @@ export const RotatingAdventureScene = ({
                 routeFor={routeFor}
                 interactive={interactive}
                 onArtworkReady={handleArtworkReady}
+                rotationPaused={rotationPaused}
               />
             </Suspense>
           </Canvas>
         </div>
       ) : null}
+      {showAds && currentAd ? (
+        <BuildingBillboard ad={currentAd} onVideoEnded={onVideoEnded} />
+      ) : null}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
+
     </main>
   );
 };
