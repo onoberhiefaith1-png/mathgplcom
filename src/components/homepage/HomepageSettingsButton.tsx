@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { Building2, Image as ImageIcon, Replace, Settings2 } from "lucide-react";
+import { Building2, Image as ImageIcon, Megaphone, Replace, Settings2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -66,7 +66,18 @@ const HomepageSettingsButton = () => {
           </SheetDescription>
         </SheetHeader>
         <div className="mt-6 space-y-3">
-          {OPTIONS.map((opt) => (
+          {(isPlatformOwner
+            ? [
+                ...OPTIONS,
+                {
+                  to: "/homepage/advertisements",
+                  icon: Megaphone,
+                  title: "Building Advertisements",
+                  body: "The eight advertisement slots that play on the Free building's billboard and in Community. Nowhere else in the app shows ads.",
+                },
+              ]
+            : OPTIONS
+          ).map((opt) => (
             <Link
               key={opt.to}
               to={opt.to}
