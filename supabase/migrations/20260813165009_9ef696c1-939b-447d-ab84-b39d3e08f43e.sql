@@ -1,0 +1,1 @@
+ALTER TABLE public.site_sections ADD COLUMN IF NOT EXISTS title text;
