@@ -17,6 +17,8 @@ import {
   type GatewaySlot,
 } from "./items";
 
+export type GatewayBillingMode = "free" | "one_off" | "subscription";
+
 export type GatewayPlan = {
   id: string;
   ownerId: string;
@@ -29,6 +31,7 @@ export type GatewayPlan = {
   items: GatewayItem[];
   isPublished: boolean;
   autoGrantExisting: boolean;
+  billingMode: GatewayBillingMode;
 };
 
 export type GatewayEntitlement = {
@@ -54,6 +57,7 @@ type PlanRow = {
   items: string[];
   is_published: boolean;
   auto_grant_existing: boolean;
+  billing_mode?: string | null;
 };
 
 const toPlan = (row: PlanRow): GatewayPlan => ({
@@ -68,7 +72,9 @@ const toPlan = (row: PlanRow): GatewayPlan => ({
   items: (row.items ?? []) as GatewayItem[],
   isPublished: row.is_published,
   autoGrantExisting: row.auto_grant_existing,
+  billingMode: (row.billing_mode ?? "free") as GatewayBillingMode,
 });
+
 
 const toEntitlement = (row: {
   id: string;
