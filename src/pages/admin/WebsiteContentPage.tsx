@@ -431,7 +431,9 @@ const WebsiteContentPage = () => {
             key={row.id}
             row={row}
             onSave={(patch) => admin.saveDraft(row, patch)}
-            onPublish={() => admin.publish(row)}
+            onPublish={(patch) =>
+              admin.publish({ ...row, draft: { ...(row.draft ?? {}), ...patch } })
+            }
             onMove={(direction) => void admin.move(row, direction)}
             onVisible={(visible) => void admin.setVisible(row, visible)}
           />
