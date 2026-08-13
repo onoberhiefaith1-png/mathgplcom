@@ -15,8 +15,15 @@ const AcademyTopBar = () => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { user, ready } = useAuth();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/", { replace: true });
+  };
 
   const results = useMemo(() => searchCurriculum(query, 12), [query]);
+
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
