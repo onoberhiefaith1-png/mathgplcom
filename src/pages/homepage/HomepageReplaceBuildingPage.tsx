@@ -17,6 +17,7 @@ import {
   type MediaSource,
   type MediaType,
 } from "@/lib/games/types";
+import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
 import { useHomepageConfig } from "@/lib/homepage/homepageConfig";
 
 const makeBuilding = (
@@ -46,7 +47,8 @@ const makeBuilding = (
  * The homepage stays untouched until "Apply Building" is pressed.
  */
 const HomepageReplaceBuildingPage = () => {
-  const { config, save, ready, saving } = useHomepageConfig();
+  const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
+  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode });
   const [building, setBuilding] = useState<CanvasElement | null>(null);
   const [library, setLibrary] = useState(false);
   const [kind, setKind] = useState<AssetKind>("reward");
@@ -115,6 +117,9 @@ const HomepageReplaceBuildingPage = () => {
 
       <main className="mx-auto grid max-w-7xl gap-6 px-6 pb-16 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
+          {canSwitch && (
+            <BuildingVersionSelector version={version} onChange={setVersion} seeding={seeding} />
+          )}
           <p className="text-sm text-muted-foreground">
             Upload a building (one image or one looping video), then position, size and preview it here.
             Your homepage keeps its current building until you press Apply Building.

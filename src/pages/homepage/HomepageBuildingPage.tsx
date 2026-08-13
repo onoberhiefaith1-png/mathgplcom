@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
 import { makeTransparent } from "@/lib/games/removeBackground";
+import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
 import { BUILDING_SLOTS, type BuildingSlot } from "@/lib/homepage/buildingSlots";
 import {
   resolveMediaUrl,
@@ -18,7 +19,8 @@ import {
  * Each slot supports Replace Image and Remove Background. Geometry is preserved.
  */
 const HomepageBuildingPage = () => {
-  const { config, save } = useHomepageConfig();
+  const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
+  const { config, save } = useHomepageConfig({ mode: configMode });
   const overrides = config.slotOverrides ?? {};
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const [cutoutSlot, setCutoutSlot] = useState<string | null>(null);
@@ -110,6 +112,9 @@ const HomepageBuildingPage = () => {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-6 px-6 pb-16">
+        {canSwitch && (
+          <BuildingVersionSelector version={version} onChange={setVersion} seeding={seeding} />
+        )}
         <p className="text-sm text-muted-foreground">
           The original MathGPL building is made of 16 artwork slots. The only action is
           Replace Image — position, curve, perspective, size and rotation are kept automatically.

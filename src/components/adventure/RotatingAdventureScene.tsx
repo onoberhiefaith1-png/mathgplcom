@@ -5,7 +5,13 @@ import { useNavigate } from "@/lib/router-compat";
 import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { CORE_SLOTS, RING_SLOTS } from "@/lib/homepage/buildingSlots";
-import { useHomepageConfig, useResolvedSlotUrls } from "@/lib/homepage/homepageConfig";
+import {
+  useHomepageConfig,
+  useResolvedSlotUrls,
+  type HomepageConfigMode,
+} from "@/lib/homepage/homepageConfig";
+import { useAdRotation, usePlayableAds } from "@/lib/homepage/advertisements";
+import BuildingBillboard from "@/components/adventure/BuildingBillboard";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
@@ -167,6 +173,7 @@ const Showcase = ({
   routeFor,
   interactive = true,
   onArtworkReady,
+  rotationPaused = false,
 }: {
   ringUrls: string[];
   coreUrls: string[];
@@ -176,6 +183,8 @@ const Showcase = ({
   interactive?: boolean;
   /** Fires once the building's artwork has decoded, so the page can fade in. */
   onArtworkReady?: () => void;
+  /** Holds the building still while a video advertisement plays out. */
+  rotationPaused?: boolean;
 }) => {
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
@@ -183,6 +192,9 @@ const Showcase = ({
   const frontIndexRef = useRef(0);
   const navigate = useNavigate();
   const { camera } = useThree();
+  const pausedRef = useRef(rotationPaused);
+  pausedRef.current = rotationPaused;
+
 
   // Artwork per slot; repeated urls (the MathGPL hubs, the dome copies) load once.
   const uniqueUrls = useMemo(
@@ -245,10 +257,12 @@ const Showcase = ({
 
   useFrame((state, delta) => {
     if (!worldRef.current) return;
-    // Ease rotation to a gentle near-stop while a hovered academy invites a click.
-    const targetSpeed = hoveredRef.current ? ringSpeed * 0.1 : ringSpeed;
+    // Ease rotation to a gentle near-stop while a hovered academy invites a
+    // click, and all the way to rest while a video advertisement plays.
+    const targetSpeed = pausedRef.current ? 0 : hoveredRef.current ? ringSpeed * 0.1 : ringSpeed;
     speedRef.current = THREE.MathUtils.damp(speedRef.current, targetSpeed, 3.2, delta);
     worldRef.current.rotation.y += speedRef.current * delta;
+
 
     // Determine which segment currently faces the camera (front = nearest +Z).
     // Cylinder vertex angle: pos = (R·sinθ, y, R·cosθ); front faces camera at θ = 0.
@@ -373,12 +387,19 @@ export const RotatingAdventureScene = ({
   routeFor,
   interactive = true,
   configMode = "self",
+  showAds = false,
 }: {
   routeFor?: (route: string) => string;
   /** Students view the academy; segments are not clickable for them. */
   interactive?: boolean;
-  /** "school-readonly" mirrors the academy chosen by the school owner. */
-  configMode?: "self" | "school-readonly";
+  /**
+   * Which building configuration to render.
+   * "self" = this account's Pro building, "school-readonly" = the owner's
+   * building, "platform-free" = the platform-owned Free building.
+   */
+  configMode?: HomepageConfigMode;
+  /** Plays the platform advertisement billboard on this building. */
+  showAds?: boolean;
 } = {}) => {
   // ONE WebGL context for the life of the page. The canvas is never keyed on
   // artwork URLs — swapping textures happens INSIDE the live scene, so the
@@ -389,6 +410,10 @@ export const RotatingAdventureScene = ({
   const [artworkReady, setArtworkReady] = useState(false);
   const { config, ready } = useHomepageConfig({ mode: configMode });
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
+  // Advertisements come from the building pipeline, never from the page.
+  const ads = usePlayableAds(showAds);
+  const { current: currentAd, rotationPaused, onVideoEnded } = useAdRotation(ads);
+
 
   const ringUrls = useMemo(
     () => RING_SLOTS.map((slot) => slotUrls[slot.id] ?? slot.defaultUrl),
@@ -452,12 +477,17 @@ export const RotatingAdventureScene = ({
                 routeFor={routeFor}
                 interactive={interactive}
                 onArtworkReady={handleArtworkReady}
+                rotationPaused={rotationPaused}
               />
             </Suspense>
           </Canvas>
         </div>
       ) : null}
+      {showAds && currentAd ? (
+        <BuildingBillboard ad={currentAd} onVideoEnded={onVideoEnded} />
+      ) : null}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,hsl(var(--background)/0.18)_40%,hsl(var(--background)/0.55)_100%)]" />
+
     </main>
   );
 };

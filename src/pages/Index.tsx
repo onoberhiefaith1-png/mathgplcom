@@ -9,21 +9,18 @@ import HomepageSettingsButton from "@/components/homepage/HomepageSettingsButton
 import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { WORKSPACE_LABEL, WORKSPACE_PATH } from "@/lib/accounts/roles";
-import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePlanGate } from "@/lib/plans/usePlanGate";
+import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 import { supabase } from "@/integrations/supabase/client";
 
 
 
 const Index = () => {
   const { role, roles, isPlatformOwner } = useAccount();
-  const { isPersonal, workspaces } = useWorkspace();
+
   const navigate = useNavigate();
   const { user, ready } = useAuth();
-  // The building belongs to the workspace you are in: your own when personal,
-  // otherwise the one owned by the workspace you are visiting.
-  const visiting = workspaces.length > 0 && !isPersonal;
   // Anything other than a plain student account keeps the full homepage: the
   // owner, school admins and teachers must never be locked into the student view.
   const elevated = isPlatformOwner || roles.some((r) => r !== "student");
@@ -33,6 +30,8 @@ const Index = () => {
   // Teacher, school and parent accounts pick a platform plan before the
   // building opens. With nothing published for their type, the gate stays open.
   const { needsPlan } = usePlanGate();
+  // Central pipeline decides WHICH building and whether ads play on it.
+  const building = useBuildingContext();
   useEffect(() => {
     if (needsPlan) navigate("/plans/gateway", { replace: true });
   }, [needsPlan, navigate]);
@@ -50,7 +49,12 @@ const Index = () => {
   if (isStudent) {
     return (
       <>
-        <RotatingAdventureScene interactive={false} configMode="school-readonly" />
+        <RotatingAdventureScene
+          interactive={false}
+          configMode={building.configMode}
+          showAds={building.adsEnabled}
+        />
+
         {ready && user && (
           <button
             type="button"
@@ -79,8 +83,8 @@ const Index = () => {
   return (
     <>
       <AcademyTopBar />
-      <RotatingAdventureScene configMode={visiting ? "school-readonly" : "self"} />
-      {!visiting && <HomepageSettingsButton />}
+      <RotatingAdventureScene configMode={building.configMode} showAds={building.adsEnabled} />
+      {building.canCustomize && <HomepageSettingsButton />}
       <LevelNavPanel />
       <Link
         to="/backgrounds"

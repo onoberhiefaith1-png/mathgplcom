@@ -3,6 +3,7 @@ import { GraduationCap, Home, Radio, Settings2 } from "lucide-react";
 
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import { useCommunityIdentity } from "@/lib/community/useCommunity";
+import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 
 /**
  * MathGPL Community home — the very same rotating building, used purely as a
@@ -19,11 +20,18 @@ const ENTRIES = [
 
 const CommunityHome = () => {
   const { username } = useCommunityIdentity();
+  // Community is a public space: it always uses the platform building pipeline
+  // rather than a hard-coded building, and always carries the ads.
+  const building = useBuildingContext({ community: true });
 
   return (
     <>
       {/* Every ring segment leads into the community Teaching Hub, never straight to content. */}
-      <RotatingAdventureScene routeFor={() => COMMUNITY_HUB_ROUTE} />
+      <RotatingAdventureScene
+        routeFor={() => COMMUNITY_HUB_ROUTE}
+        configMode={building.configMode}
+        showAds={building.adsEnabled}
+      />
 
       <div className="pointer-events-none fixed inset-x-0 top-0 z-50 flex flex-wrap items-center justify-between gap-2 p-4">
         <div className="pointer-events-auto rounded-full border border-sky-300/40 bg-background/70 px-4 py-2 text-sm font-semibold text-sky-100 shadow-[0_0_24px_hsl(205_90%_60%/0.3)] backdrop-blur">
