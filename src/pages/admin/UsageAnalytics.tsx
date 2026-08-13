@@ -205,7 +205,7 @@ export default function UsageAnalytics({ embedded }: { embedded?: boolean } = {}
                       <td className="px-3 py-2 text-dash-surface">{a.name}</td>
                       <td className="px-3 py-2 capitalize text-dash-surface/70">{a.accountType}</td>
                       <td className="px-3 py-2 font-mono text-dash-surface/60">{a.code}</td>
-                      <td className="px-3 py-2 text-right text-dash-surface/80">{money(a.balance, currency)}</td>
+                      <td className="px-3 py-2 text-right text-dash-surface/80">{credits(a.balance)}</td>
                       <td className="px-3 py-2 text-right text-dash-surface/80">{money(a.cost, currency)}</td>
                     </tr>
                   ))}

@@ -86,7 +86,7 @@ export default function CostRevenueAnalysis({ embedded }: { embedded?: boolean }
     mutationFn: (input: { costUnitId: string; amount: number }) =>
       grantAccountCredits({ data: { ...input, note: "Administrator credit grant" } }),
     onSuccess: (r) => {
-      toast.success(`New balance ${money(r.balance, currency)}.`);
+      toast.success(`New balance ${credits(r.balance)}.`);
       setCreditAmount("");
       void qc.invalidateQueries({ queryKey: ["revenue-accounts"] });
       void qc.invalidateQueries({ queryKey: ["usage-accounts"] });
@@ -335,7 +335,7 @@ export default function CostRevenueAnalysis({ embedded }: { embedded?: boolean }
                     <td className="px-3 py-2 text-dash-surface/70">{new Date(r.occurredAt).toLocaleString("en-GB")}</td>
                     <td className="px-3 py-2 text-dash-surface">{r.owner}</td>
                     <td className="px-3 py-2 text-dash-surface/80">{r.resource}</td>
-                    <td className="px-3 py-2 text-dash-surface/60">{CATEGORY_LABEL[r.category as CostCategory]}</td>
+                    <td className="px-3 py-2 text-dash-surface/60">{CATEGORY_LABEL[r.category as CostCategory] ?? "Payment"}</td>
                     <td className="px-3 py-2 text-right text-dash-surface/80">{credits(r.costCredits, false)}</td>
                     <td className="px-3 py-2 text-right text-dash-surface/80">{r.profitRate}%</td>
                     <td className="px-3 py-2 text-right text-dash-surface">{credits(r.profitCredits, false)}</td>
@@ -419,7 +419,7 @@ export default function CostRevenueAnalysis({ embedded }: { embedded?: boolean }
                 <option value="">Select an account</option>
                 {(accounts.data?.rows ?? []).map((a) => (
                   <option key={a.costUnitId} value={a.costUnitId}>
-                    {a.name} — {money(a.balance, currency)}
+                    {a.name} — {credits(a.balance)}
                   </option>
                 ))}
               </select>
@@ -464,7 +464,7 @@ export default function CostRevenueAnalysis({ embedded }: { embedded?: boolean }
             </div>
             {selectedAccount && (
               <p className="mt-2 text-xs text-dash-surface/70">
-                {selectedAccount.name} balance: {money(selectedAccount.balance, currency)}
+                {selectedAccount.name} balance: {credits(selectedAccount.balance)}
               </p>
             )}
           </div>
