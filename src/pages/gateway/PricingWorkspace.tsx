@@ -164,10 +164,25 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
               Payment: <span className="font-semibold text-foreground">Not connected</span>. Connect your own Stripe
               account — students pay you directly and MathGPL takes no cut.
             </p>
-            <Button className="w-full" onClick={() => connect.mutate()} disabled={connect.isPending}>
+            <Button
+              className="w-full"
+              onClick={() =>
+                connect.mutate(undefined, {
+                  onError: (connectError) =>
+                    toast({
+                      title: "Could not start Stripe onboarding",
+                      description:
+                        connectError instanceof Error ? connectError.message : "Try again in a moment.",
+                      variant: "destructive",
+                    }),
+                })
+              }
+              disabled={connect.isPending}
+            >
               {connect.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Connect Stripe
             </Button>
+
           </div>
         ) : (
           <div className="space-y-3">
@@ -209,7 +224,18 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
               variant="outline"
               size="sm"
               className="w-full"
-              onClick={() => manage.mutate()}
+              onClick={() =>
+                manage.mutate(undefined, {
+                  onError: (manageError) =>
+                    toast({
+                      title: "Could not open Stripe",
+                      description:
+                        manageError instanceof Error ? manageError.message : "Try again in a moment.",
+                      variant: "destructive",
+                    }),
+                })
+              }
+
               disabled={manage.isPending}
             >
               {stripe.chargesEnabled ? "Manage Stripe account" : "Continue Stripe verification"}
@@ -234,6 +260,14 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
             <span className="font-semibold text-foreground">price</span>. Publish a plan to show it on your gateway.
           </p>
         </div>
+
+        {!stripeLoading && !stripe?.paymentsActive && (plans ?? []).some((plan) => (plan.price ?? 0) > 0) ? (
+          <p className="rounded-2xl border border-ws-gold/40 bg-ws-gold/10 p-4 text-sm">
+            Your paid plans are saved, but they stay hidden from your gateway until Stripe is connected and{" "}
+            <span className="font-semibold">Payment active</span> is switched on. Only free plans are visible to
+            students right now.
+          </p>
+        ) : null}
 
         {error ? (
           <p className="text-sm text-destructive">{(error as Error).message}</p>
