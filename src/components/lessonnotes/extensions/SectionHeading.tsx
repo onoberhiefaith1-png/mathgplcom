@@ -16,7 +16,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import { AssignDialog } from "../AssignDialog";
-import { detectSectionKind, SECTION_LABELS, REPEATABLE_SECTION_KINDS, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
