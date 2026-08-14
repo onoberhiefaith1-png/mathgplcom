@@ -36,7 +36,7 @@ const WorkspacePlanGate = ({
   const pick = async (planId: string, price: number | null, interval: GatewayBillingInterval) => {
     if (price && price > 0) {
       try {
-        await checkout.mutateAsync({ planId, interval });
+        await checkout.mutateAsync({ planId, interval, returnPath: window.location.pathname });
       } catch (error) {
         toast({
           title: "Could not open payment",

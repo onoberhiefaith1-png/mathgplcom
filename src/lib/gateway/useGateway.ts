@@ -84,8 +84,14 @@ export const useStripeConnectActions = (ownerKind: GatewayOwnerKind) => {
 export const usePlanCheckout = () => {
   const checkout = useServerFn(createPlanCheckout);
   return useMutation({
-    mutationFn: async ({ planId, interval }: { planId: string; interval: GatewayBillingInterval }) => {
-      const { url } = await checkout({ data: { planId, interval, origin: window.location.origin } });
+    mutationFn: async ({
+      planId,
+      interval,
+      returnPath,
+    }: { planId: string; interval: GatewayBillingInterval; returnPath?: string }) => {
+      const { url } = await checkout({
+        data: { planId, interval, origin: window.location.origin, ...(returnPath ? { returnPath } : {}) },
+      });
       window.location.href = url;
     },
   });
