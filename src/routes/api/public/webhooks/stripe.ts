@@ -110,6 +110,26 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
             { onConflict: "owner_id,owner_kind,student_id" },
           );
 
+          // Paying is entering: the student's workspace access is recorded here,
+          // so the school's or teacher's learning activates on their dashboard.
+          const { data: org } = await supabaseAdmin
+            .from("organizations")
+            .select("id")
+            .eq("owner_user_id", ownerId)
+            .maybeSingle();
+          await supabaseAdmin.from("student_workspace_access").upsert(
+            {
+              student_id: studentId,
+              owner_id: ownerId,
+              org_id: ownerKind === "school" ? org?.id ?? null : null,
+              source: "paid",
+              granted_at: new Date().toISOString(),
+            },
+            { onConflict: "student_id,owner_id" },
+          );
+
+
+
           if (input.sessionId) {
             await supabaseAdmin
               .from("gateway_payments")
