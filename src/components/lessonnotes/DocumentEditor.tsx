@@ -1644,6 +1644,16 @@ function DocumentEditorInner({
     } catch { /* handleSectionAi surfaces its own error toast */ }
   };
 
+  /** Enter = commit: close the insertion controls, then insert + generate. */
+  const commitSessionDraft = () => {
+    const draft = sessionDraft;
+    if (!draft || !draft.title.trim()) return;
+    setSessionDraft(null);
+    void insertCustomSession(draft.title, draft.withSolution);
+  };
+
+
+
 
   /** "+ Add Subtopic" — structural heading. Everything added under it belongs
    *  to that subtopic, and the AI generates for it only. */
