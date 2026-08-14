@@ -1075,7 +1075,7 @@ function DocumentEditorInner({
 
       try {
         const topic = ctxRef.current?.topic || notebookContext?.topic;
-        const subtopic = ctxRef.current?.subtopic || notebookContext?.subtopic;
+        const subtopic = contextAt(anchorHeadingPos)?.subtopic || ctxRef.current?.subtopic || notebookContext?.subtopic;
         const subject = ctxRef.current?.subject || notebookContext?.subject;
         const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
           body: {
