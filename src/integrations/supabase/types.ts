@@ -3665,6 +3665,7 @@ export type Database = {
       }
       notebooks: {
         Row: {
+          archived_at: string | null
           checkout_link_id: string | null
           class_name: string
           color_index: number
@@ -3690,6 +3691,7 @@ export type Database = {
           zoom: number
         }
         Insert: {
+          archived_at?: string | null
           checkout_link_id?: string | null
           class_name?: string
           color_index?: number
@@ -3715,6 +3717,7 @@ export type Database = {
           zoom?: number
         }
         Update: {
+          archived_at?: string | null
           checkout_link_id?: string | null
           class_name?: string
           color_index?: number

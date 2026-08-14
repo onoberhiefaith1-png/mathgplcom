@@ -1,0 +1,1 @@
+ALTER TABLE public.notebooks ADD COLUMN IF NOT EXISTS archived_at timestamptz;

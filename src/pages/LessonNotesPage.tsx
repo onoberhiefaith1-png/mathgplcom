@@ -56,6 +56,10 @@ const LessonNotesPage = () => {
   // Sharing a note with MathGPL Community publishes a listing; the note itself
   // never leaves this shelf.
   const [shareFor, setShareFor] = useState<NotebookRow | null>(null);
+  // Archive is Lesson Note management: retired notes leave the active shelf and
+  // can be opened or restored from here. It is never a workspace tool.
+  const [view, setView] = useState<"active" | "archive">("active");
+
 
   // Authentication is handled once by the platform guard (RequireAuth); this
   // page only needs to know who is signed in.
@@ -77,6 +81,7 @@ const LessonNotesPage = () => {
       // Lesson Notes is the working area: notebooks stored inside a class are
       // independent copies and never clutter the shelf.
       .eq("storage_scope", "workspace");
+    query = view === "archive" ? query.not("archived_at", "is", null) : query.is("archived_at", null);
     query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
     // When someone else's shelf is being viewed read-only, show their notes.
     query = withOwnerView(query);
@@ -91,7 +96,8 @@ const LessonNotesPage = () => {
 
 
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { setPage(0); load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [view]);
+
 
   const create = async (v: CreateNotebookValues) => {
     if (!allowEdit()) return;
