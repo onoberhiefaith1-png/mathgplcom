@@ -393,7 +393,9 @@ export const RotatingAdventureScene = ({
   routeFor,
   interactive = true,
   configMode = "self",
+  ownerUserId,
   showAds = false,
+
 }: {
   routeFor?: (route: string) => string;
   /** Students view the academy; segments are not clickable for them. */
