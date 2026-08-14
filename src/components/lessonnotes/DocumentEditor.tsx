@@ -1562,6 +1562,39 @@ function DocumentEditorInner({
       .run();
   };
 
+  /** "+ Add Session" — a teacher-named section, optionally with a Solution
+   *  area. It is its own section: never inside Summary or the previous
+   *  session. The typed title also becomes the AI instruction. */
+  const insertCustomSession = (title: string, withSolution: boolean) => {
+    if (!editor) return;
+    const name = title.trim();
+    if (!name) return;
+    const insertAt = sectionInsertPosition();
+    editor.chain().focus()
+      .insertContentAt(insertAt, [
+        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: name }] },
+        { type: "paragraph" },
+        ...(withSolution ? solutionPlaceholderNodes() : []),
+      ])
+      .run();
+  };
+
+  /** "+ Add Subtopic" — structural heading. Everything added under it belongs
+   *  to that subtopic, and the AI generates for it only. */
+  const insertSubtopic = (title: string) => {
+    if (!editor) return;
+    const name = title.trim();
+    if (!name) return;
+    const insertAt = editor.state.doc.content.size;
+    editor.chain().focus()
+      .insertContentAt(insertAt, [
+        { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: name }] },
+        { type: "paragraph" },
+      ])
+      .run();
+  };
+
+
 
   /** Bridge so the floating Geometry Editor panel can list and insert into
    *  sections of this document. The panel dispatches window events; we reply
