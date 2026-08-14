@@ -16,7 +16,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import { AssignDialog } from "../AssignDialog";
-import { detectSectionKind, SECTION_LABELS, REPEATABLE_SECTION_KINDS, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
@@ -62,7 +62,14 @@ function SectionHeadingView(props: NodeViewProps) {
 
   const level: number = node.attrs.level ?? 2;
   const text = node.textContent;
-  const kind = (level <= 3) ? detectSectionKind(text) : null;
+  // Structural subtopic headings (level 1, custom text) carry NO AI toolbar.
+  // Custom sessions (level 2, custom text) behave like a full section.
+  const role = level <= 3 ? headingRole(text, level) : null;
+  const kind: SectionKind | null =
+    role?.role === "section" ? role.kind
+      : role?.role === "custom_session" ? "custom_session"
+        : null;
+
 
   const computeSection = useCallback(() => {
     const pos = typeof getPos === "function" ? getPos() : null;

@@ -106,8 +106,8 @@ import { useViewAs } from "@/lib/accounts/viewAs";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { exportDocx } from "@/lib/lessonnotes/exportDocx";
 import {
-  SECTION_LABELS, WHOLE_LESSON_ORDER, aiSectionKind, blockKindFor,
-  detectSectionKind, type SectionKind,
+  SECTION_LABELS, WHOLE_LESSON_ORDER, INSERT_SECTION_OPTIONS, aiSectionKind, blockKindFor,
+  detectSectionKind, headingRole, type SectionKind,
 } from "@/lib/lessonnotes/sectionKinds";
 import { persistGeneratedExample } from "@/lib/lessonnotes/persistGenerated";
 import {
@@ -118,10 +118,8 @@ import {
 import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
 
-const SECTION_OPTIONS: SectionKind[] = [
-  "introduction", "objectives", "explanation", "example",
-  "exercise", "classwork", "homework", "assessment", "summary",
-];
+const SECTION_OPTIONS: SectionKind[] = INSERT_SECTION_OPTIONS;
+
 
 interface Props {
   documentJson: any | null;
@@ -586,14 +584,42 @@ function DocumentEditorInner({
     };
   };
 
+  /** The subtopic that owns `beforePos`: the nearest structural subtopic
+   *  heading (level 1, custom text) above it. Everything generated below that
+   *  heading belongs to this subtopic — the AI must never continue the
+   *  previous one. */
+  const currentSubtopicAt = (beforePos: number): { pos: number; title: string } | null => {
+    if (!editor) return null;
+    let found: { pos: number; title: string } | null = null;
+    editor.state.doc.descendants((n, p) => {
+      if (p >= beforePos) return false;
+      if (n.type.name === "heading") {
+        const role = headingRole(n.textContent, n.attrs?.level ?? 6);
+        if (role?.role === "subtopic") found = { pos: p, title: role.title };
+      }
+      return true;
+    });
+    return found;
+  };
+
+  /** Notebook context narrowed to the subtopic the insertion point sits under. */
+  const contextAt = (beforePos: number): Props["notebookContext"] => {
+    const sub = currentSubtopicAt(beforePos);
+    if (!sub) return ctxRef.current;
+    return { ...(ctxRef.current ?? {}), subtopic: sub.title };
+  };
+
   /** Everything already taught in this lesson ABOVE `beforePos`, condensed
-   *  into the teaching context the AI needs so sections stay connected. */
+   *  into the teaching context the AI needs so sections stay connected.
+   *  Scoped to the current subtopic when one exists. */
   const collectLessonContext = (beforePos: number, targetKind: SectionKind): LessonTeachingContext | undefined => {
     if (!editor) return undefined;
     const doc = editor.state.doc;
+    const scopeStart = currentSubtopicAt(beforePos)?.pos ?? 0;
     const headings: { pos: number; size: number; text: string }[] = [];
     doc.descendants((n, p) => {
       if (p >= beforePos) return false;
+      if (p < scopeStart) return true;
       if (n.type.name === "heading" && (n.attrs?.level ?? 6) <= 3) {
         headings.push({ pos: p, size: n.nodeSize, text: n.textContent });
       }
@@ -613,6 +639,7 @@ function DocumentEditorInner({
     if (!chunks.length) return undefined;
     return buildLessonTeachingContext({ sections: chunks, targetKind });
   };
+
 
 
   /** Build a teacherPrompt that reflects scanned images + the requested action. */
@@ -707,8 +734,9 @@ function DocumentEditorInner({
     (basePrompt.trim().length > 0 || hasCustomPreferences(loadAiPreferences(nbIdRef.current)));
 
   /** Handle per-section AI button (passed into SectionHeading extension). */
-  const handleSectionAi = async (prompt: string, info: SectionAiCallContext) => {
+  const handleSectionAi = async (prompt: string, infoIn: SectionAiCallContext) => {
     if (!editor) return;
+    let info = infoIn;
 
     // CLEAR: delete the section content (between this heading and the next).
     if (info.action === "clear") {
@@ -724,10 +752,38 @@ function DocumentEditorInner({
       return;
     }
 
+    // Custom session ("+ Add Session"): the teacher's typed title IS the
+    // instruction. A session that owns a Solution area behaves exactly like an
+    // Example (question + solution + floating prep); one without behaves like
+    // an Explanation (content only, no solution area is ever created).
+    let sessionTitle: string | null = null;
+    if (info.kind === "custom_session") {
+      sessionTitle = info.headingText.trim();
+      let hasSolutionArea = false;
+      editor.state.doc.nodesBetween(
+        info.headingPos,
+        Math.min(info.sectionEndPos, editor.state.doc.content.size),
+        (n, p) => {
+          if (hasSolutionArea) return false;
+          if (p <= info.headingPos) return true;
+          if (n.type.name === "heading" && isSolutionLabel(n.textContent)) hasSolutionArea = true;
+          return true;
+        },
+      );
+      info = { ...info, kind: hasSolutionArea ? "example" : "explanation" };
+    }
+
+    const promptBase = sessionTitle
+      ? `Teacher's session request: "${sessionTitle}". Generate this section specifically for that request — ` +
+        `not a generic treatment of the topic.` +
+        (prompt.trim() ? `\n\nAdditional teacher instruction: ${prompt.trim()}` : "")
+      : prompt;
+
     const built = await buildPrompt({
-      base: prompt, action: info.action, sectionText: info.sectionText,
+      base: promptBase, action: info.action, sectionText: info.sectionText,
       images: info.images, kind: info.kind,
     });
+
     const { currentContent } = built;
     // Layer 2 — teacher preferences appended AFTER the task prompt so the
     // pedagogy / QUESTION_LOCK / continuity standards keep priority.
@@ -757,7 +813,8 @@ function DocumentEditorInner({
       content = (await aiGenerate({
         kind: generationKind,
         teacherPrompt: finalPrompt,
-        ctx: ctxRef.current,
+        ctx: contextAt(info.headingPos),
+
         context: isSolutionBlock ? solutionSource?.problemText : info.sectionText,
         currentContent,
         blockKind: generationBlockKind,
@@ -1018,7 +1075,7 @@ function DocumentEditorInner({
 
       try {
         const topic = ctxRef.current?.topic || notebookContext?.topic;
-        const subtopic = ctxRef.current?.subtopic || notebookContext?.subtopic;
+        const subtopic = contextAt(anchorHeadingPos)?.subtopic || ctxRef.current?.subtopic || notebookContext?.subtopic;
         const subject = ctxRef.current?.subject || notebookContext?.subject;
         const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
           body: {
@@ -1504,6 +1561,43 @@ function DocumentEditorInner({
       ])
       .run();
   };
+  /** Inline composers for the two structural controls under the section list. */
+  const [sessionDraft, setSessionDraft] = useState<{ title: string; withSolution: boolean } | null>(null);
+  const [subtopicDraft, setSubtopicDraft] = useState<string | null>(null);
+
+
+  /** "+ Add Session" — a teacher-named section, optionally with a Solution
+   *  area. It is its own section: never inside Summary or the previous
+   *  session. The typed title also becomes the AI instruction. */
+  const insertCustomSession = (title: string, withSolution: boolean) => {
+    if (!editor) return;
+    const name = title.trim();
+    if (!name) return;
+    const insertAt = sectionInsertPosition();
+    editor.chain().focus()
+      .insertContentAt(insertAt, [
+        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: name }] },
+        { type: "paragraph" },
+        ...(withSolution ? solutionPlaceholderNodes() : []),
+      ])
+      .run();
+  };
+
+  /** "+ Add Subtopic" — structural heading. Everything added under it belongs
+   *  to that subtopic, and the AI generates for it only. */
+  const insertSubtopic = (title: string) => {
+    if (!editor) return;
+    const name = title.trim();
+    if (!name) return;
+    const insertAt = editor.state.doc.content.size;
+    editor.chain().focus()
+      .insertContentAt(insertAt, [
+        { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: name }] },
+        { type: "paragraph" },
+      ])
+      .run();
+  };
+
 
 
   /** Bridge so the floating Geometry Editor panel can list and insert into
@@ -1869,8 +1963,86 @@ function DocumentEditorInner({
             {(gameQuestionsOnly ? (["game_questions"] as SectionKind[]) : SECTION_OPTIONS).map((s) => (
               <DropdownMenuItem key={s} onClick={() => insertSection(s)}>{SECTION_LABELS[s]}</DropdownMenuItem>
             ))}
+            {!gameQuestionsOnly && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => { setSubtopicDraft(null); setSessionDraft({ title: "", withSolution: true }); }}>
+                  ＋ Add Session
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSessionDraft(null); setSubtopicDraft(""); }}>
+                  ＋ Add Subtopic
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
+
         </DropdownMenu>
+
+        {sessionDraft && (
+          <div className="inline-flex items-center gap-1 rounded border border-foreground/20 bg-background px-1.5 py-1 text-xs">
+            <span className="text-muted-foreground">Add Session:</span>
+            <input
+              autoFocus
+              value={sessionDraft.title}
+              placeholder="e.g. Find the LCM of 12 and 18"
+              onChange={(e) => setSessionDraft({ ...sessionDraft, title: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  insertCustomSession(sessionDraft.title, sessionDraft.withSolution);
+                  setSessionDraft(null);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setSessionDraft(null);
+                }
+              }}
+              className="w-56 bg-transparent px-1 py-0.5 outline-none"
+            />
+            <div className="inline-flex overflow-hidden rounded border border-foreground/20">
+              {([true, false] as const).map((v) => (
+                <button
+                  key={String(v)}
+                  type="button"
+                  onClick={() => setSessionDraft({ ...sessionDraft, withSolution: v })}
+                  className={cn(
+                    "px-2 py-0.5",
+                    sessionDraft.withSolution === v
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-foreground/10",
+                  )}
+                >
+                  {v ? "With Solution" : "Without Solution"}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => setSessionDraft(null)} className="px-1 text-muted-foreground hover:text-foreground">✕</button>
+          </div>
+        )}
+
+        {subtopicDraft !== null && (
+          <div className="inline-flex items-center gap-1 rounded border border-foreground/20 bg-background px-1.5 py-1 text-xs">
+            <span className="text-muted-foreground">Subtopic:</span>
+            <input
+              autoFocus
+              value={subtopicDraft}
+              placeholder="e.g. Adding Fractions with Different Denominators"
+              onChange={(e) => setSubtopicDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  insertSubtopic(subtopicDraft);
+                  setSubtopicDraft(null);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setSubtopicDraft(null);
+                }
+              }}
+              className="w-64 bg-transparent px-1 py-0.5 outline-none"
+            />
+            <button type="button" onClick={() => setSubtopicDraft(null)} className="px-1 text-muted-foreground hover:text-foreground">✕</button>
+          </div>
+        )}
+
         <div className="inline-flex items-center gap-1">
           <button
             type="button"

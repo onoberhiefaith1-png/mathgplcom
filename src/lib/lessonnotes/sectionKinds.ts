@@ -5,7 +5,7 @@
 export type SectionKind =
   | "introduction" | "explanation" | "example" | "exercise"
   | "classwork" | "homework" | "assessment" | "summary" | "objectives"
-  | "solution" | "game_questions";
+  | "solution" | "game_questions" | "custom_session";
 
 export const SECTION_LABELS: Record<SectionKind, string> = {
   introduction: "Introduction",
@@ -19,18 +19,30 @@ export const SECTION_LABELS: Record<SectionKind, string> = {
   summary: "Summary",
   solution: "Solution",
   game_questions: "Game Questions",
+  custom_session: "Session",
 };
+
+/** The seven standard sections offered by the ribbon "Section" menu.
+ *  Objectives / Assessment are intentionally NOT offered any more; old notes
+ *  that contain them keep rendering and stay AI-editable. */
+export const INSERT_SECTION_OPTIONS: SectionKind[] = [
+  "introduction", "explanation", "example",
+  "exercise", "classwork", "homework", "summary",
+];
+
+/** Sections that come with a Solution area. */
+export const SOLUTION_SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
+  "example", "exercise", "classwork", "homework",
+]);
 
 /** Order used by the "Whole lesson" global AI flow. */
 export const WHOLE_LESSON_ORDER: SectionKind[] = [
   "introduction",
-  "objectives",
   "explanation",
   "example",
   "exercise",
   "classwork",
   "homework",
-  "assessment",
   "summary",
 ];
 
@@ -39,6 +51,7 @@ export const WHOLE_LESSON_ORDER: SectionKind[] = [
 export const REPEATABLE_SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
   "example", "exercise", "classwork", "homework", "assessment", "game_questions",
 ]);
+
 
 /** Match a heading's text to a section kind (loose, case-insensitive). */
 export function detectSectionKind(text: string): SectionKind | null {
@@ -58,18 +71,42 @@ export function detectSectionKind(text: string): SectionKind | null {
   return null;
 }
 
-/** Edge-function payload helpers. */
-export function blockKindFor(kind: SectionKind): "solution" | "text" {
+/** Structural role of a heading inside a lesson note.
+ *  - level 1 heading that is not a known section  → SUBTOPIC (structural)
+ *  - level 2 heading that is not a known section  → custom session
+ *  - anything matching a known section name       → that section */
+export type HeadingRole =
+  | { role: "subtopic"; title: string }
+  | { role: "custom_session"; title: string }
+  | { role: "section"; kind: SectionKind }
+  | null;
+
+export function headingRole(text: string, level: number): HeadingRole {
+  const t = (text || "").trim();
+  if (!t) return null;
+  const kind = detectSectionKind(t);
+  if (kind) return { role: "section", kind };
+  if (level <= 1) return { role: "subtopic", title: t };
+  if (level === 2) return { role: "custom_session", title: t };
+  return null;
+}
+
+/** Edge-function payload helpers. `hasSolution` only matters for custom
+ *  sessions, which the teacher creates with or without a Solution area. */
+export function blockKindFor(kind: SectionKind, hasSolution = true): "solution" | "text" {
   if (kind === "solution") return "solution";
+  if (kind === "custom_session") return hasSolution ? "solution" : "text";
   return kind === "example" || kind === "exercise" || kind === "classwork" ||
          kind === "homework" || kind === "assessment" || kind === "game_questions" ? "solution" : "text";
 }
 
 /** Map our kind to one the notebook-ai edge accepts (it doesn't know "assessment" / "objectives"). */
-export function aiSectionKind(kind: SectionKind): string {
+export function aiSectionKind(kind: SectionKind, hasSolution = true): string {
   if (kind === "solution") return "example";
   if (kind === "assessment") return "exercise";
   if (kind === "objectives") return "explanation";
   if (kind === "game_questions") return "exercise";
+  if (kind === "custom_session") return hasSolution ? "example" : "explanation";
+
   return kind;
 }

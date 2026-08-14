@@ -39,6 +39,7 @@ const DB_KIND: Record<SectionKind, string> = {
   summary: "summary",
   solution: "example",
   game_questions: "exercise",
+  custom_session: "example",
 };
 
 /** Concatenate the visible text of a TipTap node, preserving math as their
