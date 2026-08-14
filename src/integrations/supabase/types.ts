@@ -5415,6 +5415,47 @@ export type Database = {
           },
         ]
       }
+      student_workspace_access: {
+        Row: {
+          created_at: string
+          granted_at: string
+          id: string
+          org_id: string | null
+          owner_id: string
+          source: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          granted_at?: string
+          id?: string
+          org_id?: string | null
+          owner_id: string
+          source?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          granted_at?: string
+          id?: string
+          org_id?: string | null
+          owner_id?: string
+          source?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_workspace_access_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_entitlements: {
         Row: {
           created_at: string
@@ -6140,6 +6181,10 @@ export type Database = {
       ensure_credit_wallet: { Args: { _cost_unit_id: string }; Returns: string }
       ensure_user_cost_unit: { Args: { _user_id: string }; Returns: string }
       ensure_workspace_cost_unit: { Args: { _org_id: string }; Returns: string }
+      enter_workspace: {
+        Args: { _org_id?: string; _owner_id: string }
+        Returns: string
+      }
       expire_credit_grants: { Args: never; Returns: number }
       expire_lapsed_subscriptions: { Args: never; Returns: number }
       gateway_by_handle: {
@@ -6198,6 +6243,7 @@ export type Database = {
       generate_org_invite_code: { Args: never; Returns: string }
       generate_session_code: { Args: never; Returns: string }
       generate_share_code: { Args: never; Returns: string }
+      get_account_homepage_config: { Args: { _user_id: string }; Returns: Json }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
       get_class_join_request_profiles: {
         Args: { _class_id: string }

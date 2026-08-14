@@ -1,15 +1,16 @@
-import { ClipboardList, Compass, GraduationCap, Radio, UserPlus, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Building2, ClipboardList, Compass, GraduationCap, Radio, UserPlus, Users } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import DashboardHero from "@/components/workspace/DashboardHero";
 import { EmptyNote, RailCard, StatCard } from "@/components/workspace/DashboardParts";
 import { useMyAdventures, useMyAssignments, useMyProgress, useMySkillBuilders } from "@/lib/student/useLearning";
-import { useWorkspace } from "@/lib/accounts/useWorkspace";
+import { connectedOwners } from "@/lib/student/workspaceAccess";
 import PlanSection from "@/components/plans/PlanSection";
 import CreditsSection from "@/components/plans/CreditsSection";
 
-/** The four ways into learning, all reading content teachers already created. */
+/** The learning layer: everything the student has activated, across workspaces. */
 const AREAS: { to: string; label: string; blurb: string; icon: typeof Users }[] = [
   { to: "/student/classes", label: "My Classes", blurb: "Open a class to see only its content.", icon: Users },
   { to: "/student/assignments", label: "Assignments", blurb: "Work from every class you belong to.", icon: ClipboardList },
@@ -18,17 +19,50 @@ const AREAS: { to: string; label: string; blurb: string; icon: typeof Users }[] 
 ];
 
 /**
- * The student's front door: one view of their learning across every class, with
- * class-specific content one click away inside each class.
+ * The student's front door, in two layers.
+ *
+ * CONNECTIONS says where the student belongs: their schools and teachers, each
+ * one entered through its own building. LEARNING is the aggregation of every
+ * workspace they have actually entered — classes, assignments, adventures and
+ * Skill Builder together, tagged with the class they came from.
  */
 const StudentDashboard = () => {
   const { data: progress, isLoading } = useMyProgress();
   const { data: assignments } = useMyAssignments();
   const { data: adventures } = useMyAdventures();
   const { data: skills } = useMySkillBuilders();
-  const { workspaces, activeOrgId, switchTo } = useWorkspace();
-  const schools = workspaces.filter((w) => w.kind === "school" && !w.isOwner);
+  const owners = useQuery({ queryKey: ["student-connected-owners"], queryFn: connectedOwners, staleTime: 30_000 });
+
   const classes = progress?.classes ?? [];
+  const schools = (owners.data ?? []).filter((o) => o.kind === "school");
+  const teachers = (owners.data ?? []).filter((o) => o.kind === "teacher");
+  const waiting = (owners.data ?? []).filter((o) => !o.entered);
+
+  const pathFor = (owner: { kind: "school" | "teacher"; ownerId: string; orgId: string | null; entered: boolean }) => {
+    const base = owner.kind === "school" ? `/student/schools/${owner.orgId ?? ""}` : `/student/teachers/${owner.ownerId}`;
+    return owner.entered ? `${base}/dashboard` : base;
+  };
+
+  const ownerList = (list: typeof schools, empty: string) =>
+    list.length === 0 ? (
+      <EmptyNote>{empty}</EmptyNote>
+    ) : (
+      <ul className="space-y-2">
+        {list.map((owner) => (
+          <li key={owner.ownerId}>
+            <Link
+              to={pathFor(owner)}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-border/50 bg-background/40 p-3 transition hover:border-primary/40"
+            >
+              <span className="truncate text-sm">{owner.name}</span>
+              <span className="shrink-0 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                {owner.entered ? "Open" : "Enter"}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    );
 
   const rail = (
     <>
@@ -41,7 +75,7 @@ const StudentDashboard = () => {
 
       <RailCard title="Class progress">
         {classes.length === 0 ? (
-          <EmptyNote>Join a class to start tracking your progress.</EmptyNote>
+          <EmptyNote>Enter a school or teacher, then join a class to start tracking progress.</EmptyNote>
         ) : (
           <ul className="space-y-2">
             {classes.map((cls) => (
@@ -86,35 +120,55 @@ const StudentDashboard = () => {
           </Link>
         </div>
       </RailCard>
-
-      <RailCard title="My Schools" action={{ to: "/requests?view=schools", label: "Manage" }}>
-        {schools.length === 0 ? (
-          <EmptyNote>You are not connected to a school yet. Join a class or accept a school request.</EmptyNote>
-        ) : (
-          <ul className="space-y-2">
-            {schools.map((school) => (
-              <li key={school.orgId}>
-                <button
-                  type="button"
-                  onClick={() => void switchTo(school.orgId)}
-                  className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-border/50 bg-background/40 p-3 text-left transition hover:border-primary/40"
-                >
-                  <span className="truncate text-sm">{school.name}</span>
-                  <span className="shrink-0 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {school.orgId === activeOrgId ? "Active" : "Enter"}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </RailCard>
     </>
   );
 
   return (
     <WorkspaceLayout title="Student Dashboard" subtitle="Your learning hub" rail={rail}>
-      <DashboardHero blurb="Everything you are learning, across every class you belong to." />
+      <DashboardHero blurb="Where you belong, and everything you are learning across it." />
+
+      {/* ── Connections: the identity layer ─────────────────────────────── */}
+      <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Connections</h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Open a school or a teacher to step inside their workspace. Their classes and work join your learning below
+          once you are in.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <h3 className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <Building2 className="h-4 w-4" /> My Schools
+            </h3>
+            {owners.isLoading ? <EmptyNote>Loading…</EmptyNote> : ownerList(schools, "No school connection yet.")}
+          </div>
+          <div>
+            <h3 className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <GraduationCap className="h-4 w-4" /> My Teachers
+            </h3>
+            {owners.isLoading ? <EmptyNote>Loading…</EmptyNote> : ownerList(teachers, "No teacher connection yet.")}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Learning: only what has been activated ──────────────────────── */}
+      {waiting.length > 0 && (
+        <section className="rounded-2xl border border-amber-300/50 bg-amber-500/10 p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-200">Waiting to be opened</h2>
+          <ul className="mt-3 space-y-2">
+            {waiting.map((owner) => (
+              <li key={owner.ownerId}>
+                <Link
+                  to={pathFor(owner)}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl border border-amber-300/40 bg-background/50 p-3 text-sm transition hover:border-amber-300"
+                >
+                  <span className="truncate">Open {owner.name} to activate their learning</span>
+                  <span className="shrink-0 text-[10px] uppercase tracking-[0.18em] text-amber-200">Enter</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Overall progress" value={progress?.overall ?? 0} suffix="%" icon={GraduationCap} loading={isLoading} />
@@ -123,37 +177,40 @@ const StudentDashboard = () => {
         <StatCard label="Adventures" value={adventures?.length ?? 0} icon={Compass} to="/student/adventures" />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {AREAS.map((area) => (
-          <Link
-            key={area.to}
-            to={area.to}
-            className="grid min-h-[96px] grid-cols-[auto_minmax(0,1fr)] items-center gap-4 rounded-2xl border border-border/60 bg-card/60 p-5 transition hover:border-primary/40"
-          >
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/15 text-primary">
-              <area.icon className="h-5 w-5" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-base font-semibold">{area.label}</span>
-              <span className="block text-xs text-muted-foreground">{area.blurb}</span>
-            </span>
-          </Link>
-        ))}
-      </div>
-
-      <section className="grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-card/60 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Join a class</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Have a join code from your teacher? Add the class to your dashboard.
-          </p>
+      <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Learning</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {AREAS.map((area) => (
+            <Link
+              key={area.to}
+              to={area.to}
+              className="grid min-h-[96px] grid-cols-[auto_minmax(0,1fr)] items-center gap-4 rounded-2xl border border-border/60 bg-background/40 p-5 transition hover:border-primary/40"
+            >
+              <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/15 text-primary">
+                <area.icon className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-base font-semibold">{area.label}</span>
+                <span className="block text-xs text-muted-foreground">{area.blurb}</span>
+              </span>
+            </Link>
+          ))}
         </div>
-        <Link
-          to="/student/join"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-primary/50 bg-primary/10 px-5 text-sm font-medium text-primary transition hover:bg-primary/20"
-        >
-          <UserPlus className="h-4 w-4" /> Join Class
-        </Link>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-background/40 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold">Join a class</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Have a join code from your teacher? Add the class to your dashboard.
+            </p>
+          </div>
+          <Link
+            to="/student/join"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-primary/50 bg-primary/10 px-5 text-sm font-medium text-primary transition hover:bg-primary/20"
+          >
+            <UserPlus className="h-4 w-4" /> Join Class
+          </Link>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-border/60 bg-card/60 p-5">

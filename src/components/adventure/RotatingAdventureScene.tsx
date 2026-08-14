@@ -393,7 +393,9 @@ export const RotatingAdventureScene = ({
   routeFor,
   interactive = true,
   configMode = "self",
+  ownerUserId,
   showAds = false,
+
 }: {
   routeFor?: (route: string) => string;
   /** Students view the academy; segments are not clickable for them. */
@@ -404,6 +406,8 @@ export const RotatingAdventureScene = ({
    * building, "platform-free" = the platform-owned Free building.
    */
   configMode?: HomepageConfigMode;
+  /** Render a named account's own building (a school or teacher identity). */
+  ownerUserId?: string;
   /** Plays the platform advertisement billboard on this building. */
   showAds?: boolean;
 } = {}) => {
@@ -414,7 +418,8 @@ export const RotatingAdventureScene = ({
   const remountedRef = useRef(false);
   const [painted, setPainted] = useState(false);
   const [artworkReady, setArtworkReady] = useState(false);
-  const { config, ready } = useHomepageConfig({ mode: configMode });
+  const { config, ready } = useHomepageConfig({ mode: configMode, ...(ownerUserId ? { ownerUserId } : {}) });
+
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
   const buildingVersion = configMode === "platform-free" ? "free" : "pro";
   // Advertisements come from the building pipeline, never from the page.
