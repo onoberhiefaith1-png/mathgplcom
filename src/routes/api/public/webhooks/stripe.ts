@@ -82,12 +82,15 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
 
           if (!planId || !ownerId || !ownerKind || !studentId) return;
 
-           const { data: paymentSnapshot } = input.sessionId ? await supabaseAdmin
-             .from("gateway_payments")
-             .select("granted_items")
-             .eq("stripe_checkout_session_id", input.sessionId)
-            .maybeSingle();
-           const lockedItems = paymentSnapshot?.granted_items ?? [];
+          let lockedItems: string[] = [];
+          if (input.sessionId) {
+            const { data: paymentSnapshot } = await supabaseAdmin
+              .from("gateway_payments")
+              .select("granted_items")
+              .eq("stripe_checkout_session_id", input.sessionId)
+              .maybeSingle();
+            lockedItems = paymentSnapshot?.granted_items ?? [];
+          }
 
           await supabaseAdmin.from("gateway_entitlements").upsert(
             {
@@ -95,7 +98,7 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
               owner_kind: ownerKind,
               student_id: studentId,
               plan_id: planId,
-               granted_items: lockedItems,
+              granted_items: lockedItems,
               source: "paid",
               status: "active",
               payment_provider: "stripe",
