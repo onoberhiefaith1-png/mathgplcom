@@ -734,8 +734,9 @@ function DocumentEditorInner({
     (basePrompt.trim().length > 0 || hasCustomPreferences(loadAiPreferences(nbIdRef.current)));
 
   /** Handle per-section AI button (passed into SectionHeading extension). */
-  const handleSectionAi = async (prompt: string, info: SectionAiCallContext) => {
+  const handleSectionAi = async (prompt: string, infoIn: SectionAiCallContext) => {
     if (!editor) return;
+    let info = infoIn;
 
     // CLEAR: delete the section content (between this heading and the next).
     if (info.action === "clear") {
@@ -751,10 +752,38 @@ function DocumentEditorInner({
       return;
     }
 
+    // Custom session ("+ Add Session"): the teacher's typed title IS the
+    // instruction. A session that owns a Solution area behaves exactly like an
+    // Example (question + solution + floating prep); one without behaves like
+    // an Explanation (content only, no solution area is ever created).
+    let sessionTitle: string | null = null;
+    if (info.kind === "custom_session") {
+      sessionTitle = info.headingText.trim();
+      let hasSolutionArea = false;
+      editor.state.doc.nodesBetween(
+        info.headingPos,
+        Math.min(info.sectionEndPos, editor.state.doc.content.size),
+        (n, p) => {
+          if (hasSolutionArea) return false;
+          if (p <= info.headingPos) return true;
+          if (n.type.name === "heading" && isSolutionLabel(n.textContent)) hasSolutionArea = true;
+          return true;
+        },
+      );
+      info = { ...info, kind: hasSolutionArea ? "example" : "explanation" };
+    }
+
+    const promptBase = sessionTitle
+      ? `Teacher's session request: "${sessionTitle}". Generate this section specifically for that request — ` +
+        `not a generic treatment of the topic.` +
+        (prompt.trim() ? `\n\nAdditional teacher instruction: ${prompt.trim()}` : "")
+      : prompt;
+
     const built = await buildPrompt({
-      base: prompt, action: info.action, sectionText: info.sectionText,
+      base: promptBase, action: info.action, sectionText: info.sectionText,
       images: info.images, kind: info.kind,
     });
+
     const { currentContent } = built;
     // Layer 2 — teacher preferences appended AFTER the task prompt so the
     // pedagogy / QUESTION_LOCK / continuity standards keep priority.
