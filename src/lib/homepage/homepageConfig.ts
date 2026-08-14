@@ -88,8 +88,9 @@ export async function fetchPlatformFreeBuilding(): Promise<HomepageConfig> {
  * Everyone reads it; only the platform owner can write it (enforced in the
  * database), and it is never cached into this account's local storage.
  */
-export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
+export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUserId?: string }) {
   const mode = options?.mode ?? "self";
+  const ownerUserId = options?.ownerUserId;
   // Start empty so SSR and the first client render agree; local cache is
   // applied after hydration.
   const [config, setConfig] = useState<HomepageConfig>({});
@@ -107,6 +108,16 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
   useEffect(() => {
     let alive = true;
     void (async () => {
+      // A named account's own building: a student entering a school's or a
+      // teacher's workspace sees that owner's building, never their own.
+      if (ownerUserId) {
+        const { data } = await supabase.rpc("get_account_homepage_config", { _user_id: ownerUserId });
+        if (!alive) return;
+        const remote = (data ?? null) as HomepageConfig | null;
+        if (remote && typeof remote === "object") apply(remote);
+        setReady(true);
+        return;
+      }
       if (mode === "platform-free") {
         const remote = await fetchPlatformFreeBuilding();
         if (!alive) return;
@@ -115,6 +126,7 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode }) {
         return;
       }
       if (mode === "school-readonly") {
+
         // Prefer the workspace the viewer is currently in; fall back to the
         // organisation that owns them.
         const { data: profileRow } = await supabase
