@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
-import { useNavigate } from "@/lib/router-compat";
+import { Link, useNavigate } from "@/lib/router-compat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,7 +44,14 @@ const SecretAccessPage = () => {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[hsl(224_70%_6%)] px-6 py-16 text-white">
+    <main className="relative flex min-h-screen items-center justify-center bg-[hsl(224_70%_6%)] px-6 py-16 text-white">
+      <Link
+        to="/"
+        className="absolute left-4 top-4 inline-flex items-center gap-2 text-sm text-white/60 transition-colors hover:text-white"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Link>
       <form
         onSubmit={submit}
         className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.04] p-8 backdrop-blur"
