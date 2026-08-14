@@ -6243,6 +6243,7 @@ export type Database = {
       generate_org_invite_code: { Args: never; Returns: string }
       generate_session_code: { Args: never; Returns: string }
       generate_share_code: { Args: never; Returns: string }
+      get_account_homepage_config: { Args: { _user_id: string }; Returns: Json }
       get_class_join_code: { Args: { _class_id: string }; Returns: string }
       get_class_join_request_profiles: {
         Args: { _class_id: string }
