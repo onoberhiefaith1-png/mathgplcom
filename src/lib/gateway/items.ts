@@ -6,6 +6,7 @@
 export type GatewayItem =
   | "class_notes"
   | "smartboard"
+  | "assessment"
   | "assignment"
   | "adventure"
   | "gallery"
@@ -16,6 +17,7 @@ export type GatewayItem =
 export const GATEWAY_ITEMS: { id: GatewayItem; label: string; blurb: string }[] = [
   { id: "class_notes", label: "Class Notes", blurb: "The lesson notes shared with the class." },
   { id: "smartboard", label: "Smartboard", blurb: "Live and saved SmartBoard work." },
+  { id: "assessment", label: "Assessments", blurb: "Tests, quizzes and marked assessment work." },
   { id: "assignment", label: "Assignment", blurb: "Set work, classwork and homework." },
   { id: "adventure", label: "Adventure", blurb: "Adventure games and races." },
   { id: "gallery", label: "Gallery", blurb: "Awards, rewards and the class gallery." },

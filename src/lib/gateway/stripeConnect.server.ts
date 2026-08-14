@@ -225,6 +225,7 @@ export const createDirectCheckoutSession = (input: {
   cancelUrl: string;
   customerEmail: string | null;
   metadata: Record<string, string>;
+  recurringInterval?: "month" | "year";
 }) =>
   stripeRequest<{ id: string; url: string }>("/v1/checkout/sessions", {
     method: "POST",
@@ -242,7 +243,7 @@ export const createDirectCheckoutSession = (input: {
             currency: input.currency.toLowerCase(),
             unit_amount: input.amountMinor,
             product_data: { name: input.productName },
-            ...(input.mode === "subscription" ? { recurring: { interval: "month" } } : {}),
+            ...(input.mode === "subscription" ? { recurring: { interval: input.recurringInterval ?? "month" } } : {}),
           },
         },
       ],

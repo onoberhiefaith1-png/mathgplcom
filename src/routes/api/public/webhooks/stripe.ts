@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
           if ((!planId || !studentId) && input.sessionId) {
             const { data: payment } = await supabaseAdmin
               .from("gateway_payments")
-              .select("plan_id, owner_id, owner_kind, student_id")
+              .select("plan_id, owner_id, owner_kind, student_id, granted_items")
               .eq("stripe_checkout_session_id", input.sessionId)
               .maybeSingle();
             planId ??= payment?.plan_id ?? null;
@@ -82,11 +82,15 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
 
           if (!planId || !ownerId || !ownerKind || !studentId) return;
 
-          const { data: plan } = await supabaseAdmin
-            .from("gateway_plans")
-            .select("items, name")
-            .eq("id", planId)
-            .maybeSingle();
+          let lockedItems: string[] = [];
+          if (input.sessionId) {
+            const { data: paymentSnapshot } = await supabaseAdmin
+              .from("gateway_payments")
+              .select("granted_items")
+              .eq("stripe_checkout_session_id", input.sessionId)
+              .maybeSingle();
+            lockedItems = paymentSnapshot?.granted_items ?? [];
+          }
 
           await supabaseAdmin.from("gateway_entitlements").upsert(
             {
@@ -94,7 +98,7 @@ export const Route = createFileRoute("/api/public/webhooks/stripe")({
               owner_kind: ownerKind,
               student_id: studentId,
               plan_id: planId,
-              granted_items: plan?.items ?? [],
+              granted_items: lockedItems,
               source: "paid",
               status: "active",
               payment_provider: "stripe",

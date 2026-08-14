@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import StudentCoursesPage from "@/pages/student/StudentCoursesPage";
+import StudentFeatureGate from "@/components/gateway/StudentFeatureGate";
 
 export const Route = createFileRoute("/student/class/$classId/courses/")({
   head: () => ({
@@ -13,5 +14,5 @@ export const Route = createFileRoute("/student/class/$classId/courses/")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: StudentCoursesPage,
+  component: () => <StudentFeatureGate item="course_video_link" Page={StudentCoursesPage} />,
 });
