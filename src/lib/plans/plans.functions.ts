@@ -32,8 +32,15 @@ export const fetchMyPlan = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { mySubscription } = await import("./plans.server");
-    return { subscription: await mySubscription(context.supabase, context.userId) };
+    const [subscription, freeAccess] = await Promise.all([
+      mySubscription(context.supabase, context.userId),
+      context.supabase
+        .rpc("has_free_access", { _user_id: context.userId })
+        .then(({ data }) => data === true),
+    ]);
+    return { subscription, freeAccess };
   });
+
 
 /** Free plans start immediately; paid plans wait for a confirmed payment. */
 export const startFreeSubscription = createServerFn({ method: "POST" })

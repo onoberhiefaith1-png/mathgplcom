@@ -11,10 +11,26 @@ import { usePlanGate } from "@/lib/plans/usePlanGate";
  * in the Pricing workspace.
  */
 const PlanSection = ({ className = "" }: { className?: string }) => {
-  const { loading, subscribes, subscription, noPlansYet, expired, graceDaysLeft } = usePlanGate();
+  const { loading, subscribes, subscription, noPlansYet, expired, graceDaysLeft, freeAccess } = usePlanGate();
 
   // Students and the platform owner hold no plan of their own.
   if (!loading && !subscribes) return null;
+
+  // Test accounts and access-code holders have everything unlocked already.
+  if (!loading && freeAccess) {
+    return (
+      <section className={`rounded-2xl border border-white/10 bg-white/5 p-5 text-white backdrop-blur ${className}`}>
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-amber-200/90">
+          <CreditCard className="h-3.5 w-3.5" /> Plan
+        </div>
+        <div className="mt-2 text-lg font-semibold">Full access</div>
+        <p className="mt-1 text-sm text-white/70">
+          This account has everything unlocked — no plan or payment is needed.
+        </p>
+      </section>
+    );
+  }
+
 
   return (
     <section className={`rounded-2xl border border-white/10 bg-white/5 p-5 text-white backdrop-blur ${className}`}>

@@ -30,7 +30,7 @@ export default function PlanGatewayPage() {
   const qc = useQueryClient();
   const { user, ready } = useAuth();
   const { role } = useAccount();
-  const { loading, subscribes, subscription, choices, noPlansYet } = usePlanGate();
+  const { loading, subscribes, subscription, choices, noPlansYet, freeAccess } = usePlanGate();
   const [pending, setPending] = useState<string | null>(null);
   const [interval, setInterval_] = useState<BillingInterval>("monthly");
   const [confirming, setConfirming] = useState(
@@ -132,7 +132,18 @@ export default function PlanGatewayPage() {
           </div>
         ) : null}
 
-        {!subscribes ? (
+        {!loading && freeAccess ? (
+          <div className="mt-8 rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
+            This account already has full access — no plan or payment is needed.
+            <div className="mt-4">
+              <Button asChild>
+                <Link to={workspace}>Continue to my workspace</Link>
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {!subscribes && !freeAccess ? (
           <div className="mt-8 rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
             Your account type does not need a plan.{" "}
             <Link to={workspace} className="font-semibold text-foreground hover:underline">
@@ -142,7 +153,7 @@ export default function PlanGatewayPage() {
           </div>
         ) : null}
 
-        {subscribes && noPlansYet ? (
+        {subscribes && !freeAccess && noPlansYet ? (
           <div className="mt-8 rounded-2xl border border-border bg-card/60 p-6 text-sm text-muted-foreground">
             No plans are published for your account type yet, so nothing is needed from you right now.
             <div className="mt-4">
@@ -153,7 +164,8 @@ export default function PlanGatewayPage() {
           </div>
         ) : null}
 
-        {subscribes && !subscription && choices.length ? (
+        {subscribes && !freeAccess && !subscription && choices.length ? (
+
           <>
             <div className="mt-8 inline-flex rounded-xl border border-border bg-card/60 p-1 text-sm">
               {(["monthly", "yearly"] as BillingInterval[]).map((option) => (
