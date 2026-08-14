@@ -225,7 +225,17 @@ const LessonNotesPage = () => {
             <Presentation className="h-4 w-4" /> Smartboard
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setView(view === "archive" ? "active" : "archive")}
+            className="gap-2 border-amber-200/20 bg-transparent text-amber-100/90 hover:bg-amber-200/10 hover:text-amber-50"
+          >
+            <Archive className="h-4 w-4" /> {view === "archive" ? "Active notes" : "Archive"}
+          </Button>
+
           <div className="h-6 w-px bg-amber-200/15 mx-1 hidden sm:block" />
+
 
           {/* Primary create action — soft glow + hover lift */}
           <Button
