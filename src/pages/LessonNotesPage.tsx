@@ -255,7 +255,11 @@ const LessonNotesPage = () => {
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading your shelf…</p>
         ) : notebooks.length === 0 ? (
-          <EmptyState onCreate={() => setDialogOpen(true)} />
+          view === "archive" ? (
+            <p className="text-sm text-amber-100/70">No archived lesson notes yet.</p>
+          ) : (
+            <EmptyState onCreate={() => setDialogOpen(true)} />
+          )
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
@@ -263,13 +267,16 @@ const LessonNotesPage = () => {
                 <NotebookCard
                   key={nb.id}
                   nb={nb}
+                  archived={view === "archive"}
                   onOpen={() => navigate(`${livePrefix}/lesson-notes/${nb.id}`)}
                   onPresent={() => navigate(`/smartboard/${nb.id}`)}
                   onRename={() => renameNotebook(nb)}
                   onDuplicate={() => duplicate(nb)}
                   onCover={() => setCoverFor(nb)}
                   onShare={() => setShareFor(nb)}
+                  onArchive={() => setArchived(nb, view !== "archive")}
                   onDelete={() => deleteNotebook(nb)}
+
                 />
               ))}
             </div>
