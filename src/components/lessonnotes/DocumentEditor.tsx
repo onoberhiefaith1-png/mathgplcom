@@ -106,8 +106,8 @@ import { useViewAs } from "@/lib/accounts/viewAs";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { exportDocx } from "@/lib/lessonnotes/exportDocx";
 import {
-  SECTION_LABELS, WHOLE_LESSON_ORDER, aiSectionKind, blockKindFor,
-  detectSectionKind, type SectionKind,
+  SECTION_LABELS, WHOLE_LESSON_ORDER, INSERT_SECTION_OPTIONS, aiSectionKind, blockKindFor,
+  detectSectionKind, headingRole, type SectionKind,
 } from "@/lib/lessonnotes/sectionKinds";
 import { persistGeneratedExample } from "@/lib/lessonnotes/persistGenerated";
 import {
@@ -118,10 +118,8 @@ import {
 import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
 
-const SECTION_OPTIONS: SectionKind[] = [
-  "introduction", "objectives", "explanation", "example",
-  "exercise", "classwork", "homework", "assessment", "summary",
-];
+const SECTION_OPTIONS: SectionKind[] = INSERT_SECTION_OPTIONS;
+
 
 interface Props {
   documentJson: any | null;
