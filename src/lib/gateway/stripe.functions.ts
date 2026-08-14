@@ -7,11 +7,15 @@ export type StripeConnectStatus = {
   connected: boolean;
   accountId: string | null;
   chargesEnabled: boolean;
+  payoutsEnabled: boolean;
   detailsSubmitted: boolean;
   paymentsActive: boolean;
+  /** Stripe's own reason the account cannot charge yet, when it gives one. */
+  disabledReason: string | null;
   /** What Stripe is still waiting for, in its own field names. */
   requirements: string[];
 };
+
 
 /**
  * Where this workspace stands with Stripe. Read from Stripe itself whenever an
@@ -34,8 +38,10 @@ export const getStripeStatus = createServerFn({ method: "GET" })
         connected: false,
         accountId: null,
         chargesEnabled: false,
+        payoutsEnabled: false,
         detailsSubmitted: false,
         paymentsActive: false,
+        disabledReason: null,
         requirements: [],
       };
     }
@@ -57,13 +63,16 @@ export const getStripeStatus = createServerFn({ method: "GET" })
       connected: true,
       accountId: account.id,
       chargesEnabled: account.charges_enabled,
+      payoutsEnabled: Boolean(account.payouts_enabled),
       detailsSubmitted: account.details_submitted,
       paymentsActive: Boolean(account.charges_enabled && row.payments_active),
+      disabledReason: account.requirements?.disabled_reason ?? null,
       requirements: [
         ...(account.requirements?.past_due ?? []),
         ...(account.requirements?.currently_due ?? []),
       ].filter((entry, index, all) => all.indexOf(entry) === index),
     };
+
   });
 
 /** Hands the owner over to Stripe's own onboarding and verification flow. */
@@ -126,6 +135,49 @@ export const startStripeOnboarding = createServerFn({ method: "POST" })
     );
     return { url: link.url };
   });
+
+/**
+ * Throws away an empty Stripe account and starts a clean one.
+ *
+ * Only ever allowed while Stripe itself says nothing has been submitted on that
+ * account, so an owner who is half-way through verification — or already
+ * verified — can never lose their real account here.
+ */
+export const resetStripeAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ ownerKind: z.enum(["teacher", "school"]) }).parse(data))
+  .handler(async ({ data, context }): Promise<{ reset: boolean }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row } = await supabaseAdmin
+      .from("gateway_payout_accounts")
+      .select("*")
+      .eq("owner_id", context.userId)
+      .eq("owner_kind", data.ownerKind)
+      .maybeSingle();
+    if (!row?.stripe_account_id) return { reset: false };
+
+    const { retrieveAccount } = await import("./stripeConnect.server");
+    const account = await retrieveAccount(row.stripe_account_id);
+    if (account.details_submitted || account.charges_enabled) {
+      throw new Error("This Stripe account already holds your details, so it is kept as it is.");
+    }
+
+    await supabaseAdmin
+      .from("gateway_payout_accounts")
+      .update({
+        stripe_account_id: null,
+        external_account_id: null,
+        status: "pending",
+        charges_enabled: false,
+        details_submitted: false,
+        payments_active: false,
+      })
+      .eq("id", row.id);
+
+    return { reset: true };
+  });
+
+
 
 /** A link straight into the owner's own Stripe dashboard. */
 export const openStripeDashboard = createServerFn({ method: "POST" })

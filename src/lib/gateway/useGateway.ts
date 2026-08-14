@@ -19,9 +19,11 @@ import {
   createPlanCheckout,
   getStripeStatus,
   openStripeDashboard,
+  resetStripeAccount,
   setPaymentsActive,
   startStripeOnboarding,
 } from "./stripe.functions";
+
 
 /** Where this workspace stands with its own Stripe account. */
 export const useStripeStatus = (ownerKind: GatewayOwnerKind) => {
@@ -38,7 +40,9 @@ export const useStripeConnectActions = (ownerKind: GatewayOwnerKind) => {
   const onboard = useServerFn(startStripeOnboarding);
   const dashboard = useServerFn(openStripeDashboard);
   const activate = useServerFn(setPaymentsActive);
+  const startOver = useServerFn(resetStripeAccount);
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["gateway-stripe", ownerKind] });
+
 
   return {
     connect: useMutation({
@@ -61,8 +65,18 @@ export const useStripeConnectActions = (ownerKind: GatewayOwnerKind) => {
         void queryClient.invalidateQueries({ queryKey: ["gateway-handle"] });
       },
     }),
+    /** Detaches an empty Stripe account, then opens fresh onboarding. */
+    reset: useMutation({
+      mutationFn: async () => {
+        await startOver({ data: { ownerKind } });
+        await invalidate();
+        const { url } = await onboard({ data: { ownerKind, origin: window.location.origin } });
+        window.location.href = url;
+      },
+    }),
     /** Re-read straight from Stripe, e.g. on return from hosted onboarding. */
     refresh: () => invalidate(),
+
   };
 };
 
