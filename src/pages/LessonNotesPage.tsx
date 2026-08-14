@@ -156,6 +156,21 @@ const LessonNotesPage = () => {
     }
   };
 
+  const setArchived = async (nb: NotebookRow, archived: boolean) => {
+    if (!allowEdit()) return;
+    const { error } = await supabase
+      .from("notebooks")
+      .update({ archived_at: archived ? new Date().toISOString() : null } as never)
+      .eq("id", nb.id);
+    if (error) {
+      toast({ title: archived ? "Archive failed" : "Restore failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: archived ? "Lesson note archived" : "Lesson note restored" });
+    load();
+  };
+
+
   const saveCover = async (nb: NotebookRow, cfg: NotebookCoverConfig) => {
     if (!allowEdit()) return;
     const { error } = await supabase
