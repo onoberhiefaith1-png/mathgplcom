@@ -30,7 +30,7 @@ export default function PlanGatewayPage() {
   const qc = useQueryClient();
   const { user, ready } = useAuth();
   const { role } = useAccount();
-  const { loading, subscribes, subscription, choices, noPlansYet } = usePlanGate();
+  const { loading, subscribes, subscription, choices, noPlansYet, freeAccess } = usePlanGate();
   const [pending, setPending] = useState<string | null>(null);
   const [interval, setInterval_] = useState<BillingInterval>("monthly");
   const [confirming, setConfirming] = useState(
