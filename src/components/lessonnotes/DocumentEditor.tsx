@@ -1977,6 +1977,72 @@ function DocumentEditorInner({
           </DropdownMenuContent>
 
         </DropdownMenu>
+
+        {sessionDraft && (
+          <div className="inline-flex items-center gap-1 rounded border border-foreground/20 bg-background px-1.5 py-1 text-xs">
+            <span className="text-muted-foreground">Add Session:</span>
+            <input
+              autoFocus
+              value={sessionDraft.title}
+              placeholder="e.g. Find the LCM of 12 and 18"
+              onChange={(e) => setSessionDraft({ ...sessionDraft, title: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  insertCustomSession(sessionDraft.title, sessionDraft.withSolution);
+                  setSessionDraft(null);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setSessionDraft(null);
+                }
+              }}
+              className="w-56 bg-transparent px-1 py-0.5 outline-none"
+            />
+            <div className="inline-flex overflow-hidden rounded border border-foreground/20">
+              {([true, false] as const).map((v) => (
+                <button
+                  key={String(v)}
+                  type="button"
+                  onClick={() => setSessionDraft({ ...sessionDraft, withSolution: v })}
+                  className={cn(
+                    "px-2 py-0.5",
+                    sessionDraft.withSolution === v
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-foreground/10",
+                  )}
+                >
+                  {v ? "With Solution" : "Without Solution"}
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => setSessionDraft(null)} className="px-1 text-muted-foreground hover:text-foreground">✕</button>
+          </div>
+        )}
+
+        {subtopicDraft !== null && (
+          <div className="inline-flex items-center gap-1 rounded border border-foreground/20 bg-background px-1.5 py-1 text-xs">
+            <span className="text-muted-foreground">Subtopic:</span>
+            <input
+              autoFocus
+              value={subtopicDraft}
+              placeholder="e.g. Adding Fractions with Different Denominators"
+              onChange={(e) => setSubtopicDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  insertSubtopic(subtopicDraft);
+                  setSubtopicDraft(null);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setSubtopicDraft(null);
+                }
+              }}
+              className="w-64 bg-transparent px-1 py-0.5 outline-none"
+            />
+            <button type="button" onClick={() => setSubtopicDraft(null)} className="px-1 text-muted-foreground hover:text-foreground">✕</button>
+          </div>
+        )}
+
         <div className="inline-flex items-center gap-1">
           <button
             type="button"
