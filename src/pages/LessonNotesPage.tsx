@@ -338,17 +338,20 @@ const LessonNotesPage = () => {
 };
 
 const NotebookCard = ({
-  nb, onOpen, onPresent, onRename, onDuplicate, onCover, onShare, onDelete,
+  nb, archived = false, onOpen, onPresent, onRename, onDuplicate, onCover, onShare, onArchive, onDelete,
 }: {
   nb: NotebookRow;
+  archived?: boolean;
   onOpen: () => void;
   onPresent: () => void;
   onRename: () => void;
   onDuplicate: () => void;
   onCover: () => void;
   onShare: () => void;
+  onArchive: () => void;
   onDelete: () => void;
 }) => {
+
   const stub = (label: string) => () =>
     toast({ title: `${label} coming soon`, description: "This action is not yet available." });
 
