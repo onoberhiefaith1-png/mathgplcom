@@ -1561,6 +1561,10 @@ function DocumentEditorInner({
       ])
       .run();
   };
+  /** Inline composers for the two structural controls under the section list. */
+  const [sessionDraft, setSessionDraft] = useState<{ title: string; withSolution: boolean } | null>(null);
+  const [subtopicDraft, setSubtopicDraft] = useState<string | null>(null);
+
 
   /** "+ Add Session" — a teacher-named section, optionally with a Solution
    *  area. It is its own section: never inside Summary or the previous
