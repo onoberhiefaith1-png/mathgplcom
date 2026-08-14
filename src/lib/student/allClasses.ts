@@ -18,6 +18,8 @@ import {
   type LearningMode,
 } from "@/lib/courses/classCourses";
 import { listAdventureNotes, type ClassAdventureNoteRow } from "@/lib/adventures/classAdventures";
+import { grantedWorkspaces } from "./workspaceAccess";
+
 
 export type EnrolledClass = { id: string; name: string };
 
@@ -27,13 +29,19 @@ async function ownerId(): Promise<string | null> {
   return data.user?.id ? viewOwnerId(data.user.id) : null;
 }
 
-/** Every class the student belongs to inside the viewer's context. */
+/**
+ * Every class the student belongs to *and* has activated.
+ *
+ * A class only counts once the student has walked through its school's or
+ * teacher's building and passed that gateway. Being enrolled is not enough:
+ * connection and workspace access are two different things.
+ */
 export async function myClasses(): Promise<EnrolledClass[]> {
   const uid = await ownerId();
   if (!uid) return [];
-  const orgId = await activeSchoolOrgId();
+  const viewing = currentViewAs();
   // A teacher looking at a student sees only the classes they teach them in.
-  const allowed = currentViewAs()?.classIds ?? null;
+  const allowed = viewing?.classIds ?? null;
 
   const { data: memberships } = await supabase
     .from("class_members")
@@ -43,13 +51,23 @@ export async function myClasses(): Promise<EnrolledClass[]> {
   if (allowed) ids = ids.filter((id) => allowed.includes(id));
   if (ids.length === 0) return [];
 
-  const base = supabase.from("classes").select("id, name").in("id", ids);
-  const { data } = await (orgId ? base.eq("org_id", orgId) : base.is("org_id", null));
-  return ((data ?? []) as { id: string; name: string | null }[]).map((c) => ({
-    id: c.id,
-    name: c.name ?? "Class",
-  }));
+  const { data } = await supabase.from("classes").select("id, name, org_id, owner_id").in("id", ids);
+  let rows = (data ?? []) as { id: string; name: string | null; org_id: string | null; owner_id: string | null }[];
+
+  if (viewing) {
+    // A school or teacher observing this student stays inside their own context.
+    const orgId = await activeSchoolOrgId();
+    rows = rows.filter((c) => (orgId ? c.org_id === orgId : c.org_id === null));
+  } else {
+    const granted = await grantedWorkspaces();
+    const orgs = new Set(granted.orgIds);
+    const owners = new Set(granted.ownerIds);
+    rows = rows.filter((c) => (c.org_id ? orgs.has(c.org_id) : Boolean(c.owner_id && owners.has(c.owner_id))));
+  }
+
+  return rows.map((c) => ({ id: c.id, name: c.name ?? "Class" }));
 }
+
 
 
 export type ClassProgress = EnrolledClass & { progress: number };
