@@ -42,12 +42,15 @@ export function PageFrame({ size, style, zoom = 1, extraMm = 0, sheetRef, childr
 
   const inner: CSSProperties = {
     paddingTop: marginPx,
-    // Extra writing space is real padding so it also works once the content
-    // has already grown past one page height.
-    paddingBottom: marginPx + extraPx,
+    // Note Extend is NOT padding: the extra space belongs to the editable
+    // interaction layer inside `children` (see the extend spacer in
+    // DocumentEditor), so the drawable/clickable canvas grows by exactly the
+    // same amount the sheet does.
+    paddingBottom: marginPx,
     paddingLeft: marginPx,
     paddingRight: marginPx,
     minHeight: heightMm * MM_TO_PX - 2,
+
 
     cursor: "text",
     display: "flex",

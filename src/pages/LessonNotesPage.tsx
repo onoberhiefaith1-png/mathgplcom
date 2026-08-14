@@ -26,7 +26,7 @@ import type { NotebookCoverConfig } from "@/lib/lessonnotes/coverThemes";
 import {
   Plus, LogOut, Presentation, MoreVertical, Image as ImageIcon,
   Pencil, Copy, Trash2, Play, Sparkles,
-  Archive, Share2, Download, FolderOpen, ArrowLeft,
+  Archive, RotateCcw, Share2, Download, FolderOpen, ArrowLeft,
 } from "lucide-react";
 
 
@@ -56,6 +56,10 @@ const LessonNotesPage = () => {
   // Sharing a note with MathGPL Community publishes a listing; the note itself
   // never leaves this shelf.
   const [shareFor, setShareFor] = useState<NotebookRow | null>(null);
+  // Archive is Lesson Note management: retired notes leave the active shelf and
+  // can be opened or restored from here. It is never a workspace tool.
+  const [view, setView] = useState<"active" | "archive">("active");
+
 
   // Authentication is handled once by the platform guard (RequireAuth); this
   // page only needs to know who is signed in.
@@ -77,6 +81,7 @@ const LessonNotesPage = () => {
       // Lesson Notes is the working area: notebooks stored inside a class are
       // independent copies and never clutter the shelf.
       .eq("storage_scope", "workspace");
+    query = view === "archive" ? query.not("archived_at", "is", null) : query.is("archived_at", null);
     query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
     // When someone else's shelf is being viewed read-only, show their notes.
     query = withOwnerView(query);
@@ -91,7 +96,8 @@ const LessonNotesPage = () => {
 
 
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { setPage(0); load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [view]);
+
 
   const create = async (v: CreateNotebookValues) => {
     if (!allowEdit()) return;
@@ -150,6 +156,21 @@ const LessonNotesPage = () => {
     }
   };
 
+  const setArchived = async (nb: NotebookRow, archived: boolean) => {
+    if (!allowEdit()) return;
+    const { error } = await supabase
+      .from("notebooks")
+      .update({ archived_at: archived ? new Date().toISOString() : null } as never)
+      .eq("id", nb.id);
+    if (error) {
+      toast({ title: archived ? "Archive failed" : "Restore failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: archived ? "Lesson note archived" : "Lesson note restored" });
+    load();
+  };
+
+
   const saveCover = async (nb: NotebookRow, cfg: NotebookCoverConfig) => {
     if (!allowEdit()) return;
     const { error } = await supabase
@@ -204,7 +225,17 @@ const LessonNotesPage = () => {
             <Presentation className="h-4 w-4" /> Smartboard
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setView(view === "archive" ? "active" : "archive")}
+            className="gap-2 border-amber-200/20 bg-transparent text-amber-100/90 hover:bg-amber-200/10 hover:text-amber-50"
+          >
+            <Archive className="h-4 w-4" /> {view === "archive" ? "Active notes" : "Archive"}
+          </Button>
+
           <div className="h-6 w-px bg-amber-200/15 mx-1 hidden sm:block" />
+
 
           {/* Primary create action — soft glow + hover lift */}
           <Button
@@ -224,7 +255,11 @@ const LessonNotesPage = () => {
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading your shelf…</p>
         ) : notebooks.length === 0 ? (
-          <EmptyState onCreate={() => setDialogOpen(true)} />
+          view === "archive" ? (
+            <p className="text-sm text-amber-100/70">No archived lesson notes yet.</p>
+          ) : (
+            <EmptyState onCreate={() => setDialogOpen(true)} />
+          )
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
@@ -232,13 +267,16 @@ const LessonNotesPage = () => {
                 <NotebookCard
                   key={nb.id}
                   nb={nb}
+                  archived={view === "archive"}
                   onOpen={() => navigate(`${livePrefix}/lesson-notes/${nb.id}`)}
                   onPresent={() => navigate(`/smartboard/${nb.id}`)}
                   onRename={() => renameNotebook(nb)}
                   onDuplicate={() => duplicate(nb)}
                   onCover={() => setCoverFor(nb)}
                   onShare={() => setShareFor(nb)}
+                  onArchive={() => setArchived(nb, view !== "archive")}
                   onDelete={() => deleteNotebook(nb)}
+
                 />
               ))}
             </div>
@@ -300,17 +338,20 @@ const LessonNotesPage = () => {
 };
 
 const NotebookCard = ({
-  nb, onOpen, onPresent, onRename, onDuplicate, onCover, onShare, onDelete,
+  nb, archived = false, onOpen, onPresent, onRename, onDuplicate, onCover, onShare, onArchive, onDelete,
 }: {
   nb: NotebookRow;
+  archived?: boolean;
   onOpen: () => void;
   onPresent: () => void;
   onRename: () => void;
   onDuplicate: () => void;
   onCover: () => void;
   onShare: () => void;
+  onArchive: () => void;
   onDelete: () => void;
 }) => {
+
   const stub = (label: string) => () =>
     toast({ title: `${label} coming soon`, description: "This action is not yet available." });
 
@@ -359,9 +400,14 @@ const NotebookCard = ({
             <DropdownMenuItem onClick={stub("Export")}>
               <Download className="h-4 w-4 mr-2" /> Export
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={stub("Archive")}>
-              <Archive className="h-4 w-4 mr-2" /> Archive
+            <DropdownMenuItem onClick={onArchive}>
+              {archived ? (
+                <><RotateCcw className="h-4 w-4 mr-2" /> Restore</>
+              ) : (
+                <><Archive className="h-4 w-4 mr-2" /> Archive</>
+              )}
             </DropdownMenuItem>
+
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
               <Trash2 className="h-4 w-4 mr-2" /> Delete

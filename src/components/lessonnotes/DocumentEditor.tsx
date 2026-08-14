@@ -92,7 +92,7 @@ import {
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Shapes, Table as TableIcon, LineChart, Calculator,
-  Film, Camera, Archive, ArrowLeftRight,
+  Film, Camera, ArrowLeftRight, Trash2,
 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -193,6 +193,16 @@ const saveNotebookGeometry = (notebookId: string | undefined, scene: GeometrySce
   if (!key) return;
   try { localStorage.setItem(key, JSON.stringify(scene)); } catch { /* noop */ }
 };
+
+/** Bridge so the toolbar Dustbin can clean 2D diagram content that lives in
+ *  the notebook-wide geometry scene. Only 2D objects are ever eligible —
+ *  lesson-note text, tables, graphs, 3D scenes and text boxes are untouched. */
+type GeometryEraser = (clientX: number, clientY: number) => boolean;
+let notebookGeometryEraser: GeometryEraser | null = null;
+const registerNotebookGeometryEraser = (fn: GeometryEraser | null) => {
+  notebookGeometryEraser = fn;
+};
+
 
 const mergeGeometrySceneAt = (
   base: GeometryScene,
@@ -414,10 +424,16 @@ function DocumentEditorInner({
     const scale = sheet.getBoundingClientRect().width / (sheet.offsetWidth || 1) || 1;
     let bottom = contentHost.getBoundingClientRect().top;
     for (const el of Array.from(contentHost.querySelectorAll<HTMLElement>("*"))) {
+      // The extend spacer and the page-wide geometry overlay are not content —
+      // they always reach the page bottom, so measuring them would make
+      // Note Shrink believe there is nothing to reclaim.
+      if (el.dataset.noteExtendSpacer || el.dataset.notebookGeometryOverlay) continue;
+      if (el.closest("[data-notebook-geometry-overlay]")) continue;
       const r = el.getBoundingClientRect();
       if (r.height === 0 && r.width === 0) continue;
       if (r.bottom > bottom) bottom = r.bottom;
     }
+
     const sheetBottom = sheet.getBoundingClientRect().bottom;
     const blankPx = (sheetBottom - bottom) / scale;
     return Math.max(0, blankPx / (96 / 25.4));
@@ -1497,9 +1513,28 @@ function DocumentEditorInner({
   // Emoji Library dock panel (teacher-managed content).
   const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
 
-  // Conversion tool + archived "Advanced tools" group.
+  // Conversion tool.
   const [conversionOpen, setConversionOpen] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  // Draggable Dustbin — cleans 2D diagram content only.
+  const [dustbinDrag, setDustbinDrag] = useState<{ x: number; y: number } | null>(null);
+  const startDustbinDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    setDustbinDrag({ x: e.clientX, y: e.clientY });
+    const move = (ev: PointerEvent) => {
+      setDustbinDrag({ x: ev.clientX, y: ev.clientY });
+      notebookGeometryEraser?.(ev.clientX, ev.clientY);
+    };
+    const up = (ev: PointerEvent) => {
+      notebookGeometryEraser?.(ev.clientX, ev.clientY);
+      setDustbinDrag(null);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
 
 
   const insertSymbolText = (s: string) => {
@@ -2136,47 +2171,44 @@ function DocumentEditorInner({
         >
           <ArrowLeftRight className="h-4 w-4" /> Conversion
         </button>
-        {/* Archived / advanced tools — kept available, off the main toolbar. */}
+        {/* Dustbin — drag it onto the page to clean 2D diagram content. */}
         <button
           type="button"
-          onClick={() => setAdvancedOpen((v) => !v)}
-          title="Advanced tools — summation, animate, AI, symbols"
-          aria-pressed={advancedOpen}
+          onPointerDown={startDustbinDrag}
+          title="Dustbin — drag it across the page to clean 2D diagram content"
+          aria-pressed={!!dustbinDrag}
           className={cn(
-            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
-            advancedOpen ? "bg-foreground/10" : "hover:bg-foreground/10",
+            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors touch-none",
+            dustbinDrag ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
           )}
         >
-          <Archive className="h-4 w-4" /> Advanced
+          <Trash2 className="h-4 w-4" /> Dustbin
         </button>
-        {advancedOpen && (
-          <>
-            <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
-            <button
-              type="button"
-              onClick={() => setAnimateMode((v) => !v)}
-              title={animateMode ? "Exit Animation Mode" : "Step Animation Mode — capture each step of a solution"}
-              className={cn(
-                "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
-                animateMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
-              )}
-            >
-              <Film className="h-4 w-4" /> Animate
-            </button>
-            {animateMode && (
-              <button
-                type="button"
-                onClick={captureStep}
-                title="Capture the current selection (or current block) as a new animation frame"
-                className="p-1.5 rounded inline-flex items-center gap-1 text-xs bg-primary/15 hover:bg-primary/25 text-primary"
-              >
-                <Camera className="h-4 w-4" /> Capture Step
-              </button>
-            )}
-            <GlobalAiButton onGenerate={handleGlobalAi} />
-            <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
-          </>
+        <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
+        <button
+          type="button"
+          onClick={() => setAnimateMode((v) => !v)}
+          title={animateMode ? "Exit Animation Mode" : "Step Animation Mode — capture each step of a solution"}
+          className={cn(
+            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
+            animateMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+          )}
+        >
+          <Film className="h-4 w-4" /> Animate
+        </button>
+        {animateMode && (
+          <button
+            type="button"
+            onClick={captureStep}
+            title="Capture the current selection (or current block) as a new animation frame"
+            className="p-1.5 rounded inline-flex items-center gap-1 text-xs bg-primary/15 hover:bg-primary/25 text-primary"
+          >
+            <Camera className="h-4 w-4" /> Capture Step
+          </button>
         )}
+        <GlobalAiButton onGenerate={handleGlobalAi} />
+        <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
+
         <button
           type="button"
           onClick={() => setEmojiPanelOpen((v) => !v)}
@@ -2265,7 +2297,17 @@ function DocumentEditorInner({
               onMouseDown={handlePaperMouseDown}
             >
               <EditorContent editor={editor} />
+              {/* Note Extend space lives INSIDE the interaction layer, so the
+                  extended region is the same editable canvas: diagrams, text
+                  boxes, sensors and objects all work there. */}
+              {pageExtraMm > 0 && (
+                <div
+                  data-note-extend-spacer="true"
+                  style={{ height: pageExtraMm * (96 / 25.4), flex: "0 0 auto" }}
+                />
+              )}
               <NotebookGeometryOverlay notebookId={notebookId} paperLayerRef={paperLayerRef} tiptapEditor={editor} />
+
               {canvasBoxes.map((b) => (
                 <CanvasBoxView
                   key={b.id}
@@ -2277,6 +2319,15 @@ function DocumentEditorInner({
                 />
               ))}
             </div>
+            {dustbinDrag && (
+              <div
+                className="fixed z-[60] pointer-events-none rounded-full bg-primary text-primary-foreground shadow-lg p-3"
+                style={{ left: dustbinDrag.x - 22, top: dustbinDrag.y - 22 }}
+              >
+                <Trash2 className="h-5 w-5" />
+              </div>
+            )}
+
           </PageFrame>
         </div>
         <EmojiPanel
@@ -2439,6 +2490,29 @@ function NotebookGeometryOverlay({
     setStoredScene(next);
     saveNotebookGeometry(notebookId, next);
   });
+
+  // Toolbar Dustbin: wipe 2D diagram objects the dustbin passes over.
+  useEffect(() => {
+    registerNotebookGeometryEraser((clientX, clientY) => {
+      const layer = paperLayerRef.current;
+      if (!layer) return false;
+      const rect = layer.getBoundingClientRect();
+      const scaleX = rect.width && layer.offsetWidth ? rect.width / layer.offsetWidth : 1;
+      const scaleY = rect.height && layer.offsetHeight ? rect.height / layer.offsetHeight : scaleX;
+      // Scene coordinates are paper-layer pixels offset by the overlay pad.
+      const x = (clientX - rect.left) / scaleX + 24;
+      const y = (clientY - rect.top) / scaleY + 24;
+      const id = pickObject(scene, x, y, 16);
+      if (!id) return false;
+      const next = eraseObject(scene, id);
+      const nextScene = (next as { scene?: GeometryScene }).scene;
+      if (!nextScene) return false;
+      geometryEditor.commit(nextScene);
+      return true;
+    });
+    return () => registerNotebookGeometryEraser(null);
+  }, [scene, geometryEditor, paperLayerRef]);
+
 
   useEffect(() => {
     if (mode && geometryEditor.tool !== tool) geometryEditor.setTool(tool);
