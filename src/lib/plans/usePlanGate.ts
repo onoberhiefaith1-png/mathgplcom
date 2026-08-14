@@ -47,9 +47,13 @@ export function usePlanGate() {
   const loading = roleLoading || (Boolean(audience) && (mine.isLoading || plans.isLoading));
   const subscription = mine.data?.subscription ?? null;
 
+  // Access-code holders and the platform owner's own test accounts hold full
+  // access without a subscription — the pricing gateway never applies to them.
+  const freeAccess = mine.data?.freeAccess === true;
+
   // An expired plan sits in a renewal grace window: the workspace stays open
   // and the work is safe, but credit spending is paused until it is renewed.
-  const expired = subscription?.status === "expired";
+  const expired = !freeAccess && subscription?.status === "expired";
   const graceDaysLeft =
     expired && subscription?.graceUntil
       ? Math.max(0, Math.ceil((new Date(subscription.graceUntil).getTime() - Date.now()) / 86_400_000))
@@ -60,14 +64,17 @@ export function usePlanGate() {
     audience,
     subscription,
     choices,
+    /** Full access without a subscription (access code or owner test account). */
+    freeAccess,
     /** This account type subscribes at all. */
     subscribes: Boolean(audience),
     /** Nothing published for this audience yet. */
-    noPlansYet: Boolean(audience) && !loading && choices.length === 0,
-    needsPlan: Boolean(audience) && !loading && !subscription && choices.length > 0,
+    noPlansYet: Boolean(audience) && !loading && !freeAccess && choices.length === 0,
+    needsPlan: Boolean(audience) && !loading && !freeAccess && !subscription && choices.length > 0,
     /** The paid period ended without a renewal. */
     expired,
     /** Whole days left before the account falls back to the free plan. */
     graceDaysLeft,
   };
 }
+
