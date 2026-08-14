@@ -2046,13 +2046,12 @@ function DocumentEditorInner({
             <input
               autoFocus
               value={sessionDraft.title}
-              placeholder="e.g. Find the LCM of 12 and 18"
+              placeholder="e.g. Practice questions on adding fractions"
               onChange={(e) => setSessionDraft({ ...sessionDraft, title: e.target.value })}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  insertCustomSession(sessionDraft.title, sessionDraft.withSolution);
-                  setSessionDraft(null);
+                  commitSessionDraft();
                 } else if (e.key === "Escape") {
                   e.preventDefault();
                   setSessionDraft(null);
@@ -2077,9 +2076,19 @@ function DocumentEditorInner({
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={commitSessionDraft}
+              disabled={!sessionDraft.title.trim()}
+              title="Insert this session into the lesson note"
+              className="rounded bg-primary px-2 py-0.5 font-medium text-primary-foreground disabled:opacity-40"
+            >
+              Enter
+            </button>
             <button type="button" onClick={() => setSessionDraft(null)} className="px-1 text-muted-foreground hover:text-foreground">✕</button>
           </div>
         )}
+
 
         {subtopicDraft !== null && (
           <div className="inline-flex items-center gap-1 rounded border border-foreground/20 bg-background px-1.5 py-1 text-xs">
