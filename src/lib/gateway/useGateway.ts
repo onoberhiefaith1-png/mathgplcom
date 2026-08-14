@@ -12,6 +12,7 @@ import {
   loadMyPlans,
   savePlan,
   type GatewayPlan,
+  type GatewayBillingInterval,
   type PlanDraft,
 } from "./gateway";
 import {
@@ -69,8 +70,8 @@ export const useStripeConnectActions = (ownerKind: GatewayOwnerKind) => {
 export const usePlanCheckout = () => {
   const checkout = useServerFn(createPlanCheckout);
   return useMutation({
-    mutationFn: async (planId: string) => {
-      const { url } = await checkout({ data: { planId, origin: window.location.origin } });
+    mutationFn: async ({ planId, interval }: { planId: string; interval: GatewayBillingInterval }) => {
+      const { url } = await checkout({ data: { planId, interval, origin: window.location.origin } });
       window.location.href = url;
     },
   });

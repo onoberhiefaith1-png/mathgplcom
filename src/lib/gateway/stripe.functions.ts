@@ -3,9 +3,6 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const OWNER_KIND = z.enum(["teacher", "school"]);
-const ORIGIN = z.string().url().max(300);
-
 export type StripeConnectStatus = {
   connected: boolean;
   accountId: string | null;
@@ -22,7 +19,7 @@ export type StripeConnectStatus = {
  */
 export const getStripeStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ ownerKind: OWNER_KIND }).parse(data))
+  .inputValidator((data) => z.object({ ownerKind: z.enum(["teacher", "school"]) }).parse(data))
   .handler(async ({ data, context }): Promise<StripeConnectStatus> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
@@ -72,7 +69,7 @@ export const getStripeStatus = createServerFn({ method: "GET" })
 /** Hands the owner over to Stripe's own onboarding and verification flow. */
 export const startStripeOnboarding = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ ownerKind: OWNER_KIND, origin: ORIGIN }).parse(data))
+  .inputValidator((data) => z.object({ ownerKind: z.enum(["teacher", "school"]), origin: z.string().url().max(300) }).parse(data))
   .handler(async ({ data, context }): Promise<{ url: string }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { createConnectedAccount, createAccountLink, platformReadiness, PLATFORM_NOT_READY } = await import(
@@ -133,7 +130,7 @@ export const startStripeOnboarding = createServerFn({ method: "POST" })
 /** A link straight into the owner's own Stripe dashboard. */
 export const openStripeDashboard = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ ownerKind: OWNER_KIND }).parse(data))
+  .inputValidator((data) => z.object({ ownerKind: z.enum(["teacher", "school"]) }).parse(data))
   .handler(async ({ data, context }): Promise<{ url: string }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
@@ -152,7 +149,7 @@ export const openStripeDashboard = createServerFn({ method: "POST" })
 /** The owner's own switch. Payment stays invisible to students until it is on. */
 export const setPaymentsActive = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ ownerKind: OWNER_KIND, active: z.boolean() }).parse(data))
+  .inputValidator((data) => z.object({ ownerKind: z.enum(["teacher", "school"]), active: z.boolean() }).parse(data))
   .handler(async ({ data, context }): Promise<{ paymentsActive: boolean }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
@@ -181,7 +178,7 @@ export const setPaymentsActive = createServerFn({ method: "POST" })
  */
 export const createPlanCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ planId: z.string().uuid(), origin: ORIGIN }).parse(data))
+  .inputValidator((data) => z.object({ planId: z.string().uuid(), interval: z.enum(["one_off", "monthly", "yearly"]), origin: z.string().url().max(300) }).parse(data))
   .handler(async ({ data, context }): Promise<{ url: string }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -193,8 +190,12 @@ export const createPlanCheckout = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!plan) throw new Error("That plan is not available.");
 
-    const price = Number(plan.price_amount ?? 0);
-    if (price <= 0) throw new Error("That plan is free — no payment is needed.");
+    const monthlyPrice = Number(plan.price_amount ?? 0);
+    if (monthlyPrice <= 0) throw new Error("That plan is free — no payment is needed.");
+    const enabled = data.interval === "one_off" ? plan.one_time_enabled : data.interval === "monthly" ? plan.monthly_enabled : plan.yearly_enabled;
+    if (!enabled) throw new Error("That payment option is not available for this plan.");
+    const discount = data.interval === "yearly" ? Number(plan.yearly_discount_percentage ?? 0) : 0;
+    const price = data.interval === "yearly" ? Math.round(monthlyPrice * 12 * (1 - discount / 100) * 100) / 100 : monthlyPrice;
 
     const { data: account } = await supabaseAdmin
       .from("gateway_payout_accounts")
@@ -216,10 +217,11 @@ export const createPlanCheckout = createServerFn({ method: "POST" })
     const { createDirectCheckoutSession } = await import("./stripeConnect.server");
     const session = await createDirectCheckoutSession({
       stripeAccount: account.stripe_account_id,
-      mode: plan.billing_mode === "subscription" ? "subscription" : "payment",
+       mode: data.interval === "one_off" ? "payment" : "subscription",
       amountMinor: Math.round(price * 100),
       currency: plan.currency ?? "GBP",
       productName: plan.name,
+       recurringInterval: data.interval === "yearly" ? "year" : "month",
       successUrl: `${back}?checkout=success`,
       cancelUrl: `${back}?checkout=cancelled`,
       customerEmail: (context.claims as { email?: string } | null)?.email ?? null,
@@ -228,6 +230,7 @@ export const createPlanCheckout = createServerFn({ method: "POST" })
         mathgpl_owner_id: plan.owner_id,
         mathgpl_owner_kind: plan.owner_kind,
         mathgpl_student_id: context.userId,
+         mathgpl_billing_interval: data.interval,
       },
     });
 
@@ -240,7 +243,12 @@ export const createPlanCheckout = createServerFn({ method: "POST" })
         amount: price,
         currency: plan.currency ?? "GBP",
         status: "pending",
-        billing_mode: plan.billing_mode === "subscription" ? "subscription" : "one_off",
+        billing_mode: data.interval === "one_off" ? "one_off" : "subscription",
+        billing_interval: data.interval,
+        plan_description: plan.description ?? "",
+        granted_items: plan.items ?? [],
+        yearly_discount_percentage: discount,
+        permanent_access: data.interval === "one_off",
         stripe_account_id: account.stripe_account_id,
       stripe_checkout_session_id: session.id,
     });

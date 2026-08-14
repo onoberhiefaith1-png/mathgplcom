@@ -18,6 +18,7 @@ import {
 } from "./items";
 
 export type GatewayBillingMode = "free" | "one_off" | "subscription";
+export type GatewayBillingInterval = "one_off" | "monthly" | "yearly";
 
 export type GatewayPlan = {
   id: string;
@@ -32,6 +33,10 @@ export type GatewayPlan = {
   isPublished: boolean;
   autoGrantExisting: boolean;
   billingMode: GatewayBillingMode;
+  oneTimeEnabled: boolean;
+  monthlyEnabled: boolean;
+  yearlyEnabled: boolean;
+  yearlyDiscountPercentage: number;
 };
 
 export type GatewayEntitlement = {
@@ -58,6 +63,10 @@ type PlanRow = {
   is_published: boolean;
   auto_grant_existing: boolean;
   billing_mode?: string | null;
+  one_time_enabled?: boolean | null;
+  monthly_enabled?: boolean | null;
+  yearly_enabled?: boolean | null;
+  yearly_discount_percentage?: number | string | null;
 };
 
 const toPlan = (row: PlanRow): GatewayPlan => ({
@@ -73,6 +82,10 @@ const toPlan = (row: PlanRow): GatewayPlan => ({
   isPublished: row.is_published,
   autoGrantExisting: row.auto_grant_existing,
   billingMode: (row.billing_mode ?? "free") as GatewayBillingMode,
+  oneTimeEnabled: Boolean(row.one_time_enabled),
+  monthlyEnabled: Boolean(row.monthly_enabled),
+  yearlyEnabled: Boolean(row.yearly_enabled),
+  yearlyDiscountPercentage: Number(row.yearly_discount_percentage ?? 0),
 });
 
 
@@ -152,6 +165,10 @@ export type PlanDraft = {
   isPublished: boolean;
   autoGrantExisting: boolean;
   billingMode: GatewayBillingMode;
+  oneTimeEnabled: boolean;
+  monthlyEnabled: boolean;
+  yearlyEnabled: boolean;
+  yearlyDiscountPercentage: number;
 };
 
 export const savePlan = async (planId: string, draft: PlanDraft): Promise<GatewayPlan> => {
@@ -167,6 +184,10 @@ export const savePlan = async (planId: string, draft: PlanDraft): Promise<Gatewa
       is_published: draft.isPublished,
       auto_grant_existing: draft.autoGrantExisting,
       billing_mode: billingMode,
+      one_time_enabled: Boolean(price && price > 0 && draft.oneTimeEnabled),
+      monthly_enabled: Boolean(price && price > 0 && draft.monthlyEnabled),
+      yearly_enabled: Boolean(price && price > 0 && draft.yearlyEnabled),
+      yearly_discount_percentage: Math.min(100, Math.max(0, draft.yearlyDiscountPercentage)),
     })
 
     .eq("id", planId)
@@ -218,7 +239,7 @@ export type GatewayOwnerView = {
   paymentsActive: boolean;
   plans: Pick<
     GatewayPlan,
-    "id" | "slot" | "name" | "description" | "price" | "currency" | "items" | "billingMode"
+    "id" | "slot" | "name" | "description" | "price" | "currency" | "items" | "billingMode" | "oneTimeEnabled" | "monthlyEnabled" | "yearlyEnabled" | "yearlyDiscountPercentage"
   >[];
 };
 
@@ -239,6 +260,10 @@ export const loadGatewayByHandle = async (handle: string): Promise<GatewayOwnerV
     currency: string;
     items: string[];
     billing_mode: string | null;
+    one_time_enabled: boolean | null;
+    monthly_enabled: boolean | null;
+    yearly_enabled: boolean | null;
+    yearly_discount_percentage: number | string | null;
     payments_active: boolean | null;
   }[];
   if (rows.length === 0) return null;
@@ -258,6 +283,10 @@ export const loadGatewayByHandle = async (handle: string): Promise<GatewayOwnerV
       currency: row.currency ?? "GBP",
       items: (row.items ?? []) as GatewayItem[],
       billingMode: (row.billing_mode ?? "free") as GatewayBillingMode,
+      oneTimeEnabled: Boolean(row.one_time_enabled),
+      monthlyEnabled: Boolean(row.monthly_enabled),
+      yearlyEnabled: Boolean(row.yearly_enabled),
+      yearlyDiscountPercentage: Number(row.yearly_discount_percentage ?? 0),
     })),
   };
 };
