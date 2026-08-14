@@ -5,7 +5,7 @@
 export type SectionKind =
   | "introduction" | "explanation" | "example" | "exercise"
   | "classwork" | "homework" | "assessment" | "summary" | "objectives"
-  | "solution" | "game_questions";
+  | "solution" | "game_questions" | "custom_session";
 
 export const SECTION_LABELS: Record<SectionKind, string> = {
   introduction: "Introduction",
@@ -19,18 +19,30 @@ export const SECTION_LABELS: Record<SectionKind, string> = {
   summary: "Summary",
   solution: "Solution",
   game_questions: "Game Questions",
+  custom_session: "Session",
 };
+
+/** The seven standard sections offered by the ribbon "Section" menu.
+ *  Objectives / Assessment are intentionally NOT offered any more; old notes
+ *  that contain them keep rendering and stay AI-editable. */
+export const INSERT_SECTION_OPTIONS: SectionKind[] = [
+  "introduction", "explanation", "example",
+  "exercise", "classwork", "homework", "summary",
+];
+
+/** Sections that come with a Solution area. */
+export const SOLUTION_SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
+  "example", "exercise", "classwork", "homework",
+]);
 
 /** Order used by the "Whole lesson" global AI flow. */
 export const WHOLE_LESSON_ORDER: SectionKind[] = [
   "introduction",
-  "objectives",
   "explanation",
   "example",
   "exercise",
   "classwork",
   "homework",
-  "assessment",
   "summary",
 ];
 
@@ -39,6 +51,7 @@ export const WHOLE_LESSON_ORDER: SectionKind[] = [
 export const REPEATABLE_SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
   "example", "exercise", "classwork", "homework", "assessment", "game_questions",
 ]);
+
 
 /** Match a heading's text to a section kind (loose, case-insensitive). */
 export function detectSectionKind(text: string): SectionKind | null {
