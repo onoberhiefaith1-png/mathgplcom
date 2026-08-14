@@ -26,7 +26,7 @@ import type { NotebookCoverConfig } from "@/lib/lessonnotes/coverThemes";
 import {
   Plus, LogOut, Presentation, MoreVertical, Image as ImageIcon,
   Pencil, Copy, Trash2, Play, Sparkles,
-  Archive, Share2, Download, FolderOpen, ArrowLeft,
+  Archive, RotateCcw, Share2, Download, FolderOpen, ArrowLeft,
 } from "lucide-react";
 
 
