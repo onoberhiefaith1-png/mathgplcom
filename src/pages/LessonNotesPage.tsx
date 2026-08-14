@@ -400,9 +400,14 @@ const NotebookCard = ({
             <DropdownMenuItem onClick={stub("Export")}>
               <Download className="h-4 w-4 mr-2" /> Export
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={stub("Archive")}>
-              <Archive className="h-4 w-4 mr-2" /> Archive
+            <DropdownMenuItem onClick={onArchive}>
+              {archived ? (
+                <><RotateCcw className="h-4 w-4 mr-2" /> Restore</>
+              ) : (
+                <><Archive className="h-4 w-4 mr-2" /> Archive</>
+              )}
             </DropdownMenuItem>
+
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
               <Trash2 className="h-4 w-4 mr-2" /> Delete
