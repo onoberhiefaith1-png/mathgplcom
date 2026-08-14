@@ -230,7 +230,7 @@ export const setPaymentsActive = createServerFn({ method: "POST" })
  */
 export const createPlanCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ planId: z.string().uuid(), interval: z.enum(["one_off", "monthly", "yearly"]), origin: z.string().url().max(300) }).parse(data))
+  .inputValidator((data) => z.object({ planId: z.string().uuid(), interval: z.enum(["one_off", "monthly", "yearly"]), origin: z.string().url().max(300), returnPath: z.string().max(200).regex(/^\//).optional() }).parse(data))
   .handler(async ({ data, context }): Promise<{ url: string }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -264,7 +264,10 @@ export const createPlanCheckout = createServerFn({ method: "POST" })
       .select("username")
       .eq("user_id", plan.owner_id)
       .maybeSingle();
-    const back = `${data.origin}/g/${profile?.username ?? ""}`;
+    // A student who came through their own workspace door returns to it.
+    const back = data.returnPath
+      ? `${data.origin}${data.returnPath}`
+      : `${data.origin}/g/${profile?.username ?? ""}`;
 
     const { createDirectCheckoutSession } = await import("./stripeConnect.server");
     const session = await createDirectCheckoutSession({
