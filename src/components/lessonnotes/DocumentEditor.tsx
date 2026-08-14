@@ -813,7 +813,8 @@ function DocumentEditorInner({
       content = (await aiGenerate({
         kind: generationKind,
         teacherPrompt: finalPrompt,
-        ctx: ctxRef.current,
+        ctx: contextAt(info.headingPos),
+
         context: isSolutionBlock ? solutionSource?.problemText : info.sectionText,
         currentContent,
         blockKind: generationBlockKind,
