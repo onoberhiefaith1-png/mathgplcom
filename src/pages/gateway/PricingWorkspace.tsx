@@ -25,12 +25,40 @@ import {
 
 type Drafts = Record<string, PlanDraft>;
 
-/** Stripe's requirement keys, said the way a person would say them. */
-const requirementLabel = (key: string): string =>
-  key
-    .replace(/^individual\.|^company\.|^business_profile\./, "")
-    .replace(/_/g, " ")
-    .replace(/\./g, " ");
+/**
+ * Stripe's requirement keys, said the way a person would say them.
+ *
+ * Several keys collapse into one human step — every `representative.*` field is
+ * simply "your own details" — so the owner reads a short checklist instead of
+ * Stripe's field names.
+ */
+const requirementLabel = (key: string): string => {
+  if (key.startsWith("representative.") || key.startsWith("individual.") || key.startsWith("person.")) {
+    return "Your own details (name, date of birth, address, phone)";
+  }
+  if (key.startsWith("company.") || key === "business_type") return "Business type";
+  if (key.startsWith("tos_acceptance")) return "Accept Stripe's terms";
+  if (key === "external_account") return "Bank account for payouts";
+  const map: Record<string, string> = {
+    "business_profile.mcc": "Industry",
+    "business_profile.product_description": "What you sell",
+    "business_profile.url": "Website address",
+    "business_profile.support_phone": "Support phone number",
+    "business_profile.name": "Business or trading name",
+  };
+  return (
+    map[key] ??
+    key
+      .replace(/^business_profile\./, "")
+      .replace(/_/g, " ")
+      .replace(/\./g, " ")
+  );
+};
+
+/** The checklist an owner still has to finish, without repeats. */
+const requirementChecklist = (keys: string[]): string[] =>
+  keys.map(requirementLabel).filter((label, index, all) => all.indexOf(label) === index);
+
 
 const draftOf = (plan: GatewayPlan): PlanDraft => ({
   name: plan.name,
@@ -60,7 +88,7 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
   const { data: students } = useGatewayStudents(ownerKind);
   const { data: payments } = useGatewayPayments(ownerKind);
   const { data: stripe, isLoading: stripeLoading } = useStripeStatus(ownerKind);
-  const { connect, manage, setActive, refresh: refreshStripe } = useStripeConnectActions(ownerKind);
+  const { connect, manage, setActive, reset, refresh: refreshStripe } = useStripeConnectActions(ownerKind);
   const save = useSaveGatewayPlan(ownerKind);
   const { username } = useUsername();
   const queryClient = useQueryClient();
@@ -105,11 +133,12 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
         queryFn: () => fetchStripeStatus({ data: { ownerKind } }),
       });
       toast({
-        title: status?.chargesEnabled ? "Stripe connected" : "Stripe is still verifying your details",
+        title: status?.chargesEnabled ? "Stripe connected" : "Stripe still needs a few details",
         description: status?.chargesEnabled
           ? "Switch Payment active on to start selling your paid plans."
-          : "Stripe will let us know as soon as your account is cleared.",
+          : "The checklist in the Payment card shows exactly what is left.",
       });
+
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerKind]);
@@ -243,19 +272,31 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
               {stripe.chargesEnabled ? (
                 <span className="font-semibold text-foreground">Stripe Connected ✓</span>
               ) : (
-                <span className="font-semibold text-foreground">Stripe verification in progress</span>
+                <span className="font-semibold text-foreground">This payout account is not finished yet</span>
               )}
               <span className="mt-1 block">
                 {stripe.chargesEnabled
-                  ? "Payouts go straight into your own Stripe account."
-                  : "Finish Stripe's checks to start taking payments."}
+                  ? "Payouts go straight into your own Stripe account. You can take payments now."
+                  : "This is the Stripe account that receives your students' payments for this workspace. Your own Stripe account being live does not complete it — Stripe still needs the details below on this one."}
               </span>
+              {stripe.accountId ? (
+                <span className="mt-1 block text-[11px] text-muted-foreground/80">
+                  Stripe account: {stripe.accountId}
+                </span>
+              ) : null}
             </p>
             {!stripe.chargesEnabled && stripe.requirements?.length ? (
-              <p className="rounded-lg border border-ws-border/70 bg-ws-panel/60 p-2 text-[11px] text-muted-foreground">
-                Stripe is still waiting for: {stripe.requirements.slice(0, 5).map(requirementLabel).join(", ")}
-                {stripe.requirements.length > 5 ? ", and more" : ""}.
-              </p>
+              <div className="rounded-lg border border-ws-border/70 bg-ws-panel/60 p-2 text-[11px] text-muted-foreground">
+                <span className="font-semibold text-foreground">Still to do on Stripe</span>
+                <ul className="mt-1 space-y-0.5">
+                  {requirementChecklist(stripe.requirements).map((label) => (
+                    <li key={label} className="flex gap-1.5">
+                      <span aria-hidden>•</span>
+                      <span>{label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
             <label className="flex items-center justify-between gap-3 text-sm">
               <span className="min-w-0">
@@ -279,27 +320,80 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
                 }}
               />
             </label>
+            {/*
+              Before verification the only useful destination is Stripe's own
+              onboarding form. Sending the owner to their Stripe dashboard here
+              is what made an unfinished account look live.
+            */}
             <Button
               variant="outline"
               size="sm"
               className="w-full"
               onClick={() =>
-                manage.mutate(undefined, {
-                  onError: (manageError) =>
-                    toast({
-                      title: "Could not open Stripe",
-                      description:
-                        manageError instanceof Error ? manageError.message : "Try again in a moment.",
-                      variant: "destructive",
-                    }),
-                })
+                stripe.chargesEnabled
+                  ? manage.mutate(undefined, {
+                      onError: (manageError) =>
+                        toast({
+                          title: "Could not open Stripe",
+                          description:
+                            manageError instanceof Error ? manageError.message : "Try again in a moment.",
+                          variant: "destructive",
+                        }),
+                    })
+                  : connect.mutate(undefined, {
+                      onError: (connectError) =>
+                        toast({
+                          title: "Could not open Stripe verification",
+                          description:
+                            connectError instanceof Error ? connectError.message : "Try again in a moment.",
+                          variant: "destructive",
+                        }),
+                    })
               }
-
-              disabled={manage.isPending}
+              disabled={manage.isPending || connect.isPending}
             >
+              {manage.isPending || connect.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               {stripe.chargesEnabled ? "Manage Stripe account" : "Continue Stripe verification"}
               <ExternalLink className="ml-2 h-3.5 w-3.5" />
             </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-[11px]"
+                onClick={() => {
+                  void refreshStripe();
+                  toast({ title: "Checking with Stripe…" });
+                }}
+              >
+                Refresh status
+              </Button>
+              {!stripe.detailsSubmitted ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-[11px] text-muted-foreground"
+                  disabled={reset.isPending}
+                  onClick={() =>
+                    reset.mutate(undefined, {
+                      onError: (resetError) =>
+                        toast({
+                          title: "Could not start again",
+                          description:
+                            resetError instanceof Error ? resetError.message : "Try again in a moment.",
+                          variant: "destructive",
+                        }),
+                    })
+                  }
+                >
+                  {reset.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  Start setup again
+                </Button>
+              ) : null}
+            </div>
+
           </div>
         )}
       </RailCard>

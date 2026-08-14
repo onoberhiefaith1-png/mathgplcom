@@ -76,13 +76,16 @@ export const stripeRequest = async <T>(
 export type StripeAccount = {
   id: string;
   charges_enabled: boolean;
+  payouts_enabled?: boolean;
   details_submitted: boolean;
+  capabilities?: Record<string, string> | null;
   requirements?: {
     currently_due?: string[] | null;
     past_due?: string[] | null;
     disabled_reason?: string | null;
   } | null;
 };
+
 
 /**
  * Is MathGPL itself ready to act as a Connect platform? Asked before we try to
