@@ -1602,13 +1602,15 @@ function DocumentEditorInner({
 
 
   /** "+ Add Session" — a teacher-named section, optionally with a Solution
-   *  area. It is its own section: never inside Summary or the previous
-   *  session. The typed title also becomes the AI instruction. */
-  const insertCustomSession = (title: string, withSolution: boolean) => {
+   *  area. Committed with Enter: the session is appended underneath the last
+   *  existing content, the composer closes, and the AI generates the content
+   *  using the typed title as its instruction. */
+  const insertCustomSession = async (title: string, withSolution: boolean) => {
     if (!editor) return;
     const name = title.trim();
     if (!name) return;
-    const insertAt = sectionInsertPosition();
+    // Always underneath the last existing content/session.
+    const insertAt = editor.state.doc.content.size;
     editor.chain().focus()
       .insertContentAt(insertAt, [
         { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: name }] },
@@ -1616,7 +1618,42 @@ function DocumentEditorInner({
         ...(withSolution ? solutionPlaceholderNodes() : []),
       ])
       .run();
+
+    // Locate the heading we just inserted and generate its content.
+    let headingPos: number | null = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (
+        node.type.name === "heading" &&
+        (node.attrs.level ?? 6) === 2 &&
+        node.textContent.trim() === name &&
+        pos >= insertAt - 2
+      ) headingPos = pos;
+      return true;
+    });
+    if (headingPos == null) return;
+    try {
+      await handleSectionAi("", {
+        kind: "custom_session",
+        headingPos,
+        sectionEndPos: editor.state.doc.content.size,
+        headingText: name,
+        sectionText: "",
+        action: "generate",
+        images: [],
+      });
+    } catch { /* handleSectionAi surfaces its own error toast */ }
   };
+
+  /** Enter = commit: close the insertion controls, then insert + generate. */
+  const commitSessionDraft = () => {
+    const draft = sessionDraft;
+    if (!draft || !draft.title.trim()) return;
+    setSessionDraft(null);
+    void insertCustomSession(draft.title, draft.withSolution);
+  };
+
+
+
 
   /** "+ Add Subtopic" — structural heading. Everything added under it belongs
    *  to that subtopic, and the AI generates for it only. */
@@ -2019,13 +2056,12 @@ function DocumentEditorInner({
             <input
               autoFocus
               value={sessionDraft.title}
-              placeholder="e.g. Find the LCM of 12 and 18"
+              placeholder="e.g. Practice questions on adding fractions"
               onChange={(e) => setSessionDraft({ ...sessionDraft, title: e.target.value })}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  insertCustomSession(sessionDraft.title, sessionDraft.withSolution);
-                  setSessionDraft(null);
+                  commitSessionDraft();
                 } else if (e.key === "Escape") {
                   e.preventDefault();
                   setSessionDraft(null);
@@ -2050,9 +2086,19 @@ function DocumentEditorInner({
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={commitSessionDraft}
+              disabled={!sessionDraft.title.trim()}
+              title="Insert this session into the lesson note"
+              className="rounded bg-primary px-2 py-0.5 font-medium text-primary-foreground disabled:opacity-40"
+            >
+              Enter
+            </button>
             <button type="button" onClick={() => setSessionDraft(null)} className="px-1 text-muted-foreground hover:text-foreground">✕</button>
           </div>
         )}
+
 
         {subtopicDraft !== null && (
           <div className="inline-flex items-center gap-1 rounded border border-foreground/20 bg-background px-1.5 py-1 text-xs">
