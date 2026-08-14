@@ -584,14 +584,42 @@ function DocumentEditorInner({
     };
   };
 
+  /** The subtopic that owns `beforePos`: the nearest structural subtopic
+   *  heading (level 1, custom text) above it. Everything generated below that
+   *  heading belongs to this subtopic — the AI must never continue the
+   *  previous one. */
+  const currentSubtopicAt = (beforePos: number): { pos: number; title: string } | null => {
+    if (!editor) return null;
+    let found: { pos: number; title: string } | null = null;
+    editor.state.doc.descendants((n, p) => {
+      if (p >= beforePos) return false;
+      if (n.type.name === "heading") {
+        const role = headingRole(n.textContent, n.attrs?.level ?? 6);
+        if (role?.role === "subtopic") found = { pos: p, title: role.title };
+      }
+      return true;
+    });
+    return found;
+  };
+
+  /** Notebook context narrowed to the subtopic the insertion point sits under. */
+  const contextAt = (beforePos: number): Props["notebookContext"] => {
+    const sub = currentSubtopicAt(beforePos);
+    if (!sub) return ctxRef.current;
+    return { ...(ctxRef.current ?? {}), subtopic: sub.title };
+  };
+
   /** Everything already taught in this lesson ABOVE `beforePos`, condensed
-   *  into the teaching context the AI needs so sections stay connected. */
+   *  into the teaching context the AI needs so sections stay connected.
+   *  Scoped to the current subtopic when one exists. */
   const collectLessonContext = (beforePos: number, targetKind: SectionKind): LessonTeachingContext | undefined => {
     if (!editor) return undefined;
     const doc = editor.state.doc;
+    const scopeStart = currentSubtopicAt(beforePos)?.pos ?? 0;
     const headings: { pos: number; size: number; text: string }[] = [];
     doc.descendants((n, p) => {
       if (p >= beforePos) return false;
+      if (p < scopeStart) return true;
       if (n.type.name === "heading" && (n.attrs?.level ?? 6) <= 3) {
         headings.push({ pos: p, size: n.nodeSize, text: n.textContent });
       }
@@ -611,6 +639,7 @@ function DocumentEditorInner({
     if (!chunks.length) return undefined;
     return buildLessonTeachingContext({ sections: chunks, targetKind });
   };
+
 
 
   /** Build a teacherPrompt that reflects scanned images + the requested action. */
