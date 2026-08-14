@@ -775,15 +775,35 @@ function DocumentEditorInner({
         });
         return;
       }
+      // Out of credits / rate limit: tell the teacher exactly what happened,
+      // otherwise "Generation failed" hides a billing problem they can fix.
+      const lower = msg.toLowerCase();
+      if (lower.includes("credit") || lower.includes("402") || lower.includes("payment required")) {
+        toast({
+          title: "Out of AI credits",
+          description: "Top up your balance in Settings → Plans & credits to keep generating.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (lower.includes("429") || lower.includes("rate limit") || lower.includes("too many requests")) {
+        toast({
+          title: "AI is busy",
+          description: "Too many requests right now — wait a few seconds and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
       // Any other backend/network failure: show a friendly message instead of
       // letting the error bubble up into React (which triggers the full app
       // error overlay teachers and students were seeing).
       console.warn("[handleSectionAi] generation failed:", msg);
       toast({
         title: "Generation failed",
-        description: "Something went wrong while generating. Please try again.",
+        description: msg.slice(0, 200) || "Something went wrong while generating. Please try again.",
         variant: "destructive",
       });
+
       return;
     }
     if (!content) { toast({ title: "No content returned" }); return; }
