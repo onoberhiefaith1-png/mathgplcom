@@ -1959,7 +1959,19 @@ function DocumentEditorInner({
             {(gameQuestionsOnly ? (["game_questions"] as SectionKind[]) : SECTION_OPTIONS).map((s) => (
               <DropdownMenuItem key={s} onClick={() => insertSection(s)}>{SECTION_LABELS[s]}</DropdownMenuItem>
             ))}
+            {!gameQuestionsOnly && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => { setSubtopicDraft(null); setSessionDraft({ title: "", withSolution: true }); }}>
+                  ＋ Add Session
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSessionDraft(null); setSubtopicDraft(""); }}>
+                  ＋ Add Subtopic
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
+
         </DropdownMenu>
         <div className="inline-flex items-center gap-1">
           <button
