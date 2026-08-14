@@ -166,7 +166,7 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUs
     return () => {
       alive = false;
     };
-  }, [mode, apply]);
+  }, [mode, ownerUserId, apply]);
 
 
   /**
