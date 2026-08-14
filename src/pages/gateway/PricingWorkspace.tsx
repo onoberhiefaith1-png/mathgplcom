@@ -40,6 +40,10 @@ const draftOf = (plan: GatewayPlan): PlanDraft => ({
   isPublished: plan.isPublished,
   autoGrantExisting: plan.autoGrantExisting,
   billingMode: plan.billingMode,
+  oneTimeEnabled: plan.oneTimeEnabled,
+  monthlyEnabled: plan.monthlyEnabled,
+  yearlyEnabled: plan.yearlyEnabled,
+  yearlyDiscountPercentage: plan.yearlyDiscountPercentage,
 });
 
 /**
@@ -318,9 +322,8 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
 
         {!stripeLoading && !stripe?.paymentsActive && (plans ?? []).some((plan) => (plan.price ?? 0) > 0) ? (
           <p className="rounded-2xl border border-ws-gold/40 bg-ws-gold/10 p-4 text-sm">
-            Your paid plans are saved, but they stay hidden from your gateway until Stripe is connected and{" "}
-            <span className="font-semibold">Payment active</span> is switched on. Only free plans are visible to
-            students right now.
+            Your paid plans are visible on your gateway, but checkout stays unavailable until Stripe is connected and{" "}
+            <span className="font-semibold">Payment active</span> is switched on.
           </p>
         ) : null}
 
@@ -419,22 +422,35 @@ const PricingWorkspace = ({ ownerKind }: { ownerKind: GatewayOwnerKind }) => {
                         : "Free for students."}
                     </p>
                     {draft.price && draft.price > 0 ? (
-                      <div className="flex gap-2 pt-1">
-                        {(["one_off", "subscription"] as const).map((mode) => (
-                          <button
-                            key={mode}
-                            type="button"
-                            onClick={() => patch(plan.id, { billingMode: mode })}
-                            aria-pressed={draft.billingMode === mode}
-                            className={`min-h-9 flex-1 rounded-lg border px-2 text-xs transition ${
-                              draft.billingMode === mode
-                                ? "border-ws-gold/60 bg-ws-gold/10 text-foreground"
-                                : "border-ws-border/60 text-muted-foreground hover:border-ws-gold/40"
-                            }`}
-                          >
-                            {mode === "one_off" ? "One-off" : "Monthly"}
-                          </button>
+                      <div className="space-y-2 pt-2">
+                        {([
+                          ["oneTimeEnabled", "One-time", "Permanent access"],
+                          ["monthlyEnabled", "Monthly", "Renews each month"],
+                          ["yearlyEnabled", "Yearly", "Renews each year"],
+                        ] as const).map(([key, label, description]) => (
+                          <label key={key} className="flex items-center justify-between gap-3 rounded-lg border border-ws-border/60 px-3 py-2 text-xs">
+                            <span><span className="block font-medium">{label}</span><span className="text-muted-foreground">{description}</span></span>
+                            <Switch checked={draft[key]} onCheckedChange={(value) => patch(plan.id, { [key]: value })} />
+                          </label>
                         ))}
+                        {draft.yearlyEnabled ? (
+                          <label className="block text-xs text-muted-foreground" htmlFor={`discount-${plan.id}`}>
+                            Yearly discount (%)
+                            <Input
+                              id={`discount-${plan.id}`}
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={1}
+                              className="mt-1"
+                              value={draft.yearlyDiscountPercentage}
+                              onChange={(event) => patch(plan.id, { yearlyDiscountPercentage: Number(event.target.value) })}
+                            />
+                            <span className="mt-1 block">
+                              Yearly total: {money((draft.price ?? 0) * 12 * (1 - draft.yearlyDiscountPercentage / 100), plan.currency)}
+                            </span>
+                          </label>
+                        ) : null}
                       </div>
                     ) : null}
                     {draft.price && draft.price > 0 && !stripe?.paymentsActive ? (

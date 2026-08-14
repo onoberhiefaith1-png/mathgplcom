@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { itemLabel, money } from "@/lib/gateway/items";
-import { loadMyEntitlement } from "@/lib/gateway/gateway";
+import { loadMyEntitlement, type GatewayBillingInterval } from "@/lib/gateway/gateway";
 import { useChoosePlan, useGatewayByHandle, usePlanCheckout } from "@/lib/gateway/useGateway";
 
 /**
@@ -26,6 +26,7 @@ const GatewayPage = () => {
   const checkout = usePlanCheckout();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [chosenPlanId, setChosenPlanId] = useState<string | null>(null);
+  const [intervals, setIntervals] = useState<Record<string, GatewayBillingInterval>>({});
   const returned = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("checkout") : null;
 
   useEffect(() => {
@@ -49,7 +50,7 @@ const GatewayPage = () => {
     };
   }, [data?.ownerId, signedIn]);
 
-  const pick = async (planId: string, price: number | null) => {
+  const pick = async (planId: string, price: number | null, interval: GatewayBillingInterval) => {
     if (!signedIn) {
       navigate(`/auth?redirect=/g/${handle ?? ""}`);
       return;
@@ -59,7 +60,7 @@ const GatewayPage = () => {
     // account; access is granted only when Stripe confirms it.
     if (price && price > 0) {
       try {
-        await checkout.mutateAsync(planId);
+        await checkout.mutateAsync({ planId, interval });
       } catch (error) {
         toast({
           title: "Could not open payment",
@@ -138,6 +139,15 @@ const GatewayPage = () => {
           {data.plans.map((plan) => {
             const chosen = chosenPlanId === plan.id;
             const free = !plan.price || plan.price <= 0;
+            const available: GatewayBillingInterval[] = free ? [] : [
+              ...(plan.oneTimeEnabled ? ["one_off" as const] : []),
+              ...(plan.monthlyEnabled ? ["monthly" as const] : []),
+              ...(plan.yearlyEnabled ? ["yearly" as const] : []),
+            ];
+            const interval = intervals[plan.id] ?? available[0] ?? "monthly";
+            const shownPrice = interval === "yearly"
+              ? (plan.price ?? 0) * 12 * (1 - plan.yearlyDiscountPercentage / 100)
+              : plan.price ?? 0;
             return (
               <section
                 key={plan.id}
@@ -150,7 +160,20 @@ const GatewayPage = () => {
                   ) : null}
                 </div>
 
-                <p className="text-2xl font-semibold">{money(plan.price ?? 0, plan.currency)}</p>
+                <p className="text-2xl font-semibold">
+                  {money(shownPrice, plan.currency)}
+                  {!free ? <span className="ml-1 text-xs font-normal text-muted-foreground">/{interval === "yearly" ? "year" : interval === "monthly" ? "month" : "once"}</span> : null}
+                </p>
+                {available.length > 1 ? (
+                  <div className="grid grid-cols-3 gap-1" aria-label="Payment frequency">
+                    {available.map((option) => (
+                      <Button key={option} type="button" size="sm" variant={interval === option ? "default" : "outline"} onClick={() => setIntervals((current) => ({ ...current, [plan.id]: option }))}>
+                        {option === "one_off" ? "Once" : option === "monthly" ? "Monthly" : "Yearly"}
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
+                {interval === "yearly" && plan.yearlyDiscountPercentage > 0 ? <p className="text-xs text-primary">Save {plan.yearlyDiscountPercentage}% yearly</p> : null}
 
                 <ul className="flex-1 space-y-1.5 text-sm">
                   {plan.items.length === 0 ? (
@@ -166,21 +189,19 @@ const GatewayPage = () => {
                 </ul>
 
                 <Button
-                  onClick={() => void pick(plan.id, plan.price)}
-                  disabled={choose.isPending || checkout.isPending || chosen}
+                  onClick={() => void pick(plan.id, plan.price, interval)}
+                  disabled={choose.isPending || checkout.isPending || chosen || (!free && (!data.paymentsActive || available.length === 0))}
                   className="min-h-11 w-full"
                 >
                   {chosen
                     ? "Your plan"
                     : free
                       ? `Choose ${plan.name}`
-                      : plan.billingMode === "subscription"
-                        ? "Subscribe with Stripe"
-                        : "Pay with Stripe"}
+                      : !data.paymentsActive ? "Payments not active" : interval === "one_off" ? "Pay with Stripe" : "Subscribe with Stripe"}
                 </Button>
                 {!free ? (
                   <p className="text-center text-[11px] text-muted-foreground">
-                    {plan.billingMode === "subscription" ? "Billed monthly by" : "Paid directly to"}{" "}
+                    {interval === "yearly" ? "Billed yearly by" : interval === "monthly" ? "Billed monthly by" : "Paid directly to"}{" "}
                     {data.ownerName} through Stripe.
                   </p>
                 ) : null}
