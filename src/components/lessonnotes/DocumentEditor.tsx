@@ -1602,13 +1602,15 @@ function DocumentEditorInner({
 
 
   /** "+ Add Session" — a teacher-named section, optionally with a Solution
-   *  area. It is its own section: never inside Summary or the previous
-   *  session. The typed title also becomes the AI instruction. */
-  const insertCustomSession = (title: string, withSolution: boolean) => {
+   *  area. Committed with Enter: the session is appended underneath the last
+   *  existing content, the composer closes, and the AI generates the content
+   *  using the typed title as its instruction. */
+  const insertCustomSession = async (title: string, withSolution: boolean) => {
     if (!editor) return;
     const name = title.trim();
     if (!name) return;
-    const insertAt = sectionInsertPosition();
+    // Always underneath the last existing content/session.
+    const insertAt = editor.state.doc.content.size;
     editor.chain().focus()
       .insertContentAt(insertAt, [
         { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: name }] },
@@ -1616,7 +1618,32 @@ function DocumentEditorInner({
         ...(withSolution ? solutionPlaceholderNodes() : []),
       ])
       .run();
+
+    // Locate the heading we just inserted and generate its content.
+    let headingPos: number | null = null;
+    editor.state.doc.descendants((node, pos) => {
+      if (
+        node.type.name === "heading" &&
+        (node.attrs.level ?? 6) === 2 &&
+        node.textContent.trim() === name &&
+        pos >= insertAt - 2
+      ) headingPos = pos;
+      return true;
+    });
+    if (headingPos == null) return;
+    try {
+      await handleSectionAi("", {
+        kind: "custom_session",
+        headingPos,
+        sectionEndPos: editor.state.doc.content.size,
+        headingText: name,
+        sectionText: "",
+        action: "generate",
+        images: [],
+      });
+    } catch { /* handleSectionAi surfaces its own error toast */ }
   };
+
 
   /** "+ Add Subtopic" — structural heading. Everything added under it belongs
    *  to that subtopic, and the AI generates for it only. */
