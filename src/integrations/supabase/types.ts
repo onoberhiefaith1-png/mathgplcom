@@ -3221,12 +3221,17 @@ export type Database = {
       gateway_payments: {
         Row: {
           amount: number
+          billing_interval: string | null
           billing_mode: string
           created_at: string
           currency: string
+          current_period_end: string | null
+          granted_items: string[]
           id: string
           owner_id: string
           owner_kind: string
+          permanent_access: boolean
+          plan_description: string
           plan_id: string | null
           plan_name: string
           status: string
@@ -3237,15 +3242,21 @@ export type Database = {
           stripe_subscription_id: string | null
           student_id: string
           updated_at: string
+          yearly_discount_percentage: number
         }
         Insert: {
           amount?: number
+          billing_interval?: string | null
           billing_mode?: string
           created_at?: string
           currency?: string
+          current_period_end?: string | null
+          granted_items?: string[]
           id?: string
           owner_id: string
           owner_kind: string
+          permanent_access?: boolean
+          plan_description?: string
           plan_id?: string | null
           plan_name?: string
           status?: string
@@ -3256,15 +3267,21 @@ export type Database = {
           stripe_subscription_id?: string | null
           student_id: string
           updated_at?: string
+          yearly_discount_percentage?: number
         }
         Update: {
           amount?: number
+          billing_interval?: string | null
           billing_mode?: string
           created_at?: string
           currency?: string
+          current_period_end?: string | null
+          granted_items?: string[]
           id?: string
           owner_id?: string
           owner_kind?: string
+          permanent_access?: boolean
+          plan_description?: string
           plan_id?: string | null
           plan_name?: string
           status?: string
@@ -3275,6 +3292,7 @@ export type Database = {
           stripe_subscription_id?: string | null
           student_id?: string
           updated_at?: string
+          yearly_discount_percentage?: number
         }
         Relationships: [
           {
@@ -3341,12 +3359,16 @@ export type Database = {
           id: string
           is_published: boolean
           items: string[]
+          monthly_enabled: boolean
           name: string
+          one_time_enabled: boolean
           owner_id: string
           owner_kind: string
           price_amount: number | null
           slot: string
           updated_at: string
+          yearly_discount_percentage: number
+          yearly_enabled: boolean
         }
         Insert: {
           auto_grant_existing?: boolean
@@ -3357,12 +3379,16 @@ export type Database = {
           id?: string
           is_published?: boolean
           items?: string[]
+          monthly_enabled?: boolean
           name?: string
+          one_time_enabled?: boolean
           owner_id: string
           owner_kind: string
           price_amount?: number | null
           slot: string
           updated_at?: string
+          yearly_discount_percentage?: number
+          yearly_enabled?: boolean
         }
         Update: {
           auto_grant_existing?: boolean
@@ -3373,12 +3399,16 @@ export type Database = {
           id?: string
           is_published?: boolean
           items?: string[]
+          monthly_enabled?: boolean
           name?: string
+          one_time_enabled?: boolean
           owner_id?: string
           owner_kind?: string
           price_amount?: number | null
           slot?: string
           updated_at?: string
+          yearly_discount_percentage?: number
+          yearly_enabled?: boolean
         }
         Relationships: []
       }
@@ -6119,7 +6149,9 @@ export type Database = {
           currency: string
           description: string
           items: string[]
+          monthly_enabled: boolean
           name: string
+          one_time_enabled: boolean
           owner_id: string
           owner_kind: string
           owner_name: string
@@ -6128,6 +6160,8 @@ export type Database = {
           price_amount: number
           slot: string
           username: string
+          yearly_discount_percentage: number
+          yearly_enabled: boolean
         }[]
       }
       gateway_choose_plan: {
