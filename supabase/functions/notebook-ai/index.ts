@@ -12,6 +12,7 @@ import { STRUCTURAL_STANDARD } from "./structuralStandard.ts";
 import { INTEGRITY_STANDARD } from "./integrityStandard.ts";
 import { INHERITANCE_STANDARD } from "./inheritanceStandard.ts";
 import { CONTINUITY_STANDARD } from "./continuityStandard.ts";
+import { QUESTION_TASK_STANDARD, hasTaskInstruction } from "./questionTaskStandard.ts";
 import { sanitizePresentation, residueReport } from "./outputHygiene.ts";
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
@@ -320,8 +321,26 @@ const sanitizeLines = (arr: string[]): string[] => arr.map((l) => hardStripMath(
 // "\int … dx") and trailing punctuation, so the restatement is accepted when
 // the model swaps prose for the integral symbol (or vice-versa) without
 // touching any mathematics.
+// Unicode superscripts (x² / x⁻¹) ⇔ caret form (x^2 / x^-1) so a restatement
+// that renders the exponent differently is NOT treated as a different problem.
+const SUPERSCRIPTS: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+  "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+  "⁺": "+", "⁻": "-", "ⁿ": "n", "ⁱ": "i",
+};
+
+const canonicalExponents = (s: string): string => {
+  // x²⁵ → x^25 (one caret for the whole run of superscript characters)
+  let out = String(s ?? "").replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻ⁿⁱ]+/g, (run) =>
+    `^{${Array.from(run).map((ch) => SUPERSCRIPTS[ch] ?? ch).join("")}}`,
+  );
+  // ^{2} → ^2 (brace-less form is canonical once whitespace is gone)
+  out = out.replace(/\^\{\s*([^{}]*?)\s*\}/g, "^$1");
+  return out;
+};
+
 const normaliseForLock = (s: string): string => {
-  let out = hardStripMath(String(s ?? ""))
+  let out = canonicalExponents(hardStripMath(String(s ?? "")))
     .replace(/\s+/g, "")
     .replace(/[-−–—]/g, "-")
     .replace(/[×·*]/g, "x")
@@ -669,22 +688,22 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
           text: "Write a teacher-voice explanation of the subtopic, 3–8 short lines. State the key rule, then one short illustrative line. Use math markup for any formula. Plain, classroom-friendly — readable aloud.",
         },
         example: {
-          problem: "Write ONE concise worked-example problem only. No solution. Use math markup for fractions/roots/powers.",
+          problem: "Write ONE worked-example question: an imperative instruction line naming the method this Subtopic teaches, then the mathematics on its own line(s). No solution, no working. Use math markup for fractions/roots/powers.",
           solution: "Solve ACTIVE_QUESTION. First line is ACTIVE_QUESTION restated verbatim. Then one step per line, using math markup. Final line is the answer.",
           reasoning: "Write one SHORT teacher note per line, matched 1:1 with the solution lines above. First note is empty. 2–6 words each: 'Subtract 5 from both sides', 'Simplify', 'Divide both sides by 10'.",
         },
         exercise: {
-          problem: "Write ONE practice problem only. Use math markup.",
+          problem: "Write ONE practice question: an imperative instruction line naming the method this Subtopic teaches, then the mathematics on its own line(s). No solution. Use math markup.",
           solution: "Solve ACTIVE_QUESTION. First line restates ACTIVE_QUESTION verbatim. One step per line. Math markup.",
           reasoning: "Short teacher notes, one per solution line. First note empty. 2–6 words each.",
         },
         classwork: {
-          problem: "Write ONE classwork problem only. Math markup.",
+          problem: "Write ONE classwork question: an imperative instruction line naming the method this Subtopic teaches, then the mathematics on its own line(s). No solution. Math markup.",
           solution: "Solve ACTIVE_QUESTION. First line restates ACTIVE_QUESTION verbatim. One step per line.",
           reasoning: "Short teacher notes, one per solution line. First empty.",
         },
         homework: {
-          problem: "Write ONE homework problem only.",
+          problem: "Write ONE homework question: an imperative instruction line naming the method this Subtopic teaches, then the mathematics on its own line(s). No solution. Math markup.",
           solution: "Solve ACTIVE_QUESTION. First line restates ACTIVE_QUESTION verbatim. One step per line.",
           reasoning: "Short teacher notes, one per solution line. First empty.",
         },
@@ -714,6 +733,7 @@ ${WORKSPACE_STANDARD}
 
 ${workspaceManifestBlock(b.workspaceManifest)}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
+${b.blockKind === "problem" ? `\n${QUESTION_TASK_STANDARD}\n` : ""}
 Task style for this block: ${styleLine}
 Output ONLY the requested content. No headings like "Solution:", no markdown, no commentary.`;
 
@@ -803,6 +823,34 @@ Output ONLY the requested content. No headings like "Solution:", no markdown, no
           warnings = retry.warnings;
         }
       }
+
+      // TASK-PHRASING GUARD — a question must be a real task, not a naked
+      // equation. One corrective round asking only for the instruction line,
+      // then accept whatever came back (never blocks generation).
+      if (!isSolutionBlock && b.blockKind === "problem" && !hasTaskInstruction(content)) {
+        try {
+          const retry = await generateValidated({
+            messages: [
+              ...baseMessages,
+              { role: "assistant", content },
+              {
+                role: "user",
+                content:
+                  `That question has no instruction — it is a bare equation. Re-output the SAME mathematics unchanged, but put ONE short imperative instruction line above it naming the method this Subtopic teaches (e.g. "Solve the quadratic equation using the quadratic formula."). Output only the question: instruction line, then the mathematics.`,
+              },
+            ],
+            kind: validationKind,
+          });
+          if (retry.content && retry.content.trim()) {
+            content = retry.content;
+            warnings = retry.warnings;
+          }
+        } catch {
+          // phrasing is cosmetic — keep the original question
+        }
+      }
+
+
 
       // Post-generation QUESTION_LOCK guard for solution blocks: solution[0]
       // (the first non-empty line) must match ACTIVE_QUESTION. One retry, then 422.

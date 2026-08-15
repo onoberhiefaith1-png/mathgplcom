@@ -175,9 +175,27 @@ function splitQuestionBody(nodes: Node[]): { problem: string; solution: string; 
 }
 
 
+// Free-positioned Master Sensor frames are pure containers: the headings,
+// questions and solutions inside them are real document content and must be
+// parsed exactly like top-level nodes, otherwise the Floating Numbers page
+// finds no solution for anything written inside a frame.
+const CONTAINER_TYPES = new Set(["canvasFrame", "pageFrame", "canvasLayer"]);
+
+const flattenContainers = (nodes: Node[]): Node[] => {
+  const out: Node[] = [];
+  for (const n of nodes) {
+    if (n && CONTAINER_TYPES.has((n as any).type) && Array.isArray((n as any).content)) {
+      out.push(...flattenContainers((n as any).content as Node[]));
+    } else if (n) {
+      out.push(n);
+    }
+  }
+  return out;
+};
+
 /** Parse a TipTap document into the Smartboard structure. */
 export function parseDocumentToSections(doc: any): ParsedSection[] {
-  const content: Node[] = Array.isArray(doc?.content) ? doc.content : [];
+  const content: Node[] = flattenContainers(Array.isArray(doc?.content) ? doc.content : []);
   const sections: { kind: SectionKind; body: Node[] }[] = [];
   let current: { kind: SectionKind; body: Node[] } | null = null;
 

@@ -12,8 +12,8 @@
 // Undo / Redo (buttons + ⌘Z / ⇧⌘Z) revert highlight actions.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Download, Eraser, FileText, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
+import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
+import { ArrowLeft, Copy, Download, Eraser, FileText, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -253,6 +253,8 @@ function tokenize(line: string): string[] {
 
 const FloatingPreparationPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
+  /** Live solution text handed over by the lesson note's Floating chip. */
+  const handoff = (useLocation() as { state?: { solutionText?: string; problemText?: string } }).state;
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
@@ -381,7 +383,21 @@ const FloatingPreparationPage = () => {
       setPaperStyle(((nbRes.data as any)?.paper_style as PaperStyle) || "ruled");
       setDocumentJson((nbRes.data as any)?.document_json ?? null);
       const solBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "solution") as any;
-      const solution = solBlock?.content_ascii ?? "";
+      // Direct handoff: the Floating chip passes the live solution text from
+      // the lesson note, so a solution that is visible on screen is NEVER
+      // reported as missing here — even if the DB row hasn't caught up.
+      const handed = String((handoff as any)?.solutionText ?? "").trim();
+      let solution: string = solBlock?.content_ascii ?? "";
+      if (!solution.trim() && handed) {
+        solution = handed;
+        if (solBlock) {
+          void supabase
+            .from("notebook_blocks")
+            .update({ content_ascii: handed } as any)
+            .eq("subsection_id", subsectionId)
+            .eq("kind", "solution" as any);
+        }
+      }
       const flat = solution
         .split("\n")
         .map((l: string) => l.replace(/\s+$/, ""))
@@ -703,6 +719,25 @@ const FloatingPreparationPage = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            <button
+              onClick={async () => {
+                const text = lines.join("\n");
+                if (!text.trim()) {
+                  toast({ title: "Nothing to copy", description: "This solution is empty." });
+                  return;
+                }
+                try {
+                  await navigator.clipboard.writeText(text);
+                  toast({ title: "Solution copied" });
+                } catch {
+                  toast({ title: "Couldn't copy", variant: "destructive" });
+                }
+              }}
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-foreground/20 text-foreground/80 hover:bg-foreground/10"
+              title="Copy the solution text"
+            >
+              <Copy className="h-3.5 w-3.5" /> Copy solution
+            </button>
             <button
               onClick={undo}
               disabled={undoStack.current.length === 0}
