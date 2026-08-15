@@ -14,6 +14,10 @@ export interface AnnotationDraft {
     | "smartText" | "smartAngle" | "smartArea";
   value: string;
   confirmed: boolean;
+  /** Which stage of the temporary workflow the panel should render. */
+  step?: "value" | "pick";
+  /** Transient feedback shown inside the workflow card. */
+  notice?: string;
   /** For addArea only: straight-edge trace or continuous curve trace. */
   traceMode?: "straight" | "curve";
   /** For addAngle & addArea: keep temporary construction points after completion. */
@@ -22,6 +26,7 @@ export interface AnnotationDraft {
   fillColor?: string;
   fillOpacity?: number;
 }
+
 
 interface GeometryModeCtx {
   mode: boolean;
