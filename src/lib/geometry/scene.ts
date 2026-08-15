@@ -43,6 +43,11 @@ export interface GeoSegment {
   distanceFontSize?: number;
   /** Colour for the distance chip. */
   distanceColor?: string;
+  /** Diagram-attached free text added with the right-hand Add Text tool. */
+  lineText?: string;
+  lineTextOffset?: { dx: number; dy: number };
+  lineTextFontSize?: number;
+  lineTextColor?: string;
   marks?:
     | "tick" | "double" | "triple" | "quadruple" | "right"
     | "parallel" | "double-parallel" | "triple-parallel"
