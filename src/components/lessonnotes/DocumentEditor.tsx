@@ -2883,14 +2883,16 @@ function Btn({
 
 function Divider() { return <span className="w-px h-5 bg-foreground/15 mx-1" />; }
 
-/* ─── The insertion sensor: a strong, persistent caret marker ───
-   The real caret handles typing; this marker keeps the position visible when
-   the editor loses focus (e.g. while the teacher uses the ribbon). */
+/* ─── The insertion sensor: a strong, persistent marker ───
+   Doc mode: keeps the caret position visible when the editor loses focus (e.g.
+   while the teacher uses the ribbon). Free mode: stands alone at an arbitrary
+   paper coordinate — the master insertion point of the canvas. */
 function SensorCaret({
-  editor, pos, hidden, paperLayerRef, zoom,
+  editor, pos, free, hidden, paperLayerRef, zoom,
 }: {
   editor: Editor | null;
   pos: number | null;
+  free: { x: number; y: number } | null;
   hidden: boolean;
   paperLayerRef: RefObject<HTMLDivElement | null>;
   zoom: number;
@@ -2898,17 +2900,30 @@ function SensorCaret({
   const [box, setBox] = useState<{ top: number; left: number; height: number } | null>(null);
 
   useEffect(() => {
-    if (!editor || pos == null || hidden) { setBox(null); return; }
+    if (!editor) { setBox(null); return; }
     const layer = paperLayerRef.current;
     if (!layer) { setBox(null); return; }
     let raf = 0;
     const measure = () => {
       try {
+        const rect = layer.getBoundingClientRect();
+        const z = zoom || 1;
+        if (free) {
+          // Free coordinates are relative to the note body; translate them into
+          // the interaction layer the marker is rendered in.
+          const host = editor.view.dom as HTMLElement;
+          const hr = host.getBoundingClientRect();
+          setBox({
+            top: (hr.top - rect.top) / z + free.y,
+            left: (hr.left - rect.left) / z + free.x,
+            height: 26,
+          });
+          return;
+        }
+        if (pos == null || hidden) { setBox(null); return; }
         const size = editor.state.doc.content.size;
         const at = Math.max(0, Math.min(pos, size));
         const c = editor.view.coordsAtPos(at);
-        const rect = layer.getBoundingClientRect();
-        const z = zoom || 1;
         setBox({
           top: (c.top - rect.top) / z,
           left: (c.left - rect.left) / z,
@@ -2922,7 +2937,8 @@ function SensorCaret({
       window.cancelAnimationFrame(raf);
       window.removeEventListener("resize", measure);
     };
-  }, [editor, pos, hidden, paperLayerRef, zoom]);
+  }, [editor, pos, free, hidden, paperLayerRef, zoom]);
+
 
   if (!box) return null;
   return (
