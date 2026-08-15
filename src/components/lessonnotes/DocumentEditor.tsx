@@ -2226,22 +2226,8 @@ function DocumentEditorInner({
         >
           <ArrowLeftRight className="h-4 w-4" /> Conversion
         </button>
-        {/* Erase — a geometry tool: click a single 2D piece to remove it. */}
-        <button
-          type="button"
-          onClick={() => {
-            setGeometryMode(true);
-            setGeometryTool(geometryTool === "erase" ? "select" : "erase");
-          }}
-          title="Erase — click a single line, arc or label in a 2D diagram to remove just that piece"
-          aria-pressed={geometryTool === "erase"}
-          className={cn(
-            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
-            geometryTool === "erase" ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
-          )}
-        >
-          <Trash2 className="h-4 w-4" /> Erase
-        </button>
+        {/* Erase lives in the Diagram tools panel only — not duplicated here. */}
+
         <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
         <button
           type="button"
