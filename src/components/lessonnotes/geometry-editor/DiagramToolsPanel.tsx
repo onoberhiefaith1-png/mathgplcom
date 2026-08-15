@@ -15,6 +15,9 @@ const TOOLS = [
   { id: "smartArea" as const, label: "Add Area", Icon: Paintbrush },
 ];
 
+const AREA_COLORS: string[] = ["#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#a855f7", "#0f172a"];
+
+
 interface Props {
   /** True when exactly one (or more) diagram objects are selected. */
   hasSelection?: boolean;
