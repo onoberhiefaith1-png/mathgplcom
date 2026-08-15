@@ -10,7 +10,8 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 
 export interface AnnotationDraft {
-  tool: "addText" | "addDistance" | "addAngle" | "addArea";
+  tool: "addText" | "addDistance" | "addAngle" | "addArea"
+    | "smartText" | "smartAngle" | "smartArea";
   value: string;
   confirmed: boolean;
   /** For addArea only: straight-edge trace or continuous curve trace. */
