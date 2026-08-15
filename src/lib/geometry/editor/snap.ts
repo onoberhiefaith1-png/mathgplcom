@@ -110,6 +110,12 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
       const ly = off ? my + off.dy : my - ny * 14;
       if (Math.hypot(lx - x, ly - y) <= 14) return { id: o.id, kind: "segmentDistance" };
     }
+    if (o.lineText) {
+      const off = o.lineTextOffset;
+      const lx = off ? mx + off.dx : mx + nx * 28;
+      const ly = off ? my + off.dy : my + ny * 28;
+      if (Math.hypot(lx - x, ly - y) <= 16) return { id: o.id, kind: "segmentText" };
+    }
   }
   // 3b) Angle value chip (clicking "46°" opens the text panel).
   for (let i = scene.objects.length - 1; i >= 0; i--) {
