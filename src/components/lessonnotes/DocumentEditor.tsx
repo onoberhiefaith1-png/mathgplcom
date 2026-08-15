@@ -1524,38 +1524,58 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
 
-  /** The teacher's last known caret position. Clicking a ribbon button blurs
-   *  the editor, so we remember where the cursor was and insert there. */
+  /** ── The insertion sensor ────────────────────────────────────────────────
+   *  The document caret IS the sensor: it is where every text-based insertion
+   *  lands. Clicking a ribbon button blurs the editor, so we remember the
+   *  position and draw a held marker there, and we only ever move it on a real
+   *  user selection change (never on programmatic/AI/autosave writes). */
   const lastCaretRef = useRef<number | null>(null);
+  const [sensorPos, setSensorPos] = useState<number | null>(null);
+  const [editorFocused, setEditorFocused] = useState(false);
+
+  const rememberSensor = useCallback((pos: number | null) => {
+    lastCaretRef.current = pos;
+    setSensorPos(pos);
+  }, []);
+
   useEffect(() => {
     if (!editor) return;
-    const remember = () => { lastCaretRef.current = editor.state.selection.to; };
+    const remember = () => rememberSensor(editor.state.selection.to);
+    const onFocus = () => { setEditorFocused(true); remember(); };
+    const onBlur = () => setEditorFocused(false);
     editor.on("selectionUpdate", remember);
-    editor.on("update", remember);
+    editor.on("focus", onFocus);
+    editor.on("blur", onBlur);
     return () => {
       editor.off("selectionUpdate", remember);
-      editor.off("update", remember);
+      editor.off("focus", onFocus);
+      editor.off("blur", onBlur);
     };
-  }, [editor]);
+  }, [editor, rememberSensor]);
 
-  /** Sections are inserted AT THE CARET: immediately after the block the
+  /** Sections are inserted AT THE SENSOR: immediately after the block the
    *  cursor sits in. Diagrams never move, and nothing jumps to the top of the
-   *  page. When there is no caret yet (e.g. the teacher never clicked in the
-   *  document) we fall back to the end of the document. */
+   *  page. When there is no sensor yet we fall back to the end of the doc. */
   const sectionInsertPosition = () => {
     if (!editor) return 0;
     const { doc, selection } = editor.state;
     const caret = lastCaretRef.current ?? selection.to;
     const anchor = Math.max(0, Math.min(caret, doc.content.size));
     const $pos = doc.resolve(anchor);
-    // Walk up to the top-level block containing the caret and insert after it.
-    for (let depth = $pos.depth; depth > 0; depth -= 1) {
-      if ($pos.depth - depth === 0 || depth === 1) {
-        return Math.min($pos.after(depth), doc.content.size);
-      }
-    }
-    return Math.min(anchor, doc.content.size);
+    if ($pos.depth === 0) return anchor;
+    // Insert after the top-level block containing the sensor.
+    return Math.min($pos.after(1), doc.content.size);
   };
+
+  /** Park the sensor inside the paragraph that follows a freshly inserted
+   *  heading, so the next insertion continues downward. */
+  const moveSensorAfterInsert = (insertAt: number, headingText: string) => {
+    if (!editor) return;
+    const pos = Math.min(insertAt + headingText.length + 3, editor.state.doc.content.size);
+    editor.chain().focus().setTextSelection(pos).run();
+    rememberSensor(pos);
+  };
+
 
 
   const insertSection = (kind: SectionKind) => {
@@ -1573,7 +1593,9 @@ function DocumentEditorInner({
         ...trailing,
       ])
       .run();
+    moveSensorAfterInsert(insertAt, SECTION_LABELS[kind]);
   };
+
   /** Inline composers for the two structural controls under the section list. */
   const [sessionDraft, setSessionDraft] = useState<{ title: string; withSolution: boolean } | null>(null);
   const [subtopicDraft, setSubtopicDraft] = useState<string | null>(null);
@@ -1597,6 +1619,9 @@ function DocumentEditorInner({
         ...(withSolution ? solutionPlaceholderNodes() : []),
       ])
       .run();
+    moveSensorAfterInsert(insertAt, name);
+
+
 
     // Locate the heading we just inserted and generate its content.
     let headingPos: number | null = null;
@@ -1647,7 +1672,9 @@ function DocumentEditorInner({
         { type: "paragraph" },
       ])
       .run();
+    moveSensorAfterInsert(insertAt, name);
   };
+
 
 
 
@@ -1875,42 +1902,71 @@ function DocumentEditorInner({
 
   const paperLayerRef = useRef<HTMLDivElement | null>(null);
 
-  /** Click handler on the paper. If user clicked existing TipTap content,
-   *  let TipTap handle it natively. If they clicked truly blank paper,
-   *  drop a new free-position text box at that point. */
+  /** Place the insertion sensor (the document caret) at a screen point. Works
+   *  anywhere on the sheet: inside text, in the blank space beside or below a
+   *  diagram, and anywhere in the Note Extend region. A point that falls past
+   *  the last block gets a fresh empty line to type into. */
+  const placeCaretAtPoint = (clientX: number, clientY: number) => {
+    if (!editor) return;
+    const view = editor.view;
+    const doc = editor.state.doc;
+
+    // A click in the space around a diagram lands AFTER that diagram, so the
+    // next section goes below it instead of above.
+    const el = document.elementFromPoint(clientX, clientY) as Element | null;
+    const wrap = el?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
+    const rawPos = wrap?.dataset.geometryPos;
+    if (rawPos) {
+      const gp = Number(rawPos);
+      const node = Number.isFinite(gp) ? doc.nodeAt(gp) : null;
+      if (node) {
+        const after = Math.min(gp + node.nodeSize, doc.content.size);
+        editor.chain().focus().setTextSelection(after).run();
+        rememberSensor(editor.state.selection.to);
+        return;
+      }
+    }
+
+    const hit = view.posAtCoords({ left: clientX, top: clientY });
+    if (hit) {
+      editor.chain().focus().setTextSelection(Math.min(hit.pos, doc.content.size)).run();
+      rememberSensor(editor.state.selection.to);
+      return;
+    }
+
+    // Below the last block (extended page): make sure there is an empty line to
+    // type into, then put the caret in it.
+    const last = doc.lastChild;
+    if (!(last && last.type.name === "paragraph" && last.content.size === 0)) {
+      editor.chain().focus()
+        .insertContentAt(doc.content.size, { type: "paragraph" })
+        .run();
+    }
+    editor.chain().focus().setTextSelection(editor.state.doc.content.size - 1).run();
+    rememberSensor(editor.state.selection.to);
+  };
+
   /** Double-click on blank paper — anywhere in the (possibly extended) page,
-   *  including below a diagram — opens a free text box at that exact point.
-   *  This works in Geometry Mode too, so the whole page stays writable. */
+   *  including below a diagram — parks the sensor there. No floating input
+   *  rectangle is created any more: the sheet is one editable document. */
   const handlePaperDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
-    if (el?.closest("[data-geometry-diagram-wrapper],[data-canvas-box]")) return;
+    if (el?.closest("[data-canvas-box]")) return;
     if (isEditorControlTarget(e.target)) return;
     const editorDom = editor?.view.dom;
     if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
     // Active drawing tools own their own double-click (e.g. finishing a curve).
     if (geometryMode && geometryTool !== "select") return;
-    spawnCanvasBoxAt(e.clientX, e.clientY);
+    if (!editor) return;
     e.preventDefault();
     e.stopPropagation();
-  };
-
-  const spawnCanvasBoxAt = (clientX: number, clientY: number) => {
-    const layer = paperLayerRef.current;
-    if (!layer) return;
-    const rect = layer.getBoundingClientRect();
-    const z = zoom || 1;
-    const x = Math.max(0, Math.min((clientX - rect.left) / z, rect.width / z - 40));
-    const y = Math.max(0, (clientY - rect.top) / z - 14);
-    const id = `cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-    setCanvasBoxes((prev) => [...prev, { id, x, y, text: "" }]);
-    setActiveBoxId(id);
+    placeCaretAtPoint(e.clientX, e.clientY);
   };
 
   /** Single click on blank paper — including the Note Extend area and the space
-   *  below/around a diagram — places the normal document caret there, so the
-   *  teacher can just start typing. The whole sheet is one editable document;
-   *  free-position text boxes come from a double-click instead. */
+   *  below/around a diagram — places the sensor there, so the teacher can just
+   *  start typing or insert a section at that exact spot. */
   const handlePaperMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
@@ -1929,27 +1985,9 @@ function DocumentEditorInner({
     if (!editor) return;
 
     e.preventDefault();
-    const view = editor.view;
-    const hit = view.posAtCoords({ left: e.clientX, top: e.clientY });
-    const doc = editor.state.doc;
-
-    if (hit) {
-      editor.chain().focus().setTextSelection(Math.min(hit.pos, doc.content.size)).run();
-      return;
-    }
-
-    // Below the last block (extended page): make sure there is an empty line to
-    // type into, then put the caret in it.
-    const last = doc.lastChild;
-    if (last && last.type.name === "paragraph" && last.content.size === 0) {
-      editor.chain().focus().setTextSelection(doc.content.size - 1).run();
-      return;
-    }
-    editor.chain().focus()
-      .insertContentAt(doc.content.size, { type: "paragraph" })
-      .run();
-    editor.chain().focus().setTextSelection(editor.state.doc.content.size - 1).run();
+    placeCaretAtPoint(e.clientX, e.clientY);
   };
+
 
 
   const updateBoxText = (id: string, text: string) =>
@@ -2375,7 +2413,18 @@ function DocumentEditorInner({
                   onRemove={() => removeBox(b.id)}
                 />
               ))}
+
+              {/* The held insertion sensor: shown while focus is on the ribbon
+                  so the teacher always sees where the next insertion lands. */}
+              <SensorCaret
+                editor={editor}
+                pos={sensorPos}
+                hidden={editorFocused}
+                paperLayerRef={paperLayerRef}
+                zoom={zoom}
+              />
             </div>
+
           </PageFrame>
         </div>
         <EmojiPanel
@@ -2682,6 +2731,68 @@ function Btn({
 }
 
 function Divider() { return <span className="w-px h-5 bg-foreground/15 mx-1" />; }
+
+/* ─── The insertion sensor: a strong, persistent caret marker ───
+   The real caret handles typing; this marker keeps the position visible when
+   the editor loses focus (e.g. while the teacher uses the ribbon). */
+function SensorCaret({
+  editor, pos, hidden, paperLayerRef, zoom,
+}: {
+  editor: Editor | null;
+  pos: number | null;
+  hidden: boolean;
+  paperLayerRef: RefObject<HTMLDivElement | null>;
+  zoom: number;
+}) {
+  const [box, setBox] = useState<{ top: number; left: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (!editor || pos == null || hidden) { setBox(null); return; }
+    const layer = paperLayerRef.current;
+    if (!layer) { setBox(null); return; }
+    let raf = 0;
+    const measure = () => {
+      try {
+        const size = editor.state.doc.content.size;
+        const at = Math.max(0, Math.min(pos, size));
+        const c = editor.view.coordsAtPos(at);
+        const rect = layer.getBoundingClientRect();
+        const z = zoom || 1;
+        setBox({
+          top: (c.top - rect.top) / z,
+          left: (c.left - rect.left) / z,
+          height: Math.max(18, (c.bottom - c.top) / z),
+        });
+      } catch { setBox(null); }
+    };
+    raf = window.requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+    };
+  }, [editor, pos, hidden, paperLayerRef, zoom]);
+
+  if (!box) return null;
+  return (
+    <div
+      aria-hidden
+      className="lesson-sensor-caret"
+      style={{
+        position: "absolute",
+        top: box.top,
+        left: box.left,
+        width: 2.5,
+        height: box.height,
+        borderRadius: 2,
+        pointerEvents: "none",
+        zIndex: 6,
+      }}
+    />
+  );
+}
+
+
 
 /* ─── Free-position text box (overlay, outside TipTap) ─── */
 function CanvasBoxView({
