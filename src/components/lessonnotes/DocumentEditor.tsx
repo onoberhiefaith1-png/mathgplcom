@@ -1725,13 +1725,10 @@ function DocumentEditorInner({
     if (!editor) return;
     const name = title.trim();
     if (!name) return;
-    const insertAt = sectionInsertPosition();
-    editor.chain().focus()
-      .insertContentAt(insertAt, [
-        { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: name }] },
-        { type: "paragraph" },
-      ])
-      .run();
+    const insertAt = insertAtSensor([
+      { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: name }] },
+      { type: "paragraph" },
+    ]);
     moveSensorAfterInsert(insertAt, name);
   };
 
