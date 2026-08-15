@@ -517,3 +517,34 @@ export function addCurve(scene: GeometryScene, pointIds: GeoId[]): OpResult {
   return ok(withObjects(scene, [...scene.objects, curve]), [id]);
 }
 
+
+/* ─── Structural erase (single segment / piece) ──────────────────────
+ * Erases exactly the object the teacher pointed at. Neighbouring
+ * segments are never touched, shared points survive as long as any other
+ * object still uses them, and a point left with no references at all is
+ * cleaned up so the diagram keeps no orphans.
+ */
+export function eraseStructural(scene: GeometryScene, id: GeoId): OpResult {
+  const baseId = String(id).split("#")[0];
+  const target = scene.objects.find((o) => o.id === baseId);
+  if (!target) return ok(scene);
+
+  // Points keep the existing behaviour (merge / cascade).
+  if (target.type === "point") return eraseObject(scene, baseId);
+
+  const kept = scene.objects.filter((o) => o.id !== baseId);
+  const referenced = new Set<GeoId>();
+  for (const o of kept) {
+    const any = o as any;
+    for (const key of ["a", "b", "mid", "center", "vertex"]) {
+      if (typeof any[key] === "string") referenced.add(any[key]);
+    }
+    for (const key of ["points", "boundary"]) {
+      if (Array.isArray(any[key])) for (const pid of any[key]) referenced.add(pid);
+    }
+  }
+  const pruned = kept.filter(
+    (o) => o.type !== "point" || referenced.has(o.id) || !!(o as any).label,
+  );
+  return ok(withObjects(scene, pruned));
+}
