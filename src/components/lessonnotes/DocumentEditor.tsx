@@ -1889,7 +1889,8 @@ function DocumentEditorInner({
     if (isEditorControlTarget(e.target)) return;
     const editorDom = editor?.view.dom;
     if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
-    if (geometryTool === "erase") return;
+    // Active drawing tools own their own double-click (e.g. finishing a curve).
+    if (geometryMode && geometryTool !== "select") return;
     spawnCanvasBoxAt(e.clientX, e.clientY);
     e.preventDefault();
     e.stopPropagation();
