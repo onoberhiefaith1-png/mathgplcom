@@ -21,6 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
 import type { GeometryScene } from "@/lib/geometry/scene";
+import { sectionEndWithin } from "@/lib/lessonnotes/containerRange";
+
 
 
 export type SectionAction =
