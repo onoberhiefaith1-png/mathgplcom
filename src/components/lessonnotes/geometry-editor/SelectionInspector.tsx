@@ -237,6 +237,25 @@ function SelectionInspectorBody({ scene, selected, selectedIds, kind, onApply, o
   // Build normalized line items from raw selectedIds so sub-arcs and
   // sub-curves are distinguished from their parent shapes.
   const rawIds = selectedIds ?? selected.map((o) => o.id);
+
+  // Chip-level selections (a label, distance, attached text or angle value)
+  // own the panel: they must not fall through to the line-selection panel.
+  const single = selected.length === 1 ? selected[0] : null;
+  const patchSingle = (p: Partial<GeoObject>) =>
+    single && onApply(patchObject(scene, single.id, p).scene);
+  if (single && single.type === "segment" && kind === "segmentLabel") {
+    return <SegmentLabelPanel segment={single} onPatch={patchSingle} />;
+  }
+  if (single && single.type === "segment" && kind === "segmentDistance") {
+    return <SegmentDistancePanel segment={single} onPatch={patchSingle} />;
+  }
+  if (single && single.type === "segment" && kind === "segmentText") {
+    return <SegmentTextPanel segment={single} onPatch={patchSingle} />;
+  }
+  if (single && single.type === "angle" && kind === "angleValue") {
+    return <AngleValueTextPanel angle={single} onPatch={patchSingle} />;
+  }
+
   const lineItems = classifyLineItems(scene, rawIds);
   if (isPureLineSelection(lineItems, rawIds.length)) {
     return (
@@ -1088,6 +1107,45 @@ function AngleEditPanel({ scene, angle, onApply, onAddText }: { scene: GeometryS
           </button>
         </div>
       </div>
+      <Row label="Angle Colour">
+        <input
+          type="color"
+          value={angle.markerColor ?? "#1f1f24"}
+          onChange={(e) => patch({ markerColor: e.target.value })}
+          className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
+        />
+      </Row>
+      <Row label="Angle Size">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={8} max={60} step={1}
+            value={angle.arcRadius ?? 18}
+            onChange={(e) => patch({ arcRadius: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-6 text-foreground/60">{angle.arcRadius ?? 18}</span>
+        </div>
+      </Row>
+      <Row label="Value Colour">
+        <input
+          type="color"
+          value={angle.valueColor ?? "#1f1f24"}
+          onChange={(e) => patch({ valueColor: e.target.value })}
+          className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
+        />
+      </Row>
+      <Row label="Value Size">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={9} max={28} step={1}
+            value={angle.valueFontSize ?? 12}
+            onChange={(e) => patch({ valueFontSize: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-6 text-foreground/60">{angle.valueFontSize ?? 12}</span>
+        </div>
+      </Row>
+      <p className="text-[10px] text-foreground/55">Use the arrows to flip between the internal and reflex side; drag the value on the canvas to reposition it.</p>
       {onAddText && (
         <button
           type="button"
@@ -1097,6 +1155,50 @@ function AngleEditPanel({ scene, angle, onApply, onAddText }: { scene: GeometryS
           + Add text
         </button>
       )}
+    </div>
+  );
+}
+
+/* ─────── Diagram-attached line text (right-hand Add Text) ─────── */
+function SegmentTextPanel({ segment, onPatch }: { segment: GeoSegment; onPatch: (p: Partial<GeoSegment>) => void }) {
+  return (
+    <div className="space-y-2 text-xs">
+      <Header>Text {segment.lineText ? `· ${segment.lineText}` : ""}</Header>
+      <Row label="Text">
+        <input
+          value={segment.lineText ?? ""}
+          onChange={(e) => onPatch({ lineText: e.target.value })}
+          placeholder="47 cm, ASB"
+          className="w-full bg-white text-black border border-foreground/20 rounded px-1.5 py-1 outline-hidden focus:border-primary"
+        />
+      </Row>
+      <Row label="Colour">
+        <input
+          type="color"
+          value={segment.lineTextColor ?? segment.color ?? "#1f1f24"}
+          onChange={(e) => onPatch({ lineTextColor: e.target.value })}
+          className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
+        />
+      </Row>
+      <Row label="Size">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={9} max={32} step={1}
+            value={segment.lineTextFontSize ?? 13}
+            onChange={(e) => onPatch({ lineTextFontSize: Number(e.target.value) })}
+            className="flex-1"
+          />
+          <span className="text-[10px] tabular-nums w-6 text-foreground/60">{segment.lineTextFontSize ?? 13}</span>
+        </div>
+      </Row>
+      <p className="text-[10px] text-foreground/55">Drag the text on the canvas to move it along the line. The line's own distance value is unaffected.</p>
+      <button
+        type="button"
+        onClick={() => onPatch({ lineText: undefined, lineTextOffset: undefined } as any)}
+        className="text-[11px] text-destructive underline"
+      >
+        Remove text
+      </button>
     </div>
   );
 }

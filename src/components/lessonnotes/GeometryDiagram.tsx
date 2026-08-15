@@ -264,6 +264,16 @@ function renderObject(
       const distOff = (o as any).distanceOffset as { dx: number; dy: number } | undefined;
       const distX = distOff ? mx + distOff.dx : mx - nx * 14;
       const distY = distOff ? my + distOff.dy : my - ny * 14;
+      // Diagram-attached text (right-hand Add Text tool)
+      const lineText = (o as any).lineText as string | undefined;
+      const ltOff = (o as any).lineTextOffset as { dx: number; dy: number } | undefined;
+      const ltX = ltOff ? mx + ltOff.dx : mx + nx * 28;
+      const ltY = ltOff ? my + ltOff.dy : my + ny * 28;
+      const lineAngleDeg = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+      const uprightDeg = (() => {
+        const norm = (lineAngleDeg + 360) % 360;
+        return norm > 90 && norm < 270 ? lineAngleDeg + 180 : lineAngleDeg;
+      })();
       return (
         <g key={o.id}>
           <line
@@ -297,6 +307,15 @@ function renderObject(
               fill={(o as any).distanceColor ?? color} textAnchor="middle"
             >
               {distText}
+            </text>
+          )}
+          {lineText && (
+            <text x={ltX} y={ltY}
+              fontFamily={LABEL_FONT} fontSize={(o as any).lineTextFontSize ?? 13}
+              fill={(o as any).lineTextColor ?? color} textAnchor="middle"
+              transform={`rotate(${uprightDeg} ${ltX} ${ltY})`}
+            >
+              {lineText}
             </text>
           )}
         </g>
@@ -417,16 +436,17 @@ function renderObject(
       const cx = v.x + pad, cy = v.y + pad;
       const a1 = Math.atan2(-(a.y - v.y), a.x - v.x);
       const a2 = Math.atan2(-(b.y - v.y), b.x - v.x);
-      const r = 18;
+      const r = (o as any).arcRadius ?? 18;
+      const markStroke = (o as any).markerColor ?? stroke;
       if (o.marker === "right") {
         const u1x = Math.cos(a1), u1y = -Math.sin(a1);
         const u2x = Math.cos(a2), u2y = -Math.sin(a2);
-        const s = 12;
+        const s = Math.max(6, r * 0.66);
         return (
           <polyline
             key={o.id}
             points={`${cx + u1x * s},${cy + u1y * s} ${cx + (u1x + u2x) * s},${cy + (u1y + u2y) * s} ${cx + u2x * s},${cy + u2y * s}`}
-            fill="none" stroke={stroke} strokeWidth={sw}
+            fill="none" stroke={markStroke} strokeWidth={sw}
           />
         );
       }
@@ -452,12 +472,12 @@ function renderObject(
         <g key={o.id}>
           <path
             d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} ${sweep} ${x2} ${y2}`}
-            fill="none" stroke={stroke} strokeWidth={sw}
+            fill="none" stroke={markStroke} strokeWidth={sw}
           />
           {o.marker === "double" && (
             <path
               d={`M ${cx + Math.cos(a1) * (r - 4)} ${cy - Math.sin(a1) * (r - 4)} A ${r - 4} ${r - 4} 0 ${large} ${sweep} ${cx + Math.cos(a2) * (r - 4)} ${cy - Math.sin(a2) * (r - 4)}`}
-              fill="none" stroke={stroke} strokeWidth={sw}
+              fill="none" stroke={markStroke} strokeWidth={sw}
             />
           )}
           {o.value && (

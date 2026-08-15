@@ -43,6 +43,11 @@ export interface GeoSegment {
   distanceFontSize?: number;
   /** Colour for the distance chip. */
   distanceColor?: string;
+  /** Diagram-attached free text added with the right-hand Add Text tool. */
+  lineText?: string;
+  lineTextOffset?: { dx: number; dy: number };
+  lineTextFontSize?: number;
+  lineTextColor?: string;
   marks?:
     | "tick" | "double" | "triple" | "quadruple" | "right"
     | "parallel" | "double-parallel" | "triple-parallel"
@@ -111,6 +116,10 @@ export interface GeoAngle {
   valueFontSize?: number;
   /** Colour for the value chip. */
   valueColor?: string;
+  /** Colour for the angle arc / right-angle marker. */
+  markerColor?: string;
+  /** Radius of the angle arc marker in scene units (default 18). */
+  arcRadius?: number;
 }
 /**
  * A boundary edge inside a `GeoRegion`. The order of the region's

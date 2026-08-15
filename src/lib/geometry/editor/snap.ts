@@ -53,6 +53,7 @@ export type HitKind =
   | "segmentBody"
   | "segmentLabel"
   | "segmentDistance"
+  | "segmentText"
   | "circle"
   | "arc"
   | "curve"
@@ -109,6 +110,12 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
       const ly = off ? my + off.dy : my - ny * 14;
       if (Math.hypot(lx - x, ly - y) <= 14) return { id: o.id, kind: "segmentDistance" };
     }
+    if (o.lineText) {
+      const off = o.lineTextOffset;
+      const lx = off ? mx + off.dx : mx + nx * 28;
+      const ly = off ? my + off.dy : my + ny * 28;
+      if (Math.hypot(lx - x, ly - y) <= 16) return { id: o.id, kind: "segmentText" };
+    }
   }
   // 3b) Angle value chip (clicking "46°" opens the text panel).
   for (let i = scene.objects.length - 1; i >= 0; i--) {
@@ -123,7 +130,7 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
     let d = a2 - a1;
     while (d <= -Math.PI) d += 2 * Math.PI;
     while (d > Math.PI) d -= 2 * Math.PI;
-    const r = 18;
+    const r = o.arcRadius ?? 18;
     const labelAngle = o.reflex ? a1 + d / 2 + Math.PI : a1 + d / 2;
     const baseLx = v.x + Math.cos(labelAngle) * (r + 12);
     const baseLy = v.y - Math.sin(labelAngle) * (r + 12);
