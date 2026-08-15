@@ -1640,7 +1640,7 @@ function DocumentEditorInner({
     if (!editor) return;
     const name = title.trim();
     if (!name) return;
-    const insertAt = editor.state.doc.content.size;
+    const insertAt = sectionInsertPosition();
     editor.chain().focus()
       .insertContentAt(insertAt, [
         { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: name }] },
