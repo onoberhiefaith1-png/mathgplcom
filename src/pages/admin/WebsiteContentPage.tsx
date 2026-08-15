@@ -56,7 +56,29 @@ import {
   type SiteSection,
 } from "@/lib/site/types";
 
-const ITEM_KINDS = new Set(["panels", "showcase", "audience", "compare"]);
+const ITEM_KINDS = new Set([
+  "panels",
+  "showcase",
+  "audience",
+  "compare",
+  "spotlight",
+  "workflow",
+  "journey",
+  "cinematic",
+]);
+
+/** How each layout's repeatable items are described in the editor. */
+const ITEM_COPY: Record<string, { title: string; add: string; one: string; media: boolean }> = {
+  panels: { title: "Panels", add: "Add panel", one: "panel", media: true },
+  showcase: { title: "Showcase cards", add: "Add card", one: "card", media: true },
+  audience: { title: "Audience cards", add: "Add card", one: "card", media: true },
+  compare: { title: "Before / after", add: "Add side", one: "side", media: true },
+  spotlight: { title: "Chips (optional)", add: "Add chip", one: "chip", media: false },
+  workflow: { title: "Steps", add: "Add step", one: "step", media: true },
+  journey: { title: "Journey nodes", add: "Add node", one: "node", media: false },
+  cinematic: { title: "Screenshot beneath the band", add: "Add screenshot", one: "screenshot", media: true },
+};
+
 
 /** Upload / clear one media reference. */
 const MediaField = ({
@@ -184,6 +206,9 @@ const SectionCard = ({
     setPatch((prev) => ({ ...prev, [key]: next }));
 
   const items: SiteItem[] = (value.items ?? []) as SiteItem[];
+  const itemCopy =
+    ITEM_COPY[row.kind] ?? { title: "Items", add: "Add item", one: "item", media: true };
+
   const setItems = (next: SiteItem[]) => set("items", next);
 
   const run = async (fn: () => Promise<void>, message: string) => {
@@ -287,7 +312,7 @@ const SectionCard = ({
             {(fields.items ?? ITEM_KINDS.has(row.kind)) && (
               <div className="space-y-3 rounded-xl border border-border/70 p-3">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Panels
+                  {itemCopy.title}
                 </p>
                 {items.map((item, index) => (
                   <div key={item.id} className="grid gap-3 rounded-lg bg-muted/40 p-3 sm:grid-cols-2">
@@ -309,9 +334,10 @@ const SectionCard = ({
                         setItems(next);
                       }}
                     />
+                    {itemCopy.media && (
                     <div className="sm:col-span-2">
                       <MediaField
-                        label="Panel media"
+                        label={item.label ? `Screenshot — ${item.label}` : "Screenshot or video"}
                         value={item.media ?? null}
                         onChange={(media) => {
                           const next = [...items];
@@ -326,13 +352,14 @@ const SectionCard = ({
                         }}
                       />
                     </div>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"
                       className="sm:col-span-2 justify-self-start"
                       onClick={() => setItems(items.filter((i) => i.id !== item.id))}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" /> Remove panel
+                      <Trash2 className="mr-2 h-4 w-4" /> Remove {itemCopy.one}
                     </Button>
                   </div>
                 ))}
@@ -343,10 +370,11 @@ const SectionCard = ({
                     setItems([...items, { id: `item-${Date.now()}`, label: "", headline: "" }])
                   }
                 >
-                  <Plus className="mr-2 h-4 w-4" /> Add panel
+                  <Plus className="mr-2 h-4 w-4" /> {itemCopy.add}
                 </Button>
               </div>
             )}
+
           </div>
 
           {fields.media !== false ? (

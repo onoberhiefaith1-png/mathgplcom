@@ -43,14 +43,15 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Learn, explore and solve. MathGPL turns mathematics into an experience with lesson notes, Smartboard teaching, adventures and live progress.",
+          "One platform for the complete mathematics journey: Smartboard teaching, lesson notes, assignments, adventures and live reports for schools, teachers, students and parents.",
       },
       { property: "og:title", content: "MathGPL — Mathematics, Reimagined." },
       {
         property: "og:description",
         content:
-          "Learn, explore and solve. MathGPL turns mathematics into an experience with lesson notes, Smartboard teaching, adventures and live progress.",
+          "One platform for the complete mathematics journey: Smartboard teaching, lesson notes, assignments, adventures and live reports for schools, teachers, students and parents.",
       },
+
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

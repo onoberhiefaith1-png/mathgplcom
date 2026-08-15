@@ -225,26 +225,179 @@ const Showcase = ({ section }: { section: SiteSectionResolved }) => (
   </section>
 );
 
-const Cinematic = ({ section }: { section: SiteSectionResolved }) => (
-  <section className="relative h-[100vh] w-full overflow-hidden">
-    <div className="absolute inset-0">
-      {section.media ? (
-        <SiteMedia media={section.media} alt="" className="h-full w-full scale-105" />
-      ) : (
-        <div className="h-full w-full bg-[radial-gradient(circle_at_50%_60%,hsl(258_75%_28%),hsl(224_70%_6%)_70%)]" />
+const Cinematic = ({ section }: { section: SiteSectionResolved }) => {
+  const frame = section.items[0];
+  return (
+    <section className="relative w-full">
+      <div className="relative h-[100vh] w-full overflow-hidden">
+        <div className="absolute inset-0">
+          {section.media ? (
+            <SiteMedia media={section.media} alt="" className="h-full w-full scale-105" />
+          ) : (
+            <div className="h-full w-full bg-[radial-gradient(circle_at_50%_60%,hsl(258_75%_28%),hsl(224_70%_6%)_70%)]" />
+          )}
+          <div className="absolute inset-0 bg-[hsl(224_70%_6%)]/45" />
+        </div>
+        <div className="relative flex h-full items-center justify-center px-6 text-center">
+          <Reveal>
+            {section.eyebrow && (
+              <p className="text-xs font-semibold uppercase tracking-[0.5em] text-amber-300/90">
+                {section.eyebrow}
+              </p>
+            )}
+            <h2 className="mt-6 max-w-4xl text-[clamp(2rem,5.5vw,4rem)] font-semibold leading-[1.05] tracking-tight text-white drop-shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
+              {section.headline}
+            </h2>
+            {section.subline && <p className="mt-6 text-lg text-white/70">{section.subline}</p>}
+          </Reveal>
+        </div>
+      </div>
+      {/* Optional wide screenshot beneath the band, so a signature technology
+          can show itself without losing the cinematic opening. */}
+      {section.items.length > 0 && (
+        <div className="mx-auto -mt-20 max-w-6xl px-6 pb-24">
+          <Reveal>
+            <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] shadow-[0_40px_120px_hsl(258_70%_30%/0.45)]">
+              {frame?.media ? (
+                <SiteMedia media={frame.media} alt={frame.label ?? ""} className="absolute inset-0 h-full w-full" />
+              ) : (
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,hsl(258_70%_38%/0.45),transparent_65%)]" />
+              )}
+            </div>
+            {frame?.label && <p className="mt-4 text-center text-sm text-white/50">{frame.label}</p>}
+          </Reveal>
+        </div>
       )}
-      <div className="absolute inset-0 bg-[hsl(224_70%_6%)]/45" />
-    </div>
-    <div className="relative flex h-full items-center justify-center px-6 text-center">
+      <Cta section={section} />
+    </section>
+  );
+};
+
+/* ---------------------------------------------------- spotlight / workflow / journey */
+
+/** Screenshot on one side, words on the other. Alternates by position. */
+const Spotlight = ({ section }: { section: SiteSectionResolved }) => {
+  const flipped = section.position % 2 === 0;
+  return (
+    <section className="mx-auto max-w-7xl px-6 py-24">
       <Reveal>
-        <h2 className="max-w-4xl text-[clamp(2rem,5.5vw,4rem)] font-semibold leading-[1.05] tracking-tight text-white drop-shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
-          {section.headline}
-        </h2>
-        {section.subline && <p className="mt-6 text-lg text-white/70">{section.subline}</p>}
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+          <div className={`min-w-0 ${flipped ? "lg:order-2" : ""}`}>
+            {section.eyebrow && (
+              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-amber-300/90">
+                {section.eyebrow}
+              </p>
+            )}
+            <h2 className="mt-5 text-[clamp(1.7rem,3.6vw,2.8rem)] font-semibold leading-tight tracking-tight text-white">
+              {section.headline}
+            </h2>
+            {section.subline && (
+              <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/65">{section.subline}</p>
+            )}
+            {section.items.length > 0 && (
+              <ul className="mt-7 flex flex-wrap gap-2">
+                {section.items.map((item) => (
+                  <li
+                    key={item.id}
+                    className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm text-white/75"
+                  >
+                    {item.label || item.headline}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {section.ctaLabel && section.ctaHref && (
+              <div className="mt-9">
+                <Primary to={section.ctaHref}>{section.ctaLabel}</Primary>
+              </div>
+            )}
+          </div>
+          <div className={`min-w-0 ${flipped ? "lg:order-1" : ""}`}>
+            <MediaFrame section={section} className="aspect-[16/10]" />
+          </div>
+        </div>
       </Reveal>
-    </div>
+    </section>
+  );
+};
+
+/** Numbered steps down the page, each with its own screenshot slot. */
+const Workflow = ({ section }: { section: SiteSectionResolved }) => (
+  <section className="mx-auto max-w-7xl px-6 py-24">
+    <Reveal>
+      {section.eyebrow && (
+        <p className="text-xs font-semibold uppercase tracking-[0.4em] text-amber-300/90">
+          {section.eyebrow}
+        </p>
+      )}
+      <h2 className="mt-5 max-w-3xl text-[clamp(1.8rem,4vw,3rem)] font-semibold leading-tight tracking-tight text-white">
+        {section.headline}
+      </h2>
+      {section.subline && <p className="mt-5 max-w-2xl text-lg text-white/60">{section.subline}</p>}
+    </Reveal>
+
+    <ol className="relative mt-16 space-y-14 before:absolute before:bottom-6 before:left-[1.4rem] before:top-6 before:w-px before:bg-gradient-to-b before:from-amber-300/40 before:via-white/15 before:to-transparent">
+      {section.items.map((item, i) => (
+        <li key={item.id} className="relative pl-16">
+          <Reveal delay={(i % 3) * 80}>
+            <span className="absolute left-0 top-0 grid h-11 w-11 place-items-center rounded-full border border-amber-300/40 bg-[hsl(224_70%_8%)] text-sm font-semibold text-amber-300">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+              <div className="min-w-0">
+                <p className="text-xl font-semibold text-white">{item.label}</p>
+                {item.headline && (
+                  <p className="mt-2 text-base leading-relaxed text-white/60">{item.headline}</p>
+                )}
+              </div>
+              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                {item.media ? (
+                  <SiteMedia media={item.media} alt={item.label ?? ""} className="absolute inset-0 h-full w-full" />
+                ) : (
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_55%_35%,hsl(210_80%_40%/0.3),transparent_60%)]" />
+                )}
+              </div>
+            </div>
+          </Reveal>
+        </li>
+      ))}
+    </ol>
+    <Cta section={section} />
   </section>
 );
+
+/** The closing connected diagram: chips joined by arrows. */
+const Journey = ({ section }: { section: SiteSectionResolved }) => (
+  <section className="mx-auto max-w-6xl px-6 py-28">
+    <Reveal>
+      {section.eyebrow && (
+        <p className="text-center text-xs font-semibold uppercase tracking-[0.4em] text-amber-300/90">
+          {section.eyebrow}
+        </p>
+      )}
+      <h2 className="mt-5 text-center text-[clamp(1.8rem,4vw,3rem)] font-semibold leading-tight tracking-tight text-white">
+        {section.headline}
+      </h2>
+      {section.subline && (
+        <p className="mx-auto mt-5 max-w-2xl text-center text-lg text-white/60">{section.subline}</p>
+      )}
+    </Reveal>
+    <div className="mt-14 flex flex-wrap items-center justify-center gap-3">
+      {section.items.map((item, i) => (
+        <Reveal key={item.id} delay={i * 60}>
+          <span className="flex items-center gap-3">
+            <span className="rounded-2xl border border-white/12 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white/85">
+              {item.label || item.headline}
+            </span>
+            {i < section.items.length - 1 && <ArrowRight className="h-4 w-4 shrink-0 text-amber-300/70" />}
+          </span>
+        </Reveal>
+      ))}
+    </div>
+    <Cta section={section} />
+  </section>
+);
+
 
 const Compare = ({ section }: { section: SiteSectionResolved }) => {
   const [before, after] = section.items;
@@ -466,6 +619,13 @@ export const SiteSection = ({
       return <Panels section={section} />;
     case "showcase":
       return <Showcase section={section} />;
+    case "spotlight":
+      return <Spotlight section={section} />;
+    case "workflow":
+      return <Workflow section={section} />;
+    case "journey":
+      return <Journey section={section} />;
+
     case "cinematic":
       return <Cinematic section={section} />;
     case "compare":
