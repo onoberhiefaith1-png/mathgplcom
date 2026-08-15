@@ -309,6 +309,15 @@ function renderObject(
               {distText}
             </text>
           )}
+          {lineText && (
+            <text x={ltX} y={ltY}
+              fontFamily={LABEL_FONT} fontSize={(o as any).lineTextFontSize ?? 13}
+              fill={(o as any).lineTextColor ?? color} textAnchor="middle"
+              transform={`rotate(${uprightDeg} ${ltX} ${ltY})`}
+            >
+              {lineText}
+            </text>
+          )}
         </g>
       );
     }
