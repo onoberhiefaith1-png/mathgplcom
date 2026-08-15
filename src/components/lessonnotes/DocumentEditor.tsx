@@ -118,6 +118,8 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
+import { sectionEndWithin, clampInsideSection } from "@/lib/lessonnotes/containerRange";
+
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
 
 const SECTION_OPTIONS: SectionKind[] = INSERT_SECTION_OPTIONS;
@@ -756,6 +758,16 @@ function DocumentEditorInner({
     if (!editor) return;
     let info = infoIn;
 
+    // The heading must still exist — every position below is anchored to it.
+    const anchorNode = editor.state.doc.nodeAt(info.headingPos);
+    if (!anchorNode || anchorNode.type.name !== "heading") {
+      toast({ title: "That section moved or was deleted — click AI on the heading again.", variant: "destructive" });
+      return;
+    }
+    // Always trust a freshly resolved, container-scoped section end over the
+    // value captured when the button was clicked.
+    info = { ...info, sectionEndPos: sectionEndWithin(editor.state.doc, info.headingPos) };
+
     // CLEAR: delete the section content (between this heading and the next).
     if (info.action === "clear") {
       if (!info.sectionText) return;
@@ -790,6 +802,7 @@ function DocumentEditorInner({
       );
       info = { ...info, kind: hasSolutionArea ? "example" : "explanation" };
     }
+
 
     const promptBase = sessionTitle
       ? `Teacher's session request: "${sessionTitle}". Generate this section specifically for that request — ` +
@@ -898,24 +911,12 @@ function DocumentEditorInner({
     // bounded by this section's range. Otherwise append at section end.
     const replaceBody = info.action === "regenerate" || isInPlaceEdit(info, prompt);
 
-    /** Re-resolve the live end of this section, so we never delete across
-     *  the next heading even if the doc mutated since `info` was captured. */
-    const liveSectionEnd = (headingPos: number): number => {
-      const doc = editor.state.doc;
-      const headingNode = doc.nodeAt(headingPos);
-      if (!headingNode || headingNode.type.name !== "heading") return headingPos;
-      const level = headingNode.attrs?.level ?? 2;
-      let endPos = doc.content.size;
-      doc.descendants((n, p) => {
-        if (p <= headingPos) return true;
-        if (n.type.name === "heading" && (n.attrs.level ?? 6) <= level) {
-          if (endPos === doc.content.size) endPos = p;
-          return false;
-        }
-        return true;
-      });
-      return endPos;
-    };
+    /** Re-resolve the live end of this section, so we never delete across the
+     *  next heading — and never leave the heading's own container (a free
+     *  canvasFrame or a Solution cell). */
+    const liveSectionEnd = (headingPos: number): number =>
+      sectionEndWithin(editor.state.doc, headingPos);
+
 
     /** Position + size of the Solution heading already living inside this
      *  section, or null. The question body must always be inserted ABOVE it,
@@ -1018,7 +1019,7 @@ function DocumentEditorInner({
       // can never spill into the following section. When a Solution heading
       // exists, stop at it: the heading (and the structure below) survives a
       // regenerate — only the question body is replaced.
-      const sectionEnd = Math.min(liveSectionEnd(info.headingPos), info.sectionEndPos);
+      const sectionEnd = liveSectionEnd(info.headingPos);
       const liveEnd = existingSolution ? Math.min(existingSolution.pos, sectionEnd) : sectionEnd;
       // Preserve diagrams BEFORE we wipe.
       preservedDiagrams = collectDiagrams(start, liveEnd);
@@ -1046,23 +1047,27 @@ function DocumentEditorInner({
         clearSolutionBody();
       }
     } else {
-      // Append path: the question ALWAYS goes above an existing Solution
-      // heading, never at the very end of the section (which would put the
-      // question underneath the solution).
-      insertFrom = existingSolution
-        ? Math.min(existingSolution.pos, info.sectionEndPos)
-        : info.sectionEndPos;
-      if (existingSolution) {
-        const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
-        const bodyStart = headingNodeSize ? info.headingPos + headingNodeSize : info.headingPos;
-        if (hasOnlyEmptyParagraphs(bodyStart, existingSolution.pos)) {
-          editor.chain().focus().deleteRange({ from: bodyStart, to: existingSolution.pos }).run();
-          insertFrom = Math.min(bodyStart, editor.state.doc.content.size);
-        }
+      // Append path. Everything is anchored to THIS heading and clamped to its
+      // own container, so generated content can never jump above the heading,
+      // into another free frame, or to the end of the document.
+      const liveEnd = liveSectionEnd(info.headingPos);
+      const headingSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
+      const bodyStart = headingSize ? info.headingPos + headingSize : info.headingPos;
+      // The question ALWAYS goes above an existing Solution heading, never at
+      // the very end of the section (which would put it under the solution).
+      insertFrom = existingSolution ? Math.min(existingSolution.pos, liveEnd) : liveEnd;
+      const emptyTo = existingSolution ? Math.min(existingSolution.pos, liveEnd) : liveEnd;
+      if (hasOnlyEmptyParagraphs(bodyStart, emptyTo)) {
+        // Only placeholder paragraphs under the heading → replace them so the
+        // body sits directly under its heading.
+        editor.chain().focus().deleteRange({ from: bodyStart, to: emptyTo }).run();
+        insertFrom = bodyStart;
       }
+      insertFrom = clampInsideSection(editor.state.doc, info.headingPos, insertFrom);
       const sizeBefore = editor.state.doc.content.size;
       editor.chain().focus().insertContentAt(insertFrom, questionBodyNodes).run();
       questionBodyEnd = insertFrom + (editor.state.doc.content.size - sizeBefore);
+
       if (trailingNodes.length) {
         editor.chain().focus().insertContentAt(questionBodyEnd, trailingNodes).run();
       }
@@ -1128,7 +1133,7 @@ function DocumentEditorInner({
           }
           return true;
         });
-        insertAt = Math.min(insertAt, editor.state.doc.content.size);
+        insertAt = clampInsideSection(editor.state.doc, anchorHeadingPos, insertAt);
         editor
           .chain()
           .focus()

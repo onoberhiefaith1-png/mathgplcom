@@ -21,6 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
 import type { GeometryScene } from "@/lib/geometry/scene";
+import { sectionEndWithin } from "@/lib/lessonnotes/containerRange";
+
 
 
 export type SectionAction =
@@ -75,15 +77,9 @@ function SectionHeadingView(props: NodeViewProps) {
     const pos = typeof getPos === "function" ? getPos() : null;
     if (pos == null) return null;
     const doc = editor.state.doc;
-    let endPos = doc.content.size;
-    doc.descendants((n, p) => {
-      if (p <= pos) return true;
-      if (n.type.name === "heading" && (n.attrs.level ?? 6) <= level) {
-        if (endPos === doc.content.size) endPos = p;
-        return false;
-      }
-      return true;
-    });
+    // Container-scoped: never look past this heading's own frame / solution
+    // cell, so AI content always stays enclosed under this heading.
+    const endPos = sectionEndWithin(doc, pos);
     const headingNodeSize = node.nodeSize;
     const contentStart = pos + headingNodeSize;
     const sectionText = contentStart < endPos
@@ -99,6 +95,7 @@ function SectionHeadingView(props: NodeViewProps) {
     }
     return { pos, endPos, sectionText, subsectionId };
   }, [getPos, editor, level, node]);
+
 
   // Recompute the floating-link target whenever the editor doc changes.
   // useMemo with editor.state.doc as the dep is enough — TipTap re-renders the
