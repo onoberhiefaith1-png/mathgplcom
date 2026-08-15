@@ -1526,19 +1526,58 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
 
-  /** ── The insertion sensor ────────────────────────────────────────────────
-   *  The document caret IS the sensor: it is where every text-based insertion
-   *  lands. Clicking a ribbon button blurs the editor, so we remember the
-   *  position and draw a held marker there, and we only ever move it on a real
-   *  user selection change (never on programmatic/AI/autosave writes). */
+  /** ── The insertion sensor: master of the lesson-note canvas ──────────────
+   *  The sensor lives on the PAGE, not inside any section. It has two modes:
+   *    • "doc"  — parked inside the flowing note body (a real caret position)
+   *    • "free" — parked at an arbitrary paper coordinate, owned by nothing
+   *  Whatever it inserts lands exactly where it sits: in the flow when in doc
+   *  mode, inside a free-positioned canvas frame when in free mode. */
   const lastCaretRef = useRef<number | null>(null);
   const [sensorPos, setSensorPos] = useState<number | null>(null);
   const [editorFocused, setEditorFocused] = useState(false);
+  const [freeSensor, setFreeSensor] = useState<{ x: number; y: number } | null>(null);
+  const freeSensorRef = useRef<{ x: number; y: number } | null>(null);
+
+  const setFree = useCallback((p: { x: number; y: number } | null) => {
+    freeSensorRef.current = p;
+    setFreeSensor(p);
+    if (p) {
+      lastCaretRef.current = null;
+      setSensorPos(null);
+    }
+  }, []);
 
   const rememberSensor = useCallback((pos: number | null) => {
     lastCaretRef.current = pos;
     setSensorPos(pos);
+    if (pos != null) {
+      freeSensorRef.current = null;
+      setFreeSensor(null);
+    }
   }, []);
+
+  // The sensor position is remembered per note.
+  const sensorStoreKey = notebookId ? `lesson-notes:sensor:${notebookId}` : null;
+  useEffect(() => {
+    if (!sensorStoreKey) return;
+    try {
+      const raw = localStorage.getItem(sensorStoreKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.x === "number" && typeof parsed.y === "number") {
+        freeSensorRef.current = { x: parsed.x, y: parsed.y };
+        setFreeSensor({ x: parsed.x, y: parsed.y });
+      }
+    } catch { /* noop */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sensorStoreKey]);
+  useEffect(() => {
+    if (!sensorStoreKey) return;
+    try {
+      if (freeSensor) localStorage.setItem(sensorStoreKey, JSON.stringify(freeSensor));
+      else localStorage.removeItem(sensorStoreKey);
+    } catch { /* noop */ }
+  }, [sensorStoreKey, freeSensor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -1555,9 +1594,8 @@ function DocumentEditorInner({
     };
   }, [editor, rememberSensor]);
 
-  /** Sections are inserted AT THE SENSOR: immediately after the block the
-   *  cursor sits in. Diagrams never move, and nothing jumps to the top of the
-   *  page. When there is no sensor yet we fall back to the end of the doc. */
+  /** Doc-mode insertion point: immediately after the block the caret sits in.
+   *  Diagrams never move, and nothing jumps to the top of the page. */
   const sectionInsertPosition = () => {
     if (!editor) return 0;
     const { doc, selection } = editor.state;
@@ -1567,6 +1605,31 @@ function DocumentEditorInner({
     if ($pos.depth === 0) return anchor;
     // Insert after the top-level block containing the sensor.
     return Math.min($pos.after(1), doc.content.size);
+  };
+
+  /** Insert blocks AT THE SENSOR. Free sensor → a canvas frame at that exact
+   *  coordinate; doc sensor → in the flow after the current block. Returns the
+   *  position the content starts at. */
+  const insertAtSensor = (nodes: Record<string, unknown>[]): number => {
+    if (!editor) return 0;
+    const free = freeSensorRef.current;
+    if (free) {
+      const at = editor.state.doc.content.size;
+      const host = editor.view.dom as HTMLElement;
+      const avail = Math.max(160, (host.clientWidth || 640) - free.x - 8);
+      editor.chain().focus()
+        .insertContentAt(at, {
+          type: "canvasFrame",
+          attrs: { x: Math.round(free.x), y: Math.round(free.y), w: Math.round(Math.min(420, avail)) },
+          content: nodes,
+        })
+        .run();
+      setFree(null);
+      return at + 1;
+    }
+    const at = sectionInsertPosition();
+    editor.chain().focus().insertContentAt(at, nodes).run();
+    return at;
   };
 
   /** Park the sensor inside the paragraph that follows a freshly inserted
@@ -1582,21 +1645,19 @@ function DocumentEditorInner({
 
   const insertSection = (kind: SectionKind) => {
     if (!editor) return;
-    const insertAt = sectionInsertPosition();
     // Question-style sections come with an empty Solution space by default so
     // the teacher can type both the problem and the solution manually.
     const trailing = isQuestionSectionKind(kind) && kind !== "game_questions"
       ? solutionPlaceholderNodes()
       : [];
-    editor.chain().focus()
-      .insertContentAt(insertAt, [
-        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: SECTION_LABELS[kind] }] },
-        { type: "paragraph" },
-        ...trailing,
-      ])
-      .run();
+    const insertAt = insertAtSensor([
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: SECTION_LABELS[kind] }] },
+      { type: "paragraph" },
+      ...trailing,
+    ]);
     moveSensorAfterInsert(insertAt, SECTION_LABELS[kind]);
   };
+
 
   /** Inline composers for the two structural controls under the section list. */
   const [sessionDraft, setSessionDraft] = useState<{ title: string; withSolution: boolean } | null>(null);
