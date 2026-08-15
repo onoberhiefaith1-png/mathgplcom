@@ -5612,7 +5612,7 @@ const PresentationView = ({
             onDelete={deleteDiagram}
             activeId={activeDiagramId}
             onActivate={setActiveDiagramId}
-            editable={!isStudentView}
+            editable={isTeacher}
           />
 
 
