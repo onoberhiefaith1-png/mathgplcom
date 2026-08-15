@@ -1593,7 +1593,9 @@ function DocumentEditorInner({
         ...trailing,
       ])
       .run();
+    moveSensorAfterInsert(insertAt, SECTION_LABELS[kind]);
   };
+
   /** Inline composers for the two structural controls under the section list. */
   const [sessionDraft, setSessionDraft] = useState<{ title: string; withSolution: boolean } | null>(null);
   const [subtopicDraft, setSubtopicDraft] = useState<string | null>(null);
