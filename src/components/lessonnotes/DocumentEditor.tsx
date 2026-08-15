@@ -1959,71 +1959,75 @@ function DocumentEditorInner({
 
   const paperLayerRef = useRef<HTMLDivElement | null>(null);
 
-  /** Place the insertion sensor (the document caret) at a screen point. Works
-   *  anywhere on the sheet: inside text, in the blank space beside or below a
-   *  diagram, and anywhere in the Note Extend region. A point that falls past
-   *  the last block gets a fresh empty line to type into. */
-  const placeCaretAtPoint = (clientX: number, clientY: number) => {
-    if (!editor) return;
+  /** Place the sensor at a screen point.
+   *  A point that lands on real text (within a small tolerance of a caret
+   *  position) puts the normal text cursor there. Anything else — blank space
+   *  beside a line, under or around a diagram, the Note Extend region, the far
+   *  right of the sheet — parks a FREE sensor at that exact coordinate. The
+   *  sensor is never pushed under the previous section and never claimed by a
+   *  diagram. */
+  const placeSensorAtPoint = (clientX: number, clientY: number): "doc" | "free" => {
+    if (!editor) return "free";
     const view = editor.view;
     const doc = editor.state.doc;
 
-    // A click in the space around a diagram lands AFTER that diagram, so the
-    // next section goes below it instead of above.
-    const el = document.elementFromPoint(clientX, clientY) as Element | null;
-    const wrap = el?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
-    const rawPos = wrap?.dataset.geometryPos;
-    if (rawPos) {
-      const gp = Number(rawPos);
-      const node = Number.isFinite(gp) ? doc.nodeAt(gp) : null;
-      if (node) {
-        const after = Math.min(gp + node.nodeSize, doc.content.size);
-        editor.chain().focus().setTextSelection(after).run();
-        rememberSensor(editor.state.selection.to);
-        return;
-      }
-    }
-
     const hit = view.posAtCoords({ left: clientX, top: clientY });
     if (hit) {
-      editor.chain().focus().setTextSelection(Math.min(hit.pos, doc.content.size)).run();
-      rememberSensor(editor.state.selection.to);
-      return;
+      const pos = Math.max(0, Math.min(hit.pos, doc.content.size));
+      try {
+        const c = view.coordsAtPos(pos);
+        const near =
+          clientX >= c.left - 44 && clientX <= c.right + 44 &&
+          clientY >= c.top - 10 && clientY <= c.bottom + 10;
+        if (near) {
+          editor.chain().focus().setTextSelection(pos).run();
+          rememberSensor(editor.state.selection.to);
+          return "doc";
+        }
+      } catch { /* fall through to free placement */ }
     }
 
-    // Below the last block (extended page): make sure there is an empty line to
-    // type into, then put the caret in it.
-    const last = doc.lastChild;
-    if (!(last && last.type.name === "paragraph" && last.content.size === 0)) {
-      editor.chain().focus()
-        .insertContentAt(doc.content.size, { type: "paragraph" })
-        .run();
-    }
-    editor.chain().focus().setTextSelection(editor.state.doc.content.size - 1).run();
-    rememberSensor(editor.state.selection.to);
+    // Free placement — coordinates are paper-local (relative to the note body),
+    // so the sensor stays put while the page scrolls or zooms.
+    const host = view.dom as HTMLElement;
+    const r = host.getBoundingClientRect();
+    const z = zoom || 1;
+    setFree({
+      x: Math.max(0, (clientX - r.left) / z),
+      y: Math.max(0, (clientY - r.top) / z),
+    });
+    return "free";
   };
 
-  /** Double-click on blank paper — anywhere in the (possibly extended) page,
-   *  including below a diagram — parks the sensor there. No floating input
-   *  rectangle is created any more: the sheet is one editable document. */
+  /** Double-click anywhere on the canvas is the primary sensor gesture. */
   const handlePaperDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
     if (el?.closest("[data-canvas-box]")) return;
     if (isEditorControlTarget(e.target)) return;
-    const editorDom = editor?.view.dom;
-    if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
     // Active drawing tools own their own double-click (e.g. finishing a curve).
     if (geometryMode && geometryTool !== "select") return;
     if (!editor) return;
+    // A double-click that lands on real text keeps the native word selection.
+    const view = editor.view;
+    const hit = view.posAtCoords({ left: e.clientX, top: e.clientY });
+    if (hit) {
+      try {
+        const c = view.coordsAtPos(Math.min(hit.pos, editor.state.doc.content.size));
+        const onText =
+          e.clientX >= c.left - 44 && e.clientX <= c.right + 44 &&
+          e.clientY >= c.top - 10 && e.clientY <= c.bottom + 10;
+        if (onText) return;
+      } catch { /* noop */ }
+    }
     e.preventDefault();
     e.stopPropagation();
-    placeCaretAtPoint(e.clientX, e.clientY);
+    placeSensorAtPoint(e.clientX, e.clientY);
   };
 
   /** Single click on blank paper — including the Note Extend area and the space
-   *  below/around a diagram — places the sensor there, so the teacher can just
-   *  start typing or insert a section at that exact spot. */
+   *  below/around a diagram — moves the sensor there. Clicks inside the note
+   *  body stay native so text editing is unchanged. */
   const handlePaperMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
@@ -2032,6 +2036,17 @@ function DocumentEditorInner({
 
     // While a drawing tool is active the geometry overlay owns the click.
     if (geometryMode && geometryTool !== "select") return;
+
+    // Grab a free canvas frame by its left gutter to move it.
+    const frame = el?.closest("[data-canvas-frame]") as HTMLElement | null;
+    if (frame && editor) {
+      const fr = frame.getBoundingClientRect();
+      if (e.clientX - fr.left <= 18) {
+        e.preventDefault();
+        startFrameDrag(frame, e.clientX, e.clientY);
+        return;
+      }
+    }
 
     // Inside the TipTap DOM: TipTap places the caret precisely on its own.
     const editorDom = editor?.view.dom;
@@ -2042,8 +2057,55 @@ function DocumentEditorInner({
     if (!editor) return;
 
     e.preventDefault();
-    placeCaretAtPoint(e.clientX, e.clientY);
+    placeSensorAtPoint(e.clientX, e.clientY);
   };
+
+  /** Free frames are moved by dragging their left gutter; the new coordinates
+   *  are written back onto the node so they live in the document history. */
+  const startFrameDrag = (frame: HTMLElement, startX: number, startY: number) => {
+    if (!editor) return;
+    const view = editor.view;
+    let pos: number;
+    try { pos = view.posAtDOM(frame, 0) - 1; } catch { return; }
+    const node = editor.state.doc.nodeAt(pos);
+    if (!node || node.type.name !== "canvasFrame") return;
+    const originX = Number(node.attrs.x) || 0;
+    const originY = Number(node.attrs.y) || 0;
+    const z = zoom || 1;
+
+    const move = (ev: MouseEvent) => {
+      const x = Math.max(0, originX + (ev.clientX - startX) / z);
+      const y = Math.max(0, originY + (ev.clientY - startY) / z);
+      const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
+        ...node.attrs, x: Math.round(x), y: Math.round(y),
+      });
+      editor.view.dispatch(tr);
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+
+  /** A free sensor owns the keyboard: the first keystroke (or Enter) creates a
+   *  canvas frame at that exact point and continues typing inside it. */
+  const sensorInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (freeSensor) sensorInputRef.current?.focus({ preventScroll: true });
+  }, [freeSensor]);
+
+  const materialiseSensorFrame = (text: string) => {
+    if (!editor) return;
+    const start = insertAtSensor([{ type: "paragraph" }]);
+    const pos = Math.min(start + 1, editor.state.doc.content.size);
+    const chain = editor.chain().focus().setTextSelection(pos);
+    if (text) chain.insertContent(text);
+    chain.run();
+    rememberSensor(editor.state.selection.to);
+  };
+
 
 
 
