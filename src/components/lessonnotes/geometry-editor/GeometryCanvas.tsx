@@ -509,68 +509,94 @@ export function GeometryCanvas({ editor }: Props) {
       }
       case "smartText": {
         // Value first: the text is already typed in the panel. The next click
-        // attaches it — line → rotating midpoint label, point → anchored
-        // label, blank paper → floating label at that spot.
-        if (!annotationDraft?.confirmed || !annotationDraft.value.trim()) break;
+        // must land on a LINE — the text is attached to it as its own chip so
+        // the line's name and distance value both survive.
+        if (!annotationDraft?.value.trim()) break;
         const text = annotationDraft.value.trim();
         const o = hitId ? scene.objects.find((x) => x.id === hitId) : null;
         if (o && o.type === "segment") {
-          apply(patchObject(scene, hitId!, { label: text, labelRotate: true } as any));
-          finishTool([hitId!], "segmentLabel");
-        } else if (o && o.type === "point") {
-          apply(patchObject(scene, hitId!, { label: text } as any));
-          finishTool([hitId!], "pointLabel");
-        } else if (o && o.type === "angle") {
-          apply(patchObject(scene, hitId!, { value: text } as any));
-          finishTool([hitId!], "angleValue");
-        } else if (o && o.type === "label") {
-          apply(patchObject(scene, hitId!, { text } as any));
-          finishTool([hitId!], "label");
+          apply(patchObject(scene, hitId!, { lineText: text } as any));
+          finishTool([hitId!], "segmentText");
         } else {
-          const op = addFloatingLabel(scene, p.x, p.y, text);
-          apply(op);
-          finishTool([op.addedIds[0]], "label");
+          setAnnotationDraft({
+            ...annotationDraft,
+            step: "pick",
+            notice: "Select a line on the diagram — the text attaches to it.",
+          });
         }
         break;
       }
       case "smartAngle": {
-        // Value first, then click the two intersecting lines. The angle is
-        // created at their shared point, internal by default.
-        if (!annotationDraft?.confirmed || !annotationDraft.value.trim()) break;
+        // Value first, then ONE line pick. The vertex is inferred from the
+        // existing geometry: the endpoint of the picked line nearest the
+        // click that another line also touches. The second arm is the
+        // neighbouring line making the smallest (internal) angle there.
+        if (!annotationDraft?.value.trim()) break;
         if (!hitId) break;
         const picked = scene.objects.find((x) => x.id === hitId) as any;
-        if (!picked || (picked.type !== "segment" && picked.type !== "line" && picked.type !== "ray")) break;
-        const next = pendingIds.includes(hitId) ? pendingIds : [...pendingIds, hitId];
-        if (next.length < 2) { setPendingIds(next); break; }
-        const l1 = scene.objects.find((x) => x.id === next[0]) as any;
-        const l2 = scene.objects.find((x) => x.id === next[1]) as any;
-        if (!l1 || !l2) { setPendingIds([]); break; }
-        const shared = [l1.a, l1.b].find((pid: GeoId) => pid === l2.a || pid === l2.b);
-        if (!shared) {
-          // Keep the first pick and say why nothing happened.
-          setPendingIds([next[0]]);
+        if (!picked || picked.type !== "segment") {
           setAnnotationDraft({
-            ...annotationDraft,
-            notice: "Those two lines don't meet at a shared point — pick a line that touches the first one.",
+            ...annotationDraft, step: "pick",
+            notice: "Select a straight line that meets another line.",
           });
           break;
         }
-        setPendingIds([]);
-        const armA = l1.a === shared ? l1.b : l1.a;
-        const armB = l2.a === shared ? l2.b : l2.a;
+        const incident = (pid: GeoId) => scene.objects.filter(
+          (x): x is typeof picked => x.type === "segment" && x.id !== picked.id
+            && ((x as any).a === pid || (x as any).b === pid),
+        );
+        const cands = [picked.a, picked.b]
+          .map((pid: GeoId) => ({ pid, pt: pointById(scene, pid), others: incident(pid) }))
+          .filter((c) => c.pt && c.others.length > 0)
+          .sort((c1, c2) =>
+            Math.hypot(c1.pt!.x - p.x, c1.pt!.y - p.y) - Math.hypot(c2.pt!.x - p.x, c2.pt!.y - p.y));
+        const chosen = cands[0];
+        if (!chosen) {
+          setAnnotationDraft({
+            ...annotationDraft, step: "pick",
+            notice: "That line doesn't meet another line yet — pick a line at an intersection.",
+          });
+          break;
+        }
+        const vertex = chosen.pid;
+        const vp = chosen.pt!;
+        const armA = picked.a === vertex ? picked.b : picked.a;
+        const ap = pointById(scene, armA);
+        const baseAng = ap ? Math.atan2(-(ap.y - vp.y), ap.x - vp.x) : 0;
+        // Smallest interior turn from the picked arm.
+        let best: { id: GeoId; diff: number } | null = null;
+        for (const other of chosen.others) {
+          const oid = (other as any).a === vertex ? (other as any).b : (other as any).a;
+          const op2 = pointById(scene, oid);
+          if (!op2) continue;
+          const ang = Math.atan2(-(op2.y - vp.y), op2.x - vp.x);
+          let d = Math.abs(ang - baseAng);
+          while (d > Math.PI) d = Math.abs(d - 2 * Math.PI);
+          if (!best || d < best.diff) best = { id: oid, diff: d };
+        }
+        if (!best) {
+          setAnnotationDraft({
+            ...annotationDraft, step: "pick",
+            notice: "Couldn't work out the second arm — pick a different line.",
+          });
+          break;
+        }
         const raw = annotationDraft.value.trim();
         const isRight = /^\s*90\s*°?\s*$/.test(raw);
         const value = /^-?\d+(\.\d+)?$/.test(raw) ? `${raw}°` : raw;
-        const op = addAngle(scene, shared, armA, armB, value);
+        const op = addAngle(scene, vertex, armA, best.id, value);
         apply(op);
         const angId = op.addedIds[0];
+        setPendingIds([]);
         if (angId) {
           apply(patchObject(op.scene, angId, {
             value, marker: isRight ? "right" : "arc", reflex: false,
           } as any));
-          finishTool([angId], "angle");
-        } else {
-          finishTool([], null);
+          // Add Angle stays armed so the marker can still be adjusted; the
+          // new angle is selected so its properties own the panel.
+          setSelectedIds([angId]);
+          setSelectionKind("angle");
+          setAnnotationDraft({ ...annotationDraft, step: "pick", notice: undefined });
         }
         break;
       }
