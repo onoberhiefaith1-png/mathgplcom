@@ -214,7 +214,7 @@ export function GeometryToolbox() {
 function AnnotationDraftInput({
   tool, value, onChange, onConfirm, onCancel,
 }: {
-  tool: "addText" | "addDistance" | "addAngle";
+  tool: "addText" | "addDistance" | "addAngle" | "smartText" | "smartAngle" | "smartArea";
   value: string;
   onChange: (v: string) => void;
   onConfirm: () => void;
@@ -294,10 +294,12 @@ function PointLabelsToggle({
   );
 }
 
-function hintFor(t: "addText" | "addDistance" | "addAngle" | "addArea", value: string): string {
+function hintFor(t: "addText" | "addDistance" | "addAngle" | "addArea" | "smartText" | "smartAngle" | "smartArea", value: string): string {
   if (t === "addText") return `Select a point to place "${value}".`;
   if (t === "addDistance") return `Select the first point (value: ${value}).`;
-  if (t === "addAngle") return `Select the first arm (angle: ${value}).`;
+  if (t === "addAngle" || t === "smartAngle") return `Select the first line (angle: ${value}).`;
+  if (t === "smartText") return "Click a point or a line to add its text.";
+  if (t === "smartArea") return "Trace the boundary; close it on the first point.";
   return "Trace the enclosed region by selecting boundary points.";
 }
 
