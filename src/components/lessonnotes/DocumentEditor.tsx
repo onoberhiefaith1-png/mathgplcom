@@ -2732,6 +2732,68 @@ function Btn({
 
 function Divider() { return <span className="w-px h-5 bg-foreground/15 mx-1" />; }
 
+/* ─── The insertion sensor: a strong, persistent caret marker ───
+   The real caret handles typing; this marker keeps the position visible when
+   the editor loses focus (e.g. while the teacher uses the ribbon). */
+function SensorCaret({
+  editor, pos, hidden, paperLayerRef, zoom,
+}: {
+  editor: Editor | null;
+  pos: number | null;
+  hidden: boolean;
+  paperLayerRef: RefObject<HTMLDivElement | null>;
+  zoom: number;
+}) {
+  const [box, setBox] = useState<{ top: number; left: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (!editor || pos == null || hidden) { setBox(null); return; }
+    const layer = paperLayerRef.current;
+    if (!layer) { setBox(null); return; }
+    let raf = 0;
+    const measure = () => {
+      try {
+        const size = editor.state.doc.content.size;
+        const at = Math.max(0, Math.min(pos, size));
+        const c = editor.view.coordsAtPos(at);
+        const rect = layer.getBoundingClientRect();
+        const z = zoom || 1;
+        setBox({
+          top: (c.top - rect.top) / z,
+          left: (c.left - rect.left) / z,
+          height: Math.max(18, (c.bottom - c.top) / z),
+        });
+      } catch { setBox(null); }
+    };
+    raf = window.requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+    };
+  }, [editor, pos, hidden, paperLayerRef, zoom]);
+
+  if (!box) return null;
+  return (
+    <div
+      aria-hidden
+      className="lesson-sensor-caret"
+      style={{
+        position: "absolute",
+        top: box.top,
+        left: box.left,
+        width: 2.5,
+        height: box.height,
+        borderRadius: 2,
+        pointerEvents: "none",
+        zIndex: 6,
+      }}
+    />
+  );
+}
+
+
+
 /* ─── Free-position text box (overlay, outside TipTap) ─── */
 function CanvasBoxView({
   box, active, onActivate, onChange, onRemove,
