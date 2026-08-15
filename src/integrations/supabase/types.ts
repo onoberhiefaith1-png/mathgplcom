@@ -6789,6 +6789,10 @@ export type Database = {
         }
         Returns: string
       }
+      student_may_access_owner: {
+        Args: { _org_id: string; _owner_id: string; _student_id: string }
+        Returns: boolean
+      }
       username_is_valid: { Args: { _username: string }; Returns: boolean }
       workspace_students: {
         Args: { _org_id: string }

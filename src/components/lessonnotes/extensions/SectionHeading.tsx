@@ -22,6 +22,7 @@ import { toast } from "@/hooks/use-toast";
 import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import { sectionEndWithin } from "@/lib/lessonnotes/containerRange";
+import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 
 
 
@@ -174,29 +175,6 @@ function SectionHeadingView(props: NodeViewProps) {
     return { parentSectionIndex, subsectionIndex };
   }, [notebookId, kind, getPos, editor]);
 
-  /** When the cached subsectionId attr is stale (sync rewrites IDs on every
-   *  save), resolve the live subsection for this Solution heading by matching
-   *  its position within the doc against the DB ordering. */
-  const resolveSubsectionId = useCallback(async (): Promise<string | null> => {
-    const at = locateIndices();
-    if (!at || !notebookId) return null;
-    // Look up sections in DB order, take parentSectionIndex.
-    const { data: secs } = await supabase
-      .from("notebook_sections")
-      .select("id, order_index")
-      .eq("notebook_id", notebookId)
-      .order("order_index", { ascending: true });
-    const sec = (secs ?? [])[at.parentSectionIndex] as any;
-    if (!sec?.id) return null;
-    const { data: subs } = await supabase
-      .from("notebook_subsections")
-      .select("id, order_index")
-      .eq("section_id", sec.id)
-      .order("order_index", { ascending: true });
-    const sub = (subs ?? [])[at.subsectionIndex] as any;
-    return sub?.id ?? null;
-  }, [locateIndices, notebookId]);
-
   /** Snapshot the question that this Solution belongs to: the text between the
    *  parent question heading and this Solution heading, plus any geometry
    *  diagrams living in that range. */
@@ -225,6 +203,61 @@ function SectionHeadingView(props: NodeViewProps) {
     }
     return { text, scenes, title };
   }, [getPos, editor]);
+
+  /** The live solution text under this heading, straight from the document.
+   *  Used so the Floating page always has the solution the teacher can see,
+   *  even before the save/sync round-trip has written the DB rows. */
+  const snapshotSolution = useCallback((): string => {
+    const info = computeSection();
+    return info?.sectionText ?? "";
+  }, [computeSection]);
+
+  /** When the cached subsectionId attr is stale (sync rewrites IDs on every
+   *  save), resolve the live subsection for this Solution heading. Content
+   *  first — match the snapshotted question text against the stored problem
+   *  blocks — then fall back to the positional index, which can land on a
+   *  different (often empty) row when the doc and DB order diverge. */
+  const resolveSubsectionId = useCallback(async (): Promise<string | null> => {
+    if (!notebookId) return null;
+    const questionText = snapshotQuestion().text;
+    const norm = (s: string) => String(s ?? "").replace(/\s+/g, "").toLowerCase();
+    const wanted = norm(questionText);
+
+    const at = locateIndices();
+
+    const { data: secs } = await supabase
+      .from("notebook_sections")
+      .select("id, order_index")
+      .eq("notebook_id", notebookId)
+      .order("order_index", { ascending: true });
+    const sectionIds = (secs ?? []).map((s: any) => s.id as string);
+
+    // 1) Content match across this notebook's problem blocks.
+    if (wanted.length >= 4 && sectionIds.length) {
+      const { data: problems } = await supabase
+        .from("notebook_blocks")
+        .select("subsection_id, content_ascii, kind, section_id")
+        .in("section_id", sectionIds)
+        .eq("kind", "problem" as any);
+      const hit = (problems ?? []).find((p: any) => {
+        const c = norm(p.content_ascii);
+        return c.length >= 4 && (c === wanted || c.includes(wanted) || wanted.includes(c));
+      }) as any;
+      if (hit?.subsection_id) return hit.subsection_id as string;
+    }
+
+    // 2) Positional fallback (previous behaviour).
+    if (!at) return null;
+    const sec = (secs ?? [])[at.parentSectionIndex] as any;
+    if (!sec?.id) return null;
+    const { data: subs } = await supabase
+      .from("notebook_subsections")
+      .select("id, order_index")
+      .eq("section_id", sec.id)
+      .order("order_index", { ascending: true });
+    const sub = (subs ?? [])[at.subsectionIndex] as any;
+    return sub?.id ?? null;
+  }, [locateIndices, notebookId, snapshotQuestion]);
 
   const openSmartCard = useCallback(async () => {
     if (!notebookId) return;
@@ -354,10 +387,20 @@ function SectionHeadingView(props: NodeViewProps) {
             <button
               type="button"
               onClick={async () => {
-                // Cached id first (cheapest), then live resolution, then
+                const liveSolution = snapshotSolution();
+                const liveProblem = snapshotQuestion().text;
+                // Flush the document into the legacy rows FIRST, so a solution
+                // generated seconds ago is already in the rows the Floating
+                // page reads (the autosave may still be pending).
+                try {
+                  await syncDocumentToNotebook(notebookId!, editor.getJSON());
+                } catch {
+                  // non-blocking — we still resolve and open below
+                }
+                // Content-matched resolution first, then the cached attr, then
                 // create-on-demand. An empty solution still opens — blank.
-                let target: string | null = null;
-                if (subsectionId) {
+                let target: string | null = await resolveSubsectionId();
+                if (!target && subsectionId) {
                   const { data: liveCached } = await supabase
                     .from("notebook_subsections")
                     .select("id")
@@ -367,7 +410,9 @@ function SectionHeadingView(props: NodeViewProps) {
                 }
                 if (!target) target = await ensureSubsectionId();
                 if (target) {
-                  navigate(`/lesson-notes/${notebookId}/floating-prep/${target}`);
+                  navigate(`/lesson-notes/${notebookId}/floating-prep/${target}`, {
+                    state: { solutionText: liveSolution, problemText: liveProblem },
+                  });
                   return;
                 }
                 toast({
