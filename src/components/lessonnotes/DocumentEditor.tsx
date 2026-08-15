@@ -1036,23 +1036,27 @@ function DocumentEditorInner({
         clearSolutionBody();
       }
     } else {
-      // Append path: the question ALWAYS goes above an existing Solution
-      // heading, never at the very end of the section (which would put the
-      // question underneath the solution).
-      insertFrom = existingSolution
-        ? Math.min(existingSolution.pos, info.sectionEndPos)
-        : info.sectionEndPos;
-      if (existingSolution) {
-        const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
-        const bodyStart = headingNodeSize ? info.headingPos + headingNodeSize : info.headingPos;
-        if (hasOnlyEmptyParagraphs(bodyStart, existingSolution.pos)) {
-          editor.chain().focus().deleteRange({ from: bodyStart, to: existingSolution.pos }).run();
-          insertFrom = Math.min(bodyStart, editor.state.doc.content.size);
-        }
+      // Append path. Everything is anchored to THIS heading and clamped to its
+      // own container, so generated content can never jump above the heading,
+      // into another free frame, or to the end of the document.
+      const liveEnd = liveSectionEnd(info.headingPos);
+      const headingSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
+      const bodyStart = headingSize ? info.headingPos + headingSize : info.headingPos;
+      // The question ALWAYS goes above an existing Solution heading, never at
+      // the very end of the section (which would put it under the solution).
+      insertFrom = existingSolution ? Math.min(existingSolution.pos, liveEnd) : liveEnd;
+      const emptyTo = existingSolution ? Math.min(existingSolution.pos, liveEnd) : liveEnd;
+      if (hasOnlyEmptyParagraphs(bodyStart, emptyTo)) {
+        // Only placeholder paragraphs under the heading → replace them so the
+        // body sits directly under its heading.
+        editor.chain().focus().deleteRange({ from: bodyStart, to: emptyTo }).run();
+        insertFrom = bodyStart;
       }
+      insertFrom = clampInsideSection(editor.state.doc, info.headingPos, insertFrom);
       const sizeBefore = editor.state.doc.content.size;
       editor.chain().focus().insertContentAt(insertFrom, questionBodyNodes).run();
       questionBodyEnd = insertFrom + (editor.state.doc.content.size - sizeBefore);
+
       if (trailingNodes.length) {
         editor.chain().focus().insertContentAt(questionBodyEnd, trailingNodes).run();
       }
