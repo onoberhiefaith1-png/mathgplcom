@@ -2,7 +2,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useNavigate } from "@/lib/router-compat";
-import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
+import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { CORE_SLOTS, RING_SLOTS, defaultUrlFor } from "@/lib/homepage/buildingSlots";
 import {
@@ -342,11 +342,14 @@ const HomepageBackground = ({
 }) => {
   if (!background?.path) {
     return (
-      <img
-        src={adventureClouds.url}
-        alt="Sunset clouds over mountains with sacred geometry"
+      <video
+        src={DEFAULT_BACKGROUND.url}
+        autoPlay
+        muted
+        loop
+        playsInline
+        aria-hidden
         className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
-        loading="eager"
       />
     );
   }
