@@ -2536,46 +2536,17 @@ function DocumentEditorInner({
                 />
               ))}
 
-              {/* The insertion sensor. In doc mode it is the held caret marker;
-                  in free mode it is a standalone marker at the exact point the
-                  teacher double-clicked, with a hidden input that owns the
-                  keyboard until content is created there. */}
+              {/* The Master Sensor marker — one marker for the one caret. It
+                  keeps the insertion point visible while the teacher uses the
+                  ribbon, wherever the sensor is parked. */}
               <SensorCaret
                 editor={editor}
                 pos={sensorPos}
-                free={freeSensor}
-                hidden={editorFocused && !freeSensor}
+                hidden={editorFocused}
                 paperLayerRef={paperLayerRef}
                 zoom={zoom}
               />
-              {freeSensor && !viewOnly && (
-                <input
-                  ref={sensorInputRef}
-                  data-sensor-input="true"
-                  aria-label="Type here"
-                  value=""
-                  onChange={(e) => {
-                    const t = e.target.value;
-                    if (t) materialiseSensorFrame(t);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); materialiseSensorFrame(""); }
-                    if (e.key === "Escape") setFree(null);
-                  }}
-                  style={{
-                    position: "absolute",
-                    left: freeSensor.x,
-                    top: freeSensor.y,
-                    width: 2,
-                    height: 22,
-                    opacity: 0,
-                    border: 0,
-                    padding: 0,
-                    background: "transparent",
-                    zIndex: 6,
-                  }}
-                />
-              )}
+
 
             </div>
 
