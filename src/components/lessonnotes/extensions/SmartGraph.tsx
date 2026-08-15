@@ -1,67 +1,20 @@
 // TipTap node holding a Smart Graph workspace.
 //
-// All state — scale, axis labels, data points, connection style — lives
-// in the node attrs so undo/redo and persistence flow through TipTap.
+// All state — scale, axis labels, data points, functions, style — lives in the
+// node attrs so undo/redo and persistence flow through TipTap. The data model
+// itself lives in src/lib/graph/graphModel.ts so the Smartboard can run the
+// same graph engine without importing this TipTap node.
 
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { SmartGraphView } from "@/components/lessonnotes/math-tools/SmartGraphView";
+import { DEFAULT_GRAPH, DEFAULT_GRAPH_STYLE, sanitizeGraphAttrs } from "@/lib/graph/graphModel";
 
-export type ConnectStyle = "straight" | "smooth" | "broken" | "scatter";
-
-export interface GraphPoint { x: number; y: number; label?: string }
-
-/** A geometry shape drawn on top of the graph. Points are in DATA coordinates
- *  so shapes stay anchored when the graph is expanded from any side. Older
- *  saved shapes may still be in pixel-space and are migrated on load. */
-export interface GraphShape {
-  id: string;
-  kind: "point" | "line" | "circle" | "arc" | "polygon";
-  pts: Array<{ x: number; y: number }>;
-  label?: string;
-}
-
-/** A free overlay object placed on the graph paper (text, formula, shape,
- *  image, etc.). Position is in DATA coordinates so expand never shifts it. */
-export interface GraphOverlay {
-  id: string;
-  kind: "text" | "formula" | "triangle" | "circle" | "rectangle" | "angle" | "image";
-  x: number;
-  y: number;
-  w?: number; // width in data units (for sized objects)
-  h?: number; // height in data units
-  payload?: Record<string, unknown>;
-}
-
-export interface SmartGraphAttrs {
-  unitsPerSquareX: number;
-  unitsPerSquareY: number;
-  squaresX: number;
-  squaresY: number;
-  originSquareX: number; // origin offset in squares from left
-  originSquareY: number; // origin offset in squares from top
-  xLabel: string;
-  yLabel: string;
-  points: GraphPoint[];
-  connect: ConnectStyle;
-  shapes: GraphShape[];
-  overlays: GraphOverlay[];
-}
-
-export const DEFAULT_GRAPH: SmartGraphAttrs = {
-  unitsPerSquareX: 1,
-  unitsPerSquareY: 1,
-  squaresX: 20,
-  squaresY: 14,
-  originSquareX: 10,
-  originSquareY: 7,
-  xLabel: "x",
-  yLabel: "y",
-  points: [],
-  connect: "straight",
-  shapes: [],
-  overlays: [],
-};
+export type {
+  ConnectStyle, GraphPoint, GraphShape, GraphOverlay, GraphFunction, GraphStyle,
+  SmartGraphAttrs,
+} from "@/lib/graph/graphModel";
+export { DEFAULT_GRAPH, DEFAULT_GRAPH_STYLE, sanitizeGraphAttrs };
 
 export const SmartGraphNode = Node.create({
   name: "smartGraph",
@@ -84,6 +37,9 @@ export const SmartGraphNode = Node.create({
       connect: { default: DEFAULT_GRAPH.connect },
       shapes: { default: DEFAULT_GRAPH.shapes },
       overlays: { default: DEFAULT_GRAPH.overlays },
+      functions: { default: DEFAULT_GRAPH.functions },
+      style: { default: DEFAULT_GRAPH.style },
+      viewZoom: { default: DEFAULT_GRAPH.viewZoom },
     };
   },
 
