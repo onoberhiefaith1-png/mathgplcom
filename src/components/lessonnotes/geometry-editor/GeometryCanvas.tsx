@@ -932,8 +932,15 @@ function annotationHintFor(t: ToolId, pending: number): string | null {
       return pending < 3
         ? `Add Area — trace the boundary (${pending} pt${pending === 1 ? "" : "s"})`
         : "Click the starting point or double-click to close";
+    case "smartText":
+      return "Add Text — select a line, a point, or blank paper";
+    case "smartAngle":
+      return pending === 0 ? "Add Angle — select the first line" : "Select the second line";
+    case "smartArea":
+      return `Add Area — select the enclosing lines (${pending} picked)`;
     default:
       return null;
+
   }
 }
 
