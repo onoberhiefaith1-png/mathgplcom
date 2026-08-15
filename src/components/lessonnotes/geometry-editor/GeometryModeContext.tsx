@@ -64,11 +64,11 @@ export function GeometryModeProvider({ children }: { children: ReactNode }) {
     } else if (t === "addAngle") {
       setAnnotationDraft({ tool: t, value: "", confirmed: false, keepLabels: true });
     } else if (t === "smartText") {
-      // Value first ("47 cm", "ASB"), then click a line / point / paper.
-      setAnnotationDraft({ tool: t, value: "", confirmed: false, step: "value" });
+      // Value first ("47 cm", "ASB"), then select the line it attaches to.
+      setAnnotationDraft({ tool: t, value: "", confirmed: true, step: "value" });
     } else if (t === "smartAngle") {
-      // Value first, then click the two intersecting lines.
-      setAnnotationDraft({ tool: t, value: "", confirmed: false, step: "value", keepLabels: true });
+      // Value first, then select ONE line at the intersection.
+      setAnnotationDraft({ tool: t, value: "", confirmed: true, step: "value", keepLabels: true });
     } else if (t === "smartArea") {
       setAnnotationDraft({
         tool: "smartArea", value: "", confirmed: true, step: "pick",
