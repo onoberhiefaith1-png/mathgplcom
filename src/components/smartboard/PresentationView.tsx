@@ -981,22 +981,29 @@ const PresentationView = ({
 
 
 
-  /* ── Undo / redo over board writing ──
-     Snapshots are { freeLines, lineOffsets }. We push the PREVIOUS state
-     onto `past` every time those change (unless the change was triggered by
-     undo/redo itself, in which case we skip via the `skip` flag). */
-  type Snap = { freeLines: FreeLineMap; lineOffsets: Record<number, number>; smartLines: SmartLine[]; boxes: MagnetBox[] };
+  /* ── Undo / redo over ALL board editing — ONE chronological history ──
+     Snapshots cover writing, smart lines, magnet boxes AND diagrams, so the
+     newest user action is always what Undo reverses, whichever tool made it.
+     We push the PREVIOUS state onto `past` every time any of them change
+     (unless the change came from undo/redo itself — the `skip` flag). */
+  type Snap = {
+    freeLines: FreeLineMap;
+    lineOffsets: Record<number, number>;
+    smartLines: SmartLine[];
+    boxes: MagnetBox[];
+    diagrams: BoardDiagram[];
+  };
   const histRef = useRef<{ past: Snap[]; future: Snap[]; skip: boolean; prev: Snap }>({
     past: [],
     future: [],
     skip: false,
-    prev: { freeLines, lineOffsets, smartLines, boxes },
+    prev: { freeLines, lineOffsets, smartLines, boxes, diagrams },
   });
   const [, setHistTick] = useState(0);
   const bumpHist = () => setHistTick((n) => n + 1);
   useEffect(() => {
     const h = histRef.current;
-    const next: Snap = { freeLines, lineOffsets, smartLines, boxes };
+    const next: Snap = { freeLines, lineOffsets, smartLines, boxes, diagrams };
     if (h.skip) { h.skip = false; h.prev = next; return; }
     // Cheap reference comparison — the old full-board JSON.stringify on
     // every keystroke was a major source of lag.
@@ -1004,25 +1011,30 @@ const PresentationView = ({
       h.prev.freeLines === freeLines &&
       h.prev.lineOffsets === lineOffsets &&
       h.prev.smartLines === smartLines &&
-      h.prev.boxes === boxes
+      h.prev.boxes === boxes &&
+      h.prev.diagrams === diagrams
     ) return;
     h.past.push(h.prev);
     if (h.past.length > 200) h.past.shift();
     h.future = [];
     h.prev = next;
     bumpHist();
-  }, [freeLines, lineOffsets, smartLines, boxes]);
+  }, [freeLines, lineOffsets, smartLines, boxes, diagrams]);
 
+  const applySnap = (snap: Snap) => {
+    setFreeLines(snap.freeLines);
+    setLineOffsets(snap.lineOffsets);
+    setSmartLines(snap.smartLines);
+    setBoxes(snap.boxes);
+    setDiagrams(snap.diagrams);
+  };
   const doUndo = () => {
     const h = histRef.current;
     if (h.past.length === 0) return;
     const snap = h.past.pop()!;
     h.future.push(h.prev);
     h.skip = true;
-    setFreeLines(snap.freeLines);
-    setLineOffsets(snap.lineOffsets);
-    setSmartLines(snap.smartLines);
-    setBoxes(snap.boxes);
+    applySnap(snap);
     h.prev = snap;
     bumpHist();
   };
@@ -1032,15 +1044,13 @@ const PresentationView = ({
     const snap = h.future.pop()!;
     h.past.push(h.prev);
     h.skip = true;
-    setFreeLines(snap.freeLines);
-    setLineOffsets(snap.lineOffsets);
-    setSmartLines(snap.smartLines);
-    setBoxes(snap.boxes);
+    applySnap(snap);
     h.prev = snap;
     bumpHist();
   };
   const canUndo = histRef.current.past.length > 0;
   const canRedo = histRef.current.future.length > 0;
+
 
   /** Scroll the board one viewport down — the "nest" gesture. The board is
    *  already an infinite scroll surface (minHeight grows past the lowest used
