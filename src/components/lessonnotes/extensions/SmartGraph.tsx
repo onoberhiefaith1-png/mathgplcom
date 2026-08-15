@@ -163,3 +163,32 @@ export const SmartGraphNode = Node.create({
     return ReactNodeViewRenderer(SmartGraphView);
   },
 });
+
+const num = (v: unknown, fallback: number) =>
+  typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+/** Defensive normaliser so older saved graphs (and board copies) always load. */
+export function sanitizeGraphAttrs(raw: unknown): SmartGraphAttrs {
+  const r = (raw ?? {}) as Partial<SmartGraphAttrs>;
+  const style = { ...DEFAULT_GRAPH_STYLE, ...((r.style ?? {}) as Partial<GraphStyle>) };
+  return {
+    unitsPerSquareX: num(r.unitsPerSquareX, DEFAULT_GRAPH.unitsPerSquareX),
+    unitsPerSquareY: num(r.unitsPerSquareY, DEFAULT_GRAPH.unitsPerSquareY),
+    squaresX: Math.max(4, Math.round(num(r.squaresX, DEFAULT_GRAPH.squaresX))),
+    squaresY: Math.max(4, Math.round(num(r.squaresY, DEFAULT_GRAPH.squaresY))),
+    originSquareX: num(r.originSquareX, DEFAULT_GRAPH.originSquareX),
+    originSquareY: num(r.originSquareY, DEFAULT_GRAPH.originSquareY),
+    xLabel: typeof r.xLabel === "string" ? r.xLabel : "x",
+    yLabel: typeof r.yLabel === "string" ? r.yLabel : "y",
+    points: Array.isArray(r.points) ? r.points : [],
+    connect: (r.connect ?? "straight") as ConnectStyle,
+    shapes: Array.isArray(r.shapes) ? r.shapes : [],
+    overlays: Array.isArray(r.overlays) ? r.overlays : [],
+    functions: Array.isArray(r.functions) ? r.functions : [],
+    style,
+    viewZoom: Math.max(0.25, Math.min(4, num(r.viewZoom, 1))),
+    viewPanX: num(r.viewPanX, 0),
+    viewPanY: num(r.viewPanY, 0),
+  };
+}
+
