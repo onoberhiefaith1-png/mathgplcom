@@ -2106,22 +2106,8 @@ function DocumentEditorInner({
     window.addEventListener("mouseup", up);
   };
 
-  /** A free sensor owns the keyboard: the first keystroke (or Enter) creates a
-   *  canvas frame at that exact point and continues typing inside it. */
-  const sensorInputRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => {
-    if (freeSensor) sensorInputRef.current?.focus({ preventScroll: true });
-  }, [freeSensor]);
 
-  const materialiseSensorFrame = (text: string) => {
-    if (!editor) return;
-    const start = insertAtSensor([{ type: "paragraph" }]);
-    const pos = Math.min(start + 1, editor.state.doc.content.size);
-    const chain = editor.chain().focus().setTextSelection(pos);
-    if (text) chain.insertContent(text);
-    chain.run();
-    rememberSensor(editor.state.selection.to);
-  };
+
 
 
 
