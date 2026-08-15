@@ -93,7 +93,7 @@ import {
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Shapes, Table as TableIcon, LineChart, Calculator,
-  Film, Camera, ArrowLeftRight, Trash2,
+  Film, Camera, ArrowLeftRight,
 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
