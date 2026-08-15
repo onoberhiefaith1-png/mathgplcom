@@ -1907,37 +1907,50 @@ function DocumentEditorInner({
     setActiveBoxId(id);
   };
 
+  /** Single click on blank paper — including the Note Extend area and the space
+   *  below/around a diagram — places the normal document caret there, so the
+   *  teacher can just start typing. The whole sheet is one editable document;
+   *  free-position text boxes come from a double-click instead. */
   const handlePaperMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
     const isGeometryTarget = Boolean(el?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
     if (isEditorControlTarget(e.target) && !isGeometryTarget) return;
 
-    // Geometry Mode turns the whole notebook page into a drawing surface.
-    // The transparent notebook-wide SVG overlay owns all drawing clicks, so
-    // text editing and free text boxes stay inactive until the teacher exits.
-    if (geometryMode) return;
+    // While a drawing tool is active the geometry overlay owns the click.
+    if (geometryMode && geometryTool !== "select") return;
 
-    // If the click was inside the actual TipTap editor DOM, do nothing —
-    // TipTap will place the caret precisely on its own.
+    // Inside the TipTap DOM: TipTap places the caret precisely on its own.
     const editorDom = editor?.view.dom;
     if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
 
     // Click on an existing canvas box → its own handlers take over.
     if (el && el.closest("[data-canvas-box]")) return;
-
-    const layer = paperLayerRef.current;
-    if (!layer) return;
-    const rect = layer.getBoundingClientRect();
-    const z = zoom || 1;
-    const x = Math.max(0, Math.min((e.clientX - rect.left) / z, rect.width / z - 40));
-    const y = Math.max(0, (e.clientY - rect.top) / z - 14);
+    if (!editor) return;
 
     e.preventDefault();
-    const id = `cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-    setCanvasBoxes((prev) => [...prev, { id, x, y, text: "" }]);
-    setActiveBoxId(id);
+    const view = editor.view;
+    const hit = view.posAtCoords({ left: e.clientX, top: e.clientY });
+    const doc = editor.state.doc;
+
+    if (hit) {
+      editor.chain().focus().setTextSelection(Math.min(hit.pos, doc.content.size)).run();
+      return;
+    }
+
+    // Below the last block (extended page): make sure there is an empty line to
+    // type into, then put the caret in it.
+    const last = doc.lastChild;
+    if (last && last.type.name === "paragraph" && last.content.size === 0) {
+      editor.chain().focus().setTextSelection(doc.content.size - 1).run();
+      return;
+    }
+    editor.chain().focus()
+      .insertContentAt(doc.content.size, { type: "paragraph" })
+      .run();
+    editor.chain().focus().setTextSelection(editor.state.doc.content.size - 1).run();
   };
+
 
   const updateBoxText = (id: string, text: string) =>
     setCanvasBoxes((prev) => prev.map((b) => (b.id === id ? { ...b, text } : b)));
