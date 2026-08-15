@@ -61,39 +61,37 @@ export function DiagramToolsPanel({ hasSelection = false, pickCount = 0 }: Props
           </button>
         </div>
 
-        {needsValue ? (
+        {needsValue && (
           <div className="space-y-1">
             <p className="text-[10.5px] leading-snug text-foreground/70">
               {running.tool === "smartText"
-                ? "Type the text or measurement, then select where it goes."
-                : "Type the angle value, then select the two lines."}
+                ? "Type the text or measurement, then select the line."
+                : "Type the angle value, then select the line."}
             </p>
-            <div className="flex gap-1">
-              <input
-                autoFocus
-                value={running.value}
-                onChange={(e) => setAnnotationDraft({ ...running, value: e.target.value, notice: undefined })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && running.value.trim()) {
-                    setAnnotationDraft({ ...running, confirmed: true, step: "pick" });
-                  }
-                }}
-                placeholder={running.tool === "smartAngle" ? "30, 90, x + 40 …" : "47 cm, ASB …"}
-                className="flex-1 rounded border border-foreground/20 bg-white px-1.5 py-1 text-black outline-hidden focus:border-primary"
-              />
-              <button
-                type="button"
-                disabled={!running.value.trim()}
-                onClick={() => setAnnotationDraft({ ...running, confirmed: true, step: "pick" })}
-                className="rounded border border-primary bg-primary px-2 py-1 text-[11px] text-primary-foreground disabled:opacity-40"
-              >
-                Enter
-              </button>
-            </div>
+            <input
+              autoFocus
+              value={running.value}
+              onChange={(e) => setAnnotationDraft({
+                ...running,
+                value: e.target.value,
+                notice: undefined,
+                step: e.target.value.trim() ? "pick" : "value",
+              })}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+              placeholder={running.tool === "smartAngle" ? "30, 90, x + 40 …" : "47 cm, ASB …"}
+              className="w-full rounded border border-foreground/20 bg-white px-1.5 py-1 text-black outline-hidden focus:border-primary"
+            />
           </div>
-        ) : (
-          <p className="text-[10.5px] leading-snug text-primary">{pickHint}</p>
         )}
+
+        <p className={cn(
+          "text-[10.5px] leading-snug",
+          armed ? "font-medium text-primary" : "text-foreground/50",
+        )}>
+          {armed ? pickHint : "Enter a value to continue"}
+          {running.tool === "smartArea" && pickCount > 0 ? ` · ${pickCount} picked` : ""}
+        </p>
+
 
         {running.notice && (
           <p className="rounded bg-destructive/10 px-2 py-1 text-[10.5px] leading-snug text-destructive">
