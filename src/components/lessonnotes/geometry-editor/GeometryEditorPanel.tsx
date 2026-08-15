@@ -92,7 +92,7 @@ export function GeometryEditorPanel() {
       setSession((prev) => {
         // Same diagram → refresh the onApply binding but keep the editor state.
         if (prev && prev.sessionId === sessionId) {
-          return { ...prev, scene: detail.scene, onApply: detail.onApply, topic: detail.topic, sessionId };
+          return { ...prev, scene: detail.scene, onApply: detail.onApply, topic: detail.topic, history: detail.history, sessionId };
         }
         return { ...detail, sessionId };
       });
