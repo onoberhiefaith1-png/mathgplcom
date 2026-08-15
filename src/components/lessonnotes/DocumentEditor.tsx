@@ -1902,42 +1902,71 @@ function DocumentEditorInner({
 
   const paperLayerRef = useRef<HTMLDivElement | null>(null);
 
-  /** Click handler on the paper. If user clicked existing TipTap content,
-   *  let TipTap handle it natively. If they clicked truly blank paper,
-   *  drop a new free-position text box at that point. */
+  /** Place the insertion sensor (the document caret) at a screen point. Works
+   *  anywhere on the sheet: inside text, in the blank space beside or below a
+   *  diagram, and anywhere in the Note Extend region. A point that falls past
+   *  the last block gets a fresh empty line to type into. */
+  const placeCaretAtPoint = (clientX: number, clientY: number) => {
+    if (!editor) return;
+    const view = editor.view;
+    const doc = editor.state.doc;
+
+    // A click in the space around a diagram lands AFTER that diagram, so the
+    // next section goes below it instead of above.
+    const el = document.elementFromPoint(clientX, clientY) as Element | null;
+    const wrap = el?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
+    const rawPos = wrap?.dataset.geometryPos;
+    if (rawPos) {
+      const gp = Number(rawPos);
+      const node = Number.isFinite(gp) ? doc.nodeAt(gp) : null;
+      if (node) {
+        const after = Math.min(gp + node.nodeSize, doc.content.size);
+        editor.chain().focus().setTextSelection(after).run();
+        rememberSensor(editor.state.selection.to);
+        return;
+      }
+    }
+
+    const hit = view.posAtCoords({ left: clientX, top: clientY });
+    if (hit) {
+      editor.chain().focus().setTextSelection(Math.min(hit.pos, doc.content.size)).run();
+      rememberSensor(editor.state.selection.to);
+      return;
+    }
+
+    // Below the last block (extended page): make sure there is an empty line to
+    // type into, then put the caret in it.
+    const last = doc.lastChild;
+    if (!(last && last.type.name === "paragraph" && last.content.size === 0)) {
+      editor.chain().focus()
+        .insertContentAt(doc.content.size, { type: "paragraph" })
+        .run();
+    }
+    editor.chain().focus().setTextSelection(editor.state.doc.content.size - 1).run();
+    rememberSensor(editor.state.selection.to);
+  };
+
   /** Double-click on blank paper — anywhere in the (possibly extended) page,
-   *  including below a diagram — opens a free text box at that exact point.
-   *  This works in Geometry Mode too, so the whole page stays writable. */
+   *  including below a diagram — parks the sensor there. No floating input
+   *  rectangle is created any more: the sheet is one editable document. */
   const handlePaperDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
-    if (el?.closest("[data-geometry-diagram-wrapper],[data-canvas-box]")) return;
+    if (el?.closest("[data-canvas-box]")) return;
     if (isEditorControlTarget(e.target)) return;
     const editorDom = editor?.view.dom;
     if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
     // Active drawing tools own their own double-click (e.g. finishing a curve).
     if (geometryMode && geometryTool !== "select") return;
-    spawnCanvasBoxAt(e.clientX, e.clientY);
+    if (!editor) return;
     e.preventDefault();
     e.stopPropagation();
-  };
-
-  const spawnCanvasBoxAt = (clientX: number, clientY: number) => {
-    const layer = paperLayerRef.current;
-    if (!layer) return;
-    const rect = layer.getBoundingClientRect();
-    const z = zoom || 1;
-    const x = Math.max(0, Math.min((clientX - rect.left) / z, rect.width / z - 40));
-    const y = Math.max(0, (clientY - rect.top) / z - 14);
-    const id = `cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-    setCanvasBoxes((prev) => [...prev, { id, x, y, text: "" }]);
-    setActiveBoxId(id);
+    placeCaretAtPoint(e.clientX, e.clientY);
   };
 
   /** Single click on blank paper — including the Note Extend area and the space
-   *  below/around a diagram — places the normal document caret there, so the
-   *  teacher can just start typing. The whole sheet is one editable document;
-   *  free-position text boxes come from a double-click instead. */
+   *  below/around a diagram — places the sensor there, so the teacher can just
+   *  start typing or insert a section at that exact spot. */
   const handlePaperMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
@@ -1956,27 +1985,9 @@ function DocumentEditorInner({
     if (!editor) return;
 
     e.preventDefault();
-    const view = editor.view;
-    const hit = view.posAtCoords({ left: e.clientX, top: e.clientY });
-    const doc = editor.state.doc;
-
-    if (hit) {
-      editor.chain().focus().setTextSelection(Math.min(hit.pos, doc.content.size)).run();
-      return;
-    }
-
-    // Below the last block (extended page): make sure there is an empty line to
-    // type into, then put the caret in it.
-    const last = doc.lastChild;
-    if (last && last.type.name === "paragraph" && last.content.size === 0) {
-      editor.chain().focus().setTextSelection(doc.content.size - 1).run();
-      return;
-    }
-    editor.chain().focus()
-      .insertContentAt(doc.content.size, { type: "paragraph" })
-      .run();
-    editor.chain().focus().setTextSelection(editor.state.doc.content.size - 1).run();
+    placeCaretAtPoint(e.clientX, e.clientY);
   };
+
 
 
   const updateBoxText = (id: string, text: string) =>
