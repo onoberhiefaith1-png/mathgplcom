@@ -1669,7 +1669,9 @@ function DocumentEditorInner({
         { type: "paragraph" },
       ])
       .run();
+    moveSensorAfterInsert(insertAt, name);
   };
+
 
 
 
