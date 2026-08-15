@@ -8,7 +8,7 @@ import ring6 from "@/assets/adventure/mathgpl-ring-6.png.asset.json";
 import ring7 from "@/assets/adventure/mathgpl-ring-7.png.asset.json";
 import mathgplPalace from "@/assets/adventure/mathgpl-palace.png.asset.json";
 import centralDomeCore from "@/assets/adventure/central-dome-core.png.asset.json";
-import freeBillboardPalace from "@/assets/adventure/free-billboard-palace.png.asset.json";
+import freeBillboardPalace from "@/assets/adventure/free-billboard-palace-v2.png.asset.json";
 
 export type SlotGroup = "ring" | "core";
 
