@@ -436,16 +436,17 @@ function renderObject(
       const cx = v.x + pad, cy = v.y + pad;
       const a1 = Math.atan2(-(a.y - v.y), a.x - v.x);
       const a2 = Math.atan2(-(b.y - v.y), b.x - v.x);
-      const r = 18;
+      const r = (o as any).arcRadius ?? 18;
+      const markStroke = (o as any).markerColor ?? stroke;
       if (o.marker === "right") {
         const u1x = Math.cos(a1), u1y = -Math.sin(a1);
         const u2x = Math.cos(a2), u2y = -Math.sin(a2);
-        const s = 12;
+        const s = Math.max(6, r * 0.66);
         return (
           <polyline
             key={o.id}
             points={`${cx + u1x * s},${cy + u1y * s} ${cx + (u1x + u2x) * s},${cy + (u1y + u2y) * s} ${cx + u2x * s},${cy + u2y * s}`}
-            fill="none" stroke={stroke} strokeWidth={sw}
+            fill="none" stroke={markStroke} strokeWidth={sw}
           />
         );
       }
@@ -471,12 +472,12 @@ function renderObject(
         <g key={o.id}>
           <path
             d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} ${sweep} ${x2} ${y2}`}
-            fill="none" stroke={stroke} strokeWidth={sw}
+            fill="none" stroke={markStroke} strokeWidth={sw}
           />
           {o.marker === "double" && (
             <path
               d={`M ${cx + Math.cos(a1) * (r - 4)} ${cy - Math.sin(a1) * (r - 4)} A ${r - 4} ${r - 4} 0 ${large} ${sweep} ${cx + Math.cos(a2) * (r - 4)} ${cy - Math.sin(a2) * (r - 4)}`}
-              fill="none" stroke={stroke} strokeWidth={sw}
+              fill="none" stroke={markStroke} strokeWidth={sw}
             />
           )}
           {o.value && (
