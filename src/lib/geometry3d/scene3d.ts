@@ -246,21 +246,24 @@ export const DEFAULT_CAMERA: { position: Vec3; target: Vec3 } = {
 };
 
 export const DEFAULT_SETTINGS: Scene3DSettings = {
-  theme: "dark",
+  // The 3D / TVD workspace opens as a clean white teaching canvas.
+  // Teachers can still switch the theme/background to dark at any time.
+  theme: "light",
   showGrid: true,
-  gridColor: "#4c4780",
-  gridOpacity: 0.75,
+  gridColor: "#8d93ad",
+  gridOpacity: 0.6,
   showAxisX: true,
   showAxisY: true,
   showAxisZ: true,
   axisThickness: 2,
   axisLabels: true,
-  backgroundColor: "#0d0b1e",
+  backgroundColor: "#ffffff",
   backgroundBrightness: 1,
   showOrigin: true,
   coordinateLabels: false,
   defaultDisplay: "wireframe",
 };
+
 
 export const LIGHT_BACKGROUND = "#f6f7fb";
 export const DARK_BACKGROUND = "#0d0b1e";
@@ -444,15 +447,22 @@ export function sanitizeScene3D(raw: unknown): Scene3D {
   };
 }
 
+/** Backgrounds that are treated as "the default paper" for a theme, so
+ *  flipping the theme flips the canvas even when the teacher never picked a
+ *  custom colour. Any other colour is respected verbatim. */
+const NEUTRAL_LIGHT = new Set([LIGHT_BACKGROUND, "#ffffff", "#fff", "#FFFFFF"]);
+
 /** Resolve the effective background for a theme choice. */
 export function resolveBackground(settings: Scene3DSettings): string {
-  if (settings.theme === "light") return settings.backgroundColor === DARK_BACKGROUND ? LIGHT_BACKGROUND : settings.backgroundColor;
-  if (settings.theme === "dark") return settings.backgroundColor;
+  const bg = settings.backgroundColor;
+  if (settings.theme === "light") return bg === DARK_BACKGROUND ? LIGHT_BACKGROUND : bg;
+  if (settings.theme === "dark") return NEUTRAL_LIGHT.has(bg) ? DARK_BACKGROUND : bg;
   const prefersDark =
     typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  if (prefersDark) return settings.backgroundColor === LIGHT_BACKGROUND ? DARK_BACKGROUND : settings.backgroundColor;
-  return settings.backgroundColor === DARK_BACKGROUND ? LIGHT_BACKGROUND : settings.backgroundColor;
+  if (prefersDark) return NEUTRAL_LIGHT.has(bg) ? DARK_BACKGROUND : bg;
+  return bg === DARK_BACKGROUND ? LIGHT_BACKGROUND : bg;
 }
+
 
 /** True when the resolved workspace theme is light (used for label contrast). */
 export function isLightTheme(settings: Scene3DSettings): boolean {

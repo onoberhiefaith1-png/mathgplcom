@@ -110,7 +110,18 @@ import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } fro
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
-import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
+import { BoardDiagramLayer } from "./BoardDiagramLayer";
+import {
+  sanitizeBoardDiagrams, newBoardDiagram2D, newBoardDiagram3D, type BoardDiagram,
+} from "@/lib/smartboard/boardDiagrams";
+import {
+  GeometryEditorPanel, openGeometryEditor, closeGeometryEditor,
+} from "@/components/lessonnotes/geometry-editor/GeometryEditorPanel";
+import Workspace3DDialog from "@/components/lessonnotes/geometry3d/Workspace3DDialog";
+import type { GeometryScene } from "@/lib/geometry/scene";
+import type { Scene3D } from "@/lib/geometry3d/scene3d";
+import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes as ShapesIcon } from "lucide-react";
+
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 
@@ -755,6 +766,28 @@ const PresentationView = ({
     try { localStorage.setItem(BOXES_KEY, JSON.stringify(boxes)); } catch { /* noop */ }
   }, [boxes, BOXES_KEY]);
 
+  /* ── Diagrams on the board (2D geometry + 3D / TVD) ──
+     The board stores scene data and a position only; all drawing/editing is
+     delegated to the existing diagram engines. Scoped by boardScope, so a
+     diagram belongs to the page it was made on and returns on reload. */
+  const DIAGRAMS_KEY = boardKey("diagrams", boardScope);
+  const [diagrams, setDiagrams] = useState<BoardDiagram[]>(() => {
+    try {
+      const raw = localStorage.getItem(DIAGRAMS_KEY);
+      return raw ? sanitizeBoardDiagrams(JSON.parse(raw)) : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(DIAGRAMS_KEY, JSON.stringify(diagrams)); } catch { /* noop */ }
+  }, [diagrams, DIAGRAMS_KEY]);
+  const [activeDiagramId, setActiveDiagramId] = useState<string | null>(null);
+  // The 2D diagram currently open in the geometry dock, and the 3D diagram
+  // currently open in the TVD workspace dialog.
+  const [editing2dId, setEditing2dId] = useState<string | null>(null);
+  const [editing3dId, setEditing3dId] = useState<string | null>(null);
+
+
+
   // "Dot" polyline tool — arm to start a chain. Each board tap adds a
   // point; from the 2nd tap onwards a locked SmartLine is drawn from the
   // previous point to the new one. Chip toggles arm/disarm; chain never
@@ -948,22 +981,29 @@ const PresentationView = ({
 
 
 
-  /* ── Undo / redo over board writing ──
-     Snapshots are { freeLines, lineOffsets }. We push the PREVIOUS state
-     onto `past` every time those change (unless the change was triggered by
-     undo/redo itself, in which case we skip via the `skip` flag). */
-  type Snap = { freeLines: FreeLineMap; lineOffsets: Record<number, number>; smartLines: SmartLine[]; boxes: MagnetBox[] };
+  /* ── Undo / redo over ALL board editing — ONE chronological history ──
+     Snapshots cover writing, smart lines, magnet boxes AND diagrams, so the
+     newest user action is always what Undo reverses, whichever tool made it.
+     We push the PREVIOUS state onto `past` every time any of them change
+     (unless the change came from undo/redo itself — the `skip` flag). */
+  type Snap = {
+    freeLines: FreeLineMap;
+    lineOffsets: Record<number, number>;
+    smartLines: SmartLine[];
+    boxes: MagnetBox[];
+    diagrams: BoardDiagram[];
+  };
   const histRef = useRef<{ past: Snap[]; future: Snap[]; skip: boolean; prev: Snap }>({
     past: [],
     future: [],
     skip: false,
-    prev: { freeLines, lineOffsets, smartLines, boxes },
+    prev: { freeLines, lineOffsets, smartLines, boxes, diagrams },
   });
   const [, setHistTick] = useState(0);
   const bumpHist = () => setHistTick((n) => n + 1);
   useEffect(() => {
     const h = histRef.current;
-    const next: Snap = { freeLines, lineOffsets, smartLines, boxes };
+    const next: Snap = { freeLines, lineOffsets, smartLines, boxes, diagrams };
     if (h.skip) { h.skip = false; h.prev = next; return; }
     // Cheap reference comparison — the old full-board JSON.stringify on
     // every keystroke was a major source of lag.
@@ -971,25 +1011,30 @@ const PresentationView = ({
       h.prev.freeLines === freeLines &&
       h.prev.lineOffsets === lineOffsets &&
       h.prev.smartLines === smartLines &&
-      h.prev.boxes === boxes
+      h.prev.boxes === boxes &&
+      h.prev.diagrams === diagrams
     ) return;
     h.past.push(h.prev);
     if (h.past.length > 200) h.past.shift();
     h.future = [];
     h.prev = next;
     bumpHist();
-  }, [freeLines, lineOffsets, smartLines, boxes]);
+  }, [freeLines, lineOffsets, smartLines, boxes, diagrams]);
 
+  const applySnap = (snap: Snap) => {
+    setFreeLines(snap.freeLines);
+    setLineOffsets(snap.lineOffsets);
+    setSmartLines(snap.smartLines);
+    setBoxes(snap.boxes);
+    setDiagrams(snap.diagrams);
+  };
   const doUndo = () => {
     const h = histRef.current;
     if (h.past.length === 0) return;
     const snap = h.past.pop()!;
     h.future.push(h.prev);
     h.skip = true;
-    setFreeLines(snap.freeLines);
-    setLineOffsets(snap.lineOffsets);
-    setSmartLines(snap.smartLines);
-    setBoxes(snap.boxes);
+    applySnap(snap);
     h.prev = snap;
     bumpHist();
   };
@@ -999,15 +1044,69 @@ const PresentationView = ({
     const snap = h.future.pop()!;
     h.past.push(h.prev);
     h.skip = true;
-    setFreeLines(snap.freeLines);
-    setLineOffsets(snap.lineOffsets);
-    setSmartLines(snap.smartLines);
-    setBoxes(snap.boxes);
+    applySnap(snap);
     h.prev = snap;
     bumpHist();
   };
   const canUndo = histRef.current.past.length > 0;
   const canRedo = histRef.current.future.length > 0;
+
+  /* ── Diagram actions ──
+     Each helper is one board state change, so it lands as one entry in the
+     unified history above and Undo reverses it like any writing action. */
+  const updateDiagram = useCallback((id: string, patch: Partial<BoardDiagram>) => {
+    setDiagrams((prev) =>
+      prev.map((d) => (d.id === id ? ({ ...d, ...patch } as BoardDiagram) : d)),
+    );
+  }, []);
+  const deleteDiagram = useCallback((id: string) => {
+    setDiagrams((prev) => prev.filter((d) => d.id !== id));
+    setActiveDiagramId((cur) => (cur === id ? null : cur));
+    setEditing2dId((cur) => (cur === id ? null : cur));
+    setEditing3dId((cur) => (cur === id ? null : cur));
+  }, []);
+  const addDiagram2D = useCallback(() => {
+    const d = newBoardDiagram2D(80, 80);
+    setDiagrams((prev) => [...prev, d]);
+    setActiveDiagramId(d.id);
+    setEditing2dId(d.id);
+  }, []);
+  const addDiagram3D = useCallback(() => {
+    const d = newBoardDiagram3D(80, 80);
+    setDiagrams((prev) => [...prev, d]);
+    setActiveDiagramId(d.id);
+    setEditing3dId(d.id);
+  }, []);
+
+  // Mount / unmount the shared geometry dock for the 2D diagram being edited.
+  // Every apply writes straight back into board state, so the drawing the
+  // teacher makes in the dock is the board's own content.
+  const editing2d = diagrams.find((d) => d.id === editing2dId && d.kind === "2d") as
+    | Extract<BoardDiagram, { kind: "2d" }>
+    | undefined;
+  useEffect(() => {
+    if (!editing2d) return;
+    openGeometryEditor({
+      sessionId: editing2d.id,
+      scene: editing2d.scene,
+      onApply: (next: GeometryScene) => updateDiagram(editing2d.id, { scene: next }),
+      history: { undo: doUndo, redo: doRedo },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only the identity of the edited diagram re-opens the dock; scene edits
+    // flow one way (dock → board) so the dock is never reset mid-drawing.
+  }, [editing2dId]);
+
+  useEffect(() => {
+    if (!editing2dId) closeGeometryEditor();
+  }, [editing2dId]);
+
+  const editing3d = diagrams.find((d) => d.id === editing3dId && d.kind === "3d") as
+    | Extract<BoardDiagram, { kind: "3d" }>
+    | undefined;
+
+
+
 
   /** Scroll the board one viewport down — the "nest" gesture. The board is
    *  already an infinite scroll surface (minHeight grows past the lowest used
@@ -5000,6 +5099,22 @@ const PresentationView = ({
           >
             Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
+          {/* Diagram — 2D geometry and 3D / TVD, built straight into the
+              board's own top panel. Both open the existing diagram engines. */}
+          <span className="mx-1 inline-flex items-center gap-1 rounded-md px-1 py-0.5"
+            style={{ background: palette.hoverBg }}>
+            <ShapesIcon className="h-3.5 w-3.5 opacity-70" />
+            <button
+              onClick={addDiagram2D}
+              className="px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Add a 2D geometry diagram to this page"
+            >2D</button>
+            <button
+              onClick={addDiagram3D}
+              className="px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Add a 3D / TVD diagram to this page"
+            >3D</button>
+          </span>
           <button
             onClick={() => setSettingsOpen((v) => !v)}
             className="ml-1 inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-black/5"
@@ -5008,6 +5123,7 @@ const PresentationView = ({
           >
             <SettingsIcon className="h-3.5 w-3.5" />
           </button>
+
         </div>
       </header>
 
@@ -5483,6 +5599,26 @@ const PresentationView = ({
             fontPx={grid.FONT_PX}
             placeholderColor={placeholderColor}
           />
+
+          {/* Diagrams live on the page itself — they scroll with the board and
+              are saved with this page's board scope. */}
+          <BoardDiagramLayer
+            diagrams={diagrams}
+            onChange={setDiagrams}
+            onEdit={(id) => {
+              const d = diagrams.find((x) => x.id === id);
+              if (!d) return;
+              setActiveDiagramId(id);
+              if (d.kind === "3d") setEditing3dId(id);
+              else setEditing2dId(id);
+            }}
+            onDelete={deleteDiagram}
+            activeId={activeDiagramId}
+            onActivate={setActiveDiagramId}
+            editable={isTeacher}
+          />
+
+
 
           {/* Dot-tool first-point marker — shown after tap 1 until tap 2. */}
           {dotFirst && (
@@ -6689,6 +6825,25 @@ const PresentationView = ({
         host={previewHost}
         onStatus={setMirrorStatus}
       />
+
+      {/* Diagram engines, mounted for the board itself: the geometry dock for
+          2D scenes and the 3D / TVD workspace for solids. Undo/Redo inside the
+          dock drives the board's single action history. */}
+      {isTeacher && (
+        <GeometryEditorPanel onDismiss={() => setEditing2dId(null)} />
+      )}
+      {isTeacher && editing3d && (
+        <Workspace3DDialog
+          open
+          onOpenChange={(open) => { if (!open) setEditing3dId(null); }}
+          initialScene={editing3d.scene}
+          onExport={(scene: Scene3D) => {
+            updateDiagram(editing3d.id, { scene });
+            setEditing3dId(null);
+          }}
+        />
+      )}
+
     </div>
   );
 };

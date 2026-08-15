@@ -34,7 +34,12 @@ export interface OpenGeometryEditorDetail {
   /** Stable id so the panel knows whether to swap to a new diagram or
    *  keep editing the current one. Defaults to a fresh id. */
   sessionId?: string;
+  /** When the host owns a unified action history (Smartboard), Undo/Redo in
+   *  this panel drive that history instead of the panel's private stack, so
+   *  the two never compete. Lesson Notes omits this and keeps its own stack. */
+  history?: { undo: () => void; redo: () => void };
 }
+
 
 export interface GeometryEditorSection {
   id: string;
@@ -76,7 +81,7 @@ interface Session extends OpenGeometryEditorDetail {
   sessionId: string;
 }
 
-export function GeometryEditorPanel() {
+export function GeometryEditorPanel({ onDismiss }: { onDismiss?: () => void } = {}) {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
@@ -87,7 +92,7 @@ export function GeometryEditorPanel() {
       setSession((prev) => {
         // Same diagram → refresh the onApply binding but keep the editor state.
         if (prev && prev.sessionId === sessionId) {
-          return { ...prev, scene: detail.scene, onApply: detail.onApply, topic: detail.topic, sessionId };
+          return { ...prev, scene: detail.scene, onApply: detail.onApply, topic: detail.topic, history: detail.history, sessionId };
         }
         return { ...detail, sessionId };
       });
@@ -106,10 +111,11 @@ export function GeometryEditorPanel() {
     <PanelBody
       key={session.sessionId}
       session={session}
-      onClose={() => setSession(null)}
+      onClose={() => { setSession(null); onDismiss?.(); }}
     />
   );
 }
+
 
 function PanelBody({
   session,
@@ -196,8 +202,9 @@ function PanelBody({
         >
           <Sparkles className="h-3 w-3" /> AI Edit
         </button>
-        <button type="button" disabled={!editor.canUndo} onClick={editor.doUndo} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Undo (Ctrl+Z)"><Undo2 className="h-3.5 w-3.5" /></button>
-        <button type="button" disabled={!editor.canRedo} onClick={editor.doRedo} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Redo"><Redo2 className="h-3.5 w-3.5" /></button>
+        <button type="button" disabled={!session.history && !editor.canUndo} onClick={() => (session.history ? session.history.undo() : editor.doUndo())} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Undo (Ctrl+Z)"><Undo2 className="h-3.5 w-3.5" /></button>
+        <button type="button" disabled={!session.history && !editor.canRedo} onClick={() => (session.history ? session.history.redo() : editor.doRedo())} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Redo"><Redo2 className="h-3.5 w-3.5" /></button>
+
         <button type="button" onClick={() => editor.commit(rotateScene(editor.scene, 15).scene)} className="p-1 rounded hover:bg-foreground/10" title="Rotate 15°"><RotateCw className="h-3.5 w-3.5" /></button>
         <button type="button" onClick={onClose} className="p-1 rounded hover:bg-foreground/10" aria-label="Close"><X className="h-3.5 w-3.5" /></button>
       </header>
