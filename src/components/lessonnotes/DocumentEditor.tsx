@@ -1588,7 +1588,8 @@ function DocumentEditorInner({
     const name = title.trim();
     if (!name) return;
     // Always underneath the last existing content/session.
-    const insertAt = editor.state.doc.content.size;
+    const insertAt = sectionInsertPosition();
+
     editor.chain().focus()
       .insertContentAt(insertAt, [
         { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: name }] },
