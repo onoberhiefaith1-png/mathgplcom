@@ -53,6 +53,7 @@ export type HitKind =
   | "segmentBody"
   | "segmentLabel"
   | "segmentDistance"
+  | "segmentText"
   | "circle"
   | "arc"
   | "curve"
