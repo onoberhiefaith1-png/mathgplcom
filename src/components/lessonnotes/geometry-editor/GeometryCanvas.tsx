@@ -46,7 +46,7 @@ export function GeometryCanvas({ editor }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; snap: SnapTarget } | null>(null);
   const [dragging, setDragging] = useState<{ pointId: GeoId } | null>(null);
-  const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "angleValue" | "label"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
+  const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "segmentText" | "angleValue" | "label"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
 
@@ -138,6 +138,8 @@ export function GeometryCanvas({ editor }: Props) {
         apply(patchObject(scene, labelDrag.id, { labelOffset: { dx, dy } } as any));
       } else if (labelDrag.kind === "segmentDistance") {
         apply(patchObject(scene, labelDrag.id, { distanceOffset: { dx, dy } } as any));
+      } else if (labelDrag.kind === "segmentText") {
+        apply(patchObject(scene, labelDrag.id, { lineTextOffset: { dx, dy } } as any));
       } else if (labelDrag.kind === "angleValue") {
         apply(patchObject(scene, labelDrag.id, { valueOffset: { dx, dy } } as any));
       } else {
@@ -215,6 +217,19 @@ export function GeometryCanvas({ editor }: Props) {
               setLabelDrag({
                 kind: "segmentDistance", id: hit.id, startX: p.x, startY: p.y,
                 baseDx: obj.distanceOffset?.dx ?? 0, baseDy: obj.distanceOffset?.dy ?? 0,
+              });
+            } else if (hit.kind === "segmentText" && obj?.type === "segment") {
+              const a = pointById(scene, obj.a); const b = pointById(scene, obj.b);
+              let bx = 0, by = 0;
+              if (obj.lineTextOffset) { bx = obj.lineTextOffset.dx; by = obj.lineTextOffset.dy; }
+              else if (a && b) {
+                const dx0 = b.x - a.x, dy0 = b.y - a.y;
+                const len = Math.hypot(dx0, dy0) || 1;
+                bx = (-dy0 / len) * 28; by = (dx0 / len) * 28;
+              }
+              setLabelDrag({
+                kind: "segmentText", id: hit.id, startX: p.x, startY: p.y,
+                baseDx: bx, baseDy: by,
               });
             } else if (hit.kind === "angleValue" && obj?.type === "angle") {
               setLabelDrag({

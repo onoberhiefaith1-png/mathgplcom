@@ -130,7 +130,7 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
     let d = a2 - a1;
     while (d <= -Math.PI) d += 2 * Math.PI;
     while (d > Math.PI) d -= 2 * Math.PI;
-    const r = 18;
+    const r = o.arcRadius ?? 18;
     const labelAngle = o.reflex ? a1 + d / 2 + Math.PI : a1 + d / 2;
     const baseLx = v.x + Math.cos(labelAngle) * (r + 12);
     const baseLy = v.y - Math.sin(labelAngle) * (r + 12);
