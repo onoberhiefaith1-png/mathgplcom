@@ -2413,7 +2413,18 @@ function DocumentEditorInner({
                   onRemove={() => removeBox(b.id)}
                 />
               ))}
+
+              {/* The held insertion sensor: shown while focus is on the ribbon
+                  so the teacher always sees where the next insertion lands. */}
+              <SensorCaret
+                editor={editor}
+                pos={sensorPos}
+                hidden={editorFocused}
+                paperLayerRef={paperLayerRef}
+                zoom={zoom}
+              />
             </div>
+
           </PageFrame>
         </div>
         <EmojiPanel
