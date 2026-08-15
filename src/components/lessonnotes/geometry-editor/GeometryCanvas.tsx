@@ -16,6 +16,9 @@ import {
   addCurve, addRegion, addCurvedRegion,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
+import { cycleFromSegments } from "@/lib/geometry/editor/regions";
+import type { HitKind } from "@/lib/geometry/editor/snap";
+
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
 import { useGeometryMode } from "./GeometryModeContext";
 
