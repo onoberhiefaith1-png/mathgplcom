@@ -6822,6 +6822,25 @@ const PresentationView = ({
         host={previewHost}
         onStatus={setMirrorStatus}
       />
+
+      {/* Diagram engines, mounted for the board itself: the geometry dock for
+          2D scenes and the 3D / TVD workspace for solids. Undo/Redo inside the
+          dock drives the board's single action history. */}
+      {isTeacher && (
+        <GeometryEditorPanel onDismiss={() => setEditing2dId(null)} />
+      )}
+      {isTeacher && editing3d && (
+        <Workspace3DDialog
+          open
+          onOpenChange={(open) => { if (!open) setEditing3dId(null); }}
+          initialScene={editing3d.scene}
+          onExport={(scene: Scene3D) => {
+            updateDiagram(editing3d.id, { scene });
+            setEditing3dId(null);
+          }}
+        />
+      )}
+
     </div>
   );
 };
