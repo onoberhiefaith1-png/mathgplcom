@@ -1524,41 +1524,25 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
 
-  /** Ribbon section insertion must NEVER replace selected content. In
-   *  particular, geometry diagrams are selectable atom nodes; if the diagram
-   *  is still selected, plain `insertContent()` replaces it. A new H2 section
-   *  belongs after the current top-level section, so any diagram owned by that
-   *  section remains above the new heading. */
+  /** Sections are inserted AT THE CARET: immediately after the block the
+   *  cursor sits in. Diagrams never move, and nothing jumps to the top of the
+   *  page. When there is no caret yet (e.g. the teacher never clicked in the
+   *  document) we fall back to the end of the document. */
   const sectionInsertPosition = () => {
     if (!editor) return 0;
     const { doc, selection } = editor.state;
-    const anchor = selection.to;
-    let headingPos: number | null = null;
-    let headingLevel = 2;
-
-    doc.descendants((node, pos) => {
-      if (pos > anchor) return false;
-      if (node.type.name === "heading" && (node.attrs.level ?? 6) <= 2) {
-        headingPos = pos;
-        headingLevel = node.attrs.level ?? 2;
+    const caret = lastCaretRef.current ?? selection.to;
+    const anchor = Math.max(0, Math.min(caret, doc.content.size));
+    const $pos = doc.resolve(anchor);
+    // Walk up to the top-level block containing the caret and insert after it.
+    for (let depth = $pos.depth; depth > 0; depth -= 1) {
+      if ($pos.depth - depth === 0 || depth === 1) {
+        return Math.min($pos.after(depth), doc.content.size);
       }
-      return true;
-    });
-
-    // No owning section yet: insert after the current selection, not over it.
-    if (headingPos == null) return Math.min(anchor, doc.content.size);
-
-    let endPos = doc.content.size;
-    doc.descendants((node, pos) => {
-      if (pos <= headingPos!) return true;
-      if (node.type.name === "heading" && (node.attrs.level ?? 6) <= headingLevel) {
-        endPos = pos;
-        return false;
-      }
-      return true;
-    });
-    return Math.min(endPos, doc.content.size);
+    }
+    return Math.min(anchor, doc.content.size);
   };
+
 
   const insertSection = (kind: SectionKind) => {
     if (!editor) return;
