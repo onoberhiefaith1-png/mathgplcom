@@ -1133,7 +1133,7 @@ function DocumentEditorInner({
           }
           return true;
         });
-        insertAt = Math.min(insertAt, editor.state.doc.content.size);
+        insertAt = clampInsideSection(editor.state.doc, anchorHeadingPos, insertAt);
         editor
           .chain()
           .focus()
