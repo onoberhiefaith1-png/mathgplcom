@@ -32,13 +32,17 @@ export function DiagramToolsPanel({ hasSelection = false, pickCount = 0 }: Props
       ? annotationDraft
       : null;
 
-  const needsValue = !!running && running.step === "value" && !running.confirmed;
+  // Text / Angle need a value first; typing one arms the pick step straight
+  // away — no Enter, no submit button.
+  const needsValue = !!running && running.tool !== "smartArea";
+  const armed = !!running && (running.tool === "smartArea" || !!running.value.trim());
   const cancel = () => setTool("select");
 
   const pickHint =
-    running?.tool === "smartText" ? "Select a line, a point, or click blank paper"
-    : running?.tool === "smartAngle" ? `Select two lines · ${Math.min(pickCount, 2)}/2`
+    running?.tool === "smartText" ? "Select line"
+    : running?.tool === "smartAngle" ? "Select line at the intersection"
     : "Select the lines that enclose the region";
+
 
   if (running) {
     return (
