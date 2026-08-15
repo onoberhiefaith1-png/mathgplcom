@@ -1051,6 +1051,59 @@ const PresentationView = ({
   const canUndo = histRef.current.past.length > 0;
   const canRedo = histRef.current.future.length > 0;
 
+  /* ── Diagram actions ──
+     Each helper is one board state change, so it lands as one entry in the
+     unified history above and Undo reverses it like any writing action. */
+  const updateDiagram = useCallback((id: string, patch: Partial<BoardDiagram>) => {
+    setDiagrams((prev) =>
+      prev.map((d) => (d.id === id ? ({ ...d, ...patch } as BoardDiagram) : d)),
+    );
+  }, []);
+  const deleteDiagram = useCallback((id: string) => {
+    setDiagrams((prev) => prev.filter((d) => d.id !== id));
+    setActiveDiagramId((cur) => (cur === id ? null : cur));
+    setEditing2dId((cur) => (cur === id ? null : cur));
+    setEditing3dId((cur) => (cur === id ? null : cur));
+  }, []);
+  const addDiagram2D = useCallback(() => {
+    const d = newBoardDiagram2D(80, 80);
+    setDiagrams((prev) => [...prev, d]);
+    setActiveDiagramId(d.id);
+    setEditing2dId(d.id);
+  }, []);
+  const addDiagram3D = useCallback(() => {
+    const d = newBoardDiagram3D(80, 80);
+    setDiagrams((prev) => [...prev, d]);
+    setActiveDiagramId(d.id);
+    setEditing3dId(d.id);
+  }, []);
+
+  // Mount / unmount the shared geometry dock for the 2D diagram being edited.
+  // Every apply writes straight back into board state, so the drawing the
+  // teacher makes in the dock is the board's own content.
+  const editing2d = diagrams.find((d) => d.id === editing2dId && d.kind === "2d") as
+    | Extract<BoardDiagram, { kind: "2d" }>
+    | undefined;
+  useEffect(() => {
+    if (!editing2d) return;
+    openGeometryEditor({
+      sessionId: editing2d.id,
+      scene: editing2d.scene,
+      onApply: (next: GeometryScene) => updateDiagram(editing2d.id, { scene: next }),
+      history: { undo: doUndo, redo: doRedo },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing2d?.id, editing2d?.scene, updateDiagram]);
+  useEffect(() => {
+    if (!editing2dId) closeGeometryEditor();
+  }, [editing2dId]);
+
+  const editing3d = diagrams.find((d) => d.id === editing3dId && d.kind === "3d") as
+    | Extract<BoardDiagram, { kind: "3d" }>
+    | undefined;
+
+
+
 
   /** Scroll the board one viewport down — the "nest" gesture. The board is
    *  already an infinite scroll surface (minHeight grows past the lowest used
