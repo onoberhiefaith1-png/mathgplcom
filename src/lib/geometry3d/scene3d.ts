@@ -246,21 +246,24 @@ export const DEFAULT_CAMERA: { position: Vec3; target: Vec3 } = {
 };
 
 export const DEFAULT_SETTINGS: Scene3DSettings = {
-  theme: "dark",
+  // The 3D / TVD workspace opens as a clean white teaching canvas.
+  // Teachers can still switch the theme/background to dark at any time.
+  theme: "light",
   showGrid: true,
-  gridColor: "#4c4780",
-  gridOpacity: 0.75,
+  gridColor: "#8d93ad",
+  gridOpacity: 0.6,
   showAxisX: true,
   showAxisY: true,
   showAxisZ: true,
   axisThickness: 2,
   axisLabels: true,
-  backgroundColor: "#0d0b1e",
+  backgroundColor: "#ffffff",
   backgroundBrightness: 1,
   showOrigin: true,
   coordinateLabels: false,
   defaultDisplay: "wireframe",
 };
+
 
 export const LIGHT_BACKGROUND = "#f6f7fb";
 export const DARK_BACKGROUND = "#0d0b1e";
