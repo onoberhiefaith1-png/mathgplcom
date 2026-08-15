@@ -118,6 +118,8 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
+import { sectionEndWithin, clampInsideSection } from "@/lib/lessonnotes/containerRange";
+
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
 
 const SECTION_OPTIONS: SectionKind[] = INSERT_SECTION_OPTIONS;
