@@ -1019,7 +1019,7 @@ function DocumentEditorInner({
       // can never spill into the following section. When a Solution heading
       // exists, stop at it: the heading (and the structure below) survives a
       // regenerate — only the question body is replaced.
-      const sectionEnd = Math.min(liveSectionEnd(info.headingPos), info.sectionEndPos);
+      const sectionEnd = liveSectionEnd(info.headingPos);
       const liveEnd = existingSolution ? Math.min(existingSolution.pos, sectionEnd) : sectionEnd;
       // Preserve diagrams BEFORE we wipe.
       preservedDiagrams = collectDiagrams(start, liveEnd);
