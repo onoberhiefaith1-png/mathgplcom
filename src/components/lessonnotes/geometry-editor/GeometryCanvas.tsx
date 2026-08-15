@@ -12,7 +12,7 @@ import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
 import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
   addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
-  movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel,
+  movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel, eraseStructural,
   addCurve, addRegion, addCurvedRegion,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
@@ -369,7 +369,8 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "erase": {
-        if (hitId) apply(eraseObject(scene, hitId));
+        // Structural erase: only the piece under the pointer goes.
+        if (rawId) apply(eraseStructural(scene, rawId));
         break;
       }
       case "label": {
@@ -471,6 +472,53 @@ export function GeometryCanvas({ editor }: Props) {
         }
         break;
       }
+      case "smartText": {
+        // Click a point → anchored label. Click a line → midpoint label that
+        // rotates with the line. Nothing happens on blank paper.
+        if (!hitId) break;
+        const o = scene.objects.find((x) => x.id === hitId);
+        if (!o) break;
+        if (o.type === "segment") {
+          apply(patchObject(scene, hitId, { labelRotate: true } as any));
+          setInlineEdit({ id: hitId, field: "label", value: (o as any).label ?? "", x: p.x, y: p.y });
+        } else {
+          const field: "label" | "value" | "text" =
+            o.type === "angle" ? "value" : o.type === "label" ? "text" : "label";
+          setInlineEdit({ id: hitId, field, value: (o as any)[field] ?? "", x: p.x, y: p.y });
+        }
+        break;
+      }
+      case "smartAngle": {
+        // Value first, then click the two intersecting lines. The angle is
+        // created at their shared point, internal by default.
+        if (!annotationDraft?.confirmed || !annotationDraft.value.trim()) break;
+        if (!hitId) break;
+        const picked = scene.objects.find((x) => x.id === hitId) as any;
+        if (!picked || (picked.type !== "segment" && picked.type !== "line" && picked.type !== "ray")) break;
+        const next = pendingIds.includes(hitId) ? pendingIds : [...pendingIds, hitId];
+        if (next.length < 2) { setPendingIds(next); break; }
+        setPendingIds([]);
+        const l1 = scene.objects.find((x) => x.id === next[0]) as any;
+        const l2 = scene.objects.find((x) => x.id === next[1]) as any;
+        if (!l1 || !l2) break;
+        const shared = [l1.a, l1.b].find((pid: GeoId) => pid === l2.a || pid === l2.b);
+        if (!shared) break;
+        const armA = l1.a === shared ? l1.b : l1.a;
+        const armB = l2.a === shared ? l2.b : l2.a;
+        const raw = annotationDraft.value.trim();
+        const isRight = /^\s*90\s*°?\s*$/.test(raw);
+        const value = /^-?\d+(\.\d+)?$/.test(raw) ? `${raw}°` : raw;
+        const op = addAngle(scene, shared, armA, armB, value);
+        apply(op);
+        const angId = op.addedIds[0];
+        if (angId) {
+          apply(patchObject(op.scene, angId, {
+            value, marker: isRight ? "right" : "arc", reflex: false,
+          } as any));
+        }
+        break;
+      }
+      case "smartArea":
       case "addArea": {
         // Manual trace: each click adds a boundary point. Straight mode
         // connects them with straight edges; curve mode groups points in
