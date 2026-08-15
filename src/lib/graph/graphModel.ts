@@ -55,16 +55,16 @@ export interface GraphStyle {
 
 export const DEFAULT_GRAPH_STYLE: GraphStyle = {
   background: "#ffffff",
-  axis: "hsl(0 0% 10%)",
+  axis: "#1a1a1a",
   axisWidth: 2,
-  numbers: "hsl(0 0% 35%)",
-  majorGrid: "hsl(0 0% 78%)",
-  minorGrid: "hsl(0 0% 92%)",
+  numbers: "#595959",
+  majorGrid: "#c7c7c7",
+  minorGrid: "#ebebeb",
   minorPerMajor: 5,
-  pointColour: "hsl(220 90% 50%)",
+  pointColour: "#1d4ed8",
   pointShape: "dot",
   pointSize: 3.5,
-  plotColour: "hsl(220 90% 50%)",
+  plotColour: "#1d4ed8",
   plotWidth: 1.75,
 };
 
