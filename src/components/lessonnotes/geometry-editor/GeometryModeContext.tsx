@@ -64,18 +64,18 @@ export function GeometryModeProvider({ children }: { children: ReactNode }) {
     } else if (t === "addAngle") {
       setAnnotationDraft({ tool: t, value: "", confirmed: false, keepLabels: true });
     } else if (t === "smartText") {
-      // Structure-aware: click a point (anchored label) or a line
-      // (midpoint label that rotates with the line).
-      setAnnotationDraft({ tool: t, value: "", confirmed: true });
+      // Value first ("47 cm", "ASB"), then click a line / point / paper.
+      setAnnotationDraft({ tool: t, value: "", confirmed: false, step: "value" });
     } else if (t === "smartAngle") {
       // Value first, then click the two intersecting lines.
-      setAnnotationDraft({ tool: t, value: "", confirmed: false, keepLabels: true });
+      setAnnotationDraft({ tool: t, value: "", confirmed: false, step: "value", keepLabels: true });
     } else if (t === "smartArea") {
       setAnnotationDraft({
-        tool: "smartArea", value: "", confirmed: true,
+        tool: "smartArea", value: "", confirmed: true, step: "pick",
         traceMode: "straight", keepLabels: true,
         fillColor: "#3b82f6", fillOpacity: 0.25,
       });
+
     } else if (t === "addArea") {
       setAnnotationDraft({
         tool: "addArea", value: "", confirmed: true,
