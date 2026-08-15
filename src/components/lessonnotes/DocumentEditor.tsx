@@ -27,6 +27,7 @@ import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
 import { GeometryCanvas } from "./geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "./geometry-editor/useGeometryEditor";
+import { DiagramToolsPanel } from "@/components/lessonnotes/geometry-editor/DiagramToolsPanel";
 import { SelectionInspector } from "./geometry-editor/SelectionInspector";
 import { GeometryDiagram as StaticGeometryDiagram } from "./GeometryDiagram";
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
@@ -1516,27 +1517,6 @@ function DocumentEditorInner({
   // Conversion tool.
   const [conversionOpen, setConversionOpen] = useState(false);
 
-  // Draggable Dustbin — cleans 2D diagram content only.
-  const [dustbinDrag, setDustbinDrag] = useState<{ x: number; y: number } | null>(null);
-  const startDustbinDrag = (e: React.PointerEvent) => {
-    e.preventDefault();
-    setDustbinDrag({ x: e.clientX, y: e.clientY });
-    const move = (ev: PointerEvent) => {
-      setDustbinDrag({ x: ev.clientX, y: ev.clientY });
-      notebookGeometryEraser?.(ev.clientX, ev.clientY);
-    };
-    const up = (ev: PointerEvent) => {
-      notebookGeometryEraser?.(ev.clientX, ev.clientY);
-      setDustbinDrag(null);
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  };
-
-
-
   const insertSymbolText = (s: string) => {
     editor?.chain().focus().insertContent(s).run();
   };
@@ -2217,18 +2197,21 @@ function DocumentEditorInner({
         >
           <ArrowLeftRight className="h-4 w-4" /> Conversion
         </button>
-        {/* Dustbin — drag it onto the page to clean 2D diagram content. */}
+        {/* Erase — a geometry tool: click a single 2D piece to remove it. */}
         <button
           type="button"
-          onPointerDown={startDustbinDrag}
-          title="Dustbin — drag it across the page to clean 2D diagram content"
-          aria-pressed={!!dustbinDrag}
+          onClick={() => {
+            setGeometryMode(true);
+            setGeometryTool(geometryTool === "erase" ? "select" : "erase");
+          }}
+          title="Erase — click a single line, arc or label in a 2D diagram to remove just that piece"
+          aria-pressed={geometryTool === "erase"}
           className={cn(
-            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors touch-none",
-            dustbinDrag ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
+            geometryTool === "erase" ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
           )}
         >
-          <Trash2 className="h-4 w-4" /> Dustbin
+          <Trash2 className="h-4 w-4" /> Erase
         </button>
         <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
         <button
@@ -2365,15 +2348,6 @@ function DocumentEditorInner({
                 />
               ))}
             </div>
-            {dustbinDrag && (
-              <div
-                className="fixed z-[60] pointer-events-none rounded-full bg-primary text-primary-foreground shadow-lg p-3"
-                style={{ left: dustbinDrag.x - 22, top: dustbinDrag.y - 22 }}
-              >
-                <Trash2 className="h-5 w-5" />
-              </div>
-            )}
-
           </PageFrame>
         </div>
         <EmojiPanel
@@ -2572,6 +2546,8 @@ function NotebookGeometryOverlay({
 
   const selected = geometryEditor.selectedObjects[0] ?? null;
   const editorNode = useMemo(() => (
+    <div className="space-y-2">
+    <DiagramToolsPanel />
     <SelectionInspector
       scene={geometryEditor.scene}
       selected={geometryEditor.selectedObjects}
@@ -2579,6 +2555,7 @@ function NotebookGeometryOverlay({
       onApply={(next) => geometryEditor.commit(next)}
       onSelect={(id, kind) => { geometryEditor.setSelectedIds([id]); geometryEditor.setSelectionKind(kind); }}
     />
+    </div>
   ), [geometryEditor.scene, geometryEditor.selectedObjects, geometryEditor.selectionKind]);
   const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
   useRegisterAssetEditor(mode, "notebook-geometry", title, editorNode);
