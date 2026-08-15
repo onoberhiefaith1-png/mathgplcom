@@ -898,24 +898,12 @@ function DocumentEditorInner({
     // bounded by this section's range. Otherwise append at section end.
     const replaceBody = info.action === "regenerate" || isInPlaceEdit(info, prompt);
 
-    /** Re-resolve the live end of this section, so we never delete across
-     *  the next heading even if the doc mutated since `info` was captured. */
-    const liveSectionEnd = (headingPos: number): number => {
-      const doc = editor.state.doc;
-      const headingNode = doc.nodeAt(headingPos);
-      if (!headingNode || headingNode.type.name !== "heading") return headingPos;
-      const level = headingNode.attrs?.level ?? 2;
-      let endPos = doc.content.size;
-      doc.descendants((n, p) => {
-        if (p <= headingPos) return true;
-        if (n.type.name === "heading" && (n.attrs.level ?? 6) <= level) {
-          if (endPos === doc.content.size) endPos = p;
-          return false;
-        }
-        return true;
-      });
-      return endPos;
-    };
+    /** Re-resolve the live end of this section, so we never delete across the
+     *  next heading — and never leave the heading's own container (a free
+     *  canvasFrame or a Solution cell). */
+    const liveSectionEnd = (headingPos: number): number =>
+      sectionEndWithin(editor.state.doc, headingPos);
+
 
     /** Position + size of the Solution heading already living inside this
      *  section, or null. The question body must always be inserted ABOVE it,
