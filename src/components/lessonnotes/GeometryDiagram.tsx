@@ -264,6 +264,16 @@ function renderObject(
       const distOff = (o as any).distanceOffset as { dx: number; dy: number } | undefined;
       const distX = distOff ? mx + distOff.dx : mx - nx * 14;
       const distY = distOff ? my + distOff.dy : my - ny * 14;
+      // Diagram-attached text (right-hand Add Text tool)
+      const lineText = (o as any).lineText as string | undefined;
+      const ltOff = (o as any).lineTextOffset as { dx: number; dy: number } | undefined;
+      const ltX = ltOff ? mx + ltOff.dx : mx + nx * 28;
+      const ltY = ltOff ? my + ltOff.dy : my + ny * 28;
+      const lineAngleDeg = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+      const uprightDeg = (() => {
+        const norm = (lineAngleDeg + 360) % 360;
+        return norm > 90 && norm < 270 ? lineAngleDeg + 180 : lineAngleDeg;
+      })();
       return (
         <g key={o.id}>
           <line
