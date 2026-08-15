@@ -201,8 +201,9 @@ function PanelBody({
         >
           <Sparkles className="h-3 w-3" /> AI Edit
         </button>
-        <button type="button" disabled={!editor.canUndo} onClick={editor.doUndo} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Undo (Ctrl+Z)"><Undo2 className="h-3.5 w-3.5" /></button>
-        <button type="button" disabled={!editor.canRedo} onClick={editor.doRedo} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Redo"><Redo2 className="h-3.5 w-3.5" /></button>
+        <button type="button" disabled={!session.history && !editor.canUndo} onClick={() => (session.history ? session.history.undo() : editor.doUndo())} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Undo (Ctrl+Z)"><Undo2 className="h-3.5 w-3.5" /></button>
+        <button type="button" disabled={!session.history && !editor.canRedo} onClick={() => (session.history ? session.history.redo() : editor.doRedo())} className="p-1 rounded hover:bg-foreground/10 disabled:opacity-30" title="Redo"><Redo2 className="h-3.5 w-3.5" /></button>
+
         <button type="button" onClick={() => editor.commit(rotateScene(editor.scene, 15).scene)} className="p-1 rounded hover:bg-foreground/10" title="Rotate 15°"><RotateCw className="h-3.5 w-3.5" /></button>
         <button type="button" onClick={onClose} className="p-1 rounded hover:bg-foreground/10" aria-label="Close"><X className="h-3.5 w-3.5" /></button>
       </header>
