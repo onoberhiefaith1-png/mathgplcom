@@ -392,7 +392,7 @@ function DocumentEditorInner({
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
   pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
 }: Props) {
-  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
+  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
   // When a school looks through a teacher's workspace the page is identical;
   // the paper simply refuses to change.
   const { viewOnly, allowEdit } = useViewAs();
@@ -1879,6 +1879,34 @@ function DocumentEditorInner({
   /** Click handler on the paper. If user clicked existing TipTap content,
    *  let TipTap handle it natively. If they clicked truly blank paper,
    *  drop a new free-position text box at that point. */
+  /** Double-click on blank paper — anywhere in the (possibly extended) page,
+   *  including below a diagram — opens a free text box at that exact point.
+   *  This works in Geometry Mode too, so the whole page stays writable. */
+  const handlePaperDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const el = eventTargetElement(e.target);
+    if (el?.closest("[data-geometry-diagram-wrapper],[data-canvas-box]")) return;
+    if (isEditorControlTarget(e.target)) return;
+    const editorDom = editor?.view.dom;
+    if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
+    if (geometryTool === "erase") return;
+    spawnCanvasBoxAt(e.clientX, e.clientY);
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const spawnCanvasBoxAt = (clientX: number, clientY: number) => {
+    const layer = paperLayerRef.current;
+    if (!layer) return;
+    const rect = layer.getBoundingClientRect();
+    const z = zoom || 1;
+    const x = Math.max(0, Math.min((clientX - rect.left) / z, rect.width / z - 40));
+    const y = Math.max(0, (clientY - rect.top) / z - 14);
+    const id = `cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    setCanvasBoxes((prev) => [...prev, { id, x, y, text: "" }]);
+    setActiveBoxId(id);
+  };
+
   const handlePaperMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
@@ -2324,6 +2352,7 @@ function DocumentEditorInner({
               ref={paperLayerRef}
               style={{ cursor: "text", flex: 1, minHeight: "60vh", position: "relative" }}
               onMouseDown={handlePaperMouseDown}
+              onDoubleClick={handlePaperDoubleClick}
             >
               <EditorContent editor={editor} />
               {/* Note Extend space lives INSIDE the interaction layer, so the
