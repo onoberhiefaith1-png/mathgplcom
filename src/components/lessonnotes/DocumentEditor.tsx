@@ -1524,38 +1524,58 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
 
-  /** The teacher's last known caret position. Clicking a ribbon button blurs
-   *  the editor, so we remember where the cursor was and insert there. */
+  /** ── The insertion sensor ────────────────────────────────────────────────
+   *  The document caret IS the sensor: it is where every text-based insertion
+   *  lands. Clicking a ribbon button blurs the editor, so we remember the
+   *  position and draw a held marker there, and we only ever move it on a real
+   *  user selection change (never on programmatic/AI/autosave writes). */
   const lastCaretRef = useRef<number | null>(null);
+  const [sensorPos, setSensorPos] = useState<number | null>(null);
+  const [editorFocused, setEditorFocused] = useState(false);
+
+  const rememberSensor = useCallback((pos: number | null) => {
+    lastCaretRef.current = pos;
+    setSensorPos(pos);
+  }, []);
+
   useEffect(() => {
     if (!editor) return;
-    const remember = () => { lastCaretRef.current = editor.state.selection.to; };
+    const remember = () => rememberSensor(editor.state.selection.to);
+    const onFocus = () => { setEditorFocused(true); remember(); };
+    const onBlur = () => setEditorFocused(false);
     editor.on("selectionUpdate", remember);
-    editor.on("update", remember);
+    editor.on("focus", onFocus);
+    editor.on("blur", onBlur);
     return () => {
       editor.off("selectionUpdate", remember);
-      editor.off("update", remember);
+      editor.off("focus", onFocus);
+      editor.off("blur", onBlur);
     };
-  }, [editor]);
+  }, [editor, rememberSensor]);
 
-  /** Sections are inserted AT THE CARET: immediately after the block the
+  /** Sections are inserted AT THE SENSOR: immediately after the block the
    *  cursor sits in. Diagrams never move, and nothing jumps to the top of the
-   *  page. When there is no caret yet (e.g. the teacher never clicked in the
-   *  document) we fall back to the end of the document. */
+   *  page. When there is no sensor yet we fall back to the end of the doc. */
   const sectionInsertPosition = () => {
     if (!editor) return 0;
     const { doc, selection } = editor.state;
     const caret = lastCaretRef.current ?? selection.to;
     const anchor = Math.max(0, Math.min(caret, doc.content.size));
     const $pos = doc.resolve(anchor);
-    // Walk up to the top-level block containing the caret and insert after it.
-    for (let depth = $pos.depth; depth > 0; depth -= 1) {
-      if ($pos.depth - depth === 0 || depth === 1) {
-        return Math.min($pos.after(depth), doc.content.size);
-      }
-    }
-    return Math.min(anchor, doc.content.size);
+    if ($pos.depth === 0) return anchor;
+    // Insert after the top-level block containing the sensor.
+    return Math.min($pos.after(1), doc.content.size);
   };
+
+  /** Park the sensor inside the paragraph that follows a freshly inserted
+   *  heading, so the next insertion continues downward. */
+  const moveSensorAfterInsert = (insertAt: number, headingText: string) => {
+    if (!editor) return;
+    const pos = Math.min(insertAt + headingText.length + 3, editor.state.doc.content.size);
+    editor.chain().focus().setTextSelection(pos).run();
+    rememberSensor(pos);
+  };
+
 
 
   const insertSection = (kind: SectionKind) => {
