@@ -4,6 +4,7 @@ import { Home } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import { useHomepageConfig, resolveMediaUrl } from "@/lib/homepage/homepageConfig";
 import { useProfileSummary } from "@/lib/accounts/useProfileSummary";
+import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
 
 const greeting = () => {
   const hour = new Date().getHours();
@@ -26,9 +27,9 @@ const DashboardHero = ({ blurb, mode = "self" }: { blurb?: string; mode?: "self"
   useEffect(() => {
     let alive = true;
     const ref = config.background ?? null;
-    setKind(ref?.mediaType === "video" ? "video" : "image");
+    setKind(ref?.mediaType === "video" || !ref ? "video" : "image");
     void resolveMediaUrl(ref).then((resolved) => {
-      if (alive) setUrl(resolved);
+      if (alive) setUrl(resolved ?? DEFAULT_BACKGROUND.url);
     });
     return () => {
       alive = false;

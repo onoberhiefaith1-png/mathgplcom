@@ -9,7 +9,7 @@ import { uploadGameAsset, renderPathOf } from "@/lib/games/assets";
 import type { AssetKind, GameAssetRow } from "@/lib/games/types";
 import { useHomepageConfig, type HomepageMediaRef } from "@/lib/homepage/homepageConfig";
 import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
-import adventureClouds from "@/assets/adventure-clouds.png.asset.json";
+import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
 
 /** Change Background — touches the background layer only. */
 const HomepageBackgroundPage = () => {
@@ -92,9 +92,13 @@ const HomepageBackgroundPage = () => {
                 className="absolute inset-0 h-full w-full"
               />
             ) : (
-              <img
-                src={adventureClouds.url}
-                alt="Default homepage background"
+              <video
+                src={DEFAULT_BACKGROUND.url}
+                autoPlay
+                muted
+                loop
+                playsInline
+                aria-hidden
                 className="absolute inset-0 h-full w-full object-cover"
               />
             )}
