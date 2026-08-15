@@ -1619,6 +1619,9 @@ function DocumentEditorInner({
         ...(withSolution ? solutionPlaceholderNodes() : []),
       ])
       .run();
+    moveSensorAfterInsert(insertAt, name);
+
+
 
     // Locate the heading we just inserted and generate its content.
     let headingPos: number | null = null;
