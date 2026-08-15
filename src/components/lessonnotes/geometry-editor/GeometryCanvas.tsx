@@ -165,21 +165,25 @@ export function GeometryCanvas({ editor }: Props) {
     switch (tool) {
       case "select": {
         if (hit) {
-          // Plain click toggles the item in the selection set.
-          // Clicking a different item adds to selection; clicking the same
-          // one again removes it. Empty click clears everything.
-          const already = selectedIds.includes(hit.id);
-          if (already) {
-            const next = selectedIds.filter((id) => id !== hit.id);
+          // One object at a time: a plain click REPLACES the selection with
+          // the object under the pointer, so its properties appear straight
+          // away. Shift-click still builds a multi-object selection for
+          // constraints (equal marks, isosceles, angle-from-two-lines).
+          const additive = e.shiftKey;
+          if (additive) {
+            const next = selectedIds.includes(hit.id)
+              ? selectedIds.filter((id) => id !== hit.id)
+              : [...selectedIds, hit.id];
             setSelectedIds(next);
-            setSelectionKind(next.length ? "segmentBody" : null);
+            setSelectionKind(next.length > 1 ? "segmentBody" : next.length ? hit.kind : null);
           } else {
-            setSelectedIds([...selectedIds, hit.id]);
+            setSelectedIds([hit.id]);
             setSelectionKind(hit.kind);
           }
-          // Prime drag state only when a single item is being manipulated.
+          // Prime drag state on the very first click so labels, points and
+          // measurement chips stay draggable without a second selection pass.
           const obj = scene.objects.find((o) => o.id === hit.id);
-          if (!already && selectedIds.length === 0) {
+          if (!additive) {
             if (hit.kind === "point" && obj?.type === "point") {
               setDragging({ pointId: hit.id });
             } else if (hit.kind === "pointLabel" && obj?.type === "point") {
@@ -215,6 +219,7 @@ export function GeometryCanvas({ editor }: Props) {
         }
         break;
       }
+
       case "move": {
         // Pick a point (or snap to one) and start dragging it
         const target = scene.objects.find((o) => o.type === "point" && Math.hypot(o.x - p.x, o.y - p.y) <= 10) as GeoPoint | undefined;
