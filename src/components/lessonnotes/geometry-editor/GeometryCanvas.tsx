@@ -30,7 +30,19 @@ const PAD = 24;
 
 export function GeometryCanvas({ editor }: Props) {
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
-  const { annotationDraft, setTool: setModeTool } = useGeometryMode();
+  const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
+
+  /**
+   * End a temporary tool workflow: clear picks, return to Select and select
+   * the object that was just created so its properties own the panel.
+   */
+  const finishTool = (ids: GeoId[], kind: HitKind | null) => {
+    setPendingIds([]);
+    setModeTool("select");
+    setSelectedIds(ids);
+    setSelectionKind(ids.length ? kind : null);
+  };
+
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; snap: SnapTarget } | null>(null);
   const [dragging, setDragging] = useState<{ pointId: GeoId } | null>(null);
