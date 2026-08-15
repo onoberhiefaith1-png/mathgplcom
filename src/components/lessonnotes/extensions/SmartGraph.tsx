@@ -33,6 +33,52 @@ export interface GraphOverlay {
   payload?: Record<string, unknown>;
 }
 
+/** A plotted mathematical function, y = expression. */
+export interface GraphFunction {
+  id: string;
+  /** Right-hand side only — the tool always plots y = expression. */
+  expression: string;
+  colour: string;
+  thickness: number;
+  dash: "solid" | "dashed" | "dotted";
+  hidden?: boolean;
+  /** Optional domain restriction. Null / undefined = whole visible space. */
+  domainMin?: number | null;
+  domainMax?: number | null;
+}
+
+/** Presentation-only styling. Never affects the mathematics. */
+export interface GraphStyle {
+  background: string;
+  axis: string;
+  axisWidth: number;
+  numbers: string;
+  majorGrid: string;
+  minorGrid: string;
+  /** Minor grid divisions per centimetre square. */
+  minorPerMajor: number;
+  pointColour: string;
+  pointShape: "dot" | "cross" | "circle";
+  pointSize: number;
+  plotColour: string;
+  plotWidth: number;
+}
+
+export const DEFAULT_GRAPH_STYLE: GraphStyle = {
+  background: "#ffffff",
+  axis: "hsl(0 0% 10%)",
+  axisWidth: 2,
+  numbers: "hsl(0 0% 35%)",
+  majorGrid: "hsl(0 0% 78%)",
+  minorGrid: "hsl(0 0% 92%)",
+  minorPerMajor: 5,
+  pointColour: "hsl(220 90% 50%)",
+  pointShape: "dot",
+  pointSize: 3.5,
+  plotColour: "hsl(220 90% 50%)",
+  plotWidth: 1.75,
+};
+
 export interface SmartGraphAttrs {
   unitsPerSquareX: number;
   unitsPerSquareY: number;
@@ -46,21 +92,33 @@ export interface SmartGraphAttrs {
   connect: ConnectStyle;
   shapes: GraphShape[];
   overlays: GraphOverlay[];
+  functions: GraphFunction[];
+  style: GraphStyle;
+  /** View-only zoom / pan. Mathematics is untouched by these. */
+  viewZoom: number;
+  viewPanX: number;
+  viewPanY: number;
 }
 
 export const DEFAULT_GRAPH: SmartGraphAttrs = {
   unitsPerSquareX: 1,
   unitsPerSquareY: 1,
-  squaresX: 20,
-  squaresY: 14,
-  originSquareX: 10,
-  originSquareY: 7,
+  // Landscape by default — the X axis gets substantially more space.
+  squaresX: 40,
+  squaresY: 16,
+  originSquareX: 20,
+  originSquareY: 8,
   xLabel: "x",
   yLabel: "y",
   points: [],
   connect: "straight",
   shapes: [],
   overlays: [],
+  functions: [],
+  style: DEFAULT_GRAPH_STYLE,
+  viewZoom: 1,
+  viewPanX: 0,
+  viewPanY: 0,
 };
 
 export const SmartGraphNode = Node.create({
@@ -84,8 +142,14 @@ export const SmartGraphNode = Node.create({
       connect: { default: DEFAULT_GRAPH.connect },
       shapes: { default: DEFAULT_GRAPH.shapes },
       overlays: { default: DEFAULT_GRAPH.overlays },
+      functions: { default: DEFAULT_GRAPH.functions },
+      style: { default: DEFAULT_GRAPH.style },
+      viewZoom: { default: DEFAULT_GRAPH.viewZoom },
+      viewPanX: { default: DEFAULT_GRAPH.viewPanX },
+      viewPanY: { default: DEFAULT_GRAPH.viewPanY },
     };
   },
+
 
   parseHTML() {
     return [{ tag: "div[data-smart-graph]" }];
