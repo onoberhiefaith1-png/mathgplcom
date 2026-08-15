@@ -10,7 +10,8 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 
 export interface AnnotationDraft {
-  tool: "addText" | "addDistance" | "addAngle" | "addArea";
+  tool: "addText" | "addDistance" | "addAngle" | "addArea"
+    | "smartText" | "smartAngle" | "smartArea";
   value: string;
   confirmed: boolean;
   /** For addArea only: straight-edge trace or continuous curve trace. */
@@ -57,6 +58,19 @@ export function GeometryModeProvider({ children }: { children: ReactNode }) {
       setAnnotationDraft({ tool: t, value: "", confirmed: false });
     } else if (t === "addAngle") {
       setAnnotationDraft({ tool: t, value: "", confirmed: false, keepLabels: true });
+    } else if (t === "smartText") {
+      // Structure-aware: click a point (anchored label) or a line
+      // (midpoint label that rotates with the line).
+      setAnnotationDraft({ tool: t, value: "", confirmed: true });
+    } else if (t === "smartAngle") {
+      // Value first, then click the two intersecting lines.
+      setAnnotationDraft({ tool: t, value: "", confirmed: false, keepLabels: true });
+    } else if (t === "smartArea") {
+      setAnnotationDraft({
+        tool: "smartArea", value: "", confirmed: true,
+        traceMode: "straight", keepLabels: true,
+        fillColor: "#3b82f6", fillOpacity: 0.25,
+      });
     } else if (t === "addArea") {
       setAnnotationDraft({
         tool: "addArea", value: "", confirmed: true,

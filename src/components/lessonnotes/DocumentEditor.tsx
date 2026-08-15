@@ -27,6 +27,7 @@ import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
 import { GeometryModeProvider, useGeometryMode } from "./geometry-editor/GeometryModeContext";
 import { GeometryCanvas } from "./geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "./geometry-editor/useGeometryEditor";
+import { DiagramToolsPanel } from "@/components/lessonnotes/geometry-editor/DiagramToolsPanel";
 import { SelectionInspector } from "./geometry-editor/SelectionInspector";
 import { GeometryDiagram as StaticGeometryDiagram } from "./GeometryDiagram";
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
@@ -391,7 +392,7 @@ function DocumentEditorInner({
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
   pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
 }: Props) {
-  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool } = useGeometryMode();
+  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
   // When a school looks through a teacher's workspace the page is identical;
   // the paper simply refuses to change.
   const { viewOnly, allowEdit } = useViewAs();
@@ -1516,27 +1517,6 @@ function DocumentEditorInner({
   // Conversion tool.
   const [conversionOpen, setConversionOpen] = useState(false);
 
-  // Draggable Dustbin — cleans 2D diagram content only.
-  const [dustbinDrag, setDustbinDrag] = useState<{ x: number; y: number } | null>(null);
-  const startDustbinDrag = (e: React.PointerEvent) => {
-    e.preventDefault();
-    setDustbinDrag({ x: e.clientX, y: e.clientY });
-    const move = (ev: PointerEvent) => {
-      setDustbinDrag({ x: ev.clientX, y: ev.clientY });
-      notebookGeometryEraser?.(ev.clientX, ev.clientY);
-    };
-    const up = (ev: PointerEvent) => {
-      notebookGeometryEraser?.(ev.clientX, ev.clientY);
-      setDustbinDrag(null);
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  };
-
-
-
   const insertSymbolText = (s: string) => {
     editor?.chain().focus().insertContent(s).run();
   };
@@ -1899,6 +1879,35 @@ function DocumentEditorInner({
   /** Click handler on the paper. If user clicked existing TipTap content,
    *  let TipTap handle it natively. If they clicked truly blank paper,
    *  drop a new free-position text box at that point. */
+  /** Double-click on blank paper — anywhere in the (possibly extended) page,
+   *  including below a diagram — opens a free text box at that exact point.
+   *  This works in Geometry Mode too, so the whole page stays writable. */
+  const handlePaperDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const el = eventTargetElement(e.target);
+    if (el?.closest("[data-geometry-diagram-wrapper],[data-canvas-box]")) return;
+    if (isEditorControlTarget(e.target)) return;
+    const editorDom = editor?.view.dom;
+    if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
+    // Active drawing tools own their own double-click (e.g. finishing a curve).
+    if (geometryMode && geometryTool !== "select") return;
+    spawnCanvasBoxAt(e.clientX, e.clientY);
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const spawnCanvasBoxAt = (clientX: number, clientY: number) => {
+    const layer = paperLayerRef.current;
+    if (!layer) return;
+    const rect = layer.getBoundingClientRect();
+    const z = zoom || 1;
+    const x = Math.max(0, Math.min((clientX - rect.left) / z, rect.width / z - 40));
+    const y = Math.max(0, (clientY - rect.top) / z - 14);
+    const id = `cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    setCanvasBoxes((prev) => [...prev, { id, x, y, text: "" }]);
+    setActiveBoxId(id);
+  };
+
   const handlePaperMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
@@ -2217,18 +2226,21 @@ function DocumentEditorInner({
         >
           <ArrowLeftRight className="h-4 w-4" /> Conversion
         </button>
-        {/* Dustbin — drag it onto the page to clean 2D diagram content. */}
+        {/* Erase — a geometry tool: click a single 2D piece to remove it. */}
         <button
           type="button"
-          onPointerDown={startDustbinDrag}
-          title="Dustbin — drag it across the page to clean 2D diagram content"
-          aria-pressed={!!dustbinDrag}
+          onClick={() => {
+            setGeometryMode(true);
+            setGeometryTool(geometryTool === "erase" ? "select" : "erase");
+          }}
+          title="Erase — click a single line, arc or label in a 2D diagram to remove just that piece"
+          aria-pressed={geometryTool === "erase"}
           className={cn(
-            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors touch-none",
-            dustbinDrag ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
+            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
+            geometryTool === "erase" ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
           )}
         >
-          <Trash2 className="h-4 w-4" /> Dustbin
+          <Trash2 className="h-4 w-4" /> Erase
         </button>
         <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
         <button
@@ -2341,6 +2353,7 @@ function DocumentEditorInner({
               ref={paperLayerRef}
               style={{ cursor: "text", flex: 1, minHeight: "60vh", position: "relative" }}
               onMouseDown={handlePaperMouseDown}
+              onDoubleClick={handlePaperDoubleClick}
             >
               <EditorContent editor={editor} />
               {/* Note Extend space lives INSIDE the interaction layer, so the
@@ -2365,15 +2378,6 @@ function DocumentEditorInner({
                 />
               ))}
             </div>
-            {dustbinDrag && (
-              <div
-                className="fixed z-[60] pointer-events-none rounded-full bg-primary text-primary-foreground shadow-lg p-3"
-                style={{ left: dustbinDrag.x - 22, top: dustbinDrag.y - 22 }}
-              >
-                <Trash2 className="h-5 w-5" />
-              </div>
-            )}
-
           </PageFrame>
         </div>
         <EmojiPanel
@@ -2572,6 +2576,8 @@ function NotebookGeometryOverlay({
 
   const selected = geometryEditor.selectedObjects[0] ?? null;
   const editorNode = useMemo(() => (
+    <div className="space-y-2">
+    <DiagramToolsPanel />
     <SelectionInspector
       scene={geometryEditor.scene}
       selected={geometryEditor.selectedObjects}
@@ -2579,6 +2585,7 @@ function NotebookGeometryOverlay({
       onApply={(next) => geometryEditor.commit(next)}
       onSelect={(id, kind) => { geometryEditor.setSelectedIds([id]); geometryEditor.setSelectionKind(kind); }}
     />
+    </div>
   ), [geometryEditor.scene, geometryEditor.selectedObjects, geometryEditor.selectionKind]);
   const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
   useRegisterAssetEditor(mode, "notebook-geometry", title, editorNode);

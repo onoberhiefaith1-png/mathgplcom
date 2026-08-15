@@ -278,6 +278,15 @@ function renderObject(
             <text x={lblX} y={lblY}
               fontFamily={LABEL_FONT} fontSize={13}
               fill={color} textAnchor="middle"
+              transform={
+                (o as any).labelRotate
+                  ? `rotate(${((Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI + 360) % 360 > 90 &&
+                      ((Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI + 360) % 360 < 270
+                        ? (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI + 180
+                        : (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI
+                    } ${lblX} ${lblY})`
+                  : undefined
+              }
             >
               {o.label}
             </text>

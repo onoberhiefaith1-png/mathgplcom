@@ -25,7 +25,12 @@ export type ToolId =
   | "addText"
   | "addDistance"
   | "addAngle"
-  | "addArea";
+  | "addArea"
+  // Structure-aware annotation tools driven from the right-hand
+  // Diagram Tools panel (they attach to existing geometry).
+  | "smartText"
+  | "smartAngle"
+  | "smartArea";
 
 export type ToolGroup = "draw" | "shape" | "mark" | "measure" | "edit" | "ai" | "annotate";
 

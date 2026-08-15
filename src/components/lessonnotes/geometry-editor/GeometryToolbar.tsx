@@ -39,6 +39,9 @@ const ICONS: Record<ToolId, React.ComponentType<{ className?: string }>> = {
   constraint: Lock,
   rotate: RotateCw,
   sketch: Pencil,
+  smartText: Type,
+  smartAngle: Triangle,
+  smartArea: Pentagon,
 };
 
 const ROOT_KEY = "geometry-editor:toolbar-open";
