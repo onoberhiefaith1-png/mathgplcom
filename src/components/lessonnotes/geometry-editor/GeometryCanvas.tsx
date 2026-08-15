@@ -87,7 +87,11 @@ export function GeometryCanvas({ editor }: Props) {
         commit(s);
       }
       sessionRef.current = null;
+      // Drop any half-finished right-hand Add Area boundary picks so a new
+      // tool starts from a clean slate.
+      if (prev === "smartArea") setPendingIds([]);
     }
+
     prevAnnotationToolRef.current = cur;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [annotationDraft?.tool]);
