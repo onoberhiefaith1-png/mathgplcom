@@ -84,6 +84,59 @@ export function DiagramToolsPanel({ hasSelection = false, pickCount = 0 }: Props
           </div>
         )}
 
+        {running.tool === "smartArea" && (
+          <div className="space-y-1.5">
+            <div>
+              <p className="mb-1 text-[10px] uppercase tracking-wider text-foreground/55">Area Colour</p>
+              <div className="flex items-center gap-1">
+                {AREA_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Area colour ${c}`}
+                    onClick={() => setAnnotationDraft({ ...running, fillColor: c })}
+                    className={cn(
+                      "h-5 w-5 rounded border",
+                      (running.fillColor ?? "#3b82f6").toLowerCase() === c
+                        ? "border-primary ring-1 ring-primary"
+                        : "border-foreground/20",
+                    )}
+                    style={{ background: c }}
+                  />
+                ))}
+                <input
+                  type="color"
+                  aria-label="Custom area colour"
+                  value={running.fillColor ?? "#3b82f6"}
+                  onChange={(e) => setAnnotationDraft({ ...running, fillColor: e.target.value })}
+                  className="h-5 w-6 cursor-pointer rounded border border-foreground/20 bg-transparent p-0"
+                />
+              </div>
+            </div>
+            <div>
+              <div className="mb-0.5 flex items-center justify-between">
+                <p className="text-[10px] uppercase tracking-wider text-foreground/55">Density</p>
+                <span className="text-[10px] text-foreground/60">
+                  {Math.round((running.fillOpacity ?? 0.25) * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min={5}
+                max={100}
+                step={5}
+                value={Math.round((running.fillOpacity ?? 0.25) * 100)}
+                onChange={(e) => setAnnotationDraft({
+                  ...running,
+                  fillOpacity: Number(e.target.value) / 100,
+                })}
+                className="w-full accent-primary"
+              />
+            </div>
+          </div>
+        )}
+
+
         <p className={cn(
           "text-[10.5px] leading-snug",
           armed ? "font-medium text-primary" : "text-foreground/50",
