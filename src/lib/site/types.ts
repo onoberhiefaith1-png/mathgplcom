@@ -35,6 +35,9 @@ export type SiteSectionKind =
   | "video"
   | "panels"
   | "showcase"
+  | "spotlight"
+  | "workflow"
+  | "journey"
   | "cinematic"
   | "compare"
   | "stats"
@@ -43,6 +46,7 @@ export type SiteSectionKind =
   | "demo"
   | "cta"
   | "footer";
+
 
 export interface SiteSection {
   id: string;
@@ -111,20 +115,31 @@ export interface SiteContent {
 }
 
 export const SECTION_TITLES: Record<string, string> = {
-  hook: "01 — Hook (cinematic hero)",
-  curiosity: "02 — Curiosity statement",
-  product: "03 — Product reveal video",
-  what: "04 — What it is (Learn / Interact / Play / Measure)",
-  platform: "05 — Platform showcase",
-  world: "06 — The MathGPL world",
-  transformation: "07 — Transformation",
-  numbers: "08 — By the numbers",
-  audience: "09 — Who it's for",
-  proof: "10 — Social proof",
-  experience: "11 — Experience",
-  final: "12 — Final call to action",
-  footer: "13 — Footer",
+  hook: "01 — Hero",
+  introduction: "02 — Introduction",
+  numbers: "03 — At a glance (live counters)",
+  what: "04 — Four pillars",
+  smartboard: "05 — Smartboard",
+  floating: "06 — Floating Numbers",
+  workflow: "07 — How it all connects",
+  teacher: "08 — Teacher workspace",
+  student: "09 — Student workspace",
+  parent: "10 — Parent connection",
+  reports: "11 — Reports & assessment",
+  payments: "12 — Teach. Earn. Grow.",
+  journey: "13 — The complete journey",
+  proof: "14 — Social proof",
+  final: "15 — Final call to action",
+  footer: "16 — Footer",
+  curiosity: "Curiosity statement (retired)",
+  product: "Product reveal video (retired)",
+  platform: "Platform showcase (retired)",
+  world: "The MathGPL world (retired)",
+  transformation: "Transformation (retired)",
+  audience: "Who it's for (retired)",
+  experience: "Experience (retired)",
 };
+
 
 /** Safe stand-in when site content can't be loaded. */
 export const EMPTY_SITE_CONTENT: SiteContent = {
@@ -196,6 +211,31 @@ export const SECTION_TEMPLATES: SectionTemplate[] = [
     defaultItems: 3,
     fields: { headline: true, subline: true, items: true },
   },
+  {
+    kind: "spotlight",
+    label: "Feature spotlight",
+    description:
+      "One large application screenshot beside a label, headline, short line and optional chips. Alternates side automatically.",
+    defaultItems: 0,
+    fields: { eyebrow: true, headline: true, subline: true, cta: true, media: true, items: true },
+  },
+  {
+    kind: "workflow",
+    label: "Numbered workflow",
+    description:
+      "Numbered steps down the page, each with a title, one supporting line and its own screenshot.",
+    defaultItems: 9,
+    fields: { eyebrow: true, headline: true, subline: true, items: true },
+  },
+  {
+    kind: "journey",
+    label: "Connected journey",
+    description:
+      "A connected flow diagram of chips joined by arrows — no imagery, pure layout and motion.",
+    defaultItems: 13,
+    fields: { eyebrow: true, headline: true, subline: true, cta: true, items: true },
+  },
+
   {
     kind: "cinematic",
     label: "Cinematic media band",
