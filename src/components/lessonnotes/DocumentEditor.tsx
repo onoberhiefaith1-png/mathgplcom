@@ -1524,6 +1524,20 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
 
+  /** The teacher's last known caret position. Clicking a ribbon button blurs
+   *  the editor, so we remember where the cursor was and insert there. */
+  const lastCaretRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!editor) return;
+    const remember = () => { lastCaretRef.current = editor.state.selection.to; };
+    editor.on("selectionUpdate", remember);
+    editor.on("update", remember);
+    return () => {
+      editor.off("selectionUpdate", remember);
+      editor.off("update", remember);
+    };
+  }, [editor]);
+
   /** Sections are inserted AT THE CARET: immediately after the block the
    *  cursor sits in. Diagrams never move, and nothing jumps to the top of the
    *  page. When there is no caret yet (e.g. the teacher never clicked in the
