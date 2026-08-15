@@ -761,7 +761,7 @@ function DocumentEditorInner({
     // The heading must still exist — every position below is anchored to it.
     const anchorNode = editor.state.doc.nodeAt(info.headingPos);
     if (!anchorNode || anchorNode.type.name !== "heading") {
-      toast.error("That section moved or was deleted — click AI on the heading again.");
+      toast({ title: "That section moved or was deleted — click AI on the heading again.", variant: "destructive" });
       return;
     }
     // Always trust a freshly resolved, container-scoped section end over the
