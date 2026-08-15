@@ -81,7 +81,7 @@ interface Session extends OpenGeometryEditorDetail {
   sessionId: string;
 }
 
-export function GeometryEditorPanel() {
+export function GeometryEditorPanel({ onDismiss }: { onDismiss?: () => void } = {}) {
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
@@ -111,10 +111,11 @@ export function GeometryEditorPanel() {
     <PanelBody
       key={session.sessionId}
       session={session}
-      onClose={() => setSession(null)}
+      onClose={() => { setSession(null); onDismiss?.(); }}
     />
   );
 }
+
 
 function PanelBody({
   session,
