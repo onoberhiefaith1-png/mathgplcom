@@ -2002,15 +2002,18 @@ function DocumentEditorInner({
     }
 
     // Free placement — coordinates are paper-local (relative to the note body),
-    // so the sensor stays put while the page scrolls or zooms.
+    // so the sensor stays put while the page scrolls or zooms. A real frame is
+    // created immediately and the caret goes inside it, so the sensor is a full
+    // text editor from the very first keystroke.
     const host = view.dom as HTMLElement;
     const r = host.getBoundingClientRect();
     const z = zoom || 1;
-    setFree({
-      x: Math.max(0, (clientX - r.left) / z),
-      y: Math.max(0, (clientY - r.top) / z),
-    });
+    createFreeFrame(
+      Math.max(0, (clientX - r.left) / z),
+      Math.max(0, (clientY - r.top) / z),
+    );
     return "free";
+
   };
 
   /** Double-click anywhere on the canvas is the primary sensor gesture. */
