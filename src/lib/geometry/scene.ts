@@ -32,6 +32,8 @@ export interface GeoSegment {
   label?: string;
   /** Draggable offset for the segment name label. */
   labelOffset?: { dx: number; dy: number };
+  /** Render the label along the line (rotated with it). */
+  labelRotate?: boolean;
   /** Optional measurement text shown along the segment (legacy). */
   length?: string;
   /** Preferred measurement text (draggable via distanceOffset). */
