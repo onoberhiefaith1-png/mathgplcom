@@ -1241,6 +1241,7 @@ function DocumentEditorInner({
       MathSlot,
       MathStructure,
       MathVisual,
+      CanvasFrame,
       AtCommand.configure({ onChange: setAtState }),
       MathKeyShortcuts,
     ],
