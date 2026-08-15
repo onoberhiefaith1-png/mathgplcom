@@ -1093,7 +1093,10 @@ const PresentationView = ({
       history: { undo: doUndo, redo: doRedo },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing2d?.id, editing2d?.scene, updateDiagram]);
+    // Only the identity of the edited diagram re-opens the dock; scene edits
+    // flow one way (dock → board) so the dock is never reset mid-drawing.
+  }, [editing2dId]);
+
   useEffect(() => {
     if (!editing2dId) closeGeometryEditor();
   }, [editing2dId]);
