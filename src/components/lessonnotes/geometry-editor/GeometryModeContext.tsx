@@ -14,6 +14,10 @@ export interface AnnotationDraft {
     | "smartText" | "smartAngle" | "smartArea";
   value: string;
   confirmed: boolean;
+  /** Which stage of the temporary workflow the panel should render. */
+  step?: "value" | "pick";
+  /** Transient feedback shown inside the workflow card. */
+  notice?: string;
   /** For addArea only: straight-edge trace or continuous curve trace. */
   traceMode?: "straight" | "curve";
   /** For addAngle & addArea: keep temporary construction points after completion. */
@@ -22,6 +26,7 @@ export interface AnnotationDraft {
   fillColor?: string;
   fillOpacity?: number;
 }
+
 
 interface GeometryModeCtx {
   mode: boolean;
@@ -59,18 +64,18 @@ export function GeometryModeProvider({ children }: { children: ReactNode }) {
     } else if (t === "addAngle") {
       setAnnotationDraft({ tool: t, value: "", confirmed: false, keepLabels: true });
     } else if (t === "smartText") {
-      // Structure-aware: click a point (anchored label) or a line
-      // (midpoint label that rotates with the line).
-      setAnnotationDraft({ tool: t, value: "", confirmed: true });
+      // Value first ("47 cm", "ASB"), then click a line / point / paper.
+      setAnnotationDraft({ tool: t, value: "", confirmed: false, step: "value" });
     } else if (t === "smartAngle") {
       // Value first, then click the two intersecting lines.
-      setAnnotationDraft({ tool: t, value: "", confirmed: false, keepLabels: true });
+      setAnnotationDraft({ tool: t, value: "", confirmed: false, step: "value", keepLabels: true });
     } else if (t === "smartArea") {
       setAnnotationDraft({
-        tool: "smartArea", value: "", confirmed: true,
+        tool: "smartArea", value: "", confirmed: true, step: "pick",
         traceMode: "straight", keepLabels: true,
         fillColor: "#3b82f6", fillOpacity: 0.25,
       });
+
     } else if (t === "addArea") {
       setAnnotationDraft({
         tool: "addArea", value: "", confirmed: true,

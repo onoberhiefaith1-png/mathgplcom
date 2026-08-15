@@ -2754,16 +2754,28 @@ function NotebookGeometryOverlay({
   const selected = geometryEditor.selectedObjects[0] ?? null;
   const editorNode = useMemo(() => (
     <div className="space-y-2">
-    <DiagramToolsPanel />
+    <DiagramToolsPanel
+      hasSelection={geometryEditor.selectedObjects.length > 0}
+      pickCount={geometryEditor.pendingIds.length}
+    />
     <SelectionInspector
       scene={geometryEditor.scene}
       selected={geometryEditor.selectedObjects}
+      selectedIds={geometryEditor.selectedIds}
       kind={geometryEditor.selectionKind}
       onApply={(next) => geometryEditor.commit(next)}
       onSelect={(id, kind) => { geometryEditor.setSelectedIds([id]); geometryEditor.setSelectionKind(kind); }}
+      onUndo={geometryEditor.doUndo}
+      onRedo={geometryEditor.doRedo}
+      canUndo={geometryEditor.canUndo}
+      canRedo={geometryEditor.canRedo}
     />
     </div>
-  ), [geometryEditor.scene, geometryEditor.selectedObjects, geometryEditor.selectionKind]);
+  ), [
+    geometryEditor.scene, geometryEditor.selectedObjects, geometryEditor.selectedIds,
+    geometryEditor.selectionKind, geometryEditor.pendingIds, geometryEditor.canUndo, geometryEditor.canRedo,
+  ]);
+
   const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
   useRegisterAssetEditor(mode, "notebook-geometry", title, editorNode);
 

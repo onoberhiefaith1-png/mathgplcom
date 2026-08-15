@@ -16,6 +16,9 @@ import {
   addCurve, addRegion, addCurvedRegion,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
+import { cycleFromSegments } from "@/lib/geometry/editor/regions";
+import type { HitKind } from "@/lib/geometry/editor/snap";
+
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
 import { useGeometryMode } from "./GeometryModeContext";
 
@@ -27,7 +30,19 @@ const PAD = 24;
 
 export function GeometryCanvas({ editor }: Props) {
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
-  const { annotationDraft, setTool: setModeTool } = useGeometryMode();
+  const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
+
+  /**
+   * End a temporary tool workflow: clear picks, return to Select and select
+   * the object that was just created so its properties own the panel.
+   */
+  const finishTool = (ids: GeoId[], kind: HitKind | null) => {
+    setPendingIds([]);
+    setModeTool("select");
+    setSelectedIds(ids);
+    setSelectionKind(ids.length ? kind : null);
+  };
+
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hover, setHover] = useState<{ x: number; y: number; snap: SnapTarget } | null>(null);
   const [dragging, setDragging] = useState<{ pointId: GeoId } | null>(null);
@@ -165,21 +180,25 @@ export function GeometryCanvas({ editor }: Props) {
     switch (tool) {
       case "select": {
         if (hit) {
-          // Plain click toggles the item in the selection set.
-          // Clicking a different item adds to selection; clicking the same
-          // one again removes it. Empty click clears everything.
-          const already = selectedIds.includes(hit.id);
-          if (already) {
-            const next = selectedIds.filter((id) => id !== hit.id);
+          // One object at a time: a plain click REPLACES the selection with
+          // the object under the pointer, so its properties appear straight
+          // away. Shift-click still builds a multi-object selection for
+          // constraints (equal marks, isosceles, angle-from-two-lines).
+          const additive = e.shiftKey;
+          if (additive) {
+            const next = selectedIds.includes(hit.id)
+              ? selectedIds.filter((id) => id !== hit.id)
+              : [...selectedIds, hit.id];
             setSelectedIds(next);
-            setSelectionKind(next.length ? "segmentBody" : null);
+            setSelectionKind(next.length > 1 ? "segmentBody" : next.length ? hit.kind : null);
           } else {
-            setSelectedIds([...selectedIds, hit.id]);
+            setSelectedIds([hit.id]);
             setSelectionKind(hit.kind);
           }
-          // Prime drag state only when a single item is being manipulated.
+          // Prime drag state on the very first click so labels, points and
+          // measurement chips stay draggable without a second selection pass.
           const obj = scene.objects.find((o) => o.id === hit.id);
-          if (!already && selectedIds.length === 0) {
+          if (!additive) {
             if (hit.kind === "point" && obj?.type === "point") {
               setDragging({ pointId: hit.id });
             } else if (hit.kind === "pointLabel" && obj?.type === "point") {
@@ -215,6 +234,7 @@ export function GeometryCanvas({ editor }: Props) {
         }
         break;
       }
+
       case "move": {
         // Pick a point (or snap to one) and start dragging it
         const target = scene.objects.find((o) => o.type === "point" && Math.hypot(o.x - p.x, o.y - p.y) <= 10) as GeoPoint | undefined;
@@ -473,18 +493,28 @@ export function GeometryCanvas({ editor }: Props) {
         break;
       }
       case "smartText": {
-        // Click a point → anchored label. Click a line → midpoint label that
-        // rotates with the line. Nothing happens on blank paper.
-        if (!hitId) break;
-        const o = scene.objects.find((x) => x.id === hitId);
-        if (!o) break;
-        if (o.type === "segment") {
-          apply(patchObject(scene, hitId, { labelRotate: true } as any));
-          setInlineEdit({ id: hitId, field: "label", value: (o as any).label ?? "", x: p.x, y: p.y });
+        // Value first: the text is already typed in the panel. The next click
+        // attaches it — line → rotating midpoint label, point → anchored
+        // label, blank paper → floating label at that spot.
+        if (!annotationDraft?.confirmed || !annotationDraft.value.trim()) break;
+        const text = annotationDraft.value.trim();
+        const o = hitId ? scene.objects.find((x) => x.id === hitId) : null;
+        if (o && o.type === "segment") {
+          apply(patchObject(scene, hitId!, { label: text, labelRotate: true } as any));
+          finishTool([hitId!], "segmentLabel");
+        } else if (o && o.type === "point") {
+          apply(patchObject(scene, hitId!, { label: text } as any));
+          finishTool([hitId!], "pointLabel");
+        } else if (o && o.type === "angle") {
+          apply(patchObject(scene, hitId!, { value: text } as any));
+          finishTool([hitId!], "angleValue");
+        } else if (o && o.type === "label") {
+          apply(patchObject(scene, hitId!, { text } as any));
+          finishTool([hitId!], "label");
         } else {
-          const field: "label" | "value" | "text" =
-            o.type === "angle" ? "value" : o.type === "label" ? "text" : "label";
-          setInlineEdit({ id: hitId, field, value: (o as any)[field] ?? "", x: p.x, y: p.y });
+          const op = addFloatingLabel(scene, p.x, p.y, text);
+          apply(op);
+          finishTool([op.addedIds[0]], "label");
         }
         break;
       }
@@ -497,12 +527,20 @@ export function GeometryCanvas({ editor }: Props) {
         if (!picked || (picked.type !== "segment" && picked.type !== "line" && picked.type !== "ray")) break;
         const next = pendingIds.includes(hitId) ? pendingIds : [...pendingIds, hitId];
         if (next.length < 2) { setPendingIds(next); break; }
-        setPendingIds([]);
         const l1 = scene.objects.find((x) => x.id === next[0]) as any;
         const l2 = scene.objects.find((x) => x.id === next[1]) as any;
-        if (!l1 || !l2) break;
+        if (!l1 || !l2) { setPendingIds([]); break; }
         const shared = [l1.a, l1.b].find((pid: GeoId) => pid === l2.a || pid === l2.b);
-        if (!shared) break;
+        if (!shared) {
+          // Keep the first pick and say why nothing happened.
+          setPendingIds([next[0]]);
+          setAnnotationDraft({
+            ...annotationDraft,
+            notice: "Those two lines don't meet at a shared point — pick a line that touches the first one.",
+          });
+          break;
+        }
+        setPendingIds([]);
         const armA = l1.a === shared ? l1.b : l1.a;
         const armB = l2.a === shared ? l2.b : l2.a;
         const raw = annotationDraft.value.trim();
@@ -515,11 +553,41 @@ export function GeometryCanvas({ editor }: Props) {
           apply(patchObject(op.scene, angId, {
             value, marker: isRight ? "right" : "arc", reflex: false,
           } as any));
+          finishTool([angId], "angle");
+        } else {
+          finishTool([], null);
         }
         break;
       }
-      case "smartArea":
+      case "smartArea": {
+        // Enclosed region: clicks pick LINES. As soon as the picked lines
+        // form a closed cycle the region is created and the tool ends.
+        const fillS = annotationDraft?.fillColor ?? "#3b82f6";
+        const opacityS = annotationDraft?.fillOpacity ?? 0.25;
+        if (!hitId) break;
+        const lo = scene.objects.find((x) => x.id === hitId);
+        if (!lo || lo.type !== "segment") {
+          setAnnotationDraft(annotationDraft ? {
+            ...annotationDraft,
+            notice: "Click the straight lines that enclose the region.",
+          } : annotationDraft);
+          break;
+        }
+        const nextSegs = pendingIds.includes(hitId) ? pendingIds : [...pendingIds, hitId];
+        const cycle = cycleFromSegments(scene, nextSegs);
+        if (cycle) {
+          const op = addRegion(scene, cycle.boundary, { fill: fillS, opacity: opacityS });
+          apply(op);
+          const rgnId = op.addedIds[0];
+          setPendingIds([]);
+          finishTool(rgnId ? [rgnId] : [], rgnId ? "polygon" : null);
+        } else {
+          setPendingIds(nextSegs);
+        }
+        break;
+      }
       case "addArea": {
+
         // Manual trace: each click adds a boundary point. Straight mode
         // connects them with straight edges; curve mode groups points in
         // overlapping triplets so every three clicks draw a curve
@@ -864,8 +932,15 @@ function annotationHintFor(t: ToolId, pending: number): string | null {
       return pending < 3
         ? `Add Area — trace the boundary (${pending} pt${pending === 1 ? "" : "s"})`
         : "Click the starting point or double-click to close";
+    case "smartText":
+      return "Add Text — select a line, a point, or blank paper";
+    case "smartAngle":
+      return pending === 0 ? "Add Angle — select the first line" : "Select the second line";
+    case "smartArea":
+      return `Add Area — select the enclosing lines (${pending} picked)`;
     default:
       return null;
+
   }
 }
 
