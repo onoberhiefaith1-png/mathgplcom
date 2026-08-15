@@ -766,6 +766,28 @@ const PresentationView = ({
     try { localStorage.setItem(BOXES_KEY, JSON.stringify(boxes)); } catch { /* noop */ }
   }, [boxes, BOXES_KEY]);
 
+  /* ── Diagrams on the board (2D geometry + 3D / TVD) ──
+     The board stores scene data and a position only; all drawing/editing is
+     delegated to the existing diagram engines. Scoped by boardScope, so a
+     diagram belongs to the page it was made on and returns on reload. */
+  const DIAGRAMS_KEY = boardKey("diagrams", boardScope);
+  const [diagrams, setDiagrams] = useState<BoardDiagram[]>(() => {
+    try {
+      const raw = localStorage.getItem(DIAGRAMS_KEY);
+      return raw ? sanitizeBoardDiagrams(JSON.parse(raw)) : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(DIAGRAMS_KEY, JSON.stringify(diagrams)); } catch { /* noop */ }
+  }, [diagrams, DIAGRAMS_KEY]);
+  const [activeDiagramId, setActiveDiagramId] = useState<string | null>(null);
+  // The 2D diagram currently open in the geometry dock, and the 3D diagram
+  // currently open in the TVD workspace dialog.
+  const [editing2dId, setEditing2dId] = useState<string | null>(null);
+  const [editing3dId, setEditing3dId] = useState<string | null>(null);
+
+
+
   // "Dot" polyline tool — arm to start a chain. Each board tap adds a
   // point; from the 2nd tap onwards a locked SmartLine is drawn from the
   // previous point to the new one. Chip toggles arm/disarm; chain never
