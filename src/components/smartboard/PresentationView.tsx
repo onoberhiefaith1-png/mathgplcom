@@ -110,7 +110,18 @@ import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } fro
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
-import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon } from "lucide-react";
+import { BoardDiagramLayer } from "./BoardDiagramLayer";
+import {
+  sanitizeBoardDiagrams, newBoardDiagram2D, newBoardDiagram3D, type BoardDiagram,
+} from "@/lib/smartboard/boardDiagrams";
+import {
+  GeometryEditorPanel, openGeometryEditor, closeGeometryEditor,
+} from "@/components/lessonnotes/geometry-editor/GeometryEditorPanel";
+import Workspace3DDialog from "@/components/lessonnotes/geometry3d/Workspace3DDialog";
+import type { GeometryScene } from "@/lib/geometry/scene";
+import type { Scene3D } from "@/lib/geometry3d/scene3d";
+import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes as ShapesIcon } from "lucide-react";
+
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 
