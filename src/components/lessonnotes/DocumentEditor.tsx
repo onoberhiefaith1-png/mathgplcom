@@ -1672,16 +1672,13 @@ function DocumentEditorInner({
     if (!editor) return;
     const name = title.trim();
     if (!name) return;
-    // Always underneath the last existing content/session.
-    const insertAt = sectionInsertPosition();
-
-    editor.chain().focus()
-      .insertContentAt(insertAt, [
-        { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: name }] },
-        { type: "paragraph" },
-        ...(withSolution ? solutionPlaceholderNodes() : []),
-      ])
-      .run();
+    // At the sensor: in the flow, or in a free canvas frame when the sensor is
+    // parked in open space.
+    const insertAt = insertAtSensor([
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: name }] },
+      { type: "paragraph" },
+      ...(withSolution ? solutionPlaceholderNodes() : []),
+    ]);
     moveSensorAfterInsert(insertAt, name);
 
 
