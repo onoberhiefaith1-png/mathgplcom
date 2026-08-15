@@ -5096,6 +5096,22 @@ const PresentationView = ({
           >
             Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
+          {/* Diagram — 2D geometry and 3D / TVD, built straight into the
+              board's own top panel. Both open the existing diagram engines. */}
+          <span className="mx-1 inline-flex items-center gap-1 rounded-md px-1 py-0.5"
+            style={{ background: palette.hoverBg }}>
+            <ShapesIcon className="h-3.5 w-3.5 opacity-70" />
+            <button
+              onClick={addDiagram2D}
+              className="px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Add a 2D geometry diagram to this page"
+            >2D</button>
+            <button
+              onClick={addDiagram3D}
+              className="px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Add a 3D / TVD diagram to this page"
+            >3D</button>
+          </span>
           <button
             onClick={() => setSettingsOpen((v) => !v)}
             className="ml-1 inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-black/5"
@@ -5104,6 +5120,7 @@ const PresentationView = ({
           >
             <SettingsIcon className="h-3.5 w-3.5" />
           </button>
+
         </div>
       </header>
 
