@@ -758,6 +758,16 @@ function DocumentEditorInner({
     if (!editor) return;
     let info = infoIn;
 
+    // The heading must still exist — every position below is anchored to it.
+    const anchorNode = editor.state.doc.nodeAt(info.headingPos);
+    if (!anchorNode || anchorNode.type.name !== "heading") {
+      toast.error("That section moved or was deleted — click AI on the heading again.");
+      return;
+    }
+    // Always trust a freshly resolved, container-scoped section end over the
+    // value captured when the button was clicked.
+    info = { ...info, sectionEndPos: sectionEndWithin(editor.state.doc, info.headingPos) };
+
     // CLEAR: delete the section content (between this heading and the next).
     if (info.action === "clear") {
       if (!info.sectionText) return;
@@ -792,6 +802,7 @@ function DocumentEditorInner({
       );
       info = { ...info, kind: hasSolutionArea ? "example" : "explanation" };
     }
+
 
     const promptBase = sessionTitle
       ? `Teacher's session request: "${sessionTitle}". Generate this section specifically for that request — ` +
