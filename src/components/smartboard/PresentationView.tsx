@@ -5597,6 +5597,26 @@ const PresentationView = ({
             placeholderColor={placeholderColor}
           />
 
+          {/* Diagrams live on the page itself — they scroll with the board and
+              are saved with this page's board scope. */}
+          <BoardDiagramLayer
+            diagrams={diagrams}
+            onChange={setDiagrams}
+            onEdit={(id) => {
+              const d = diagrams.find((x) => x.id === id);
+              if (!d) return;
+              setActiveDiagramId(id);
+              if (d.kind === "3d") setEditing3dId(id);
+              else setEditing2dId(id);
+            }}
+            onDelete={deleteDiagram}
+            activeId={activeDiagramId}
+            onActivate={setActiveDiagramId}
+            editable={!isStudentView}
+          />
+
+
+
           {/* Dot-tool first-point marker — shown after tap 1 until tap 2. */}
           {dotFirst && (
             <div
