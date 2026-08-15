@@ -34,7 +34,12 @@ export interface OpenGeometryEditorDetail {
   /** Stable id so the panel knows whether to swap to a new diagram or
    *  keep editing the current one. Defaults to a fresh id. */
   sessionId?: string;
+  /** When the host owns a unified action history (Smartboard), Undo/Redo in
+   *  this panel drive that history instead of the panel's private stack, so
+   *  the two never compete. Lesson Notes omits this and keeps its own stack. */
+  history?: { undo: () => void; redo: () => void };
 }
+
 
 export interface GeometryEditorSection {
   id: string;
