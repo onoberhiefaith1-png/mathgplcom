@@ -1526,63 +1526,50 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
 
-  /** ── The insertion sensor: master of the lesson-note canvas ──────────────
-   *  The sensor lives on the PAGE, not inside any section. It has two modes:
-   *    • "doc"  — parked inside the flowing note body (a real caret position)
-   *    • "free" — parked at an arbitrary paper coordinate, owned by nothing
-   *  Whatever it inserts lands exactly where it sits: in the flow when in doc
-   *  mode, inside a free-positioned canvas frame when in free mode. */
+  /** ── THE MASTER SENSOR ───────────────────────────────────────────────────
+   *  One sensor, one cursor, two capabilities. The sensor IS the real editor
+   *  caret, so typing, Backspace, selection and arrow movement always behave
+   *  like a proper text editor. Its freedom comes from free frames: parking it
+   *  in open space creates a real, absolutely-positioned frame at that exact
+   *  paper coordinate and drops the caret inside it — above a diagram, beside
+   *  a diagram, in the extended area, anywhere. */
   const lastCaretRef = useRef<number | null>(null);
   const [sensorPos, setSensorPos] = useState<number | null>(null);
   const [editorFocused, setEditorFocused] = useState(false);
-  const [freeSensor, setFreeSensor] = useState<{ x: number; y: number } | null>(null);
-  const freeSensorRef = useRef<{ x: number; y: number } | null>(null);
-
-  const setFree = useCallback((p: { x: number; y: number } | null) => {
-    freeSensorRef.current = p;
-    setFreeSensor(p);
-    if (p) {
-      lastCaretRef.current = null;
-      setSensorPos(null);
-    }
-  }, []);
+  /** Document position of the empty free frame the sensor just created. It is
+   *  removed again if the caret leaves it before anything is typed, so parking
+   *  the sensor around never leaves stray blocks behind. */
+  const pendingFrameRef = useRef<number | null>(null);
 
   const rememberSensor = useCallback((pos: number | null) => {
     lastCaretRef.current = pos;
     setSensorPos(pos);
-    if (pos != null) {
-      freeSensorRef.current = null;
-      setFreeSensor(null);
-    }
   }, []);
 
-  // The sensor position is remembered per note.
-  const sensorStoreKey = notebookId ? `lesson-notes:sensor:${notebookId}` : null;
-  useEffect(() => {
-    if (!sensorStoreKey) return;
-    try {
-      const raw = localStorage.getItem(sensorStoreKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.x === "number" && typeof parsed.y === "number") {
-        freeSensorRef.current = { x: parsed.x, y: parsed.y };
-        setFreeSensor({ x: parsed.x, y: parsed.y });
-      }
-    } catch { /* noop */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sensorStoreKey]);
-  useEffect(() => {
-    if (!sensorStoreKey) return;
-    try {
-      if (freeSensor) localStorage.setItem(sensorStoreKey, JSON.stringify(freeSensor));
-      else localStorage.removeItem(sensorStoreKey);
-    } catch { /* noop */ }
-  }, [sensorStoreKey, freeSensor]);
+  /** Remove the pending free frame when it is still empty and no longer holds
+   *  the caret. */
+  const dropEmptyPendingFrame = useCallback((force = false) => {
+    if (!editor) return;
+    const pos = pendingFrameRef.current;
+    if (pos == null) return;
+    const node = editor.state.doc.nodeAt(pos);
+    if (!node || node.type.name !== "canvasFrame") { pendingFrameRef.current = null; return; }
+    const caret = editor.state.selection.to;
+    const inside = caret > pos && caret < pos + node.nodeSize;
+    if (inside && !force) return;
+    pendingFrameRef.current = null;
+    if (node.textContent.trim().length === 0) {
+      editor.view.dispatch(editor.state.tr.delete(pos, pos + node.nodeSize));
+    }
+  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
-    const remember = () => rememberSensor(editor.state.selection.to);
-    const onFocus = () => { setEditorFocused(true); remember(); };
+    const remember = () => {
+      rememberSensor(editor.state.selection.to);
+      window.setTimeout(() => dropEmptyPendingFrame(), 0);
+    };
+    const onFocus = () => { setEditorFocused(true); rememberSensor(editor.state.selection.to); };
     const onBlur = () => setEditorFocused(false);
     editor.on("selectionUpdate", remember);
     editor.on("focus", onFocus);
@@ -1592,10 +1579,20 @@ function DocumentEditorInner({
       editor.off("focus", onFocus);
       editor.off("blur", onBlur);
     };
-  }, [editor, rememberSensor]);
+  }, [editor, rememberSensor, dropEmptyPendingFrame]);
 
-  /** Doc-mode insertion point: immediately after the block the caret sits in.
-   *  Diagrams never move, and nothing jumps to the top of the page. */
+  // Escape abandons an untouched free frame.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dropEmptyPendingFrame(true);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dropEmptyPendingFrame]);
+
+  /** Insertion point: immediately after the block the sensor sits in — inside
+   *  a free frame when the sensor is parked in one, otherwise at the top level
+   *  of the note. Diagrams never move, and nothing jumps to the top. */
   const sectionInsertPosition = () => {
     if (!editor) return 0;
     const { doc, selection } = editor.state;
@@ -1603,34 +1600,51 @@ function DocumentEditorInner({
     const anchor = Math.max(0, Math.min(caret, doc.content.size));
     const $pos = doc.resolve(anchor);
     if ($pos.depth === 0) return anchor;
-    // Insert after the top-level block containing the sensor.
-    return Math.min($pos.after(1), doc.content.size);
+    let depth = 1;
+    for (let d = 1; d <= $pos.depth; d++) {
+      if ($pos.node(d).type.name === "canvasFrame") depth = d + 1;
+    }
+    depth = Math.min(depth, $pos.depth);
+    return Math.min($pos.after(depth), doc.content.size);
   };
 
-  /** Insert blocks AT THE SENSOR. Free sensor → a canvas frame at that exact
-   *  coordinate; doc sensor → in the flow after the current block. Returns the
-   *  position the content starts at. */
+  /** Create a free frame at a paper coordinate and put the real caret inside
+   *  it. `nodes` defaults to a single empty paragraph (a bare sensor landing
+   *  spot, tracked for cleanup). Returns the position content starts at. */
+  const createFreeFrame = (
+    x: number,
+    y: number,
+    nodes?: Record<string, unknown>[],
+  ): number => {
+    if (!editor) return 0;
+    dropEmptyPendingFrame(true);
+    const host = editor.view.dom as HTMLElement;
+    const avail = Math.max(160, (host.clientWidth || 640) - x - 8);
+    const at = editor.state.doc.content.size;
+    editor.chain().focus()
+      .insertContentAt(at, {
+        type: "canvasFrame",
+        attrs: { x: Math.round(x), y: Math.round(y), w: Math.round(Math.min(420, avail)) },
+        content: nodes && nodes.length ? nodes : [{ type: "paragraph" }],
+      })
+      .run();
+    if (!nodes || !nodes.length) pendingFrameRef.current = at;
+    const inner = Math.min(at + 2, editor.state.doc.content.size);
+    editor.chain().focus().setTextSelection(inner).run();
+    rememberSensor(editor.state.selection.to);
+    return at + 1;
+  };
+
+  /** Insert blocks AT THE SENSOR — the caret is the single source of truth, so
+   *  content lands in the flow or inside the free frame the sensor sits in. */
   const insertAtSensor = (nodes: Record<string, unknown>[]): number => {
     if (!editor) return 0;
-    const free = freeSensorRef.current;
-    if (free) {
-      const at = editor.state.doc.content.size;
-      const host = editor.view.dom as HTMLElement;
-      const avail = Math.max(160, (host.clientWidth || 640) - free.x - 8);
-      editor.chain().focus()
-        .insertContentAt(at, {
-          type: "canvasFrame",
-          attrs: { x: Math.round(free.x), y: Math.round(free.y), w: Math.round(Math.min(420, avail)) },
-          content: nodes,
-        })
-        .run();
-      setFree(null);
-      return at + 1;
-    }
     const at = sectionInsertPosition();
     editor.chain().focus().insertContentAt(at, nodes).run();
+    pendingFrameRef.current = null;
     return at;
   };
+
 
   /** Park the sensor inside the paragraph that follows a freshly inserted
    *  heading, so the next insertion continues downward. */
@@ -1988,15 +2002,18 @@ function DocumentEditorInner({
     }
 
     // Free placement — coordinates are paper-local (relative to the note body),
-    // so the sensor stays put while the page scrolls or zooms.
+    // so the sensor stays put while the page scrolls or zooms. A real frame is
+    // created immediately and the caret goes inside it, so the sensor is a full
+    // text editor from the very first keystroke.
     const host = view.dom as HTMLElement;
     const r = host.getBoundingClientRect();
     const z = zoom || 1;
-    setFree({
-      x: Math.max(0, (clientX - r.left) / z),
-      y: Math.max(0, (clientY - r.top) / z),
-    });
+    createFreeFrame(
+      Math.max(0, (clientX - r.left) / z),
+      Math.max(0, (clientY - r.top) / z),
+    );
     return "free";
+
   };
 
   /** Double-click anywhere on the canvas is the primary sensor gesture. */
@@ -2089,22 +2106,8 @@ function DocumentEditorInner({
     window.addEventListener("mouseup", up);
   };
 
-  /** A free sensor owns the keyboard: the first keystroke (or Enter) creates a
-   *  canvas frame at that exact point and continues typing inside it. */
-  const sensorInputRef = useRef<HTMLInputElement | null>(null);
-  useEffect(() => {
-    if (freeSensor) sensorInputRef.current?.focus({ preventScroll: true });
-  }, [freeSensor]);
 
-  const materialiseSensorFrame = (text: string) => {
-    if (!editor) return;
-    const start = insertAtSensor([{ type: "paragraph" }]);
-    const pos = Math.min(start + 1, editor.state.doc.content.size);
-    const chain = editor.chain().focus().setTextSelection(pos);
-    if (text) chain.insertContent(text);
-    chain.run();
-    rememberSensor(editor.state.selection.to);
-  };
+
 
 
 
@@ -2533,46 +2536,17 @@ function DocumentEditorInner({
                 />
               ))}
 
-              {/* The insertion sensor. In doc mode it is the held caret marker;
-                  in free mode it is a standalone marker at the exact point the
-                  teacher double-clicked, with a hidden input that owns the
-                  keyboard until content is created there. */}
+              {/* The Master Sensor marker — one marker for the one caret. It
+                  keeps the insertion point visible while the teacher uses the
+                  ribbon, wherever the sensor is parked. */}
               <SensorCaret
                 editor={editor}
                 pos={sensorPos}
-                free={freeSensor}
-                hidden={editorFocused && !freeSensor}
+                hidden={editorFocused}
                 paperLayerRef={paperLayerRef}
                 zoom={zoom}
               />
-              {freeSensor && !viewOnly && (
-                <input
-                  ref={sensorInputRef}
-                  data-sensor-input="true"
-                  aria-label="Type here"
-                  value=""
-                  onChange={(e) => {
-                    const t = e.target.value;
-                    if (t) materialiseSensorFrame(t);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); materialiseSensorFrame(""); }
-                    if (e.key === "Escape") setFree(null);
-                  }}
-                  style={{
-                    position: "absolute",
-                    left: freeSensor.x,
-                    top: freeSensor.y,
-                    width: 2,
-                    height: 22,
-                    opacity: 0,
-                    border: 0,
-                    padding: 0,
-                    background: "transparent",
-                    zIndex: 6,
-                  }}
-                />
-              )}
+
 
             </div>
 
@@ -2883,16 +2857,15 @@ function Btn({
 
 function Divider() { return <span className="w-px h-5 bg-foreground/15 mx-1" />; }
 
-/* ─── The insertion sensor: a strong, persistent marker ───
-   Doc mode: keeps the caret position visible when the editor loses focus (e.g.
-   while the teacher uses the ribbon). Free mode: stands alone at an arbitrary
-   paper coordinate — the master insertion point of the canvas. */
+/* ─── The Master Sensor marker ───
+   A single marker that tracks the one caret — whether it sits in the flowing
+   note body or inside a free-positioned frame — so the insertion point stays
+   visible while the teacher works in the ribbon. */
 function SensorCaret({
-  editor, pos, free, hidden, paperLayerRef, zoom,
+  editor, pos, hidden, paperLayerRef, zoom,
 }: {
   editor: Editor | null;
   pos: number | null;
-  free: { x: number; y: number } | null;
   hidden: boolean;
   paperLayerRef: RefObject<HTMLDivElement | null>;
   zoom: number;
@@ -2908,18 +2881,6 @@ function SensorCaret({
       try {
         const rect = layer.getBoundingClientRect();
         const z = zoom || 1;
-        if (free) {
-          // Free coordinates are relative to the note body; translate them into
-          // the interaction layer the marker is rendered in.
-          const host = editor.view.dom as HTMLElement;
-          const hr = host.getBoundingClientRect();
-          setBox({
-            top: (hr.top - rect.top) / z + free.y,
-            left: (hr.left - rect.left) / z + free.x,
-            height: 26,
-          });
-          return;
-        }
         if (pos == null || hidden) { setBox(null); return; }
         const size = editor.state.doc.content.size;
         const at = Math.max(0, Math.min(pos, size));
@@ -2937,7 +2898,8 @@ function SensorCaret({
       window.cancelAnimationFrame(raf);
       window.removeEventListener("resize", measure);
     };
-  }, [editor, pos, free, hidden, paperLayerRef, zoom]);
+  }, [editor, pos, hidden, paperLayerRef, zoom]);
+
 
 
   if (!box) return null;
