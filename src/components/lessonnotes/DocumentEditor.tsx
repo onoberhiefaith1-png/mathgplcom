@@ -93,7 +93,7 @@ import {
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Shapes, Table as TableIcon, LineChart, Calculator,
-  Film, Camera, ArrowLeftRight, Trash2,
+  Film, Camera, ArrowLeftRight,
 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -1524,41 +1524,39 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
 
-  /** Ribbon section insertion must NEVER replace selected content. In
-   *  particular, geometry diagrams are selectable atom nodes; if the diagram
-   *  is still selected, plain `insertContent()` replaces it. A new H2 section
-   *  belongs after the current top-level section, so any diagram owned by that
-   *  section remains above the new heading. */
+  /** The teacher's last known caret position. Clicking a ribbon button blurs
+   *  the editor, so we remember where the cursor was and insert there. */
+  const lastCaretRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!editor) return;
+    const remember = () => { lastCaretRef.current = editor.state.selection.to; };
+    editor.on("selectionUpdate", remember);
+    editor.on("update", remember);
+    return () => {
+      editor.off("selectionUpdate", remember);
+      editor.off("update", remember);
+    };
+  }, [editor]);
+
+  /** Sections are inserted AT THE CARET: immediately after the block the
+   *  cursor sits in. Diagrams never move, and nothing jumps to the top of the
+   *  page. When there is no caret yet (e.g. the teacher never clicked in the
+   *  document) we fall back to the end of the document. */
   const sectionInsertPosition = () => {
     if (!editor) return 0;
     const { doc, selection } = editor.state;
-    const anchor = selection.to;
-    let headingPos: number | null = null;
-    let headingLevel = 2;
-
-    doc.descendants((node, pos) => {
-      if (pos > anchor) return false;
-      if (node.type.name === "heading" && (node.attrs.level ?? 6) <= 2) {
-        headingPos = pos;
-        headingLevel = node.attrs.level ?? 2;
+    const caret = lastCaretRef.current ?? selection.to;
+    const anchor = Math.max(0, Math.min(caret, doc.content.size));
+    const $pos = doc.resolve(anchor);
+    // Walk up to the top-level block containing the caret and insert after it.
+    for (let depth = $pos.depth; depth > 0; depth -= 1) {
+      if ($pos.depth - depth === 0 || depth === 1) {
+        return Math.min($pos.after(depth), doc.content.size);
       }
-      return true;
-    });
-
-    // No owning section yet: insert after the current selection, not over it.
-    if (headingPos == null) return Math.min(anchor, doc.content.size);
-
-    let endPos = doc.content.size;
-    doc.descendants((node, pos) => {
-      if (pos <= headingPos!) return true;
-      if (node.type.name === "heading" && (node.attrs.level ?? 6) <= headingLevel) {
-        endPos = pos;
-        return false;
-      }
-      return true;
-    });
-    return Math.min(endPos, doc.content.size);
+    }
+    return Math.min(anchor, doc.content.size);
   };
+
 
   const insertSection = (kind: SectionKind) => {
     if (!editor) return;
@@ -1590,7 +1588,8 @@ function DocumentEditorInner({
     const name = title.trim();
     if (!name) return;
     // Always underneath the last existing content/session.
-    const insertAt = editor.state.doc.content.size;
+    const insertAt = sectionInsertPosition();
+
     editor.chain().focus()
       .insertContentAt(insertAt, [
         { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: name }] },
@@ -1641,7 +1640,7 @@ function DocumentEditorInner({
     if (!editor) return;
     const name = title.trim();
     if (!name) return;
-    const insertAt = editor.state.doc.content.size;
+    const insertAt = sectionInsertPosition();
     editor.chain().focus()
       .insertContentAt(insertAt, [
         { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: name }] },
@@ -1908,37 +1907,50 @@ function DocumentEditorInner({
     setActiveBoxId(id);
   };
 
+  /** Single click on blank paper — including the Note Extend area and the space
+   *  below/around a diagram — places the normal document caret there, so the
+   *  teacher can just start typing. The whole sheet is one editable document;
+   *  free-position text boxes come from a double-click instead. */
   const handlePaperMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     const el = eventTargetElement(e.target);
     const isGeometryTarget = Boolean(el?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
     if (isEditorControlTarget(e.target) && !isGeometryTarget) return;
 
-    // Geometry Mode turns the whole notebook page into a drawing surface.
-    // The transparent notebook-wide SVG overlay owns all drawing clicks, so
-    // text editing and free text boxes stay inactive until the teacher exits.
-    if (geometryMode) return;
+    // While a drawing tool is active the geometry overlay owns the click.
+    if (geometryMode && geometryTool !== "select") return;
 
-    // If the click was inside the actual TipTap editor DOM, do nothing —
-    // TipTap will place the caret precisely on its own.
+    // Inside the TipTap DOM: TipTap places the caret precisely on its own.
     const editorDom = editor?.view.dom;
     if (el && editorDom && (el === editorDom || editorDom.contains(el))) return;
 
     // Click on an existing canvas box → its own handlers take over.
     if (el && el.closest("[data-canvas-box]")) return;
-
-    const layer = paperLayerRef.current;
-    if (!layer) return;
-    const rect = layer.getBoundingClientRect();
-    const z = zoom || 1;
-    const x = Math.max(0, Math.min((e.clientX - rect.left) / z, rect.width / z - 40));
-    const y = Math.max(0, (e.clientY - rect.top) / z - 14);
+    if (!editor) return;
 
     e.preventDefault();
-    const id = `cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-    setCanvasBoxes((prev) => [...prev, { id, x, y, text: "" }]);
-    setActiveBoxId(id);
+    const view = editor.view;
+    const hit = view.posAtCoords({ left: e.clientX, top: e.clientY });
+    const doc = editor.state.doc;
+
+    if (hit) {
+      editor.chain().focus().setTextSelection(Math.min(hit.pos, doc.content.size)).run();
+      return;
+    }
+
+    // Below the last block (extended page): make sure there is an empty line to
+    // type into, then put the caret in it.
+    const last = doc.lastChild;
+    if (last && last.type.name === "paragraph" && last.content.size === 0) {
+      editor.chain().focus().setTextSelection(doc.content.size - 1).run();
+      return;
+    }
+    editor.chain().focus()
+      .insertContentAt(doc.content.size, { type: "paragraph" })
+      .run();
+    editor.chain().focus().setTextSelection(editor.state.doc.content.size - 1).run();
   };
+
 
   const updateBoxText = (id: string, text: string) =>
     setCanvasBoxes((prev) => prev.map((b) => (b.id === id ? { ...b, text } : b)));
@@ -2226,22 +2238,8 @@ function DocumentEditorInner({
         >
           <ArrowLeftRight className="h-4 w-4" /> Conversion
         </button>
-        {/* Erase — a geometry tool: click a single 2D piece to remove it. */}
-        <button
-          type="button"
-          onClick={() => {
-            setGeometryMode(true);
-            setGeometryTool(geometryTool === "erase" ? "select" : "erase");
-          }}
-          title="Erase — click a single line, arc or label in a 2D diagram to remove just that piece"
-          aria-pressed={geometryTool === "erase"}
-          className={cn(
-            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
-            geometryTool === "erase" ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
-          )}
-        >
-          <Trash2 className="h-4 w-4" /> Erase
-        </button>
+        {/* Erase lives in the Diagram tools panel only — not duplicated here. */}
+
         <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
         <button
           type="button"
