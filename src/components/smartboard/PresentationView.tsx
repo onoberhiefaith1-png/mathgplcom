@@ -5657,8 +5657,8 @@ const PresentationView = ({
               if (!d) return;
               setActiveDiagramId(id);
               if (d.kind === "3d") setEditing3dId(id);
-              else setEditing2dId(id);
             }}
+
             onDelete={deleteDiagram}
             activeId={activeDiagramId}
             onActivate={setActiveDiagramId}
