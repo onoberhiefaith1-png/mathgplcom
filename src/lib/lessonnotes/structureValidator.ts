@@ -231,7 +231,9 @@ export function requiredSlotCount(kind: string, attrs: Record<string, unknown> |
   if (kind === "matrix") {
     const r = Math.max(1, Math.floor(Number(attrs?.rows) || 0));
     const c = Math.max(1, Math.floor(Number(attrs?.cols) || 0));
-    if (r && c) return r * c;
+    // Matrix Power adds one extra editable slot: the exponent placeholder.
+    const power = normaliseFns(attrs?.fns).includes("power") ? 1 : 0;
+    if (r && c) return r * c + power;
   }
   if (kind === "piecewise") {
     const r = Math.max(1, Math.floor(Number(attrs?.rows) || 2));
