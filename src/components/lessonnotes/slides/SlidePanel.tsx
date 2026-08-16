@@ -1,11 +1,11 @@
-// Slide Decks — the presentation workspace of ONE Lesson Note.
-// Deck list: name, open, rename, delete, present.
-// Deck editor: the deck's slides down the side, the open slide's canvas beside
-// them, with Capture / Import image / Import video / Blank canvas.
+// Canvases — the presentation workspace of ONE Lesson Note.
+// A Canvas is a named container; its Slides are the pages the teacher moves
+// through while presenting. The panel is a docked, resizable column inside the
+// workspace layout (never an overlay), so every note control stays reachable.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, Camera, ChevronDown, ChevronUp, FilePlus2, Image as ImageIcon, Play, Plus,
-  Trash2, Video, X,
+  ArrowLeft, Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, FilePlus2,
+  Image as ImageIcon, Play, Plus, Trash2, Video, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Editor } from "@tiptap/react";
@@ -13,9 +13,9 @@ import { SlideCanvas } from "./SlideCanvas";
 import { SlidePlayer } from "./SlidePlayer";
 import { SnipOverlay, type SnipResult } from "./SnipOverlay";
 import {
-  addSlideItem, createDeck, createSlide, deleteDeck, deleteSlide, deleteSlideItem, listDecks,
-  listDeckSlides, listSlideItems, renameDeck, renameSlide, reorderSlides, updateSlideItem,
-  uploadSlideMedia, type Slide, type SlideDeck, type SlideItem,
+  addSlideItem, createCanvas, createSlide, deleteCanvas, deleteSlide, deleteSlideItem,
+  listCanvases, listCanvasSlides, listSlideItems, renameCanvas, renameSlide, reorderSlides,
+  updateSlideItem, uploadSlideMedia, type Slide, type SlideCanvasRecord, type SlideItem,
 } from "@/lib/lessonnotes/slides";
 
 interface Props {
@@ -27,10 +27,20 @@ interface Props {
   onClose: () => void;
 }
 
+const MIN_W = 320;
+
 export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Props) {
-  const [decks, setDecks] = useState<SlideDeck[]>([]);
-  const [deckId, setDeckId] = useState<string | null>(null);
-  const [newDeckName, setNewDeckName] = useState("");
+  const widthKey = `slide-panel-w:${notebookId}`;
+  const [width, setWidth] = useState(() => {
+    if (typeof window === "undefined") return 520;
+    const saved = Number(window.sessionStorage.getItem(`slide-panel-w:${notebookId}`));
+    return saved && saved >= MIN_W ? saved : 520;
+  });
+  const dragging = useRef(false);
+
+  const [canvases, setCanvases] = useState<SlideCanvasRecord[]>([]);
+  const [canvasId, setCanvasId] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
   const [naming, setNaming] = useState(false);
 
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -43,16 +53,44 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   const fileRef = useRef<HTMLInputElement | null>(null);
   const kindRef = useRef<"image" | "video">("image");
 
-  const deck = decks.find((d) => d.id === deckId) ?? null;
+  const canvas = canvases.find((d) => d.id === canvasId) ?? null;
+  const openIndex = slides.findIndex((s) => s.id === openId);
 
-  const refreshDecks = useCallback(async () => {
-    try { setDecks(await listDecks(notebookId)); }
-    catch { toast.error("Could not load slide decks"); }
+  /* ------------------------------------------------------------- resize -- */
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      if (!dragging.current) return;
+      const max = Math.max(MIN_W, window.innerWidth * 0.6);
+      setWidth(Math.min(max, Math.max(MIN_W, window.innerWidth - e.clientX)));
+    };
+    const onUp = () => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") window.sessionStorage.setItem(widthKey, String(width));
+  }, [width, widthKey]);
+
+  /* --------------------------------------------------------------- data -- */
+
+  const refreshCanvases = useCallback(async () => {
+    try { setCanvases(await listCanvases(notebookId)); }
+    catch { toast.error("Could not load canvases"); }
   }, [notebookId]);
 
   const refreshSlides = useCallback(async (id: string) => {
-    try { return setSlides(await listDeckSlides(id)); }
-    catch { toast.error("Could not load the deck's slides"); }
+    try { return setSlides(await listCanvasSlides(id)); }
+    catch { toast.error("Could not load the canvas slides"); }
   }, []);
 
   const refreshItems = useCallback(async (slideId: string) => {
@@ -60,55 +98,55 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     catch { toast.error("Could not load slide content"); }
   }, []);
 
-  useEffect(() => { void refreshDecks(); }, [refreshDecks]);
-  useEffect(() => { if (deckId) void refreshSlides(deckId); }, [deckId, refreshSlides]);
+  useEffect(() => { void refreshCanvases(); }, [refreshCanvases]);
+  useEffect(() => { if (canvasId) void refreshSlides(canvasId); }, [canvasId, refreshSlides]);
   useEffect(() => { if (openId) void refreshItems(openId); }, [openId, refreshItems]);
 
-  /* ------------------------------------------------------------- decks -- */
+  /* ------------------------------------------------------------ canvases -- */
 
-  const addDeck = async () => {
-    const name = newDeckName.trim();
-    if (!name) { toast.error("Give the deck a name first"); return; }
+  const addCanvas = async () => {
+    const name = newName.trim();
+    if (!name) { toast.error("Give the canvas a name first"); return; }
     try {
-      const created = await createDeck(notebookId, name);
+      const created = await createCanvas(notebookId, name);
       const first = await createSlide(notebookId, created.id, "Slide 1");
-      setDecks((d) => [...d, created]);
-      setNewDeckName("");
+      setCanvases((d) => [...d, created]);
+      setNewName("");
       setNaming(false);
       setSlides([first]);
-      setDeckId(created.id);
+      setCanvasId(created.id);
       setOpenId(first.id);
     } catch {
-      toast.error("Could not create the deck");
+      toast.error("Could not create the canvas");
     }
   };
 
-  const openDeck = async (id: string) => {
-    setDeckId(id);
+  const openCanvas = async (id: string) => {
+    setCanvasId(id);
     try {
-      let rows = await listDeckSlides(id);
+      let rows = await listCanvasSlides(id);
       if (!rows.length) rows = [await createSlide(notebookId, id, "Slide 1")];
       setSlides(rows);
       setOpenId(rows[0].id);
     } catch {
-      toast.error("Could not open the deck");
+      toast.error("Could not open the canvas");
     }
   };
 
-  const removeDeck = async (id: string) => {
+  const removeCanvas = async (id: string) => {
     try {
-      await deleteDeck(id);
-      setDecks((d) => d.filter((x) => x.id !== id));
-      if (deckId === id) { setDeckId(null); setOpenId(null); setSlides([]); }
-    } catch { toast.error("Could not delete the deck"); }
+      await deleteCanvas(id);
+      setCanvases((d) => d.filter((x) => x.id !== id));
+      if (canvasId === id) { setCanvasId(null); setOpenId(null); setSlides([]); }
+    } catch { toast.error("Could not delete the canvas"); }
   };
 
-  /* ------------------------------------------------------------ slides -- */
+  /* ------------------------------------------------------------- slides -- */
 
   const addSlide = async () => {
-    if (!deckId) return;
+    if (!canvasId) return;
     try {
-      const slide = await createSlide(notebookId, deckId, `Slide ${slides.length + 1}`);
+      const slide = await createSlide(notebookId, canvasId, `Slide ${slides.length + 1}`);
       setSlides((s) => [...s, slide]);
       setOpenId(slide.id);
       setItems([]);
@@ -130,10 +168,17 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     const next = [...slides];
     [next[index], next[target]] = [next[target], next[index]];
     setSlides(next.map((s, i) => ({ ...s, position: i })));
-    try { await reorderSlides(next); } catch { if (deckId) void refreshSlides(deckId); }
+    try { await reorderSlides(next); } catch { if (canvasId) void refreshSlides(canvasId); }
   };
 
-  /* ------------------------------------------------------------- items -- */
+  const step = (dir: -1 | 1) => {
+    const target = openIndex + dir;
+    if (target < 0 || target >= slides.length) return;
+    setOpenId(slides[target].id);
+    setSelected(null);
+  };
+
+  /* -------------------------------------------------------------- items -- */
 
   const nextStep = () => (items.length ? Math.max(...items.map((i) => i.step)) : 0) + 1;
   const nextZ = () => (items.length ? Math.max(...items.map((i) => i.z)) : 0) + 1;
@@ -161,6 +206,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
         z: nextZ(), step: nextStep(),
       });
       setItems((s) => [...s, item]);
+      setSelected(item.id);
     } catch {
       toast.error("Upload failed");
     } finally {
@@ -228,61 +274,68 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   return (
     <div
       data-slide-chrome="true"
-      className="fixed right-0 top-0 z-[80] flex h-screen w-[38vw] min-w-[420px] flex-col border-l bg-background shadow-2xl"
+      className="relative flex h-full shrink-0 flex-col border-l bg-background"
+      style={{ width, maxWidth: "60%" }}
     >
+      {/* Left-edge resize grip — the note column keeps the remaining width. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        title="Drag to resize the slide panel"
+        onPointerDown={() => { dragging.current = true; document.body.style.userSelect = "none"; }}
+        className="absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-ew-resize bg-transparent hover:bg-primary/40"
+        style={{ touchAction: "none" }}
+      />
+
       <input ref={fileRef} type="file" hidden onChange={handleFile} />
 
       <header className="flex items-center gap-2 border-b px-3 py-2">
-        {deck && (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
+          onClick={onClose}
+          title="Close the slide panel and return to the note"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Exit Slide
+        </button>
+        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
+          {canvas ? `Canvas: ${canvas.name}` : "My Canvases"}
+        </h2>
+        {canvas && (
           <button
             type="button"
             className="rounded p-1.5 hover:bg-muted"
-            onClick={() => { setDeckId(null); setOpenId(null); setSlides([]); }}
-            title="Back to slide decks"
+            onClick={() => { setCanvasId(null); setOpenId(null); setSlides([]); }}
+            title="Back to canvases"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <X className="h-4 w-4" />
           </button>
         )}
-        <h2 className="flex-1 truncate text-sm font-semibold">
-          {deck ? deck.name : "Slide Decks — this lesson note"}
-        </h2>
-        {deck && slides.length > 0 && (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
-            onClick={() => setPresenting(Math.max(0, slides.findIndex((s) => s.id === openId)))}
-          >
-            <Play className="h-3.5 w-3.5" /> Present
-          </button>
-        )}
-        <button type="button" className="rounded p-1.5 hover:bg-muted" onClick={onClose} title="Close slides">
-          <X className="h-4 w-4" />
-        </button>
       </header>
 
-      {!deck ? (
+      {!canvas ? (
         <div className="flex-1 space-y-2 overflow-y-auto p-3">
           {naming ? (
             <div className="flex items-center gap-2 rounded-lg border p-2">
               <input
                 autoFocus
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none"
-                placeholder="Deck name — e.g. Algebra"
-                value={newDeckName}
-                onChange={(e) => setNewDeckName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") void addDeck(); }}
+                placeholder="Canvas name — e.g. Logarithms"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void addCanvas(); }}
               />
               <button
                 type="button"
                 className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
-                onClick={() => void addDeck()}
+                onClick={() => void addCanvas()}
               >
-                Create
+                Create Canvas
               </button>
               <button
                 type="button"
                 className="rounded p-1 hover:bg-muted"
-                onClick={() => { setNaming(false); setNewDeckName(""); }}
+                onClick={() => { setNaming(false); setNewName(""); }}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -293,47 +346,81 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
               onClick={() => setNaming(true)}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-2.5 text-sm font-medium hover:bg-muted"
             >
-              <Plus className="h-4 w-4" /> New slide deck
+              <Plus className="h-4 w-4" /> Create Canvas
             </button>
           )}
 
-          {decks.map((d) => (
+          {canvases.map((d) => (
             <div key={d.id} className="flex items-center gap-1 rounded-lg border px-2 py-1.5">
               <input
                 className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none"
                 value={d.name}
                 onChange={(e) =>
-                  setDecks((all) => all.map((x) => (x.id === d.id ? { ...x, name: e.target.value } : x)))
+                  setCanvases((all) => all.map((x) => (x.id === d.id ? { ...x, name: e.target.value } : x)))
                 }
-                onBlur={(e) => void renameDeck(d.id, e.target.value)}
+                onBlur={(e) => void renameCanvas(d.id, e.target.value)}
               />
               <button
                 type="button"
                 className="rounded px-2 py-1 text-xs font-medium hover:bg-muted"
-                onClick={() => void openDeck(d.id)}
+                onClick={() => void openCanvas(d.id)}
               >
                 Open
               </button>
               <button
                 type="button"
                 className="rounded p-1 text-destructive hover:bg-destructive/10"
-                onClick={() => void removeDeck(d.id)}
-                title="Delete deck"
+                onClick={() => void removeCanvas(d.id)}
+                title="Delete canvas"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
           ))}
 
-          {decks.length === 0 && !naming && (
+          {canvases.length === 0 && !naming && (
             <p className="pt-6 text-center text-xs text-muted-foreground">
-              A slide deck is a named presentation — Algebra, Indices, Logarithms —
-              and belongs to this lesson note only.
+              A Canvas is a named presentation — Algebra, Indices, Logarithms — holding
+              Slide 1, Slide 2, Slide 3… and it belongs to this lesson note only.
             </p>
           )}
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
+          {/* Slide navigation across the pages of this one Canvas. */}
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b px-3 py-1.5">
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              disabled={openIndex <= 0}
+              className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted disabled:opacity-40"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Previous
+            </button>
+            <span className="truncate text-center text-[11px] font-medium tabular-nums text-muted-foreground">
+              Slide {openIndex < 0 ? 0 : openIndex + 1} of {slides.length}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => step(1)}
+                disabled={openIndex < 0 || openIndex >= slides.length - 1}
+                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted disabled:opacity-40"
+              >
+                Next <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+              {slides.length > 0 && (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground"
+                  onClick={() => setPresenting(Math.max(0, openIndex))}
+                >
+                  <Play className="h-3.5 w-3.5" /> Preview
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
             <button type="button" disabled={busy || !openId} onClick={() => setCapturing(true)}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
@@ -349,12 +436,12 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
             </button>
             <button type="button" disabled={busy} onClick={() => void addSlide()}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
-              <FilePlus2 className="h-3.5 w-3.5" /> Blank canvas
+              <FilePlus2 className="h-3.5 w-3.5" /> Add Slide
             </button>
           </div>
 
           <div className="flex min-h-0 flex-1">
-            {/* The deck structure — every slide of this deck. */}
+            {/* The Canvas structure — every slide of this canvas. */}
             <div className="w-40 shrink-0 space-y-1 overflow-y-auto border-r p-2">
               {slides.map((s, i) => (
                 <div
@@ -365,7 +452,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
                     <button
                       type="button"
                       className="min-w-0 flex-1 truncate text-left text-xs font-medium"
-                      onClick={() => setOpenId(s.id)}
+                      onClick={() => { setOpenId(s.id); setSelected(null); }}
                     >
                       {i + 1}. {s.name}
                     </button>
@@ -400,7 +487,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
               ))}
             </div>
 
-            <div className="min-h-0 flex-1 bg-muted/40 p-3">
+            <div className="min-h-0 min-w-0 flex-1 bg-muted/40 p-3">
               {openId ? (
                 <>
                   <div className="h-[calc(100%-2.5rem)]">
@@ -413,8 +500,8 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
                     />
                   </div>
                   <p className="pt-2 text-[11px] leading-snug text-muted-foreground">
-                    Each capture becomes the next reveal step, at its original size — so a worked
-                    line can be revealed piece by piece while presenting.
+                    Each capture becomes the next reveal step, at its original size. Select an
+                    image or video to drag it, resize it from any handle, or fill the slide.
                   </p>
                 </>
               ) : (
@@ -428,9 +515,12 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
       )}
 
       {presenting !== null && (
-        <div className="fixed inset-0 z-[9998]">
-          <SlidePlayer slides={slides} startIndex={presenting} onExit={() => setPresenting(null)} />
-        </div>
+        <SlidePlayer
+          slides={slides}
+          startIndex={presenting}
+          canvasName={canvas?.name}
+          onExit={() => setPresenting(null)}
+        />
       )}
     </div>
   );
