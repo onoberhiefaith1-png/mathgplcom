@@ -23,7 +23,7 @@ export type Node =
   | { kind: "subsup"; rows: Row[] }     // [base, sub, sup]
   | { kind: "bracket"; left: BracketKind; right: BracketKind; rows: Row[] } // [body]
   | { kind: "bigop"; op: "sum" | "prod" | "int" | "oint" | "lim"; rows: Row[] } // [body, lower, upper]
-  | { kind: "matrix"; nRows: number; nCols: number; left: string; right: string; rows: Row[] }
+  | { kind: "matrix"; nRows: number; nCols: number; left: string; right: string; fns?: string[]; rows: Row[] }
   | { kind: "accent"; symbol: string; rows: Row[] } // [body]
   | { kind: "binom"; rows: Row[] }      // [top, bot]
   | { kind: "box"; rows: Row[] };       // [body] — single empty slot rendered as outlined cell, top-aligned
@@ -55,10 +55,15 @@ export const mkCeil = (): Node => mkBracket("⌈", "⌉");
 export const mkBigOp = (op: "sum" | "prod" | "int" | "oint" | "lim"): Node =>
   ({ kind: "bigop", op, rows: [[], [], []] });
 export const mkMatrix = (
-  nRows: number, nCols: number, left = "(", right = ")",
+  nRows: number, nCols: number, left = "(", right = ")", fns: string[] = [],
 ): Node => ({
   kind: "matrix", nRows, nCols, left, right,
-  rows: Array.from({ length: nRows * nCols }, () => [] as Row),
+  ...(fns.length ? { fns } : {}),
+  // Matrix Power owns one extra sub-row at the end: the exponent slot.
+  rows: Array.from(
+    { length: nRows * nCols + (fns.includes("power") ? 1 : 0) },
+    () => [] as Row,
+  ),
 });
 export const mkAccent = (symbol: string): Node =>
   ({ kind: "accent", symbol, rows: [[]] });
