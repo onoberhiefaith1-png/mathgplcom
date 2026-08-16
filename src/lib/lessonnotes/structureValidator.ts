@@ -8,6 +8,7 @@
 // teacher typed is preserved.
 
 import type { Node as PMNode } from "@tiptap/pm/model";
+import { normaliseFns } from "@/lib/lessonnotes/matrixFunctions";
 
 export interface SlotJson {
   type: "mathSlot";
@@ -101,7 +102,11 @@ export function validateStructure(input: StructureJson): ValidationResult {
     rows = Math.max(1, Math.min(64, rows));
     cols = Math.max(1, Math.min(64, cols));
 
-    const needed = rows * cols;
+    // Notation functions are pure metadata; Matrix Power also owns one
+    // extra slot at the end (the exponent placeholder).
+    const fns = normaliseFns(rawAttrs.fns);
+    const powerSlot = fns.includes("power") ? 1 : 0;
+    const needed = rows * cols + powerSlot;
     if (slots.length !== needed) changed = true;
     const nextSlots = reshapeSlots(slots, needed);
 
@@ -109,6 +114,8 @@ export function validateStructure(input: StructureJson): ValidationResult {
     if (!BRACKET_ALLOWED.has(br)) { br = "("; changed = true; }
 
     const nextAttrs: Record<string, unknown> = { rows, cols, br };
+    if (fns.length) nextAttrs.fns = fns;
+    if (JSON.stringify(normaliseFns(rawAttrs.fns)) !== JSON.stringify(rawAttrs.fns ?? [])) changed = true;
     if (typeof rawAttrs.divider === "number") {
       const d = Math.max(1, Math.min(cols - 1, Math.floor(rawAttrs.divider)));
       if (cols >= 2) nextAttrs.divider = d;
@@ -231,7 +238,9 @@ export function requiredSlotCount(kind: string, attrs: Record<string, unknown> |
   if (kind === "matrix") {
     const r = Math.max(1, Math.floor(Number(attrs?.rows) || 0));
     const c = Math.max(1, Math.floor(Number(attrs?.cols) || 0));
-    if (r && c) return r * c;
+    // Matrix Power adds one extra editable slot: the exponent placeholder.
+    const power = normaliseFns(attrs?.fns).includes("power") ? 1 : 0;
+    if (r && c) return r * c + power;
   }
   if (kind === "piecewise") {
     const r = Math.max(1, Math.floor(Number(attrs?.rows) || 2));

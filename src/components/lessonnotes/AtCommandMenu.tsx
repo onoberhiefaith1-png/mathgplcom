@@ -123,9 +123,10 @@ export function AtCommandMenu({ editor, state, onClose }: Props) {
     if (!editor || !matrixDialog) return;
     const attrs: Record<string, unknown> = { rows: r.rows, cols: r.cols, br: r.br };
     if (typeof r.divider === "number") attrs.divider = r.divider;
+    if (r.fns?.length) attrs.fns = r.fns;
     const asset: AssetDef = {
       ...matrixDialog.asset,
-      render: { kind: "structure", structure: "matrix", slots: r.rows * r.cols, attrs },
+      render: { kind: "structure", structure: "matrix", slots: r.rows * r.cols + (r.power ? 1 : 0), attrs },
     };
     insertAsset(editor, asset, matrixDialog.range.from, matrixDialog.range.to);
     if (r.template === "identity") {

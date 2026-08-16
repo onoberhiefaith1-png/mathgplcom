@@ -41,7 +41,6 @@ import { AtCommand, type AtCommandState } from "./extensions/AtCommand";
 import { MathKeyShortcuts } from "./extensions/MathKeyShortcuts";
 import { AtCommandMenu } from "./AtCommandMenu";
 import { AssetLibraryDialog } from "./AssetLibraryDialog";
-import { MatrixToolbar } from "./MatrixToolbar";
 import { LayoutGrid } from "lucide-react";
 import { StepAnimationNode, type AnimationFrame } from "./extensions/StepAnimation";
 import { MathTablesPicker } from "./math-tools/MathTablesPicker";
@@ -2582,7 +2581,6 @@ function DocumentEditorInner({
       <AtCommandMenu editor={editor} state={atState} onClose={() => setAtState({ active: false, query: "", from: 0, to: 0, coords: null })} />
       <AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />
       <ConversionPanel open={conversionOpen} onOpenChange={setConversionOpen} onInsert={insertSymbolText} />
-      <MatrixToolbar editor={editor} />
       <GeometryAiPanel />
       <GeometryToolbox />
 

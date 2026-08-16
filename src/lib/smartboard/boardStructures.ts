@@ -13,6 +13,9 @@ export interface BoardStructureTemplate {
   title: string;
   group: "core" | "powers" | "brackets" | "calculus" | "linear" | "discrete";
   build: () => Node;
+  /** When set, tapping the chip opens the Matrix Builder first
+   *  (dimension → bracket → functions → create). */
+  dialog?: "matrix";
 }
 
 export const BOARD_STRUCTURES: BoardStructureTemplate[] = [
@@ -47,9 +50,13 @@ export const BOARD_STRUCTURES: BoardStructureTemplate[] = [
   { id: "vec",  label: "→x", title: "Vector", group: "linear", build: () => mkAccent("→") },
   { id: "hat",  label: "x̂",  title: "Hat",    group: "linear", build: () => mkAccent("^") },
   { id: "bar",  label: "x̄",  title: "Bar",    group: "linear", build: () => mkAccent("‾") },
-  { id: "mat2", label: "[2×2]", title: "2×2 matrix",       group: "linear", build: () => mkMatrix(2, 2, "(", ")") },
-  { id: "mat3", label: "[3×3]", title: "3×3 matrix",       group: "linear", build: () => mkMatrix(3, 3, "(", ")") },
-  { id: "det2", label: "|2×2|", title: "2×2 determinant",  group: "linear", build: () => mkMatrix(2, 2, "|", "|") },
+  // ONE matrix entry. Dimension, bracket and functions are all chosen in
+  // the builder before insertion — the board never shows a matrix
+  // configuration toolbar.
+  {
+    id: "matrix", label: "Matrix", title: "Matrix builder — dimension, bracket, functions",
+    group: "linear", dialog: "matrix", build: () => mkMatrix(2, 2, "(", ")"),
+  },
 
   // — Discrete / combinatorics —
   { id: "binom", label: "(ⁿₖ)", title: "Binomial coefficient", group: "discrete", build: () => mkBinom() },

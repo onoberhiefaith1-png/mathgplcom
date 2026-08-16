@@ -19,6 +19,7 @@ import { SLOT_GLYPH } from "@/lib/smartboard/mathTree";
 import { ConnectedRadical } from "@/components/math/ConnectedRadical";
 import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 import { SmartboardPlaceholderSlot } from "./SmartboardPlaceholderSlot";
+import { composeNotation, normaliseFns } from "@/lib/lessonnotes/matrixFunctions";
 
 interface Common {
   cursor: Cursor;
@@ -299,16 +300,34 @@ const MatrixView = ({
     }
     cells.push(<span key={r} style={{ display: "flex", justifyContent: "space-around" }}>{rowCells}</span>);
   }
+  // Notation only — no calculation ever happens here.
+  const nota = composeNotation(normaliseFns(node.fns));
+  const powerIdx = node.nRows * node.nCols;
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", verticalAlign: "middle",
       margin: "0.22em 0.15em", lineHeight: 1.1,
     }}>
-      {node.left && <BracketGlyph kind={node.left} side="L" heightCss={bodyH} />}
-      <span ref={ref} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "center" }}>
-        {cells}
+      {nota.norm && <BracketGlyph kind="‖" side="L" heightCss={bodyH} />}
+      {nota.prefix && <span style={{ paddingRight: 3 }}>{nota.prefix}</span>}
+      {node.left && <BracketGlyph kind={node.left as any} side="L" heightCss={bodyH} />}
+      <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "stretch" }}>
+        {nota.overline && <span style={{ borderTop: "1.5px solid currentColor", height: 0 }} />}
+        <span ref={ref} style={{ display: "inline-flex", flexDirection: "column", justifyContent: "center" }}>
+          {cells}
+        </span>
       </span>
-      {node.right && <BracketGlyph kind={node.right} side="R" heightCss={bodyH} />}
+      {node.right && <BracketGlyph kind={node.right as any} side="R" heightCss={bodyH} />}
+      {(nota.sup || nota.power) && (
+        <span style={{ display: "inline-flex", alignItems: "flex-start", alignSelf: "flex-start", fontSize: "0.6em" }}>
+          {nota.sup}
+          {nota.power && (
+            <RowView row={node.rows[powerIdx] ?? []} path={[...parentPath, idxInRow, powerIdx]}
+              cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
+          )}
+        </span>
+      )}
+      {nota.norm && <BracketGlyph kind="‖" side="R" heightCss={bodyH} />}
       <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
     </span>
   );
