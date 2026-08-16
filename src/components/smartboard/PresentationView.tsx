@@ -6932,6 +6932,38 @@ const PresentationView = ({
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
       </div>
+      {/* BOARD 2 — the independent tools board. Slides in from the right; its
+          content never mixes with Board 1's. */}
+      {isTeacher && !assessmentMode && (
+        <div
+          className="absolute inset-0"
+          style={{
+            transform: activeBoard === "tools" ? "translateX(0)" : "translateX(100%)",
+            transition: "transform 320ms ease",
+            willChange: "transform",
+            zIndex: 45,
+          }}
+        >
+          <ToolsBoard
+            storageKey={BOARD2_KEY}
+            notebookId={notebookId}
+            editable={isTeacher}
+            active={activeBoard === "tools"}
+            ink={ink}
+            onReturn={() => setActiveBoard("main")}
+            palette={{
+              chromeBg: palette.chromeBg,
+              chromeFg: palette.chromeFg,
+              chromeBorder: palette.chromeBorder,
+              hoverBg: palette.hoverBg,
+              dark: isDark,
+              background: palette.background,
+              ink: palette.ink,
+            }}
+          />
+        </div>
+      )}
+      </div>
       </SmartboardRootContext.Provider>
       {/* Headless Preview Channel runner — renders nothing. One preview
           click = one deterministic board write through the independent
