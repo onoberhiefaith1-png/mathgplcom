@@ -1229,7 +1229,17 @@ function DocumentEditorInner({
     toast({ title: "Animation started", description: "Edit, then press Capture Step again to add the next frame." });
   };
 
+  // ONE ENGINE: before anything reaches the editor, every line that carries
+  // mathematics is re-grouped into a single full-line math object drawn by
+  // `renderMathInline` — the AI Edit renderer. Legacy notes fragmented into
+  // many atoms heal themselves here, so no seam-gaps and no raw markup.
+  const normalizedDoc = useMemo(
+    () => repairDocumentMath(sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC).doc,
+    [documentJson],
+  );
+
   const [atState, setAtState] = useState<AtCommandState>({ active: false, query: "", from: 0, to: 0, coords: null });
+
   const [assetLibOpen, setAssetLibOpen] = useState(false);
 
 
