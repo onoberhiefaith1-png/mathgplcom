@@ -110,9 +110,15 @@ import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } fro
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
-import { BoardDiagramLayer } from "./BoardDiagramLayer";
+import { BoardToolLayer } from "./BoardToolLayer";
+import { FloatingToolLayer } from "./FloatingToolLayer";
+import { MathTablesPicker } from "@/components/lessonnotes/math-tools/MathTablesPicker";
+import { SmartCalculatorBody } from "@/components/lessonnotes/math-tools/SmartCalculator";
+import { ConversionBody } from "@/components/lessonnotes/ConversionPanel";
+import type { MathTableAttrs } from "@/components/lessonnotes/extensions/MathTable";
 import {
-  sanitizeBoardDiagrams, newBoardDiagram2D, newBoardDiagram3D, type BoardDiagram,
+  sanitizeBoardDiagrams, newBoardDiagram2D, newBoardDiagram3D,
+  newBoardGraph, newBoardTable, type BoardDiagram,
 } from "@/lib/smartboard/boardDiagrams";
 import {
   GeometryEditorPanel, openGeometryEditor, closeGeometryEditor,
@@ -120,7 +126,9 @@ import {
 import Workspace3DDialog from "@/components/lessonnotes/geometry3d/Workspace3DDialog";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import type { Scene3D } from "@/lib/geometry3d/scene3d";
-import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes as ShapesIcon } from "lucide-react";
+import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes as ShapesIcon,
+  Table as TableIcon, LineChart as LineChartIcon, Calculator as CalculatorIcon,
+  ArrowLeftRight as ArrowLeftRightIcon } from "lucide-react";
 
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
@@ -785,6 +793,11 @@ const PresentationView = ({
   // currently open in the TVD workspace dialog.
   const [editing2dId, setEditing2dId] = useState<string | null>(null);
   const [editing3dId, setEditing3dId] = useState<string | null>(null);
+  // Mathematical Tables picker, and the two floating utility workspaces
+  // (Calculator, Conversion) which are used but never merged into the page.
+  const [boardTablesOpen, setBoardTablesOpen] = useState(false);
+  const [calcFloat, setCalcFloat] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [convFloat, setConvFloat] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
 
 
@@ -1070,6 +1083,16 @@ const PresentationView = ({
     setDiagrams((prev) => [...prev, d]);
     setActiveDiagramId(d.id);
     setEditing2dId(d.id);
+  }, []);
+  const addBoardGraph = useCallback(() => {
+    const g = newBoardGraph(80, 80);
+    setDiagrams((prev) => [...prev, g]);
+    setActiveDiagramId(g.id);
+  }, []);
+  const addBoardTable = useCallback((attrs: MathTableAttrs) => {
+    const t = newBoardTable(100, 100, attrs);
+    setDiagrams((prev) => [...prev, t]);
+    setActiveDiagramId(t.id);
   }, []);
   const addDiagram3D = useCallback(() => {
     const d = newBoardDiagram3D(80, 80);
@@ -5115,6 +5138,31 @@ const PresentationView = ({
               title="Add a 3D / TVD diagram to this page"
             >3D</button>
           </span>
+          {/* The Lesson Note tools, floating above the board: Tables, Graph,
+              Calculator, Conversion. The board's writing surface is untouched. */}
+          <span className="inline-flex items-center gap-0.5 rounded-md px-1 py-0.5"
+            style={{ background: palette.hoverBg }}>
+            <button
+              onClick={() => setBoardTablesOpen(true)}
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Mathematical tables (logs, sines, statistical…)"
+            ><TableIcon className="h-3.5 w-3.5" /> Tables</button>
+            <button
+              onClick={addBoardGraph}
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Add a graph workspace to this page"
+            ><LineChartIcon className="h-3.5 w-3.5" /> Graph</button>
+            <button
+              onClick={() => setCalcFloat((c) => c ?? { x: 120, y: 120, w: 420, h: 520 })}
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Open the calculator workspace"
+            ><CalculatorIcon className="h-3.5 w-3.5" /> Calc</button>
+            <button
+              onClick={() => setConvFloat((c) => c ?? { x: 160, y: 160, w: 620, h: 480 })}
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Open the conversion workspace"
+            ><ArrowLeftRightIcon className="h-3.5 w-3.5" /> Conversion</button>
+          </span>
           <button
             onClick={() => setSettingsOpen((v) => !v)}
             className="ml-1 inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-black/5"
@@ -5602,7 +5650,7 @@ const PresentationView = ({
 
           {/* Diagrams live on the page itself — they scroll with the board and
               are saved with this page's board scope. */}
-          <BoardDiagramLayer
+          <BoardToolLayer
             diagrams={diagrams}
             onChange={setDiagrams}
             onEdit={(id) => {
@@ -5616,6 +5664,13 @@ const PresentationView = ({
             activeId={activeDiagramId}
             onActivate={setActiveDiagramId}
             editable={isTeacher}
+            palette={{
+              chromeBg: palette.chromeBg,
+              chromeFg: palette.chromeFg,
+              chromeBorder: palette.chromeBorder,
+              hoverBg: palette.hoverBg,
+              dark: isDark,
+            }}
           />
 
 
@@ -6842,6 +6897,81 @@ const PresentationView = ({
             setEditing3dId(null);
           }}
         />
+      )}
+
+      {/* Mathematical Tables — the Lesson Note picker, inserting the generated
+          table as a floating board object. */}
+      {isTeacher && (
+        <MathTablesPicker
+          open={boardTablesOpen}
+          onOpenChange={setBoardTablesOpen}
+          onInsert={(attrs) => addBoardTable(attrs)}
+        />
+      )}
+
+      {/* Calculator + Conversion — floating utility workspaces. They are used
+          and closed; nothing merges into the page. */}
+      {isTeacher && (calcFloat || convFloat) && (
+        <div className="absolute inset-0" style={{ pointerEvents: "none", zIndex: 60 }}>
+          {calcFloat && (
+            <FloatingToolLayer
+              title="Calculator"
+              icon={<CalculatorIcon className="h-3 w-3" />}
+              x={calcFloat.x}
+              y={calcFloat.y}
+              width={calcFloat.w}
+              height={calcFloat.h}
+              editable
+              solidBody
+              minWidth={300}
+              minHeight={280}
+              palette={{
+                chromeBg: palette.chromeBg,
+                chromeFg: palette.chromeFg,
+                chromeBorder: palette.chromeBorder,
+                hoverBg: palette.hoverBg,
+                dark: isDark,
+              }}
+              onGeometry={(g) => setCalcFloat((c) => c && {
+                x: g.x ?? c.x, y: g.y ?? c.y, w: g.width ?? c.w, h: g.height ?? c.h,
+              })}
+              onClose={() => setCalcFloat(null)}
+            >
+              <div className="p-2">
+                <SmartCalculatorBody onInsertWorking={() => { /* board keeps working on the board */ }} />
+              </div>
+            </FloatingToolLayer>
+          )}
+          {convFloat && (
+            <FloatingToolLayer
+              title="Conversion"
+              icon={<ArrowLeftRightIcon className="h-3 w-3" />}
+              x={convFloat.x}
+              y={convFloat.y}
+              width={convFloat.w}
+              height={convFloat.h}
+              editable
+              solidBody
+              minWidth={360}
+              minHeight={260}
+              palette={{
+                chromeBg: palette.chromeBg,
+                chromeFg: palette.chromeFg,
+                chromeBorder: palette.chromeBorder,
+                hoverBg: palette.hoverBg,
+                dark: isDark,
+              }}
+              onGeometry={(g) => setConvFloat((c) => c && {
+                x: g.x ?? c.x, y: g.y ?? c.y, w: g.width ?? c.w, h: g.height ?? c.h,
+              })}
+              onClose={() => setConvFloat(null)}
+            >
+              <div className="p-3">
+                <ConversionBody />
+              </div>
+            </FloatingToolLayer>
+          )}
+        </div>
       )}
 
     </div>

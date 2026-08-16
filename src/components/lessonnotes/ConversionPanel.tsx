@@ -20,6 +20,27 @@ interface Props {
 }
 
 export function ConversionPanel({ open, onOpenChange, onInsert }: Props) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Conversion</DialogTitle>
+        </DialogHeader>
+        <ConversionBody onInsert={onInsert} onDone={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The converter itself, with no dialog chrome — reused by the Smartboard's
+ *  floating Conversion workspace so both surfaces behave identically. */
+export function ConversionBody({
+  onInsert,
+  onDone,
+}: {
+  onInsert?: (text: string) => void;
+  onDone?: () => void;
+}) {
   const [category, setCategory] = useState<ConversionCategory>("Length");
   const [fromId, setFromId] = useState("cm");
   const [toId, setToId] = useState("m");
@@ -56,12 +77,7 @@ export function ConversionPanel({ open, onOpenChange, onInsert }: Props) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Conversion</DialogTitle>
-        </DialogHeader>
-
+    <div className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
           {/* Left panel */}
           <div className="space-y-2">
@@ -157,15 +173,14 @@ export function ConversionPanel({ open, onOpenChange, onInsert }: Props) {
             <button
               type="button"
               disabled={result === null || raw.trim() === ""}
-              onClick={() => { onInsert(line); onOpenChange(false); }}
+              onClick={() => { onInsert(line); onDone?.(); }}
               className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
               Insert into note
             </button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
 
