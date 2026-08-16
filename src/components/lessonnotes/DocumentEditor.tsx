@@ -1983,13 +1983,13 @@ function DocumentEditorInner({
 
 
   // ── Free-position text boxes (overlay layer) ──────────────────────────
-  const [canvasBoxes, setCanvasBoxes] = useState<CanvasBox[]>(() => loadCanvasBoxes(notebookId));
+  const [canvasBoxes, setCanvasBoxes] = useState<CanvasBox[]>(() => loadCanvasBoxes(storageId));
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
   useEffect(() => {
-    setCanvasBoxes(loadCanvasBoxes(notebookId));
+    setCanvasBoxes(loadCanvasBoxes(storageId));
     setActiveBoxId(null);
-  }, [notebookId]);
-  useEffect(() => { saveCanvasBoxes(notebookId, canvasBoxes); }, [notebookId, canvasBoxes]);
+  }, [storageId]);
+  useEffect(() => { saveCanvasBoxes(storageId, canvasBoxes); }, [storageId, canvasBoxes]);
 
   const paperLayerRef = useRef<HTMLDivElement | null>(null);
 
