@@ -7,7 +7,7 @@
 // SelectionInspector) — nothing here is Smartboard-specific, so the board and
 // the note behave identically.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import { GeometryCanvas } from "./GeometryCanvas";
