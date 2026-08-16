@@ -17,6 +17,8 @@ const ImpersonationBanner = () => {
   const [leaving, setLeaving] = useState(false);
   const [folded, setFolded] = useState(false);
   const bannerRef = useRef<HTMLDivElement>(null);
+  const drag = useDraggableTab("mgpl:impersonation-tab-x");
+
 
   useEffect(() => {
     setInfo(activeImpersonation());
