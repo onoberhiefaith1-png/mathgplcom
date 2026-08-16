@@ -13,7 +13,8 @@ import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { Scene3DCanvas } from "@/components/lessonnotes/geometry3d/Scene3DCanvas";
 import { SmartGraphView } from "@/components/lessonnotes/math-tools/SmartGraphView";
 import { MathTableView } from "@/components/lessonnotes/math-tools/MathTableView";
-import { DEFAULT_SETTINGS_3D_FALLBACK, type BoardDiagram } from "@/lib/smartboard/boardObjectHelpers";
+import { DEFAULT_SETTINGS as DEFAULT_SETTINGS_3D } from "@/lib/geometry3d/scene3d";
+import type { BoardDiagram } from "@/lib/smartboard/boardDiagrams";
 import { nodeViewPropsFor } from "./NodeAttrsAdapter";
 import { FloatingToolLayer, type FloatingToolPalette } from "./FloatingToolLayer";
 import type { SmartGraphAttrs } from "@/lib/graph/graphModel";
@@ -82,7 +83,7 @@ export const BoardToolLayer = ({
                 className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] hover:bg-black/10"
                 onClick={(e) => {
                   e.stopPropagation();
-                  const s = d.scene.settings ?? DEFAULT_SETTINGS_3D_FALLBACK;
+                  const s = d.scene.settings ?? DEFAULT_SETTINGS_3D;
                   const on = !(s.showAxisX || s.showAxisY || s.showAxisZ);
                   patch(d.id, {
                     scene: {
