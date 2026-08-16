@@ -111,7 +111,7 @@ import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { BoardToolLayer } from "./BoardToolLayer";
-import { ToolsBoard } from "./ToolsBoard";
+import { CompanionNoteBoard } from "./CompanionNoteBoard";
 import { FloatingToolLayer } from "./FloatingToolLayer";
 import { MathTablesPicker } from "@/components/lessonnotes/math-tools/MathTablesPicker";
 import { SmartCalculatorBody } from "@/components/lessonnotes/math-tools/SmartCalculator";
