@@ -106,20 +106,49 @@ function MathStructureView({ node }: NodeViewProps) {
   const locked = !!extraAttrs.locked;
   const isMatrix = kind === "matrix";
 
+  // Matrix notation (transpose / inverse / det / norm …). Pure notation —
+  // nothing is ever calculated. Each selected function becomes a layer of
+  // ONE merged expression around the same matrix.
+  const notation = isMatrix ? composeNotation(normaliseFns(extraAttrs.fns)) : null;
+  const supText = notation?.sup ?? "";
+  const hasPower = !!notation?.power;
+
   const style: React.CSSProperties = {};
+  const cssVars = style as Record<string, string>;
+  // Column layout for a matrix expression:
+  //   [‖] [det] ( cells ) [sup] [power] [‖]
+  // Every decoration spans all rows and is explicitly placed, so the cell
+  // slots auto-flow into exactly the cell columns.
+  let colNormL = 0, colPrefix = 0, colLB = 1, colRB = 2, colSup = 0, colPower = 0, colNormR = 0;
   if (isMatrix && rows && cols) {
-    // col 1 = left bracket, cols 2..cols+1 = cells, last col = right bracket.
-    style.gridTemplateColumns = `max-content repeat(${cols}, minmax(1.2em, max-content)) max-content`;
+    const parts: string[] = [];
+    let n = 0;
+    const take = () => { parts.push("max-content"); return ++n; };
+    if (notation?.norm) colNormL = take();
+    if (notation?.prefix) colPrefix = take();
+    colLB = take();
+    parts.push(`repeat(${cols}, minmax(1.2em, max-content))`);
+    n += cols;
+    colRB = take();
+    if (supText) colSup = take();
+    if (hasPower) colPower = take();
+    if (notation?.norm) colNormR = take();
+
+    style.gridTemplateColumns = parts.join(" ");
     style.gridTemplateRows = `repeat(${rows}, auto)`;
-    // Expose dims as custom properties so CSS can reference the exact
-    // column indices (safety net against any grid-line resolution quirks).
-    (style as Record<string, string>)["--matrix-rows"] = String(rows);
-    (style as Record<string, string>)["--matrix-cols"] = String(cols);
+    // Brackets are pseudo-elements; they read their columns from these vars
+    // so they always hug the cell block and grow with the row count.
+    cssVars["--matrix-rows"] = String(rows);
+    cssVars["--matrix-cols"] = String(cols);
+    cssVars["--mx-lb"] = String(colLB);
+    cssVars["--mx-rb"] = String(colRB);
   } else if (rows && cols) {
     const cells = `repeat(${cols}, minmax(1.2em, max-content))`;
     style.gridTemplateColumns = cells;
     style.gridTemplateRows = `repeat(${rows}, auto)`;
   }
+
+  const spanAllRows = rows ? `1 / ${rows + 1}` : undefined;
 
   return (
     <NodeViewWrapper
@@ -131,23 +160,42 @@ function MathStructureView({ node }: NodeViewProps) {
       data-rows={rows || undefined}
       data-cols={cols || undefined}
       data-locked={locked || undefined}
+      data-overline={notation?.overline ? "true" : undefined}
+      data-power={hasPower ? "true" : undefined}
       style={style}
     >
       {op && <span className="math-struct__op ms-op" contentEditable={false} aria-hidden>{op}</span>}
       {mark && <span className="math-struct__mark ms-mark" contentEditable={false} aria-hidden>{mark}</span>}
       {idx && <span className="math-struct__index ms-index" contentEditable={false} aria-hidden>{idx}</span>}
+      {isMatrix && notation?.norm && rows && (
+        <>
+          <span className="math-struct__fence" contentEditable={false} aria-hidden
+            style={{ gridColumn: colNormL, gridRow: spanAllRows }}>‖</span>
+          <span className="math-struct__fence" contentEditable={false} aria-hidden
+            style={{ gridColumn: colNormR, gridRow: spanAllRows }}>‖</span>
+        </>
+      )}
+      {isMatrix && notation?.prefix && rows && (
+        <span className="math-struct__fn" contentEditable={false}
+          style={{ gridColumn: colPrefix, gridRow: spanAllRows }}>{notation.prefix}</span>
+      )}
+      {isMatrix && supText && (
+        <span className="math-struct__sup" contentEditable={false} aria-hidden
+          style={{ gridColumn: colSup, gridRow: 1 }}>{supText}</span>
+      )}
       {isMatrix && typeof divider === "number" && cols && rows && (
         <span
           className="math-struct__divider"
           contentEditable={false}
           aria-hidden
-          style={{ gridColumn: 1 + divider + 1, gridRow: `1 / ${rows + 1}` }}
+          style={{ gridColumn: colLB + divider + 1, gridRow: `1 / ${rows + 1}` }}
         />
       )}
       <NodeViewContent as={"span" as any} className="math-struct__slots" />
     </NodeViewWrapper>
   );
 }
+
 
 
 export const MathStructure = Node.create({
