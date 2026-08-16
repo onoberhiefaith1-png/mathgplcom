@@ -103,7 +103,7 @@ export const MathSlot = Node.create({
 function MatrixFence({
   bracket, side, style,
 }: { bracket: string; side: "L" | "R"; style: React.CSSProperties }) {
-  const w = bracket === "{" ? 9 : bracket === "|" ? 3 : 7;
+  const w = bracket === "{" ? 9 : bracket === "|" ? 3 : bracket === "‖" ? 6 : 7;
   const flip = side === "R";
   let body: React.ReactNode = null;
   if (bracket === "(") {
@@ -112,9 +112,12 @@ function MatrixFence({
     body = <path d="M6 2 H2 V98 H6" />;
   } else if (bracket === "{") {
     body = <path d="M8 2 C5 2, 5 30, 4.4 47 C4.2 49, 3 50, 1.6 50 C3 50, 4.2 51, 4.4 53 C5 70, 5 98, 8 98" />;
+  } else if (bracket === "‖") {
+    body = <><path d="M2 1 V99" /><path d="M5.5 1 V99" /></>;
   } else {
     body = <path d="M2 1 V99" />;
   }
+
   return (
     <span
       className="math-struct__fence-svg"
