@@ -24,11 +24,13 @@ import { useGeometryMode } from "./GeometryModeContext";
 
 interface Props {
   editor: UseGeometryEditorReturn;
+  /** Default ink for the scene (Smartboard passes its writing colour). */
+  stroke?: string;
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor }: Props) {
+export function GeometryCanvas({ editor, stroke }: Props) {
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
   const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
 
@@ -852,7 +854,7 @@ export function GeometryCanvas({ editor }: Props) {
   return (
     <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
       <div className="absolute inset-0">
-        <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} />
+        <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} stroke={stroke} />
       </div>
       {annotationHint && (
         <div className="absolute left-2 top-2 z-10 px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] shadow-sm pointer-events-none">
