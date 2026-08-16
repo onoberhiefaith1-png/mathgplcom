@@ -112,9 +112,17 @@ const ViewingFrame = ({
       {folded ? (
         <button
           type="button"
-          onClick={() => setFolded(false)}
-          title="Show workspace bar"
-          className="absolute left-1/2 top-0 z-50 -translate-x-1/2 rounded-b-full border-x border-b border-amber-400/40 bg-amber-500/90 px-3 py-1 text-[10px] font-medium text-amber-50 shadow-md backdrop-blur transition hover:bg-amber-500"
+          onPointerDown={drag.onPointerDown}
+          onPointerMove={drag.onPointerMove}
+          onPointerUp={drag.endDrag}
+          onPointerCancel={drag.endDrag}
+          onClick={() => {
+            if (drag.wasDragged()) return;
+            setFolded(false);
+          }}
+          title="Show workspace bar — drag left or right to move it"
+          style={{ transform: `translateX(calc(-50% + ${drag.offsetX}px))` }}
+          className={`absolute left-1/2 top-0 z-50 touch-none rounded-b-full border-x border-b border-amber-400/40 bg-amber-500/90 px-3 py-1 text-[10px] font-medium text-amber-50 shadow-md backdrop-blur transition-colors hover:bg-amber-500 ${drag.dragging ? "cursor-grabbing" : "cursor-grab"}`}
         >
           <span className="inline-flex items-center gap-1">
             <ChevronDown className="h-3 w-3" />
@@ -122,6 +130,7 @@ const ViewingFrame = ({
           </span>
         </button>
       ) : (
+
         <div className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2 border-b border-amber-400/30 bg-amber-500/15 px-4 py-2 text-xs backdrop-blur">
           <span className="inline-flex items-center gap-2 text-amber-100">
             <Eye className="h-3.5 w-3.5" />
