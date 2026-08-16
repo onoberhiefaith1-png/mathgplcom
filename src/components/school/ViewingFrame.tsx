@@ -81,21 +81,71 @@ const ViewingFrame = ({
     );
   }
 
+  const [folded, setFolded] = useState(false);
+
+  useEffect(() => {
+    try {
+      setFolded(sessionStorage.getItem(foldKey(userId, kind, viewer)) === "1");
+    } catch {
+      // sessionStorage may be unavailable in some environments.
+    }
+  }, [userId, kind, viewer]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(foldKey(userId, kind, viewer), folded ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }, [folded, userId, kind, viewer]);
+
+  const exitLinkText = asParent
+    ? "My children"
+    : asTeacher
+      ? "My students"
+      : kind === "student"
+        ? "Student workspace"
+        : "Shared workspace";
+
   return (
-    <div className="min-h-screen">
-      <div className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2 border-b border-amber-400/30 bg-amber-500/15 px-4 py-2 text-xs backdrop-blur">
-        <span className="inline-flex items-center gap-2 text-amber-100">
-          <Eye className="h-3.5 w-3.5" />
-          Viewing {kind === "student" ? "Student" : "Teacher"} Workspace — Read Only ·{" "}
-          <strong className="font-semibold">{name}</strong> · Viewing as {viewerLabel}
-        </span>
-        <Link
-          to={backTo}
-          className="rounded-full border border-amber-300/40 px-3 py-1 text-amber-100 hover:bg-amber-400/20"
+    <div className="relative min-h-screen">
+      {folded ? (
+        <button
+          type="button"
+          onClick={() => setFolded(false)}
+          title="Show workspace bar"
+          className="absolute left-1/2 top-0 z-50 -translate-x-1/2 rounded-b-full border-x border-b border-amber-400/40 bg-amber-500/90 px-3 py-1 text-[10px] font-medium text-amber-50 shadow-md backdrop-blur transition hover:bg-amber-500"
         >
-          {asParent ? "My children" : asTeacher ? "My students" : kind === "student" ? "Student workspace" : "Shared workspace"}
-        </Link>
-      </div>
+          <span className="inline-flex items-center gap-1">
+            <ChevronDown className="h-3 w-3" />
+            Workspace
+          </span>
+        </button>
+      ) : (
+        <div className="sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2 border-b border-amber-400/30 bg-amber-500/15 px-4 py-2 text-xs backdrop-blur">
+          <span className="inline-flex items-center gap-2 text-amber-100">
+            <Eye className="h-3.5 w-3.5" />
+            Viewing {kind === "student" ? "Student" : "Teacher"} Workspace — Read Only ·{" "}
+            <strong className="font-semibold">{name}</strong> · Viewing as {viewerLabel}
+          </span>
+          <div className="inline-flex items-center gap-2">
+            <Link
+              to={backTo}
+              className="rounded-full border border-amber-300/40 px-3 py-1 text-amber-100 hover:bg-amber-400/20"
+            >
+              {exitLinkText}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setFolded(true)}
+              title="Hide workspace bar"
+              className="inline-flex items-center rounded-full border border-amber-300/40 p-1 text-amber-100 transition hover:bg-amber-400/20"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
       <ViewAsProvider
         ownerId={userId}
         orgId={orgId}
