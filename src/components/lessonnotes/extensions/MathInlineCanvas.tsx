@@ -64,6 +64,10 @@ interface Props {
   /** Caret position to open with (used when `#` creates the structure from
    *  prose and the caret must land inside the fresh power slot). */
   entryCursor?: Cursor | null;
+  /** Caret reached the left/right edge of the object — hand it back to the
+   *  surrounding prose so the sensor is never trapped inside mathematics. */
+  onExitLeft?: () => void;
+  onExitRight?: () => void;
 }
 
 
@@ -440,6 +444,7 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 
 export function MathInlineCanvas({
   root, onChange, onBlur, focused, onFocus, entryPoint, entryCursor,
+  onExitLeft, onExitRight,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>(
     () => entryCursor ?? { path: [], index: root.length },
