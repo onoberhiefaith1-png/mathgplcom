@@ -5060,16 +5060,34 @@ const PresentationView = ({
           <ArrowLeft className="h-3.5 w-3.5" /> Shelf
         </button>
 
-        {/* BOARD SWITCH — slides across to Board 2 (the tools board). */}
-        <button
-          onClick={() => setActiveBoard("tools")}
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs"
+        {/* WORKSPACE SWITCH — a two-sided control: left is this writing
+            workspace, right is the companion Lesson Note page of the same note. */}
+        <span
+          className="inline-flex items-center overflow-hidden rounded-md"
           style={{ background: palette.hoverBg, color: palette.chromeFg }}
-          title="Go to Board 2 — the tools board"
-          aria-label="Go to Board 2"
+          role="group"
+          aria-label="Switch workspace"
         >
-          <Columns2 className="h-3.5 w-3.5" /> Board 2
-        </button>
+          <button
+            onClick={() => setActiveBoard("main")}
+            className="inline-flex items-center px-2 py-1 text-xs disabled:opacity-40"
+            disabled={activeBoard === "main"}
+            title="Writing workspace"
+            aria-label="Writing workspace"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <span aria-hidden className="h-4 w-px" style={{ background: palette.chromeBorder }} />
+          <button
+            onClick={() => setActiveBoard("tools")}
+            className="inline-flex items-center px-2 py-1 text-xs disabled:opacity-40"
+            disabled={activeBoard === "tools"}
+            title="Companion workspace"
+            aria-label="Companion workspace"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </span>
 
         <div className="flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate">
           <span className="font-medium truncate">{notebook?.title ?? "Untitled"}</span>
