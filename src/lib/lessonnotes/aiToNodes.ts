@@ -254,23 +254,20 @@ export function repairDocumentMath(doc: any): { doc: any; changed: boolean } {
         const fullText = node.content.map((c: any) => c.text ?? "").join("");
         if (needsRepair(fullText)) return rebuildParagraph(node, fullText);
       } else {
-        // Mixed text + math runs: an expression fragmented into several math
-        // atoms (`lo` + `g_2` + `(M × N) = …`) is re-grouped into ONE math
+        // Mixed text + math runs: a line fragmented into several atoms
+        // (`lo` + `g_2` + `(M × N) = …`) is re-grouped into ONE full-line
         // object so the renderer controls every gap.
         const hasMath = node.content.some((c: any) => c?.type === "mathInline");
         const source = hasMath ? flattenSource(node.content) : null;
         if (source) {
-          const runs = tokenizeMathLine(source);
-          const differs =
-            runs.length !== node.content.length ||
-            runs.some((r, idx) => {
-              const c = node.content[idx];
-              if (r.kind === "math") return c?.type !== "mathInline" || (c.attrs?.value ?? "") !== r.value;
-              return c?.type !== "text" || (c.text ?? "") !== r.value;
-            });
-          if (differs) return rebuildParagraph(node, source);
+          const alreadyOne =
+            node.content.length === 1 &&
+            node.content[0]?.type === "mathInline" &&
+            (node.content[0].attrs?.value ?? "") === normalizeMathSource(stripDollars(source));
+          if (!alreadyOne) return rebuildParagraph(node, source);
         }
       }
+
     }
 
     if (Array.isArray(node.content)) {
