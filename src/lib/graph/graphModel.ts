@@ -85,6 +85,11 @@ export interface SmartGraphAttrs {
   style: GraphStyle;
   /** View-only zoom. The mathematics is untouched by it. */
   viewZoom: number;
+  /** Independent object geometry on the lesson-note canvas (px). */
+  frameW: number;
+  frameH: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 export const DEFAULT_GRAPH: SmartGraphAttrs = {
