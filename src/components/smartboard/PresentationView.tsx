@@ -4959,10 +4959,13 @@ const PresentationView = ({
         data-sb-board="main"
         className="absolute inset-0"
         style={{
-          transform: activeBoard === "main" ? "translateX(0)" : "translateX(-100%)",
+          // `transform: none` on the visible pane: an identity translate keeps the
+          // pane on a composited layer, which rasterises text softly (the "blurred
+          // headings" effect). Only the off-screen pane carries a transform.
+          transform: activeBoard === "main" ? "none" : "translateX(-100%)",
           transition: "transform 320ms ease",
-          willChange: "transform",
         }}
+
       >
       <WritingFilterDefs />
 
