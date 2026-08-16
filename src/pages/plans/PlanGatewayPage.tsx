@@ -5,6 +5,7 @@ import { Check, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import BackButton from "@/components/common/BackButton";
 import PaymentTestModeBanner from "@/components/PaymentTestModeBanner";
 import { PolicyLinks } from "./PublicPricingPage";
 import { credits, money } from "@/lib/costs/categories";
