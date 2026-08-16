@@ -425,6 +425,7 @@ export function AssetLibraryDialog({ editor, open, onOpenChange }: Props) {
     // For identity template, pre-fill cell text via a synthetic asset def.
     const attrs: Record<string, unknown> = { rows: r.rows, cols: r.cols, br: r.br };
     if (typeof r.divider === "number") attrs.divider = r.divider;
+    if (r.fns?.length) attrs.fns = r.fns;
     const asset: AssetDef = {
       ...matrixDialog.asset,
       render: { kind: "structure", structure: "matrix", slots, attrs },
