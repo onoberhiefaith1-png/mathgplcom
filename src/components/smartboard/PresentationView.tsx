@@ -111,6 +111,7 @@ import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { BoardToolLayer } from "./BoardToolLayer";
+import { ToolsBoard } from "./ToolsBoard";
 import { FloatingToolLayer } from "./FloatingToolLayer";
 import { MathTablesPicker } from "@/components/lessonnotes/math-tools/MathTablesPicker";
 import { SmartCalculatorBody } from "@/components/lessonnotes/math-tools/SmartCalculator";
@@ -126,7 +127,7 @@ import type { GeometryScene } from "@/lib/geometry/scene";
 import type { Scene3D } from "@/lib/geometry3d/scene3d";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes as ShapesIcon,
   Table as TableIcon, LineChart as LineChartIcon, Calculator as CalculatorIcon,
-  ArrowLeftRight as ArrowLeftRightIcon } from "lucide-react";
+  ArrowLeftRight as ArrowLeftRightIcon, Columns2 } from "lucide-react";
 
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
@@ -779,6 +780,12 @@ const PresentationView = ({
      delegated to the existing diagram engines. Scoped by boardScope, so a
      diagram belongs to the page it was made on and returns on reload. */
   const DIAGRAMS_KEY = boardKey("diagrams", boardScope);
+  /* ── Two-board workspace ──
+     Board 1 is this writing board; Board 2 (ToolsBoard) is an independent
+     working board for Diagram / Tables / Graph / Calc / Conversion / Slide.
+     Both are saved under the same class × notebook scope. */
+  const BOARD2_KEY = boardKey("board2", boardScope);
+  const [activeBoard, setActiveBoard] = useState<"main" | "tools">("main");
   const [diagrams, setDiagrams] = useState<BoardDiagram[]>(() => {
     try {
       const raw = localStorage.getItem(DIAGRAMS_KEY);
@@ -4948,6 +4955,17 @@ const PresentationView = ({
 
 
       >
+      {/* BOARD 1 — the main writing board. Unchanged; it simply slides left
+          when the teacher moves to Board 2. */}
+      <div
+        data-sb-board="main"
+        className="absolute inset-0"
+        style={{
+          transform: activeBoard === "main" ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 320ms ease",
+          willChange: "transform",
+        }}
+      >
       <WritingFilterDefs />
 
 
@@ -5040,6 +5058,17 @@ const PresentationView = ({
           aria-label="Back to shelf"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Shelf
+        </button>
+
+        {/* BOARD SWITCH — slides across to Board 2 (the tools board). */}
+        <button
+          onClick={() => setActiveBoard("tools")}
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs"
+          style={{ background: palette.hoverBg, color: palette.chromeFg }}
+          title="Go to Board 2 — the tools board"
+          aria-label="Go to Board 2"
+        >
+          <Columns2 className="h-3.5 w-3.5" /> Board 2
         </button>
 
         <div className="flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate">
@@ -6919,6 +6948,38 @@ const PresentationView = ({
           teacher-exclusive controls hidden. */}
       {((role === "student" && canEdit) || assessmentMode) && (
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
+      )}
+      </div>
+      {/* BOARD 2 — the independent tools board. Slides in from the right; its
+          content never mixes with Board 1's. */}
+      {isTeacher && !assessmentMode && (
+        <div
+          className="absolute inset-0"
+          style={{
+            transform: activeBoard === "tools" ? "translateX(0)" : "translateX(100%)",
+            transition: "transform 320ms ease",
+            willChange: "transform",
+            zIndex: 45,
+          }}
+        >
+          <ToolsBoard
+            storageKey={BOARD2_KEY}
+            notebookId={notebookId}
+            editable={isTeacher}
+            active={activeBoard === "tools"}
+            ink={ink}
+            onReturn={() => setActiveBoard("main")}
+            palette={{
+              chromeBg: palette.chromeBg,
+              chromeFg: palette.chromeFg,
+              chromeBorder: palette.chromeBorder,
+              hoverBg: palette.hoverBg,
+              dark: isDark,
+              background: palette.background,
+              ink: palette.ink,
+            }}
+          />
+        </div>
       )}
       </div>
       </SmartboardRootContext.Provider>

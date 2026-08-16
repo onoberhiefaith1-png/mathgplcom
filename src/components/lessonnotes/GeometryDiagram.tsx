@@ -28,6 +28,13 @@ interface Props {
    * the diagram reads as if drawn straight onto the board.
    */
   stroke?: string;
+  /**
+   * Minimum logical view size. The Smartboard's transparent drawing layer
+   * passes its measured workspace so the drawing area spans the whole board
+   * even when the scene itself is still small.
+   */
+  minViewW?: number;
+  minViewH?: number;
 }
 
 const STROKE = "#1f1f24";
@@ -75,12 +82,15 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH }: Props) {
   const baseStroke = stroke ?? STROKE;
   const pad = 24;
   // Grow the viewBox to fit any object that extends past scene.bounds so
   // nothing gets clipped — the whole lesson note is the drawing paper.
-  const { minX, minY, W, H } = computeSceneViewBox(scene, pad);
+  const vb = computeSceneViewBox(scene, pad);
+  const { minX, minY } = vb;
+  const W = Math.max(vb.W, minViewW ?? 0);
+  const H = Math.max(vb.H, minViewH ?? 0);
   const displayW = explicitWidth ?? (large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
   const displayH = explicitHeight ?? (displayW / W) * H;
 

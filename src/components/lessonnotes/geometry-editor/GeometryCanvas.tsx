@@ -26,11 +26,17 @@ interface Props {
   editor: UseGeometryEditorReturn;
   /** Default ink for the scene (Smartboard passes its writing colour). */
   stroke?: string;
+  /**
+   * Minimum drawing area in logical units. The transparent Smartboard layer
+   * passes its measured workspace so the teacher can draw anywhere on it.
+   */
+  minViewW?: number;
+  minViewH?: number;
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor, stroke }: Props) {
+export function GeometryCanvas({ editor, stroke, minViewW, minViewH }: Props) {
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
   const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
 
@@ -98,7 +104,10 @@ export function GeometryCanvas({ editor, stroke }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [annotationDraft?.tool]);
 
-  const { minX, minY, W, H } = computeSceneViewBox(scene, PAD);
+  const vbox = computeSceneViewBox(scene, PAD);
+  const { minX, minY } = vbox;
+  const W = Math.max(vbox.W, minViewW ?? 0);
+  const H = Math.max(vbox.H, minViewH ?? 0);
 
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current;
@@ -854,7 +863,7 @@ export function GeometryCanvas({ editor, stroke }: Props) {
   return (
     <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
       <div className="absolute inset-0">
-        <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} stroke={stroke} />
+        <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} stroke={stroke} minViewW={minViewW} minViewH={minViewH} />
       </div>
       {annotationHint && (
         <div className="absolute left-2 top-2 z-10 px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] shadow-sm pointer-events-none">
