@@ -8,8 +8,9 @@
 // own writing/text surface is never touched.
 
 import { useState } from "react";
-import { Axis3d, Boxes, LineChart, Shapes, Table as TableIcon } from "lucide-react";
+import { Boxes, Eye, EyeOff, LineChart, Shapes, Table as TableIcon } from "lucide-react";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import { GeometryWorkbench } from "@/components/lessonnotes/geometry-editor/GeometryWorkbench";
 import { Scene3DCanvas } from "@/components/lessonnotes/geometry3d/Scene3DCanvas";
 import { SmartGraphView } from "@/components/lessonnotes/math-tools/SmartGraphView";
 import { MathTableView } from "@/components/lessonnotes/math-tools/MathTableView";
@@ -19,6 +20,7 @@ import { nodeViewPropsFor } from "./NodeAttrsAdapter";
 import { FloatingToolLayer, type FloatingToolPalette } from "./FloatingToolLayer";
 import type { SmartGraphAttrs } from "@/lib/graph/graphModel";
 import type { MathTableAttrs } from "@/components/lessonnotes/extensions/MathTable";
+
 
 interface Props {
   diagrams: BoardDiagram[];
