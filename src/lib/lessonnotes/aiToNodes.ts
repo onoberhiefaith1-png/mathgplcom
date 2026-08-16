@@ -190,7 +190,18 @@ export function tokenizeMathLine(line: string): Run[] {
   let i = 0;
   while (i < toks.length) {
     const t = toks[i];
-    if (t.k !== "math") { pushText(line.slice(t.s, t.e)); i++; continue; }
+    // A short/all-caps operand word directly followed by mathematics starts
+    // the span too (`MN = 5`, `AB^2`).
+    const startsSpan = t.k === "math" || (() => {
+      if (t.k !== "prose") return false;
+      const word = line.slice(t.s, t.e);
+      if (!(word.length <= 3 || /^[A-Z]+$/.test(word))) return false;
+      let k = i + 1;
+      while (k < toks.length && toks[k].k === "space") k++;
+      return k < toks.length && toks[k].k === "math";
+    })();
+    if (!startsSpan) { pushText(line.slice(t.s, t.e)); i++; continue; }
+
 
     // Grow the span: math tokens, plus interior whitespace when another math
     // token follows it.
