@@ -10,6 +10,7 @@ import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import { latexToFriendly } from "@/lib/notebook/mathFriendly";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { normalizeMathLayout } from "@/lib/notebook/mathLayoutNormalize";
+import { tokenizeMathLine } from "@/lib/lessonnotes/aiToNodes";
 
 const roundTrip = (v: string) => treeToLatex(latexToTree(v));
 
