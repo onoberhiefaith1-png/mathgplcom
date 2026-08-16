@@ -1,10 +1,11 @@
-// Slide player — shared by the Lesson Note Preview and the Smartboard.
-// Next reveals the next step of the current Slide; after the last step it
-// moves on to the next Slide.
-import { useCallback, useEffect, useMemo, useState } from "react";
+// Slide player — full-screen presentation of a Slide Deck, shared by the
+// Lesson Note and the Smartboard. No editing chrome: Next reveals the next
+// step; after the last step it moves on to the next slide.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { SlideMedia } from "./SlideMedia";
-import { listSlideItems, maxStep, type Slide, type SlideItem } from "@/lib/lessonnotes/slides";
+import { SlideContentBlock } from "./SlideContentBlock";
+import { listSlideItems, maxStep, SLIDE_PAGE, type Slide, type SlideItem } from "@/lib/lessonnotes/slides";
 
 interface Props {
   slides: Slide[];
@@ -18,6 +19,8 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Pr
   const [index, setIndex] = useState(startIndex);
   const [step, setStep] = useState(1);
   const [items, setItems] = useState<SlideItem[]>([]);
+  const [scale, setScale] = useState(1);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const slide = slides[index];
 
   useEffect(() => {
@@ -28,6 +31,20 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Pr
       .catch(() => { if (alive) setItems([]); });
     return () => { alive = false; };
   }, [slide]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const fit = () => {
+      const b = stage.getBoundingClientRect();
+      if (!b.width || !b.height) return;
+      setScale(Math.min(b.width / SLIDE_PAGE.w, b.height / SLIDE_PAGE.h));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(stage);
+    return () => ro.disconnect();
+  }, []);
 
   const total = useMemo(() => maxStep(items), [items]);
   const visible = items.filter((i) => i.step <= step);
@@ -57,7 +74,7 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Pr
   return (
     <div
       data-slide-chrome="true"
-      className={dark ? "absolute inset-0 z-50 flex flex-col bg-slate-950" : "absolute inset-0 z-50 flex flex-col bg-slate-900/80"}
+      className={dark ? "absolute inset-0 z-50 flex flex-col bg-slate-950" : "absolute inset-0 z-50 flex flex-col bg-slate-900/90"}
     >
       <div className="flex items-center justify-between px-4 py-2 text-xs text-white/80">
         <span className="font-semibold">{slide.name}</span>
@@ -73,8 +90,16 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Pr
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 p-4">
-        <div className="relative mx-auto h-full w-full max-w-[1400px] overflow-hidden rounded-lg bg-white">
+      <div ref={stageRef} className="relative flex-1 min-h-0 overflow-hidden p-4">
+        <div
+          className="absolute left-1/2 top-4 bg-white"
+          style={{
+            width: SLIDE_PAGE.w,
+            height: SLIDE_PAGE.h,
+            transform: `translateX(-50%) scale(${scale})`,
+            transformOrigin: "top center",
+          }}
+        >
           {visible.map((item) => (
             <div
               key={item.id}
@@ -87,7 +112,11 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Pr
                 zIndex: item.z + 1,
               }}
             >
-              <SlideMedia item={item} />
+              {item.kind === "content" ? (
+                <SlideContentBlock nodes={item.content_json} />
+              ) : (
+                <SlideMedia item={item} />
+              )}
             </div>
           ))}
         </div>
@@ -99,7 +128,7 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Pr
           onClick={back}
           className="inline-flex items-center gap-1 rounded-full bg-white/15 px-4 py-2 text-sm text-white hover:bg-white/25"
         >
-          <ChevronLeft className="h-4 w-4" /> Back
+          <ChevronLeft className="h-4 w-4" /> Previous
         </button>
         <button
           type="button"

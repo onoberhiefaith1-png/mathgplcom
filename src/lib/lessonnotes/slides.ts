@@ -1,18 +1,24 @@
-// Slide — an additional workspace that belongs to ONE Lesson Note.
-// Every query here filters on `notebook_id`, so there is no global gallery by
-// construction: Lesson Note B can never list Lesson Note A's Slides.
+// Slide Decks — the presentation workspace of ONE Lesson Note.
+// Every query filters through `notebook_id`, so there is no global gallery by
+// construction: Lesson Note B can never list Lesson Note A's decks.
 import { supabase } from "@/integrations/supabase/client";
 
 const BUCKET = "slide-media";
 
-export type SlideItemKind = "screenshot" | "image" | "video";
+/** The slide page in note pixels (A4 at 96dpi) — the same coordinate space as
+ *  the lesson-note sheet, so a captured expression keeps its original size. */
+export const SLIDE_PAGE = { w: 794, h: 1123 } as const;
+
+export type SlideItemKind = "screenshot" | "image" | "video" | "content";
 
 export interface SlideItem {
   id: string;
   slide_id: string;
   kind: SlideItemKind;
   storage_path: string;
-  /** Fractions of the slide canvas (0..1). */
+  /** Live lesson-note nodes for `content` items (TipTap JSON array). */
+  content_json: unknown | null;
+  /** Fractions of the slide page (0..1). */
   x: number;
   y: number;
   w: number;
@@ -25,27 +31,93 @@ export interface SlideItem {
 export interface Slide {
   id: string;
   notebook_id: string;
+  deck_id: string | null;
   name: string;
   position: number;
 }
 
+export interface SlideDeck {
+  id: string;
+  notebook_id: string;
+  name: string;
+  position: number;
+}
+
+const ITEM_COLS = "id, slide_id, kind, storage_path, content_json, x, y, w, h, z, step";
+const SLIDE_COLS = "id, notebook_id, deck_id, name, position";
+
+/* ----------------------------------------------------------------- decks -- */
+
+export const listDecks = async (notebookId: string): Promise<SlideDeck[]> => {
+  const { data, error } = await supabase
+    .from("notebook_slide_decks")
+    .select("id, notebook_id, name, position")
+    .eq("notebook_id", notebookId)
+    .order("position", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as SlideDeck[];
+};
+
+export const createDeck = async (notebookId: string, name: string): Promise<SlideDeck> => {
+  const existing = await listDecks(notebookId);
+  const position = existing.length ? Math.max(...existing.map((d) => d.position)) + 1 : 0;
+  const { data, error } = await supabase
+    .from("notebook_slide_decks")
+    .insert({ notebook_id: notebookId, name: name.trim() || "Slide Deck", position })
+    .select("id, notebook_id, name, position")
+    .single();
+  if (error) throw error;
+  return data as SlideDeck;
+};
+
+export const renameDeck = async (id: string, name: string): Promise<void> => {
+  const { error } = await supabase
+    .from("notebook_slide_decks")
+    .update({ name: name.trim() || "Slide Deck" })
+    .eq("id", id);
+  if (error) throw error;
+};
+
+export const deleteDeck = async (id: string): Promise<void> => {
+  const { error } = await supabase.from("notebook_slide_decks").delete().eq("id", id);
+  if (error) throw error;
+};
+
+/* ---------------------------------------------------------------- slides -- */
+
+/** Slides of one deck, in presentation order. */
+export const listDeckSlides = async (deckId: string): Promise<Slide[]> => {
+  const { data, error } = await supabase
+    .from("notebook_slides")
+    .select(SLIDE_COLS)
+    .eq("deck_id", deckId)
+    .order("position", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Slide[];
+};
+
+/** Every slide of a note (used only for legacy/no-deck fallbacks). */
 export const listSlides = async (notebookId: string): Promise<Slide[]> => {
   const { data, error } = await supabase
     .from("notebook_slides")
-    .select("id, notebook_id, name, position")
+    .select(SLIDE_COLS)
     .eq("notebook_id", notebookId)
     .order("position", { ascending: true });
   if (error) throw error;
   return (data ?? []) as Slide[];
 };
 
-export const createSlide = async (notebookId: string, name: string): Promise<Slide> => {
-  const existing = await listSlides(notebookId);
+export const createSlide = async (
+  notebookId: string,
+  deckId: string,
+  name: string,
+): Promise<Slide> => {
+  const existing = await listDeckSlides(deckId);
   const position = existing.length ? Math.max(...existing.map((s) => s.position)) + 1 : 0;
   const { data, error } = await supabase
     .from("notebook_slides")
-    .insert({ notebook_id: notebookId, name: name.trim() || "Slide", position })
-    .select("id, notebook_id, name, position")
+    .insert({ notebook_id: notebookId, deck_id: deckId, name: name.trim() || "Slide", position })
+    .select(SLIDE_COLS)
     .single();
   if (error) throw error;
   return data as Slide;
@@ -64,7 +136,7 @@ export const deleteSlide = async (id: string): Promise<void> => {
   if (error) throw error;
 };
 
-/** Swap two slides' positions so the manager can move one up or down. */
+/** Persist the current display order of a deck's slides. */
 export const reorderSlides = async (slides: Slide[]): Promise<void> => {
   await Promise.all(
     slides.map((s, i) =>
@@ -73,10 +145,12 @@ export const reorderSlides = async (slides: Slide[]): Promise<void> => {
   );
 };
 
+/* ----------------------------------------------------------------- items -- */
+
 export const listSlideItems = async (slideId: string): Promise<SlideItem[]> => {
   const { data, error } = await supabase
     .from("notebook_slide_items")
-    .select("id, slide_id, kind, storage_path, x, y, w, h, z, step")
+    .select(ITEM_COLS)
     .eq("slide_id", slideId)
     .order("step", { ascending: true })
     .order("z", { ascending: true });
@@ -86,12 +160,12 @@ export const listSlideItems = async (slideId: string): Promise<SlideItem[]> => {
 
 export const addSlideItem = async (
   slideId: string,
-  item: Omit<SlideItem, "id" | "slide_id">,
+  item: Omit<SlideItem, "id" | "slide_id" | "content_json"> & { content_json?: unknown },
 ): Promise<SlideItem> => {
   const { data, error } = await supabase
     .from("notebook_slide_items")
-    .insert({ slide_id: slideId, ...item })
-    .select("id, slide_id, kind, storage_path, x, y, w, h, z, step")
+    .insert({ slide_id: slideId, content_json: null, ...item } as never)
+    .select(ITEM_COLS)
     .single();
   if (error) throw error;
   return data as SlideItem;
@@ -99,9 +173,9 @@ export const addSlideItem = async (
 
 export const updateSlideItem = async (
   id: string,
-  patch: Partial<Pick<SlideItem, "x" | "y" | "w" | "h" | "z" | "step">>,
+  patch: Partial<Pick<SlideItem, "x" | "y" | "w" | "h" | "z" | "step" | "content_json">>,
 ): Promise<void> => {
-  const { error } = await supabase.from("notebook_slide_items").update(patch).eq("id", id);
+  const { error } = await supabase.from("notebook_slide_items").update(patch as never).eq("id", id);
   if (error) throw error;
 };
 

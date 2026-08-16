@@ -1,12 +1,19 @@
-// Snip overlay — the Windows-snipping-tool style area selector used by Slide.
-// It sits over the Lesson Note sheet while the Slide panel is hidden, so the
-// captured image never contains any Slide chrome.
+// Capture overlay — the teacher highlights an area of the lesson note and
+// presses Capture. Whenever a valid area exists the Capture button is active,
+// so it can never "not appear". Note content is captured as live, editable
+// mathematics; only when the area holds no note nodes does it fall back to a
+// rasterised image.
 import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, X } from "lucide-react";
+import type { Editor } from "@tiptap/react";
+import { captureNoteSelection, type CapturedContent } from "@/lib/lessonnotes/noteCapture";
 
 export interface SnipResult {
-  blob: Blob;
+  /** Live note nodes, when the selection covered note content. */
+  content?: unknown[];
+  /** Rasterised fallback. */
+  blob?: Blob;
   /** Selection rectangle as fractions of the captured sheet (0..1). */
   x: number;
   y: number;
@@ -17,28 +24,30 @@ export interface SnipResult {
 interface Rect { left: number; top: number; width: number; height: number }
 
 interface Props {
-  /** The Lesson Note sheet element that gets rasterised. */
+  /** The Lesson Note sheet element the capture is taken from. */
   sheetEl: HTMLElement | null;
+  /** The live note editor — its nodes are what gets captured. */
+  editor?: Editor | null;
   onCancel: () => void;
   onCapture: (result: SnipResult) => void;
 }
 
-export function SnipOverlay({ sheetEl, onCancel, onCapture }: Props) {
+export function SnipOverlay({ sheetEl, editor = null, onCancel, onCapture }: Props) {
   const [rect, setRect] = useState<Rect | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const start = useRef<{ x: number; y: number } | null>(null);
-  const dragging = useRef(false);
 
   const handleDown = (e: React.PointerEvent) => {
     if (busy) return;
     start.current = { x: e.clientX, y: e.clientY };
-    dragging.current = true;
+    setDragging(true);
     setRect({ left: e.clientX, top: e.clientY, width: 0, height: 0 });
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handleMove = (e: React.PointerEvent) => {
-    if (!dragging.current || !start.current) return;
+    if (!dragging || !start.current) return;
     const s = start.current;
     setRect({
       left: Math.min(s.x, e.clientX),
@@ -48,14 +57,11 @@ export function SnipOverlay({ sheetEl, onCancel, onCapture }: Props) {
     });
   };
 
-  const handleUp = () => {
-    dragging.current = false;
-  };
+  const handleUp = () => setDragging(false);
 
-  const capture = useCallback(async () => {
-    if (!rect || !sheetEl || rect.width < 4 || rect.height < 4) return;
-    setBusy(true);
-    try {
+  const rasterise = useCallback(
+    async (r: Rect): Promise<SnipResult | null> => {
+      if (!sheetEl) return null;
       const { toCanvas } = await import("html-to-image");
       const sheetBox = sheetEl.getBoundingClientRect();
       const full = await toCanvas(sheetEl, {
@@ -66,33 +72,49 @@ export function SnipOverlay({ sheetEl, onCancel, onCapture }: Props) {
       });
       const sx = full.width / sheetBox.width;
       const sy = full.height / sheetBox.height;
-      const cropX = (rect.left - sheetBox.left) * sx;
-      const cropY = (rect.top - sheetBox.top) * sy;
-      const cropW = rect.width * sx;
-      const cropH = rect.height * sy;
-
       const out = document.createElement("canvas");
-      out.width = Math.max(1, Math.round(cropW));
-      out.height = Math.max(1, Math.round(cropH));
+      out.width = Math.max(1, Math.round(r.width * sx));
+      out.height = Math.max(1, Math.round(r.height * sy));
       const ctx = out.getContext("2d");
-      if (!ctx) throw new Error("canvas_unavailable");
-      ctx.drawImage(full, cropX, cropY, cropW, cropH, 0, 0, out.width, out.height);
+      if (!ctx) return null;
+      ctx.drawImage(
+        full,
+        (r.left - sheetBox.left) * sx,
+        (r.top - sheetBox.top) * sy,
+        r.width * sx,
+        r.height * sy,
+        0, 0, out.width, out.height,
+      );
       const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
-      if (!blob) throw new Error("encode_failed");
-
-      onCapture({
+      if (!blob) return null;
+      return {
         blob,
-        x: Math.max(0, Math.min(1, (rect.left - sheetBox.left) / sheetBox.width)),
-        y: Math.max(0, Math.min(1, (rect.top - sheetBox.top) / sheetBox.height)),
-        w: Math.max(0.02, Math.min(1, rect.width / sheetBox.width)),
-        h: Math.max(0.02, Math.min(1, rect.height / sheetBox.height)),
-      });
+        x: Math.max(0, Math.min(1, (r.left - sheetBox.left) / sheetBox.width)),
+        y: Math.max(0, Math.min(1, (r.top - sheetBox.top) / sheetBox.height)),
+        w: Math.max(0.02, Math.min(1, r.width / sheetBox.width)),
+        h: Math.max(0.02, Math.min(1, r.height / sheetBox.height)),
+      };
+    },
+    [sheetEl],
+  );
+
+  const capture = useCallback(async () => {
+    if (!rect || rect.width < 4 || rect.height < 4) return;
+    setBusy(true);
+    try {
+      const live: CapturedContent | null = captureNoteSelection(editor, sheetEl, rect);
+      if (live) {
+        onCapture({ content: live.nodes, x: live.x, y: live.y, w: live.w, h: live.h });
+        return;
+      }
+      const raster = await rasterise(rect);
+      if (raster) onCapture(raster);
     } finally {
       setBusy(false);
     }
-  }, [rect, sheetEl, onCapture]);
+  }, [rect, editor, sheetEl, rasterise, onCapture]);
 
-  const confirmable = !!rect && !dragging.current && rect.width > 4 && rect.height > 4;
+  const confirmable = !!rect && rect.width > 4 && rect.height > 4;
 
   return createPortal(
     <div
@@ -103,8 +125,6 @@ export function SnipOverlay({ sheetEl, onCancel, onCapture }: Props) {
       onPointerMove={handleMove}
       onPointerUp={handleUp}
     >
-      {/* Dim mask with the selection cut out, so the chosen area stays bright
-          and everything else is subdued. */}
       <div
         className="absolute inset-0 bg-slate-900/45"
         style={
@@ -123,11 +143,11 @@ export function SnipOverlay({ sheetEl, onCancel, onCapture }: Props) {
         />
       )}
 
-      {!rect && (
-        <div className="absolute left-1/2 top-6 -translate-x-1/2 rounded-full bg-white/95 px-4 py-2 text-xs font-medium text-slate-700 shadow">
-          Drag across the area you want to capture
-        </div>
-      )}
+      <div className="absolute left-1/2 top-6 -translate-x-1/2 rounded-full bg-white/95 px-4 py-2 text-xs font-medium text-slate-700 shadow">
+        {confirmable
+          ? "Press Capture to turn this area into a slide"
+          : "Highlight the area you want to capture"}
+      </div>
 
       <div
         className="absolute left-1/2 bottom-8 -translate-x-1/2 flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 shadow-lg"
@@ -139,7 +159,7 @@ export function SnipOverlay({ sheetEl, onCancel, onCapture }: Props) {
           onClick={capture}
           className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-40"
         >
-          <Camera className="h-4 w-4" /> {busy ? "Capturing…" : "Screenshot"}
+          <Camera className="h-4 w-4" /> {busy ? "Capturing…" : "Capture"}
         </button>
         <button
           type="button"
