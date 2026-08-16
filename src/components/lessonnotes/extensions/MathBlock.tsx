@@ -78,6 +78,8 @@ function MathBlockView({ node, updateAttributes, selected, editor, getPos }: Nod
           focused
           onFocus={() => setEditing(true)}
           entryPoint={entryPoint}
+          onExitLeft={close}
+          onExitRight={close}
         />
       </NodeViewWrapper>
     );

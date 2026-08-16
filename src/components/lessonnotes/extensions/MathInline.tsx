@@ -108,6 +108,18 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
     updateAttributes({ value, tree: JSON.stringify(next) });
   };
 
+  /** Hand the caret back to the prose on either side of this object. */
+  const exitTo = (side: "left" | "right") => {
+    setFocused(false);
+    setEntryPoint(null);
+    try {
+      const pos = typeof getPos === "function" ? getPos() : null;
+      if (pos == null || !editor) return;
+      const at = side === "left" ? pos : pos + node.nodeSize;
+      editor.chain().focus().setTextSelection(at).run();
+    } catch { /* noop */ }
+  };
+
   const handleBlur = () => {
     setFocused(false);
     setEntryPoint(null);
@@ -145,6 +157,8 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
           onBlur={handleBlur}
           focused
           onFocus={() => setFocused(true)}
+          onExitLeft={() => exitTo("left")}
+          onExitRight={() => exitTo("right")}
         />
       ) : empty ? (
         <span
