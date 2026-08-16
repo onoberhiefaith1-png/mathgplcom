@@ -47,10 +47,10 @@ describe("navigateOut — backward / up (###)", () => {
   it("steps out of the deepest branch to the level above", () => {
     const root = nestedPower();
     const out = navigateOut(root, deepest, -1);
-    // Left the superscript branch, landing in the row that holds `3`.
+    // Left the base of the innermost script, landing in the row that holds it.
     expect(out.path).toEqual([0, 2, 0, 2]);
     expect(getRowAt(root, out.path).map((n) => (n.kind === "char" ? n.ch : n.kind)))
-      .toEqual(["3", "subsup"]);
+      .toEqual(["subsup"]);
   });
 
   it("walks all the way out to the outermost row, then stops", () => {
