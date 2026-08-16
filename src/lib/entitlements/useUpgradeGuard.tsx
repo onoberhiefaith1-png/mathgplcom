@@ -56,7 +56,7 @@ export function useUpgradeGuard() {
             Not now
           </Button>
           <Button asChild className="min-h-11 rounded-full px-6">
-            <Link to="/plans/gateway">Upgrade to Pro</Link>
+            <Link to="/plans/gateway?change=1">Upgrade to Pro</Link>
           </Button>
         </DialogFooter>
       </DialogContent>

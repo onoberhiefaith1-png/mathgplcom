@@ -27,7 +27,7 @@ const UpgradeNotice = ({
     <h2 className={`font-semibold ${compact ? "text-base" : "text-xl"}`}>{title}</h2>
     <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{message}</p>
     <Button asChild className="mt-5 min-h-11 rounded-full px-6">
-      <Link to="/plans/gateway">
+      <Link to="/plans/gateway?change=1">
         <Sparkles className="mr-2 h-4 w-4" />
         Upgrade to Pro
       </Link>
