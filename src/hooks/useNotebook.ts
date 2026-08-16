@@ -27,6 +27,8 @@ export interface NotebookRow {
   color_index: number;
   /** Word-style document body (ProseMirror JSON). When non-null, the editor renders document mode. */
   document_json: any | null;
+  /** Private companion page belonging to this lesson note (ProseMirror JSON). */
+  companion_json?: any | null;
   paper_style: string;
   paper_size: string;
   page_extra_mm?: number;
