@@ -93,7 +93,51 @@ export const MathSlot = Node.create({
   },
 });
 
+// ── Stretchy matrix fence ───────────────────────────────────────────────
+// Brackets are NEVER fixed-size glyphs. Each fence is an inline SVG that
+// stretches to the measured height of the cell block (it is a grid item
+// spanning every matrix row with `align-self: stretch`), so a 2x2 gets a
+// short fence, a 4x3 a tall one, and a 3x4 grows horizontally with the
+// columns. `preserveAspectRatio="none"` + `vector-effect` keeps the stroke
+// weight constant while the shape scales.
+function MatrixFence({
+  bracket, side, style,
+}: { bracket: string; side: "L" | "R"; style: React.CSSProperties }) {
+  const w = bracket === "{" ? 9 : bracket === "|" ? 3 : bracket === "‖" ? 6 : 7;
+  const flip = side === "R";
+  let body: React.ReactNode = null;
+  if (bracket === "(") {
+    body = <path d="M6 2 C2 25, 2 75, 6 98" />;
+  } else if (bracket === "[") {
+    body = <path d="M6 2 H2 V98 H6" />;
+  } else if (bracket === "{") {
+    body = <path d="M8 2 C5 2, 5 30, 4.4 47 C4.2 49, 3 50, 1.6 50 C3 50, 4.2 51, 4.4 53 C5 70, 5 98, 8 98" />;
+  } else if (bracket === "‖") {
+    body = <><path d="M2 1 V99" /><path d="M5.5 1 V99" /></>;
+  } else {
+    body = <path d="M2 1 V99" />;
+  }
+
+  return (
+    <span
+      className="math-struct__fence-svg"
+      contentEditable={false}
+      aria-hidden
+      style={{ ...style, width: `${w * 0.075}em` }}
+    >
+      <svg viewBox={`0 0 ${w + 2} 100`} preserveAspectRatio="none" width="100%" height="100%"
+        style={flip ? { transform: "scaleX(-1)" } : undefined}>
+        <g fill="none" stroke="currentColor" strokeWidth={bracket === "|" ? 1.6 : 1.5}
+          strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke">
+          {body}
+        </g>
+      </svg>
+    </span>
+  );
+}
+
 // ── mathStructure (parent) ──────────────────────────────────────────────
+
 function MathStructureView({ node }: NodeViewProps) {
   const kind = (node.attrs.kind as string) || "fraction";
   const extraAttrs = (node.attrs.attrs as Record<string, unknown>) || {};
@@ -169,14 +213,23 @@ function MathStructureView({ node }: NodeViewProps) {
       {op && <span className="math-struct__op ms-op" contentEditable={false} aria-hidden>{op}</span>}
       {mark && <span className="math-struct__mark ms-mark" contentEditable={false} aria-hidden>{mark}</span>}
       {idx && <span className="math-struct__index ms-index" contentEditable={false} aria-hidden>{idx}</span>}
-      {isMatrix && notation?.norm && rows && (
+      {isMatrix && rows && cols && (
         <>
-          <span className="math-struct__fence" contentEditable={false} aria-hidden
-            style={{ gridColumn: colNormL, gridRow: spanAllRows }}>‖</span>
-          <span className="math-struct__fence" contentEditable={false} aria-hidden
-            style={{ gridColumn: colNormR, gridRow: spanAllRows }}>‖</span>
+          <MatrixFence bracket={br || "("} side="L"
+            style={{ gridColumn: colLB, gridRow: spanAllRows, alignSelf: "stretch" }} />
+          <MatrixFence bracket={br || "("} side="R"
+            style={{ gridColumn: colRB, gridRow: spanAllRows, alignSelf: "stretch" }} />
         </>
       )}
+      {isMatrix && notation?.norm && rows && (
+        <>
+          <MatrixFence bracket="‖" side="L"
+            style={{ gridColumn: colNormL, gridRow: spanAllRows, alignSelf: "stretch" }} />
+          <MatrixFence bracket="‖" side="R"
+            style={{ gridColumn: colNormR, gridRow: spanAllRows, alignSelf: "stretch" }} />
+        </>
+      )}
+
       {isMatrix && notation?.prefix && rows && (
         <span className="math-struct__fn" contentEditable={false}
           style={{ gridColumn: colPrefix, gridRow: spanAllRows }}>{notation.prefix}</span>
@@ -268,10 +321,39 @@ export const MathStructure = Node.create({
       }
       return true;
     };
+    // Enter inside a matrix cell commits the value and moves the caret to
+    // the NEXT cell (left→right, then next row). From the last cell it
+    // leaves the matrix and continues after it. Other structures keep the
+    // default Enter behaviour.
+    const matrixEnter = ({ editor }: { editor: any }) => {
+      const { $from } = editor.state.selection;
+      let slotDepth = -1;
+      for (let d = $from.depth; d >= 0; d--) {
+        if ($from.node(d).type.name === "mathSlot") { slotDepth = d; break; }
+      }
+      if (slotDepth < 1) return false;
+      const structDepth = slotDepth - 1;
+      const structNode = $from.node(structDepth);
+      if (structNode.type.name !== "mathStructure") return false;
+      if (structNode.attrs.kind !== "matrix") return false;
+      const slotIndex = $from.index(structDepth);
+      if (slotIndex < structNode.childCount - 1) return jump(1)({ editor });
+      // Last cell → step out of the whole matrix.
+      const after = $from.after(structDepth);
+      try {
+        const sel = Selection.near(editor.state.doc.resolve(after), 1);
+        editor.view.dispatch(editor.state.tr.setSelection(sel));
+      } catch {
+        editor.commands.setTextSelection(after);
+      }
+      return true;
+    };
     return {
       Tab: jump(1),
       "Shift-Tab": jump(-1),
+      Enter: matrixEnter,
     };
+
   },
 
   // Structural validator: runs on every transaction. Any `mathStructure`
