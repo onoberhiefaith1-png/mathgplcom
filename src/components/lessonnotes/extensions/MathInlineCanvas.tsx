@@ -596,8 +596,22 @@ export function MathInlineCanvas({
     if (e.altKey) return;
 
     // ── caret motion (Shift extends the selection) ──────────────────────
-    if (k === "ArrowLeft") { e.preventDefault(); setCaret(moveLeft(root, cursor), e.shiftKey); return; }
-    if (k === "ArrowRight") { e.preventDefault(); setCaret(moveRight(root, cursor), e.shiftKey); return; }
+    if (k === "ArrowLeft") {
+      e.preventDefault();
+      const next = moveLeft(root, cursor);
+      // At the very start of the object the caret is not trapped: it steps out
+      // into the prose on its left.
+      if (!e.shiftKey && cursorsEqual(next, cursor) && onExitLeft) { onExitLeft(); return; }
+      setCaret(next, e.shiftKey);
+      return;
+    }
+    if (k === "ArrowRight") {
+      e.preventDefault();
+      const next = moveRight(root, cursor);
+      if (!e.shiftKey && cursorsEqual(next, cursor) && onExitRight) { onExitRight(); return; }
+      setCaret(next, e.shiftKey);
+      return;
+    }
     if (k === "ArrowUp") { e.preventDefault(); setCaret(moveVertical(root, cursor, -1), e.shiftKey); return; }
     if (k === "ArrowDown") { e.preventDefault(); setCaret(moveVertical(root, cursor, 1), e.shiftKey); return; }
     if (k === "Home") { e.preventDefault(); setCaret(rowStartCursor(cursor), e.shiftKey); return; }
