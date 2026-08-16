@@ -18,6 +18,24 @@ import type { Row } from "@/lib/smartboard/mathTree";
 import { MathInlineCanvas } from "./MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { latexToFriendly, friendlyToLatex } from "@/lib/notebook/mathFriendly";
+
+/** Mathematical words that do not make a value "a sentence". */
+const MATH_WORDS = new Set([
+  "log", "ln", "exp", "sin", "cos", "tan", "cot", "sec", "csc", "sinh",
+  "cosh", "tanh", "arcsin", "arccos", "arctan", "lim", "max", "min", "det",
+  "gcd", "lcm", "mod", "deg", "arg", "sqrt", "frac", "text",
+]);
+
+/** True when the value carries real sentence prose (a 4+ letter word that is
+ *  not a function name), i.e. it is a full-line object rather than a bare
+ *  calculation. */
+export function hasProseWords(value: string): boolean {
+  const bare = value.replace(/\\[A-Za-z]+/g, " ");
+  const words = bare.match(/[A-Za-z]{4,}/g) ?? [];
+  return words.some((w) => !MATH_WORDS.has(w.toLowerCase()));
+}
+
 
 function parseTree(attrs: Record<string, unknown>): Row {
   const t = attrs.tree;
