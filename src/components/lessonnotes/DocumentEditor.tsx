@@ -144,6 +144,12 @@ interface Props {
   exportFileName?: string;
   /** When true, the section picker only offers "Game Questions" (used by Adventure scenes). */
   gameQuestionsOnly?: boolean;
+  /** Explicit lesson-note id for callers that are not on the /lesson-notes/:id route
+   *  (e.g. the Smartboard's companion workspace). Defaults to the route param. */
+  notebookId?: string;
+  /** Namespaces this editor's local-only state (canvas notes, page geometry) so a
+   *  second instance of the same lesson note cannot collide with the primary one. */
+  scopeSuffix?: string;
 }
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
