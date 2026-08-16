@@ -417,16 +417,68 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const yTicks = useMemo(() => Array.from({ length: a.squaresY + 1 }, (_, i) => i), [a.squaresY]);
   const cursorPx = cursor ? toPx(cursor) : null;
 
+  // ---- Function plotting ---------------------------------------------------
+  const functions = a.functions ?? [];
+  const [fnText, setFnText] = useState("");
+  const [fnFrom, setFnFrom] = useState("");
+  const [fnTo, setFnTo] = useState("");
+  const [fnError, setFnError] = useState<string | null>(null);
+
+  const dataX0 = ((0 - oxPx) / SQ) * a.unitsPerSquareX;
+  const dataX1 = ((W - oxPx) / SQ) * a.unitsPerSquareX;
+  const dataY0 = ((oyPx - H) / SQ) * a.unitsPerSquareY;
+  const dataY1 = ((oyPx - 0) / SQ) * a.unitsPerSquareY;
+
+  const addFunction = () => {
+    const { fn, error } = tryCompile(fnText);
+    if (!fn) { setFnError(error); return; }
+    const from = fnFrom.trim() === "" ? null : Number(fnFrom);
+    const to = fnTo.trim() === "" ? null : Number(fnTo);
+    const f: GraphFunction = {
+      id: `f${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      expression: fnText.trim().replace(/^y\s*=\s*/i, ""),
+      colour: nextFunctionColour(functions.length),
+      thickness: 2,
+      dash: "solid",
+      domainMin: Number.isFinite(from as number) ? from : null,
+      domainMax: Number.isFinite(to as number) ? to : null,
+    };
+    update({ functions: [...functions, f] });
+    setFnText(""); setFnFrom(""); setFnTo(""); setFnError(null);
+  };
+
+  const fnPaths = useMemo(() => {
+    return functions.filter((f) => !f.hidden).map((f) => {
+      const { fn } = tryCompile(f.expression);
+      if (!fn) return { f, d: [] as string[] };
+      const x0 = Math.max(dataX0, f.domainMin ?? dataX0);
+      const x1 = Math.min(dataX1, f.domainMax ?? dataX1);
+      if (!(x1 > x0)) return { f, d: [] as string[] };
+      const segs = sampleFunction(fn, x0, x1, { yMin: dataY0, yMax: dataY1, samples: Math.max(200, Math.round(W)) });
+      const d = segs.map((seg) => seg.map((pt, i) => {
+        const q = toPx(pt);
+        return `${i === 0 ? "M" : "L"} ${q.x} ${q.y}`;
+      }).join(" "));
+      return { f, d };
+    });
+  }, [functions, dataX0, dataX1, dataY0, dataY1, W, SQ, oxPx, oyPx, a.unitsPerSquareX, a.unitsPerSquareY]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---- UI ------------------------------------------------------------------
   return (
-    <NodeViewWrapper
-      as="div"
-      className={cn(
-        "my-4 rounded-md border bg-white text-neutral-900",
-        selected ? "border-yellow-400 shadow-xs" : "border-neutral-200",
-      )}
-      data-drag-handle
-    >
+    <NodeViewWrapper as="div" className="my-4" data-graph-object="">
+      <div
+        ref={rootRef}
+        onMouseDown={() => setObjActive(true)}
+        className={cn(
+          "relative rounded-md border bg-white text-neutral-900",
+          active ? "border-yellow-400 shadow-md" : "border-neutral-200",
+        )}
+        style={{
+          width: frameW,
+          maxWidth: "none",
+          transform: `translate(${a.offsetX ?? 0}px, ${a.offsetY ?? 0}px)`,
+        }}
+      >
       {/* Essentials toolbar */}
       <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
         <span className="font-semibold mr-1">Graph</span>
@@ -712,8 +764,37 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
           </div>
         </div>
       </div>
+
+        {/* Object resize handles — only the graph resizes, never the notebook. */}
+        {active && (
+          <>
+            <ResizeHandle pos="nw" onPointerDown={startResize("nw")} />
+            <ResizeHandle pos="ne" onPointerDown={startResize("ne")} />
+            <ResizeHandle pos="sw" onPointerDown={startResize("sw")} />
+            <ResizeHandle pos="se" onPointerDown={startResize("se")} />
+            <ResizeHandle pos="e" onPointerDown={startResize("e")} />
+            <ResizeHandle pos="s" onPointerDown={startResize("s")} />
+          </>
+        )}
+      </div>
     </NodeViewWrapper>
   );
+}
+
+/** Corner / edge grips shown while the graph object is selected. */
+function ResizeHandle({
+  pos, onPointerDown,
+}: { pos: "nw" | "ne" | "sw" | "se" | "e" | "s"; onPointerDown: (e: React.PointerEvent) => void }) {
+  const base = "absolute z-20 rounded-sm border border-yellow-500 bg-white";
+  const map: Record<string, string> = {
+    nw: "-top-1.5 -left-1.5 h-3 w-3 cursor-nwse-resize",
+    ne: "-top-1.5 -right-1.5 h-3 w-3 cursor-nesw-resize",
+    sw: "-bottom-1.5 -left-1.5 h-3 w-3 cursor-nesw-resize",
+    se: "-bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize",
+    e: "top-1/2 -right-1.5 h-6 w-3 -translate-y-1/2 cursor-ew-resize",
+    s: "-bottom-1.5 left-1/2 h-3 w-6 -translate-x-1/2 cursor-ns-resize",
+  };
+  return <div className={cn(base, map[pos])} onPointerDown={onPointerDown} />;
 }
 
 // ---------- Overlay ---------------------------------------------------------
