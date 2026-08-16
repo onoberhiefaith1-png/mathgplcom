@@ -151,11 +151,14 @@ export function sanitizeBoardDiagrams(raw: unknown): BoardDiagram[] {
         kind: "2d",
         x: num(r.x, 40),
         y: num(r.y, 40),
-        width: num(r.width, 460),
-        height: num(r.height, 340),
+        width: num(r.width, 720),
+        height: num(r.height, 520),
         scene,
+        // Anything already saved is finished work, so it loads committed.
+        committed: r.committed === undefined ? true : !!r.committed,
       });
     }
+
   }
   return out;
 }
