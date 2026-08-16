@@ -601,6 +601,7 @@ export function useNotebook(notebookId: string | undefined) {
     moveSection,
     appendTextBlock,
     saveDocumentJson,
+    saveCompanionJson,
     updatePaperSettings,
     saveZoom,
     enableDocumentMode,
