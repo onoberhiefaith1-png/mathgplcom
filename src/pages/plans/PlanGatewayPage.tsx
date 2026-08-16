@@ -39,11 +39,23 @@ export default function PlanGatewayPage() {
   );
 
   const workspace = role ? WORKSPACE_PATH[role] ?? "/" : "/";
+  // Choosing a plan is a one-time onboarding step. An account that already
+  // holds one only sees the chooser when it asks for it from the dashboard.
+  const changing =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("change");
+  const settled = Boolean(subscription) || freeAccess || noPlansYet;
 
   // Signed-out visitors belong on the public pricing page.
   useEffect(() => {
     if (ready && !user) navigate("/plans", { replace: true });
   }, [ready, user, navigate]);
+
+  // Plan already saved: straight into the workspace, never back through here.
+  useEffect(() => {
+    if (loading || confirming || changing || !settled) return;
+    navigate(workspace, { replace: true });
+  }, [loading, confirming, changing, settled, workspace, navigate]);
+
 
   // Returning from checkout: poll until the confirmed payment lands.
   useEffect(() => {
