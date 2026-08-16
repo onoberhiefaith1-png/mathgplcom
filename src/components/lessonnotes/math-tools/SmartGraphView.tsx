@@ -481,7 +481,13 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
       >
       {/* Essentials toolbar */}
       <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
-        <span className="font-semibold mr-1">Graph</span>
+        <span
+          onPointerDown={startMove}
+          title="Drag to move the graph anywhere on the page"
+          className="mr-1 inline-flex cursor-grab items-center gap-1 rounded px-1 py-0.5 font-semibold hover:bg-neutral-100 active:cursor-grabbing"
+        >
+          <GripVertical className="h-3.5 w-3.5 text-neutral-400" /> Graph
+        </span>
 
         <ToolButton active={mode === "plot"} onClick={() => setMode("plot")} icon={<Plus className="h-3.5 w-3.5" />} label="Plot" />
         <ToolButton active={mode === "cursor"} onClick={() => setMode("cursor")} icon={<MousePointer2 className="h-3.5 w-3.5" />} label="Cursor" />
@@ -532,6 +538,13 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         <IconBtn onClick={() => update({ points: [], shapes: [], overlays: [] })} title="Clear graph"><Eraser className="h-3.5 w-3.5" /></IconBtn>
 
         <div className="ml-auto flex items-center gap-1">
+          <span className="mr-1 inline-flex items-center gap-1 rounded border border-neutral-200 px-1">
+            <IconBtn onClick={() => setZoom(zoom / 1.25)} title="Graph zoom out"><ZoomOut className="h-3.5 w-3.5" /></IconBtn>
+            <span className="w-9 text-center text-[10px] text-neutral-600">{Math.round(zoom * 100)}%</span>
+            <IconBtn onClick={() => setZoom(zoom * 1.25)} title="Graph zoom in"><ZoomIn className="h-3.5 w-3.5" /></IconBtn>
+            <IconBtn onClick={() => setZoom(1)} title="Reset graph zoom">100</IconBtn>
+            <IconBtn onClick={fitGrid} title="Fit grid to the graph object (landscape)"><Maximize2 className="h-3.5 w-3.5" /></IconBtn>
+          </span>
           <button
             type="button"
             onClick={() => setShowMore((s) => !s)}
@@ -580,6 +593,55 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         </span>
       </div>
 
+      {/* Function row — y = expression, optional domain */}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
+        <span className="inline-flex items-center gap-1 text-neutral-600"><LineChart className="h-3.5 w-3.5" /> y =</span>
+        <Input
+          value={fnText}
+          onChange={(e) => { setFnText(e.target.value); setFnError(null); }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFunction(); } }}
+          placeholder="2x + 3"
+          className="h-7 w-40 text-[12px] bg-white"
+        />
+        <span className="text-neutral-500">from</span>
+        <Input value={fnFrom} onChange={(e) => setFnFrom(e.target.value)} placeholder="−10"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFunction(); } }}
+          className="h-7 w-16 text-[12px] bg-white" />
+        <span className="text-neutral-500">to</span>
+        <Input value={fnTo} onChange={(e) => setFnTo(e.target.value)} placeholder="10"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFunction(); } }}
+          className="h-7 w-16 text-[12px] bg-white" />
+        <Button type="button" size="sm" onClick={addFunction}
+          className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400">Plot</Button>
+        <select
+          value=""
+          onChange={(e) => { if (e.target.value) setFnText(e.target.value); }}
+          className="h-7 rounded border border-neutral-200 bg-white px-1 text-[11px] text-neutral-700"
+        >
+          <option value="">Library…</option>
+          {GRAPH_TEMPLATES.map((t) => (
+            <option key={t.label} value={t.expression}>{t.label}</option>
+          ))}
+        </select>
+        {fnError && <span className="text-[11px] text-red-600">{fnError}</span>}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {functions.map((f) => (
+            <span key={f.id} className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px]">
+              <span className="h-2 w-2 rounded-full" style={{ background: f.colour }} />
+              y = {f.expression}
+              <button type="button" title={f.hidden ? "Show" : "Hide"}
+                onClick={() => update({ functions: functions.map((g) => (g.id === f.id ? { ...g, hidden: !g.hidden } : g)) })}
+                className="text-neutral-500 hover:text-neutral-800">
+                {f.hidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              </button>
+              <button type="button" title="Remove"
+                onClick={() => update({ functions: functions.filter((g) => g.id !== f.id) })}
+                className="text-neutral-400 hover:text-red-600">×</button>
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* Smart Scale suggestion */}
       {scaleSuggestion && !suggestionDismissed && (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-yellow-50/50 text-[12px]">
@@ -623,7 +685,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
       {/* Canvas with four-sided expand controls */}
       <div className="bg-white p-3">
-        <div className="mx-auto" style={{ width: "fit-content" }}>
+        <div className="mx-auto" style={{ width: "fit-content", maxWidth: "100%" }}>
           {/* Top row: expand up */}
           <div className="flex justify-center pb-1">
             <EdgeButton onClick={() => expand("top")} title="Add 1 cm on top"><Plus className="h-3 w-3" /></EdgeButton>
@@ -638,7 +700,11 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
             </div>
 
             {/* SVG canvas */}
-            <div className="overflow-auto max-h-[600px] border border-neutral-200" data-no-drag>
+            <div
+              className="overflow-auto border border-neutral-200"
+              style={{ width: Math.max(160, frameW - 96), height: Math.max(140, frameH - 24) }}
+              data-no-drag
+            >
               <svg
                 ref={svgRef}
                 width={W} height={H}
@@ -693,6 +759,16 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
                 <text x={W - 6} y={oyPx - 6} fontSize="11" textAnchor="end" fontStyle="italic" fill="hsl(0 0% 25%)">{a.xLabel}</text>
                 <text x={oxPx + 6} y={12} fontSize="11" fontStyle="italic" fill="hsl(0 0% 25%)">{a.yLabel}</text>
+
+                {/* Plotted functions */}
+                {fnPaths.map(({ f, d }) => (
+                  <g key={f.id}>
+                    {d.map((seg, i) => (
+                      <path key={i} d={seg} fill="none" stroke={f.colour} strokeWidth={f.thickness}
+                        strokeDasharray={f.dash === "dashed" ? "6 4" : f.dash === "dotted" ? "2 3" : undefined} />
+                    ))}
+                  </g>
+                ))}
 
                 {/* Plotted line + points */}
                 {connect !== "scatter" && path && (
