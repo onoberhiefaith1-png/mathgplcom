@@ -5215,6 +5215,16 @@ const PresentationView = ({
         </div>
       </header>
 
+      {/* Full-board slide presentation: Next / Back / Exit only. */}
+      {slideShowIndex !== null && boardSlides.length > 0 && (
+        <SlidePlayer
+          slides={boardSlides}
+          startIndex={slideShowIndex}
+          dark
+          onExit={() => setSlideShowIndex(null)}
+        />
+      )}
+
       {/* Soft-glow pull-tab — TOP. Drag the header down/up. */}
       <button
         data-sb-chrome
