@@ -219,7 +219,7 @@ export const ToolsBoard = ({
                         role="menuitem"
                         onClick={() => { setSlideMenuOpen(false); setSlideShowIndex(i); }}
                         className="block w-full truncate px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
-                      >{s.title || `Slide ${i + 1}`}</button>
+                      >{s.name || `Slide ${i + 1}`}</button>
                     ))}
                   </div>
                 )}
@@ -287,7 +287,7 @@ export const ToolsBoard = ({
           onOpenChange={(open) => { if (!open) setEditing3dId(null); }}
           initialScene={editing3d.scene}
           onExport={(scene: Scene3D) => {
-            history.set((prev) => prev.map((d) => (d.id === editing3d.id ? { ...d, scene } : d)));
+            history.set((prev) => prev.map((d) => (d.id === editing3d.id ? ({ ...d, scene } as BoardDiagram) : d)));
             setEditing3dId(null);
           }}
         />
