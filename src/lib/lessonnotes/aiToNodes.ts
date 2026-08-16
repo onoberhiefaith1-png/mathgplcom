@@ -46,34 +46,40 @@ function stripDollars(s: string): string {
   return s.replace(/\$+/g, "");
 }
 
-/** Return true if a line is "mostly math" — short, with little non-math
- *  text after the math runs are removed. Such lines render as `mathBlock`. */
+/** Words that are mathematics even though they are spelled out. */
+const FUNC_WORDS = new Set([
+  "log", "ln", "lg", "exp", "sin", "cos", "tan", "cot", "sec", "csc",
+  "sinh", "cosh", "tanh", "arcsin", "arccos", "arctan", "asin", "acos",
+  "atan", "lim", "max", "min", "sup", "inf", "det", "gcd", "lcm", "mod",
+  "deg", "arg", "cm", "mm", "km", "kg", "sqrt", "frac",
+]);
+
+/** Return true if a line is a pure calculation (no sentence prose), which
+ *  renders as a centred `mathBlock`. A line carrying real sentence words
+ *  stays a paragraph holding one full-line math object. */
 function isMostlyMath(line: string): boolean {
   const t = line.trim();
   if (!t) return false;
   if (!HAS_MATH(t)) return false;
-  const runs = tokenizeMathLine(t);
-  const textOnly = runs
-    .filter((r) => r.kind === "text")
-    .map((r) => r.value)
-    .join("")
-    .replace(/[=+\-−×÷·^_(){}[\]\d\s.,]/g, "");
-  return textOnly.length <= Math.max(4, Math.floor(t.length * 0.15));
+  // Strip LaTeX macros, then look for prose words (4+ letters, not a
+  // mathematical function name or unit).
+  const bare = t.replace(/\\[A-Za-z]+/g, " ");
+  const words = bare.match(/[A-Za-z]{2,}/g) ?? [];
+  const prose = words.filter((w) => w.length >= 4 && !FUNC_WORDS.has(w.toLowerCase()));
+  return prose.length === 0;
 }
 
+/** A line with mathematics becomes ONE object for the whole line — the AI
+ *  Edit rule. No seams, so no phantom spaces. */
 function inlineMixedParagraph(line: string): TipTapNode {
-  const cleaned = stripDollars(line);
-  const runs = tokenizeMathLine(cleaned);
-  const content: TipTapNode[] = [];
-  for (const r of runs) {
-    if (r.kind === "math") {
-      content.push({ type: "mathInline", attrs: { value: normalizeMathSource(r.value) } });
-    } else if (r.value) {
-      content.push({ type: "text", text: r.value });
-    }
-  }
-  return content.length ? { type: "paragraph", content } : { type: "paragraph" };
+  const cleaned = stripDollars(line).replace(/\s+$/, "");
+  if (!cleaned.trim()) return { type: "paragraph" };
+  return {
+    type: "paragraph",
+    content: [{ type: "mathInline", attrs: { value: normalizeMathSource(cleaned) } }],
+  };
 }
+
 
 /** Detect lines that are ASCII pseudo-diagrams (`/\`, `____`, `|  |`, etc.).
  *  These slipped past the AI's geometry rule and would otherwise pollute
