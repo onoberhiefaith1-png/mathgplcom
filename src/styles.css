@@ -861,9 +861,8 @@
 .math-struct__fence { display: inline-flex; align-items: center; line-height: 1; align-self: stretch; font-size: calc(0.9em + 0.62em * var(--matrix-rows, 2)); }
 .math-struct__fn { display: inline-flex; align-items: center; align-self: center; font-style: normal; font-size: 0.95em; padding-right: 2px; }
 .math-struct__sup { display: inline-flex; align-items: flex-start; align-self: start; font-size: 0.62em; line-height: 1; padding-left: 1px; }
-.math-struct--matrix[data-power="true"] .math-slot:last-child { grid-column: -2 / span 1; grid-row: 1; align-self: start; font-size: 0.62em; padding: 0 1px; min-width: 0.9em; }
-.math-struct--matrix[data-power="true"][data-overline="true"] .math-slot:last-child { border-top: 0; }
-.math-struct--matrix[data-overline="true"]::before, .math-struct--matrix[data-overline="true"]::after { border-top: 1.4px solid currentColor; }
+.math-struct--matrix[data-power="true"] .math-slot:last-child { grid-column: var(--mx-pw, -2) / span 1; grid-row: 1; align-self: start; font-size: 0.62em; padding: 0 1px; min-width: 0.9em; }
+.math-struct__overline { align-self: start; height: 0; border-top: 1.4px solid currentColor; width: 100%; margin-top: -2px; pointer-events: none; }
 .math-struct--matrix[data-bracket="("]::before { content: "("; }
 .math-struct--matrix[data-bracket="("]::after  { content: ")"; }
 .math-struct--matrix[data-bracket="["]::before { content: "["; }

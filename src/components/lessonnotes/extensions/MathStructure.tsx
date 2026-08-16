@@ -143,6 +143,7 @@ function MathStructureView({ node }: NodeViewProps) {
     cssVars["--matrix-cols"] = String(cols);
     cssVars["--mx-lb"] = String(colLB);
     cssVars["--mx-rb"] = String(colRB);
+    if (colPower) cssVars["--mx-pw"] = String(colPower);
   } else if (rows && cols) {
     const cells = `repeat(${cols}, minmax(1.2em, max-content))`;
     style.gridTemplateColumns = cells;
@@ -183,6 +184,10 @@ function MathStructureView({ node }: NodeViewProps) {
       {isMatrix && supText && (
         <span className="math-struct__sup" contentEditable={false} aria-hidden
           style={{ gridColumn: colSup, gridRow: 1 }}>{supText}</span>
+      )}
+      {isMatrix && notation?.overline && rows && cols && (
+        <span className="math-struct__overline" contentEditable={false} aria-hidden
+          style={{ gridColumn: `${colLB} / span ${cols + 2}`, gridRow: 1 }} />
       )}
       {isMatrix && typeof divider === "number" && cols && rows && (
         <span
