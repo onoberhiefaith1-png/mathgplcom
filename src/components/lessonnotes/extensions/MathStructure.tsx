@@ -321,10 +321,39 @@ export const MathStructure = Node.create({
       }
       return true;
     };
+    // Enter inside a matrix cell commits the value and moves the caret to
+    // the NEXT cell (left→right, then next row). From the last cell it
+    // leaves the matrix and continues after it. Other structures keep the
+    // default Enter behaviour.
+    const matrixEnter = ({ editor }: { editor: any }) => {
+      const { $from } = editor.state.selection;
+      let slotDepth = -1;
+      for (let d = $from.depth; d >= 0; d--) {
+        if ($from.node(d).type.name === "mathSlot") { slotDepth = d; break; }
+      }
+      if (slotDepth < 1) return false;
+      const structDepth = slotDepth - 1;
+      const structNode = $from.node(structDepth);
+      if (structNode.type.name !== "mathStructure") return false;
+      if (structNode.attrs.kind !== "matrix") return false;
+      const slotIndex = $from.index(structDepth);
+      if (slotIndex < structNode.childCount - 1) return jump(1)({ editor });
+      // Last cell → step out of the whole matrix.
+      const after = $from.after(structDepth);
+      try {
+        const sel = Selection.near(editor.state.doc.resolve(after), 1);
+        editor.view.dispatch(editor.state.tr.setSelection(sel));
+      } catch {
+        editor.commands.setTextSelection(after);
+      }
+      return true;
+    };
     return {
       Tab: jump(1),
       "Shift-Tab": jump(-1),
+      Enter: matrixEnter,
     };
+
   },
 
   // Structural validator: runs on every transaction. Any `mathStructure`
