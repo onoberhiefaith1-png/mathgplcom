@@ -86,9 +86,20 @@ export function tokenizeMathLine(line: string): Run[] {
     }
     push(isMathWord(p) ? "math" : "text", p);
   }
+  // Sentence punctuation belongs to the prose, not to the expression.
+  for (let i = 0; i < runs.length; i++) {
+    const r = runs[i];
+    if (r.kind !== "math") continue;
+    const m = r.value.match(/([.,;:?!]+)$/);
+    if (!m) continue;
+    r.value = r.value.slice(0, -m[1].length);
+    const next = runs[i + 1];
+    if (next && next.kind === "text") next.value = m[1] + next.value;
+    else runs.splice(i + 1, 0, { kind: "text", value: m[1] });
+  }
   // A math run must actually contain mathematics; a lone `a` between prose
   // words is just an article.
-  return runs.map((r) =>
+  return runs.filter((r) => r.value !== "").map((r) =>
     r.kind === "math" && !HAS_MATH(r.value) && r.value.trim().length <= 1
       ? { kind: "text" as const, value: r.value }
       : r,
