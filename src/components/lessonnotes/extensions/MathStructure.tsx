@@ -20,6 +20,7 @@ import type { NodeViewProps } from "@tiptap/react";
 import { Plugin, PluginKey, Selection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { validateStructure, nodeToJson } from "@/lib/lessonnotes/structureValidator";
+import { composeNotation, normaliseFns } from "@/lib/lessonnotes/matrixFunctions";
 
 // ── mathSlot ────────────────────────────────────────────────────────────
 // Plain (non-React) node view whose dom === contentDOM. This is the ONLY
