@@ -217,8 +217,15 @@ export function repairDocumentMath(doc: any): { doc: any; changed: boolean } {
 
   const needsRepair = (text: string): boolean => {
     if (!text) return false;
-    return /\\(?:frac|sqrt|binom|vec|hat|bar|tilde|dot|sl|abs|norm|floor|ceil|sum|prod|int|oint|lim|log|ln|lg|left|right|begin|end|cdot|times|pm|leq|geq|neq|infty|to|approx|alpha|beta|gamma|delta|theta|pi|sigma|mu|lambda|phi|omega)\b/.test(text)
-      || /[\^_]\{/.test(text);
+    // Any backslash macro, script markers, dollar delimiters, code-style
+    // roots/powers or a bare `x_2` / `x^2` in prose is raw syntax and must
+    // never be displayed as text.
+    return /\\[A-Za-z]+/.test(text)
+      || /[\^_]\{/.test(text)
+      || /[A-Za-z0-9)\]}][\^_][A-Za-z0-9(]/.test(text)
+      || /\$/.test(text)
+      || /\b(?:sqrt|frac|log|ln|sin|cos|tan)\s*\(/.test(text)
+      || /\*\*/.test(text);
   };
 
   /** Flatten a paragraph made only of text + mathInline runs back to source.

@@ -53,8 +53,12 @@ const stripMarkdown = (s: string): string => {
   out = out.replace(/^[ \t]{0,4}[-*+][ \t]+/gm, "");
   out = out.replace(/^[ \t]{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/gm, "");
   out = out.replace(/^[ \t]*\|?[ \t]*:?-{2,}:?[ \t]*(\|[ \t]*:?-{2,}:?[ \t]*)+\|?[ \t]*$/gm, "");
+  // Markdown table row → ONE CELL PER LINE. Joining cells on a single line
+  // merged a calculation step with its explanation into one math object
+  // (`log_2 2 + … log_2(2 × y × z)`), which is what produced run-together
+  // lesson-note lines. One micro-step per line is the classroom standard.
   out = out.replace(/^[ \t]*\|(.+)\|[ \t]*$/gm, (_m, row: string) =>
-    row.split("|").map((c) => c.trim()).filter(Boolean).join("   "),
+    row.split("|").map((c) => c.trim()).filter(Boolean).join("\n"),
   );
   out = out.replace(/!?\[([^\]\n]*)\]\([^)\n]*\)/g, "$1");
   return out;

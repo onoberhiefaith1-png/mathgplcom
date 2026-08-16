@@ -1,81 +1,61 @@
 // Block-level math node for TipTap.
 //
-// Editing model (Word-like): a single click puts a text caret straight inside
-// the line. The line becomes a plain single-line editable field holding the
-// friendly math source, so the teacher can type, backspace, delete, retype and
-// select normally. There is no symbol palette, no "Done" button and no
-// line-breaking mini editor — leaving the line commits it.
+// ONE ENGINE, TWO SURFACES — and neither of them is text:
+//   display  → `renderMathInline` (the exact AI Edit preview renderer)
+//   editing  → `MathInlineCanvas` (structural: subscripts, fractions and
+//              radicals are real editable regions)
+//
+// There is deliberately NO source field here. A teacher must never see
+// `log_2`, `\frac{}{}`, `^{}` or any other raw mathematical syntax inside a
+// lesson note.
 
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
-import { latexToFriendly, friendlyToLatex } from "@/lib/notebook/mathFriendly";
-import { isSafeLatex } from "@/lib/notebook/mathSafety";
+import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
+import type { Row } from "@/lib/smartboard/mathTree";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { MathInlineCanvas } from "./MathInlineCanvas";
 
 function MathBlockView({ node, updateAttributes, selected, editor, getPos }: NodeViewProps) {
   const value = (node.attrs.value as string) ?? "";
+  const display = useMemo(() => normalizeMathSource(value), [value]);
   const [editing, setEditing] = useState(false);
-  const fieldRef = useRef<HTMLDivElement | null>(null);
-  const initialDraftRef = useRef("");
-  const pendingCaretRef = useRef<{ x: number; y: number } | null>(null);
+  const [root, setRoot] = useState<Row>(() => {
+    try { return latexToTree(normalizeMathSource(value)); } catch { return [] as unknown as Row; }
+  });
+  const [entryPoint, setEntryPoint] = useState<{ x: number; y: number } | null>(null);
 
   const open = (at?: { x: number; y: number }) => {
-    initialDraftRef.current = latexToFriendly(value);
-    pendingCaretRef.current = at ?? null;
+    try { setRoot(latexToTree(display)); } catch { /* keep current tree */ }
+    setEntryPoint(at ?? null);
     setEditing(true);
   };
 
-  /** Commit whatever is in the field. Never destructive: unsafe input is kept
-   *  as-is in friendly form so the teacher's keystrokes are not thrown away. */
-  const commit = () => {
-    const text = (fieldRef.current?.innerText ?? "").replace(/\n/g, " ").trim();
-    setEditing(false);
-    if (text === initialDraftRef.current.trim()) return;
-    if (!text) {
-      // Emptied line: remove the node so the document closes up like a doc.
-      try {
-        const pos = typeof getPos === "function" ? getPos() : null;
-        if (pos != null && editor) {
-          editor.chain().focus()
-            .deleteRange({ from: pos, to: pos + node.nodeSize })
-            .run();
-          return;
-        }
-      } catch { /* fall through */ }
-    }
-    const next = friendlyToLatex(text);
-    updateAttributes({ value: isSafeLatex(next) ? next : text });
+  const commit = (next: Row) => {
+    setRoot(next);
+    updateAttributes({ value: normalizeMathSource(treeToLatex(next)) });
   };
 
-  /** Place the caret where the teacher actually clicked. */
-  useLayoutEffect(() => {
-    if (!editing) return;
-    const el = fieldRef.current;
-    if (!el) return;
-    el.innerText = initialDraftRef.current;
-    el.focus();
-    const at = pendingCaretRef.current;
-    pendingCaretRef.current = null;
-    const sel = window.getSelection();
-    if (!sel) return;
-    let range: Range | null = null;
-    if (at) {
-      const d = document as Document & {
-        caretRangeFromPoint?: (x: number, y: number) => Range | null;
-      };
-      const r = d.caretRangeFromPoint?.(at.x, at.y) ?? null;
-      if (r && el.contains(r.startContainer)) range = r;
-    }
-    if (!range) {
-      range = document.createRange();
-      range.selectNodeContents(el);
-      range.collapse(false);
-    }
-    sel.removeAllRanges();
-    sel.addRange(range);
-  }, [editing]);
+  const close = () => {
+    setEditing(false);
+    setEntryPoint(null);
+    // Emptied line: remove the node so the document closes up like a doc.
+    const emptied = (() => {
+      try { return !normalizeMathSource(treeToLatex(root)).trim(); } catch { return false; }
+    })();
+    try {
+      const pos = typeof getPos === "function" ? getPos() : null;
+      if (pos == null || !editor) return;
+      if (emptied) {
+        editor.chain().focus().deleteRange({ from: pos, to: pos + node.nodeSize }).run();
+      } else {
+        editor.chain().focus().setTextSelection(pos + node.nodeSize).run();
+      }
+    } catch { /* noop */ }
+  };
 
   // Enter on a selected (non-editing) line also opens it for typing.
   useEffect(() => {
@@ -85,27 +65,19 @@ function MathBlockView({ node, updateAttributes, selected, editor, getPos }: Nod
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected, editing, value]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, editing, display]);
 
   if (editing) {
     return (
-      <NodeViewWrapper className="my-0.5" contentEditable={false}>
-        <div
-          ref={fieldRef}
-          role="textbox"
-          aria-label="Edit this line"
-          contentEditable
-          suppressContentEditableWarning
-          spellCheck={false}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            e.stopPropagation();
-            if (e.key === "Enter" || e.key === "Escape") {
-              e.preventDefault();
-              commit();
-            }
-          }}
-          className="px-1 py-0.5 rounded outline-hidden bg-primary/5 ring-1 ring-primary/30 font-mono text-[15px] leading-[1.5] whitespace-pre-wrap"
+      <NodeViewWrapper className="my-0.5 px-1" contentEditable={false}>
+        <MathInlineCanvas
+          root={root}
+          onChange={commit}
+          onBlur={close}
+          focused
+          onFocus={() => setEditing(true)}
+          entryPoint={entryPoint}
         />
       </NodeViewWrapper>
     );
@@ -122,8 +94,8 @@ function MathBlockView({ node, updateAttributes, selected, editor, getPos }: Nod
         open({ x: e.clientX, y: e.clientY });
       }}
     >
-      {value
-        ? <span className="inline-block align-baseline">{renderMathInline(value)}</span>
+      {display
+        ? <span className="inline-block align-baseline math-inline-display">{renderMathInline(display, "mb")}</span>
         : <span className="opacity-40 text-xs">[empty line — click to type]</span>}
     </NodeViewWrapper>
   );
