@@ -1076,14 +1076,13 @@ const PresentationView = ({
   const deleteDiagram = useCallback((id: string) => {
     setDiagrams((prev) => prev.filter((d) => d.id !== id));
     setActiveDiagramId((cur) => (cur === id ? null : cur));
-    setEditing2dId((cur) => (cur === id ? null : cur));
     setEditing3dId((cur) => (cur === id ? null : cur));
   }, []);
   const addDiagram2D = useCallback(() => {
+    // Opens uncommitted → the card renders the Lesson Note 2D workbench.
     const d = newBoardDiagram2D(80, 80);
     setDiagrams((prev) => [...prev, d]);
     setActiveDiagramId(d.id);
-    setEditing2dId(d.id);
   }, []);
   const addBoardGraph = useCallback(() => {
     const g = newBoardGraph(80, 80);
@@ -1102,28 +1101,7 @@ const PresentationView = ({
     setEditing3dId(d.id);
   }, []);
 
-  // Mount / unmount the shared geometry dock for the 2D diagram being edited.
-  // Every apply writes straight back into board state, so the drawing the
-  // teacher makes in the dock is the board's own content.
-  const editing2d = diagrams.find((d) => d.id === editing2dId && d.kind === "2d") as
-    | Extract<BoardDiagram, { kind: "2d" }>
-    | undefined;
-  useEffect(() => {
-    if (!editing2d) return;
-    openGeometryEditor({
-      sessionId: editing2d.id,
-      scene: editing2d.scene,
-      onApply: (next: GeometryScene) => updateDiagram(editing2d.id, { scene: next }),
-      history: { undo: doUndo, redo: doRedo },
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Only the identity of the edited diagram re-opens the dock; scene edits
-    // flow one way (dock → board) so the dock is never reset mid-drawing.
-  }, [editing2dId]);
 
-  useEffect(() => {
-    if (!editing2dId) closeGeometryEditor();
-  }, [editing2dId]);
 
   const editing3d = diagrams.find((d) => d.id === editing3dId && d.kind === "3d") as
     | Extract<BoardDiagram, { kind: "3d" }>
