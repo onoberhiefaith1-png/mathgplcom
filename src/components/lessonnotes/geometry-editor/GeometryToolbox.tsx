@@ -97,11 +97,12 @@ export function GeometryToolbox({ inline = false, onExit }: { inline?: boolean; 
         </button>
         <button
           type="button"
-          onClick={() => setMode(false)}
+          onClick={() => { if (onExit) onExit(); else setMode(false); }}
           className="p-1 rounded hover:bg-foreground/10 text-foreground/55"
-          title="Exit Geometry Mode"
-          aria-label="Exit Geometry Mode"
+          title={inline ? "Hide the tool panel" : "Exit Geometry Mode"}
+          aria-label={inline ? "Hide the tool panel" : "Exit Geometry Mode"}
         >
+
           <X className="h-3 w-3" />
         </button>
       </div>
