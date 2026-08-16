@@ -111,6 +111,7 @@ import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { BoardToolLayer } from "./BoardToolLayer";
+import { ToolsBoard } from "./ToolsBoard";
 import { FloatingToolLayer } from "./FloatingToolLayer";
 import { MathTablesPicker } from "@/components/lessonnotes/math-tools/MathTablesPicker";
 import { SmartCalculatorBody } from "@/components/lessonnotes/math-tools/SmartCalculator";
@@ -779,6 +780,12 @@ const PresentationView = ({
      delegated to the existing diagram engines. Scoped by boardScope, so a
      diagram belongs to the page it was made on and returns on reload. */
   const DIAGRAMS_KEY = boardKey("diagrams", boardScope);
+  /* ── Two-board workspace ──
+     Board 1 is this writing board; Board 2 (ToolsBoard) is an independent
+     working board for Diagram / Tables / Graph / Calc / Conversion / Slide.
+     Both are saved under the same class × notebook scope. */
+  const BOARD2_KEY = boardKey("board2", boardScope);
+  const [activeBoard, setActiveBoard] = useState<"main" | "tools">("main");
   const [diagrams, setDiagrams] = useState<BoardDiagram[]>(() => {
     try {
       const raw = localStorage.getItem(DIAGRAMS_KEY);
