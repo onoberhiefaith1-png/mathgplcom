@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ShieldAlert, LogOut, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import { activeImpersonation, endImpersonation, type ImpersonationInfo } from "@/lib/accounts/impersonation";
+import { useDraggableTab } from "@/hooks/useDraggableTab";
 
 const FOLDED_KEY = "mgpl:impersonation-banner-folded";
 
