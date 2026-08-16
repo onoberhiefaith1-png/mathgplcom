@@ -771,6 +771,7 @@ export function MathInlineCanvas({
           const hit = hitTestCursor(e.clientX, e.clientY, hostRef.current);
           const c = hit ? clamp(hit) : { path: [], index: root.length };
           dragging.current = true;
+          hashRun.current = 0;
           setAnchor(e.shiftKey ? (anchor ?? cursor) : c);
           setCursor(c);
           setTimeout(() => inputRef.current?.focus(), 0);
