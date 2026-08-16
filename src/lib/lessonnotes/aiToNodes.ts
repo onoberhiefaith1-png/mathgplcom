@@ -32,20 +32,6 @@ type TipTapNode = any;
 
 export interface Run { kind: "text" | "math"; value: string; }
 
-/** One run per line. Math lines are never fragmented. */
-export function tokenizeMathLine(line: string): Run[] {
-  if (!line) return [];
-  if (!HAS_MATH(line)) return [{ kind: "text", value: line }];
-  return [{ kind: "math", value: line }];
-}
-
-
-/* ------------------------- node assembly ------------------------- */
-
-function stripDollars(s: string): string {
-  return s.replace(/\$+/g, "");
-}
-
 /** Words that are mathematics even though they are spelled out. */
 const FUNC_WORDS = new Set([
   "log", "ln", "lg", "exp", "sin", "cos", "tan", "cot", "sec", "csc",
@@ -53,6 +39,80 @@ const FUNC_WORDS = new Set([
   "atan", "lim", "max", "min", "sup", "inf", "det", "gcd", "lcm", "mod",
   "deg", "arg", "cm", "mm", "km", "kg", "sqrt", "frac",
 ]);
+
+/** Classify ONE whitespace-delimited word. Never splits a word, so `log`
+ *  can never be cut into `lo` + `g`. */
+function isMathWord(word: string): boolean {
+  const w = word.trim();
+  if (!w) return false;
+  if (/^\\[A-Za-z]+/.test(w)) return true;                 // LaTeX macro
+  const bare = w.replace(/^[("'\[]+|[)"'\].,;:?!]+$/g, "");
+  if (!bare) return /^[^A-Za-z]+$/.test(w);                // pure punctuation run
+  if (FUNC_WORDS.has(bare.toLowerCase())) return true;
+  if (/^[A-Za-z]$/.test(bare)) return true;                // single-letter variable
+  if (/[0-9]/.test(bare)) return true;                     // any numeral
+  // Operators, relations, script markers, fences.
+  if (/[=+\-−×÷·^_/<>≤≥≠≈→↔±∓√∑∏∫∞|{}]/.test(bare)) return true;
+  if (/^[A-Za-z]{1,3}$/.test(bare) && /[_^]/.test(w)) return true;
+  return false;
+}
+
+/** Maximal math spans: consecutive mathematical words are grown into ONE run
+ *  so a complete expression is a single object, while ordinary sentence words
+ *  stay real text the sensor can walk through character by character. */
+export function tokenizeMathLine(line: string): Run[] {
+  if (!line) return [];
+  if (!HAS_MATH(line)) return [{ kind: "text", value: line }];
+  // Keep the whitespace so the reassembled line is byte-identical.
+  const parts = line.split(/(\s+)/);
+  const runs: Run[] = [];
+  const push = (kind: Run["kind"], value: string) => {
+    if (!value) return;
+    const last = runs[runs.length - 1];
+    if (last && last.kind === kind) last.value += value;
+    else runs.push({ kind, value });
+  };
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (!p) continue;
+    if (/^\s+$/.test(p)) {
+      // Whitespace belongs to the math run only when it sits *between* two
+      // mathematical words; otherwise it is prose spacing.
+      const prev = runs[runs.length - 1];
+      const nextWord = parts[i + 1] ?? "";
+      const glue = prev?.kind === "math" && isMathWord(nextWord);
+      push(glue ? "math" : "text", p);
+      continue;
+    }
+    push(isMathWord(p) ? "math" : "text", p);
+  }
+  // Sentence punctuation belongs to the prose, not to the expression.
+  for (let i = 0; i < runs.length; i++) {
+    const r = runs[i];
+    if (r.kind !== "math") continue;
+    const m = r.value.match(/([.,;:?!]+)$/);
+    if (!m) continue;
+    r.value = r.value.slice(0, -m[1].length);
+    const next = runs[i + 1];
+    if (next && next.kind === "text") next.value = m[1] + next.value;
+    else runs.splice(i + 1, 0, { kind: "text", value: m[1] });
+  }
+  // A math run must actually contain mathematics; a lone `a` between prose
+  // words is just an article.
+  return runs.filter((r) => r.value !== "").map((r) =>
+    r.kind === "math" && !HAS_MATH(r.value) && r.value.trim().length <= 1
+      ? { kind: "text" as const, value: r.value }
+      : r,
+  );
+}
+
+
+
+/* ------------------------- node assembly ------------------------- */
+
+function stripDollars(s: string): string {
+  return s.replace(/\$+/g, "");
+}
 
 /** Return true if a line is a pure calculation (no sentence prose), which
  *  renders as a centred `mathBlock`. A line carrying real sentence words
@@ -69,15 +129,60 @@ function isMostlyMath(line: string): boolean {
   return prose.length === 0;
 }
 
-/** A line with mathematics becomes ONE object for the whole line — the AI
- *  Edit rule. No seams, so no phantom spaces. */
+/** Prose stays real text (the sensor walks it character by character);
+ *  each complete expression becomes ONE math object drawn by the same
+ *  `renderMathInline` call AI Edit uses. */
 function inlineMixedParagraph(line: string): TipTapNode {
   const cleaned = stripDollars(line).replace(/\s+$/, "");
   if (!cleaned.trim()) return { type: "paragraph" };
-  return {
-    type: "paragraph",
-    content: [{ type: "mathInline", attrs: { value: normalizeMathSource(cleaned) } }],
-  };
+  const content: TipTapNode[] = [];
+  for (const run of tokenizeMathLine(cleaned)) {
+    if (run.kind === "math") {
+      const v = normalizeMathSource(run.value.trim());
+      if (v) content.push({ type: "mathInline", attrs: { value: v } });
+      // Keep the spacing that surrounded the expression as prose.
+      const trail = run.value.match(/\s+$/)?.[0];
+      if (trail) content.push({ type: "text", text: " " });
+      continue;
+    }
+    if (run.value) content.push({ type: "text", text: run.value });
+  }
+  return content.length ? { type: "paragraph", content } : { type: "paragraph" };
+}
+
+/** Split one AI line into the micro-steps a classroom board would show:
+ *   • prose that introduces mathematics with a colon → own line
+ *   • a trailing parenthesised comment ("(Apply the product rule …)") →
+ *     own explanation line, so it is editable as ordinary words. */
+function splitLineIntoSteps(line: string): string[] {
+  let rest = line.trim();
+  if (!rest) return [];
+  const out: string[] = [];
+
+  // Prose lead-in ending with a colon, followed by mathematics.
+  const colon = rest.match(/^([^:]{4,}?:)\s*(\S.*)$/);
+  if (colon && !HAS_MATH(colon[1]) && HAS_MATH(colon[2])) {
+    out.push(colon[1].trim());
+    rest = colon[2].trim();
+  }
+
+  // Trailing parenthesised prose comment.
+  const comment = rest.match(/^(.*\S)\s*\(([^()]{8,})\)\s*$/);
+  if (comment) {
+    const head = comment[1];
+    const note = comment[2];
+    const proseWords = (note.match(/[A-Za-z]{3,}/g) ?? []).filter(
+      (w) => !FUNC_WORDS.has(w.toLowerCase()),
+    );
+    if (HAS_MATH(head) && proseWords.length >= 2) {
+      out.push(head.trim());
+      out.push(note.trim());
+      return out;
+    }
+  }
+
+  out.push(rest);
+  return out;
 }
 
 
@@ -136,12 +241,14 @@ function plainAiTextToNodes(text: string): TipTapNode[] {
       // will be inserted by the editor's geometry pass.
       continue;
     }
-    if (isMostlyMath(line)) {
-      out.push({ type: "mathBlock", attrs: { value: normalizeMathSource(stripDollars(line.trim())) } });
-    } else if (HAS_MATH(line)) {
-      out.push(inlineMixedParagraph(line));
-    } else {
-      out.push({ type: "paragraph", content: [{ type: "text", text: stripDollars(line) }] });
+    for (const step of splitLineIntoSteps(line)) {
+      if (isMostlyMath(step)) {
+        out.push({ type: "mathBlock", attrs: { value: normalizeMathSource(stripDollars(step.trim())) } });
+      } else if (HAS_MATH(step)) {
+        out.push(inlineMixedParagraph(step));
+      } else {
+        out.push({ type: "paragraph", content: [{ type: "text", text: stripDollars(step) }] });
+      }
     }
   }
   return out;
@@ -251,39 +358,48 @@ export function repairDocumentMath(doc: any): { doc: any; changed: boolean } {
     return { ...node, content: inline };
   };
 
-  const visit = (node: any): any => {
-    if (!node || typeof node !== "object") return node;
-    // Paragraph: if any child text needs repair, retokenize the whole text.
+  /** A repaired paragraph may become SEVERAL lines (prose lead-in, the
+   *  expression, then its explanation) — one micro-step per line. */
+  const visitMany = (node: any): any[] => {
+    if (!node || typeof node !== "object") return [node];
     if (node.type === "paragraph" && Array.isArray(node.content)) {
-      // Only repair if children are all plain text/marks (no node views to lose).
       const allText = node.content.every((c: any) => c?.type === "text");
       if (allText) {
         const fullText = node.content.map((c: any) => c.text ?? "").join("");
-        if (needsRepair(fullText)) return rebuildParagraph(node, fullText);
-      } else {
-        // Mixed text + math runs: a line fragmented into several atoms
-        // (`lo` + `g_2` + `(M × N) = …`) is re-grouped into ONE full-line
-        // object so the renderer controls every gap.
-        const hasMath = node.content.some((c: any) => c?.type === "mathInline");
-        const source = hasMath ? flattenSource(node.content) : null;
-        if (source) {
-          const alreadyOne =
-            node.content.length === 1 &&
-            node.content[0]?.type === "mathInline" &&
-            (node.content[0].attrs?.value ?? "") === normalizeMathSource(stripDollars(source));
-          if (!alreadyOne) return rebuildParagraph(node, source);
-        }
+        if (needsRepair(fullText)) return [rebuildParagraph(node, fullText)];
+        return [node];
       }
-
+      // Mixed text + math runs. Re-segment so prose is real text (the sensor
+      // walks into it) and each complete expression is one object; split a
+      // colon lead-in or a trailing bracketed comment onto its own line.
+      const hasMath = node.content.some((c: any) => c?.type === "mathInline");
+      const source = hasMath ? flattenSource(node.content) : null;
+      if (source && source.trim()) {
+        const steps = splitLineIntoSteps(source);
+        const rebuilt = steps.map((s) =>
+          HAS_MATH(s) ? inlineMixedParagraph(s) : { type: "paragraph", content: [{ type: "text", text: s }] },
+        );
+        const same =
+          rebuilt.length === 1 &&
+          JSON.stringify(rebuilt[0].content ?? []) ===
+            JSON.stringify(
+              node.content.map((c: any) =>
+                c?.type === "mathInline"
+                  ? { type: "mathInline", attrs: { value: c.attrs?.value ?? "" } }
+                  : { type: "text", text: c.text ?? "" },
+              ),
+            );
+        if (!same) { changed = true; return rebuilt; }
+      }
+      return [node];
     }
 
     if (Array.isArray(node.content)) {
-      const next = node.content.map(visit);
-      return { ...node, content: next };
+      return [{ ...node, content: node.content.flatMap(visitMany) }];
     }
-    return node;
+    return [node];
   };
 
-  const repaired = visit(doc);
+  const repaired = visitMany(doc)[0];
   return { doc: repaired, changed };
 }
