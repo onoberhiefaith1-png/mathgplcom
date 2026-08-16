@@ -4948,6 +4948,17 @@ const PresentationView = ({
 
 
       >
+      {/* BOARD 1 — the main writing board. Unchanged; it simply slides left
+          when the teacher moves to Board 2. */}
+      <div
+        data-sb-board="main"
+        className="absolute inset-0"
+        style={{
+          transform: activeBoard === "main" ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 320ms ease",
+          willChange: "transform",
+        }}
+      >
       <WritingFilterDefs />
 
 
