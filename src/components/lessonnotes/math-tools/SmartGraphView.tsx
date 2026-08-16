@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Plus, Minus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move,
+  GripVertical, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff, LineChart,
   Sparkles, MousePointer2, Type, Sigma, Triangle as TriangleIcon,
   Circle as CircleIcon, Square as SquareIcon, Image as ImageIcon,
 } from "lucide-react";
@@ -29,8 +30,11 @@ import type {
 } from "@/components/lessonnotes/extensions/SmartGraph";
 import { cn } from "@/lib/utils";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
+import type { GraphFunction } from "@/lib/graph/graphModel";
+import { tryCompile, sampleFunction } from "@/lib/graph/functions";
+import { GRAPH_TEMPLATES, nextFunctionColour } from "@/lib/graph/library";
 
-const SQ = 28; // pixels per major square (= 1 cm on the printed page).
+const SQ_BASE = 28; // pixels per major square (= 1 cm on the printed page) at 100% graph zoom.
 
 type Mode = "plot" | "cursor" | "moveX" | "moveY";
 
@@ -52,6 +56,99 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [insertOpen, setInsertOpen] = useState(false);
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+
+  // ---- Graph object frame + independent graph zoom -------------------------
+  // The graph is an object on the lesson-note canvas: it owns its position
+  // (offsetX/offsetY, applied as a transform so the page never reflows), its
+  // size (frameW/frameH) and its own zoom (viewZoom → pixels per centimetre).
+  const zoom = a.viewZoom ?? 1;
+  const SQ = SQ_BASE * zoom;
+  const frameW = a.frameW ?? 980;
+  const frameH = a.frameH ?? 480;
+  const [objActive, setObjActive] = useState(false);
+  const active = selected || objActive;
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!objActive) return;
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setObjActive(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [objActive]);
+
+  // Move the graph object (only the object — never the page behind it).
+  const startMove = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setObjActive(true);
+    const sx = e.clientX, sy = e.clientY;
+    const ox = a.offsetX ?? 0, oy = a.offsetY ?? 0;
+    const move = (ev: PointerEvent) => {
+      update({ offsetX: ox + (ev.clientX - sx), offsetY: oy + (ev.clientY - sy) });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  // Resize the graph object. The mathematical grid re-flows to the new size:
+  // we add/remove whole centimetre squares instead of stretching the picture,
+  // keeping the origin at the same relative place.
+  const startResize = (corner: "nw" | "ne" | "sw" | "se" | "e" | "s") => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setObjActive(true);
+    const sx = e.clientX, sy = e.clientY;
+    const w0 = frameW, h0 = frameH;
+    const ox = a.offsetX ?? 0, oy = a.offsetY ?? 0;
+    const sqX0 = a.squaresX, sqY0 = a.squaresY;
+    const orX0 = a.originSquareX, orY0 = a.originSquareY;
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - sx;
+      const dy = ev.clientY - sy;
+      const west = corner === "nw" || corner === "sw";
+      const north = corner === "nw" || corner === "ne";
+      const w = Math.max(280, w0 + (west ? -dx : corner === "s" ? 0 : dx));
+      const h = Math.max(200, h0 + (north ? -dy : corner === "e" ? 0 : dy));
+      const nSqX = Math.max(4, Math.round((w - 96) / SQ));
+      const nSqY = Math.max(4, Math.round((h - 24) / SQ));
+      update({
+        frameW: w,
+        frameH: h,
+        offsetX: west ? ox + (w0 - w) : ox,
+        offsetY: north ? oy + (h0 - h) : oy,
+        squaresX: nSqX,
+        squaresY: nSqY,
+        originSquareX: Math.max(0, Math.min(nSqX, Math.round((orX0 / sqX0) * nSqX))),
+        originSquareY: Math.max(0, Math.min(nSqY, Math.round((orY0 / sqY0) * nSqY))),
+      });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const setZoom = (z: number) => update({ viewZoom: Math.max(0.25, Math.min(4, Math.round(z * 100) / 100)) });
+
+  /** Make the graph landscape and fill the frame with squares. */
+  const fitGrid = () => {
+    const nSqX = Math.max(4, Math.round((frameW - 96) / SQ));
+    const nSqY = Math.max(4, Math.round((frameH - 24) / SQ));
+    update({
+      squaresX: nSqX,
+      squaresY: nSqY,
+      originSquareX: Math.round(nSqX / 2),
+      originSquareY: Math.round(nSqY / 2),
+    });
+  };
 
   // ---- Geometry helpers ----------------------------------------------------
   const W = a.squaresX * SQ;
@@ -579,6 +676,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                     key={o.id}
                     overlay={o}
                     toPx={toPx}
+                    sq={SQ}
                     unitsPerSquareX={a.unitsPerSquareX}
                     unitsPerSquareY={a.unitsPerSquareY}
                     selected={selectedOverlayId === o.id}
@@ -621,11 +719,12 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 // ---------- Overlay ---------------------------------------------------------
 
 function OverlayNode({
-  overlay: o, toPx, unitsPerSquareX, unitsPerSquareY,
+  overlay: o, toPx, sq: SQ, unitsPerSquareX, unitsPerSquareY,
   selected, onSelect, onChange, onDelete, onDragStart,
 }: {
   overlay: GraphOverlay;
   toPx: (p: { x: number; y: number }) => { x: number; y: number };
+  sq: number;
   unitsPerSquareX: number;
   unitsPerSquareY: number;
   selected: boolean;
