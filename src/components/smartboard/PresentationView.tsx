@@ -120,10 +120,8 @@ import {
   sanitizeBoardDiagrams, newBoardDiagram2D, newBoardDiagram3D,
   newBoardGraph, newBoardTable, type BoardDiagram,
 } from "@/lib/smartboard/boardDiagrams";
-import {
-  GeometryEditorPanel, openGeometryEditor, closeGeometryEditor,
-} from "@/components/lessonnotes/geometry-editor/GeometryEditorPanel";
 import Workspace3DDialog from "@/components/lessonnotes/geometry3d/Workspace3DDialog";
+
 import type { GeometryScene } from "@/lib/geometry/scene";
 import type { Scene3D } from "@/lib/geometry3d/scene3d";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes as ShapesIcon,
