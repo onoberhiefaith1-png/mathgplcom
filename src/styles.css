@@ -850,28 +850,29 @@
 .math-struct--limit .math-slot:nth-child(1) { grid-column: 1; grid-row: 2; font-size: 0.66em; text-align: center; }
 .math-struct--limit .math-slot:nth-child(2) { grid-column: 2; grid-row: 1 / span 2; align-self: center; text-align: left; }
 
-.math-struct--matrix { grid-auto-flow: row; grid-auto-columns: 0; grid-auto-rows: 0; align-items: center; justify-items: center; column-gap: 2px; row-gap: 1px; padding: 0 2px; position: relative; }
+.math-struct--matrix { grid-auto-flow: row; grid-auto-columns: 0; grid-auto-rows: 0; align-items: center; justify-items: center; column-gap: 4px; row-gap: 2px; padding: 0 1px; position: relative; }
 .math-struct--matrix .math-slot { padding: 1px 6px; min-width: 1.15em; }
-/* Brackets are mathematically generated: they stretch across every matrix
-   row and scale with the row count, so a 2x2, 3x3 and 3x4 each get a
-   correctly sized fence. Their columns come from the node view. */
-.math-struct--matrix::before, .math-struct--matrix::after { grid-row: 1 / -1; align-self: stretch; display: inline-flex; align-items: center; line-height: 1; font-size: calc(0.9em + 0.62em * var(--matrix-rows, 2)); transform: scaleX(0.86); }
-.math-struct--matrix::before { grid-column: var(--mx-lb, 1) / span 1; }
-.math-struct--matrix::after  { grid-column: var(--mx-rb, -2) / span 1; }
-.math-struct__fence { display: inline-flex; align-items: center; line-height: 1; align-self: stretch; font-size: calc(0.9em + 0.62em * var(--matrix-rows, 2)); }
+/* Brackets are generated from the matrix itself: each fence is an inline SVG
+   grid item spanning every row (align-self: stretch), so its height is the
+   measured height of the cell block and its shape scales without distorting
+   the stroke. Never a fixed-size glyph. */
+.math-struct__fence-svg { display: inline-flex; align-self: stretch; min-height: 1em; margin: 0 1px; pointer-events: none; }
+.math-struct__fence-svg > svg { display: block; overflow: visible; }
 .math-struct__fn { display: inline-flex; align-items: center; align-self: center; font-style: normal; font-size: 0.95em; padding-right: 2px; }
-.math-struct__sup { display: inline-flex; align-items: flex-start; align-self: start; font-size: 0.62em; line-height: 1; padding-left: 1px; }
+.math-struct__sup { display: inline-flex; align-items: flex-start; align-self: start; font-size: 0.62em; line-height: 1; padding-left: 1px; margin-top: -0.15em; }
 .math-struct--matrix[data-power="true"] .math-slot:last-child { grid-column: var(--mx-pw, -2) / span 1; grid-row: 1; align-self: start; font-size: 0.62em; padding: 0 1px; min-width: 0.9em; }
 .math-struct__overline { align-self: start; height: 0; border-top: 1.4px solid currentColor; width: 100%; margin-top: -2px; pointer-events: none; }
-.math-struct--matrix[data-bracket="("]::before { content: "("; }
-.math-struct--matrix[data-bracket="("]::after  { content: ")"; }
-.math-struct--matrix[data-bracket="["]::before { content: "["; }
-.math-struct--matrix[data-bracket="["]::after  { content: "]"; }
-.math-struct--matrix[data-bracket="{"]::before { content: "{"; }
-.math-struct--matrix[data-bracket="{"]::after  { content: "}"; }
-.math-struct--matrix[data-bracket="|"]::before,
-.math-struct--matrix[data-bracket="|"]::after { content: "|"; }
+/* Matrix cells are the input positions: their placeholder stays visible until
+   a value is typed, whether or not the matrix has focus. */
+.math-struct--matrix .math-slot[data-empty="true"]::before,
+.math-struct--matrix .math-slot:empty::before {
+  content: "▯";
+  opacity: 0.3;
+  font-size: 0.9em;
+  pointer-events: none;
+}
 .math-struct__divider { width: 0; border-left: 1.5px solid currentColor; align-self: stretch; justify-self: start; margin: 0 3px; }
+
 .math-struct--matrix[data-locked="true"] { outline: 1px dashed hsl(var(--muted-foreground) / 0.35); outline-offset: 2px; }
 
 .math-struct--piecewise, .math-struct--system { grid-template-columns: max-content max-content max-content; grid-auto-rows: auto; align-items: center; }
