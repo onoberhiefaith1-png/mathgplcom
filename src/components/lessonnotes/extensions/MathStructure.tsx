@@ -210,14 +210,23 @@ function MathStructureView({ node }: NodeViewProps) {
       {op && <span className="math-struct__op ms-op" contentEditable={false} aria-hidden>{op}</span>}
       {mark && <span className="math-struct__mark ms-mark" contentEditable={false} aria-hidden>{mark}</span>}
       {idx && <span className="math-struct__index ms-index" contentEditable={false} aria-hidden>{idx}</span>}
-      {isMatrix && notation?.norm && rows && (
+      {isMatrix && rows && cols && (
         <>
-          <span className="math-struct__fence" contentEditable={false} aria-hidden
-            style={{ gridColumn: colNormL, gridRow: spanAllRows }}>‖</span>
-          <span className="math-struct__fence" contentEditable={false} aria-hidden
-            style={{ gridColumn: colNormR, gridRow: spanAllRows }}>‖</span>
+          <MatrixFence bracket={br || "("} side="L"
+            style={{ gridColumn: colLB, gridRow: spanAllRows, alignSelf: "stretch" }} />
+          <MatrixFence bracket={br || "("} side="R"
+            style={{ gridColumn: colRB, gridRow: spanAllRows, alignSelf: "stretch" }} />
         </>
       )}
+      {isMatrix && notation?.norm && rows && (
+        <>
+          <MatrixFence bracket="‖" side="L"
+            style={{ gridColumn: colNormL, gridRow: spanAllRows, alignSelf: "stretch" }} />
+          <MatrixFence bracket="‖" side="R"
+            style={{ gridColumn: colNormR, gridRow: spanAllRows, alignSelf: "stretch" }} />
+        </>
+      )}
+
       {isMatrix && notation?.prefix && rows && (
         <span className="math-struct__fn" contentEditable={false}
           style={{ gridColumn: colPrefix, gridRow: spanAllRows }}>{notation.prefix}</span>
