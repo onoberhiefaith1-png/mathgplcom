@@ -93,7 +93,48 @@ export const MathSlot = Node.create({
   },
 });
 
+// ── Stretchy matrix fence ───────────────────────────────────────────────
+// Brackets are NEVER fixed-size glyphs. Each fence is an inline SVG that
+// stretches to the measured height of the cell block (it is a grid item
+// spanning every matrix row with `align-self: stretch`), so a 2x2 gets a
+// short fence, a 4x3 a tall one, and a 3x4 grows horizontally with the
+// columns. `preserveAspectRatio="none"` + `vector-effect` keeps the stroke
+// weight constant while the shape scales.
+function MatrixFence({
+  bracket, side, style,
+}: { bracket: string; side: "L" | "R"; style: React.CSSProperties }) {
+  const w = bracket === "{" ? 9 : bracket === "|" ? 3 : 7;
+  const flip = side === "R";
+  let body: React.ReactNode = null;
+  if (bracket === "(") {
+    body = <path d="M6 2 C2 25, 2 75, 6 98" />;
+  } else if (bracket === "[") {
+    body = <path d="M6 2 H2 V98 H6" />;
+  } else if (bracket === "{") {
+    body = <path d="M8 2 C5 2, 5 30, 4.4 47 C4.2 49, 3 50, 1.6 50 C3 50, 4.2 51, 4.4 53 C5 70, 5 98, 8 98" />;
+  } else {
+    body = <path d="M2 1 V99" />;
+  }
+  return (
+    <span
+      className="math-struct__fence-svg"
+      contentEditable={false}
+      aria-hidden
+      style={{ ...style, width: `${w * 0.075}em` }}
+    >
+      <svg viewBox={`0 0 ${w + 2} 100`} preserveAspectRatio="none" width="100%" height="100%"
+        style={flip ? { transform: "scaleX(-1)" } : undefined}>
+        <g fill="none" stroke="currentColor" strokeWidth={bracket === "|" ? 1.6 : 1.5}
+          strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke">
+          {body}
+        </g>
+      </svg>
+    </span>
+  );
+}
+
 // ── mathStructure (parent) ──────────────────────────────────────────────
+
 function MathStructureView({ node }: NodeViewProps) {
   const kind = (node.attrs.kind as string) || "fraction";
   const extraAttrs = (node.attrs.attrs as Record<string, unknown>) || {};
