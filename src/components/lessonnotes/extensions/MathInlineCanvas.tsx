@@ -47,6 +47,7 @@ import {
   rowEndCursor,
   cursorsEqual,
   extractWrapTargetLeftOf,
+  navigateOut,
 } from "@/lib/smartboard/mathTree";
 import { treeToLatex, latexToTree } from "@/lib/smartboard/mathTreeLatex";
 
@@ -453,6 +454,9 @@ export function MathInlineCanvas({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hostRef = useRef<HTMLSpanElement | null>(null);
   const dragging = useRef(false);
+  // How many `#` presses in a row the teacher has just made. One command:
+  // 1 = superscript, 2 = subscript, 3 = navigate back/up, 4 = forward/down.
+  const hashRun = useRef(0);
   // Local undo history (bounded) so Ctrl+Z inside the expression never
   // fights the document-level history of the surrounding editor.
   const undoStack = useRef<{ root: Row; cursor: Cursor }[]>([]);
@@ -534,6 +538,8 @@ export function MathInlineCanvas({
   const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const k = e.key;
     const mod = e.ctrlKey || e.metaKey;
+    // Anything other than `#` ends the current command run.
+    if (k !== "#") hashRun.current = 0;
 
     // ── clipboard / history / select-all ────────────────────────────────
     if (mod && (k === "z" || k === "Z")) {
@@ -664,6 +670,18 @@ export function MathInlineCanvas({
     // visual gaps. Neither trigger is written into the note.
     if (k === "#") {
       e.preventDefault();
+      // Consecutive presses form ONE command. The run resets on any other
+      // key or click (see below), so `#`/`##` behave exactly as before.
+      const run = (hashRun.current += 1);
+
+      // ### → leave this branch and search BACKWARD/UP through the tree.
+      // #### → the opposite direction. Pure navigation: nothing is inserted,
+      // nothing is created, and neither ever reaches the note.
+      if (run >= 3) {
+        setCaret(navigateOut(root, cursor, run === 3 ? -1 : 1), false);
+        return;
+      }
+
       const base = withSelectionCleared();
       const c = base.cursor;
       if (c.path.length >= 2) {
@@ -685,6 +703,7 @@ export function MathInlineCanvas({
       apply({ root: res.root, cursor: { path: [...c.path, start, 2], index: 0 } });
       return;
     }
+
 
 
 
@@ -752,6 +771,7 @@ export function MathInlineCanvas({
           const hit = hitTestCursor(e.clientX, e.clientY, hostRef.current);
           const c = hit ? clamp(hit) : { path: [], index: root.length };
           dragging.current = true;
+          hashRun.current = 0;
           setAnchor(e.shiftKey ? (anchor ?? cursor) : c);
           setCursor(c);
           setTimeout(() => inputRef.current?.focus(), 0);
