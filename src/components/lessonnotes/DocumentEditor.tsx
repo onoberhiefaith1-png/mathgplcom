@@ -2018,7 +2018,7 @@ function DocumentEditorInner({
 
     if (inline) {
       const value = normalizeMathSource(clean);
-      const content = containsMath(clean)
+      const content = HAS_MATH(clean)
         ? [{ type: "mathInline", attrs: { value } }]
         : [{ type: "text", text: clean }];
       editor.chain().focus()
