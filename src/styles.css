@@ -477,6 +477,28 @@
   line-height: var(--math-inner-line-height);
 }
 
+/* MATH BOUNDARY RESET.
+   `renderMathInline` builds scripts/fractions as inline-flex, which blockifies
+   its children — and a block box inherits `text-indent` (and friends) and
+   applies it to its own first line. A paragraph indent therefore used to add a
+   phantom gap in front of every piece of an expression. Neutralise every
+   inheritable text metric at the math boundary so no surrounding prose style
+   can ever reintroduce spacing inside mathematics. */
+[data-math-inline],
+[data-math-block],
+.math-inline-display,
+.math-struct,
+[data-math-inline] *,
+[data-math-block] *,
+.math-inline-display *,
+.math-struct * {
+  text-indent: 0 !important;
+  text-align: left;
+  word-spacing: normal;
+  letter-spacing: normal;
+}
+
+
 /* Rendered math is real, selectable content — not an image. Teachers can
    drag-highlight across it and click into it to edit. */
 .math-inline-selectable,
