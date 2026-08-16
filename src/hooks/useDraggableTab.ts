@@ -49,20 +49,28 @@ export function useDraggableTab(storageKey: string) {
     setOffsetX(next);
   }, []);
 
+  const justDragged = useRef(false);
+
   const endDrag = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
       const drag = dragRef.current;
       dragRef.current = null;
       setDragging(false);
       event.currentTarget.releasePointerCapture?.(event.pointerId);
-      if (drag?.moved) persist(offsetX);
-      return drag?.moved ?? false;
+      if (drag?.moved) {
+        justDragged.current = true;
+        persist(offsetX);
+        window.setTimeout(() => {
+          justDragged.current = false;
+        }, 0);
+      }
     },
     [offsetX, persist],
   );
 
   /** True right after a drag, so click handlers can ignore the release. */
-  const wasDragged = () => dragging;
+  const wasDragged = () => justDragged.current;
 
   return { offsetX, dragging, onPointerDown, onPointerMove, endDrag, wasDragged };
 }
+
