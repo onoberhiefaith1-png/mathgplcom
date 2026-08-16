@@ -230,12 +230,14 @@ function plainAiTextToNodes(text: string): TipTapNode[] {
       // will be inserted by the editor's geometry pass.
       continue;
     }
-    if (isMostlyMath(line)) {
-      out.push({ type: "mathBlock", attrs: { value: normalizeMathSource(stripDollars(line.trim())) } });
-    } else if (HAS_MATH(line)) {
-      out.push(inlineMixedParagraph(line));
-    } else {
-      out.push({ type: "paragraph", content: [{ type: "text", text: stripDollars(line) }] });
+    for (const step of splitLineIntoSteps(line)) {
+      if (isMostlyMath(step)) {
+        out.push({ type: "mathBlock", attrs: { value: normalizeMathSource(stripDollars(step.trim())) } });
+      } else if (HAS_MATH(step)) {
+        out.push(inlineMixedParagraph(step));
+      } else {
+        out.push({ type: "paragraph", content: [{ type: "text", text: stripDollars(step) }] });
+      }
     }
   }
   return out;
