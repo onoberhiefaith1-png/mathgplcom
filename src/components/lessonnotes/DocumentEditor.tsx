@@ -400,6 +400,7 @@ function DocumentEditorInner({
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
   pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
+  notebookId: notebookIdProp, scopeSuffix,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
   // When a school looks through a teacher's workspace the page is identical;
