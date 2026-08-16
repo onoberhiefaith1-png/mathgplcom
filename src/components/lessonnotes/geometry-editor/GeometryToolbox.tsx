@@ -52,7 +52,7 @@ function ArcIcon({ className }: { className?: string }) {
 
 const KEY = "geometry-toolbox:expanded";
 
-export function GeometryToolbox() {
+export function GeometryToolbox({ inline = false, onExit }: { inline?: boolean; onExit?: () => void } = {}) {
   const { mode, setMode, tool, setTool, annotationDraft, setAnnotationDraft } = useGeometryMode();
   const [expanded, setExpanded] = useState<boolean>(() => {
     try { return localStorage.getItem(KEY) !== "0"; } catch { return true; }
@@ -72,12 +72,19 @@ export function GeometryToolbox() {
 
   return (
     <aside
-      className="fixed left-3 top-28 z-30 flex flex-col rounded-lg border border-foreground/15 bg-background/95 backdrop-blur shadow-lg"
-      style={{ width: expanded ? 176 : 44, maxHeight: "calc(100vh - 9rem)" }}
+      className={cn(
+        "flex flex-col rounded-lg border border-foreground/15 bg-background/95 backdrop-blur",
+        inline ? "h-full shrink-0" : "fixed left-3 top-28 z-30 shadow-lg",
+      )}
+      style={{
+        width: expanded ? 176 : 44,
+        maxHeight: inline ? "100%" : "calc(100vh - 9rem)",
+      }}
       role="toolbar"
       aria-label="Geometry tools"
       onMouseDown={(e) => e.stopPropagation()}
     >
+
       <div className="flex items-center gap-1 px-1.5 py-1.5 border-b border-foreground/10">
         <button
           type="button"
