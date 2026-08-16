@@ -196,12 +196,18 @@ export function tokenizeMathLine(line: string): Run[] {
       if (t.k !== "prose") return false;
       const word = line.slice(t.s, t.e);
       const next = toks[i + 1];
-      if (!next || next.k !== "math") return false;
-      // Either glued directly to the mathematics, or an all-caps label.
-      return next.s === t.e ? word.length <= 3 || /^[A-Z]+$/.test(word)
-                            : /^[A-Z]{2,}$/.test(word);
+      if (!next) return false;
+      if (next.k === "math" && next.s === t.e) {
+        return word.length <= 3 || /^[A-Z]+$/.test(word);
+      }
+      // All-caps label separated by a space: `MN = 5`.
+      if (!/^[A-Z]{2,}$/.test(word)) return false;
+      let k = i + 1;
+      while (k < toks.length && toks[k].k === "space") k++;
+      return k < toks.length && toks[k].k === "math";
     })();
     if (!startsSpan) { pushText(line.slice(t.s, t.e)); i++; continue; }
+
 
     // Grow the span: math tokens, plus interior whitespace when another math
     // token follows it.
