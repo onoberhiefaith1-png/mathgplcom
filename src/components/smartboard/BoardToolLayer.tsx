@@ -7,7 +7,7 @@
 // Lesson Note MathTableView, all reached through NodeAttrsAdapter. The board's
 // own writing/text surface is never touched.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Boxes, Eye, EyeOff, LineChart, Shapes, Table as TableIcon } from "lucide-react";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import type { GeometryScene } from "@/lib/geometry/scene";
@@ -34,6 +34,8 @@ interface Props {
   onActivate: (id: string) => void;
   editable: boolean;
   palette: FloatingToolPalette;
+  /** The board's current writing colour — the default geometry ink. */
+  ink: string;
 }
 
 const TITLES: Record<BoardDiagram["kind"], string> = {
@@ -44,17 +46,37 @@ const TITLES: Record<BoardDiagram["kind"], string> = {
 };
 
 export const BoardToolLayer = ({
-  diagrams, onChange, onEdit, onDelete, activeId, onActivate, editable, palette,
+  diagrams, onChange, onEdit, onDelete, activeId, onActivate, editable, palette, ink,
 }: Props) => {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const layerRef = useRef<HTMLDivElement | null>(null);
+
+  /** Chrome colours handed to the reused Lesson Note panels. */
+  const chrome = {
+    bg: palette.chromeBg,
+    fg: palette.chromeFg,
+    border: palette.chromeBorder,
+  };
 
   const patch = (id: string, p: Partial<BoardDiagram>) =>
     onChange(diagrams.map((d) => (d.id === id ? ({ ...d, ...p } as BoardDiagram) : d)));
+
+  /** Span presets — Small / Medium / Full board. Transparent at every size. */
+  const setSpan = (id: string, span: "s" | "m" | "f") => {
+    const box = layerRef.current?.getBoundingClientRect();
+    const maxW = Math.max(360, Math.round(box?.width ?? 1024));
+    const maxH = Math.max(260, Math.round(box?.height ?? 640));
+    if (span === "f") { onChange(diagrams.map((d) => d.id === id ? ({ ...d, x: 8, y: 8, width: maxW - 16, height: maxH - 16 } as BoardDiagram) : d)); return; }
+    const w = span === "s" ? 520 : 800;
+    const h = span === "s" ? 360 : 540;
+    patch(id, { width: Math.min(w, maxW - 16), height: Math.min(h, maxH - 16) });
+  };
 
   if (diagrams.length === 0) return null;
 
   return (
     <div
+      ref={layerRef}
       data-sb-diagram-layer=""
       className="absolute inset-0"
       style={{ pointerEvents: "none", zIndex: 26 }}
@@ -87,8 +109,23 @@ export const BoardToolLayer = ({
             palette={palette}
             minWidth={d.kind === "2d" ? 420 : undefined}
             minHeight={d.kind === "2d" ? 300 : undefined}
-            solidBody={d.kind === "graph" || d.kind === "table" || d.kind === "2d"}
-            actions={d.kind === "3d" && editable ? (
+            solidBody={d.kind === "graph" || d.kind === "table"}
+            transparentShell={d.kind === "2d"}
+            actions={d.kind === "2d" && editable ? (
+              <span className="inline-flex items-center gap-0.5">
+                {([["s", "Small"], ["m", "Medium"], ["f", "Full board"]] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    title={`Span: ${label}`}
+                    className="rounded px-1.5 py-0.5 text-[11px] hover:bg-black/10"
+                    onClick={(e) => { e.stopPropagation(); setSpan(d.id, k); }}
+                  >
+                    {k.toUpperCase()}
+                  </button>
+                ))}
+              </span>
+            ) : d.kind === "3d" && editable ? (
               <button
                 type="button"
                 title={axesOn ? "Hide the X / Y / Z axes" : "Show the X / Y / Z axes"}
@@ -132,6 +169,8 @@ export const BoardToolLayer = ({
               onScene={(scene) => patch(d.id, { scene } as Partial<BoardDiagram>)}
               onDelete={() => onDelete(d.id)}
               selected={activeId === d.id}
+              ink={ink}
+              chrome={chrome}
             />
           </FloatingToolLayer>
         );
@@ -142,8 +181,10 @@ export const BoardToolLayer = ({
 };
 
 function ToolBody({
-  diagram, onAttrs, onScene, onDelete, selected,
+  diagram, onAttrs, onScene, onDelete, selected, ink, chrome,
 }: {
+  ink: string;
+  chrome: { bg: string; fg: string; border: string };
   diagram: BoardDiagram;
   onAttrs: (attrs: Record<string, unknown>) => void;
   onScene: (scene: GeometryScene) => void;
@@ -161,6 +202,8 @@ function ToolBody({
           scene={diagram.scene}
           onChange={onScene}
           onDeleteDiagram={onDelete}
+          stroke={ink}
+          chrome={chrome}
         />
       );
     }
@@ -170,6 +213,7 @@ function ToolBody({
           scene={diagram.scene}
           explicitWidth={diagram.width - 16}
           explicitHeight={diagram.height - 44}
+          stroke={ink}
         />
       </div>
     );
