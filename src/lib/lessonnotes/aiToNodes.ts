@@ -358,44 +358,48 @@ export function repairDocumentMath(doc: any): { doc: any; changed: boolean } {
     return { ...node, content: inline };
   };
 
-  const visit = (node: any): any => {
-    if (!node || typeof node !== "object") return node;
-    // Paragraph: if any child text needs repair, retokenize the whole text.
+  /** A repaired paragraph may become SEVERAL lines (prose lead-in, the
+   *  expression, then its explanation) — one micro-step per line. */
+  const visitMany = (node: any): any[] => {
+    if (!node || typeof node !== "object") return [node];
     if (node.type === "paragraph" && Array.isArray(node.content)) {
-      // Only repair if children are all plain text/marks (no node views to lose).
       const allText = node.content.every((c: any) => c?.type === "text");
       if (allText) {
         const fullText = node.content.map((c: any) => c.text ?? "").join("");
-        if (needsRepair(fullText)) return rebuildParagraph(node, fullText);
-      } else {
-        // Mixed text + math runs. Re-segment the line so prose is real text
-        // (the sensor can walk into it) and each complete expression is one
-        // object. Idempotent: only rebuilt when the segmentation differs.
-        const hasMath = node.content.some((c: any) => c?.type === "mathInline");
-        const source = hasMath ? flattenSource(node.content) : null;
-        if (source && source.trim()) {
-          const rebuilt = inlineMixedParagraph(source);
-          const a = JSON.stringify(rebuilt.content ?? []);
-          const b = JSON.stringify(
-            node.content.map((c: any) =>
-              c?.type === "mathInline"
-                ? { type: "mathInline", attrs: { value: c.attrs?.value ?? "" } }
-                : { type: "text", text: c.text ?? "" },
-            ),
-          );
-          if (a !== b) { changed = true; return { ...node, content: rebuilt.content ?? [] }; }
-        }
+        if (needsRepair(fullText)) return [rebuildParagraph(node, fullText)];
+        return [node];
       }
-
+      // Mixed text + math runs. Re-segment so prose is real text (the sensor
+      // walks into it) and each complete expression is one object; split a
+      // colon lead-in or a trailing bracketed comment onto its own line.
+      const hasMath = node.content.some((c: any) => c?.type === "mathInline");
+      const source = hasMath ? flattenSource(node.content) : null;
+      if (source && source.trim()) {
+        const steps = splitLineIntoSteps(source);
+        const rebuilt = steps.map((s) =>
+          HAS_MATH(s) ? inlineMixedParagraph(s) : { type: "paragraph", content: [{ type: "text", text: s }] },
+        );
+        const same =
+          rebuilt.length === 1 &&
+          JSON.stringify(rebuilt[0].content ?? []) ===
+            JSON.stringify(
+              node.content.map((c: any) =>
+                c?.type === "mathInline"
+                  ? { type: "mathInline", attrs: { value: c.attrs?.value ?? "" } }
+                  : { type: "text", text: c.text ?? "" },
+              ),
+            );
+        if (!same) { changed = true; return rebuilt; }
+      }
+      return [node];
     }
 
     if (Array.isArray(node.content)) {
-      const next = node.content.map(visit);
-      return { ...node, content: next };
+      return [{ ...node, content: node.content.flatMap(visitMany) }];
     }
-    return node;
+    return [node];
   };
 
-  const repaired = visit(doc);
+  const repaired = visitMany(doc)[0];
   return { doc: repaired, changed };
 }
