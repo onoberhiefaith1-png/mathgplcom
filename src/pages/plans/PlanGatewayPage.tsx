@@ -98,7 +98,15 @@ export default function PlanGatewayPage() {
     <main className="min-h-screen bg-background text-foreground">
       <PaymentTestModeBanner />
       <div className="mx-auto max-w-5xl px-6 py-14">
+        <BackButton
+          fallback={workspace}
+          className="mb-6 inline-flex min-h-9 items-center gap-2 rounded-full border border-border/60 px-4 text-sm text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
+          ariaLabel="Back"
+        >
+          <span>Back</span>
+        </BackButton>
         <p className="text-xs uppercase tracking-[0.4em] text-primary">MathGPL</p>
+
         <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">Choose your plan</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
           Your account is verified. Pick the plan you want to start on — every plan includes a monthly credit allowance,
