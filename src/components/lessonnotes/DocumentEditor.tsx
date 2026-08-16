@@ -2554,7 +2554,7 @@ function DocumentEditorInner({
                   style={{ height: pageExtraMm * (96 / 25.4), flex: "0 0 auto" }}
                 />
               )}
-              <NotebookGeometryOverlay notebookId={notebookId} paperLayerRef={paperLayerRef} tiptapEditor={editor} />
+              <NotebookGeometryOverlay notebookId={storageId} paperLayerRef={paperLayerRef} tiptapEditor={editor} />
 
               {canvasBoxes.map((b) => (
                 <CanvasBoxView
