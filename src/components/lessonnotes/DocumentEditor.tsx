@@ -117,7 +117,7 @@ import {
   type LessonTeachingContext,
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
-import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
+import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { sectionEndWithin, clampInsideSection } from "@/lib/lessonnotes/containerRange";
 
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
@@ -1265,7 +1265,7 @@ function DocumentEditorInner({
       AtCommand.configure({ onChange: setAtState }),
       MathKeyShortcuts,
     ],
-    content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
+    content: normalizedDoc,
     editorProps: {
       attributes: {
         class: "lesson-doc max-w-none focus:outline-hidden min-h-[60vh]",
@@ -1523,8 +1523,8 @@ function DocumentEditorInner({
     if (!editor || !documentJson) return;
     if (editor.isFocused) return;
     const current = JSON.stringify(editor.getJSON());
-    const next = JSON.stringify(documentJson);
-    if (current !== next) editor.commands.setContent(documentJson, { emitUpdate: false });
+    const next = JSON.stringify(normalizedDoc);
+    if (current !== next) editor.commands.setContent(normalizedDoc, { emitUpdate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentJson]);
 
