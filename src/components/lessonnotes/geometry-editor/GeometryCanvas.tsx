@@ -104,7 +104,10 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [annotationDraft?.tool]);
 
-  const { minX, minY, W, H } = computeSceneViewBox(scene, PAD);
+  const vbox = computeSceneViewBox(scene, PAD);
+  const { minX, minY } = vbox;
+  const W = Math.max(vbox.W, minViewW ?? 0);
+  const H = Math.max(vbox.H, minViewH ?? 0);
 
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current;
