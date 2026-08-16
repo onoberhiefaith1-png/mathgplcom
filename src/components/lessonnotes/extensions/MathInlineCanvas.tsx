@@ -454,6 +454,9 @@ export function MathInlineCanvas({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hostRef = useRef<HTMLSpanElement | null>(null);
   const dragging = useRef(false);
+  // How many `#` presses in a row the teacher has just made. One command:
+  // 1 = superscript, 2 = subscript, 3 = navigate back/up, 4 = forward/down.
+  const hashRun = useRef(0);
   // Local undo history (bounded) so Ctrl+Z inside the expression never
   // fights the document-level history of the surrounding editor.
   const undoStack = useRef<{ root: Row; cursor: Cursor }[]>([]);
