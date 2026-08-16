@@ -97,15 +97,32 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
   ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind,
       editor.pendingIds.length, editor.canUndo, editor.canRedo, onDeleteDiagram]);
 
+  // Measure the drawing area so the canvas is at least as large as the
+  // workspace: the teacher can draw anywhere on it, not only inside a card.
+  const [area, setArea] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const areaRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = areaRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      setArea({ w: el.clientWidth, h: el.clientHeight });
+    });
+    ro.observe(el);
+    setArea({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div className={cn("flex h-full w-full min-h-0 gap-1 p-1", className)}>
+    <div className={cn("relative flex h-full w-full min-h-0 gap-1 p-1", className)}>
       {leftOpen ? (
-        <GeometryToolbox inline onExit={() => setLeftOpen(false)} chrome={chrome} />
+        <div className="sticky left-0 top-0 z-20 h-full shrink-0 self-start">
+          <GeometryToolbox inline onExit={() => setLeftOpen(false)} chrome={chrome} />
+        </div>
       ) : (
         <button
           type="button"
           onClick={() => setLeftOpen(true)}
-          className="h-7 w-7 shrink-0 self-start grid place-items-center rounded border border-foreground/15 text-foreground/60 hover:bg-foreground/10"
+          className="sticky left-0 top-0 z-20 h-7 w-7 shrink-0 self-start grid place-items-center rounded border border-foreground/15 text-foreground/60 hover:bg-foreground/10"
           title="Show the geometry tools"
           aria-label="Show the geometry tools"
         >
@@ -113,13 +130,20 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
         </button>
       )}
 
-      <div className="min-w-0 flex-1 overflow-auto rounded-md">
-        <GeometryCanvas editor={editor} stroke={stroke} />
+      {/* Transparent drawing area — no surface of its own, scrolls vertically
+          while the two tool panels stay pinned to the edges. */}
+      <div ref={areaRef} className="min-w-0 min-h-0 flex-1 overflow-auto">
+        <GeometryCanvas
+          editor={editor}
+          stroke={stroke}
+          minViewW={Math.max(0, area.w - 8)}
+          minViewH={Math.max(0, area.h - 8)}
+        />
       </div>
 
       {rightOpen ? (
         <aside
-          className="h-full w-56 shrink-0 overflow-y-auto rounded-lg border border-foreground/15 bg-background/95 p-2"
+          className="sticky right-0 top-0 z-20 h-full w-56 shrink-0 self-start overflow-y-auto rounded-lg border border-foreground/15 bg-background/95 p-2"
           style={chrome ? { background: chrome.bg, color: chrome.fg, borderColor: chrome.border } : undefined}
           onMouseDown={(e) => e.stopPropagation()}
         >
@@ -143,7 +167,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
         <button
           type="button"
           onClick={() => setRightOpen(true)}
-          className="h-7 w-7 shrink-0 self-start grid place-items-center rounded border border-foreground/15 text-foreground/60 hover:bg-foreground/10"
+          className="sticky right-0 top-0 z-20 h-7 w-7 shrink-0 self-start grid place-items-center rounded border border-foreground/15 text-foreground/60 hover:bg-foreground/10"
           title="Show the diagram tools"
           aria-label="Show the diagram tools"
         >
