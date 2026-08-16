@@ -1519,6 +1519,7 @@ function DocumentEditorInner({
 
   // Emoji Library dock panel (teacher-managed content).
   const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
+  const [slidePanelOpen, setSlidePanelOpen] = useState(false);
 
   // Conversion tool.
   const [conversionOpen, setConversionOpen] = useState(false);
