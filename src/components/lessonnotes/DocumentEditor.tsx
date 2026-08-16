@@ -2647,6 +2647,7 @@ function DocumentEditorInner({
           <SlidePanel
             notebookId={notebookId}
             sheetEl={sheetElRef.current}
+            editor={editor}
             onClose={() => setSlidePanelOpen(false)}
           />
         )}
