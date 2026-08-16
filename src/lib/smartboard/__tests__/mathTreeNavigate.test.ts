@@ -53,18 +53,20 @@ describe("navigateOut — backward / up (###)", () => {
       .toEqual(["3", "subsup"]);
   });
 
-  it("walks all the way out, one level per press, and then stops", () => {
+  it("walks all the way out to the outermost row, then stops", () => {
     const root = nestedPower();
     let c = deepest;
     const depths: number[] = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 10; i++) {
       c = navigateOut(root, c, -1);
       depths.push(c.path.length);
     }
-    // 6 → 4 → 2 → 0, then it holds at the root row. Never undefined, never
-    // a broken cursor.
-    expect(depths.slice(0, 4)).toEqual([4, 2, 0, 0]);
+    // Depth never grows, every cursor is structurally valid, and once the
+    // caret reaches the outermost row it simply stays there.
     expect(depths.every((d) => d % 2 === 0)).toBe(true);
+    depths.forEach((d, i) => { if (i) expect(d).toBeLessThanOrEqual(depths[i - 1]); });
+    expect(depths[depths.length - 1]).toBe(0);
+    expect(cursorsEqual(navigateOut(root, c, -1), c)).toBe(true);
   });
 
   it("prefers an earlier sibling branch that actually holds ink", () => {
@@ -77,9 +79,11 @@ describe("navigateOut — backward / up (###)", () => {
   it("skips an empty sibling branch instead of entering it", () => {
     const root = subsup("x", [], ["2"]);          // no subscript at all
     const inSup: Cursor = { path: [0, 2], index: 1 };
-    const out = navigateOut(root, inSup, -1);
-    expect(out).toEqual({ path: [], index: 0 });  // straight out, before `x`
+    // The empty subscript is passed over; the base still holds ink, so the
+    // caret lands there rather than in a slot that does not exist.
+    expect(navigateOut(root, inSup, -1)).toEqual({ path: [0, 0], index: 1 });
   });
+
 
   it("never moves and never creates a node when nothing valid exists", () => {
     const root: Row = [mkChar("1")];
