@@ -26,11 +26,17 @@ interface Props {
   editor: UseGeometryEditorReturn;
   /** Default ink for the scene (Smartboard passes its writing colour). */
   stroke?: string;
+  /**
+   * Minimum drawing area in logical units. The transparent Smartboard layer
+   * passes its measured workspace so the teacher can draw anywhere on it.
+   */
+  minViewW?: number;
+  minViewH?: number;
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor, stroke }: Props) {
+export function GeometryCanvas({ editor, stroke, minViewW, minViewH }: Props) {
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
   const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
 
