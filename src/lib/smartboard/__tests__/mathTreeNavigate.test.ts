@@ -40,8 +40,8 @@ const nestedPower = (): Row => {
   return [{ ...n, rows: [[mkChar("1")], [], inner] }];
 };
 
-/** Deepest superscript slot of the chain above (the row holding `4`). */
-const deepest: Cursor = { path: [0, 2, 0, 2, 0, 2], index: 1 };
+/** Caret just after the `4` at the bottom of the chain (three levels deep). */
+const deepest: Cursor = { path: [0, 2, 0, 2, 0, 0], index: 1 };
 
 describe("navigateOut — backward / up (###)", () => {
   it("steps out of the deepest branch to the level above", () => {
