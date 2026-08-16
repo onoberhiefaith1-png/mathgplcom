@@ -6881,12 +6881,10 @@ const PresentationView = ({
         onStatus={setMirrorStatus}
       />
 
-      {/* Diagram engines, mounted for the board itself: the geometry dock for
-          2D scenes and the 3D / TVD workspace for solids. Undo/Redo inside the
-          dock drives the board's single action history. */}
-      {isTeacher && (
-        <GeometryEditorPanel onDismiss={() => setEditing2dId(null)} />
-      )}
+      {/* 2D geometry needs nothing mounted here — the diagram itself carries the
+          Lesson Note workbench (left tools | canvas | right tools) inside its
+          floating card. Only the 3D / TVD workspace opens as a dialog. */}
+
       {isTeacher && editing3d && (
         <Workspace3DDialog
           open
