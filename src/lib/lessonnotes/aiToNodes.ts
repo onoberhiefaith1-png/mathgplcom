@@ -199,6 +199,16 @@ export function tokenizeMathLine(line: string): Run[] {
     while (j < toks.length) {
       const n = toks[j];
       if (n.k === "math") { end = j; j++; continue; }
+      if (n.k === "prose") {
+        // A short operand word glued to math on BOTH sides (no whitespace)
+        // belongs to the expression: `\log_{2}(MN)`, `(AB)^2`.
+        const prev = toks[j - 1];
+        const next = toks[j + 1];
+        const glued = prev && prev.e === n.s && next && next.k === "math" && next.s === n.e;
+        const word = line.slice(n.s, n.e);
+        if (glued && (word.length <= 3 || /^[A-Z]+$/.test(word))) { end = j; j++; continue; }
+        break;
+      }
       if (n.k === "space") {
         // Interior space only if the next non-space token is math.
         let k = j;
@@ -207,6 +217,7 @@ export function tokenizeMathLine(line: string): Run[] {
         break;
       }
       break;
+
     }
     const value = line.slice(toks[i].s, toks[end].e);
     if (hasMathSignal(value)) {
