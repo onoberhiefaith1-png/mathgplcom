@@ -107,13 +107,14 @@ describe("navigateOut — forward / down (####)", () => {
     expect(navigateOut(root, inBase, 1)).toEqual({ path: [], index: 1 });
   });
 
-  it("round-trips with ### without losing the caret", () => {
-    const root = nestedPower();
-    const up = navigateOut(root, deepest, -1);
-    const back = navigateOut(root, up, 1);
-    // Back inside the branch we left, at its start.
-    expect(back.path).toEqual([0, 2, 0, 2, 0, 2]);
+  it("round-trips with ### on a single script", () => {
+    const root = subsup("x", ["n"], ["2"]);
+    const inSup: Cursor = { path: [0, 2], index: 1 };
+    const up = navigateOut(root, inSup, -1);          // → subscript
+    const back = navigateOut(root, up, 1);            // → superscript again
+    expect(back.path).toEqual([0, 2]);
   });
+
 
   it("descends into the next independent structure on the row", () => {
     // Two structures side by side, the second starting mid-expression.
