@@ -6,7 +6,8 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { BOARD_STRUCTURES } from "@/lib/smartboard/boardStructures";
-import type { Node } from "@/lib/smartboard/mathTree";
+import { mkMatrix, type Node } from "@/lib/smartboard/mathTree";
+import { MatrixCreateDialog, type MatrixDialogResult } from "@/components/lessonnotes/MatrixCreateDialog";
 
 interface Props {
   open: boolean;
@@ -83,6 +84,13 @@ export const BottomPanel = ({
   const [tab, setTab] = useState<Tab>("values");
   const [letterCase, setLetterCase] = useState<"upper" | "lower">("lower");
   const [position, setPosition] = useState<"top" | "mid" | "bot">("mid");
+  const [matrixBuilder, setMatrixBuilder] = useState(false);
+
+  const closers: Record<string, string> = { "(": ")", "[": "]", "{": "}", "|": "|" };
+  const onMatrixConfirm = (r: MatrixDialogResult) => {
+    setMatrixBuilder(false);
+    onInsertNode(mkMatrix(r.rows, r.cols, r.br, closers[r.br] ?? ")", r.fns ?? []));
+  };
 
   const baseBtn: React.CSSProperties = {
     background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
@@ -224,7 +232,7 @@ export const BottomPanel = ({
                     {items.map((s) => (
                       <button
                         key={s.id}
-                        onClick={() => onInsertNode(s.build())}
+                        onClick={() => (s.dialog === "matrix" ? setMatrixBuilder(true) : onInsertNode(s.build()))}
                         className="px-3 py-2 rounded-md text-sm min-w-[68px] hover:scale-[1.04] active:scale-95 transition-transform"
                         style={baseBtn}
                         title={s.title}
@@ -239,6 +247,14 @@ export const BottomPanel = ({
           )}
         </div>
       </section>
+
+      {matrixBuilder && (
+        <MatrixCreateDialog
+          kind="matrix"
+          onCancel={() => setMatrixBuilder(false)}
+          onConfirm={onMatrixConfirm}
+        />
+      )}
     </>
   );
 };
