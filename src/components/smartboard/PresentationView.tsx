@@ -5160,95 +5160,9 @@ const PresentationView = ({
           >
             Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
-          {/* Diagram — one button; the 2D / 3D choice appears on click, exactly
-              as in the Lesson Note. Both open the existing diagram engines. */}
-          <span className="relative mx-1 inline-flex items-center rounded-md px-1 py-0.5"
-            style={{ background: palette.hoverBg }}>
-            <button
-              onClick={() => setDiagramMenuOpen((v) => !v)}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Add a diagram — 2D or 3D"
-              aria-haspopup="menu"
-              aria-expanded={diagramMenuOpen}
-            >
-              <ShapesIcon className="h-3.5 w-3.5" /> Diagram
-              <ChevronDown className="h-3 w-3 opacity-70" />
-            </button>
-            {diagramMenuOpen && (
-              <div
-                role="menu"
-                className="absolute left-0 top-full z-40 mt-1 min-w-[7rem] overflow-hidden rounded-md border shadow-lg"
-                style={{ background: palette.chromeBg, borderColor: palette.chromeBorder, color: palette.chromeFg }}
-              >
-                <button
-                  role="menuitem"
-                  onClick={() => { setDiagramMenuOpen(false); addDiagram2D(); }}
-                  className="block w-full px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
-                  title="Open the 2D geometry workspace on the board"
-                >2D</button>
-                <button
-                  role="menuitem"
-                  onClick={() => { setDiagramMenuOpen(false); addDiagram3D(); }}
-                  className="block w-full px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
-                  title="Open the 3D / TVD workspace on the board"
-                >3D</button>
-              </div>
-            )}
-          </span>
-
-          {/* The Lesson Note tools, floating above the board: Tables, Graph,
-              Calculator, Conversion. The board's writing surface is untouched. */}
-          <span className="inline-flex items-center gap-0.5 rounded-md px-1 py-0.5"
-            style={{ background: palette.hoverBg }}>
-            <button
-              onClick={() => setBoardTablesOpen(true)}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Mathematical tables (logs, sines, statistical…)"
-            ><TableIcon className="h-3.5 w-3.5" /> Tables</button>
-            <button
-              onClick={addBoardGraph}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Add a graph workspace to this page"
-            ><LineChartIcon className="h-3.5 w-3.5" /> Graph</button>
-            <button
-              onClick={() => setCalcFloat((c) => c ?? { x: 120, y: 120, w: 420, h: 520 })}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Open the calculator workspace"
-            ><CalculatorIcon className="h-3.5 w-3.5" /> Calc</button>
-            <button
-              onClick={() => setConvFloat((c) => c ?? { x: 160, y: 160, w: 620, h: 480 })}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Open the conversion workspace"
-            ><ArrowLeftRightIcon className="h-3.5 w-3.5" /> Conversion</button>
-            {/* Slide — presentation only. The slides belong to this lesson
-                note; the board never edits them. */}
-            <span className="relative inline-flex">
-              <button
-                onClick={openSlideMenu}
-                className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-                title="Present a slide from this lesson note"
-                aria-expanded={slideMenuOpen}
-              ><LayoutGridIcon className="h-3.5 w-3.5" /> Slide</button>
-              {slideMenuOpen && (
-                <div
-                  role="menu"
-                  className="absolute left-0 top-full z-40 mt-1 max-h-64 min-w-[11rem] overflow-auto rounded-md border shadow-lg"
-                  style={{ background: palette.chromeBg, borderColor: palette.chromeBorder, color: palette.chromeFg }}
-                >
-                  {boardSlides.length === 0 ? (
-                    <p className="px-3 py-2 text-[11px] opacity-70">No slides in this lesson note yet.</p>
-                  ) : boardSlides.map((s, i) => (
-                    <button
-                      key={s.id}
-                      role="menuitem"
-                      onClick={() => { setSlideMenuOpen(false); setSlideShowIndex(i); }}
-                      className="block w-full truncate px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
-                    >{i + 1}. {s.name}</button>
-                  ))}
-                </div>
-              )}
-            </span>
-          </span>
+          {/* Diagram / Tables / Graph / Calc / Conversion / Slide are no longer
+              board tools: the companion Lesson Note workspace (right side of the
+              workspace switch) is the full Lesson Note editor and owns them. */}
 
           <button
             onClick={() => setSettingsOpen((v) => !v)}
