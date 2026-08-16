@@ -5122,22 +5122,42 @@ const PresentationView = ({
           >
             Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
-          {/* Diagram — 2D geometry and 3D / TVD, built straight into the
-              board's own top panel. Both open the existing diagram engines. */}
-          <span className="mx-1 inline-flex items-center gap-1 rounded-md px-1 py-0.5"
+          {/* Diagram — one button; the 2D / 3D choice appears on click, exactly
+              as in the Lesson Note. Both open the existing diagram engines. */}
+          <span className="relative mx-1 inline-flex items-center rounded-md px-1 py-0.5"
             style={{ background: palette.hoverBg }}>
-            <ShapesIcon className="h-3.5 w-3.5 opacity-70" />
             <button
-              onClick={addDiagram2D}
-              className="px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Add a 2D geometry diagram to this page"
-            >2D</button>
-            <button
-              onClick={addDiagram3D}
-              className="px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Add a 3D / TVD diagram to this page"
-            >3D</button>
+              onClick={() => setDiagramMenuOpen((v) => !v)}
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Add a diagram — 2D or 3D"
+              aria-haspopup="menu"
+              aria-expanded={diagramMenuOpen}
+            >
+              <ShapesIcon className="h-3.5 w-3.5" /> Diagram
+              <ChevronDown className="h-3 w-3 opacity-70" />
+            </button>
+            {diagramMenuOpen && (
+              <div
+                role="menu"
+                className="absolute left-0 top-full z-40 mt-1 min-w-[7rem] overflow-hidden rounded-md border shadow-lg"
+                style={{ background: palette.chromeBg, borderColor: palette.chromeBorder, color: palette.chromeFg }}
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { setDiagramMenuOpen(false); addDiagram2D(); }}
+                  className="block w-full px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
+                  title="Open the 2D geometry workspace on the board"
+                >2D</button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setDiagramMenuOpen(false); addDiagram3D(); }}
+                  className="block w-full px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
+                  title="Open the 3D / TVD workspace on the board"
+                >3D</button>
+              </div>
+            )}
           </span>
+
           {/* The Lesson Note tools, floating above the board: Tables, Graph,
               Calculator, Conversion. The board's writing surface is untouched. */}
           <span className="inline-flex items-center gap-0.5 rounded-md px-1 py-0.5"
