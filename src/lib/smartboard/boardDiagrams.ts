@@ -16,7 +16,10 @@ export interface BoardDiagram2D {
   width: number;
   height: number;
   scene: GeometryScene;
+  /** False while the diagram is still an editable floating workbench. */
+  committed?: boolean;
 }
+
 
 export interface BoardDiagram3D {
   id: string;
