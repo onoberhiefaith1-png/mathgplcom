@@ -7,17 +7,19 @@
 //   "view"      — students: camera only
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Grid, Html, Line, TransformControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { geometryFor, baseRotationY } from "@/lib/geometry3d/geometryFactory";
+import { curvedSurfaceGeometry, openFacesOf, polygonFaceGeometry } from "@/lib/geometry3d/openFaces";
 import { SolidElements } from "./SolidElements";
 import { LessonOverlay } from "./LessonOverlay";
 import { LabelLayer } from "./labels/LabelLayer";
 import { displayScaleOf, mathScale, viewSolid } from "@/lib/geometry3d/displayScale";
 
-import type { ElementKind } from "@/lib/geometry3d/topology";
+import { topologyFor, type ElementKind } from "@/lib/geometry3d/topology";
+
 import {
   DEFAULT_CAMERA,
   DEFAULT_LABEL_SETTINGS,
@@ -34,6 +36,61 @@ import {
 } from "@/lib/geometry3d/scene3d";
 
 export type Interaction3D = "workspace" | "lesson" | "view";
+
+/**
+ * The solid drawn as a HOLLOW SHELL — one mesh per real mathematical face,
+ * with the teacher's open faces simply not drawn. Used only while at least one
+ * face is open; a closed solid keeps the original single-mesh path untouched.
+ */
+function ShellSurfaces({
+  solid,
+  openFaces,
+  color,
+}: {
+  solid: Solid3D;
+  openFaces: number[];
+  color: string;
+}) {
+  const surfaces = useMemo(() => {
+    const topo = topologyFor(solid);
+    return topo.faces
+      .filter((f) => !openFaces.includes(f.index))
+      .map((f) => ({
+        index: f.index,
+        geometry:
+          f.shape === "polygon" && f.points
+            ? polygonFaceGeometry(f.points)
+            : curvedSurfaceGeometry(solid),
+      }));
+  }, [solid, openFaces]);
+
+  useEffect(() => () => surfaces.forEach((s) => s.geometry.dispose()), [surfaces]);
+
+  return (
+    <group>
+      {surfaces.map((s) => (
+        <mesh key={`shell${s.index}`} geometry={s.geometry} userData={{ mathSolid: true }}>
+          <meshStandardMaterial
+            color={color}
+            flatShading
+            roughness={0.55}
+            metalness={0.05}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** A soft light riding with the camera so an opened solid is lit inside. */
+function ViewpointLight() {
+  const ref = useRef<THREE.PointLight>(null);
+  useFrame(({ camera }) => {
+    ref.current?.position.copy(camera.position);
+  });
+  return <pointLight ref={ref} intensity={12} distance={40} decay={1.6} />;
+}
 
 function Solid3DMesh({
   solid,
@@ -53,6 +110,9 @@ function Solid3DMesh({
   const edges = useMemo(() => new THREE.EdgesGeometry(geometry, 1), [geometry]);
   const color = solid.style?.color ?? "#7dd3fc";
   const isSolid = solid.style?.display === "solid";
+  // Open Face applies to the solid surface only — a wireframe has none.
+  const openFaces = useMemo(() => openFacesOf(solid), [solid]);
+  const hollow = isSolid && openFaces.length > 0;
 
   useEffect(() => () => { geometry.dispose(); edges.dispose(); }, [geometry, edges]);
 
@@ -71,19 +131,23 @@ function Solid3DMesh({
 
     >
       <group rotation={[0, baseRotationY(solid), 0]}>
-        <mesh geometry={geometry} castShadow={false} userData={{ mathSolid: isSolid }}>
-          {isSolid ? (
-            <meshStandardMaterial
-              color={color}
-              flatShading
-              roughness={0.55}
-              metalness={0.05}
-              side={THREE.DoubleSide}
-            />
-          ) : (
-            <meshBasicMaterial color={color} transparent opacity={0.06} depthWrite={false} />
-          )}
-        </mesh>
+        {hollow ? (
+          <ShellSurfaces solid={solid} openFaces={openFaces} color={color} />
+        ) : (
+          <mesh geometry={geometry} castShadow={false} userData={{ mathSolid: isSolid }}>
+            {isSolid ? (
+              <meshStandardMaterial
+                color={color}
+                flatShading
+                roughness={0.55}
+                metalness={0.05}
+                side={THREE.DoubleSide}
+              />
+            ) : (
+              <meshBasicMaterial color={color} transparent opacity={0.06} depthWrite={false} />
+            )}
+          </mesh>
+        )}
         <lineSegments geometry={edges}>
           <lineBasicMaterial color={selected ? "#fbbf24" : isSolid ? "#0f172a" : color} />
         </lineSegments>
@@ -92,6 +156,8 @@ function Solid3DMesh({
     </group>
   );
 }
+
+
 
 /** X / Y / Z guide axes — orientation guides only, never selectable. */
 function AxesGuides({ settings, length = 6 }: { settings: Scene3DSettings; length?: number }) {
@@ -311,11 +377,13 @@ export function Scene3DCanvas({
       className={className}
       frameloop={frameloop}
       dpr={[1, 2]}
-      camera={{ position: cam.position, fov: 45, near: 0.1, far: 200 }}
+      camera={{ position: cam.position, fov: 45, near: 0.02, far: 200 }}
       onPointerMissed={() => mode === "workspace" && onSelect?.(null)}
     >
       <color attach="background" args={[bgColor]} />
       <ambientLight intensity={light ? 1.1 : 0.8} />
+      <ViewpointLight />
+
       <directionalLight position={[5, 8, 5]} intensity={0.7} />
       <directionalLight position={[-6, -3, -5]} intensity={0.25} />
       <Suspense fallback={null}>
@@ -408,8 +476,12 @@ export function Scene3DCanvas({
         ref={controlsRef as never}
         makeDefault
         enablePan
+        // Small minimum distance so the teacher can move the viewpoint through
+        // an opened face and look around inside the solid.
+        minDistance={0.05}
         enableZoom
         enableRotate
+
         target={cam.target}
         onEnd={() => {
           const c = controlsRef.current;

@@ -11,9 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Eraser, Eye, EyeOff, Highlighter, Pencil, Square, Spline, Dot, Sliders, X } from "lucide-react";
+import { DoorClosed, DoorOpen, Eraser, Eye, EyeOff, Highlighter, Pencil, RotateCcw, Square, Spline, Dot, Sliders, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { topologyFor, type ElementKind } from "@/lib/geometry3d/topology";
+import { openFacesOf } from "@/lib/geometry3d/openFaces";
+
 import { HIGHLIGHT_COLORS } from "../SolidElements";
 import type { Annotation3D, AnnotationStyle, Solid3D } from "@/lib/geometry3d/scene3d";
 
@@ -31,6 +33,10 @@ interface Props {
   /** Patch size / density of an annotation that already exists. */
   onStyle: (id: string, patch: AnnotationStyle) => void;
   onClearAll: () => void;
+  /** Open / close a face of the selected solid (Open Face). */
+  onToggleFace?: (index: number) => void;
+  onResetFaces?: () => void;
+
 }
 
 /** Default label text size and colour density used for newly added labels. */
@@ -49,7 +55,11 @@ const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export function FacesEdgesVerticesTools({
   solid, annotations, pickKind, onPickKind, active, clearActive,
   showLabels, onShowLabels, onHighlight, onLabel, onStyle, onClearAll,
+  onToggleFace, onResetFaces,
 }: Props) {
+  const openFaces = solid ? openFacesOf(solid) : [];
+  const isSolidDisplay = solid?.style?.display === "solid";
+
   const [tool, setTool] = useState<ElementKind | null>(null);
   const [draft, setDraft] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -328,6 +338,72 @@ export function FacesEdgesVerticesTools({
       </Button>
 
       <Separator />
+
+      {/* Face Actions — Open Face turns the solid into an inspectable container. */}
+      <div className="space-y-1.5 rounded-md border border-border p-2">
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Face actions</p>
+
+        {!isSolidDisplay ? (
+          <p className="text-[11px] text-muted-foreground">
+            Switch the object to <span className="font-semibold">Solid</span> to open a face —
+            a wireframe has no surface to open.
+          </p>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => { setTool(null); clearActive(); onPickKind("face"); }}
+              className={cn(
+                "flex w-full items-center gap-2 rounded border px-2 py-1.5 text-xs transition",
+                !tool && pickKind === "face"
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border hover:bg-muted",
+              )}
+            >
+              <Square className="h-3.5 w-3.5" /> Select face
+            </button>
+
+            <div className="flex gap-1.5">
+              <Button
+                size="sm"
+                className="h-8 flex-1 gap-1 text-xs"
+                disabled={!active || active.kind !== "face"}
+                onClick={() => {
+                  if (!active || active.kind !== "face") return;
+                  onToggleFace?.(active.index);
+                }}
+              >
+                {active && active.kind === "face" && openFaces.includes(active.index) ? (
+                  <><DoorClosed className="h-3.5 w-3.5" /> Close Face</>
+                ) : (
+                  <><DoorOpen className="h-3.5 w-3.5" /> Open Face</>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1 text-xs"
+                disabled={openFaces.length === 0}
+                onClick={() => onResetFaces?.()}
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Reset
+              </Button>
+            </div>
+
+            <p className="text-[10px] text-muted-foreground">
+              {active && active.kind === "face"
+                ? `${topo.faces[active.index]?.label ?? "Face"} selected. `
+                : "Click a face on the solid, then Open Face. "}
+              {openFaces.length > 0
+                ? `${openFaces.length} face${openFaces.length === 1 ? "" : "s"} open — zoom in through the opening to look inside.`
+                : "Every face is closed."}
+            </p>
+          </>
+        )}
+      </div>
+
+      <Separator />
+
 
       <div className="rounded-md border border-border p-2">
         <p className="mb-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">Counts (for checking)</p>

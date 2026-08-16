@@ -24,6 +24,8 @@ import { WorkspaceSettingsPanel } from "./WorkspaceSettingsPanel";
 import { ObjectInspector } from "./ObjectInspector";
 import { LessonModePanel } from "./LessonModePanel";
 import { FacesEdgesVerticesTools } from "./lessonmodes/FacesEdgesVerticesTools";
+import { isFaceOpen, withFaceClosed, withFaceOpen } from "@/lib/geometry3d/openFaces";
+
 import { PropertiesPanel } from "./lessonmodes/PropertiesPanel";
 import { MeasurementsTools } from "./lessonmodes/MeasurementsTools";
 import { AnglesTools } from "./lessonmodes/AnglesTools";
@@ -562,6 +564,17 @@ export function Workspace3DDialog({ open, onOpenChange, initialScene, onExport }
                 onLabel={(kind, index, text, style) => setAnnotation("label", kind, index, text, style)}
                 onStyle={patchAnnotationStyle}
                   onClearAll={clearAnnotationsForSelected}
+                onToggleFace={(index) => {
+                  if (!selected) return;
+                  patchSolid(selected.id, {
+                    openFaces: isFaceOpen(selected, index)
+                      ? withFaceClosed(selected, index)
+                      : withFaceOpen(selected, index),
+
+                  });
+                }}
+                onResetFaces={() => selected && patchSolid(selected.id, { openFaces: [] })}
+
               />
             )}
 
