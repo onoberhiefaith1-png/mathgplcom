@@ -82,6 +82,8 @@ const ViewingFrame = ({
   }
 
   const [folded, setFolded] = useState(false);
+  const drag = useDraggableTab(`mgpl:viewing-frame-tab-x:${userId}:${kind}`);
+
 
   useEffect(() => {
     try {
