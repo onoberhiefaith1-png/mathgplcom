@@ -39,7 +39,18 @@ export const CompanionNoteBoard = ({ notebookId, editable, onReturn, palette }: 
   }, [notebook?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="flex h-full w-full flex-col" style={{ background: "#15132a" }}>
+    <div className="companion-note-board flex h-full w-full flex-col" style={{ background: "#15132a" }}>
+      {/* The ribbon is translucent + backdrop-blurred by design on the light
+          Lesson Notes page. Over the dark board it made every heading look
+          washed out, so inside the companion it renders fully opaque. */}
+      <style>{`
+        .companion-note-board .lesson-ribbon-shell > div {
+          background: hsl(var(--background)) !important;
+          backdrop-filter: none !important;
+          color: hsl(var(--foreground)) !important;
+        }
+      `}</style>
+
       <div
         className="flex items-center gap-2 border-b px-3 py-1.5"
         style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
