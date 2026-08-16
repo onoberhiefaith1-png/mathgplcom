@@ -195,13 +195,13 @@ export function tokenizeMathLine(line: string): Run[] {
     const startsSpan = t.k === "math" || (() => {
       if (t.k !== "prose") return false;
       const word = line.slice(t.s, t.e);
-      if (!(word.length <= 3 || /^[A-Z]+$/.test(word))) return false;
-      let k = i + 1;
-      while (k < toks.length && toks[k].k === "space") k++;
-      return k < toks.length && toks[k].k === "math";
+      const next = toks[i + 1];
+      if (!next || next.k !== "math") return false;
+      // Either glued directly to the mathematics, or an all-caps label.
+      return next.s === t.e ? word.length <= 3 || /^[A-Z]+$/.test(word)
+                            : /^[A-Z]{2,}$/.test(word);
     })();
     if (!startsSpan) { pushText(line.slice(t.s, t.e)); i++; continue; }
-
 
     // Grow the span: math tokens, plus interior whitespace when another math
     // token follows it.
@@ -211,13 +211,17 @@ export function tokenizeMathLine(line: string): Run[] {
       const n = toks[j];
       if (n.k === "math") { end = j; j++; continue; }
       if (n.k === "prose") {
-        // A short operand word glued to math on BOTH sides (no whitespace)
-        // belongs to the expression: `\log_{2}(MN)`, `(AB)^2`.
+        // A short operand word glued to the mathematics (no whitespace)
+        // belongs to the expression: `\log_{2}(MN)`, `\frac{1}{2}bh`.
         const prev = toks[j - 1];
         const next = toks[j + 1];
-        const glued = prev && prev.e === n.s && next && next.k === "math" && next.s === n.e;
+        const gluedLeft = !!prev && prev.e === n.s;
+        const gluedRight = !!next && next.k === "math" && next.s === n.e;
         const word = line.slice(n.s, n.e);
-        if (glued && (word.length <= 3 || /^[A-Z]+$/.test(word))) { end = j; j++; continue; }
+        const short = word.length <= 3 || /^[A-Z]+$/.test(word);
+        if (gluedLeft && short && (gluedRight || !next || next.k !== "prose")) {
+          end = j; j++; continue;
+        }
         break;
       }
       if (n.k === "space") {
@@ -228,8 +232,8 @@ export function tokenizeMathLine(line: string): Run[] {
         break;
       }
       break;
-
     }
+
     const value = line.slice(toks[i].s, toks[end].e);
     if (hasMathSignal(value)) {
       flushText();
