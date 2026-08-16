@@ -84,6 +84,7 @@ import { PropertiesPanel } from "./PropertiesPanel";
 import { EmojiPanel } from "./EmojiPanel";
 import { ConversionPanel } from "./ConversionPanel";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { SlidePanel } from "@/components/lessonnotes/slides/SlidePanel";
 import {
   PAPER_LABELS, PAPER_SIZES,
   type PaperSize, type PaperStyle,
