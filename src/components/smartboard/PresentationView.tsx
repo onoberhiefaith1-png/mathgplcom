@@ -5060,6 +5060,17 @@ const PresentationView = ({
           <ArrowLeft className="h-3.5 w-3.5" /> Shelf
         </button>
 
+        {/* BOARD SWITCH — slides across to Board 2 (the tools board). */}
+        <button
+          onClick={() => setActiveBoard("tools")}
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs"
+          style={{ background: palette.hoverBg, color: palette.chromeFg }}
+          title="Go to Board 2 — the tools board"
+          aria-label="Go to Board 2"
+        >
+          <Columns2 className="h-3.5 w-3.5" /> Board 2
+        </button>
+
         <div className="flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate">
           <span className="font-medium truncate">{notebook?.title ?? "Untitled"}</span>
           {notebook?.subtopic && (
