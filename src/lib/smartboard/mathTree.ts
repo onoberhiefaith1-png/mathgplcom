@@ -605,3 +605,88 @@ export const rowEndCursor = (root: Row, cursor: Cursor): Cursor =>
 export const cursorsEqual = (a: Cursor, b: Cursor): boolean =>
   a.index === b.index && a.path.length === b.path.length &&
   a.path.every((v, i) => v === b.path[i]);
+
+/* ─────────── branch navigation (the `###` / `####` commands) ───────────
+ *
+ * These are TREE searches, never "move N characters". They leave the branch
+ * the caret currently sits in and look for the nearest position that can
+ * actually hold a caret, walking the parent/child links of the node graph:
+ *
+ *   dir = -1  (`###`)  backward / up    — earlier sibling branch of the same
+ *                                        container, else out to just BEFORE
+ *                                        the container in the parent row,
+ *                                        else the previous structure on the
+ *                                        root row.
+ *   dir = +1  (`####`) forward / down   — the mirror image: later sibling
+ *                                        branch, else just AFTER the
+ *                                        container, else down into the next
+ *                                        structure on the row.
+ *
+ * Empty branches are skipped, missing branches are never entered, no node is
+ * ever created, and when nothing valid exists the caret does not move.
+ */
+
+/** The container the caret is currently inside, or null at the root row. */
+const enclosingContainer = (
+  root: Row,
+  cursor: Cursor,
+): { parentPath: number[]; nodeIdx: number; subIdx: number; node: Node } | null => {
+  if (cursor.path.length < 2) return null;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const subIdx = cursor.path[cursor.path.length - 1];
+  const node = getRowAt(root, parentPath)[nodeIdx];
+  if (!node || node.kind === "char") return null;
+  return { parentPath, nodeIdx, subIdx, node };
+};
+
+/** Index of the nearest non-empty sibling sub-row in `dir`, or -1. */
+const siblingBranch = (node: Node, subIdx: number, dir: -1 | 1): number => {
+  const subs = subRowsOf(node);
+  for (let i = subIdx + dir; i >= 0 && i < subs.length; i += dir) {
+    if (subs[i].length > 0) return i;
+  }
+  return -1;
+};
+
+export const navigateOut = (root: Row, cursor: Cursor, dir: -1 | 1): Cursor => {
+  const here = enclosingContainer(root, cursor);
+
+  if (here) {
+    // 1. A sibling branch of the same container that actually holds ink.
+    const sib = siblingBranch(here.node, here.subIdx, dir);
+    if (sib >= 0) {
+      const target = subRowsOf(here.node)[sib];
+      return {
+        path: [...here.parentPath, here.nodeIdx, sib],
+        index: dir < 0 ? target.length : 0,
+      };
+    }
+    // 2. Otherwise step clean out of the branch, to the parent level.
+    return {
+      path: here.parentPath,
+      index: dir < 0 ? here.nodeIdx : here.nodeIdx + 1,
+    };
+  }
+
+  // 3. Already on the outermost row: hop between independent structures.
+  const row = getRowAt(root, cursor.path);
+  if (dir < 0) {
+    for (let i = cursor.index - 1; i >= 0; i--) {
+      if (row[i] && row[i].kind !== "char") return { path: cursor.path, index: i };
+    }
+    return cursor.index > 0 ? { path: cursor.path, index: 0 } : cursor;
+  }
+  for (let i = cursor.index; i < row.length; i++) {
+    const n = row[i];
+    if (n && n.kind !== "char") {
+      const subs = subRowsOf(n);
+      for (let s = 0; s < subs.length; s++) {
+        if (subs[s].length > 0) return { path: [...cursor.path, i, s], index: 0 };
+      }
+      return { path: [...cursor.path, i, 0], index: 0 };
+    }
+  }
+  return cursor.index < row.length ? { path: cursor.path, index: row.length } : cursor;
+};
+
