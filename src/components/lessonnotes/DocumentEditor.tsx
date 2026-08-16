@@ -2000,12 +2000,38 @@ function DocumentEditorInner({
     }
     const range = aiEditRangeRef.current;
     if (!editor || !range) return;
-    const nodes = aiTextToNodes(proposed);
-    editor.chain().focus()
-      .deleteRange({ from: range.from, to: range.to })
-      .insertContentAt(range.from, nodes)
-      .run();
+
+    const clean = sanitizePresentation(proposed).replace(/\s*\n\s*/g, " ").trim();
+    if (!clean) return;
+
+    // Is the target an INLINE position (inside a single textblock)? Since a
+    // line is now a single math object, that is the common case — and block
+    // nodes cannot be inserted there, which is why Apply silently did nothing.
+    let inline = false;
+    try {
+      const $from = editor.state.doc.resolve(range.from);
+      const $to = editor.state.doc.resolve(Math.min(range.to, editor.state.doc.content.size));
+      inline = $from.parent.isTextblock && $from.parent === $to.parent;
+    } catch { inline = false; }
+
+    if (inline) {
+      const value = normalizeMathSource(clean);
+      const content = containsMath(clean)
+        ? [{ type: "mathInline", attrs: { value } }]
+        : [{ type: "text", text: clean }];
+      editor.chain().focus()
+        .insertContentAt({ from: range.from, to: range.to }, content as any)
+        .run();
+    } else {
+      const nodes = aiTextToNodes(proposed);
+      editor.chain().focus()
+        .insertContentAt({ from: range.from, to: range.to }, nodes)
+        .run();
+    }
+    aiEditRangeRef.current = null;
+    closeAiEdit();
   };
+
 
 
 
