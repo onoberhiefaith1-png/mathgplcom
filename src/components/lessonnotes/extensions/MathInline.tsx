@@ -18,7 +18,7 @@ import type { Row } from "@/lib/smartboard/mathTree";
 import { MathInlineCanvas } from "./MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { renderMathInline } from "@/lib/notebook/mathRender";
-import { latexToFriendly, friendlyToLatex } from "@/lib/notebook/mathFriendly";
+import { latexToFriendly } from "@/lib/notebook/mathFriendly";
 
 /** Mathematical words that do not make a value "a sentence". */
 const MATH_WORDS = new Set([
