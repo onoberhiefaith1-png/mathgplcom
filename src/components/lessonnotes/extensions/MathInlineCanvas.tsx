@@ -47,6 +47,7 @@ import {
   rowEndCursor,
   cursorsEqual,
   extractWrapTargetLeftOf,
+  navigateOut,
 } from "@/lib/smartboard/mathTree";
 import { treeToLatex, latexToTree } from "@/lib/smartboard/mathTreeLatex";
 
