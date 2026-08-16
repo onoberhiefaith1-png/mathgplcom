@@ -27,6 +27,8 @@ export interface NotebookRow {
   color_index: number;
   /** Word-style document body (ProseMirror JSON). When non-null, the editor renders document mode. */
   document_json: any | null;
+  /** Private companion page belonging to this lesson note (ProseMirror JSON). */
+  companion_json?: any | null;
   paper_style: string;
   paper_size: string;
   page_extra_mm?: number;
@@ -488,6 +490,21 @@ export function useNotebook(notebookId: string | undefined) {
   );
 
   /** Save the Word-style document body (ProseMirror JSON). Debounced upstream. */
+  /** Save the companion page of this lesson note. Private to the note: it is
+   *  never mirrored into the section/block tables and never listed on the shelf. */
+  const saveCompanionJson = useCallback(
+    async (json: any) => {
+      if (!notebookId) return;
+      setNotebook((prev) => (prev ? { ...prev, companion_json: json } : prev));
+      const { error } = await supabase
+        .from("notebooks")
+        .update({ companion_json: json } as any)
+        .eq("id", notebookId);
+      if (error) toast({ title: "Could not save companion page", variant: "destructive" });
+    },
+    [notebookId],
+  );
+
   const saveDocumentJson = useCallback(
     async (json: any) => {
       if (!notebookId) return;
@@ -599,6 +616,7 @@ export function useNotebook(notebookId: string | undefined) {
     moveSection,
     appendTextBlock,
     saveDocumentJson,
+    saveCompanionJson,
     updatePaperSettings,
     saveZoom,
     enableDocumentMode,

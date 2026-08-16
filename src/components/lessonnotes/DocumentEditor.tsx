@@ -144,6 +144,12 @@ interface Props {
   exportFileName?: string;
   /** When true, the section picker only offers "Game Questions" (used by Adventure scenes). */
   gameQuestionsOnly?: boolean;
+  /** Explicit lesson-note id for callers that are not on the /lesson-notes/:id route
+   *  (e.g. the Smartboard's companion workspace). Defaults to the route param. */
+  notebookId?: string;
+  /** Namespaces this editor's local-only state (canvas notes, page geometry) so a
+   *  second instance of the same lesson note cannot collide with the primary one. */
+  scopeSuffix?: string;
 }
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
@@ -394,6 +400,7 @@ function DocumentEditorInner({
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
   pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
+  notebookId: notebookIdProp, scopeSuffix,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
   // When a school looks through a teacher's workspace the page is identical;
@@ -467,7 +474,14 @@ function DocumentEditorInner({
   const [calcOpen, setCalcOpen] = useState(false);
   const [objectsOpen, setObjectsOpen] = useState(false);
   const [animateMode, setAnimateMode] = useState(false);
-  const { id: notebookId } = useParams();
+  const { id: routeNotebookId } = useParams();
+  // Callers off the /lesson-notes/:id route (the Smartboard companion page) pass
+  // the id explicitly. `storageId` additionally namespaces local-only state so a
+  // second instance of the same note keeps its own canvas notes / page geometry.
+  const notebookId = notebookIdProp ?? routeNotebookId;
+  const storageId = notebookId
+    ? (scopeSuffix ? `${notebookId}:${scopeSuffix}` : notebookId)
+    : undefined;
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ctxRef = useRef(notebookContext);
@@ -1969,13 +1983,13 @@ function DocumentEditorInner({
 
 
   // ── Free-position text boxes (overlay layer) ──────────────────────────
-  const [canvasBoxes, setCanvasBoxes] = useState<CanvasBox[]>(() => loadCanvasBoxes(notebookId));
+  const [canvasBoxes, setCanvasBoxes] = useState<CanvasBox[]>(() => loadCanvasBoxes(storageId));
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
   useEffect(() => {
-    setCanvasBoxes(loadCanvasBoxes(notebookId));
+    setCanvasBoxes(loadCanvasBoxes(storageId));
     setActiveBoxId(null);
-  }, [notebookId]);
-  useEffect(() => { saveCanvasBoxes(notebookId, canvasBoxes); }, [notebookId, canvasBoxes]);
+  }, [storageId]);
+  useEffect(() => { saveCanvasBoxes(storageId, canvasBoxes); }, [storageId, canvasBoxes]);
 
   const paperLayerRef = useRef<HTMLDivElement | null>(null);
 
@@ -2540,7 +2554,7 @@ function DocumentEditorInner({
                   style={{ height: pageExtraMm * (96 / 25.4), flex: "0 0 auto" }}
                 />
               )}
-              <NotebookGeometryOverlay notebookId={notebookId} paperLayerRef={paperLayerRef} tiptapEditor={editor} />
+              <NotebookGeometryOverlay notebookId={storageId} paperLayerRef={paperLayerRef} tiptapEditor={editor} />
 
               {canvasBoxes.map((b) => (
                 <CanvasBoxView

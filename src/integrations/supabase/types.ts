@@ -3754,6 +3754,7 @@ export type Database = {
           checkout_link_id: string | null
           class_name: string
           color_index: number
+          companion_json: Json | null
           cover_config: Json | null
           created_at: string
           document_json: Json | null
@@ -3780,6 +3781,7 @@ export type Database = {
           checkout_link_id?: string | null
           class_name?: string
           color_index?: number
+          companion_json?: Json | null
           cover_config?: Json | null
           created_at?: string
           document_json?: Json | null
@@ -3806,6 +3808,7 @@ export type Database = {
           checkout_link_id?: string | null
           class_name?: string
           color_index?: number
+          companion_json?: Json | null
           cover_config?: Json | null
           created_at?: string
           document_json?: Json | null

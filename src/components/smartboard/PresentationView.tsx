@@ -111,7 +111,7 @@ import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { BoardToolLayer } from "./BoardToolLayer";
-import { ToolsBoard } from "./ToolsBoard";
+import { CompanionNoteBoard } from "./CompanionNoteBoard";
 import { FloatingToolLayer } from "./FloatingToolLayer";
 import { MathTablesPicker } from "@/components/lessonnotes/math-tools/MathTablesPicker";
 import { SmartCalculatorBody } from "@/components/lessonnotes/math-tools/SmartCalculator";
@@ -780,11 +780,9 @@ const PresentationView = ({
      delegated to the existing diagram engines. Scoped by boardScope, so a
      diagram belongs to the page it was made on and returns on reload. */
   const DIAGRAMS_KEY = boardKey("diagrams", boardScope);
-  /* ── Two-board workspace ──
-     Board 1 is this writing board; Board 2 (ToolsBoard) is an independent
-     working board for Diagram / Tables / Graph / Calc / Conversion / Slide.
-     Both are saved under the same class × notebook scope. */
-  const BOARD2_KEY = boardKey("board2", boardScope);
+  /* ── Two-workspace board ──
+     Left: this writing workspace. Right: the companion Lesson Note page of the
+     same note (stored on the notebook row, not in board storage). */
   const [activeBoard, setActiveBoard] = useState<"main" | "tools">("main");
   const [diagrams, setDiagrams] = useState<BoardDiagram[]>(() => {
     try {
@@ -5060,16 +5058,34 @@ const PresentationView = ({
           <ArrowLeft className="h-3.5 w-3.5" /> Shelf
         </button>
 
-        {/* BOARD SWITCH — slides across to Board 2 (the tools board). */}
-        <button
-          onClick={() => setActiveBoard("tools")}
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs"
+        {/* WORKSPACE SWITCH — a two-sided control: left is this writing
+            workspace, right is the companion Lesson Note page of the same note. */}
+        <span
+          className="inline-flex items-center overflow-hidden rounded-md"
           style={{ background: palette.hoverBg, color: palette.chromeFg }}
-          title="Go to Board 2 — the tools board"
-          aria-label="Go to Board 2"
+          role="group"
+          aria-label="Switch workspace"
         >
-          <Columns2 className="h-3.5 w-3.5" /> Board 2
-        </button>
+          <button
+            onClick={() => setActiveBoard("main")}
+            className="inline-flex items-center px-2 py-1 text-xs disabled:opacity-40"
+            disabled={activeBoard === "main"}
+            title="Writing workspace"
+            aria-label="Writing workspace"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <span aria-hidden className="h-4 w-px" style={{ background: palette.chromeBorder }} />
+          <button
+            onClick={() => setActiveBoard("tools")}
+            className="inline-flex items-center px-2 py-1 text-xs disabled:opacity-40"
+            disabled={activeBoard === "tools"}
+            title="Companion workspace"
+            aria-label="Companion workspace"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </span>
 
         <div className="flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate">
           <span className="font-medium truncate">{notebook?.title ?? "Untitled"}</span>
@@ -5142,95 +5158,9 @@ const PresentationView = ({
           >
             Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
-          {/* Diagram — one button; the 2D / 3D choice appears on click, exactly
-              as in the Lesson Note. Both open the existing diagram engines. */}
-          <span className="relative mx-1 inline-flex items-center rounded-md px-1 py-0.5"
-            style={{ background: palette.hoverBg }}>
-            <button
-              onClick={() => setDiagramMenuOpen((v) => !v)}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Add a diagram — 2D or 3D"
-              aria-haspopup="menu"
-              aria-expanded={diagramMenuOpen}
-            >
-              <ShapesIcon className="h-3.5 w-3.5" /> Diagram
-              <ChevronDown className="h-3 w-3 opacity-70" />
-            </button>
-            {diagramMenuOpen && (
-              <div
-                role="menu"
-                className="absolute left-0 top-full z-40 mt-1 min-w-[7rem] overflow-hidden rounded-md border shadow-lg"
-                style={{ background: palette.chromeBg, borderColor: palette.chromeBorder, color: palette.chromeFg }}
-              >
-                <button
-                  role="menuitem"
-                  onClick={() => { setDiagramMenuOpen(false); addDiagram2D(); }}
-                  className="block w-full px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
-                  title="Open the 2D geometry workspace on the board"
-                >2D</button>
-                <button
-                  role="menuitem"
-                  onClick={() => { setDiagramMenuOpen(false); addDiagram3D(); }}
-                  className="block w-full px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
-                  title="Open the 3D / TVD workspace on the board"
-                >3D</button>
-              </div>
-            )}
-          </span>
-
-          {/* The Lesson Note tools, floating above the board: Tables, Graph,
-              Calculator, Conversion. The board's writing surface is untouched. */}
-          <span className="inline-flex items-center gap-0.5 rounded-md px-1 py-0.5"
-            style={{ background: palette.hoverBg }}>
-            <button
-              onClick={() => setBoardTablesOpen(true)}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Mathematical tables (logs, sines, statistical…)"
-            ><TableIcon className="h-3.5 w-3.5" /> Tables</button>
-            <button
-              onClick={addBoardGraph}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Add a graph workspace to this page"
-            ><LineChartIcon className="h-3.5 w-3.5" /> Graph</button>
-            <button
-              onClick={() => setCalcFloat((c) => c ?? { x: 120, y: 120, w: 420, h: 520 })}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Open the calculator workspace"
-            ><CalculatorIcon className="h-3.5 w-3.5" /> Calc</button>
-            <button
-              onClick={() => setConvFloat((c) => c ?? { x: 160, y: 160, w: 620, h: 480 })}
-              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Open the conversion workspace"
-            ><ArrowLeftRightIcon className="h-3.5 w-3.5" /> Conversion</button>
-            {/* Slide — presentation only. The slides belong to this lesson
-                note; the board never edits them. */}
-            <span className="relative inline-flex">
-              <button
-                onClick={openSlideMenu}
-                className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-                title="Present a slide from this lesson note"
-                aria-expanded={slideMenuOpen}
-              ><LayoutGridIcon className="h-3.5 w-3.5" /> Slide</button>
-              {slideMenuOpen && (
-                <div
-                  role="menu"
-                  className="absolute left-0 top-full z-40 mt-1 max-h-64 min-w-[11rem] overflow-auto rounded-md border shadow-lg"
-                  style={{ background: palette.chromeBg, borderColor: palette.chromeBorder, color: palette.chromeFg }}
-                >
-                  {boardSlides.length === 0 ? (
-                    <p className="px-3 py-2 text-[11px] opacity-70">No slides in this lesson note yet.</p>
-                  ) : boardSlides.map((s, i) => (
-                    <button
-                      key={s.id}
-                      role="menuitem"
-                      onClick={() => { setSlideMenuOpen(false); setSlideShowIndex(i); }}
-                      className="block w-full truncate px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
-                    >{i + 1}. {s.name}</button>
-                  ))}
-                </div>
-              )}
-            </span>
-          </span>
+          {/* Diagram / Tables / Graph / Calc / Conversion / Slide are no longer
+              board tools: the companion Lesson Note workspace (right side of the
+              workspace switch) is the full Lesson Note editor and owns them. */}
 
           <button
             onClick={() => setSettingsOpen((v) => !v)}
@@ -6950,8 +6880,9 @@ const PresentationView = ({
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
       </div>
-      {/* BOARD 2 — the independent tools board. Slides in from the right; its
-          content never mixes with Board 1's. */}
+      {/* COMPANION WORKSPACE — another instance of the Lesson Note editor,
+          private to this lesson note. Slides in from the right; its content
+          never mixes with the writing workspace. */}
       {isTeacher && !assessmentMode && (
         <div
           className="absolute inset-0"
@@ -6962,21 +6893,15 @@ const PresentationView = ({
             zIndex: 45,
           }}
         >
-          <ToolsBoard
-            storageKey={BOARD2_KEY}
+          <CompanionNoteBoard
             notebookId={notebookId}
             editable={isTeacher}
-            active={activeBoard === "tools"}
-            ink={ink}
             onReturn={() => setActiveBoard("main")}
             palette={{
               chromeBg: palette.chromeBg,
               chromeFg: palette.chromeFg,
               chromeBorder: palette.chromeBorder,
               hoverBg: palette.hoverBg,
-              dark: isDark,
-              background: palette.background,
-              ink: palette.ink,
             }}
           />
         </div>
