@@ -22,6 +22,7 @@ import { Route as SchoolRouteRouteImport } from './routes/school/route'
 import { Route as SmartboardRouteRouteImport } from './routes/smartboard/route'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AccessIndexRouteImport } from './routes/access/index'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -345,6 +346,11 @@ const StudentRouteRoute = StudentRouteRouteImport.update({
 const TeachingHubRouteRoute = TeachingHubRouteRouteImport.update({
   id: '/teaching-hub',
   path: '/teaching-hub',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccessIndexRoute = AccessIndexRouteImport.update({
@@ -1802,6 +1808,7 @@ export interface FileRoutesByFullPath {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/welcome': typeof WelcomeRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2065,6 +2072,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
+  '/welcome': typeof WelcomeRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2340,6 +2348,7 @@ export interface FileRoutesById {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/welcome': typeof WelcomeRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2616,6 +2625,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/welcome'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -2879,6 +2889,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/class'
+    | '/welcome'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3153,6 +3164,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/welcome'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3428,6 +3440,7 @@ export interface RootRouteChildren {
   SmartboardRouteRoute: typeof SmartboardRouteRouteWithChildren
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
+  WelcomeRoute: typeof WelcomeRoute
   ApiCourseBackgroundRoute: typeof ApiCourseBackgroundRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthAdminRoute: typeof AuthAdminRoute
@@ -3630,6 +3643,13 @@ declare module '@tanstack/react-router' {
       path: '/teaching-hub'
       fullPath: '/teaching-hub'
       preLoaderRoute: typeof TeachingHubRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/access/': {
@@ -5939,6 +5959,7 @@ const rootRouteChildren: RootRouteChildren = {
   SmartboardRouteRoute: SmartboardRouteRouteWithChildren,
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
+  WelcomeRoute: WelcomeRoute,
   ApiCourseBackgroundRoute: ApiCourseBackgroundRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthAdminRoute: AuthAdminRoute,
