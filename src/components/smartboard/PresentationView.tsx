@@ -780,11 +780,9 @@ const PresentationView = ({
      delegated to the existing diagram engines. Scoped by boardScope, so a
      diagram belongs to the page it was made on and returns on reload. */
   const DIAGRAMS_KEY = boardKey("diagrams", boardScope);
-  /* ── Two-board workspace ──
-     Board 1 is this writing board; Board 2 (ToolsBoard) is an independent
-     working board for Diagram / Tables / Graph / Calc / Conversion / Slide.
-     Both are saved under the same class × notebook scope. */
-  const BOARD2_KEY = boardKey("board2", boardScope);
+  /* ── Two-workspace board ──
+     Left: this writing workspace. Right: the companion Lesson Note page of the
+     same note (stored on the notebook row, not in board storage). */
   const [activeBoard, setActiveBoard] = useState<"main" | "tools">("main");
   const [diagrams, setDiagrams] = useState<BoardDiagram[]>(() => {
     try {
