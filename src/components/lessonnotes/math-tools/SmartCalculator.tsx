@@ -60,6 +60,31 @@ const BUTTONS: { label: string; insert?: string; action?: "=" | "C" | "CE" | "DE
 ];
 
 export function SmartCalculator({ open, onOpenChange, onInsertWorking }: Props) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Calculator className="h-4 w-4" /> Smart Calculator</DialogTitle>
+          <DialogDescription>Quick scientific calculator, or show full working with AI.</DialogDescription>
+        </DialogHeader>
+        <SmartCalculatorBody
+          onInsertWorking={onInsertWorking}
+          onDone={() => onOpenChange(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The calculator itself, with no dialog chrome — reused by the Smartboard's
+ *  floating Calculator workspace so both surfaces behave identically. */
+export function SmartCalculatorBody({
+  onInsertWorking,
+  onDone,
+}: {
+  onInsertWorking: (attrs: SmartCalcAttrs) => void;
+  onDone?: () => void;
+}) {
   // Standard
   const [expr, setExpr] = useState("");
   const [result, setResult] = useState("");
