@@ -423,6 +423,29 @@ export function repairDocumentMath(doc: any): { doc: any; changed: boolean } {
       || /[\^_]\{/.test(text);
   };
 
+  /** Flatten a paragraph made only of text + mathInline runs back to source.
+   *  Any other child type aborts (we must not lose a node view). */
+  const flattenSource = (content: any[]): string | null => {
+    let out = "";
+    for (const c of content) {
+      if (c?.type === "text") { out += c.text ?? ""; continue; }
+      if (c?.type === "mathInline") { out += (c.attrs?.value ?? ""); continue; }
+      return null;
+    }
+    return out;
+  };
+
+  const rebuildParagraph = (node: any, source: string) => {
+    changed = true;
+    const rebuilt = aiTextToNodes(source);
+    if (rebuilt.length === 1 && rebuilt[0].type === "paragraph") {
+      return { ...node, content: rebuilt[0].content ?? [] };
+    }
+    if (rebuilt.length === 1) return rebuilt[0];
+    const inline = rebuilt.flatMap((b: any) => b.content ?? []).filter(Boolean);
+    return { ...node, content: inline };
+  };
+
   const visit = (node: any): any => {
     if (!node || typeof node !== "object") return node;
     // Paragraph: if any child text needs repair, retokenize the whole text.
@@ -431,26 +454,27 @@ export function repairDocumentMath(doc: any): { doc: any; changed: boolean } {
       const allText = node.content.every((c: any) => c?.type === "text");
       if (allText) {
         const fullText = node.content.map((c: any) => c.text ?? "").join("");
-        if (needsRepair(fullText)) {
-          changed = true;
-          const rebuilt = aiTextToNodes(fullText);
-          // aiTextToNodes returns one or more block nodes; if it returns a
-          // single paragraph, swap content; otherwise return the first block
-          // (we can't replace a single paragraph with many blocks from inside
-          // visit, so wrap into a paragraph by flattening inline content).
-          if (rebuilt.length === 1 && rebuilt[0].type === "paragraph") {
-            return { ...node, content: rebuilt[0].content ?? [] };
-          }
-          // Promote to mathBlock if AI tokenizer chose that.
-          if (rebuilt.length === 1) return rebuilt[0];
-          // Multi-line edge case: keep as paragraph with mixed runs only.
-          const inline = rebuilt
-            .flatMap((b: any) => b.content ?? [])
-            .filter(Boolean);
-          return { ...node, content: inline };
+        if (needsRepair(fullText)) return rebuildParagraph(node, fullText);
+      } else {
+        // Mixed text + math runs: an expression fragmented into several math
+        // atoms (`lo` + `g_2` + `(M × N) = …`) is re-grouped into ONE math
+        // object so the renderer controls every gap.
+        const hasMath = node.content.some((c: any) => c?.type === "mathInline");
+        const source = hasMath ? flattenSource(node.content) : null;
+        if (source) {
+          const runs = tokenizeMathLine(source);
+          const differs =
+            runs.length !== node.content.length ||
+            runs.some((r, idx) => {
+              const c = node.content[idx];
+              if (r.kind === "math") return c?.type !== "mathInline" || (c.attrs?.value ?? "") !== r.value;
+              return c?.type !== "text" || (c.text ?? "") !== r.value;
+            });
+          if (differs) return rebuildParagraph(node, source);
         }
       }
     }
+
     if (Array.isArray(node.content)) {
       const next = node.content.map(visit);
       return { ...node, content: next };
