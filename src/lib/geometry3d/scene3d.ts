@@ -122,8 +122,15 @@ export interface Solid3D {
   /** Visual size only — never part of the mathematics. 1 = 100%. */
   display?: { scale: number };
   style?: { display?: DisplayMode; color?: string };
+  /**
+   * Topological face indices the teacher has OPENED (Open Face). The geometry
+   * is untouched — an open face is simply not drawn, so the solid behaves like
+   * a hollow container that can be inspected from inside and closed again.
+   */
+  openFaces?: number[];
   /** Reserved for future labels / measurements / angles. */
   annotations?: unknown[];
+
 }
 
 
@@ -332,6 +339,8 @@ export function duplicateSolid(solid: Solid3D, offset = 1.2): Solid3D {
     params: solid.params ? { ...solid.params } : undefined,
     display: solid.display ? { ...solid.display } : undefined,
     style: solid.style ? { ...solid.style } : undefined,
+    openFaces: solid.openFaces ? [...solid.openFaces] : undefined,
+
   };
 }
 
@@ -385,7 +394,15 @@ export function sanitizeScene3D(raw: unknown): Scene3D {
             display,
             color: typeof rawStyle.color === "string" ? (rawStyle.color as string) : undefined,
           },
+          openFaces: Array.isArray(obj.openFaces)
+            ? Array.from(new Set(
+                (obj.openFaces as unknown[])
+                  .filter((n) => isNum(n) && (n as number) >= 0)
+                  .map((n) => Math.round(n as number)),
+              )).sort((a, b) => a - b)
+            : undefined,
           annotations: Array.isArray(obj.annotations) ? obj.annotations : undefined,
+
         }];
       })
     : [];
