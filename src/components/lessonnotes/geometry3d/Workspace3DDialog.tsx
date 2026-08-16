@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Plus, Download, Trash2, Boxes, MousePointer2, CopyPlus, Move3d, Rotate3d, Scaling, Eraser,
   GraduationCap, ArrowLeft, PanelLeft,
+  Eye, EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Scene3DCanvas } from "./Scene3DCanvas";
