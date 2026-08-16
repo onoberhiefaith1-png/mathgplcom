@@ -56,113 +56,203 @@ const BIG_OPS = new Set(["sum", "prod", "int", "oint", "lim"]);
 
 export interface Run { kind: "text" | "math"; value: string; }
 
-/** Brace-aware tokenizer. Splits a line into text/math runs that mirror
- *  the grammar accepted by `renderMathInline`. */
-export function tokenizeMathLine(line: string): Run[] {
-  const runs: Run[] = [];
-  let buf = "";
-  let i = 0;
-  const flushText = () => {
-    if (buf) { runs.push({ kind: "text", value: buf }); buf = ""; }
-  };
-  const pushMath = (v: string) => { flushText(); runs.push({ kind: "math", value: v }); };
+/** Function names that must be read as ONE word. Splitting `log` into `lo` +
+ *  `g_2` was the exact cause of the broken spacing in lesson notes. */
+const FUNC_WORDS = new Set([
+  "log", "ln", "lg", "exp", "sin", "cos", "tan", "cot", "sec", "csc",
+  "sinh", "cosh", "tanh", "arcsin", "arccos", "arctan", "asin", "acos",
+  "atan", "lim", "max", "min", "sup", "inf", "det", "gcd", "lcm", "mod",
+  "deg", "arg", "Pr",
+]);
 
-  while (i < line.length) {
-    const ch = line[i];
+/** Characters that behave as mathematical operators/relations. */
+const OPERATOR_CH = new Set([
+  "=", "+", "-", "−", "±", "∓", "×", "·", "÷", "*", "/", "^", "_",
+  "<", ">", "≤", "≥", "≠", "≈", "≡", "→", "←", "↔", "⇒", "⇔", "∴", "∈", "∉",
+  "%", "!", "′",
+]);
+const BRACKET_CH = new Set(["(", ")", "[", "]", "{", "}", "|", "⟨", "⟩"]);
 
-    // ---------- backslash macros ----------
-    if (ch === "\\") {
-      const m = /^\\([A-Za-z]+)/.exec(line.slice(i));
-      if (!m) { buf += ch; i++; continue; }
-      const name = m[1];
-      let p = i + 1 + name.length;
+type TokKind = "space" | "math" | "prose" | "stop";
+interface Tok { s: number; e: number; k: TokKind; }
 
-      // \frac{..}{..}, \binom{..}{..}
-      if (TWO_ARG.has(name)) {
-        let q = p;
-        while (line[q] === " ") q++;
-        const a = readBraced(line, q);
-        if (!a) { buf += line.slice(i, p); i = p; continue; }
-        let r = a.end;
-        while (line[r] === " ") r++;
-        const b = readBraced(line, r);
-        if (!b) { buf += line.slice(i, p); i = p; continue; }
-        pushMath(line.slice(i, b.end));
-        i = b.end;
-        continue;
-      }
-
-      // \sqrt[..]{..} / \sl{..} / \vec{..} / etc.
-      if (ONE_ARG.has(name)) {
-        let q = p;
-        if (name === "sqrt" && line[q] === "[") {
-          const o = readBracket(line, q);
-          if (o) q = o.end;
-        }
-        while (line[q] === " ") q++;
-        const a = readBraced(line, q);
-        if (!a) { buf += line.slice(i, p); i = p; continue; }
-        pushMath(line.slice(i, a.end));
-        i = a.end;
-        continue;
-      }
-
-      // \log_{..} | \log_X | bare \log
-      if (LOG_NAMES.has(name)) {
-        let q = p;
-        if (line[q] === "_") {
-          q++;
-          if (line[q] === "{") {
-            const a = readBraced(line, q);
-            if (a) { pushMath(line.slice(i, a.end)); i = a.end; continue; }
-          } else if (/[A-Za-z0-9]/.test(line[q] || "")) {
-            pushMath(line.slice(i, q + 1)); i = q + 1; continue;
-          }
-        }
-        pushMath(line.slice(i, p)); i = p; continue;
-      }
-
-      // \sum | \int | \prod | \oint | \lim with optional _{..}^{..}
-      if (BIG_OPS.has(name)) {
-        let q = p;
-        for (let pass = 0; pass < 2; pass++) {
-          while (line[q] === " ") q++;
-          if ((line[q] === "_" || line[q] === "^") && line[q + 1] === "{") {
-            const a = readBraced(line, q + 1);
-            if (a) { q = a.end; continue; }
-          }
-          break;
-        }
-        pushMath(line.slice(i, q)); i = q; continue;
-      }
-
-      // generic \word (greek/macros)
-      pushMath(line.slice(i, p));
-      i = p;
+/** Consume `_x` / `^{...}` scripts starting at `i`; returns new index. */
+function readScripts(src: string, i: number): number {
+  let q = i;
+  for (let pass = 0; pass < 2; pass++) {
+    if (src[q] !== "_" && src[q] !== "^") break;
+    const after = q + 1;
+    if (src[after] === "{") {
+      const a = readBraced(src, after);
+      if (!a) break;
+      q = a.end;
       continue;
     }
+    if (/[A-Za-z0-9+\-−]/.test(src[after] || "")) { q = after + 1; continue; }
+    break;
+  }
+  return q;
+}
 
-    // ---------- X^{..} | X_{..} | X^N | X_N ----------
-    if (/[A-Za-z0-9)\]]/.test(ch)) {
-      const next = line[i + 1];
-      if (next === "^" || next === "_") {
-        const op = next;
-        let q = i + 2;
-        if (line[q] === "{") {
-          const a = readBraced(line, q);
-          if (a) { pushMath(`${ch}${op}{${a.inner}}`); i = a.end; continue; }
-        } else if (/[A-Za-z0-9]/.test(line[q] || "")) {
-          pushMath(`${ch}${op}${line[q]}`); i = q + 1; continue;
-        }
+/** Consume a `\macro` together with its arguments and any scripts. */
+function readMacro(src: string, i: number): number {
+  const m = /^\\([A-Za-z]+)/.exec(src.slice(i));
+  if (!m) return i + 1;
+  const name = m[1];
+  let q = i + 1 + name.length;
+  const skipSpace = () => { while (src[q] === " ") q++; };
+  if (TWO_ARG.has(name)) {
+    skipSpace();
+    const a = readBraced(src, q);
+    if (a) {
+      let r = a.end;
+      while (src[r] === " ") r++;
+      const b = readBraced(src, r);
+      q = b ? b.end : a.end;
+    }
+  } else if (ONE_ARG.has(name)) {
+    if (name === "sqrt") {
+      skipSpace();
+      if (src[q] === "[") { const o = readBracket(src, q); if (o) q = o.end; }
+    }
+    skipSpace();
+    const a = readBraced(src, q);
+    if (a) q = a.end;
+  } else if (LOG_NAMES.has(name) || BIG_OPS.has(name)) {
+    q = readScripts(src, q);
+  } else {
+    q = readScripts(src, q);
+  }
+  return q;
+}
+
+/** Scan a line into classified tokens. */
+function scanTokens(line: string): Tok[] {
+  const out: Tok[] = [];
+  let i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    if (/\s/.test(ch)) {
+      let j = i; while (j < line.length && /\s/.test(line[j])) j++;
+      out.push({ s: i, e: j, k: "space" }); i = j; continue;
+    }
+    if (ch === "\\") {
+      const e = readMacro(line, i);
+      out.push({ s: i, e, k: "math" }); i = e; continue;
+    }
+    if (/[A-Za-z]/.test(ch)) {
+      const w = /^[A-Za-z]+/.exec(line.slice(i))![0];
+      let j = i + w.length;
+      const afterScripts = readScripts(line, j);
+      const scripted = afterScripts > j;
+      j = afterScripts;
+      const isMath = scripted || w.length === 1 || FUNC_WORDS.has(w) || FUNC_WORDS.has(w.toLowerCase());
+      out.push({ s: i, e: j, k: isMath ? "math" : "prose" }); i = j; continue;
+    }
+    if (/[0-9]/.test(ch)) {
+      const n = /^[0-9]+(?:[.,][0-9]+)*/.exec(line.slice(i))![0];
+      const j = readScripts(line, i + n.length);
+      out.push({ s: i, e: j, k: "math" }); i = j; continue;
+    }
+    if (OPERATOR_CH.has(ch) || BRACKET_CH.has(ch)) {
+      const j = readScripts(line, i + 1);
+      out.push({ s: i, e: j, k: "math" }); i = j; continue;
+    }
+    // Sentence punctuation and anything else terminates a math span.
+    out.push({ s: i, e: i + 1, k: "stop" }); i = i + 1; continue;
+  }
+  return out;
+}
+
+/** A grouped span is only treated as mathematics if it carries a real math
+ *  signal — a structure macro, a script, or an operator/relation. This keeps
+ *  ordinary prose numbers ("5 apples") as text. */
+function hasMathSignal(v: string): boolean {
+  if (/\\[A-Za-z]/.test(v)) return true;
+  if (/[\^_]/.test(v)) return true;
+  for (const ch of v) if (OPERATOR_CH.has(ch)) return true;
+  return false;
+}
+
+/**
+ * Segment a line into maximal math spans and prose. Adjacent mathematical
+ * tokens (function names, operands, operators, brackets, structures) are
+ * grouped into ONE math run so the whole expression is drawn by a single
+ * `renderMathInline` call — exactly what the AI Edit preview does.
+ */
+export function tokenizeMathLine(line: string): Run[] {
+  const toks = scanTokens(line);
+  const runs: Run[] = [];
+  let text = "";
+  const pushText = (v: string) => { if (v) text += v; };
+  const flushText = () => { if (text) { runs.push({ kind: "text", value: text }); text = ""; } };
+
+  let i = 0;
+  while (i < toks.length) {
+    const t = toks[i];
+    // A short/all-caps operand word directly followed by mathematics starts
+    // the span too (`MN = 5`, `AB^2`).
+    const startsSpan = t.k === "math" || (() => {
+      if (t.k !== "prose") return false;
+      const word = line.slice(t.s, t.e);
+      const next = toks[i + 1];
+      if (!next) return false;
+      if (next.k === "math" && next.s === t.e) {
+        return word.length <= 3 || /^[A-Z]+$/.test(word);
       }
+      // All-caps label separated by a space: `MN = 5`.
+      if (!/^[A-Z]{2,}$/.test(word)) return false;
+      let k = i + 1;
+      while (k < toks.length && toks[k].k === "space") k++;
+      return k < toks.length && toks[k].k === "math";
+    })();
+    if (!startsSpan) { pushText(line.slice(t.s, t.e)); i++; continue; }
+
+
+    // Grow the span: math tokens, plus interior whitespace when another math
+    // token follows it.
+    let end = i;
+    let j = i + 1;
+    while (j < toks.length) {
+      const n = toks[j];
+      if (n.k === "math") { end = j; j++; continue; }
+      if (n.k === "prose") {
+        // A short operand word glued to the mathematics (no whitespace)
+        // belongs to the expression: `\log_{2}(MN)`, `\frac{1}{2}bh`.
+        const prev = toks[j - 1];
+        const next = toks[j + 1];
+        const gluedLeft = !!prev && prev.e === n.s;
+        const gluedRight = !!next && next.k === "math" && next.s === n.e;
+        const word = line.slice(n.s, n.e);
+        const short = word.length <= 3 || /^[A-Z]+$/.test(word);
+        if (gluedLeft && short && (gluedRight || !next || next.k !== "prose")) {
+          end = j; j++; continue;
+        }
+        break;
+      }
+      if (n.k === "space") {
+        // Interior space only if the next non-space token is math.
+        let k = j;
+        while (k < toks.length && toks[k].k === "space") k++;
+        if (k < toks.length && toks[k].k === "math") { j = k; continue; }
+        break;
+      }
+      break;
     }
 
-    buf += ch;
-    i++;
+    const value = line.slice(toks[i].s, toks[end].e);
+    if (hasMathSignal(value)) {
+      flushText();
+      runs.push({ kind: "math", value });
+    } else {
+      pushText(value);
+    }
+    i = end + 1;
   }
   flushText();
   return runs;
 }
+
 
 /* ------------------------- node assembly ------------------------- */
 
@@ -339,6 +429,29 @@ export function repairDocumentMath(doc: any): { doc: any; changed: boolean } {
       || /[\^_]\{/.test(text);
   };
 
+  /** Flatten a paragraph made only of text + mathInline runs back to source.
+   *  Any other child type aborts (we must not lose a node view). */
+  const flattenSource = (content: any[]): string | null => {
+    let out = "";
+    for (const c of content) {
+      if (c?.type === "text") { out += c.text ?? ""; continue; }
+      if (c?.type === "mathInline") { out += (c.attrs?.value ?? ""); continue; }
+      return null;
+    }
+    return out;
+  };
+
+  const rebuildParagraph = (node: any, source: string) => {
+    changed = true;
+    const rebuilt = aiTextToNodes(source);
+    if (rebuilt.length === 1 && rebuilt[0].type === "paragraph") {
+      return { ...node, content: rebuilt[0].content ?? [] };
+    }
+    if (rebuilt.length === 1) return rebuilt[0];
+    const inline = rebuilt.flatMap((b: any) => b.content ?? []).filter(Boolean);
+    return { ...node, content: inline };
+  };
+
   const visit = (node: any): any => {
     if (!node || typeof node !== "object") return node;
     // Paragraph: if any child text needs repair, retokenize the whole text.
@@ -347,26 +460,27 @@ export function repairDocumentMath(doc: any): { doc: any; changed: boolean } {
       const allText = node.content.every((c: any) => c?.type === "text");
       if (allText) {
         const fullText = node.content.map((c: any) => c.text ?? "").join("");
-        if (needsRepair(fullText)) {
-          changed = true;
-          const rebuilt = aiTextToNodes(fullText);
-          // aiTextToNodes returns one or more block nodes; if it returns a
-          // single paragraph, swap content; otherwise return the first block
-          // (we can't replace a single paragraph with many blocks from inside
-          // visit, so wrap into a paragraph by flattening inline content).
-          if (rebuilt.length === 1 && rebuilt[0].type === "paragraph") {
-            return { ...node, content: rebuilt[0].content ?? [] };
-          }
-          // Promote to mathBlock if AI tokenizer chose that.
-          if (rebuilt.length === 1) return rebuilt[0];
-          // Multi-line edge case: keep as paragraph with mixed runs only.
-          const inline = rebuilt
-            .flatMap((b: any) => b.content ?? [])
-            .filter(Boolean);
-          return { ...node, content: inline };
+        if (needsRepair(fullText)) return rebuildParagraph(node, fullText);
+      } else {
+        // Mixed text + math runs: an expression fragmented into several math
+        // atoms (`lo` + `g_2` + `(M × N) = …`) is re-grouped into ONE math
+        // object so the renderer controls every gap.
+        const hasMath = node.content.some((c: any) => c?.type === "mathInline");
+        const source = hasMath ? flattenSource(node.content) : null;
+        if (source) {
+          const runs = tokenizeMathLine(source);
+          const differs =
+            runs.length !== node.content.length ||
+            runs.some((r, idx) => {
+              const c = node.content[idx];
+              if (r.kind === "math") return c?.type !== "mathInline" || (c.attrs?.value ?? "") !== r.value;
+              return c?.type !== "text" || (c.text ?? "") !== r.value;
+            });
+          if (differs) return rebuildParagraph(node, source);
         }
       }
     }
+
     if (Array.isArray(node.content)) {
       const next = node.content.map(visit);
       return { ...node, content: next };

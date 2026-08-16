@@ -10,6 +10,7 @@ import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import { latexToFriendly } from "@/lib/notebook/mathFriendly";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { normalizeMathLayout } from "@/lib/notebook/mathLayoutNormalize";
+import { tokenizeMathLine } from "@/lib/lessonnotes/aiToNodes";
 
 const roundTrip = (v: string) => treeToLatex(latexToTree(v));
 
@@ -146,5 +147,55 @@ describe("math layout normalizer", () => {
       const once = normalizeMathLayout(input);
       expect(normalizeMathLayout(once)).toBe(once);
     }
+  });
+});
+
+describe("math span segmentation (one object per expression)", () => {
+  it("keeps a whole logarithm identity as ONE math run", () => {
+    const runs = tokenizeMathLine("log_2(M × N) = log_2 M + log_2 N");
+    expect(runs).toEqual([
+      { kind: "math", value: "log_2(M × N) = log_2 M + log_2 N" },
+    ]);
+  });
+
+  it("never splits a function word", () => {
+    for (const line of [
+      "log_2(M × N) = log_2 M + log_2 N",
+      "\\log_{2}(MN) = \\log_{2}M + \\log_{2}N",
+      "sin^2 x + cos^2 x = 1",
+    ]) {
+      for (const r of tokenizeMathLine(line)) {
+        if (r.kind === "text") {
+          expect(/\b(lo|si|co|ta|l)$/.test(r.value.trimEnd())).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("leaves prose text alone and never leaks raw syntax into text runs", () => {
+    const lines = [
+      "There are 5 apples in the basket.",
+      "Substitute x = 2 into the equation y = 2x + 3 to find y.",
+      "We simplify \\frac{3 \\sqrt{5}}{2 \\sqrt{5} - 1} carefully.",
+      "Let the sum be S and note that S_n = \\frac{n}{2}(a + l).",
+    ];
+    for (const line of lines) {
+      for (const r of tokenizeMathLine(line)) {
+        if (r.kind !== "text") continue;
+        expect(r.value).not.toMatch(/\\[A-Za-z]/);
+        expect(r.value).not.toMatch(/[\^_]\{/);
+      }
+    }
+  });
+
+  it("groups mathematics separated by spaces but stops at prose", () => {
+    expect(tokenizeMathLine("Therefore x_1 + x_2 = 5")).toEqual([
+      { kind: "text", value: "Therefore " },
+      { kind: "math", value: "x_1 + x_2 = 5" },
+    ]);
+    expect(tokenizeMathLine("MN = 5 cm")).toEqual([
+      { kind: "math", value: "MN = 5" },
+      { kind: "text", value: " cm" },
+    ]);
   });
 });
