@@ -84,6 +84,7 @@ import { PropertiesPanel } from "./PropertiesPanel";
 import { EmojiPanel } from "./EmojiPanel";
 import { ConversionPanel } from "./ConversionPanel";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { SlidePanel } from "@/components/lessonnotes/slides/SlidePanel";
 import {
   PAPER_LABELS, PAPER_SIZES,
   type PaperSize, type PaperStyle,
@@ -1519,6 +1520,7 @@ function DocumentEditorInner({
 
   // Emoji Library dock panel (teacher-managed content).
   const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
+  const [slidePanelOpen, setSlidePanelOpen] = useState(false);
 
   // Conversion tool.
   const [conversionOpen, setConversionOpen] = useState(false);
@@ -2431,6 +2433,16 @@ function DocumentEditorInner({
 
         <button
           type="button"
+          onClick={() => setSlidePanelOpen((v) => !v)}
+          title="Slides — this lesson note's own slide workspace"
+          aria-pressed={slidePanelOpen}
+          className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${slidePanelOpen ? "bg-foreground/10" : ""}`}
+        >
+          <LayoutGrid className="h-4 w-4" /> Slide
+        </button>
+
+        <button
+          type="button"
           onClick={() => setEmojiPanelOpen((v) => !v)}
           title="Emoji library"
           aria-pressed={emojiPanelOpen}
@@ -2438,6 +2450,7 @@ function DocumentEditorInner({
         >
           <span className="text-base leading-none">😊</span> Emojis
         </button>
+
         <Divider />
         <select
           value={paperSize}
@@ -2561,7 +2574,15 @@ function DocumentEditorInner({
           onClose={() => setEmojiPanelOpen(false)}
           onInsert={insertSymbolText}
         />
+        {slidePanelOpen && notebookId && (
+          <SlidePanel
+            notebookId={notebookId}
+            sheetEl={sheetElRef.current}
+            onClose={() => setSlidePanelOpen(false)}
+          />
+        )}
         <PropertiesPanel />
+
       </div>
 
 

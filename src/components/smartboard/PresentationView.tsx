@@ -139,7 +139,9 @@ import { toast } from "@/hooks/use-toast";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { extractTermsFromAscii } from "@/lib/smartboard/floatingExtractor";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
-import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2 } from "lucide-react";
+import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2, LayoutGrid as LayoutGridIcon } from "lucide-react";
+import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
+import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -797,6 +799,18 @@ const PresentationView = ({
   const [boardTablesOpen, setBoardTablesOpen] = useState(false);
   const [calcFloat, setCalcFloat] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [convFloat, setConvFloat] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  // Slide — presentation only on the board. The slides belong to the lesson
+  // note; opening the menu just reads that note's own slide list.
+  const [slideMenuOpen, setSlideMenuOpen] = useState(false);
+  const [boardSlides, setBoardSlides] = useState<Slide[]>([]);
+  const [slideShowIndex, setSlideShowIndex] = useState<number | null>(null);
+  const openSlideMenu = useCallback(() => {
+    setSlideMenuOpen((v) => !v);
+    if (!notebookId) return;
+    listSlides(notebookId).then(setBoardSlides).catch(() => setBoardSlides([]));
+  }, [notebookId]);
+
 
 
 
@@ -5159,7 +5173,36 @@ const PresentationView = ({
               className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
               title="Open the conversion workspace"
             ><ArrowLeftRightIcon className="h-3.5 w-3.5" /> Conversion</button>
+            {/* Slide — presentation only. The slides belong to this lesson
+                note; the board never edits them. */}
+            <span className="relative inline-flex">
+              <button
+                onClick={openSlideMenu}
+                className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+                title="Present a slide from this lesson note"
+                aria-expanded={slideMenuOpen}
+              ><LayoutGridIcon className="h-3.5 w-3.5" /> Slide</button>
+              {slideMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute left-0 top-full z-40 mt-1 max-h-64 min-w-[11rem] overflow-auto rounded-md border shadow-lg"
+                  style={{ background: palette.chromeBg, borderColor: palette.chromeBorder, color: palette.chromeFg }}
+                >
+                  {boardSlides.length === 0 ? (
+                    <p className="px-3 py-2 text-[11px] opacity-70">No slides in this lesson note yet.</p>
+                  ) : boardSlides.map((s, i) => (
+                    <button
+                      key={s.id}
+                      role="menuitem"
+                      onClick={() => { setSlideMenuOpen(false); setSlideShowIndex(i); }}
+                      className="block w-full truncate px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
+                    >{i + 1}. {s.name}</button>
+                  ))}
+                </div>
+              )}
+            </span>
           </span>
+
           <button
             onClick={() => setSettingsOpen((v) => !v)}
             className="ml-1 inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-black/5"
@@ -5171,6 +5214,16 @@ const PresentationView = ({
 
         </div>
       </header>
+
+      {/* Full-board slide presentation: Next / Back / Exit only. */}
+      {slideShowIndex !== null && boardSlides.length > 0 && (
+        <SlidePlayer
+          slides={boardSlides}
+          startIndex={slideShowIndex}
+          dark
+          onExit={() => setSlideShowIndex(null)}
+        />
+      )}
 
       {/* Soft-glow pull-tab — TOP. Drag the header down/up. */}
       <button
