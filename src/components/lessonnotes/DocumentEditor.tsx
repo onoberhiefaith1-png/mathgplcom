@@ -474,7 +474,14 @@ function DocumentEditorInner({
   const [calcOpen, setCalcOpen] = useState(false);
   const [objectsOpen, setObjectsOpen] = useState(false);
   const [animateMode, setAnimateMode] = useState(false);
-  const { id: notebookId } = useParams();
+  const { id: routeNotebookId } = useParams();
+  // Callers off the /lesson-notes/:id route (the Smartboard companion page) pass
+  // the id explicitly. `storageId` additionally namespaces local-only state so a
+  // second instance of the same note keeps its own canvas notes / page geometry.
+  const notebookId = notebookIdProp ?? routeNotebookId;
+  const storageId = notebookId
+    ? (scopeSuffix ? `${notebookId}:${scopeSuffix}` : notebookId)
+    : undefined;
   const navigate = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ctxRef = useRef(notebookContext);
