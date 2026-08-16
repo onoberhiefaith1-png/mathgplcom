@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Plus, Minus, Trash2, Undo2, Redo2, Eraser, ChevronDown, ChevronUp, Move,
+  GripVertical, ZoomIn, ZoomOut, Maximize2, Eye, EyeOff, LineChart,
   Sparkles, MousePointer2, Type, Sigma, Triangle as TriangleIcon,
   Circle as CircleIcon, Square as SquareIcon, Image as ImageIcon,
 } from "lucide-react";
@@ -29,8 +30,11 @@ import type {
 } from "@/components/lessonnotes/extensions/SmartGraph";
 import { cn } from "@/lib/utils";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
+import type { GraphFunction } from "@/lib/graph/graphModel";
+import { tryCompile, sampleFunction } from "@/lib/graph/functions";
+import { GRAPH_TEMPLATES, nextFunctionColour } from "@/lib/graph/library";
 
-const SQ = 28; // pixels per major square (= 1 cm on the printed page).
+const SQ_BASE = 28; // pixels per major square (= 1 cm on the printed page) at 100% graph zoom.
 
 type Mode = "plot" | "cursor" | "moveX" | "moveY";
 
@@ -52,6 +56,99 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [insertOpen, setInsertOpen] = useState(false);
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+
+  // ---- Graph object frame + independent graph zoom -------------------------
+  // The graph is an object on the lesson-note canvas: it owns its position
+  // (offsetX/offsetY, applied as a transform so the page never reflows), its
+  // size (frameW/frameH) and its own zoom (viewZoom → pixels per centimetre).
+  const zoom = a.viewZoom ?? 1;
+  const SQ = SQ_BASE * zoom;
+  const frameW = a.frameW ?? 980;
+  const frameH = a.frameH ?? 480;
+  const [objActive, setObjActive] = useState(false);
+  const active = selected || objActive;
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!objActive) return;
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setObjActive(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [objActive]);
+
+  // Move the graph object (only the object — never the page behind it).
+  const startMove = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setObjActive(true);
+    const sx = e.clientX, sy = e.clientY;
+    const ox = a.offsetX ?? 0, oy = a.offsetY ?? 0;
+    const move = (ev: PointerEvent) => {
+      update({ offsetX: ox + (ev.clientX - sx), offsetY: oy + (ev.clientY - sy) });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  // Resize the graph object. The mathematical grid re-flows to the new size:
+  // we add/remove whole centimetre squares instead of stretching the picture,
+  // keeping the origin at the same relative place.
+  const startResize = (corner: "nw" | "ne" | "sw" | "se" | "e" | "s") => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setObjActive(true);
+    const sx = e.clientX, sy = e.clientY;
+    const w0 = frameW, h0 = frameH;
+    const ox = a.offsetX ?? 0, oy = a.offsetY ?? 0;
+    const sqX0 = a.squaresX, sqY0 = a.squaresY;
+    const orX0 = a.originSquareX, orY0 = a.originSquareY;
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - sx;
+      const dy = ev.clientY - sy;
+      const west = corner === "nw" || corner === "sw";
+      const north = corner === "nw" || corner === "ne";
+      const w = Math.max(280, w0 + (west ? -dx : corner === "s" ? 0 : dx));
+      const h = Math.max(200, h0 + (north ? -dy : corner === "e" ? 0 : dy));
+      const nSqX = Math.max(4, Math.round((w - 96) / SQ));
+      const nSqY = Math.max(4, Math.round((h - 24) / SQ));
+      update({
+        frameW: w,
+        frameH: h,
+        offsetX: west ? ox + (w0 - w) : ox,
+        offsetY: north ? oy + (h0 - h) : oy,
+        squaresX: nSqX,
+        squaresY: nSqY,
+        originSquareX: Math.max(0, Math.min(nSqX, Math.round((orX0 / sqX0) * nSqX))),
+        originSquareY: Math.max(0, Math.min(nSqY, Math.round((orY0 / sqY0) * nSqY))),
+      });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const setZoom = (z: number) => update({ viewZoom: Math.max(0.25, Math.min(4, Math.round(z * 100) / 100)) });
+
+  /** Make the graph landscape and fill the frame with squares. */
+  const fitGrid = () => {
+    const nSqX = Math.max(4, Math.round((frameW - 96) / SQ));
+    const nSqY = Math.max(4, Math.round((frameH - 24) / SQ));
+    update({
+      squaresX: nSqX,
+      squaresY: nSqY,
+      originSquareX: Math.round(nSqX / 2),
+      originSquareY: Math.round(nSqY / 2),
+    });
+  };
 
   // ---- Geometry helpers ----------------------------------------------------
   const W = a.squaresX * SQ;
@@ -320,19 +417,77 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
   const yTicks = useMemo(() => Array.from({ length: a.squaresY + 1 }, (_, i) => i), [a.squaresY]);
   const cursorPx = cursor ? toPx(cursor) : null;
 
+  // ---- Function plotting ---------------------------------------------------
+  const functions = a.functions ?? [];
+  const [fnText, setFnText] = useState("");
+  const [fnFrom, setFnFrom] = useState("");
+  const [fnTo, setFnTo] = useState("");
+  const [fnError, setFnError] = useState<string | null>(null);
+
+  const dataX0 = ((0 - oxPx) / SQ) * a.unitsPerSquareX;
+  const dataX1 = ((W - oxPx) / SQ) * a.unitsPerSquareX;
+  const dataY0 = ((oyPx - H) / SQ) * a.unitsPerSquareY;
+  const dataY1 = ((oyPx - 0) / SQ) * a.unitsPerSquareY;
+
+  const addFunction = () => {
+    const { fn, error } = tryCompile(fnText);
+    if (!fn) { setFnError(error); return; }
+    const from = fnFrom.trim() === "" ? null : Number(fnFrom);
+    const to = fnTo.trim() === "" ? null : Number(fnTo);
+    const f: GraphFunction = {
+      id: `f${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      expression: fnText.trim().replace(/^y\s*=\s*/i, ""),
+      colour: nextFunctionColour(functions.length),
+      thickness: 2,
+      dash: "solid",
+      domainMin: Number.isFinite(from as number) ? from : null,
+      domainMax: Number.isFinite(to as number) ? to : null,
+    };
+    update({ functions: [...functions, f] });
+    setFnText(""); setFnFrom(""); setFnTo(""); setFnError(null);
+  };
+
+  const fnPaths = useMemo(() => {
+    return functions.filter((f) => !f.hidden).map((f) => {
+      const { fn } = tryCompile(f.expression);
+      if (!fn) return { f, d: [] as string[] };
+      const x0 = Math.max(dataX0, f.domainMin ?? dataX0);
+      const x1 = Math.min(dataX1, f.domainMax ?? dataX1);
+      if (!(x1 > x0)) return { f, d: [] as string[] };
+      const segs = sampleFunction(fn, x0, x1, { yMin: dataY0, yMax: dataY1, samples: Math.max(200, Math.round(W)) });
+      const d = segs.map((seg) => seg.map((pt, i) => {
+        const q = toPx(pt);
+        return `${i === 0 ? "M" : "L"} ${q.x} ${q.y}`;
+      }).join(" "));
+      return { f, d };
+    });
+  }, [functions, dataX0, dataX1, dataY0, dataY1, W, SQ, oxPx, oyPx, a.unitsPerSquareX, a.unitsPerSquareY]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ---- UI ------------------------------------------------------------------
   return (
-    <NodeViewWrapper
-      as="div"
-      className={cn(
-        "my-4 rounded-md border bg-white text-neutral-900",
-        selected ? "border-yellow-400 shadow-xs" : "border-neutral-200",
-      )}
-      data-drag-handle
-    >
+    <NodeViewWrapper as="div" className="my-4" data-graph-object="">
+      <div
+        ref={rootRef}
+        onMouseDown={() => setObjActive(true)}
+        className={cn(
+          "relative rounded-md border bg-white text-neutral-900",
+          active ? "border-yellow-400 shadow-md" : "border-neutral-200",
+        )}
+        style={{
+          width: frameW,
+          maxWidth: "none",
+          transform: `translate(${a.offsetX ?? 0}px, ${a.offsetY ?? 0}px)`,
+        }}
+      >
       {/* Essentials toolbar */}
       <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
-        <span className="font-semibold mr-1">Graph</span>
+        <span
+          onPointerDown={startMove}
+          title="Drag to move the graph anywhere on the page"
+          className="mr-1 inline-flex cursor-grab items-center gap-1 rounded px-1 py-0.5 font-semibold hover:bg-neutral-100 active:cursor-grabbing"
+        >
+          <GripVertical className="h-3.5 w-3.5 text-neutral-400" /> Graph
+        </span>
 
         <ToolButton active={mode === "plot"} onClick={() => setMode("plot")} icon={<Plus className="h-3.5 w-3.5" />} label="Plot" />
         <ToolButton active={mode === "cursor"} onClick={() => setMode("cursor")} icon={<MousePointer2 className="h-3.5 w-3.5" />} label="Cursor" />
@@ -383,6 +538,13 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         <IconBtn onClick={() => update({ points: [], shapes: [], overlays: [] })} title="Clear graph"><Eraser className="h-3.5 w-3.5" /></IconBtn>
 
         <div className="ml-auto flex items-center gap-1">
+          <span className="mr-1 inline-flex items-center gap-1 rounded border border-neutral-200 px-1">
+            <IconBtn onClick={() => setZoom(zoom / 1.25)} title="Graph zoom out"><ZoomOut className="h-3.5 w-3.5" /></IconBtn>
+            <span className="w-9 text-center text-[10px] text-neutral-600">{Math.round(zoom * 100)}%</span>
+            <IconBtn onClick={() => setZoom(zoom * 1.25)} title="Graph zoom in"><ZoomIn className="h-3.5 w-3.5" /></IconBtn>
+            <IconBtn onClick={() => setZoom(1)} title="Reset graph zoom">100</IconBtn>
+            <IconBtn onClick={fitGrid} title="Fit grid to the graph object (landscape)"><Maximize2 className="h-3.5 w-3.5" /></IconBtn>
+          </span>
           <button
             type="button"
             onClick={() => setShowMore((s) => !s)}
@@ -431,6 +593,55 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
         </span>
       </div>
 
+      {/* Function row — y = expression, optional domain */}
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-white text-[12px]">
+        <span className="inline-flex items-center gap-1 text-neutral-600"><LineChart className="h-3.5 w-3.5" /> y =</span>
+        <Input
+          value={fnText}
+          onChange={(e) => { setFnText(e.target.value); setFnError(null); }}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFunction(); } }}
+          placeholder="2x + 3"
+          className="h-7 w-40 text-[12px] bg-white"
+        />
+        <span className="text-neutral-500">from</span>
+        <Input value={fnFrom} onChange={(e) => setFnFrom(e.target.value)} placeholder="−10"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFunction(); } }}
+          className="h-7 w-16 text-[12px] bg-white" />
+        <span className="text-neutral-500">to</span>
+        <Input value={fnTo} onChange={(e) => setFnTo(e.target.value)} placeholder="10"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFunction(); } }}
+          className="h-7 w-16 text-[12px] bg-white" />
+        <Button type="button" size="sm" onClick={addFunction}
+          className="h-7 px-3 text-[11px] bg-yellow-300 hover:bg-yellow-400 text-neutral-900 border border-yellow-400">Plot</Button>
+        <select
+          value=""
+          onChange={(e) => { if (e.target.value) setFnText(e.target.value); }}
+          className="h-7 rounded border border-neutral-200 bg-white px-1 text-[11px] text-neutral-700"
+        >
+          <option value="">Library…</option>
+          {GRAPH_TEMPLATES.map((t) => (
+            <option key={t.label} value={t.expression}>{t.label}</option>
+          ))}
+        </select>
+        {fnError && <span className="text-[11px] text-red-600">{fnError}</span>}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {functions.map((f) => (
+            <span key={f.id} className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px]">
+              <span className="h-2 w-2 rounded-full" style={{ background: f.colour }} />
+              y = {f.expression}
+              <button type="button" title={f.hidden ? "Show" : "Hide"}
+                onClick={() => update({ functions: functions.map((g) => (g.id === f.id ? { ...g, hidden: !g.hidden } : g)) })}
+                className="text-neutral-500 hover:text-neutral-800">
+                {f.hidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              </button>
+              <button type="button" title="Remove"
+                onClick={() => update({ functions: functions.filter((g) => g.id !== f.id) })}
+                className="text-neutral-400 hover:text-red-600">×</button>
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* Smart Scale suggestion */}
       {scaleSuggestion && !suggestionDismissed && (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-neutral-200 bg-yellow-50/50 text-[12px]">
@@ -474,7 +685,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
       {/* Canvas with four-sided expand controls */}
       <div className="bg-white p-3">
-        <div className="mx-auto" style={{ width: "fit-content" }}>
+        <div className="mx-auto" style={{ width: "fit-content", maxWidth: "100%" }}>
           {/* Top row: expand up */}
           <div className="flex justify-center pb-1">
             <EdgeButton onClick={() => expand("top")} title="Add 1 cm on top"><Plus className="h-3 w-3" /></EdgeButton>
@@ -489,7 +700,11 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
             </div>
 
             {/* SVG canvas */}
-            <div className="overflow-auto max-h-[600px] border border-neutral-200" data-no-drag>
+            <div
+              className="overflow-auto border border-neutral-200"
+              style={{ width: Math.max(160, frameW - 96), height: Math.max(140, frameH - 24) }}
+              data-no-drag
+            >
               <svg
                 ref={svgRef}
                 width={W} height={H}
@@ -545,6 +760,16 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                 <text x={W - 6} y={oyPx - 6} fontSize="11" textAnchor="end" fontStyle="italic" fill="hsl(0 0% 25%)">{a.xLabel}</text>
                 <text x={oxPx + 6} y={12} fontSize="11" fontStyle="italic" fill="hsl(0 0% 25%)">{a.yLabel}</text>
 
+                {/* Plotted functions */}
+                {fnPaths.map(({ f, d }) => (
+                  <g key={f.id}>
+                    {d.map((seg, i) => (
+                      <path key={i} d={seg} fill="none" stroke={f.colour} strokeWidth={f.thickness}
+                        strokeDasharray={f.dash === "dashed" ? "6 4" : f.dash === "dotted" ? "2 3" : undefined} />
+                    ))}
+                  </g>
+                ))}
+
                 {/* Plotted line + points */}
                 {connect !== "scatter" && path && (
                   <path d={path} fill="none" stroke="hsl(220 90% 50%)" strokeWidth={1.75}
@@ -579,6 +804,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                     key={o.id}
                     overlay={o}
                     toPx={toPx}
+                    sq={SQ}
                     unitsPerSquareX={a.unitsPerSquareX}
                     unitsPerSquareY={a.unitsPerSquareY}
                     selected={selectedOverlayId === o.id}
@@ -614,18 +840,48 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
           </div>
         </div>
       </div>
+
+        {/* Object resize handles — only the graph resizes, never the notebook. */}
+        {active && (
+          <>
+            <ResizeHandle pos="nw" onPointerDown={startResize("nw")} />
+            <ResizeHandle pos="ne" onPointerDown={startResize("ne")} />
+            <ResizeHandle pos="sw" onPointerDown={startResize("sw")} />
+            <ResizeHandle pos="se" onPointerDown={startResize("se")} />
+            <ResizeHandle pos="e" onPointerDown={startResize("e")} />
+            <ResizeHandle pos="s" onPointerDown={startResize("s")} />
+          </>
+        )}
+      </div>
     </NodeViewWrapper>
   );
+}
+
+/** Corner / edge grips shown while the graph object is selected. */
+function ResizeHandle({
+  pos, onPointerDown,
+}: { pos: "nw" | "ne" | "sw" | "se" | "e" | "s"; onPointerDown: (e: React.PointerEvent) => void }) {
+  const base = "absolute z-20 rounded-sm border border-yellow-500 bg-white";
+  const map: Record<string, string> = {
+    nw: "-top-1.5 -left-1.5 h-3 w-3 cursor-nwse-resize",
+    ne: "-top-1.5 -right-1.5 h-3 w-3 cursor-nesw-resize",
+    sw: "-bottom-1.5 -left-1.5 h-3 w-3 cursor-nesw-resize",
+    se: "-bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize",
+    e: "top-1/2 -right-1.5 h-6 w-3 -translate-y-1/2 cursor-ew-resize",
+    s: "-bottom-1.5 left-1/2 h-3 w-6 -translate-x-1/2 cursor-ns-resize",
+  };
+  return <div className={cn(base, map[pos])} onPointerDown={onPointerDown} />;
 }
 
 // ---------- Overlay ---------------------------------------------------------
 
 function OverlayNode({
-  overlay: o, toPx, unitsPerSquareX, unitsPerSquareY,
+  overlay: o, toPx, sq: SQ, unitsPerSquareX, unitsPerSquareY,
   selected, onSelect, onChange, onDelete, onDragStart,
 }: {
   overlay: GraphOverlay;
   toPx: (p: { x: number; y: number }) => { x: number; y: number };
+  sq: number;
   unitsPerSquareX: number;
   unitsPerSquareY: number;
   selected: boolean;

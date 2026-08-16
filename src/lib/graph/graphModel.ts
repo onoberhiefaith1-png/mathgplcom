@@ -85,6 +85,11 @@ export interface SmartGraphAttrs {
   style: GraphStyle;
   /** View-only zoom. The mathematics is untouched by it. */
   viewZoom: number;
+  /** Independent object geometry on the lesson-note canvas (px). */
+  frameW: number;
+  frameH: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 export const DEFAULT_GRAPH: SmartGraphAttrs = {
@@ -104,6 +109,10 @@ export const DEFAULT_GRAPH: SmartGraphAttrs = {
   functions: [],
   style: DEFAULT_GRAPH_STYLE,
   viewZoom: 1,
+  frameW: 980,
+  frameH: 480,
+  offsetX: 0,
+  offsetY: 0,
 };
 
 const num = (v: unknown, fallback: number) =>
@@ -128,5 +137,9 @@ export function sanitizeGraphAttrs(raw: unknown): SmartGraphAttrs {
     functions: Array.isArray(r.functions) ? r.functions : [],
     style: { ...DEFAULT_GRAPH_STYLE, ...((r.style ?? {}) as Partial<GraphStyle>) },
     viewZoom: Math.max(0.25, Math.min(4, num(r.viewZoom, 1))),
+    frameW: Math.max(240, num(r.frameW, DEFAULT_GRAPH.frameW)),
+    frameH: Math.max(180, num(r.frameH, DEFAULT_GRAPH.frameH)),
+    offsetX: num(r.offsetX, 0),
+    offsetY: num(r.offsetY, 0),
   };
 }

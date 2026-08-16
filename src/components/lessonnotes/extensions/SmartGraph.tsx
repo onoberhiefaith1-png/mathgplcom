@@ -40,6 +40,10 @@ export const SmartGraphNode = Node.create({
       functions: { default: DEFAULT_GRAPH.functions },
       style: { default: DEFAULT_GRAPH.style },
       viewZoom: { default: DEFAULT_GRAPH.viewZoom },
+      frameW: { default: DEFAULT_GRAPH.frameW },
+      frameH: { default: DEFAULT_GRAPH.frameH },
+      offsetX: { default: DEFAULT_GRAPH.offsetX },
+      offsetY: { default: DEFAULT_GRAPH.offsetY },
     };
   },
 
