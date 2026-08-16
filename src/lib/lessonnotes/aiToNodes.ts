@@ -118,15 +118,60 @@ function isMostlyMath(line: string): boolean {
   return prose.length === 0;
 }
 
-/** A line with mathematics becomes ONE object for the whole line — the AI
- *  Edit rule. No seams, so no phantom spaces. */
+/** Prose stays real text (the sensor walks it character by character);
+ *  each complete expression becomes ONE math object drawn by the same
+ *  `renderMathInline` call AI Edit uses. */
 function inlineMixedParagraph(line: string): TipTapNode {
   const cleaned = stripDollars(line).replace(/\s+$/, "");
   if (!cleaned.trim()) return { type: "paragraph" };
-  return {
-    type: "paragraph",
-    content: [{ type: "mathInline", attrs: { value: normalizeMathSource(cleaned) } }],
-  };
+  const content: TipTapNode[] = [];
+  for (const run of tokenizeMathLine(cleaned)) {
+    if (run.kind === "math") {
+      const v = normalizeMathSource(run.value.trim());
+      if (v) content.push({ type: "mathInline", attrs: { value: v } });
+      // Keep the spacing that surrounded the expression as prose.
+      const trail = run.value.match(/\s+$/)?.[0];
+      if (trail) content.push({ type: "text", text: " " });
+      continue;
+    }
+    if (run.value) content.push({ type: "text", text: run.value });
+  }
+  return content.length ? { type: "paragraph", content } : { type: "paragraph" };
+}
+
+/** Split one AI line into the micro-steps a classroom board would show:
+ *   • prose that introduces mathematics with a colon → own line
+ *   • a trailing parenthesised comment ("(Apply the product rule …)") →
+ *     own explanation line, so it is editable as ordinary words. */
+function splitLineIntoSteps(line: string): string[] {
+  let rest = line.trim();
+  if (!rest) return [];
+  const out: string[] = [];
+
+  // Prose lead-in ending with a colon, followed by mathematics.
+  const colon = rest.match(/^([^:]{4,}?:)\s*(\S.*)$/);
+  if (colon && !HAS_MATH(colon[1]) && HAS_MATH(colon[2])) {
+    out.push(colon[1].trim());
+    rest = colon[2].trim();
+  }
+
+  // Trailing parenthesised prose comment.
+  const comment = rest.match(/^(.*\S)\s*\(([^()]{8,})\)\s*$/);
+  if (comment) {
+    const head = comment[1];
+    const note = comment[2];
+    const proseWords = (note.match(/[A-Za-z]{3,}/g) ?? []).filter(
+      (w) => !FUNC_WORDS.has(w.toLowerCase()),
+    );
+    if (HAS_MATH(head) && proseWords.length >= 2) {
+      out.push(head.trim());
+      out.push(note.trim());
+      return out;
+    }
+  }
+
+  out.push(rest);
+  return out;
 }
 
 
