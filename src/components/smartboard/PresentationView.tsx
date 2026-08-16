@@ -127,7 +127,7 @@ import type { GeometryScene } from "@/lib/geometry/scene";
 import type { Scene3D } from "@/lib/geometry3d/scene3d";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes as ShapesIcon,
   Table as TableIcon, LineChart as LineChartIcon, Calculator as CalculatorIcon,
-  ArrowLeftRight as ArrowLeftRightIcon } from "lucide-react";
+  ArrowLeftRight as ArrowLeftRightIcon, Columns2 } from "lucide-react";
 
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
