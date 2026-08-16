@@ -357,17 +357,22 @@ export function repairDocumentMath(doc: any): { doc: any; changed: boolean } {
         const fullText = node.content.map((c: any) => c.text ?? "").join("");
         if (needsRepair(fullText)) return rebuildParagraph(node, fullText);
       } else {
-        // Mixed text + math runs: a line fragmented into several atoms
-        // (`lo` + `g_2` + `(M × N) = …`) is re-grouped into ONE full-line
-        // object so the renderer controls every gap.
+        // Mixed text + math runs. Re-segment the line so prose is real text
+        // (the sensor can walk into it) and each complete expression is one
+        // object. Idempotent: only rebuilt when the segmentation differs.
         const hasMath = node.content.some((c: any) => c?.type === "mathInline");
         const source = hasMath ? flattenSource(node.content) : null;
-        if (source) {
-          const alreadyOne =
-            node.content.length === 1 &&
-            node.content[0]?.type === "mathInline" &&
-            (node.content[0].attrs?.value ?? "") === normalizeMathSource(stripDollars(source));
-          if (!alreadyOne) return rebuildParagraph(node, source);
+        if (source && source.trim()) {
+          const rebuilt = inlineMixedParagraph(source);
+          const a = JSON.stringify(rebuilt.content ?? []);
+          const b = JSON.stringify(
+            node.content.map((c: any) =>
+              c?.type === "mathInline"
+                ? { type: "mathInline", attrs: { value: c.attrs?.value ?? "" } }
+                : { type: "text", text: c.text ?? "" },
+            ),
+          );
+          if (a !== b) { changed = true; return { ...node, content: rebuilt.content ?? [] }; }
         }
       }
 
