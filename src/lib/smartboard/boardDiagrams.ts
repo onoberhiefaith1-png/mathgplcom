@@ -65,10 +65,12 @@ export const newBoardDiagram2D = (x: number, y: number, scene?: GeometryScene): 
   kind: "2d",
   x,
   y,
-  width: 460,
-  height: 340,
+  width: 720,
+  height: 520,
   scene: scene ?? EMPTY_SCENE,
+  committed: false,
 });
+
 
 export const newBoardDiagram3D = (x: number, y: number, scene?: Scene3D): BoardDiagram3D => ({
   id: rid(),
