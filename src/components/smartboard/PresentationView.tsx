@@ -789,10 +789,11 @@ const PresentationView = ({
     try { localStorage.setItem(DIAGRAMS_KEY, JSON.stringify(diagrams)); } catch { /* noop */ }
   }, [diagrams, DIAGRAMS_KEY]);
   const [activeDiagramId, setActiveDiagramId] = useState<string | null>(null);
-  // The 2D diagram currently open in the geometry dock, and the 3D diagram
-  // currently open in the TVD workspace dialog.
-  const [editing2dId, setEditing2dId] = useState<string | null>(null);
+  // 2D diagrams edit inside their own floating card; only the 3D / TVD
+  // workspace opens as a dialog. The Diagram menu picks 2D or 3D.
+  const [diagramMenuOpen, setDiagramMenuOpen] = useState(false);
   const [editing3dId, setEditing3dId] = useState<string | null>(null);
+
   // Mathematical Tables picker, and the two floating utility workspaces
   // (Calculator, Conversion) which are used but never merged into the page.
   const [boardTablesOpen, setBoardTablesOpen] = useState(false);
