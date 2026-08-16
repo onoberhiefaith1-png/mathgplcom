@@ -10,6 +10,8 @@
 import { useState } from "react";
 import { Boxes, Eye, EyeOff, LineChart, Shapes, Table as TableIcon } from "lucide-react";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import type { GeometryScene } from "@/lib/geometry/scene";
+
 import { GeometryWorkbench } from "@/components/lessonnotes/geometry-editor/GeometryWorkbench";
 import { Scene3DCanvas } from "@/components/lessonnotes/geometry3d/Scene3DCanvas";
 import { SmartGraphView } from "@/components/lessonnotes/math-tools/SmartGraphView";
