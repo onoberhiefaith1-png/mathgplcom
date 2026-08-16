@@ -103,14 +103,6 @@ function stripDollars(s: string): string {
   return s.replace(/\$+/g, "");
 }
 
-/** Words that are mathematics even though they are spelled out. */
-const FUNC_WORDS = new Set([
-  "log", "ln", "lg", "exp", "sin", "cos", "tan", "cot", "sec", "csc",
-  "sinh", "cosh", "tanh", "arcsin", "arccos", "arctan", "asin", "acos",
-  "atan", "lim", "max", "min", "sup", "inf", "det", "gcd", "lcm", "mod",
-  "deg", "arg", "cm", "mm", "km", "kg", "sqrt", "frac",
-]);
-
 /** Return true if a line is a pure calculation (no sentence prose), which
  *  renders as a centred `mathBlock`. A line carrying real sentence words
  *  stays a paragraph holding one full-line math object. */
