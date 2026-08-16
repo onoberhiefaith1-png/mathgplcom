@@ -2573,7 +2573,15 @@ function DocumentEditorInner({
           onClose={() => setEmojiPanelOpen(false)}
           onInsert={insertSymbolText}
         />
+        {slidePanelOpen && notebookId && (
+          <SlidePanel
+            notebookId={notebookId}
+            sheetEl={sheetElRef.current}
+            onClose={() => setSlidePanelOpen(false)}
+          />
+        )}
         <PropertiesPanel />
+
       </div>
 
 
