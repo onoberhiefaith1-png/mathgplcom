@@ -1538,6 +1538,23 @@ function DocumentEditorInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentJson]);
 
+  // Self-healing pass on whatever is actually in the editor: any line still
+  // fragmented into several math atoms is re-grouped into ONE full-line
+  // object. Runs whenever the loaded document changes (including when the
+  // editor received its content while focused), never while typing.
+  useEffect(() => {
+    if (!editor) return;
+    const t = window.setTimeout(() => {
+      if (!editor || editor.isDestroyed) return;
+      if (editor.isFocused) return;
+      const { doc, changed } = repairDocumentMath(editor.getJSON());
+      if (changed) editor.commands.setContent(doc, { emitUpdate: true });
+    }, 400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, documentJson]);
+
+
   const insertMath = () => {
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: "" } }).run();
   };
