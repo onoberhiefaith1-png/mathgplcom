@@ -112,7 +112,7 @@ export default function PlanGatewayPage() {
       <PaymentTestModeBanner />
       <div className="mx-auto max-w-5xl px-6 py-14">
         <BackButton
-          fallback={workspace}
+          fallback="/welcome"
           className="mb-6 inline-flex min-h-9 items-center gap-2 rounded-full border border-border/60 px-4 text-sm text-muted-foreground transition hover:bg-muted/40 hover:text-foreground"
           ariaLabel="Back"
         >
