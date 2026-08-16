@@ -25,6 +25,10 @@ interface Props {
   /** External history (e.g. the Smartboard's single undo/redo stack). */
   history?: { undo: () => void; redo: () => void };
   className?: string;
+  /** Default ink for the drawing (Smartboard passes its writing colour). */
+  stroke?: string;
+  /** Optional chrome colours so the side panels blend with the host surface. */
+  chrome?: { bg: string; fg: string; border: string };
 }
 
 export function GeometryWorkbench(props: Props) {
@@ -35,7 +39,7 @@ export function GeometryWorkbench(props: Props) {
   );
 }
 
-function Workbench({ scene, onChange, onDeleteDiagram, history, className }: Props) {
+function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome }: Props) {
   const editor = useGeometryEditor(scene, onChange);
   const { mode, setMode, tool } = useGeometryMode();
   const [leftOpen, setLeftOpen] = useState(true);
@@ -96,7 +100,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className }: Pro
   return (
     <div className={cn("flex h-full w-full min-h-0 gap-1 p-1", className)}>
       {leftOpen ? (
-        <GeometryToolbox inline onExit={() => setLeftOpen(false)} />
+        <GeometryToolbox inline onExit={() => setLeftOpen(false)} chrome={chrome} />
       ) : (
         <button
           type="button"
@@ -110,12 +114,13 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className }: Pro
       )}
 
       <div className="min-w-0 flex-1 overflow-auto rounded-md">
-        <GeometryCanvas editor={editor} />
+        <GeometryCanvas editor={editor} stroke={stroke} />
       </div>
 
       {rightOpen ? (
         <aside
           className="h-full w-56 shrink-0 overflow-y-auto rounded-lg border border-foreground/15 bg-background/95 p-2"
+          style={chrome ? { background: chrome.bg, color: chrome.fg, borderColor: chrome.border } : undefined}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="mb-1.5 flex items-center justify-between">
