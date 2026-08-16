@@ -147,13 +147,7 @@ export function SmartCalculatorBody({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Calculator className="h-4 w-4" /> Smart Calculator</DialogTitle>
-          <DialogDescription>Quick scientific calculator, or show full working with AI.</DialogDescription>
-        </DialogHeader>
-
+    <div>
         <Tabs defaultValue="standard">
           <TabsList className="grid grid-cols-2 w-full">
             <TabsTrigger value="standard">Standard</TabsTrigger>
@@ -212,7 +206,7 @@ export function SmartCalculatorBody({
                 {smart.answer && <div className="pt-1 font-semibold">∴ {smart.answer}</div>}
                 <Button
                   size="sm" className="w-full mt-2"
-                  onClick={() => { onInsertWorking(smart); onOpenChange(false); }}
+                  onClick={() => { onInsertWorking(smart); onDone?.(); }}
                 >
                   <Plus className="h-3 w-3 mr-1" /> Insert working into note
                 </Button>
@@ -220,7 +214,6 @@ export function SmartCalculatorBody({
             )}
           </TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+    </div>
   );
 }
