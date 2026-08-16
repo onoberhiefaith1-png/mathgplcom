@@ -3619,57 +3619,7 @@ export type Database = {
           },
         ]
       }
-      notebook_slide_items: {
-        Row: {
-          created_at: string
-          h: number
-          id: string
-          kind: string
-          slide_id: string
-          step: number
-          storage_path: string
-          w: number
-          x: number
-          y: number
-          z: number
-        }
-        Insert: {
-          created_at?: string
-          h?: number
-          id?: string
-          kind: string
-          slide_id: string
-          step?: number
-          storage_path: string
-          w?: number
-          x?: number
-          y?: number
-          z?: number
-        }
-        Update: {
-          created_at?: string
-          h?: number
-          id?: string
-          kind?: string
-          slide_id?: string
-          step?: number
-          storage_path?: string
-          w?: number
-          x?: number
-          y?: number
-          z?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notebook_slide_items_slide_id_fkey"
-            columns: ["slide_id"]
-            isOneToOne: false
-            referencedRelation: "notebook_slides"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      notebook_slides: {
+      notebook_slide_decks: {
         Row: {
           created_at: string
           id: string
@@ -3695,6 +3645,104 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notebook_slide_decks_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notebook_slide_items: {
+        Row: {
+          content_json: Json | null
+          created_at: string
+          h: number
+          id: string
+          kind: string
+          slide_id: string
+          step: number
+          storage_path: string
+          w: number
+          x: number
+          y: number
+          z: number
+        }
+        Insert: {
+          content_json?: Json | null
+          created_at?: string
+          h?: number
+          id?: string
+          kind: string
+          slide_id: string
+          step?: number
+          storage_path: string
+          w?: number
+          x?: number
+          y?: number
+          z?: number
+        }
+        Update: {
+          content_json?: Json | null
+          created_at?: string
+          h?: number
+          id?: string
+          kind?: string
+          slide_id?: string
+          step?: number
+          storage_path?: string
+          w?: number
+          x?: number
+          y?: number
+          z?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notebook_slide_items_slide_id_fkey"
+            columns: ["slide_id"]
+            isOneToOne: false
+            referencedRelation: "notebook_slides"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notebook_slides: {
+        Row: {
+          created_at: string
+          deck_id: string | null
+          id: string
+          name: string
+          notebook_id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deck_id?: string | null
+          id?: string
+          name?: string
+          notebook_id: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deck_id?: string | null
+          id?: string
+          name?: string
+          notebook_id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notebook_slides_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "notebook_slide_decks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notebook_slides_notebook_id_fkey"
             columns: ["notebook_id"]
