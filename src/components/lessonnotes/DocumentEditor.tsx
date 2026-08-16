@@ -117,7 +117,7 @@ import {
   type LessonTeachingContext,
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
-import { aiTextToNodes } from "@/lib/lessonnotes/aiToNodes";
+import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { sectionEndWithin, clampInsideSection } from "@/lib/lessonnotes/containerRange";
 
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
@@ -1229,7 +1229,17 @@ function DocumentEditorInner({
     toast({ title: "Animation started", description: "Edit, then press Capture Step again to add the next frame." });
   };
 
+  // ONE ENGINE: before anything reaches the editor, every line that carries
+  // mathematics is re-grouped into a single full-line math object drawn by
+  // `renderMathInline` — the AI Edit renderer. Legacy notes fragmented into
+  // many atoms heal themselves here, so no seam-gaps and no raw markup.
+  const normalizedDoc = useMemo(
+    () => repairDocumentMath(sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC).doc,
+    [documentJson],
+  );
+
   const [atState, setAtState] = useState<AtCommandState>({ active: false, query: "", from: 0, to: 0, coords: null });
+
   const [assetLibOpen, setAssetLibOpen] = useState(false);
 
 
@@ -1265,7 +1275,7 @@ function DocumentEditorInner({
       AtCommand.configure({ onChange: setAtState }),
       MathKeyShortcuts,
     ],
-    content: sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC,
+    content: normalizedDoc,
     editorProps: {
       attributes: {
         class: "lesson-doc max-w-none focus:outline-hidden min-h-[60vh]",
@@ -1523,10 +1533,27 @@ function DocumentEditorInner({
     if (!editor || !documentJson) return;
     if (editor.isFocused) return;
     const current = JSON.stringify(editor.getJSON());
-    const next = JSON.stringify(documentJson);
-    if (current !== next) editor.commands.setContent(documentJson, { emitUpdate: false });
+    const next = JSON.stringify(normalizedDoc);
+    if (current !== next) editor.commands.setContent(normalizedDoc, { emitUpdate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentJson]);
+
+  // Self-healing pass on whatever is actually in the editor: any line still
+  // fragmented into several math atoms is re-grouped into ONE full-line
+  // object. Runs whenever the loaded document changes (including when the
+  // editor received its content while focused), never while typing.
+  useEffect(() => {
+    if (!editor) return;
+    const t = window.setTimeout(() => {
+      if (!editor || editor.isDestroyed) return;
+      if (editor.isFocused) return;
+      const { doc, changed } = repairDocumentMath(editor.getJSON());
+      if (changed) editor.commands.setContent(doc, { emitUpdate: true });
+    }, 400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, documentJson]);
+
 
   const insertMath = () => {
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: "" } }).run();

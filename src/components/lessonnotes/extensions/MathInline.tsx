@@ -18,6 +18,24 @@ import type { Row } from "@/lib/smartboard/mathTree";
 import { MathInlineCanvas } from "./MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { latexToFriendly, friendlyToLatex } from "@/lib/notebook/mathFriendly";
+
+/** Mathematical words that do not make a value "a sentence". */
+const MATH_WORDS = new Set([
+  "log", "ln", "exp", "sin", "cos", "tan", "cot", "sec", "csc", "sinh",
+  "cosh", "tanh", "arcsin", "arccos", "arctan", "lim", "max", "min", "det",
+  "gcd", "lcm", "mod", "deg", "arg", "sqrt", "frac", "text",
+]);
+
+/** True when the value carries real sentence prose (a 4+ letter word that is
+ *  not a function name), i.e. it is a full-line object rather than a bare
+ *  calculation. */
+export function hasProseWords(value: string): boolean {
+  const bare = value.replace(/\\[A-Za-z]+/g, " ");
+  const words = bare.match(/[A-Za-z]{4,}/g) ?? [];
+  return words.some((w) => !MATH_WORDS.has(w.toLowerCase()));
+}
+
 
 function parseTree(attrs: Record<string, unknown>): Row {
   const t = attrs.tree;
@@ -112,13 +130,59 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
     [node.attrs.value, root],
   );
 
+  // A full-line object (a sentence with mathematics inside) is edited in a
+  // friendly text field with a live rendered preview — never as raw markup
+  // inside the note. Pure calculations keep the structural canvas.
+  const isSentence = useMemo(() => hasProseWords(display), [display]);
+  const [draft, setDraft] = useState<string>("");
+
+  const commitDraft = (text: string) => {
+    const value = normalizeMathSource(friendlyToLatex(text));
+    try { setRoot(latexToTree(value)); } catch { /* keep current tree */ }
+    updateAttributes({ value, tree: "" });
+  };
+
+  const openSentenceEditor = () => {
+    setDraft(latexToFriendly(display));
+    setFocused(true);
+  };
+
   return (
     <NodeViewWrapper
       as="span"
       className={`inline align-baseline math-inline-node${selected ? " math-inline-node--selected" : ""}`}
       contentEditable={false}
     >
-      {focused ? (
+      {focused && isSentence ? (
+        <span className="relative inline-block align-baseline">
+          <span className="math-inline-display math-inline-selectable">
+            {renderMathInline(display, "mi")}
+          </span>
+          <span className="absolute left-0 top-full z-50 mt-1 block w-[min(38rem,80vw)] rounded-md border border-border bg-popover p-2 shadow-lg">
+            <textarea
+              autoFocus
+              value={draft}
+              onChange={(e) => { setDraft(e.target.value); commitDraft(e.target.value); }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" || (e.key === "Enter" && !e.shiftKey)) {
+                  e.preventDefault();
+                  commitDraft(draft);
+                  handleBlur();
+                }
+              }}
+              rows={2}
+              className="w-full resize-y rounded bg-background px-2 py-1 text-sm text-foreground outline-none"
+              aria-label="Edit line"
+            />
+            <span className="mt-1 block text-[11px] uppercase tracking-wide text-muted-foreground">
+              Preview
+            </span>
+            <span className="math-inline-display block text-foreground">
+              {renderMathInline(normalizeMathSource(friendlyToLatex(draft)), "mi-preview")}
+            </span>
+          </span>
+        </span>
+      ) : focused ? (
         <MathInlineCanvas
           entryPoint={entryPoint}
           entryCursor={entryCursor}
@@ -139,6 +203,7 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
         <span
           className="math-inline-display math-inline-selectable cursor-text"
           onMouseDown={(e) => {
+            if (isSentence) { openSentenceEditor(); return; }
             // Enter editing from the *normalized* source so the caret works on
             // exactly what was on screen (no stale editing spacing).
             try { setRoot(latexToTree(display)); } catch { /* keep current tree */ }
@@ -153,6 +218,7 @@ function MathInlineView({ node, updateAttributes, editor, getPos, selected }: No
   );
 
 }
+
 
 
 export const MathInline = Node.create({
