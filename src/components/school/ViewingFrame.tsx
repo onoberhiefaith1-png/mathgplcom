@@ -5,13 +5,18 @@
  * render unchanged. Every write inside is refused by `ViewAsProvider`.
  */
 import type { ReactNode } from "react";
-import { Eye, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp, Eye, Loader2 } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import { ViewAsProvider } from "@/lib/accounts/viewAs";
 import { useSharedMember } from "@/lib/accounts/useSharedMember";
 import { useTeacherStudentContext } from "@/lib/accounts/useTeacherStudentContext";
 import { useChildren } from "@/lib/family/useFamily";
+
+function foldKey(userId: string, kind: string, viewer: string) {
+  return `mgpl:viewing-frame-folded:${userId}:${kind}:${viewer}`;
+}
 
 const ViewingFrame = ({
   userId,
