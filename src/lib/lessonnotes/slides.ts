@@ -164,7 +164,7 @@ export const addSlideItem = async (
 ): Promise<SlideItem> => {
   const { data, error } = await supabase
     .from("notebook_slide_items")
-    .insert({ slide_id: slideId, content_json: null, ...item })
+    .insert({ slide_id: slideId, content_json: null, ...item } as never)
     .select(ITEM_COLS)
     .single();
   if (error) throw error;
@@ -175,7 +175,7 @@ export const updateSlideItem = async (
   id: string,
   patch: Partial<Pick<SlideItem, "x" | "y" | "w" | "h" | "z" | "step" | "content_json">>,
 ): Promise<void> => {
-  const { error } = await supabase.from("notebook_slide_items").update(patch).eq("id", id);
+  const { error } = await supabase.from("notebook_slide_items").update(patch as never).eq("id", id);
   if (error) throw error;
 };
 
