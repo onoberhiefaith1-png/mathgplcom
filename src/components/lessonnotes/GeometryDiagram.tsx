@@ -28,6 +28,13 @@ interface Props {
    * the diagram reads as if drawn straight onto the board.
    */
   stroke?: string;
+  /**
+   * Minimum logical view size. The Smartboard's transparent drawing layer
+   * passes its measured workspace so the drawing area spans the whole board
+   * even when the scene itself is still small.
+   */
+  minViewW?: number;
+  minViewH?: number;
 }
 
 const STROKE = "#1f1f24";
