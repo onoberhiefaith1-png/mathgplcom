@@ -85,9 +85,17 @@ const ImpersonationBanner = () => {
     return (
       <button
         type="button"
-        onClick={() => setFolded(false)}
-        title="Show workspace bar"
-        className="fixed inset-x-0 top-0 z-[100] mx-auto w-fit rounded-b-full border-x border-b border-primary/40 bg-primary px-4 py-1 text-[10px] font-semibold text-primary-foreground shadow-lg transition hover:opacity-90"
+        onPointerDown={drag.onPointerDown}
+        onPointerMove={drag.onPointerMove}
+        onPointerUp={drag.endDrag}
+        onPointerCancel={drag.endDrag}
+        onClick={() => {
+          if (drag.wasDragged()) return;
+          setFolded(false);
+        }}
+        title="Show workspace bar — drag left or right to move it"
+        style={{ transform: `translateX(${drag.offsetX}px)` }}
+        className={`fixed inset-x-0 top-0 z-[100] mx-auto w-fit touch-none rounded-b-full border-x border-b border-primary/40 bg-primary px-4 py-1 text-[10px] font-semibold text-primary-foreground shadow-lg transition-opacity hover:opacity-90 ${drag.dragging ? "cursor-grabbing" : "cursor-grab"}`}
       >
         <span className="inline-flex items-center gap-1">
           <ChevronDown className="h-3 w-3" />
@@ -96,6 +104,7 @@ const ImpersonationBanner = () => {
       </button>
     );
   }
+
 
   return (
     <div
