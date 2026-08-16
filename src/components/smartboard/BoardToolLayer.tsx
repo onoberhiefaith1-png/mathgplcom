@@ -8,8 +8,11 @@
 // own writing/text surface is never touched.
 
 import { useState } from "react";
-import { Axis3d, Boxes, LineChart, Shapes, Table as TableIcon } from "lucide-react";
+import { Boxes, Eye, EyeOff, LineChart, Shapes, Table as TableIcon } from "lucide-react";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import type { GeometryScene } from "@/lib/geometry/scene";
+
+import { GeometryWorkbench } from "@/components/lessonnotes/geometry-editor/GeometryWorkbench";
 import { Scene3DCanvas } from "@/components/lessonnotes/geometry3d/Scene3DCanvas";
 import { SmartGraphView } from "@/components/lessonnotes/math-tools/SmartGraphView";
 import { MathTableView } from "@/components/lessonnotes/math-tools/MathTableView";
@@ -19,6 +22,7 @@ import { nodeViewPropsFor } from "./NodeAttrsAdapter";
 import { FloatingToolLayer, type FloatingToolPalette } from "./FloatingToolLayer";
 import type { SmartGraphAttrs } from "@/lib/graph/graphModel";
 import type { MathTableAttrs } from "@/components/lessonnotes/extensions/MathTable";
+
 
 interface Props {
   diagrams: BoardDiagram[];
@@ -62,6 +66,12 @@ export const BoardToolLayer = ({
           d.kind === "graph" ? <LineChart className="h-3 w-3" /> :
           <TableIcon className="h-3 w-3" />;
 
+        const axesOn = d.kind === "3d"
+          ? (() => { const s = d.scene.settings ?? DEFAULT_SETTINGS_3D;
+              return !!(s.showAxisX || s.showAxisY || s.showAxisZ); })()
+          : false;
+        const drawing2d = d.kind === "2d" && !d.committed;
+
         return (
           <FloatingToolLayer
             key={d.id}
@@ -75,16 +85,18 @@ export const BoardToolLayer = ({
             collapsed={!!collapsed[d.id]}
             editable={editable}
             palette={palette}
+            minWidth={d.kind === "2d" ? 420 : undefined}
+            minHeight={d.kind === "2d" ? 300 : undefined}
             solidBody={d.kind === "graph" || d.kind === "table" || d.kind === "2d"}
             actions={d.kind === "3d" && editable ? (
               <button
                 type="button"
-                title="Show / hide the 3D coordinate axes"
+                title={axesOn ? "Hide the X / Y / Z axes" : "Show the X / Y / Z axes"}
                 className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] hover:bg-black/10"
                 onClick={(e) => {
                   e.stopPropagation();
                   const s = d.scene.settings ?? DEFAULT_SETTINGS_3D;
-                  const on = !(s.showAxisX || s.showAxisY || s.showAxisZ);
+                  const on = !axesOn;
                   patch(d.id, {
                     scene: {
                       ...d.scene,
@@ -96,39 +108,62 @@ export const BoardToolLayer = ({
                   } as Partial<BoardDiagram>);
                 }}
               >
-                <Axis3d className="h-3 w-3" /> Axes
+                {axesOn ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />} Axes
               </button>
             ) : undefined}
             onGeometry={(g) => patch(d.id, g as Partial<BoardDiagram>)}
             onActivate={() => onActivate(d.id)}
             onToggleCollapse={() => setCollapsed((p) => ({ ...p, [d.id]: !p[d.id] }))}
-            onEdit={d.kind === "2d" || d.kind === "3d" ? () => onEdit(d.id) : undefined}
+            /* 2D: Complete merges the drawing into the board; Edit reopens it. */
+            onComplete={drawing2d ? () => patch(d.id, { committed: true } as Partial<BoardDiagram>) : undefined}
+            onEdit={
+              d.kind === "3d" ? () => onEdit(d.id)
+              : d.kind === "2d" && d.committed ? () => {
+                  onActivate(d.id);
+                  patch(d.id, { committed: false } as Partial<BoardDiagram>);
+                }
+              : undefined
+            }
             onDelete={() => onDelete(d.id)}
           >
             <ToolBody
               diagram={d}
               onAttrs={(attrs) => patch(d.id, { attrs } as Partial<BoardDiagram>)}
+              onScene={(scene) => patch(d.id, { scene } as Partial<BoardDiagram>)}
               onDelete={() => onDelete(d.id)}
               selected={activeId === d.id}
             />
           </FloatingToolLayer>
         );
       })}
+
     </div>
   );
 };
 
 function ToolBody({
-  diagram, onAttrs, onDelete, selected,
+  diagram, onAttrs, onScene, onDelete, selected,
 }: {
   diagram: BoardDiagram;
   onAttrs: (attrs: Record<string, unknown>) => void;
+  onScene: (scene: GeometryScene) => void;
   onDelete: () => void;
   selected: boolean;
 }) {
   const [live3d, setLive3d] = useState(false);
 
   if (diagram.kind === "2d") {
+    // Still being drawn → the full Lesson Note 2D workbench (left tools,
+    // live canvas, right diagram tools). Committed → the static render.
+    if (!diagram.committed) {
+      return (
+        <GeometryWorkbench
+          scene={diagram.scene}
+          onChange={onScene}
+          onDeleteDiagram={onDelete}
+        />
+      );
+    }
     return (
       <div className="grid h-full w-full place-items-center p-2">
         <GeometryDiagram
@@ -139,6 +174,7 @@ function ToolBody({
       </div>
     );
   }
+
 
   if (diagram.kind === "graph") {
     const attrs = diagram.attrs as unknown as Record<string, unknown>;

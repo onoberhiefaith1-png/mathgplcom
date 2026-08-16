@@ -16,7 +16,10 @@ export interface BoardDiagram2D {
   width: number;
   height: number;
   scene: GeometryScene;
+  /** False while the diagram is still an editable floating workbench. */
+  committed?: boolean;
 }
+
 
 export interface BoardDiagram3D {
   id: string;
@@ -62,10 +65,12 @@ export const newBoardDiagram2D = (x: number, y: number, scene?: GeometryScene): 
   kind: "2d",
   x,
   y,
-  width: 460,
-  height: 340,
+  width: 720,
+  height: 520,
   scene: scene ?? EMPTY_SCENE,
+  committed: false,
 });
+
 
 export const newBoardDiagram3D = (x: number, y: number, scene?: Scene3D): BoardDiagram3D => ({
   id: rid(),
@@ -151,11 +156,14 @@ export function sanitizeBoardDiagrams(raw: unknown): BoardDiagram[] {
         kind: "2d",
         x: num(r.x, 40),
         y: num(r.y, 40),
-        width: num(r.width, 460),
-        height: num(r.height, 340),
+        width: num(r.width, 720),
+        height: num(r.height, 520),
         scene,
+        // Anything already saved is finished work, so it loads committed.
+        committed: r.committed === undefined ? true : !!r.committed,
       });
     }
+
   }
   return out;
 }

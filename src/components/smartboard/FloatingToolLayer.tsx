@@ -212,15 +212,17 @@ export const FloatingToolLayer = ({
         )}
       </div>
 
-      {/* Body */}
+      {/* Body — a themed surface. Marking it `dark` on a dark board flips every
+          design token inside, so the reused Lesson Note tools stay readable in
+          both palettes without touching their own markup. */}
       {!collapsed && (
         <div
-          className="relative h-[calc(100%-28px)] w-full overflow-auto rounded-b-xl"
-          style={solidBody ? { background: "#ffffff", color: "#111" } : undefined}
+          className={`relative h-[calc(100%-28px)] w-full overflow-auto rounded-b-xl ${palette.dark ? "dark" : ""} ${solidBody ? "bg-background text-foreground" : ""}`}
         >
           {children}
         </div>
       )}
+
 
       {/* Resize handles — 8 boundaries */}
       {editable && !collapsed && HANDLES.map(({ h, style }) => (

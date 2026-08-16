@@ -120,10 +120,8 @@ import {
   sanitizeBoardDiagrams, newBoardDiagram2D, newBoardDiagram3D,
   newBoardGraph, newBoardTable, type BoardDiagram,
 } from "@/lib/smartboard/boardDiagrams";
-import {
-  GeometryEditorPanel, openGeometryEditor, closeGeometryEditor,
-} from "@/components/lessonnotes/geometry-editor/GeometryEditorPanel";
 import Workspace3DDialog from "@/components/lessonnotes/geometry3d/Workspace3DDialog";
+
 import type { GeometryScene } from "@/lib/geometry/scene";
 import type { Scene3D } from "@/lib/geometry3d/scene3d";
 import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes as ShapesIcon,
@@ -789,10 +787,11 @@ const PresentationView = ({
     try { localStorage.setItem(DIAGRAMS_KEY, JSON.stringify(diagrams)); } catch { /* noop */ }
   }, [diagrams, DIAGRAMS_KEY]);
   const [activeDiagramId, setActiveDiagramId] = useState<string | null>(null);
-  // The 2D diagram currently open in the geometry dock, and the 3D diagram
-  // currently open in the TVD workspace dialog.
-  const [editing2dId, setEditing2dId] = useState<string | null>(null);
+  // 2D diagrams edit inside their own floating card; only the 3D / TVD
+  // workspace opens as a dialog. The Diagram menu picks 2D or 3D.
+  const [diagramMenuOpen, setDiagramMenuOpen] = useState(false);
   const [editing3dId, setEditing3dId] = useState<string | null>(null);
+
   // Mathematical Tables picker, and the two floating utility workspaces
   // (Calculator, Conversion) which are used but never merged into the page.
   const [boardTablesOpen, setBoardTablesOpen] = useState(false);
@@ -1075,14 +1074,13 @@ const PresentationView = ({
   const deleteDiagram = useCallback((id: string) => {
     setDiagrams((prev) => prev.filter((d) => d.id !== id));
     setActiveDiagramId((cur) => (cur === id ? null : cur));
-    setEditing2dId((cur) => (cur === id ? null : cur));
     setEditing3dId((cur) => (cur === id ? null : cur));
   }, []);
   const addDiagram2D = useCallback(() => {
+    // Opens uncommitted → the card renders the Lesson Note 2D workbench.
     const d = newBoardDiagram2D(80, 80);
     setDiagrams((prev) => [...prev, d]);
     setActiveDiagramId(d.id);
-    setEditing2dId(d.id);
   }, []);
   const addBoardGraph = useCallback(() => {
     const g = newBoardGraph(80, 80);
@@ -1101,28 +1099,7 @@ const PresentationView = ({
     setEditing3dId(d.id);
   }, []);
 
-  // Mount / unmount the shared geometry dock for the 2D diagram being edited.
-  // Every apply writes straight back into board state, so the drawing the
-  // teacher makes in the dock is the board's own content.
-  const editing2d = diagrams.find((d) => d.id === editing2dId && d.kind === "2d") as
-    | Extract<BoardDiagram, { kind: "2d" }>
-    | undefined;
-  useEffect(() => {
-    if (!editing2d) return;
-    openGeometryEditor({
-      sessionId: editing2d.id,
-      scene: editing2d.scene,
-      onApply: (next: GeometryScene) => updateDiagram(editing2d.id, { scene: next }),
-      history: { undo: doUndo, redo: doRedo },
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Only the identity of the edited diagram re-opens the dock; scene edits
-    // flow one way (dock → board) so the dock is never reset mid-drawing.
-  }, [editing2dId]);
 
-  useEffect(() => {
-    if (!editing2dId) closeGeometryEditor();
-  }, [editing2dId]);
 
   const editing3d = diagrams.find((d) => d.id === editing3dId && d.kind === "3d") as
     | Extract<BoardDiagram, { kind: "3d" }>
@@ -5122,22 +5099,42 @@ const PresentationView = ({
           >
             Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
-          {/* Diagram — 2D geometry and 3D / TVD, built straight into the
-              board's own top panel. Both open the existing diagram engines. */}
-          <span className="mx-1 inline-flex items-center gap-1 rounded-md px-1 py-0.5"
+          {/* Diagram — one button; the 2D / 3D choice appears on click, exactly
+              as in the Lesson Note. Both open the existing diagram engines. */}
+          <span className="relative mx-1 inline-flex items-center rounded-md px-1 py-0.5"
             style={{ background: palette.hoverBg }}>
-            <ShapesIcon className="h-3.5 w-3.5 opacity-70" />
             <button
-              onClick={addDiagram2D}
-              className="px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Add a 2D geometry diagram to this page"
-            >2D</button>
-            <button
-              onClick={addDiagram3D}
-              className="px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
-              title="Add a 3D / TVD diagram to this page"
-            >3D</button>
+              onClick={() => setDiagramMenuOpen((v) => !v)}
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded hover:bg-black/5 text-[11px]"
+              title="Add a diagram — 2D or 3D"
+              aria-haspopup="menu"
+              aria-expanded={diagramMenuOpen}
+            >
+              <ShapesIcon className="h-3.5 w-3.5" /> Diagram
+              <ChevronDown className="h-3 w-3 opacity-70" />
+            </button>
+            {diagramMenuOpen && (
+              <div
+                role="menu"
+                className="absolute left-0 top-full z-40 mt-1 min-w-[7rem] overflow-hidden rounded-md border shadow-lg"
+                style={{ background: palette.chromeBg, borderColor: palette.chromeBorder, color: palette.chromeFg }}
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { setDiagramMenuOpen(false); addDiagram2D(); }}
+                  className="block w-full px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
+                  title="Open the 2D geometry workspace on the board"
+                >2D</button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setDiagramMenuOpen(false); addDiagram3D(); }}
+                  className="block w-full px-3 py-1.5 text-left text-[11px] hover:bg-black/10"
+                  title="Open the 3D / TVD workspace on the board"
+                >3D</button>
+              </div>
+            )}
           </span>
+
           {/* The Lesson Note tools, floating above the board: Tables, Graph,
               Calculator, Conversion. The board's writing surface is untouched. */}
           <span className="inline-flex items-center gap-0.5 rounded-md px-1 py-0.5"
@@ -5658,8 +5655,8 @@ const PresentationView = ({
               if (!d) return;
               setActiveDiagramId(id);
               if (d.kind === "3d") setEditing3dId(id);
-              else setEditing2dId(id);
             }}
+
             onDelete={deleteDiagram}
             activeId={activeDiagramId}
             onActivate={setActiveDiagramId}
@@ -6881,12 +6878,10 @@ const PresentationView = ({
         onStatus={setMirrorStatus}
       />
 
-      {/* Diagram engines, mounted for the board itself: the geometry dock for
-          2D scenes and the 3D / TVD workspace for solids. Undo/Redo inside the
-          dock drives the board's single action history. */}
-      {isTeacher && (
-        <GeometryEditorPanel onDismiss={() => setEditing2dId(null)} />
-      )}
+      {/* 2D geometry needs nothing mounted here — the diagram itself carries the
+          Lesson Note workbench (left tools | canvas | right tools) inside its
+          floating card. Only the 3D / TVD workspace opens as a dialog. */}
+
       {isTeacher && editing3d && (
         <Workspace3DDialog
           open
