@@ -140,16 +140,28 @@ export const BoardToolLayer = ({
 };
 
 function ToolBody({
-  diagram, onAttrs, onDelete, selected,
+  diagram, onAttrs, onScene, onDelete, selected,
 }: {
   diagram: BoardDiagram;
   onAttrs: (attrs: Record<string, unknown>) => void;
+  onScene: (scene: GeometryScene) => void;
   onDelete: () => void;
   selected: boolean;
 }) {
   const [live3d, setLive3d] = useState(false);
 
   if (diagram.kind === "2d") {
+    // Still being drawn → the full Lesson Note 2D workbench (left tools,
+    // live canvas, right diagram tools). Committed → the static render.
+    if (!diagram.committed) {
+      return (
+        <GeometryWorkbench
+          scene={diagram.scene}
+          onChange={onScene}
+          onDeleteDiagram={onDelete}
+        />
+      );
+    }
     return (
       <div className="grid h-full w-full place-items-center p-2">
         <GeometryDiagram
@@ -160,6 +172,7 @@ function ToolBody({
       </div>
     );
   }
+
 
   if (diagram.kind === "graph") {
     const attrs = diagram.attrs as unknown as Record<string, unknown>;
