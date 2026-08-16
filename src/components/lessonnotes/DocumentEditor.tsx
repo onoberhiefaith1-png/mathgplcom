@@ -83,7 +83,9 @@ import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAsset
 import { PropertiesPanel } from "./PropertiesPanel";
 import { EmojiPanel } from "./EmojiPanel";
 import { ConversionPanel } from "./ConversionPanel";
-import { renderMathInline } from "@/lib/notebook/mathRender";
+import { renderMathInline, HAS_MATH } from "@/lib/notebook/mathRender";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+
 import { SlidePanel } from "@/components/lessonnotes/slides/SlidePanel";
 import {
   PAPER_LABELS, PAPER_SIZES,
