@@ -13,6 +13,7 @@ import { ViewAsProvider } from "@/lib/accounts/viewAs";
 import { useSharedMember } from "@/lib/accounts/useSharedMember";
 import { useTeacherStudentContext } from "@/lib/accounts/useTeacherStudentContext";
 import { useChildren } from "@/lib/family/useFamily";
+import { useDraggableTab } from "@/hooks/useDraggableTab";
 
 function foldKey(userId: string, kind: string, viewer: string) {
   return `mgpl:viewing-frame-folded:${userId}:${kind}:${viewer}`;
