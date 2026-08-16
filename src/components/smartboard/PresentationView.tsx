@@ -6882,8 +6882,9 @@ const PresentationView = ({
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
       </div>
-      {/* BOARD 2 — the independent tools board. Slides in from the right; its
-          content never mixes with Board 1's. */}
+      {/* COMPANION WORKSPACE — another instance of the Lesson Note editor,
+          private to this lesson note. Slides in from the right; its content
+          never mixes with the writing workspace. */}
       {isTeacher && !assessmentMode && (
         <div
           className="absolute inset-0"
@@ -6894,21 +6895,15 @@ const PresentationView = ({
             zIndex: 45,
           }}
         >
-          <ToolsBoard
-            storageKey={BOARD2_KEY}
+          <CompanionNoteBoard
             notebookId={notebookId}
             editable={isTeacher}
-            active={activeBoard === "tools"}
-            ink={ink}
             onReturn={() => setActiveBoard("main")}
             palette={{
               chromeBg: palette.chromeBg,
               chromeFg: palette.chromeFg,
               chromeBorder: palette.chromeBorder,
               hoverBg: palette.hoverBg,
-              dark: isDark,
-              background: palette.background,
-              ink: palette.ink,
             }}
           />
         </div>
