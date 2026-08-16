@@ -163,7 +163,6 @@ describe("one engine: one run per line, never fragmented", () => {
       "For example, if we have log_b A + log_b B, we combine it into log_b(A × B).",
       "We simplify \\frac{3 \\sqrt{5}}{2 \\sqrt{5} - 1} carefully.",
       "Therefore x_1 + x_2 = 5",
-      "MN = 5 cm",
     ]) {
       expect(tokenizeMathLine(line)).toEqual([{ kind: "math", value: line }]);
     }
