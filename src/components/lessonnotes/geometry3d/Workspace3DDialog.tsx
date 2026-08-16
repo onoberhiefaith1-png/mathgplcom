@@ -324,7 +324,29 @@ export function Workspace3DDialog({ open, onOpenChange, initialScene, onExport }
             {stage === "workspace" ? "Workspace Mode" : "Lesson Mode"}
           </span>
 
+          {/* Axes visibility — hides X / Y / Z from view without removing them,
+              so the solid can be shown cleanly to a class. */}
+          {(() => {
+            const axesOn = !!(settings.showAxisX || settings.showAxisY || settings.showAxisZ);
+            return (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1.5"
+                onClick={() => patchSettings({
+                  showAxisX: !axesOn, showAxisY: !axesOn, showAxisZ: !axesOn, axisLabels: !axesOn,
+                })}
+                title={axesOn ? "Hide the X / Y / Z axes" : "Show the X / Y / Z axes"}
+                aria-pressed={axesOn}
+              >
+                {axesOn ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />} Axes
+              </Button>
+            );
+          })()}
+
           <Separator orientation="vertical" className="mx-2 h-6" />
+
+
 
           {stage === "workspace" ? (
             <>
