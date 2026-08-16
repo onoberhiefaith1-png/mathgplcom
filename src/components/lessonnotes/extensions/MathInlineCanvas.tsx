@@ -538,6 +538,8 @@ export function MathInlineCanvas({
   const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const k = e.key;
     const mod = e.ctrlKey || e.metaKey;
+    // Anything other than `#` ends the current command run.
+    if (k !== "#") hashRun.current = 0;
 
     // ── clipboard / history / select-all ────────────────────────────────
     if (mod && (k === "z" || k === "Z")) {
