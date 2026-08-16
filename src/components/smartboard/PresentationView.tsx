@@ -798,6 +798,18 @@ const PresentationView = ({
   const [calcFloat, setCalcFloat] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [convFloat, setConvFloat] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
+  // Slide — presentation only on the board. The slides belong to the lesson
+  // note; opening the menu just reads that note's own slide list.
+  const [slideMenuOpen, setSlideMenuOpen] = useState(false);
+  const [boardSlides, setBoardSlides] = useState<Slide[]>([]);
+  const [slideShowIndex, setSlideShowIndex] = useState<number | null>(null);
+  const openSlideMenu = useCallback(() => {
+    setSlideMenuOpen((v) => !v);
+    if (!notebookId) return;
+    listSlides(notebookId).then(setBoardSlides).catch(() => setBoardSlides([]));
+  }, [notebookId]);
+
+
 
 
   // "Dot" polyline tool — arm to start a chain. Each board tap adds a
