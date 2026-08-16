@@ -36,6 +36,12 @@ interface Props {
   minHeight?: number;
   /** Solid body — used by objects that need their own white paper (graphs). */
   solidBody?: boolean;
+  /**
+   * Transparent shell — the panel itself paints nothing, so the board (its
+   * colour, handwriting and formulas) shows straight through. Used by the 2D
+   * geometry layer, which is a drawing overlay, not a window.
+   */
+  transparentShell?: boolean;
   onGeometry: (patch: { x?: number; y?: number; width?: number; height?: number }) => void;
   onActivate?: () => void;
   onToggleCollapse?: () => void;
@@ -61,7 +67,7 @@ const HANDLES: { h: Handle; style: React.CSSProperties }[] = [
 
 export const FloatingToolLayer = ({
   title, icon, x, y, width, height, active, collapsed, editable, palette, actions,
-  minWidth = 260, minHeight = 160, solidBody,
+  minWidth = 260, minHeight = 160, solidBody, transparentShell,
   onGeometry, onActivate, onToggleCollapse, onComplete, onEdit, onDelete, onClose,
   children,
 }: Props) => {
@@ -120,7 +126,7 @@ export const FloatingToolLayer = ({
 
   return (
     <div
-      className="absolute rounded-xl border shadow-lg backdrop-blur-[2px]"
+      className={`absolute rounded-xl border ${transparentShell ? "" : "shadow-lg backdrop-blur-[2px]"}`}
       data-sb-chrome
       style={{
         left: x,
@@ -128,7 +134,9 @@ export const FloatingToolLayer = ({
         width,
         height: collapsed ? undefined : height,
         pointerEvents: "auto",
-        background: palette.dark ? "rgba(20,24,22,0.72)" : "rgba(255,255,255,0.78)",
+        background: transparentShell
+          ? "transparent"
+          : palette.dark ? "rgba(20,24,22,0.72)" : "rgba(255,255,255,0.78)",
         color: palette.chromeFg,
         borderColor: active ? "rgba(16,185,129,0.9)" : palette.chromeBorder,
         overflow: "visible",
@@ -218,6 +226,7 @@ export const FloatingToolLayer = ({
       {!collapsed && (
         <div
           className={`relative h-[calc(100%-28px)] w-full overflow-auto rounded-b-xl ${palette.dark ? "dark" : ""} ${solidBody ? "bg-background text-foreground" : ""}`}
+          style={transparentShell ? { background: "transparent" } : undefined}
         >
           {children}
         </div>

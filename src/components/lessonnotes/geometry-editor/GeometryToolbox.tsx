@@ -52,7 +52,12 @@ function ArcIcon({ className }: { className?: string }) {
 
 const KEY = "geometry-toolbox:expanded";
 
-export function GeometryToolbox({ inline = false, onExit }: { inline?: boolean; onExit?: () => void } = {}) {
+export function GeometryToolbox({ inline = false, onExit, chrome }: {
+  inline?: boolean;
+  onExit?: () => void;
+  /** Host chrome colours (Smartboard) so the panel blends with the board. */
+  chrome?: { bg: string; fg: string; border: string };
+} = {}) {
   const { mode, setMode, tool, setTool, annotationDraft, setAnnotationDraft } = useGeometryMode();
   const [expanded, setExpanded] = useState<boolean>(() => {
     try { return localStorage.getItem(KEY) !== "0"; } catch { return true; }
@@ -79,6 +84,7 @@ export function GeometryToolbox({ inline = false, onExit }: { inline?: boolean; 
       style={{
         width: expanded ? 176 : 44,
         maxHeight: inline ? "100%" : "calc(100vh - 9rem)",
+        ...(chrome ? { background: chrome.bg, color: chrome.fg, borderColor: chrome.border } : null),
       }}
       role="toolbar"
       aria-label="Geometry tools"

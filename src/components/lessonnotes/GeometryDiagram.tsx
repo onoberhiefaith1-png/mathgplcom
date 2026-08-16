@@ -22,6 +22,12 @@ interface Props {
   /** Force a specific display size (used by the framed NodeView). */
   explicitWidth?: number;
   explicitHeight?: number;
+  /**
+   * Default ink for every object that has no explicit colour. Defaults to the
+   * lesson-note dark ink; the Smartboard passes its current writing colour so
+   * the diagram reads as if drawn straight onto the board.
+   */
+  stroke?: string;
 }
 
 const STROKE = "#1f1f24";
@@ -69,7 +75,8 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke }: Props) {
+  const baseStroke = stroke ?? STROKE;
   const pad = 24;
   // Grow the viewBox to fit any object that extends past scene.bounds so
   // nothing gets clipped — the whole lesson note is the drawing paper.
@@ -78,11 +85,11 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   const displayH = explicitHeight ?? (displayW / W) * H;
 
   const colourOf = (id: string): string => {
-    if (!diff) return STROKE;
+    if (!diff) return baseStroke;
     if (diff.added.has(id)) return ACCENT_ADD;
     if (diff.changed.has(id)) return ACCENT_CHG;
     if (diff.removed.has(id)) return ACCENT_DEL;
-    return STROKE;
+    return baseStroke;
   };
 
   const originPad = pad; // objects rendered with local pad; wrapper <g> translates
@@ -103,7 +110,7 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff, originPad]);
+  }, [scene, diff, originPad, baseStroke]);
 
 
   return (

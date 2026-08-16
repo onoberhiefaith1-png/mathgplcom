@@ -5661,6 +5661,7 @@ const PresentationView = ({
             activeId={activeDiagramId}
             onActivate={setActiveDiagramId}
             editable={isTeacher}
+            ink={ink}
             palette={{
               chromeBg: palette.chromeBg,
               chromeFg: palette.chromeFg,
