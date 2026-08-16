@@ -32,12 +32,69 @@ type TipTapNode = any;
 
 export interface Run { kind: "text" | "math"; value: string; }
 
-/** One run per line. Math lines are never fragmented. */
+/** Words that are mathematics even though they are spelled out. */
+const FUNC_WORDS = new Set([
+  "log", "ln", "lg", "exp", "sin", "cos", "tan", "cot", "sec", "csc",
+  "sinh", "cosh", "tanh", "arcsin", "arccos", "arctan", "asin", "acos",
+  "atan", "lim", "max", "min", "sup", "inf", "det", "gcd", "lcm", "mod",
+  "deg", "arg", "cm", "mm", "km", "kg", "sqrt", "frac",
+]);
+
+/** Classify ONE whitespace-delimited word. Never splits a word, so `log`
+ *  can never be cut into `lo` + `g`. */
+function isMathWord(word: string): boolean {
+  const w = word.trim();
+  if (!w) return false;
+  if (/^\\[A-Za-z]+/.test(w)) return true;                 // LaTeX macro
+  const bare = w.replace(/^[("'\[]+|[)"'\].,;:?!]+$/g, "");
+  if (!bare) return /^[^A-Za-z]+$/.test(w);                // pure punctuation run
+  if (FUNC_WORDS.has(bare.toLowerCase())) return true;
+  if (/^[A-Za-z]$/.test(bare)) return true;                // single-letter variable
+  if (/[0-9]/.test(bare)) return true;                     // any numeral
+  // Operators, relations, script markers, fences.
+  if (/[=+\-−×÷·^_/<>≤≥≠≈→↔±∓√∑∏∫∞|{}]/.test(bare)) return true;
+  if (/^[A-Za-z]{1,3}$/.test(bare) && /[_^]/.test(w)) return true;
+  return false;
+}
+
+/** Maximal math spans: consecutive mathematical words are grown into ONE run
+ *  so a complete expression is a single object, while ordinary sentence words
+ *  stay real text the sensor can walk through character by character. */
 export function tokenizeMathLine(line: string): Run[] {
   if (!line) return [];
   if (!HAS_MATH(line)) return [{ kind: "text", value: line }];
-  return [{ kind: "math", value: line }];
+  // Keep the whitespace so the reassembled line is byte-identical.
+  const parts = line.split(/(\s+)/);
+  const runs: Run[] = [];
+  const push = (kind: Run["kind"], value: string) => {
+    if (!value) return;
+    const last = runs[runs.length - 1];
+    if (last && last.kind === kind) last.value += value;
+    else runs.push({ kind, value });
+  };
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (!p) continue;
+    if (/^\s+$/.test(p)) {
+      // Whitespace belongs to the math run only when it sits *between* two
+      // mathematical words; otherwise it is prose spacing.
+      const prev = runs[runs.length - 1];
+      const nextWord = parts[i + 1] ?? "";
+      const glue = prev?.kind === "math" && isMathWord(nextWord);
+      push(glue ? "math" : "text", p);
+      continue;
+    }
+    push(isMathWord(p) ? "math" : "text", p);
+  }
+  // A math run must actually contain mathematics; a lone `a` between prose
+  // words is just an article.
+  return runs.map((r) =>
+    r.kind === "math" && !HAS_MATH(r.value) && r.value.trim().length <= 1
+      ? { kind: "text" as const, value: r.value }
+      : r,
+  );
 }
+
 
 
 /* ------------------------- node assembly ------------------------- */
