@@ -2865,8 +2865,24 @@ function NotebookGeometryOverlay({
     geometryEditor.selectionKind, geometryEditor.pendingIds, geometryEditor.canUndo, geometryEditor.canRedo,
   ]);
 
-  const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
-  useRegisterAssetEditor(mode, "notebook-geometry", title, editorNode);
+  const kindTitle = (() => {
+    const k = geometryEditor.selectionKind;
+    if (geometryEditor.selectedIds.length > 1) return `${geometryEditor.selectedIds.length} items`;
+    if (!selected) return "Geometry";
+    if (k === "segmentBody") return "Line";
+    if (k === "segmentLabel" || k === "pointLabel" || k === "label") return "Text";
+    if (k === "segmentDistance") return "Distance";
+    if (k === "segmentText") return "Text on line";
+    if (k === "angleValue") return "Angle value";
+    if (k === "point") return "Point";
+    if (selected.type === "region") return "Area";
+    return `${selected.type[0].toUpperCase()}${selected.type.slice(1)}`;
+  })();
+  // Token: each newly clicked item counts as a new selection, so the
+  // right-hand panel re-opens itself even if the teacher folded it earlier.
+  const selectionToken = `${geometryEditor.selectedIds.join(",")}|${geometryEditor.selectionKind ?? ""}`;
+  useRegisterAssetEditor(mode, "notebook-geometry", kindTitle, editorNode, selectionToken);
+
 
   if (!mode && storedScene.objects.length === 0) return null;
 
