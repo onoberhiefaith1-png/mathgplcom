@@ -222,3 +222,6 @@ export const slideMediaUrl = async (value: string): Promise<string | null> => {
 /** The highest reveal step used on a slide (at least 1). */
 export const maxStep = (items: SlideItem[]): number =>
   items.reduce((m, i) => Math.max(m, i.step), 1);
+
+/** Slides (pages) of one Canvas, in presentation order. */
+export const listCanvasSlides = listDeckSlides;
