@@ -1160,7 +1160,7 @@ function DocumentEditorInner({
         let insertAt = sectionEnd;
         // If the question already owns a diagram, skip — one question, one
         // diagram; we never append a second one lower down.
-        const existing = collectDiagrams(anchorHeadingPos, sectionEnd);
+        const existing = diagramsOwnedByQuestion(liveDoc, anchorHeadingPos, isSolutionLabel);
         if (existing.length > 0) return;
         // Stop at the first heading below the question heading (the Solution
         // heading, when present) so the diagram sits ABOVE the Solution.
@@ -1181,7 +1181,7 @@ function DocumentEditorInner({
           .command(({ tr }) => { closeHistory(tr); return true; })
           .insertContentAt(insertAt, {
             type: "geometryDiagram",
-            attrs: { scene, topic },
+            attrs: { scene, topic, diagramId: newDiagramId() },
           })
           .run();
       } catch (err) {
