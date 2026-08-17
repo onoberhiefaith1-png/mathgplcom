@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
+import { closeHistory, undoDepth, redoDepth } from "@tiptap/pm/history";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { Copy, CopyPlus, Sparkles, Trash2 } from "lucide-react";
@@ -131,6 +132,49 @@ function GeometryDiagramView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
+  // ── UNIFIED HISTORY ────────────────────────────────────────────────────
+  // The lesson note document owns ONE chronological history. Every diagram
+  // edit is written as a normal document transaction that closes the current
+  // history group, so each committed change (add line, move point, set an
+  // angle) is exactly one entry in the SAME stack as text, images and
+  // insertions — and the note's Undo button reverses whichever happened last.
+  const commitScene = (next: GeometryScene, opts?: { addToHistory?: boolean }) => {
+    const pos = typeof getPos === "function" ? getPos() : null;
+    if (pos == null) { updateAttributes({ scene: next }); return; }
+    const { state, dispatch } = tiptapEditor.view;
+    const target = state.doc.nodeAt(pos);
+    if (!target || target.type.name !== "geometryDiagram") {
+      updateAttributes({ scene: next });
+      return;
+    }
+    const tr = state.tr.setNodeMarkup(pos, undefined, { ...target.attrs, scene: next });
+    if (opts?.addToHistory === false) {
+      // Housekeeping only (the one-off scene normalisation on mount) — it must
+      // never occupy an undo step of its own.
+      tr.setMeta("addToHistory", false);
+    } else {
+      closeHistory(tr);
+    }
+    dispatch(tr);
+  };
+
+  // Undo/Redo exposed to the diagram UI: they drive the DOCUMENT history, so
+  // there is never a second competing stack inside the canvas.
+  const [historyTick, setHistoryTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setHistoryTick((t) => t + 1);
+    tiptapEditor.on("transaction", bump);
+    return () => { tiptapEditor.off("transaction", bump); };
+  }, [tiptapEditor]);
+  const docHistory = useMemo(() => ({
+    undo: () => tiptapEditor.chain().focus().undo().run(),
+    redo: () => tiptapEditor.chain().focus().redo().run(),
+    canUndo: undoDepth(tiptapEditor.state) > 0,
+    canRedo: redoDepth(tiptapEditor.state) > 0,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [tiptapEditor, historyTick]);
+
+
 
   return (
     <NodeViewWrapper
@@ -162,7 +206,8 @@ function GeometryDiagramView({
           <LiveEditor
             instanceId={instanceId}
             scene={scene}
-            onChange={(next) => updateAttributes({ scene: next })}
+            onChange={commitScene}
+            docHistory={docHistory}
             onDeleteDiagram={() => deleteNode()}
           />
         ) : (
@@ -186,7 +231,7 @@ function GeometryDiagramView({
                 openGeometryAiEdit({
                   scene,
                   topic,
-                  onApply: (next) => updateAttributes({ scene: next }),
+                  onApply: (next) => commitScene(next),
                 });
               }}
               className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded text-foreground hover:bg-foreground/5"
@@ -244,14 +289,29 @@ function LiveEditor({
   instanceId,
   scene,
   onChange,
+  docHistory,
   onDeleteDiagram,
 }: {
   instanceId: string;
   scene: GeometryScene;
-  onChange: (next: GeometryScene) => void;
+  onChange: (next: GeometryScene, opts?: { addToHistory?: boolean }) => void;
+  /** When hosted inside a lesson note, Undo/Redo drive the DOCUMENT history
+   *  so text, diagrams, edits and deletions share one chronological stack. */
+  docHistory?: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean };
   onDeleteDiagram?: () => void;
 }) {
-  const editor = useGeometryEditor(scene, onChange);
+  // The hook writes a normalised scene back on mount; that housekeeping write
+  // must not become an undo step. Any real edit happens after the first frame.
+  const normalising = useRef(true);
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => { normalising.current = false; });
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+  const handleChange = useCallback((next: GeometryScene) => {
+    onChange(next, normalising.current ? { addToHistory: false } : undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onChange]);
+  const editor = useGeometryEditor(scene, handleChange);
   const { tool: modeTool } = useGeometryMode();
 
   // Sync tool from the shared context (left-side toolbox).
@@ -260,6 +320,13 @@ function LiveEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeTool]);
 
+  // The active history: the document's when hosted in a lesson note, else the
+  // panel's own private stack (other hosts keep their current behaviour).
+  const doUndo = docHistory ? docHistory.undo : editor.doUndo;
+  const doRedo = docHistory ? docHistory.redo : editor.doRedo;
+  const canUndo = docHistory ? docHistory.canUndo : editor.canUndo;
+  const canRedo = docHistory ? docHistory.canRedo : editor.canRedo;
+
   // Keyboard shortcuts: Ctrl/Cmd+Z (undo), Ctrl/Cmd+Shift+Z or Ctrl+Y (redo).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -267,14 +334,14 @@ function LiveEditor({
       if (!mod) return;
       const key = e.key.toLowerCase();
       if (key === "z" && !e.shiftKey) {
-        if (editor.canUndo) { e.preventDefault(); editor.doUndo(); }
+        if (canUndo) { e.preventDefault(); doUndo(); }
       } else if ((key === "z" && e.shiftKey) || key === "y") {
-        if (editor.canRedo) { e.preventDefault(); editor.doRedo(); }
+        if (canRedo) { e.preventDefault(); doRedo(); }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo]);
+  }, [canUndo, canRedo, doUndo, doRedo]);
 
   const selected = editor.selectedObjects[0] ?? null;
   const selectItem = useMemo(
@@ -294,13 +361,13 @@ function LiveEditor({
       kind={editor.selectionKind}
       onApply={(next) => editor.commit(next)}
       onSelect={selectItem}
-      onUndo={editor.doUndo}
-      onRedo={editor.doRedo}
-      canUndo={editor.canUndo}
-      canRedo={editor.canRedo}
+      onUndo={doUndo}
+      onRedo={doRedo}
+      canUndo={canUndo}
+      canRedo={canRedo}
       onDeleteDiagram={onDeleteDiagram}
     />
-  ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind, editor.commit, selectItem, editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo, onDeleteDiagram]);
+  ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind, editor.commit, selectItem, canUndo, canRedo, doUndo, doRedo, onDeleteDiagram]);
 
   const kindTitle = (() => {
     const k = editor.selectionKind;

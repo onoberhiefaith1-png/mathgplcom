@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { closeHistory } from "@tiptap/pm/history";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import { MathInline } from "./extensions/MathInline";
@@ -615,6 +616,10 @@ function DocumentEditorInner({
     const problemText = (cutAt >= 0 ? lines.slice(cutAt + 1) : lines).join("\n").trim();
     return {
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
+      // Position of the heading that OWNS this Solution (the question
+      // heading). The geometry diagram belongs to that block, never to the
+      // Solution itself.
+      parentPos,
       problemText,
       hasInheritedQuestion: Boolean(problemText),
     };
@@ -1098,12 +1103,26 @@ function DocumentEditorInner({
       if (!p) return false;
       return /\b(diagram|figure|redraw|sketch|draw|triangle|circle|polygon|angle|tangent|chord|arc|sector|parallel|perpendicular)\b/.test(p);
     })();
-    const skipGeometryPass = replaceBody && preservedDiagrams.length > 0 && !promptAsksForDiagram;
+    // DIAGRAM OWNERSHIP: the diagram belongs to the QUESTION block, never to
+    // the Solution. When the teacher generates/regenerates a Solution we
+    // resolve the anchor UP to the owning question heading and describe the
+    // diagram from the question text. If no owning question heading exists,
+    // no diagram is inserted at all.
+    const anchorHeadingPos = isSolutionBlock
+      ? (solutionSource?.parentPos ?? -1)
+      : info.headingPos;
+    const geometrySourceText = isSolutionBlock
+      ? (solutionSource?.problemText ?? "")
+      : content;
+    const solutionAnchorInvalid =
+      isSolutionBlock &&
+      (anchorHeadingPos < 0 ||
+        editor.state.doc.nodeAt(anchorHeadingPos)?.type.name !== "heading" ||
+        !geometrySourceText.trim());
 
-    // Capture the heading position so we can re-resolve the section end at
-    // the moment the async geometry pass returns — surviving any doc
-    // mutations that happen in the meantime.
-    const anchorHeadingPos = info.headingPos;
+    const skipGeometryPass =
+      solutionAnchorInvalid ||
+      (replaceBody && preservedDiagrams.length > 0 && !promptAsksForDiagram);
 
     // Automatic geometry diagram pass. Fire-and-forget: if the section is
     // geometric, this returns a GeometryScene which we insert IMMEDIATELY
@@ -1119,7 +1138,7 @@ function DocumentEditorInner({
         const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
           body: {
             mode: "geometry",
-            sectionText: content,
+            sectionText: geometrySourceText,
             topic, subtopic, subject,
           },
         }), 30_000, "Diagram generation took too long.");
@@ -1136,12 +1155,12 @@ function DocumentEditorInner({
         // Insert right before any trailing Solution heading (i.e. at the
         // very end of the question body within this section).
         let insertAt = sectionEnd;
-        // If there's already a geometryDiagram in this section, skip — the
-        // section already owns its diagram and we don't want to duplicate.
+        // If the question already owns a diagram, skip — one question, one
+        // diagram; we never append a second one lower down.
         const existing = collectDiagrams(anchorHeadingPos, sectionEnd);
         if (existing.length > 0) return;
-        // Walk backwards from sectionEnd to skip the inserted Solution
-        // placeholder block so the diagram sits ABOVE Solution heading.
+        // Stop at the first heading below the question heading (the Solution
+        // heading, when present) so the diagram sits ABOVE the Solution.
         liveDoc.nodesBetween(anchorHeadingPos, sectionEnd, (n, p) => {
           if (n.type.name === "heading" && p > anchorHeadingPos) {
             insertAt = Math.min(insertAt, p);
@@ -1150,9 +1169,13 @@ function DocumentEditorInner({
           return true;
         });
         insertAt = clampInsideSection(editor.state.doc, anchorHeadingPos, insertAt);
+        // UNIFIED UNDO: close the current history group first, so inserting
+        // the diagram is always its own undo step and can never be merged
+        // into the text step generated just before it.
         editor
           .chain()
           .focus()
+          .command(({ tr }) => { closeHistory(tr); return true; })
           .insertContentAt(insertAt, {
             type: "geometryDiagram",
             attrs: { scene, topic },
