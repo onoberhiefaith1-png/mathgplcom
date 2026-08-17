@@ -34,6 +34,7 @@ import type { GraphFunction } from "@/lib/graph/graphModel";
 import { tryCompile, sampleFunction } from "@/lib/graph/functions";
 import { GRAPH_TEMPLATES, nextFunctionColour } from "@/lib/graph/library";
 import { GRAPH_THEMES, graphInk } from "@/lib/graph/graphTheme";
+import type { GraphInk } from "@/lib/graph/graphTheme";
 import type { GraphThemeId } from "@/lib/graph/graphTheme";
 
 const SQ_BASE = 28; // pixels per major square (= 1 cm on the printed page) at 100% graph zoom.
@@ -692,6 +693,61 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
             <Input value={a.yLabel} onChange={(e) => update({ yLabel: e.target.value })} className="h-7 w-20 text-[11px] bg-white" />
           </label>
           <span className="text-neutral-500">Grid: {a.squaresX}×{a.squaresY} cm · Origin: ({a.originSquareX}, {a.originSquareY})</span>
+
+          <span className="mx-1 h-5 w-px bg-neutral-200" />
+
+          {/* Two-colour theme: one background + one ink colour. */}
+          <span className="text-neutral-600">Colour</span>
+          <div className="flex items-center gap-1">
+            {GRAPH_THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                title={t.label}
+                onClick={() => setStyle({ theme: t.id as GraphThemeId })}
+                className={cn(
+                  "h-6 w-6 rounded-sm border overflow-hidden",
+                  (style?.theme ?? "whiteCharcoal") === t.id
+                    ? "border-yellow-400 ring-1 ring-yellow-300"
+                    : "border-neutral-300",
+                )}
+              >
+                <span className="flex h-full w-full">
+                  <span className="h-full w-1/2" style={{ background: t.bg }} />
+                  <span className="h-full w-1/2" style={{ background: t.ink }} />
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <label className="inline-flex items-center gap-1.5">
+            <span className="text-neutral-600">Major grid</span>
+            <input
+              type="range" min={5} max={45} step={1}
+              value={Math.round((style?.majorAlpha ?? 0.25) * 100)}
+              onChange={(e) => setStyle({ majorAlpha: Number(e.target.value) / 100 })}
+              className="w-20"
+            />
+          </label>
+          <label className="inline-flex items-center gap-1.5">
+            <span className="text-neutral-600">Minor grid</span>
+            <input
+              type="range" min={3} max={30} step={1}
+              value={Math.round((style?.minorAlpha ?? 0.1) * 100)}
+              onChange={(e) => setStyle({ minorAlpha: Number(e.target.value) / 100 })}
+              className="w-20"
+            />
+          </label>
+          <label className="inline-flex items-center gap-1.5">
+            <span className="text-neutral-600">Subdivisions</span>
+            <select
+              value={minorPerMajor}
+              onChange={(e) => setStyle({ minorPerMajor: Number(e.target.value) })}
+              className="h-7 rounded border border-neutral-200 bg-white px-1 text-[11px]"
+            >
+              {[1, 2, 4, 5, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
         </div>
       )}
 
@@ -891,9 +947,10 @@ function ResizeHandle({
 
 function OverlayNode({
   overlay: o, toPx, sq: SQ, unitsPerSquareX, unitsPerSquareY,
-  selected, onSelect, onChange, onDelete, onDragStart,
+  selected, onSelect, onChange, onDelete, onDragStart, ink,
 }: {
   overlay: GraphOverlay;
+  ink: GraphInk;
   toPx: (p: { x: number; y: number }) => { x: number; y: number };
   sq: number;
   unitsPerSquareX: number;
@@ -908,7 +965,7 @@ function OverlayNode({
   const wPx = ((o.w ?? 2 * unitsPerSquareX) / unitsPerSquareX) * SQ;
   const hPx = ((o.h ?? 2 * unitsPerSquareY) / unitsPerSquareY) * SQ;
 
-  const stroke = "hsl(220 90% 35%)";
+  const stroke = ink.ink;
   const selectRing = selected ? "hsl(45 95% 45%)" : "transparent";
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -949,13 +1006,13 @@ function OverlayNode({
   } else if (o.kind === "triangle") {
     const x = pos.x, y = pos.y;
     body = <polygon points={`${x},${y - hPx / 2} ${x - wPx / 2},${y + hPx / 2} ${x + wPx / 2},${y + hPx / 2}`}
-      fill="hsla(220,90%,50%,0.06)" stroke={stroke} strokeWidth={1.5} />;
+      fill={ink.wash} stroke={stroke} strokeWidth={1.5} />;
   } else if (o.kind === "rectangle") {
     body = <rect x={pos.x - wPx / 2} y={pos.y - hPx / 2} width={wPx} height={hPx}
-      fill="hsla(220,90%,50%,0.06)" stroke={stroke} strokeWidth={1.5} />;
+      fill={ink.wash} stroke={stroke} strokeWidth={1.5} />;
   } else if (o.kind === "circle") {
     body = <ellipse cx={pos.x} cy={pos.y} rx={wPx / 2} ry={hPx / 2}
-      fill="hsla(220,90%,50%,0.06)" stroke={stroke} strokeWidth={1.5} />;
+      fill={ink.wash} stroke={stroke} strokeWidth={1.5} />;
   } else if (o.kind === "angle") {
     const deg = Number((o.payload as { degrees?: number })?.degrees ?? 45);
     const r = Math.min(wPx, hPx) / 2;
@@ -1031,12 +1088,13 @@ function OverlayNode({
 // ---------- Small presentational helpers ------------------------------------
 
 function ShapeNode({
-  shape, toPx,
+  shape, toPx, ink,
 }: {
   shape: GraphShape;
   toPx: (p: { x: number; y: number }) => { x: number; y: number };
+  ink: GraphInk;
 }) {
-  const stroke = "hsl(220 90% 35%)";
+  const stroke = ink.ink;
   const fill = "none";
   const pts = shape.pts.map(toPx);
   if (shape.kind === "point" && pts[0]) {
@@ -1058,7 +1116,7 @@ function ShapeNode({
     return (
       <polygon
         points={pts.map((p) => `${p.x},${p.y}`).join(" ")}
-        fill="hsla(220, 90%, 50%, 0.06)" stroke={stroke} strokeWidth={1.5}
+        fill={ink.wash} stroke={stroke} strokeWidth={1.5}
       />
     );
   }
