@@ -117,7 +117,7 @@ function ShellSurfaces({
             key={`rim${i}`}
             points={[...o.points, o.points[0]] as Vec3[]}
             color={palette.rim}
-            lineWidth={2.6}
+            lineWidth={2.6 * palette.rimBoost}
           />
         ) : null,
       )}
@@ -156,6 +156,10 @@ function Solid3DMesh({
   const edges = useMemo(() => new THREE.EdgesGeometry(geometry, 1), [geometry]);
   const color = solid.style?.color ?? "#7dd3fc";
   const isSolid = solid.style?.display === "solid";
+  const palette = useMemo(
+    () => cavityPalette(color, { lightTheme: lightTheme ?? true, background }),
+    [color, lightTheme, background],
+  );
   // Open Face applies to the solid surface only — a wireframe has none.
   const openFaces = useMemo(() => openFacesOf(solid), [solid]);
   const hollow = isSolid && openFaces.length > 0;
@@ -201,7 +205,11 @@ function Solid3DMesh({
           </mesh>
         )}
         <lineSegments geometry={edges}>
-          <lineBasicMaterial color={selected ? "#fbbf24" : isSolid ? "#0f172a" : color} />
+          {/* Hollow solids use a derived edge tone so the silhouette stays
+              crisp against any background instead of a fixed near-black. */}
+          <lineBasicMaterial
+            color={selected ? "#fbbf24" : hollow ? palette.edge : isSolid ? "#0f172a" : color}
+          />
         </lineSegments>
 
         {children}
