@@ -65,3 +65,34 @@ export function clampInsideSection(doc: PMNode, headingPos: number, pos: number)
   const max = Math.min(containerEnd, doc.content.size);
   return Math.max(Math.min(min, max), Math.min(pos, max));
 }
+
+/**
+ * Every `geometryDiagram` node the question at `headingPos` owns — wherever it
+ * physically lives (flowing body, a free `canvasFrame`, or a Solution cell).
+ *
+ * Ownership rule: a diagram belongs to the nearest structural heading above it
+ * that is NOT a "Solution" heading. Because a diagram inside a frame can appear
+ * anywhere in document order, we scan the WHOLE document rather than the
+ * heading's sibling range — this is what stops a duplicate diagram from being
+ * generated for a question that already has one.
+ */
+export function diagramsOwnedByQuestion(
+  doc: PMNode,
+  headingPos: number,
+  isSolutionHeading: (text: string) => boolean,
+): Array<{ pos: number; node: PMNode }> {
+  const out: Array<{ pos: number; node: PMNode }> = [];
+  let owner = -1;
+  doc.descendants((n, p) => {
+    if (n.type.name === "heading" && ((n.attrs as any)?.level ?? 6) <= 2) {
+      if (!isSolutionHeading(n.textContent)) owner = p;
+      return true;
+    }
+    if (n.type.name === "geometryDiagram" && owner === headingPos) {
+      out.push({ pos: p, node: n });
+      return false;
+    }
+    return true;
+  });
+  return out;
+}
