@@ -205,7 +205,10 @@ function AxesGuides({ settings, length = 6 }: { settings: Scene3DSettings; lengt
           ))}
         </group>
       ))}
-      {settings.showOrigin && (
+      {/* The origin marker is a visual part of the axis system: it renders only
+          while at least one axis is visible. The setting itself is untouched,
+          so the point still exists for positioning / snapping / coordinates. */}
+      {settings.showOrigin && axes.some((a) => a.on) && (
         <mesh raycast={() => null}>
           <sphereGeometry args={[0.07, 16, 12]} />
           <meshBasicMaterial color={light ? "#334155" : "#e2e8f0"} />
