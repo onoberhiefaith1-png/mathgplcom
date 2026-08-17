@@ -1038,6 +1038,23 @@ function DocumentEditorInner({
       return found;
     };
 
+    /** End position of the LAST geometryDiagram living inside this section, or
+     *  -1. The diagram belongs to the QUESTION, so generated Solution content
+     *  must always land BELOW it, never above it. */
+    const lastDiagramEnd = (headingPos: number): number => {
+      const doc = editor.state.doc;
+      const end = Math.min(liveSectionEnd(headingPos), doc.content.size);
+      let out = -1;
+      doc.nodesBetween(headingPos, end, (n, p) => {
+        if (n.type.name === "geometryDiagram") {
+          out = Math.max(out, p + n.nodeSize);
+          return false;
+        }
+        return true;
+      });
+      return out;
+    };
+
     // The section already owns a Solution heading (inserted with the section,
     // or by an earlier generation) → reuse it instead of appending another.
     const existingSolution = isQuestionSectionKind(info.kind)
