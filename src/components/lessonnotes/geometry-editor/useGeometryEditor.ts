@@ -78,15 +78,32 @@ export function useGeometryEditor(
 
   // Sync external scene changes back in (e.g. the AI Edit panel writes
   // a new scene to the node attrs).
+  //
+  // This must NEVER disturb the current selection for a scene that is
+  // effectively the one already on screen: the node-view re-serialises the
+  // scene on every attr write (and on the first-mount normalisation pass),
+  // and clearing the selection there made a plain click on a line feel
+  // "glitchy" — the item was picked and then instantly dropped.
   useEffect(() => {
     if (sceneJsonRef.current === initialJson) return;
     sceneJsonRef.current = initialJson;
-    setScene(normalise(initial));
+    const next = normalise(initial);
+    const nextJson = JSON.stringify(next);
+    if (nextJson === JSON.stringify(scene)) return; // same content — keep selection
+    setScene(next);
     setHistory(emptyHistory());
-    setSelectedIdsState((prev) => (prev.length ? [] : prev));
-    setSelectionKind(null);
+    // Keep whatever is still present in the incoming scene selected.
+    const alive = new Set(next.objects.map((o) => o.id));
+    setSelectedIdsState((prev) => {
+      const kept = prev.filter((id) => alive.has(id.split("#")[0]));
+      if (kept.length === prev.length) return prev;
+      if (kept.length === 0) setSelectionKind(null);
+      return kept;
+    });
     setPendingIds((prev) => (prev.length ? [] : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial, initialJson]);
+
 
   const commit = useCallback((next: GeometryScene) => {
     const normalised = ensureIntersectionPoints(next);
