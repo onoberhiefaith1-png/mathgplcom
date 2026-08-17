@@ -22,6 +22,8 @@ import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/Geometr
 import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
+import type { HitKind } from "@/lib/geometry/editor/snap";
+
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
