@@ -91,9 +91,10 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark =
     <div
       ref={rootRef}
       data-slide-chrome="true"
-      className={`fixed inset-0 z-[10000] flex flex-col ${dark ? "bg-slate-950" : "bg-slate-900"}`}
+      className="fixed inset-0 z-[10000] bg-white"
     >
-      <div className="flex items-center justify-between gap-3 px-4 py-2 text-xs text-white/85">
+      {/* Chrome floats over the white surface so it never creates margins. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-4 py-2 text-xs text-slate-600">
         <span className="min-w-0 truncate font-semibold">
           {canvasName ? `${canvasName} — ${slide.name}` : slide.name}
         </span>
@@ -104,20 +105,20 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark =
         <button
           type="button"
           onClick={onExit}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 font-medium hover:bg-white/25"
+          className="pointer-events-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-slate-900/10 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-900/20"
         >
           <X className="h-3.5 w-3.5" /> Exit Presentation
         </button>
       </div>
 
-      <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden p-4">
+      <div ref={stageRef} className="absolute inset-0 overflow-hidden bg-white">
         <div
-          className="absolute left-1/2 top-4 bg-white"
+          className="absolute left-1/2 top-1/2 bg-white"
           style={{
             width: SLIDE_PAGE.w,
             height: SLIDE_PAGE.h,
-            transform: `translateX(-50%) scale(${scale})`,
-            transformOrigin: "top center",
+            transform: `translate(-50%, -50%) scale(${scale})`,
+            transformOrigin: "center center",
           }}
         >
           {visible.map((item) => (
@@ -142,22 +143,23 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark =
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-3 pb-5">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-3 pb-5">
         <button
           type="button"
           onClick={back}
-          className="inline-flex items-center gap-1 rounded-full bg-white/15 px-4 py-2 text-sm text-white hover:bg-white/25"
+          className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-slate-900/10 px-4 py-2 text-sm text-slate-700 hover:bg-slate-900/20"
         >
           <ChevronLeft className="h-4 w-4" /> Previous
         </button>
         <button
           type="button"
           onClick={next}
-          className="inline-flex items-center gap-1 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
+          className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
         >
           Next <ChevronRight className="h-4 w-4" />
         </button>
       </div>
+
     </div>
   );
 
