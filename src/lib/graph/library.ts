@@ -24,6 +24,9 @@ export const GRAPH_TEMPLATES: GraphTemplate[] = [
   { id: "log", label: "Logarithm", expression: "log(x)", hint: "y = log₁₀ x" },
 ];
 
+// Extra curve colours, only used when several functions share one graph.
+// The FIRST function always takes the graph's own ink colour so a single
+// plotted curve never introduces a second hue.
 export const FUNCTION_COLOURS = [
   "hsl(220 90% 50%)",
   "hsl(0 78% 52%)",
@@ -33,5 +36,7 @@ export const FUNCTION_COLOURS = [
   "hsl(190 85% 40%)",
 ];
 
-export const nextFunctionColour = (count: number) =>
-  FUNCTION_COLOURS[count % FUNCTION_COLOURS.length];
+export const nextFunctionColour = (count: number, ink?: string) => {
+  if (count === 0 && ink) return ink;
+  return FUNCTION_COLOURS[(ink ? count - 1 : count) % FUNCTION_COLOURS.length];
+};
