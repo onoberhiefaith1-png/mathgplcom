@@ -332,6 +332,10 @@ function LiveEditor({
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
       if (!mod) return;
+      // When the keypress happens inside the note itself and we are already on
+      // the document history, the editor's own shortcut handles it — running
+      // ours too would undo twice.
+      if (docHistory && (e.target as HTMLElement | null)?.closest?.(".ProseMirror")) return;
       const key = e.key.toLowerCase();
       if (key === "z" && !e.shiftKey) {
         if (canUndo) { e.preventDefault(); doUndo(); }
@@ -341,7 +345,7 @@ function LiveEditor({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [canUndo, canRedo, doUndo, doRedo]);
+  }, [canUndo, canRedo, doUndo, doRedo, docHistory]);
 
   const selected = editor.selectedObjects[0] ?? null;
   const selectItem = useMemo(
