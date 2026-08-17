@@ -235,22 +235,50 @@ function LiveEditor({
   }, [editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo]);
 
   const selected = editor.selectedObjects[0] ?? null;
+  const selectItem = useMemo(
+    () => (id: string, kind: HitKind) => {
+      editor.setSelectedIds([id]);
+      editor.setSelectionKind(kind);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor.setSelectedIds, editor.setSelectionKind],
+  );
+
   const editorNode = useMemo(() => (
     <SelectionInspector
       scene={editor.scene}
       selected={editor.selectedObjects}
+      selectedIds={editor.selectedIds}
       kind={editor.selectionKind}
       onApply={(next) => editor.commit(next)}
+      onSelect={selectItem}
       onUndo={editor.doUndo}
       onRedo={editor.doRedo}
       canUndo={editor.canUndo}
       canRedo={editor.canRedo}
       onDeleteDiagram={onDeleteDiagram}
     />
-  ), [editor.scene, editor.selectedObjects, editor.selectionKind, editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo, onDeleteDiagram]);
+  ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind, editor.commit, selectItem, editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo, onDeleteDiagram]);
 
-  const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
-  useRegisterAssetEditor(true, `geometry:${instanceId}`, title, editorNode);
+  const kindTitle = (() => {
+    const k = editor.selectionKind;
+    if (editor.selectedIds.length > 1) return `${editor.selectedIds.length} items`;
+    if (!selected) return "Geometry";
+    if (k === "segmentBody" || k === "segment") return "Line";
+    if (k === "segmentLabel" || k === "pointLabel" || k === "label") return "Text";
+    if (k === "segmentDistance") return "Distance";
+    if (k === "segmentText") return "Text on line";
+    if (k === "angleValue") return "Angle value";
+    if (k === "point") return "Point";
+    if (k === "region") return "Area";
+    return `${selected.type[0].toUpperCase()}${selected.type.slice(1)}`;
+  })();
+
+  // The token makes every *new* picked item count as a new selection, so the
+  // right-hand panel re-opens itself even if the teacher folded it earlier.
+  const selectionToken = `${editor.selectedIds.join(",")}|${editor.selectionKind ?? ""}`;
+  useRegisterAssetEditor(true, `geometry:${instanceId}`, kindTitle, editorNode, selectionToken);
+
 
   return <GeometryCanvas editor={editor} />;
 }
