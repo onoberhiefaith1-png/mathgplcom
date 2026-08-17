@@ -169,6 +169,7 @@ function AxesGuides({ settings, length = 6 }: { settings: Scene3DSettings; lengt
     { key: "Z", on: settings.showAxisZ, dir: [0, 0, 1], color: "#60a5fa" },
   ];
 
+  const axesOn = axes.some((a) => a.on);
   const ticks = settings.coordinateLabels ? [-4, -2, 2, 4] : [];
 
   return (
