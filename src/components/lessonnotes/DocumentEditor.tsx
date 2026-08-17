@@ -926,7 +926,10 @@ function DocumentEditorInner({
     // placeholder are inserted SEPARATELY so we have an exact position for
     // the geometry diagram (which must sit BELOW the question and ABOVE the
     // "Solution" heading — the diagram is part of the question).
-    const questionBodyNodes = aiTextToNodes(content);
+    // A Solution may never introduce a NEW diagram/3D figure — the question
+    // owns the only authoritative diagram, which the solution references.
+    const questionBodyNodes = aiTextToNodes(content, { allowFigures: !isSolutionBlock });
+
 
     // REGENERATE (and in-place EDIT): replace the section body, strictly
     // bounded by this section's range. Otherwise append at section end.
