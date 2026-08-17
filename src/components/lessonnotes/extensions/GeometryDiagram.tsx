@@ -7,7 +7,7 @@
 // current selection publishes its editor to the right-hand Properties
 // Panel via useRegisterAssetEditor.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { closeHistory, undoDepth, redoDepth } from "@tiptap/pm/history";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
