@@ -179,8 +179,8 @@ function GeometryDiagramView({
   return (
     <NodeViewWrapper
       data-geometry-diagram-node="true"
-      // The diagram owns its own vertical band inside the question block, so
-      // the Solution below can never ride over it.
+      /* The diagram owns its own vertical band inside the question block, so
+         the Solution below can never ride over it. */
       className={cn("my-5 flex w-full clear-both relative", containerAlign)}
       contentEditable={false}
     >
