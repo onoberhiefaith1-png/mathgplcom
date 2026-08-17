@@ -109,8 +109,9 @@ function GeometryDiagramView({
     if (!pt) return;
     const raf = window.requestAnimationFrame(() => {
       const svg = wrapRef.current?.querySelector<SVGSVGElement>(
-        '[data-geometry-live-canvas="true"] svg:last-of-type',
+        '[data-geometry-live-canvas="true"] > svg',
       );
+
       if (!svg) return;
       const opts = {
         clientX: pt.x, clientY: pt.y, bubbles: true, cancelable: true,
