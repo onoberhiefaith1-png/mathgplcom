@@ -68,14 +68,15 @@ export function cavityPalette(
   const interiorS = clamp01(hsl.s * 1.12 + 0.05);
 
   const bgL = opts.background ? luminanceOf(opts.background) : opts.lightTheme ? 1 : 0.07;
-  // Keep a real value gap between the cavity and whatever sits behind it.
-  if (Math.abs(interiorL - bgL) < 0.14) {
-    interiorL = bgL > 0.5 ? clamp01(interiorL - 0.18) : clamp01(interiorL + 0.2);
-  }
-  // Never pitch-black: the interior walls must stay legible, not disappear.
-  interiorL = Math.max(interiorL, 0.1);
 
-  const interior = new THREE.Color().setHSL(hsl.h, interiorS, interiorL);
+  let interior = new THREE.Color().setHSL(hsl.h, interiorS, interiorL);
+  // Keep a real value gap from the workspace background: the cavity must never
+  // dissolve into a background that happens to sit at a similar value. Only
+  // ever darken — the interior must stay darker than the exterior.
+  if (Math.abs(luminanceOf(interior) - bgL) < 0.1) {
+    interiorL = Math.max(0.08, interiorL * 0.55);
+    interior = new THREE.Color().setHSL(hsl.h, interiorS, interiorL);
+  }
   const interiorDeep = new THREE.Color().setHSL(
     hsl.h,
     clamp01(interiorS * 0.9),
