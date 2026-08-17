@@ -17,7 +17,12 @@ interface Registration {
   id: string;
   title: string;
   editor: ReactNode;
+  /** Changes whenever the asset's *inner* selection changes (e.g. which
+   *  line / label / angle of a diagram is picked). The panel uses it to
+   *  surface itself again for a newly picked item. */
+  token?: string;
 }
+
 
 let current: Registration | null = null;
 const listeners = new Set<() => void>();
