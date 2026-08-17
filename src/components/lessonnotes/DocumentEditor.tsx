@@ -1038,6 +1038,23 @@ function DocumentEditorInner({
       return found;
     };
 
+    /** End position of the LAST geometryDiagram living inside this section, or
+     *  -1. The diagram belongs to the QUESTION, so generated Solution content
+     *  must always land BELOW it, never above it. */
+    const lastDiagramEnd = (headingPos: number): number => {
+      const doc = editor.state.doc;
+      const end = Math.min(liveSectionEnd(headingPos), doc.content.size);
+      let out = -1;
+      doc.nodesBetween(headingPos, end, (n, p) => {
+        if (n.type.name === "geometryDiagram") {
+          out = Math.max(out, p + n.nodeSize);
+          return false;
+        }
+        return true;
+      });
+      return out;
+    };
+
     // The section already owns a Solution heading (inserted with the section,
     // or by an earlier generation) → reuse it instead of appending another.
     const existingSolution = isQuestionSectionKind(info.kind)
@@ -1069,11 +1086,27 @@ function DocumentEditorInner({
       editor.chain().focus()
         .deleteRange({ from: start, to: liveEnd })
         .run();
+      let bodyAt = start;
+      // SOLUTION UNDER THE DIAGRAM: a diagram found in a Solution block belongs
+      // to the question, so it is restored FIRST and the new solution text is
+      // written below it. For question blocks the diagram stays at the end of
+      // the question body (above the Solution heading).
+      if (isSolutionBlock) {
+        for (const d of preservedDiagrams) {
+          const before = editor.state.doc.content.size;
+          editor.chain().focus().insertContentAt(bodyAt, {
+            type: "geometryDiagram",
+            attrs: { scene: d.scene, topic: d.topic, diagramId: d.diagramId },
+          }).run();
+          bodyAt += editor.state.doc.content.size - before;
+        }
+      }
       const sizeBefore = editor.state.doc.content.size;
-      editor.chain().focus().insertContentAt(start, questionBodyNodes).run();
-      questionBodyEnd = start + (editor.state.doc.content.size - sizeBefore);
+      editor.chain().focus().insertContentAt(bodyAt, questionBodyNodes).run();
+      questionBodyEnd = bodyAt + (editor.state.doc.content.size - sizeBefore);
+      insertFrom = bodyAt;
       // Re-insert preserved diagrams at the end of the new question body.
-      for (const d of preservedDiagrams) {
+      if (!isSolutionBlock) for (const d of preservedDiagrams) {
         const insertAt = Math.min(questionBodyEnd, editor.state.doc.content.size);
         const before = editor.state.doc.content.size;
         editor.chain().focus().insertContentAt(insertAt, {
@@ -1105,6 +1138,12 @@ function DocumentEditorInner({
         // body sits directly under its heading.
         editor.chain().focus().deleteRange({ from: bodyStart, to: emptyTo }).run();
         insertFrom = bodyStart;
+      }
+      // SOLUTION UNDER THE DIAGRAM: the diagram belongs to the question, so
+      // solution text can never be written above it.
+      if (isSolutionBlock) {
+        const dEnd = lastDiagramEnd(info.headingPos);
+        if (dEnd > insertFrom) insertFrom = dEnd;
       }
       insertFrom = clampInsideSection(editor.state.doc, info.headingPos, insertFrom);
       const sizeBefore = editor.state.doc.content.size;
