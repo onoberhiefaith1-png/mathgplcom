@@ -1106,25 +1106,24 @@ function DocumentEditorInner({
       if (!p) return false;
       return /\b(diagram|figure|redraw|sketch|draw|triangle|circle|polygon|angle|tangent|chord|arc|sector|parallel|perpendicular)\b/.test(p);
     })();
-    // DIAGRAM OWNERSHIP: the diagram belongs to the QUESTION block, never to
-    // the Solution. When the teacher generates/regenerates a Solution we
-    // resolve the anchor UP to the owning question heading and describe the
-    // diagram from the question text. If no owning question heading exists,
-    // no diagram is inserted at all.
-    const anchorHeadingPos = isSolutionBlock
-      ? (solutionSource?.parentPos ?? -1)
-      : info.headingPos;
-    const geometrySourceText = isSolutionBlock
-      ? (solutionSource?.problemText ?? "")
-      : content;
-    const solutionAnchorInvalid =
-      isSolutionBlock &&
-      (anchorHeadingPos < 0 ||
-        editor.state.doc.nodeAt(anchorHeadingPos)?.type.name !== "heading" ||
-        !geometrySourceText.trim());
+    // DIAGRAM OWNERSHIP: the diagram belongs to the QUESTION block, and it is
+    // created EXACTLY ONCE. Generating a Solution never triggers the geometry
+    // pass at all — the solution references the question's existing diagram
+    // instead of asking the model to redraw it.
+    const anchorHeadingPos = info.headingPos;
+    const geometrySourceText = content;
+    // A question that already owns a diagram — anywhere, including inside a
+    // free canvasFrame or a solution cell — never gets a second one.
+    const ownedDiagrams = diagramsOwnedByQuestion(
+      editor.state.doc,
+      anchorHeadingPos,
+      isSolutionLabel,
+    );
 
     const skipGeometryPass =
-      solutionAnchorInvalid ||
+      isSolutionBlock ||
+      !geometrySourceText.trim() ||
+      ownedDiagrams.length > 0 ||
       (replaceBody && preservedDiagrams.length > 0 && !promptAsksForDiagram);
 
     // Automatic geometry diagram pass. Fire-and-forget: if the section is
@@ -1133,6 +1132,7 @@ function DocumentEditorInner({
     // If the section isn't geometric, the backend returns null and we do
     // nothing. Errors here are non-fatal.
     if (!skipGeometryPass) void (async () => {
+
 
       try {
         const topic = ctxRef.current?.topic || notebookContext?.topic;
