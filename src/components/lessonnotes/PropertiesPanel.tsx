@@ -19,15 +19,18 @@ export function PropertiesPanel() {
   const [libraryFor, setLibraryFor] = useState<AssetSnapshot | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
 
-  // Only auto-expand the very first time a given asset id is selected.
-  // Subsequent selections respect the teacher's fold state.
+  // Auto-expand the first time an asset is selected, and again whenever the
+  // asset reports a *new inner selection* (a different line, label, angle …).
+  // A folded panel must never hide the settings of something just clicked.
   useEffect(() => {
     if (!reg) return;
-    if (!seenRef.current.has(reg.id)) {
-      seenRef.current.add(reg.id);
+    const key = `${reg.id}|${reg.token ?? ""}`;
+    if (!seenRef.current.has(key)) {
+      seenRef.current.add(key);
       setExpanded(true);
     }
-  }, [reg?.id]);
+  }, [reg?.id, reg?.token]);
+
 
   // Broadcast panel width to the layout via a CSS variable so the
   // notebook column can reserve space instead of being overlapped.
