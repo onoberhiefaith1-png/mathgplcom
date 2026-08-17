@@ -22,6 +22,8 @@ import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/Geometr
 import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
+import type { HitKind } from "@/lib/geometry/editor/snap";
+
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
@@ -93,6 +95,35 @@ function GeometryDiagramView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
+  // First-click reliability: the very first click on an inactive diagram only
+  // activates the block (the live canvas does not exist yet), so the item the
+  // teacher aimed at would be lost. Remember the click point and replay it on
+  // the live canvas as soon as it mounts.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const pendingClick = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!selected) return;
+    const pt = pendingClick.current;
+    pendingClick.current = null;
+    if (!pt) return;
+    const raf = window.requestAnimationFrame(() => {
+      const svg = wrapRef.current?.querySelector<SVGSVGElement>(
+        '[data-geometry-live-canvas="true"] > svg',
+      );
+
+      if (!svg) return;
+      const opts = {
+        clientX: pt.x, clientY: pt.y, bubbles: true, cancelable: true,
+        pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons: 1,
+      };
+      svg.dispatchEvent(new PointerEvent("pointerdown", opts));
+      svg.dispatchEvent(new PointerEvent("pointerup", { ...opts, buttons: 0 }));
+    });
+    return () => window.cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
   return (
     <NodeViewWrapper
       data-geometry-diagram-node="true"
@@ -100,6 +131,7 @@ function GeometryDiagramView({
       contentEditable={false}
     >
       <div
+        ref={wrapRef}
         data-geometry-diagram-wrapper="true"
         data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
         className="relative inline-block"
@@ -112,10 +144,12 @@ function GeometryDiagramView({
           kickAi();
           const pos = typeof getPos === "function" ? getPos() : null;
           if (pos != null && !selected) {
+            pendingClick.current = { x: e.clientX, y: e.clientY };
             tiptapEditor.commands.setNodeSelection(pos);
           }
         }}
       >
+
         {selected ? (
           <LiveEditor
             instanceId={instanceId}
@@ -235,22 +269,51 @@ function LiveEditor({
   }, [editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo]);
 
   const selected = editor.selectedObjects[0] ?? null;
+  const selectItem = useMemo(
+    () => (id: string, kind: HitKind) => {
+      editor.setSelectedIds([id]);
+      editor.setSelectionKind(kind);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [editor.setSelectedIds, editor.setSelectionKind],
+  );
+
   const editorNode = useMemo(() => (
     <SelectionInspector
       scene={editor.scene}
       selected={editor.selectedObjects}
+      selectedIds={editor.selectedIds}
       kind={editor.selectionKind}
       onApply={(next) => editor.commit(next)}
+      onSelect={selectItem}
       onUndo={editor.doUndo}
       onRedo={editor.doRedo}
       canUndo={editor.canUndo}
       canRedo={editor.canRedo}
       onDeleteDiagram={onDeleteDiagram}
     />
-  ), [editor.scene, editor.selectedObjects, editor.selectionKind, editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo, onDeleteDiagram]);
+  ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind, editor.commit, selectItem, editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo, onDeleteDiagram]);
 
-  const title = selected ? `${selected.type[0].toUpperCase()}${selected.type.slice(1)}` : "Geometry";
-  useRegisterAssetEditor(true, `geometry:${instanceId}`, title, editorNode);
+  const kindTitle = (() => {
+    const k = editor.selectionKind;
+    if (editor.selectedIds.length > 1) return `${editor.selectedIds.length} items`;
+    if (!selected) return "Geometry";
+    if (k === "segmentBody") return "Line";
+    if (k === "segmentLabel" || k === "pointLabel" || k === "label") return "Text";
+    if (k === "segmentDistance") return "Distance";
+    if (k === "segmentText") return "Text on line";
+    if (k === "angleValue") return "Angle value";
+    if (k === "point") return "Point";
+    if (selected.type === "region") return "Area";
+    return `${selected.type[0].toUpperCase()}${selected.type.slice(1)}`;
+  })();
+
+
+  // The token makes every *new* picked item count as a new selection, so the
+  // right-hand panel re-opens itself even if the teacher folded it earlier.
+  const selectionToken = `${editor.selectedIds.join(",")}|${editor.selectionKind ?? ""}`;
+  useRegisterAssetEditor(true, `geometry:${instanceId}`, kindTitle, editorNode, selectionToken);
+
 
   return <GeometryCanvas editor={editor} />;
 }

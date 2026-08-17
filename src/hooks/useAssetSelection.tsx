@@ -17,7 +17,12 @@ interface Registration {
   id: string;
   title: string;
   editor: ReactNode;
+  /** Changes whenever the asset's *inner* selection changes (e.g. which
+   *  line / label / angle of a diagram is picked). The panel uses it to
+   *  surface itself again for a newly picked item. */
+  token?: string;
 }
+
 
 let current: Registration | null = null;
 const listeners = new Set<() => void>();
@@ -59,6 +64,7 @@ export function useRegisterAssetEditor(
   id: string,
   title: string,
   editor: ReactNode,
+  token?: string,
 ) {
   const enabled = useContext(AssetSelectionContext);
 
@@ -66,9 +72,10 @@ export function useRegisterAssetEditor(
   // editor change would blank the panel between renders.
   useEffect(() => {
     if (!enabled || !active) return;
-    publish({ id, title, editor });
+    publish({ id, title, editor, token });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, active, id, title, editor]);
+  }, [enabled, active, id, title, editor, token]);
+
 
   // Release the slot when this asset stops being active, or unmounts.
   useEffect(() => {
