@@ -1,6 +1,9 @@
 // Smart Graph data model — shared by the Lesson Notes TipTap node and the
 // Smartboard's board-owned graph objects, so both run the same engine.
 
+import { DEFAULT_GRAPH_THEME, themeFromLegacy } from "@/lib/graph/graphTheme";
+import type { GraphThemeId } from "@/lib/graph/graphTheme";
+
 export type ConnectStyle = "straight" | "smooth" | "broken" | "scatter";
 
 export interface GraphPoint { x: number; y: number; label?: string }
@@ -36,35 +39,36 @@ export interface GraphFunction {
   domainMax?: number | null;
 }
 
-/** Presentation-only styling. Never affects the mathematics. */
+/**
+ * Presentation-only styling. Never affects the mathematics.
+ *
+ * Two colours only: the theme supplies a background and a single ink colour.
+ * Axes, numbers, labels and both grid levels are that same ink at different
+ * opacities — see src/lib/graph/graphTheme.ts.
+ */
 export interface GraphStyle {
-  background: string;
-  axis: string;
+  theme: GraphThemeId;
+  /** Axis line weight in px. */
   axisWidth: number;
-  numbers: string;
-  majorGrid: string;
-  minorGrid: string;
   /** Minor grid divisions per centimetre square. */
   minorPerMajor: number;
-  pointColour: string;
+  /** Major grid opacity (fraction of the ink colour). */
+  majorAlpha: number;
+  /** Minor grid opacity (fraction of the ink colour). */
+  minorAlpha: number;
   pointShape: "dot" | "cross" | "circle";
   pointSize: number;
-  plotColour: string;
   plotWidth: number;
 }
 
 export const DEFAULT_GRAPH_STYLE: GraphStyle = {
-  background: "#ffffff",
-  axis: "#1a1a1a",
+  theme: DEFAULT_GRAPH_THEME,
   axisWidth: 2,
-  numbers: "#595959",
-  majorGrid: "#c7c7c7",
-  minorGrid: "#ebebeb",
   minorPerMajor: 5,
-  pointColour: "#1d4ed8",
+  majorAlpha: 0.25,
+  minorAlpha: 0.1,
   pointShape: "dot",
   pointSize: 3.5,
-  plotColour: "#1d4ed8",
   plotWidth: 1.75,
 };
 
@@ -135,11 +139,27 @@ export function sanitizeGraphAttrs(raw: unknown): SmartGraphAttrs {
     shapes: Array.isArray(r.shapes) ? r.shapes : [],
     overlays: Array.isArray(r.overlays) ? r.overlays : [],
     functions: Array.isArray(r.functions) ? r.functions : [],
-    style: { ...DEFAULT_GRAPH_STYLE, ...((r.style ?? {}) as Partial<GraphStyle>) },
+    style: normalizeStyle(r.style),
     viewZoom: Math.max(0.25, Math.min(4, num(r.viewZoom, 1))),
     frameW: Math.max(240, num(r.frameW, DEFAULT_GRAPH.frameW)),
     frameH: Math.max(180, num(r.frameH, DEFAULT_GRAPH.frameH)),
     offsetX: num(r.offsetX, 0),
     offsetY: num(r.offsetY, 0),
+  };
+}
+
+/** Accepts both the current theme style and the old per-part colour style. */
+function normalizeStyle(raw: unknown): GraphStyle {
+  const r = (raw ?? {}) as Partial<GraphStyle> & { background?: string };
+  const theme = r.theme ?? themeFromLegacy(raw);
+  return {
+    theme,
+    axisWidth: Math.max(1, num(r.axisWidth, DEFAULT_GRAPH_STYLE.axisWidth)),
+    minorPerMajor: Math.max(1, Math.round(num(r.minorPerMajor, 5))),
+    majorAlpha: num(r.majorAlpha, DEFAULT_GRAPH_STYLE.majorAlpha),
+    minorAlpha: num(r.minorAlpha, DEFAULT_GRAPH_STYLE.minorAlpha),
+    pointShape: r.pointShape ?? "dot",
+    pointSize: Math.max(1, num(r.pointSize, 3.5)),
+    plotWidth: Math.max(0.5, num(r.plotWidth, 1.75)),
   };
 }
