@@ -13,7 +13,12 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { geometryFor, baseRotationY } from "@/lib/geometry3d/geometryFactory";
 import { curvedSurfaceGeometry, openFacesOf, polygonFaceGeometry } from "@/lib/geometry3d/openFaces";
-import { applyCavityDepthColors, cavityPalette, type Opening } from "@/lib/geometry3d/cavityShading";
+import {
+  applyCavityDepthColors,
+  cavityPalette,
+  type CavityPalette,
+  type Opening,
+} from "@/lib/geometry3d/cavityShading";
 import { SolidElements } from "./SolidElements";
 import { LessonOverlay } from "./LessonOverlay";
 import { LabelLayer } from "./labels/LabelLayer";
@@ -46,21 +51,12 @@ export type Interaction3D = "workspace" | "lesson" | "view";
 function ShellSurfaces({
   solid,
   openFaces,
-  color,
-  lightTheme,
-  background,
+  palette,
 }: {
   solid: Solid3D;
   openFaces: number[];
-  color: string;
-  lightTheme: boolean;
-  background?: string;
+  palette: CavityPalette;
 }) {
-  const palette = useMemo(
-    () => cavityPalette(color, { lightTheme, background }),
-    [color, lightTheme, background],
-  );
-
   const { surfaces, openings } = useMemo(() => {
     const topo = topologyFor(solid);
     const cuts: Opening[] = topo.faces
@@ -182,13 +178,7 @@ function Solid3DMesh({
     >
       <group rotation={[0, baseRotationY(solid), 0]}>
         {hollow ? (
-          <ShellSurfaces
-            solid={solid}
-            openFaces={openFaces}
-            color={color}
-            lightTheme={lightTheme ?? true}
-            background={background}
-          />
+          <ShellSurfaces solid={solid} openFaces={openFaces} palette={palette} />
         ) : (
           <mesh geometry={geometry} castShadow={false} userData={{ mathSolid: isSolid }}>
             {isSolid ? (
