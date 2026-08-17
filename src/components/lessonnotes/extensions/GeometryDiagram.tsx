@@ -95,6 +95,34 @@ function GeometryDiagramView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
+  // First-click reliability: the very first click on an inactive diagram only
+  // activates the block (the live canvas does not exist yet), so the item the
+  // teacher aimed at would be lost. Remember the click point and replay it on
+  // the live canvas as soon as it mounts.
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const pendingClick = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!selected) return;
+    const pt = pendingClick.current;
+    pendingClick.current = null;
+    if (!pt) return;
+    const raf = window.requestAnimationFrame(() => {
+      const svg = wrapRef.current?.querySelector<SVGSVGElement>(
+        '[data-geometry-live-canvas="true"] svg:last-of-type',
+      );
+      if (!svg) return;
+      const opts = {
+        clientX: pt.x, clientY: pt.y, bubbles: true, cancelable: true,
+        pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons: 1,
+      };
+      svg.dispatchEvent(new PointerEvent("pointerdown", opts));
+      svg.dispatchEvent(new PointerEvent("pointerup", { ...opts, buttons: 0 }));
+    });
+    return () => window.cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
   return (
     <NodeViewWrapper
       data-geometry-diagram-node="true"
@@ -102,6 +130,7 @@ function GeometryDiagramView({
       contentEditable={false}
     >
       <div
+        ref={wrapRef}
         data-geometry-diagram-wrapper="true"
         data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
         className="relative inline-block"
@@ -114,10 +143,12 @@ function GeometryDiagramView({
           kickAi();
           const pos = typeof getPos === "function" ? getPos() : null;
           if (pos != null && !selected) {
+            pendingClick.current = { x: e.clientX, y: e.clientY };
             tiptapEditor.commands.setNodeSelection(pos);
           }
         }}
       >
+
         {selected ? (
           <LiveEditor
             instanceId={instanceId}
