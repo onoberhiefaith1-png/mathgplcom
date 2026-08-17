@@ -107,22 +107,30 @@ function GeometryDiagramView({
     const pt = pendingClick.current;
     pendingClick.current = null;
     if (!pt) return;
-    const raf = window.requestAnimationFrame(() => {
+    let raf = 0;
+    let tries = 0;
+    const attempt = () => {
       const svg = wrapRef.current?.querySelector<SVGSVGElement>(
         '[data-geometry-live-canvas="true"] > svg',
       );
-
-      if (!svg) return;
+      if (!svg) {
+        // The live canvas can take a couple of frames to mount; keep trying
+        // instead of losing the click (which made the teacher press again).
+        if (tries++ < 20) raf = window.requestAnimationFrame(attempt);
+        return;
+      }
       const opts = {
         clientX: pt.x, clientY: pt.y, bubbles: true, cancelable: true,
         pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons: 1,
       };
       svg.dispatchEvent(new PointerEvent("pointerdown", opts));
       svg.dispatchEvent(new PointerEvent("pointerup", { ...opts, buttons: 0 }));
-    });
+    };
+    raf = window.requestAnimationFrame(attempt);
     return () => window.cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
+
 
   return (
     <NodeViewWrapper
