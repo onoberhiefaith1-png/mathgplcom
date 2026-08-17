@@ -2591,7 +2591,7 @@ function DocumentEditorInner({
           transition: "padding-right 160ms ease",
         }}
       >
-        <div className="flex-1 overflow-auto bg-[hsl(220_15%_94%)]">
+        <div className="min-w-0 flex-1 overflow-auto bg-[hsl(220_15%_94%)]">
           <PageFrame size={paperSize} style={paperStyle} zoom={zoom} extraMm={pageExtraMm} sheetRef={sheetElRef}>
             <div
               ref={paperLayerRef}

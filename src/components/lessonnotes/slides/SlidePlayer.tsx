@@ -1,7 +1,9 @@
-// Slide player — full-screen presentation of a Slide Deck, shared by the
-// Lesson Note and the Smartboard. No editing chrome: Next reveals the next
-// step; after the last step it moves on to the next slide.
+// Slide player — full-screen presentation of a Canvas, shared by the Lesson
+// Note and the Smartboard. It mounts at the top layer (a portal to <body>) so
+// no panel or workspace chrome can ever clip it. No editing chrome: Next
+// reveals the next step; after the last step it moves on to the next slide.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { SlideMedia } from "./SlideMedia";
 import { SlideContentBlock } from "./SlideContentBlock";
@@ -11,15 +13,18 @@ interface Props {
   slides: Slide[];
   startIndex?: number;
   onExit: () => void;
+  /** Canvas name shown while presenting. */
+  canvasName?: string;
   /** Dark presenting surface (Smartboard) vs light overlay (Lesson Note). */
   dark?: boolean;
 }
 
-export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Props) {
+export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark = false }: Props) {
   const [index, setIndex] = useState(startIndex);
   const [step, setStep] = useState(1);
   const [items, setItems] = useState<SlideItem[]>([]);
   const [scale, setScale] = useState(1);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const slide = slides[index];
 
@@ -31,6 +36,17 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Pr
       .catch(() => { if (alive) setItems([]); });
     return () => { alive = false; };
   }, [slide]);
+
+  // Try real browser full-screen; the fixed overlay already covers the viewport
+  // if the request is refused, so presenting never depends on it.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    void el.requestFullscreen?.({ navigationUI: "hide" }).catch(() => {});
+    return () => {
+      if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
+    };
+  }, []);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -71,26 +87,30 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Pr
 
   if (!slide) return null;
 
-  return (
+  const body = (
     <div
+      ref={rootRef}
       data-slide-chrome="true"
-      className={dark ? "absolute inset-0 z-50 flex flex-col bg-slate-950" : "absolute inset-0 z-50 flex flex-col bg-slate-900/90"}
+      className={`fixed inset-0 z-[10000] flex flex-col ${dark ? "bg-slate-950" : "bg-slate-900"}`}
     >
-      <div className="flex items-center justify-between px-4 py-2 text-xs text-white/80">
-        <span className="font-semibold">{slide.name}</span>
-        <span className="tabular-nums">
-          Slide {index + 1}/{slides.length} · Step {step}/{total}
+      <div className="flex items-center justify-between gap-3 px-4 py-2 text-xs text-white/85">
+        <span className="min-w-0 truncate font-semibold">
+          {canvasName ? `${canvasName} — ${slide.name}` : slide.name}
+        </span>
+        <span className="shrink-0 tabular-nums">
+          Slide {index + 1} of {slides.length}
+          {total > 1 ? ` · Step ${step}/${total}` : ""}
         </span>
         <button
           type="button"
           onClick={onExit}
-          className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 hover:bg-white/25"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 font-medium hover:bg-white/25"
         >
-          <X className="h-3.5 w-3.5" /> Exit
+          <X className="h-3.5 w-3.5" /> Exit Presentation
         </button>
       </div>
 
-      <div ref={stageRef} className="relative flex-1 min-h-0 overflow-hidden p-4">
+      <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden p-4">
         <div
           className="absolute left-1/2 top-4 bg-white"
           style={{
@@ -140,4 +160,6 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, dark = false }: Pr
       </div>
     </div>
   );
+
+  return typeof document === "undefined" ? body : createPortal(body, document.body);
 }

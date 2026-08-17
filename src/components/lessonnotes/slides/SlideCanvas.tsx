@@ -1,9 +1,10 @@
-// The Slide canvas — a full presentation page in the lesson note's own pixel
-// space (A4 @ 96dpi). The whole page is scaled uniformly to fit its container,
-// so captured mathematics keeps its original size and proportions: nothing is
-// ever auto-fitted per object.
+// The Slide page — one page of a Canvas, in the lesson note's own pixel space
+// (A4 @ 96dpi). The whole page is scaled uniformly to fit its container, so
+// captured mathematics keeps its original size and proportions: nothing is ever
+// auto-fitted per object. Every object is selectable, draggable and resizable
+// from eight handles.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Trash2, ArrowUp, ArrowDown, Maximize2, MoveHorizontal, RotateCcw } from "lucide-react";
 import { SlideMedia } from "./SlideMedia";
 import { SlideContentBlock } from "./SlideContentBlock";
 import { SLIDE_PAGE, type SlideItem } from "@/lib/lessonnotes/slides";
@@ -17,10 +18,26 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
+type Handle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+
+const HANDLES: { key: Handle; style: React.CSSProperties; cursor: string }[] = [
+  { key: "nw", style: { left: -6, top: -6 }, cursor: "nwse-resize" },
+  { key: "n", style: { left: "50%", top: -6, marginLeft: -6 }, cursor: "ns-resize" },
+  { key: "ne", style: { right: -6, top: -6 }, cursor: "nesw-resize" },
+  { key: "e", style: { right: -6, top: "50%", marginTop: -6 }, cursor: "ew-resize" },
+  { key: "se", style: { right: -6, bottom: -6 }, cursor: "nwse-resize" },
+  { key: "s", style: { left: "50%", bottom: -6, marginLeft: -6 }, cursor: "ns-resize" },
+  { key: "sw", style: { left: -6, bottom: -6 }, cursor: "nesw-resize" },
+  { key: "w", style: { left: -6, top: "50%", marginTop: -6 }, cursor: "ew-resize" },
+];
+
+const MIN = 0.03;
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
 export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }: Props) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
-  const mode = useRef<"move" | "resize" | null>(null);
+  const mode = useRef<{ kind: "move" | Handle; ratio: number; shift: boolean } | null>(null);
   const origin = useRef<{ px: number; py: number; item: SlideItem } | null>(null);
   const [live, setLive] = useState<Record<string, Partial<SlideItem>>>({});
   const [scale, setScale] = useState(1);
@@ -42,17 +59,18 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }:
   const rectOf = (item: SlideItem) => ({ ...item, ...(live[item.id] ?? {}) }) as SlideItem;
 
   const begin = useCallback(
-    (e: React.PointerEvent, item: SlideItem, kind: "move" | "resize") => {
+    (e: React.PointerEvent, item: SlideItem, kind: "move" | Handle) => {
       e.stopPropagation();
       onSelect(item.id);
       const page = pageRef.current;
       if (!page) return;
       const b = page.getBoundingClientRect();
-      mode.current = kind;
+      const current = rectOf(item);
+      mode.current = { kind, ratio: current.h ? current.w / current.h : 1, shift: e.shiftKey };
       origin.current = {
         px: (e.clientX - b.left) / b.width,
         py: (e.clientY - b.top) / b.height,
-        item: rectOf(item),
+        item: current,
       };
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     },
@@ -61,14 +79,16 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }:
 
   const move = (e: React.PointerEvent) => {
     const page = pageRef.current;
-    if (!mode.current || !origin.current || !page) return;
+    const m = mode.current;
+    if (!m || !origin.current || !page) return;
     const b = page.getBoundingClientRect();
     const px = (e.clientX - b.left) / b.width;
     const py = (e.clientY - b.top) / b.height;
     const { item } = origin.current;
     const dx = px - origin.current.px;
     const dy = py - origin.current.py;
-    if (mode.current === "move") {
+
+    if (m.kind === "move") {
       setLive((s) => ({
         ...s,
         [item.id]: {
@@ -76,15 +96,33 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }:
           y: Math.max(0, Math.min(1 - item.h, item.y + dy)),
         },
       }));
-    } else {
-      setLive((s) => ({
-        ...s,
-        [item.id]: {
-          w: Math.max(0.03, Math.min(1 - item.x, item.w + dx)),
-          h: Math.max(0.03, Math.min(1 - item.y, item.h + dy)),
-        },
-      }));
+      return;
     }
+
+    let { x, y, w, h } = item;
+    const k = m.kind;
+    if (k.includes("e")) w = Math.max(MIN, Math.min(1 - x, item.w + dx));
+    if (k.includes("s")) h = Math.max(MIN, Math.min(1 - y, item.h + dy));
+    if (k.includes("w")) {
+      const right = item.x + item.w;
+      x = clamp01(Math.min(right - MIN, item.x + dx));
+      w = right - x;
+    }
+    if (k.includes("n")) {
+      const bottom = item.y + item.h;
+      y = clamp01(Math.min(bottom - MIN, item.y + dy));
+      h = bottom - y;
+    }
+    // Corner drags keep the aspect ratio unless Shift is held.
+    const corner = k.length === 2;
+    if (corner && !e.shiftKey && m.ratio > 0) {
+      const targetH = w / m.ratio;
+      if (targetH + y <= 1) {
+        if (k.includes("n")) y = y + h - targetH;
+        h = targetH;
+      }
+    }
+    setLive((s) => ({ ...s, [item.id]: { x, y, w, h } }));
   };
 
   const end = () => {
@@ -115,7 +153,7 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }:
       >
         {items.length === 0 && (
           <p className="absolute inset-0 grid place-items-center px-10 text-center text-base text-slate-400">
-            Blank canvas — capture from the note, or import an image or video.
+            Blank slide — capture from the note, or import an image or video.
           </p>
         )}
         {items.map((raw) => {
@@ -149,11 +187,14 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }:
               )}
               {active && (
                 <>
-                  <div
-                    className="absolute -bottom-1.5 -right-1.5 h-4 w-4 rounded-sm border-2 border-white bg-primary"
-                    style={{ cursor: "nwse-resize", touchAction: "none" }}
-                    onPointerDown={(e) => begin(e, raw, "resize")}
-                  />
+                  {HANDLES.map((hd) => (
+                    <div
+                      key={hd.key}
+                      className="absolute h-3 w-3 rounded-sm border-2 border-white bg-primary"
+                      style={{ ...hd.style, cursor: hd.cursor, touchAction: "none" }}
+                      onPointerDown={(e) => begin(e, raw, hd.key)}
+                    />
+                  ))}
                   <div
                     className="absolute -top-9 left-0 flex items-center gap-1 rounded-full bg-white px-2 py-1 shadow"
                     onPointerDown={(e) => e.stopPropagation()}
@@ -175,6 +216,31 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }:
                       onClick={() => onChange(item.id, { step: item.step + 1 })}
                     >
                       <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="mx-1 h-4 w-px bg-slate-200" />
+                    <button
+                      type="button"
+                      title="Fit width"
+                      className="rounded p-1 hover:bg-slate-100"
+                      onClick={() => onChange(item.id, { x: 0, w: 1 })}
+                    >
+                      <MoveHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Fill slide"
+                      className="rounded p-1 hover:bg-slate-100"
+                      onClick={() => onChange(item.id, { x: 0, y: 0, w: 1, h: 1 })}
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Reset size"
+                      className="rounded p-1 hover:bg-slate-100"
+                      onClick={() => onChange(item.id, { w: 0.5, h: 0.3 })}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
                     </button>
                     <button
                       type="button"
