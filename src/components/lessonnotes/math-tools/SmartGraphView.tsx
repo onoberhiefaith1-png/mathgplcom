@@ -33,6 +33,8 @@ import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/Geomet
 import type { GraphFunction } from "@/lib/graph/graphModel";
 import { tryCompile, sampleFunction } from "@/lib/graph/functions";
 import { GRAPH_TEMPLATES, nextFunctionColour } from "@/lib/graph/library";
+import { GRAPH_THEMES, graphInk } from "@/lib/graph/graphTheme";
+import type { GraphThemeId } from "@/lib/graph/graphTheme";
 
 const SQ_BASE = 28; // pixels per major square (= 1 cm on the printed page) at 100% graph zoom.
 
@@ -45,6 +47,16 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
   const overlays = a.overlays ?? [];
   const shapes = a.shapes ?? [];
+
+  // ---- Two-colour ink system ----------------------------------------------
+  // One background + one foreground colour. Axes, numbers, labels and both
+  // grid levels are the same ink at different opacities.
+  const style = a.style ?? undefined;
+  const ink = graphInk(style?.theme, style?.majorAlpha, style?.minorAlpha);
+  const minorPerMajor = Math.max(1, Math.round(style?.minorPerMajor ?? 5));
+  const axisWidth = style?.axisWidth ?? 2;
+  const setStyle = (patch: Record<string, unknown>) =>
+    update({ style: { ...(style ?? {}), ...patch } as SmartGraphAttrs["style"] });
 
   // ---- Local interaction state ---------------------------------------------
   const [mode, setMode] = useState<Mode>("plot");
@@ -437,7 +449,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
     const f: GraphFunction = {
       id: `f${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       expression: fnText.trim().replace(/^y\s*=\s*/i, ""),
-      colour: nextFunctionColour(functions.length),
+      colour: nextFunctionColour(functions.length, ink.ink),
       thickness: 2,
       dash: "solid",
       domainMin: Number.isFinite(from as number) ? from : null,
@@ -713,8 +725,9 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                 onMouseMove={onSvgMouseMove}
                 onMouseUp={endDrag}
                 onMouseLeave={endDrag}
+                style={{ background: ink.bg }}
                 className={cn(
-                  "bg-white block",
+                  "block",
                   mode === "plot" && "cursor-crosshair",
                   mode === "cursor" && "cursor-crosshair",
                   mode === "moveX" && "cursor-ns-resize",
@@ -722,43 +735,43 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                 )}
               >
                 {/* Minor + major grid (5 minor per major = 1 cm) */}
-                {Array.from({ length: a.squaresX * 5 + 1 }, (_, i) => i).map((i) => {
-                  const x = (i / 5) * SQ;
-                  const isMajor = i % 5 === 0;
+                {Array.from({ length: a.squaresX * minorPerMajor + 1 }, (_, i) => i).map((i) => {
+                  const x = (i / minorPerMajor) * SQ;
+                  const isMajor = i % minorPerMajor === 0;
                   return <line key={`mx${i}`} x1={x} y1={0} x2={x} y2={H}
-                    stroke={isMajor ? "hsl(0 0% 78%)" : "hsl(0 0% 92%)"}
+                    stroke={isMajor ? ink.majorGrid : ink.minorGrid}
                     strokeWidth={isMajor ? 1 : 0.5} />;
                 })}
-                {Array.from({ length: a.squaresY * 5 + 1 }, (_, i) => i).map((i) => {
-                  const y = (i / 5) * SQ;
-                  const isMajor = i % 5 === 0;
+                {Array.from({ length: a.squaresY * minorPerMajor + 1 }, (_, i) => i).map((i) => {
+                  const y = (i / minorPerMajor) * SQ;
+                  const isMajor = i % minorPerMajor === 0;
                   return <line key={`my${i}`} x1={0} y1={y} x2={W} y2={y}
-                    stroke={isMajor ? "hsl(0 0% 78%)" : "hsl(0 0% 92%)"}
+                    stroke={isMajor ? ink.majorGrid : ink.minorGrid}
                     strokeWidth={isMajor ? 1 : 0.5} />;
                 })}
 
                 {/* Axes */}
                 <line x1={0} y1={oyPx} x2={W} y2={oyPx}
-                  stroke={mode === "moveX" ? "hsl(45 95% 50%)" : "hsl(0 0% 10%)"}
-                  strokeWidth={mode === "moveX" ? 2.4 : 2} />
+                  stroke={mode === "moveX" ? "hsl(45 95% 50%)" : ink.axis}
+                  strokeWidth={mode === "moveX" ? axisWidth + 0.4 : axisWidth} />
                 <line x1={oxPx} y1={0} x2={oxPx} y2={H}
-                  stroke={mode === "moveY" ? "hsl(45 95% 50%)" : "hsl(0 0% 10%)"}
-                  strokeWidth={mode === "moveY" ? 2.4 : 2} />
+                  stroke={mode === "moveY" ? "hsl(45 95% 50%)" : ink.axis}
+                  strokeWidth={mode === "moveY" ? axisWidth + 0.4 : axisWidth} />
 
                 {/* Tick labels */}
                 {xTicks.map((i) => {
                   const val = round((i - a.originSquareX) * a.unitsPerSquareX);
                   if (val === 0) return null;
-                  return <text key={`tx${i}`} x={i * SQ} y={oyPx + 12} fontSize="9.5" textAnchor="middle" fill="hsl(0 0% 35%)">{val}</text>;
+                  return <text key={`tx${i}`} x={i * SQ} y={oyPx + 12} fontSize="9.5" textAnchor="middle" fill={ink.text}>{val}</text>;
                 })}
                 {yTicks.map((i) => {
                   const val = round((a.originSquareY - i) * a.unitsPerSquareY);
                   if (val === 0) return null;
-                  return <text key={`ty${i}`} x={oxPx - 4} y={i * SQ + 3} fontSize="9.5" textAnchor="end" fill="hsl(0 0% 35%)">{val}</text>;
+                  return <text key={`ty${i}`} x={oxPx - 4} y={i * SQ + 3} fontSize="9.5" textAnchor="end" fill={ink.text}>{val}</text>;
                 })}
 
-                <text x={W - 6} y={oyPx - 6} fontSize="11" textAnchor="end" fontStyle="italic" fill="hsl(0 0% 25%)">{a.xLabel}</text>
-                <text x={oxPx + 6} y={12} fontSize="11" fontStyle="italic" fill="hsl(0 0% 25%)">{a.yLabel}</text>
+                <text x={W - 6} y={oyPx - 6} fontSize="11" textAnchor="end" fontStyle="italic" fill={ink.label}>{a.xLabel}</text>
+                <text x={oxPx + 6} y={12} fontSize="11" fontStyle="italic" fill={ink.label}>{a.yLabel}</text>
 
                 {/* Plotted functions */}
                 {fnPaths.map(({ f, d }) => (
@@ -772,21 +785,21 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
 
                 {/* Plotted line + points */}
                 {connect !== "scatter" && path && (
-                  <path d={path} fill="none" stroke="hsl(220 90% 50%)" strokeWidth={1.75}
+                  <path d={path} fill="none" stroke={ink.ink} strokeWidth={style?.plotWidth ?? 1.75}
                     strokeDasharray={connect === "broken" ? "6 4" : undefined} />
                 )}
                 {(a.points ?? []).map((p, i) => {
                   const { x, y } = toPx(p);
                   return (
                     <g key={`p${i}`}>
-                      <circle cx={x} cy={y} r={3.5} fill="hsl(220 90% 50%)" stroke="white" strokeWidth={1} />
-                      <text x={x + 5} y={y - 5} fontSize="9" fill="hsl(0 0% 30%)">({p.x},{p.y})</text>
+                      <circle cx={x} cy={y} r={style?.pointSize ?? 3.5} fill={ink.ink} stroke={ink.bg} strokeWidth={1} />
+                      <text x={x + 5} y={y - 5} fontSize="9" fill={ink.text}>({p.x},{p.y})</text>
                     </g>
                   );
                 })}
 
                 {/* Geometry shapes (data coords) */}
-                {shapes.map((s) => <ShapeNode key={s.id} shape={s} toPx={toPx} />)}
+                {shapes.map((s) => <ShapeNode key={s.id} shape={s} toPx={toPx} ink={ink} />)}
                 {geomActive && geomDraft.length > 0 && (
                   <g opacity={0.6}>
                     {geomDraft.map((p, i) => { const q = toPx(p); return <circle key={i} cx={q.x} cy={q.y} r={3} fill="hsl(45 95% 45%)" />; })}
@@ -803,6 +816,7 @@ export function SmartGraphView({ node, updateAttributes, deleteNode, selected }:
                   <OverlayNode
                     key={o.id}
                     overlay={o}
+                    ink={ink}
                     toPx={toPx}
                     sq={SQ}
                     unitsPerSquareX={a.unitsPerSquareX}
