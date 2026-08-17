@@ -264,15 +264,16 @@ function LiveEditor({
     const k = editor.selectionKind;
     if (editor.selectedIds.length > 1) return `${editor.selectedIds.length} items`;
     if (!selected) return "Geometry";
-    if (k === "segmentBody" || k === "segment") return "Line";
+    if (k === "segmentBody") return "Line";
     if (k === "segmentLabel" || k === "pointLabel" || k === "label") return "Text";
     if (k === "segmentDistance") return "Distance";
     if (k === "segmentText") return "Text on line";
     if (k === "angleValue") return "Angle value";
     if (k === "point") return "Point";
-    if (k === "region") return "Area";
+    if (selected.type === "region") return "Area";
     return `${selected.type[0].toUpperCase()}${selected.type.slice(1)}`;
   })();
+
 
   // The token makes every *new* picked item count as a new selection, so the
   // right-hand panel re-opens itself even if the teacher folded it earlier.
