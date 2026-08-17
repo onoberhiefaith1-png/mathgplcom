@@ -418,12 +418,21 @@ export const GeometryDiagramNode = Node.create({
           "data-scene": JSON.stringify(attrs.scene ?? EMPTY_SCENE),
         }),
       },
+      // Stable identity so the Solution (and Floating/highlight actions) can
+      // REFERENCE this exact diagram instead of generating another one.
+      diagramId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-diagram-id") || null,
+        renderHTML: (attrs) =>
+          attrs.diagramId ? { "data-diagram-id": attrs.diagramId } : {},
+      },
       topic: {
         default: null,
         parseHTML: (el) => el.getAttribute("data-topic") || null,
         renderHTML: (attrs) =>
           attrs.topic ? { "data-topic": attrs.topic } : {},
       },
+
       align: {
         default: "center",
         parseHTML: (el) => el.getAttribute("data-align") || "center",
