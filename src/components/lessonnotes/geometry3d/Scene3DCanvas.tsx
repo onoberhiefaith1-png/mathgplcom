@@ -13,6 +13,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { geometryFor, baseRotationY } from "@/lib/geometry3d/geometryFactory";
 import { curvedSurfaceGeometry, openFacesOf, polygonFaceGeometry } from "@/lib/geometry3d/openFaces";
+import { applyCavityDepthColors, cavityPalette, type Opening } from "@/lib/geometry3d/cavityShading";
 import { SolidElements } from "./SolidElements";
 import { LessonOverlay } from "./LessonOverlay";
 import { LabelLayer } from "./labels/LabelLayer";
@@ -46,50 +47,91 @@ function ShellSurfaces({
   solid,
   openFaces,
   color,
+  lightTheme,
+  background,
 }: {
   solid: Solid3D;
   openFaces: number[];
   color: string;
+  lightTheme: boolean;
+  background?: string;
 }) {
-  const surfaces = useMemo(() => {
+  const palette = useMemo(
+    () => cavityPalette(color, { lightTheme, background }),
+    [color, lightTheme, background],
+  );
+
+  const { surfaces, openings } = useMemo(() => {
     const topo = topologyFor(solid);
-    return topo.faces
+    const cuts: Opening[] = topo.faces
+      .filter((f) => openFaces.includes(f.index))
+      .map((f) => ({ center: f.center, points: f.points }));
+
+    const built = topo.faces
       .filter((f) => !openFaces.includes(f.index))
-      .map((f) => ({
-        index: f.index,
-        geometry:
+      .map((f) => {
+        const geometry =
           f.shape === "polygon" && f.points
             ? polygonFaceGeometry(f.points)
-            : curvedSurfaceGeometry(solid),
-      }));
-  }, [solid, openFaces]);
+            : curvedSurfaceGeometry(solid);
+        // Depth ramp for the interior pass only — the exterior material
+        // ignores vertex colours, so the outside keeps its own look.
+        applyCavityDepthColors(geometry, cuts, palette);
+        return { index: f.index, geometry };
+      });
+    return { surfaces: built, openings: cuts };
+  }, [solid, openFaces, palette]);
 
   useEffect(() => () => surfaces.forEach((s) => s.geometry.dispose()), [surfaces]);
 
   return (
     <group>
       {surfaces.map((s) => (
-        <mesh key={`shell${s.index}`} geometry={s.geometry} userData={{ mathSolid: true }}>
-          <meshStandardMaterial
-            color={color}
-            flatShading
-            roughness={0.55}
-            metalness={0.05}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
+        <group key={`shell${s.index}`}>
+          {/* Exterior — unchanged appearance. */}
+          <mesh geometry={s.geometry} userData={{ mathSolid: true }}>
+            <meshStandardMaterial
+              color={palette.exterior}
+              flatShading
+              roughness={0.55}
+              metalness={0.05}
+              side={THREE.FrontSide}
+            />
+          </mesh>
+          {/* Interior wall — same hue, darker, graded with depth. */}
+          <mesh geometry={s.geometry} userData={{ mathSolid: true }}>
+            <meshStandardMaterial
+              vertexColors
+              flatShading
+              roughness={0.95}
+              metalness={0}
+              side={THREE.BackSide}
+            />
+          </mesh>
+        </group>
       ))}
+      {/* The opening lip: a defined boundary so the hole is locatable at a glance. */}
+      {openings.map((o, i) =>
+        o.points && o.points.length > 2 ? (
+          <Line
+            key={`rim${i}`}
+            points={[...o.points, o.points[0]] as Vec3[]}
+            color={palette.rim}
+            lineWidth={2.6}
+          />
+        ) : null,
+      )}
     </group>
   );
 }
 
 /** A soft light riding with the camera so an opened solid is lit inside. */
-function ViewpointLight() {
+function ViewpointLight({ intensity = 12 }: { intensity?: number }) {
   const ref = useRef<THREE.PointLight>(null);
   useFrame(({ camera }) => {
     ref.current?.position.copy(camera.position);
   });
-  return <pointLight ref={ref} intensity={12} distance={40} decay={1.6} />;
+  return <pointLight ref={ref} intensity={intensity} distance={40} decay={1.6} />;
 }
 
 function Solid3DMesh({
@@ -97,12 +139,16 @@ function Solid3DMesh({
   selected,
   selectable,
   onSelect,
+  lightTheme,
+  background,
   children,
 }: {
   solid: Solid3D;
   selected: boolean;
   selectable: boolean;
   onSelect?: (id: string) => void;
+  lightTheme?: boolean;
+  background?: string;
   children?: React.ReactNode;
 }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -132,7 +178,13 @@ function Solid3DMesh({
     >
       <group rotation={[0, baseRotationY(solid), 0]}>
         {hollow ? (
-          <ShellSurfaces solid={solid} openFaces={openFaces} color={color} />
+          <ShellSurfaces
+            solid={solid}
+            openFaces={openFaces}
+            color={color}
+            lightTheme={lightTheme ?? true}
+            background={background}
+          />
         ) : (
           <mesh geometry={geometry} castShadow={false} userData={{ mathSolid: isSolid }}>
             {isSolid ? (
@@ -151,6 +203,7 @@ function Solid3DMesh({
         <lineSegments geometry={edges}>
           <lineBasicMaterial color={selected ? "#fbbf24" : isSolid ? "#0f172a" : color} />
         </lineSegments>
+
         {children}
       </group>
     </group>
