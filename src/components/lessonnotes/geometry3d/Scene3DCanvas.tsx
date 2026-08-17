@@ -416,6 +416,14 @@ export function Scene3DCanvas({
     return b === 1 ? c : c.multiplyScalar(b);
   }, [background, settings.backgroundBrightness]);
 
+  /** Background as a CSS string, so cavity shading can keep clear of it. */
+  const bgHex = useMemo(() => `#${bgColor.getHexString()}`, [bgColor]);
+  /** True while any solid has an open face — used to bias the lighting. */
+  const anyHollow = useMemo(
+    () => viewObjects.some((s) => s.style?.display === "solid" && openFacesOf(s).length > 0),
+    [viewObjects],
+  );
+
   const gridColors = useMemo(() => {
     const base = new THREE.Color(settings.gridColor);
     const bg = new THREE.Color(background);
@@ -472,7 +480,7 @@ export function Scene3DCanvas({
             }
             onSelect={onSelect}
             lightTheme={light}
-            background={bgColor}
+            background={bgHex}
           >
             <SolidElements
               solid={s}
