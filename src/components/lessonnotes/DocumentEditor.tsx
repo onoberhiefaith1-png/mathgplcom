@@ -1123,6 +1123,12 @@ function DocumentEditorInner({
         editor.chain().focus().deleteRange({ from: bodyStart, to: emptyTo }).run();
         insertFrom = bodyStart;
       }
+      // SOLUTION UNDER THE DIAGRAM: the diagram belongs to the question, so
+      // solution text can never be written above it.
+      if (isSolutionBlock) {
+        const dEnd = lastDiagramEnd(info.headingPos);
+        if (dEnd > insertFrom) insertFrom = dEnd;
+      }
       insertFrom = clampInsideSection(editor.state.doc, info.headingPos, insertFrom);
       const sizeBefore = editor.state.doc.content.size;
       editor.chain().focus().insertContentAt(insertFrom, questionBodyNodes).run();
