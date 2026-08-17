@@ -24,6 +24,12 @@ export interface CavityPalette {
   rim: string;
   /** Ordinary (non-opening) edge colour. */
   edge: string;
+  /**
+   * Extra lip weight, 1 → normal. Rises when the base colour is so dark that
+   * exterior/interior shading alone cannot carry the opening, so the boundary
+   * takes over the job. Keeps the cue colour-independent.
+   */
+  rimBoost: number;
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
@@ -53,9 +59,11 @@ export function cavityPalette(
   const hsl = { h: 0, s: 0, l: 0 };
   base.getHSL(hsl);
 
-  // Pale colours need a bigger drop than already-dark ones to read as "inside".
-  const drop = 0.30 + 0.34 * hsl.l;
-  let interiorL = clamp01(hsl.l - drop);
+  // Proportional darkening: the interior is always a fraction of the base
+  // lightness, so pale colours drop a lot and dark ones still drop visibly —
+  // while never collapsing to black, which would kill the depth gradient.
+  let interiorL = clamp01(Math.min(hsl.l * 0.45, Math.max(0.12, hsl.l - 0.12)));
+  interiorL = Math.max(interiorL, 0.14);
   // Slightly richer inside so the darkening reads as shading, not as grey.
   const interiorS = clamp01(hsl.s * 1.12 + 0.05);
 
@@ -65,13 +73,13 @@ export function cavityPalette(
     interiorL = bgL > 0.5 ? clamp01(interiorL - 0.18) : clamp01(interiorL + 0.2);
   }
   // Never pitch-black: the interior walls must stay legible, not disappear.
-  interiorL = Math.max(interiorL, 0.06);
+  interiorL = Math.max(interiorL, 0.1);
 
   const interior = new THREE.Color().setHSL(hsl.h, interiorS, interiorL);
   const interiorDeep = new THREE.Color().setHSL(
     hsl.h,
     clamp01(interiorS * 0.9),
-    Math.max(0.035, interiorL * 0.42),
+    Math.max(0.05, interiorL * 0.45),
   );
 
   // The lip contrasts against the exterior, in the exterior's own hue family.
@@ -83,7 +91,12 @@ export function cavityPalette(
     .setHSL(hsl.h, clamp01(hsl.s * 0.35), hsl.l > 0.45 ? Math.max(0.12, hsl.l - 0.3) : clamp01(hsl.l + 0.34))
     .getStyle();
 
-  return { exterior: baseColor, interior, interiorDeep, rim, edge };
+  // How much real contrast did the shading actually achieve? If the base
+  // colour is very dark the exterior is already near-black, so lean on the lip.
+  const gap = luminanceOf(base) - luminanceOf(interior);
+  const rimBoost = gap < 0.12 ? 1.75 : gap < 0.2 ? 1.3 : 1;
+
+  return { exterior: baseColor, interior, interiorDeep, rim, edge, rimBoost };
 }
 
 /** An opening: the polygon of a face the teacher has removed (local frame). */
