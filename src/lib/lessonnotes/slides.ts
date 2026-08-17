@@ -83,6 +83,15 @@ export const deleteDeck = async (id: string): Promise<void> => {
   if (error) throw error;
 };
 
+/* --------------------------------------------------------------- canvases --
+ * A "Canvas" is what the teacher sees: a named container whose Slides are its
+ * pages. It is the same record as a deck — only the vocabulary changed. */
+export type SlideCanvasRecord = SlideDeck;
+export const listCanvases = listDecks;
+export const createCanvas = createDeck;
+export const renameCanvas = renameDeck;
+export const deleteCanvas = deleteDeck;
+
 /* ---------------------------------------------------------------- slides -- */
 
 /** Slides of one deck, in presentation order. */
