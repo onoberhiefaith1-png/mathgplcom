@@ -121,7 +121,13 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
-import { sectionEndWithin, clampInsideSection } from "@/lib/lessonnotes/containerRange";
+import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion } from "@/lib/lessonnotes/containerRange";
+import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
+
+/** Stable identity for a diagram, so a Solution can reference it instead of
+ *  generating a second one. */
+const newDiagramId = (): string =>
+  `D-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
 
@@ -853,6 +859,19 @@ function DocumentEditorInner({
       });
       return;
     }
+    // The Solution references the question's EXISTING diagram. We hand the
+    // model an inventory of what is already drawn so it never redraws it,
+    // renames its points, or invents a second figure.
+    const ownedQuestionDiagram = isSolutionBlock && (solutionSource?.parentPos ?? -1) >= 0
+      ? diagramsOwnedByQuestion(editor.state.doc, solutionSource!.parentPos, isSolutionLabel)[0]
+      : undefined;
+    const existingDiagramNote = ownedQuestionDiagram
+      ? describeExistingDiagram(ownedQuestionDiagram.node.attrs?.scene as any)
+      : "";
+    const promptForAi = existingDiagramNote
+      ? `${finalPrompt}\n\n${existingDiagramNote}\nDescribe the solution using those labels only. Do NOT output any diagram, figure or 3D directive.`
+      : finalPrompt;
+
     const generationKind = solutionSource?.parentKind ?? info.kind;
     const generationBlockKind = isQuestionSectionKind(info.kind)
       ? "problem"
@@ -864,7 +883,7 @@ function DocumentEditorInner({
     try {
       content = (await aiGenerate({
         kind: generationKind,
-        teacherPrompt: finalPrompt,
+        teacherPrompt: promptForAi,
         ctx: contextAt(info.headingPos),
 
         context: isSolutionBlock ? solutionSource?.problemText : info.sectionText,
@@ -926,7 +945,10 @@ function DocumentEditorInner({
     // placeholder are inserted SEPARATELY so we have an exact position for
     // the geometry diagram (which must sit BELOW the question and ABOVE the
     // "Solution" heading — the diagram is part of the question).
-    const questionBodyNodes = aiTextToNodes(content);
+    // A Solution may never introduce a NEW diagram/3D figure — the question
+    // owns the only authoritative diagram, which the solution references.
+    const questionBodyNodes = aiTextToNodes(content, { allowFigures: !isSolutionBlock });
+
 
     // REGENERATE (and in-place EDIT): replace the section body, strictly
     // bounded by this section's range. Otherwise append at section end.
@@ -1005,11 +1027,11 @@ function DocumentEditorInner({
 
     /** Collect every geometryDiagram node attrs found in [from, to). */
     const collectDiagrams = (from: number, to: number) => {
-      const found: Array<{ scene: unknown; topic: unknown }> = [];
+      const found: Array<{ scene: unknown; topic: unknown; diagramId: unknown }> = [];
       if (to <= from) return found;
       editor.state.doc.nodesBetween(from, to, (n) => {
         if (n.type.name === "geometryDiagram") {
-          found.push({ scene: n.attrs?.scene, topic: n.attrs?.topic });
+          found.push({ scene: n.attrs?.scene, topic: n.attrs?.topic, diagramId: n.attrs?.diagramId ?? newDiagramId() });
         }
         return true;
       });
@@ -1031,7 +1053,7 @@ function DocumentEditorInner({
     let questionBodyEnd: number;
     // Diagrams preserved from the section before we wiped it; re-inserted
     // after the new body so they remain part of this section forever.
-    let preservedDiagrams: Array<{ scene: unknown; topic: unknown }> = [];
+    let preservedDiagrams: Array<{ scene: unknown; topic: unknown; diagramId: unknown }> = [];
     if (replaceBody) {
       const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
       const start = headingNodeSize ? info.headingPos + headingNodeSize : info.headingPos;
@@ -1056,7 +1078,7 @@ function DocumentEditorInner({
         const before = editor.state.doc.content.size;
         editor.chain().focus().insertContentAt(insertAt, {
           type: "geometryDiagram",
-          attrs: { scene: d.scene, topic: d.topic },
+          attrs: { scene: d.scene, topic: d.topic, diagramId: d.diagramId },
         }).run();
         questionBodyEnd += editor.state.doc.content.size - before;
       }
@@ -1103,25 +1125,24 @@ function DocumentEditorInner({
       if (!p) return false;
       return /\b(diagram|figure|redraw|sketch|draw|triangle|circle|polygon|angle|tangent|chord|arc|sector|parallel|perpendicular)\b/.test(p);
     })();
-    // DIAGRAM OWNERSHIP: the diagram belongs to the QUESTION block, never to
-    // the Solution. When the teacher generates/regenerates a Solution we
-    // resolve the anchor UP to the owning question heading and describe the
-    // diagram from the question text. If no owning question heading exists,
-    // no diagram is inserted at all.
-    const anchorHeadingPos = isSolutionBlock
-      ? (solutionSource?.parentPos ?? -1)
-      : info.headingPos;
-    const geometrySourceText = isSolutionBlock
-      ? (solutionSource?.problemText ?? "")
-      : content;
-    const solutionAnchorInvalid =
-      isSolutionBlock &&
-      (anchorHeadingPos < 0 ||
-        editor.state.doc.nodeAt(anchorHeadingPos)?.type.name !== "heading" ||
-        !geometrySourceText.trim());
+    // DIAGRAM OWNERSHIP: the diagram belongs to the QUESTION block, and it is
+    // created EXACTLY ONCE. Generating a Solution never triggers the geometry
+    // pass at all — the solution references the question's existing diagram
+    // instead of asking the model to redraw it.
+    const anchorHeadingPos = info.headingPos;
+    const geometrySourceText = content;
+    // A question that already owns a diagram — anywhere, including inside a
+    // free canvasFrame or a solution cell — never gets a second one.
+    const ownedDiagrams = diagramsOwnedByQuestion(
+      editor.state.doc,
+      anchorHeadingPos,
+      isSolutionLabel,
+    );
 
     const skipGeometryPass =
-      solutionAnchorInvalid ||
+      isSolutionBlock ||
+      !geometrySourceText.trim() ||
+      ownedDiagrams.length > 0 ||
       (replaceBody && preservedDiagrams.length > 0 && !promptAsksForDiagram);
 
     // Automatic geometry diagram pass. Fire-and-forget: if the section is
@@ -1130,6 +1151,7 @@ function DocumentEditorInner({
     // If the section isn't geometric, the backend returns null and we do
     // nothing. Errors here are non-fatal.
     if (!skipGeometryPass) void (async () => {
+
 
       try {
         const topic = ctxRef.current?.topic || notebookContext?.topic;
@@ -1157,7 +1179,7 @@ function DocumentEditorInner({
         let insertAt = sectionEnd;
         // If the question already owns a diagram, skip — one question, one
         // diagram; we never append a second one lower down.
-        const existing = collectDiagrams(anchorHeadingPos, sectionEnd);
+        const existing = diagramsOwnedByQuestion(liveDoc, anchorHeadingPos, isSolutionLabel);
         if (existing.length > 0) return;
         // Stop at the first heading below the question heading (the Solution
         // heading, when present) so the diagram sits ABOVE the Solution.
@@ -1178,7 +1200,7 @@ function DocumentEditorInner({
           .command(({ tr }) => { closeHistory(tr); return true; })
           .insertContentAt(insertAt, {
             type: "geometryDiagram",
-            attrs: { scene, topic },
+            attrs: { scene, topic, diagramId: newDiagramId() },
           })
           .run();
       } catch (err) {

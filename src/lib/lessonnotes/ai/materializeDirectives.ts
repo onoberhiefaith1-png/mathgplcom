@@ -281,9 +281,15 @@ export function materializeDirective(d: Directive): TipTapNode | null {
   }
 }
 
-/** Split raw AI text into plain-text chunks and resolved directive nodes. */
+const FIGURE_TOOLS = new Set(["diagram", "solid3d", "object3d"]);
+
+/** Split raw AI text into plain-text chunks and resolved directive nodes.
+ *  `allowFigures: false` (used for Solution generation) forbids directives that
+ *  would create a NEW diagram/3D figure — the question already owns the only
+ *  authoritative diagram, so such directives degrade to plain text. */
 export function splitDirectives(
   text: string,
+  opts?: { allowFigures?: boolean },
 ): Array<{ kind: "text"; text: string } | { kind: "node"; node: TipTapNode }> {
   const out: Array<{ kind: "text"; text: string } | { kind: "node"; node: TipTapNode }> = [];
   let last = 0;
@@ -291,7 +297,11 @@ export function splitDirectives(
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push({ kind: "text", text: text.slice(last, m.index) });
-    const node = materializeDirective(parseDirective(m[1], m[2] ?? "", m[0]));
+    const directive = parseDirective(m[1], m[2] ?? "", m[0]);
+    const node =
+      opts?.allowFigures === false && FIGURE_TOOLS.has(directive.tool)
+        ? null
+        : materializeDirective(directive);
     if (node) out.push({ kind: "node", node });
     else {
       // Fallback: keep whatever readable params the model supplied as text.

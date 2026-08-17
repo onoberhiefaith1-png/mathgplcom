@@ -158,6 +158,23 @@ function GeometryDiagramView({
     dispatch(tr);
   };
 
+  // Backfill a stable identity for diagrams created before `diagramId`
+  // existed, so a Solution can reference this exact figure. Housekeeping only —
+  // never an undo step.
+  useEffect(() => {
+    if (node.attrs?.diagramId) return;
+    const pos = typeof getPos === "function" ? getPos() : null;
+    if (pos == null) return;
+    const { state, dispatch } = tiptapEditor.view;
+    const target = state.doc.nodeAt(pos);
+    if (!target || target.type.name !== "geometryDiagram" || target.attrs?.diagramId) return;
+    const id = `D-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const tr = state.tr.setNodeMarkup(pos, undefined, { ...target.attrs, diagramId: id });
+    tr.setMeta("addToHistory", false);
+    dispatch(tr);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Undo/Redo exposed to the diagram UI: they drive the DOCUMENT history, so
   // there is never a second competing stack inside the canvas.
   const [historyTick, setHistoryTick] = useState(0);
@@ -418,12 +435,21 @@ export const GeometryDiagramNode = Node.create({
           "data-scene": JSON.stringify(attrs.scene ?? EMPTY_SCENE),
         }),
       },
+      // Stable identity so the Solution (and Floating/highlight actions) can
+      // REFERENCE this exact diagram instead of generating another one.
+      diagramId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-diagram-id") || null,
+        renderHTML: (attrs) =>
+          attrs.diagramId ? { "data-diagram-id": attrs.diagramId } : {},
+      },
       topic: {
         default: null,
         parseHTML: (el) => el.getAttribute("data-topic") || null,
         renderHTML: (attrs) =>
           attrs.topic ? { "data-topic": attrs.topic } : {},
       },
+
       align: {
         default: "center",
         parseHTML: (el) => el.getAttribute("data-align") || "center",
