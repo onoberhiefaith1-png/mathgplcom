@@ -122,6 +122,7 @@ import {
 } from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion } from "@/lib/lessonnotes/containerRange";
+import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
 
 /** Stable identity for a diagram, so a Solution can reference it instead of
  *  generating a second one. */
@@ -858,6 +859,19 @@ function DocumentEditorInner({
       });
       return;
     }
+    // The Solution references the question's EXISTING diagram. We hand the
+    // model an inventory of what is already drawn so it never redraws it,
+    // renames its points, or invents a second figure.
+    const ownedQuestionDiagram = isSolutionBlock && (solutionSource?.parentPos ?? -1) >= 0
+      ? diagramsOwnedByQuestion(editor.state.doc, solutionSource!.parentPos, isSolutionLabel)[0]
+      : undefined;
+    const existingDiagramNote = ownedQuestionDiagram
+      ? describeExistingDiagram(ownedQuestionDiagram.node.attrs?.scene as any)
+      : "";
+    const promptForAi = existingDiagramNote
+      ? `${finalPrompt}\n\n${existingDiagramNote}\nDescribe the solution using those labels only. Do NOT output any diagram, figure or 3D directive.`
+      : finalPrompt;
+
     const generationKind = solutionSource?.parentKind ?? info.kind;
     const generationBlockKind = isQuestionSectionKind(info.kind)
       ? "problem"
@@ -869,7 +883,7 @@ function DocumentEditorInner({
     try {
       content = (await aiGenerate({
         kind: generationKind,
-        teacherPrompt: finalPrompt,
+        teacherPrompt: promptForAi,
         ctx: contextAt(info.headingPos),
 
         context: isSolutionBlock ? solutionSource?.problemText : info.sectionText,
