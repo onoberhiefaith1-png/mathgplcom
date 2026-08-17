@@ -121,7 +121,12 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
-import { sectionEndWithin, clampInsideSection } from "@/lib/lessonnotes/containerRange";
+import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion } from "@/lib/lessonnotes/containerRange";
+
+/** Stable identity for a diagram, so a Solution can reference it instead of
+ *  generating a second one. */
+const newDiagramId = (): string =>
+  `D-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
 
@@ -1008,11 +1013,11 @@ function DocumentEditorInner({
 
     /** Collect every geometryDiagram node attrs found in [from, to). */
     const collectDiagrams = (from: number, to: number) => {
-      const found: Array<{ scene: unknown; topic: unknown }> = [];
+      const found: Array<{ scene: unknown; topic: unknown; diagramId: unknown }> = [];
       if (to <= from) return found;
       editor.state.doc.nodesBetween(from, to, (n) => {
         if (n.type.name === "geometryDiagram") {
-          found.push({ scene: n.attrs?.scene, topic: n.attrs?.topic });
+          found.push({ scene: n.attrs?.scene, topic: n.attrs?.topic, diagramId: n.attrs?.diagramId ?? newDiagramId() });
         }
         return true;
       });
@@ -1034,7 +1039,7 @@ function DocumentEditorInner({
     let questionBodyEnd: number;
     // Diagrams preserved from the section before we wiped it; re-inserted
     // after the new body so they remain part of this section forever.
-    let preservedDiagrams: Array<{ scene: unknown; topic: unknown }> = [];
+    let preservedDiagrams: Array<{ scene: unknown; topic: unknown; diagramId: unknown }> = [];
     if (replaceBody) {
       const headingNodeSize = editor.state.doc.nodeAt(info.headingPos)?.nodeSize ?? 0;
       const start = headingNodeSize ? info.headingPos + headingNodeSize : info.headingPos;
@@ -1059,7 +1064,7 @@ function DocumentEditorInner({
         const before = editor.state.doc.content.size;
         editor.chain().focus().insertContentAt(insertAt, {
           type: "geometryDiagram",
-          attrs: { scene: d.scene, topic: d.topic },
+          attrs: { scene: d.scene, topic: d.topic, diagramId: d.diagramId },
         }).run();
         questionBodyEnd += editor.state.doc.content.size - before;
       }
