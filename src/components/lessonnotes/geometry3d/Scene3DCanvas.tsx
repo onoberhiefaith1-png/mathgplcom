@@ -433,8 +433,11 @@ export function Scene3DCanvas({
       onPointerMissed={() => mode === "workspace" && onSelect?.(null)}
     >
       <color attach="background" args={[bgColor]} />
-      <ambientLight intensity={light ? 1.1 : 0.8} />
-      <ViewpointLight />
+      {/* While a solid is open, the exterior must stay brighter than the
+          cavity — so the camera light is eased back and ambient carries the
+          interior walls just enough to read them. */}
+      <ambientLight intensity={anyHollow ? (light ? 0.85 : 0.6) : light ? 1.1 : 0.8} />
+      <ViewpointLight intensity={anyHollow ? 5.5 : 12} />
 
       <directionalLight position={[5, 8, 5]} intensity={0.7} />
       <directionalLight position={[-6, -3, -5]} intensity={0.25} />
@@ -468,6 +471,8 @@ export function Scene3DCanvas({
               (mode === "lesson" && !(s.id === selectedId && !!pickKind))
             }
             onSelect={onSelect}
+            lightTheme={light}
+            background={bgColor}
           >
             <SolidElements
               solid={s}
