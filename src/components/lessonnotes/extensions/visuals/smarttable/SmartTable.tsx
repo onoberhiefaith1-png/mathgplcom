@@ -9,9 +9,13 @@ import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useAiEditBridge } from "@/hooks/useAiEditBridge";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { latexToFriendly } from "@/lib/notebook/mathFriendly";
 import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
 import { toast } from "@/hooks/use-toast";
 import { SmartTableCellToolbar } from "./SmartTableCellToolbar";
+import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
+import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
+import type { Row as MathRow } from "@/lib/smartboard/mathTree";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle,
 } from "@/components/lessonnotes/panel/panelPrimitives";
@@ -179,23 +183,32 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   modelRef.current = model;
 
   const aiBridge = useAiEditBridge();
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const [sel, setSel] = useState<{ s: number; e: number }>({ s: 0, e: 0 });
+  /** Viewport point of the click that opened the cell, so the math caret can
+   *  land exactly where the teacher clicked on the rendered value. */
+  const [entryPoint, setEntryPoint] = useState<{ x: number; y: number } | null>(null);
+  /** Live buffer for callbacks that fire after focus moved away. */
+  const bufferRef = useRef("");
+  bufferRef.current = buffer;
 
-  const beginEdit = (r: number, c: number) => {
+  const beginEdit = (r: number, c: number, point?: { x: number; y: number } | null) => {
     setActive({ r, c });
     setBuffer((r === -1 ? headers[c] : cells[r][c]) ?? "");
     setSel({ s: 0, e: 0 });
+    setEntryPoint(point ?? null);
   };
-  const cancelEdit = () => { setActive(null); setBuffer(""); setSel({ s: 0, e: 0 }); };
+  const cancelEdit = () => { setActive(null); setBuffer(""); setSel({ s: 0, e: 0 }); setEntryPoint(null); };
   const finishEdit = () => {
     if (!active) return;
     const { r, c } = active;
+    const raw = (bufferRef.current ?? "").trim();
     if (r === -1) {
-      const next = [...headers]; next[c] = buffer.trim(); patch({ headers: next });
+      const next = [...headers]; next[c] = raw; patch({ headers: next });
     } else {
-      const raw = buffer.trim();
-      const solved = tryEvaluate(raw);
+      // Same calculation engine as before — the friendly form is what the
+      // evaluator understands (√9, 3², 2+3), and anything symbolic falls
+      // through untouched so it stays real mathematics.
+      const solved = tryEvaluate(latexToFriendly(raw));
       const next = cells.map((row) => [...row]); next[r][c] = solved ?? raw; patch({ cells: next });
     }
     cancelEdit();
@@ -302,17 +315,13 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       setSumMode(null);
       return;
     }
-    // Clicking the cell's TEXT edits the value. Clicking the padding around
-    // it soft-selects the cell so a whole row/column can be inserted there.
-    const hitText = !!(e && (e.target as HTMLElement)?.closest?.("[data-cell-text]"));
-    if (!hitText) {
-      setLine(null);
-      cancelEdit();
-      setSoftCell((p) => (p && p.r === r && p.c === c ? null : { r, c }));
-      return;
-    }
-    setSoftCell(null);
-    if (!isEditing(r, c)) beginEdit(r, c);
+    // ONE CLICK = ACTIVE CELL. Anywhere inside the cell opens it for typing;
+    // the click point is replayed so the caret lands where it was clicked.
+    setLine(null);
+    // The cell also stays the anchor for inserting a full row / column, but
+    // that is tracked silently — no wash, no overlay.
+    setSoftCell({ r, c });
+    if (!isEditing(r, c)) beginEdit(r, c, e ? { x: e.clientX, y: e.clientY } : null);
   };
 
   // Structural edits always read the LIVE model (modelRef), never the
@@ -592,16 +601,9 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const rowSelected = (r: number) => line?.kind === "row" && line.index === r;
   const colSelected = (c: number) => line?.kind === "col" && line.index === c;
   const cellSoft = (r: number, c: number) => !!softCell && softCell.r === r && softCell.c === c;
-  const lineHi = (r: number, c: number): React.CSSProperties => {
-    if (rowSelected(r) || colSelected(c)) {
-      return { background: "rgba(37,99,235,0.16)", boxShadow: "inset 0 0 0 9999px rgba(37,99,235,0.06)" };
-    }
-    if (cellSoft(r, c)) {
-      // Soft wash — the text stays perfectly readable.
-      return { background: "rgba(37,99,235,0.12)", outline: "1px solid rgba(37,99,235,0.45)" };
-    }
-    return {};
-  };
+  /** NO CELL OVERLAY. Selection is communicated by the small edge handles only,
+   *  so the grid stays a clean white mathematical surface. */
+  const lineHi = (_r: number, _c: number): React.CSSProperties => ({});
   const handleCss: React.CSSProperties = {
     border: "1px solid rgba(37,99,235,0.35)",
     background: "rgba(37,99,235,0.08)",
@@ -669,7 +671,11 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 key={c}
                 style={{ ...headerCss, ...colStyle(c), ...lineHi(-1, c) }}
                 className="relative"
-                onClick={(e) => { e.stopPropagation(); if (sumMode) return; if (!isEditing(-1, c)) beginEdit(-1, c); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (sumMode) return;
+                  if (!isEditing(-1, c)) beginEdit(-1, c, { x: e.clientX, y: e.clientY });
+                }}
               >
                 {isEditing(-1, c) ? (
                   <>
@@ -677,17 +683,20 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                       onCopy={cellCopy} onCut={cellCut} onDelete={cellDelete}
                       onDuplicate={cellDuplicate} onComment={cellComment} onAiEdit={cellAiEdit}
                     />
-                    <InlineEditor
-                      inputRef={inputRef} value={buffer} onChange={setBuffer}
-                      onSelect={(s, e) => setSel({ s, e })}
-                      onCommit={finishEdit} onCancel={cancelEdit}
+                    <MathCellEditor
+                      value={buffer}
+                      entryPoint={entryPoint}
+                      onChange={setBuffer}
+                      onCommit={finishEdit}
                     />
                   </>
                 ) : (
                   <span className="block min-h-[1.4em]">
                     {h
                       ? cellDisplay(h, `h${c}`)
-                      : <span style={{ color: "#94a3b8" }}>header</span>}
+                      : selected
+                        ? <span style={{ color: "#cbd5e1" }}>header</span>
+                        : null}
                   </span>
                 )}
               </th>
@@ -730,16 +739,17 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                           onCopy={cellCopy} onCut={cellCut} onDelete={cellDelete}
                           onDuplicate={cellDuplicate} onComment={cellComment} onAiEdit={cellAiEdit}
                         />
-                        <InlineEditor
-                          inputRef={inputRef} value={buffer} onChange={setBuffer}
-                          onSelect={(s, e) => setSel({ s, e })}
-                          onCommit={finishEdit} onCancel={cancelEdit}
+                        <MathCellEditor
+                          value={buffer}
+                          entryPoint={entryPoint}
+                          onChange={setBuffer}
+                          onCommit={finishEdit}
                         />
                       </>
                     ) : (
                       <span className="block min-h-[1.4em]">
                         <span data-cell-text className="inline-block">
-                          {rendered ?? <span style={{ color: "#cbd5e1" }}>·</span>}
+                          {rendered}
                         </span>
                       </span>
                     )}
@@ -853,51 +863,50 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   );
 }
 
-function InlineEditor({ value, onChange, onCommit, onCancel, onSelect, inputRef }: {
+/**
+ * Cell editor = THE UNIVERSAL MATH EDITOR.
+ *
+ * Exactly the same `MathInlineCanvas` the lesson-note lines use, so every
+ * mathematical tool available in the workspace is available inside a table
+ * cell: `/` fractions, `#`/`##` powers and indices, smart brackets, roots and
+ * infinite nesting, with the caret free to walk into every region.
+ * Storage stays the shared LaTeX-lite string, so the display renderer
+ * (`renderMathInline`) draws the committed cell identically.
+ */
+function MathCellEditor({ value, onChange, onCommit, entryPoint }: {
   value: string;
   onChange: (v: string) => void;
   onCommit: () => void;
-  onCancel: () => void;
-  onSelect?: (start: number, end: number) => void;
-  inputRef?: React.MutableRefObject<HTMLInputElement | null>;
+  entryPoint?: { x: number; y: number } | null;
 }) {
-  const localRef = useRef<HTMLInputElement | null>(null);
-  const attach = (el: HTMLInputElement | null) => {
-    localRef.current = el;
-    if (inputRef) inputRef.current = el;
-  };
-  useEffect(() => {
-    localRef.current?.focus();
-    localRef.current?.select();
-    onSelect?.(0, localRef.current?.value.length ?? 0);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [root, setRoot] = useState<MathRow>(() => {
+    try { return latexToTree(normalizeMathSource(value)); } catch { return [] as MathRow; }
+  });
 
-  const report = () => {
-    const el = localRef.current;
-    if (!el) return;
-    onSelect?.(el.selectionStart ?? 0, el.selectionEnd ?? 0);
+  const commit = (next: MathRow) => {
+    setRoot(next);
+    try { onChange(normalizeMathSource(treeToLatex(next))); } catch { /* keep last good value */ }
   };
 
   return (
-    <input
-      ref={attach}
-      value={value}
-      onChange={(e) => { onChange(e.target.value); report(); }}
-      onSelect={report}
-      onKeyUp={report}
-      onMouseUp={report}
-      onBlur={onCommit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") { e.preventDefault(); onCommit(); }
-        else if (e.key === "Tab") { onCommit(); }
-        else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
-      }}
-      onClick={(e) => { e.stopPropagation(); report(); }}
-      className="w-full min-w-[3rem] px-1 py-0.5 text-center bg-transparent outline-hidden border-b border-primary"
+    <span
+      className="smart-table-cell-editor inline-block min-w-[3rem] px-1 py-0.5 align-baseline"
       style={{ color: "#0f172a" }}
-    />
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <MathInlineCanvas
+        root={root}
+        onChange={commit}
+        onBlur={onCommit}
+        focused
+        onFocus={() => { /* already focused */ }}
+        entryPoint={entryPoint ?? null}
+        onExitLeft={onCommit}
+        onExitRight={onCommit}
+      />
+    </span>
   );
-
 }
 
 export default SmartTable;

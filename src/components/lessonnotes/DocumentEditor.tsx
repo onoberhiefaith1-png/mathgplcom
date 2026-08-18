@@ -1789,6 +1789,26 @@ function DocumentEditorInner({
   const lastCaretRef = useRef<number | null>(null);
   const [sensorPos, setSensorPos] = useState<number | null>(null);
   const [editorFocused, setEditorFocused] = useState(false);
+  /** ONE POINTER RULE: while the teacher is typing inside an object's own
+   *  editor (a Smart Table cell, an inline math canvas), that editor owns the
+   *  caret — the Master Sensor marker steps aside so there is never a second
+   *  blinking pointer on the page. */
+  const [objectEditorFocused, setObjectEditorFocused] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const el = document.activeElement as HTMLElement | null;
+      setObjectEditorFocused(
+        !!el?.closest?.(".smart-table-cell-editor, .math-inline-node, [data-object-editor]"),
+      );
+    };
+    const onOut = () => window.setTimeout(check, 0);
+    document.addEventListener("focusin", check);
+    document.addEventListener("focusout", onOut);
+    return () => {
+      document.removeEventListener("focusin", check);
+      document.removeEventListener("focusout", onOut);
+    };
+  }, []);
   /** Document position of the empty free frame the sensor just created. It is
    *  removed again if the caret leaves it before anything is typed, so parking
    *  the sensor around never leaves stray blocks behind. */
@@ -2828,7 +2848,7 @@ function DocumentEditorInner({
               <SensorCaret
                 editor={editor}
                 pos={sensorPos}
-                hidden={editorFocused}
+                hidden={editorFocused || objectEditorFocused}
                 paperLayerRef={paperLayerRef}
                 zoom={zoom}
               />
