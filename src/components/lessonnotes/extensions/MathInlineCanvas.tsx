@@ -50,6 +50,12 @@ import {
   navigateOut,
 } from "@/lib/smartboard/mathTree";
 import { treeToLatex, latexToTree } from "@/lib/smartboard/mathTreeLatex";
+import type { AssetDef } from "@/lib/lessonnotes/assets/types";
+import { assetToMathInsertion } from "@/lib/lessonnotes/assets/mathInsert";
+import { pushRecent } from "@/lib/lessonnotes/assets/recents";
+import { mkMatrix } from "@/lib/smartboard/mathTree";
+import type { MatrixDialogResult } from "../MatrixCreateDialog";
+import { MathAssetPicker } from "./MathAssetPicker";
 
 
 
