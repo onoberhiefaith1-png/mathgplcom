@@ -18,6 +18,8 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
 import { CanvasFrame } from "./extensions/CanvasFrame";
+import { SessionSpacer } from "./extensions/SessionSpacer";
+import { attachSessionLayout } from "@/lib/lessonnotes/sessionLayout";
 import { startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { analyzeProblem, isStructuralLabelLine, type ProblemReport } from "@/lib/lessonnotes/problemDetect";
 import { ProblemCheckDialog } from "./ProblemCheckDialog";
@@ -1412,6 +1414,7 @@ function DocumentEditorInner({
       MathStructure,
       MathVisual,
       CanvasFrame,
+      SessionSpacer,
       AtCommand.configure({ onChange: setAtState }),
       MathKeyShortcuts,
     ],
@@ -1448,6 +1451,12 @@ function DocumentEditorInner({
     }
     if (!editor) return;
     editor.chain().focus().insertContent({ type: "scene3dDiagram", attrs: { scene } }).run();
+  }, [editor]);
+
+  // Sessions push each other down instead of overlapping; diagrams stay free.
+  useEffect(() => {
+    if (!editor) return;
+    return attachSessionLayout(editor);
   }, [editor]);
 
 

@@ -11,7 +11,7 @@
 
 import Heading from "@tiptap/extension-heading";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
-import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users, Share2, GripVertical } from "lucide-react";
+import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users, Share2 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
@@ -393,18 +393,43 @@ function SectionHeadingView(props: NodeViewProps) {
     return id;
   }, [editor, getPos, node]);
 
-  const startSolutionDrag = useCallback((e: React.PointerEvent) => {
+  // ── GRAB BAND ─────────────────────────────────────────────────────────
+  // The session is grabbed the way it always was: press near the TOP of the
+  // heading (or in the empty space after its text) and drag. No handle, no
+  // icon, no new control. A press without movement still places the caret, so
+  // typing and selecting on the heading are untouched.
+  const inGrabBand = useCallback((e: React.PointerEvent): boolean => {
+    const el = e.currentTarget as HTMLElement;
+    const heading = (el.querySelector("h1,h2,h3,h4,h5,h6") as HTMLElement | null) ?? el;
+    const r = heading.getBoundingClientRect();
+    if (e.clientY < r.top - 2 || e.clientY > r.bottom + 2) return false;
+    if (e.clientY - r.top <= Math.min(12, r.height * 0.35)) return true;
+    // Right of the heading's own text.
+    let textRight = r.left;
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(heading);
+      textRight = range.getBoundingClientRect().right || r.left;
+      range.detach?.();
+    } catch { /* fall back to the block box */ }
+    return e.clientX > textRight + 8;
+  }, []);
+
+  const startSessionDrag = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
     const pos = typeof getPos === "function" ? getPos() : null;
     if (pos == null) return;
-    e.preventDefault();
-    e.stopPropagation();
+    if (!inGrabBand(e)) return;
     const wrapperEl = wrapperRef.current;
     const frameEl = (wrapperEl?.closest('[data-canvas-frame][data-object-kind="solution"]') as HTMLElement | null) ?? null;
     const ghost = frameEl ?? (wrapperEl as HTMLElement | null);
     if (!ghost) return;
+    e.preventDefault();
+    e.stopPropagation();
     const ownerId = resolveOwnerQuestionId();
     startObjectDrag(editor, frameEl, e.clientX, e.clientY, {
       ghost,
+      onStart: () => { window.getSelection?.()?.removeAllRanges(); },
       onDetach: ({ x, y }) => {
         const at = typeof getPos === "function" ? getPos() : null;
         if (at == null) return null;
@@ -413,26 +438,30 @@ function SectionHeadingView(props: NodeViewProps) {
           objectKind: "solution",
           ownerQuestionId: ownerId,
           w: 640,
+          // Sessions reserve their space so they never cover the session below.
+          reserveSpace: true,
         });
       },
     });
-  }, [editor, getPos, resolveOwnerQuestionId]);
+  }, [editor, getPos, inGrabBand, resolveOwnerQuestionId]);
+
+  /** Hover feedback only: the band shows the grab cursor, nothing is drawn. */
+  const trackGrabCursor = useCallback((e: React.PointerEvent) => {
+    const el = e.currentTarget as HTMLElement;
+    el.classList.toggle("is-session-grab", kind ? inGrabBand(e) : false);
+  }, [inGrabBand, kind]);
 
   return (
-    <NodeViewWrapper className="section-heading-wrapper group relative" ref={wrapperRef as any}>
+    <NodeViewWrapper
+      className="section-heading-wrapper group relative"
+      ref={wrapperRef as any}
+      onPointerDown={kind ? startSessionDrag : undefined}
+      onPointerMove={kind ? trackGrabCursor : undefined}
+      onPointerLeave={(e: React.PointerEvent) =>
+        (e.currentTarget as HTMLElement).classList.remove("is-session-grab")
+      }
+    >
       <NodeViewContent as={`h${level}` as any} />
-      {kind === "solution" && (
-        <button
-          type="button"
-          contentEditable={false}
-          onPointerDown={startSolutionDrag}
-          className="lesson-solution-grip print:hidden"
-          title="Move this solution — the question and its diagram stay put"
-          aria-label="Move solution"
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
-      )}
       {kind && (
         <span
           contentEditable={false}
