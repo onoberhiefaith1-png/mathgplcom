@@ -19,6 +19,9 @@ import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
 import { CanvasFrame } from "./extensions/CanvasFrame";
 import { startObjectDrag } from "@/lib/lessonnotes/objectDrag";
+import { analyzeProblem, isStructuralLabelLine, type ProblemReport } from "@/lib/lessonnotes/problemDetect";
+import { ProblemCheckDialog } from "./ProblemCheckDialog";
+
 import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionRow";
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
 import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
