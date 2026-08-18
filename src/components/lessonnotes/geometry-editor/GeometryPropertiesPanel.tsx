@@ -6,25 +6,34 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Check, Eye, Loader2, Pencil, Plus, Sparkles, Trash2, X,
-  ChevronUp, ChevronDown, Link2, AlertTriangle,
+  Check, Eye, EyeOff, Loader2, Pencil, Plus, Sparkles, Trash2, X,
+  ChevronUp, ChevronDown, Link2, AlertTriangle, Wand2,
 } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import {
   PROPERTY_KINDS,
+  RELATIONSHIP_GROUPS,
+  RELATIONSHIP_OPERATORS,
+  RELATIONSHIP_VALUES,
   VIRTUAL_KINDS,
   angleNameFromRefs,
+  buildStatement,
+  chipObjectIds,
   connectionsOf,
   describeObject,
   describeTarget,
   detectTokens,
+  groupForType,
   newPropertyId,
   newVirtualId,
+  sceneInventory,
   validateProperties,
   type GeometryPropertiesDoc,
   type GeometryPropertyItem,
   type PropertyCategory,
   type PropertyKind,
+  type RelationshipGroup,
+  type StatementChip,
   type VirtualKind,
   type VirtualObject,
 } from "@/lib/geometry/properties/model";
@@ -40,12 +49,15 @@ interface Props {
   targetId: GeoId | null;
   /** Halo painted on the diagram (preview / editing feedback). */
   onHighlight: (ids: GeoId[]) => void;
+  /** Amber halo — everything the chosen relationship also involves. */
+  onRelated?: (ids: GeoId[]) => void;
   /** Reports the selected object's display name to the workspace header. */
   onTargetName?: (name: string | null) => void;
   /** Pick mode: while true, canvas clicks toggle connections. */
   connecting: boolean;
   setConnecting: (b: boolean) => void;
 }
+
 
 export function GeometryPropertiesPanel({
   scene, doc, onDocChange, targetId, onHighlight, onTargetName, connecting, setConnecting,
