@@ -6,6 +6,7 @@
 import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, X } from "lucide-react";
+import { toast } from "sonner";
 import type { Editor } from "@tiptap/react";
 import { captureNoteSelection, type CapturedContent } from "@/lib/lessonnotes/noteCapture";
 
@@ -64,8 +65,14 @@ export function SnipOverlay({ sheetEl, editor = null, onCancel, onCapture }: Pro
       if (!sheetEl) return null;
       const { toCanvas } = await import("html-to-image");
       const sheetBox = sheetEl.getBoundingClientRect();
+      // High pixel ratio so captured text and diagram strokes stay crisp
+      // rather than looking like a crude approximation.
+      const ratio = Math.min(
+        4,
+        Math.max(2, (typeof window !== "undefined" ? window.devicePixelRatio : 1) * 2),
+      );
       const full = await toCanvas(sheetEl, {
-        pixelRatio: 2,
+        pixelRatio: ratio,
         backgroundColor: "#ffffff",
         filter: (node) =>
           !(node instanceof HTMLElement && node.dataset?.slideChrome === "true"),
@@ -102,13 +109,37 @@ export function SnipOverlay({ sheetEl, editor = null, onCancel, onCapture }: Pro
     if (!rect || rect.width < 4 || rect.height < 4) return;
     setBusy(true);
     try {
-      const live: CapturedContent | null = captureNoteSelection(editor, sheetEl, rect);
+      // 1. Live note content — the highest-fidelity result, since the captured
+      //    mathematics stays real mathematics.
+      let live: CapturedContent | null = null;
+      try {
+        live = captureNoteSelection(editor, sheetEl, rect);
+      } catch (err) {
+        console.error("[capture] live note selection failed", err);
+      }
       if (live) {
         onCapture({ content: live.nodes, x: live.x, y: live.y, w: live.w, h: live.h });
         return;
       }
-      const raster = await rasterise(rect);
-      if (raster) onCapture(raster);
+
+      // 2. Rasterised fallback for anything that is not note nodes.
+      let raster: SnipResult | null = null;
+      try {
+        raster = await rasterise(rect);
+      } catch (err) {
+        console.error("[capture] rasterise failed", err);
+      }
+      if (raster) {
+        onCapture(raster);
+        return;
+      }
+
+      // Never fail silently — the teacher must know why nothing appeared.
+      toast.error(
+        sheetEl
+          ? "Nothing could be captured from that area. Try a slightly larger area."
+          : "The lesson note area is not ready yet. Close and reopen the slide panel.",
+      );
     } finally {
       setBusy(false);
     }

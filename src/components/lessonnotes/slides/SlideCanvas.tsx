@@ -4,7 +4,7 @@
 // auto-fitted per object. Every object is selectable, draggable and resizable
 // from eight handles.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Trash2, ArrowUp, ArrowDown, Maximize2, MoveHorizontal, RotateCcw } from "lucide-react";
+import { Trash2, ArrowUp, ArrowDown, Copy, Maximize2, MoveHorizontal, RotateCcw } from "lucide-react";
 import { SlideMedia } from "./SlideMedia";
 import { SlideContentBlock } from "./SlideContentBlock";
 import { SLIDE_PAGE, type SlideItem } from "@/lib/lessonnotes/slides";
@@ -16,6 +16,7 @@ interface Props {
   onSelect: (id: string | null) => void;
   onChange: (id: string, patch: Partial<SlideItem>) => void;
   onDelete: (id: string) => void;
+  onDuplicate?: (id: string) => void;
 }
 
 type Handle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -34,7 +35,7 @@ const HANDLES: { key: Handle; style: React.CSSProperties; cursor: string }[] = [
 const MIN = 0.03;
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
-export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }: Props) {
+export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete, onDuplicate }: Props) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const pageRef = useRef<HTMLDivElement | null>(null);
   const mode = useRef<{ kind: "move" | Handle; ratio: number; shift: boolean } | null>(null);
@@ -153,7 +154,7 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }:
       >
         {items.length === 0 && (
           <p className="absolute inset-0 grid place-items-center px-10 text-center text-base text-slate-400">
-            Blank slide — capture from the note, or import an image or video.
+            Blank slide — capture from the note, take a screenshot, or import an image or video.
           </p>
         )}
         {items.map((raw) => {
@@ -242,6 +243,16 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete }:
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                     </button>
+                    {onDuplicate && (
+                      <button
+                        type="button"
+                        title="Duplicate element"
+                        className="rounded p-1 hover:bg-slate-100"
+                        onClick={() => onDuplicate(item.id)}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       title="Delete element"

@@ -211,10 +211,20 @@ export const uploadSlideMedia = async (
   return path;
 };
 
+/** Prefix marking a slide item that REFERENCES an existing MyGPL library asset
+ *  instead of holding its own uploaded copy. */
+export const GPL_REF_PREFIX = "gpl:";
+
+export const gplRef = (storagePath: string) => `${GPL_REF_PREFIX}${storagePath}`;
+
 /** Signed display URL for a stored path (absolute links pass through). */
 export const slideMediaUrl = async (value: string): Promise<string | null> => {
   if (!value) return null;
   if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith(GPL_REF_PREFIX)) {
+    const { getSignedUrl } = await import("@/lib/games/urls");
+    return getSignedUrl(value.slice(GPL_REF_PREFIX.length));
+  }
   const { data } = await supabase.storage.from(BUCKET).createSignedUrl(value, 60 * 60 * 8);
   return data?.signedUrl ?? null;
 };
