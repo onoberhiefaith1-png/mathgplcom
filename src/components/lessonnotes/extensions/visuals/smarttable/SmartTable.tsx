@@ -271,16 +271,17 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
 
   const writeCell = (r: number, c: number, value: string) => {
-    const next = cells.map((row) => [...row]);
+    const next = modelRef.current.cells.map((row) => [...row]);
     next[r][c] = value;
     patch({ cells: next });
   };
 
   /** Σ Sum Row — add every numeric cell to the LEFT of (r, c). */
   const sumRow = (r: number, c: number) => {
+    const live = modelRef.current.cells;
     let total = 0;
     for (let i = 0; i < c; i++) {
-      const n = cellNumber(cells[r][i]);
+      const n = cellNumber(live[r]?.[i] ?? "");
       if (n !== null) total += n;
     }
     writeCell(r, c, formatNumber(total));
@@ -288,9 +289,10 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   /** Σ Sum Column — add every numeric cell ABOVE (r, c). Headers excluded. */
   const sumCol = (r: number, c: number) => {
+    const live = modelRef.current.cells;
     let total = 0;
     for (let i = 0; i < r; i++) {
-      const n = cellNumber(cells[i][c]);
+      const n = cellNumber(live[i]?.[c] ?? "");
       if (n !== null) total += n;
     }
     writeCell(r, c, formatNumber(total));
@@ -298,8 +300,12 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
   const handleCellClick = (r: number, c: number, e?: React.MouseEvent) => {
     if (sumMode) {
-      if (sumMode === "row") sumRow(r, c); else sumCol(r, c);
+      // Drop any in-flight editor WITHOUT committing, then write the total.
+      const mode = sumMode;
+      cancelEdit();
       setSumMode(null);
+      sumModeRef.current = null;
+      if (mode === "row") sumRow(r, c); else sumCol(r, c);
       return;
     }
     // ONE CLICK = ACTIVE CELL. Anywhere inside the cell opens it for typing;
