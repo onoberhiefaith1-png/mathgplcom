@@ -323,9 +323,11 @@ export const MathKeyShortcuts = Extension.create({
               }
             }
 
-            // Space exits one editable math branch. At prose level it remains
-            // a real space.
-            if (ch === " " && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+            // SPACE IS AN EDITING OPERATION, NEVER NAVIGATION.
+            // Pressing Space inserts real spacing at the caret so the teacher
+            // can correct AI spacing by hand; it must never jump the caret
+            // across the next component. Tab is the branch-exit control.
+            if (ch === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
               if (exitOneMathBranch(view)) {
                 event.preventDefault();
                 return true;

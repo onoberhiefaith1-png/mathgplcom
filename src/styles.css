@@ -425,7 +425,11 @@
 .lesson-doc p {
   margin: 0;
   min-height: 24px;
+  /* Manual spacing is a real edit: every space the teacher types survives, so
+     repeated Space presses widen the gap instead of collapsing to one. */
+  white-space: pre-wrap;
 }
+
 .lesson-doc p + p {
   text-indent: 1.25em;
 }
@@ -724,7 +728,10 @@
   border-bottom: 1px dashed transparent;
   cursor: text;
   text-align: center;
-  white-space: nowrap;
+  /* Spacing typed inside a script/fraction slot is preserved (and never wraps),
+     so the teacher can pad an exponent or subscript by hand. */
+  white-space: pre;
+
   text-indent: 0;
 }
 
