@@ -44,6 +44,51 @@ OUTPUT — STRICT JSON, no fences, no prose:
   ]
 }`;
 
+/**
+ * Whole-diagram analysis: one pass over every component of the diagram,
+ * answering "what can this component be used to find, prove or relate to?".
+ */
+const SYSTEM_MAP = `You are the Geometry Relationship Assistant for MathGPL.
+
+TASK: Analyse the WHOLE geometry diagram supplied as a read-only object
+inventory. For EVERY meaningful component (points, segments/lines/rays,
+angles, arcs, circles, regions, labelled values), decide what that component
+can be used to find, prove, calculate or relate to in THIS diagram, and emit
+those relationships.
+
+HARD RULES:
+- Every relationship MUST reference objects by the exact ids given in
+  OBJECTS. Never invent ids, labels, points or variables. If you cannot
+  ground a relationship in the given ids, omit it.
+- Only mathematically applicable relationships. Sine Rule / Cosine Rule /
+  triangle relationships ONLY when the triangle in question actually exists
+  in the inventory (its three segments/points are present).
+- Statements are written the way a teacher writes them on the board:
+  "∠ACD + ∠DCB = 180°", "AB = AC", "AB ∥ CD", "Area = ½ × base × height".
+- "reason" is a SHORT justification: "Given", "Angles on a straight line",
+  "Angles in the same segment", "Isosceles triangle", "Sine Rule".
+- "group" classifies the relationship: "angle", "line", "area" or "theorem".
+- "category": "specific" when it is about THIS diagram's values,
+  "general" when it is a definition/rule that always holds.
+- 3 to 8 relationships per component at most; skip components with nothing
+  useful to say.
+
+OUTPUT — STRICT JSON, no fences, no prose:
+{
+  "relationships": [
+    {
+      "componentId": string,          // the id this belongs to
+      "content": string,              // the statement
+      "reason": string,
+      "group": "angle" | "line" | "area" | "theorem",
+      "category": "specific" | "general",
+      "kind": "statement" | "definition" | "theorem" | "property" | "formula",
+      "connectedObjectIds": string[]  // every id involved, componentId included
+    }
+  ]
+}`;
+
+
 function stripFences(s: string): string {
   return s.trim().replace(/^```json\s*|\s*```$/g, "").replace(/^```\s*|\s*```$/g, "");
 }
