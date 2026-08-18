@@ -3011,6 +3011,10 @@ function NotebookGeometryOverlay({
     saveNotebookGeometry(notebookId, next);
   });
 
+  // Entrance to the existing Geometry Properties workspace (same scene).
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
+
+
   // Toolbar Dustbin: wipe 2D diagram objects the dustbin passes over.
   useEffect(() => {
     registerNotebookGeometryEraser((clientX, clientY) => {
