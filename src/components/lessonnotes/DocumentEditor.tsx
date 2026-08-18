@@ -2301,16 +2301,53 @@ function DocumentEditorInner({
 
   /** "+ Add Subtopic" — structural heading. Everything added under it belongs
    *  to that subtopic, and the AI generates for it only. */
+  /** Find an existing subtopic heading with this title. */
+  const findSubtopicHeading = (name: string): { pos: number; title: string } | null => {
+    if (!editor) return null;
+    let hit: { pos: number; title: string } | null = null;
+    editor.state.doc.descendants((n, p) => {
+      if (hit) return false;
+      if (n.type.name === "heading") {
+        const role = headingRole(n.textContent, n.attrs?.level ?? 6);
+        if (role?.role === "subtopic" && sameSubtopic(role.title, name)) hit = { pos: p, title: role.title };
+      }
+      return true;
+    });
+    return hit;
+  };
+
+  /** Confirm a subtopic. This is a CONTEXT SWITCH: the subtopic becomes the
+   *  active AI context, the main topic is untouched, and earlier subtopics stay
+   *  on the page. An existing subtopic is re-activated instead of duplicated. */
   const insertSubtopic = (title: string) => {
     if (!editor) return;
     const name = title.trim();
     if (!name) return;
+
+    const existing = findSubtopicHeading(name);
+    if (existing) {
+      aiCtx.setActiveSubtopic(existing.title, existing.pos);
+      moveSensorAfterInsert(existing.pos, existing.title);
+      toast({ title: `Switched to "${existing.title}"`, description: "This subtopic already exists — it is now the active context." });
+      return;
+    }
+
     const insertAt = insertAtSensor([
       { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: name }] },
       { type: "paragraph" },
     ]);
+    aiCtx.setActiveSubtopic(name, insertAt);
     moveSensorAfterInsert(insertAt, name);
+    toast({ title: `Subtopic: ${name}`, description: "All new AI content will be generated for this subtopic." });
   };
+
+  /** Switch back to a subtopic already present in the note. */
+  const activateSubtopic = (name: string) => {
+    const existing = findSubtopicHeading(name);
+    aiCtx.setActiveSubtopic(name, existing?.pos ?? null);
+    if (existing) moveSensorAfterInsert(existing.pos, existing.title);
+  };
+
 
 
 
