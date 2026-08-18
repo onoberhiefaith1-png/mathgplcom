@@ -227,8 +227,20 @@ function GeometryDiagramView({
       if (Math.abs(ev.clientX - startX) < 4 && Math.abs(ev.clientY - startY) < 4) activate();
     };
     window.addEventListener("pointerup", onUp);
+    const myDiagramId = (node.attrs?.diagramId as string | null) ?? null;
     startObjectDrag(tiptapEditor, frameEl, startX, startY, {
       ghost: frameEl ?? wrapper,
+      // Labels, angles, texts and areas that belong to this diagram travel with
+      // it, keeping their exact relative positions.
+      groupFrames: () => {
+        if (!myDiagramId) return [];
+        const root = tiptapEditor.view.dom as HTMLElement;
+        return Array.from(
+          root.querySelectorAll<HTMLElement>(
+            `[data-canvas-frame][data-owner-diagram-id="${myDiagramId}"]`,
+          ),
+        );
+      },
       onDetach: ({ x, y }) => {
         dragged = true;
         const at = typeof getPos === "function" ? getPos() : null;
@@ -239,6 +251,9 @@ function GeometryDiagramView({
         return detachIntoFrame(tiptapEditor, at, at + self.nodeSize, x, y, {
           objectKind: "diagram",
           ownerQuestionId: ownerQuestionIdFor(tiptapEditor.state.doc, at),
+          // A diagram is a free object: it reserves no flow space and may
+          // overlap freely.
+          reserveSpace: false,
           w: width,
         });
       },
