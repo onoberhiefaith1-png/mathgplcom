@@ -293,10 +293,7 @@ function GeometryDiagramView({
             relevanceText={(node.attrs.questionText as string) || undefined}
           />
         ) : (
-          <>
-            <StaticGeometryDiagram scene={scene} />
-            <GeometryGuideView scene={scene} />
-          </>
+          <StudentGuideDiagram scene={scene} />
         )}
 
         {(selected || aiVisible) && (
@@ -477,6 +474,27 @@ function LiveEditor({
           onClose={() => setPropertiesOpen(false)}
         />
       )}
+    </>
+  );
+}
+
+/**
+ * Read-only student view: the same static diagram plus the published guide.
+ * Clicking a relationship highlights the objects it refers to — no editing,
+ * no AI, no second diagram.
+ */
+function StudentGuideDiagram({ scene }: { scene: GeometryScene }) {
+  const [ids, setIds] = useState<string[]>([]);
+  const diff = useMemo(
+    () => (ids.length
+      ? { added: new Set(ids), removed: new Set<string>(), changed: new Set<string>() }
+      : undefined),
+    [ids],
+  );
+  return (
+    <>
+      <StaticGeometryDiagram scene={scene} diff={diff} />
+      <GeometryGuideView scene={scene} onHighlight={setIds} />
     </>
   );
 }

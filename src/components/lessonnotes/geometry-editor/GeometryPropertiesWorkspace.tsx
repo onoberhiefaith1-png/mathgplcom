@@ -7,11 +7,11 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import { GeometryWorkbench } from "./GeometryWorkbench";
 import { GeometryPropertiesPanel } from "./GeometryPropertiesPanel";
-import { readProperties, writeProperties } from "@/lib/geometry/properties/model";
+import { describeObject, readProperties, writeProperties } from "@/lib/geometry/properties/model";
 
 interface Props {
   scene: GeometryScene;
@@ -22,24 +22,28 @@ interface Props {
 export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props) {
   const [highlightIds, setHighlightIds] = useState<GeoId[]>([]);
   const [connecting, setConnecting] = useState(false);
+  const [targetName, setTargetName] = useState<string | null>(null);
   const doc = readProperties(scene);
 
   const body = (
     <div className="fixed inset-0 z-[95] flex flex-col bg-background">
-      <header className="flex items-center justify-between gap-3 border-b border-foreground/10 px-4 py-2">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">Geometry Properties</h2>
+      <header className="flex items-center gap-3 border-b border-foreground/10 px-3 py-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex items-center gap-1.5 rounded-md border border-foreground/20 px-2.5 py-1.5 text-[12px] font-medium hover:bg-foreground/5"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Lesson Note
+        </button>
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold tracking-tight">
+            Geometry Relationships
+            {targetName ? <span className="font-normal text-foreground/60"> · {targetName}</span> : null}
+          </h2>
           <p className="text-[11px] text-foreground/55">
             The diagram is the map — click any object to author its relationships.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex items-center gap-1.5 rounded border border-foreground/20 px-2.5 py-1 text-[12px] hover:bg-foreground/5"
-        >
-          <X className="h-3.5 w-3.5" /> Close
-        </button>
       </header>
 
       <div className="min-h-0 flex-1">
@@ -57,6 +61,7 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
               onDocChange={(next) => editor.commit(writeProperties(editor.scene, next))}
               targetId={editor.selectedIds[0] ?? null}
               onHighlight={setHighlightIds}
+              onTargetName={setTargetName}
               connecting={connecting}
               setConnecting={setConnecting}
             />

@@ -12,7 +12,9 @@ import {
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import {
   PROPERTY_KINDS,
+  connectionsOf,
   describeObject,
+  detectTokens,
   newPropertyId,
   validateProperties,
   type GeometryPropertiesDoc,
@@ -32,13 +34,15 @@ interface Props {
   targetId: GeoId | null;
   /** Halo painted on the diagram (preview / editing feedback). */
   onHighlight: (ids: GeoId[]) => void;
+  /** Reports the selected object's display name to the workspace header. */
+  onTargetName?: (name: string | null) => void;
   /** Pick mode: while true, canvas clicks toggle connections. */
   connecting: boolean;
   setConnecting: (b: boolean) => void;
 }
 
 export function GeometryPropertiesPanel({
-  scene, doc, onDocChange, targetId, onHighlight, connecting, setConnecting,
+  scene, doc, onDocChange, targetId, onHighlight, onTargetName, connecting, setConnecting,
 }: Props) {
   const target = targetId ? describeObject(scene, targetId) : null;
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,6 +50,13 @@ export function GeometryPropertiesPanel({
   const [draftKind, setDraftKind] = useState<PropertyKind>("statement");
   const [busy, setBusy] = useState(false);
   const [showIssues, setShowIssues] = useState(false);
+  /** Symbol waiting to be bound to the next object the teacher clicks. */
+  const [bindToken, setBindToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    onTargetName?.(target ? `${target.typeLabel} ${target.name}` : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target?.id, target?.name, target?.typeLabel]);
 
   const issues = useMemo(() => validateProperties(scene, doc), [scene, doc]);
 
@@ -64,7 +75,7 @@ export function GeometryPropertiesPanel({
 
   // Editing an item shows its connections on the diagram.
   useEffect(() => {
-    if (editing) onHighlight(editing.connectedObjectIds);
+    if (editing) onHighlight(connectionsOf(editing));
     else if (!connecting) onHighlight([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, editing?.connectedObjectIds.join(","), connecting]);
@@ -139,8 +150,18 @@ export function GeometryPropertiesPanel({
 
   /* ── connection mode: canvas clicks land here via targetId ── */
   useEffect(() => {
-    if (!connecting || !editing || !targetId) return;
+    if (!editing || !targetId) return;
     const base = targetId.split("#")[0];
+    if (bindToken) {
+      const rest = (editing.tokens ?? []).filter((t) => t.token !== bindToken);
+      upsert({
+        ...editing,
+        tokens: [...rest, { token: bindToken, objectId: base }],
+      });
+      setBindToken(null);
+      return;
+    }
+    if (!connecting) return;
     const has = editing.connectedObjectIds.includes(base);
     upsert({
       ...editing,
@@ -149,7 +170,7 @@ export function GeometryPropertiesPanel({
         : [...editing.connectedObjectIds, base],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetId, connecting]);
+  }, [targetId, connecting, bindToken]);
 
   const aiSuggest = async () => {
     if (!target) return;
@@ -251,11 +272,19 @@ export function GeometryPropertiesPanel({
               onToggleEnabled={() => upsert({ ...item, enabled: item.enabled === false })}
               onApprove={() => upsert({ ...item, approved: true })}
               onMove={(d) => move(item, d)}
-              onPreview={() => onHighlight(item.connectedObjectIds)}
+              onPreview={() => onHighlight(connectionsOf(item))}
               onToggleConnecting={() => {
                 if (editingId !== item.id) openEdit(item);
                 setConnecting(!(connecting && editingId === item.id));
               }}
+              bindToken={editingId === item.id ? bindToken : null}
+              onBindToken={(t) => {
+                if (editingId !== item.id) openEdit(item);
+                setBindToken((cur) => (cur === t ? null : t));
+              }}
+              onUnbindToken={(t) =>
+                upsert({ ...item, tokens: (item.tokens ?? []).filter((x) => x.token !== t) })
+              }
               onRemoveConnection={(id) =>
                 upsert({
                   ...item,
@@ -293,11 +322,19 @@ export function GeometryPropertiesPanel({
               onToggleEnabled={() => upsert({ ...item, enabled: item.enabled === false })}
               onApprove={() => upsert({ ...item, approved: true })}
               onMove={(d) => move(item, d)}
-              onPreview={() => onHighlight(item.connectedObjectIds)}
+              onPreview={() => onHighlight(connectionsOf(item))}
               onToggleConnecting={() => {
                 if (editingId !== item.id) openEdit(item);
                 setConnecting(!(connecting && editingId === item.id));
               }}
+              bindToken={editingId === item.id ? bindToken : null}
+              onBindToken={(t) => {
+                if (editingId !== item.id) openEdit(item);
+                setBindToken((cur) => (cur === t ? null : t));
+              }}
+              onUnbindToken={(t) =>
+                upsert({ ...item, tokens: (item.tokens ?? []).filter((x) => x.token !== t) })
+              }
               onRemoveConnection={(id) =>
                 upsert({
                   ...item,
@@ -443,6 +480,7 @@ function ItemCard({
   onDraftText, onDraftKind, onOpenEdit, onSave, onCancel, onRemove,
   onToggleCategory, onToggleEnabled, onApprove, onMove, onPreview,
   onToggleConnecting, onRemoveConnection,
+  bindToken, onBindToken, onUnbindToken,
 }: {
   scene: GeometryScene;
   item: GeometryPropertyItem;
@@ -463,8 +501,13 @@ function ItemCard({
   onPreview: () => void;
   onToggleConnecting: () => void;
   onRemoveConnection: (id: GeoId) => void;
+  bindToken: string | null;
+  onBindToken: (token: string) => void;
+  onUnbindToken: (token: string) => void;
 }) {
   const chips = item.connectedObjectIds.map((id) => ({ id, info: describeObject(scene, id) }));
+  const symbols = detectTokens(editing ? draftText : item.content);
+  const bound = new Map((item.tokens ?? []).map((t) => [t.token, t.objectId]));
 
   return (
     <div
@@ -499,6 +542,49 @@ function ItemCard({
         </>
       ) : (
         <p className="text-[12px] leading-snug">{item.content || "Untitled relationship"}</p>
+      )}
+
+      {symbols.length > 0 && (
+        <div className="space-y-1 rounded border border-foreground/10 bg-foreground/[0.02] p-1.5">
+          <p className="text-[9.5px] uppercase tracking-wider text-foreground/50">
+            Symbols — tap one, then click the object on the diagram
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {symbols.map((tk) => {
+              const objId = bound.get(tk);
+              const info = objId ? describeObject(scene, objId) : null;
+              const active = bindToken === tk;
+              return (
+                <span
+                  key={tk}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px]",
+                    active
+                      ? "border-emerald-500 bg-emerald-500 text-white"
+                      : info
+                        ? "border-foreground/25 bg-foreground/[0.05]"
+                        : "border-dashed border-foreground/30",
+                  )}
+                >
+                  <button type="button" onClick={() => onBindToken(tk)} className="font-semibold">
+                    {tk}
+                  </button>
+                  {info ? <span className="opacity-80">= {info.name}</span> : <span className="opacity-60">unbound</span>}
+                  {info && (
+                    <button type="button" onClick={() => onUnbindToken(tk)} title="Unbind symbol">
+                      <X className="h-2.5 w-2.5 opacity-60 hover:opacity-100" />
+                    </button>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+          {bindToken && (
+            <p className="text-[10px] text-emerald-700 dark:text-emerald-300">
+              Click the diagram object that “{bindToken}” refers to.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="flex flex-wrap gap-1">

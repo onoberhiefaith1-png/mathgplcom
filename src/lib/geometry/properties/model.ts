@@ -32,6 +32,12 @@ export const PROPERTY_KINDS: { value: PropertyKind; label: string }[] = [
 
 export type GuideAccess = "off" | "specific" | "general" | "both";
 
+/** A symbol inside the relationship text bound to a diagram object. */
+export interface TokenBinding {
+  token: string;
+  objectId: GeoId;
+}
+
 export interface GeometryPropertyItem {
   id: string;
   category: PropertyCategory;
@@ -42,6 +48,8 @@ export interface GeometryPropertyItem {
   sourceObjectIds: GeoId[];
   /** Every diagram object the relationship involves (any number, any type). */
   connectedObjectIds: GeoId[];
+  /** Optional symbol → object bindings ("X" is this segment, "θ" is this angle). */
+  tokens?: TokenBinding[];
   aiGenerated?: boolean;
   /** AI drafts start unapproved; teacher content is approved on save. */
   approved?: boolean;
@@ -109,6 +117,11 @@ function sanitize(raw: unknown): GeometryPropertiesDoc | null {
       connectedObjectIds: Array.isArray(item.connectedObjectIds)
         ? item.connectedObjectIds.filter((x): x is string => typeof x === "string")
         : [],
+      tokens: Array.isArray(item.tokens)
+        ? (item.tokens as TokenBinding[]).filter(
+            (t) => t && typeof t.token === "string" && typeof t.objectId === "string",
+          )
+        : undefined,
       aiGenerated: !!item.aiGenerated,
       approved: item.approved !== false,
       enabled: item.enabled !== false,
@@ -309,4 +322,33 @@ export function hasPublishedGuide(doc: GeometryPropertiesDoc): boolean {
     doc.access !== "off" &&
     doc.items.some((i) => i.enabled !== false && i.approved !== false)
   );
+}
+
+/* ───────────── symbol tokens inside relationship text ───────────── */
+
+const TOKEN_RE = /[A-Za-z]{1,3}|[α-ωΑ-Ω]|∠[A-Za-z]{1,3}/g;
+const TOKEN_STOPWORDS = new Set([
+  "sin", "cos", "tan", "log", "ln", "and", "the", "is", "of", "so", "if",
+  "cot", "sec", "csc", "for", "to", "in", "on", "at", "by", "as", "or",
+]);
+
+/** Symbols a teacher can bind to diagram objects, in first-appearance order. */
+export function detectTokens(content: string): string[] {
+  const out: string[] = [];
+  for (const m of content.match(TOKEN_RE) ?? []) {
+    const t = m.trim();
+    if (!t || TOKEN_STOPWORDS.has(t.toLowerCase())) continue;
+    if (!out.includes(t)) out.push(t);
+  }
+  return out.slice(0, 12);
+}
+
+/** Every object referenced by a relationship (bindings + explicit picks). */
+export function connectionsOf(item: GeometryPropertyItem): GeoId[] {
+  return [
+    ...new Set([
+      ...item.connectedObjectIds,
+      ...(item.tokens ?? []).map((t) => t.objectId),
+    ]),
+  ];
 }

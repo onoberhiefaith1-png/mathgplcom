@@ -11,6 +11,7 @@ import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import { pointsOnCircle, pointsOnArc } from "@/lib/geometry/editor/snap";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 import { ChevronDown, ChevronRight, ChevronUp, Undo2, Redo2, Trash2, Network } from "lucide-react";
+import { describeObject } from "@/lib/geometry/properties/model";
 
 interface Props {
   scene: GeometryScene;
@@ -208,17 +209,32 @@ export function SelectionInspector(props: Props) {
       {body}
       {onOpenProperties && (
         <div className="pt-2 mt-2 border-t border-foreground/10">
-          <button
-            type="button"
-            onClick={onOpenProperties}
-            className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded border border-primary/40 bg-primary/10 text-primary text-[12px] font-medium hover:bg-primary/15"
-            title="Author the relationships for this diagram"
-          >
-            <Network className="h-3.5 w-3.5" /> Geometry Properties
-          </button>
-          <p className="mt-1 text-[10px] text-foreground/50">
-            Relationship map for this diagram — specific facts and general rules.
-          </p>
+          <div className="rounded-lg border border-primary/35 bg-primary/[0.06] p-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+              Geometry properties &amp; relationships
+            </p>
+            <p className="mt-0.5 text-[11px] text-foreground/70">
+              {(() => {
+                const first = (props.selectedIds ?? selected.map((o) => o.id))[0];
+                const info = first ? describeObject(props.scene, first) : null;
+                if (selected.length > 1) return `Selected: ${selected.length} objects`;
+                if (info) return `Selected: ${info.typeLabel.toUpperCase()} — ${info.name}`;
+                return "Nothing selected — open the workspace and pick from the diagram.";
+              })()}
+            </p>
+            <button
+              type="button"
+              onClick={onOpenProperties}
+              className="mt-1.5 w-full inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-md bg-primary text-primary-foreground text-[12.5px] font-semibold hover:opacity-90"
+              title="Open the Geometry Relationships workspace for this diagram"
+            >
+              <Network className="h-4 w-4" /> Open Geometry Relationships
+            </button>
+            <p className="mt-1 text-[10px] text-foreground/55">
+              Explore how this element relates to the rest of the diagram — specific facts
+              and general rules.
+            </p>
+          </div>
         </div>
       )}
       {onDeleteDiagram && (
