@@ -11,8 +11,8 @@
 
 import Heading from "@tiptap/extension-heading";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
-import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users, Share2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, Users, Share2, GripVertical } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import { AssignDialog } from "../AssignDialog";
@@ -22,6 +22,7 @@ import { toast } from "@/hooks/use-toast";
 import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import { sectionEndWithin } from "@/lib/lessonnotes/containerRange";
+import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 
 
@@ -348,16 +349,94 @@ function SectionHeadingView(props: NodeViewProps) {
   }, [resolveSubsectionId, locateIndices, notebookId]);
 
 
+  // ── SPLIT THE SOLUTION FROM ITS QUESTION ──────────────────────────────
+  // The teacher grabs the Solution and moves it anywhere on the page (e.g.
+  // below the question's diagram). ONLY the solution moves: the question text
+  // and the diagram stay exactly where they are, and the logical relationship
+  // (ownerQuestionId → the question) is preserved forever.
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
 
+  /** The id of the question this Solution belongs to, assigning one to the
+   *  owning question heading if it has none yet (never an undo step). */
+  const resolveOwnerQuestionId = useCallback((): string | null => {
+    const existing = (node.attrs as any)?.ownerQuestionId as string | null;
+    if (existing) return existing;
+    const pos = typeof getPos === "function" ? getPos() : null;
+    if (pos == null) return null;
+    const doc = editor.state.doc;
+    let ownerPos = -1;
+    doc.descendants((n, p) => {
+      if (p >= pos) return false;
+      if (n.type.name === "heading" && detectSectionKind(n.textContent) !== "solution") ownerPos = p;
+      return true;
+    });
+    if (ownerPos < 0) return null;
+    const owner = doc.nodeAt(ownerPos);
+    if (!owner) return null;
+    let id = (owner.attrs as any)?.sectionId as string | null;
+    const tr = editor.state.tr;
+    if (!id) {
+      id = `q_${Math.random().toString(36).slice(2, 10)}`;
+      tr.setNodeMarkup(ownerPos, undefined, { ...owner.attrs, sectionId: id });
+    }
+    const selfPos = typeof getPos === "function" ? getPos() : null;
+    if (selfPos != null) {
+      const self = tr.doc.nodeAt(selfPos);
+      if (self && self.type.name === "heading") {
+        tr.setNodeMarkup(selfPos, undefined, { ...self.attrs, ownerQuestionId: id });
+      }
+    }
+    if (tr.docChanged) {
+      tr.setMeta("addToHistory", false);
+      editor.view.dispatch(tr);
+    }
+    return id;
+  }, [editor, getPos, node]);
 
-
+  const startSolutionDrag = useCallback((e: React.PointerEvent) => {
+    const pos = typeof getPos === "function" ? getPos() : null;
+    if (pos == null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const wrapperEl = wrapperRef.current;
+    const frameEl = (wrapperEl?.closest('[data-canvas-frame][data-object-kind="solution"]') as HTMLElement | null) ?? null;
+    const ghost = frameEl ?? (wrapperEl as HTMLElement | null);
+    if (!ghost) return;
+    const ownerId = resolveOwnerQuestionId();
+    startObjectDrag(editor, frameEl, e.clientX, e.clientY, {
+      ghost,
+      onDetach: ({ x, y }) => {
+        const at = typeof getPos === "function" ? getPos() : null;
+        if (at == null) return null;
+        const end = sectionEndWithin(editor.state.doc, at);
+        return detachIntoFrame(editor, at, end, x, y, {
+          objectKind: "solution",
+          ownerQuestionId: ownerId,
+          w: 640,
+        });
+      },
+    });
+  }, [editor, getPos, resolveOwnerQuestionId]);
 
   return (
-    <NodeViewWrapper className="section-heading-wrapper group relative">
+    <NodeViewWrapper className="section-heading-wrapper group relative" ref={wrapperRef as any}>
       <NodeViewContent as={`h${level}` as any} />
+      {kind === "solution" && (
+        <button
+          type="button"
+          contentEditable={false}
+          onPointerDown={startSolutionDrag}
+          className="lesson-solution-grip print:hidden"
+          title="Move this solution — the question and its diagram stay put"
+          aria-label="Move solution"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+      )}
       {kind && (
         <span
           contentEditable={false}
+
           className="lesson-section-side-actions select-none print:hidden"
         >
           <AiPopover
@@ -499,6 +578,26 @@ export const SectionHeading = Heading.extend<SectionHeadingOptions>({
       onGenerateSection: async () => {},
     };
   },
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      /** Stable identity of a question block (Example, Exercise, …). */
+      sectionId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-section-id"),
+        renderHTML: (attrs) =>
+          attrs.sectionId ? { "data-section-id": attrs.sectionId } : {},
+      },
+      /** Permanent link from a Solution back to the question it belongs to —
+       *  it survives being dragged anywhere on the page. */
+      ownerQuestionId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-owner-question-id"),
+        renderHTML: (attrs) =>
+          attrs.ownerQuestionId ? { "data-owner-question-id": attrs.ownerQuestionId } : {},
+      },
+    };
+  },
   addNodeView() {
     return ReactNodeViewRenderer(SectionHeadingView);
   },
@@ -506,6 +605,7 @@ export const SectionHeading = Heading.extend<SectionHeadingOptions>({
     return [buildAddAnotherPlugin()];
   },
 });
+
 
 // ---------------------------------------------------------------------------
 // "+ Add another <Example>" widget at the end of every repeatable section.

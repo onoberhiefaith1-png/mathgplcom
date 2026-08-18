@@ -29,6 +29,16 @@ export const CanvasFrame = Node.create({
       x: { default: 0, parseHTML: (el) => num(el.getAttribute("data-x")) },
       y: { default: 0, parseHTML: (el) => num(el.getAttribute("data-y")) },
       w: { default: 420, parseHTML: (el) => num(el.getAttribute("data-w"), 420) },
+      /** "solution" | "diagram" when the frame hosts one detached object. */
+      objectKind: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-object-kind"),
+      },
+      /** Permanent relationship back to the question this object belongs to. */
+      ownerQuestionId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-owner-question-id"),
+      },
     };
   },
 
@@ -40,6 +50,8 @@ export const CanvasFrame = Node.create({
     const x = num(node.attrs.x);
     const y = num(node.attrs.y);
     const w = num(node.attrs.w, 420);
+    const kind = (node.attrs.objectKind as string | null) ?? null;
+    const owner = (node.attrs.ownerQuestionId as string | null) ?? null;
     return [
       "div",
       mergeAttributes(HTMLAttributes, {
@@ -47,12 +59,17 @@ export const CanvasFrame = Node.create({
         "data-x": String(x),
         "data-y": String(y),
         "data-w": String(w),
-        class: "lesson-canvas-frame",
+        ...(kind ? { "data-object-kind": kind } : {}),
+        ...(owner ? { "data-owner-question-id": owner } : {}),
+        // An object frame carries NO chrome: a moved diagram or solution must
+        // look exactly like normal content on the page.
+        class: kind ? "lesson-canvas-frame lesson-canvas-frame--bare" : "lesson-canvas-frame",
         style: `position:absolute;left:${x}px;top:${y}px;width:${w}px;`,
       }),
       0,
     ];
   },
+
 });
 
 export default CanvasFrame;

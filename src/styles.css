@@ -410,6 +410,15 @@
 .lesson-canvas-frame:hover::before {
   background: hsl(220 80% 45% / 0.45);
 }
+/* Object frames (a moved diagram or a split-off solution) stay visually clean:
+   no gutter bar, no border, no container of any kind. */
+.lesson-canvas-frame--bare {
+  padding-left: 0;
+}
+.lesson-canvas-frame--bare::before {
+  display: none;
+}
+
 
 
 
@@ -545,6 +554,32 @@
   flex: 0 0 auto;
   margin-right: auto;
 }
+/* Grab handle beside a Solution heading: the teacher can split the solution
+   away from its question and park it anywhere (relationship is preserved). */
+.lesson-solution-grip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35rem;
+  padding: 1px;
+  border-radius: 4px;
+  color: hsl(var(--foreground) / 0.35);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 140ms ease, color 140ms ease;
+  vertical-align: middle;
+}
+.section-heading-wrapper:hover .lesson-solution-grip,
+.lesson-solution-grip:focus-visible {
+  opacity: 1;
+}
+.lesson-solution-grip:hover {
+  color: hsl(var(--foreground) / 0.75);
+  background: hsl(var(--foreground) / 0.06);
+}
+.lesson-solution-grip:active {
+  cursor: grabbing;
+}
+
 .lesson-doc .lesson-section-side-actions {
   display: inline-flex;
   align-items: baseline;

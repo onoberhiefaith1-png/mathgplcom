@@ -25,6 +25,8 @@ import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/Geomet
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
+import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
+import { ownerQuestionIdFor } from "@/lib/lessonnotes/containerRange";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
@@ -191,7 +193,58 @@ function GeometryDiagramView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [tiptapEditor, historyTick]);
 
+  // ── DRAG THE WHOLE DIAGRAM (outside Diagram 2D mode) ──────────────────
+  // Geometry Mode OFF → the diagram is a movable workspace object: pressing on
+  // it and dragging moves the entire figure (geometry, points, labels, angles,
+  // lines, circles, annotations) because the whole scene travels with the node.
+  // Geometry Mode ON  → unchanged Diagram 2D behaviour: select and edit.
+  // A press without movement still activates the diagram, as before.
+  const { mode: geometryModeOn } = useGeometryMode();
 
+  const handlePointerDown = (e: React.PointerEvent) => {
+    kickAi();
+    const pos = typeof getPos === "function" ? getPos() : null;
+    if (pos == null) return;
+    const activate = () => {
+      if (selected) return;
+      pendingClick.current = { x: e.clientX, y: e.clientY };
+      tiptapEditor.commands.setNodeSelection(pos);
+    };
+    if (geometryModeOn) { activate(); return; }
+
+    // Movable-object interaction.
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const wrapper = (wrapRef.current?.closest("[data-geometry-diagram-node]") as HTMLElement | null)
+      ?? wrapRef.current;
+    const frameEl = (wrapper?.closest('[data-canvas-frame][data-object-kind="diagram"]') as HTMLElement | null) ?? null;
+    if (!wrapper) { activate(); return; }
+    e.preventDefault();
+    let dragged = false;
+    const onUp = (ev: PointerEvent) => {
+      window.removeEventListener("pointerup", onUp);
+      if (dragged) return;
+      if (Math.abs(ev.clientX - startX) < 4 && Math.abs(ev.clientY - startY) < 4) activate();
+    };
+    window.addEventListener("pointerup", onUp);
+    startObjectDrag(tiptapEditor, frameEl, startX, startY, {
+      ghost: frameEl ?? wrapper,
+      onDetach: ({ x, y }) => {
+        dragged = true;
+        const at = typeof getPos === "function" ? getPos() : null;
+        if (at == null) return null;
+        const self = tiptapEditor.state.doc.nodeAt(at);
+        if (!self) return null;
+        const width = Math.max(200, Math.round((wrapper.getBoundingClientRect().width || 420)));
+        return detachIntoFrame(tiptapEditor, at, at + self.nodeSize, x, y, {
+          objectKind: "diagram",
+          ownerQuestionId: ownerQuestionIdFor(tiptapEditor.state.doc, at),
+          w: width,
+        });
+      },
+    });
+    if (frameEl) dragged = true;
+  };
 
   return (
     <NodeViewWrapper
@@ -203,21 +256,15 @@ function GeometryDiagramView({
         ref={wrapRef}
         data-geometry-diagram-wrapper="true"
         data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
-        className="relative inline-block"
+        className={cn("relative inline-block", !geometryModeOn && !selected && "cursor-grab")}
         style={{ overflow: "visible" }}
 
         onMouseEnter={kickAi}
         onMouseMove={kickAi}
         onFocus={kickAi}
-        onMouseDown={(e) => {
-          kickAi();
-          const pos = typeof getPos === "function" ? getPos() : null;
-          if (pos != null && !selected) {
-            pendingClick.current = { x: e.clientX, y: e.clientY };
-            tiptapEditor.commands.setNodeSelection(pos);
-          }
-        }}
+        onPointerDown={handlePointerDown}
       >
+
 
         {selected ? (
           <LiveEditor
