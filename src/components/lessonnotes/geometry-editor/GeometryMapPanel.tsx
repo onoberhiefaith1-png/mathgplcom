@@ -27,13 +27,24 @@ interface Props {
   /** Currently selected diagram object — the panel's relink target. */
   targetId: GeoId | null;
   onHighlight: (ids: GeoId[]) => void;
-  /** The question and the solution this map is derived from. */
-  context: { question: string; solution: string };
+  /** The question and the solution this map is permanently bound to. */
+  context: MapContext;
+  /** Closes the workspace and puts the caret in this question's Solution. */
+  onOpenSolution?: () => void;
   topic?: string;
 }
 
+export interface MapContext {
+  questionId?: string | null;
+  questionLabel?: string;
+  question: string;
+  solution: string;
+  solutionHash?: string;
+  hasSolution?: boolean;
+}
+
 export function GeometryMapPanel({
-  scene, doc, onDocChange, targetId, onHighlight, context, topic,
+  scene, doc, onDocChange, targetId, onHighlight, context, onOpenSolution, topic,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -69,8 +80,17 @@ export function GeometryMapPanel({
   };
 
   const runGenerate = async () => {
+    // Pre-flight: say exactly what is missing rather than failing silently.
+    if (scene.objects.length === 0) {
+      toast.error("This diagram is empty — draw it in the lesson note first.");
+      return;
+    }
+    if (!context.question.trim() && !context.questionId) {
+      toast.error("This diagram is not under a question yet — give it a question heading first.");
+      return;
+    }
     if (!context.solution.trim()) {
-      toast.error("Generate the solution for this question first — the map comes from it.");
+      toast.error("This question has no saved solution yet — the map is derived from it.");
       return;
     }
     setBusy(true);

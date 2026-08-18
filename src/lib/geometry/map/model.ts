@@ -38,7 +38,29 @@ export interface GeometryMapDoc {
   published: boolean;
   /** True when the items came from analysing a generated solution. */
   generatedFromSolution: boolean;
+  /** Permanent binding: the `sectionId` of the question this map belongs to. */
+  questionId?: string | null;
+  /** Fingerprint of the solution the map was built from — drives staleness. */
+  solutionHash?: string;
+  generatedAt?: string;
   items: GeometryMapItem[];
+}
+
+export type MapStatus = "none" | "ready" | "stale";
+
+/**
+ * A stored map is only "ready" while it still belongs to the current question
+ * and the current solution text. Anything else is out of date.
+ */
+export function mapStatus(
+  doc: GeometryMapDoc,
+  ctx: { questionId?: string | null; solutionHash?: string },
+): MapStatus {
+  if (doc.items.length === 0) return "none";
+  if (!doc.generatedFromSolution) return "ready";
+  if (doc.questionId && ctx.questionId && doc.questionId !== ctx.questionId) return "stale";
+  if (doc.solutionHash && ctx.solutionHash && doc.solutionHash !== ctx.solutionHash) return "stale";
+  return "ready";
 }
 
 export const EMPTY_MAP: GeometryMapDoc = {
@@ -47,6 +69,7 @@ export const EMPTY_MAP: GeometryMapDoc = {
   generatedFromSolution: false,
   items: [],
 };
+
 
 export function newMapItemId(): string {
   return `gm_${Math.random().toString(36).slice(2, 10)}`;
@@ -133,6 +156,11 @@ function sanitizeMap(raw: unknown): GeometryMapDoc | null {
     version: 2,
     published: !!r.published,
     generatedFromSolution: !!r.generatedFromSolution,
+    ...(typeof r.questionId === "string" && r.questionId ? { questionId: r.questionId } : {}),
+    ...(typeof r.solutionHash === "string" && r.solutionHash
+      ? { solutionHash: r.solutionHash }
+      : {}),
+    ...(typeof r.generatedAt === "string" ? { generatedAt: r.generatedAt } : {}),
     items: items.sort((a, b) => a.order - b.order).map((it, i) => ({ ...it, order: i })),
   };
 }
