@@ -116,6 +116,66 @@ export function GeometryPropertiesPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defining?.refIds.join(",")]);
 
+  // While building a statement, each canvas click appends that object as a
+  // chip — this is what stops the teacher ever typing "AB" or "∠ABC".
+  useEffect(() => {
+    if (!chips || !targetId) return;
+    const base = targetId.split("#")[0];
+    const info = describeTarget(scene, doc, base);
+    if (!info) return;
+    setChips((cur) => (cur ? [...cur, { kind: "object", text: info.name, objectId: base }] : cur));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId]);
+
+  // The chips glow on the diagram while the statement is being built.
+  useEffect(() => {
+    if (!chips) return;
+    onHighlight(chipObjectIds(chips));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chips?.length]);
+
+  const startBuilder = (category: PropertyCategory) => {
+    setEditingId(null);
+    setDefining(null);
+    setConnecting(false);
+    setChipCategory(category);
+    setChipReason("");
+    setChips(
+      target ? [{ kind: "object", text: target.name, objectId: target.id }] : [],
+    );
+  };
+
+  const pushChip = (chip: StatementChip) =>
+    setChips((cur) => (cur ? [...cur, chip] : [chip]));
+
+  const saveBuilt = () => {
+    if (!chips) return;
+    const content = buildStatement(chips);
+    const ids = chipObjectIds(chips);
+    if (!content || ids.length === 0) {
+      toast.error("Click at least one part of the diagram to build the statement.");
+      return;
+    }
+    const sourceId = target?.id ?? ids[0];
+    upsert({
+      id: newPropertyId(),
+      category: chipCategory,
+      kind: chipCategory === "general" ? "theorem" : "statement",
+      content,
+      reason: chipReason.trim() || undefined,
+      group: groupForType(describeTarget(scene, doc, sourceId)?.type),
+      sourceObjectIds: [sourceId],
+      connectedObjectIds: [...new Set([sourceId, ...ids])],
+      approved: true,
+      enabled: true,
+      order: doc.items.length,
+    });
+    setChips(null);
+    onHighlight([]);
+    toast.success("Relationship saved.");
+  };
+
+
   const startDefining = (kind: VirtualKind) => {
     setEditingId(null);
     setConnecting(false);
