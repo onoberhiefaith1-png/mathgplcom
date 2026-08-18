@@ -91,9 +91,6 @@ import {
 } from "@/lib/geometry/editor/sceneOps";
 import { snap, pickObject } from "@/lib/geometry/editor/snap";
 import type { ToolId } from "@/lib/geometry/editor/tools";
-import { normalizeScene } from "@/lib/geometry/editor/normalize";
-import { ensureIntersectionPoints } from "@/lib/geometry/editor/intersections";
-import { hideIrrelevantAutoPoints } from "@/lib/geometry/editor/relevance";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
 import {
@@ -415,7 +412,7 @@ const editorAlive = (ed: any): boolean =>
 
 const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment", "game_questions"];
 const isQuestionSectionKind = (kind: SectionKind) => QUESTION_SECTION_KINDS.includes(kind);
-const AUTO_DIAGRAM_SECTION_KINDS: ReadonlySet<SectionKind> = new Set(["example", "exercise", "classwork", "homework"]);
+
 
 const solutionPlaceholderNodes = () => ([
   { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Solution" }] },
@@ -1295,14 +1292,9 @@ function DocumentEditorInner({
     // re-emit the label as body text.
     if (isSolutionBlock) content = stripLeadingSolutionLabel(content);
 
-    // Single-column flow: math + prose interleaved.
-    // For question-style sections the question body and the Solution
-    // placeholder are inserted SEPARATELY so we have an exact position for
-    // the geometry diagram (which must sit BELOW the question and ABOVE the
-    // "Solution" heading — the diagram is part of the question).
-    // A Solution may never introduce a NEW diagram/3D figure — the question
-    // owns the only authoritative diagram, which the solution references.
-    const questionBodyNodes = aiTextToNodes(content, { allowFigures: !isSolutionBlock });
+    // Single-column flow: math + prose interleaved. Figure directives resolve
+    // wherever they are generated — this is the original single-diagram path.
+    const questionBodyNodes = aiTextToNodes(content);
 
 
     // REGENERATE (and in-place EDIT): replace the section body, strictly
@@ -1532,113 +1524,10 @@ function DocumentEditorInner({
     }
 
 
-    // Whether the teacher explicitly asked for a new diagram. When they did
-    // NOT and we already preserved one, skip the async geometry pass to
-    // avoid silently replacing a teacher-tuned diagram.
-    const promptAsksForDiagram = (() => {
-      const p = (prompt || "").toLowerCase();
-      if (!p) return false;
-      return /\b(diagram|figure|redraw|sketch|draw|triangle|circle|polygon|angle|tangent|chord|arc|sector|parallel|perpendicular)\b/.test(p);
-    })();
-    // DIAGRAM OWNERSHIP: the diagram belongs to the QUESTION block, and it is
-    // created EXACTLY ONCE. Generating a Solution never triggers the geometry
-    // pass at all — the solution references the question's existing diagram
-    // instead of asking the model to redraw it.
-    const anchorHeadingPos = info.headingPos;
-    const geometrySourceText = content;
-    // A question that already owns a diagram — anywhere, including inside a
-    // free canvasFrame or a solution cell — never gets a second one.
-    const ownedDiagrams = diagramsOwnedByQuestion(
-      editor.state.doc,
-      anchorHeadingPos,
-      isSolutionLabel,
-    );
-
-    const skipGeometryPass =
-      !AUTO_DIAGRAM_SECTION_KINDS.has(info.kind) ||
-      !geometrySourceText.trim() ||
-      ownedDiagrams.length > 0 ||
-      (replaceBody && preservedDiagrams.length > 0 && !promptAsksForDiagram);
-
-    // Automatic geometry diagram pass. Fire-and-forget: if the section is
-    // geometric, this returns a GeometryScene which we insert IMMEDIATELY
-    // BELOW the question body (and above the Solution heading, when present).
-    // If the section isn't geometric, the backend returns null and we do
-    // nothing. Errors here are non-fatal.
-    if (!skipGeometryPass) void (async () => {
-
-
-      try {
-        const anchorCtx = contextAt(anchorHeadingPos);
-        const topic = anchorCtx?.topic || notebookContext?.topic;
-        const subtopic = anchorCtx?.subtopic || notebookContext?.subtopic;
-        const subject = anchorCtx?.subject || notebookContext?.subject;
-
-        const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
-          body: {
-            mode: "geometry",
-            sectionText: geometrySourceText,
-            topic, subtopic, subject,
-          },
-        }), 30_000, "Diagram generation took too long.");
-        if (error) return;
-        const raw = sanitizeScene((data as any)?.scene);
-        if (!raw || raw.objects.length === 0) return;
-        // FINAL DIAGRAM CLEAN-UP — run the same normalise/auto-intersection
-        // pass the editor would run on first mount, then hide every auto
-        // intersection point the question does not actually reference. The
-        // geometry is untouched: only stray markers/labels (E, F, G, H…)
-        // stop rendering. The teacher can un-hide any of them from the
-        // point properties panel.
-        const scene = hideIrrelevantAutoPoints(
-          ensureIntersectionPoints(normalizeScene(raw)),
-          geometrySourceText,
-        );
-        // Re-resolve the question body end on the LIVE doc, scoped to the
-        // original section heading. If the heading no longer exists (section
-        // deleted), skip the insertion.
-        const liveDoc = editor.state.doc;
-        const headingNode = liveDoc.nodeAt(anchorHeadingPos);
-        if (!headingNode || headingNode.type.name !== "heading") return;
-        const sectionEnd = liveSectionEnd(anchorHeadingPos);
-        // Insert right before any trailing Solution heading (i.e. at the
-        // very end of the question body within this section).
-        let insertAt = sectionEnd;
-        // If the question already owns a diagram, skip — one question, one
-        // diagram; we never append a second one lower down.
-        const existing = diagramsOwnedByQuestion(liveDoc, anchorHeadingPos, isSolutionLabel);
-        if (existing.length > 0) return;
-        // Stop at the first heading below the question heading (the Solution
-        // heading, when present) so the diagram sits ABOVE the Solution.
-        liveDoc.nodesBetween(anchorHeadingPos, sectionEnd, (n, p) => {
-          if (n.type.name === "heading" && p > anchorHeadingPos) {
-            insertAt = Math.min(insertAt, p);
-            return false;
-          }
-          return true;
-        });
-        insertAt = clampInsideSection(editor.state.doc, anchorHeadingPos, insertAt);
-        // UNIFIED UNDO: close the current history group first, so inserting
-        // the diagram is always its own undo step and can never be merged
-        // into the text step generated just before it.
-        editor
-          .chain()
-          .focus()
-          .command(({ tr }) => { closeHistory(tr); return true; })
-          .insertContentAt(insertAt, {
-            type: "geometryDiagram",
-            attrs: {
-              scene,
-              topic,
-              diagramId: newDiagramId(),
-              questionText: geometrySourceText,
-            },
-          })
-          .run();
-      } catch (err) {
-        console.warn("[geometry] auto-diagram skipped:", err);
-      }
-    })();
+    // NO AUTOMATIC QUESTION-SIDE DIAGRAM. A question block never asks the model
+    // to invent a figure, and nothing is ever inserted above the Solution
+    // heading. The single authoritative diagram comes from the original
+    // generation path only.
 
 
     if (isQuestionSectionKind(info.kind)) return;
