@@ -110,6 +110,80 @@ Deno.serve(async (req) => {
       });
     }
 
+    /* ── whole-diagram mode: one relationship map for every component ── */
+    if (body?.mode === "map") {
+      const objects: Array<{ id: string; type: string; name?: string }> =
+        Array.isArray(body?.objects) ? body.objects : [];
+      const ids = new Set(objects.map((o) => String(o.id)));
+      const mapText = `TOPIC: ${topic || "—"}
+
+OBJECTS (the complete diagram — use these ids only):
+${JSON.stringify(objects)}
+
+SCENE (read-only geometry, for coordinates and marks):
+${JSON.stringify(scene)}
+
+EXISTING RELATIONSHIPS (do not duplicate):
+${JSON.stringify(existing)}
+
+TEACHER INSTRUCTION:
+${instruction || "Build the relationship map for this diagram."}
+
+Return STRICT JSON: {"relationships": [...]}`;
+
+      const mapRes = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [
+            { role: "system", content: SYSTEM_MAP },
+            { role: "user", content: mapText },
+          ],
+        }),
+      });
+      if (!mapRes.ok) {
+        const text = await mapRes.text();
+        return new Response(JSON.stringify({ error: `AI gateway ${mapRes.status}: ${text}` }), {
+          status: mapRes.status === 402 || mapRes.status === 429 ? mapRes.status : 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const mapJson = await mapRes.json();
+      const mapRaw: string = mapJson.choices?.[0]?.message?.content ?? "";
+      let parsed: any = null;
+      try { parsed = JSON.parse(stripFences(mapRaw)); } catch { parsed = null; }
+      const list = Array.isArray(parsed?.relationships) ? parsed.relationships : [];
+      // Server-side grounding: drop anything that references an id which is
+      // not in the diagram, and anything with no valid component.
+      const groups = new Set(["angle", "line", "area", "theorem"]);
+      const clean = list
+        .map((r: any) => {
+          const componentId = String(r?.componentId ?? "");
+          const connected = (Array.isArray(r?.connectedObjectIds) ? r.connectedObjectIds : [])
+            .map((x: unknown) => String(x))
+            .filter((x: string) => ids.has(x));
+          if (!ids.has(componentId)) return null;
+          const content = String(r?.content ?? "").trim();
+          if (!content) return null;
+          return {
+            componentId,
+            content,
+            reason: String(r?.reason ?? "").trim(),
+            group: groups.has(r?.group) ? r.group : "theorem",
+            category: r?.category === "general" ? "general" : "specific",
+            kind: typeof r?.kind === "string" ? r.kind : "statement",
+            connectedObjectIds: [...new Set([componentId, ...connected])],
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 120);
+
+      return new Response(JSON.stringify({ relationships: clean }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const userText = `TOPIC: ${topic || "—"}
 
 SCENE (read-only context):
