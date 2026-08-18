@@ -871,12 +871,40 @@ function DocumentEditorInner({
     return found;
   };
 
-  /** Notebook context narrowed to the subtopic the insertion point sits under. */
+  /** THE single AI-context resolver. The confirmed ACTIVE SUBTOPIC wins when
+   *  the insertion point sits at or below its heading; when the teacher works
+   *  further up the note, the nearest subtopic heading above that point owns
+   *  the generation instead. Never falls back to the notebook's original
+   *  subtopic once a subtopic has been confirmed. */
   const contextAt = (beforePos: number): Props["notebookContext"] => {
+    const live = aiCtx.read();
+    const base = {
+      ...(ctxRef.current ?? {}),
+      subject: live.subject || ctxRef.current?.subject || "Mathematics",
+      topic: live.topic || ctxRef.current?.topic || "",
+    };
+    const active = live.activeSubtopic.trim();
+    const activePos = live.activeSubtopicPos;
+    if (active && (activePos == null || beforePos >= activePos)) {
+      return { ...base, subtopic: active };
+    }
     const sub = currentSubtopicAt(beforePos);
-    if (!sub) return ctxRef.current;
-    return { ...(ctxRef.current ?? {}), subtopic: sub.title };
+    if (sub) return { ...base, subtopic: sub.title };
+    return { ...base, subtopic: active || base.subtopic };
   };
+
+  /** Context for AI actions that have no document position (whole-note edits,
+   *  selection AI Edit): always the confirmed active subtopic. */
+  const activeContext = (): Props["notebookContext"] => {
+    const live = aiCtx.read();
+    return {
+      ...(ctxRef.current ?? {}),
+      subject: live.subject || "Mathematics",
+      topic: live.topic || ctxRef.current?.topic || "",
+      subtopic: live.activeSubtopic || ctxRef.current?.subtopic || "",
+    };
+  };
+
 
   /** Everything already taught in this lesson ABOVE `beforePos`, condensed
    *  into the teaching context the AI needs so sections stay connected.
