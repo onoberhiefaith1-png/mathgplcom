@@ -3168,8 +3168,8 @@ function NotebookGeometryOverlay({
           scene={geometryEditor.scene}
           onChange={(next) => geometryEditor.commit(next)}
           onClose={() => setPropertiesOpen(false)}
-          // The page layer is not owned by one question: the map is built from
-          // the question the caret currently sits in.
+          // The page layer has no node of its own, so it binds to the question
+          // the caret sits in at the moment the workspace is opened.
           context={
             tiptapEditor
               ? questionContextForPos(
@@ -3178,6 +3178,7 @@ function NotebookGeometryOverlay({
                 )
               : undefined
           }
+          onOpenSolution={() => tiptapEditor?.chain().focus().run()}
         />
       )}
       {mode ? (

@@ -30,7 +30,6 @@ import type { HitKind } from "@/lib/geometry/editor/snap";
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
 import {
-  EMPTY_QUESTION_CONTEXT,
   questionContextForOwner,
   questionHeadingPos,
   type DiagramQuestionContext,
@@ -387,6 +386,7 @@ function LiveEditor({
   onDeleteDiagram,
   relevanceText,
   getMapContext,
+  onOpenSolution,
 }: {
   instanceId: string;
   scene: GeometryScene;
@@ -506,6 +506,7 @@ function LiveEditor({
           onChange={(next) => editor.commit(next)}
           onClose={() => setPropertiesOpen(false)}
           context={getMapContext?.()}
+          onOpenSolution={onOpenSolution}
           topic={relevanceText}
         />
       )}
