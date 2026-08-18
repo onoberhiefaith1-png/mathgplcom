@@ -917,6 +917,113 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
 
 
     // ─────────────────────────────────────────────────────────────
+    // MODE: copilot — the MyGPL Lesson Note Co-Pilot conversation.
+    // It NEVER writes lesson content here. It discusses, then proposes
+    // ACTIONS that map onto the note's existing functions; the client
+    // executes them only after the teacher approves.
+    // ─────────────────────────────────────────────────────────────
+    if (body.mode === "copilot") {
+      const b = body as {
+        mode: "copilot";
+        copilotMode?: "plan" | "create";
+        message?: string;
+        history?: { role: string; text: string }[];
+        snapshot?: any;
+      };
+      const message = String(b.message ?? "").trim();
+      if (!message) {
+        return new Response(JSON.stringify({ error: "missing message" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const snap = b.snapshot ?? null;
+      const entries: any[] = Array.isArray(snap?.entries) ? snap.entries : [];
+      const noteState = entries.length
+        ? entries.map((e) => [
+            `${e.ref} — "${e.heading}" (${e.kind ?? "section"})${e.focused ? "  ← teacher's cursor is here" : ""}`,
+            `   question: ${e.questionText ? e.questionText.replace(/\n/g, " / ") : "(empty)"}`,
+            `   solution: ${e.solutionText ? e.solutionText.replace(/\n/g, " / ") : "(empty)"}`,
+            `   diagram: ${e.hasDiagram ? e.diagramSummary || "linked diagram present" : "none"}`,
+          ].join("\n")).join("\n")
+        : "(the note has no sections yet)";
+
+      const sys = `You are the MyGPL Lesson Note Co-Pilot: an experienced mathematics
+teacher's assistant working INSIDE an existing MyGPL lesson note.
+
+WHAT ALREADY EXISTS (never rebuild any of it, only ask for it to be used):
+section/question generation, step-by-step solution generation, Geometry 2D and
+3D diagram editors, the Geometry Map (theory pathway derived from a solution),
+the geometry calculator, Smart Table, the equation/notation editor, the GPL
+Asset Library and the Slide canvas.
+
+CURRENT LESSON NOTE
+Subject: ${snap?.subject || "Mathematics"}
+Topic: ${snap?.topic || "—"}
+Active subtopic: ${snap?.activeSubtopic || "—"}
+Cursor section: ${snap?.focusedRef || "—"}
+${noteState}
+
+HOW YOU WORK
+1. Talk like a colleague — short, concrete, in plain classroom language.
+2. Resolve references ("Example 2", "make it harder", "this question") from the
+   note state and the conversation above. Never guess: if two readings are
+   possible, ask one short question instead of proposing.
+3. Only propose actions when you know exactly what to do and which section.
+4. Never destroy the teacher's work. Prefer adding a new section over
+   replacing one; if a replacement is genuinely requested, say so plainly and
+   set "destructive": true on that action.
+5. You do not write mathematics in this reply. The note's own generators do
+   that — your job is understanding, proposing and sequencing.
+${b.copilotMode === "create"
+  ? "MODE: CREATE — the teacher expects action. Propose the actions needed; additive work runs immediately, anything that replaces existing content still waits for confirmation."
+  : "MODE: PLAN — analyse and explain what you intend to do. Always attach a proposal so the teacher can approve it, but change nothing on your own."}
+
+AVAILABLE ACTIONS (use these names exactly):
+- insertSection      { sectionKind: "introduction"|"explanation"|"example"|"exercise"|"classwork"|"homework"|"summary"|"assessment" }
+- generateQuestion   { target: "<ref>", instruction }   — writes the question content of that section
+- regenerateQuestion { target: "<ref>", instruction }   — REPLACES that section's content
+- generateSolution   { target: "<ref>", instruction }   — step-by-step solution for that question
+- buildGeometryMap   { target: "<ref>" }                — theory map from that question's solution + diagram
+- openGeometry2D     { target: "<ref>"|null }
+- openSmartTable     {}
+- openSlideCanvas    {}
+- openAssetLibrary   {}
+- editBlock          { target: "<ref>", instruction }    — REPLACES that section's content
+
+Reply with JSON ONLY, no code fence:
+{
+  "reply": "what you say to the teacher",
+  "proposal": {
+    "summary": "one sentence of what will happen",
+    "preserves": ["what stays untouched"],
+    "steps": ["teacher-readable step", "..."],
+    "actions": [{ "name": "...", "label": "...", "target": "s2", "sectionKind": null, "instruction": null, "destructive": false }]
+  }
+}
+Omit "proposal" entirely when you are only discussing or asking a question.`;
+
+      const convo = (Array.isArray(b.history) ? b.history : []).slice(-12).map((h) => ({
+        role: h.role === "teacher" ? "user" : "assistant",
+        content: String(h.text ?? ""),
+      }));
+
+      const raw = await callAI(
+        [{ role: "system", content: sys }, ...convo, { role: "user", content: message }],
+        "google/gemini-2.5-flash",
+      );
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(stripFences(String(raw)).trim());
+      } catch {
+        parsed = { reply: sanitizePresentation(stripFences(String(raw))).trim() };
+      }
+      return new Response(JSON.stringify({
+        reply: String(parsed?.reply ?? "").trim(),
+        ...(parsed?.proposal ? { proposal: parsed.proposal } : {}),
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // MODE: edit  (selection-based AI Edit from the Selection Toolbar)
     // Receives a snippet + a teacher instruction. Loads the standards
     // that match the detected kind; if the instruction mentions
