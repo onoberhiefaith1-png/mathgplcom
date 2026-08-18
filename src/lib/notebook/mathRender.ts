@@ -105,7 +105,7 @@ const connectedRadical = (
         key: "bar",
         style: {
           borderTop: "1.4px solid currentColor",
-          paddingTop: "1px",
+          paddingTop: `${headroom}em`,
           paddingLeft: "3px",
           paddingRight: "3px",
           display: "inline-flex",
