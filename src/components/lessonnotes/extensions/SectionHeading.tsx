@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
 import type { GeometryScene } from "@/lib/geometry/scene";
-import { sectionEndWithin } from "@/lib/lessonnotes/containerRange";
+import { ensureOwnerQuestionId, sectionEndWithin } from "@/lib/lessonnotes/containerRange";
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 
@@ -363,22 +363,9 @@ function SectionHeadingView(props: NodeViewProps) {
     if (existing) return existing;
     const pos = typeof getPos === "function" ? getPos() : null;
     if (pos == null) return null;
-    const doc = editor.state.doc;
-    let ownerPos = -1;
-    doc.descendants((n, p) => {
-      if (p >= pos) return false;
-      if (n.type.name === "heading" && detectSectionKind(n.textContent) !== "solution") ownerPos = p;
-      return true;
-    });
-    if (ownerPos < 0) return null;
-    const owner = doc.nodeAt(ownerPos);
-    if (!owner) return null;
-    let id = (owner.attrs as any)?.sectionId as string | null;
+    const id = ensureOwnerQuestionId(editor, pos);
+    if (!id) return null;
     const tr = editor.state.tr;
-    if (!id) {
-      id = `q_${Math.random().toString(36).slice(2, 10)}`;
-      tr.setNodeMarkup(ownerPos, undefined, { ...owner.attrs, sectionId: id });
-    }
     const selfPos = typeof getPos === "function" ? getPos() : null;
     if (selfPos != null) {
       const self = tr.doc.nodeAt(selfPos);

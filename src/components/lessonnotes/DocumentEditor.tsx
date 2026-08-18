@@ -131,7 +131,7 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
-import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion } from "@/lib/lessonnotes/containerRange";
+import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor } from "@/lib/lessonnotes/containerRange";
 import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
 
 /** Stable identity for a diagram, so a Solution can reference it instead of
@@ -368,6 +368,7 @@ async function aiGenerate(opts: {
 
 const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment", "game_questions"];
 const isQuestionSectionKind = (kind: SectionKind) => QUESTION_SECTION_KINDS.includes(kind);
+const AUTO_DIAGRAM_SECTION_KINDS: ReadonlySet<SectionKind> = new Set(["example", "exercise", "classwork", "homework"]);
 
 const solutionPlaceholderNodes = () => ([
   { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Solution" }] },
@@ -1239,7 +1240,7 @@ function DocumentEditorInner({
     );
 
     const skipGeometryPass =
-      isSolutionBlock ||
+      !AUTO_DIAGRAM_SECTION_KINDS.has(info.kind) ||
       !geometrySourceText.trim() ||
       ownedDiagrams.length > 0 ||
       (replaceBody && preservedDiagrams.length > 0 && !promptAsksForDiagram);
@@ -1539,6 +1540,14 @@ function DocumentEditorInner({
     const coords = view.posAtCoords({ left: clientX, top: clientY });
     let pos = coords?.pos ?? editor.state.selection.to;
     pos = Math.max(0, Math.min(pos, editor.state.doc.content.size));
+    const owner = ownerQuestionHeadingFor(editor.state.doc, pos);
+    if (owner) {
+      const existing = diagramsOwnedByQuestion(editor.state.doc, owner.pos, isSolutionLabel)[0];
+      if (existing) {
+        selectGeometryAt(existing.pos);
+        return existing.pos;
+      }
+    }
     const beforeSize = editor.state.doc.content.size;
     editor.chain().focus().insertContentAt(pos, {
       type: "geometryDiagram",
@@ -1546,7 +1555,7 @@ function DocumentEditorInner({
     }).run();
     const mappedPos = Math.min(pos, beforeSize);
     return locateGeometryNearPos(mappedPos);
-  }, [editor, locateGeometryNearPos]);
+  }, [editor, locateGeometryNearPos, selectGeometryAt]);
 
   const applyQuickGeometryTool = useCallback((scene: GeometryScene, tool: ToolId, x: number, y: number, pendingIds: string[]) => {
     const sn = snap(scene, x, y);
@@ -1993,6 +2002,11 @@ function DocumentEditorInner({
       const doc = editor.state.doc;
       const heading = doc.nodeAt(headingPos);
       if (!heading || heading.type.name !== "heading") return;
+      const existing = diagramsOwnedByQuestion(doc, headingPos, isSolutionLabel)[0];
+      if (existing) {
+        editor.chain().focus().setNodeSelection(existing.pos).run();
+        return;
+      }
       const headingLevel = heading.attrs.level ?? 2;
       // End of this section = position of next heading at same or higher level,
       // else end of doc.
