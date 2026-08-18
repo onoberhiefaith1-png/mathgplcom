@@ -109,21 +109,19 @@ export function GeometryPropertiesWorkspace({
               className="h-full"
               hideLeftTools
               highlightIds={highlightIds}
-              relatedIds={relatedIds}
+              relatedIds={highlightIds}
               emphasisIds={highlightIds}
-              rightPanelTitle="Geometry Properties"
+              rightPanelTitle="Geometry Map"
               rightPanelWidthClass="w-80"
               renderRightPanel={(editor) => (
-                <GeometryPropertiesPanel
+                <GeometryMapPanel
                   scene={editor.scene}
-                  doc={readProperties(editor.scene)}
-                  onDocChange={(next) => editor.commit(writeProperties(editor.scene, next))}
+                  doc={readMap(editor.scene)}
+                  onDocChange={(next) => editor.commit(writeMap(editor.scene, next))}
                   targetId={editor.selectedIds[0] ?? null}
                   onHighlight={setRawHighlight}
-                  onRelated={setRawRelated}
-                  onTargetName={setTargetName}
-                  connecting={connecting}
-                  setConnecting={setConnecting}
+                  context={ctx}
+                  topic={topic}
                 />
               )}
             />
@@ -134,16 +132,17 @@ export function GeometryPropertiesWorkspace({
       <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-black/10 bg-white px-4 py-1.5 text-[11px] text-slate-500">
         <span className="flex items-center gap-3">
           <LegendDot color="#2563eb" label="Selected part" />
-          <LegendDot color="#e11d48" label="Relationship subject" />
-          <LegendDot color="#f59e0b" label="Connected parts" />
+          <LegendDot color="#e11d48" label="Step subject" />
+          <LegendDot color="#f59e0b" label="Related parts" />
         </span>
-        <span>Click a part → see its relationships → click a relationship → the diagram lights up.</span>
+        <span>Click a step → the diagram lights up the parts that principle applies to.</span>
         <span>
         {doc.published
-          ? `Guide published to students — showing ${doc.access === "both" ? "specific and general" : doc.access} relationships.`
-          : "Guide is not published — students see the diagram only."}
+          ? `Map published to students — ${doc.items.filter((i) => i.enabled).length} steps visible.`
+          : "Map is not published — students see the diagram only."}
         </span>
       </footer>
+
     </div>
   );
 
