@@ -13,7 +13,7 @@ import { INTEGRITY_STANDARD } from "./integrityStandard.ts";
 import { INHERITANCE_STANDARD } from "./inheritanceStandard.ts";
 import { CONTINUITY_STANDARD } from "./continuityStandard.ts";
 import { QUESTION_TASK_STANDARD, hasTaskInstruction } from "./questionTaskStandard.ts";
-import { sanitizePresentation, residueReport } from "./outputHygiene.ts";
+import { sanitizePresentation, residueReport, stripDuplicateHeading } from "./outputHygiene.ts";
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
   WORKSPACE_STANDARD,
