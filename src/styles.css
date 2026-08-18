@@ -560,28 +560,15 @@
 }
 /* Grab handle beside a Solution heading: the teacher can split the solution
    away from its question and park it anywhere (relationship is preserved). */
-.lesson-solution-grip {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 0.35rem;
-  padding: 1px;
-  border-radius: 4px;
-  color: hsl(var(--foreground) / 0.35);
+.section-heading-wrapper.is-session-grab,
+.section-heading-wrapper.is-session-grab * {
   cursor: grab;
-  opacity: 0;
-  transition: opacity 140ms ease, color 140ms ease;
-  vertical-align: middle;
 }
-.section-heading-wrapper:hover .lesson-solution-grip,
-.lesson-solution-grip:focus-visible {
-  opacity: 1;
-}
-.lesson-solution-grip:hover {
-  color: hsl(var(--foreground) / 0.75);
-  background: hsl(var(--foreground) / 0.06);
-}
-.lesson-solution-grip:active {
+.section-heading-wrapper.is-session-grab:active {
   cursor: grabbing;
+}
+.lesson-session-spacer {
+  pointer-events: none;
 }
 
 .lesson-doc .lesson-section-side-actions {
