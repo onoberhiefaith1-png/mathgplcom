@@ -302,7 +302,7 @@ function GeometryDiagramView({
               return questionContextForOwner(
                 tiptapEditor.state.doc,
                 (node.attrs.ownerQuestionId as string | null) ?? null,
-                at,
+                at ?? null,
               );
             }}
             onOpenSolution={() => {
