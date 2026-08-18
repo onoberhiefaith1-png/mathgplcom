@@ -2919,6 +2919,7 @@ function DocumentEditorInner({
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
+                  if (!subtopicDraft.trim()) return;
                   insertSubtopic(subtopicDraft);
                   setSubtopicDraft(null);
                 } else if (e.key === "Escape") {
@@ -2928,9 +2929,50 @@ function DocumentEditorInner({
               }}
               className="w-64 bg-transparent px-1 py-0.5 outline-none"
             />
+            <button
+              type="button"
+              onClick={() => {
+                if (!subtopicDraft.trim()) return;
+                insertSubtopic(subtopicDraft);
+                setSubtopicDraft(null);
+              }}
+              disabled={!subtopicDraft.trim()}
+              title="Make this the active subtopic for all AI generation"
+              className="rounded bg-primary px-2 py-0.5 font-medium text-primary-foreground disabled:opacity-40"
+            >
+              Enter
+            </button>
+            {!subtopicDraft.trim() && (
+              <span className="text-muted-foreground/70">Type a subtopic name</span>
+            )}
             <button type="button" onClick={() => setSubtopicDraft(null)} className="px-1 text-muted-foreground hover:text-foreground">✕</button>
           </div>
         )}
+
+        {/* Active AI context — the subtopic every new AI element is built for. */}
+        {aiCtx.ctx.activeSubtopic && (
+          <div
+            className="inline-flex items-center gap-1 rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs"
+            title="Active subtopic — all AI generation uses this context"
+          >
+            <span className="text-muted-foreground">Subtopic:</span>
+            <span className="font-medium">{aiCtx.ctx.activeSubtopic}</span>
+            {aiCtx.ctx.previousSubtopics.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => { if (e.target.value) activateSubtopic(e.target.value); }}
+                title="Switch back to an earlier subtopic"
+                className="ml-1 bg-transparent text-[11px] text-muted-foreground outline-none"
+              >
+                <option value="">switch…</option>
+                {aiCtx.ctx.previousSubtopics.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+
 
         <div className="inline-flex items-center gap-1">
           <button
