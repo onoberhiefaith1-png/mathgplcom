@@ -938,7 +938,9 @@ function DocumentEditorInner({
 
   /** Handle per-section AI button (passed into SectionHeading extension). */
   const handleSectionAi = async (prompt: string, infoIn: SectionAiCallContext) => {
-    if (!editor) return;
+    // The editor may be null on first paint, or destroyed while an async stage
+    // was running. Every stage below re-checks it instead of assuming it lives.
+    if (!editorAlive(editor)) return;
     let info = infoIn;
 
     // The heading must still exist — every position below is anchored to it.
