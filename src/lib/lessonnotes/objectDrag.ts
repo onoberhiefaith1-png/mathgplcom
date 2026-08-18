@@ -146,6 +146,8 @@ export function startObjectDrag(
   let ghost: HTMLElement | null = opts.ghost;
   let started = pos != null;
   let moved = false;
+  // Movement already consumed by the detach step, so the object does not jump.
+  let base = { dx: 0, dy: 0 };
 
   const move = (ev: PointerEvent | MouseEvent) => {
     const dx = (ev.clientX - startX) / z;
@@ -153,18 +155,23 @@ export function startObjectDrag(
     if (!moved && Math.abs(ev.clientX - startX) < threshold && Math.abs(ev.clientY - startY) < threshold) return;
     moved = true;
     if (!started) {
-      const paper = paperCoords(editor, ev.clientX, ev.clientY);
-      const created = opts.onDetach?.({ x: paper.x, y: paper.y });
-      if (created == null) return;
+      // Detach in place: the frame starts exactly where the object already is.
+      const r = ghost?.getBoundingClientRect();
+      const at = r
+        ? paperCoords(editor, r.left, r.top)
+        : paperCoords(editor, ev.clientX, ev.clientY);
+      const created = opts.onDetach?.({ x: at.x, y: at.y });
+      if (created == null) { moved = false; return; }
       pos = created;
       const n = editor.state.doc.nodeAt(pos);
-      origin = n ? { x: Number(n.attrs.x) || 0, y: Number(n.attrs.y) || 0 } : { x: paper.x, y: paper.y };
+      origin = n ? { x: Number(n.attrs.x) || 0, y: Number(n.attrs.y) || 0 } : { x: at.x, y: at.y };
       started = true;
-      // The node was re-created, so the old DOM node is gone.
+      base = { dx, dy };
+      // The node was re-created, so the old DOM element is gone.
       ghost = (editor.view.nodeDOM(pos) as HTMLElement | null) ?? null;
       return;
     }
-    if (ghost) ghost.style.transform = `translate(${dx}px, ${dy}px)`;
+    if (ghost) ghost.style.transform = `translate(${dx - base.dx}px, ${dy - base.dy}px)`;
   };
 
   const up = (ev: PointerEvent | MouseEvent) => {
@@ -172,10 +179,11 @@ export function startObjectDrag(
     window.removeEventListener("pointerup", up);
     if (ghost) ghost.style.transform = "";
     if (!moved || pos == null || !origin) return;
-    const dx = (ev.clientX - startX) / z;
-    const dy = (ev.clientY - startY) / z;
+    const dx = (ev.clientX - startX) / z - base.dx;
+    const dy = (ev.clientY - startY) / z - base.dy;
     commitFramePosition(editor, pos, origin.x + dx, origin.y + dy);
   };
+
 
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
