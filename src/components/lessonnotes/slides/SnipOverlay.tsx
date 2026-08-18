@@ -92,8 +92,11 @@ export function SnipOverlay({ sheetEl, editor = null, onCancel, onCapture }: Pro
         r.height * sy,
         0, 0, out.width, out.height,
       );
+      // A flat, single-colour crop means the rasteriser produced nothing —
+      // treat it as a failure instead of inserting an empty white rectangle.
+      if (isFlatCanvas(ctx, out.width, out.height)) return null;
       const blob = await new Promise<Blob | null>((res) => out.toBlob(res, "image/png"));
-      if (!blob) return null;
+      if (!blob || blob.size < 128) return null;
       return {
         blob,
         x: Math.max(0, Math.min(1, (r.left - sheetBox.left) / sheetBox.width)),
@@ -117,7 +120,9 @@ export function SnipOverlay({ sheetEl, editor = null, onCancel, onCapture }: Pro
       } catch (err) {
         console.error("[capture] live note selection failed", err);
       }
-      if (live) {
+      // Only accept live nodes that actually carry visible content; otherwise a
+      // stray empty paragraph would land on the slide as a blank box.
+      if (live && hasVisibleContent(live.nodes)) {
         onCapture({ content: live.nodes, x: live.x, y: live.y, w: live.w, h: live.h });
         return;
       }
