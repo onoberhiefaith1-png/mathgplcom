@@ -288,6 +288,7 @@ function GeometryDiagramView({
             onChange={commitScene}
             docHistory={docHistory}
             onDeleteDiagram={() => deleteNode()}
+            relevanceText={(node.attrs.questionText as string) || undefined}
           />
         ) : (
           <StaticGeometryDiagram scene={scene} />
@@ -370,9 +371,12 @@ function LiveEditor({
   onChange,
   docHistory,
   onDeleteDiagram,
+  relevanceText,
 }: {
   instanceId: string;
   scene: GeometryScene;
+  /** Owning question text — drives the generated-diagram label clean-up. */
+  relevanceText?: string;
   onChange: (next: GeometryScene, opts?: { addToHistory?: boolean }) => void;
   /** When hosted inside a lesson note, Undo/Redo drive the DOCUMENT history
    *  so text, diagrams, edits and deletions share one chronological stack. */
@@ -390,7 +394,7 @@ function LiveEditor({
     onChange(next, normalising.current ? { addToHistory: false } : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onChange]);
-  const editor = useGeometryEditor(scene, handleChange);
+  const editor = useGeometryEditor(scene, handleChange, relevanceText);
   const { tool: modeTool } = useGeometryMode();
 
   // Sync tool from the shared context (left-side toolbox).
@@ -510,6 +514,14 @@ export const GeometryDiagramNode = Node.create({
         parseHTML: (el) => el.getAttribute("data-topic") || null,
         renderHTML: (attrs) =>
           attrs.topic ? { "data-topic": attrs.topic } : {},
+      },
+      // The owning question text. Present only on AI-generated diagrams; it
+      // is the source of truth for which point labels stay visible.
+      questionText: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-question-text") || null,
+        renderHTML: (attrs) =>
+          attrs.questionText ? { "data-question-text": attrs.questionText } : {},
       },
 
       align: {

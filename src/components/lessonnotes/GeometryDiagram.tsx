@@ -35,6 +35,12 @@ interface Props {
    */
   minViewW?: number;
   minViewH?: number;
+  /**
+   * Draw hidden points as faint "ghost" markers instead of omitting them.
+   * The live editing canvas turns this on so a teacher can still see, select
+   * and un-hide construction points that the clean-up pass hid.
+   */
+  ghostHidden?: boolean;
 }
 
 const STROKE = "#1f1f24";
@@ -82,7 +88,7 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, ghostHidden }: Props) {
   const baseStroke = stroke ?? STROKE;
   const pad = 24;
   // Grow the viewBox to fit any object that extends past scene.bounds so
@@ -116,11 +122,25 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     for (const o of scene.objects) {
       if (o.type === "region") continue;
       const c = colourOf(o.id);
+      if (ghostHidden && o.type === "point" && (o as GeoPoint).hidden) {
+        const p = o as GeoPoint;
+        out.push(
+          <circle
+            key={`ghost-${p.id}`}
+            cx={p.x + originPad}
+            cy={p.y + originPad}
+            r={(p.size ?? 2.6) + 0.4}
+            fill={c}
+            opacity={0.22}
+          />,
+        );
+        continue;
+      }
       const node = renderObject(o, scene, c, originPad);
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff, originPad, baseStroke]);
+  }, [scene, diff, originPad, baseStroke, ghostHidden]);
 
 
   return (

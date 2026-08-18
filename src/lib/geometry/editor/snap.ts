@@ -67,10 +67,12 @@ export interface Hit { id: string; kind: HitKind }
 /** Pick the topmost object at (x,y). Segments split into body/label/distance;
  *  points split into dot/label. */
 export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hit | null {
-  // 1) Point dot (highest priority)
+  // 1) Point dot (highest priority). Hidden points are still selectable so a
+  //    teacher can pick a ghosted construction point and un-hide it; drawing
+  //    snap (see `snap`) continues to ignore them.
   for (let i = scene.objects.length - 1; i >= 0; i--) {
     const o = scene.objects[i];
-    if (o.type === "point" && !o.hidden && Math.hypot(o.x - x, o.y - y) <= hit) {
+    if (o.type === "point" && Math.hypot(o.x - x, o.y - y) <= hit) {
       return { id: o.id, kind: "point" };
     }
   }
