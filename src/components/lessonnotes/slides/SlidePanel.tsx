@@ -690,7 +690,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
         <ScreenshotOverlay
           frame={screenFrame}
           onCancel={closeScreenshot}
-          onInsert={(blob, aspect) => void insertScreenshot(blob, aspect)}
+          onInsert={(blob, pw, ph) => void insertScreenshot(blob, pw, ph)}
         />
       )}
 
