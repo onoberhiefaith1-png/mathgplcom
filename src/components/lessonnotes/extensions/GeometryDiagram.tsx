@@ -12,7 +12,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { closeHistory, undoDepth, redoDepth } from "@tiptap/pm/history";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Copy, CopyPlus, Sparkles, Trash2 } from "lucide-react";
+import { Copy, Sparkles, Trash2 } from "lucide-react";
 import {
   type GeometryScene,
   sanitizeScene,
@@ -26,7 +26,7 @@ import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/Sel
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
-import { ownerQuestionIdFor } from "@/lib/lessonnotes/containerRange";
+import { ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
@@ -250,7 +250,7 @@ function GeometryDiagramView({
         const width = Math.max(200, Math.round((wrapper.getBoundingClientRect().width || 420)));
         return detachIntoFrame(tiptapEditor, at, at + self.nodeSize, x, y, {
           objectKind: "diagram",
-          ownerQuestionId: ownerQuestionIdFor(tiptapEditor.state.doc, at),
+          ownerQuestionId: ensureOwnerQuestionId(tiptapEditor, at),
           // A diagram is a free object: it reserves no flow space and may
           // overlap freely.
           reserveSpace: false,
@@ -318,23 +318,6 @@ function GeometryDiagramView({
               title="AI edit"
             >
               <Sparkles className="h-3 w-3" /> AI
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                kickAi();
-                const pos = typeof getPos === "function" ? getPos() : null;
-                if (pos == null) return;
-                tiptapEditor.chain().focus().insertContentAt(pos + node.nodeSize, {
-                  type: "geometryDiagram",
-                  attrs: { scene, topic, align },
-                }).run();
-              }}
-              className="inline-flex items-center justify-center h-5 w-5 rounded text-foreground/70 hover:bg-foreground/5"
-              title="Duplicate diagram"
-            >
-              <CopyPlus className="h-3 w-3" />
             </button>
             <button
               type="button"

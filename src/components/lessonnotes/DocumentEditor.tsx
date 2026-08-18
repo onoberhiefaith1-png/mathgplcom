@@ -131,7 +131,7 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
-import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion } from "@/lib/lessonnotes/containerRange";
+import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor } from "@/lib/lessonnotes/containerRange";
 import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
 
 /** Stable identity for a diagram, so a Solution can reference it instead of
@@ -368,6 +368,7 @@ async function aiGenerate(opts: {
 
 const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment", "game_questions"];
 const isQuestionSectionKind = (kind: SectionKind) => QUESTION_SECTION_KINDS.includes(kind);
+const AUTO_DIAGRAM_SECTION_KINDS: ReadonlySet<SectionKind> = new Set(["example", "exercise", "classwork", "homework"]);
 
 const solutionPlaceholderNodes = () => ([
   { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Solution" }] },
@@ -899,9 +900,28 @@ function DocumentEditorInner({
     // The Solution references the question's EXISTING diagram. We hand the
     // model an inventory of what is already drawn so it never redraws it,
     // renames its points, or invents a second figure.
-    const ownedQuestionDiagram = isSolutionBlock && (solutionSource?.parentPos ?? -1) >= 0
-      ? diagramsOwnedByQuestion(editor.state.doc, solutionSource!.parentPos, isSolutionLabel)[0]
-      : undefined;
+    const ownedQuestionDiagrams = isSolutionBlock && (solutionSource?.parentPos ?? -1) >= 0
+      ? diagramsOwnedByQuestion(editor.state.doc, solutionSource!.parentPos, isSolutionLabel)
+      : [];
+    // Backward-compatible repair for notes saved before permanent ownership:
+    // keep the first authoritative scene and remove only later geometryDiagram
+    // nodes associated with this same question. The cleanup is one undoable
+    // document step and never redraws or mutates the retained diagram.
+    if (ownedQuestionDiagrams.length > 1) {
+      const duplicates = ownedQuestionDiagrams.slice(1).sort((a, b) => b.pos - a.pos);
+      const tr = editor.state.tr;
+      for (const duplicate of duplicates) {
+        const live = tr.doc.nodeAt(duplicate.pos);
+        if (live?.type.name === "geometryDiagram") {
+          tr.delete(duplicate.pos, duplicate.pos + live.nodeSize);
+        }
+      }
+      if (tr.docChanged) {
+        closeHistory(tr);
+        editor.view.dispatch(tr);
+      }
+    }
+    const ownedQuestionDiagram = ownedQuestionDiagrams[0];
     const existingDiagramNote = ownedQuestionDiagram
       ? describeExistingDiagram(ownedQuestionDiagram.node.attrs?.scene as any)
       : "";
@@ -1239,7 +1259,7 @@ function DocumentEditorInner({
     );
 
     const skipGeometryPass =
-      isSolutionBlock ||
+      !AUTO_DIAGRAM_SECTION_KINDS.has(info.kind) ||
       !geometrySourceText.trim() ||
       ownedDiagrams.length > 0 ||
       (replaceBody && preservedDiagrams.length > 0 && !promptAsksForDiagram);
@@ -1539,6 +1559,14 @@ function DocumentEditorInner({
     const coords = view.posAtCoords({ left: clientX, top: clientY });
     let pos = coords?.pos ?? editor.state.selection.to;
     pos = Math.max(0, Math.min(pos, editor.state.doc.content.size));
+    const owner = ownerQuestionHeadingFor(editor.state.doc, pos);
+    if (owner) {
+      const existing = diagramsOwnedByQuestion(editor.state.doc, owner.pos, isSolutionLabel)[0];
+      if (existing) {
+        selectGeometryAt(existing.pos);
+        return existing.pos;
+      }
+    }
     const beforeSize = editor.state.doc.content.size;
     editor.chain().focus().insertContentAt(pos, {
       type: "geometryDiagram",
@@ -1546,7 +1574,7 @@ function DocumentEditorInner({
     }).run();
     const mappedPos = Math.min(pos, beforeSize);
     return locateGeometryNearPos(mappedPos);
-  }, [editor, locateGeometryNearPos]);
+  }, [editor, locateGeometryNearPos, selectGeometryAt]);
 
   const applyQuickGeometryTool = useCallback((scene: GeometryScene, tool: ToolId, x: number, y: number, pendingIds: string[]) => {
     const sn = snap(scene, x, y);
@@ -1993,12 +2021,26 @@ function DocumentEditorInner({
       const doc = editor.state.doc;
       const heading = doc.nodeAt(headingPos);
       if (!heading || heading.type.name !== "heading") return;
-      const headingLevel = heading.attrs.level ?? 2;
+      // The Geometry panel may be opened while the cursor is under Solution.
+      // Resolve that request back to its owning question; a Solution is never
+      // an insertion target for an independent scene.
+      const targetHeadingPos = isSolutionLabel(heading.textContent)
+        ? ownerQuestionHeadingFor(doc, headingPos)?.pos
+        : headingPos;
+      if (targetHeadingPos == null) return;
+      const targetHeading = doc.nodeAt(targetHeadingPos);
+      if (!targetHeading || targetHeading.type.name !== "heading") return;
+      const existing = diagramsOwnedByQuestion(doc, targetHeadingPos, isSolutionLabel)[0];
+      if (existing) {
+        editor.chain().focus().setNodeSelection(existing.pos).run();
+        return;
+      }
+      const headingLevel = targetHeading.attrs.level ?? 2;
       // End of this section = position of next heading at same or higher level,
       // else end of doc.
       let endPos = doc.content.size;
       doc.descendants((node, pos) => {
-        if (pos <= headingPos) return true;
+        if (pos <= targetHeadingPos) return true;
         if (node.type.name === "heading" && (node.attrs.level ?? 6) <= headingLevel) {
           endPos = pos;
           return false;
@@ -2007,7 +2049,7 @@ function DocumentEditorInner({
       });
       editor.chain().focus().insertContentAt(endPos, {
         type: "geometryDiagram",
-        attrs: { scene: detail.scene },
+        attrs: { scene: detail.scene, diagramId: newDiagramId() },
       }).run();
     };
     window.addEventListener("geometry-editor:list-sections", listSections);

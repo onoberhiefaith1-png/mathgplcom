@@ -73,6 +73,18 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit }: Props) {
   const duplicate = () => {
     const snap = captureSnapshot();
     if (!snap || !snap.json) return;
+    const containsAuthoritativeDiagram = (value: unknown): boolean => {
+      if (!value || typeof value !== "object") return false;
+      const record = value as { type?: string; content?: unknown[] };
+      if (record.type === "geometryDiagram") return true;
+      return Array.isArray(record.content) && record.content.some(containsAuthoritativeDiagram);
+    };
+    // One question owns one authoritative geometry scene. It can be copied as
+    // data from the diagram's own action row, but never cloned inside the note.
+    if (containsAuthoritativeDiagram(snap.json)) {
+      toast({ title: "This question already has its diagram" });
+      return;
+    }
     const fragment = Array.isArray(snap.json) ? snap.json : snap.json?.content ?? null;
     if (!fragment) return;
     editor.chain().focus().insertContentAt(snap.to, fragment).run();

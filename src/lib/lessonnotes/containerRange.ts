@@ -11,6 +11,7 @@
 // container, so generated content is always enclosed under its heading.
 
 import type { Node as PMNode } from "@tiptap/pm/model";
+import type { Editor } from "@tiptap/core";
 
 const FRAME_NODES = new Set(["canvasFrame", "solutionMath", "solutionProse"]);
 
@@ -91,7 +92,10 @@ export function diagramsOwnedByQuestion(
   doc.descendants((n, p) => {
     if (n.type.name === "canvasFrame") {
       frameOwner = ((n.attrs as any)?.ownerQuestionId as string | null) ?? null;
-      if (frameOwner && qid && frameOwner === qid) {
+      // Compatibility for diagrams detached before stable question ownership
+      // existed: an unowned frame still belongs to the nearest question that
+      // preceded it in document order. New frames are always explicitly owned.
+      if ((frameOwner && qid && frameOwner === qid) || (!frameOwner && owner === headingPos)) {
         n.descendants((c, cp) => {
           if (c.type.name === "geometryDiagram") out.push({ pos: p + 1 + cp, node: c });
           return true;
@@ -112,6 +116,23 @@ export function diagramsOwnedByQuestion(
   return out;
 }
 
+/** The nearest preceding non-Solution heading that owns the node at `pos`. */
+export function ownerQuestionHeadingFor(
+  doc: PMNode,
+  pos: number,
+): { pos: number; node: PMNode } | null {
+  let owner: { pos: number; node: PMNode } | null = null;
+  doc.descendants((n, p) => {
+    if (p >= pos) return false;
+    if (n.type.name === "heading") {
+      const t = (n.textContent || "").toLowerCase().trim();
+      if (!t.startsWith("solution") && !t.includes("worked solution")) owner = { pos: p, node: n };
+    }
+    return true;
+  });
+  return owner;
+}
+
 /**
  * The `sectionId` of the question heading that owns the node at `pos` — the
  * nearest preceding structural heading that is not a Solution. Read-only: it
@@ -119,15 +140,25 @@ export function diagramsOwnedByQuestion(
  * relationship is created).
  */
 export function ownerQuestionIdFor(doc: PMNode, pos: number): string | null {
-  let owner: PMNode | undefined;
-  doc.descendants((n, p) => {
-    if (p >= pos) return false;
-    if (n.type.name === "heading") {
-      const t = (n.textContent || "").toLowerCase().trim();
-      if (!t.startsWith("solution") && !t.includes("worked solution")) owner = n;
-    }
-    return true;
-  });
-  const id = (owner as PMNode | undefined)?.attrs?.sectionId as unknown;
+  const id = ownerQuestionHeadingFor(doc, pos)?.node.attrs?.sectionId as unknown;
   return typeof id === "string" && id ? id : null;
+}
+
+/**
+ * Resolve permanent ownership before a relationship is created. Assigning the
+ * id is housekeeping and deliberately does not occupy an Undo step.
+ */
+export function ensureOwnerQuestionId(editor: Editor, pos: number): string | null {
+  const owner = ownerQuestionHeadingFor(editor.state.doc, pos);
+  if (!owner) return null;
+  const existing = owner.node.attrs?.sectionId as unknown;
+  if (typeof existing === "string" && existing) return existing;
+  const id = `q_${Math.random().toString(36).slice(2, 10)}`;
+  const tr = editor.state.tr.setNodeMarkup(owner.pos, undefined, {
+    ...owner.node.attrs,
+    sectionId: id,
+  });
+  tr.setMeta("addToHistory", false);
+  editor.view.dispatch(tr);
+  return id;
 }
