@@ -194,8 +194,12 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const bufferRef = useRef("");
   bufferRef.current = buffer;
 
+  /** Last cell the teacher touched — the target for the table-level AI Edit. */
+  const lastCellRef = useRef<{ r: number; c: number } | null>(null);
+
   const beginEdit = (r: number, c: number, point?: { x: number; y: number } | null) => {
     setActive({ r, c });
+    lastCellRef.current = { r, c };
     setBuffer((r === -1 ? headers[c] : cells[r][c]) ?? "");
     setSel({ s: 0, e: 0 });
     setEntryPoint(point ?? null);
