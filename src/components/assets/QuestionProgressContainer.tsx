@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import blueFrame from "@/assets/qpc/frame-blue.png.asset.json";
 import greenFrame from "@/assets/qpc/frame-green.png.asset.json";
 import purpleFrame from "@/assets/qpc/frame-purple.png.asset.json";
