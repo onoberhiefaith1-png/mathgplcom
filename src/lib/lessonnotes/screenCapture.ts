@@ -12,8 +12,15 @@ export interface ScreenFrame {
   height: number;
 }
 
+export interface CroppedFrame {
+  blob: Blob;
+  /** Real pixel size of the crop — used to size the slide object correctly. */
+  width: number;
+  height: number;
+}
+
 export class ScreenCaptureError extends Error {
-  constructor(public reason: "unsupported" | "denied" | "failed") {
+  constructor(public reason: "unsupported" | "denied" | "failed" | "blank") {
     super(reason);
   }
 }
@@ -23,6 +30,38 @@ export const screenCaptureSupported = (): boolean =>
   !!navigator.mediaDevices &&
   typeof navigator.mediaDevices.getDisplayMedia === "function";
 
+/** True when a drawn frame carries no visible content at all (one flat colour).
+ *  A frame like that means the compositor had not painted yet — the classic
+ *  cause of "the screenshot was taken but the slide is blank". */
+const isFlatCanvas = (ctx: CanvasRenderingContext2D, w: number, h: number): boolean => {
+  const steps = 12;
+  let first: string | null = null;
+  for (let iy = 0; iy < steps; iy += 1) {
+    for (let ix = 0; ix < steps; ix += 1) {
+      const x = Math.min(w - 1, Math.round(((ix + 0.5) / steps) * w));
+      const y = Math.min(h - 1, Math.round(((iy + 0.5) / steps) * h));
+      const [r, g, b, a] = ctx.getImageData(x, y, 1, 1).data;
+      const key = `${r},${g},${b},${a}`;
+      if (first === null) first = key;
+      else if (key !== first) return false;
+    }
+  }
+  return true;
+};
+
+const nextFrame = (video: HTMLVideoElement, timeout = 500) =>
+  new Promise<void>((resolve) => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    const anyVideo = video as HTMLVideoElement & {
+      requestVideoFrameCallback?: (cb: () => void) => number;
+    };
+    if (typeof anyVideo.requestVideoFrameCallback === "function") {
+      anyVideo.requestVideoFrameCallback(() => finish());
+    }
+    window.setTimeout(finish, timeout);
+  });
+
 /** Ask for a screen / window / tab and grab a single high-resolution frame. */
 export const grabScreenFrame = async (): Promise<ScreenFrame> => {
   if (!screenCaptureSupported()) throw new ScreenCaptureError("unsupported");
@@ -30,7 +69,7 @@ export const grabScreenFrame = async (): Promise<ScreenFrame> => {
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: 5 },
+      video: { frameRate: 30 },
       audio: false,
     });
   } catch (e) {
@@ -46,19 +85,7 @@ export const grabScreenFrame = async (): Promise<ScreenFrame> => {
     video.playsInline = true;
     video.srcObject = stream;
     await video.play();
-
-    // Let the compositor deliver a real frame before drawing.
-    await new Promise<void>((resolve) => {
-      let done = false;
-      const finish = () => { if (!done) { done = true; resolve(); } };
-      const anyVideo = video as HTMLVideoElement & {
-        requestVideoFrameCallback?: (cb: () => void) => number;
-      };
-      if (typeof anyVideo.requestVideoFrameCallback === "function") {
-        anyVideo.requestVideoFrameCallback(() => finish());
-      }
-      window.setTimeout(finish, 400);
-    });
+    await nextFrame(video);
 
     const w = video.videoWidth;
     const h = video.videoHeight;
@@ -67,12 +94,23 @@ export const grabScreenFrame = async (): Promise<ScreenFrame> => {
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) throw new ScreenCaptureError("failed");
-    ctx.drawImage(video, 0, 0, w, h);
+
+    // Keep pulling frames until one actually carries content. Without this the
+    // first delivered frame is often a single flat colour, which is exactly
+    // what produced an apparently successful but empty screenshot.
+    let painted = false;
+    for (let attempt = 0; attempt < 6 && !painted; attempt += 1) {
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(video, 0, 0, w, h);
+      painted = !isFlatCanvas(ctx, w, h);
+      if (!painted) await nextFrame(video, 180);
+    }
+    if (!painted) throw new ScreenCaptureError("blank");
 
     const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
-    if (!blob) throw new ScreenCaptureError("failed");
+    if (!blob || blob.size < 128) throw new ScreenCaptureError("failed");
     return { url: URL.createObjectURL(blob), width: w, height: h };
   } finally {
     stream.getTracks().forEach((t) => t.stop());
@@ -84,7 +122,7 @@ export const grabScreenFrame = async (): Promise<ScreenFrame> => {
 export const cropScreenFrame = async (
   frame: ScreenFrame,
   area: { x: number; y: number; w: number; h: number },
-): Promise<Blob> => {
+): Promise<CroppedFrame> => {
   const img = new Image();
   img.src = frame.url;
   await img.decode().catch(
@@ -108,6 +146,6 @@ export const cropScreenFrame = async (
   ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
   const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
-  if (!blob) throw new ScreenCaptureError("failed");
-  return blob;
+  if (!blob || blob.size < 128) throw new ScreenCaptureError("failed");
+  return { blob, width: sw, height: sh };
 };

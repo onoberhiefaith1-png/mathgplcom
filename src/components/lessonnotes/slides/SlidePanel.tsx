@@ -21,7 +21,7 @@ import {
 import {
   addSlideItem, createCanvas, createSlide, deleteCanvas, deleteSlide, deleteSlideItem,
   listCanvases, listCanvasSlides, listSlideItems, renameCanvas, renameSlide, reorderSlides,
-  updateSlideItem, uploadSlideMedia, gplRef, type Slide, type SlideCanvasRecord, type SlideItem,
+  updateSlideItem, uploadSlideMedia, gplRef, slideMediaUrl, SLIDE_PAGE, type Slide, type SlideCanvasRecord, type SlideItem,
 } from "@/lib/lessonnotes/slides";
 
 interface Props {
@@ -194,6 +194,25 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   const nextStep = () => (items.length ? Math.max(...items.map((i) => i.step)) : 0) + 1;
   const nextZ = () => (items.length ? Math.max(...items.map((i) => i.z)) : 0) + 1;
 
+  /** Turn a real pixel size into a slide box that keeps the aspect ratio and
+   *  sits centred on the page, so a captured image is never squashed into a
+   *  thin strip or blown past the page edge. */
+  const boxForPixels = (pw: number, ph: number) => {
+    const ratio = pw > 0 && ph > 0 ? pw / ph : 4 / 3;
+    let w = Math.min(0.9, Math.max(0.2, pw / SLIDE_PAGE.w));
+    let h = (w * SLIDE_PAGE.w) / ratio / SLIDE_PAGE.h;
+    if (h > 0.82) {
+      h = 0.82;
+      w = (h * SLIDE_PAGE.h * ratio) / SLIDE_PAGE.w;
+    }
+    return {
+      x: Math.max(0.02, (1 - w) / 2),
+      y: Math.max(0.04, (1 - h) / 2),
+      w: Math.min(0.96, w),
+      h: Math.min(0.92, h),
+    };
+  };
+
   /** THE single insertion path for every kind of slide media — Capture,
    *  Screenshot, Import Image, Import Video, MyGPL. Everything becomes a
    *  normal, selectable, movable, resizable object on the CURRENT slide. */
@@ -289,15 +308,30 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     setScreenFrame((f) => { if (f) URL.revokeObjectURL(f.url); return null; });
   };
 
-  const insertScreenshot = async (blob: Blob, aspect: number) => {
+  const insertScreenshot = async (blob: Blob, pixelWidth: number, pixelHeight: number) => {
     closeScreenshot();
     if (!openId) return;
     setBusy(true);
     try {
+      if (blob.size < 128) {
+        toast.error("The screenshot came back empty. Try taking it again.");
+        return;
+      }
       const path = await uploadSlideMedia(notebookId, openId, blob, "png");
-      const item = await insertSlideObject({ kind: "screenshot", storage_path: path, aspect });
+      // Confirm the stored file is actually reachable before telling the
+      // teacher it worked — a blank slide must never be reported as success.
+      const url = await slideMediaUrl(path);
+      if (!url) {
+        toast.error("The screenshot was taken but could not be loaded back. Try again.");
+        return;
+      }
+      const item = await insertSlideObject(
+        { kind: "screenshot", storage_path: path },
+        boxForPixels(pixelWidth, pixelHeight),
+      );
       if (item) toast.success(`Screenshot added as step ${item.step}`);
-    } catch {
+    } catch (err) {
+      console.error("[screenshot] save failed", err);
       toast.error("Could not save the screenshot");
     } finally {
       setBusy(false);
@@ -656,7 +690,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
         <ScreenshotOverlay
           frame={screenFrame}
           onCancel={closeScreenshot}
-          onInsert={(blob, aspect) => void insertScreenshot(blob, aspect)}
+          onInsert={(blob, pw, ph) => void insertScreenshot(blob, pw, ph)}
         />
       )}
 

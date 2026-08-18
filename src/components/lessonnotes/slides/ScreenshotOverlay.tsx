@@ -10,7 +10,7 @@ import { cropScreenFrame, type ScreenFrame } from "@/lib/lessonnotes/screenCaptu
 interface Props {
   frame: ScreenFrame;
   onCancel: () => void;
-  onInsert: (blob: Blob, aspect: number) => void;
+  onInsert: (blob: Blob, pixelWidth: number, pixelHeight: number) => void;
 }
 
 interface Rect { left: number; top: number; width: number; height: number }
@@ -45,8 +45,8 @@ export function ScreenshotOverlay({ frame, onCancel, onInsert }: Props) {
     async (area: { x: number; y: number; w: number; h: number }) => {
       setBusy(true);
       try {
-        const blob = await cropScreenFrame(frame, area);
-        onInsert(blob, (area.w * frame.width) / Math.max(1, area.h * frame.height));
+        const crop = await cropScreenFrame(frame, area);
+        onInsert(crop.blob, crop.width, crop.height);
       } finally {
         setBusy(false);
       }
