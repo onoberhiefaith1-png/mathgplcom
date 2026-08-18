@@ -37,6 +37,7 @@ import { GeometryCanvas } from "./geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "./geometry-editor/useGeometryEditor";
 import { DiagramToolsPanel } from "@/components/lessonnotes/geometry-editor/DiagramToolsPanel";
 import { SelectionInspector } from "./geometry-editor/SelectionInspector";
+import { GeometryPropertiesWorkspace } from "./geometry-editor/GeometryPropertiesWorkspace";
 import { GeometryDiagram as StaticGeometryDiagram } from "./GeometryDiagram";
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
@@ -3011,6 +3012,10 @@ function NotebookGeometryOverlay({
     saveNotebookGeometry(notebookId, next);
   });
 
+  // Entrance to the existing Geometry Properties workspace (same scene).
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
+
+
   // Toolbar Dustbin: wipe 2D diagram objects the dustbin passes over.
   useEffect(() => {
     registerNotebookGeometryEraser((clientX, clientY) => {
@@ -3062,6 +3067,7 @@ function NotebookGeometryOverlay({
       onRedo={geometryEditor.doRedo}
       canUndo={geometryEditor.canUndo}
       canRedo={geometryEditor.canRedo}
+      onOpenProperties={() => setPropertiesOpen(true)}
     />
     </div>
   ), [
@@ -3107,6 +3113,13 @@ function NotebookGeometryOverlay({
         pointerEvents: mode ? "auto" : "none",
       }}
     >
+      {propertiesOpen && (
+        <GeometryPropertiesWorkspace
+          scene={geometryEditor.scene}
+          onChange={(next) => geometryEditor.commit(next)}
+          onClose={() => setPropertiesOpen(false)}
+        />
+      )}
       {mode ? (
         <GeometryCanvas editor={geometryEditor} />
       ) : (
