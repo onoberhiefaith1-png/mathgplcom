@@ -182,19 +182,28 @@ const CanvasElementView = ({
         }}
       >
         {element.kind === "progress_bar" && element.progress ? (
-          <div
-            className="w-full"
-            style={{
-              aspectRatio: String(getPreset(element.progress.presetId)?.aspect ?? 0.5),
-            }}
-          >
-            <ProgressColumn
-              config={element.progress}
-              fallbackPath={element.storagePath}
-              fallbackMedia={element.mediaType}
-              fallbackSource={element.source}
+          element.progress.barType === "liquid" ? (
+            <QuestionProgressContainer
+              width="fill"
+              theme={getLiquidStyle(element.progress.liquidStyleId).id}
+              current={element.progress.currentMarks ?? 0}
+              max={element.progress.totalMarks > 0 ? element.progress.totalMarks : 1}
             />
-          </div>
+          ) : (
+            <div
+              className="w-full"
+              style={{
+                aspectRatio: String(getPreset(element.progress.presetId)?.aspect ?? 0.5),
+              }}
+            >
+              <ProgressColumn
+                config={element.progress}
+                fallbackPath={element.storagePath}
+                fallbackMedia={element.mediaType}
+                fallbackSource={element.source}
+              />
+            </div>
+          )
         ) : element.mediaType === "video" && element.bgRemoval === "chroma" ? (
           <ChromaVideo
             path={element.storagePath}
