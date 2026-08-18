@@ -246,25 +246,29 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 
 
   const cellAiEdit = () => {
-    if (!active) return;
     if (!aiBridge) { toast({ title: "AI Edit unavailable here", variant: "destructive" }); return; }
-    const { r, c } = active;
-    const { s, e } = selRange();
-    const source = buffer;
-    const text = source.slice(s, e).trim();
-    if (!text) { toast({ title: "Nothing selected", variant: "destructive" }); return; }
+    // The button lives outside the cell, so pressing it commits and clears the
+    // editor. Fall back to the last cell the teacher touched.
+    const target = active ?? lastCellRef.current;
+    if (!target) { toast({ title: "Select a cell first" }); return; }
+    const { r, c } = target;
+    const m = modelRef.current;
+    const source = active
+      ? buffer
+      : ((r === -1 ? m.headers[c] : m.cells[r]?.[c]) ?? "");
+    const text = source.trim();
+    if (!text) { toast({ title: "That cell is empty" }); return; }
     aiBridge.requestAiEdit({
       text,
       kind: detectSelectionKindFromText(text),
       label: [
-        `Table cell (column "${(r === -1 ? headers[c] : headers[c]) || c + 1}"`,
+        `Table cell (column "${m.headers[c] || c + 1}"`,
         r === -1 ? "header row)" : `row ${r + 1})`,
         "— you may rewrite, shorten or delete these contents entirely; return only the cell's new value.",
       ].join(" "),
       onApply: (proposed) => {
-        const merged = source.slice(0, s) + proposed + source.slice(e);
-        writeAny(r, c, merged);
-        setBuffer(merged);
+        writeAny(r, c, proposed);
+        if (active) setBuffer(proposed);
       },
     });
   };
