@@ -37,11 +37,16 @@ interface Props {
    * diagram's own appearance is never changed.
    */
   highlightIds?: GeoId[];
+  /** Objects a chosen relationship also involves — amber halo. */
+  relatedIds?: GeoId[];
+  /** The relationship's own subject — emphasised halo. */
+  emphasisIds?: GeoId[];
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightIds }: Props) {
+export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightIds, relatedIds, emphasisIds }: Props) {
+
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
   const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
 
