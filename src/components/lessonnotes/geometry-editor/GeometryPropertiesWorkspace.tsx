@@ -51,26 +51,19 @@ const LIGHT_TOKENS = {
   color: "hsl(220 35% 18%)",
 } as unknown as CSSProperties;
 
-export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props) {
+export function GeometryPropertiesWorkspace({
+  scene, onChange, onClose, context, topic,
+}: Props) {
   const [rawHighlight, setRawHighlight] = useState<GeoId[]>([]);
-  const [rawRelated, setRawRelated] = useState<GeoId[]>([]);
-  const [connecting, setConnecting] = useState(false);
-  const [targetName, setTargetName] = useState<string | null>(null);
-  const doc = readProperties(scene);
+  const doc = readMap(scene);
   const empty = scene.objects.length === 0;
+  const ctx = context ?? { question: "", solution: "" };
 
-  // A defined part (∠ABC, θ, a distance) highlights the real objects it is
-  // built from — the diagram stays the single source of truth.
-  const relatedIds = useMemo(
-    () => resolveHighlightIds(doc, rawRelated),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rawRelated.join(","), doc.virtuals?.length],
-  );
-
+  // Only ids that still exist in the diagram may glow.
   const highlightIds = useMemo(
-    () => resolveHighlightIds(doc, rawHighlight),
+    () => keepLiveIds(scene, rawHighlight),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rawHighlight.join(","), doc.virtuals?.length],
+    [rawHighlight.join(","), scene.objects.length],
   );
 
   const body = (
@@ -85,14 +78,16 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
         </button>
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold tracking-tight text-slate-900">
-            Geometry Relationship Guide
-            {targetName ? <span className="font-normal text-slate-500"> · {targetName}</span> : null}
+            Geometry Map
+            <span className="font-normal text-slate-500"> · theory of this solution</span>
           </h2>
           <p className="text-[11px] text-slate-500">
-            Click a part of the diagram, then feed in its relationships — one part at a time.
+            Question → Solution → Map. Each step shows the principle used and lights up the
+            parts of the diagram it applies to.
           </p>
         </div>
       </header>
+
 
       <div className="min-h-0 flex-1 overflow-hidden p-3">
         {empty ? (
