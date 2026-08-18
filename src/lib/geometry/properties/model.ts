@@ -32,11 +32,43 @@ export const PROPERTY_KINDS: { value: PropertyKind; label: string }[] = [
 
 export type GuideAccess = "off" | "specific" | "general" | "both";
 
+/** Which shelf a relationship sits on in the panel. */
+export type RelationshipGroup = "angle" | "line" | "area" | "theorem";
+
+export const RELATIONSHIP_GROUPS: { value: RelationshipGroup; label: string }[] = [
+  { value: "angle", label: "Angle" },
+  { value: "line", label: "Line / Segment" },
+  { value: "area", label: "Area" },
+  { value: "theorem", label: "Theorem / Rule" },
+];
+
+/** Falls back from the object type when a relationship carries no group. */
+export function groupForType(type: string | undefined): RelationshipGroup {
+  switch (type) {
+    case "angle":
+      return "angle";
+    case "segment":
+    case "line":
+    case "ray":
+    case "distance":
+      return "line";
+    case "region":
+    case "area":
+      return "area";
+    case "circle":
+    case "arc":
+      return "theorem";
+    default:
+      return "theorem";
+  }
+}
+
 /** A symbol inside the relationship text bound to a diagram object. */
 export interface TokenBinding {
   token: string;
   objectId: GeoId;
 }
+
 
 export interface GeometryPropertyItem {
   id: string;
