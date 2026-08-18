@@ -1063,13 +1063,24 @@ function DocumentEditorInner({
     const prefDirective = buildPreferenceDirective(loadAiPreferences(nbIdRef.current));
     let finalPrompt = prefDirective ? `${built.prompt}\n\n${prefDirective}` : built.prompt;
 
+    // ── SESSION CONTEXT — derived once, used by every stage below ───────────
+    const session = collectSessionContext(info.headingPos);
+    const sessionDigest = session ? describeSessionContext(session) : "";
+    if (sessionDigest) finalPrompt = `${finalPrompt}\n\n${sessionDigest}`;
+
     // ── PIPELINE STAGE 2/3 — understand the material, then structure it ─────
     // A question section is never generated straight from a loose prompt: the
     // teacher's material (text, photos, documents) plus the Add-context strip
     // are first analysed into a mathematical blueprint. Generation then works
     // from that blueprint, so question, diagram and solution share one model.
     const teacherContext: TeacherContext = info.context ?? { ...EMPTY_TEACHER_CONTEXT };
-    const material = mergeMaterial(prompt, info.images ?? [], info.files ?? []);
+    // When the teacher typed nothing, the material is read from the lesson note
+    // itself, so the blueprint stage can never fail with "no material".
+    const documentMaterial = session ? materialFromSession(session) : "";
+    const typedMaterial = mergeMaterial(prompt, info.images ?? [], info.files ?? []);
+    const material = hasMaterial(typedMaterial)
+      ? typedMaterial
+      : mergeMaterial(documentMaterial, info.images ?? [], info.files ?? []);
     const wantsPipeline =
       isQuestionSectionKind(info.kind) &&
       info.action !== "clear" &&
@@ -1083,6 +1094,7 @@ function DocumentEditorInner({
           sectionKind: info.kind,
           fallbackTopic: contextAt(info.headingPos)?.topic ?? "",
           fallbackSubtopic: contextAt(info.headingPos)?.subtopic ?? "",
+          sessionContext: sessionDigest,
           onStage: info.reportStage,
         });
       } catch (err) {
@@ -1105,7 +1117,8 @@ function DocumentEditorInner({
 
 
     const isSolutionBlock = info.kind === "solution";
-    const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos) : null;
+    const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, session) : null;
+
     // TWO-STAGE PIPELINE — stage 1: identify + validate, stage 2: generate.
     // A non-valid report never silently blocks the teacher: the Problem Check
     // panel states exactly what was inspected and offers "Generate anyway".
