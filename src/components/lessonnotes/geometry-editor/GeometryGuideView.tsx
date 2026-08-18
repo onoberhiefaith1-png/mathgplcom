@@ -8,8 +8,11 @@ import type { GeometryScene } from "@/lib/geometry/scene";
 import {
   PROPERTY_KINDS,
   connectionsOf,
-  describeObject,
+  describeTarget,
+  guideTargets,
   readProperties,
+  resolveHighlightIds,
+  type GeometryPropertiesDoc,
   type GeometryPropertyItem,
 } from "@/lib/geometry/properties/model";
 
@@ -21,6 +24,7 @@ export function GeometryGuideView({
   onHighlight?: (ids: string[]) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [partId, setPartId] = useState<string | null>(null);
   const doc = readProperties(scene);
   const [open, setOpen] = useState(false);
 
@@ -38,11 +42,25 @@ export function GeometryGuideView({
   const pick = (item: GeometryPropertyItem) => {
     const next = activeId === item.id ? null : item.id;
     setActiveId(next);
-    onHighlight?.(next ? connectionsOf(item) : []);
+    onHighlight?.(next ? resolveHighlightIds(doc, connectionsOf(item)) : []);
   };
 
-  const specific = visible.filter((i) => i.category === "specific");
-  const general = visible.filter((i) => i.category === "general");
+  // Every part of the diagram the teacher attached something to. Choosing one
+  // shows only what belongs to it — "click a part, see its relationships".
+  const parts = guideTargets(scene, doc, visible);
+  const pickPart = (id: string | null) => {
+    setPartId(id);
+    setActiveId(null);
+    onHighlight?.(id ? resolveHighlightIds(doc, [id]) : []);
+  };
+
+  const forPart = partId
+    ? visible.filter(
+        (i) => i.sourceObjectIds.includes(partId) || i.connectedObjectIds.includes(partId),
+      )
+    : visible;
+  const specific = forPart.filter((i) => i.category === "specific");
+  const general = forPart.filter((i) => i.category === "general");
 
   return (
     <div className="mt-2 rounded-lg border border-foreground/15 bg-foreground/[0.02]">
@@ -60,15 +78,28 @@ export function GeometryGuideView({
       </button>
       {open && (
         <div className="space-y-2.5 border-t border-foreground/10 px-2.5 py-2">
+          {parts.length > 1 && (
+            <div className="flex flex-wrap gap-1">
+              <Chip label="All" active={partId === null} onClick={() => pickPart(null)} />
+              {parts.map((p) => (
+                <Chip
+                  key={p.id}
+                  label={p.name}
+                  active={partId === p.id}
+                  onClick={() => pickPart(partId === p.id ? null : p.id)}
+                />
+              ))}
+            </div>
+          )}
           {specific.length > 0 && (
             <Section
-              title="In this question" scene={scene} items={specific}
+              title="In this question" scene={scene} doc={doc} items={specific}
               activeId={activeId} onPick={pick}
             />
           )}
           {general.length > 0 && (
             <Section
-              title="General rules" scene={scene} items={general}
+              title="General rules" scene={scene} doc={doc} items={general}
               activeId={activeId} onPick={pick}
             />
           )}
@@ -79,11 +110,12 @@ export function GeometryGuideView({
 }
 
 function Section({
-  title, items, scene, activeId, onPick,
+  title, items, scene, doc, activeId, onPick,
 }: {
   title: string;
   items: GeometryPropertyItem[];
   scene: GeometryScene;
+  doc: GeometryPropertiesDoc;
   activeId: string | null;
   onPick: (item: GeometryPropertyItem) => void;
 }) {
@@ -95,7 +127,7 @@ function Section({
       {items.map((item) => {
         const kind = PROPERTY_KINDS.find((k) => k.value === item.kind)?.label ?? "Statement";
         const names = connectionsOf(item)
-          .map((id) => describeObject(scene, id)?.name)
+          .map((id) => describeTarget(scene, doc, id)?.name)
           .filter(Boolean) as string[];
         return (
           <button
@@ -117,6 +149,24 @@ function Section({
         );
       })}
     </div>
+  );
+}
+
+function Chip({
+  label, active, onClick,
+}: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-2 py-0.5 text-[10.5px] ${
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-foreground/20 hover:bg-foreground/[0.05]"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
