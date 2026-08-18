@@ -722,6 +722,8 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
           emptyIfBlank(a.inner, `${keyBase}-rb${k}`, ctx),
           null,
           `\\sqrt{${a.inner}}`,
+          radicalHeadroom(a.inner),
+
         ));
         i = a.end;
         continue;
