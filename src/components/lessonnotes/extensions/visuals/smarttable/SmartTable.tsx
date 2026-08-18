@@ -671,7 +671,11 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 key={c}
                 style={{ ...headerCss, ...colStyle(c), ...lineHi(-1, c) }}
                 className="relative"
-                onClick={(e) => { e.stopPropagation(); if (sumMode) return; if (!isEditing(-1, c)) beginEdit(-1, c); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (sumMode) return;
+                  if (!isEditing(-1, c)) beginEdit(-1, c, { x: e.clientX, y: e.clientY });
+                }}
               >
                 {isEditing(-1, c) ? (
                   <>
@@ -679,17 +683,20 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                       onCopy={cellCopy} onCut={cellCut} onDelete={cellDelete}
                       onDuplicate={cellDuplicate} onComment={cellComment} onAiEdit={cellAiEdit}
                     />
-                    <InlineEditor
-                      inputRef={inputRef} value={buffer} onChange={setBuffer}
-                      onSelect={(s, e) => setSel({ s, e })}
-                      onCommit={finishEdit} onCancel={cancelEdit}
+                    <MathCellEditor
+                      value={buffer}
+                      entryPoint={entryPoint}
+                      onChange={setBuffer}
+                      onCommit={finishEdit}
                     />
                   </>
                 ) : (
                   <span className="block min-h-[1.4em]">
                     {h
                       ? cellDisplay(h, `h${c}`)
-                      : <span style={{ color: "#94a3b8" }}>header</span>}
+                      : selected
+                        ? <span style={{ color: "#cbd5e1" }}>header</span>
+                        : null}
                   </span>
                 )}
               </th>
