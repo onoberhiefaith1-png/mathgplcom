@@ -315,17 +315,13 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       setSumMode(null);
       return;
     }
-    // Clicking the cell's TEXT edits the value. Clicking the padding around
-    // it soft-selects the cell so a whole row/column can be inserted there.
-    const hitText = !!(e && (e.target as HTMLElement)?.closest?.("[data-cell-text]"));
-    if (!hitText) {
-      setLine(null);
-      cancelEdit();
-      setSoftCell((p) => (p && p.r === r && p.c === c ? null : { r, c }));
-      return;
-    }
-    setSoftCell(null);
-    if (!isEditing(r, c)) beginEdit(r, c);
+    // ONE CLICK = ACTIVE CELL. Anywhere inside the cell opens it for typing;
+    // the click point is replayed so the caret lands where it was clicked.
+    setLine(null);
+    // The cell also stays the anchor for inserting a full row / column, but
+    // that is tracked silently — no wash, no overlay.
+    setSoftCell({ r, c });
+    if (!isEditing(r, c)) beginEdit(r, c, e ? { x: e.clientX, y: e.clientY } : null);
   };
 
   // Structural edits always read the LIVE model (modelRef), never the
