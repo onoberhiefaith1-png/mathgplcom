@@ -30,6 +30,8 @@ export interface PipelineInput extends PipelineHooks {
   sectionKind: string;
   fallbackTopic?: string;
   fallbackSubtopic?: string;
+  /** Digest of the whole session (questions, diagrams, solutions already there). */
+  sessionContext?: string;
   /** Generates the question body from the blueprint directive. */
   generateQuestion: (args: { directive: string; blueprint: QuestionBlueprint }) => Promise<string>;
   /** Optional: build the diagram for a blueprint that requires one. */
@@ -47,6 +49,7 @@ export async function runBlueprintStage(input: {
   sectionKind: string;
   fallbackTopic?: string;
   fallbackSubtopic?: string;
+  sessionContext?: string;
   onStage?: (stage: StageId) => void;
 }): Promise<QuestionBlueprint> {
   input.onStage?.(hasMaterial(input.material) ? "INPUT_RECEIVED" : "ANALYSING");
@@ -57,6 +60,7 @@ export async function runBlueprintStage(input: {
     sectionKind: input.sectionKind,
     fallbackTopic: input.fallbackTopic,
     fallbackSubtopic: input.fallbackSubtopic,
+    sessionContext: input.sessionContext,
   });
   input.onStage?.("BLUEPRINT_READY");
   return bp;

@@ -30,7 +30,22 @@ export interface ProblemReport {
   hasDiagram: boolean;
   /** Plain-language description of what is wrong (empty when valid). */
   issue: string;
+  /** Where the mathematics was found — the block itself, its Solution, its
+   *  diagram, or elsewhere in the session. Shown in the Problem Check panel. */
+  sources: string[];
 }
+
+/** Content belonging to the same question / session, used when the clicked
+ *  block alone does not carry the mathematics. */
+export interface RelatedProblemContent {
+  /** Solution text of the same question. */
+  solutionText?: string;
+  /** Text inventory of the diagram owned by the same question. */
+  diagramSummary?: string;
+  /** Mathematics found elsewhere in the same session. */
+  sessionText?: string;
+}
+
 
 /* ------------------------------------------------------------------ labels */
 
@@ -143,14 +158,20 @@ function needsFigure(text: string): boolean {
 /* ------------------------------------------------------------------ report */
 
 /**
- * Inspect the raw question text between the section heading and the Solution
- * heading, and report exactly what was found.
+ * Inspect the clicked block, and — when that block alone does not carry the
+ * mathematics — the rest of the same question and session. The question, its
+ * diagram and its solution are one unit: mathematics found in any of them is
+ * mathematics found.
  */
 export function analyzeProblem(
   rawText: string,
-  opts?: { heading?: string; hasDiagram?: boolean },
+  opts?: { heading?: string; hasDiagram?: boolean; related?: RelatedProblemContent },
 ): ProblemReport {
-  const hasDiagram = Boolean(opts?.hasDiagram);
+  const related = opts?.related ?? {};
+  const relatedSolution = (related.solutionText ?? "").trim();
+  const relatedSession = (related.sessionText ?? "").trim();
+  const diagramSummary = (related.diagramSummary ?? "").trim();
+  const hasDiagram = Boolean(opts?.hasDiagram) || Boolean(diagramSummary);
   const labels: string[] = [];
   const kept: string[] = [];
 
@@ -167,33 +188,87 @@ export function analyzeProblem(
   const instruction = instructionLines[0] ?? "";
   const problem = kept.join("\n").trim();
 
+  const relatedMath = (text: string): string[] =>
+    text
+      .split("\n")
+      .map((l) => stripLeadingStructuralLabel(l).rest)
+      .filter((l) => l && isMathLine(l));
+
+  const solutionMath = relatedMath(relatedSolution);
+  const sessionMath = relatedMath(relatedSession);
+
+  const sources: string[] = [];
+  if (mathLines.length) sources.push("mathematics in this block");
+  if (hasDiagram) {
+    sources.push(
+      diagramSummary
+        ? `a diagram belonging to this question (${diagramSummary})`
+        : "a diagram belonging to this question",
+    );
+  }
+  if (solutionMath.length) sources.push("mathematics in the Solution of this question");
+  if (sessionMath.length) sources.push("mathematics elsewhere in this session");
+
   const base = {
     labels: Array.from(new Set(labels)),
     instruction,
     problem,
     mathLines,
     hasDiagram,
+    sources,
   };
 
   if (!problem) {
+    // The block is blank, but the question may still exist as a figure or as
+    // working already written under the Solution heading.
+    if (hasDiagram || solutionMath.length) {
+      return {
+        ...base,
+        status: "valid",
+        issue: "",
+      };
+    }
+    if (sessionMath.length) {
+      return {
+        ...base,
+        status: "uncertain",
+        issue:
+          "This block is empty, but mathematics was found elsewhere in this session. " +
+          "A new question will be generated to continue it.",
+      };
+    }
     return {
       ...base,
       status: "empty",
       issue: labels.length
-        ? "Only section labels were found — the question itself has not been written yet."
-        : "This section is empty.",
+        ? "Only section labels were found — nothing has been written in this session yet."
+        : "Nothing was found in this session yet, so a new question will be generated from the topic.",
     };
   }
 
   if (mathLines.length === 0) {
-    if (hasDiagram && needsFigure(problem)) {
+    if (hasDiagram) {
+      // The figure carries the data: "Find the value of x" plus a diagram is a
+      // complete question.
       return { ...base, status: "valid", issue: "" };
+    }
+    if (solutionMath.length) {
+      return { ...base, status: "valid", issue: "" };
+    }
+    if (needsFigure(problem)) {
+      return {
+        ...base,
+        status: "uncertain",
+        issue:
+          "This question refers to a figure, but no diagram was found for it in this session. " +
+          "Generation can continue — check the result against the question.",
+      };
     }
     return {
       ...base,
       status: "incomplete",
       issue: instruction
-        ? "An instruction was found, but the mathematics it refers to is missing."
+        ? "An instruction was found, but no mathematics was found in this block, its Solution or its diagram."
         : "No mathematical expression was detected in this question.",
     };
   }
@@ -228,6 +303,7 @@ export function analyzeProblem(
   return { ...base, status: "valid", issue: "" };
 }
 
+
 /** Human title for the check panel. */
 export function statusTitle(status: ProblemStatus): string {
   switch (status) {
@@ -235,6 +311,6 @@ export function statusTitle(status: ProblemStatus): string {
     case "uncertain": return "A question was detected, but please review it";
     case "incomplete": return "The question appears incomplete";
     case "ambiguous": return "The question is ambiguous";
-    case "empty": return "No mathematical question has been written yet";
+    case "empty": return "Nothing has been written in this session yet";
   }
 }

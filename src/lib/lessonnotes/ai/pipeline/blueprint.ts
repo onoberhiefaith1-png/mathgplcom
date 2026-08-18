@@ -63,6 +63,8 @@ export async function requestBlueprint(opts: {
   /** Topic/subtopic already known from the lesson note (weaker than the strip). */
   fallbackTopic?: string;
   fallbackSubtopic?: string;
+  /** Authoritative digest of the lesson session as it stands now. */
+  sessionContext?: string;
 }): Promise<QuestionBlueprint> {
   const { data, error } = await withTimeout(
     supabase.functions.invoke("notebook-ai", {
@@ -76,6 +78,7 @@ export async function requestBlueprint(opts: {
         },
         materialSource: describeMaterialSource(opts.material),
         contextDirective: describeTeacherContext(opts.context),
+        sessionContext: opts.sessionContext ?? "",
         topic: opts.context.topic.trim() || opts.fallbackTopic || "",
         subtopic: opts.context.subtopic.trim() || opts.fallbackSubtopic || "",
         level: opts.context.level,

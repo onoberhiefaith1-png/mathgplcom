@@ -161,6 +161,14 @@ const newDiagramId = (): string =>
   `D-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
+import {
+  buildSessionContext,
+  describeSessionContext,
+  materialFromSession,
+  relatedContentFor,
+  type SessionContextPackage,
+} from "@/lib/lessonnotes/ai/sessionContext";
+
 import { runBlueprintStage, summariseScene } from "@/lib/lessonnotes/ai/pipeline/generate";
 import { blueprintDirective } from "@/lib/lessonnotes/ai/pipeline/blueprint";
 import { hasMaterial, mergeMaterial } from "@/lib/lessonnotes/ai/pipeline/material";
@@ -735,6 +743,25 @@ function DocumentEditorInner({
     return out.join("\n").trim();
   };
 
+  /** SESSION CONTEXT — the AI never judges a request from one block alone.
+   *  Everything the session already holds (each question, its diagram, its
+   *  solution) is derived once and shared by the check and the pipeline. */
+  const collectSessionContext = (pos: number): SessionContextPackage | null => {
+    if (!editor) return null;
+    try {
+      return buildSessionContext({
+        doc: editor.state.doc,
+        pos,
+        serialize: serializeRangeAsMath,
+        diagramsFor: (headingPos) =>
+          diagramsOwnedByQuestion(editor.state.doc, headingPos, isSolutionLabel),
+        diagramSummary: (scene) => summariseScene(scene),
+      });
+    } catch {
+      return null;
+    }
+  };
+
   /** Problem Check panel state. `askProblemCheck` resolves true when the
    *  teacher chooses to generate anyway. */
   const [problemCheck, setProblemCheck] = useState<{
@@ -744,7 +771,7 @@ function DocumentEditorInner({
     new Promise<boolean>((resolve) => setProblemCheck({ report, heading, resolve }));
 
 
-  const getSolutionSource = (headingPos: number) => {
+  const getSolutionSource = (headingPos: number, session?: SessionContextPackage | null) => {
     let parentKind: SectionKind = "example";
     let parentPos = 0;
     // Walk every prior heading (≤ level 2). The CLOSEST prior heading — of any
@@ -782,13 +809,27 @@ function DocumentEditorInner({
     // "Example 3: Solve …") and interface metadata are set aside; the
     // mathematics is always kept — even when it sits on the same line as the
     // label. This is what stops the old "no parent question found" failure.
+    // Content belonging to the SAME question (its diagram, its Solution) and to
+    // the rest of the session counts as found mathematics.
+    const pkg = session ?? collectSessionContext(headingPos);
     const report = analyzeProblem(scoped, {
       hasDiagram: editor
         ? diagramsOwnedByQuestion(editor.state.doc, parentPos, isSolutionLabel).length > 0
         : false,
+      related: pkg ? relatedContentFor(pkg) : undefined,
     });
 
-    const problemText = report.problem;
+
+    // ACTIVE_QUESTION: the block's own text when it has any, otherwise the
+    // question read from the session package (the question may have been typed
+    // into a free frame, or exist only as the diagram belonging to it).
+    const ownerQuestion = pkg?.owner?.questionText?.trim() ?? "";
+    const ownerDiagram = pkg?.owner?.diagramSummary ?? "";
+    const problemText =
+      report.problem ||
+      ownerQuestion ||
+      (ownerDiagram ? `See the diagram belonging to this question (${ownerDiagram}).` : "");
+
 
     return {
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
@@ -1022,13 +1063,24 @@ function DocumentEditorInner({
     const prefDirective = buildPreferenceDirective(loadAiPreferences(nbIdRef.current));
     let finalPrompt = prefDirective ? `${built.prompt}\n\n${prefDirective}` : built.prompt;
 
+    // ── SESSION CONTEXT — derived once, used by every stage below ───────────
+    const session = collectSessionContext(info.headingPos);
+    const sessionDigest = session ? describeSessionContext(session) : "";
+    if (sessionDigest) finalPrompt = `${finalPrompt}\n\n${sessionDigest}`;
+
     // ── PIPELINE STAGE 2/3 — understand the material, then structure it ─────
     // A question section is never generated straight from a loose prompt: the
     // teacher's material (text, photos, documents) plus the Add-context strip
     // are first analysed into a mathematical blueprint. Generation then works
     // from that blueprint, so question, diagram and solution share one model.
     const teacherContext: TeacherContext = info.context ?? { ...EMPTY_TEACHER_CONTEXT };
-    const material = mergeMaterial(prompt, info.images ?? [], info.files ?? []);
+    // When the teacher typed nothing, the material is read from the lesson note
+    // itself, so the blueprint stage can never fail with "no material".
+    const documentMaterial = session ? materialFromSession(session) : "";
+    const typedMaterial = mergeMaterial(prompt, info.images ?? [], info.files ?? []);
+    const material = hasMaterial(typedMaterial)
+      ? typedMaterial
+      : mergeMaterial(documentMaterial, info.images ?? [], info.files ?? []);
     const wantsPipeline =
       isQuestionSectionKind(info.kind) &&
       info.action !== "clear" &&
@@ -1042,6 +1094,7 @@ function DocumentEditorInner({
           sectionKind: info.kind,
           fallbackTopic: contextAt(info.headingPos)?.topic ?? "",
           fallbackSubtopic: contextAt(info.headingPos)?.subtopic ?? "",
+          sessionContext: sessionDigest,
           onStage: info.reportStage,
         });
       } catch (err) {
@@ -1064,7 +1117,8 @@ function DocumentEditorInner({
 
 
     const isSolutionBlock = info.kind === "solution";
-    const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos) : null;
+    const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, session) : null;
+
     // TWO-STAGE PIPELINE — stage 1: identify + validate, stage 2: generate.
     // A non-valid report never silently blocks the teacher: the Problem Check
     // panel states exactly what was inspected and offers "Generate anyway".
