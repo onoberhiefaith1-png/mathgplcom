@@ -123,7 +123,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
 
   return (
     <div className={cn("relative flex h-full w-full min-h-0 gap-1 p-1", className)}>
-      {leftOpen ? (
+      {hideLeftTools ? null : leftOpen ? (
         <div className="sticky left-0 top-0 z-20 h-full shrink-0 self-start">
           <GeometryToolbox inline onExit={() => setLeftOpen(false)} chrome={chrome} />
         </div>
@@ -138,6 +138,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
           <PanelLeftOpen className="h-3.5 w-3.5" />
         </button>
       )}
+
 
       {/* Transparent drawing area — no surface of its own, scrolls vertically
           while the two tool panels stay pinned to the edges. */}
