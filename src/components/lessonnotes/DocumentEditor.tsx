@@ -630,8 +630,11 @@ function DocumentEditorInner({
     // mathematics is always kept — even when it sits on the same line as the
     // label. This is what stops the old "no parent question found" failure.
     const report = analyzeProblem(scoped, {
-      hasDiagram: diagramsOwnedByQuestion(editor!.state.doc, parentPos, isSolutionLabel).length > 0,
+      hasDiagram: editor
+        ? diagramsOwnedByQuestion(editor.state.doc, parentPos, isSolutionLabel).length > 0
+        : false,
     });
+
     const problemText = report.problem;
 
     return {
