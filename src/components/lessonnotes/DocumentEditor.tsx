@@ -209,6 +209,9 @@ interface Props {
   /** Namespaces this editor's local-only state (canvas notes, page geometry) so a
    *  second instance of the same lesson note cannot collide with the primary one. */
   scopeSuffix?: string;
+  /** Filled with the MyGPL Co-Pilot bridge — the only way the Co-Pilot may
+   *  touch this note, and every entry wraps an existing editor handler. */
+  copilotBridgeRef?: React.MutableRefObject<CoPilotBridge | null>;
 }
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
