@@ -12,6 +12,7 @@ import {
   fetchAccessCodes,
   setAccessCodeActive,
   type AccessCodeRow,
+  type CodePurpose,
 } from "@/lib/access/accessCodes.functions";
 
 /**
@@ -26,6 +27,7 @@ const AccessCodesPage = () => {
   const remove = useServerFn(deleteAccessCode);
   const { toast } = useToast();
 
+  const [purpose, setPurpose] = useState<CodePurpose>("access");
   const [rows, setRows] = useState<AccessCodeRow[]>([]);
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(true);
@@ -42,12 +44,38 @@ const AccessCodesPage = () => {
   };
 
   useEffect(() => {
-    void run(() => load());
+    void run(() => load({ data: { purpose } }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [purpose]);
 
   return (
     <DashboardShell title="Access codes" subtitle="Give selected people full access without a subscription. One code, one person.">
+      <div className="mb-5 flex flex-wrap gap-2">
+        {([
+          { value: "access" as CodePurpose, label: "Full access" },
+          { value: "asset_manager" as CodePurpose, label: "Asset manager" },
+        ]).map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setPurpose(tab.value)}
+            className={`min-h-[44px] rounded-full border px-4 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+              purpose === tab.value
+                ? "border-dash-gold/60 bg-dash-gold/15 text-dash-gold"
+                : "border-dash-surface/25 bg-dash-surface/10 text-dash-surface/80 hover:bg-dash-surface/20"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <p className="mb-4 text-sm text-dash-surface/70">
+        {purpose === "access"
+          ? "Full-access codes unlock the paid features of the person's own account. They carry no administrative rights."
+          : "Asset-manager codes let the holder add and edit the official asset library on the Assets pages. They see nothing else of the console."}
+      </p>
+
       <div className="rounded-3xl border border-dash-surface/15 bg-dash-surface/5 p-6 backdrop-blur">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[220px]">
@@ -61,7 +89,7 @@ const AccessCodesPage = () => {
           </div>
           <Button
             onClick={() => {
-              void run(() => create({ data: { label } })).then(() => setLabel(""));
+              void run(() => create({ data: { label, purpose } })).then(() => setLabel(""));
             }}
             disabled={busy}
             className="min-h-[44px] gap-2"
@@ -104,7 +132,7 @@ const AccessCodesPage = () => {
                         variant="outline"
                         size="sm"
                         disabled={busy}
-                        onClick={() => void run(() => toggle({ data: { id: row.id, active: !row.active } }))}
+                        onClick={() => void run(() => toggle({ data: { id: row.id, active: !row.active, purpose } }))}
                       >
                         {row.active ? "Disable" : "Enable"}
                       </Button>
@@ -112,7 +140,7 @@ const AccessCodesPage = () => {
                         variant="destructive"
                         size="sm"
                         disabled={busy}
-                        onClick={() => void run(() => remove({ data: { id: row.id } }))}
+                        onClick={() => void run(() => remove({ data: { id: row.id, purpose } }))}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -123,7 +151,7 @@ const AccessCodesPage = () => {
               {!rows.length && !busy && (
                 <tr>
                   <td colSpan={5} className="px-3 py-8 text-center text-dash-surface/60">
-                    No access codes yet.
+                    No codes yet.
                   </td>
                 </tr>
               )}
