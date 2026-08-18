@@ -15,18 +15,18 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, Info } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import { GeometryWorkbench } from "./GeometryWorkbench";
-import { GeometryPropertiesPanel } from "./GeometryPropertiesPanel";
-import {
-  readProperties,
-  resolveHighlightIds,
-  writeProperties,
-} from "@/lib/geometry/properties/model";
+import { GeometryMapPanel } from "./GeometryMapPanel";
+import { keepLiveIds, readMap, writeMap } from "@/lib/geometry/map/model";
 
 interface Props {
   scene: GeometryScene;
   onChange: (next: GeometryScene) => void;
   onClose: () => void;
+  /** The question this diagram belongs to, and its generated solution. */
+  context?: { question: string; solution: string };
+  topic?: string;
 }
+
 
 /** Light surface tokens — the Lesson Note paper look, independent of theme. */
 const LIGHT_TOKENS = {
@@ -51,26 +51,19 @@ const LIGHT_TOKENS = {
   color: "hsl(220 35% 18%)",
 } as unknown as CSSProperties;
 
-export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props) {
+export function GeometryPropertiesWorkspace({
+  scene, onChange, onClose, context, topic,
+}: Props) {
   const [rawHighlight, setRawHighlight] = useState<GeoId[]>([]);
-  const [rawRelated, setRawRelated] = useState<GeoId[]>([]);
-  const [connecting, setConnecting] = useState(false);
-  const [targetName, setTargetName] = useState<string | null>(null);
-  const doc = readProperties(scene);
+  const doc = readMap(scene);
   const empty = scene.objects.length === 0;
+  const ctx = context ?? { question: "", solution: "" };
 
-  // A defined part (∠ABC, θ, a distance) highlights the real objects it is
-  // built from — the diagram stays the single source of truth.
-  const relatedIds = useMemo(
-    () => resolveHighlightIds(doc, rawRelated),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rawRelated.join(","), doc.virtuals?.length],
-  );
-
+  // Only ids that still exist in the diagram may glow.
   const highlightIds = useMemo(
-    () => resolveHighlightIds(doc, rawHighlight),
+    () => keepLiveIds(scene, rawHighlight),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rawHighlight.join(","), doc.virtuals?.length],
+    [rawHighlight.join(","), scene.objects.length],
   );
 
   const body = (
@@ -85,14 +78,16 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
         </button>
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold tracking-tight text-slate-900">
-            Geometry Relationship Guide
-            {targetName ? <span className="font-normal text-slate-500"> · {targetName}</span> : null}
+            Geometry Map
+            <span className="font-normal text-slate-500"> · theory of this solution</span>
           </h2>
           <p className="text-[11px] text-slate-500">
-            Click a part of the diagram, then feed in its relationships — one part at a time.
+            Question → Solution → Map. Each step shows the principle used and lights up the
+            parts of the diagram it applies to.
           </p>
         </div>
       </header>
+
 
       <div className="min-h-0 flex-1 overflow-hidden p-3">
         {empty ? (
@@ -114,21 +109,19 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
               className="h-full"
               hideLeftTools
               highlightIds={highlightIds}
-              relatedIds={relatedIds}
+              relatedIds={highlightIds}
               emphasisIds={highlightIds}
-              rightPanelTitle="Geometry Properties"
+              rightPanelTitle="Geometry Map"
               rightPanelWidthClass="w-80"
               renderRightPanel={(editor) => (
-                <GeometryPropertiesPanel
+                <GeometryMapPanel
                   scene={editor.scene}
-                  doc={readProperties(editor.scene)}
-                  onDocChange={(next) => editor.commit(writeProperties(editor.scene, next))}
+                  doc={readMap(editor.scene)}
+                  onDocChange={(next) => editor.commit(writeMap(editor.scene, next))}
                   targetId={editor.selectedIds[0] ?? null}
                   onHighlight={setRawHighlight}
-                  onRelated={setRawRelated}
-                  onTargetName={setTargetName}
-                  connecting={connecting}
-                  setConnecting={setConnecting}
+                  context={ctx}
+                  topic={topic}
                 />
               )}
             />
@@ -139,16 +132,17 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
       <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-black/10 bg-white px-4 py-1.5 text-[11px] text-slate-500">
         <span className="flex items-center gap-3">
           <LegendDot color="#2563eb" label="Selected part" />
-          <LegendDot color="#e11d48" label="Relationship subject" />
-          <LegendDot color="#f59e0b" label="Connected parts" />
+          <LegendDot color="#e11d48" label="Step subject" />
+          <LegendDot color="#f59e0b" label="Related parts" />
         </span>
-        <span>Click a part → see its relationships → click a relationship → the diagram lights up.</span>
+        <span>Click a step → the diagram lights up the parts that principle applies to.</span>
         <span>
         {doc.published
-          ? `Guide published to students — showing ${doc.access === "both" ? "specific and general" : doc.access} relationships.`
-          : "Guide is not published — students see the diagram only."}
+          ? `Map published to students — ${doc.items.filter((i) => i.enabled).length} steps visible.`
+          : "Map is not published — students see the diagram only."}
         </span>
       </footer>
+
     </div>
   );
 

@@ -29,6 +29,7 @@ import type { HitKind } from "@/lib/geometry/editor/snap";
 
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
+import { questionContextForPos } from "@/lib/geometry/map/solutionText";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
@@ -291,7 +292,13 @@ function GeometryDiagramView({
             docHistory={docHistory}
             onDeleteDiagram={() => deleteNode()}
             relevanceText={(node.attrs.questionText as string) || undefined}
+            getMapContext={() => {
+              const at = typeof getPos === "function" ? getPos() : null;
+              if (at == null) return { question: "", solution: "" };
+              return questionContextForPos(tiptapEditor.state.doc, at);
+            }}
           />
+
         ) : (
           <StudentGuideDiagram scene={scene} />
         )}
@@ -357,6 +364,7 @@ function LiveEditor({
   docHistory,
   onDeleteDiagram,
   relevanceText,
+  getMapContext,
 }: {
   instanceId: string;
   scene: GeometryScene;
@@ -367,6 +375,8 @@ function LiveEditor({
    *  so text, diagrams, edits and deletions share one chronological stack. */
   docHistory?: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean };
   onDeleteDiagram?: () => void;
+  /** Reads this question and its solution — the Geometry Map is built from it. */
+  getMapContext?: () => { question: string; solution: string };
 }) {
   // The hook writes a normalised scene back on mount; that housekeeping write
   // must not become an undo step. Any real edit happens after the first frame.
@@ -472,6 +482,8 @@ function LiveEditor({
           scene={editor.scene}
           onChange={(next) => editor.commit(next)}
           onClose={() => setPropertiesOpen(false)}
+          context={getMapContext?.()}
+          topic={relevanceText}
         />
       )}
     </>

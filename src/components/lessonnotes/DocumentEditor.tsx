@@ -42,6 +42,7 @@ import { useGeometryEditor } from "./geometry-editor/useGeometryEditor";
 import { DiagramToolsPanel } from "@/components/lessonnotes/geometry-editor/DiagramToolsPanel";
 import { SelectionInspector } from "./geometry-editor/SelectionInspector";
 import { GeometryPropertiesWorkspace } from "./geometry-editor/GeometryPropertiesWorkspace";
+import { questionContextForPos } from "@/lib/geometry/map/solutionText";
 import { GeometryDiagram as StaticGeometryDiagram } from "./GeometryDiagram";
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
@@ -3167,6 +3168,16 @@ function NotebookGeometryOverlay({
           scene={geometryEditor.scene}
           onChange={(next) => geometryEditor.commit(next)}
           onClose={() => setPropertiesOpen(false)}
+          // The page layer is not owned by one question: the map is built from
+          // the question the caret currently sits in.
+          context={
+            tiptapEditor
+              ? questionContextForPos(
+                  tiptapEditor.state.doc,
+                  tiptapEditor.state.selection.from,
+                )
+              : undefined
+          }
         />
       )}
       {mode ? (
