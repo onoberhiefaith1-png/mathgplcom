@@ -207,11 +207,16 @@ function isAsciiArtLine(line: string): boolean {
  *  real editable workspace nodes (Smart Table, Graph, Diagram, 3D object,
  *  Calculator, Structure); everything else falls through to the text pass. */
 export function aiTextToNodes(
-  text: string,
-  opts?: { allowFigures?: boolean },
+  textIn: string,
+  opts?: { allowFigures?: boolean; existingHeading?: string },
 ): TipTapNode[] {
-  if (!text) return [{ type: "paragraph" }];
+  if (!textIn) return [{ type: "paragraph" }];
+  // The application owns the section heading. A duplicated "Example 3" /
+  // "Classwork 2:" from the model is stripped, never treated as a failure.
+  const text = stripDuplicateHeading(textIn, opts?.existingHeading);
+  if (!text.trim()) return [{ type: "paragraph" }];
   if (!hasDirectives(text)) return plainAiTextToNodes(text);
+
   const out: TipTapNode[] = [];
   for (const part of splitDirectives(text, opts)) {
     if (part.kind === "node") { out.push(part.node); continue; }
