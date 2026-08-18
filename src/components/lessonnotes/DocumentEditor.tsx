@@ -91,9 +91,6 @@ import {
 } from "@/lib/geometry/editor/sceneOps";
 import { snap, pickObject } from "@/lib/geometry/editor/snap";
 import type { ToolId } from "@/lib/geometry/editor/tools";
-import { normalizeScene } from "@/lib/geometry/editor/normalize";
-import { ensureIntersectionPoints } from "@/lib/geometry/editor/intersections";
-import { hideIrrelevantAutoPoints } from "@/lib/geometry/editor/relevance";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
 import {
