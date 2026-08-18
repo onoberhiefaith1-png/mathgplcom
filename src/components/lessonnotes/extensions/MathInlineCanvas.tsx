@@ -445,12 +445,17 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 
 export function MathInlineCanvas({
   root, onChange, onBlur, focused, onFocus, entryPoint, entryCursor,
-  onExitLeft, onExitRight,
+  onExitLeft, onExitRight, onInsertObjectAsset,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>(
     () => entryCursor ?? { path: [], index: root.length },
   );
   const [anchor, setAnchor] = useState<Cursor | null>(null);
+  /** `@` Asset Library picker anchored at the caret. While it is open the
+   *  editor must NOT treat the focus move as a blur, or the cell would
+   *  commit and close under the picker. */
+  const [picker, setPicker] = useState<{ x: number; y: number } | null>(null);
+  const pickerOpen = useRef(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hostRef = useRef<HTMLSpanElement | null>(null);
   const dragging = useRef(false);
