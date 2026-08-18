@@ -179,7 +179,7 @@ export function GeometryPropertiesPanel({
       const alive = new Set(scene.objects.map((o) => o.id));
       const drafts: GeometryPropertyItem[] = list.slice(0, 8).map((r, i) => ({
         id: newPropertyId(),
-        category: r.category === "specific" ? "specific" : "general",
+        category: (r.category === "specific" ? "specific" : "general") as PropertyCategory,
         kind: (PROPERTY_KINDS.some((k) => k.value === r.kind) ? r.kind : "theorem") as PropertyKind,
         content: (r.content || r.applied || r.formula || r.name || "").trim(),
         sourceObjectIds: [target.id],
