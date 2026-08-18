@@ -1295,14 +1295,9 @@ function DocumentEditorInner({
     // re-emit the label as body text.
     if (isSolutionBlock) content = stripLeadingSolutionLabel(content);
 
-    // Single-column flow: math + prose interleaved.
-    // For question-style sections the question body and the Solution
-    // placeholder are inserted SEPARATELY so we have an exact position for
-    // the geometry diagram (which must sit BELOW the question and ABOVE the
-    // "Solution" heading — the diagram is part of the question).
-    // A Solution may never introduce a NEW diagram/3D figure — the question
-    // owns the only authoritative diagram, which the solution references.
-    const questionBodyNodes = aiTextToNodes(content, { allowFigures: !isSolutionBlock });
+    // Single-column flow: math + prose interleaved. Figure directives resolve
+    // wherever they are generated — this is the original single-diagram path.
+    const questionBodyNodes = aiTextToNodes(content);
 
 
     // REGENERATE (and in-place EDIT): replace the section body, strictly
