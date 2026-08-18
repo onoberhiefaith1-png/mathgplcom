@@ -11,6 +11,7 @@ import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import { pointsOnCircle, pointsOnArc } from "@/lib/geometry/editor/snap";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 import { ChevronDown, ChevronRight, ChevronUp, Undo2, Redo2, Trash2, Network } from "lucide-react";
+import { describeObject } from "@/lib/geometry/properties/model";
 
 interface Props {
   scene: GeometryScene;
