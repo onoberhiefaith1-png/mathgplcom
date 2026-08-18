@@ -69,6 +69,11 @@ interface Props {
    *  surrounding prose so the sensor is never trapped inside mathematics. */
   onExitLeft?: () => void;
   onExitRight?: () => void;
+  /** An Asset Library item picked through `@` that is a whole page object
+   *  (diagram, chart, table, image…) and therefore cannot live inside an
+   *  expression. The host decides what to do (usually: commit this math run
+   *  and drop the object into the surrounding note). */
+  onInsertObjectAsset?: (asset: AssetDef) => void;
 }
 
 
