@@ -802,11 +802,16 @@
   line-height: 1;
   margin-left: 1px;
 }
+/* Contained raise: the padding keeps the raised exponent INSIDE its box, so
+   any container (radical, bracket, fraction) reserves room for it instead of
+   being crossed by it. */
 .math-struct--power .math-slot:nth-child(2),
 .math-struct--subsup .math-slot:nth-child(3) {
-  vertical-align: super;
-  transform: translateY(0.08em);
+  vertical-align: baseline;
+  padding-bottom: 0.62em;
+  transform: none;
 }
+
 .math-struct--sub .math-slot:nth-child(2),
 .math-struct--subsup .math-slot:nth-child(2) {
   vertical-align: sub;
