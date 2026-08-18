@@ -224,39 +224,16 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
     }
   }, [patch]);
 
-  // ── Cell-level toolbar (mirrors the document SelectionToolbar) ─────────
+  // ── ONE AI Edit for the whole table ───────────────────────────────────
+  // NO floating cell toolbar. Cells stay clean while the caret moves; the
+  // single AI Edit control lives in the table's own control strip and acts on
+  // the cell the teacher last touched.
   const selRange = () => {
     const s = Math.max(0, Math.min(buffer.length, sel.s));
     const e = Math.max(0, Math.min(buffer.length, sel.e));
     return s === e ? { s: 0, e: buffer.length } : { s: Math.min(s, e), e: Math.max(s, e) };
   };
-  const selectedText = () => { const { s, e } = selRange(); return buffer.slice(s, e); };
-  const setBufferAndCell = (value: string) => {
-    setBuffer(value);
-    if (active) writeAny(active.r, active.c, value);
-  };
 
-  const cellCopy = async () => {
-    try { await navigator.clipboard.writeText(selectedText()); toast({ title: "Copied" }); }
-    catch { toast({ title: "Copy failed", variant: "destructive" }); }
-  };
-  const cellCut = async () => {
-    const { s, e } = selRange();
-    try { await navigator.clipboard.writeText(buffer.slice(s, e)); } catch { /* noop */ }
-    setBufferAndCell(buffer.slice(0, s) + buffer.slice(e));
-    setSel({ s, e: s });
-  };
-  const cellDelete = () => {
-    const { s, e } = selRange();
-    setBufferAndCell(buffer.slice(0, s) + buffer.slice(e));
-    setSel({ s, e: s });
-  };
-  const cellDuplicate = () => {
-    const { s, e } = selRange();
-    const piece = buffer.slice(s, e);
-    setBufferAndCell(buffer.slice(0, e) + piece + buffer.slice(e));
-  };
-  const cellComment = () => toast({ title: "Comments coming soon" });
 
   const cellAiEdit = () => {
     if (!active) return;
