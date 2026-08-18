@@ -591,6 +591,15 @@ function DocumentEditorInner({
     return out.join("\n").trim();
   };
 
+  /** Problem Check panel state. `askProblemCheck` resolves true when the
+   *  teacher chooses to generate anyway. */
+  const [problemCheck, setProblemCheck] = useState<{
+    report: ProblemReport; heading?: string; resolve: (ok: boolean) => void;
+  } | null>(null);
+  const askProblemCheck = (report: ProblemReport, heading?: string) =>
+    new Promise<boolean>((resolve) => setProblemCheck({ report, heading, resolve }));
+
+
   const getSolutionSource = (headingPos: number) => {
     let parentKind: SectionKind = "example";
     let parentPos = 0;
