@@ -34,11 +34,11 @@ const THEMES: Record<CrystalTheme, ThemeTokens> = {
 };
 
 interface Props {
-  questionNumber: number | string;
   current: number;
   max: number;
   theme?: CrystalTheme;
-  width?: number;
+  /** Pixel width, or "fill" to track the parent's width. */
+  width?: number | "fill";
   hideProgressText?: boolean;
   className?: string;
 }
@@ -46,7 +46,6 @@ interface Props {
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 export const QuestionProgressContainer = ({
-  questionNumber,
   current,
   max,
   theme = "blue",
@@ -58,6 +57,24 @@ export const QuestionProgressContainer = ({
   const ch = (chambers as Record<string, { x1: number; y1: number; x2: number; y2: number; w: number; h: number }>)[theme];
   const pct = max > 0 ? clamp01(current / max) : 0;
   const id = useMemo(() => Math.random().toString(36).slice(2, 9), []);
+
+  // "fill" mode: the vessel tracks its container's width so it can live inside
+  // a resizable canvas element without changing any of its internal geometry.
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [measured, setMeasured] = useState(0);
+  const fluid = width === "fill";
+  useLayoutEffect(() => {
+    if (!fluid) return;
+    const el = hostRef.current;
+    if (!el) return;
+    const read = () => setMeasured(el.getBoundingClientRect().width);
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fluid]);
+  const boxWidth = fluid ? measured || 220 : (width as number);
+
 
   const [tNow, setTNow] = useState(0);
   useEffect(() => {
