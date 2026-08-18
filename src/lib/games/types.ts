@@ -127,6 +127,13 @@ export interface ProgressConfig {
 
   /** number of slots in the tower (defaults to 10). */
   segments: number;
+  /**
+   * Which family of progress bar this element renders.
+   * "segmented" = 10-slot tower (default / legacy), "liquid" = rising liquid vessel.
+   */
+  barType?: "liquid" | "segmented";
+  /** selected Liquid Fill style (crystal vessel theme). */
+  liquidStyleId?: string;
   /** built-in frame design id; when absent the element's own storagePath is used. */
   presetId?: string;
   /** marks the student must earn to fully charge the tower. */
