@@ -589,15 +589,15 @@ export function GeometryPropertiesPanel({
               <div className="flex flex-wrap gap-1">
                 {RELATIONSHIP_OPERATORS.map((op) => (
                   <button
-                    key={op.symbol}
+                    key={op}
                     type="button"
-                    title={op.label}
-                    onClick={() => pushChip({ kind: "operator", text: op.symbol })}
+                    onClick={() => pushChip({ kind: "operator", text: op })}
                     className="rounded border border-foreground/20 px-1.5 py-0.5 text-[12px] hover:bg-foreground/[0.06]"
                   >
-                    {op.symbol}
+                    {op}
                   </button>
                 ))}
+
                 {RELATIONSHIP_VALUES.map((v) => (
                   <button
                     key={v}
