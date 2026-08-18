@@ -473,23 +473,60 @@ const SettingsPanel = ({
           </>
           )}
 
-          <Section title="Design">
-            <div className="grid grid-cols-3 gap-2">
-              {PROGRESS_PRESETS.map((p) => {
-                const active = progress.presetId === p.id;
+          <Section title="Progress Bar Type">
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: "liquid" as const, label: "Liquid Fill" },
+                { id: "segmented" as const, label: "Segmented / 10-Slot" },
+              ]).map((t) => {
+                const active = barType === t.id;
                 return (
-                  <button key={p.id} type="button" onClick={() => patchProgress({ presetId: p.id })}
-                    className={cn("overflow-hidden rounded-md border bg-black/40 p-1", active ? "border-primary ring-2 ring-primary/50" : "border-border/50")}
-                    title={p.name}>
-                    <img src={p.image} alt={p.name} loading="lazy" className="mx-auto h-20 w-auto object-contain" />
+                  <button key={t.id} type="button"
+                    onClick={() => patchProgress(t.id === "liquid"
+                      ? { barType: "liquid", liquidStyleId: progress.liquidStyleId ?? DEFAULT_LIQUID_STYLE }
+                      : { barType: "segmented" })}
+                    className={cn("rounded-md border px-2 py-2 text-xs transition", active ? "border-primary bg-primary/20 text-foreground" : "border-border/50 text-muted-foreground hover:border-primary/50")}>
+                    {t.label}
                   </button>
                 );
               })}
             </div>
-            <button type="button" onClick={() => patchProgress({ presetId: undefined })}
-              className={cn("w-full rounded-md border px-2 py-1.5 text-xs transition", !progress.presetId ? "border-primary bg-primary/20 text-foreground" : "border-border/50 text-muted-foreground hover:border-primary/50")}>
-              Use my uploaded frame
-            </button>
+          </Section>
+
+          <Section title="Style">
+            {barType === "liquid" ? (
+              <div className="grid grid-cols-3 gap-2">
+                {LIQUID_STYLES.map((s) => {
+                  const active = (progress.liquidStyleId ?? DEFAULT_LIQUID_STYLE) === s.id;
+                  return (
+                    <button key={s.id} type="button" onClick={() => patchProgress({ liquidStyleId: s.id })}
+                      className={cn("overflow-hidden rounded-md border bg-black/40 p-1", active ? "border-primary ring-2 ring-primary/50" : "border-border/50")}
+                      title={s.name}>
+                      <img src={s.image} alt={s.name} loading="lazy" className="mx-auto h-20 w-auto object-contain" />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  {PROGRESS_PRESETS.map((p) => {
+                    const active = progress.presetId === p.id;
+                    return (
+                      <button key={p.id} type="button" onClick={() => patchProgress({ presetId: p.id })}
+                        className={cn("overflow-hidden rounded-md border bg-black/40 p-1", active ? "border-primary ring-2 ring-primary/50" : "border-border/50")}
+                        title={p.name}>
+                        <img src={p.image} alt={p.name} loading="lazy" className="mx-auto h-20 w-auto object-contain" />
+                      </button>
+                    );
+                  })}
+                </div>
+                <button type="button" onClick={() => patchProgress({ presetId: undefined })}
+                  className={cn("w-full rounded-md border px-2 py-1.5 text-xs transition", !progress.presetId ? "border-primary bg-primary/20 text-foreground" : "border-border/50 text-muted-foreground hover:border-primary/50")}>
+                  Use my uploaded frame
+                </button>
+              </>
+            )}
           </Section>
 
           {!isTimeBar && (
