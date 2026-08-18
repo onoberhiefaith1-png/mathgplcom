@@ -820,7 +820,16 @@ function DocumentEditorInner({
     });
 
 
-    const problemText = report.problem;
+    // ACTIVE_QUESTION: the block's own text when it has any, otherwise the
+    // question read from the session package (the question may have been typed
+    // into a free frame, or exist only as the diagram belonging to it).
+    const ownerQuestion = pkg?.owner?.questionText?.trim() ?? "";
+    const ownerDiagram = pkg?.owner?.diagramSummary ?? "";
+    const problemText =
+      report.problem ||
+      ownerQuestion ||
+      (ownerDiagram ? `See the diagram belonging to this question (${ownerDiagram}).` : "");
+
 
     return {
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
