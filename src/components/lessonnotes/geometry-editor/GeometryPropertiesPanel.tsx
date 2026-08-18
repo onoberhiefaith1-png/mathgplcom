@@ -761,7 +761,7 @@ export function GeometryPropertiesPanel({
               onToggleEnabled={() => upsert({ ...item, enabled: item.enabled === false })}
               onApprove={() => upsert({ ...item, approved: true })}
               onMove={(d) => move(item, d)}
-              onPreview={() => onHighlight(connectionsOf(item))}
+              onPreview={() => pickItem(item)}
               onToggleConnecting={() => {
                 if (editingId !== item.id) openEdit(item);
                 setConnecting(!(connecting && editingId === item.id));
@@ -811,7 +811,7 @@ export function GeometryPropertiesPanel({
               onToggleEnabled={() => upsert({ ...item, enabled: item.enabled === false })}
               onApprove={() => upsert({ ...item, approved: true })}
               onMove={(d) => move(item, d)}
-              onPreview={() => onHighlight(connectionsOf(item))}
+              onPreview={() => pickItem(item)}
               onToggleConnecting={() => {
                 if (editingId !== item.id) openEdit(item);
                 setConnecting(!(connecting && editingId === item.id));
