@@ -13,7 +13,7 @@ import { INTEGRITY_STANDARD } from "./integrityStandard.ts";
 import { INHERITANCE_STANDARD } from "./inheritanceStandard.ts";
 import { CONTINUITY_STANDARD } from "./continuityStandard.ts";
 import { QUESTION_TASK_STANDARD, hasTaskInstruction } from "./questionTaskStandard.ts";
-import { sanitizePresentation, residueReport } from "./outputHygiene.ts";
+import { sanitizePresentation, residueReport, stripDuplicateHeading } from "./outputHygiene.ts";
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
   WORKSPACE_STANDARD,
@@ -623,7 +623,11 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
         topic?: string; subtopic?: string; subject?: string;
         context?: string; currentContent?: string; teacherPrompt?: string;
         activeQuestion?: string;
+        /** The section heading the application already renders on the page.
+         *  Passed so the model never reproduces it. */
+        existingHeading?: string;
         inheritedContext?: boolean;
+
         /** Full teaching context of the lesson generated so far. */
         lessonContext?: {
           level?: string;
@@ -735,7 +739,15 @@ ${workspaceManifestBlock(b.workspaceManifest)}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
 ${b.blockKind === "problem" ? `\n${QUESTION_TASK_STANDARD}\n` : ""}
 Task style for this block: ${styleLine}
+
+STRUCTURE OWNERSHIP — the application owns the document structure; you own the
+mathematics. The section heading, its number and the "Solution" label are
+ALREADY on the page${b.existingHeading ? ` (currently: "${String(b.existingHeading).trim()}")` : ""}. Never reproduce them.
+Do not begin your output with "Example 3", "Classwork 2", "Exercise 5",
+"Question 4", "Solution", "Answer" or any other section label — with or without
+a number or a colon. Emit only the content that belongs inside that section.
 Output ONLY the requested content. No headings like "Solution:", no markdown, no commentary.`;
+
 
       const parts: string[] = [];
       if (lessonSoFar) {
@@ -893,10 +905,14 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
         }
       }
 
+      // The application owns the heading. If the model repeated it, drop the
+      // duplicate label and keep the mathematics — never treat it as a failure.
+      content = stripDuplicateHeading(content);
 
       return new Response(JSON.stringify({ content, warnings }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+
     }
 
 

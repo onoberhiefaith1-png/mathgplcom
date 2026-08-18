@@ -19,6 +19,9 @@ import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
 import { CanvasFrame } from "./extensions/CanvasFrame";
 import { startObjectDrag } from "@/lib/lessonnotes/objectDrag";
+import { analyzeProblem, isStructuralLabelLine, type ProblemReport } from "@/lib/lessonnotes/problemDetect";
+import { ProblemCheckDialog } from "./ProblemCheckDialog";
+
 import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionRow";
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
 import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
@@ -314,6 +317,7 @@ async function aiGenerate(opts: {
   currentContent?: string;
   blockKind?: "problem" | "solution" | "text";
   activeQuestion?: string;
+  existingHeading?: string;
   inheritedContext?: boolean;
   lessonContext?: LessonTeachingContext;
 }): Promise<string> {
@@ -331,6 +335,7 @@ async function aiGenerate(opts: {
       currentContent: opts.currentContent ?? "",
       teacherPrompt: opts.teacherPrompt,
       activeQuestion: opts.activeQuestion ?? "",
+      existingHeading: opts.existingHeading ?? "",
       inheritedContext: opts.inheritedContext ?? false,
       lessonContext: opts.lessonContext ?? null,
       workspaceManifest: buildWorkspaceManifest(),
@@ -588,6 +593,15 @@ function DocumentEditorInner({
     return out.join("\n").trim();
   };
 
+  /** Problem Check panel state. `askProblemCheck` resolves true when the
+   *  teacher chooses to generate anyway. */
+  const [problemCheck, setProblemCheck] = useState<{
+    report: ProblemReport; heading?: string; resolve: (ok: boolean) => void;
+  } | null>(null);
+  const askProblemCheck = (report: ProblemReport, heading?: string) =>
+    new Promise<boolean>((resolve) => setProblemCheck({ report, heading, resolve }));
+
+
   const getSolutionSource = (headingPos: number) => {
     let parentKind: SectionKind = "example";
     let parentPos = 0;
@@ -611,16 +625,29 @@ function DocumentEditorInner({
     const rawText = (editor && problemStart < headingPos)
       ? serializeRangeAsMath(problemStart, headingPos)
       : "";
-    // Strip anything before the LAST section-label line ("Solution",
-    // "Example", "Exercise"...) that appears as inline text rather than a
-    // heading node. Without this, ACTIVE_QUESTION can leak the previous
-    // question that lives above an inline "Solution" label.
-    const lines = rawText.split("\n");
+    // An inline "Solution" label written as text still marks a boundary: keep
+    // only what follows the LAST label-only line whose kind is `solution`, so
+    // an older question above it can never leak into ACTIVE_QUESTION.
+    const allLines = rawText.split("\n");
     let cutAt = -1;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (detectSectionKind(lines[i])) { cutAt = i; break; }
+    for (let i = allLines.length - 1; i >= 0; i--) {
+      if (isStructuralLabelLine(allLines[i]) && detectSectionKind(allLines[i]) === "solution") {
+        cutAt = i; break;
+      }
     }
-    const problemText = (cutAt >= 0 ? lines.slice(cutAt + 1) : lines).join("\n").trim();
+    const scoped = (cutAt >= 0 ? allLines.slice(cutAt + 1) : allLines).join("\n");
+    // STRUCTURE vs MATHEMATICS. Structural labels ("Classwork 4",
+    // "Example 3: Solve …") and interface metadata are set aside; the
+    // mathematics is always kept — even when it sits on the same line as the
+    // label. This is what stops the old "no parent question found" failure.
+    const report = analyzeProblem(scoped, {
+      hasDiagram: editor
+        ? diagramsOwnedByQuestion(editor.state.doc, parentPos, isSolutionLabel).length > 0
+        : false,
+    });
+
+    const problemText = report.problem;
+
     return {
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
       // Position of the heading that OWNS this Solution (the question
@@ -628,9 +655,11 @@ function DocumentEditorInner({
       // Solution itself.
       parentPos,
       problemText,
+      report,
       hasInheritedQuestion: Boolean(problemText),
     };
   };
+
 
   /** The subtopic that owns `beforePos`: the nearest structural subtopic
    *  heading (level 1, custom text) above it. Everything generated below that
@@ -852,14 +881,15 @@ function DocumentEditorInner({
 
     const isSolutionBlock = info.kind === "solution";
     const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos) : null;
-    if (isSolutionBlock && !solutionSource?.hasInheritedQuestion) {
-      toast({
-        title: "No parent question found",
-        description: "Add an Example (or Exercise / Classwork / Homework) question above this Solution, then try again.",
-        variant: "destructive",
-      });
-      return;
+    // TWO-STAGE PIPELINE — stage 1: identify + validate, stage 2: generate.
+    // A non-valid report never silently blocks the teacher: the Problem Check
+    // panel states exactly what was inspected and offers "Generate anyway".
+    if (isSolutionBlock && solutionSource && solutionSource.report.status !== "valid") {
+      const heading = editor.state.doc.nodeAt(solutionSource.parentPos)?.textContent?.trim();
+      const proceed = await askProblemCheck(solutionSource.report, heading);
+      if (!proceed) return;
     }
+
     // The Solution references the question's EXISTING diagram. We hand the
     // model an inventory of what is already drawn so it never redraws it,
     // renames its points, or invents a second figure.
@@ -891,6 +921,8 @@ function DocumentEditorInner({
         currentContent,
         blockKind: generationBlockKind,
         activeQuestion: isSolutionBlock ? solutionSource?.problemText : undefined,
+        // The application owns this heading — the AI must not reproduce it.
+        existingHeading: editor.state.doc.nodeAt(info.headingPos)?.textContent?.trim(),
         inheritedContext: isSolutionBlock ? true : undefined,
         lessonContext: collectLessonContext(info.headingPos, generationKind),
       })).trim();
@@ -2759,6 +2791,15 @@ function DocumentEditorInner({
       />
       <AtCommandMenu editor={editor} state={atState} onClose={() => setAtState({ active: false, query: "", from: 0, to: 0, coords: null })} />
       <AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />
+
+      <ProblemCheckDialog
+        open={Boolean(problemCheck)}
+        report={problemCheck?.report ?? null}
+        heading={problemCheck?.heading}
+        onCancel={() => { problemCheck?.resolve(false); setProblemCheck(null); }}
+        onProceed={() => { problemCheck?.resolve(true); setProblemCheck(null); }}
+      />
+
       <ConversionPanel open={conversionOpen} onOpenChange={setConversionOpen} onInsert={insertSymbolText} />
       <GeometryAiPanel />
       <GeometryToolbox />
