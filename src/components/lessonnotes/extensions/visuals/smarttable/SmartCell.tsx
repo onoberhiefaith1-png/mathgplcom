@@ -86,7 +86,7 @@ export function SmartCell({
       }
       style={{ textAlign: align, minWidth, minHeight: "1.4em", display: "inline-block" }}
     >
-      {value || <span className="text-foreground/25">{placeholder ?? "·"}</span>}
+      {value || (placeholder ? <span className="text-foreground/25">{placeholder}</span> : null)}
     </button>
   );
 }
