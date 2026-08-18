@@ -1081,6 +1081,8 @@ ${sectionText}`;
         contextDirective?: string;
         topic?: string; subtopic?: string; level?: string; difficulty?: string;
         diagramRequired?: boolean | null; reuse?: string;
+        /** Authoritative digest of the lesson session as it stands now. */
+        sessionContext?: string;
       };
       const material = b.material ?? {};
       const instruction = `
@@ -1093,9 +1095,20 @@ ${b.contextDirective ?? ""}
 Section being prepared: ${b.sectionKind ?? "example"}
 Material supplied: ${b.materialSource ?? "teacher instruction"}
 
+${b.sessionContext ?? ""}
+
 RULES
 • If the teacher supplied an existing question (typed, photographed or in a document),
   copy it VERBATIM into "sourceQuestion" and derive the blueprint from it.
+• The LESSON SESSION STATE above is authoritative: it lists what is already on the
+  page (each block's question, its diagram, its solution). When a question already
+  exists for the block being generated, copy THAT question verbatim into
+  "sourceQuestion" — never replace it with a different one. When the question's data
+  lives in an already-drawn diagram, treat that diagram as the given information,
+  set diagramRequired true and reuse its exact labels; never describe a new figure.
+• Continue the session: a new question must follow the topic, subtopic, method and
+  difficulty of the work already present, and must never repeat an existing question.
+
 • Extract real values and units. Never invent a value the material does not imply.
 • "methods" lists the mathematics the question must actually require
   (e.g. "angle at centre = 2 × angle at circumference", "Pythagoras").
