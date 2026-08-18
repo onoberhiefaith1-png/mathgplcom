@@ -183,23 +183,32 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   modelRef.current = model;
 
   const aiBridge = useAiEditBridge();
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const [sel, setSel] = useState<{ s: number; e: number }>({ s: 0, e: 0 });
+  /** Viewport point of the click that opened the cell, so the math caret can
+   *  land exactly where the teacher clicked on the rendered value. */
+  const [entryPoint, setEntryPoint] = useState<{ x: number; y: number } | null>(null);
+  /** Live buffer for callbacks that fire after focus moved away. */
+  const bufferRef = useRef("");
+  bufferRef.current = buffer;
 
-  const beginEdit = (r: number, c: number) => {
+  const beginEdit = (r: number, c: number, point?: { x: number; y: number } | null) => {
     setActive({ r, c });
     setBuffer((r === -1 ? headers[c] : cells[r][c]) ?? "");
     setSel({ s: 0, e: 0 });
+    setEntryPoint(point ?? null);
   };
-  const cancelEdit = () => { setActive(null); setBuffer(""); setSel({ s: 0, e: 0 }); };
+  const cancelEdit = () => { setActive(null); setBuffer(""); setSel({ s: 0, e: 0 }); setEntryPoint(null); };
   const finishEdit = () => {
     if (!active) return;
     const { r, c } = active;
+    const raw = (bufferRef.current ?? "").trim();
     if (r === -1) {
-      const next = [...headers]; next[c] = buffer.trim(); patch({ headers: next });
+      const next = [...headers]; next[c] = raw; patch({ headers: next });
     } else {
-      const raw = buffer.trim();
-      const solved = tryEvaluate(raw);
+      // Same calculation engine as before — the friendly form is what the
+      // evaluator understands (√9, 3², 2+3), and anything symbolic falls
+      // through untouched so it stays real mathematics.
+      const solved = tryEvaluate(latexToFriendly(raw));
       const next = cells.map((row) => [...row]); next[r][c] = solved ?? raw; patch({ cells: next });
     }
     cancelEdit();
