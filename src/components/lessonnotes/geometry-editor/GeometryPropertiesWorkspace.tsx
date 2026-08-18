@@ -54,23 +54,18 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
           highlightIds={highlightIds}
           rightPanelTitle="Geometry Properties"
           rightPanelWidthClass="w-80"
-          renderRightPanel={(editor) => {
-            const first = editor.selectedIds[0] ?? null;
-            const info = first ? describeObject(editor.scene, first) : null;
-            const name = info ? `${info.typeLabel} ${info.name}` : null;
-            if (name !== targetName) setTargetName(name);
-            return (
-              <GeometryPropertiesPanel
-                scene={editor.scene}
-                doc={readProperties(editor.scene)}
-                onDocChange={(next) => editor.commit(writeProperties(editor.scene, next))}
-                targetId={first}
-                onHighlight={setHighlightIds}
-                connecting={connecting}
-                setConnecting={setConnecting}
-              />
-            );
-          }}
+          renderRightPanel={(editor) => (
+            <GeometryPropertiesPanel
+              scene={editor.scene}
+              doc={readProperties(editor.scene)}
+              onDocChange={(next) => editor.commit(writeProperties(editor.scene, next))}
+              targetId={editor.selectedIds[0] ?? null}
+              onHighlight={setHighlightIds}
+              onTargetName={setTargetName}
+              connecting={connecting}
+              setConnecting={setConnecting}
+            />
+          )}
         />
       </div>
 
