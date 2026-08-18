@@ -156,10 +156,18 @@ export const QuestionProgressContainer = ({
 
   return (
     <div
+      ref={hostRef}
       className={className}
-      style={{ width, height, position: "relative", display: "inline-block", lineHeight: 0 }}
+      style={{
+        width: fluid ? "100%" : boxWidth,
+        height: fluid ? undefined : height,
+        aspectRatio: fluid ? `${VB_W} / ${VB_H}` : undefined,
+        position: "relative",
+        display: fluid ? "block" : "inline-block",
+        lineHeight: 0,
+      }}
       role="img"
-      aria-label={`Question ${questionNumber}, progress ${current} of ${max}`}
+      aria-label={`Progress ${current} of ${max}`}
     >
       <img
         src={t.frame}
