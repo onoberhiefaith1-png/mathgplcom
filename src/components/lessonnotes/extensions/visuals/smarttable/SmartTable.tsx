@@ -12,7 +12,7 @@ import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { latexToFriendly } from "@/lib/notebook/mathFriendly";
 import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
 import { toast } from "@/hooks/use-toast";
-import { SmartTableCellToolbar } from "./SmartTableCellToolbar";
+import { Sparkles } from "lucide-react";
 import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import type { Row as MathRow } from "@/lib/smartboard/mathTree";
