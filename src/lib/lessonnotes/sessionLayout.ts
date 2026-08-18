@@ -123,6 +123,9 @@ export function attachSessionLayout(editor: Editor): () => void {
   const observer = new ResizeObserver(schedule);
   const observed = new Set<Element>();
   const observeFrames = () => {
+    // The editor view can be absent (not yet mounted, or already destroyed);
+    // layout housekeeping must never throw in that window.
+    if (editor.isDestroyed || !editor.view?.dom) return;
     const root = editor.view.dom as HTMLElement;
     root.querySelectorAll("[data-canvas-frame]").forEach((el) => {
       if (el.getAttribute("data-object-kind") === "diagram") return;
@@ -131,6 +134,7 @@ export function attachSessionLayout(editor: Editor): () => void {
       observer.observe(el);
     });
   };
+
 
   const onTransaction = () => { observeFrames(); schedule(); };
   editor.on("transaction", onTransaction);
