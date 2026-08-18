@@ -1,0 +1,35 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .ink { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .m { font-family: var(--font-mono); fill: hsl(var(--foreground)); font-size: 15px; }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .rail { stroke: hsl(var(--border)); stroke-width: 1; }
+    .acc { stroke: hsl(var(--accent)); stroke-width: 1.5; }
+  </style>
+
+  <text class="ink" x="20" y="26">now</text>
+  <rect class="box" x="20" y="38" width="270" height="90" rx="8"/>
+  <!-- overline too low: exponent crosses it -->
+  <path class="rail" d="M70 78 L74 78 L80 100 L92 70" fill="none" stroke-width="1.5"/>
+  <line class="rail" x1="92" y1="70" x2="250" y2="70"/>
+  <text class="m" x="100" y="92">(x - µ)</text>
+  <text class="m" x="168" y="72" style="font-size:11px">2</text>
+  <line x1="164" y1="70" x2="184" y2="70" stroke="hsl(var(--accent))" stroke-width="2"/>
+  <text x="20" y="148">exponent crosses the overline: fixed 1px headroom</text>
+
+  <text class="ink" x="350" y="26">after</text>
+  <rect class="box" x="350" y="38" width="270" height="90" rx="8"/>
+  <path class="rail" d="M398 70 L402 70 L408 106 L420 52" fill="none" stroke-width="1.5"/>
+  <line class="acc" x1="420" y1="52" x2="586" y2="52"/>
+  <text class="m" x="428" y="96">(x - µ)</text>
+  <text class="m" x="496" y="76" style="font-size:11px">2</text>
+  <text x="350" y="148">radical grows: overline clears the raised script, hook stretches</text>
+
+  <circle cx="30" cy="182" r="9" fill="hsl(var(--accent))"/>
+  <text x="26" y="186" style="fill:hsl(var(--accent-foreground));font-size:11px">1</text>
+  <text x="48" y="186">bar top padding is derived from the radicand's tallest raised content</text>
+  <circle cx="30" cy="212" r="9" fill="hsl(var(--accent))"/>
+  <text x="26" y="216" style="fill:hsl(var(--accent-foreground));font-size:11px">2</text>
+  <text x="48" y="216">the √ hook is align-self: stretch, so it lengthens to match the new bar</text>
+</svg>
