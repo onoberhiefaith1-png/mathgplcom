@@ -11,6 +11,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { useServerFn } from "@tanstack/react-start";
 import StarterKit from "@tiptap/starter-kit";
 import { closeHistory } from "@tiptap/pm/history";
 import Underline from "@tiptap/extension-underline";
@@ -42,7 +43,21 @@ import { useGeometryEditor } from "./geometry-editor/useGeometryEditor";
 import { DiagramToolsPanel } from "@/components/lessonnotes/geometry-editor/DiagramToolsPanel";
 import { SelectionInspector } from "./geometry-editor/SelectionInspector";
 import { GeometryPropertiesWorkspace } from "./geometry-editor/GeometryPropertiesWorkspace";
-import { questionContextForPos } from "@/lib/geometry/map/solutionText";
+import {
+  isSolutionHeadingText,
+  questionContextForOwner,
+  questionContextForPos,
+} from "@/lib/geometry/map/solutionText";
+import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
+import {
+  keepLiveIds as keepLiveMapIds,
+  mapInventory,
+  newMapItemId,
+  readMap,
+  stripNumericAnswers,
+  writeMap,
+  type GeometryMapItem,
+} from "@/lib/geometry/map/model";
 import { GeometryDiagram as StaticGeometryDiagram } from "./GeometryDiagram";
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
@@ -539,13 +554,111 @@ function DocumentEditorInner({
 
   /** After AI generates a solution-style block, persist for smartboard +
    *  surface a toast that deep-links to the floating-numbers workspace. */
+  const buildMapFn = useServerFn(generateGeometryMap);
+
+  /**
+   * A solution was just written. If its question owns a diagram, offer to build
+   * that diagram's Geometry Map from this very solution — Question → Solution →
+   * Map, bound by the question's own id.
+   */
+  const offerGeometryMap = (range: { from: number; to: number } | null) => {
+    if (!editor || !range) return;
+    const doc = editor.state.doc;
+    const owner = ownerQuestionHeadingFor(doc, range.from);
+    if (!owner) return;
+    const diagrams = diagramsOwnedByQuestion(doc, owner.pos, isSolutionHeadingText);
+    if (diagrams.length === 0) return;
+    const target = diagrams[0];
+    const questionId = (owner.node.attrs as { sectionId?: string })?.sectionId ?? null;
+
+    const run = async () => {
+      if (!editor) return;
+      const live = editor.state.doc;
+      let pos: number | null = null;
+      live.descendants((n, p) => {
+        if (pos != null) return false;
+        if (n.type.name === "geometryDiagram" && n.attrs.scene === target.node.attrs.scene) {
+          pos = p;
+          return false;
+        }
+        return true;
+      });
+      if (pos == null) pos = target.pos;
+      const node = live.nodeAt(pos);
+      const scene = node?.attrs?.scene as GeometryScene | undefined;
+      if (!scene) return;
+      const ctx = questionContextForOwner(live, questionId, pos);
+      if (!ctx.solution.trim()) return;
+      try {
+        const res = await buildMapFn({
+          data: {
+            question: ctx.question,
+            solution: ctx.solution,
+            topic: ctxRef.current?.subtopic || ctxRef.current?.topic || "",
+            objects: mapInventory(scene),
+          },
+        });
+        const built: GeometryMapItem[] = (res.items ?? []).map((it: any, i: number) => ({
+          id: newMapItemId(),
+          order: i,
+          principle: it.principle,
+          relation: stripNumericAnswers(it.relation),
+          explanation: stripNumericAnswers(it.explanation),
+          usedTo: stripNumericAnswers(it.usedTo),
+          stepIndex: it.stepIndex,
+          ...(it.producesToken ? { producesToken: it.producesToken } : {}),
+          ...(it.needsTokens?.length ? { needsTokens: it.needsTokens } : {}),
+          objectIds: keepLiveMapIds(scene, it.objectIds),
+          source: "ai" as const,
+          enabled: true,
+        }));
+        if (built.length === 0) {
+          toast({ title: "No principles could be read from this solution." });
+          return;
+        }
+        const existing = readMap(scene);
+        const keep = existing.items.filter((i) => i.source === "teacher");
+        const nextScene = writeMap(scene, {
+          ...existing,
+          generatedFromSolution: true,
+          questionId,
+          solutionHash: ctx.solutionHash,
+          generatedAt: new Date().toISOString(),
+          items: [...built, ...keep].map((it, i) => ({ ...it, order: i })),
+        });
+        updateGeometrySceneAt(pos, nextScene);
+        toast({ title: `Geometry Map built — ${built.length} steps.` });
+      } catch (e) {
+        toast({
+          title: "Map generation failed",
+          description: e instanceof Error ? e.message : undefined,
+        });
+      }
+    };
+
+    toast({
+      title: "Solution saved",
+      description: "Generate the Geometry Map from this solution?",
+      action: (
+        <button
+          onClick={() => { void run(); }}
+          className="text-xs px-2 py-1 rounded border border-foreground/20 hover:bg-foreground/10"
+        >
+          Generate Map
+        </button>
+      ) as any,
+    });
+  };
+
   const persistAndOfferFloating = async (
     kind: SectionKind,
     content: string,
     range: { from: number; to: number } | null,
     problemOverride?: string,
   ) => {
-    if (blockKindFor(kind) !== "solution" || !nbIdRef.current) return;
+    if (blockKindFor(kind) !== "solution") return;
+    offerGeometryMap(range);
+    if (!nbIdRef.current) return;
     try {
       const res = await persistGeneratedExample({
         notebookId: nbIdRef.current,
@@ -3168,8 +3281,8 @@ function NotebookGeometryOverlay({
           scene={geometryEditor.scene}
           onChange={(next) => geometryEditor.commit(next)}
           onClose={() => setPropertiesOpen(false)}
-          // The page layer is not owned by one question: the map is built from
-          // the question the caret currently sits in.
+          // The page layer has no node of its own, so it binds to the question
+          // the caret sits in at the moment the workspace is opened.
           context={
             tiptapEditor
               ? questionContextForPos(
@@ -3178,6 +3291,7 @@ function NotebookGeometryOverlay({
                 )
               : undefined
           }
+          onOpenSolution={() => tiptapEditor?.chain().focus().run()}
         />
       )}
       {mode ? (

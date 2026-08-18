@@ -15,15 +15,17 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, Info } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import { GeometryWorkbench } from "./GeometryWorkbench";
-import { GeometryMapPanel } from "./GeometryMapPanel";
+import { GeometryMapPanel, type MapContext } from "./GeometryMapPanel";
 import { keepLiveIds, readMap, writeMap } from "@/lib/geometry/map/model";
 
 interface Props {
   scene: GeometryScene;
   onChange: (next: GeometryScene) => void;
   onClose: () => void;
-  /** The question this diagram belongs to, and its generated solution. */
-  context?: { question: string; solution: string };
+  /** The question this diagram is bound to, and its saved solution. */
+  context?: MapContext;
+  /** Closes the workspace and puts the caret in that question's Solution. */
+  onOpenSolution?: () => void;
   topic?: string;
 }
 
@@ -52,12 +54,15 @@ const LIGHT_TOKENS = {
 } as unknown as CSSProperties;
 
 export function GeometryPropertiesWorkspace({
-  scene, onChange, onClose, context, topic,
+  scene, onChange, onClose, context, onOpenSolution, topic,
 }: Props) {
   const [rawHighlight, setRawHighlight] = useState<GeoId[]>([]);
   const doc = readMap(scene);
   const empty = scene.objects.length === 0;
-  const ctx = context ?? { question: "", solution: "" };
+  const ctx: MapContext = context ?? {
+    questionId: null, questionLabel: "", question: "", solution: "",
+    solutionHash: "", hasSolution: false,
+  };
 
   // Only ids that still exist in the diagram may glow.
   const highlightIds = useMemo(
@@ -78,7 +83,7 @@ export function GeometryPropertiesWorkspace({
         </button>
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold tracking-tight text-slate-900">
-            Geometry Map
+            Geometry Map{ctx.questionLabel ? ` — ${ctx.questionLabel}` : ""}
             <span className="font-normal text-slate-500"> · theory of this solution</span>
           </h2>
           <p className="text-[11px] text-slate-500">
@@ -121,6 +126,11 @@ export function GeometryPropertiesWorkspace({
                   targetId={editor.selectedIds[0] ?? null}
                   onHighlight={setRawHighlight}
                   context={ctx}
+                  onOpenSolution={
+                    onOpenSolution
+                      ? () => { onClose(); onOpenSolution(); }
+                      : undefined
+                  }
                   topic={topic}
                 />
               )}

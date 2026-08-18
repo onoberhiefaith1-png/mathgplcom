@@ -29,7 +29,11 @@ import type { HitKind } from "@/lib/geometry/editor/snap";
 
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
-import { questionContextForPos } from "@/lib/geometry/map/solutionText";
+import {
+  questionContextForOwner,
+  questionHeadingPos,
+  type DiagramQuestionContext,
+} from "@/lib/geometry/map/solutionText";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
@@ -292,10 +296,27 @@ function GeometryDiagramView({
             docHistory={docHistory}
             onDeleteDiagram={() => deleteNode()}
             relevanceText={(node.attrs.questionText as string) || undefined}
+            // The map always reads the diagram's OWN question — never the caret's.
             getMapContext={() => {
               const at = typeof getPos === "function" ? getPos() : null;
-              if (at == null) return { question: "", solution: "" };
-              return questionContextForPos(tiptapEditor.state.doc, at);
+              return questionContextForOwner(
+                tiptapEditor.state.doc,
+                (node.attrs.ownerQuestionId as string | null) ?? null,
+                at ?? null,
+              );
+            }}
+            onOpenSolution={() => {
+              const at = typeof getPos === "function" ? getPos() : null;
+              const owner = (node.attrs.ownerQuestionId as string | null) ?? null;
+              const headingPos = owner
+                ? questionHeadingPos(tiptapEditor.state.doc, owner)
+                : null;
+              const target = headingPos != null ? headingPos + 1 : at;
+              if (target == null) return;
+              tiptapEditor.chain().focus().setTextSelection(target).run();
+              tiptapEditor.view.dom
+                .querySelector<HTMLElement>("[data-solution-anchor]")
+                ?.scrollIntoView({ block: "center" });
             }}
           />
 
@@ -365,6 +386,7 @@ function LiveEditor({
   onDeleteDiagram,
   relevanceText,
   getMapContext,
+  onOpenSolution,
 }: {
   instanceId: string;
   scene: GeometryScene;
@@ -376,7 +398,8 @@ function LiveEditor({
   docHistory?: { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean };
   onDeleteDiagram?: () => void;
   /** Reads this question and its solution — the Geometry Map is built from it. */
-  getMapContext?: () => { question: string; solution: string };
+  getMapContext?: () => DiagramQuestionContext;
+  onOpenSolution?: () => void;
 }) {
   // The hook writes a normalised scene back on mount; that housekeeping write
   // must not become an undo step. Any real edit happens after the first frame.
@@ -483,6 +506,7 @@ function LiveEditor({
           onChange={(next) => editor.commit(next)}
           onClose={() => setPropertiesOpen(false)}
           context={getMapContext?.()}
+          onOpenSolution={onOpenSolution}
           topic={relevanceText}
         />
       )}

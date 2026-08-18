@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import {
-  keepLiveIds, mapInventory, newMapItemId, objectChipLabel, pathway,
+  keepLiveIds, mapInventory, mapStatus, newMapItemId, objectChipLabel, pathway,
   removeMapItem, reorderMap, stripNumericAnswers, upsertMapItem,
   type GeometryMapDoc, type GeometryMapItem,
 } from "@/lib/geometry/map/model";
@@ -27,13 +27,24 @@ interface Props {
   /** Currently selected diagram object — the panel's relink target. */
   targetId: GeoId | null;
   onHighlight: (ids: GeoId[]) => void;
-  /** The question and the solution this map is derived from. */
-  context: { question: string; solution: string };
+  /** The question and the solution this map is permanently bound to. */
+  context: MapContext;
+  /** Closes the workspace and puts the caret in this question's Solution. */
+  onOpenSolution?: () => void;
   topic?: string;
 }
 
+export interface MapContext {
+  questionId?: string | null;
+  questionLabel?: string;
+  question: string;
+  solution: string;
+  solutionHash?: string;
+  hasSolution?: boolean;
+}
+
 export function GeometryMapPanel({
-  scene, doc, onDocChange, targetId, onHighlight, context, topic,
+  scene, doc, onDocChange, targetId, onHighlight, context, onOpenSolution, topic,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -69,8 +80,17 @@ export function GeometryMapPanel({
   };
 
   const runGenerate = async () => {
+    // Pre-flight: say exactly what is missing rather than failing silently.
+    if (scene.objects.length === 0) {
+      toast.error("This diagram is empty — draw it in the lesson note first.");
+      return;
+    }
+    if (!context.question.trim() && !context.questionId) {
+      toast.error("This diagram is not under a question yet — give it a question heading first.");
+      return;
+    }
     if (!context.solution.trim()) {
-      toast.error("Generate the solution for this question first — the map comes from it.");
+      toast.error("This question has no saved solution yet — the map is derived from it.");
       return;
     }
     setBusy(true);
@@ -106,6 +126,9 @@ export function GeometryMapPanel({
       onDocChange({
         ...doc,
         generatedFromSolution: true,
+        questionId: context.questionId ?? null,
+        solutionHash: context.solutionHash ?? "",
+        generatedAt: new Date().toISOString(),
         items: [...built, ...keep].map((it, i) => ({ ...it, order: i })),
       });
       toast.success(`Map built from the solution — ${built.length} principles.`);
@@ -138,34 +161,73 @@ export function GeometryMapPanel({
     : items;
 
   const nodes = pathway(doc);
+  const hasSolution = context.hasSolution ?? !!context.solution.trim();
+  const status = mapStatus(doc, {
+    questionId: context.questionId ?? null,
+    solutionHash: context.solutionHash ?? "",
+  });
 
   return (
     <div className="flex h-full flex-col gap-2.5 overflow-y-auto p-2.5 text-[12px]">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
-          Geometry map
+          Geometry map{context.questionLabel ? ` — ${context.questionLabel}` : ""}
         </p>
         <p className="mt-0.5 text-[11px] leading-snug text-foreground/60">
-          The theory behind the solution — one principle per step, linked to the diagram.
+          Based on the saved solution for this question — one principle per step, linked to
+          the diagram.
         </p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          <Chip
+            tone={hasSolution ? "ok" : "warn"}
+            label={hasSolution ? "Solution: saved" : "Solution: none"}
+          />
+          <Chip
+            tone={status === "ready" ? "ok" : status === "stale" ? "warn" : "muted"}
+            label={
+              status === "ready" ? "Map: ready"
+                : status === "stale" ? "Map: out of date"
+                : "Map: not generated"
+            }
+          />
+        </div>
       </div>
+
+      {status === "stale" && (
+        <p className="rounded border border-amber-400/40 bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800">
+          The solution changed since this map was built. The steps below may no longer match —
+          regenerate the map from the current solution.
+        </p>
+      )}
 
       <button
         type="button"
         onClick={runGenerate}
-        disabled={busy}
+        disabled={busy || !hasSolution}
         className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-2.5 py-2 text-[12px] font-medium text-primary-foreground disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-        {doc.items.length ? "Rebuild map from solution" : "Generate map from solution"}
+        {status === "stale"
+          ? "Regenerate map"
+          : doc.items.length ? "Rebuild map from solution" : "Generate map from solution"}
       </button>
 
-      {!context.solution.trim() && (
-        <p className="rounded border border-amber-400/40 bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800">
-          No solution found under this question yet. The map is always derived from the
-          solution, so generate the solution first.
-        </p>
+      {!hasSolution && (
+        <div className="rounded border border-amber-400/40 bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800">
+          This question has no saved solution yet. The map is always derived from the
+          solution.
+          {onOpenSolution && (
+            <button
+              type="button"
+              onClick={onOpenSolution}
+              className="mt-1.5 block rounded border border-amber-500/50 px-2 py-1 text-[11px] font-medium hover:bg-amber-100"
+            >
+              Open Solution
+            </button>
+          )}
+        </div>
       )}
+
 
       <div className="flex items-center justify-between gap-2 rounded-md border border-foreground/15 px-2 py-1.5">
         <span className="text-[11.5px]">Show map to students</span>
@@ -442,3 +504,17 @@ function IconBtn({
 }
 
 export default GeometryMapPanel;
+
+function Chip({ tone, label }: { tone: "ok" | "warn" | "muted"; label: string }) {
+  const cls =
+    tone === "ok"
+      ? "border-emerald-500/40 bg-emerald-50 text-emerald-700"
+      : tone === "warn"
+        ? "border-amber-500/40 bg-amber-50 text-amber-800"
+        : "border-foreground/20 bg-foreground/[0.04] text-foreground/60";
+  return (
+    <span className={`rounded-full border px-1.5 py-[1px] text-[10px] font-medium ${cls}`}>
+      {label}
+    </span>
+  );
+}
