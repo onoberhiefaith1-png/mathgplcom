@@ -40,12 +40,27 @@ const RADICAL_HOOK = createElement(
   }),
 );
 
+/** Superscript-like content inside a radicand pushes above its own line box.
+ *  The radical must reserve that space so the overline never crosses it.
+ *  Returns a top padding (em) for the overline wrapper. */
+export const radicalHeadroom = (inner: string): number => {
+  if (!inner) return 0.06;
+  const hasScript = /\^|[²³¹⁰⁴⁵⁶⁷⁸⁹]/.test(inner);
+  const hasStack = /\\frac|\\dfrac|\\tfrac|\\binom|\\sqrt|\\sum|\\prod|\\int|\\lim/.test(inner);
+  if (hasScript && hasStack) return 0.46;
+  if (hasScript) return 0.34;
+  if (hasStack) return 0.14;
+  return 0.06;
+};
+
 const connectedRadical = (
   key: string,
   radicand: ReactNode,
   degree: ReactNode | null,
   dataMathSrc: string,
+  headroom = 0.06,
 ): ReactNode =>
+
   createElement(
     "span",
     {
