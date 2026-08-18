@@ -470,6 +470,7 @@ function SectionHeadingView(props: NodeViewProps) {
             placeholder={`What should the ${SECTION_LABELS[kind].toLowerCase()} cover?`}
             hint="Type, speak, or attach a photo. AI inserts at the end of this section."
             allowAttachments
+            allowContext={QUESTION_CONTEXT_KINDS.has(kind)}
             onGenerate={(p, o) => run("generate", p, o)}
             footerActions={[
               { id: "regenerate", label: "Regenerate", icon: <RotateCcw className="h-3 w-3" />, onRun: (p, o) => run("regenerate", p, o) },
