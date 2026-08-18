@@ -1748,7 +1748,7 @@ function DocumentEditorInner({
   useEffect(() => {
     if (!editor) return;
     const t = window.setTimeout(() => {
-      if (!editor || editor.isDestroyed) return;
+      if (!editor || editor.isDestroyed || !(editor as any).view?.dom) return;
       if (editor.isFocused) return;
       const { doc, changed } = repairDocumentMath(editor.getJSON());
       if (changed) editor.commands.setContent(doc, { emitUpdate: true });
