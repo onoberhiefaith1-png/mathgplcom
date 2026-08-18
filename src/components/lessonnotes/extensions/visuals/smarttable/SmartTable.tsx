@@ -836,6 +836,17 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
               </div>
             )}
           </div>
+          {aiBridge && (
+            <button
+              type="button"
+              aria-label="AI Edit the selected cell"
+              onClick={cellAiEdit}
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-foreground/15 bg-background px-2.5 text-[11px] font-semibold text-foreground shadow-xs hover:bg-foreground/5"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              AI Edit
+            </button>
+          )}
           <button
             type="button"
             aria-pressed={panelOpen}
