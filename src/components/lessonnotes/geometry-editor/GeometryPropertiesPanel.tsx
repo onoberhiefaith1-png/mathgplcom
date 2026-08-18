@@ -1169,3 +1169,22 @@ function MiniBtn({
 }
 
 export default GeometryPropertiesPanel;
+
+function FilterChip({
+  label, active, onClick,
+}: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-2 py-0.5 text-[10.5px]",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-foreground/20 hover:bg-foreground/[0.05]",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
