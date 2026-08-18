@@ -743,6 +743,25 @@ function DocumentEditorInner({
     return out.join("\n").trim();
   };
 
+  /** SESSION CONTEXT — the AI never judges a request from one block alone.
+   *  Everything the session already holds (each question, its diagram, its
+   *  solution) is derived once and shared by the check and the pipeline. */
+  const collectSessionContext = (pos: number): SessionContextPackage | null => {
+    if (!editor) return null;
+    try {
+      return buildSessionContext({
+        doc: editor.state.doc,
+        pos,
+        serialize: serializeRangeAsMath,
+        diagramsFor: (headingPos) =>
+          diagramsOwnedByQuestion(editor.state.doc, headingPos, isSolutionLabel),
+        diagramSummary: (scene) => summariseScene(scene),
+      });
+    } catch {
+      return null;
+    }
+  };
+
   /** Problem Check panel state. `askProblemCheck` resolves true when the
    *  teacher chooses to generate anyway. */
   const [problemCheck, setProblemCheck] = useState<{
@@ -752,7 +771,7 @@ function DocumentEditorInner({
     new Promise<boolean>((resolve) => setProblemCheck({ report, heading, resolve }));
 
 
-  const getSolutionSource = (headingPos: number) => {
+  const getSolutionSource = (headingPos: number, session?: SessionContextPackage | null) => {
     let parentKind: SectionKind = "example";
     let parentPos = 0;
     // Walk every prior heading (≤ level 2). The CLOSEST prior heading — of any
@@ -790,11 +809,16 @@ function DocumentEditorInner({
     // "Example 3: Solve …") and interface metadata are set aside; the
     // mathematics is always kept — even when it sits on the same line as the
     // label. This is what stops the old "no parent question found" failure.
+    // Content belonging to the SAME question (its diagram, its Solution) and to
+    // the rest of the session counts as found mathematics.
+    const pkg = session ?? collectSessionContext(headingPos);
     const report = analyzeProblem(scoped, {
       hasDiagram: editor
         ? diagramsOwnedByQuestion(editor.state.doc, parentPos, isSolutionLabel).length > 0
         : false,
+      related: pkg ? relatedContentFor(pkg) : undefined,
     });
+
 
     const problemText = report.problem;
 
