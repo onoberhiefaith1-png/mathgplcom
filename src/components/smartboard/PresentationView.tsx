@@ -6553,6 +6553,18 @@ const PresentationView = ({
 
 
 
+      {/* Official GPL emoji — same central library as the Lesson Note panel. */}
+      {canEdit && carrierVisible && (
+        <BoardEmojiDock
+          onInsert={(glyph) => insertCharAtSensor(glyph, "mid")}
+          chromeBg={palette.chromeBg}
+          chromeFg={palette.chromeFg}
+          chromeBorder={palette.chromeBorder}
+          ink={ink}
+          bottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
+        />
+      )}
+
       {/* Permanent activation buttons for the three workspace assistants. */}
       {canEdit && carrierVisible && (
         <AssistantButtons
