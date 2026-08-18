@@ -142,12 +142,16 @@ function Section({
           >
             <p className="text-[10px] uppercase tracking-wider text-foreground/45">{kind}</p>
             <p className="text-[12.5px] leading-snug">{item.content}</p>
+            {item.reason && (
+              <p className="text-[10.5px] text-foreground/55">({item.reason})</p>
+            )}
             {names.length > 0 && (
               <p className="mt-0.5 text-[10.5px] text-foreground/50">{names.join(" · ")}</p>
             )}
           </button>
         );
       })}
+
     </div>
   );
 }
