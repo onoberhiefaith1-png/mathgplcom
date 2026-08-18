@@ -161,6 +161,18 @@ const newDiagramId = (): string =>
   `D-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
+import { runBlueprintStage, summariseScene } from "@/lib/lessonnotes/ai/pipeline/generate";
+import { blueprintDirective } from "@/lib/lessonnotes/ai/pipeline/blueprint";
+import { hasMaterial, mergeMaterial } from "@/lib/lessonnotes/ai/pipeline/material";
+import { verifyGeneration, failedGates } from "@/lib/lessonnotes/ai/pipeline/validate";
+import {
+  EMPTY_TEACHER_CONTEXT,
+  STAGE_FAILURE_TITLE,
+  hasTeacherContext,
+  type QuestionBlueprint,
+  type StageError,
+  type TeacherContext,
+} from "@/lib/lessonnotes/ai/pipeline/types";
 
 const SECTION_OPTIONS: SectionKind[] = INSERT_SECTION_OPTIONS;
 
