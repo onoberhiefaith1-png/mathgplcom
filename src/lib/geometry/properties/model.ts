@@ -169,8 +169,24 @@ function sanitize(raw: unknown): GeometryPropertiesDoc | null {
     r.access === "off" || r.access === "specific" || r.access === "general"
       ? r.access
       : "both";
-  return { version: 1, access, published: !!r.published, items };
+  const virtuals: VirtualObject[] = Array.isArray(r.virtuals)
+    ? r.virtuals
+        .filter((v): v is VirtualObject =>
+          !!v && typeof v === "object" &&
+          typeof (v as VirtualObject).id === "string" &&
+          typeof (v as VirtualObject).name === "string" &&
+          Array.isArray((v as VirtualObject).refIds),
+        )
+        .map((v) => ({
+          id: v.id,
+          kind: VIRTUAL_KINDS.some((k) => k.value === v.kind) ? v.kind : "unknown",
+          name: v.name,
+          refIds: v.refIds.filter((x): x is string => typeof x === "string"),
+        }))
+    : [];
+  return { version: 1, access, published: !!r.published, items, virtuals };
 }
+
 
 /**
  * Best-effort migration of the older label-signature relationship bag
