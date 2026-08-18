@@ -7,6 +7,7 @@ import {
   ChevronDown, ChevronUp, Check, Pencil, Plus, Trash2, X,
 } from "lucide-react";
 import { useEmojiLibrary, splitEmojis } from "@/hooks/useEmojiLibrary";
+import OfficialEmojiSection from "@/components/gpl/OfficialEmojiSection";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -69,7 +70,10 @@ export function EmojiPanel({ open, onClose, onInsert }: Props) {
         </button>
       </div>
 
-      {/* Sessions (categories) */}
+      {/* Official GPL emoji — one central record, shared with the Smartboard */}
+      <OfficialEmojiSection onInsert={onInsert} />
+
+      {/* Sessions (categories) — the teacher's own emojis */}
       <div className="border-b border-border p-2 space-y-1 max-h-52 overflow-y-auto overscroll-contain">
         {loading && <p className="text-xs text-muted-foreground px-1">Loading…</p>}
         {!loading && categories.length === 0 && (

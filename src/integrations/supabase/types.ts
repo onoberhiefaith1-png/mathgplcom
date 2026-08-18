@@ -3412,6 +3412,180 @@ export type Database = {
         }
         Relationships: []
       }
+      gpl_asset_sessions: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gpl_asset_subsessions: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          session_id: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          session_id: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          session_id?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gpl_asset_subsessions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "gpl_asset_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gpl_asset_usage: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          surface: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          surface: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          surface?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gpl_asset_usage_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "gpl_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gpl_assets: {
+        Row: {
+          asset_type: string
+          created_at: string
+          description: string | null
+          external_url: string | null
+          glyph: string | null
+          id: string
+          is_active: boolean
+          media_type: string
+          name: string
+          slug: string
+          sort_order: number
+          storage_path: string | null
+          subsession_id: string
+          updated_at: string
+        }
+        Insert: {
+          asset_type?: string
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          glyph?: string | null
+          id?: string
+          is_active?: boolean
+          media_type?: string
+          name: string
+          slug: string
+          sort_order?: number
+          storage_path?: string | null
+          subsession_id: string
+          updated_at?: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          glyph?: string | null
+          id?: string
+          is_active?: boolean
+          media_type?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          storage_path?: string | null
+          subsession_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gpl_assets_subsession_id_fkey"
+            columns: ["subsession_id"]
+            isOneToOne: false
+            referencedRelation: "gpl_asset_subsessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_assignments: {
         Row: {
           archived_at: string | null
@@ -6201,6 +6375,7 @@ export type Database = {
         Args: { _estimated?: number; _org_id: string; _user_id: string }
         Returns: boolean
       }
+      can_manage_gpl_assets: { Args: never; Returns: boolean }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
       class_join_gate: {
         Args: { code: string }

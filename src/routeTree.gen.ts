@@ -64,6 +64,7 @@ import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
 import { Route as AdminAdvertisementsIndexRouteImport } from './routes/admin/advertisements/index'
+import { Route as AdminAssetsIndexRouteImport } from './routes/admin/assets/index'
 import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/index'
 import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost-analytics/index'
 import { Route as AdminCostRevenueIndexRouteImport } from './routes/admin/cost-revenue/index'
@@ -140,6 +141,7 @@ import { Route as TeachingHubPricingIndexRouteImport } from './routes/teaching-h
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
 import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-hub/students/index'
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
+import { Route as AdminAssetsSessionIndexRouteImport } from './routes/admin/assets/$session/index'
 import { Route as AdventureGamesGameIdIndexRouteImport } from './routes/adventure/games/$gameId/index'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
@@ -199,6 +201,7 @@ import { Route as TeachingHubClassesClassIdIndexRouteImport } from './routes/tea
 import { Route as TeachingHubClassesCreateIndexRouteImport } from './routes/teaching-hub/classes/create/index'
 import { Route as TeachingHubSettingsArchiveIndexRouteImport } from './routes/teaching-hub/settings/archive/index'
 import { Route as TeachingHubStudentsUserIdIndexRouteImport } from './routes/teaching-hub/students/$userId/index'
+import { Route as AdminAssetsSessionSubsessionIndexRouteImport } from './routes/admin/assets/$session/$subsession/index'
 import { Route as FamilyChildrenChildIdAdventuresIndexRouteImport } from './routes/family/children/$childId/adventures/index'
 import { Route as FamilyChildrenChildIdAssignmentsIndexRouteImport } from './routes/family/children/$childId/assignments/index'
 import { Route as FamilyChildrenChildIdClassesIndexRouteImport } from './routes/family/children/$childId/classes/index'
@@ -559,6 +562,11 @@ const AdminAdvertisementsIndexRoute =
     path: '/advertisements/',
     getParentRoute: () => AdminRouteRoute,
   } as any)
+const AdminAssetsIndexRoute = AdminAssetsIndexRouteImport.update({
+  id: '/assets/',
+  path: '/assets/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminBillingIndexRoute = AdminBillingIndexRouteImport.update({
   id: '/billing/',
   path: '/billing/',
@@ -952,6 +960,11 @@ const YearNIndexRoute = YearNIndexRouteImport.update({
   path: '/year/$n/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAssetsSessionIndexRoute = AdminAssetsSessionIndexRouteImport.update({
+  id: '/assets/$session/',
+  path: '/assets/$session/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdventureGamesGameIdIndexRoute =
   AdventureGamesGameIdIndexRouteImport.update({
     id: '/games/$gameId/',
@@ -1288,6 +1301,12 @@ const TeachingHubStudentsUserIdIndexRoute =
     id: '/students/$userId/',
     path: '/students/$userId/',
     getParentRoute: () => TeachingHubRouteRoute,
+  } as any)
+const AdminAssetsSessionSubsessionIndexRoute =
+  AdminAssetsSessionSubsessionIndexRouteImport.update({
+    id: '/assets/$session/$subsession/',
+    path: '/assets/$session/$subsession/',
+    getParentRoute: () => AdminRouteRoute,
   } as any)
 const FamilyChildrenChildIdAdventuresIndexRoute =
   FamilyChildrenChildIdAdventuresIndexRouteImport.update({
@@ -1853,6 +1872,7 @@ export interface FileRoutesByFullPath {
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
+  '/admin/assets/': typeof AdminAssetsIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
@@ -1933,6 +1953,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
+  '/admin/assets/$session/': typeof AdminAssetsSessionIndexRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -1991,6 +2012,7 @@ export interface FileRoutesByFullPath {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/admin/assets/$session/$subsession/': typeof AdminAssetsSessionSubsessionIndexRoute
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
@@ -2117,6 +2139,7 @@ export interface FileRoutesByTo {
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
+  '/admin/assets': typeof AdminAssetsIndexRoute
   '/admin/billing': typeof AdminBillingIndexRoute
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue': typeof AdminCostRevenueIndexRoute
@@ -2197,6 +2220,7 @@ export interface FileRoutesByTo {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
+  '/admin/assets/$session': typeof AdminAssetsSessionIndexRoute
   '/adventure/games/$gameId': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2255,6 +2279,7 @@ export interface FileRoutesByTo {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/admin/assets/$session/$subsession': typeof AdminAssetsSessionSubsessionIndexRoute
   '/family/children/$childId/adventures': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes': typeof FamilyChildrenChildIdClassesIndexRoute
@@ -2393,6 +2418,7 @@ export interface FileRoutesById {
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
+  '/admin/assets/': typeof AdminAssetsIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
@@ -2473,6 +2499,7 @@ export interface FileRoutesById {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
+  '/admin/assets/$session/': typeof AdminAssetsSessionIndexRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2531,6 +2558,7 @@ export interface FileRoutesById {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/admin/assets/$session/$subsession/': typeof AdminAssetsSessionSubsessionIndexRoute
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
@@ -2670,6 +2698,7 @@ export interface FileRouteTypes {
     | '/homepage/replace-building/free'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
+    | '/admin/assets/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
@@ -2750,6 +2779,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
+    | '/admin/assets/$session/'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -2808,6 +2838,7 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/admin/assets/$session/$subsession/'
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
     | '/family/children/$childId/classes/'
@@ -2934,6 +2965,7 @@ export interface FileRouteTypes {
     | '/homepage/replace-building/free'
     | '/admin/access-codes'
     | '/admin/advertisements'
+    | '/admin/assets'
     | '/admin/billing'
     | '/admin/cost-analytics'
     | '/admin/cost-revenue'
@@ -3014,6 +3046,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
+    | '/admin/assets/$session'
     | '/adventure/games/$gameId'
     | '/assets/$category/$subcategory'
     | '/assets/interactive/question-progress'
@@ -3072,6 +3105,7 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/admin/assets/$session/$subsession'
     | '/family/children/$childId/adventures'
     | '/family/children/$childId/assignments'
     | '/family/children/$childId/classes'
@@ -3209,6 +3243,7 @@ export interface FileRouteTypes {
     | '/homepage/replace-building/free'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
+    | '/admin/assets/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
@@ -3289,6 +3324,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
+    | '/admin/assets/$session/'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -3347,6 +3383,7 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/admin/assets/$session/$subsession/'
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
     | '/family/children/$childId/classes/'
@@ -3939,6 +3976,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAdvertisementsIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/assets/': {
+      id: '/admin/assets/'
+      path: '/assets'
+      fullPath: '/admin/assets/'
+      preLoaderRoute: typeof AdminAssetsIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/billing/': {
       id: '/admin/billing/'
       path: '/billing'
@@ -4471,6 +4515,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof YearNIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/assets/$session/': {
+      id: '/admin/assets/$session/'
+      path: '/assets/$session'
+      fullPath: '/admin/assets/$session/'
+      preLoaderRoute: typeof AdminAssetsSessionIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/adventure/games/$gameId/': {
       id: '/adventure/games/$gameId/'
       path: '/games/$gameId'
@@ -4883,6 +4934,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/teaching-hub/students/$userId/'
       preLoaderRoute: typeof TeachingHubStudentsUserIdIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
+    }
+    '/admin/assets/$session/$subsession/': {
+      id: '/admin/assets/$session/$subsession/'
+      path: '/assets/$session/$subsession'
+      fullPath: '/admin/assets/$session/$subsession/'
+      preLoaderRoute: typeof AdminAssetsSessionSubsessionIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
     }
     '/family/children/$childId/adventures/': {
       id: '/family/children/$childId/adventures/'
@@ -5472,6 +5530,7 @@ interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminAccessCodesIndexRoute: typeof AdminAccessCodesIndexRoute
   AdminAdvertisementsIndexRoute: typeof AdminAdvertisementsIndexRoute
+  AdminAssetsIndexRoute: typeof AdminAssetsIndexRoute
   AdminBillingIndexRoute: typeof AdminBillingIndexRoute
   AdminCostAnalyticsIndexRoute: typeof AdminCostAnalyticsIndexRoute
   AdminCostRevenueIndexRoute: typeof AdminCostRevenueIndexRoute
@@ -5482,12 +5541,15 @@ interface AdminRouteRouteChildren {
   AdminUsageAnalyticsIndexRoute: typeof AdminUsageAnalyticsIndexRoute
   AdminUsageRevenueIndexRoute: typeof AdminUsageRevenueIndexRoute
   AdminWebsiteIndexRoute: typeof AdminWebsiteIndexRoute
+  AdminAssetsSessionIndexRoute: typeof AdminAssetsSessionIndexRoute
+  AdminAssetsSessionSubsessionIndexRoute: typeof AdminAssetsSessionSubsessionIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AdminAccessCodesIndexRoute: AdminAccessCodesIndexRoute,
   AdminAdvertisementsIndexRoute: AdminAdvertisementsIndexRoute,
+  AdminAssetsIndexRoute: AdminAssetsIndexRoute,
   AdminBillingIndexRoute: AdminBillingIndexRoute,
   AdminCostAnalyticsIndexRoute: AdminCostAnalyticsIndexRoute,
   AdminCostRevenueIndexRoute: AdminCostRevenueIndexRoute,
@@ -5498,6 +5560,9 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminUsageAnalyticsIndexRoute: AdminUsageAnalyticsIndexRoute,
   AdminUsageRevenueIndexRoute: AdminUsageRevenueIndexRoute,
   AdminWebsiteIndexRoute: AdminWebsiteIndexRoute,
+  AdminAssetsSessionIndexRoute: AdminAssetsSessionIndexRoute,
+  AdminAssetsSessionSubsessionIndexRoute:
+    AdminAssetsSessionSubsessionIndexRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
