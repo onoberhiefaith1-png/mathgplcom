@@ -207,7 +207,16 @@ const GplAssetsPage = () => {
         onClose={() => setEditing(null)}
         title="Edit Session"
         withIcon
-        initial={editing ?? undefined}
+        initial={
+          editing
+            ? {
+                name: editing.name,
+                description: editing.description ?? "",
+                icon: editing.icon ?? "",
+                image_url: editing.image_url ?? "",
+              }
+            : undefined
+        }
         onSave={async (draft) => {
           if (!editing) return;
           await updateSession(editing.id, {
