@@ -11,6 +11,7 @@ import { addCurve, type OpResult } from "@/lib/geometry/editor/sceneOps";
 import { normalizeScene } from "@/lib/geometry/editor/normalize";
 import { ensureIntersectionPoints } from "@/lib/geometry/editor/intersections";
 import { hideIrrelevantAutoPoints } from "@/lib/geometry/editor/relevance";
+import { liberateShapeLabels } from "@/lib/geometry/editor/liberateLabels";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
 /**
@@ -20,7 +21,7 @@ import type { HitKind } from "@/lib/geometry/editor/snap";
  * therefore keep every construction label exactly as before.
  */
 const normalise = (s: GeometryScene, relevanceText?: string): GeometryScene => {
-  const base = ensureIntersectionPoints(normalizeScene(s));
+  const base = ensureIntersectionPoints(normalizeScene(liberateShapeLabels(s)));
   return relevanceText ? hideIrrelevantAutoPoints(base, relevanceText) : base;
 };
 
