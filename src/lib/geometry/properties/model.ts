@@ -32,6 +32,12 @@ export const PROPERTY_KINDS: { value: PropertyKind; label: string }[] = [
 
 export type GuideAccess = "off" | "specific" | "general" | "both";
 
+/** A symbol inside the relationship text bound to a diagram object. */
+export interface TokenBinding {
+  token: string;
+  objectId: GeoId;
+}
+
 export interface GeometryPropertyItem {
   id: string;
   category: PropertyCategory;
