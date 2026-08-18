@@ -533,3 +533,75 @@ export function guideTargets(
   }
   return [...seen.values()];
 }
+
+/* ───────────── scene inventory (detected objects) ───────────── */
+
+export interface SceneInventoryEntry {
+  id: GeoId;
+  type: string;
+  typeLabel: string;
+  name: string;
+}
+
+export interface SceneInventory {
+  entries: SceneInventoryEntry[];
+  counts: { label: string; count: number }[];
+}
+
+/**
+ * Everything the diagram actually contains — used both for the
+ * "Detected objects" strip and as the read-only payload sent to the AI.
+ * Computed from the real scene, never from AI output.
+ */
+export function sceneInventory(scene: GeometryScene): SceneInventory {
+  const entries: SceneInventoryEntry[] = scene.objects.map((o) => ({
+    id: o.id,
+    type: o.type,
+    typeLabel: TYPE_LABEL[o.type] ?? o.type,
+    name: displayName(scene, o),
+  }));
+  const n = (...types: string[]) => entries.filter((e) => types.includes(e.type)).length;
+  const counts = [
+    { label: "Points", count: n("point") },
+    { label: "Lines / Segments", count: n("segment", "line", "ray") },
+    { label: "Angles", count: n("angle") },
+    { label: "Arcs", count: n("arc") },
+    { label: "Circles", count: n("circle") },
+    { label: "Areas", count: n("region") },
+    { label: "Labels", count: n("label") },
+  ].filter((c) => c.count > 0);
+  return { entries, counts };
+}
+
+/* ───────────── click-to-build statements ───────────── */
+
+export const RELATIONSHIP_OPERATORS = [
+  "=", "≠", "<", ">", "+", "−", "×", "÷", "∥", "⟂", "∴", "≅", "~",
+] as const;
+
+export const RELATIONSHIP_VALUES = ["180°", "90°", "360°", "60°", "45°"] as const;
+
+export type ChipKind = "object" | "operator" | "value";
+
+export interface StatementChip {
+  kind: ChipKind;
+  /** What is rendered / written into the statement. */
+  text: string;
+  /** For object chips — the diagram object (or defined part) it stands for. */
+  objectId?: GeoId;
+}
+
+/** Turns the chip row into the statement text the teacher never typed. */
+export function buildStatement(chips: StatementChip[]): string {
+  return chips
+    .map((c) => c.text.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Object ids referenced by a chip row, so highlighting works immediately. */
+export function chipObjectIds(chips: StatementChip[]): GeoId[] {
+  return [...new Set(chips.map((c) => c.objectId).filter((x): x is GeoId => !!x))];
+}
