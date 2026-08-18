@@ -6,7 +6,7 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, Presentation, Loader2, Smartphone, Save } from "lucide-react";
+import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
@@ -24,6 +24,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { saveBackToClass } from "@/lib/lessonnotes/notebookCopy";
 import { useViewAs } from "@/lib/accounts/viewAs";
+import type { CoPilotBridge } from "@/lib/lessonnotes/copilot/actions";
+
+// The Co-Pilot is closed by default and only downloads when opened.
+const CoPilotPanel = lazy(() =>
+  import("@/components/lessonnotes/copilot/CoPilotPanel").then((m) => ({ default: m.CoPilotPanel })),
+);
 
 const NotebookEditorPage = () => {
   const { id } = useParams();
@@ -75,6 +81,10 @@ const NotebookEditorPage = () => {
     }
   };
   const [scanBusy, setScanBusy] = useState(false);
+
+  // MyGPL Co-Pilot: docked at ~1/3 of the screen, the note keeps the rest.
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const copilotBridgeRef = useRef<CoPilotBridge | null>(null);
 
   const handleScanImage = useCallback(async (dataUrl: string) => {
     setScanBusy(true);
@@ -167,6 +177,15 @@ const NotebookEditorPage = () => {
             </Button>
           )}
           <Button
+            size="sm"
+            variant={copilotOpen ? "default" : "ghost"}
+            className={`gap-1.5 h-8 ${copilotOpen ? "bg-amber-400 text-amber-950 hover:bg-amber-300" : "text-foreground/70 hover:text-foreground"}`}
+            onClick={() => setCopilotOpen((v) => !v)}
+            aria-pressed={copilotOpen}
+          >
+            <Sparkles className="h-3.5 w-3.5" /> MyGPL Co-Pilot
+          </Button>
+          <Button
             size="sm" variant="ghost"
             className="gap-1.5 h-8 text-foreground/70 hover:text-foreground"
             onClick={() => navigate(`/smartboard/${notebook.id}`)}
@@ -177,7 +196,8 @@ const NotebookEditorPage = () => {
         <div className="h-0.5 w-full" style={{ background: theme.gradient }} aria-hidden />
       </header>
 
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden flex">
+        <div className="flex-1 min-w-0 h-full overflow-hidden">
         <Suspense
           fallback={
             <div className="h-full grid place-items-center">
@@ -207,8 +227,17 @@ const NotebookEditorPage = () => {
           onScanFromPhone={() => setQrOpen(true)}
           exportFileName={notebook.title || notebook.subtopic || "lesson-notes"}
           gameQuestionsOnly={(notebook as { purpose?: string }).purpose === "game"}
+          copilotBridgeRef={copilotBridgeRef}
         />
         </Suspense>
+        </div>
+        {copilotOpen && (
+          <div className="hidden md:block h-full w-[34%] min-w-[320px] max-w-[520px]">
+            <Suspense fallback={<div className="h-full border-l border-foreground/10" />}>
+              <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setCopilotOpen(false)} />
+            </Suspense>
+          </div>
+        )}
       </div>
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
