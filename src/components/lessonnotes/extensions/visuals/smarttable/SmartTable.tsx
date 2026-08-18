@@ -147,6 +147,9 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [sumMenuOpen, setSumMenuOpen] = useState(false);
   const [sumMode, setSumMode] = useState<"row" | "col" | null>(null);
+  /** Mirror of `sumMode` readable from callbacks that fire during blur. */
+  const sumModeRef = useRef<"row" | "col" | null>(null);
+  sumModeRef.current = sumMode;
   /** Whole-line selection: a row or a column, highlighted end to end. */
   const [line, setLine] = useState<{ kind: "row" | "col"; index: number } | null>(null);
   /** Soft-selected cell: clicking the padding around a cell's text. Used as
