@@ -1569,9 +1569,11 @@ function DocumentEditorInner({
 
 
       try {
-        const topic = ctxRef.current?.topic || notebookContext?.topic;
-        const subtopic = contextAt(anchorHeadingPos)?.subtopic || ctxRef.current?.subtopic || notebookContext?.subtopic;
-        const subject = ctxRef.current?.subject || notebookContext?.subject;
+        const anchorCtx = contextAt(anchorHeadingPos);
+        const topic = anchorCtx?.topic || notebookContext?.topic;
+        const subtopic = anchorCtx?.subtopic || notebookContext?.subtopic;
+        const subject = anchorCtx?.subject || notebookContext?.subject;
+
         const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
           body: {
             mode: "geometry",
