@@ -5,17 +5,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, FilePlus2,
-  Image as ImageIcon, Play, Plus, Trash2, Video, X,
+  Image as ImageIcon, Monitor, Play, Plus, Trash2, Video, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Editor } from "@tiptap/react";
 import { SlideCanvas } from "./SlideCanvas";
 import { SlidePlayer } from "./SlidePlayer";
 import { SnipOverlay, type SnipResult } from "./SnipOverlay";
+import { ImportSourceDialog, type ImportSource } from "./ImportSourceDialog";
+import { MyGplMediaPicker } from "./MyGplMediaPicker";
+import { ScreenshotOverlay } from "./ScreenshotOverlay";
+import {
+  grabScreenFrame, screenCaptureSupported, ScreenCaptureError, type ScreenFrame,
+} from "@/lib/lessonnotes/screenCapture";
 import {
   addSlideItem, createCanvas, createSlide, deleteCanvas, deleteSlide, deleteSlideItem,
   listCanvases, listCanvasSlides, listSlideItems, renameCanvas, renameSlide, reorderSlides,
-  updateSlideItem, uploadSlideMedia, type Slide, type SlideCanvasRecord, type SlideItem,
+  updateSlideItem, uploadSlideMedia, gplRef, type Slide, type SlideCanvasRecord, type SlideItem,
 } from "@/lib/lessonnotes/slides";
 
 interface Props {
@@ -52,6 +58,11 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const kindRef = useRef<"image" | "video">("image");
+  // Import Image / Import Video both go through one source menu.
+  const [sourceFor, setSourceFor] = useState<"image" | "video" | null>(null);
+  const [gplFor, setGplFor] = useState<"image" | "video" | null>(null);
+  // Screenshot (true screen capture) is deliberately separate from Capture.
+  const [screenFrame, setScreenFrame] = useState<ScreenFrame | null>(null);
 
   const canvas = canvases.find((d) => d.id === canvasId) ?? null;
   const openIndex = slides.findIndex((s) => s.id === openId);
@@ -183,6 +194,43 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   const nextStep = () => (items.length ? Math.max(...items.map((i) => i.step)) : 0) + 1;
   const nextZ = () => (items.length ? Math.max(...items.map((i) => i.z)) : 0) + 1;
 
+  /** THE single insertion path for every kind of slide media — Capture,
+   *  Screenshot, Import Image, Import Video, MyGPL. Everything becomes a
+   *  normal, selectable, movable, resizable object on the CURRENT slide. */
+  const insertSlideObject = useCallback(
+    async (
+      spec:
+        | { kind: "image" | "video" | "screenshot"; storage_path: string; aspect?: number }
+        | { kind: "content"; content_json: unknown[] },
+      geometry?: { x: number; y: number; w: number; h: number },
+    ): Promise<SlideItem | null> => {
+      if (!openId) {
+        toast.error("Open a slide first");
+        return null;
+      }
+      const aspect = "aspect" in spec ? spec.aspect : undefined;
+      const box = geometry ?? {
+        x: 0.08,
+        y: 0.08,
+        w: 0.55,
+        h: aspect && aspect > 0 ? Math.min(0.8, Math.max(0.12, 0.55 / aspect)) : 0.35,
+      };
+      const item = await addSlideItem(openId, {
+        kind: spec.kind,
+        storage_path: "storage_path" in spec ? spec.storage_path : "",
+        ...("content_json" in spec ? { content_json: spec.content_json } : {}),
+        ...box,
+        z: nextZ(),
+        step: nextStep(),
+      });
+      setItems((s) => [...s, item]);
+      setSelected(item.id);
+      return item;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [openId, items],
+  );
+
   const pickFile = (kind: "image" | "video") => {
     kindRef.current = kind;
     if (fileRef.current) {
@@ -192,6 +240,13 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     }
   };
 
+  const chooseSource = (kind: "image" | "video", source: ImportSource) => {
+    setSourceFor(null);
+    if (source === "mygpl") { setGplFor(kind); return; }
+    // Gallery and File both use the device picker; only the hint differs.
+    pickFile(kind);
+  };
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !openId) return;
@@ -199,16 +254,51 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     try {
       const ext = file.name.split(".").pop() || (kindRef.current === "image" ? "png" : "mp4");
       const path = await uploadSlideMedia(notebookId, openId, file, ext);
-      const item = await addSlideItem(openId, {
-        kind: kindRef.current,
-        storage_path: path,
-        x: 0.1, y: 0.1, w: 0.5, h: 0.3,
-        z: nextZ(), step: nextStep(),
-      });
-      setItems((s) => [...s, item]);
-      setSelected(item.id);
+      await insertSlideObject({ kind: kindRef.current, storage_path: path });
     } catch {
       toast.error("Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /* --------------------------------------------------------- screenshot -- */
+
+  const startScreenshot = async () => {
+    if (!openId) { toast.error("Open a slide first"); return; }
+    if (!screenCaptureSupported()) {
+      toast.error("This browser cannot take screenshots. Use Capture for note content.");
+      return;
+    }
+    setBusy(true);
+    try {
+      setScreenFrame(await grabScreenFrame());
+    } catch (err) {
+      const reason = err instanceof ScreenCaptureError ? err.reason : "failed";
+      toast.error(
+        reason === "denied"
+          ? "Screenshot cancelled — screen sharing permission is needed."
+          : "The screenshot could not be taken. Try again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const closeScreenshot = () => {
+    setScreenFrame((f) => { if (f) URL.revokeObjectURL(f.url); return null; });
+  };
+
+  const insertScreenshot = async (blob: Blob, aspect: number) => {
+    closeScreenshot();
+    if (!openId) return;
+    setBusy(true);
+    try {
+      const path = await uploadSlideMedia(notebookId, openId, blob, "png");
+      const item = await insertSlideObject({ kind: "screenshot", storage_path: path, aspect });
+      if (item) toast.success(`Screenshot added as step ${item.step}`);
+    } catch {
+      toast.error("Could not save the screenshot");
     } finally {
       setBusy(false);
     }
@@ -220,30 +310,56 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     setBusy(true);
     try {
       const geometry = { x: result.x, y: result.y, w: result.w, h: result.h };
-      let item: SlideItem;
+      let item: SlideItem | null = null;
       if (result.content) {
-        item = await addSlideItem(openId, {
-          kind: "content",
-          storage_path: "",
-          content_json: result.content,
-          ...geometry,
-          z: nextZ(), step: nextStep(),
-        });
+        item = await insertSlideObject({ kind: "content", content_json: result.content }, geometry);
       } else if (result.blob) {
         const path = await uploadSlideMedia(notebookId, openId, result.blob, "png");
-        item = await addSlideItem(openId, {
-          kind: "screenshot",
-          storage_path: path,
-          ...geometry,
-          z: nextZ(), step: nextStep(),
-        });
-      } else {
-        return;
+        item = await insertSlideObject({ kind: "screenshot", storage_path: path }, geometry);
       }
-      setItems((s) => [...s, item]);
-      toast.success(`Captured as step ${item.step}`);
-    } catch {
+      if (item) toast.success(`Captured as step ${item.step}`);
+    } catch (err) {
+      console.error("[capture] save failed", err);
       toast.error("Could not save the capture");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Insert a MyGPL library asset by reference — no second copy is stored. */
+  const insertGplAsset = async (asset: { storage_path: string | null; external_url: string | null; media_type: "image" | "video"; name: string }) => {
+    const source = asset.external_url || (asset.storage_path ? gplRef(asset.storage_path) : "");
+    setGplFor(null);
+    if (!source) { toast.error("That library asset has no media file"); return; }
+    setBusy(true);
+    try {
+      await insertSlideObject({ kind: asset.media_type, storage_path: source });
+      toast.success(`${asset.name} added to this slide`);
+    } catch {
+      toast.error("Could not add that library asset");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const duplicateItem = async (id: string) => {
+    const src = items.find((i) => i.id === id);
+    if (!src) return;
+    setBusy(true);
+    try {
+      const item = await addSlideItem(openId!, {
+        kind: src.kind,
+        storage_path: src.storage_path,
+        content_json: src.content_json,
+        x: Math.min(0.9, src.x + 0.03),
+        y: Math.min(0.9, src.y + 0.03),
+        w: src.w, h: src.h,
+        z: nextZ(), step: nextStep(),
+      });
+      setItems((s) => [...s, item]);
+      setSelected(item.id);
+    } catch {
+      toast.error("Could not duplicate that element");
     } finally {
       setBusy(false);
     }
@@ -426,11 +542,16 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
               <Camera className="h-3.5 w-3.5" /> Capture
             </button>
-            <button type="button" disabled={busy || !openId} onClick={() => pickFile("image")}
+            <button type="button" disabled={busy || !openId} onClick={() => void startScreenshot()}
+              title="Take a real screenshot of any screen, window or tab"
+              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
+              <Monitor className="h-3.5 w-3.5" /> Screenshot
+            </button>
+            <button type="button" disabled={busy || !openId} onClick={() => setSourceFor("image")}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
               <ImageIcon className="h-3.5 w-3.5" /> Import image
             </button>
-            <button type="button" disabled={busy || !openId} onClick={() => pickFile("video")}
+            <button type="button" disabled={busy || !openId} onClick={() => setSourceFor("video")}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
               <Video className="h-3.5 w-3.5" /> Import video
             </button>
@@ -497,6 +618,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
                       onSelect={setSelected}
                       onChange={(id, patch) => void patchItem(id, patch)}
                       onDelete={(id) => void removeItem(id)}
+                      onDuplicate={(id) => void duplicateItem(id)}
                     />
                   </div>
                   <p className="pt-2 text-[11px] leading-snug text-muted-foreground">
@@ -512,6 +634,30 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
             </div>
           </div>
         </div>
+      )}
+
+      {sourceFor && (
+        <ImportSourceDialog
+          kind={sourceFor}
+          onClose={() => setSourceFor(null)}
+          onPick={(source) => chooseSource(sourceFor, source)}
+        />
+      )}
+
+      {gplFor && (
+        <MyGplMediaPicker
+          kind={gplFor}
+          onClose={() => setGplFor(null)}
+          onPick={(asset) => void insertGplAsset(asset)}
+        />
+      )}
+
+      {screenFrame && (
+        <ScreenshotOverlay
+          frame={screenFrame}
+          onCancel={closeScreenshot}
+          onInsert={(blob, aspect) => void insertScreenshot(blob, aspect)}
+        />
       )}
 
       {presenting !== null && (
