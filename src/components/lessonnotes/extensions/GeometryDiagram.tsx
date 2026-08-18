@@ -263,7 +263,6 @@ function GeometryDiagramView({
         onPointerDown={handlePointerDown}
       >
 
-      >
 
         {selected ? (
           <LiveEditor
