@@ -601,16 +601,9 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   const rowSelected = (r: number) => line?.kind === "row" && line.index === r;
   const colSelected = (c: number) => line?.kind === "col" && line.index === c;
   const cellSoft = (r: number, c: number) => !!softCell && softCell.r === r && softCell.c === c;
-  const lineHi = (r: number, c: number): React.CSSProperties => {
-    if (rowSelected(r) || colSelected(c)) {
-      return { background: "rgba(37,99,235,0.16)", boxShadow: "inset 0 0 0 9999px rgba(37,99,235,0.06)" };
-    }
-    if (cellSoft(r, c)) {
-      // Soft wash — the text stays perfectly readable.
-      return { background: "rgba(37,99,235,0.12)", outline: "1px solid rgba(37,99,235,0.45)" };
-    }
-    return {};
-  };
+  /** NO CELL OVERLAY. Selection is communicated by the small edge handles only,
+   *  so the grid stays a clean white mathematical surface. */
+  const lineHi = (_r: number, _c: number): React.CSSProperties => ({});
   const handleCss: React.CSSProperties = {
     border: "1px solid rgba(37,99,235,0.35)",
     background: "rgba(37,99,235,0.08)",
