@@ -315,7 +315,10 @@ export function validateProperties(
   scene: GeometryScene,
   doc: GeometryPropertiesDoc,
 ): PropertyIssue[] {
-  const alive = new Set(scene.objects.map((o) => o.id));
+  const alive = new Set([
+    ...scene.objects.map((o) => o.id),
+    ...(doc.virtuals ?? []).map((v) => v.id),
+  ]);
   const issues: PropertyIssue[] = [];
   for (const item of doc.items) {
     if (item.enabled === false) continue;
