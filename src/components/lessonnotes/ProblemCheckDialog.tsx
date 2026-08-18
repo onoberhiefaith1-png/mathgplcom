@@ -18,9 +18,10 @@ export function ProblemCheckDialog({
 }) {
   if (!report) return null;
   const ok = report.status === "valid";
-  // With no mathematics at all there is nothing to solve, so "Generate anyway"
-  // is withheld — but the panel still explains exactly what was inspected.
-  const canProceed = report.problem.trim().length > 0;
+  // The teacher is never dead-ended: when nothing was found anywhere in the
+  // session, the action becomes "Generate a new question" instead of vanishing.
+  const hasSomething = report.problem.trim().length > 0 || report.sources.length > 0;
+  const actionLabel = hasSomething ? "Generate anyway" : "Generate a new question";
   return (
     <AlertDialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
       <AlertDialogContent className="max-w-lg">
@@ -49,12 +50,17 @@ export function ProblemCheckDialog({
                     <span className="text-muted-foreground">Content inspected:</span>
                     <pre className="mt-1 whitespace-pre-wrap font-sans">{report.problem}</pre>
                   </div>
-                ) : (
-                  <p className="text-muted-foreground">No mathematical content was found in this section.</p>
-                )}
-                {report.hasDiagram ? (
-                  <p className="text-muted-foreground">A diagram belonging to this question was found.</p>
                 ) : null}
+                {report.sources.length ? (
+                  <div>
+                    <span className="text-muted-foreground">Found in this session: </span>
+                    {report.sources.join("; ")}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Nothing was found in this block, its Solution, its diagram, or the rest of this session.
+                  </p>
+                )}
                 {report.labels.length ? (
                   <p className="text-muted-foreground">
                     Structural labels ignored: {report.labels.join(", ")}
@@ -68,11 +74,10 @@ export function ProblemCheckDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-          {canProceed ? (
-            <AlertDialogAction onClick={onProceed}>Generate anyway</AlertDialogAction>
-          ) : null}
+          <AlertDialogAction onClick={onProceed}>{actionLabel}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 }
+
