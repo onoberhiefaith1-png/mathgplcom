@@ -1011,14 +1011,36 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         [{ role: "system", content: sys }, ...convo, { role: "user", content: message }],
         "google/gemini-2.5-flash",
       );
-      let parsed: any = {};
-      try {
-        parsed = JSON.parse(stripFences(String(raw)).trim());
-      } catch {
-        parsed = { reply: sanitizePresentation(stripFences(String(raw))).trim() };
+      // The model sometimes wraps a second JSON envelope inside "reply", or
+      // prefixes prose before the object. Peel both until we hold the payload.
+      const firstObject = (s: string): any | null => {
+        const start = s.indexOf("{");
+        if (start < 0) return null;
+        let depth = 0;
+        for (let i = start; i < s.length; i++) {
+          if (s[i] === "{") depth++;
+          else if (s[i] === "}") {
+            depth--;
+            if (depth === 0) {
+              try { return JSON.parse(s.slice(start, i + 1)); } catch { return null; }
+            }
+          }
+        }
+        return null;
+      };
+      const cleanText = stripFences(String(raw)).trim();
+      let parsed: any = firstObject(cleanText) ?? { reply: sanitizePresentation(cleanText).trim() };
+      for (let i = 0; i < 3; i++) {
+        if (parsed?.proposal || typeof parsed?.reply !== "string") break;
+        const inner = firstObject(parsed.reply);
+        if (!inner || (!inner.proposal && typeof inner.reply !== "string")) break;
+        parsed = inner;
       }
+      const replyText = typeof parsed?.reply === "string"
+        ? parsed.reply.replace(/\{[\s\S]*\}$/, "").trim()
+        : "";
       return new Response(JSON.stringify({
-        reply: String(parsed?.reply ?? "").trim(),
+        reply: replyText,
         ...(parsed?.proposal ? { proposal: parsed.proposal } : {}),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
