@@ -623,7 +623,11 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
         topic?: string; subtopic?: string; subject?: string;
         context?: string; currentContent?: string; teacherPrompt?: string;
         activeQuestion?: string;
+        /** The section heading the application already renders on the page.
+         *  Passed so the model never reproduces it. */
+        existingHeading?: string;
         inheritedContext?: boolean;
+
         /** Full teaching context of the lesson generated so far. */
         lessonContext?: {
           level?: string;
