@@ -696,10 +696,11 @@ function DocumentEditorInner({
       const res = await persistGeneratedExample({
         notebookId: nbIdRef.current,
         kind,
-        problem: problemOverride?.trim() || ctxRef.current?.topic || ctxRef.current?.subtopic || "",
+        problem: problemOverride?.trim() || activeContext()?.topic || activeContext()?.subtopic || "",
         solution: content,
-        subject: ctxRef.current?.subject,
-        subtopic: ctxRef.current?.subtopic,
+        subject: activeContext()?.subject,
+        subtopic: activeContext()?.subtopic,
+
       });
       if (!res) return;
       if (range) tagFirstMathBlock(range.from, range.to, res.subsectionId);
