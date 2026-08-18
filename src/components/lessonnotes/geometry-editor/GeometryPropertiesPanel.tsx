@@ -91,7 +91,7 @@ export function GeometryPropertiesPanel({
   // A canvas click always means "work on this drawn object" — unless the
   // teacher is defining a part or wiring connections.
   useEffect(() => {
-    if (!targetId || defining || connecting || bindToken) return;
+    if (!targetId || defining || connecting || bindToken || chips) return;
     setActiveVirtualId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId]);
