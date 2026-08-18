@@ -141,6 +141,7 @@ import { Route as TeachingHubPricingIndexRouteImport } from './routes/teaching-h
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
 import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-hub/students/index'
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
+import { Route as AdminAssetsSessionIndexRouteImport } from './routes/admin/assets/$session/index'
 import { Route as AdventureGamesGameIdIndexRouteImport } from './routes/adventure/games/$gameId/index'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
@@ -957,6 +958,11 @@ const YearNIndexRoute = YearNIndexRouteImport.update({
   id: '/year/$n/',
   path: '/year/$n/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAssetsSessionIndexRoute = AdminAssetsSessionIndexRouteImport.update({
+  id: '/assets/$session/',
+  path: '/assets/$session/',
+  getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdventureGamesGameIdIndexRoute =
   AdventureGamesGameIdIndexRouteImport.update({
@@ -1940,6 +1946,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
+  '/admin/assets/$session/': typeof AdminAssetsSessionIndexRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2205,6 +2212,7 @@ export interface FileRoutesByTo {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
+  '/admin/assets/$session': typeof AdminAssetsSessionIndexRoute
   '/adventure/games/$gameId': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2482,6 +2490,7 @@ export interface FileRoutesById {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
+  '/admin/assets/$session/': typeof AdminAssetsSessionIndexRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2760,6 +2769,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
+    | '/admin/assets/$session/'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -3025,6 +3035,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
+    | '/admin/assets/$session'
     | '/adventure/games/$gameId'
     | '/assets/$category/$subcategory'
     | '/assets/interactive/question-progress'
@@ -3301,6 +3312,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
+    | '/admin/assets/$session/'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -4490,6 +4502,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof YearNIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/assets/$session/': {
+      id: '/admin/assets/$session/'
+      path: '/assets/$session'
+      fullPath: '/admin/assets/$session/'
+      preLoaderRoute: typeof AdminAssetsSessionIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/adventure/games/$gameId/': {
       id: '/adventure/games/$gameId/'
       path: '/games/$gameId'
@@ -5502,6 +5521,7 @@ interface AdminRouteRouteChildren {
   AdminUsageAnalyticsIndexRoute: typeof AdminUsageAnalyticsIndexRoute
   AdminUsageRevenueIndexRoute: typeof AdminUsageRevenueIndexRoute
   AdminWebsiteIndexRoute: typeof AdminWebsiteIndexRoute
+  AdminAssetsSessionIndexRoute: typeof AdminAssetsSessionIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
@@ -5519,6 +5539,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminUsageAnalyticsIndexRoute: AdminUsageAnalyticsIndexRoute,
   AdminUsageRevenueIndexRoute: AdminUsageRevenueIndexRoute,
   AdminWebsiteIndexRoute: AdminWebsiteIndexRoute,
+  AdminAssetsSessionIndexRoute: AdminAssetsSessionIndexRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
