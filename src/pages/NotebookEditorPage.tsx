@@ -147,13 +147,14 @@ const NotebookEditorPage = () => {
         className="shrink-0 z-30 backdrop-blur-md border-b border-foreground/10"
         style={{ background: "rgba(21,19,42,0.85)" }}
       >
-        <div className="mx-auto max-w-7xl px-4 py-2.5 flex items-center gap-3">
+        <div className="mx-auto max-w-7xl px-2 sm:px-4 py-2.5 flex items-center gap-1.5 sm:gap-3 overflow-hidden">
           <Button
             variant="ghost" size="sm"
             onClick={() => navigate("/lesson-notes")}
-            className="gap-1.5 -ml-2 h-8 text-foreground/70 hover:text-foreground"
+            className="shrink-0 gap-1.5 -ml-1 sm:-ml-2 h-8 px-2 text-foreground/70 hover:text-foreground"
+            title="Back to shelf"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Shelf
+            <ArrowLeft className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Shelf</span>
           </Button>
           <div className="flex-1 min-w-0 text-center">
             <p className="text-[9px] uppercase tracking-[0.4em] text-foreground/40 truncate">
@@ -170,29 +171,33 @@ const NotebookEditorPage = () => {
               size="sm"
               onClick={saveToClass}
               disabled={savingBack}
-              className="h-8 gap-1.5 bg-amber-400 text-amber-950 hover:bg-amber-300"
+              className="shrink-0 h-8 px-2 gap-1.5 bg-amber-400 text-amber-950 hover:bg-amber-300"
+              title="Save to class"
             >
               {savingBack ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Save to class
+              <span className="hidden lg:inline">Save to class</span>
             </Button>
           )}
           <Button
             size="sm"
             variant={copilotOpen ? "default" : "ghost"}
-            className={`gap-1.5 h-8 ${copilotOpen ? "bg-amber-400 text-amber-950 hover:bg-amber-300" : "text-foreground/70 hover:text-foreground"}`}
+            className={`shrink-0 gap-1.5 h-8 px-2 ${copilotOpen ? "bg-amber-400 text-amber-950 hover:bg-amber-300" : "text-foreground/70 hover:text-foreground"}`}
             onClick={() => setCopilotOpen((v) => !v)}
             aria-pressed={copilotOpen}
+            title="MyGPL Co-Pilot"
           >
-            <Sparkles className="h-3.5 w-3.5" /> MyGPL Co-Pilot
+            <Sparkles className="h-3.5 w-3.5" /> <span className="hidden lg:inline">MyGPL Co-Pilot</span>
           </Button>
           <Button
             size="sm" variant="ghost"
-            className="gap-1.5 h-8 text-foreground/70 hover:text-foreground"
+            className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
             onClick={() => navigate(`/smartboard/${notebook.id}`)}
+            title="Present"
           >
-            <Presentation className="h-3.5 w-3.5" /> Present
+            <Presentation className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Present</span>
           </Button>
         </div>
+
         <div className="h-0.5 w-full" style={{ background: theme.gradient }} aria-hidden />
       </header>
 
