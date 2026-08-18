@@ -33,6 +33,35 @@ interface Props {
   onCapture: (result: SnipResult) => void;
 }
 
+/** True when a rasterised crop is one flat colour, i.e. nothing was painted. */
+const isFlatCanvas = (ctx: CanvasRenderingContext2D, w: number, h: number): boolean => {
+  const steps = 10;
+  let first: string | null = null;
+  for (let iy = 0; iy < steps; iy += 1) {
+    for (let ix = 0; ix < steps; ix += 1) {
+      const x = Math.min(w - 1, Math.round(((ix + 0.5) / steps) * w));
+      const y = Math.min(h - 1, Math.round(((iy + 0.5) / steps) * h));
+      const [r, g, b, a] = ctx.getImageData(x, y, 1, 1).data;
+      const key = `${r},${g},${b},${a}`;
+      if (first === null) first = key;
+      else if (key !== first) return false;
+    }
+  }
+  return true;
+};
+
+/** True when captured note nodes carry something a teacher would actually see:
+ *  text, or any non-paragraph node (diagram, table, graph, equation…). */
+const hasVisibleContent = (nodes: unknown[]): boolean =>
+  nodes.some((node) => {
+    const n = node as { type?: string; text?: string; content?: unknown[] } | null;
+    if (!n || typeof n !== "object") return false;
+    if (n.type === "text") return !!n.text && n.text.trim().length > 0;
+    if (n.type !== "paragraph") return true;
+    return Array.isArray(n.content) && hasVisibleContent(n.content);
+  });
+
+
 export function SnipOverlay({ sheetEl, editor = null, onCancel, onCapture }: Props) {
   const [rect, setRect] = useState<Rect | null>(null);
   const [dragging, setDragging] = useState(false);
