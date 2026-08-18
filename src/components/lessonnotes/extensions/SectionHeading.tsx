@@ -130,6 +130,9 @@ function SectionHeadingView(props: NodeViewProps) {
         sectionText: info.sectionText,
         action,
         images: aiOpts.images,
+        files: aiOpts.files ?? [],
+        context: aiOpts.context,
+        reportStage: aiOpts.reportStage,
       });
     } finally {
       setBusy(null);
