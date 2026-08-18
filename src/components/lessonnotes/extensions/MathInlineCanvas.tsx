@@ -649,7 +649,20 @@ export function MathInlineCanvas({
     }
 
     if (k === "Enter" || k === "Escape") { e.preventDefault(); onBlur(); return; }
-    if (k === " " || k === "Tab") {
+
+    // ── SPACE = EDITING, TAB = NAVIGATION ───────────────────────────────
+    // Space inserts a real spacing node at the caret, so the teacher can nudge
+    // AI-generated layout by hand. It never moves the caret across the next
+    // component and never changes the mathematical structure: a superscript
+    // stays a superscript, a subscript stays a subscript. Backspace removes the
+    // spacing node first (one press per space) before touching any mathematics.
+    if (k === " ") {
+      e.preventDefault();
+      apply(insertChar(root, cursor, " "));
+      return;
+    }
+    // Tab remains the branch-exit control: it moves the caret out one level.
+    if (k === "Tab") {
       e.preventDefault();
       if (cursor.path.length === 0) {
         onBlur();
@@ -660,6 +673,7 @@ export function MathInlineCanvas({
       }
       return;
     }
+
 
     // Original tree workflow:
     //   `#`  wraps the term immediately to the left and opens its superscript.
