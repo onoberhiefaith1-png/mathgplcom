@@ -1733,6 +1733,7 @@ function DocumentEditorInner({
   // Push external doc updates only when editor isn't focused.
   useEffect(() => {
     if (!editor || !documentJson) return;
+    if (editor.isDestroyed || !(editor as any).view?.dom) return;
     if (editor.isFocused) return;
     const current = JSON.stringify(editor.getJSON());
     const next = JSON.stringify(normalizedDoc);
