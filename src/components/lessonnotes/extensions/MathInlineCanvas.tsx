@@ -734,6 +734,18 @@ export function MathInlineCanvas({
       return;
     }
 
+    // `@` IS the Asset Library, everywhere mathematics can be typed. It is a
+    // trigger, never a character: nothing is written into the content.
+    if (k === "@") {
+      e.preventDefault();
+      const rect = hostRef.current?.getBoundingClientRect();
+      pickerOpen.current = true;
+      setPicker(rect ? { x: rect.left, y: rect.bottom } : null);
+      return;
+    }
+
+
+
 
 
 
