@@ -870,14 +870,15 @@ function DocumentEditorInner({
 
     const isSolutionBlock = info.kind === "solution";
     const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos) : null;
-    if (isSolutionBlock && !solutionSource?.hasInheritedQuestion) {
-      toast({
-        title: "No parent question found",
-        description: "Add an Example (or Exercise / Classwork / Homework) question above this Solution, then try again.",
-        variant: "destructive",
-      });
-      return;
+    // TWO-STAGE PIPELINE — stage 1: identify + validate, stage 2: generate.
+    // A non-valid report never silently blocks the teacher: the Problem Check
+    // panel states exactly what was inspected and offers "Generate anyway".
+    if (isSolutionBlock && solutionSource && solutionSource.report.status !== "valid") {
+      const heading = editor.state.doc.nodeAt(solutionSource.parentPos)?.textContent?.trim();
+      const proceed = await askProblemCheck(solutionSource.report, heading);
+      if (!proceed) return;
     }
+
     // The Solution references the question's EXISTING diagram. We hand the
     // model an inventory of what is already drawn so it never redraws it,
     // renames its points, or invents a second figure.
