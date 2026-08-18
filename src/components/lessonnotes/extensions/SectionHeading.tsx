@@ -42,6 +42,12 @@ export interface SectionAiCallContext {
   sectionText: string;
   action: SectionAction;
   images: string[];
+  /** Attached documents (PDF / Word) — part of the same material bundle. */
+  files?: MaterialFile[];
+  /** The Add-context strip values (topic, difficulty, count, reuse …). */
+  context?: TeacherContext;
+  /** Report pipeline progress back to the popover. */
+  reportStage?: (stage: StageId) => void;
 }
 
 interface SectionHeadingOptions {
