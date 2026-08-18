@@ -127,9 +127,9 @@ const NotebookEditorPage = () => {
   const theme = themeForIndex(notebook.color_index);
 
   return (
-    <main className="min-h-screen text-foreground flex flex-col" style={{ background: "#15132a" }}>
+    <main className="h-[100dvh] overflow-hidden text-foreground flex flex-col" style={{ background: "#15132a" }}>
       <header
-        className="sticky top-0 z-30 backdrop-blur-md border-b border-foreground/10"
+        className="shrink-0 z-30 backdrop-blur-md border-b border-foreground/10"
         style={{ background: "rgba(21,19,42,0.85)" }}
       >
         <div className="mx-auto max-w-7xl px-4 py-2.5 flex items-center gap-3">
@@ -172,7 +172,7 @@ const NotebookEditorPage = () => {
         <div className="h-0.5 w-full" style={{ background: theme.gradient }} aria-hidden />
       </header>
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <DocumentEditor
           documentJson={notebook.document_json}
           paperSize={(notebook.paper_size as PaperSize) || "a4"}
