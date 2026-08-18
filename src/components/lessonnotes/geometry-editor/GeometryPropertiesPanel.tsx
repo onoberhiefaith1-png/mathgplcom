@@ -473,6 +473,33 @@ export function GeometryPropertiesPanel({
 
   return (
     <div className="space-y-2.5 text-foreground">
+      {/* Whole-diagram analysis — the relationship map. */}
+      <div className="rounded-lg border border-foreground/15 bg-foreground/[0.03] p-2 space-y-1.5">
+        <button
+          type="button"
+          onClick={generateMap}
+          disabled={mapping}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-2 py-1.5 text-[12px] font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {mapping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+          Generate relationships
+        </button>
+        <p className="text-[10px] uppercase tracking-wider text-foreground/50">Detected objects</p>
+        <div className="flex flex-wrap gap-1">
+          {inventory.counts.map((c) => (
+            <span
+              key={c.label}
+              className="rounded border border-foreground/15 bg-background/70 px-1.5 py-0.5 text-[10.5px]"
+            >
+              {c.label} <span className="font-semibold">{c.count}</span>
+            </span>
+          ))}
+          {inventory.counts.length === 0 && (
+            <span className="text-[11px] text-foreground/55">Nothing drawn yet.</span>
+          )}
+        </div>
+      </div>
+
       {/* Selected object */}
       <div className="rounded-lg border border-foreground/15 bg-foreground/[0.03] p-2">
         <p className="text-[10px] uppercase tracking-wider text-foreground/50">Selected</p>
@@ -487,6 +514,134 @@ export function GeometryPropertiesPanel({
           </p>
         )}
       </div>
+
+      {/* Click-to-build statement: AB = AC without typing a single character. */}
+      {target && (
+        <div className="rounded-lg border border-foreground/15 p-2 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-wider text-foreground/50">
+              Build a relationship
+            </p>
+            {chips && (
+              <button
+                type="button"
+                onClick={() => { setChips(null); onHighlight([]); }}
+                className="text-[10.5px] text-foreground/60 hover:text-foreground"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+
+          {!chips ? (
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => startBuilder("specific")}
+                className="flex-1 rounded-md border border-foreground/20 px-2 py-1 text-[11.5px] font-medium hover:bg-foreground/[0.05]"
+              >
+                <Plus className="mr-1 inline h-3 w-3" /> This diagram
+              </button>
+              <button
+                type="button"
+                onClick={() => startBuilder("general")}
+                className="flex-1 rounded-md border border-foreground/20 px-2 py-1 text-[11.5px] font-medium hover:bg-foreground/[0.05]"
+              >
+                <Plus className="mr-1 inline h-3 w-3" /> General rule
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="min-h-[30px] rounded border border-dashed border-foreground/25 bg-background/70 px-1.5 py-1">
+                {chips.length === 0 ? (
+                  <p className="text-[10.5px] text-foreground/55">
+                    Click a part of the diagram to start.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-1">
+                    {chips.map((c, i) => (
+                      <span
+                        key={`${c.text}-${i}`}
+                        className={cn(
+                          "rounded px-1.5 py-0.5 text-[11.5px]",
+                          c.kind === "object"
+                            ? "bg-primary/15 font-semibold text-primary"
+                            : "bg-foreground/10",
+                        )}
+                      >
+                        {c.text}
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setChips((cur) => (cur ? cur.slice(0, -1) : cur))}
+                      className="ml-0.5 rounded p-0.5 text-foreground/50 hover:bg-foreground/10"
+                      title="Remove last"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="text-[10.5px] text-foreground/60">
+                Statement: <span className="font-semibold text-foreground">{buildStatement(chips) || "—"}</span>
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {RELATIONSHIP_OPERATORS.map((op) => (
+                  <button
+                    key={op.symbol}
+                    type="button"
+                    title={op.label}
+                    onClick={() => pushChip({ kind: "operator", text: op.symbol })}
+                    className="rounded border border-foreground/20 px-1.5 py-0.5 text-[12px] hover:bg-foreground/[0.06]"
+                  >
+                    {op.symbol}
+                  </button>
+                ))}
+                {RELATIONSHIP_VALUES.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => pushChip({ kind: "value", text: v })}
+                    className="rounded border border-foreground/20 px-1.5 py-0.5 text-[11.5px] hover:bg-foreground/[0.06]"
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={chipReason}
+                onChange={(e) => setChipReason(e.target.value)}
+                placeholder="Reason (optional) — e.g. Straight line"
+                className="w-full rounded border border-foreground/20 bg-background px-1.5 py-1 text-[11.5px]"
+              />
+              <button
+                type="button"
+                onClick={saveBuilt}
+                className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-primary px-2 py-1 text-[11.5px] font-semibold text-primary-foreground"
+              >
+                <Check className="h-3.5 w-3.5" /> Save relationship
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Shelves — Angle / Line / Area / Theorem, as in the reference. */}
+      {target && allItems.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          <FilterChip label="All" active={filter === "all"} onClick={() => setFilter("all")} />
+          {RELATIONSHIP_GROUPS.filter((g) => allItems.some((i) => groupOf(i) === g.value)).map((g) => (
+            <FilterChip
+              key={g.value}
+              label={g.label}
+              active={filter === g.value}
+              onClick={() => setFilter(g.value)}
+            />
+          ))}
+        </div>
+      )}
+
 
       {/* Parts of the diagram the teacher wants to talk about. Nothing is drawn:
           a part only references the real objects it is made of. */}
