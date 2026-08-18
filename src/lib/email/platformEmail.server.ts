@@ -209,32 +209,50 @@ export async function sendPlatformEmail(input: SendInput): Promise<{ ok: boolean
     };
   }
 
-  try {
-    const res = await fetch(`${input.origin}/lovable/email/transactional/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        templateName: "platform-message",
-        recipientEmail: input.to,
-        idempotencyKey: input.idempotencyKey ?? `${input.templateKey}-${input.to}-${Date.now()}`,
-        templateData: {
-          subject,
-          body,
-          footer: renderTemplate(template.footer, data),
-          signature: renderTemplate(template.signature, data),
-          senderName: sender.sender_name,
-          replyTo: sender.reply_to_email || sender.sender_email,
-          headingColor: template.heading_color,
-          textColor: template.text_color,
-          buttonColor: template.button_color,
-          buttonLabel: template.button_label,
-          logoText: template.logo_text,
-        },
-      }),
+  const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  const logOutcome = async (logStatus: "sent" | "suppressed" | "failed", errorMessage?: string) => {
+    const { error } = await supabaseAdmin.from("email_send_log").insert({
+      template_name: input.templateKey,
+      recipient_email: input.to,
+      status: logStatus,
+      error_message: errorMessage ?? null,
     });
-    if (!res.ok) return { ok: false, message: `Send failed (${res.status}): ${(await res.text()).slice(0, 300)}` };
+    if (error) console.error("email_send_log insert failed", error.code, error.message);
+  };
+
+  try {
+    const result = await sendTemplateEmail("platform-message", input.to, {
+      idempotencyKey: input.idempotencyKey ?? `${input.templateKey}-${input.to}-${Date.now()}`,
+      replyTo: sender.reply_to_email || sender.sender_email || undefined,
+      templateData: {
+        subject,
+        body,
+        footer: renderTemplate(template.footer, data),
+        signature: renderTemplate(template.signature, data),
+        senderName: sender.sender_name,
+        headingColor: template.heading_color,
+        textColor: template.text_color,
+        buttonColor: template.button_color,
+        buttonLabel: template.button_label,
+        logoText: template.logo_text,
+      },
+    });
+
+    if (!result.sent) {
+      await logOutcome("suppressed", "Recipient is suppressed.");
+      return {
+        ok: true,
+        message: `${input.to} has unsubscribed or is blocked, so nothing was sent.`,
+      };
+    }
+
+    await logOutcome("sent");
     return { ok: true, message: `Sent to ${input.to}.` };
   } catch (error) {
-    return { ok: false, message: (error as Error).message };
+    const message = (error as Error).message;
+    await logOutcome("failed", message);
+    return { ok: false, message };
   }
 }

@@ -132,21 +132,14 @@ export const sendMathgplIdReminder = createServerFn({ method: "POST" })
         userName = firstNameOf(profile?.display_name ?? null, profile?.first_name ?? null);
       }
 
-      const [{ enqueueAccountEmail }, { AccountIdEmail }, React] = await Promise.all([
-        import("@/lib/email/accountEmails.server"),
-        import("@/lib/email-templates/account-id"),
-        import("react"),
-      ]);
+      const { enqueueAccountEmail } = await import("@/lib/email/accountEmails.server");
 
       await enqueueAccountEmail({
         to: data.email,
-        subject: "Your MathGPL ID",
         label: "account_id_reminder",
-        element: React.createElement(AccountIdEmail, {
-          userName,
-          mathgplId,
-          email: data.email,
-        }),
+        templateName: "account-id",
+        templateData: { userName, mathgplId, email: data.email },
+        idempotencyKey: `account-id-${mathgplId}-${data.email}`,
       });
     }
 
@@ -190,20 +183,16 @@ export const sendAccountCreatedNotice = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
 
-    const [{ AccountCreatedEmail }, React] = await Promise.all([
-      import("@/lib/email-templates/account-created"),
-      import("react"),
-    ]);
-
     const result = await enqueueAccountEmail({
       to: email,
-      subject: "Your MathGPL Account Has Been Created",
       label: "account_created",
-      element: React.createElement(AccountCreatedEmail, {
+      templateName: "account-created",
+      templateData: {
         userName: firstNameOf(profile?.display_name ?? null, profile?.first_name ?? null),
         mathgplId,
         email,
-      }),
+      },
+      idempotencyKey: `account-created-${mathgplId}`,
     });
 
     return { ok: result.ok };
