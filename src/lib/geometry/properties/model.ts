@@ -82,11 +82,16 @@ export interface GeometryPropertyItem {
   connectedObjectIds: GeoId[];
   /** Optional symbol → object bindings ("X" is this segment, "θ" is this angle). */
   tokens?: TokenBinding[];
+  /** Panel shelf — Angle / Line / Area / Theorem. */
+  group?: RelationshipGroup;
+  /** Short justification shown under the statement ("Angles on a straight line"). */
+  reason?: string;
   aiGenerated?: boolean;
   /** AI drafts start unapproved; teacher content is approved on save. */
   approved?: boolean;
   enabled?: boolean;
   order: number;
+
 }
 
 /**
