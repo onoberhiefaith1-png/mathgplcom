@@ -2458,6 +2458,53 @@ export type Database = {
         }
         Relationships: []
       }
+      emoji_items: {
+        Row: {
+          category_id: string
+          created_at: string
+          external_url: string | null
+          glyph: string | null
+          id: string
+          kind: string
+          name: string
+          order_index: number
+          owner_id: string
+          storage_path: string | null
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          external_url?: string | null
+          glyph?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          order_index?: number
+          owner_id: string
+          storage_path?: string | null
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          external_url?: string | null
+          glyph?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          order_index?: number
+          owner_id?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emoji_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "emoji_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_entitlements: {
         Row: {
           applies_to: string[]
