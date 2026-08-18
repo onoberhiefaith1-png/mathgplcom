@@ -113,7 +113,7 @@ export const QuestionProgressContainer = ({
     return d;
   }, [tNow, surfaceY, pct, CH_X, CH_Y, CH_W, CH_H]);
 
-  const height = (width * VB_H) / VB_W;
+  const height = (boxWidth * VB_H) / VB_W;
 
   const bubbles = useMemo(() => {
     const seed = id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
