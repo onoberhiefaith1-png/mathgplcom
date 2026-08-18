@@ -63,6 +63,8 @@ export const CanvasFrame = Node.create({
     const w = num(node.attrs.w, 420);
     const kind = (node.attrs.objectKind as string | null) ?? null;
     const owner = (node.attrs.ownerQuestionId as string | null) ?? null;
+    const diagram = (node.attrs.ownerDiagramId as string | null) ?? null;
+    const spacer = (node.attrs.spacerId as string | null) ?? null;
     return [
       "div",
       mergeAttributes(HTMLAttributes, {
@@ -72,6 +74,8 @@ export const CanvasFrame = Node.create({
         "data-w": String(w),
         ...(kind ? { "data-object-kind": kind } : {}),
         ...(owner ? { "data-owner-question-id": owner } : {}),
+        ...(diagram ? { "data-owner-diagram-id": diagram } : {}),
+        ...(spacer ? { "data-spacer-id": spacer } : {}),
         // An object frame carries NO chrome: a moved diagram or solution must
         // look exactly like normal content on the page.
         class: kind ? "lesson-canvas-frame lesson-canvas-frame--bare" : "lesson-canvas-frame",
