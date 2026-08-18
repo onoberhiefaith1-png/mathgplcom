@@ -854,9 +854,15 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           </div>
           <button
             type="button"
-            aria-label="Open Smart table edit panel"
-            onClick={() => setPanelOpen(true)}
-            className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-foreground px-2.5 text-[11px] font-semibold text-background shadow-xs hover:bg-foreground/90"
+            aria-pressed={panelOpen}
+            aria-label={panelOpen ? "Close Smart table edit panel" : "Open Smart table edit panel"}
+            onClick={() => setPanelOpen((v) => !v)}
+            className={
+              "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-semibold shadow-xs " +
+              (panelOpen
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-foreground text-background hover:bg-foreground/90")
+            }
           >
             <Settings2 className="h-3.5 w-3.5" />
             Edit
