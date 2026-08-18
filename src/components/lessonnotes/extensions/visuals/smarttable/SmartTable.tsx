@@ -199,17 +199,24 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   };
   const cancelEdit = () => { setActive(null); setBuffer(""); setSel({ s: 0, e: 0 }); setEntryPoint(null); };
   const finishEdit = () => {
+    // Σ mode owns the next click: a blur caused by entering summation must
+    // never commit the in-flight editor, or its stale snapshot would land on
+    // top of the total that was just written.
+    if (sumModeRef.current) { cancelEdit(); return; }
     if (!active) return;
     const { r, c } = active;
     const raw = (bufferRef.current ?? "").trim();
+    // Always write from the LIVE model, never the render-time closure, so two
+    // writes in the same tick compose instead of clobbering each other.
+    const m = modelRef.current;
     if (r === -1) {
-      const next = [...headers]; next[c] = raw; patch({ headers: next });
+      const next = [...m.headers]; next[c] = raw; patch({ headers: next });
     } else {
       // Same calculation engine as before — the friendly form is what the
       // evaluator understands (√9, 3², 2+3), and anything symbolic falls
       // through untouched so it stays real mathematics.
       const solved = tryEvaluate(latexToFriendly(raw));
-      const next = cells.map((row) => [...row]); next[r][c] = solved ?? raw; patch({ cells: next });
+      const next = m.cells.map((row) => [...row]); next[r][c] = solved ?? raw; patch({ cells: next });
     }
     cancelEdit();
   };
