@@ -50,6 +50,12 @@ import {
   navigateOut,
 } from "@/lib/smartboard/mathTree";
 import { treeToLatex, latexToTree } from "@/lib/smartboard/mathTreeLatex";
+import type { AssetDef } from "@/lib/lessonnotes/assets/types";
+import { assetToMathInsertion } from "@/lib/lessonnotes/assets/mathInsert";
+import { pushRecent } from "@/lib/lessonnotes/assets/recents";
+import { mkMatrix } from "@/lib/smartboard/mathTree";
+import type { MatrixDialogResult } from "../MatrixCreateDialog";
+import { MathAssetPicker } from "./MathAssetPicker";
 
 
 
@@ -69,6 +75,11 @@ interface Props {
    *  surrounding prose so the sensor is never trapped inside mathematics. */
   onExitLeft?: () => void;
   onExitRight?: () => void;
+  /** An Asset Library item picked through `@` that is a whole page object
+   *  (diagram, chart, table, image…) and therefore cannot live inside an
+   *  expression. The host decides what to do (usually: commit this math run
+   *  and drop the object into the surrounding note). */
+  onInsertObjectAsset?: (asset: AssetDef) => void;
 }
 
 
@@ -445,12 +456,17 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 
 export function MathInlineCanvas({
   root, onChange, onBlur, focused, onFocus, entryPoint, entryCursor,
-  onExitLeft, onExitRight,
+  onExitLeft, onExitRight, onInsertObjectAsset,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>(
     () => entryCursor ?? { path: [], index: root.length },
   );
   const [anchor, setAnchor] = useState<Cursor | null>(null);
+  /** `@` Asset Library picker anchored at the caret. While it is open the
+   *  editor must NOT treat the focus move as a blur, or the cell would
+   *  commit and close under the picker. */
+  const [picker, setPicker] = useState<{ x: number; y: number } | null>(null);
+  const pickerOpen = useRef(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const hostRef = useRef<HTMLSpanElement | null>(null);
   const dragging = useRef(false);
@@ -718,6 +734,18 @@ export function MathInlineCanvas({
       return;
     }
 
+    // `@` IS the Asset Library, everywhere mathematics can be typed. It is a
+    // trigger, never a character: nothing is written into the content.
+    if (k === "@") {
+      e.preventDefault();
+      const rect = hostRef.current?.getBoundingClientRect();
+      pickerOpen.current = true;
+      setPicker(rect ? { x: rect.left, y: rect.bottom } : null);
+      return;
+    }
+
+
+
 
 
 
@@ -763,6 +791,41 @@ export function MathInlineCanvas({
     try { frag = latexToTree(text); } catch { frag = [...text].map((c) => mkChar(c)); }
     const base = withSelectionCleared();
     apply(insertFragment(base.root, base.cursor, frag));
+  };
+
+  const closePicker = () => {
+    pickerOpen.current = false;
+    setPicker(null);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  /** Insert a picked Asset Library item into the tree, leaving the caret in
+   *  its first editable slot so typing continues in place. */
+  const insertAsset = (a: AssetDef, matrix?: MatrixDialogResult) => {
+    const ins = assetToMathInsertion(a);
+    if (!ins) {
+      // Whole page object — hand it to the host (commits this run and drops
+      // the object into the surrounding note).
+      closePicker();
+      onInsertObjectAsset?.(a);
+      return;
+    }
+    try { pushRecent(a.id); } catch { /* noop */ }
+    let base = withSelectionCleared();
+    if (ins.prefix) {
+      for (const ch of ins.prefix) base = insertChar(base.root, base.cursor, ch);
+    }
+    let node = ins.node;
+    if (matrix) {
+      const pair: Record<string, [string, string]> = {
+        "(": ["(", ")"], "[": ["[", "]"], "{": ["{", "}"], "|": ["|", "|"],
+      };
+      const [l, r] = pair[matrix.br] ?? ["(", ")"];
+      node = mkMatrix(matrix.rows, matrix.cols, l, r, matrix.power ? ["power"] : []);
+    }
+    if (node) base = insertNode(base.root, base.cursor, node, true);
+    apply(base);
+    closePicker();
   };
 
   const rowNode = useMemo(
@@ -816,10 +879,19 @@ export function MathInlineCanvas({
           onCopy={(e) => copySelection(e, false)}
           onCut={(e) => copySelection(e, true)}
           onPaste={handlePaste}
-          onBlur={() => { dragging.current = false; onBlur(); }}
+          onBlur={() => {
+            dragging.current = false;
+            // Focus moved into the @ picker — this is not the teacher leaving
+            // the expression, so never commit here.
+            if (pickerOpen.current) return;
+            onBlur();
+          }}
           aria-label="Math editor"
           className="sr-only"
         />
+        {picker !== null || pickerOpen.current ? (
+          <MathAssetPicker point={picker} onPick={insertAsset} onClose={closePicker} />
+        ) : null}
       </span>
     </SelectionCtx.Provider>
   );

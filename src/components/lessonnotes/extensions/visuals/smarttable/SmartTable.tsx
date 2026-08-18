@@ -591,8 +591,12 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       </PanelGroup>
     </div>
   );
+  // SELECTION ≠ EDITING. Clicking a cell, a row handle or a column handle
+  // only selects. The right-hand panel opens ONLY when the teacher presses
+  // Edit under the table, and closes again when Edit is toggled off or the
+  // table is deselected.
   useRegisterAssetEditor(
-    (!!selected && (panelOpen || line !== null || softCell !== null)) || active !== null,
+    !!selected && panelOpen,
     // Unique per table instance: a shared id let a second table's
     // registration hijack the first one's panel slot.
     instanceIdRef.current, "Smart table", editor,
@@ -850,9 +854,15 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
           </div>
           <button
             type="button"
-            aria-label="Open Smart table edit panel"
-            onClick={() => setPanelOpen(true)}
-            className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-foreground px-2.5 text-[11px] font-semibold text-background shadow-xs hover:bg-foreground/90"
+            aria-pressed={panelOpen}
+            aria-label={panelOpen ? "Close Smart table edit panel" : "Open Smart table edit panel"}
+            onClick={() => setPanelOpen((v) => !v)}
+            className={
+              "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2.5 text-[11px] font-semibold shadow-xs " +
+              (panelOpen
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-foreground text-background hover:bg-foreground/90")
+            }
           >
             <Settings2 className="h-3.5 w-3.5" />
             Edit
@@ -904,6 +914,10 @@ function MathCellEditor({ value, onChange, onCommit, entryPoint }: {
         entryPoint={entryPoint ?? null}
         onExitLeft={onCommit}
         onExitRight={onCommit}
+        onInsertObjectAsset={(a) => {
+          onCommit();
+          toast({ title: `${a.label} is a page object`, description: "Insert it in the note, outside the table cell." });
+        }}
       />
     </span>
   );
