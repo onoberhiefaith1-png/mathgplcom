@@ -793,17 +793,22 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
       }
     };
     const seen = new Set<string>();
-    const once = (id: GeoId, color: string) => {
+    const once = (id: GeoId, color: string, opacity?: number) => {
       if (seen.has(id)) return;
       seen.add(id);
-      glow(id, color);
+      glow(id, color, opacity);
     };
+    // Roles, strongest first: the relationship's subject, then the clicked
+    // part, then everything the relationship also involves.
+    (emphasisIds ?? []).forEach((id) => once(id, "#e11d48", 0.5));
     selectedIds.forEach((id) => once(id, "#2563eb"));
     pendingIds.forEach((id) => once(id, "#10b981"));
     flashIds.forEach((id) => once(id, "#f59e0b"));
     (highlightIds ?? []).forEach((id) => once(id, "#a855f7"));
+    (relatedIds ?? []).forEach((id) => once(id, "#f59e0b", 0.45));
     return out;
-  }, [scene, selectedIds, pendingIds, flashIds, highlightIds]);
+  }, [scene, selectedIds, pendingIds, flashIds, highlightIds, relatedIds, emphasisIds]);
+
 
   // In-progress previews
   const previews: React.ReactNode[] = [];
