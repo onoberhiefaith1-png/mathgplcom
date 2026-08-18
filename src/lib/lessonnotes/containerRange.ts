@@ -82,8 +82,23 @@ export function diagramsOwnedByQuestion(
   isSolutionHeading: (text: string) => boolean,
 ): Array<{ pos: number; node: PMNode }> {
   const out: Array<{ pos: number; node: PMNode }> = [];
+  // A diagram the teacher moved into its own free frame carries an explicit
+  // relationship back to its question, which beats document order.
+  const qHeading = doc.nodeAt(headingPos);
+  const qid = (qHeading?.attrs as any)?.sectionId as string | undefined;
   let owner = -1;
+  let frameOwner: string | null = null;
   doc.descendants((n, p) => {
+    if (n.type.name === "canvasFrame") {
+      frameOwner = ((n.attrs as any)?.ownerQuestionId as string | null) ?? null;
+      if (frameOwner && qid && frameOwner === qid) {
+        n.descendants((c, cp) => {
+          if (c.type.name === "geometryDiagram") out.push({ pos: p + 1 + cp, node: c });
+          return true;
+        });
+      }
+      return false;
+    }
     if (n.type.name === "heading" && ((n.attrs as any)?.level ?? 6) <= 2) {
       if (!isSolutionHeading(n.textContent)) owner = p;
       return true;
