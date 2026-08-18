@@ -15,18 +15,18 @@ import { createPortal } from "react-dom";
 import { ArrowLeft, Info } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import { GeometryWorkbench } from "./GeometryWorkbench";
-import { GeometryPropertiesPanel } from "./GeometryPropertiesPanel";
-import {
-  readProperties,
-  resolveHighlightIds,
-  writeProperties,
-} from "@/lib/geometry/properties/model";
+import { GeometryMapPanel } from "./GeometryMapPanel";
+import { keepLiveIds, readMap, writeMap } from "@/lib/geometry/map/model";
 
 interface Props {
   scene: GeometryScene;
   onChange: (next: GeometryScene) => void;
   onClose: () => void;
+  /** The question this diagram belongs to, and its generated solution. */
+  context?: { question: string; solution: string };
+  topic?: string;
 }
+
 
 /** Light surface tokens — the Lesson Note paper look, independent of theme. */
 const LIGHT_TOKENS = {
