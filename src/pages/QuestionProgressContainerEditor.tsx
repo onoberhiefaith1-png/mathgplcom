@@ -48,7 +48,7 @@ const QuestionProgressContainerEditor = () => {
         {/* LIVE PREVIEW */}
         <div className="flex flex-col items-center justify-center rounded-2xl border border-border/40 bg-background/40 p-8 backdrop-blur overflow-auto">
           <QuestionProgressContainer
-            questionNumber={questionNumber}
+            
             current={safeCurrent}
             max={safeMax}
             theme={theme}
@@ -166,14 +166,14 @@ const QuestionProgressContainerEditor = () => {
           Examples
         </h2>
         <div className="flex flex-wrap items-end justify-center gap-6 rounded-2xl border border-border/40 bg-background/40 p-6 backdrop-blur">
-          <QuestionProgressContainer questionNumber={7}  current={3}   max={10}     theme="blue"   width={140} />
-          <QuestionProgressContainer questionNumber={3}  current={5}   max={10}     theme="orange" width={140} />
-          <QuestionProgressContainer questionNumber={12} current={7}   max={10}     theme="green"  width={140} />
-          <QuestionProgressContainer questionNumber={5}  current={6}   max={10}     theme="purple" width={140} />
-          <QuestionProgressContainer questionNumber={9}  current={2}   max={10}     theme="blue"   width={140} />
-          <QuestionProgressContainer questionNumber={21} current={614} max={2000}   theme="gold"   width={140} />
-          <QuestionProgressContainer questionNumber={42} current={100} max={100}    theme="green"  width={140} />
-          <QuestionProgressContainer questionNumber={99} current={0}   max={100}    theme="purple" width={140} />
+          <QuestionProgressContainer current={3}   max={10}     theme="blue"   width={140} />
+          <QuestionProgressContainer current={5}   max={10}     theme="orange" width={140} />
+          <QuestionProgressContainer current={7}   max={10}     theme="green"  width={140} />
+          <QuestionProgressContainer current={6}   max={10}     theme="purple" width={140} />
+          <QuestionProgressContainer current={2}   max={10}     theme="blue"   width={140} />
+          <QuestionProgressContainer current={614} max={2000}   theme="gold"   width={140} />
+          <QuestionProgressContainer current={100} max={100}    theme="green"  width={140} />
+          <QuestionProgressContainer current={0}   max={100}    theme="purple" width={140} />
         </div>
       </section>
     </main>

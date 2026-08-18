@@ -93,7 +93,7 @@ const Assets = () => {
           className="group flex items-center gap-5 rounded-xl border border-primary/40 bg-background/60 p-5 backdrop-blur transition hover:border-primary hover:bg-background/80"
         >
           <QuestionProgressContainer
-            questionNumber={7}
+            
             current={6}
             max={10}
             theme="purple"
