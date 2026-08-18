@@ -18,6 +18,9 @@ export function ProblemCheckDialog({
 }) {
   if (!report) return null;
   const ok = report.status === "valid";
+  // With no mathematics at all there is nothing to solve, so "Generate anyway"
+  // is withheld — but the panel still explains exactly what was inspected.
+  const canProceed = report.problem.trim().length > 0;
   return (
     <AlertDialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
       <AlertDialogContent className="max-w-lg">
@@ -65,7 +68,9 @@ export function ProblemCheckDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onProceed}>Generate anyway</AlertDialogAction>
+          {canProceed ? (
+            <AlertDialogAction onClick={onProceed}>Generate anyway</AlertDialogAction>
+          ) : null}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
