@@ -117,6 +117,11 @@ function sanitize(raw: unknown): GeometryPropertiesDoc | null {
       connectedObjectIds: Array.isArray(item.connectedObjectIds)
         ? item.connectedObjectIds.filter((x): x is string => typeof x === "string")
         : [],
+      tokens: Array.isArray(item.tokens)
+        ? (item.tokens as TokenBinding[]).filter(
+            (t) => t && typeof t.token === "string" && typeof t.objectId === "string",
+          )
+        : undefined,
       aiGenerated: !!item.aiGenerated,
       approved: item.approved !== false,
       enabled: item.enabled !== false,
