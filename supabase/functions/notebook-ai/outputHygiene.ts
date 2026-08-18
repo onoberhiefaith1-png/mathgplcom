@@ -121,7 +121,41 @@ export function sanitizePresentation(input: string): string {
   return out;
 }
 
+/** Structural label family owned by the APPLICATION, never by the AI. */
+const LABEL_WORDS = [
+  "example", "exercise", "classwork", "class work", "homework", "home work",
+  "question", "problem", "solution", "answer", "working", "workings",
+  "assessment", "quiz", "test", "activity", "task", "session",
+];
+const LABEL_PREFIX = new RegExp(
+  `^\\s*(?:${LABEL_WORDS.join("|")})\\s*(?:\\(?\\s*\\d{1,3}\\s*\\)?)?\\s*(?:[:.)\\-–—]\\s*)?`,
+  "i",
+);
+
+/**
+ * DEFENSIVE LAYER — the application already renders the section heading, so a
+ * leading "Example 3" / "Classwork 2:" produced by the model is a duplicate.
+ * Drop the label and KEEP the mathematics. Never a rejection.
+ */
+export function stripDuplicateHeading(text: string): string {
+  const lines = String(text ?? "").split("\n");
+  let removed = 0;
+  let i = 0;
+  while (i < lines.length && removed < 2) {
+    const raw = lines[i];
+    if (!raw.trim()) { i++; continue; }
+    const m = LABEL_PREFIX.exec(raw.trim());
+    if (!m || !m[0].trim()) break;
+    const rest = raw.trim().slice(m[0].length).trim();
+    if (rest) { lines[i] = rest; removed++; break; }
+    lines.splice(i, 1);
+    removed++;
+  }
+  return lines.join("\n").replace(/^\n+/, "").trim();
+}
+
 /** Human-readable list of raw-syntax residue still present (for warnings). */
+
 export function residueReport(s: string): string[] {
   const hits: string[] = [];
   if (!s) return hits;
