@@ -126,6 +126,9 @@ export function GeometryMapPanel({
       onDocChange({
         ...doc,
         generatedFromSolution: true,
+        questionId: context.questionId ?? null,
+        solutionHash: context.solutionHash ?? "",
+        generatedAt: new Date().toISOString(),
         items: [...built, ...keep].map((it, i) => ({ ...it, order: i })),
       });
       toast.success(`Map built from the solution — ${built.length} principles.`);
