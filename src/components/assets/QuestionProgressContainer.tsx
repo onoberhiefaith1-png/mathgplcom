@@ -285,23 +285,6 @@ export const QuestionProgressContainer = ({
         />
       </svg>
 
-      <div
-        style={{
-          position: "absolute",
-          left: `${topPlateLeft}%`,
-          top: `${topPlateTopPct}%`,
-          width: `${topPlateW}%`,
-          height: `${topPlateHPct}%`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          pointerEvents: "none",
-          ...engravedStyle,
-        }}
-      >
-        <span style={{ fontSize: `${width * 0.11}px` }}>Q{questionNumber}</span>
-      </div>
-
       {!hideProgressText && (
         <div
           style={{
@@ -317,7 +300,8 @@ export const QuestionProgressContainer = ({
             ...engravedStyle,
           }}
         >
-          <span style={{ fontSize: `${width * 0.085}px` }}>{current}/{max}</span>
+          <span style={{ fontSize: `${boxWidth * 0.085}px` }}>{current}/{max}</span>
+
         </div>
       )}
     </div>
