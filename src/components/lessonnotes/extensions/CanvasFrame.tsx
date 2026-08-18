@@ -39,6 +39,17 @@ export const CanvasFrame = Node.create({
         default: null,
         parseHTML: (el) => el.getAttribute("data-owner-question-id"),
       },
+      /** Set when this frame is attached to a diagram: it then travels with
+       *  that diagram as one group, keeping its relative position. */
+      ownerDiagramId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-owner-diagram-id"),
+      },
+      /** Id of the flow spacer reserving this frame's vertical space. */
+      spacerId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-spacer-id"),
+      },
     };
   },
 
