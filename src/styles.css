@@ -1152,3 +1152,26 @@ select optgroup {
   color: hsl(var(--native-option-ink));
   background-color: hsl(var(--native-option-surface));
 }
+
+/*
+ * Geometry Relationship Guide — the halo layer fades in and breathes so the
+ * student's eye follows "click → glow → related parts illuminate".
+ */
+.geo-halo-layer {
+  animation: geo-halo-in 220ms ease-out;
+  transition: opacity 200ms ease-out;
+}
+
+.geo-halo-layer > * {
+  animation: geo-halo-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes geo-halo-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes geo-halo-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
+}

@@ -32,11 +32,43 @@ export const PROPERTY_KINDS: { value: PropertyKind; label: string }[] = [
 
 export type GuideAccess = "off" | "specific" | "general" | "both";
 
+/** Which shelf a relationship sits on in the panel. */
+export type RelationshipGroup = "angle" | "line" | "area" | "theorem";
+
+export const RELATIONSHIP_GROUPS: { value: RelationshipGroup; label: string }[] = [
+  { value: "angle", label: "Angle" },
+  { value: "line", label: "Line / Segment" },
+  { value: "area", label: "Area" },
+  { value: "theorem", label: "Theorem / Rule" },
+];
+
+/** Falls back from the object type when a relationship carries no group. */
+export function groupForType(type: string | undefined): RelationshipGroup {
+  switch (type) {
+    case "angle":
+      return "angle";
+    case "segment":
+    case "line":
+    case "ray":
+    case "distance":
+      return "line";
+    case "region":
+    case "area":
+      return "area";
+    case "circle":
+    case "arc":
+      return "theorem";
+    default:
+      return "theorem";
+  }
+}
+
 /** A symbol inside the relationship text bound to a diagram object. */
 export interface TokenBinding {
   token: string;
   objectId: GeoId;
 }
+
 
 export interface GeometryPropertyItem {
   id: string;
@@ -50,11 +82,16 @@ export interface GeometryPropertyItem {
   connectedObjectIds: GeoId[];
   /** Optional symbol → object bindings ("X" is this segment, "θ" is this angle). */
   tokens?: TokenBinding[];
+  /** Panel shelf — Angle / Line / Area / Theorem. */
+  group?: RelationshipGroup;
+  /** Short justification shown under the statement ("Angles on a straight line"). */
+  reason?: string;
   aiGenerated?: boolean;
   /** AI drafts start unapproved; teacher content is approved on save. */
   approved?: boolean;
   enabled?: boolean;
   order: number;
+
 }
 
 /**
@@ -159,7 +196,12 @@ function sanitize(raw: unknown): GeometryPropertiesDoc | null {
             (t) => t && typeof t.token === "string" && typeof t.objectId === "string",
           )
         : undefined,
+      group: RELATIONSHIP_GROUPS.some((g) => g.value === item.group)
+        ? (item.group as RelationshipGroup)
+        : undefined,
+      reason: typeof item.reason === "string" && item.reason.trim() ? item.reason.trim() : undefined,
       aiGenerated: !!item.aiGenerated,
+
       approved: item.approved !== false,
       enabled: item.enabled !== false,
       order: typeof item.order === "number" ? item.order : i,
@@ -490,4 +532,76 @@ export function guideTargets(
     }
   }
   return [...seen.values()];
+}
+
+/* ───────────── scene inventory (detected objects) ───────────── */
+
+export interface SceneInventoryEntry {
+  id: GeoId;
+  type: string;
+  typeLabel: string;
+  name: string;
+}
+
+export interface SceneInventory {
+  entries: SceneInventoryEntry[];
+  counts: { label: string; count: number }[];
+}
+
+/**
+ * Everything the diagram actually contains — used both for the
+ * "Detected objects" strip and as the read-only payload sent to the AI.
+ * Computed from the real scene, never from AI output.
+ */
+export function sceneInventory(scene: GeometryScene): SceneInventory {
+  const entries: SceneInventoryEntry[] = scene.objects.map((o) => ({
+    id: o.id,
+    type: o.type,
+    typeLabel: TYPE_LABEL[o.type] ?? o.type,
+    name: displayName(scene, o),
+  }));
+  const n = (...types: string[]) => entries.filter((e) => types.includes(e.type)).length;
+  const counts = [
+    { label: "Points", count: n("point") },
+    { label: "Lines / Segments", count: n("segment", "line", "ray") },
+    { label: "Angles", count: n("angle") },
+    { label: "Arcs", count: n("arc") },
+    { label: "Circles", count: n("circle") },
+    { label: "Areas", count: n("region") },
+    { label: "Labels", count: n("label") },
+  ].filter((c) => c.count > 0);
+  return { entries, counts };
+}
+
+/* ───────────── click-to-build statements ───────────── */
+
+export const RELATIONSHIP_OPERATORS = [
+  "=", "≠", "<", ">", "+", "−", "×", "÷", "∥", "⟂", "∴", "≅", "~",
+] as const;
+
+export const RELATIONSHIP_VALUES = ["180°", "90°", "360°", "60°", "45°"] as const;
+
+export type ChipKind = "object" | "operator" | "value";
+
+export interface StatementChip {
+  kind: ChipKind;
+  /** What is rendered / written into the statement. */
+  text: string;
+  /** For object chips — the diagram object (or defined part) it stands for. */
+  objectId?: GeoId;
+}
+
+/** Turns the chip row into the statement text the teacher never typed. */
+export function buildStatement(chips: StatementChip[]): string {
+  return chips
+    .map((c) => c.text.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Object ids referenced by a chip row, so highlighting works immediately. */
+export function chipObjectIds(chips: StatementChip[]): GeoId[] {
+  return [...new Set(chips.map((c) => c.objectId).filter((x): x is GeoId => !!x))];
 }

@@ -6,25 +6,34 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  Check, Eye, Loader2, Pencil, Plus, Sparkles, Trash2, X,
-  ChevronUp, ChevronDown, Link2, AlertTriangle,
+  Check, Eye, EyeOff, Loader2, Pencil, Plus, Sparkles, Trash2, X,
+  ChevronUp, ChevronDown, Link2, AlertTriangle, Wand2,
 } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import {
   PROPERTY_KINDS,
+  RELATIONSHIP_GROUPS,
+  RELATIONSHIP_OPERATORS,
+  RELATIONSHIP_VALUES,
   VIRTUAL_KINDS,
   angleNameFromRefs,
+  buildStatement,
+  chipObjectIds,
   connectionsOf,
   describeObject,
   describeTarget,
   detectTokens,
+  groupForType,
   newPropertyId,
   newVirtualId,
+  sceneInventory,
   validateProperties,
   type GeometryPropertiesDoc,
   type GeometryPropertyItem,
   type PropertyCategory,
   type PropertyKind,
+  type RelationshipGroup,
+  type StatementChip,
   type VirtualKind,
   type VirtualObject,
 } from "@/lib/geometry/properties/model";
@@ -40,6 +49,8 @@ interface Props {
   targetId: GeoId | null;
   /** Halo painted on the diagram (preview / editing feedback). */
   onHighlight: (ids: GeoId[]) => void;
+  /** Amber halo — everything the chosen relationship also involves. */
+  onRelated?: (ids: GeoId[]) => void;
   /** Reports the selected object's display name to the workspace header. */
   onTargetName?: (name: string | null) => void;
   /** Pick mode: while true, canvas clicks toggle connections. */
@@ -47,13 +58,15 @@ interface Props {
   setConnecting: (b: boolean) => void;
 }
 
+
 export function GeometryPropertiesPanel({
-  scene, doc, onDocChange, targetId, onHighlight, onTargetName, connecting, setConnecting,
+  scene, doc, onDocChange, targetId, onHighlight, onRelated, onTargetName, connecting, setConnecting,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [draftKind, setDraftKind] = useState<PropertyKind>("statement");
   const [busy, setBusy] = useState(false);
+  const [mapping, setMapping] = useState(false);
   const [showIssues, setShowIssues] = useState(false);
   /** Symbol waiting to be bound to the next object the teacher clicks. */
   const [bindToken, setBindToken] = useState<string | null>(null);
@@ -61,14 +74,24 @@ export function GeometryPropertiesPanel({
   const [activeVirtualId, setActiveVirtualId] = useState<GeoId | null>(null);
   /** Defining a new part: collecting the diagram objects it is made of. */
   const [defining, setDefining] = useState<{ kind: VirtualKind; refIds: GeoId[]; name: string } | null>(null);
+  /** Which shelf the list is filtered to. */
+  const [filter, setFilter] = useState<RelationshipGroup | "all">("all");
+  /** Click-to-build statement: chips come from the diagram, never the keyboard. */
+  const [chips, setChips] = useState<StatementChip[] | null>(null);
+  const [chipCategory, setChipCategory] = useState<PropertyCategory>("specific");
+  const [chipReason, setChipReason] = useState("");
+  /** The relationship whose connections are lit on the diagram. */
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   const virtuals = doc.virtuals ?? [];
   const target = describeTarget(scene, doc, activeVirtualId ?? targetId);
+  const inventory = useMemo(() => sceneInventory(scene), [scene]);
+
 
   // A canvas click always means "work on this drawn object" — unless the
   // teacher is defining a part or wiring connections.
   useEffect(() => {
-    if (!targetId || defining || connecting || bindToken) return;
+    if (!targetId || defining || connecting || bindToken || chips) return;
     setActiveVirtualId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId]);
@@ -92,6 +115,66 @@ export function GeometryPropertiesPanel({
     onHighlight(defining ? defining.refIds : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defining?.refIds.join(",")]);
+
+  // While building a statement, each canvas click appends that object as a
+  // chip — this is what stops the teacher ever typing "AB" or "∠ABC".
+  useEffect(() => {
+    if (!chips || !targetId) return;
+    const base = targetId.split("#")[0];
+    const info = describeTarget(scene, doc, base);
+    if (!info) return;
+    setChips((cur) => (cur ? [...cur, { kind: "object", text: info.name, objectId: base }] : cur));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId]);
+
+  // The chips glow on the diagram while the statement is being built.
+  useEffect(() => {
+    if (!chips) return;
+    onHighlight(chipObjectIds(chips));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chips?.length]);
+
+  const startBuilder = (category: PropertyCategory) => {
+    setEditingId(null);
+    setDefining(null);
+    setConnecting(false);
+    setChipCategory(category);
+    setChipReason("");
+    setChips(
+      target ? [{ kind: "object", text: target.name, objectId: target.id }] : [],
+    );
+  };
+
+  const pushChip = (chip: StatementChip) =>
+    setChips((cur) => (cur ? [...cur, chip] : [chip]));
+
+  const saveBuilt = () => {
+    if (!chips) return;
+    const content = buildStatement(chips);
+    const ids = chipObjectIds(chips);
+    if (!content || ids.length === 0) {
+      toast.error("Click at least one part of the diagram to build the statement.");
+      return;
+    }
+    const sourceId = target?.id ?? ids[0];
+    upsert({
+      id: newPropertyId(),
+      category: chipCategory,
+      kind: chipCategory === "general" ? "theorem" : "statement",
+      content,
+      reason: chipReason.trim() || undefined,
+      group: groupForType(describeTarget(scene, doc, sourceId)?.type),
+      sourceObjectIds: [sourceId],
+      connectedObjectIds: [...new Set([sourceId, ...ids])],
+      approved: true,
+      enabled: true,
+      order: doc.items.length,
+    });
+    setChips(null);
+    onHighlight([]);
+    toast.success("Relationship saved.");
+  };
+
 
   const startDefining = (kind: VirtualKind) => {
     setEditingId(null);
@@ -137,7 +220,7 @@ export function GeometryPropertiesPanel({
 
   const issues = useMemo(() => validateProperties(scene, doc), [scene, doc]);
 
-  const items = useMemo(() => {
+  const allItems = useMemo(() => {
     if (!target) return [];
     return doc.items
       .filter(
@@ -147,6 +230,92 @@ export function GeometryPropertiesPanel({
       )
       .sort((a, b) => a.order - b.order);
   }, [doc, target]);
+
+  const groupOf = (i: GeometryPropertyItem): RelationshipGroup =>
+    i.group ?? groupForType(describeTarget(scene, doc, i.sourceObjectIds[0])?.type);
+
+  const items = useMemo(
+    () => (filter === "all" ? allItems : allItems.filter((i) => groupOf(i) === filter)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allItems, filter],
+  );
+
+  /** Clicking a relationship lights every object it involves. */
+  const pickItem = (item: GeometryPropertyItem) => {
+    const next = activeItemId === item.id ? null : item.id;
+    setActiveItemId(next);
+    if (!next) {
+      onRelated?.([]);
+      onHighlight([]);
+      return;
+    }
+    onHighlight(item.sourceObjectIds);
+    onRelated?.(connectionsOf(item));
+  };
+
+  /** One pass over the whole diagram — the relationship map. */
+  const generateMap = async () => {
+    if (inventory.entries.length === 0) {
+      toast.error("Draw the diagram first.");
+      return;
+    }
+    setMapping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("relationship-ai", {
+        body: {
+          mode: "map",
+          scene,
+          objects: inventory.entries.map((e) => ({ id: e.id, type: e.type, name: e.name })),
+          existing: doc.items.map((i) => i.content),
+          topic: scene.meta?.topic ?? "",
+        },
+      });
+      if (error) throw error;
+      const list = (data?.relationships ?? []) as Array<{
+        componentId: string; content: string; reason?: string;
+        group?: RelationshipGroup; category?: string; kind?: string;
+        connectedObjectIds?: string[];
+      }>;
+      if (list.length === 0) {
+        toast.info("No relationships were detected in this diagram.");
+        return;
+      }
+      const existing = new Set(doc.items.map((i) => i.content.trim().toLowerCase()));
+      const drafts: GeometryPropertyItem[] = [];
+      list.forEach((r, i) => {
+        const content = (r.content ?? "").trim();
+        if (!content || existing.has(content.toLowerCase())) return;
+        existing.add(content.toLowerCase());
+        drafts.push({
+          id: newPropertyId(),
+          category: r.category === "general" ? "general" : "specific",
+          kind: (PROPERTY_KINDS.some((k) => k.value === r.kind) ? r.kind : "statement") as PropertyKind,
+          content,
+          reason: r.reason?.trim() || undefined,
+          group: RELATIONSHIP_GROUPS.some((g) => g.value === r.group)
+            ? r.group
+            : groupForType(describeTarget(scene, doc, r.componentId)?.type),
+          sourceObjectIds: [r.componentId],
+          connectedObjectIds: [...new Set([r.componentId, ...(r.connectedObjectIds ?? [])])],
+          aiGenerated: true,
+          approved: false,
+          enabled: true,
+          order: doc.items.length + i,
+        });
+      });
+      if (drafts.length === 0) {
+        toast.info("Everything the AI found is already in the list.");
+        return;
+      }
+      write([...doc.items, ...drafts]);
+      toast.success(`${drafts.length} relationship${drafts.length === 1 ? "" : "s"} detected — review and approve`);
+    } catch {
+      toast.error("AI relationship mapping is unavailable right now.");
+    } finally {
+      setMapping(false);
+    }
+  };
+
 
   const editing = items.find((i) => i.id === editingId) ?? null;
 
@@ -304,6 +473,33 @@ export function GeometryPropertiesPanel({
 
   return (
     <div className="space-y-2.5 text-foreground">
+      {/* Whole-diagram analysis — the relationship map. */}
+      <div className="rounded-lg border border-foreground/15 bg-foreground/[0.03] p-2 space-y-1.5">
+        <button
+          type="button"
+          onClick={generateMap}
+          disabled={mapping}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-2 py-1.5 text-[12px] font-semibold text-primary-foreground disabled:opacity-60"
+        >
+          {mapping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+          Generate relationships
+        </button>
+        <p className="text-[10px] uppercase tracking-wider text-foreground/50">Detected objects</p>
+        <div className="flex flex-wrap gap-1">
+          {inventory.counts.map((c) => (
+            <span
+              key={c.label}
+              className="rounded border border-foreground/15 bg-background/70 px-1.5 py-0.5 text-[10.5px]"
+            >
+              {c.label} <span className="font-semibold">{c.count}</span>
+            </span>
+          ))}
+          {inventory.counts.length === 0 && (
+            <span className="text-[11px] text-foreground/55">Nothing drawn yet.</span>
+          )}
+        </div>
+      </div>
+
       {/* Selected object */}
       <div className="rounded-lg border border-foreground/15 bg-foreground/[0.03] p-2">
         <p className="text-[10px] uppercase tracking-wider text-foreground/50">Selected</p>
@@ -318,6 +514,134 @@ export function GeometryPropertiesPanel({
           </p>
         )}
       </div>
+
+      {/* Click-to-build statement: AB = AC without typing a single character. */}
+      {target && (
+        <div className="rounded-lg border border-foreground/15 p-2 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-wider text-foreground/50">
+              Build a relationship
+            </p>
+            {chips && (
+              <button
+                type="button"
+                onClick={() => { setChips(null); onHighlight([]); }}
+                className="text-[10.5px] text-foreground/60 hover:text-foreground"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+
+          {!chips ? (
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => startBuilder("specific")}
+                className="flex-1 rounded-md border border-foreground/20 px-2 py-1 text-[11.5px] font-medium hover:bg-foreground/[0.05]"
+              >
+                <Plus className="mr-1 inline h-3 w-3" /> This diagram
+              </button>
+              <button
+                type="button"
+                onClick={() => startBuilder("general")}
+                className="flex-1 rounded-md border border-foreground/20 px-2 py-1 text-[11.5px] font-medium hover:bg-foreground/[0.05]"
+              >
+                <Plus className="mr-1 inline h-3 w-3" /> General rule
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="min-h-[30px] rounded border border-dashed border-foreground/25 bg-background/70 px-1.5 py-1">
+                {chips.length === 0 ? (
+                  <p className="text-[10.5px] text-foreground/55">
+                    Click a part of the diagram to start.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-1">
+                    {chips.map((c, i) => (
+                      <span
+                        key={`${c.text}-${i}`}
+                        className={cn(
+                          "rounded px-1.5 py-0.5 text-[11.5px]",
+                          c.kind === "object"
+                            ? "bg-primary/15 font-semibold text-primary"
+                            : "bg-foreground/10",
+                        )}
+                      >
+                        {c.text}
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setChips((cur) => (cur ? cur.slice(0, -1) : cur))}
+                      className="ml-0.5 rounded p-0.5 text-foreground/50 hover:bg-foreground/10"
+                      title="Remove last"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="text-[10.5px] text-foreground/60">
+                Statement: <span className="font-semibold text-foreground">{buildStatement(chips) || "—"}</span>
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {RELATIONSHIP_OPERATORS.map((op) => (
+                  <button
+                    key={op}
+                    type="button"
+                    onClick={() => pushChip({ kind: "operator", text: op })}
+                    className="rounded border border-foreground/20 px-1.5 py-0.5 text-[12px] hover:bg-foreground/[0.06]"
+                  >
+                    {op}
+                  </button>
+                ))}
+
+                {RELATIONSHIP_VALUES.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => pushChip({ kind: "value", text: v })}
+                    className="rounded border border-foreground/20 px-1.5 py-0.5 text-[11.5px] hover:bg-foreground/[0.06]"
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={chipReason}
+                onChange={(e) => setChipReason(e.target.value)}
+                placeholder="Reason (optional) — e.g. Straight line"
+                className="w-full rounded border border-foreground/20 bg-background px-1.5 py-1 text-[11.5px]"
+              />
+              <button
+                type="button"
+                onClick={saveBuilt}
+                className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-primary px-2 py-1 text-[11.5px] font-semibold text-primary-foreground"
+              >
+                <Check className="h-3.5 w-3.5" /> Save relationship
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Shelves — Angle / Line / Area / Theorem, as in the reference. */}
+      {target && allItems.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          <FilterChip label="All" active={filter === "all"} onClick={() => setFilter("all")} />
+          {RELATIONSHIP_GROUPS.filter((g) => allItems.some((i) => groupOf(i) === g.value)).map((g) => (
+            <FilterChip
+              key={g.value}
+              label={g.label}
+              active={filter === g.value}
+              onClick={() => setFilter(g.value)}
+            />
+          ))}
+        </div>
+      )}
+
 
       {/* Parts of the diagram the teacher wants to talk about. Nothing is drawn:
           a part only references the real objects it is made of. */}
@@ -437,7 +761,7 @@ export function GeometryPropertiesPanel({
               onToggleEnabled={() => upsert({ ...item, enabled: item.enabled === false })}
               onApprove={() => upsert({ ...item, approved: true })}
               onMove={(d) => move(item, d)}
-              onPreview={() => onHighlight(connectionsOf(item))}
+              onPreview={() => pickItem(item)}
               onToggleConnecting={() => {
                 if (editingId !== item.id) openEdit(item);
                 setConnecting(!(connecting && editingId === item.id));
@@ -487,7 +811,7 @@ export function GeometryPropertiesPanel({
               onToggleEnabled={() => upsert({ ...item, enabled: item.enabled === false })}
               onApprove={() => upsert({ ...item, approved: true })}
               onMove={(d) => move(item, d)}
-              onPreview={() => onHighlight(connectionsOf(item))}
+              onPreview={() => pickItem(item)}
               onToggleConnecting={() => {
                 if (editingId !== item.id) openEdit(item);
                 setConnecting(!(connecting && editingId === item.id));
@@ -683,7 +1007,6 @@ function ItemCard({
           ? "border-violet-400/60 bg-violet-400/[0.07]"
           : "border-foreground/15",
       )}
-      onMouseEnter={onPreview}
     >
       {editing ? (
         <>
@@ -706,8 +1029,15 @@ function ItemCard({
           </select>
         </>
       ) : (
-        <p className="text-[12px] leading-snug">{item.content || "Untitled relationship"}</p>
+        // Clicking the statement is what lights the diagram up.
+        <button type="button" onClick={onPreview} className="block w-full text-left">
+          <p className="text-[12px] leading-snug">{item.content || "Untitled relationship"}</p>
+          {item.reason && (
+            <p className="text-[10.5px] text-foreground/55">({item.reason})</p>
+          )}
+        </button>
       )}
+
 
       {symbols.length > 0 && (
         <div className="space-y-1 rounded border border-foreground/10 bg-foreground/[0.02] p-1.5">
@@ -845,3 +1175,22 @@ function MiniBtn({
 }
 
 export default GeometryPropertiesPanel;
+
+function FilterChip({
+  label, active, onClick,
+}: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-2 py-0.5 text-[10.5px]",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-foreground/20 hover:bg-foreground/[0.05]",
+      )}
+    >
+      {label}
+    </button>
+  );
+}

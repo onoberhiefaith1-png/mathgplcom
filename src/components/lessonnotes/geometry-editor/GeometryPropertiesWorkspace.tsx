@@ -53,6 +53,7 @@ const LIGHT_TOKENS = {
 
 export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props) {
   const [rawHighlight, setRawHighlight] = useState<GeoId[]>([]);
+  const [rawRelated, setRawRelated] = useState<GeoId[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [targetName, setTargetName] = useState<string | null>(null);
   const doc = readProperties(scene);
@@ -60,6 +61,12 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
 
   // A defined part (∠ABC, θ, a distance) highlights the real objects it is
   // built from — the diagram stays the single source of truth.
+  const relatedIds = useMemo(
+    () => resolveHighlightIds(doc, rawRelated),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rawRelated.join(","), doc.virtuals?.length],
+  );
+
   const highlightIds = useMemo(
     () => resolveHighlightIds(doc, rawHighlight),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,6 +114,8 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
               className="h-full"
               hideLeftTools
               highlightIds={highlightIds}
+              relatedIds={relatedIds}
+              emphasisIds={highlightIds}
               rightPanelTitle="Geometry Properties"
               rightPanelWidthClass="w-80"
               renderRightPanel={(editor) => (
@@ -116,6 +125,7 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
                   onDocChange={(next) => editor.commit(writeProperties(editor.scene, next))}
                   targetId={editor.selectedIds[0] ?? null}
                   onHighlight={setRawHighlight}
+                  onRelated={setRawRelated}
                   onTargetName={setTargetName}
                   connecting={connecting}
                   setConnecting={setConnecting}
@@ -126,15 +136,32 @@ export function GeometryPropertiesWorkspace({ scene, onChange, onClose }: Props)
         )}
       </div>
 
-      <footer className="border-t border-black/10 bg-white px-4 py-1.5 text-[11px] text-slate-500">
+      <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-black/10 bg-white px-4 py-1.5 text-[11px] text-slate-500">
+        <span className="flex items-center gap-3">
+          <LegendDot color="#2563eb" label="Selected part" />
+          <LegendDot color="#e11d48" label="Relationship subject" />
+          <LegendDot color="#f59e0b" label="Connected parts" />
+        </span>
+        <span>Click a part → see its relationships → click a relationship → the diagram lights up.</span>
+        <span>
         {doc.published
           ? `Guide published to students — showing ${doc.access === "both" ? "specific and general" : doc.access} relationships.`
           : "Guide is not published — students see the diagram only."}
+        </span>
       </footer>
     </div>
   );
 
   return typeof document === "undefined" ? body : createPortal(body, document.body);
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+      {label}
+    </span>
+  );
 }
 
 export default GeometryPropertiesWorkspace;
