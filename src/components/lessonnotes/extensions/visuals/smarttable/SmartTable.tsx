@@ -739,16 +739,17 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                           onCopy={cellCopy} onCut={cellCut} onDelete={cellDelete}
                           onDuplicate={cellDuplicate} onComment={cellComment} onAiEdit={cellAiEdit}
                         />
-                        <InlineEditor
-                          inputRef={inputRef} value={buffer} onChange={setBuffer}
-                          onSelect={(s, e) => setSel({ s, e })}
-                          onCommit={finishEdit} onCancel={cancelEdit}
+                        <MathCellEditor
+                          value={buffer}
+                          entryPoint={entryPoint}
+                          onChange={setBuffer}
+                          onCommit={finishEdit}
                         />
                       </>
                     ) : (
                       <span className="block min-h-[1.4em]">
                         <span data-cell-text className="inline-block">
-                          {rendered ?? <span style={{ color: "#cbd5e1" }}>·</span>}
+                          {rendered}
                         </span>
                       </span>
                     )}
