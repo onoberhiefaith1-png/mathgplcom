@@ -57,12 +57,39 @@ export interface GeometryPropertyItem {
   order: number;
 }
 
+/**
+ * A part of the diagram the teacher wants to talk about that is not drawn as
+ * its own object — ∠ABC identified from a vertex + two arms, a distance on a
+ * segment, an unknown such as x / θ. It is NOT a second diagram: it only
+ * references real object ids, so highlighting resolves back to the diagram.
+ */
+export type VirtualKind = "angle" | "distance" | "arc" | "area" | "unknown";
+
+export const VIRTUAL_KINDS: { value: VirtualKind; label: string; hint: string }[] = [
+  { value: "angle", label: "Angle", hint: "Pick the vertex, then the two arms" },
+  { value: "distance", label: "Distance", hint: "Pick the line or the two endpoints" },
+  { value: "arc", label: "Arc", hint: "Pick the arc / circle and its endpoints" },
+  { value: "area", label: "Area", hint: "Pick the objects that bound the area" },
+  { value: "unknown", label: "Unknown / value", hint: "Pick what x, y or θ belongs to" },
+];
+
+export interface VirtualObject {
+  id: GeoId;
+  kind: VirtualKind;
+  /** Display name — auto-built for angles (∠ABC), typed for unknowns. */
+  name: string;
+  /** Real diagram objects this part is made of. */
+  refIds: GeoId[];
+}
+
 export interface GeometryPropertiesDoc {
   version: 1;
   access: GuideAccess;
   /** Published = students may see the approved+enabled items. */
   published?: boolean;
   items: GeometryPropertyItem[];
+  /** Teacher-defined parts that are not drawn objects. */
+  virtuals?: VirtualObject[];
 }
 
 export const EMPTY_PROPERTIES: GeometryPropertiesDoc = {
@@ -70,11 +97,21 @@ export const EMPTY_PROPERTIES: GeometryPropertiesDoc = {
   access: "both",
   published: false,
   items: [],
+  virtuals: [],
 };
 
 export function newPropertyId(): string {
   return `gp_${Math.random().toString(36).slice(2, 10)}`;
 }
+
+export function newVirtualId(): GeoId {
+  return `v_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function isVirtualId(id: string): boolean {
+  return id.startsWith("v_");
+}
+
 
 /* ───────────── reading / writing on the scene ───────────── */
 
@@ -132,8 +169,24 @@ function sanitize(raw: unknown): GeometryPropertiesDoc | null {
     r.access === "off" || r.access === "specific" || r.access === "general"
       ? r.access
       : "both";
-  return { version: 1, access, published: !!r.published, items };
+  const virtuals: VirtualObject[] = Array.isArray(r.virtuals)
+    ? r.virtuals
+        .filter((v): v is VirtualObject =>
+          !!v && typeof v === "object" &&
+          typeof (v as VirtualObject).id === "string" &&
+          typeof (v as VirtualObject).name === "string" &&
+          Array.isArray((v as VirtualObject).refIds),
+        )
+        .map((v) => ({
+          id: v.id,
+          kind: VIRTUAL_KINDS.some((k) => k.value === v.kind) ? v.kind : "unknown",
+          name: v.name,
+          refIds: v.refIds.filter((x): x is string => typeof x === "string"),
+        }))
+    : [];
+  return { version: 1, access, published: !!r.published, items, virtuals };
 }
+
 
 /**
  * Best-effort migration of the older label-signature relationship bag
@@ -262,7 +315,10 @@ export function validateProperties(
   scene: GeometryScene,
   doc: GeometryPropertiesDoc,
 ): PropertyIssue[] {
-  const alive = new Set(scene.objects.map((o) => o.id));
+  const alive = new Set([
+    ...scene.objects.map((o) => o.id),
+    ...(doc.virtuals ?? []).map((v) => v.id),
+  ]);
   const issues: PropertyIssue[] = [];
   for (const item of doc.items) {
     if (item.enabled === false) continue;
@@ -351,4 +407,87 @@ export function connectionsOf(item: GeometryPropertyItem): GeoId[] {
       ...(item.tokens ?? []).map((t) => t.objectId),
     ]),
   ];
+}
+
+/* ───────────── targets: real objects + teacher-defined parts ───────────── */
+
+export interface PropertyTarget {
+  id: GeoId;
+  type: string;
+  typeLabel: string;
+  name: string;
+  /** Real diagram objects this target resolves to (itself, if drawn). */
+  refIds: GeoId[];
+  virtual?: boolean;
+}
+
+/** Resolves any relationship target — a drawn object or a defined part. */
+export function describeTarget(
+  scene: GeometryScene,
+  doc: GeometryPropertiesDoc,
+  rawId: GeoId | null,
+): PropertyTarget | null {
+  if (!rawId) return null;
+  const baseId = rawId.split("#")[0];
+  const virtual = (doc.virtuals ?? []).find((v) => v.id === baseId);
+  if (virtual) {
+    return {
+      id: virtual.id,
+      type: virtual.kind,
+      typeLabel:
+        VIRTUAL_KINDS.find((k) => k.value === virtual.kind)?.label ?? "Part",
+      name: virtual.name,
+      refIds: virtual.refIds,
+      virtual: true,
+    };
+  }
+  const described = describeObject(scene, baseId);
+  if (!described) return null;
+  return { ...described, refIds: [described.id] };
+}
+
+/**
+ * Expands relationship ids into the real diagram objects to highlight.
+ * A defined part highlights the objects it was built from.
+ */
+export function resolveHighlightIds(
+  doc: GeometryPropertiesDoc,
+  ids: GeoId[],
+): GeoId[] {
+  const out: GeoId[] = [];
+  for (const raw of ids) {
+    const id = raw.split("#")[0];
+    const virtual = (doc.virtuals ?? []).find((v) => v.id === id);
+    if (virtual) out.push(...virtual.refIds.map((x) => x.split("#")[0]));
+    else out.push(id);
+  }
+  return [...new Set(out)];
+}
+
+/** Builds the display name of a defined angle from vertex + arm points. */
+export function angleNameFromRefs(scene: GeometryScene, refIds: GeoId[]): string {
+  const labels = refIds
+    .map((id) => pointById(scene, id.split("#")[0])?.label)
+    .filter((l): l is string => !!l);
+  if (labels.length >= 3) return `∠${labels[1]}${labels[0]}${labels[2]}`;
+  if (labels.length === 1) return `∠${labels[0]}`;
+  return "∠ (new angle)";
+}
+
+/** Every target (drawn or defined) that carries at least one visible item. */
+export function guideTargets(
+  scene: GeometryScene,
+  doc: GeometryPropertiesDoc,
+  items: GeometryPropertyItem[],
+): PropertyTarget[] {
+  const seen = new Map<string, PropertyTarget>();
+  for (const item of items) {
+    for (const raw of [...item.sourceObjectIds, ...item.connectedObjectIds]) {
+      const id = raw.split("#")[0];
+      if (seen.has(id)) continue;
+      const t = describeTarget(scene, doc, id);
+      if (t) seen.set(id, t);
+    }
+  }
+  return [...seen.values()];
 }

@@ -12,15 +12,21 @@ import {
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import {
   PROPERTY_KINDS,
+  VIRTUAL_KINDS,
+  angleNameFromRefs,
   connectionsOf,
   describeObject,
+  describeTarget,
   detectTokens,
   newPropertyId,
+  newVirtualId,
   validateProperties,
   type GeometryPropertiesDoc,
   type GeometryPropertyItem,
   type PropertyCategory,
   type PropertyKind,
+  type VirtualKind,
+  type VirtualObject,
 } from "@/lib/geometry/properties/model";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -44,7 +50,6 @@ interface Props {
 export function GeometryPropertiesPanel({
   scene, doc, onDocChange, targetId, onHighlight, onTargetName, connecting, setConnecting,
 }: Props) {
-  const target = targetId ? describeObject(scene, targetId) : null;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [draftKind, setDraftKind] = useState<PropertyKind>("statement");
@@ -52,6 +57,78 @@ export function GeometryPropertiesPanel({
   const [showIssues, setShowIssues] = useState(false);
   /** Symbol waiting to be bound to the next object the teacher clicks. */
   const [bindToken, setBindToken] = useState<string | null>(null);
+  /** A teacher-defined part (∠ABC, a distance, an unknown) held as the target. */
+  const [activeVirtualId, setActiveVirtualId] = useState<GeoId | null>(null);
+  /** Defining a new part: collecting the diagram objects it is made of. */
+  const [defining, setDefining] = useState<{ kind: VirtualKind; refIds: GeoId[]; name: string } | null>(null);
+
+  const virtuals = doc.virtuals ?? [];
+  const target = describeTarget(scene, doc, activeVirtualId ?? targetId);
+
+  // A canvas click always means "work on this drawn object" — unless the
+  // teacher is defining a part or wiring connections.
+  useEffect(() => {
+    if (!targetId || defining || connecting || bindToken) return;
+    setActiveVirtualId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId]);
+
+  // While defining, each canvas click adds (or removes) a piece of the part.
+  useEffect(() => {
+    if (!defining || !targetId) return;
+    const base = targetId.split("#")[0];
+    setDefining((cur) => {
+      if (!cur) return cur;
+      const refIds = cur.refIds.includes(base)
+        ? cur.refIds.filter((x) => x !== base)
+        : [...cur.refIds, base];
+      const name = cur.kind === "angle" ? angleNameFromRefs(scene, refIds) : cur.name;
+      return { ...cur, refIds, name };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId]);
+
+  useEffect(() => {
+    onHighlight(defining ? defining.refIds : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defining?.refIds.join(",")]);
+
+  const startDefining = (kind: VirtualKind) => {
+    setEditingId(null);
+    setConnecting(false);
+    setActiveVirtualId(null);
+    setDefining({
+      kind,
+      refIds: targetId ? [targetId.split("#")[0]] : [],
+      name: kind === "unknown" ? "x" : VIRTUAL_KINDS.find((k) => k.value === kind)?.label ?? "Part",
+    });
+  };
+
+  const saveDefinition = () => {
+    if (!defining) return;
+    if (defining.refIds.length === 0) {
+      toast.error("Click the diagram parts this belongs to first.");
+      return;
+    }
+    const virtual: VirtualObject = {
+      id: newVirtualId(),
+      kind: defining.kind,
+      name: defining.name.trim() || "Part",
+      refIds: defining.refIds,
+    };
+    onDocChange({ ...doc, virtuals: [...virtuals, virtual] });
+    setDefining(null);
+    setActiveVirtualId(virtual.id);
+  };
+
+  const removeVirtual = (id: GeoId) => {
+    onDocChange({
+      ...doc,
+      virtuals: virtuals.filter((v) => v.id !== id),
+      items: doc.items.filter((i) => !i.sourceObjectIds.includes(id)),
+    });
+    if (activeVirtualId === id) setActiveVirtualId(null);
+  };
 
   useEffect(() => {
     onTargetName?.(target ? `${target.typeLabel} ${target.name}` : null);
@@ -239,6 +316,94 @@ export function GeometryPropertiesPanel({
           <p className="text-[11px] text-foreground/60">
             Click any object on the diagram to author its relationships.
           </p>
+        )}
+      </div>
+
+      {/* Parts of the diagram the teacher wants to talk about. Nothing is drawn:
+          a part only references the real objects it is made of. */}
+      <div className="rounded-lg border border-foreground/15 p-2 space-y-1.5">
+        <p className="text-[10px] uppercase tracking-wider text-foreground/50">
+          Define a part
+        </p>
+        {defining ? (
+          <div className="space-y-1.5">
+            <p className="text-[10.5px] text-foreground/70">
+              {VIRTUAL_KINDS.find((k) => k.value === defining.kind)?.hint} — click them on the
+              diagram.
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {defining.refIds.length === 0 ? (
+                <span className="text-[10.5px] text-foreground/45">Nothing picked yet</span>
+              ) : (
+                defining.refIds.map((id) => (
+                  <span key={id} className="rounded bg-foreground/10 px-1.5 py-0.5 text-[10.5px]">
+                    {describeTarget(scene, doc, id)?.name ?? id}
+                  </span>
+                ))
+              )}
+            </div>
+            <input
+              value={defining.name}
+              onChange={(e) => setDefining((c) => (c ? { ...c, name: e.target.value } : c))}
+              placeholder="Name (e.g. ∠ABC, x, θ)"
+              className="w-full rounded border border-foreground/20 bg-transparent px-1.5 py-1 text-[11px]"
+            />
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={saveDefinition}
+                className="flex-1 rounded bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground hover:opacity-90"
+              >
+                Save part
+              </button>
+              <button
+                type="button"
+                onClick={() => setDefining(null)}
+                className="rounded border border-foreground/20 px-2 py-1 text-[11px] hover:bg-foreground/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {VIRTUAL_KINDS.map((k) => (
+              <button
+                key={k.value}
+                type="button"
+                onClick={() => startDefining(k.value)}
+                className="rounded border border-foreground/20 px-1.5 py-0.5 text-[10.5px] hover:bg-foreground/5"
+                title={k.hint}
+              >
+                <Plus className="mr-0.5 inline h-3 w-3" />{k.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {virtuals.length > 0 && (
+          <div className="flex flex-wrap gap-1 border-t border-foreground/10 pt-1.5">
+            {virtuals.map((v) => (
+              <span
+                key={v.id}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10.5px]",
+                  activeVirtualId === v.id
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-foreground/20 hover:bg-foreground/5",
+                )}
+              >
+                <button type="button" onClick={() => setActiveVirtualId(v.id)}>{v.name}</button>
+                <button
+                  type="button"
+                  onClick={() => removeVirtual(v.id)}
+                  title="Delete this part"
+                  aria-label="Delete this part"
+                >
+                  <X className="h-2.5 w-2.5 opacity-70" />
+                </button>
+              </span>
+            ))}
+          </div>
         )}
       </div>
 

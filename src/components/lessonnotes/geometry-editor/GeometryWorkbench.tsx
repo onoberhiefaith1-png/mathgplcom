@@ -35,6 +35,8 @@ interface Props {
   rightPanelWidthClass?: string;
   /** Authoring halo drawn over the diagram (never alters the diagram). */
   highlightIds?: string[];
+  /** Hides the drawing toolbox — used by relationship authoring (select only). */
+  hideLeftTools?: boolean;
 }
 
 export function GeometryWorkbench(props: Props) {
@@ -45,7 +47,7 @@ export function GeometryWorkbench(props: Props) {
   );
 }
 
-function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds }: Props) {
+function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds, hideLeftTools }: Props) {
   const editor = useGeometryEditor(scene, onChange);
   const { mode, setMode, tool } = useGeometryMode();
   const [leftOpen, setLeftOpen] = useState(true);
@@ -121,7 +123,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
 
   return (
     <div className={cn("relative flex h-full w-full min-h-0 gap-1 p-1", className)}>
-      {leftOpen ? (
+      {hideLeftTools ? null : leftOpen ? (
         <div className="sticky left-0 top-0 z-20 h-full shrink-0 self-start">
           <GeometryToolbox inline onExit={() => setLeftOpen(false)} chrome={chrome} />
         </div>
@@ -136,6 +138,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
           <PanelLeftOpen className="h-3.5 w-3.5" />
         </button>
       )}
+
 
       {/* Transparent drawing area — no surface of its own, scrolls vertically
           while the two tool panels stay pinned to the edges. */}
