@@ -12,15 +12,21 @@ import {
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import {
   PROPERTY_KINDS,
+  VIRTUAL_KINDS,
+  angleNameFromRefs,
   connectionsOf,
   describeObject,
+  describeTarget,
   detectTokens,
   newPropertyId,
+  newVirtualId,
   validateProperties,
   type GeometryPropertiesDoc,
   type GeometryPropertyItem,
   type PropertyCategory,
   type PropertyKind,
+  type VirtualKind,
+  type VirtualObject,
 } from "@/lib/geometry/properties/model";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
