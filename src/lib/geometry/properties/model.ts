@@ -57,12 +57,39 @@ export interface GeometryPropertyItem {
   order: number;
 }
 
+/**
+ * A part of the diagram the teacher wants to talk about that is not drawn as
+ * its own object — ∠ABC identified from a vertex + two arms, a distance on a
+ * segment, an unknown such as x / θ. It is NOT a second diagram: it only
+ * references real object ids, so highlighting resolves back to the diagram.
+ */
+export type VirtualKind = "angle" | "distance" | "arc" | "area" | "unknown";
+
+export const VIRTUAL_KINDS: { value: VirtualKind; label: string; hint: string }[] = [
+  { value: "angle", label: "Angle", hint: "Pick the vertex, then the two arms" },
+  { value: "distance", label: "Distance", hint: "Pick the line or the two endpoints" },
+  { value: "arc", label: "Arc", hint: "Pick the arc / circle and its endpoints" },
+  { value: "area", label: "Area", hint: "Pick the objects that bound the area" },
+  { value: "unknown", label: "Unknown / value", hint: "Pick what x, y or θ belongs to" },
+];
+
+export interface VirtualObject {
+  id: GeoId;
+  kind: VirtualKind;
+  /** Display name — auto-built for angles (∠ABC), typed for unknowns. */
+  name: string;
+  /** Real diagram objects this part is made of. */
+  refIds: GeoId[];
+}
+
 export interface GeometryPropertiesDoc {
   version: 1;
   access: GuideAccess;
   /** Published = students may see the approved+enabled items. */
   published?: boolean;
   items: GeometryPropertyItem[];
+  /** Teacher-defined parts that are not drawn objects. */
+  virtuals?: VirtualObject[];
 }
 
 export const EMPTY_PROPERTIES: GeometryPropertiesDoc = {
@@ -70,11 +97,21 @@ export const EMPTY_PROPERTIES: GeometryPropertiesDoc = {
   access: "both",
   published: false,
   items: [],
+  virtuals: [],
 };
 
 export function newPropertyId(): string {
   return `gp_${Math.random().toString(36).slice(2, 10)}`;
 }
+
+export function newVirtualId(): GeoId {
+  return `v_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function isVirtualId(id: string): boolean {
+  return id.startsWith("v_");
+}
+
 
 /* ───────────── reading / writing on the scene ───────────── */
 
