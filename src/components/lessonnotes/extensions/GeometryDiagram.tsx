@@ -291,7 +291,13 @@ function GeometryDiagramView({
             docHistory={docHistory}
             onDeleteDiagram={() => deleteNode()}
             relevanceText={(node.attrs.questionText as string) || undefined}
+            getMapContext={() => {
+              const at = typeof getPos === "function" ? getPos() : null;
+              if (at == null) return { question: "", solution: "" };
+              return questionContextForPos(tiptapEditor.state.doc, at);
+            }}
           />
+
         ) : (
           <StudentGuideDiagram scene={scene} />
         )}
