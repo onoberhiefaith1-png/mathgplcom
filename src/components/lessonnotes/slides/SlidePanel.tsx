@@ -194,6 +194,25 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   const nextStep = () => (items.length ? Math.max(...items.map((i) => i.step)) : 0) + 1;
   const nextZ = () => (items.length ? Math.max(...items.map((i) => i.z)) : 0) + 1;
 
+  /** Turn a real pixel size into a slide box that keeps the aspect ratio and
+   *  sits centred on the page, so a captured image is never squashed into a
+   *  thin strip or blown past the page edge. */
+  const boxForPixels = (pw: number, ph: number) => {
+    const ratio = pw > 0 && ph > 0 ? pw / ph : 4 / 3;
+    let w = Math.min(0.9, Math.max(0.2, pw / SLIDE_PAGE.w));
+    let h = (w * SLIDE_PAGE.w) / ratio / SLIDE_PAGE.h;
+    if (h > 0.82) {
+      h = 0.82;
+      w = (h * SLIDE_PAGE.h * ratio) / SLIDE_PAGE.w;
+    }
+    return {
+      x: Math.max(0.02, (1 - w) / 2),
+      y: Math.max(0.04, (1 - h) / 2),
+      w: Math.min(0.96, w),
+      h: Math.min(0.92, h),
+    };
+  };
+
   /** THE single insertion path for every kind of slide media — Capture,
    *  Screenshot, Import Image, Import Video, MyGPL. Everything becomes a
    *  normal, selectable, movable, resizable object on the CURRENT slide. */
