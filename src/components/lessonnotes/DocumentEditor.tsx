@@ -978,8 +978,29 @@ function DocumentEditorInner({
         }
         return true;
       });
-      return found;
+      if (found) return found;
+      // The teacher may have moved this question's Solution into its own free
+      // frame anywhere on the page. The relationship survives the move, so look
+      // it up document-wide by owner id instead of creating a second Solution.
+      const owner = doc.nodeAt(headingPos);
+      const qid = (owner?.attrs as any)?.sectionId as string | undefined;
+      if (!qid) return null;
+      let linked: { pos: number; size: number } | null = null;
+      doc.descendants((n, p) => {
+        if (linked) return false;
+        if (
+          n.type.name === "heading" &&
+          isSolutionLabel(n.textContent) &&
+          (n.attrs as any)?.ownerQuestionId === qid
+        ) {
+          linked = { pos: p, size: n.nodeSize };
+          return false;
+        }
+        return true;
+      });
+      return linked;
     };
+
 
     /** The default Example/Exercise skeleton contains one empty paragraph
      *  before the pre-created Solution heading. Once AI generates the
