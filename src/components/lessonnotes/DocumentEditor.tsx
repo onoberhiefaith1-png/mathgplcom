@@ -2386,6 +2386,138 @@ function DocumentEditorInner({
     toast({ title: "Lesson drafted", description: "Edit, rewrite or delete anything you like." });
   };
 
+  // ── MyGPL Co-Pilot bridge ──────────────────────────────────────────────
+  // The Co-Pilot never re-implements lesson-note behaviour: every action here
+  // is a thin wrapper over the handler the editor already uses.
+  const copilotEntries = (): { ref: string; headingPos: number; node: any; entry: CoPilotEntry }[] => {
+    if (!editorAlive(editor)) return [];
+    const doc = editor.state.doc;
+    const { from } = editor.state.selection;
+    const heads: { pos: number; node: any }[] = [];
+    doc.descendants((n, p) => {
+      if (n.type.name === "heading" && (n.attrs?.level ?? 6) <= 2 && detectSectionKind(n.textContent)) {
+        heads.push({ pos: p, node: n });
+      }
+      return true;
+    });
+    return heads.map((h, i) => {
+      const end = sectionEndWithin(doc, h.pos);
+      const bodyStart = h.pos + h.node.nodeSize;
+      let solPos: number | null = null;
+      doc.nodesBetween(bodyStart, Math.min(end, doc.content.size), (n, p) => {
+        if (solPos != null) return false;
+        if (n.type.name === "heading" && isSolutionLabel(n.textContent)) solPos = p;
+        return true;
+      });
+      const safe = (a: number, b: number) => {
+        if (b <= a) return "";
+        try { return serializeRangeAsMath(a, b).trim(); } catch { return ""; }
+      };
+      const questionText = safe(bodyStart, solPos ?? end);
+      const solutionText = solPos == null ? "" : safe(solPos, end);
+      const diagrams = diagramsOwnedByQuestion(doc, h.pos, isSolutionLabel);
+      return {
+        ref: `s${i + 1}`,
+        headingPos: h.pos,
+        node: h.node,
+        entry: {
+          ref: `s${i + 1}`,
+          heading: h.node.textContent.trim(),
+          kind: detectSectionKind(h.node.textContent) ?? null,
+          pos: h.pos,
+          questionText: questionText.slice(0, 900),
+          solutionText: solutionText.slice(0, 900),
+          hasDiagram: diagrams.length > 0,
+          diagramSummary: diagrams.length ? `${diagrams.length} linked diagram(s)` : "",
+          focused: from >= h.pos && from <= end,
+        },
+      };
+    });
+  };
+
+  const copilotResolve = (ref: string) => {
+    const all = copilotEntries();
+    const hit = all.find((e) => e.ref === ref)
+      ?? all.find((e) => e.entry.heading.toLowerCase() === ref.trim().toLowerCase())
+      ?? all.find((e) => e.entry.focused);
+    if (!hit) throw new Error("I could not find that section in the note any more.");
+    return hit;
+  };
+
+  const copilotSectionAi = async (ref: string, instruction: string, action: SectionAction) => {
+    if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
+    const hit = copilotResolve(ref);
+    const doc = editor.state.doc;
+    const end = sectionEndWithin(doc, hit.headingPos);
+    const bodyStart = hit.headingPos + hit.node.nodeSize;
+    let sectionText = "";
+    try { sectionText = serializeRangeAsMath(bodyStart, Math.max(bodyStart, end)); } catch { sectionText = ""; }
+    await handleSectionAi(instruction, {
+      kind: (hit.entry.kind as SectionKind) ?? "example",
+      headingPos: hit.headingPos,
+      sectionEndPos: end,
+      headingText: hit.entry.heading,
+      sectionText,
+      action,
+      images: [],
+    });
+  };
+
+  useEffect(() => {
+    const ref = copilotBridgeRef;
+    if (!ref) return;
+    ref.current = {
+      snapshot: () => {
+        if (!editorAlive(editor)) return null;
+        const ctx = activeContext();
+        const rows = copilotEntries();
+        const focused = rows.find((r) => r.entry.focused)?.ref ?? rows[rows.length - 1]?.ref ?? null;
+        return {
+          subject: ctx?.subject ?? "Mathematics",
+          topic: ctx?.topic ?? "",
+          activeSubtopic: ctx?.subtopic ?? "",
+          sessionTitle: rows.find((r) => r.ref === focused)?.entry.heading ?? "",
+          entries: rows.map((r) => r.entry),
+          focusedRef: focused,
+          hasAnyContent: rows.some((r) => r.entry.questionText || r.entry.solutionText),
+        };
+      },
+      insertSection: async (kind: string) => {
+        insertSection((SECTION_LABELS as any)[kind] ? (kind as SectionKind) : "example");
+      },
+      generateQuestion: async (ref2, instruction, replace) =>
+        copilotSectionAi(ref2, instruction || "Generate this section.", replace ? "regenerate" : "generate"),
+      generateSolution: async (ref2, instruction) =>
+        copilotSectionAi(
+          ref2,
+          [instruction, "Write the full step-by-step solution for this question."].filter(Boolean).join(" "),
+          "extend",
+        ),
+      buildGeometryMap: async (ref2) => {
+        if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
+        const hit = copilotResolve(ref2);
+        const doc = editor.state.doc;
+        const end = sectionEndWithin(doc, hit.headingPos);
+        offerGeometryMap({ from: hit.headingPos + hit.node.nodeSize, to: end });
+      },
+      openGeometry2D: async (ref2) => {
+        if (ref2 && editorAlive(editor)) {
+          try {
+            const hit = copilotResolve(ref2);
+            editor!.chain().focus().setTextSelection(hit.headingPos + hit.node.nodeSize).run();
+          } catch { /* fall through to just opening the tools */ }
+        }
+        setDiagramTabsOpen(true);
+      },
+      openSmartTable: async () => setTablesOpen(true),
+      openSlideCanvas: async () => setSlidePanelOpen(true),
+      openAssetLibrary: async () => setAssetLibOpen(true),
+      editBlock: async (ref2, instruction) =>
+        copilotSectionAi(ref2, instruction || "Improve this section.", "regenerate"),
+    };
+    return () => { if (ref.current) ref.current = null; };
+  });
+
   const handleExportDocx = async () => {
     if (!editor) return;
     try {
