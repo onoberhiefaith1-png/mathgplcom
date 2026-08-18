@@ -176,7 +176,7 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete, o
               onPointerDown={(e) => begin(e, raw, "move")}
             >
               {item.kind === "content" ? (
-                <div onPointerDown={(e) => e.stopPropagation()}>
+                <div className="h-full w-full overflow-hidden" onPointerDown={(e) => e.stopPropagation()}>
                   <SlideContentBlock
                     nodes={item.content_json}
                     editable
