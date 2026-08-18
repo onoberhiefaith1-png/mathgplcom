@@ -50,7 +50,6 @@ interface Props {
 export function GeometryPropertiesPanel({
   scene, doc, onDocChange, targetId, onHighlight, onTargetName, connecting, setConnecting,
 }: Props) {
-  const target = targetId ? describeObject(scene, targetId) : null;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [draftKind, setDraftKind] = useState<PropertyKind>("statement");
@@ -58,6 +57,78 @@ export function GeometryPropertiesPanel({
   const [showIssues, setShowIssues] = useState(false);
   /** Symbol waiting to be bound to the next object the teacher clicks. */
   const [bindToken, setBindToken] = useState<string | null>(null);
+  /** A teacher-defined part (∠ABC, a distance, an unknown) held as the target. */
+  const [activeVirtualId, setActiveVirtualId] = useState<GeoId | null>(null);
+  /** Defining a new part: collecting the diagram objects it is made of. */
+  const [defining, setDefining] = useState<{ kind: VirtualKind; refIds: GeoId[]; name: string } | null>(null);
+
+  const virtuals = doc.virtuals ?? [];
+  const target = describeTarget(scene, doc, activeVirtualId ?? targetId);
+
+  // A canvas click always means "work on this drawn object" — unless the
+  // teacher is defining a part or wiring connections.
+  useEffect(() => {
+    if (!targetId || defining || connecting || bindToken) return;
+    setActiveVirtualId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId]);
+
+  // While defining, each canvas click adds (or removes) a piece of the part.
+  useEffect(() => {
+    if (!defining || !targetId) return;
+    const base = targetId.split("#")[0];
+    setDefining((cur) => {
+      if (!cur) return cur;
+      const refIds = cur.refIds.includes(base)
+        ? cur.refIds.filter((x) => x !== base)
+        : [...cur.refIds, base];
+      const name = cur.kind === "angle" ? angleNameFromRefs(scene, refIds) : cur.name;
+      return { ...cur, refIds, name };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId]);
+
+  useEffect(() => {
+    onHighlight(defining ? defining.refIds : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defining?.refIds.join(",")]);
+
+  const startDefining = (kind: VirtualKind) => {
+    setEditingId(null);
+    setConnecting(false);
+    setActiveVirtualId(null);
+    setDefining({
+      kind,
+      refIds: targetId ? [targetId.split("#")[0]] : [],
+      name: kind === "unknown" ? "x" : VIRTUAL_KINDS.find((k) => k.value === kind)?.label ?? "Part",
+    });
+  };
+
+  const saveDefinition = () => {
+    if (!defining) return;
+    if (defining.refIds.length === 0) {
+      toast.error("Click the diagram parts this belongs to first.");
+      return;
+    }
+    const virtual: VirtualObject = {
+      id: newVirtualId(),
+      kind: defining.kind,
+      name: defining.name.trim() || "Part",
+      refIds: defining.refIds,
+    };
+    onDocChange({ ...doc, virtuals: [...virtuals, virtual] });
+    setDefining(null);
+    setActiveVirtualId(virtual.id);
+  };
+
+  const removeVirtual = (id: GeoId) => {
+    onDocChange({
+      ...doc,
+      virtuals: virtuals.filter((v) => v.id !== id),
+      items: doc.items.filter((i) => !i.sourceObjectIds.includes(id)),
+    });
+    if (activeVirtualId === id) setActiveVirtualId(null);
+  };
 
   useEffect(() => {
     onTargetName?.(target ? `${target.typeLabel} ${target.name}` : null);
