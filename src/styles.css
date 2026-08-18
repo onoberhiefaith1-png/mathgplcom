@@ -728,7 +728,10 @@
   border-bottom: 1px dashed transparent;
   cursor: text;
   text-align: center;
-  white-space: nowrap;
+  /* Spacing typed inside a script/fraction slot is preserved (and never wraps),
+     so the teacher can pad an exponent or subscript by hand. */
+  white-space: pre;
+
   text-indent: 0;
 }
 
