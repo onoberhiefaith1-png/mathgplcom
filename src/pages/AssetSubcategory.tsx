@@ -9,6 +9,7 @@ import Character3DBillboard from "@/components/Character3DBillboard";
 import MusicGenerator from "@/components/MusicGenerator";
 import GenerativeVideoStudio from "@/components/GenerativeVideoStudio";
 import GlbViewer from "@/components/GlbViewer";
+import OfficialAssetSection from "@/components/assets/manage/OfficialAssetSection";
 
 
 type AssetCardItem = { name: string; src: string };
@@ -19,7 +20,7 @@ type PickerState = {
   };
 };
 
-const AssetSubcategory = () => {
+const BundledAssetSubcategory = () => {
   const { category, subcategory } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -303,6 +304,64 @@ const AssetSubcategory = () => {
           </DialogContent>
         </Dialog>
       )}
+    </main>
+  );
+};
+
+/**
+ * Bundled folders keep their existing page (3D characters, music, video FX and
+ * the Adventure picker all unchanged) with the official library added beneath.
+ * Folders that only exist in the database render the official library alone.
+ */
+const AssetSubcategory = () => {
+  const { category, subcategory } = useParams();
+  const { category: cat, subcategory: sub } = getSubcategory(category, subcategory);
+
+  const bundledUrls = useMemo(() => {
+    const flat = [
+      ...(sub?.assets ?? []),
+      ...(sub?.groups ?? []).flatMap((g) => g.assets),
+    ];
+    return new Set(flat.map((a) => a.src));
+  }, [sub]);
+
+  if (cat && sub) {
+    return (
+      <>
+        <BundledAssetSubcategory />
+        <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+          <OfficialAssetSection
+            sessionSlug={category ?? ""}
+            subSlug={subcategory ?? ""}
+            excludeUrls={bundledUrls}
+          />
+        </section>
+      </>
+    );
+  }
+
+  return (
+    <main className="relative min-h-screen text-foreground animate-fade-in">
+      <SeamlessBackground file="ivory.png" />
+      <header className="relative z-10 flex items-center justify-between p-5 sm:p-8">
+        <div>
+          <p className="text-xs uppercase tracking-[0.45em] text-primary sm:text-sm drop-shadow">
+            Assets
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold capitalize sm:text-5xl drop-shadow">
+            {(subcategory ?? "").replace(/-/g, " ")}
+          </h1>
+        </div>
+        <Link
+          to={`/assets/${category ?? ""}`}
+          className="inline-flex items-center gap-2 rounded-full bg-background/60 px-3 py-1.5 text-sm text-foreground backdrop-blur underline-offset-4 hover:text-primary hover:underline"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Link>
+      </header>
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24">
+        <OfficialAssetSection sessionSlug={category ?? ""} subSlug={subcategory ?? ""} />
+      </section>
     </main>
   );
 };

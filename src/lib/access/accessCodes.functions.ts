@@ -20,12 +20,16 @@ export type AccessCodeRow = {
   expiresAt: string | null;
 };
 
-async function listCodes(): Promise<AccessCodeRow[]> {
+export type CodePurpose = "access" | "asset_manager";
+
+const purposeSchema = z.enum(["access", "asset_manager"]).default("access");
+
+async function listCodes(purpose: CodePurpose = "access"): Promise<AccessCodeRow[]> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: codes } = await supabaseAdmin
     .from("staff_codes")
     .select("id, code, label, active, revoked_at, claimed_by, claimed_at, expires_at")
-    .eq("purpose", "access")
+    .eq("purpose", purpose)
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -59,9 +63,10 @@ async function listCodes(): Promise<AccessCodeRow[]> {
 
 export const fetchAccessCodes = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((data) => z.object({ purpose: purposeSchema }).parse(data ?? {}))
+  .handler(async ({ context, data }) => {
     await assertPlatformAdmin(context.supabase, context.userId);
-    return { rows: await listCodes() };
+    return { rows: await listCodes(data.purpose) };
   });
 
 const generated = () => {
@@ -73,7 +78,9 @@ const generated = () => {
 
 export const createAccessCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ label: z.string().max(120).optional() }).parse(data))
+  .inputValidator((data) =>
+    z.object({ label: z.string().max(120).optional(), purpose: purposeSchema }).parse(data),
+  )
   .handler(async ({ context, data }) => {
     await assertPlatformAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -81,16 +88,16 @@ export const createAccessCode = createServerFn({ method: "POST" })
       code: generated(),
       label: data.label?.trim() || null,
       entitlement: "pro",
-      purpose: "access",
+      purpose: data.purpose,
       active: true,
       created_by: context.userId,
     });
-    return { rows: await listCodes() };
+    return { rows: await listCodes(data.purpose) };
   });
 
 export const setAccessCodeActive = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ id: z.string().uuid(), active: z.boolean() }).parse(data))
+  .inputValidator((data) => z.object({ id: z.string().uuid(), active: z.boolean(), purpose: purposeSchema }).parse(data))
   .handler(async ({ context, data }) => {
     await assertPlatformAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -99,15 +106,15 @@ export const setAccessCodeActive = createServerFn({ method: "POST" })
       .update({ active: data.active, revoked_at: data.active ? null : new Date().toISOString() })
       .eq("id", data.id);
     await supabaseAdmin.from("staff_redemptions").update({ active: data.active }).eq("code_id", data.id);
-    return { rows: await listCodes() };
+    return { rows: await listCodes(data.purpose) };
   });
 
 export const deleteAccessCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ id: z.string().uuid() }).parse(data))
+  .inputValidator((data) => z.object({ id: z.string().uuid(), purpose: purposeSchema }).parse(data))
   .handler(async ({ context, data }) => {
     await assertPlatformAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.from("staff_codes").delete().eq("id", data.id);
-    return { rows: await listCodes() };
+    return { rows: await listCodes(data.purpose) };
   });
