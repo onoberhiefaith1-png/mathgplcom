@@ -3170,10 +3170,14 @@ function NotebookGeometryOverlay({
           onClose={() => setPropertiesOpen(false)}
           // The page layer is not owned by one question: the map is built from
           // the question the caret currently sits in.
-          context={questionContextForPos(
-            tiptapEditor.state.doc,
-            tiptapEditor.state.selection.from,
-          )}
+          context={
+            tiptapEditor
+              ? questionContextForPos(
+                  tiptapEditor.state.doc,
+                  tiptapEditor.state.selection.from,
+                )
+              : undefined
+          }
         />
       )}
       {mode ? (
