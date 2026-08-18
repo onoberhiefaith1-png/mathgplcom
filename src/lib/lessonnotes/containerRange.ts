@@ -104,7 +104,7 @@ export function diagramsOwnedByQuestion(
  * relationship is created).
  */
 export function ownerQuestionIdFor(doc: PMNode, pos: number): string | null {
-  let owner: PMNode | null = null;
+  let owner: PMNode | undefined;
   doc.descendants((n, p) => {
     if (p >= pos) return false;
     if (n.type.name === "heading") {
@@ -113,6 +113,6 @@ export function ownerQuestionIdFor(doc: PMNode, pos: number): string | null {
     }
     return true;
   });
-  const id = (owner?.attrs as any)?.sectionId;
+  const id = (owner as PMNode | undefined)?.attrs?.sectionId as unknown;
   return typeof id === "string" && id ? id : null;
 }
