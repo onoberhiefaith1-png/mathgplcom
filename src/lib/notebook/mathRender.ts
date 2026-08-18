@@ -883,10 +883,14 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
                 display: "inline-block",
                 fontSize: "0.68em",
                 lineHeight: 1,
-                verticalAlign: "super",
-                transform: "translateY(0.08em)",
+                // Contained raise: the padding keeps the raised glyph INSIDE the
+                // box, so containers (radicals, brackets) reserve room for it
+                // instead of being crossed by it.
+                verticalAlign: "baseline",
+                paddingBottom: "0.62em",
                 marginLeft: "1px",
               },
+
             },
             renderInner(a.inner, `${keyBase}-sb${k}`, ctx),
           ),
