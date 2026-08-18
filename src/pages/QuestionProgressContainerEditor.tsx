@@ -13,7 +13,6 @@ const THEMES: { value: CrystalTheme; label: string; swatch: string }[] = [
 ];
 
 const QuestionProgressContainerEditor = () => {
-  const [questionNumber, setQuestionNumber] = useState<string>("7");
   const [current, setCurrent] = useState<number>(3);
   const [max, setMax] = useState<number>(10);
   const [theme, setTheme] = useState<CrystalTheme>("blue");
@@ -68,19 +67,6 @@ const QuestionProgressContainerEditor = () => {
           </h2>
 
           <div className="space-y-4">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                Question Number
-              </span>
-              <input
-                type="text"
-                value={questionNumber}
-                onChange={(e) => setQuestionNumber(e.target.value)}
-                className="w-full rounded-md border border-border/60 bg-background/80 px-3 py-2 text-sm focus:border-primary focus:outline-hidden"
-                placeholder="e.g. 14"
-              />
-            </label>
-
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted-foreground">
                 Current Value
