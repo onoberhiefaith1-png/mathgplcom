@@ -28,6 +28,7 @@ import { listGameAssets, renderPathOf } from "@/lib/games/assets";
 import { detectMediaBackground } from "@/lib/games/removeBackground";
 import { getSignedUrl } from "@/lib/games/urls";
 import { PROGRESS_PRESETS } from "@/lib/games/progressPresets";
+import { LIQUID_STYLES, DEFAULT_LIQUID_STYLE } from "@/lib/games/liquidStyles";
 import { TIME_BAR_LABEL, TIME_DURATION_OPTIONS, roleOf } from "@/lib/games/types";
 import { cn } from "@/lib/utils";
 import type {
@@ -166,6 +167,7 @@ const SettingsPanel = ({
   const progress = element.progress;
   // The Time Progress Bar is system-owned: appearance and duration only.
   const isTimeBar = element.kind === "progress_bar" && roleOf(element) === "time";
+  const barType = progress?.barType ?? "segmented";
   const anim = element.animation;
   const slant = element.slant ?? defaultSlant();
   const patchSlant = (p: Partial<NonNullable<CanvasElement["slant"]>>) =>
