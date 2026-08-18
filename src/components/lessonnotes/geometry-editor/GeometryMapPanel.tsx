@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import {
-  keepLiveIds, mapInventory, newMapItemId, objectChipLabel, pathway,
+  keepLiveIds, mapInventory, mapStatus, newMapItemId, objectChipLabel, pathway,
   removeMapItem, reorderMap, stripNumericAnswers, upsertMapItem,
   type GeometryMapDoc, type GeometryMapItem,
 } from "@/lib/geometry/map/model";
@@ -504,3 +504,17 @@ function IconBtn({
 }
 
 export default GeometryMapPanel;
+
+function Chip({ tone, label }: { tone: "ok" | "warn" | "muted"; label: string }) {
+  const cls =
+    tone === "ok"
+      ? "border-emerald-500/40 bg-emerald-50 text-emerald-700"
+      : tone === "warn"
+        ? "border-amber-500/40 bg-amber-50 text-amber-800"
+        : "border-foreground/20 bg-foreground/[0.04] text-foreground/60";
+  return (
+    <span className={`rounded-full border px-1.5 py-[1px] text-[10px] font-medium ${cls}`}>
+      {label}
+    </span>
+  );
+}
