@@ -879,10 +879,19 @@ export function MathInlineCanvas({
           onCopy={(e) => copySelection(e, false)}
           onCut={(e) => copySelection(e, true)}
           onPaste={handlePaste}
-          onBlur={() => { dragging.current = false; onBlur(); }}
+          onBlur={() => {
+            dragging.current = false;
+            // Focus moved into the @ picker — this is not the teacher leaving
+            // the expression, so never commit here.
+            if (pickerOpen.current) return;
+            onBlur();
+          }}
           aria-label="Math editor"
           className="sr-only"
         />
+        {picker !== null || pickerOpen.current ? (
+          <MathAssetPicker point={picker} onPick={insertAsset} onClose={closePicker} />
+        ) : null}
       </span>
     </SelectionCtx.Provider>
   );
