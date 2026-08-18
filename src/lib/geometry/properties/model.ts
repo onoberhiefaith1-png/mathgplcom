@@ -196,7 +196,12 @@ function sanitize(raw: unknown): GeometryPropertiesDoc | null {
             (t) => t && typeof t.token === "string" && typeof t.objectId === "string",
           )
         : undefined,
+      group: RELATIONSHIP_GROUPS.some((g) => g.value === item.group)
+        ? (item.group as RelationshipGroup)
+        : undefined,
+      reason: typeof item.reason === "string" && item.reason.trim() ? item.reason.trim() : undefined,
       aiGenerated: !!item.aiGenerated,
+
       approved: item.approved !== false,
       enabled: item.enabled !== false,
       order: typeof item.order === "number" ? item.order : i,
