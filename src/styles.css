@@ -767,6 +767,26 @@
 .math-struct--nroot .math-slot:nth-child(1) { grid-column: 1; grid-row: 1; border-bottom: 0; font-size: 0.62em; align-self: start; justify-self: end; transform: translate(0.35em, -0.25em); z-index: 1; }
 .math-struct--nroot .math-slot:nth-child(2) { grid-column: 3; grid-row: 1; border-top: 1.5px solid currentColor; padding: 2px 5px 0; }
 
+/* A root grows to accommodate what it contains: an exponent or a stacked
+   structure inside the radicand gets extra headroom so the overline can never
+   collide with it. The √ glyph is align-self: stretch, so it follows. */
+.math-struct--sqrt .math-slot:nth-child(1):has(.math-struct--power, .math-struct--subsup, sup),
+.math-struct--cuberoot .math-slot:nth-child(1):has(.math-struct--power, .math-struct--subsup, sup),
+.math-struct--nroot .math-slot:nth-child(2):has(.math-struct--power, .math-struct--subsup, sup) {
+  padding-top: 0.34em;
+}
+.math-struct--sqrt .math-slot:nth-child(1):has(.math-struct--frac, .math-struct--mixed, .math-struct--sqrt),
+.math-struct--cuberoot .math-slot:nth-child(1):has(.math-struct--frac, .math-struct--mixed, .math-struct--sqrt),
+.math-struct--nroot .math-slot:nth-child(2):has(.math-struct--frac, .math-struct--mixed, .math-struct--sqrt) {
+  padding-top: 0.16em;
+}
+.math-struct--sqrt .math-slot:nth-child(1):has(.math-struct--frac .math-struct--power, .math-struct--frac sup),
+.math-struct--cuberoot .math-slot:nth-child(1):has(.math-struct--frac .math-struct--power, .math-struct--frac sup),
+.math-struct--nroot .math-slot:nth-child(2):has(.math-struct--frac .math-struct--power, .math-struct--frac sup) {
+  padding-top: 0.46em;
+}
+
+
 /* ── Scripts (power / sub / subsup) ────────────────────────────────
    These render as TIGHT INLINE TEXT — the same metrics the read-only
    renderer uses (<sup> with margin-left: 1px). They deliberately do NOT
