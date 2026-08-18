@@ -1,7 +1,7 @@
 // One Session / Sub-Session card with its ⋮ actions menu.
 
 import { MoreVertical } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link } from "@/lib/router-compat";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   DropdownMenuTrigger,
