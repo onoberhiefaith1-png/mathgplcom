@@ -10,7 +10,7 @@ import { cropScreenFrame, type ScreenFrame } from "@/lib/lessonnotes/screenCaptu
 interface Props {
   frame: ScreenFrame;
   onCancel: () => void;
-  onInsert: (blob: Blob, aspect: number) => void;
+  onInsert: (blob: Blob, pixelWidth: number, pixelHeight: number) => void;
 }
 
 interface Rect { left: number; top: number; width: number; height: number }
