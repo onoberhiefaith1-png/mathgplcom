@@ -1171,6 +1171,33 @@ function DocumentEditorInner({
       return;
     }
     if (!content) { toast({ title: "No content returned" }); return; }
+    if (!editorAlive(editor)) return;
+
+    // ── PIPELINE STAGE 6 — validation gate ──────────────────────────────────
+    // A blueprinted question is checked against its blueprint before it is
+    // shown: solvable, internally consistent, answerable in the required form.
+    if (blueprint) {
+      info.reportStage?.("VALIDATING");
+      const verdict = await verifyGeneration({
+        gate: "maths",
+        blueprint,
+        question: content,
+        diagramSummary: ownedQuestionDiagram
+          ? summariseScene(ownedQuestionDiagram.node.attrs?.scene)
+          : "",
+      });
+      const failed = failedGates([verdict]);
+      if (failed.length) {
+        toast({
+          title: "This question did not pass the check",
+          description: `${failed.flatMap((f) => f.problems).slice(0, 3).join(" • ")} — adjust the instruction and generate again.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!editorAlive(editor)) return;
+      info.reportStage?.("READY");
+    }
 
     // A Solution heading must never be duplicated, and the AI must never
     // re-emit the label as body text.
