@@ -317,6 +317,7 @@ async function aiGenerate(opts: {
   currentContent?: string;
   blockKind?: "problem" | "solution" | "text";
   activeQuestion?: string;
+  existingHeading?: string;
   inheritedContext?: boolean;
   lessonContext?: LessonTeachingContext;
 }): Promise<string> {
@@ -334,6 +335,7 @@ async function aiGenerate(opts: {
       currentContent: opts.currentContent ?? "",
       teacherPrompt: opts.teacherPrompt,
       activeQuestion: opts.activeQuestion ?? "",
+      existingHeading: opts.existingHeading ?? "",
       inheritedContext: opts.inheritedContext ?? false,
       lessonContext: opts.lessonContext ?? null,
       workspaceManifest: buildWorkspaceManifest(),
@@ -919,6 +921,8 @@ function DocumentEditorInner({
         currentContent,
         blockKind: generationBlockKind,
         activeQuestion: isSolutionBlock ? solutionSource?.problemText : undefined,
+        // The application owns this heading — the AI must not reproduce it.
+        existingHeading: editor.state.doc.nodeAt(info.headingPos)?.textContent?.trim(),
         inheritedContext: isSolutionBlock ? true : undefined,
         lessonContext: collectLessonContext(info.headingPos, generationKind),
       })).trim();
