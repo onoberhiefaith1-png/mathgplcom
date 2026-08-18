@@ -27,6 +27,7 @@ import { ProblemCheckDialog } from "./ProblemCheckDialog";
 
 import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionRow";
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
+import type { CoPilotBridge, CoPilotEntry } from "@/lib/lessonnotes/copilot/actions";
 import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { Scene3DDiagramNode, onScene3DWorkspaceOpen } from "./extensions/Scene3DDiagram";
 // Heavy authoring dialogs load on first use, so opening the note does not wait
@@ -469,7 +470,7 @@ function DocumentEditorInner({
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
   notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
   pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
-  notebookId: notebookIdProp, scopeSuffix,
+  notebookId: notebookIdProp, scopeSuffix, copilotBridgeRef,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
   // When a school looks through a teacher's workspace the page is identical;
