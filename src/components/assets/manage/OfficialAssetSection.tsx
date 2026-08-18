@@ -12,6 +12,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAssetManager } from "@/lib/gpl/useAssetManager";
 import GplAssetPreview from "@/components/admin/assets/GplAssetPreview";
+import GplAssetCopyButton from "@/components/assets/manage/GplAssetCopyButton";
 import { DeleteDialog } from "@/components/admin/assets/GplDialogs";
 import AssetFormDialog, { type AssetFormItem } from "./AssetFormDialog";
 import {
@@ -141,6 +142,8 @@ const OfficialAssetSection = ({ sessionSlug, subSlug, excludeUrls, heading }: Pr
               <div className="aspect-square w-full overflow-hidden bg-background/30 p-3">
                 <GplAssetPreview asset={asset} />
               </div>
+              <GplAssetCopyButton asset={asset} />
+
               <figcaption className="px-3 py-2 text-center text-sm font-medium">
                 {asset.name}
                 {!asset.is_active && (
