@@ -703,6 +703,8 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
             emptyIfBlank(a.inner, `${keyBase}-rnb${k}`, ctx),
             indexNodes,
             `\\sqrt[${idxStr}]{${a.inner}}`,
+            radicalHeadroom(a.inner),
+
           ));
           i = a.end;
           continue;
