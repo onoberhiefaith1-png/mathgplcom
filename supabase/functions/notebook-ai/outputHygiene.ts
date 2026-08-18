@@ -128,9 +128,10 @@ const LABEL_WORDS = [
   "assessment", "quiz", "test", "activity", "task", "session",
 ];
 const LABEL_PREFIX = new RegExp(
-  `^\\s*(?:${LABEL_WORDS.join("|")})\\s*(?:\\(?\\s*\\d{1,3}\\s*\\)?)?\\s*(?:[:.)\\-–—]\\s*)?`,
+  `^\\s*(?:${LABEL_WORDS.join("|")})(?:\\s*\\(?\\s*\\d{1,3}\\s*\\)?)?\\s*(?:[:.)\\-–—]\\s*|$)`,
   "i",
 );
+
 
 /**
  * DEFENSIVE LAYER — the application already renders the section heading, so a

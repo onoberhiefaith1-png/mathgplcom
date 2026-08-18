@@ -42,11 +42,14 @@ const LABEL_WORDS = [
   "summary", "introduction", "explanation",
 ];
 
-/** `Classwork 4`, `Example 3:`, `Exercise 5 -`, `Question (2)`, `Solution` … */
+/** `Classwork 4`, `Example 3:`, `Exercise 5 -`, `Question (2)`, `Solution` …
+ *  The label must be followed by a number, punctuation, or the end of the line,
+ *  so ordinary sentences ("Test the value of x") are never mistaken for one. */
 const LABEL_PREFIX = new RegExp(
-  `^\\s*(?:${LABEL_WORDS.join("|")})\\s*(?:\\(?\\s*\\d{1,3}\\s*\\)?|[ivxIVX]{1,4})?\\s*(?:[:.)\\-–—]\\s*)?`,
+  `^\\s*(?:${LABEL_WORDS.join("|")})(?:\\s*\\(?\\s*\\d{1,3}\\s*\\)?)?\\s*(?:[:.)\\-–—]\\s*|$)`,
   "i",
 );
+
 
 /** Interface metadata chips that can be picked up as text. */
 const METADATA_LINE = /^\s*(?:ai|#?floating(?:\s*numbers?)?|assign(?:ment)?|edit|generate|regenerate|clear|check|marks?)\s*$/i;
