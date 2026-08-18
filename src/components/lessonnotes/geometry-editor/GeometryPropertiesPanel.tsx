@@ -220,7 +220,7 @@ export function GeometryPropertiesPanel({
 
   const issues = useMemo(() => validateProperties(scene, doc), [scene, doc]);
 
-  const items = useMemo(() => {
+  const allItems = useMemo(() => {
     if (!target) return [];
     return doc.items
       .filter(
@@ -230,6 +230,92 @@ export function GeometryPropertiesPanel({
       )
       .sort((a, b) => a.order - b.order);
   }, [doc, target]);
+
+  const groupOf = (i: GeometryPropertyItem): RelationshipGroup =>
+    i.group ?? groupForType(describeTarget(scene, doc, i.sourceObjectIds[0])?.type);
+
+  const items = useMemo(
+    () => (filter === "all" ? allItems : allItems.filter((i) => groupOf(i) === filter)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allItems, filter],
+  );
+
+  /** Clicking a relationship lights every object it involves. */
+  const pickItem = (item: GeometryPropertyItem) => {
+    const next = activeItemId === item.id ? null : item.id;
+    setActiveItemId(next);
+    if (!next) {
+      onRelated?.([]);
+      onHighlight([]);
+      return;
+    }
+    onHighlight(item.sourceObjectIds);
+    onRelated?.(connectionsOf(item));
+  };
+
+  /** One pass over the whole diagram — the relationship map. */
+  const generateMap = async () => {
+    if (inventory.entries.length === 0) {
+      toast.error("Draw the diagram first.");
+      return;
+    }
+    setMapping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("relationship-ai", {
+        body: {
+          mode: "map",
+          scene,
+          objects: inventory.entries.map((e) => ({ id: e.id, type: e.type, name: e.name })),
+          existing: doc.items.map((i) => i.content),
+          topic: scene.meta?.topic ?? "",
+        },
+      });
+      if (error) throw error;
+      const list = (data?.relationships ?? []) as Array<{
+        componentId: string; content: string; reason?: string;
+        group?: RelationshipGroup; category?: string; kind?: string;
+        connectedObjectIds?: string[];
+      }>;
+      if (list.length === 0) {
+        toast.info("No relationships were detected in this diagram.");
+        return;
+      }
+      const existing = new Set(doc.items.map((i) => i.content.trim().toLowerCase()));
+      const drafts: GeometryPropertyItem[] = [];
+      list.forEach((r, i) => {
+        const content = (r.content ?? "").trim();
+        if (!content || existing.has(content.toLowerCase())) return;
+        existing.add(content.toLowerCase());
+        drafts.push({
+          id: newPropertyId(),
+          category: r.category === "general" ? "general" : "specific",
+          kind: (PROPERTY_KINDS.some((k) => k.value === r.kind) ? r.kind : "statement") as PropertyKind,
+          content,
+          reason: r.reason?.trim() || undefined,
+          group: RELATIONSHIP_GROUPS.some((g) => g.value === r.group)
+            ? r.group
+            : groupForType(describeTarget(scene, doc, r.componentId)?.type),
+          sourceObjectIds: [r.componentId],
+          connectedObjectIds: [...new Set([r.componentId, ...(r.connectedObjectIds ?? [])])],
+          aiGenerated: true,
+          approved: false,
+          enabled: true,
+          order: doc.items.length + i,
+        });
+      });
+      if (drafts.length === 0) {
+        toast.info("Everything the AI found is already in the list.");
+        return;
+      }
+      write([...doc.items, ...drafts]);
+      toast.success(`${drafts.length} relationship${drafts.length === 1 ? "" : "s"} detected — review and approve`);
+    } catch {
+      toast.error("AI relationship mapping is unavailable right now.");
+    } finally {
+      setMapping(false);
+    }
+  };
+
 
   const editing = items.find((i) => i.id === editingId) ?? null;
 
