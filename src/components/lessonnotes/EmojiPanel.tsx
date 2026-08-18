@@ -7,6 +7,7 @@ import {
   ChevronDown, ChevronUp, Check, Pencil, Plus, Trash2, X,
 } from "lucide-react";
 import { useEmojiLibrary, splitEmojis } from "@/hooks/useEmojiLibrary";
+import OfficialEmojiSection from "@/components/gpl/OfficialEmojiSection";
 import { cn } from "@/lib/utils";
 
 interface Props {
