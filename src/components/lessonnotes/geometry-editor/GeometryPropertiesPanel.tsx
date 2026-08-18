@@ -480,6 +480,7 @@ function ItemCard({
   onDraftText, onDraftKind, onOpenEdit, onSave, onCancel, onRemove,
   onToggleCategory, onToggleEnabled, onApprove, onMove, onPreview,
   onToggleConnecting, onRemoveConnection,
+  bindToken, onBindToken, onUnbindToken,
 }: {
   scene: GeometryScene;
   item: GeometryPropertyItem;
@@ -500,8 +501,13 @@ function ItemCard({
   onPreview: () => void;
   onToggleConnecting: () => void;
   onRemoveConnection: (id: GeoId) => void;
+  bindToken: string | null;
+  onBindToken: (token: string) => void;
+  onUnbindToken: (token: string) => void;
 }) {
   const chips = item.connectedObjectIds.map((id) => ({ id, info: describeObject(scene, id) }));
+  const symbols = detectTokens(editing ? draftText : item.content);
+  const bound = new Map((item.tokens ?? []).map((t) => [t.token, t.objectId]));
 
   return (
     <div
@@ -536,6 +542,49 @@ function ItemCard({
         </>
       ) : (
         <p className="text-[12px] leading-snug">{item.content || "Untitled relationship"}</p>
+      )}
+
+      {symbols.length > 0 && (
+        <div className="space-y-1 rounded border border-foreground/10 bg-foreground/[0.02] p-1.5">
+          <p className="text-[9.5px] uppercase tracking-wider text-foreground/50">
+            Symbols — tap one, then click the object on the diagram
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {symbols.map((tk) => {
+              const objId = bound.get(tk);
+              const info = objId ? describeObject(scene, objId) : null;
+              const active = bindToken === tk;
+              return (
+                <span
+                  key={tk}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px]",
+                    active
+                      ? "border-emerald-500 bg-emerald-500 text-white"
+                      : info
+                        ? "border-foreground/25 bg-foreground/[0.05]"
+                        : "border-dashed border-foreground/30",
+                  )}
+                >
+                  <button type="button" onClick={() => onBindToken(tk)} className="font-semibold">
+                    {tk}
+                  </button>
+                  {info ? <span className="opacity-80">= {info.name}</span> : <span className="opacity-60">unbound</span>}
+                  {info && (
+                    <button type="button" onClick={() => onUnbindToken(tk)} title="Unbind symbol">
+                      <X className="h-2.5 w-2.5 opacity-60 hover:opacity-100" />
+                    </button>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+          {bindToken && (
+            <p className="text-[10px] text-emerald-700 dark:text-emerald-300">
+              Click the diagram object that “{bindToken}” refers to.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="flex flex-wrap gap-1">
