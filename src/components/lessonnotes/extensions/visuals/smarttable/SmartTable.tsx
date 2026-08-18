@@ -914,6 +914,10 @@ function MathCellEditor({ value, onChange, onCommit, entryPoint }: {
         entryPoint={entryPoint ?? null}
         onExitLeft={onCommit}
         onExitRight={onCommit}
+        onInsertObjectAsset={(a) => {
+          onCommit();
+          toast({ title: `${a.label} is a page object`, description: "Insert it in the note, outside the table cell." });
+        }}
       />
     </span>
   );
