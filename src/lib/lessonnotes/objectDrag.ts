@@ -180,6 +180,11 @@ interface DragOptions {
   /** DOM element translated for live feedback. */
   ghost: HTMLElement;
   threshold?: number;
+  /** Frames that travel WITH this object as one group (a diagram and the
+   *  elements attached to it). Relative positions are preserved exactly. */
+  groupFrames?: () => HTMLElement[];
+  /** Fired once, when the threshold is crossed and the drag really begins. */
+  onStart?: () => void;
 }
 
 /**
@@ -206,11 +211,25 @@ export function startObjectDrag(
   let moved = false;
   // Movement already consumed by the detach step, so the object does not jump.
   let base = { dx: 0, dy: 0 };
+  /** Frames dragged along with the main object, with their own origins. */
+  let group: { el: HTMLElement; pos: number; x: number; y: number }[] = [];
+
+  const collectGroup = () => {
+    group = [];
+    for (const el of opts.groupFrames?.() ?? []) {
+      const p = framePos(editor, el);
+      if (p == null || p === pos) continue;
+      const n = editor.state.doc.nodeAt(p);
+      if (!n) continue;
+      group.push({ el, pos: p, x: Number(n.attrs.x) || 0, y: Number(n.attrs.y) || 0 });
+    }
+  };
 
   const move = (ev: PointerEvent | MouseEvent) => {
     const dx = (ev.clientX - startX) / z;
     const dy = (ev.clientY - startY) / z;
     if (!moved && Math.abs(ev.clientX - startX) < threshold && Math.abs(ev.clientY - startY) < threshold) return;
+    if (!moved) { dragging = true; opts.onStart?.(); }
     moved = true;
     if (!started) {
       // Detach in place: the frame starts exactly where the object already is.
@@ -219,7 +238,7 @@ export function startObjectDrag(
         ? paperCoords(editor, r.left, r.top)
         : paperCoords(editor, ev.clientX, ev.clientY);
       const created = opts.onDetach?.({ x: at.x, y: at.y });
-      if (created == null) { moved = false; return; }
+      if (created == null) { moved = false; dragging = false; return; }
       pos = created;
       const n = editor.state.doc.nodeAt(pos);
       origin = n ? { x: Number(n.attrs.x) || 0, y: Number(n.attrs.y) || 0 } : { x: at.x, y: at.y };
@@ -227,19 +246,29 @@ export function startObjectDrag(
       base = { dx, dy };
       // The node was re-created, so the old DOM element is gone.
       ghost = (editor.view.nodeDOM(pos) as HTMLElement | null) ?? null;
+      collectGroup();
       return;
     }
-    if (ghost) ghost.style.transform = `translate(${dx - base.dx}px, ${dy - base.dy}px)`;
+    if (!group.length) collectGroup();
+    const tx = dx - base.dx;
+    const ty = dy - base.dy;
+    if (ghost) ghost.style.transform = `translate(${tx}px, ${ty}px)`;
+    for (const g of group) g.el.style.transform = `translate(${tx}px, ${ty}px)`;
   };
 
   const up = (ev: PointerEvent | MouseEvent) => {
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
+    dragging = false;
     if (ghost) ghost.style.transform = "";
+    for (const g of group) g.el.style.transform = "";
     if (!moved || pos == null || !origin) return;
     const dx = (ev.clientX - startX) / z - base.dx;
     const dy = (ev.clientY - startY) / z - base.dy;
-    commitFramePosition(editor, pos, origin.x + dx, origin.y + dy);
+    commitFramePositions(editor, [
+      { pos, x: origin.x + dx, y: origin.y + dy },
+      ...group.map((g) => ({ pos: g.pos, x: g.x + dx, y: g.y + dy })),
+    ]);
   };
 
 
