@@ -739,7 +739,15 @@ ${workspaceManifestBlock(b.workspaceManifest)}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
 ${b.blockKind === "problem" ? `\n${QUESTION_TASK_STANDARD}\n` : ""}
 Task style for this block: ${styleLine}
+
+STRUCTURE OWNERSHIP — the application owns the document structure; you own the
+mathematics. The section heading, its number and the "Solution" label are
+ALREADY on the page${b.existingHeading ? ` (currently: "${String(b.existingHeading).trim()}")` : ""}. Never reproduce them.
+Do not begin your output with "Example 3", "Classwork 2", "Exercise 5",
+"Question 4", "Solution", "Answer" or any other section label — with or without
+a number or a colon. Emit only the content that belongs inside that section.
 Output ONLY the requested content. No headings like "Solution:", no markdown, no commentary.`;
+
 
       const parts: string[] = [];
       if (lessonSoFar) {
