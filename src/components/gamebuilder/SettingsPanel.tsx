@@ -533,16 +533,20 @@ const SettingsPanel = ({
 
           {!isTimeBar && (
           <Section title="Scoring">
-            <Row label="Marks to pass (charges the full tower)">
+            <Row label={barType === "liquid" ? "Marks to pass (fills the vessel)" : "Marks to pass (charges the full tower)"}>
               <Input type="number" min={1} value={progress.totalMarks}
                 onChange={(e) => patchProgress({ totalMarks: Math.max(1, Math.round(Number(e.target.value) || 0)) })}
                 className="h-8" />
             </Row>
-            <p className="text-[11px] text-muted-foreground">{progress.segments} slots · {marksPerSlot} marks lights each slot</p>
+            {barType === "segmented" && (
+              <p className="text-[11px] text-muted-foreground">{progress.segments} slots · {marksPerSlot} marks lights each slot</p>
+            )}
             <div className="rounded-lg border border-border/40 bg-muted/10 p-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">{progress.currentMarks} / {progress.totalMarks} marks</span>
-                <span className="text-xs font-semibold text-primary">{litSlots} / {progress.segments} lit</span>
+                {barType === "segmented" && (
+                  <span className="text-xs font-semibold text-primary">{litSlots} / {progress.segments} lit</span>
+                )}
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Button size="sm" onClick={() => patchProgress({ currentMarks: Math.min(progress.totalMarks, progress.currentMarks + marksPerSlot) })}>
@@ -553,10 +557,12 @@ const SettingsPanel = ({
                 </Button>
               </div>
             </div>
+            {barType === "segmented" && (
             <Row label={`Slots (${progress.segments})`}>
               <Slider min={2} max={20} step={1} value={[progress.segments]}
                 onValueChange={([v]) => patchProgress({ segments: v, currentMarks: Math.min(progress.currentMarks, progress.totalMarks) })} />
             </Row>
+            )}
             <Row label={`Glow (${Math.round(progress.glow * 100)}%)`}>
               <Slider min={0} max={100} step={1} value={[progress.glow * 100]} onValueChange={([v]) => patchProgress({ glow: v / 100 })} />
             </Row>
@@ -581,6 +587,8 @@ const SettingsPanel = ({
           </Section>
           )}
 
+          {barType === "segmented" && (
+          <>
           <Section title="Fill style">
             <div className="grid grid-cols-2 gap-2">
               {(["plain", "effect"] as ProgressFillStyle[]).map((s) => (
@@ -669,6 +677,8 @@ const SettingsPanel = ({
               </>
             )}
           </Section>
+          </>
+          )}
         </>
       )}
     </div>
