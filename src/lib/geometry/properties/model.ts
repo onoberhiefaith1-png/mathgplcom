@@ -323,3 +323,32 @@ export function hasPublishedGuide(doc: GeometryPropertiesDoc): boolean {
     doc.items.some((i) => i.enabled !== false && i.approved !== false)
   );
 }
+
+/* ───────────── symbol tokens inside relationship text ───────────── */
+
+const TOKEN_RE = /[A-Za-z]{1,3}|[α-ωΑ-Ω]|∠[A-Za-z]{1,3}/g;
+const TOKEN_STOPWORDS = new Set([
+  "sin", "cos", "tan", "log", "ln", "and", "the", "is", "of", "so", "if",
+  "cot", "sec", "csc", "for", "to", "in", "on", "at", "by", "as", "or",
+]);
+
+/** Symbols a teacher can bind to diagram objects, in first-appearance order. */
+export function detectTokens(content: string): string[] {
+  const out: string[] = [];
+  for (const m of content.match(TOKEN_RE) ?? []) {
+    const t = m.trim();
+    if (!t || TOKEN_STOPWORDS.has(t.toLowerCase())) continue;
+    if (!out.includes(t)) out.push(t);
+  }
+  return out.slice(0, 12);
+}
+
+/** Every object referenced by a relationship (bindings + explicit picks). */
+export function connectionsOf(item: GeometryPropertyItem): GeoId[] {
+  return [
+    ...new Set([
+      ...item.connectedObjectIds,
+      ...(item.tokens ?? []).map((t) => t.objectId),
+    ]),
+  ];
+}
