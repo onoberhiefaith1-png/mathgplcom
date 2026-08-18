@@ -415,7 +415,7 @@ const editorAlive = (ed: any): boolean =>
 
 const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment", "game_questions"];
 const isQuestionSectionKind = (kind: SectionKind) => QUESTION_SECTION_KINDS.includes(kind);
-const AUTO_DIAGRAM_SECTION_KINDS: ReadonlySet<SectionKind> = new Set(["example", "exercise", "classwork", "homework"]);
+
 
 const solutionPlaceholderNodes = () => ([
   { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Solution" }] },
