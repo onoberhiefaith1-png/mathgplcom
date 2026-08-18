@@ -1453,6 +1453,12 @@ function DocumentEditorInner({
     editor.chain().focus().insertContent({ type: "scene3dDiagram", attrs: { scene } }).run();
   }, [editor]);
 
+  // Sessions push each other down instead of overlapping; diagrams stay free.
+  useEffect(() => {
+    if (!editor) return;
+    return attachSessionLayout(editor);
+  }, [editor]);
+
 
   const geometryDraftRef = useRef<{ pos: number; pendingIds: string[] } | null>(null);
   const geometryToolRef = useRef<ToolId>(geometryTool);
