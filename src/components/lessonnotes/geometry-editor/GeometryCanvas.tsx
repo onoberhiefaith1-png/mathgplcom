@@ -32,11 +32,16 @@ interface Props {
    */
   minViewW?: number;
   minViewH?: number;
+  /**
+   * Authoring-only halo (Geometry Properties). Purely an overlay — the
+   * diagram's own appearance is never changed.
+   */
+  highlightIds?: GeoId[];
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor, stroke, minViewW, minViewH }: Props) {
+export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightIds }: Props) {
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
   const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
 
@@ -791,8 +796,9 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH }: Props) {
     selectedIds.forEach((id) => once(id, "#2563eb"));
     pendingIds.forEach((id) => once(id, "#10b981"));
     flashIds.forEach((id) => once(id, "#f59e0b"));
+    (highlightIds ?? []).forEach((id) => once(id, "#a855f7"));
     return out;
-  }, [scene, selectedIds, pendingIds, flashIds]);
+  }, [scene, selectedIds, pendingIds, flashIds, highlightIds]);
 
   // In-progress previews
   const previews: React.ReactNode[] = [];
