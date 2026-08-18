@@ -499,6 +499,26 @@ export const SectionHeading = Heading.extend<SectionHeadingOptions>({
       onGenerateSection: async () => {},
     };
   },
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      /** Stable identity of a question block (Example, Exercise, …). */
+      sectionId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-section-id"),
+        renderHTML: (attrs) =>
+          attrs.sectionId ? { "data-section-id": attrs.sectionId } : {},
+      },
+      /** Permanent link from a Solution back to the question it belongs to —
+       *  it survives being dragged anywhere on the page. */
+      ownerQuestionId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-owner-question-id"),
+        renderHTML: (attrs) =>
+          attrs.ownerQuestionId ? { "data-owner-question-id": attrs.ownerQuestionId } : {},
+      },
+    };
+  },
   addNodeView() {
     return ReactNodeViewRenderer(SectionHeadingView);
   },
@@ -506,6 +526,7 @@ export const SectionHeading = Heading.extend<SectionHeadingOptions>({
     return [buildAddAnotherPlugin()];
   },
 });
+
 
 // ---------------------------------------------------------------------------
 // "+ Add another <Example>" widget at the end of every repeatable section.
