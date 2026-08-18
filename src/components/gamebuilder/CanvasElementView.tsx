@@ -3,6 +3,8 @@ import SignedMedia from "./SignedMedia";
 import ChromaVideo from "./ChromaVideo";
 import ProgressColumn from "./ProgressColumn";
 import { getPreset } from "@/lib/games/progressPresets";
+import { getLiquidStyle } from "@/lib/games/liquidStyles";
+import QuestionProgressContainer from "@/components/assets/QuestionProgressContainer";
 import type { BlendMode, CanvasElement, SlantSettings } from "@/lib/games/types";
 import { cn } from "@/lib/utils";
 
