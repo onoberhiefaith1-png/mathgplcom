@@ -60,12 +60,13 @@ interface Props {
 
 
 export function GeometryPropertiesPanel({
-  scene, doc, onDocChange, targetId, onHighlight, onTargetName, connecting, setConnecting,
+  scene, doc, onDocChange, targetId, onHighlight, onRelated, onTargetName, connecting, setConnecting,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [draftKind, setDraftKind] = useState<PropertyKind>("statement");
   const [busy, setBusy] = useState(false);
+  const [mapping, setMapping] = useState(false);
   const [showIssues, setShowIssues] = useState(false);
   /** Symbol waiting to be bound to the next object the teacher clicks. */
   const [bindToken, setBindToken] = useState<string | null>(null);
@@ -73,9 +74,19 @@ export function GeometryPropertiesPanel({
   const [activeVirtualId, setActiveVirtualId] = useState<GeoId | null>(null);
   /** Defining a new part: collecting the diagram objects it is made of. */
   const [defining, setDefining] = useState<{ kind: VirtualKind; refIds: GeoId[]; name: string } | null>(null);
+  /** Which shelf the list is filtered to. */
+  const [filter, setFilter] = useState<RelationshipGroup | "all">("all");
+  /** Click-to-build statement: chips come from the diagram, never the keyboard. */
+  const [chips, setChips] = useState<StatementChip[] | null>(null);
+  const [chipCategory, setChipCategory] = useState<PropertyCategory>("specific");
+  const [chipReason, setChipReason] = useState("");
+  /** The relationship whose connections are lit on the diagram. */
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
 
   const virtuals = doc.virtuals ?? [];
   const target = describeTarget(scene, doc, activeVirtualId ?? targetId);
+  const inventory = useMemo(() => sceneInventory(scene), [scene]);
+
 
   // A canvas click always means "work on this drawn object" — unless the
   // teacher is defining a part or wiring connections.
