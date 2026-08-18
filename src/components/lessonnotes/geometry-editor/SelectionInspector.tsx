@@ -10,7 +10,7 @@ import { patchObject, addAngle, addFloatingLabel } from "@/lib/geometry/editor/s
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import { pointsOnCircle, pointsOnArc } from "@/lib/geometry/editor/snap";
 import type { HitKind } from "@/lib/geometry/editor/snap";
-import { ChevronDown, ChevronRight, ChevronUp, Undo2, Redo2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Undo2, Redo2, Trash2, Network } from "lucide-react";
 
 interface Props {
   scene: GeometryScene;
