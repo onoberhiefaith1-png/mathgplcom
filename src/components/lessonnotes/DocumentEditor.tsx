@@ -614,12 +614,26 @@ function DocumentEditorInner({
     const rawText = (editor && problemStart < headingPos)
       ? serializeRangeAsMath(problemStart, headingPos)
       : "";
+    // An inline "Solution" label written as text still marks a boundary: keep
+    // only what follows the LAST label-only line whose kind is `solution`, so
+    // an older question above it can never leak into ACTIVE_QUESTION.
+    const allLines = rawText.split("\n");
+    let cutAt = -1;
+    for (let i = allLines.length - 1; i >= 0; i--) {
+      if (isStructuralLabelLine(allLines[i]) && detectSectionKind(allLines[i]) === "solution") {
+        cutAt = i; break;
+      }
+    }
+    const scoped = (cutAt >= 0 ? allLines.slice(cutAt + 1) : allLines).join("\n");
     // STRUCTURE vs MATHEMATICS. Structural labels ("Classwork 4",
     // "Example 3: Solve …") and interface metadata are set aside; the
     // mathematics is always kept — even when it sits on the same line as the
     // label. This is what stops the old "no parent question found" failure.
-    const report = analyzeProblem(rawText, { hasDiagram: false });
+    const report = analyzeProblem(scoped, {
+      hasDiagram: diagramsOwnedByQuestion(editor!.state.doc, parentPos, isSolutionLabel).length > 0,
+    });
     const problemText = report.problem;
+
     return {
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
       // Position of the heading that OWNS this Solution (the question
