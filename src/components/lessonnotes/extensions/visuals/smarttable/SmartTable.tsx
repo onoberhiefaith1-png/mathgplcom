@@ -591,8 +591,12 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
       </PanelGroup>
     </div>
   );
+  // SELECTION ≠ EDITING. Clicking a cell, a row handle or a column handle
+  // only selects. The right-hand panel opens ONLY when the teacher presses
+  // Edit under the table, and closes again when Edit is toggled off or the
+  // table is deselected.
   useRegisterAssetEditor(
-    (!!selected && (panelOpen || line !== null || softCell !== null)) || active !== null,
+    !!selected && panelOpen,
     // Unique per table instance: a shared id let a second table's
     // registration hijack the first one's panel slot.
     instanceIdRef.current, "Smart table", editor,
