@@ -5,6 +5,8 @@ import { EmailShell, FallbackLink, greeting, styles } from './brand'
 interface EmailChangeEmailProps {
   siteName?: string
   userName?: string
+  /** The recipient address of this message. */
+  email?: string
   /** The address currently on the account. */
   oldEmail?: string
   /** The address being confirmed — this email's recipient. */

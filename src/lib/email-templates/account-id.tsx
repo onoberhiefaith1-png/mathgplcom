@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Button, Heading, Text } from '@react-email/components'
 import { EmailShell, greeting, styles } from './brand'
+import type { TemplateEntry } from './registry'
 
 interface Props {
   userName?: string | undefined
@@ -58,5 +59,12 @@ export const AccountIdEmail = ({ userName, mathgplId, email, loginUrl = 'https:/
     </Text>
   </EmailShell>
 )
+
+export const template = {
+  component: AccountIdEmail,
+  subject: 'Your MathGPL ID',
+  displayName: 'MathGPL ID reminder',
+  previewData: { userName: 'Faith', mathgplId: 'TCH/000123', email: 'teacher@example.com' },
+} satisfies TemplateEntry
 
 export default AccountIdEmail

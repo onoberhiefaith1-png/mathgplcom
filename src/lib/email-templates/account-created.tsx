@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Button, Heading, Text } from '@react-email/components'
 import { EmailShell, greeting, styles } from './brand'
+import type { TemplateEntry } from './registry'
 
 interface Props {
   userName?: string | undefined
@@ -63,5 +64,12 @@ export const AccountCreatedEmail = ({
     </Text>
   </EmailShell>
 )
+
+export const template = {
+  component: AccountCreatedEmail,
+  subject: 'Your MathGPL Account Has Been Created',
+  displayName: 'Account created',
+  previewData: { userName: 'Faith', mathgplId: 'TCH/000123', email: 'teacher@example.com' },
+} satisfies TemplateEntry
 
 export default AccountCreatedEmail

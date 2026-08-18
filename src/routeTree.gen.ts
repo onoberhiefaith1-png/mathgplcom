@@ -186,7 +186,7 @@ import { Route as LiveSmartCardsCardIdIndexRouteImport } from './routes/live/sma
 import { Route as LiveWorkspaceClassIdIndexRouteImport } from './routes/live/workspace/$classId/index'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
-import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
+import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as SchoolStudentsUserIdIndexRouteImport } from './routes/school/students/$userId/index'
 import { Route as SchoolTeachersUserIdIndexRouteImport } from './routes/school/teachers/$userId/index'
 import { Route as SchoolTeachersUserIdAdventureRouteImport } from './routes/school/teachers/$userId/adventure'
@@ -1211,10 +1211,10 @@ const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
   path: '/lovable/email/auth/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LovableEmailQueueProcessRoute =
-  LovableEmailQueueProcessRouteImport.update({
-    id: '/lovable/email/queue/process',
-    path: '/lovable/email/queue/process',
+const LovableEmailTransactionalPreviewRoute =
+  LovableEmailTransactionalPreviewRouteImport.update({
+    id: '/lovable/email/transactional/preview',
+    path: '/lovable/email/transactional/preview',
     getParentRoute: () => rootRouteImport,
   } as any)
 const SchoolStudentsUserIdIndexRoute =
@@ -1937,7 +1937,7 @@ export interface FileRoutesByFullPath {
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
-  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
@@ -2202,7 +2202,7 @@ export interface FileRoutesByTo {
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
-  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
   '/adventure/games/$gameId': typeof AdventureGamesGameIdIndexRoute
@@ -2479,7 +2479,7 @@ export interface FileRoutesById {
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
-  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
@@ -2757,7 +2757,7 @@ export interface FileRouteTypes {
     | '/api/public/webhooks/stripe'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
-    | '/lovable/email/queue/process'
+    | '/lovable/email/transactional/preview'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
     | '/adventure/games/$gameId/'
@@ -3022,7 +3022,7 @@ export interface FileRouteTypes {
     | '/api/public/webhooks/stripe'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
-    | '/lovable/email/queue/process'
+    | '/lovable/email/transactional/preview'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
     | '/adventure/games/$gameId'
@@ -3298,7 +3298,7 @@ export interface FileRouteTypes {
     | '/api/public/webhooks/stripe'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
-    | '/lovable/email/queue/process'
+    | '/lovable/email/transactional/preview'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
     | '/adventure/games/$gameId/'
@@ -3518,7 +3518,7 @@ export interface RootRouteChildren {
   ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
-  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
+  LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
   AssetsCategorySubcategoryIndexRoute: typeof AssetsCategorySubcategoryIndexRoute
   AssetsInteractiveQuestionProgressIndexRoute: typeof AssetsInteractiveQuestionProgressIndexRoute
   CSlugGameIndexRoute: typeof CSlugGameIndexRoute
@@ -4805,11 +4805,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/lovable/email/queue/process': {
-      id: '/lovable/email/queue/process'
-      path: '/lovable/email/queue/process'
-      fullPath: '/lovable/email/queue/process'
-      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+    '/lovable/email/transactional/preview': {
+      id: '/lovable/email/transactional/preview'
+      path: '/lovable/email/transactional/preview'
+      fullPath: '/lovable/email/transactional/preview'
+      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/school/students/$userId/': {
@@ -6046,7 +6046,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
-  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
+  LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
   AssetsCategorySubcategoryIndexRoute: AssetsCategorySubcategoryIndexRoute,
   AssetsInteractiveQuestionProgressIndexRoute:
     AssetsInteractiveQuestionProgressIndexRoute,
