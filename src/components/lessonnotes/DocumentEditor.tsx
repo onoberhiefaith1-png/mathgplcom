@@ -2848,7 +2848,7 @@ function DocumentEditorInner({
               <SensorCaret
                 editor={editor}
                 pos={sensorPos}
-                hidden={editorFocused}
+                hidden={editorFocused || objectEditorFocused}
                 paperLayerRef={paperLayerRef}
                 zoom={zoom}
               />
