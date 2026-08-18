@@ -30,7 +30,22 @@ export interface ProblemReport {
   hasDiagram: boolean;
   /** Plain-language description of what is wrong (empty when valid). */
   issue: string;
+  /** Where the mathematics was found — the block itself, its Solution, its
+   *  diagram, or elsewhere in the session. Shown in the Problem Check panel. */
+  sources: string[];
 }
+
+/** Content belonging to the same question / session, used when the clicked
+ *  block alone does not carry the mathematics. */
+export interface RelatedProblemContent {
+  /** Solution text of the same question. */
+  solutionText?: string;
+  /** Text inventory of the diagram owned by the same question. */
+  diagramSummary?: string;
+  /** Mathematics found elsewhere in the same session. */
+  sessionText?: string;
+}
+
 
 /* ------------------------------------------------------------------ labels */
 
