@@ -119,6 +119,23 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
       if (Math.hypot(lx - x, ly - y) <= 16) return { id: o.id, kind: "segmentText" };
     }
   }
+  // 3a) Floating text (any words/measurement placed in the diagram).
+  //     Tested before line bodies so text sitting on top of a line is the
+  //     thing that gets picked — every label must be selectable/draggable.
+  for (let i = scene.objects.length - 1; i >= 0; i--) {
+    const o = scene.objects[i];
+    if (o.type !== "label" || !o.text) continue;
+    const fs = o.fontSize ?? 13;
+    const w = Math.max(14, o.text.length * fs * 0.58);
+    const h = fs * 1.3;
+    // Text is centre-anchored on (x, y) with the baseline at y.
+    if (
+      x >= o.x - w / 2 - 3 && x <= o.x + w / 2 + 3 &&
+      y >= o.y - h && y <= o.y + h * 0.35
+    ) {
+      return { id: o.id, kind: "label" };
+    }
+  }
   // 3b) Angle value chip (clicking "46°" opens the text panel).
   for (let i = scene.objects.length - 1; i >= 0; i--) {
     const o = scene.objects[i];
