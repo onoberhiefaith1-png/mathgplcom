@@ -12,7 +12,9 @@ import {
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import {
   PROPERTY_KINDS,
+  connectionsOf,
   describeObject,
+  detectTokens,
   newPropertyId,
   validateProperties,
   type GeometryPropertiesDoc,
@@ -32,13 +34,15 @@ interface Props {
   targetId: GeoId | null;
   /** Halo painted on the diagram (preview / editing feedback). */
   onHighlight: (ids: GeoId[]) => void;
+  /** Reports the selected object's display name to the workspace header. */
+  onTargetName?: (name: string | null) => void;
   /** Pick mode: while true, canvas clicks toggle connections. */
   connecting: boolean;
   setConnecting: (b: boolean) => void;
 }
 
 export function GeometryPropertiesPanel({
-  scene, doc, onDocChange, targetId, onHighlight, connecting, setConnecting,
+  scene, doc, onDocChange, targetId, onHighlight, onTargetName, connecting, setConnecting,
 }: Props) {
   const target = targetId ? describeObject(scene, targetId) : null;
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,6 +50,13 @@ export function GeometryPropertiesPanel({
   const [draftKind, setDraftKind] = useState<PropertyKind>("statement");
   const [busy, setBusy] = useState(false);
   const [showIssues, setShowIssues] = useState(false);
+  /** Symbol waiting to be bound to the next object the teacher clicks. */
+  const [bindToken, setBindToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    onTargetName?.(target ? `${target.typeLabel} ${target.name}` : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target?.id, target?.name, target?.typeLabel]);
 
   const issues = useMemo(() => validateProperties(scene, doc), [scene, doc]);
 
@@ -64,7 +75,7 @@ export function GeometryPropertiesPanel({
 
   // Editing an item shows its connections on the diagram.
   useEffect(() => {
-    if (editing) onHighlight(editing.connectedObjectIds);
+    if (editing) onHighlight(connectionsOf(editing));
     else if (!connecting) onHighlight([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, editing?.connectedObjectIds.join(","), connecting]);
@@ -139,8 +150,18 @@ export function GeometryPropertiesPanel({
 
   /* ── connection mode: canvas clicks land here via targetId ── */
   useEffect(() => {
-    if (!connecting || !editing || !targetId) return;
+    if (!editing || !targetId) return;
     const base = targetId.split("#")[0];
+    if (bindToken) {
+      const rest = (editing.tokens ?? []).filter((t) => t.token !== bindToken);
+      upsert({
+        ...editing,
+        tokens: [...rest, { token: bindToken, objectId: base }],
+      });
+      setBindToken(null);
+      return;
+    }
+    if (!connecting) return;
     const has = editing.connectedObjectIds.includes(base);
     upsert({
       ...editing,
@@ -149,7 +170,7 @@ export function GeometryPropertiesPanel({
         : [...editing.connectedObjectIds, base],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetId, connecting]);
+  }, [targetId, connecting, bindToken]);
 
   const aiSuggest = async () => {
     if (!target) return;
@@ -251,11 +272,19 @@ export function GeometryPropertiesPanel({
               onToggleEnabled={() => upsert({ ...item, enabled: item.enabled === false })}
               onApprove={() => upsert({ ...item, approved: true })}
               onMove={(d) => move(item, d)}
-              onPreview={() => onHighlight(item.connectedObjectIds)}
+              onPreview={() => onHighlight(connectionsOf(item))}
               onToggleConnecting={() => {
                 if (editingId !== item.id) openEdit(item);
                 setConnecting(!(connecting && editingId === item.id));
               }}
+              bindToken={editingId === item.id ? bindToken : null}
+              onBindToken={(t) => {
+                if (editingId !== item.id) openEdit(item);
+                setBindToken((cur) => (cur === t ? null : t));
+              }}
+              onUnbindToken={(t) =>
+                upsert({ ...item, tokens: (item.tokens ?? []).filter((x) => x.token !== t) })
+              }
               onRemoveConnection={(id) =>
                 upsert({
                   ...item,
@@ -293,11 +322,19 @@ export function GeometryPropertiesPanel({
               onToggleEnabled={() => upsert({ ...item, enabled: item.enabled === false })}
               onApprove={() => upsert({ ...item, approved: true })}
               onMove={(d) => move(item, d)}
-              onPreview={() => onHighlight(item.connectedObjectIds)}
+              onPreview={() => onHighlight(connectionsOf(item))}
               onToggleConnecting={() => {
                 if (editingId !== item.id) openEdit(item);
                 setConnecting(!(connecting && editingId === item.id));
               }}
+              bindToken={editingId === item.id ? bindToken : null}
+              onBindToken={(t) => {
+                if (editingId !== item.id) openEdit(item);
+                setBindToken((cur) => (cur === t ? null : t));
+              }}
+              onUnbindToken={(t) =>
+                upsert({ ...item, tokens: (item.tokens ?? []).filter((x) => x.token !== t) })
+              }
               onRemoveConnection={(id) =>
                 upsert({
                   ...item,
