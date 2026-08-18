@@ -25,6 +25,8 @@ import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/Geomet
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
+import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
+import { ownerQuestionIdFor } from "@/lib/lessonnotes/containerRange";
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";

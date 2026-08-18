@@ -96,3 +96,23 @@ export function diagramsOwnedByQuestion(
   });
   return out;
 }
+
+/**
+ * The `sectionId` of the question heading that owns the node at `pos` — the
+ * nearest preceding structural heading that is not a Solution. Read-only: it
+ * returns null when the owner has no id yet (ids are assigned where the
+ * relationship is created).
+ */
+export function ownerQuestionIdFor(doc: PMNode, pos: number): string | null {
+  let owner: PMNode | null = null;
+  doc.descendants((n, p) => {
+    if (p >= pos) return false;
+    if (n.type.name === "heading") {
+      const t = (n.textContent || "").toLowerCase().trim();
+      if (!t.startsWith("solution") && !t.includes("worked solution")) owner = n;
+    }
+    return true;
+  });
+  const id = (owner?.attrs as any)?.sectionId;
+  return typeof id === "string" && id ? id : null;
+}
