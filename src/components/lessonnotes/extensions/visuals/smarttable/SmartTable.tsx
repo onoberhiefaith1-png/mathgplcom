@@ -863,51 +863,50 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   );
 }
 
-function InlineEditor({ value, onChange, onCommit, onCancel, onSelect, inputRef }: {
+/**
+ * Cell editor = THE UNIVERSAL MATH EDITOR.
+ *
+ * Exactly the same `MathInlineCanvas` the lesson-note lines use, so every
+ * mathematical tool available in the workspace is available inside a table
+ * cell: `/` fractions, `#`/`##` powers and indices, smart brackets, roots and
+ * infinite nesting, with the caret free to walk into every region.
+ * Storage stays the shared LaTeX-lite string, so the display renderer
+ * (`renderMathInline`) draws the committed cell identically.
+ */
+function MathCellEditor({ value, onChange, onCommit, entryPoint }: {
   value: string;
   onChange: (v: string) => void;
   onCommit: () => void;
-  onCancel: () => void;
-  onSelect?: (start: number, end: number) => void;
-  inputRef?: React.MutableRefObject<HTMLInputElement | null>;
+  entryPoint?: { x: number; y: number } | null;
 }) {
-  const localRef = useRef<HTMLInputElement | null>(null);
-  const attach = (el: HTMLInputElement | null) => {
-    localRef.current = el;
-    if (inputRef) inputRef.current = el;
-  };
-  useEffect(() => {
-    localRef.current?.focus();
-    localRef.current?.select();
-    onSelect?.(0, localRef.current?.value.length ?? 0);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [root, setRoot] = useState<MathRow>(() => {
+    try { return latexToTree(normalizeMathSource(value)); } catch { return [] as MathRow; }
+  });
 
-  const report = () => {
-    const el = localRef.current;
-    if (!el) return;
-    onSelect?.(el.selectionStart ?? 0, el.selectionEnd ?? 0);
+  const commit = (next: MathRow) => {
+    setRoot(next);
+    try { onChange(normalizeMathSource(treeToLatex(next))); } catch { /* keep last good value */ }
   };
 
   return (
-    <input
-      ref={attach}
-      value={value}
-      onChange={(e) => { onChange(e.target.value); report(); }}
-      onSelect={report}
-      onKeyUp={report}
-      onMouseUp={report}
-      onBlur={onCommit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") { e.preventDefault(); onCommit(); }
-        else if (e.key === "Tab") { onCommit(); }
-        else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
-      }}
-      onClick={(e) => { e.stopPropagation(); report(); }}
-      className="w-full min-w-[3rem] px-1 py-0.5 text-center bg-transparent outline-hidden border-b border-primary"
+    <span
+      className="smart-table-cell-editor inline-block min-w-[3rem] px-1 py-0.5 align-baseline"
       style={{ color: "#0f172a" }}
-    />
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <MathInlineCanvas
+        root={root}
+        onChange={commit}
+        onBlur={onCommit}
+        focused
+        onFocus={() => { /* already focused */ }}
+        entryPoint={entryPoint ?? null}
+        onExitLeft={onCommit}
+        onExitRight={onCommit}
+      />
+    </span>
   );
-
 }
 
 export default SmartTable;
