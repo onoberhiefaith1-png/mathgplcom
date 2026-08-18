@@ -97,22 +97,13 @@ export function useNotebook(notebookId: string | undefined) {
   const [notebook, setNotebook] = useState<NotebookRow | null>(null);
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // The legacy Smartboard tables load in the background — the editor only
+  // needs the notebooks row to open, so it must never wait for them.
+  const [structureLoaded, setStructureLoaded] = useState(false);
 
-  const reload = useCallback(async () => {
+  /** The three legacy structure queries (Smartboard tables). Background work. */
+  const loadStructure = useCallback(async () => {
     if (!notebookId) return;
-    setLoading(true);
-    const { data: nb, error: nbErr } = await supabase
-      .from("notebooks")
-      .select("*")
-      .eq("id", notebookId)
-      .maybeSingle();
-    if (nbErr || !nb) {
-      toast({ title: "Notebook not found", variant: "destructive" });
-      setLoading(false);
-      return;
-    }
-    setNotebook(nb as NotebookRow);
-
     const [{ data: secs }, { data: subs }, { data: blks }] = await Promise.all([
       supabase.from("notebook_sections").select("*").eq("notebook_id", notebookId).order("order_index"),
       supabase
@@ -177,12 +168,31 @@ export function useNotebook(notebookId: string | undefined) {
       })),
     }));
     setSections(built);
-    setLoading(false);
+    setStructureLoaded(true);
   }, [notebookId]);
+
+  const reload = useCallback(async () => {
+    if (!notebookId) return;
+    const { data: nb, error: nbErr } = await supabase
+      .from("notebooks")
+      .select("*")
+      .eq("id", notebookId)
+      .maybeSingle();
+    if (nbErr || !nb) {
+      toast({ title: "Notebook not found", variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+    setNotebook(nb as NotebookRow);
+    // Open the editor now; the Smartboard tables catch up in the background.
+    setLoading(false);
+    await loadStructure();
+  }, [notebookId, loadStructure]);
 
   useEffect(() => {
     reload();
   }, [reload]);
+
 
   // Auto-migrate any legacy notebook to document mode on open so there's
   // only one editor. Runs once per load, after sections have been built.
@@ -198,30 +208,46 @@ export function useNotebook(notebookId: string | undefined) {
     // and the Presenter Preview hold the SAME section/subsection IDs.
     if (notebook.document_json && syncedOnOpenRef.current !== notebook.id) {
       syncedOnOpenRef.current = notebook.id;
-      // Repair raw-LaTeX paragraphs written before the brace-aware tokenizer
-      // existed so the lesson note renders math the same way AI Edit does.
-      const { doc: repaired, changed } = repairDocumentMath(notebook.document_json);
-      if (changed) {
-        setNotebook((prev) => prev ? { ...prev, document_json: repaired } : prev);
-        supabase.from("notebooks").update({ document_json: repaired } as any).eq("id", notebook.id);
-      }
-      let syncP = onOpenSyncPromises.get(notebook.id);
-      if (!syncP) {
-        syncP = withTimeout(
-          syncDocumentToNotebook(notebook.id, repaired),
-          20_000,
-          "Notebook synchronization timed out",
-        ).catch((e) => {
-          // eslint-disable-next-line no-console
-          console.warn("[syncDocumentToNotebook on open] failed:", e);
-        });
-        onOpenSyncPromises.set(notebook.id, syncP);
-      }
-      void syncP.then(() => reload());
+      const notebookId2 = notebook.id;
+      const sourceDoc = notebook.document_json;
+      // The rebuild of the Smartboard tables is heavy, so it waits until the
+      // editor has painted and the browser is idle — opening the note must
+      // never queue behind it.
+      const runOnOpenSync = () => {
+        // Repair raw-LaTeX paragraphs written before the brace-aware tokenizer
+        // existed so the lesson note renders math the same way AI Edit does.
+        const { doc: repaired, changed } = repairDocumentMath(sourceDoc);
+        if (changed) {
+          setNotebook((prev) => prev && prev.id === notebookId2 ? { ...prev, document_json: repaired } : prev);
+          supabase.from("notebooks").update({ document_json: repaired } as any).eq("id", notebookId2);
+        }
+        let syncP = onOpenSyncPromises.get(notebookId2);
+        if (!syncP) {
+          syncP = withTimeout(
+            syncDocumentToNotebook(notebookId2, repaired),
+            20_000,
+            "Notebook synchronization timed out",
+          ).catch((e) => {
+            // eslint-disable-next-line no-console
+            console.warn("[syncDocumentToNotebook on open] failed:", e);
+          });
+          onOpenSyncPromises.set(notebookId2, syncP);
+        }
+        // Silent refresh of the legacy tables only — the open editor keeps
+        // its document and never flashes a loading state.
+        void syncP.then(() => loadStructure());
+      };
+      const idle = (globalThis as any).requestIdleCallback as
+        | ((cb: () => void, opts?: { timeout: number }) => number)
+        | undefined;
+      if (idle) idle(runOnOpenSync, { timeout: 3000 });
+      else setTimeout(runOnOpenSync, 800);
     }
     if (notebook.document_json) { migratedRef.current = true; return; }
+    if (!structureLoaded) return;
     if (migratedRef.current) return;
     migratedRef.current = true;
+
     // Build a ProseMirror doc from existing blocks (or seed an empty one).
     const blocks: any[] = [];
     sections.forEach((sec) => {
@@ -261,7 +287,7 @@ export function useNotebook(notebookId: string | undefined) {
     supabase.from("notebooks").update({ document_json: doc } as any).eq("id", notebook.id);
     // Newly-migrated doc — sync immediately too.
     syncDocumentToNotebook(notebook.id, doc).catch(() => { /* noop */ });
-  }, [notebook, sections, loading]);
+  }, [notebook, sections, loading, structureLoaded]);
 
 
   const addSection = useCallback(
