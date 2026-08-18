@@ -242,11 +242,6 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
   // NO floating cell toolbar. Cells stay clean while the caret moves; the
   // single AI Edit control lives in the table's own control strip and acts on
   // the cell the teacher last touched.
-  const selRange = () => {
-    const s = Math.max(0, Math.min(buffer.length, sel.s));
-    const e = Math.max(0, Math.min(buffer.length, sel.e));
-    return s === e ? { s: 0, e: buffer.length } : { s: Math.min(s, e), e: Math.max(s, e) };
-  };
 
 
   const cellAiEdit = () => {
