@@ -274,7 +274,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   return (
     <div
       data-slide-chrome="true"
-      className="relative flex h-full shrink-0 flex-col border-l bg-background"
+      className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-l bg-background"
       style={{ width, maxWidth: "60%" }}
     >
       {/* Left-edge resize grip — the note column keeps the remaining width. */}
@@ -289,7 +289,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
 
       <input ref={fileRef} type="file" hidden onChange={handleFile} />
 
-      <header className="flex items-center gap-2 border-b px-3 py-2">
+      <header className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
         <button
           type="button"
           className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
@@ -314,7 +314,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
       </header>
 
       {!canvas ? (
-        <div className="flex-1 space-y-2 overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3">
           {naming ? (
             <div className="flex items-center gap-2 rounded-lg border p-2">
               <input
@@ -388,7 +388,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Slide navigation across the pages of this one Canvas. */}
-          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b px-3 py-1.5">
+          <div className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b px-3 py-1.5">
             <button
               type="button"
               onClick={() => step(-1)}
@@ -421,7 +421,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2">
             <button type="button" disabled={busy || !openId} onClick={() => setCapturing(true)}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
               <Camera className="h-3.5 w-3.5" /> Capture
@@ -442,7 +442,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
 
           <div className="flex min-h-0 flex-1">
             {/* The Canvas structure — every slide of this canvas. */}
-            <div className="w-40 shrink-0 space-y-1 overflow-y-auto border-r p-2">
+            <div className="min-h-0 w-40 shrink-0 space-y-1 overflow-y-auto overscroll-contain border-r p-2">
               {slides.map((s, i) => (
                 <div
                   key={s.id}
@@ -487,7 +487,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
               ))}
             </div>
 
-            <div className="min-h-0 min-w-0 flex-1 bg-muted/40 p-3">
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-muted/40 p-3">
               {openId ? (
                 <>
                   <div className="h-[calc(100%-2.5rem)]">

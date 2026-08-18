@@ -2737,13 +2737,13 @@ function DocumentEditorInner({
       <div aria-hidden="true" style={{ height: ribbonSpacerHeight }} />
 
       <div
-        className="flex-1 min-h-0 flex"
+        className="flex-1 min-h-0 flex overflow-hidden"
         style={{
           paddingRight: "var(--properties-panel-width, 0px)",
           transition: "padding-right 160ms ease",
         }}
       >
-        <div className="min-w-0 flex-1 overflow-auto bg-[hsl(220_15%_94%)]">
+        <div className="min-w-0 min-h-0 flex-1 overflow-auto overscroll-contain bg-[hsl(220_15%_94%)]">
           <PageFrame size={paperSize} style={paperStyle} zoom={zoom} extraMm={pageExtraMm} sheetRef={sheetElRef}>
             <div
               ref={paperLayerRef}
