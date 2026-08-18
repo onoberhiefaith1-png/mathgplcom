@@ -21,7 +21,7 @@ import {
 import {
   addSlideItem, createCanvas, createSlide, deleteCanvas, deleteSlide, deleteSlideItem,
   listCanvases, listCanvasSlides, listSlideItems, renameCanvas, renameSlide, reorderSlides,
-  updateSlideItem, uploadSlideMedia, gplRef, type Slide, type SlideCanvasRecord, type SlideItem,
+  updateSlideItem, uploadSlideMedia, gplRef, SLIDE_PAGE, type Slide, type SlideCanvasRecord, type SlideItem,
 } from "@/lib/lessonnotes/slides";
 
 interface Props {
