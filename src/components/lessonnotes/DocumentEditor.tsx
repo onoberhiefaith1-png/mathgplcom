@@ -11,6 +11,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { useServerFn } from "@tanstack/react-start";
 import StarterKit from "@tiptap/starter-kit";
 import { closeHistory } from "@tiptap/pm/history";
 import Underline from "@tiptap/extension-underline";
@@ -57,10 +58,6 @@ import {
   writeMap,
   type GeometryMapItem,
 } from "@/lib/geometry/map/model";
-import {
-  diagramsOwnedByQuestion,
-  ownerQuestionHeadingFor,
-} from "@/lib/lessonnotes/containerRange";
 import { GeometryDiagram as StaticGeometryDiagram } from "./GeometryDiagram";
 import { MathTableNode, type MathTableAttrs } from "./extensions/MathTable";
 import { SmartGraphNode, DEFAULT_GRAPH } from "./extensions/SmartGraph";
@@ -601,7 +598,7 @@ function DocumentEditorInner({
             objects: mapInventory(scene),
           },
         });
-        const built: GeometryMapItem[] = (res.items ?? []).map((it, i) => ({
+        const built: GeometryMapItem[] = (res.items ?? []).map((it: any, i: number) => ({
           id: newMapItemId(),
           order: i,
           principle: it.principle,
