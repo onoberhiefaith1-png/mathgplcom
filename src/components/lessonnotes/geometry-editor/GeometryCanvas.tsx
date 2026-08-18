@@ -947,7 +947,8 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
             />
           )}
           {previews}
-          {halos}
+          <g className="geo-halo-layer">{halos}</g>
+
         </g>
       </svg>
 
