@@ -28,6 +28,11 @@ import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook
 
 
 
+/** Sections where the generator builds a QUESTION — these get the context strip. */
+const QUESTION_CONTEXT_KINDS = new Set<SectionKind>([
+  "example", "exercise", "classwork", "homework", "assessment", "game_questions", "custom_session",
+]);
+
 export type SectionAction =
   | "generate"     // append fresh content (default)
   | "regenerate"   // replace existing content with a fresh draft
