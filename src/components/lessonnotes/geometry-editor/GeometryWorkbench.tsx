@@ -35,6 +35,8 @@ interface Props {
   rightPanelWidthClass?: string;
   /** Authoring halo drawn over the diagram (never alters the diagram). */
   highlightIds?: string[];
+  /** Hides the drawing toolbox — used by relationship authoring (select only). */
+  hideLeftTools?: boolean;
 }
 
 export function GeometryWorkbench(props: Props) {
@@ -45,7 +47,7 @@ export function GeometryWorkbench(props: Props) {
   );
 }
 
-function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds }: Props) {
+function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds, hideLeftTools }: Props) {
   const editor = useGeometryEditor(scene, onChange);
   const { mode, setMode, tool } = useGeometryMode();
   const [leftOpen, setLeftOpen] = useState(true);
