@@ -308,15 +308,30 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     setScreenFrame((f) => { if (f) URL.revokeObjectURL(f.url); return null; });
   };
 
-  const insertScreenshot = async (blob: Blob, aspect: number) => {
+  const insertScreenshot = async (blob: Blob, pixelWidth: number, pixelHeight: number) => {
     closeScreenshot();
     if (!openId) return;
     setBusy(true);
     try {
+      if (blob.size < 128) {
+        toast.error("The screenshot came back empty. Try taking it again.");
+        return;
+      }
       const path = await uploadSlideMedia(notebookId, openId, blob, "png");
-      const item = await insertSlideObject({ kind: "screenshot", storage_path: path, aspect });
+      // Confirm the stored file is actually reachable before telling the
+      // teacher it worked — a blank slide must never be reported as success.
+      const url = await slideMediaUrl(path);
+      if (!url) {
+        toast.error("The screenshot was taken but could not be loaded back. Try again.");
+        return;
+      }
+      const item = await insertSlideObject(
+        { kind: "screenshot", storage_path: path },
+        boxForPixels(pixelWidth, pixelHeight),
+      );
       if (item) toast.success(`Screenshot added as step ${item.step}`);
-    } catch {
+    } catch (err) {
+      console.error("[screenshot] save failed", err);
       toast.error("Could not save the screenshot");
     } finally {
       setBusy(false);
