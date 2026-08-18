@@ -161,6 +161,14 @@ const newDiagramId = (): string =>
   `D-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
+import {
+  buildSessionContext,
+  describeSessionContext,
+  materialFromSession,
+  relatedContentFor,
+  type SessionContextPackage,
+} from "@/lib/lessonnotes/ai/sessionContext";
+
 import { runBlueprintStage, summariseScene } from "@/lib/lessonnotes/ai/pipeline/generate";
 import { blueprintDirective } from "@/lib/lessonnotes/ai/pipeline/blueprint";
 import { hasMaterial, mergeMaterial } from "@/lib/lessonnotes/ai/pipeline/material";
