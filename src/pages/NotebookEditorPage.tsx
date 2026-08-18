@@ -237,12 +237,30 @@ const NotebookEditorPage = () => {
         </Suspense>
         </div>
         {copilotOpen && (
-          <div className="hidden md:block h-full w-[34%] min-w-[320px] max-w-[520px]">
-            <Suspense fallback={<div className="h-full border-l border-foreground/10" />}>
-              <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setCopilotOpen(false)} />
-            </Suspense>
-          </div>
+          <>
+            {/* Wide screens: docked beside the note */}
+            <div className="hidden md:block h-full w-[34%] min-w-[320px] max-w-[520px]">
+              <Suspense fallback={<div className="h-full border-l border-foreground/10" />}>
+                <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setCopilotOpen(false)} />
+              </Suspense>
+            </div>
+            {/* Narrow screens: slide-over drawer */}
+            <div className="md:hidden fixed inset-0 z-40 flex">
+              <button
+                type="button"
+                aria-label="Close Co-Pilot"
+                className="flex-1 bg-black/50"
+                onClick={() => setCopilotOpen(false)}
+              />
+              <div className="h-full w-[88%] max-w-[420px] shadow-2xl">
+                <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
+                  <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setCopilotOpen(false)} />
+                </Suspense>
+              </div>
+            </div>
+          </>
         )}
+
       </div>
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
