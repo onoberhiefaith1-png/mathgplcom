@@ -408,3 +408,86 @@ export function connectionsOf(item: GeometryPropertyItem): GeoId[] {
     ]),
   ];
 }
+
+/* ───────────── targets: real objects + teacher-defined parts ───────────── */
+
+export interface PropertyTarget {
+  id: GeoId;
+  type: string;
+  typeLabel: string;
+  name: string;
+  /** Real diagram objects this target resolves to (itself, if drawn). */
+  refIds: GeoId[];
+  virtual?: boolean;
+}
+
+/** Resolves any relationship target — a drawn object or a defined part. */
+export function describeTarget(
+  scene: GeometryScene,
+  doc: GeometryPropertiesDoc,
+  rawId: GeoId | null,
+): PropertyTarget | null {
+  if (!rawId) return null;
+  const baseId = rawId.split("#")[0];
+  const virtual = (doc.virtuals ?? []).find((v) => v.id === baseId);
+  if (virtual) {
+    return {
+      id: virtual.id,
+      type: virtual.kind,
+      typeLabel:
+        VIRTUAL_KINDS.find((k) => k.value === virtual.kind)?.label ?? "Part",
+      name: virtual.name,
+      refIds: virtual.refIds,
+      virtual: true,
+    };
+  }
+  const described = describeObject(scene, baseId);
+  if (!described) return null;
+  return { ...described, refIds: [described.id] };
+}
+
+/**
+ * Expands relationship ids into the real diagram objects to highlight.
+ * A defined part highlights the objects it was built from.
+ */
+export function resolveHighlightIds(
+  doc: GeometryPropertiesDoc,
+  ids: GeoId[],
+): GeoId[] {
+  const out: GeoId[] = [];
+  for (const raw of ids) {
+    const id = raw.split("#")[0];
+    const virtual = (doc.virtuals ?? []).find((v) => v.id === id);
+    if (virtual) out.push(...virtual.refIds.map((x) => x.split("#")[0]));
+    else out.push(id);
+  }
+  return [...new Set(out)];
+}
+
+/** Builds the display name of a defined angle from vertex + arm points. */
+export function angleNameFromRefs(scene: GeometryScene, refIds: GeoId[]): string {
+  const labels = refIds
+    .map((id) => pointById(scene, id.split("#")[0])?.label)
+    .filter((l): l is string => !!l);
+  if (labels.length >= 3) return `∠${labels[1]}${labels[0]}${labels[2]}`;
+  if (labels.length === 1) return `∠${labels[0]}`;
+  return "∠ (new angle)";
+}
+
+/** Every target (drawn or defined) that carries at least one visible item. */
+export function guideTargets(
+  scene: GeometryScene,
+  doc: GeometryPropertiesDoc,
+  items: GeometryPropertyItem[],
+): PropertyTarget[] {
+  const seen = new Map<string, PropertyTarget>();
+  for (const item of items) {
+    for (const raw of [...item.sourceObjectIds, ...item.connectedObjectIds]) {
+      const id = raw.split("#")[0];
+      if (seen.has(id)) continue;
+      const t = describeTarget(scene, doc, id);
+      if (t) seen.set(id, t);
+    }
+  }
+  return [...seen.values()];
+}
