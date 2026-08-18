@@ -23,6 +23,8 @@ import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/Geometr
 import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
+import { GeometryPropertiesWorkspace } from "@/components/lessonnotes/geometry-editor/GeometryPropertiesWorkspace";
+import { GeometryGuideView } from "@/components/lessonnotes/geometry-editor/GeometryGuideView";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
@@ -291,7 +293,10 @@ function GeometryDiagramView({
             relevanceText={(node.attrs.questionText as string) || undefined}
           />
         ) : (
-          <StaticGeometryDiagram scene={scene} />
+          <>
+            <StaticGeometryDiagram scene={scene} />
+            <GeometryGuideView scene={scene} />
+          </>
         )}
 
         {(selected || aiVisible) && (
@@ -379,6 +384,7 @@ function LiveEditor({
   }, [onChange]);
   const editor = useGeometryEditor(scene, handleChange, relevanceText);
   const { tool: modeTool } = useGeometryMode();
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
 
   // Sync tool from the shared context (left-side toolbox).
   useEffect(() => {
@@ -436,6 +442,7 @@ function LiveEditor({
       canUndo={canUndo}
       canRedo={canRedo}
       onDeleteDiagram={onDeleteDiagram}
+      onOpenProperties={() => setPropertiesOpen(true)}
     />
   ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind, editor.commit, selectItem, canUndo, canRedo, doUndo, doRedo, onDeleteDiagram]);
 
@@ -460,7 +467,18 @@ function LiveEditor({
   useRegisterAssetEditor(true, `geometry:${instanceId}`, kindTitle, editorNode, selectionToken);
 
 
-  return <GeometryCanvas editor={editor} />;
+  return (
+    <>
+      <GeometryCanvas editor={editor} />
+      {propertiesOpen && (
+        <GeometryPropertiesWorkspace
+          scene={editor.scene}
+          onChange={(next) => editor.commit(next)}
+          onClose={() => setPropertiesOpen(false)}
+        />
+      )}
+    </>
+  );
 }
 
 export const GeometryDiagramNode = Node.create({

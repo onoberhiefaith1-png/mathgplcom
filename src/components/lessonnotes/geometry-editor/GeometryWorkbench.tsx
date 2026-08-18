@@ -29,6 +29,12 @@ interface Props {
   stroke?: string;
   /** Optional chrome colours so the side panels blend with the host surface. */
   chrome?: { bg: string; fg: string; border: string };
+  /** Replaces the default Diagram Tools panel (Geometry Properties authoring). */
+  renderRightPanel?: (editor: ReturnType<typeof useGeometryEditor>) => React.ReactNode;
+  rightPanelTitle?: string;
+  rightPanelWidthClass?: string;
+  /** Authoring halo drawn over the diagram (never alters the diagram). */
+  highlightIds?: string[];
 }
 
 export function GeometryWorkbench(props: Props) {
@@ -39,7 +45,7 @@ export function GeometryWorkbench(props: Props) {
   );
 }
 
-function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome }: Props) {
+function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds }: Props) {
   const editor = useGeometryEditor(scene, onChange);
   const { mode, setMode, tool } = useGeometryMode();
   const [leftOpen, setLeftOpen] = useState(true);
@@ -73,7 +79,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
     return () => window.removeEventListener("keydown", onKey);
   }, [editor.canUndo, editor.canRedo, editor.doUndo, editor.doRedo, history]);
 
-  const rightPanel = useMemo(() => (
+  const rightPanel = useMemo(() => (renderRightPanel ? renderRightPanel(editor) : (
     <div className="space-y-2">
       <DiagramToolsPanel
         hasSelection={editor.selectedObjects.length > 0}
@@ -93,9 +99,10 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
         onDeleteDiagram={onDeleteDiagram}
       />
     </div>
+  ))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind,
-      editor.pendingIds.length, editor.canUndo, editor.canRedo, onDeleteDiagram]);
+  , [editor, editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind,
+      editor.pendingIds.length, editor.canUndo, editor.canRedo, onDeleteDiagram, renderRightPanel]);
 
   // Measure the drawing area so the canvas is at least as large as the
   // workspace: the teacher can draw anywhere on it, not only inside a card.
@@ -136,6 +143,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
         <GeometryCanvas
           editor={editor}
           stroke={stroke}
+          highlightIds={highlightIds}
           minViewW={Math.max(0, area.w - 8)}
           minViewH={Math.max(0, area.h - 8)}
         />
@@ -143,13 +151,13 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
 
       {rightOpen ? (
         <aside
-          className="sticky right-0 top-0 z-20 h-full w-56 shrink-0 self-start overflow-y-auto rounded-lg border border-foreground/15 bg-background/95 p-2"
+          className={cn("sticky right-0 top-0 z-20 h-full shrink-0 self-start overflow-y-auto rounded-lg border border-foreground/15 bg-background/95 p-2", rightPanelWidthClass ?? "w-56")}
           style={chrome ? { background: chrome.bg, color: chrome.fg, borderColor: chrome.border } : undefined}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="mb-1.5 flex items-center justify-between">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
-              Diagram Tools
+              {rightPanelTitle ?? "Diagram Tools"}
             </span>
             <button
               type="button"

@@ -205,8 +205,11 @@ export interface GeometryScene {
   meta?: {
     topic?: string;
     caption?: string;
-    /** Teacher-curated relationships per selection signature. */
+    /** Teacher-curated relationships per selection signature (legacy). */
     relationships?: Record<string, unknown>;
+    /** Geometry Properties — the teacher-authored relationship map. */
+    geometryProperties?: unknown;
+    [key: string]: unknown;
   };
 }
 

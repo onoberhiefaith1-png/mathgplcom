@@ -10,7 +10,7 @@ import { patchObject, addAngle, addFloatingLabel } from "@/lib/geometry/editor/s
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
 import { pointsOnCircle, pointsOnArc } from "@/lib/geometry/editor/snap";
 import type { HitKind } from "@/lib/geometry/editor/snap";
-import { ChevronDown, ChevronRight, ChevronUp, Undo2, Redo2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Undo2, Redo2, Trash2, Network } from "lucide-react";
 
 interface Props {
   scene: GeometryScene;
@@ -28,6 +28,8 @@ interface Props {
   canRedo?: boolean;
   /** Delete the whole diagram node from the lesson note. */
   onDeleteDiagram?: () => void;
+  /** Opens the dedicated Geometry Properties authoring workspace. */
+  onOpenProperties?: () => void;
 }
 
 /** A single line-like item the teacher can distance-annotate. */
@@ -178,8 +180,8 @@ function sharedVertices(items: LineItem[]): Array<{ vertex: GeoId; items: LineIt
 }
 
 export function SelectionInspector(props: Props) {
-  const { onUndo, onRedo, canUndo, canRedo, onDeleteDiagram, selected } = props;
-  const showChrome = !!(onUndo || onRedo || onDeleteDiagram);
+  const { onUndo, onRedo, canUndo, canRedo, onDeleteDiagram, onOpenProperties, selected } = props;
+  const showChrome = !!(onUndo || onRedo || onDeleteDiagram || onOpenProperties);
   const body = <SelectionInspectorBody {...props} />;
   if (!showChrome) return body;
   return (
@@ -204,6 +206,21 @@ export function SelectionInspector(props: Props) {
         </div>
       )}
       {body}
+      {onOpenProperties && (
+        <div className="pt-2 mt-2 border-t border-foreground/10">
+          <button
+            type="button"
+            onClick={onOpenProperties}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded border border-primary/40 bg-primary/10 text-primary text-[12px] font-medium hover:bg-primary/15"
+            title="Author the relationships for this diagram"
+          >
+            <Network className="h-3.5 w-3.5" /> Geometry Properties
+          </button>
+          <p className="mt-1 text-[10px] text-foreground/50">
+            Relationship map for this diagram — specific facts and general rules.
+          </p>
+        </div>
+      )}
       {onDeleteDiagram && (
         <div className="pt-2 mt-2 border-t border-foreground/10">
           <button
