@@ -15,6 +15,7 @@ import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, User
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
+import type { MaterialFile, StageId, TeacherContext } from "@/lib/lessonnotes/ai/pipeline/types";
 import { AssignDialog } from "../AssignDialog";
 import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { supabase } from "@/integrations/supabase/client";
