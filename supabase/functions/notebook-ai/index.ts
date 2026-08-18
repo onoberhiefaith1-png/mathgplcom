@@ -905,10 +905,14 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
         }
       }
 
+      // The application owns the heading. If the model repeated it, drop the
+      // duplicate label and keep the mathematics — never treat it as a failure.
+      content = stripDuplicateHeading(content);
 
       return new Response(JSON.stringify({ content, warnings }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+
     }
 
 
