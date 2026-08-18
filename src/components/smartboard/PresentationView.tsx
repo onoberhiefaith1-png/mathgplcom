@@ -75,6 +75,7 @@ import { FloatingNumberPanel } from "./FloatingNumberPanel";
 import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
+import BoardEmojiDock from "./BoardEmojiDock";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
 import { clampRowSpacing, normalizeRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import {
