@@ -2021,17 +2021,26 @@ function DocumentEditorInner({
       const doc = editor.state.doc;
       const heading = doc.nodeAt(headingPos);
       if (!heading || heading.type.name !== "heading") return;
-      const existing = diagramsOwnedByQuestion(doc, headingPos, isSolutionLabel)[0];
+      // The Geometry panel may be opened while the cursor is under Solution.
+      // Resolve that request back to its owning question; a Solution is never
+      // an insertion target for an independent scene.
+      const targetHeadingPos = isSolutionLabel(heading.textContent)
+        ? ownerQuestionHeadingFor(doc, headingPos)?.pos
+        : headingPos;
+      if (targetHeadingPos == null) return;
+      const targetHeading = doc.nodeAt(targetHeadingPos);
+      if (!targetHeading || targetHeading.type.name !== "heading") return;
+      const existing = diagramsOwnedByQuestion(doc, targetHeadingPos, isSolutionLabel)[0];
       if (existing) {
         editor.chain().focus().setNodeSelection(existing.pos).run();
         return;
       }
-      const headingLevel = heading.attrs.level ?? 2;
+      const headingLevel = targetHeading.attrs.level ?? 2;
       // End of this section = position of next heading at same or higher level,
       // else end of doc.
       let endPos = doc.content.size;
       doc.descendants((node, pos) => {
-        if (pos <= headingPos) return true;
+        if (pos <= targetHeadingPos) return true;
         if (node.type.name === "heading" && (node.attrs.level ?? 6) <= headingLevel) {
           endPos = pos;
           return false;
@@ -2040,7 +2049,7 @@ function DocumentEditorInner({
       });
       editor.chain().focus().insertContentAt(endPos, {
         type: "geometryDiagram",
-        attrs: { scene: detail.scene },
+        attrs: { scene: detail.scene, diagramId: newDiagramId() },
       }).run();
     };
     window.addEventListener("geometry-editor:list-sections", listSections);
