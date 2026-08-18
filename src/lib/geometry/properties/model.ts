@@ -48,6 +48,8 @@ export interface GeometryPropertyItem {
   sourceObjectIds: GeoId[];
   /** Every diagram object the relationship involves (any number, any type). */
   connectedObjectIds: GeoId[];
+  /** Optional symbol → object bindings ("X" is this segment, "θ" is this angle). */
+  tokens?: TokenBinding[];
   aiGenerated?: boolean;
   /** AI drafts start unapproved; teacher content is approved on save. */
   approved?: boolean;
