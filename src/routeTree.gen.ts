@@ -201,6 +201,7 @@ import { Route as TeachingHubClassesClassIdIndexRouteImport } from './routes/tea
 import { Route as TeachingHubClassesCreateIndexRouteImport } from './routes/teaching-hub/classes/create/index'
 import { Route as TeachingHubSettingsArchiveIndexRouteImport } from './routes/teaching-hub/settings/archive/index'
 import { Route as TeachingHubStudentsUserIdIndexRouteImport } from './routes/teaching-hub/students/$userId/index'
+import { Route as AdminAssetsSessionSubsessionIndexRouteImport } from './routes/admin/assets/$session/$subsession/index'
 import { Route as FamilyChildrenChildIdAdventuresIndexRouteImport } from './routes/family/children/$childId/adventures/index'
 import { Route as FamilyChildrenChildIdAssignmentsIndexRouteImport } from './routes/family/children/$childId/assignments/index'
 import { Route as FamilyChildrenChildIdClassesIndexRouteImport } from './routes/family/children/$childId/classes/index'
@@ -1301,6 +1302,12 @@ const TeachingHubStudentsUserIdIndexRoute =
     path: '/students/$userId/',
     getParentRoute: () => TeachingHubRouteRoute,
   } as any)
+const AdminAssetsSessionSubsessionIndexRoute =
+  AdminAssetsSessionSubsessionIndexRouteImport.update({
+    id: '/assets/$session/$subsession/',
+    path: '/assets/$session/$subsession/',
+    getParentRoute: () => AdminRouteRoute,
+  } as any)
 const FamilyChildrenChildIdAdventuresIndexRoute =
   FamilyChildrenChildIdAdventuresIndexRouteImport.update({
     id: '/children/$childId/adventures/',
@@ -2005,6 +2012,7 @@ export interface FileRoutesByFullPath {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/admin/assets/$session/$subsession/': typeof AdminAssetsSessionSubsessionIndexRoute
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
@@ -2271,6 +2279,7 @@ export interface FileRoutesByTo {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/admin/assets/$session/$subsession': typeof AdminAssetsSessionSubsessionIndexRoute
   '/family/children/$childId/adventures': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes': typeof FamilyChildrenChildIdClassesIndexRoute
@@ -2549,6 +2558,7 @@ export interface FileRoutesById {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/admin/assets/$session/$subsession/': typeof AdminAssetsSessionSubsessionIndexRoute
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
@@ -2828,6 +2838,7 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/admin/assets/$session/$subsession/'
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
     | '/family/children/$childId/classes/'
@@ -3094,6 +3105,7 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/admin/assets/$session/$subsession'
     | '/family/children/$childId/adventures'
     | '/family/children/$childId/assignments'
     | '/family/children/$childId/classes'
@@ -3371,6 +3383,7 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/admin/assets/$session/$subsession/'
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
     | '/family/children/$childId/classes/'
@@ -4922,6 +4935,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeachingHubStudentsUserIdIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
+    '/admin/assets/$session/$subsession/': {
+      id: '/admin/assets/$session/$subsession/'
+      path: '/assets/$session/$subsession'
+      fullPath: '/admin/assets/$session/$subsession/'
+      preLoaderRoute: typeof AdminAssetsSessionSubsessionIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/family/children/$childId/adventures/': {
       id: '/family/children/$childId/adventures/'
       path: '/children/$childId/adventures'
@@ -5522,6 +5542,7 @@ interface AdminRouteRouteChildren {
   AdminUsageRevenueIndexRoute: typeof AdminUsageRevenueIndexRoute
   AdminWebsiteIndexRoute: typeof AdminWebsiteIndexRoute
   AdminAssetsSessionIndexRoute: typeof AdminAssetsSessionIndexRoute
+  AdminAssetsSessionSubsessionIndexRoute: typeof AdminAssetsSessionSubsessionIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
@@ -5540,6 +5561,8 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminUsageRevenueIndexRoute: AdminUsageRevenueIndexRoute,
   AdminWebsiteIndexRoute: AdminWebsiteIndexRoute,
   AdminAssetsSessionIndexRoute: AdminAssetsSessionIndexRoute,
+  AdminAssetsSessionSubsessionIndexRoute:
+    AdminAssetsSessionSubsessionIndexRoute,
 }
 
 const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
