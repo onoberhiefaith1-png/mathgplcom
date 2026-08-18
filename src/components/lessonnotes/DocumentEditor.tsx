@@ -627,7 +627,7 @@ function DocumentEditorInner({
           data: {
             question: ctx.question,
             solution: ctx.solution,
-            topic: ctxRef.current?.subtopic || ctxRef.current?.topic || "",
+            topic: activeContext()?.subtopic || activeContext()?.topic || "",
             objects: mapInventory(scene),
           },
         });
