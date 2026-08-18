@@ -1007,7 +1007,6 @@ function ItemCard({
           ? "border-violet-400/60 bg-violet-400/[0.07]"
           : "border-foreground/15",
       )}
-      onMouseEnter={onPreview}
     >
       {editing ? (
         <>
@@ -1030,8 +1029,15 @@ function ItemCard({
           </select>
         </>
       ) : (
-        <p className="text-[12px] leading-snug">{item.content || "Untitled relationship"}</p>
+        // Clicking the statement is what lights the diagram up.
+        <button type="button" onClick={onPreview} className="block w-full text-left">
+          <p className="text-[12px] leading-snug">{item.content || "Untitled relationship"}</p>
+          {item.reason && (
+            <p className="text-[10.5px] text-foreground/55">({item.reason})</p>
+          )}
+        </button>
       )}
+
 
       {symbols.length > 0 && (
         <div className="space-y-1 rounded border border-foreground/10 bg-foreground/[0.02] p-1.5">
