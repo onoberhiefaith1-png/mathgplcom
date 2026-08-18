@@ -64,6 +64,7 @@ import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
 import { Route as AdminAdvertisementsIndexRouteImport } from './routes/admin/advertisements/index'
+import { Route as AdminAssetsIndexRouteImport } from './routes/admin/assets/index'
 import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/index'
 import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost-analytics/index'
 import { Route as AdminCostRevenueIndexRouteImport } from './routes/admin/cost-revenue/index'
@@ -559,6 +560,11 @@ const AdminAdvertisementsIndexRoute =
     path: '/advertisements/',
     getParentRoute: () => AdminRouteRoute,
   } as any)
+const AdminAssetsIndexRoute = AdminAssetsIndexRouteImport.update({
+  id: '/assets/',
+  path: '/assets/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminBillingIndexRoute = AdminBillingIndexRouteImport.update({
   id: '/billing/',
   path: '/billing/',
@@ -1853,6 +1859,7 @@ export interface FileRoutesByFullPath {
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
+  '/admin/assets/': typeof AdminAssetsIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
@@ -2117,6 +2124,7 @@ export interface FileRoutesByTo {
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
+  '/admin/assets': typeof AdminAssetsIndexRoute
   '/admin/billing': typeof AdminBillingIndexRoute
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue': typeof AdminCostRevenueIndexRoute
@@ -2393,6 +2401,7 @@ export interface FileRoutesById {
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
+  '/admin/assets/': typeof AdminAssetsIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
@@ -2670,6 +2679,7 @@ export interface FileRouteTypes {
     | '/homepage/replace-building/free'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
+    | '/admin/assets/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
@@ -2934,6 +2944,7 @@ export interface FileRouteTypes {
     | '/homepage/replace-building/free'
     | '/admin/access-codes'
     | '/admin/advertisements'
+    | '/admin/assets'
     | '/admin/billing'
     | '/admin/cost-analytics'
     | '/admin/cost-revenue'
@@ -3209,6 +3220,7 @@ export interface FileRouteTypes {
     | '/homepage/replace-building/free'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
+    | '/admin/assets/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
@@ -3937,6 +3949,13 @@ declare module '@tanstack/react-router' {
       path: '/advertisements'
       fullPath: '/admin/advertisements/'
       preLoaderRoute: typeof AdminAdvertisementsIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/assets/': {
+      id: '/admin/assets/'
+      path: '/assets'
+      fullPath: '/admin/assets/'
+      preLoaderRoute: typeof AdminAssetsIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/billing/': {
@@ -5472,6 +5491,7 @@ interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminAccessCodesIndexRoute: typeof AdminAccessCodesIndexRoute
   AdminAdvertisementsIndexRoute: typeof AdminAdvertisementsIndexRoute
+  AdminAssetsIndexRoute: typeof AdminAssetsIndexRoute
   AdminBillingIndexRoute: typeof AdminBillingIndexRoute
   AdminCostAnalyticsIndexRoute: typeof AdminCostAnalyticsIndexRoute
   AdminCostRevenueIndexRoute: typeof AdminCostRevenueIndexRoute
@@ -5488,6 +5508,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AdminAccessCodesIndexRoute: AdminAccessCodesIndexRoute,
   AdminAdvertisementsIndexRoute: AdminAdvertisementsIndexRoute,
+  AdminAssetsIndexRoute: AdminAssetsIndexRoute,
   AdminBillingIndexRoute: AdminBillingIndexRoute,
   AdminCostAnalyticsIndexRoute: AdminCostAnalyticsIndexRoute,
   AdminCostRevenueIndexRoute: AdminCostRevenueIndexRoute,
