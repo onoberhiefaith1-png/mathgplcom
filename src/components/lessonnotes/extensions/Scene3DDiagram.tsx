@@ -5,12 +5,16 @@
 // WebGL contexts (~8-16); several 3D diagrams on one page would otherwise
 // crash the renderer.
 
-import { useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { Boxes, Pencil, Trash2 } from "lucide-react";
-import { Scene3DCanvas } from "@/components/lessonnotes/geometry3d/Scene3DCanvas";
+// three.js only loads when a teacher actually activates a 3D diagram, so the
+// lesson note itself opens without it.
+const Scene3DCanvas = lazy(() =>
+  import("@/components/lessonnotes/geometry3d/Scene3DCanvas").then((m) => ({ default: m.Scene3DCanvas })),
+);
 import { EMPTY_SCENE_3D, sanitizeScene3D, type Scene3D } from "@/lib/geometry3d/scene3d";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
@@ -61,8 +65,17 @@ function Scene3DDiagramView({ node, updateAttributes, deleteNode, selected, edit
         style={{ height }}
       >
         {active ? (
-          <Scene3DCanvas scene={scene} frameloop="always" className="h-full w-full" />
+          <Suspense
+            fallback={
+              <div className="grid h-full w-full place-items-center bg-[#0d0b1e] text-xs text-white/60">
+                Preparing 3D…
+              </div>
+            }
+          >
+            <Scene3DCanvas scene={scene} frameloop="always" className="h-full w-full" />
+          </Suspense>
         ) : (
+
           <button
             type="button"
             onClick={() => setActive(true)}

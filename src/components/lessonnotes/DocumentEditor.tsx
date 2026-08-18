@@ -8,7 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -28,7 +28,11 @@ import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionR
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
 import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
 import { Scene3DDiagramNode, onScene3DWorkspaceOpen } from "./extensions/Scene3DDiagram";
-import { Workspace3DDialog } from "./geometry3d/Workspace3DDialog";
+// Heavy authoring dialogs load on first use, so opening the note does not wait
+// for the 3D workspace, asset library, pickers or the emoji panel.
+const Workspace3DDialog = lazy(() =>
+  import("./geometry3d/Workspace3DDialog").then((m) => ({ default: m.Workspace3DDialog })),
+);
 import type { Scene3D } from "@/lib/geometry3d/scene3d";
 import { GeometryAiPanel } from "./GeometryAiPanel";
 import { GeometryToolbox } from "./geometry-editor/GeometryToolbox";
@@ -48,12 +52,12 @@ import { MathVisual } from "./extensions/MathVisual";
 import { AtCommand, type AtCommandState } from "./extensions/AtCommand";
 import { MathKeyShortcuts } from "./extensions/MathKeyShortcuts";
 import { AtCommandMenu } from "./AtCommandMenu";
-import { AssetLibraryDialog } from "./AssetLibraryDialog";
+const AssetLibraryDialog = lazy(() => import("./AssetLibraryDialog").then((m) => ({ default: m.AssetLibraryDialog })));
 import { LayoutGrid } from "lucide-react";
 import { StepAnimationNode, type AnimationFrame } from "./extensions/StepAnimation";
-import { MathTablesPicker } from "./math-tools/MathTablesPicker";
-import { SmartCalculator } from "./math-tools/SmartCalculator";
-import { MathObjectsPicker } from "./math-objects/MathObjectsPicker";
+const MathTablesPicker = lazy(() => import("./math-tools/MathTablesPicker").then((m) => ({ default: m.MathTablesPicker })));
+const SmartCalculator = lazy(() => import("./math-tools/SmartCalculator").then((m) => ({ default: m.SmartCalculator })));
+const MathObjectsPicker = lazy(() => import("./math-objects/MathObjectsPicker").then((m) => ({ default: m.MathObjectsPicker })));
 import { EMPTY_SCENE, sanitizeScene, pointById, type GeometryScene } from "@/lib/geometry/scene";
 import {
   addAngle,
@@ -92,7 +96,7 @@ import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
-import { EmojiPanel } from "./EmojiPanel";
+const EmojiPanel = lazy(() => import("./EmojiPanel").then((m) => ({ default: m.EmojiPanel })));
 import { EmojiMedia } from "./extensions/EmojiMedia";
 import { ConversionPanel } from "./ConversionPanel";
 import { renderMathInline, HAS_MATH } from "@/lib/notebook/mathRender";
@@ -2833,12 +2837,16 @@ function DocumentEditorInner({
 
           </PageFrame>
         </div>
+        {emojiPanelOpen && (
+        <Suspense fallback={null}>
         <EmojiPanel
           open={emojiPanelOpen}
           onClose={() => setEmojiPanelOpen(false)}
           onInsert={insertSymbolText}
           onInsertMedia={insertEmojiMedia}
         />
+        </Suspense>
+        )}
         {slidePanelOpen && notebookId && (
           <SlidePanel
             notebookId={notebookId}
@@ -2866,7 +2874,11 @@ function DocumentEditorInner({
         renderPreview={(t) => <span>{renderMathInline(t)}</span>}
       />
       <AtCommandMenu editor={editor} state={atState} onClose={() => setAtState({ active: false, query: "", from: 0, to: 0, coords: null })} />
-      <AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />
+      {assetLibOpen && (
+        <Suspense fallback={null}>
+          <AssetLibraryDialog editor={editor} open={assetLibOpen} onOpenChange={setAssetLibOpen} />
+        </Suspense>
+      )}
 
       <ProblemCheckDialog
         open={Boolean(problemCheck)}
@@ -2880,6 +2892,8 @@ function DocumentEditorInner({
       <GeometryAiPanel />
       <GeometryToolbox />
 
+      {workspace3dOpen && (
+      <Suspense fallback={null}>
       <Workspace3DDialog
         open={workspace3dOpen}
         onOpenChange={(o) => {
@@ -2889,6 +2903,10 @@ function DocumentEditorInner({
         initialScene={workspace3dScene}
         onExport={handle3DExport}
       />
+      </Suspense>
+      )}
+      {tablesOpen && (
+      <Suspense fallback={null}>
       <MathTablesPicker
         open={tablesOpen}
         onOpenChange={setTablesOpen}
@@ -2897,6 +2915,10 @@ function DocumentEditorInner({
           editor.chain().focus().insertContent({ type: "mathTable", attrs }).run();
         }}
       />
+      </Suspense>
+      )}
+      {calcOpen && (
+      <Suspense fallback={null}>
       <SmartCalculator
         open={calcOpen}
         onOpenChange={setCalcOpen}
@@ -2905,6 +2927,10 @@ function DocumentEditorInner({
           editor.chain().focus().insertContent({ type: "smartCalc", attrs }).run();
         }}
       />
+      </Suspense>
+      )}
+      {objectsOpen && (
+      <Suspense fallback={null}>
       <MathObjectsPicker
         open={objectsOpen}
         onOpenChange={setObjectsOpen}
@@ -2913,6 +2939,8 @@ function DocumentEditorInner({
           editor.chain().focus().insertContent({ type: "mathObject", attrs: { kind, size: 32 } }).run();
         }}
       />
+      </Suspense>
+      )}
     </div>
     </AiEditBridgeProvider>
     </AssetSelectionProvider>

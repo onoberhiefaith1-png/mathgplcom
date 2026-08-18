@@ -4,14 +4,19 @@
 // data access by other tools (smartboard, floating numbers) — they're seeded
 // from a one-time migration in useNotebook when a notebook is first opened.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, Presentation, Loader2, Smartphone, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
 
-import { DocumentEditor } from "@/components/lessonnotes/DocumentEditor";
+// The editor carries the whole authoring surface (math, geometry, 3D, assets),
+// so it downloads as its own chunk in parallel with the notebook query instead
+// of blocking the page from appearing.
+const DocumentEditor = lazy(() =>
+  import("@/components/lessonnotes/DocumentEditor").then((m) => ({ default: m.DocumentEditor })),
+);
 import type { PaperSize, PaperStyle } from "@/lib/lessonnotes/paperThemes";
 import { useNotebook } from "@/hooks/useNotebook";
 import { themeForIndex } from "@/lib/lessonnotes/themes";
@@ -173,6 +178,15 @@ const NotebookEditorPage = () => {
       </header>
 
       <div className="flex-1 min-h-0 overflow-hidden">
+        <Suspense
+          fallback={
+            <div className="h-full grid place-items-center">
+              <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Opening the lesson note…
+              </p>
+            </div>
+          }
+        >
         <DocumentEditor
           documentJson={notebook.document_json}
           paperSize={(notebook.paper_size as PaperSize) || "a4"}
@@ -194,6 +208,7 @@ const NotebookEditorPage = () => {
           exportFileName={notebook.title || notebook.subtopic || "lesson-notes"}
           gameQuestionsOnly={(notebook as { purpose?: string }).purpose === "game"}
         />
+        </Suspense>
       </div>
 
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
