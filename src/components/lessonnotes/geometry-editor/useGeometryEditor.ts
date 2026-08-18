@@ -21,7 +21,7 @@ import type { HitKind } from "@/lib/geometry/editor/snap";
  * therefore keep every construction label exactly as before.
  */
 const normalise = (s: GeometryScene, relevanceText?: string): GeometryScene => {
-  const base = ensureIntersectionPoints(normalizeScene(s));
+  const base = ensureIntersectionPoints(normalizeScene(liberateShapeLabels(s)));
   return relevanceText ? hideIrrelevantAutoPoints(base, relevanceText) : base;
 };
 
