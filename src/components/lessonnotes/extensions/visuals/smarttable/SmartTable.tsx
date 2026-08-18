@@ -9,9 +9,13 @@ import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useAiEditBridge } from "@/hooks/useAiEditBridge";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { latexToFriendly } from "@/lib/notebook/mathFriendly";
 import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
 import { toast } from "@/hooks/use-toast";
 import { SmartTableCellToolbar } from "./SmartTableCellToolbar";
+import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
+import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
+import type { Row as MathRow } from "@/lib/smartboard/mathTree";
 import {
   PanelGroup, PanelRow, PanelButton, PanelNumber, PanelColor, PanelToggle,
 } from "@/components/lessonnotes/panel/panelPrimitives";
