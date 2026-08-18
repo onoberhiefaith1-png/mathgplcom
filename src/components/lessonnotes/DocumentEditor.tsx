@@ -1309,7 +1309,12 @@ function DocumentEditorInner({
           .command(({ tr }) => { closeHistory(tr); return true; })
           .insertContentAt(insertAt, {
             type: "geometryDiagram",
-            attrs: { scene, topic, diagramId: newDiagramId() },
+            attrs: {
+              scene,
+              topic,
+              diagramId: newDiagramId(),
+              questionText: geometrySourceText,
+            },
           })
           .run();
       } catch (err) {
