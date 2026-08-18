@@ -1067,6 +1067,160 @@ ${sectionText}`;
     }
 
     // ─────────────────────────────────────────────────────────────
+    // MODE: blueprint
+    // Stage 2/3 of the question pipeline. Reads EVERY supplied material
+    // (instruction text, photos, documents) and returns a STRUCTURED
+    // mathematical blueprint. No question, no diagram, no prose yet.
+    // ─────────────────────────────────────────────────────────────
+    if (body.mode === "blueprint") {
+      const b = body as {
+        mode: "blueprint";
+        sectionKind?: string;
+        material?: { text?: string; images?: string[]; files?: Array<{ name: string; mime: string; dataUrl: string }> };
+        materialSource?: string;
+        contextDirective?: string;
+        topic?: string; subtopic?: string; level?: string; difficulty?: string;
+        diagramRequired?: boolean | null; reuse?: string;
+      };
+      const material = b.material ?? {};
+      const instruction = `
+You are the mathematical analysis stage of a lesson-note generator. You do NOT
+write a question yet. You read everything the teacher supplied and return a
+STRUCTURED BLUEPRINT of the mathematics involved.
+
+${b.contextDirective ?? ""}
+
+Section being prepared: ${b.sectionKind ?? "example"}
+Material supplied: ${b.materialSource ?? "teacher instruction"}
+
+RULES
+• If the teacher supplied an existing question (typed, photographed or in a document),
+  copy it VERBATIM into "sourceQuestion" and derive the blueprint from it.
+• Extract real values and units. Never invent a value the material does not imply.
+• "methods" lists the mathematics the question must actually require
+  (e.g. "angle at centre = 2 × angle at circumference", "Pythagoras").
+• Set diagramRequired true ONLY when the mathematics genuinely needs a diagram
+  (geometry figures, bearings, graphs of shapes). Word problems do not.
+• "diagramDescription" describes the figure in words: objects, points, which
+  values are shown, which are unknown.
+• "labels" lists every label that must appear on the diagram.
+• "answerFormat" states the expected form of the final answer (degrees, cm, surd,
+  simplified fraction, 2 decimal places, …).
+
+Return STRICT JSON only, no markdown, exactly this shape:
+{
+  "topic": "", "subtopic": "", "level": "", "difficulty": "",
+  "objective": "", "objects": [], 
+  "given": [{"symbol":"","value":"","unit":""}],
+  "unknown": "", "methods": [],
+  "diagramRequired": false, "diagramDescription": "", "labels": [],
+  "answerFormat": "", "sourceQuestion": "", "notes": ""
+}
+`.trim();
+
+      const content: any[] = [{ type: "text", text: instruction }];
+      if (String(material.text ?? "").trim()) {
+        content.push({ type: "text", text: `TEACHER INSTRUCTION / MATERIAL:\n"""${material.text}"""` });
+      }
+      for (const img of (material.images ?? []).slice(0, 4)) {
+        if (typeof img === "string" && img.startsWith("data:")) {
+          content.push({ type: "image_url", image_url: { url: img } });
+        }
+      }
+      for (const f of (material.files ?? []).slice(0, 3)) {
+        if (!f?.dataUrl) continue;
+        if (String(f.mime).startsWith("image/")) {
+          content.push({ type: "image_url", image_url: { url: f.dataUrl } });
+        } else if (String(f.mime) === "application/pdf") {
+          content.push({ type: "file", file: { filename: f.name, file_data: f.dataUrl } });
+        } else {
+          content.push({
+            type: "text",
+            text: `A file named "${f.name}" (${f.mime}) was attached but its text could not be read here; rely on the instruction above.`,
+          });
+        }
+      }
+
+      const out = await callAI([{ role: "user", content }], "google/gemini-2.5-flash");
+      const cleaned = out.trim().replace(/^```json\s*|\s*```$/g, "").replace(/^```\s*|\s*```$/g, "");
+      let blueprint: any = null;
+      try {
+        blueprint = JSON.parse(cleaned);
+      } catch {
+        const m = cleaned.match(/\{[\s\S]*\}/);
+        if (m) { try { blueprint = JSON.parse(m[0]); } catch { blueprint = null; } }
+      }
+      if (!blueprint || typeof blueprint !== "object") {
+        return new Response(JSON.stringify({ error: "blueprint_failed" }), {
+          status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (b.topic && !blueprint.topic) blueprint.topic = b.topic;
+      if (b.subtopic && !blueprint.subtopic) blueprint.subtopic = b.subtopic;
+      if (b.level && !blueprint.level) blueprint.level = b.level;
+      if (b.difficulty && !blueprint.difficulty) blueprint.difficulty = b.difficulty;
+      if (b.diagramRequired === true) blueprint.diagramRequired = true;
+      if (b.diagramRequired === false) blueprint.diagramRequired = false;
+      return new Response(JSON.stringify({ blueprint }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MODE: verify
+    // Validation gate. Checks the generated question against the blueprint
+    // (maths gate) or the diagram against the question (consistency gate).
+    // ─────────────────────────────────────────────────────────────
+    if (body.mode === "verify") {
+      const b = body as {
+        mode: "verify";
+        gate?: "maths" | "diagram" | "consistency";
+        blueprint?: any;
+        question?: string;
+        solution?: string;
+        diagramSummary?: string;
+      };
+      const gate = b.gate ?? "maths";
+      const gateRules = gate === "consistency"
+        ? `Check the DIAGRAM against the QUESTION. Report a problem when a value or label in the
+question is missing from the diagram, when the diagram shows a value the question says is
+unknown, or when the diagram contradicts the question.`
+        : `Check the QUESTION against the BLUEPRINT. Report a problem when the question is not
+solvable with the given information, when required values are missing or contradictory,
+when it does not actually require the stated mathematics, or when the answer cannot be
+expressed in the required format.`;
+
+      const out = await callAI([{
+        role: "user",
+        content: `You are a validation gate for classroom mathematics. Be strict but do not invent faults.
+
+${gateRules}
+
+BLUEPRINT:
+${JSON.stringify(b.blueprint ?? {}, null, 1)}
+
+QUESTION:
+"""${b.question ?? ""}"""
+
+${b.solution ? `SOLUTION:\n"""${b.solution}"""` : ""}
+${b.diagramSummary ? `DIAGRAM:\n"""${b.diagramSummary}"""` : ""}
+
+Return STRICT JSON only: {"ok": true|false, "problems": ["short problem statement", ...]}
+"problems" must be empty when ok is true.`,
+      }], "google/gemini-2.5-flash");
+
+      const cleaned = out.trim().replace(/^```json\s*|\s*```$/g, "").replace(/^```\s*|\s*```$/g, "");
+      let verdict: any = { ok: true, problems: [] };
+      try {
+        const parsed = JSON.parse(cleaned);
+        verdict = { ok: Boolean(parsed?.ok), problems: Array.isArray(parsed?.problems) ? parsed.problems : [] };
+      } catch { /* validator unreadable — soft pass */ }
+      return new Response(JSON.stringify(verdict), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // MODE: scan  (extract problems from a photo)
     // ─────────────────────────────────────────────────────────────
     if (body.mode === "scan") {

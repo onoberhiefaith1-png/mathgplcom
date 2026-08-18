@@ -15,6 +15,7 @@ import { Sparkles, Loader2, RotateCcw, Wand2, ArrowDownToDot, Eraser, Hash, User
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
+import type { MaterialFile, StageId, TeacherContext } from "@/lib/lessonnotes/ai/pipeline/types";
 import { AssignDialog } from "../AssignDialog";
 import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +27,11 @@ import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 
 
+
+/** Sections where the generator builds a QUESTION — these get the context strip. */
+const QUESTION_CONTEXT_KINDS = new Set<SectionKind>([
+  "example", "exercise", "classwork", "homework", "assessment", "game_questions", "custom_session",
+]);
 
 export type SectionAction =
   | "generate"     // append fresh content (default)
@@ -42,6 +48,12 @@ export interface SectionAiCallContext {
   sectionText: string;
   action: SectionAction;
   images: string[];
+  /** Attached documents (PDF / Word) — part of the same material bundle. */
+  files?: MaterialFile[];
+  /** The Add-context strip values (topic, difficulty, count, reuse …). */
+  context?: TeacherContext;
+  /** Report pipeline progress back to the popover. */
+  reportStage?: (stage: StageId) => void;
 }
 
 interface SectionHeadingOptions {
@@ -123,6 +135,9 @@ function SectionHeadingView(props: NodeViewProps) {
         sectionText: info.sectionText,
         action,
         images: aiOpts.images,
+        files: aiOpts.files ?? [],
+        context: aiOpts.context,
+        reportStage: aiOpts.reportStage,
       });
     } finally {
       setBusy(null);
@@ -460,6 +475,7 @@ function SectionHeadingView(props: NodeViewProps) {
             placeholder={`What should the ${SECTION_LABELS[kind].toLowerCase()} cover?`}
             hint="Type, speak, or attach a photo. AI inserts at the end of this section."
             allowAttachments
+            allowContext={QUESTION_CONTEXT_KINDS.has(kind)}
             onGenerate={(p, o) => run("generate", p, o)}
             footerActions={[
               { id: "regenerate", label: "Regenerate", icon: <RotateCcw className="h-3 w-3" />, onRun: (p, o) => run("regenerate", p, o) },

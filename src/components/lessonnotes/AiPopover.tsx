@@ -11,13 +11,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "@/lib/router-compat";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Sparkles, Loader2, Mic, Square, Paperclip, Camera, X, Settings2 } from "lucide-react";
+import { Sparkles, Loader2, Mic, Square, Paperclip, Camera, X, Settings2, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { VoiceWave } from "./VoiceWave";
 import { AutoTextarea } from "./AutoTextarea";
 import { AiSettingsPanel } from "./ai/AiSettingsPanel";
+import { AiContextStrip } from "./ai/AiContextStrip";
+import { fileToMaterialFile } from "@/lib/lessonnotes/ai/pipeline/material";
+import {
+  EMPTY_TEACHER_CONTEXT,
+  STAGE_LABEL,
+  type MaterialFile,
+  type StageId,
+  type TeacherContext,
+} from "@/lib/lessonnotes/ai/pipeline/types";
 import {
   AiPreferences,
   AI_PREFS_EVENT,
@@ -29,6 +38,12 @@ import {
 
 export interface AiGenerateOptions {
   images: string[]; // base64 dataUrls, may be empty
+  /** Attached documents (PDF / Word / other). */
+  files?: MaterialFile[];
+  /** The Add-context strip values. */
+  context?: TeacherContext;
+  /** Lets the pipeline report which stage it is on, live in the popover. */
+  reportStage?: (stage: StageId) => void;
 }
 
 export interface AiFooterAction {
@@ -52,6 +67,8 @@ interface Props {
   hint?: string;
   /** Show paperclip + camera; pass picked images to onGenerate. */
   allowAttachments?: boolean;
+  /** Show the Add-context strip and document attachments (question sections). */
+  allowContext?: boolean;
   /** Extra row of contextual actions (e.g. Regenerate / Paraphrase / Clear). */
   footerActions?: AiFooterAction[];
 }
@@ -65,15 +82,20 @@ const fileToDataUrl = (f: File) =>
   });
 
 export function AiPopover({
-  trigger, title, placeholder, topControls, onGenerate, hint, allowAttachments, footerActions,
+  trigger, title, placeholder, topControls, onGenerate, hint, allowAttachments, allowContext, footerActions,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const [docs, setDocs] = useState<MaterialFile[]>([]);
+  const [ctx, setCtx] = useState<TeacherContext>({ ...EMPTY_TEACHER_CONTEXT });
+  const [stage, setStage] = useState<StageId>("EMPTY");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
+  const docRef = useRef<HTMLInputElement>(null);
+
 
   // Teacher AI preferences (Layer 2) — per lesson note, edited behind the gear.
   const { id: notebookId } = useParams();
@@ -104,19 +126,45 @@ export function AiPopover({
     if (next.length) setImages((p) => [...p, ...next]);
   };
 
+  /** Documents (PDF / Word / …) — material, not images. */
+  const pickDocs = async (files: FileList | null) => {
+    if (!files) return;
+    const next: MaterialFile[] = [];
+    for (const f of Array.from(files)) {
+      try { next.push(await fileToMaterialFile(f)); } catch {}
+    }
+    if (next.length) setDocs((p) => [...p, ...next]);
+  };
+
+  const resetInputs = () => {
+    setText("");
+    setImages([]);
+    setDocs([]);
+    setStage("EMPTY");
+  };
+
+  const runOptions = () => ({
+    images,
+    files: docs,
+    context: ctx,
+    reportStage: (s: StageId) => setStage(s),
+  });
+
   const fire = async () => {
     setBusy(true);
+    setStage(text.trim() || images.length || docs.length ? "INPUT_RECEIVED" : "GENERATING_QUESTION");
     try {
-      await onGenerate(text.trim(), { images });
-      setText("");
-      setImages([]);
+      await onGenerate(text.trim(), runOptions());
+      resetInputs();
       setOpen(false);
     } catch (e: any) {
+      setStage("ERROR");
       toast({ title: "AI failed", description: String(e?.message ?? e), variant: "destructive" });
     } finally {
       setBusy(false);
     }
   };
+
 
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) { stopVoice(); setView("prompt"); } }}>
@@ -156,6 +204,9 @@ export function AiPopover({
           </div>
         )}
         {topControls}
+        {allowContext && (
+          <AiContextStrip value={ctx} onChange={setCtx} showReuse={Boolean(images.length || docs.length || text.trim())} />
+        )}
 
         <AutoTextarea
           autoFocus
@@ -186,8 +237,28 @@ export function AiPopover({
             ))}
           </div>
         )}
+        {docs.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {docs.map((d, i) => (
+              <span key={`${d.name}-${i}`}
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-foreground/20 text-foreground/70">
+                <FileText className="h-3 w-3" />
+                {d.name.length > 18 ? `${d.name.slice(0, 16)}…` : d.name}
+                <button type="button" onClick={() => setDocs((p) => p.filter((_, k) => k !== i))}>
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         {(listening || voice.transcribing) && (
           <VoiceWave level={voice.level} seconds={voice.seconds} />
+        )}
+        {busy && stage !== "EMPTY" && (
+          <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-foreground/70">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {STAGE_LABEL[stage] || "Working…"}
+          </p>
         )}
         <div className="flex items-center gap-2">
           <button
@@ -214,6 +285,17 @@ export function AiPopover({
               <button type="button" onClick={() => camRef.current?.click()}
                 className="p-1.5 rounded hover:bg-foreground/5 transition" title="Take a photo">
                 <Camera className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          {allowContext && (
+            <>
+              <input ref={docRef} type="file" multiple className="hidden"
+                accept=".pdf,.doc,.docx,.txt,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                onChange={(e) => { pickDocs(e.target.files); e.target.value = ""; }} />
+              <button type="button" onClick={() => docRef.current?.click()}
+                className="p-1.5 rounded hover:bg-foreground/5 transition" title="Attach a document (PDF, Word)">
+                <FileText className="h-4 w-4" />
               </button>
             </>
           )}
@@ -248,9 +330,8 @@ export function AiPopover({
                     // whole point of pressing Regenerate after saying what is
                     // missing. Only clear the box once the run succeeded.
                     stopVoice();
-                    await a.onRun(text.trim(), { images });
-                    setText("");
-                    setImages([]);
+                    await a.onRun(text.trim(), runOptions());
+                    resetInputs();
                     setOpen(false);
                   }
                   catch (e: any) { toast({ title: "AI failed", description: String(e?.message ?? e), variant: "destructive" }); }

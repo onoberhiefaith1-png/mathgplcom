@@ -161,6 +161,18 @@ const newDiagramId = (): string =>
   `D-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 import { buildWorkspaceManifest } from "@/lib/lessonnotes/ai/toolManifest";
+import { runBlueprintStage, summariseScene } from "@/lib/lessonnotes/ai/pipeline/generate";
+import { blueprintDirective } from "@/lib/lessonnotes/ai/pipeline/blueprint";
+import { hasMaterial, mergeMaterial } from "@/lib/lessonnotes/ai/pipeline/material";
+import { verifyGeneration, failedGates } from "@/lib/lessonnotes/ai/pipeline/validate";
+import {
+  EMPTY_TEACHER_CONTEXT,
+  STAGE_FAILURE_TITLE,
+  hasTeacherContext,
+  type QuestionBlueprint,
+  type StageError,
+  type TeacherContext,
+} from "@/lib/lessonnotes/ai/pipeline/types";
 
 const SECTION_OPTIONS: SectionKind[] = INSERT_SECTION_OPTIONS;
 
@@ -386,6 +398,10 @@ async function aiGenerate(opts: {
   }
   return ((data as any)?.content ?? "").toString();
 }
+
+/** True when an editor instance can still safely take commands. */
+const editorAlive = (ed: any): boolean =>
+  Boolean(ed && !ed.isDestroyed && (ed as any).view?.dom);
 
 const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork", "homework", "assessment", "game_questions"];
 const isQuestionSectionKind = (kind: SectionKind) => QUESTION_SECTION_KINDS.includes(kind);
@@ -938,7 +954,9 @@ function DocumentEditorInner({
 
   /** Handle per-section AI button (passed into SectionHeading extension). */
   const handleSectionAi = async (prompt: string, infoIn: SectionAiCallContext) => {
-    if (!editor) return;
+    // The editor may be null on first paint, or destroyed while an async stage
+    // was running. Every stage below re-checks it instead of assuming it lives.
+    if (!editorAlive(editor)) return;
     let info = infoIn;
 
     // The heading must still exist — every position below is anchored to it.
@@ -1002,7 +1020,47 @@ function DocumentEditorInner({
     // Layer 2 — teacher preferences appended AFTER the task prompt so the
     // pedagogy / QUESTION_LOCK / continuity standards keep priority.
     const prefDirective = buildPreferenceDirective(loadAiPreferences(nbIdRef.current));
-    const finalPrompt = prefDirective ? `${built.prompt}\n\n${prefDirective}` : built.prompt;
+    let finalPrompt = prefDirective ? `${built.prompt}\n\n${prefDirective}` : built.prompt;
+
+    // ── PIPELINE STAGE 2/3 — understand the material, then structure it ─────
+    // A question section is never generated straight from a loose prompt: the
+    // teacher's material (text, photos, documents) plus the Add-context strip
+    // are first analysed into a mathematical blueprint. Generation then works
+    // from that blueprint, so question, diagram and solution share one model.
+    const teacherContext: TeacherContext = info.context ?? { ...EMPTY_TEACHER_CONTEXT };
+    const material = mergeMaterial(prompt, info.images ?? [], info.files ?? []);
+    const wantsPipeline =
+      isQuestionSectionKind(info.kind) &&
+      info.action !== "clear" &&
+      (hasMaterial(material) || hasTeacherContext(teacherContext));
+    let blueprint: QuestionBlueprint | null = null;
+    if (wantsPipeline) {
+      try {
+        blueprint = await runBlueprintStage({
+          material,
+          context: teacherContext,
+          sectionKind: info.kind,
+          fallbackTopic: contextAt(info.headingPos)?.topic ?? "",
+          fallbackSubtopic: contextAt(info.headingPos)?.subtopic ?? "",
+          onStage: info.reportStage,
+        });
+      } catch (err) {
+        const stage = (err as StageError)?.stage ?? "ANALYSING";
+        toast({
+          title: STAGE_FAILURE_TITLE[stage] ?? "Generation stopped",
+          description: String((err as any)?.message ?? err),
+          variant: "destructive",
+        });
+        return;
+      }
+      const directive = blueprintDirective(blueprint);
+      if (directive) finalPrompt = `${finalPrompt}\n\n${directive}`;
+      if (teacherContext.count > 1) {
+        finalPrompt += `\n\nGenerate ${teacherContext.count} separate questions, numbered 1., 2., …`;
+      }
+      info.reportStage?.("GENERATING_QUESTION");
+    }
+    if (!editorAlive(editor)) return;
 
 
     const isSolutionBlock = info.kind === "solution";
@@ -1113,6 +1171,33 @@ function DocumentEditorInner({
       return;
     }
     if (!content) { toast({ title: "No content returned" }); return; }
+    if (!editorAlive(editor)) return;
+
+    // ── PIPELINE STAGE 6 — validation gate ──────────────────────────────────
+    // A blueprinted question is checked against its blueprint before it is
+    // shown: solvable, internally consistent, answerable in the required form.
+    if (blueprint) {
+      info.reportStage?.("VALIDATING");
+      const verdict = await verifyGeneration({
+        gate: "maths",
+        blueprint,
+        question: content,
+        diagramSummary: ownedQuestionDiagram
+          ? summariseScene(ownedQuestionDiagram.node.attrs?.scene)
+          : "",
+      });
+      const failed = failedGates([verdict]);
+      if (failed.length) {
+        toast({
+          title: "This question did not pass the check",
+          description: `${failed.flatMap((f) => f.problems).slice(0, 3).join(" • ")} — adjust the instruction and generate again.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!editorAlive(editor)) return;
+      info.reportStage?.("READY");
+    }
 
     // A Solution heading must never be duplicated, and the AI must never
     // re-emit the label as body text.
