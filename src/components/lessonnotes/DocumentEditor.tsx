@@ -2413,7 +2413,8 @@ function DocumentEditorInner({
       const content = (await aiGenerate({
         kind,
         teacherPrompt: base || "Write helpful content here.",
-        ctx: ctxRef.current,
+        ctx: contextAt(from),
+
         lessonContext: collectLessonContext(from, kind),
       })).trim();
       if (!content) { toast({ title: "No content returned" }); return; }
