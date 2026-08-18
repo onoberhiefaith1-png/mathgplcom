@@ -682,18 +682,12 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
                 }}
               >
                 {isEditing(-1, c) ? (
-                  <>
-                    <SmartTableCellToolbar
-                      onCopy={cellCopy} onCut={cellCut} onDelete={cellDelete}
-                      onDuplicate={cellDuplicate} onComment={cellComment} onAiEdit={cellAiEdit}
-                    />
-                    <MathCellEditor
-                      value={buffer}
-                      entryPoint={entryPoint}
-                      onChange={setBuffer}
-                      onCommit={finishEdit}
-                    />
-                  </>
+                  <MathCellEditor
+                    value={buffer}
+                    entryPoint={entryPoint}
+                    onChange={setBuffer}
+                    onCommit={finishEdit}
+                  />
                 ) : (
                   <span className="block min-h-[1.4em]">
                     {h
