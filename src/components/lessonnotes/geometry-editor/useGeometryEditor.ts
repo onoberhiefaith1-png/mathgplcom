@@ -10,10 +10,19 @@ import { emptyHistory, push, undo, redo, type History } from "@/lib/geometry/edi
 import { addCurve, type OpResult } from "@/lib/geometry/editor/sceneOps";
 import { normalizeScene } from "@/lib/geometry/editor/normalize";
 import { ensureIntersectionPoints } from "@/lib/geometry/editor/intersections";
+import { hideIrrelevantAutoPoints } from "@/lib/geometry/editor/relevance";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
-const normalise = (s: GeometryScene): GeometryScene =>
-  ensureIntersectionPoints(normalizeScene(s));
+/**
+ * `relevanceText` is the owning question/solution text for AI-generated
+ * diagrams. When present, auto intersection points the mathematics does not
+ * reference are hidden (never deleted). Hand-drawn diagrams pass nothing and
+ * therefore keep every construction label exactly as before.
+ */
+const normalise = (s: GeometryScene, relevanceText?: string): GeometryScene => {
+  const base = ensureIntersectionPoints(normalizeScene(s));
+  return relevanceText ? hideIrrelevantAutoPoints(base, relevanceText) : base;
+};
 
 
 export interface UseGeometryEditorReturn {
@@ -48,8 +57,12 @@ export interface UseGeometryEditorReturn {
 export function useGeometryEditor(
   initial: GeometryScene,
   onChange: (s: GeometryScene) => void,
+  /** Owning question/solution text — enables the generated-diagram clean-up. */
+  relevanceText?: string,
 ): UseGeometryEditorReturn {
-  const [scene, setScene] = useState<GeometryScene>(() => normalise(initial));
+  const relevanceRef = useRef(relevanceText);
+  relevanceRef.current = relevanceText;
+  const [scene, setScene] = useState<GeometryScene>(() => normalise(initial, relevanceText));
   const [history, setHistory] = useState<History>(emptyHistory());
   const [tool, setTool] = useState<ToolId>("select");
   const [selectedIds, setSelectedIdsState] = useState<GeoId[]>([]);
@@ -69,7 +82,7 @@ export function useGeometryEditor(
   // persists the split segments (otherwise legacy DE-DO would re-appear
   // on the next reload).
   useEffect(() => {
-    const normalised = normalise(initial);
+    const normalised = normalise(initial, relevanceRef.current);
     if (JSON.stringify(normalised) !== initialJson) {
       onChangeRef.current(normalised);
     }
@@ -87,7 +100,7 @@ export function useGeometryEditor(
   useEffect(() => {
     if (sceneJsonRef.current === initialJson) return;
     sceneJsonRef.current = initialJson;
-    const next = normalise(initial);
+    const next = normalise(initial, relevanceRef.current);
     const nextJson = JSON.stringify(next);
     if (nextJson === JSON.stringify(scene)) return; // same content — keep selection
     setScene(next);

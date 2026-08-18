@@ -70,6 +70,9 @@ import {
 } from "@/lib/geometry/editor/sceneOps";
 import { snap, pickObject } from "@/lib/geometry/editor/snap";
 import type { ToolId } from "@/lib/geometry/editor/tools";
+import { normalizeScene } from "@/lib/geometry/editor/normalize";
+import { ensureIntersectionPoints } from "@/lib/geometry/editor/intersections";
+import { hideIrrelevantAutoPoints } from "@/lib/geometry/editor/relevance";
 import { PageFrame } from "./PageFrame";
 import { AiPopover } from "./AiPopover";
 import {
@@ -1261,8 +1264,18 @@ function DocumentEditorInner({
           },
         }), 30_000, "Diagram generation took too long.");
         if (error) return;
-        const scene = sanitizeScene((data as any)?.scene);
-        if (!scene || scene.objects.length === 0) return;
+        const raw = sanitizeScene((data as any)?.scene);
+        if (!raw || raw.objects.length === 0) return;
+        // FINAL DIAGRAM CLEAN-UP — run the same normalise/auto-intersection
+        // pass the editor would run on first mount, then hide every auto
+        // intersection point the question does not actually reference. The
+        // geometry is untouched: only stray markers/labels (E, F, G, H…)
+        // stop rendering. The teacher can un-hide any of them from the
+        // point properties panel.
+        const scene = hideIrrelevantAutoPoints(
+          ensureIntersectionPoints(normalizeScene(raw)),
+          geometrySourceText,
+        );
         // Re-resolve the question body end on the LIVE doc, scoped to the
         // original section heading. If the heading no longer exists (section
         // deleted), skip the insertion.
@@ -1296,7 +1309,12 @@ function DocumentEditorInner({
           .command(({ tr }) => { closeHistory(tr); return true; })
           .insertContentAt(insertAt, {
             type: "geometryDiagram",
-            attrs: { scene, topic, diagramId: newDiagramId() },
+            attrs: {
+              scene,
+              topic,
+              diagramId: newDiagramId(),
+              questionText: geometrySourceText,
+            },
           })
           .run();
       } catch (err) {
