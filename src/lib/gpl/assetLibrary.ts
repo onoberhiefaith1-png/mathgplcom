@@ -59,6 +59,7 @@ export const GPL_SURFACES = [
   "lesson_notes",
   "smartboard_board_1",
   "smartboard_board_2",
+  "emoji_library",
 ] as const;
 export type GplSurface = (typeof GPL_SURFACES)[number];
 
@@ -68,7 +69,9 @@ export const SURFACE_LABEL: Record<GplSurface, string> = {
   lesson_notes: "Lesson Notes",
   smartboard_board_1: "Smartboard Board 1",
   smartboard_board_2: "Smartboard Board 2",
+  emoji_library: "Emojis",
 };
+
 
 export const slugify = (value: string) =>
   value

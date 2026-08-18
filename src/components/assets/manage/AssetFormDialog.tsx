@@ -18,6 +18,7 @@ import { makeTransparent, isVideoFile } from "@/lib/games/removeBackground";
 import {
   GPL_SURFACES, SURFACE_LABEL, type GplAssetType, type GplSurface,
 } from "@/lib/gpl/assetLibrary";
+import { filesFromTransfer, linkFromTransfer } from "@/lib/clipboard/assetClipboard";
 
 export interface AssetFormItem {
   name: string;
@@ -132,7 +133,30 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent
+        className="max-h-[90vh] max-w-lg overflow-y-auto"
+        onPaste={(e) => {
+          const pasted = filesFromTransfer(e.clipboardData);
+          if (pasted.length) {
+            e.preventDefault();
+            setFiles((prev) => [...prev, ...pasted]);
+            if (!name.trim() && pasted.length === 1) setName(baseName(pasted[0]));
+            return;
+          }
+          const link = linkFromTransfer(e.clipboardData);
+          if (link) {
+            e.preventDefault();
+            setUrl(link);
+          }
+        }}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          const dropped = filesFromTransfer(e.dataTransfer);
+          if (!dropped.length) return;
+          e.preventDefault();
+          setFiles((prev) => [...prev, ...dropped]);
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
@@ -144,6 +168,9 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
           {!editing && (
             <div>
               <Label>Files (images, transparent PNGs, GIFs, video, audio, 3D models)</Label>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Choose files, drag them in, or copy a picture and press Ctrl/Cmd + V here.
+              </p>
               <Input
                 type="file"
                 multiple
@@ -151,6 +178,9 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
                 onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
                 className="mt-1 min-h-[44px]"
               />
+              {files.length === 1 && (
+                <p className="mt-1 text-xs text-muted-foreground">{files[0].name}</p>
+              )}
               {files.length > 1 && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {files.length} files — each becomes its own asset, named from its filename.

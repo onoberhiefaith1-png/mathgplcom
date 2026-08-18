@@ -1,13 +1,20 @@
 // Emoji Library dock panel for the lesson-note editor.
 // Docks on the right (~30% of the editor width) so the note stays visible and
-// editable. Content is 100% teacher-managed — nothing is generated.
+// editable. Content is 100% teacher-managed — nothing is generated. A session
+// can hold Unicode emojis, pictures/videos pasted or uploaded from the
+// teacher's computer, and items copied from the GPL Asset library.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ChevronDown, ChevronUp, Check, Pencil, Plus, Trash2, X,
+  ChevronDown, ChevronUp, Check, Clipboard, FolderOpen, Loader2, Pencil, Plus,
+  Trash2, Upload, X,
 } from "lucide-react";
 import { useEmojiLibrary, splitEmojis } from "@/hooks/useEmojiLibrary";
 import OfficialEmojiSection from "@/components/gpl/OfficialEmojiSection";
+import GplEmojiAssetPicker from "@/components/gpl/GplEmojiAssetPicker";
+import { emojiMediaUrl, type EmojiItem } from "@/lib/lessonnotes/emojiItems";
+import { copyMediaToClipboard, filesFromTransfer, linkFromTransfer } from "@/lib/clipboard/assetClipboard";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -15,23 +22,99 @@ interface Props {
   onClose: () => void;
   /** Inserts plain text at the note's current cursor position. */
   onInsert: (text: string) => void;
+  /** Inserts a picture or video at the note's current cursor position. */
+  onInsertMedia?: (src: string, kind: "image" | "video") => void;
 }
 
-export function EmojiPanel({ open, onClose, onInsert }: Props) {
+/** One picture/video tile — resolves its private URL on mount. */
+function MediaTile({
+  item,
+  onInsert,
+  onRemove,
+}: {
+  item: EmojiItem;
+  onInsert: () => void;
+  onRemove: () => void;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    let alive = true;
+    void emojiMediaUrl(item.storage_path ?? item.external_url ?? "").then((u) => {
+      if (alive) setUrl(u);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [item.storage_path, item.external_url]);
+
+  return (
+    <div className="group relative h-12 overflow-hidden rounded border border-border/60 bg-muted/30">
+      <button
+        type="button"
+        title={item.name || "Insert"}
+        onClick={onInsert}
+        className="h-full w-full"
+      >
+        {!url ? (
+          <span className="block h-full w-full animate-pulse bg-muted/50" aria-hidden />
+        ) : item.kind === "video" ? (
+          <video src={url} muted loop autoPlay playsInline className="h-full w-full object-contain" />
+        ) : (
+          <img src={url} alt={item.name} className="h-full w-full object-contain" draggable={false} />
+        )}
+      </button>
+      <div className="absolute right-0.5 top-0.5 hidden gap-0.5 group-hover:flex">
+        <button
+          type="button"
+          aria-label="Copy"
+          className="rounded bg-foreground/70 p-0.5 text-background"
+          onClick={async () => {
+            if (!url) return;
+            const res = await copyMediaToClipboard(url);
+            toast({ title: res.message });
+          }}
+        >
+          <Clipboard className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          aria-label="Remove"
+          className="rounded bg-destructive/80 p-0.5 text-destructive-foreground"
+          onClick={onRemove}
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function EmojiPanel({ open, onClose, onInsert, onInsertMedia }: Props) {
   const {
-    categories, loading,
+    categories, items, loading, busy,
     createCategory, renameCategory, saveContent, deleteCategory, moveCategory,
+    addFiles, addLink, addGplAsset, removeItem,
   } = useEmojiLibrary(open);
+  const { toast } = useToast();
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState(false);
   const [draft, setDraft] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const active = useMemo(
     () => categories.find((c) => c.id === activeId) ?? null,
     [categories, activeId],
+  );
+
+  const activeItems = useMemo(
+    () => items.filter((i) => i.category_id === activeId),
+    [items, activeId],
   );
 
   useEffect(() => {
@@ -49,11 +132,49 @@ export function EmojiPanel({ open, onClose, onInsert }: Props) {
 
   const tiles = active ? splitEmojis(active.content) : [];
 
+  const insertItem = (item: EmojiItem) => {
+    if (item.kind === "glyph" && item.glyph) {
+      onInsert(item.glyph);
+      return;
+    }
+    const src = item.storage_path ?? item.external_url ?? "";
+    if (!src) return;
+    if (onInsertMedia) onInsertMedia(src, item.kind === "video" ? "video" : "image");
+    else toast({ title: "Pictures can be inserted in the lesson note editor" });
+  };
+
+  /** Paste anywhere in the panel adds files/links to the active session. */
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    if (!active || editingContent) return;
+    const files = filesFromTransfer(e.clipboardData);
+    if (files.length) {
+      e.preventDefault();
+      await addFiles(active.id, files);
+      toast({ title: `Added ${files.length} item${files.length === 1 ? "" : "s"}` });
+      return;
+    }
+    const link = linkFromTransfer(e.clipboardData);
+    if (link) {
+      e.preventDefault();
+      await addLink(active.id, link);
+      toast({ title: "Added from link" });
+    }
+  };
+
   return (
     <aside
       className="shrink-0 border-l border-border bg-background flex flex-col min-h-0 h-full self-stretch overscroll-contain"
       style={{ width: "clamp(280px, 30%, 420px)" }}
       onWheel={(e) => e.stopPropagation()}
+      onPaste={(e) => void handlePaste(e)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        if (!active) return;
+        const files = filesFromTransfer(e.dataTransfer);
+        if (!files.length) return;
+        e.preventDefault();
+        void addFiles(active.id, files);
+      }}
       aria-label="Emoji library"
     >
       <div className="h-11 px-3 flex items-center justify-between border-b border-border">
@@ -186,6 +307,45 @@ export function EmojiPanel({ open, onClose, onInsert }: Props) {
           <p className="text-xs text-muted-foreground">Select or create a session.</p>
         )}
 
+        {active && !editingContent && (
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-muted/60"
+            >
+              <Upload className="h-3 w-3" /> Upload from your system
+            </button>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-muted/60"
+            >
+              <FolderOpen className="h-3 w-3" /> My GPL assets
+            </button>
+            <button
+              type="button"
+              onClick={() => { setDraft(active.content); setEditingContent(true); }}
+              className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-muted/60"
+            >
+              <Pencil className="h-3 w-3" /> Paste emojis
+            </button>
+            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={async (e) => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                if (active && files.length) await addFiles(active.id, files);
+              }}
+            />
+          </div>
+        )}
+
         {active && editingContent && (
           <div className="space-y-2">
             <p className="text-[11px] text-muted-foreground">
@@ -219,21 +379,16 @@ export function EmojiPanel({ open, onClose, onInsert }: Props) {
 
         {active && !editingContent && (
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">
-                {tiles.length} emoji{tiles.length === 1 ? "" : "s"}
-              </span>
-              <button
-                type="button"
-                onClick={() => { setDraft(active.content); setEditingContent(true); }}
-                className="rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted/60"
-              >
-                Edit content
-              </button>
-            </div>
-            {tiles.length === 0 ? (
+            <span className="block text-[11px] text-muted-foreground">
+              {tiles.length + activeItems.length} item
+              {tiles.length + activeItems.length === 1 ? "" : "s"} — paste a picture or video
+              anywhere in this panel to add it
+            </span>
+
+            {tiles.length === 0 && activeItems.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                This session is empty. Use “Edit content” to paste your emojis.
+                This session is empty. Paste emojis, upload a picture or video, or copy one from
+                your GPL assets.
               </p>
             ) : (
               <div className="grid grid-cols-6 gap-1">
@@ -248,11 +403,40 @@ export function EmojiPanel({ open, onClose, onInsert }: Props) {
                     {e}
                   </button>
                 ))}
+                {activeItems.map((item) =>
+                  item.kind === "glyph" ? (
+                    <button
+                      key={item.id}
+                      type="button"
+                      title={item.name || item.glyph || ""}
+                      onClick={() => insertItem(item)}
+                      className="h-9 rounded text-xl leading-none hover:bg-muted/70 active:scale-95 transition"
+                    >
+                      {item.glyph}
+                    </button>
+                  ) : (
+                    <div key={item.id} className="col-span-2">
+                      <MediaTile
+                        item={item}
+                        onInsert={() => insertItem(item)}
+                        onRemove={() => void removeItem(item.id)}
+                      />
+                    </div>
+                  ),
+                )}
               </div>
             )}
           </div>
         )}
       </div>
+
+      <GplEmojiAssetPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(asset) => {
+          if (active) void addGplAsset(active.id, asset);
+        }}
+      />
     </aside>
   );
 }

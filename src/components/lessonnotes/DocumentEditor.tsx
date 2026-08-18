@@ -89,6 +89,7 @@ import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions"
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { EmojiPanel } from "./EmojiPanel";
+import { EmojiMedia } from "./extensions/EmojiMedia";
 import { ConversionPanel } from "./ConversionPanel";
 import { renderMathInline, HAS_MATH } from "@/lib/notebook/mathRender";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
@@ -1413,6 +1414,7 @@ function DocumentEditorInner({
       MathSlot,
       MathStructure,
       MathVisual,
+      EmojiMedia,
       CanvasFrame,
       SessionSpacer,
       AtCommand.configure({ onChange: setAtState }),
@@ -1717,6 +1719,9 @@ function DocumentEditorInner({
 
   const insertSymbolText = (s: string) => {
     editor?.chain().focus().insertContent(s).run();
+  };
+  const insertEmojiMedia = (src: string, kind: "image" | "video") => {
+    editor?.chain().focus().insertContent({ type: "emojiMedia", attrs: { src, kind } }).run();
   };
   const insertMathStructure = (latex: string) => {
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
@@ -2771,6 +2776,7 @@ function DocumentEditorInner({
           open={emojiPanelOpen}
           onClose={() => setEmojiPanelOpen(false)}
           onInsert={insertSymbolText}
+          onInsertMedia={insertEmojiMedia}
         />
         {slidePanelOpen && notebookId && (
           <SlidePanel
