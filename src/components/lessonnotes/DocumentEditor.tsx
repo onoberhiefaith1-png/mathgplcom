@@ -553,6 +553,13 @@ function DocumentEditorInner({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ctxRef = useRef(notebookContext);
   useEffect(() => { ctxRef.current = notebookContext; }, [notebookContext]);
+
+  // ── Lesson AI context ────────────────────────────────────────────────────
+  // The ACTIVE SUBTOPIC is application state, not page text: whatever the
+  // teacher last confirmed is what every AI feature generates for.
+  const aiCtx = useLessonAiContextStore(notebookContext);
+  useEffect(() => { aiCtx.syncNotebook(notebookContext ?? {}); }, [notebookContext, aiCtx]);
+
   const nbIdRef = useRef(notebookId);
   useEffect(() => { nbIdRef.current = notebookId; }, [notebookId]);
 
