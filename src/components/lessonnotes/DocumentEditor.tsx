@@ -611,16 +611,12 @@ function DocumentEditorInner({
     const rawText = (editor && problemStart < headingPos)
       ? serializeRangeAsMath(problemStart, headingPos)
       : "";
-    // Strip anything before the LAST section-label line ("Solution",
-    // "Example", "Exercise"...) that appears as inline text rather than a
-    // heading node. Without this, ACTIVE_QUESTION can leak the previous
-    // question that lives above an inline "Solution" label.
-    const lines = rawText.split("\n");
-    let cutAt = -1;
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (detectSectionKind(lines[i])) { cutAt = i; break; }
-    }
-    const problemText = (cutAt >= 0 ? lines.slice(cutAt + 1) : lines).join("\n").trim();
+    // STRUCTURE vs MATHEMATICS. Structural labels ("Classwork 4",
+    // "Example 3: Solve …") and interface metadata are set aside; the
+    // mathematics is always kept — even when it sits on the same line as the
+    // label. This is what stops the old "no parent question found" failure.
+    const report = analyzeProblem(rawText, { hasDiagram: false });
+    const problemText = report.problem;
     return {
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
       // Position of the heading that OWNS this Solution (the question
@@ -628,9 +624,11 @@ function DocumentEditorInner({
       // Solution itself.
       parentPos,
       problemText,
+      report,
       hasInheritedQuestion: Boolean(problemText),
     };
   };
+
 
   /** The subtopic that owns `beforePos`: the nearest structural subtopic
    *  heading (level 1, custom text) above it. Everything generated below that
