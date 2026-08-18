@@ -793,6 +793,41 @@ export function MathInlineCanvas({
     apply(insertFragment(base.root, base.cursor, frag));
   };
 
+  const closePicker = () => {
+    pickerOpen.current = false;
+    setPicker(null);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  /** Insert a picked Asset Library item into the tree, leaving the caret in
+   *  its first editable slot so typing continues in place. */
+  const insertAsset = (a: AssetDef, matrix?: MatrixDialogResult) => {
+    const ins = assetToMathInsertion(a);
+    if (!ins) {
+      // Whole page object — hand it to the host (commits this run and drops
+      // the object into the surrounding note).
+      closePicker();
+      onInsertObjectAsset?.(a);
+      return;
+    }
+    try { pushRecent(a.id); } catch { /* noop */ }
+    let base = withSelectionCleared();
+    if (ins.prefix) {
+      for (const ch of ins.prefix) base = insertChar(base.root, base.cursor, ch);
+    }
+    let node = ins.node;
+    if (matrix) {
+      const pair: Record<string, [string, string]> = {
+        "(": ["(", ")"], "[": ["[", "]"], "{": ["{", "}"], "|": ["|", "|"],
+      };
+      const [l, r] = pair[matrix.br] ?? ["(", ")"];
+      node = mkMatrix(matrix.rows, matrix.cols, l, r, matrix.power ? ["power"] : []);
+    }
+    if (node) base = insertNode(base.root, base.cursor, node, true);
+    apply(base);
+    closePicker();
+  };
+
   const rowNode = useMemo(
     () => <RowView row={root} path={[]} cursor={cursor} focused={focused} />,
     [root, cursor, focused],
