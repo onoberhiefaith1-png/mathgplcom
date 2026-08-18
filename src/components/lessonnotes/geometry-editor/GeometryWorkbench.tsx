@@ -35,6 +35,10 @@ interface Props {
   rightPanelWidthClass?: string;
   /** Authoring halo drawn over the diagram (never alters the diagram). */
   highlightIds?: string[];
+  /** Objects a chosen relationship also involves — amber halo. */
+  relatedIds?: string[];
+  /** The relationship's own subject — emphasised halo. */
+  emphasisIds?: string[];
   /** Hides the drawing toolbox — used by relationship authoring (select only). */
   hideLeftTools?: boolean;
 }
@@ -47,7 +51,7 @@ export function GeometryWorkbench(props: Props) {
   );
 }
 
-function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds, hideLeftTools }: Props) {
+function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds, relatedIds, emphasisIds, hideLeftTools }: Props) {
   const editor = useGeometryEditor(scene, onChange);
   const { mode, setMode, tool } = useGeometryMode();
   const [leftOpen, setLeftOpen] = useState(true);
@@ -147,6 +151,8 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
           editor={editor}
           stroke={stroke}
           highlightIds={highlightIds}
+          relatedIds={relatedIds}
+          emphasisIds={emphasisIds}
           minViewW={Math.max(0, area.w - 8)}
           minViewH={Math.max(0, area.h - 8)}
         />
