@@ -2213,9 +2213,11 @@ function DocumentEditorInner({
     // While a drawing tool is active the geometry overlay owns the click.
     if (geometryMode && geometryTool !== "select") return;
 
-    // Grab a free canvas frame by its left gutter to move it.
+    // Grab a free canvas frame by its left gutter to move it. Object frames
+    // (a detached diagram / solution) have no gutter — they are dragged from
+    // the object itself, so they are skipped here.
     const frame = el?.closest("[data-canvas-frame]") as HTMLElement | null;
-    if (frame && editor) {
+    if (frame && editor && !frame.hasAttribute("data-object-kind")) {
       const fr = frame.getBoundingClientRect();
       if (e.clientX - fr.left <= 18) {
         e.preventDefault();
@@ -2236,34 +2238,14 @@ function DocumentEditorInner({
     placeSensorAtPoint(e.clientX, e.clientY);
   };
 
-  /** Free frames are moved by dragging their left gutter; the new coordinates
-   *  are written back onto the node so they live in the document history. */
+  /** Free frames are moved by dragging their left gutter. The move is previewed
+   *  on the DOM and committed as ONE document transaction, so a completed drag
+   *  is exactly one entry in the same Undo history as text and diagrams. */
   const startFrameDrag = (frame: HTMLElement, startX: number, startY: number) => {
     if (!editor) return;
-    const view = editor.view;
-    let pos: number;
-    try { pos = view.posAtDOM(frame, 0) - 1; } catch { return; }
-    const node = editor.state.doc.nodeAt(pos);
-    if (!node || node.type.name !== "canvasFrame") return;
-    const originX = Number(node.attrs.x) || 0;
-    const originY = Number(node.attrs.y) || 0;
-    const z = zoom || 1;
-
-    const move = (ev: MouseEvent) => {
-      const x = Math.max(0, originX + (ev.clientX - startX) / z);
-      const y = Math.max(0, originY + (ev.clientY - startY) / z);
-      const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
-        ...node.attrs, x: Math.round(x), y: Math.round(y),
-      });
-      editor.view.dispatch(tr);
-    };
-    const up = () => {
-      window.removeEventListener("mousemove", move);
-      window.removeEventListener("mouseup", up);
-    };
-    window.addEventListener("mousemove", move);
-    window.addEventListener("mouseup", up);
+    startObjectDrag(editor, frame, startX, startY, { ghost: frame });
   };
+
 
 
 
