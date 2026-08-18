@@ -2516,9 +2516,10 @@ function DocumentEditorInner({
         kind: target.kind,
         instruction,
         selectionText,
-        subject: ctxRef.current?.subject ?? "Mathematics",
-        topic: ctxRef.current?.topic ?? "",
-        subtopic: ctxRef.current?.subtopic ?? "",
+        subject: activeContext()?.subject ?? "Mathematics",
+        topic: activeContext()?.topic ?? "",
+        subtopic: activeContext()?.subtopic ?? "",
+
         forceAllStandards: instructionTriggersStandards(instruction),
       },
     }), 35_000, "AI editing took too long. Please try again.");
