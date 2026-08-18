@@ -1008,7 +1008,47 @@ function DocumentEditorInner({
     // Layer 2 — teacher preferences appended AFTER the task prompt so the
     // pedagogy / QUESTION_LOCK / continuity standards keep priority.
     const prefDirective = buildPreferenceDirective(loadAiPreferences(nbIdRef.current));
-    const finalPrompt = prefDirective ? `${built.prompt}\n\n${prefDirective}` : built.prompt;
+    let finalPrompt = prefDirective ? `${built.prompt}\n\n${prefDirective}` : built.prompt;
+
+    // ── PIPELINE STAGE 2/3 — understand the material, then structure it ─────
+    // A question section is never generated straight from a loose prompt: the
+    // teacher's material (text, photos, documents) plus the Add-context strip
+    // are first analysed into a mathematical blueprint. Generation then works
+    // from that blueprint, so question, diagram and solution share one model.
+    const teacherContext: TeacherContext = info.context ?? { ...EMPTY_TEACHER_CONTEXT };
+    const material = mergeMaterial(prompt, info.images ?? [], info.files ?? []);
+    const wantsPipeline =
+      isQuestionSectionKind(info.kind) &&
+      info.action !== "clear" &&
+      (hasMaterial(material) || hasTeacherContext(teacherContext));
+    let blueprint: QuestionBlueprint | null = null;
+    if (wantsPipeline) {
+      try {
+        blueprint = await runBlueprintStage({
+          material,
+          context: teacherContext,
+          sectionKind: info.kind,
+          fallbackTopic: contextAt(info.headingPos)?.topic ?? "",
+          fallbackSubtopic: contextAt(info.headingPos)?.subtopic ?? "",
+          onStage: info.reportStage,
+        });
+      } catch (err) {
+        const stage = (err as StageError)?.stage ?? "ANALYSING";
+        toast({
+          title: STAGE_FAILURE_TITLE[stage] ?? "Generation stopped",
+          description: String((err as any)?.message ?? err),
+          variant: "destructive",
+        });
+        return;
+      }
+      const directive = blueprintDirective(blueprint);
+      if (directive) finalPrompt = `${finalPrompt}\n\n${directive}`;
+      if (teacherContext.count > 1) {
+        finalPrompt += `\n\nGenerate ${teacherContext.count} separate questions, numbered 1., 2., …`;
+      }
+      info.reportStage?.("GENERATING_QUESTION");
+    }
+    if (!editorAlive(editor)) return;
 
 
     const isSolutionBlock = info.kind === "solution";
