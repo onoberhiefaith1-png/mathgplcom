@@ -900,9 +900,28 @@ function DocumentEditorInner({
     // The Solution references the question's EXISTING diagram. We hand the
     // model an inventory of what is already drawn so it never redraws it,
     // renames its points, or invents a second figure.
-    const ownedQuestionDiagram = isSolutionBlock && (solutionSource?.parentPos ?? -1) >= 0
-      ? diagramsOwnedByQuestion(editor.state.doc, solutionSource!.parentPos, isSolutionLabel)[0]
-      : undefined;
+    const ownedQuestionDiagrams = isSolutionBlock && (solutionSource?.parentPos ?? -1) >= 0
+      ? diagramsOwnedByQuestion(editor.state.doc, solutionSource!.parentPos, isSolutionLabel)
+      : [];
+    // Backward-compatible repair for notes saved before permanent ownership:
+    // keep the first authoritative scene and remove only later geometryDiagram
+    // nodes associated with this same question. The cleanup is one undoable
+    // document step and never redraws or mutates the retained diagram.
+    if (ownedQuestionDiagrams.length > 1) {
+      const duplicates = ownedQuestionDiagrams.slice(1).sort((a, b) => b.pos - a.pos);
+      const tr = editor.state.tr;
+      for (const duplicate of duplicates) {
+        const live = tr.doc.nodeAt(duplicate.pos);
+        if (live?.type.name === "geometryDiagram") {
+          tr.delete(duplicate.pos, duplicate.pos + live.nodeSize);
+        }
+      }
+      if (tr.docChanged) {
+        closeHistory(tr);
+        editor.view.dispatch(tr);
+      }
+    }
+    const ownedQuestionDiagram = ownedQuestionDiagrams[0];
     const existingDiagramNote = ownedQuestionDiagram
       ? describeExistingDiagram(ownedQuestionDiagram.node.attrs?.scene as any)
       : "";
