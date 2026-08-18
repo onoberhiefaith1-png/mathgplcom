@@ -311,6 +311,6 @@ export function statusTitle(status: ProblemStatus): string {
     case "uncertain": return "A question was detected, but please review it";
     case "incomplete": return "The question appears incomplete";
     case "ambiguous": return "The question is ambiguous";
-    case "empty": return "No mathematical question has been written yet";
+    case "empty": return "Nothing has been written in this session yet";
   }
 }
