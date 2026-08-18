@@ -35,8 +35,10 @@ export function liberateShapeLabels(scene: GeometryScene): GeometryScene {
     if (o.type === "circle" || o.type === "arc") {
       const c = pointById(scene, o.center);
       if (c) {
-        // Matches the renderer's former anchor for a shape label.
-        x = c.x + o.r + 4;
+        // Matches the renderer's former anchor for a shape label. Floating
+        // labels are centre-anchored, so shift by half the estimated width
+        // to keep the text exactly where it already appeared.
+        x = c.x + o.r + 4 + (text.length * 13 * 0.5) / 2;
         y = c.y - o.r - 4;
       }
     } else if (o.type === "polygon") {
