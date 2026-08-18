@@ -319,6 +319,94 @@ export function GeometryPropertiesPanel({
         )}
       </div>
 
+      {/* Parts of the diagram the teacher wants to talk about. Nothing is drawn:
+          a part only references the real objects it is made of. */}
+      <div className="rounded-lg border border-foreground/15 p-2 space-y-1.5">
+        <p className="text-[10px] uppercase tracking-wider text-foreground/50">
+          Define a part
+        </p>
+        {defining ? (
+          <div className="space-y-1.5">
+            <p className="text-[10.5px] text-foreground/70">
+              {VIRTUAL_KINDS.find((k) => k.value === defining.kind)?.hint} — click them on the
+              diagram.
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {defining.refIds.length === 0 ? (
+                <span className="text-[10.5px] text-foreground/45">Nothing picked yet</span>
+              ) : (
+                defining.refIds.map((id) => (
+                  <span key={id} className="rounded bg-foreground/10 px-1.5 py-0.5 text-[10.5px]">
+                    {describeTarget(scene, doc, id)?.name ?? id}
+                  </span>
+                ))
+              )}
+            </div>
+            <input
+              value={defining.name}
+              onChange={(e) => setDefining((c) => (c ? { ...c, name: e.target.value } : c))}
+              placeholder="Name (e.g. ∠ABC, x, θ)"
+              className="w-full rounded border border-foreground/20 bg-transparent px-1.5 py-1 text-[11px]"
+            />
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={saveDefinition}
+                className="flex-1 rounded bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground hover:opacity-90"
+              >
+                Save part
+              </button>
+              <button
+                type="button"
+                onClick={() => setDefining(null)}
+                className="rounded border border-foreground/20 px-2 py-1 text-[11px] hover:bg-foreground/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {VIRTUAL_KINDS.map((k) => (
+              <button
+                key={k.value}
+                type="button"
+                onClick={() => startDefining(k.value)}
+                className="rounded border border-foreground/20 px-1.5 py-0.5 text-[10.5px] hover:bg-foreground/5"
+                title={k.hint}
+              >
+                <Plus className="mr-0.5 inline h-3 w-3" />{k.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {virtuals.length > 0 && (
+          <div className="flex flex-wrap gap-1 border-t border-foreground/10 pt-1.5">
+            {virtuals.map((v) => (
+              <span
+                key={v.id}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10.5px]",
+                  activeVirtualId === v.id
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-foreground/20 hover:bg-foreground/5",
+                )}
+              >
+                <button type="button" onClick={() => setActiveVirtualId(v.id)}>{v.name}</button>
+                <button
+                  type="button"
+                  onClick={() => removeVirtual(v.id)}
+                  title="Delete this part"
+                  aria-label="Delete this part"
+                >
+                  <X className="h-2.5 w-2.5 opacity-70" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
       {target && (
         <>
           <Group
