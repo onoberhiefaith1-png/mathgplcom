@@ -470,6 +470,9 @@ function SectionHeadingView(props: NodeViewProps) {
 
           className="lesson-section-side-actions select-none print:hidden"
         >
+          {/* Section AI belongs to Builder mode only: with MathGPL Co-Pilot
+              active, the Co-Pilot is the single mathematical AI. */}
+          {builderAi && (
           <AiPopover
             title={`${SECTION_LABELS[kind]} — AI`}
             placeholder={`What should the ${SECTION_LABELS[kind].toLowerCase()} cover?`}
@@ -494,6 +497,8 @@ function SectionHeadingView(props: NodeViewProps) {
               </button>
             }
           />
+          )}
+
           {notebookId && kind === "solution" && (
             <button
               type="button"
