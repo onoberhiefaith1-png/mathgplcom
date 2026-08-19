@@ -25,6 +25,11 @@ import { toast } from "@/hooks/use-toast";
 import { saveBackToClass } from "@/lib/lessonnotes/notebookCopy";
 import { useViewAs } from "@/lib/accounts/viewAs";
 import type { CoPilotBridge } from "@/lib/lessonnotes/copilot/actions";
+import { useLessonAiMode, setLessonAiMode } from "@/lib/lessonnotes/aiMode";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Check, ChevronDown } from "lucide-react";
 
 // The Co-Pilot is closed by default and only downloads when opened.
 const CoPilotPanel = lazy(() =>
@@ -82,8 +87,10 @@ const NotebookEditorPage = () => {
   };
   const [scanBusy, setScanBusy] = useState(false);
 
-  // MathGPL Co-Pilot: docked at ~1/3 of the screen, the note keeps the rest.
-  const [copilotOpen, setCopilotOpen] = useState(false);
+  // Which AI owns this workspace. Co-Pilot mode docks the panel at ~1/3 of the
+  // screen and hides every per-section AI control; Builder keeps them.
+  const aiMode = useLessonAiMode();
+  const copilotOpen = aiMode === "copilot";
   const copilotBridgeRef = useRef<CoPilotBridge | null>(null);
 
   const handleScanImage = useCallback(async (dataUrl: string) => {
@@ -178,16 +185,42 @@ const NotebookEditorPage = () => {
               <span className="hidden lg:inline">Save to class</span>
             </Button>
           )}
-          <Button
-            size="sm"
-            variant={copilotOpen ? "default" : "ghost"}
-            className={`shrink-0 gap-1.5 h-8 px-2 ${copilotOpen ? "bg-amber-400 text-amber-950 hover:bg-amber-300" : "text-foreground/70 hover:text-foreground"}`}
-            onClick={() => setCopilotOpen((v) => !v)}
-            aria-pressed={copilotOpen}
-            title="MathGPL Co-Pilot"
-          >
-            <Sparkles className="h-3.5 w-3.5" /> <span className="hidden lg:inline">MathGPL Co-Pilot</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant={copilotOpen ? "default" : "ghost"}
+                className={`shrink-0 gap-1.5 h-8 px-2 ${copilotOpen ? "bg-amber-400 text-amber-950 hover:bg-amber-300" : "text-foreground/70 hover:text-foreground"}`}
+                title={copilotOpen ? "MathGPL Co-Pilot active" : "MathGPL Builder active"}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">
+                  {copilotOpen ? "MathGPL Co-Pilot" : "MathGPL Builder"}
+                </span>
+                <ChevronDown className="h-3 w-3 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem onClick={() => setLessonAiMode("copilot")} className="gap-2">
+                <Check className={`h-3.5 w-3.5 ${copilotOpen ? "opacity-100" : "opacity-0"}`} />
+                <span>
+                  <span className="block text-sm">MathGPL Co-Pilot</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    One mathematical AI owns the lesson
+                  </span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLessonAiMode("builder")} className="gap-2">
+                <Check className={`h-3.5 w-3.5 ${copilotOpen ? "opacity-0" : "opacity-100"}`} />
+                <span>
+                  <span className="block text-sm">MathGPL Builder</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    Section AI tools available
+                  </span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             size="sm" variant="ghost"
             className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
@@ -198,6 +231,11 @@ const NotebookEditorPage = () => {
           </Button>
         </div>
 
+        <p className="px-3 pb-1 text-[10px] text-foreground/50 truncate">
+          {copilotOpen
+            ? "Co-Pilot active — individual lesson AI tools are disabled."
+            : "Builder active — section AI tools are available."}
+        </p>
         <div className="h-0.5 w-full" style={{ background: theme.gradient }} aria-hidden />
       </header>
 
@@ -243,12 +281,12 @@ const NotebookEditorPage = () => {
               type="button"
               aria-label="Close Co-Pilot"
               className="md:hidden fixed inset-0 z-40 bg-black/50"
-              onClick={() => setCopilotOpen(false)}
+              onClick={() => setLessonAiMode("builder")}
             />
             {/* ONE Co-Pilot instance: docked on wide screens, slide-over on narrow */}
             <div className="fixed inset-y-0 right-0 z-40 w-[88%] max-w-[420px] shadow-2xl md:static md:inset-auto md:z-auto md:h-full md:w-[34%] md:min-w-[320px] md:max-w-[520px] md:shadow-none">
               <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
-                <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setCopilotOpen(false)} />
+                <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setLessonAiMode("builder")} />
               </Suspense>
             </div>
           </>

@@ -32,6 +32,8 @@ export interface CoPilotSnapshot {
   entries: CoPilotEntry[];
   focusedRef: string | null;
   hasAnyContent: boolean;
+  /** Text the teacher has highlighted in the note, when any. */
+  selectionText?: string;
   /** Live manifest of workspace tools + asset ids. */
   workspaceManifest?: string;
 }

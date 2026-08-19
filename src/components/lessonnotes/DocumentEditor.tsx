@@ -150,6 +150,7 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { useLessonAiContextStore, sameSubtopic } from "@/lib/lessonnotes/aiContext";
+import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor } from "@/lib/lessonnotes/containerRange";
@@ -473,6 +474,8 @@ function DocumentEditorInner({
   notebookId: notebookIdProp, scopeSuffix, copilotBridgeRef,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
+  /** Whole-lesson AI assist belongs to MathGPL Builder mode only. */
+  const builderAi = useBuilderAiVisible();
   // When a school looks through a teacher's workspace the page is identical;
   // the paper simply refuses to change.
   const { viewOnly, allowEdit } = useViewAs();
@@ -2476,6 +2479,11 @@ function DocumentEditorInner({
         const ctx = activeContext();
         const rows = copilotEntries();
         const focused = rows.find((r) => r.entry.focused)?.ref ?? rows[rows.length - 1]?.ref ?? null;
+        // Whatever the teacher highlighted is what "this" means to the Copilot.
+        const sel = editor.state.selection;
+        const selectionText = sel.empty
+          ? ""
+          : editor.state.doc.textBetween(sel.from, sel.to, "\n", "\n").trim();
         return {
           subject: ctx?.subject ?? "Mathematics",
           topic: ctx?.topic ?? "",
@@ -2484,6 +2492,7 @@ function DocumentEditorInner({
           entries: rows.map((r) => r.entry),
           focusedRef: focused,
           hasAnyContent: rows.some((r) => r.entry.questionText || r.entry.solutionText),
+          selectionText: selectionText.slice(0, 900),
         };
       },
       insertSection: async (kind: string) => {
@@ -3128,7 +3137,7 @@ function DocumentEditorInner({
             <Camera className="h-4 w-4" /> Capture Step
           </button>
         )}
-        <GlobalAiButton onGenerate={handleGlobalAi} />
+        {builderAi && <GlobalAiButton onGenerate={handleGlobalAi} />}
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
 
         <button

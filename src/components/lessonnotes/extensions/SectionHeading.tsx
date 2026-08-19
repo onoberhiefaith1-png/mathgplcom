@@ -25,6 +25,7 @@ import type { GeometryScene } from "@/lib/geometry/scene";
 import { ensureOwnerQuestionId, sectionEndWithin } from "@/lib/lessonnotes/containerRange";
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
+import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 
 
 
@@ -75,6 +76,8 @@ function SectionHeadingView(props: NodeViewProps) {
   const { pathname } = useLocation();
   /** Smart Card publishing exists ONLY inside MathGPL Life. */
   const isLive = pathname.startsWith("/live");
+  /** Section AI chips belong to MathGPL Builder mode only. */
+  const builderAi = useBuilderAiVisible();
 
   const level: number = node.attrs.level ?? 2;
   const text = node.textContent;
@@ -470,6 +473,9 @@ function SectionHeadingView(props: NodeViewProps) {
 
           className="lesson-section-side-actions select-none print:hidden"
         >
+          {/* Section AI belongs to Builder mode only: with MathGPL Co-Pilot
+              active, the Co-Pilot is the single mathematical AI. */}
+          {builderAi && (
           <AiPopover
             title={`${SECTION_LABELS[kind]} — AI`}
             placeholder={`What should the ${SECTION_LABELS[kind].toLowerCase()} cover?`}
@@ -494,6 +500,8 @@ function SectionHeadingView(props: NodeViewProps) {
               </button>
             }
           />
+          )}
+
           {notebookId && kind === "solution" && (
             <button
               type="button"

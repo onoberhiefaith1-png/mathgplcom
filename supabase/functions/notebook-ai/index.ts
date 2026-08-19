@@ -954,12 +954,17 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
           ].join("\n")).join("\n")
         : "(the note has no sections yet)";
 
+      const selected = String(snap?.selectionText ?? "").trim();
+      const selectionBlock = selected
+        ? `\nTEACHER'S HIGHLIGHTED TEXT (this is what "this" refers to; it lives in ${snap?.focusedRef || "the cursor section"}):\n${selected.slice(0, 900)}`
+        : "";
+
       const contextBlock = `CURRENT LESSON NOTE
 Subject: ${snap?.subject || "Mathematics"}
 Topic: ${snap?.topic || "—"}
 Active subtopic: ${snap?.activeSubtopic || "—"}
 Cursor section: ${snap?.focusedRef || "—"}
-${noteState}`;
+${noteState}${selectionBlock}`;
 
       const systemKnowledge = `YOU ARE THE MATHGPL COPILOT — an experienced mathematics teacher
 working inside a MathGPL lesson note. You know this platform already, so the
