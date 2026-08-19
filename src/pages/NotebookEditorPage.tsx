@@ -276,12 +276,12 @@ const NotebookEditorPage = () => {
               type="button"
               aria-label="Close Co-Pilot"
               className="md:hidden fixed inset-0 z-40 bg-black/50"
-              onClick={() => setCopilotOpen(false)}
+              onClick={() => setLessonAiMode("builder")}
             />
             {/* ONE Co-Pilot instance: docked on wide screens, slide-over on narrow */}
             <div className="fixed inset-y-0 right-0 z-40 w-[88%] max-w-[420px] shadow-2xl md:static md:inset-auto md:z-auto md:h-full md:w-[34%] md:min-w-[320px] md:max-w-[520px] md:shadow-none">
               <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
-                <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setCopilotOpen(false)} />
+                <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setLessonAiMode("builder")} />
               </Suspense>
             </div>
           </>
