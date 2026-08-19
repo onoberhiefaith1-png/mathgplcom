@@ -129,40 +129,45 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
       <header className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-foreground/10">
         <Sparkles className="h-3.5 w-3.5 text-amber-300" />
         <div className="flex-1 min-w-0">
-          <p className="text-[12px] font-medium text-foreground/90">MyGPL Co-Pilot</p>
+          <p className="text-[12px] font-medium text-foreground/90">MathGPL Copilot</p>
           <p className="text-[9.5px] text-foreground/40 truncate">
-            Discuss → propose → approve → implement
+            Structure → material → analysis → build
           </p>
         </div>
-        <Button size="icon" variant="ghost" className="h-7 w-7 text-foreground/50" onClick={onClose} aria-label="Close Co-Pilot">
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-foreground/50" onClick={onClose} aria-label="Close Copilot">
           <X className="h-3.5 w-3.5" />
         </Button>
       </header>
 
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-2.5">
-        {messages.length === 0 && (
-          <div className="rounded-xl border border-foreground/10 bg-foreground/[0.04] p-3 space-y-2">
-            <p className="text-[12px] text-foreground/75">
-              I can read this lesson note — its topic, subtopic, examples, questions,
-              solutions and diagrams. Tell me what you want and I will propose the
-              change before anything is edited.
-            </p>
-            <ul className="text-[11px] text-foreground/45 space-y-0.5">
-              <li>“Example 2 is too simple — make it more challenging.”</li>
-              <li>“Generate the solution for this question.”</li>
-              <li>“Map this solution onto the diagram we already have.”</li>
-            </ul>
-          </div>
-        )}
         {messages.map((m) => (
           <MessageBubble key={m.id} m={m} onApprove={() => approve(m)} onReject={() => reject(m)} />
         ))}
+
+        {stage === "structure" && (
+          <StructureCard counts={counts} onChange={setCounts} onConfirm={confirmStructure} disabled={busy} />
+        )}
+
+        {stage === "material" && (
+          <MaterialIntake onSubmit={provideMaterial} onSkip={skipMaterial} disabled={busy} />
+        )}
+
+        {(stage === "building" || stage === "idle") && queue.length > 0 && (
+          <BuildProgress
+            queue={queue}
+            onResume={resumeBuild}
+            showResume={stage === "idle" && queue.some((q) => q.state !== "done")}
+          />
+        )}
+
         {busy && (
           <p className="text-[11px] text-foreground/45 inline-flex items-center gap-1.5">
-            <Loader2 className="h-3 w-3 animate-spin" /> Thinking…
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {stage === "analysing" ? "Reading your material…" : stage === "building" ? "Building…" : "Thinking…"}
           </p>
         )}
       </div>
+
 
       <div className="shrink-0 border-t border-foreground/10 p-2.5 space-y-2">
         <div className="flex items-center gap-1 rounded-full border border-foreground/15 p-0.5 w-fit">
