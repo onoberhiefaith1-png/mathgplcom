@@ -7,6 +7,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/lib/async/withTimeout";
+
+/** Generous: real generation can take a while, but never forever. */
+const COPILOT_CALL_TIMEOUT_MS = 120_000;
+
 import {
   isKnownAction, isDestructive, runCoPilotAction, validateAction,
   type CoPilotAction, type CoPilotBridge, type CoPilotMessage,
