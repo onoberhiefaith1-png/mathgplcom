@@ -150,6 +150,7 @@ import {
   type SectionChunk,
 } from "@/lib/lessonnotes/lessonContext";
 import { useLessonAiContextStore, sameSubtopic } from "@/lib/lessonnotes/aiContext";
+import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor } from "@/lib/lessonnotes/containerRange";
