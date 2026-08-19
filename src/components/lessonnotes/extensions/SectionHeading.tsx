@@ -75,6 +75,8 @@ function SectionHeadingView(props: NodeViewProps) {
   const { pathname } = useLocation();
   /** Smart Card publishing exists ONLY inside MathGPL Life. */
   const isLive = pathname.startsWith("/live");
+  /** Section AI chips belong to MathGPL Builder mode only. */
+  const builderAi = useBuilderAiVisible();
 
   const level: number = node.attrs.level ?? 2;
   const text = node.textContent;
