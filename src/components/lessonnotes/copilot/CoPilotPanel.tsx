@@ -97,7 +97,11 @@ function MessageBubble({
 }
 
 export function CoPilotPanel({ bridgeRef, onClose }: Props) {
-  const { mode, setMode, messages, busy, send, approve, reject } = useCoPilotConversation(bridgeRef);
+  const {
+    mode, setMode, messages, busy, send, approve, reject,
+    stage, counts, setCounts, confirmStructure,
+    provideMaterial, skipMaterial, queue, resumeBuild,
+  } = useCoPilotConversation(bridgeRef);
   const [text, setText] = useState("");
   const voice = useVoiceInput(setText as any);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -105,7 +109,8 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, busy]);
+  }, [messages, busy, stage, queue]);
+
 
   const submit = () => {
     const value = text.trim();
