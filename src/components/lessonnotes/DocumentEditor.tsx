@@ -473,6 +473,8 @@ function DocumentEditorInner({
   notebookId: notebookIdProp, scopeSuffix, copilotBridgeRef,
 }: Props) {
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
+  /** Whole-lesson AI assist belongs to MathGPL Builder mode only. */
+  const builderAi = useBuilderAiVisible();
   // When a school looks through a teacher's workspace the page is identical;
   // the paper simply refuses to change.
   const { viewOnly, allowEdit } = useViewAs();
