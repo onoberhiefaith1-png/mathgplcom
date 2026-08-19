@@ -82,8 +82,10 @@ const NotebookEditorPage = () => {
   };
   const [scanBusy, setScanBusy] = useState(false);
 
-  // MathGPL Co-Pilot: docked at ~1/3 of the screen, the note keeps the rest.
-  const [copilotOpen, setCopilotOpen] = useState(false);
+  // Which AI owns this workspace. Co-Pilot mode docks the panel at ~1/3 of the
+  // screen and hides every per-section AI control; Builder keeps them.
+  const aiMode = useLessonAiMode();
+  const copilotOpen = aiMode === "copilot";
   const copilotBridgeRef = useRef<CoPilotBridge | null>(null);
 
   const handleScanImage = useCallback(async (dataUrl: string) => {
