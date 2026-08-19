@@ -30,9 +30,8 @@ const MaterialIntake = ({ onSubmit, onSkip, busy }: Props) => {
   const [files, setFiles] = useState<CoPilotFile[]>([]);
   const [reading, setReading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const voice = useVoiceInput({
-    onResult: (t) => setText((prev) => (prev ? `${prev} ${t}` : t)),
-  });
+  const voice = useVoiceInput(setText);
+
 
   const attach = async (list: FileList | null) => {
     if (!list?.length) return;
