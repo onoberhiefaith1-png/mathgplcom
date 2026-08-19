@@ -131,7 +131,7 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
     <aside
       className="h-full flex flex-col border-l border-foreground/10"
       style={{ background: "rgba(17,15,36,0.92)" }}
-      aria-label="MyGPL Co-Pilot"
+      aria-label="MathGPL Co-Pilot"
     >
       <header className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-foreground/10">
         <Sparkles className="h-3.5 w-3.5 text-amber-300" />
