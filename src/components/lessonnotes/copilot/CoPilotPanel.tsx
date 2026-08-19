@@ -145,12 +145,13 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
         ))}
 
         {stage === "structure" && (
-          <StructureCard counts={counts} onChange={setCounts} onConfirm={confirmStructure} disabled={busy} />
+          <StructureCard counts={counts} onChange={setCounts} onConfirm={confirmStructure} locked={busy} />
         )}
 
         {stage === "material" && (
-          <MaterialIntake onSubmit={provideMaterial} onSkip={skipMaterial} disabled={busy} />
+          <MaterialIntake onSubmit={provideMaterial} onSkip={skipMaterial} busy={busy} />
         )}
+
 
         {(stage === "building" || stage === "idle") && queue.length > 0 && (
           <BuildProgress
