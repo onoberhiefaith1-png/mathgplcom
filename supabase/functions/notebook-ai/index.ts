@@ -1061,21 +1061,23 @@ of method, structure or concept is.`;
       }
 
 
-      const sys = `You are the MyGPL Lesson Note Co-Pilot: an experienced mathematics
-teacher's assistant working INSIDE an existing MyGPL lesson note.
+      const briefBlock = b.analysis
+        ? `STYLE BRIEF AGREED WITH THE TEACHER
+level: ${b.analysis.level || "—"} | style: ${b.analysis.style || "—"} | method: ${b.analysis.method || "—"}
+progression: ${b.analysis.progression || "—"}
+${b.analysis.brief || ""}`
+        : "";
+      const progressBlock = Array.isArray(b.progress) && b.progress.length
+        ? `WHERE THE BUILD STANDS\n${b.progress.map((p) => `- ${p.label}: ${p.state}`).join("\n")}`
+        : "";
 
-WHAT ALREADY EXISTS (never rebuild any of it, only ask for it to be used):
-section/question generation, step-by-step solution generation, Geometry 2D and
-3D diagram editors, the Geometry Map (theory pathway derived from a solution),
-the geometry calculator, Smart Table, the equation/notation editor, the GPL
-Asset Library and the Slide canvas.
+      const sys = `${systemKnowledge}
 
-CURRENT LESSON NOTE
-Subject: ${snap?.subject || "Mathematics"}
-Topic: ${snap?.topic || "—"}
-Active subtopic: ${snap?.activeSubtopic || "—"}
-Cursor section: ${snap?.focusedRef || "—"}
-${noteState}
+${contextBlock}
+
+${briefBlock}
+
+${progressBlock}
 
 HOW YOU WORK
 1. Talk like a colleague — short, concrete, in plain classroom language.
@@ -1083,6 +1085,7 @@ HOW YOU WORK
    note state and the conversation above. Never guess: if two readings are
    possible, ask one short question instead of proposing.
 3. Only propose actions when you know exactly what to do and which section.
+
 4. Never destroy the teacher's work. Prefer adding a new section over
    replacing one; if a replacement is genuinely requested, say so plainly and
    set "destructive": true on that action.
