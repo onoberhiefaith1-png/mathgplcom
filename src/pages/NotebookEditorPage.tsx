@@ -185,16 +185,42 @@ const NotebookEditorPage = () => {
               <span className="hidden lg:inline">Save to class</span>
             </Button>
           )}
-          <Button
-            size="sm"
-            variant={copilotOpen ? "default" : "ghost"}
-            className={`shrink-0 gap-1.5 h-8 px-2 ${copilotOpen ? "bg-amber-400 text-amber-950 hover:bg-amber-300" : "text-foreground/70 hover:text-foreground"}`}
-            onClick={() => setCopilotOpen((v) => !v)}
-            aria-pressed={copilotOpen}
-            title="MathGPL Co-Pilot"
-          >
-            <Sparkles className="h-3.5 w-3.5" /> <span className="hidden lg:inline">MathGPL Co-Pilot</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant={copilotOpen ? "default" : "ghost"}
+                className={`shrink-0 gap-1.5 h-8 px-2 ${copilotOpen ? "bg-amber-400 text-amber-950 hover:bg-amber-300" : "text-foreground/70 hover:text-foreground"}`}
+                title={copilotOpen ? "MathGPL Co-Pilot active" : "MathGPL Builder active"}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline">
+                  {copilotOpen ? "MathGPL Co-Pilot" : "MathGPL Builder"}
+                </span>
+                <ChevronDown className="h-3 w-3 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem onClick={() => setLessonAiMode("copilot")} className="gap-2">
+                <Check className={`h-3.5 w-3.5 ${copilotOpen ? "opacity-100" : "opacity-0"}`} />
+                <span>
+                  <span className="block text-sm">MathGPL Co-Pilot</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    One mathematical AI owns the lesson
+                  </span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLessonAiMode("builder")} className="gap-2">
+                <Check className={`h-3.5 w-3.5 ${copilotOpen ? "opacity-0" : "opacity-100"}`} />
+                <span>
+                  <span className="block text-sm">MathGPL Builder</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    Section AI tools available
+                  </span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             size="sm" variant="ghost"
             className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
