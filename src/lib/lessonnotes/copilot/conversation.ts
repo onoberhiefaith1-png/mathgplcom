@@ -8,10 +8,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  isKnownAction, isDestructive, runCoPilotAction,
+  isKnownAction, isDestructive, runCoPilotAction, validateAction,
   type CoPilotAction, type CoPilotBridge, type CoPilotMessage,
   type CoPilotMode, type CoPilotProposal, type CoPilotRunStep,
 } from "./actions";
+
 import {
   DEFAULT_STRUCTURE, buildQueue, emptyMaterial, itemInstruction,
   type BuildItem, type CoPilotAnalysis, type CoPilotMaterial,
