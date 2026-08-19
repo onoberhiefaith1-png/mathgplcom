@@ -32,6 +32,8 @@ interface Props {
 }
 
 export function SelectionToolbar({ editor, suppressed, onAiEdit }: Props) {
+  /** AI Edit belongs to MathGPL Builder mode; Co-Pilot handles selections. */
+  const builderAi = useBuilderAiVisible();
   if (!editor) return null;
 
   const captureSnapshot = (): SelectionSnapshot | null => {
