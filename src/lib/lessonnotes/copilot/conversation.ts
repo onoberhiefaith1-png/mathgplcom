@@ -89,38 +89,45 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...next } : m)));
   }, []);
 
-  /** One call to the Copilot backend. */
+  /** One call to the Copilot backend, bounded so the panel can never hang. */
   const ask = useCallback(async (payload: Record<string, unknown>) => {
     const snapshot = bridgeRef.current?.snapshot() ?? null;
-    const { data, error } = await supabase.functions.invoke("notebook-ai", {
-      body: { mode: "copilot", snapshot, ...payload },
-    });
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke("notebook-ai", {
+        body: { mode: "copilot", snapshot, ...payload },
+      }),
+      COPILOT_CALL_TIMEOUT_MS,
+      "That took longer than expected and I stopped waiting — try again.",
+    );
     if (error) throw error;
     return (data ?? {}) as any;
   }, [bridgeRef]);
 
   // ── Stage 1: greeting + the structure card ───────────────────────────
   useEffect(() => {
-    if (greetedRef.current) return;
+    if (greetedRef.current) {
+      // A re-mount must never leave the panel spinning on a call it lost.
+      setBusy(false);
+      setStage((s) => (s === "greeting" ? "structure" : s));
+      return;
+    }
     greetedRef.current = true;
-    let cancelled = false;
     (async () => {
       setBusy(true);
       try {
         const data = await ask({ stage: "greet" });
-        if (cancelled) return;
         const reply = String(data.reply ?? "").trim();
         say(reply || "Let's build this lesson. Start by setting the structure below.");
       } catch {
-        if (!cancelled) {
-          say("Let's build this lesson. I've prepared the structure below — adjust the numbers before I begin.");
-        }
+        say("Let's build this lesson. I've prepared the structure below — adjust the numbers before I begin.");
       } finally {
-        if (!cancelled) { setBusy(false); setStage("structure"); }
+        // Always release the panel, even if this effect run was torn down.
+        setBusy(false);
+        setStage((s) => (s === "greeting" ? "structure" : s));
       }
     })();
-    return () => { cancelled = true; };
   }, [ask, say]);
+
 
   // ── Stage 5: the build run ───────────────────────────────────────────
   const runBuild = useCallback(async () => {
