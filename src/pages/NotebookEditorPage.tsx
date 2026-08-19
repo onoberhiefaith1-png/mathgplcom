@@ -231,6 +231,11 @@ const NotebookEditorPage = () => {
           </Button>
         </div>
 
+        <p className="px-3 pb-1 text-[10px] text-foreground/50 truncate">
+          {copilotOpen
+            ? "Co-Pilot active — individual lesson AI tools are disabled."
+            : "Builder active — section AI tools are available."}
+        </p>
         <div className="h-0.5 w-full" style={{ background: theme.gradient }} aria-hidden />
       </header>
 
