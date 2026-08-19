@@ -117,28 +117,71 @@ export const isKnownAction = (n: unknown): n is CoPilotActionName =>
 export const isDestructive = (a: CoPilotAction): boolean =>
   a.destructive === true || a.name === "regenerateQuestion" || a.name === "editBlock";
 
+const findEntry = (snap: CoPilotSnapshot | null, ref: string | null): CoPilotEntry | null =>
+  (ref && snap?.entries.find((e) => e.ref === ref)) || null;
+
+/** Does this action need a specific section of the note? */
+const NEEDS_TARGET: CoPilotActionName[] = [
+  "generateQuestion", "regenerateQuestion", "generateSolution", "buildGeometryMap", "editBlock",
+];
+
+/**
+ * Refuse an action before it runs when the note's own state makes it wrong:
+ * an unresolved target, a Geometry Map without a solution, a second solution,
+ * or a second diagram on a question that already owns one.
+ * Returns a teacher-facing reason, or null when the action is safe.
+ */
+export function validateAction(
+  snap: CoPilotSnapshot | null,
+  a: CoPilotAction,
+): string | null {
+  const ref = a.target ?? null;
+  if (NEEDS_TARGET.includes(a.name)) {
+    if (!ref) return "I could not tell which section of the note that applies to — tell me the heading and I'll do it.";
+    if (snap && !findEntry(snap, ref)) {
+      return "The section I was aiming at is no longer in the note — tell me the heading you mean.";
+    }
+  }
+  const entry = findEntry(snap, ref);
+  if (a.name === "buildGeometryMap") {
+    if (entry && !entry.solutionText.trim()) {
+      return "A Geometry Map is derived from the solution, and this question has none yet — I'll generate the solution first if you want.";
+    }
+  }
+  if (a.name === "generateSolution" && entry && entry.solutionText.trim()) {
+    return "That question already has a solution. I won't add a second one — say \"replace the solution\" if you want it rewritten.";
+  }
+  if (a.name === "openGeometry2D" && entry?.hasDiagram) {
+    return "That question already owns a diagram, so I'll open the one it has rather than make a second one.";
+  }
+  return null;
+}
+
 /** Run one action through the bridge. Unknown names are refused here. */
 export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction): Promise<void> {
-  const ref = a.target ?? bridge.snapshot()?.focusedRef ?? null;
+  const snap = bridge.snapshot();
+  const ref = a.target ?? null;
+  if (NEEDS_TARGET.includes(a.name) && !ref) {
+    throw new Error("No section of the note was identified for this step.");
+  }
+  const problem = validateAction(snap, a);
+  // A diagram that already exists is reused, not refused.
+  if (problem && a.name !== "openGeometry2D") throw new Error(problem);
   switch (a.name) {
     case "insertSection":
       await bridge.insertSection(a.sectionKind || "example");
       return;
     case "generateQuestion":
-      if (!ref) throw new Error("No section was identified for this step.");
-      await bridge.generateQuestion(ref, a.instruction ?? "", false);
+      await bridge.generateQuestion(ref!, a.instruction ?? "", false);
       return;
     case "regenerateQuestion":
-      if (!ref) throw new Error("No section was identified for this step.");
-      await bridge.generateQuestion(ref, a.instruction ?? "", true);
+      await bridge.generateQuestion(ref!, a.instruction ?? "", true);
       return;
     case "generateSolution":
-      if (!ref) throw new Error("No question was identified for this step.");
-      await bridge.generateSolution(ref, a.instruction ?? "");
+      await bridge.generateSolution(ref!, a.instruction ?? "");
       return;
     case "buildGeometryMap":
-      if (!ref) throw new Error("No question was identified for this step.");
-      await bridge.buildGeometryMap(ref);
+      await bridge.buildGeometryMap(ref!);
       return;
     case "openGeometry2D":
       await bridge.openGeometry2D(ref);
@@ -153,10 +196,10 @@ export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction):
       await bridge.openAssetLibrary();
       return;
     case "editBlock":
-      if (!ref) throw new Error("No block was identified for this step.");
-      await bridge.editBlock(ref, a.instruction ?? "");
+      await bridge.editBlock(ref!, a.instruction ?? "");
       return;
     default:
       throw new Error("Unsupported action.");
   }
 }
+

@@ -82,7 +82,7 @@ const NotebookEditorPage = () => {
   };
   const [scanBusy, setScanBusy] = useState(false);
 
-  // MyGPL Co-Pilot: docked at ~1/3 of the screen, the note keeps the rest.
+  // MathGPL Co-Pilot: docked at ~1/3 of the screen, the note keeps the rest.
   const [copilotOpen, setCopilotOpen] = useState(false);
   const copilotBridgeRef = useRef<CoPilotBridge | null>(null);
 
@@ -184,9 +184,9 @@ const NotebookEditorPage = () => {
             className={`shrink-0 gap-1.5 h-8 px-2 ${copilotOpen ? "bg-amber-400 text-amber-950 hover:bg-amber-300" : "text-foreground/70 hover:text-foreground"}`}
             onClick={() => setCopilotOpen((v) => !v)}
             aria-pressed={copilotOpen}
-            title="MyGPL Co-Pilot"
+            title="MathGPL Co-Pilot"
           >
-            <Sparkles className="h-3.5 w-3.5" /> <span className="hidden lg:inline">MyGPL Co-Pilot</span>
+            <Sparkles className="h-3.5 w-3.5" /> <span className="hidden lg:inline">MathGPL Co-Pilot</span>
           </Button>
           <Button
             size="sm" variant="ghost"

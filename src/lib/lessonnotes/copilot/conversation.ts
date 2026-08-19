@@ -8,10 +8,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  isKnownAction, isDestructive, runCoPilotAction,
+  isKnownAction, isDestructive, runCoPilotAction, validateAction,
   type CoPilotAction, type CoPilotBridge, type CoPilotMessage,
   type CoPilotMode, type CoPilotProposal, type CoPilotRunStep,
 } from "./actions";
+
 import {
   DEFAULT_STRUCTURE, buildQueue, emptyMaterial, itemInstruction,
   type BuildItem, type CoPilotAnalysis, type CoPilotMaterial,
@@ -258,6 +259,17 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
       patch(id, { run: steps.map((s) => ({ ...s, state: "failed", detail: "The lesson note is not ready." })) });
       return;
     }
+    // Pre-flight: refuse the whole run when the note's own state makes a step
+    // wrong (unresolved section, duplicate solution, map without a solution).
+    const snap = bridge.snapshot();
+    for (const a of proposal.actions) {
+      const problem = a.name === "openGeometry2D" ? null : validateAction(snap, a);
+      if (problem) {
+        patch(id, { run: steps.map((s) => ({ ...s, state: "pending" })) });
+        say(problem);
+        return;
+      }
+    }
     setBusy(true);
     const live = [...steps];
     for (let i = 0; i < proposal.actions.length; i++) {
@@ -278,6 +290,7 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     setBusy(false);
     say("Done — that's applied to the note.");
   }, [bridgeRef, patch, say]);
+
 
   const send = useCallback(async (text: string) => {
     const clean = text.trim();
@@ -305,12 +318,16 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
         progress: queueRef.current.map((q) => ({ label: q.label, state: q.state })),
       });
       const reply = String(data.reply ?? "").trim();
-      const proposal = sanitizeProposal(data.proposal);
+      const parsedProposal = sanitizeProposal(data.proposal);
+      // PLAN mode never acts: the proposal is shown as analysis only.
+      const proposal = parsedProposal && modeRef.current === "plan"
+        ? { ...parsedProposal, actions: [] }
+        : parsedProposal;
       const msgId = uid();
       setMessages((prev) => [...prev, {
         id: msgId, role: "copilot",
         text: reply || (proposal ? proposal.summary : "I couldn't read that — could you put it another way?"),
-        ...(proposal && proposal.actions.length ? { proposal } : {}),
+        ...(proposal && (proposal.actions.length || proposal.steps.length) ? { proposal } : {}),
       }]);
 
       // Additive work in CREATE mode runs straight away; replacements wait.
@@ -322,6 +339,7 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
         await execute(msgId, proposal);
         return;
       }
+
     } catch (e) {
       say(`I could not complete that: ${e instanceof Error ? e.message : String(e)}`);
     } finally {

@@ -62,7 +62,7 @@ function MessageBubble({
             )}
             <div>
               <p className="text-[9px] uppercase tracking-[0.28em] text-foreground/40">
-                {m.run ? "Progress" : "Plan"}
+                {m.run ? "Progress" : m.proposal.actions.length ? "Plan" : "Thinking"}
               </p>
               <ul className="mt-1 space-y-1">
                 {(m.run ?? m.proposal.steps.map((s) => ({ label: s, state: "pending" as const })))
@@ -73,10 +73,11 @@ function MessageBubble({
             </div>
             {m.proposal.actions.some(isDestructive) && !m.settled && (
               <p className="text-[10px] text-amber-300/90">
-                This replaces existing content in the lesson note.
+                This replaces existing content in the lesson note. Approve it and I'll go ahead;
+                your note's own undo still brings the original back.
               </p>
             )}
-            {!m.settled && (
+            {!m.settled && m.proposal.actions.length > 0 && (
               <div className="flex gap-2 pt-0.5">
                 <Button size="sm" className="h-7 text-[11px] bg-amber-400 text-amber-950 hover:bg-amber-300" onClick={onApprove}>
                   Approve
@@ -86,9 +87,15 @@ function MessageBubble({
                 </Button>
               </div>
             )}
+            {!m.settled && m.proposal.actions.length === 0 && (
+              <p className="text-[10px] text-foreground/40">
+                Discussion only — nothing in the note has changed. Switch to CREATE when you want me to build it.
+              </p>
+            )}
             {m.settled === "rejected" && (
               <p className="text-[10px] text-foreground/40">Rejected — nothing changed.</p>
             )}
+
           </div>
         )}
       </div>
@@ -124,7 +131,7 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
     <aside
       className="h-full flex flex-col border-l border-foreground/10"
       style={{ background: "rgba(17,15,36,0.92)" }}
-      aria-label="MyGPL Co-Pilot"
+      aria-label="MathGPL Co-Pilot"
     >
       <header className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b border-foreground/10">
         <Sparkles className="h-3.5 w-3.5 text-amber-300" />
