@@ -25,6 +25,11 @@ import { toast } from "@/hooks/use-toast";
 import { saveBackToClass } from "@/lib/lessonnotes/notebookCopy";
 import { useViewAs } from "@/lib/accounts/viewAs";
 import type { CoPilotBridge } from "@/lib/lessonnotes/copilot/actions";
+import { useLessonAiMode, setLessonAiMode } from "@/lib/lessonnotes/aiMode";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Check, ChevronDown } from "lucide-react";
 
 // The Co-Pilot is closed by default and only downloads when opened.
 const CoPilotPanel = lazy(() =>
