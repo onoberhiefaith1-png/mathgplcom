@@ -171,6 +171,29 @@ function evalArithmetic(raw: string): number {
   return value;
 }
 
+/**
+ * Parse the Engine's JSON safely. Board notation uses single-backslash LaTeX
+ * templates (\frac, \sqrt), and JSON.parse would eat "\f" as a form feed —
+ * "\frac{1}{2}" would arrive as "rac{1}{2}". Escape those commands first.
+ */
+const LATEX_CMD = /\\(?=(frac|sqrt|square|times|cdot|pi|theta|alpha|beta|left|right|begin|end|text|le|ge|ne|approx|infty|circ|angle|triangle)\b)/g;
+
+// deno-lint-ignore no-explicit-any
+export function parseEngineJson(raw: string): any {
+  const cleaned = raw.trim()
+    .replace(/^```json\s*|\s*```$/g, "")
+    .replace(/^```\s*|\s*```$/g, "")
+    .replace(LATEX_CMD, "\\\\");
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) { try { return JSON.parse(m[0]); } catch { /* unreadable */ } }
+    return null;
+  }
+}
+
+
 const near = (a: number, b: number, eps = 1e-4) => Math.abs(a - b) <= eps * Math.max(1, Math.abs(a), Math.abs(b));
 
 const num = (raw: unknown): number | null => {
