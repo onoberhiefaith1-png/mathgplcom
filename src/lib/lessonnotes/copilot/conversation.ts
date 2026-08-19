@@ -15,7 +15,7 @@ const COPILOT_CALL_TIMEOUT_MS = 120_000;
 import {
   isKnownAction, isDestructive, runCoPilotAction, validateAction,
   type CoPilotAction, type CoPilotBridge, type CoPilotMessage,
-  type CoPilotMode, type CoPilotProposal, type CoPilotRunStep,
+  type CoPilotProposal, type CoPilotRunStep,
 } from "./actions";
 
 import {
@@ -63,7 +63,6 @@ const sanitizeAnalysis = (raw: any): CoPilotAnalysis | null => {
 };
 
 export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilotBridge | null>) {
-  const [mode, setMode] = useState<CoPilotMode>("create");
   const [messages, setMessages] = useState<CoPilotMessage[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -72,8 +71,6 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
   const [queue, setQueue] = useState<BuildItem[]>([]);
   const [analysis, setAnalysis] = useState<CoPilotAnalysis | null>(null);
 
-  const modeRef = useRef(mode);
-  modeRef.current = mode;
   const stageRef = useRef(stage);
   stageRef.current = stage;
   const queueRef = useRef<BuildItem[]>(queue);
@@ -188,7 +185,6 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     try {
       const data = await ask({
         stage: "chat",
-        copilotMode: "plan",
         message: "The build is finished. Close it off in one or two sentences: what you built, and what you'd check with the class.",
         history: [],
         structure: counts,
@@ -322,7 +318,6 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
       const history = [...messages, teacherMsg].slice(-12).map((m) => ({ role: m.role, text: m.text }));
       const data = await ask({
         stage: "chat",
-        copilotMode: modeRef.current,
         message: clean,
         history,
         structure: counts,
@@ -330,11 +325,10 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
         progress: queueRef.current.map((q) => ({ label: q.label, state: q.state })),
       });
       const reply = String(data.reply ?? "").trim();
-      const parsedProposal = sanitizeProposal(data.proposal);
-      // PLAN mode never acts: the proposal is shown as analysis only.
-      const proposal = parsedProposal && modeRef.current === "plan"
-        ? { ...parsedProposal, actions: [] }
-        : parsedProposal;
+      // One conversational flow: the AI decides whether to discuss or act.
+      // Additive work runs straight away; anything that replaces existing
+      // content waits for Approve.
+      const proposal = sanitizeProposal(data.proposal);
       const msgId = uid();
       setMessages((prev) => [...prev, {
         id: msgId, role: "copilot",
@@ -342,11 +336,8 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
         ...(proposal && (proposal.actions.length || proposal.steps.length) ? { proposal } : {}),
       }]);
 
-      // Additive work in CREATE mode runs straight away; replacements wait.
-      if (
-        modeRef.current === "create" && proposal && proposal.actions.length &&
-        !proposal.actions.some(isDestructive)
-      ) {
+      // Additive work runs straight away; replacements wait for approval.
+      if (proposal && proposal.actions.length && !proposal.actions.some(isDestructive)) {
         setBusy(false);
         await execute(msgId, proposal);
         return;
@@ -370,7 +361,7 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
   }, [patch, say]);
 
   return {
-    mode, setMode, messages, busy, send, approve, reject,
+    messages, busy, send, approve, reject,
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial,
     queue, resumeBuild, analysis,
