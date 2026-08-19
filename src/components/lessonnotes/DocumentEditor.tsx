@@ -3128,7 +3128,7 @@ function DocumentEditorInner({
             <Camera className="h-4 w-4" /> Capture Step
           </button>
         )}
-        <GlobalAiButton onGenerate={handleGlobalAi} />
+        {builderAi && <GlobalAiButton onGenerate={handleGlobalAi} />
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
 
         <button
