@@ -925,13 +925,20 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
     if (body.mode === "copilot") {
       const b = body as {
         mode: "copilot";
+        stage?: "greet" | "structureConfirmed" | "analyse" | "chat";
         copilotMode?: "plan" | "create";
         message?: string;
         history?: { role: string; text: string }[];
         snapshot?: any;
+        structure?: Record<string, number>;
+        analysis?: any;
+        progress?: { label: string; state: string }[];
+        material?: { text?: string; files?: { name: string; mime: string; dataUrl: string }[] };
+        queue?: { key: string; label: string; kind: string }[];
       };
+      const stage = b.stage ?? "chat";
       const message = String(b.message ?? "").trim();
-      if (!message) {
+      if (stage === "chat" && !message) {
         return new Response(JSON.stringify({ error: "missing message" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -946,6 +953,113 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
             `   diagram: ${e.hasDiagram ? e.diagramSummary || "linked diagram present" : "none"}`,
           ].join("\n")).join("\n")
         : "(the note has no sections yet)";
+
+      const contextBlock = `CURRENT LESSON NOTE
+Subject: ${snap?.subject || "Mathematics"}
+Topic: ${snap?.topic || "—"}
+Active subtopic: ${snap?.activeSubtopic || "—"}
+Cursor section: ${snap?.focusedRef || "—"}
+${noteState}`;
+
+      const systemKnowledge = `YOU ARE THE MATHGPL COPILOT — an experienced mathematics teacher
+working inside a MathGPL lesson note. You know this platform already, so the
+teacher never has to explain it: section/question generation, step-by-step
+solution generation, Geometry 2D and 3D, the Geometry Map (theory pathway
+derived from a solution), the geometry calculator, Smart Table, the notation
+editor, the GPL Asset Library, the Slide canvas, Smartboard presentation,
+classes, adventures and reports.
+You never write the mathematics yourself in a reply — the note's own
+generators do that. You decide what should be built and why.
+The lesson procedure is FIXED and you must not renegotiate it:
+greeting → lesson structure (the teacher sets the numbers) → additional
+information → analysis of that material → build → supervision.
+Never ask "how many examples do you want?" — that is a control the teacher
+already sets. Speak like a colleague: short, concrete, classroom language.
+Changing numbers in a question is NOT changing the mathematics; only a change
+of method, structure or concept is.`;
+
+      const jsonOnly = (shape: string) =>
+        `Reply with JSON ONLY, no code fence:\n${shape}`;
+
+      // ── Stage: greeting ──────────────────────────────────────────
+      if (stage === "greet") {
+        const raw = await callAI([
+          { role: "system", content: `${systemKnowledge}\n\n${contextBlock}\n\n${jsonOnly('{ "reply": "…" }')}` },
+          { role: "user", content: "Open the session in two or three sentences: greet the teacher, name the topic and subtopic you can see (or ask for it if it is empty), and tell them to set the lesson structure below before you begin." },
+        ]);
+        const cleaned = stripFences(String(raw)).trim();
+        let reply = cleaned;
+        try { const j = JSON.parse(cleaned); if (typeof j?.reply === "string") reply = j.reply; } catch { /* plain text */ }
+        return new Response(JSON.stringify({ reply: sanitizePresentation(reply).trim() }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ── Stage: structure confirmed → ask for material ────────────
+      if (stage === "structureConfirmed") {
+        const counts = Object.entries(b.structure ?? {})
+          .filter(([, n]) => Number(n) > 0)
+          .map(([k, n]) => `${k}: ${n}`)
+          .join(", ") || "(nothing set)";
+        const raw = await callAI([
+          { role: "system", content: `${systemKnowledge}\n\n${contextBlock}\n\n${jsonOnly('{ "reply": "…" }')}` },
+          { role: "user", content: `The teacher confirmed this lesson structure: ${counts}. In two or three sentences, acknowledge it as a teacher would, then invite any additional information — a textbook page, a photo of a past paper, a preferred method, the class level or a style to follow — and say they can skip it and you will work from the subtopic.` },
+        ]);
+        const cleaned = stripFences(String(raw)).trim();
+        let reply = cleaned;
+        try { const j = JSON.parse(cleaned); if (typeof j?.reply === "string") reply = j.reply; } catch { /* plain text */ }
+        return new Response(JSON.stringify({ reply: sanitizePresentation(reply).trim() }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // ── Stage: analyse the teacher's material ────────────────────
+      if (stage === "analyse") {
+        const files = Array.isArray(b.material?.files) ? b.material!.files!.slice(0, 6) : [];
+        const queue = Array.isArray(b.queue) ? b.queue : [];
+        const blocks: any[] = [{
+          type: "text",
+          text: [
+            `The teacher's additional information follows. Analyse it as a mathematics teacher would.`,
+            b.material?.text ? `Their words: ${b.material.text}` : `They gave no written direction.`,
+            queue.length
+              ? `The lesson to build, in order:\n${queue.map((q) => `- ${q.key}: ${q.label} (${q.kind})`).join("\n")}`
+              : "",
+            `Work out: the class level, the style and wording to follow, the method the questions must be solvable by, how difficulty should progress, and the terminology to keep. Then write a short professional note for EACH item saying what you will build for it and why — mathematical reasoning, not description.`,
+          ].filter(Boolean).join("\n\n"),
+        }];
+        for (const f of files) {
+          const url = String(f?.dataUrl ?? "");
+          if (!url.startsWith("data:")) continue;
+          if (String(f.mime ?? "").startsWith("image/")) {
+            blocks.push({ type: "image_url", image_url: { url } });
+          } else {
+            blocks.push({ type: "file", file: { filename: f.name || "material", file_data: url } });
+          }
+        }
+        const shape = `{
+  "reply": "two or three sentences telling the teacher what you understood and that you are starting",
+  "analysis": { "level": "", "style": "", "method": "", "progression": "", "terminology": "", "brief": "one paragraph handed to every generator" },
+  "itemNotes": [{ "key": "example-1", "note": "why this item looks the way it will" }]
+}`;
+        const raw = await callAI([
+          { role: "system", content: `${systemKnowledge}\n\n${contextBlock}\n\n${jsonOnly(shape)}` },
+          { role: "user", content: blocks },
+        ]);
+        const cleaned = stripFences(String(raw)).trim();
+        let parsedA: any = {};
+        try { parsedA = JSON.parse(cleaned); } catch {
+          const s = cleaned.indexOf("{");
+          const e = cleaned.lastIndexOf("}");
+          if (s >= 0 && e > s) { try { parsedA = JSON.parse(cleaned.slice(s, e + 1)); } catch { parsedA = {}; } }
+        }
+        return new Response(JSON.stringify({
+          reply: sanitizePresentation(String(parsedA?.reply ?? "")).trim(),
+          analysis: parsedA?.analysis ?? null,
+          itemNotes: Array.isArray(parsedA?.itemNotes) ? parsedA.itemNotes : [],
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
 
       const sys = `You are the MyGPL Lesson Note Co-Pilot: an experienced mathematics
 teacher's assistant working INSIDE an existing MyGPL lesson note.
