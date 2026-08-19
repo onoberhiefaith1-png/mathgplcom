@@ -2479,6 +2479,11 @@ function DocumentEditorInner({
         const ctx = activeContext();
         const rows = copilotEntries();
         const focused = rows.find((r) => r.entry.focused)?.ref ?? rows[rows.length - 1]?.ref ?? null;
+        // Whatever the teacher highlighted is what "this" means to the Copilot.
+        const sel = editor.state.selection;
+        const selectionText = sel.empty
+          ? ""
+          : editor.state.doc.textBetween(sel.from, sel.to, "\n", "\n").trim();
         return {
           subject: ctx?.subject ?? "Mathematics",
           topic: ctx?.topic ?? "",
@@ -2487,6 +2492,7 @@ function DocumentEditorInner({
           entries: rows.map((r) => r.entry),
           focusedRef: focused,
           hasAnyContent: rows.some((r) => r.entry.questionText || r.entry.solutionText),
+          selectionText: selectionText.slice(0, 900),
         };
       },
       insertSection: async (kind: string) => {
