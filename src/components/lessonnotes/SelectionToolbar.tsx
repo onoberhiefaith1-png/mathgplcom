@@ -128,15 +128,19 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit }: Props) {
         <ToolBtn label="Delete" onClick={del}><Trash2 className="h-3.5 w-3.5" /></ToolBtn>
         <ToolBtn label="Duplicate" onClick={duplicate}><CopyPlus className="h-3.5 w-3.5" /></ToolBtn>
         <ToolBtn label="Comment" onClick={comment}><MessageSquare className="h-3.5 w-3.5" /></ToolBtn>
-        <div className="w-px h-4 bg-foreground/15 mx-0.5" />
-        <button
-          type="button"
-          onClick={handleAiEdit}
-          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary"
-          title="AI Edit"
-        >
-          <Sparkles className="h-3.5 w-3.5" /> AI Edit
-        </button>
+        {builderAi && (
+          <>
+            <div className="w-px h-4 bg-foreground/15 mx-0.5" />
+            <button
+              type="button"
+              onClick={handleAiEdit}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary"
+              title="AI Edit"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> AI Edit
+            </button>
+          </>
+        )}
       </div>
     </BubbleMenu>
   );
