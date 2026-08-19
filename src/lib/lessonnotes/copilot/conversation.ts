@@ -258,6 +258,17 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
       patch(id, { run: steps.map((s) => ({ ...s, state: "failed", detail: "The lesson note is not ready." })) });
       return;
     }
+    // Pre-flight: refuse the whole run when the note's own state makes a step
+    // wrong (unresolved section, duplicate solution, map without a solution).
+    const snap = bridge.snapshot();
+    for (const a of proposal.actions) {
+      const problem = a.name === "openGeometry2D" ? null : validateAction(snap, a);
+      if (problem) {
+        patch(id, { run: steps.map((s) => ({ ...s, state: "pending" })) });
+        say(problem);
+        return;
+      }
+    }
     setBusy(true);
     const live = [...steps];
     for (let i = 0; i < proposal.actions.length; i++) {
@@ -278,6 +289,7 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     setBusy(false);
     say("Done — that's applied to the note.");
   }, [bridgeRef, patch, say]);
+
 
   const send = useCallback(async (text: string) => {
     const clean = text.trim();
