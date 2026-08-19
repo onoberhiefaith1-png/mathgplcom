@@ -11,6 +11,7 @@ import type { Editor } from "@tiptap/react";
 import { Copy, Scissors, Trash2, CopyPlus, MessageSquare, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 import {
   detectSelectionKindFromSlice,
   type SelectionKind,
