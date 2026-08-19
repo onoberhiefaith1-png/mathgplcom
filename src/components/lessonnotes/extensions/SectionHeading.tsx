@@ -25,6 +25,7 @@ import type { GeometryScene } from "@/lib/geometry/scene";
 import { ensureOwnerQuestionId, sectionEndWithin } from "@/lib/lessonnotes/containerRange";
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
+import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 
 
 
