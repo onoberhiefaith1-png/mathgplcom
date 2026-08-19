@@ -39,6 +39,7 @@ import {
 import {
   buildEnginePrompt,
   engineProblems,
+  parseEngineJson,
   type EngineOperation,
 } from "./mathEngine.ts";
 
