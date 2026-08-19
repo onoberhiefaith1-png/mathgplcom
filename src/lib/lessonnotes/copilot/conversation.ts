@@ -318,12 +318,16 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
         progress: queueRef.current.map((q) => ({ label: q.label, state: q.state })),
       });
       const reply = String(data.reply ?? "").trim();
-      const proposal = sanitizeProposal(data.proposal);
+      const parsedProposal = sanitizeProposal(data.proposal);
+      // PLAN mode never acts: the proposal is shown as analysis only.
+      const proposal = parsedProposal && modeRef.current === "plan"
+        ? { ...parsedProposal, actions: [] }
+        : parsedProposal;
       const msgId = uid();
       setMessages((prev) => [...prev, {
         id: msgId, role: "copilot",
         text: reply || (proposal ? proposal.summary : "I couldn't read that — could you put it another way?"),
-        ...(proposal && proposal.actions.length ? { proposal } : {}),
+        ...(proposal && (proposal.actions.length || proposal.steps.length) ? { proposal } : {}),
       }]);
 
       // Additive work in CREATE mode runs straight away; replacements wait.
@@ -335,6 +339,7 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
         await execute(msgId, proposal);
         return;
       }
+
     } catch (e) {
       say(`I could not complete that: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
