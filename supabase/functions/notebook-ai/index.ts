@@ -36,6 +36,11 @@ import {
   writeGenerationLog,
   inferAppliedPrinciples,
 } from "./engineKnowledge.ts";
+import {
+  buildEnginePrompt,
+  engineProblems,
+  type EngineOperation,
+} from "./mathEngine.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -912,8 +917,122 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
       return new Response(JSON.stringify({ content, warnings }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-
     }
+
+
+
+
+    // ─────────────────────────────────────────────────────────────
+    // MODE: mathengine — the INDEPENDENT MathGPL Math Engine.
+    // A separate prompt family from the Co-Pilot: it owns mathematics.
+    // Structured output, deterministic verification, bounded regeneration.
+    // ─────────────────────────────────────────────────────────────
+    if (body.mode === "mathengine") {
+      const b = body as {
+        mode: "mathengine";
+        operation?: EngineOperation;
+        instruction?: string; question?: string; solution?: string;
+        sectionKind?: string; topic?: string; subtopic?: string;
+        level?: string; demand?: string; count?: number; method?: string;
+        sessionContext?: string; diagramSummary?: string;
+        previousProblems?: string[];
+        material?: { text?: string; images?: string[]; files?: Array<{ name: string; mime: string; dataUrl: string }> };
+      };
+      const operation = (b.operation ?? "generateExample") as EngineOperation;
+
+      const runOnce = async (problems: string[]) => {
+        const instruction = [
+          VALIDATION_DIRECTIVE,
+          MATH_MARKUP_RULES,
+          PEDAGOGY_RULES,
+          RENDERING_STANDARD,
+          BENCHMARK_STANDARD,
+          buildEnginePrompt({
+            operation,
+            instruction: b.instruction,
+            question: b.question,
+            solution: b.solution,
+            sectionKind: b.sectionKind,
+            topic: b.topic,
+            subtopic: b.subtopic,
+            level: b.level,
+            demand: b.demand,
+            count: b.count,
+            method: b.method,
+            sessionContext: b.sessionContext,
+            diagramSummary: b.diagramSummary,
+            previousProblems: problems,
+          }),
+        ].join("\n\n");
+
+        const content: any[] = [{ type: "text", text: instruction }];
+        const material = b.material ?? {};
+        if (String(material.text ?? "").trim()) {
+          content.push({ type: "text", text: `TEACHER MATERIAL:\n"""${material.text}"""` });
+        }
+        for (const img of (material.images ?? []).slice(0, 4)) {
+          if (typeof img === "string" && img.startsWith("data:")) {
+            content.push({ type: "image_url", image_url: { url: img } });
+          }
+        }
+        for (const f of (material.files ?? []).slice(0, 3)) {
+          if (!f?.dataUrl) continue;
+          if (String(f.mime).startsWith("image/")) {
+            content.push({ type: "image_url", image_url: { url: f.dataUrl } });
+          } else if (String(f.mime) === "application/pdf") {
+            content.push({ type: "file", file: { filename: f.name, file_data: f.dataUrl } });
+          }
+        }
+
+        const out = await callAI([{ role: "user", content }]);
+        const cleaned = out.trim().replace(/^```json\s*|\s*```$/g, "").replace(/^```\s*|\s*```$/g, "");
+        try {
+          return JSON.parse(cleaned);
+        } catch {
+          const m = cleaned.match(/\{[\s\S]*\}/);
+          if (m) { try { return JSON.parse(m[0]); } catch { /* fall through */ } }
+          return null;
+        }
+      };
+
+      let problems: string[] = Array.isArray(b.previousProblems) ? b.previousProblems.map(String) : [];
+      let payload: any = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        payload = await runOnce(problems);
+        if (!payload || typeof payload !== "object") {
+          problems = ["The mathematics came back unreadable."];
+          continue;
+        }
+        // Board-ready notation on every produced line.
+        if (Array.isArray(payload.questions)) {
+          payload.questions = payload.questions.map((q: any) => ({
+            ...q,
+            text: sanitizePresentation(toUnicodeMath(String(q?.text ?? ""))),
+            solutionSteps: (Array.isArray(q?.solutionSteps) ? q.solutionSteps : [])
+              .map((s: any) => sanitizePresentation(toUnicodeMath(String(s)))),
+            finalAnswer: sanitizePresentation(toUnicodeMath(String(q?.finalAnswer ?? ""))),
+          }));
+        }
+        problems = engineProblems(operation, payload, { count: b.count, method: b.method });
+        if (!problems.length) break;
+      }
+
+      if (problems.length) {
+        return new Response(JSON.stringify({
+          error: `I could not produce mathematics I'm confident in. ${problems[0]}`,
+          problems,
+        }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      return new Response(JSON.stringify({
+        narration: String(payload.narration ?? "").trim(),
+        questions: Array.isArray(payload.questions) ? payload.questions : [],
+        analysis: payload.analysis ?? null,
+        scene: payload.scene ?? null,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+
 
 
     // ─────────────────────────────────────────────────────────────

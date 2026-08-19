@@ -191,31 +191,31 @@ const NotebookEditorPage = () => {
                 size="sm"
                 variant={copilotOpen ? "default" : "ghost"}
                 className={`shrink-0 gap-1.5 h-8 px-2 ${copilotOpen ? "bg-amber-400 text-amber-950 hover:bg-amber-300" : "text-foreground/70 hover:text-foreground"}`}
-                title={copilotOpen ? "MathGPL Co-Pilot active" : "MathGPL Builder active"}
+                title={copilotOpen ? "MathGPL Co-Pilot active" : "MathGPL Math Engine active"}
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 <span className="hidden lg:inline">
-                  {copilotOpen ? "MathGPL Co-Pilot" : "MathGPL Builder"}
+                  {copilotOpen ? "MathGPL Co-Pilot" : "MathGPL Math Engine"}
                 </span>
                 <ChevronDown className="h-3 w-3 opacity-70" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuContent align="end" className="w-72">
               <DropdownMenuItem onClick={() => setLessonAiMode("copilot")} className="gap-2">
                 <Check className={`h-3.5 w-3.5 ${copilotOpen ? "opacity-100" : "opacity-0"}`} />
                 <span>
-                  <span className="block text-sm">MathGPL Co-Pilot</span>
+                  <span className="block text-sm">MathGPL Co-Pilot{copilotOpen ? " — Active" : ""}</span>
                   <span className="block text-[11px] text-muted-foreground">
-                    One mathematical AI owns the lesson
+                    Understands the lesson: structure, workflow, editing
                   </span>
                 </span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLessonAiMode("builder")} className="gap-2">
+              <DropdownMenuItem onClick={() => setLessonAiMode("mathengine")} className="gap-2">
                 <Check className={`h-3.5 w-3.5 ${copilotOpen ? "opacity-0" : "opacity-100"}`} />
                 <span>
-                  <span className="block text-sm">MathGPL Builder</span>
+                  <span className="block text-sm">MathGPL Math Engine{copilotOpen ? "" : " — Active"}</span>
                   <span className="block text-[11px] text-muted-foreground">
-                    Section AI tools available
+                    Section tools, each one verified by the Engine
                   </span>
                 </span>
               </DropdownMenuItem>
@@ -233,9 +233,10 @@ const NotebookEditorPage = () => {
 
         <p className="px-3 pb-1 text-[10px] text-foreground/50 truncate">
           {copilotOpen
-            ? "Co-Pilot active — individual lesson AI tools are disabled."
-            : "Builder active — section AI tools are available."}
+            ? "MathGPL Co-Pilot — Active. Section AI markers are hidden; Solution, Diagram, Tables, Graph, Assign and Floating work as normal editing tools."
+            : "MathGPL Math Engine — Active. Section tools are available, and every one of them is verified by the Engine."}
         </p>
+
         <div className="h-0.5 w-full" style={{ background: theme.gradient }} aria-hidden />
       </header>
 
@@ -281,12 +282,12 @@ const NotebookEditorPage = () => {
               type="button"
               aria-label="Close Co-Pilot"
               className="md:hidden fixed inset-0 z-40 bg-black/50"
-              onClick={() => setLessonAiMode("builder")}
+              onClick={() => setLessonAiMode("mathengine")}
             />
             {/* ONE Co-Pilot instance: docked on wide screens, slide-over on narrow */}
             <div className="fixed inset-y-0 right-0 z-40 w-[88%] max-w-[420px] shadow-2xl md:static md:inset-auto md:z-auto md:h-full md:w-[34%] md:min-w-[320px] md:max-w-[520px] md:shadow-none">
               <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
-                <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setLessonAiMode("builder")} />
+                <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setLessonAiMode("mathengine")} />
               </Suspense>
             </div>
           </>

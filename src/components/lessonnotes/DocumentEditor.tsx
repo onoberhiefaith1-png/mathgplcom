@@ -359,6 +359,56 @@ const isEditorControlTarget = (target: EventTarget | null) => {
   return Boolean(el?.closest('button, input, textarea, select, a, [contenteditable="false"]'));
 };
 
+/**
+ * Mathematics goes through the MathGPL Math Engine.
+ * Returns null when this request is not the Engine's business (teaching prose,
+ * introductions, summaries) or when the Engine could not verify its own
+ * mathematics — the caller then uses the ordinary generation path.
+ */
+async function engineGenerate(opts: {
+  kind: SectionKind;
+  teacherPrompt: string;
+  ctx?: Props["notebookContext"];
+  blockKind?: "problem" | "solution" | "text";
+  activeQuestion?: string;
+  context?: string;
+}): Promise<string | null> {
+  const { runEngine } = await import("@/lib/mathengine/client");
+  const base = {
+    instruction: opts.teacherPrompt,
+    topic: opts.ctx?.topic ?? "",
+    subtopic: opts.ctx?.subtopic ?? "",
+    sectionKind: aiSectionKind(opts.kind),
+    sessionContext: opts.context ?? "",
+  } as const;
+
+  try {
+    if (opts.blockKind === "solution") {
+      const question = String(opts.activeQuestion ?? "").trim();
+      if (!question) return null;
+      const res = await runEngine({ ...base, operation: "solveQuestion", question, count: 1 });
+      const q = res.questions[0];
+      if (!q) return null;
+      return q.solutionSteps.join("\n").trim() || null;
+    }
+    if (isQuestionSectionKind(opts.kind) && opts.blockKind !== "text") {
+      const operation = opts.kind === "classwork"
+        ? "generateClasswork"
+        : opts.kind === "homework" || opts.kind === "assessment"
+          ? "generateAssignment"
+          : "generateExample";
+      const res = await runEngine({ ...base, operation, count: 1 });
+      const q = res.questions[0];
+      return q?.text?.trim() || null;
+    }
+  } catch {
+    // A refusal or a failed verification is never shown as fabricated
+    // mathematics — the ordinary generation path handles it instead.
+    return null;
+  }
+  return null;
+}
+
 /** Call the notebook-ai edge function in `generate` mode. */
 async function aiGenerate(opts: {
   kind: SectionKind;
@@ -374,7 +424,10 @@ async function aiGenerate(opts: {
 }): Promise<string> {
   const { hasCreditsForGeneration, INSUFFICIENT_CREDITS_MESSAGE } = await import("@/lib/costs/creditGuard");
   if (!(await hasCreditsForGeneration())) throw new Error(INSUFFICIENT_CREDITS_MESSAGE);
+  const fromEngine = await engineGenerate(opts);
+  if (fromEngine) return fromEngine;
   const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
+
     body: {
       mode: "generate",
       sectionKind: aiSectionKind(opts.kind),
