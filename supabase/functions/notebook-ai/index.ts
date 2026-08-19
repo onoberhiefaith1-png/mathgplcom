@@ -985,14 +985,8 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
         }
 
         const out = await callAI([{ role: "user", content }]);
-        const cleaned = out.trim().replace(/^```json\s*|\s*```$/g, "").replace(/^```\s*|\s*```$/g, "");
-        try {
-          return JSON.parse(cleaned);
-        } catch {
-          const m = cleaned.match(/\{[\s\S]*\}/);
-          if (m) { try { return JSON.parse(m[0]); } catch { /* fall through */ } }
-          return null;
-        }
+        return parseEngineJson(out);
+
       };
 
       let problems: string[] = Array.isArray(b.previousProblems) ? b.previousProblems.map(String) : [];
