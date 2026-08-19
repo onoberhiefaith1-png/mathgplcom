@@ -1,8 +1,9 @@
-// MyGPL Lesson Note Co-Pilot — the docked conversation.
+// MathGPL Copilot — the docked conversation.
 //
-// It reads the live note, discusses, proposes, and only touches the note after
-// the teacher approves. Every implementation step runs through the editor
-// bridge, which wraps the note's existing functions.
+// The procedure is fixed: greeting → lesson structure (with number controls)
+// → additional information → analysis → narrated build → supervision.
+// Every step runs through the editor bridge, which wraps the note's existing
+// functions; the Copilot itself never writes the mathematics.
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, MicOff, Send, Sparkles, X, Check, CircleDot } from "lucide-react";
@@ -11,11 +12,15 @@ import AutoTextarea from "@/components/lessonnotes/AutoTextarea";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useCoPilotConversation } from "@/lib/lessonnotes/copilot/conversation";
 import { isDestructive, type CoPilotBridge, type CoPilotMessage } from "@/lib/lessonnotes/copilot/actions";
+import StructureCard from "./StructureCard";
+import MaterialIntake from "./MaterialIntake";
+import BuildProgress from "./BuildProgress";
 
 interface Props {
   bridgeRef: React.MutableRefObject<CoPilotBridge | null>;
   onClose: () => void;
 }
+
 
 const StepRow = ({ label, state, detail }: { label: string; state: string; detail?: string }) => (
   <li className="flex items-start gap-2 text-[11px]">
