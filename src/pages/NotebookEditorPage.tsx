@@ -238,28 +238,22 @@ const NotebookEditorPage = () => {
         </div>
         {copilotOpen && (
           <>
-            {/* Wide screens: docked beside the note */}
-            <div className="hidden md:block h-full w-[34%] min-w-[320px] max-w-[520px]">
-              <Suspense fallback={<div className="h-full border-l border-foreground/10" />}>
+            {/* Narrow screens only: dimmed backdrop behind the slide-over */}
+            <button
+              type="button"
+              aria-label="Close Co-Pilot"
+              className="md:hidden fixed inset-0 z-40 bg-black/50"
+              onClick={() => setCopilotOpen(false)}
+            />
+            {/* ONE Co-Pilot instance: docked on wide screens, slide-over on narrow */}
+            <div className="fixed inset-y-0 right-0 z-40 w-[88%] max-w-[420px] shadow-2xl md:static md:inset-auto md:z-auto md:h-full md:w-[34%] md:min-w-[320px] md:max-w-[520px] md:shadow-none">
+              <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
                 <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setCopilotOpen(false)} />
               </Suspense>
             </div>
-            {/* Narrow screens: slide-over drawer */}
-            <div className="md:hidden fixed inset-0 z-40 flex">
-              <button
-                type="button"
-                aria-label="Close Co-Pilot"
-                className="flex-1 bg-black/50"
-                onClick={() => setCopilotOpen(false)}
-              />
-              <div className="h-full w-[88%] max-w-[420px] shadow-2xl">
-                <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
-                  <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setCopilotOpen(false)} />
-                </Suspense>
-              </div>
-            </div>
           </>
         )}
+
 
       </div>
 
