@@ -91,6 +91,8 @@ export interface CoPilotMessage {
 export interface CoPilotBridge {
   snapshot: () => CoPilotSnapshot | null;
   insertSection: (kind: string) => Promise<void>;
+  /** Insert a section and return the ref of the section just created. */
+  insertSectionRef?: (kind: string) => Promise<string | null>;
   generateQuestion: (ref: string, instruction: string, replace: boolean) => Promise<void>;
   generateSolution: (ref: string, instruction: string) => Promise<void>;
   buildGeometryMap: (ref: string) => Promise<void>;
@@ -100,6 +102,7 @@ export interface CoPilotBridge {
   openAssetLibrary: () => Promise<void>;
   editBlock: (ref: string, instruction: string) => Promise<void>;
 }
+
 
 export const ACTION_NAMES: CoPilotActionName[] = [
   "insertSection", "generateQuestion", "regenerateQuestion", "generateSolution",
