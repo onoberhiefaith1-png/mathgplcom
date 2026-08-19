@@ -2489,6 +2489,18 @@ function DocumentEditorInner({
       insertSection: async (kind: string) => {
         insertSection((SECTION_LABELS as any)[kind] ? (kind as SectionKind) : "example");
       },
+      /** Insert a section and hand back the reference the Copilot can target. */
+      insertSectionRef: async (kind: string) => {
+        const safeKind = (SECTION_LABELS as any)[kind] ? (kind as SectionKind) : "example";
+        insertSection(safeKind);
+        await new Promise((r) => setTimeout(r, 60));
+        if (!editorAlive(editor)) return null;
+        const rows = copilotEntries();
+        const ofKind = rows.filter((r) => r.entry.kind === safeKind);
+        const pick = ofKind.length ? ofKind[ofKind.length - 1] : rows[rows.length - 1];
+        return pick?.ref ?? null;
+      },
+
       generateQuestion: async (ref2, instruction, replace) =>
         copilotSectionAi(ref2, instruction || "Generate this section.", replace ? "regenerate" : "generate"),
       generateSolution: async (ref2, instruction) =>
