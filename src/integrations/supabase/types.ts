@@ -3802,6 +3802,103 @@ export type Database = {
           },
         ]
       }
+      notebook_copilot_messages: {
+        Row: {
+          created_at: string
+          cycle: number
+          id: string
+          payload: Json | null
+          role: string
+          session_id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cycle?: number
+          id?: string
+          payload?: Json | null
+          role: string
+          session_id: string
+          text?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cycle?: number
+          id?: string
+          payload?: Json | null
+          role?: string
+          session_id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notebook_copilot_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "notebook_copilot_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notebook_copilot_sessions: {
+        Row: {
+          analysis: Json | null
+          created_at: string
+          current_item: string | null
+          cycle: number
+          id: string
+          notebook_id: string
+          queue: Json
+          stage: string
+          structure: Json
+          subtopic: string
+          topic: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis?: Json | null
+          created_at?: string
+          current_item?: string | null
+          cycle?: number
+          id?: string
+          notebook_id: string
+          queue?: Json
+          stage?: string
+          structure?: Json
+          subtopic?: string
+          topic?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis?: Json | null
+          created_at?: string
+          current_item?: string | null
+          cycle?: number
+          id?: string
+          notebook_id?: string
+          queue?: Json
+          stage?: string
+          structure?: Json
+          subtopic?: string
+          topic?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notebook_copilot_sessions_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: true
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notebook_sections: {
         Row: {
           created_at: string

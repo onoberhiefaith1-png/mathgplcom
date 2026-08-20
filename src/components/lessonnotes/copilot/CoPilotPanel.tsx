@@ -22,8 +22,11 @@ import BuildProgress from "./BuildProgress";
 
 interface Props {
   bridgeRef: React.MutableRefObject<CoPilotBridge | null>;
+  /** The lesson note this conversation belongs to — it persists against it. */
+  notebookId?: string;
   onClose: () => void;
 }
+
 
 /** Real stages only — never developer phrasing. */
 const STAGE_TEXT: Record<string, string> = {
@@ -113,13 +116,14 @@ function MessageBubble({
   );
 }
 
-export function CoPilotPanel({ bridgeRef, onClose }: Props) {
+export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
   const {
     messages, busy, send, approve, reject,
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial, queue, resumeBuild,
     progressLabel, retry, editBlueprintItem, reviseBlueprintItem, approveBlueprint,
-  } = useCoPilotConversation(bridgeRef);
+  } = useCoPilotConversation(bridgeRef, notebookId);
+
   const [text, setText] = useState("");
   const voice = useVoiceInput(setText as any);
   const scrollRef = useRef<HTMLDivElement | null>(null);

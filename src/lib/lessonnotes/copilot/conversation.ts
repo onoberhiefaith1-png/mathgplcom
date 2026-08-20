@@ -24,6 +24,12 @@ import {
   type CoPilotStage, type StructureCounts,
 } from "./procedure";
 
+import {
+  appendMessage, loadMessages, loadOrCreateSession, patchSession, resumeSummary,
+  updateMessage, type CoPilotSessionState,
+} from "./session";
+
+
 const uid = () => `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 const sanitizeProposal = (raw: any): CoPilotProposal | undefined => {
@@ -62,7 +68,10 @@ const sanitizeAnalysis = (raw: any): CoPilotAnalysis | null => {
   return a.brief || a.style || a.level || a.method ? a : null;
 };
 
-export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilotBridge | null>) {
+export function useCoPilotConversation(
+  bridgeRef: React.MutableRefObject<CoPilotBridge | null>,
+  notebookId?: string,
+) {
   const [messages, setMessages] = useState<CoPilotMessage[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -74,6 +83,8 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
   /** Set whenever a call fails or times out: the panel offers "Try again". */
   const [retry, setRetry] = useState<{ label: string; run: () => void } | null>(null);
+  /** True until the stored conversation has been read back. */
+  const [hydrating, setHydrating] = useState<boolean>(Boolean(notebookId));
 
   const stageRef = useRef(stage);
   stageRef.current = stage;
@@ -85,14 +96,53 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
   const pauseRef = useRef(false);
   const greetedRef = useRef(false);
 
+  /** The persistent lesson conversation this note owns. */
+  const sessionRef = useRef<CoPilotSessionState | null>(null);
+  const cycleRef = useRef(1);
+  /** local message id → stored row id, so a live edit updates the right row. */
+  const rowIdRef = useRef<Map<string, string>>(new Map());
+
+  /** Write one message into the note's conversation. */
+  const remember = useCallback((
+    localId: string,
+    role: "teacher" | "copilot",
+    text: string,
+    payload?: Record<string, unknown>,
+  ) => {
+    const sid = sessionRef.current?.id;
+    if (!sid) return;
+    void appendMessage(sid, { role, text, cycle: cycleRef.current, payload })
+      .then((rowId) => { if (rowId) rowIdRef.current.set(localId, rowId); })
+      .catch(() => {});
+  }, []);
+
   const say = useCallback((text: string, extra: Partial<CoPilotMessage> = {}) => {
     const id = uid();
     setMessages((prev) => [...prev, { id, role: "copilot", text, ...extra }]);
+    remember(id, "copilot", text, Object.keys(extra).length ? (extra as Record<string, unknown>) : undefined);
     return id;
-  }, []);
+  }, [remember]);
 
   const patch = useCallback((id: string, next: Partial<CoPilotMessage>) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...next } : m)));
+    const rowId = rowIdRef.current.get(id);
+    if (rowId) {
+      setMessages((prev) => {
+        const live = prev.find((m) => m.id === id);
+        if (live) {
+          const { id: _drop, role: _r, text, ...payload } = live as Record<string, unknown> & CoPilotMessage;
+          void updateMessage(rowId, { text, payload: payload as Record<string, unknown> }).catch(() => {});
+        }
+        return prev;
+      });
+    }
+  }, []);
+
+  /** Persist the durable lesson state whenever it moves. */
+  const saveState = useCallback((patchState: Parameters<typeof patchSession>[1]) => {
+    const sid = sessionRef.current?.id;
+    if (!sid) return;
+    void patchSession(sid, patchState).catch(() => {});
   }, []);
 
   /** Rotate real planning steps while a long call is in flight. */
@@ -120,7 +170,9 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     return (data ?? {}) as any;
   }, [bridgeRef]);
 
-  // ── Stage 1: greeting + the structure card ───────────────────────────
+  // ── Stage 1: resume the lesson conversation, or greet once ────────────
+  // The same conversation lives for the whole life of the lesson note: it is
+  // read back from the database, never restarted.
   useEffect(() => {
     if (greetedRef.current) {
       // A re-mount must never leave the panel spinning on a call it lost.
@@ -131,6 +183,33 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     greetedRef.current = true;
     (async () => {
       setBusy(true);
+      let resumed = false;
+      try {
+        if (notebookId) {
+          const session = await loadOrCreateSession(notebookId);
+          sessionRef.current = session;
+          if (session) {
+            cycleRef.current = session.cycle;
+            const stored = await loadMessages(session.id);
+            if (stored.length) {
+              setMessages(stored.map(({ cycle: _c, ...m }) => m));
+              // Restore exactly where the lesson stopped.
+              if (Object.keys(session.structure).length) setCounts(session.structure);
+              if (session.queue.length) { setQueue(session.queue); queueRef.current = session.queue; }
+              if (session.analysis) { setAnalysis(session.analysis); analysisRef.current = session.analysis; }
+              const restored: CoPilotStage = session.stage === "building" ? "idle" : session.stage;
+              setStage(restored === "greeting" ? "structure" : restored);
+              // Transient, not stored: one line saying where we are.
+              setMessages((prev) => [...prev, { id: uid(), role: "copilot", text: resumeSummary(session) }]);
+              resumed = true;
+            }
+          }
+        }
+      } catch {
+        // A persistence failure must never block the conversation.
+      }
+      if (resumed) { setHydrating(false); setBusy(false); return; }
+      setHydrating(false);
       try {
         const data = await ask({ stage: "greet" });
         const reply = String(data.reply ?? "").trim();
@@ -143,7 +222,19 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
         setStage((s) => (s === "greeting" ? "structure" : s));
       }
     })();
-  }, [ask, say]);
+  }, [ask, notebookId, say]);
+
+  // Keep the stored lesson state in step with the live one.
+  useEffect(() => { if (!hydrating) saveState({ stage }); }, [hydrating, saveState, stage]);
+  useEffect(() => { if (!hydrating) saveState({ queue }); }, [hydrating, queue, saveState]);
+  useEffect(() => { if (!hydrating) saveState({ structure: counts }); }, [counts, hydrating, saveState]);
+  useEffect(() => { if (!hydrating) saveState({ analysis }); }, [analysis, hydrating, saveState]);
+  useEffect(() => {
+    if (hydrating) return;
+    const snap = bridgeRef.current?.snapshot();
+    if (snap) saveState({ topic: snap.topic ?? "", subtopic: snap.activeSubtopic ?? "" });
+  }, [bridgeRef, hydrating, saveState, stage]);
+
 
 
   // ── Stage 5: the build run ───────────────────────────────────────────
@@ -378,11 +469,23 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
   }, [bridgeRef, patch, say]);
 
 
+  /** A new subtopic continues the SAME conversation as a new cycle. */
+  const startNextCycle = useCallback((label: string) => {
+    cycleRef.current += 1;
+    setQueue([]);
+    queueRef.current = [];
+    setStage("structure");
+    saveState({ cycle: cycleRef.current, queue: [], stage: "structure", subtopic: label });
+    say("New subtopic, same lesson — everything already in the note stays. Set the numbers for this part and I'll plan it.");
+  }, [saveState, say]);
+
+
   const send = useCallback(async (text: string) => {
     const clean = text.trim();
     if (!clean) return;
     const teacherMsg: CoPilotMessage = { id: uid(), role: "teacher", text: clean };
     setMessages((prev) => [...prev, teacherMsg]);
+    remember(teacherMsg.id, "teacher", clean);
 
     // Talking during a build is an interruption: finish the current item, then stop.
     if (stageRef.current === "building") {
@@ -390,6 +493,13 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
       say("Understood — I'll finish the item I'm on and stop there so we can deal with that first.");
       return;
     }
+
+    // A new subtopic starts a fresh cycle without ending the conversation.
+    if (stageRef.current === "idle" && /\b(next|new|another)\s+(sub-?topic|section|part)\b/i.test(clean)) {
+      startNextCycle(bridgeRef.current?.snapshot()?.activeSubtopic ?? "");
+      return;
+    }
+
 
     // "Proceed" always means proceed: never a request for more information.
     if (isProceedIntent(clean)) {
@@ -456,7 +566,7 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     } finally {
       setBusy(false);
     }
-  }, [ask, confirmStructure, counts, execute, messages, planLesson, reviseBlueprintItem, runBuild, say]);
+  }, [ask, bridgeRef, confirmStructure, counts, execute, messages, planLesson, remember, reviseBlueprintItem, runBuild, say, startNextCycle]);
 
   const approve = useCallback((m: CoPilotMessage) => {
     if (!m.proposal) return;
