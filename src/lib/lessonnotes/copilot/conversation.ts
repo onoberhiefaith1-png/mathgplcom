@@ -283,7 +283,10 @@ export function useCoPilotConversation(
   // ── Stage 5: the build run ───────────────────────────────────────────
   const runBuild = useCallback(async () => {
     const bridge = bridgeRef.current;
+    if (busyRef.current) { say("I'm still working on the last step — give me a moment, or press Cancel to stop it."); return; }
     if (!bridge) { say("The lesson note is not ready yet — open it and I'll start."); setStage("idle"); return; }
+    cancelledRef.current = false;
+    pauseRef.current = false;
     setStage("building");
     markBusy(true);
 
@@ -297,8 +300,9 @@ export function useCoPilotConversation(
 
     for (const item of queueRef.current) {
       if (item.state === "done") continue;
-      if (pauseRef.current) {
+      if (pauseRef.current || cancelledRef.current) {
         pauseRef.current = false;
+        if (cancelledRef.current) { markBusy(false); setStage("idle"); return; }
         markBusy(false);
         setStage("idle");
         say("I've paused the build here so nothing runs past your comment. Tell me what to change and I'll carry on from this point.");
@@ -312,7 +316,7 @@ export function useCoPilotConversation(
           : (await bridge.insertSection(item.kind), bridge.snapshot()?.focusedRef ?? null);
         if (!ref) throw new Error("I could not place that section in the note.");
         await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false);
-        if (item.withSolution) {
+        if (item.withSolution && !cancelledRef.current) {
           await bridge.generateSolution(
             ref,
             "Write the full step-by-step classroom solution for this question, one micro-step per line.",
@@ -320,6 +324,7 @@ export function useCoPilotConversation(
         }
         mark(item.key, { state: "done" });
       } catch (e) {
+        if (isAbort(e)) { mark(item.key, { state: "pending" }); markBusy(false); setStage("idle"); return; }
         const detail = e instanceof Error ? e.message : String(e);
         mark(item.key, { state: "failed", detail });
         markBusy(false);
@@ -341,15 +346,17 @@ export function useCoPilotConversation(
       });
       const reply = String(data.reply ?? "").trim();
       say(reply || "The lesson is built. Read through it and tell me anything you want changed.");
-    } catch {
-      say("The lesson is built. Read through it and tell me anything you want changed.");
+    } catch (e) {
+      if (!isAbort(e)) say("The lesson is built. Read through it and tell me anything you want changed.");
     }
-  }, [ask, bridgeRef, counts, say]);
+  }, [ask, bridgeRef, counts, markBusy, say]);
 
   // ── Stage 4: plan the lesson (analysis → blueprint). Nothing is written
   // into the note here: the teacher reviews and approves the plan first.
   const planLesson = useCallback(async (material: CoPilotMaterial) => {
+    if (busyRef.current) { say("I'm still working — press Cancel if you want to start again."); return; }
     materialRef.current = material;
+    cancelledRef.current = false;
     setRetry(null);
     setStage("analysing");
     markBusy(true);
@@ -386,6 +393,7 @@ export function useCoPilotConversation(
       if (reply) say(reply);
       setStage("blueprint");
     } catch (e) {
+      if (isAbort(e)) { setStage("material"); return; }
       const detail = e instanceof Error ? e.message : String(e);
       say(`I couldn't finish planning the lesson: ${detail}`);
       setRetry({ label: "Plan the lesson again", run: () => void planLesson(materialRef.current) });
@@ -394,7 +402,7 @@ export function useCoPilotConversation(
       stopNarration();
       markBusy(false);
     }
-  }, [ask, counts, narrate, say]);
+  }, [ask, counts, markBusy, narrate, say]);
 
   /** The teacher edits one blueprint line directly. */
   const editBlueprintItem = useCallback((key: string, text: string) => {
@@ -409,6 +417,8 @@ export function useCoPilotConversation(
   const reviseBlueprintItem = useCallback(async (key: string, instruction: string) => {
     const item = queueRef.current.find((q) => q.key === key);
     if (!item) return;
+    if (busyRef.current) { say("One thing at a time — I'm still working on the last request."); return; }
+    cancelledRef.current = false;
     setRetry(null);
     markBusy(true);
     setProgressLabel(`Revising ${item.label}`);
@@ -434,6 +444,7 @@ export function useCoPilotConversation(
       const reply = String(data.reply ?? "").trim();
       say(reply || `${item.label} updated — the rest of the plan is untouched.`);
     } catch (e) {
+      if (isAbort(e)) return;
       const detail = e instanceof Error ? e.message : String(e);
       say(`I couldn't revise ${item.label}: ${detail}`);
       setRetry({ label: `Revise ${item.label} again`, run: () => void reviseBlueprintItem(key, instruction) });
@@ -441,10 +452,12 @@ export function useCoPilotConversation(
       setProgressLabel(null);
       markBusy(false);
     }
-  }, [ask, counts, say]);
+  }, [ask, counts, markBusy, say]);
 
   // ── Stage 2 → 3 ─────────────────────────────────────────────────────
   const confirmStructure = useCallback(async () => {
+    if (busyRef.current) { say("I'm still working on the last step — one moment."); return; }
+    cancelledRef.current = false;
     const q = buildQueue(counts);
     if (!q.length) { say("Give at least one section a number and I'll start building."); return; }
     setQueue(q);
@@ -460,7 +473,7 @@ export function useCoPilotConversation(
     } finally {
       markBusy(false);
     }
-  }, [ask, counts, say]);
+  }, [ask, counts, markBusy, say]);
 
   const provideMaterial = useCallback((m: CoPilotMaterial) => { void planLesson(m); }, [planLesson]);
   /** "Proceed without additional information" — never a blocked path. */
@@ -471,6 +484,8 @@ export function useCoPilotConversation(
   // ── Approved-proposal execution (supervision stage) ──────────────────
   const execute = useCallback(async (id: string, proposal: CoPilotProposal) => {
     const bridge = bridgeRef.current;
+    if (busyRef.current) { say("I'm still applying the last change — one moment."); return; }
+    cancelledRef.current = false;
     const steps: CoPilotRunStep[] = proposal.actions.map((a) => ({
       label: a.label || a.name, state: "pending",
     }));
@@ -499,6 +514,7 @@ export function useCoPilotConversation(
         await runCoPilotAction(bridge, proposal.actions[i]);
         live[i] = { ...live[i], state: "done" };
       } catch (e) {
+        if (isAbort(e)) { markBusy(false); return; }
         live[i] = { ...live[i], state: "failed", detail: e instanceof Error ? e.message : String(e) };
         patch(id, { run: [...live] });
         markBusy(false);
@@ -509,7 +525,7 @@ export function useCoPilotConversation(
     }
     markBusy(false);
     say("Done — that's applied to the note.");
-  }, [bridgeRef, patch, say]);
+  }, [bridgeRef, markBusy, patch, say]);
 
 
   /** A new subtopic continues the SAME conversation as a new cycle. */
@@ -526,6 +542,10 @@ export function useCoPilotConversation(
   const send = useCallback(async (text: string) => {
     const clean = text.trim();
     if (!clean) return;
+    if (busyRef.current && stageRef.current !== "building") {
+      say("I'm still working on the last request — press Cancel if you'd rather stop it.");
+      return;
+    }
     const teacherMsg: CoPilotMessage = { id: uid(), role: "teacher", text: clean };
     setMessages((prev) => [...prev, teacherMsg]);
     remember(teacherMsg.id, "teacher", clean);
@@ -603,6 +623,7 @@ export function useCoPilotConversation(
       }
 
     } catch (e) {
+      if (isAbort(e)) return;
       const detail = e instanceof Error ? e.message : String(e);
       say(`I could not complete that: ${detail}`);
       setRetry({ label: "Try that again", run: () => void send(clean) });
@@ -622,7 +643,7 @@ export function useCoPilotConversation(
   }, [patch, say]);
 
   return {
-    messages, busy, send, approve, reject,
+    messages, busy, send, approve, reject, cancel,
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial,
     queue, resumeBuild, analysis,
