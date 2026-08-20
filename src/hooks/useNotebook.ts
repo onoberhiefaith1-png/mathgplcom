@@ -4,6 +4,9 @@ import { toast } from "@/hooks/use-toast";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 import { repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { withTimeout } from "@/lib/async/withTimeout";
+import { resilient, friendlyMessage } from "@/lib/net/resilient";
+import { writeLocalDraft, markLocalDraftSynced } from "@/lib/lessonnotes/localDraft";
+import type { SaveState } from "@/components/common/SaveStatusPill";
 
 export type SectionKind =
   | "introduction"
