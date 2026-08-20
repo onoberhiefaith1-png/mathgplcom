@@ -1272,6 +1272,8 @@ function DocumentEditorInner({
         : undefined;
 
     let content: string;
+    // The verified figure the Math Engine constructed for THIS question, if any.
+    let engineScene: unknown = null;
     try {
       content = (await aiGenerate({
         kind: generationKind,
@@ -1286,7 +1288,11 @@ function DocumentEditorInner({
         existingHeading: editor.state.doc.nodeAt(info.headingPos)?.textContent?.trim(),
         inheritedContext: isSolutionBlock ? true : undefined,
         lessonContext: collectLessonContext(info.headingPos, generationKind),
+        // ONE QUESTION = ONE DIAGRAM: only accepted when this question does not
+        // already own an authoritative figure.
+        onScene: (scene) => { if (!ownedQuestionDiagram) engineScene = scene; },
       })).trim();
+
     } catch (err: any) {
       const msg = String(err?.message ?? err);
       if (msg.includes("question_lock_mismatch") || msg.includes("missing_inherited_question")) {
