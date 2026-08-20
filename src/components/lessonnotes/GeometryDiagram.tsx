@@ -48,6 +48,12 @@ const ACCENT_ADD = "#10b981";
 const ACCENT_CHG = "#f59e0b";
 const ACCENT_DEL = "#ef4444";
 const LABEL_FONT = "'Times New Roman', Georgia, serif";
+const TEXT_INK_PROPS = {
+  fontWeight: 400,
+  stroke: "none",
+  strokeWidth: 0,
+  paintOrder: "normal" as const,
+};
 
 function renderParallelChevrons(
   out: React.ReactNode[],
@@ -208,6 +214,7 @@ function renderObject(
           <circle cx={x} cy={y} r={r} fill={color} />
           {p.label && (
             <text
+              {...TEXT_INK_PROPS}
               x={x + labelDx}
               y={y + labelDy}
               fontFamily={LABEL_FONT}
@@ -333,6 +340,7 @@ function renderObject(
           {marks}
           {o.label && (
             <text x={lblX} y={lblY}
+              {...TEXT_INK_PROPS}
               fontFamily={LABEL_FONT} fontSize={13}
               fill={color} textAnchor="middle"
               transform={
@@ -350,6 +358,7 @@ function renderObject(
           )}
           {distText && (
             <text x={distX} y={distY}
+              {...TEXT_INK_PROPS}
               fontFamily={LABEL_FONT} fontSize={(o as any).distanceFontSize ?? 12}
               fill={(o as any).distanceColor ?? color} textAnchor="middle"
             >
@@ -358,6 +367,7 @@ function renderObject(
           )}
           {lineText && (
             <text x={ltX} y={ltY}
+              {...TEXT_INK_PROPS}
               fontFamily={LABEL_FONT} fontSize={(o as any).lineTextFontSize ?? 13}
               fill={(o as any).lineTextColor ?? color} textAnchor="middle"
               transform={`rotate(${uprightDeg} ${ltX} ${ltY})`}
@@ -403,6 +413,7 @@ function renderObject(
           />
           {o.label && (
             <text
+              {...TEXT_INK_PROPS}
               x={c.x + pad + o.r + 4} y={c.y + pad - o.r - 4}
               fontFamily={LABEL_FONT} fontSize={13} fill={stroke}
             >
@@ -529,6 +540,7 @@ function renderObject(
           )}
           {o.value && (
             <text
+              {...TEXT_INK_PROPS}
               x={lx} y={ly}
               fontFamily={LABEL_FONT} fontSize={(o as any).valueFontSize ?? 12}
               fill={(o as any).valueColor ?? stroke} textAnchor="middle" dominantBaseline="middle"
@@ -597,10 +609,10 @@ function renderObject(
       const rot = o.rotation ?? 0;
       return (
         <text
+          {...TEXT_INK_PROPS}
           key={o.id}
           x={lx} y={ly}
           fontFamily={LABEL_FONT} fontSize={o.fontSize ?? 13}
-          fontWeight={o.bold ? 700 : 400}
           fontStyle={o.italic ? "italic" : "normal"}
           fill={o.color ?? stroke} textAnchor="middle"
           transform={rot ? `rotate(${rot} ${lx} ${ly})` : undefined}

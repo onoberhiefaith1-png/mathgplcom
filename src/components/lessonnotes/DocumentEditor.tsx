@@ -2595,6 +2595,9 @@ function DocumentEditorInner({
         const pick = ofKind.length ? ofKind[ofKind.length - 1] : rows[rows.length - 1];
         return pick?.ref ?? null;
       },
+      insertSubtopic: async (title: string) => {
+        insertSubtopic(title);
+      },
 
       generateQuestion: async (ref2, instruction, replace) =>
         copilotSectionAi(ref2, instruction || "Generate this section.", replace ? "regenerate" : "generate"),

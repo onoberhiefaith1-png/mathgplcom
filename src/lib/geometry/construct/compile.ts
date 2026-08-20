@@ -491,7 +491,7 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
       id, type: "point", x: p.x, y: p.y,
       ...(hide.has(id) ? {} : { label: v.label ?? id }),
       labelOffset: { dx: Math.round(u.x * 16), dy: Math.round(u.y * 16) },
-      labelFontSize: 15,
+      labelFontSize: 14,
       color: "#0f172a",
     };
   });

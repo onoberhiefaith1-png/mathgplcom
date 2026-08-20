@@ -95,6 +95,8 @@ export interface CoPilotBridge {
   insertSection: (kind: string) => Promise<void>;
   /** Insert a section and return the ref of the section just created. */
   insertSectionRef?: (kind: string) => Promise<string | null>;
+  /** Insert and activate a real lesson-note subtopic heading. */
+  insertSubtopic?: (title: string) => Promise<void>;
   generateQuestion: (ref: string, instruction: string, replace: boolean) => Promise<void>;
   generateSolution: (ref: string, instruction: string) => Promise<void>;
   buildGeometryMap: (ref: string) => Promise<void>;
