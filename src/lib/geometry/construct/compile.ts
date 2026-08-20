@@ -33,6 +33,11 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
   const pts = new Map<string, { p: Vec; label?: string; hidden?: boolean }>();
   const circles = new Map<string, { center: string; r: number }>();
   const draws: GeoObject[] = [];
+  /** Helper points the engine created itself — never lettered. */
+  const hidden = new Set<string>();
+  /** Coordinate frame set by an "axes" step, used by "plot". */
+  let axes: { xMin: number; xMax: number; yMin: number; yMax: number; unit: number } | null = null;
+
 
   const need = (i: number, id: unknown): Vec | null => {
     const key = String(id ?? "");
