@@ -190,10 +190,11 @@ const NotebookEditorPage = () => {
   return (
     <main className="h-[100dvh] overflow-hidden text-foreground flex flex-col" style={{ background: "#15132a" }}>
       <header
+        ref={setHeaderEl}
         className="shrink-0 z-30 backdrop-blur-md border-b border-foreground/10"
         style={{ background: "rgba(21,19,42,0.85)" }}
       >
-        <div className="mx-auto max-w-7xl px-2 sm:px-4 py-2.5 flex items-center gap-1.5 sm:gap-3 overflow-hidden">
+        <div className="mx-auto max-w-7xl px-2 sm:px-4 py-1.5 sm:py-2.5 flex items-center gap-1.5 sm:gap-3 overflow-hidden">
           <Button
             variant="ghost" size="sm"
             onClick={() => navigate("/lesson-notes")}
