@@ -181,7 +181,25 @@ const BARSTYLE_DEFAULT: BarStyle = { borderColor: "#0f172a", borderThickness: 1.
 const FONTS_DEFAULT: FontStyle = { family: "system-ui, sans-serif", size: 12, bold: false, italic: false };
 const LEGEND_DEFAULT: LegendStyle = { show: false, position: "bottom" };
 const PLOTAREA_DEFAULT: PlotAreaStyle = { background: "transparent", border: "transparent", borderThickness: 0, padding: 0 };
-const EXAM_DEFAULT: ExamMode = { hideValues: false, hideCategoryLabels: false, hideAxisTitles: false, blank: false };
+
+/**
+ * Chart text/axis ink must stay legible on the note's white page: any light
+ * colour saved by an older chart is pulled back to near-black.
+ */
+export const CHART_INK = "#0f172a";
+
+function isLightInk(hex: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 130;
+}
+
+function darkenAxis(s: AxisStyle): AxisStyle {
+  return isLightInk(String(s.color ?? "")) ? { ...s, color: CHART_INK } : s;
+}
+
 
 /** Merge unknown incoming attrs with sane defaults for the requested kind. */
 export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
