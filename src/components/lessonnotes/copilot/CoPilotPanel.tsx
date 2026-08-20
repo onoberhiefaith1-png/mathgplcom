@@ -17,6 +17,7 @@ import { useCoPilotConversation } from "@/lib/lessonnotes/copilot/conversation";
 import { isDestructive, type CoPilotBridge, type CoPilotMessage } from "@/lib/lessonnotes/copilot/actions";
 import StructureCard from "./StructureCard";
 import MaterialIntake from "./MaterialIntake";
+import BlueprintCard from "./BlueprintCard";
 import BuildProgress from "./BuildProgress";
 
 interface Props {
