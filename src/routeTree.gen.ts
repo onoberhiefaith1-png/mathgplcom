@@ -77,6 +77,7 @@ import { Route as AdminUsageRevenueIndexRouteImport } from './routes/admin/usage
 import { Route as AdminWebsiteIndexRouteImport } from './routes/admin/website/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
 import { Route as CSlugIndexRouteImport } from './routes/c/$slug/index'
 import { Route as CardSlugIndexRouteImport } from './routes/card/$slug/index'
@@ -624,6 +625,11 @@ const AdventureGamesIndexRoute = AdventureGamesIndexRouteImport.update({
 const AgeRangeIndexRoute = AgeRangeIndexRouteImport.update({
   id: '/age/$range/',
   path: '/age/$range/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssetsCategoryIndexRoute = AssetsCategoryIndexRouteImport.update({
@@ -1854,6 +1860,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
@@ -2119,6 +2126,7 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
@@ -2396,6 +2404,7 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
@@ -2674,6 +2683,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
@@ -2939,6 +2949,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
@@ -3215,6 +3226,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
@@ -3481,6 +3493,7 @@ export interface RootRouteChildren {
   SupportIndexRoute: typeof SupportIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
   HomepageReplaceBuildingFreeRoute: typeof HomepageReplaceBuildingFreeRoute
@@ -4040,6 +4053,13 @@ declare module '@tanstack/react-router' {
       path: '/age/$range'
       fullPath: '/age/$range/'
       preLoaderRoute: typeof AgeRangeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assets/$category/': {
@@ -6009,6 +6029,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupportIndexRoute: SupportIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  ApiPublicHealthRoute: ApiPublicHealthRoute,
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
   HomepageReplaceBuildingFreeRoute: HomepageReplaceBuildingFreeRoute,

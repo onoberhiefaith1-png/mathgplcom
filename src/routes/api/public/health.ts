@@ -1,0 +1,118 @@
+import { createFileRoute } from "@tanstack/react-router";
+
+/**
+ * Public health endpoint for external uptime monitoring.
+ *
+ * Deliberately cheap and dependency-light: shallow probes only, never any
+ * internal error text, never any user data. Overall status is:
+ *   healthy  — everything reachable
+ *   degraded — a non-critical service (AI) is unreachable
+ *   critical — the app cannot be used safely (database or auth down)
+ */
+
+type ServiceState = "operational" | "degraded" | "down";
+
+type ServiceReport = {
+  name: string;
+  status: ServiceState;
+  responseMs: number | null;
+  critical: boolean;
+};
+
+const PROBE_TIMEOUT_MS = 4_000;
+
+async function probe(
+  name: string,
+  critical: boolean,
+  url: string,
+  init?: RequestInit,
+): Promise<ServiceReport> {
+  const started = Date.now();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      const responseMs = Date.now() - started;
+      // 4xx still proves the service answered; only 5xx / network failures matter.
+      return {
+        name,
+        critical,
+        responseMs,
+        status: response.status >= 500 ? "down" : "operational",
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch {
+    return { name, critical, responseMs: Date.now() - started, status: "down" };
+  }
+}
+
+function overall(services: ServiceReport[]): "healthy" | "degraded" | "critical" {
+  if (services.some((s) => s.critical && s.status === "down")) return "critical";
+  if (services.some((s) => s.status !== "operational")) return "degraded";
+  return "healthy";
+}
+
+export const Route = createFileRoute("/api/public/health")({
+  server: {
+    handlers: {
+      GET: async () => {
+        const supabaseUrl = process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"];
+        const key =
+          process.env["SUPABASE_PUBLISHABLE_KEY"] ??
+          process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ??
+          "";
+
+        const services: ServiceReport[] = [
+          { name: "frontend", status: "operational", responseMs: 0, critical: true },
+        ];
+
+        if (supabaseUrl) {
+          const headers = { apikey: key };
+          const [database, auth, storage] = await Promise.all([
+            probe("database", true, `${supabaseUrl}/rest/v1/`, { headers }),
+            probe("authentication", true, `${supabaseUrl}/auth/v1/health`, { headers }),
+            probe("storage", false, `${supabaseUrl}/storage/v1/version`, { headers }),
+          ]);
+          services.push(database, auth, storage);
+        } else {
+          services.push({
+            name: "database",
+            status: "down",
+            responseMs: null,
+            critical: true,
+          });
+        }
+
+        services.push(
+          await probe("ai", false, "https://ai.gateway.lovable.dev/v1/models", {
+            method: "GET",
+          }),
+        );
+
+        const status = overall(services);
+        return new Response(
+          JSON.stringify({
+            status,
+            checkedAt: new Date().toISOString(),
+            services: services.map(({ name, status: s, responseMs }) => ({
+              name,
+              status: s,
+              responseMs,
+            })),
+          }),
+          {
+            status: status === "critical" ? 503 : 200,
+            headers: {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store",
+              "access-control-allow-origin": "*",
+            },
+          },
+        );
+      },
+    },
+  },
+});
