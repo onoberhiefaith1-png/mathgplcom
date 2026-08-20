@@ -51,6 +51,8 @@ export interface EngineRequest {
   };
   /** Existing geometry scene summary, when a diagram already exists. */
   diagramSummary?: string;
+  /** Browser request cancellation propagated from the Co-Pilot run. */
+  signal?: AbortSignal;
 }
 
 /** One question the Engine produced, with everything needed to check it. */
