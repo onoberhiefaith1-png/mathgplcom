@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ADSENSE_CLIENT } from "@/lib/ads/adsense";
+import { ADSENSE_CLIENT, loadAdSenseScript } from "@/lib/ads/adsense";
 
 declare global {
   interface Window {
