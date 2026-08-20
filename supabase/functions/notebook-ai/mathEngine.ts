@@ -99,7 +99,7 @@ const OPERATION_BRIEF: Record<EngineOperation, string> = {
   verifySolution:
     "Check the supplied solution against the supplied question. Report every mathematical error in narration. Return no new questions.",
   generateGeometry:
-    "Build the mathematical model of the required figure: compute coordinates, state every label, and describe angle/arc/parallel marks. Never describe a picture you have not computed.",
+    "Build the required figure as a CONSTRUCTION PROGRAM (see the construction standard below). State what is mathematically true about the figure; never invent coordinates and never paint a picture.",
   verifyGeometry:
     "Check the supplied diagram summary against the question: every required vertex, angle marker, arc, label and mark. Report mismatches in narration.",
   analyseUploadedMaterial:
