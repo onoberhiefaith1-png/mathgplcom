@@ -22,8 +22,11 @@ import BuildProgress from "./BuildProgress";
 
 interface Props {
   bridgeRef: React.MutableRefObject<CoPilotBridge | null>;
+  /** The lesson note this conversation belongs to — it persists against it. */
+  notebookId?: string;
   onClose: () => void;
 }
+
 
 /** Real stages only — never developer phrasing. */
 const STAGE_TEXT: Record<string, string> = {

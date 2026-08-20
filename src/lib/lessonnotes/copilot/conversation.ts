@@ -566,7 +566,7 @@ export function useCoPilotConversation(
     } finally {
       setBusy(false);
     }
-  }, [ask, confirmStructure, counts, execute, messages, planLesson, reviseBlueprintItem, runBuild, say]);
+  }, [ask, bridgeRef, confirmStructure, counts, execute, messages, planLesson, remember, reviseBlueprintItem, runBuild, say, startNextCycle]);
 
   const approve = useCallback((m: CoPilotMessage) => {
     if (!m.proposal) return;
