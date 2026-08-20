@@ -272,7 +272,9 @@ const NotebookEditorPage = () => {
         </div>
 
         <div className="flex items-center gap-2 px-3 pb-1">
-          <p className="text-[10px] text-foreground/50 truncate">
+          {/* On narrow windows the header stays a single compact row so it can
+              never grow tall enough to swallow the lesson toolbar. */}
+          <p className="hidden md:block text-[10px] text-foreground/50 truncate">
             {copilotOpen
               ? "MathGPL Co-Pilot — Active. Section AI markers are hidden; Solution, Diagram, Tables, Graph, Assign and Floating work as normal editing tools."
               : "MathGPL Math Engine — Active. Section tools are available, and every one of them is verified by the Engine."}
