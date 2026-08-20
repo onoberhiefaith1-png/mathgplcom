@@ -2900,7 +2900,9 @@ function DocumentEditorInner({
   useEffect(() => {
     const shell = ribbonShellRef.current;
     if (!shell) return;
-    const measure = () => setRibbonSpacerHeight(ribbonOpen ? shell.getBoundingClientRect().height : 0);
+    // The shell also holds the persistent section navigation, so its real
+    // height is reserved whether the toolbar is open or collapsed.
+    const measure = () => setRibbonSpacerHeight(shell.getBoundingClientRect().height);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(shell);
