@@ -1024,6 +1024,7 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
         questions: Array.isArray(payload.questions) ? payload.questions : [],
         analysis: payload.analysis ?? null,
         scene: payload.scene ?? null,
+        construction: payload.construction ?? null,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
