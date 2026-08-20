@@ -25,12 +25,12 @@ export function normaliseExpression(raw: string): string {
     "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
     "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
   };
-  s = s.replace(/([⁰-⁹]+)√/g, (_m, d: string) => `ROOT${[...d].map((c) => SUP[c] ?? "").join("")}_`);
+  s = s.replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹]+)√/g, (_m, d: string) => `ROOT${[...d].map((c) => SUP[c] ?? "").join("")}_`);
   s = s.replace(/ROOT(\d+)_\(([^()]*)\)/g, "(($2)^(1/$1))");
   s = s.replace(/ROOT(\d+)_([0-9.]+|[a-zA-Z])/g, "(($2)^(1/$1))");
   s = s.replace(/√\(([^()]*)\)/g, "sqrt(($1))");
   s = s.replace(/√([0-9.]+|[a-zA-Z])/g, "sqrt($1)");
-  s = s.replace(/([⁰-⁹]+)/g, (_m, d: string) => `^(${[...d].map((c) => SUP[c] ?? "").join("")})`);
+  s = s.replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, (_m, d: string) => `^(${[...d].map((c) => SUP[c] ?? "").join("")})`);
   return s;
 }
 
