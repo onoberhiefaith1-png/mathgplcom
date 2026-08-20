@@ -183,6 +183,26 @@ const LEGEND_DEFAULT: LegendStyle = { show: false, position: "bottom" };
 const PLOTAREA_DEFAULT: PlotAreaStyle = { background: "transparent", border: "transparent", borderThickness: 0, padding: 0 };
 const EXAM_DEFAULT: ExamMode = { hideValues: false, hideCategoryLabels: false, hideAxisTitles: false, blank: false };
 
+
+/**
+ * Chart text/axis ink must stay legible on the note's white page: any light
+ * colour saved by an older chart is pulled back to near-black.
+ */
+export const CHART_INK = "#0f172a";
+
+function isLightInk(hex: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 130;
+}
+
+function darkenAxis(s: AxisStyle): AxisStyle {
+  return isLightInk(String(s.color ?? "")) ? { ...s, color: CHART_INK } : s;
+}
+
+
 /** Merge unknown incoming attrs with sane defaults for the requested kind. */
 export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
   const kind = (["bar","pie","histogram","scatter","line","dotplot","boxplot","ogive"]
@@ -243,8 +263,8 @@ export function normalizeChart(a: Record<string, unknown>): SmartChartAttrs {
     yStep: a.yStep === null || a.yStep === undefined ? null : num(a.yStep, 1),
     displayMode,
     yMinorDivisions: Math.max(1, Math.floor(num(a.yMinorDivisions, 5))),
-    xAxis: mergeObj(a.xAxis, AXIS_DEFAULT),
-    yAxis: mergeObj(a.yAxis, AXIS_DEFAULT),
+    xAxis: darkenAxis(mergeObj(a.xAxis, AXIS_DEFAULT)),
+    yAxis: darkenAxis(mergeObj(a.yAxis, AXIS_DEFAULT)),
     grid: mergeObj(a.grid, GRID_DEFAULT),
     ticks: mergeObj(a.ticks, TICKS_DEFAULT),
     numbers: mergeObj(a.numbers, NUMBERS_DEFAULT),
