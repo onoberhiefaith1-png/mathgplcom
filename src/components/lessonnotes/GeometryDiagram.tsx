@@ -100,6 +100,12 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   const displayW = explicitWidth ?? (large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
   const displayH = explicitHeight ?? (displayW / W) * H;
 
+  // Examination-textbook ink: the figure must never look heavier than the
+  // numbers beside it. The SVG is scaled to fit, which would multiply the
+  // stroke, so the weight is divided back out to land at ~1.1px on screen.
+  const displayScale = W > 0 ? displayW / W : 1;
+  const inkWeight = Math.min(1.25, Math.max(0.55, 1.1 / (displayScale || 1)));
+
   const colourOf = (id: string): string => {
     if (!diff) return baseStroke;
     if (diff.added.has(id)) return ACCENT_ADD;
@@ -116,7 +122,7 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     const out: React.ReactNode[] = [];
     for (const o of scene.objects) {
       if (o.type !== "region") continue;
-      const node = renderObject(o, scene, colourOf(o.id), originPad);
+      const node = renderObject(o, scene, colourOf(o.id), originPad, inkWeight);
       if (node) out.push(node);
     }
     for (const o of scene.objects) {
@@ -136,11 +142,11 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
         );
         continue;
       }
-      const node = renderObject(o, scene, c, originPad);
+      const node = renderObject(o, scene, c, originPad, inkWeight);
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff, originPad, baseStroke, ghostHidden]);
+  }, [scene, diff, originPad, baseStroke, ghostHidden, inkWeight]);
 
 
   return (
@@ -181,8 +187,12 @@ function renderObject(
   scene: GeometryScene,
   stroke: string,
   pad: number,
+  ink = 1.1,
 ): React.ReactNode {
-  const sw = 1.4;
+  /** Construction lines. */
+  const sw = ink;
+  /** Ticks, angle arcs and parallel chevrons sit one step lighter. */
+  const swMark = Math.max(0.5, ink * 0.85);
   switch (o.type) {
     case "point": {
       const p = o as GeoPoint;
