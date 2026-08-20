@@ -469,11 +469,23 @@ export function useCoPilotConversation(
   }, [bridgeRef, patch, say]);
 
 
+  /** A new subtopic continues the SAME conversation as a new cycle. */
+  const startNextCycle = useCallback((label: string) => {
+    cycleRef.current += 1;
+    setQueue([]);
+    queueRef.current = [];
+    setStage("structure");
+    saveState({ cycle: cycleRef.current, queue: [], stage: "structure", subtopic: label });
+    say("New subtopic, same lesson — everything already in the note stays. Set the numbers for this part and I'll plan it.");
+  }, [save
+State, say]);
+
   const send = useCallback(async (text: string) => {
     const clean = text.trim();
     if (!clean) return;
     const teacherMsg: CoPilotMessage = { id: uid(), role: "teacher", text: clean };
     setMessages((prev) => [...prev, teacherMsg]);
+    remember(teacherMsg.id, "teacher", clean);
 
     // Talking during a build is an interruption: finish the current item, then stop.
     if (stageRef.current === "building") {
@@ -481,6 +493,13 @@ export function useCoPilotConversation(
       say("Understood — I'll finish the item I'm on and stop there so we can deal with that first.");
       return;
     }
+
+    // A new subtopic starts a fresh cycle without ending the conversation.
+    if (stageRef.current === "idle" && /\b(next|new|another)\s+(sub-?topic|section|part)\b/i.test(clean)) {
+      startNextCycle(bridgeRef.current?.snapshot()?.activeSubtopic ?? "");
+      return;
+    }
+
 
     // "Proceed" always means proceed: never a request for more information.
     if (isProceedIntent(clean)) {
