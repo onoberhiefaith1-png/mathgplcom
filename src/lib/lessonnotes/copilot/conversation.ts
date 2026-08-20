@@ -102,6 +102,18 @@ export function useCoPilotConversation(
   /** Set by Cancel: the reply of the abandoned request is discarded. */
   const cancelledRef = useRef(false);
 
+  /** One place that moves the spinner, so it always matches reality. */
+  const markBusy = useCallback((next: boolean) => {
+    busyRef.current = next;
+    setBusy(next);
+  }, []);
+
+  /** An aborted request must never speak — the teacher already moved on. */
+  const isAbort = (e: unknown) =>
+    cancelledRef.current ||
+    (e as { name?: string } | null)?.name === "AbortError" ||
+    /abort/i.test(String((e as { message?: string } | null)?.message ?? ""));
+
   /** The persistent lesson conversation this note owns. */
   const sessionRef = useRef<CoPilotSessionState | null>(null);
   const cycleRef = useRef(1);
@@ -182,13 +194,13 @@ export function useCoPilotConversation(
   useEffect(() => {
     if (greetedRef.current) {
       // A re-mount must never leave the panel spinning on a call it lost.
-      setBusy(false);
+      markBusy(false);
       setStage((s) => (s === "greeting" ? "structure" : s));
       return;
     }
     greetedRef.current = true;
     (async () => {
-      setBusy(true);
+      markBusy(true);
       let resumed = false;
       try {
         if (notebookId) {
@@ -214,7 +226,7 @@ export function useCoPilotConversation(
       } catch {
         // A persistence failure must never block the conversation.
       }
-      if (resumed) { setHydrating(false); setBusy(false); return; }
+      if (resumed) { setHydrating(false); markBusy(false); return; }
       setHydrating(false);
       try {
         const data = await ask({ stage: "greet" });
@@ -224,7 +236,7 @@ export function useCoPilotConversation(
         say("Let's build this lesson. I've prepared the structure below — adjust the numbers before I begin.");
       } finally {
         // Always release the panel, even if this effect run was torn down.
-        setBusy(false);
+        markBusy(false);
         setStage((s) => (s === "greeting" ? "structure" : s));
       }
     })();
@@ -248,7 +260,7 @@ export function useCoPilotConversation(
     const bridge = bridgeRef.current;
     if (!bridge) { say("The lesson note is not ready yet — open it and I'll start."); setStage("idle"); return; }
     setStage("building");
-    setBusy(true);
+    markBusy(true);
 
     const mark = (key: string, next: Partial<BuildItem>) => {
       setQueue((prev) => {
@@ -262,7 +274,7 @@ export function useCoPilotConversation(
       if (item.state === "done") continue;
       if (pauseRef.current) {
         pauseRef.current = false;
-        setBusy(false);
+        markBusy(false);
         setStage("idle");
         say("I've paused the build here so nothing runs past your comment. Tell me what to change and I'll carry on from this point.");
         return;
@@ -285,14 +297,14 @@ export function useCoPilotConversation(
       } catch (e) {
         const detail = e instanceof Error ? e.message : String(e);
         mark(item.key, { state: "failed", detail });
-        setBusy(false);
+        markBusy(false);
         setStage("idle");
         say(`I stopped at ${item.label}. ${detail} Everything built before it is untouched — tell me how you'd like to proceed.`);
         return;
       }
     }
 
-    setBusy(false);
+    markBusy(false);
     setStage("idle");
     try {
       const data = await ask({
@@ -315,7 +327,7 @@ export function useCoPilotConversation(
     materialRef.current = material;
     setRetry(null);
     setStage("analysing");
-    setBusy(true);
+    markBusy(true);
     const stopNarration = narrate(PLANNING_STEPS);
     try {
       const data = await ask({
@@ -355,7 +367,7 @@ export function useCoPilotConversation(
       setStage("blueprint");
     } finally {
       stopNarration();
-      setBusy(false);
+      markBusy(false);
     }
   }, [ask, counts, narrate, say]);
 
@@ -373,7 +385,7 @@ export function useCoPilotConversation(
     const item = queueRef.current.find((q) => q.key === key);
     if (!item) return;
     setRetry(null);
-    setBusy(true);
+    markBusy(true);
     setProgressLabel(`Revising ${item.label}`);
     try {
       const data = await ask({
@@ -402,7 +414,7 @@ export function useCoPilotConversation(
       setRetry({ label: `Revise ${item.label} again`, run: () => void reviseBlueprintItem(key, instruction) });
     } finally {
       setProgressLabel(null);
-      setBusy(false);
+      markBusy(false);
     }
   }, [ask, counts, say]);
 
@@ -413,7 +425,7 @@ export function useCoPilotConversation(
     setQueue(q);
     queueRef.current = q;
     setStage("material");
-    setBusy(true);
+    markBusy(true);
     try {
       const data = await ask({ stage: "structureConfirmed", structure: counts });
       const reply = String(data.reply ?? "").trim();
@@ -421,7 +433,7 @@ export function useCoPilotConversation(
     } catch {
       say("Structure noted. Additional information is optional — paste anything you want me to follow, or just say Proceed and I'll plan the lesson myself.");
     } finally {
-      setBusy(false);
+      markBusy(false);
     }
   }, [ask, counts, say]);
 
@@ -453,7 +465,7 @@ export function useCoPilotConversation(
         return;
       }
     }
-    setBusy(true);
+    markBusy(true);
     const live = [...steps];
     for (let i = 0; i < proposal.actions.length; i++) {
       live[i] = { ...live[i], state: "running" };
@@ -464,13 +476,13 @@ export function useCoPilotConversation(
       } catch (e) {
         live[i] = { ...live[i], state: "failed", detail: e instanceof Error ? e.message : String(e) };
         patch(id, { run: [...live] });
-        setBusy(false);
+        markBusy(false);
         say(`I stopped at "${live[i].label}". ${live[i].detail ?? ""} Nothing after that step was changed.`);
         return;
       }
       patch(id, { run: [...live] });
     }
-    setBusy(false);
+    markBusy(false);
     say("Done — that's applied to the note.");
   }, [bridgeRef, patch, say]);
 
@@ -535,7 +547,7 @@ export function useCoPilotConversation(
       }
     }
 
-    setBusy(true);
+    markBusy(true);
     try {
       const history = [...messages, teacherMsg].slice(-12).map((m) => ({ role: m.role, text: m.text }));
       const data = await ask({
@@ -560,7 +572,7 @@ export function useCoPilotConversation(
 
       // Additive work runs straight away; replacements wait for approval.
       if (proposal && proposal.actions.length && !proposal.actions.some(isDestructive)) {
-        setBusy(false);
+        markBusy(false);
         await execute(msgId, proposal);
         return;
       }
@@ -570,7 +582,7 @@ export function useCoPilotConversation(
       say(`I could not complete that: ${detail}`);
       setRetry({ label: "Try that again", run: () => void send(clean) });
     } finally {
-      setBusy(false);
+      markBusy(false);
     }
   }, [ask, bridgeRef, confirmStructure, counts, execute, messages, planLesson, remember, reviseBlueprintItem, runBuild, say, startNextCycle]);
 
