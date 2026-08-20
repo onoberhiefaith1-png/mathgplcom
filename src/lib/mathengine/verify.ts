@@ -18,10 +18,22 @@ export function normaliseExpression(raw: string): string {
   s = s.replace(/\\sqrt\{([^{}]*)\}/g, "sqrt(($1))");
   s = s.replace(/\\sqrt\[(\d+)\]\{([^{}]*)\}/g, "(($2)^(1/$1))");
   s = s.replace(/\^\{([^{}]*)\}/g, "^($1)");
-  s = s.replace(/[×·]/g, "*").replace(/[÷]/g, "/").replace(/−/g, "-");
+  s = s.replace(/[×·]/g, "*").replace(/[÷]/g, "/").replace(/[−–—]/g, "-");
   s = s.replace(/\s+/g, "");
+  // Board notation: √11, √(x+1), ³√8, and unicode superscripts.
+  const SUP: Record<string, string> = {
+    "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
+    "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+  };
+  s = s.replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹]+)√/g, (_m, d: string) => `ROOT${[...d].map((c) => SUP[c] ?? "").join("")}_`);
+  s = s.replace(/ROOT(\d+)_\(([^()]*)\)/g, "(($2)^(1/$1))");
+  s = s.replace(/ROOT(\d+)_([0-9.]+|[a-zA-Z])/g, "(($2)^(1/$1))");
+  s = s.replace(/√\(([^()]*)\)/g, "sqrt(($1))");
+  s = s.replace(/√([0-9.]+|[a-zA-Z])/g, "sqrt($1)");
+  s = s.replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, (_m, d: string) => `^(${[...d].map((c) => SUP[c] ?? "").join("")})`);
   return s;
 }
+
 
 type Tok = { t: "num" | "op" | "lp" | "rp" | "id"; v: string };
 
