@@ -162,7 +162,8 @@ export function validateAction(
 }
 
 /** Run one action through the bridge. Unknown names are refused here. */
-export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction): Promise<void> {
+export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const snap = bridge.snapshot();
   const ref = a.target ?? null;
   if (NEEDS_TARGET.includes(a.name) && !ref) {
@@ -176,13 +177,13 @@ export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction):
       await bridge.insertSection(a.sectionKind || "example");
       return;
     case "generateQuestion":
-      await bridge.generateQuestion(ref!, a.instruction ?? "", false);
+      await bridge.generateQuestion(ref!, a.instruction ?? "", false, signal);
       return;
     case "regenerateQuestion":
-      await bridge.generateQuestion(ref!, a.instruction ?? "", true);
+      await bridge.generateQuestion(ref!, a.instruction ?? "", true, signal);
       return;
     case "generateSolution":
-      await bridge.generateSolution(ref!, a.instruction ?? "");
+      await bridge.generateSolution(ref!, a.instruction ?? "", signal);
       return;
     case "buildGeometryMap":
       await bridge.buildGeometryMap(ref!);

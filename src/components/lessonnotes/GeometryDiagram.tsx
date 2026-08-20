@@ -110,7 +110,7 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   // numbers beside it. The SVG is scaled to fit, which would multiply the
   // stroke, so the weight is divided back out to land at ~1.1px on screen.
   const displayScale = W > 0 ? displayW / W : 1;
-  const inkWeight = Math.min(1.25, Math.max(0.55, 1.1 / (displayScale || 1)));
+  const inkWeight = 1.1 / (displayScale || 1);
 
   const colourOf = (id: string): string => {
     if (!diff) return baseStroke;

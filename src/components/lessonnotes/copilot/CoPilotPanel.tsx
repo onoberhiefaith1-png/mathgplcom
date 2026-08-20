@@ -135,6 +135,13 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy, stage, queue]);
 
+  useEffect(() => () => cancel(), [cancel]);
+
+  const closePanel = () => {
+    cancel();
+    onClose();
+  };
+
   const submit = () => {
     const value = text.trim();
     if (!value) return;
@@ -168,7 +175,7 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
         <Button
           size="icon" variant="ghost"
           className="h-7 w-7 text-slate-400 hover:text-slate-700"
-          onClick={onClose}
+          onClick={closePanel}
           aria-label="Close Co-Pilot"
         >
           <X className="h-3.5 w-3.5" />

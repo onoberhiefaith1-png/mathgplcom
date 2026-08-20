@@ -537,27 +537,41 @@ export function useCoPilotConversation(
         return;
       }
     }
-    markBusy(true);
+    const runController = new AbortController();
+    abortRef.current = runController;
+    setWorking("generating");
     const live = [...steps];
     for (let i = 0; i < proposal.actions.length; i++) {
+      if (runController.signal.aborted || cancelledRef.current) {
+        if (abortRef.current === runController) abortRef.current = null;
+        finishWorking("stopped");
+        return;
+      }
       live[i] = { ...live[i], state: "running" };
       patch(id, { run: [...live] });
       try {
-        await runCoPilotAction(bridge, proposal.actions[i]);
+        await runCoPilotAction(bridge, proposal.actions[i], runController.signal);
+        if (runController.signal.aborted || cancelledRef.current) throw new DOMException("Aborted", "AbortError");
         live[i] = { ...live[i], state: "done" };
       } catch (e) {
-        if (isAbort(e)) { markBusy(false); return; }
+        if (isAbort(e)) {
+          if (abortRef.current === runController) abortRef.current = null;
+          finishWorking("stopped");
+          return;
+        }
         live[i] = { ...live[i], state: "failed", detail: e instanceof Error ? e.message : String(e) };
         patch(id, { run: [...live] });
-        markBusy(false);
+        if (abortRef.current === runController) abortRef.current = null;
+        finishWorking("failed");
         say(`I stopped at "${live[i].label}". ${live[i].detail ?? ""} Nothing after that step was changed.`);
         return;
       }
       patch(id, { run: [...live] });
     }
-    markBusy(false);
+    if (abortRef.current === runController) abortRef.current = null;
+    finishWorking();
     say("Done — that's applied to the note.");
-  }, [bridgeRef, markBusy, patch, say]);
+  }, [bridgeRef, finishWorking, patch, say, setWorking]);
 
 
   /** A new subtopic continues the SAME conversation as a new cycle. */
