@@ -254,6 +254,140 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
         break;
       }
 
+      /* ── verified relationships ─────────────────────────────────── */
+
+      case "parallel": {
+        const t = need(i, s.through), a = need(i, s.a), b = need(i, s.b);
+        if (!t || !a || !b) break;
+        const d = sub(b, a);
+        if (len(d) === 0) { problems.push({ step: i, message: "the reference line has zero length" }); break; }
+        put(s.id, add(t, mul(d, Math.max(0.05, num(s.by, 1)))), s.label);
+        break;
+      }
+
+      case "perpendicular": {
+        const t = need(i, s.through), a = need(i, s.a), b = need(i, s.b);
+        if (!t || !a || !b) break;
+        const d = sub(b, a);
+        const l = len(d);
+        if (l === 0) { problems.push({ step: i, message: "the reference line has zero length" }); break; }
+        const n2 = { x: -d.y / l, y: d.x / l };
+        put(s.id, add(t, mul(n2, l * Math.max(0.05, num(s.by, 0.6)))), s.label);
+        break;
+      }
+
+      case "tangentAt": {
+        const circ = circles.get(String(s.circle));
+        if (!circ) { problems.push({ step: i, message: `circle "${s.circle}" does not exist yet` }); break; }
+        const c = need(i, circ.center), at = need(i, s.at);
+        if (!c || !at) break;
+        const r = sub(at, c);
+        const l = len(r);
+        if (l === 0) { problems.push({ step: i, message: "the point of tangency sits on the centre" }); break; }
+        const tan = { x: -r.y / l, y: r.x / l };
+        put(s.id, add(at, mul(tan, circ.r * Math.max(0.2, num(s.by, 0.9)))), s.label);
+        break;
+      }
+
+      case "vector": {
+        if (!need(i, s.a) || !need(i, s.b)) break;
+        draws.push({
+          id: `vec-${i}`, type: "segment", a: String(s.a), b: String(s.b), arrow: "end",
+          ...(s.label ? { label: s.label } : {}), ...(s.dashed ? { dashed: true } : {}),
+        } as GeoSegment);
+        break;
+      }
+
+      case "sector": {
+        const circ = circles.get(String(s.circle));
+        if (!circ) { problems.push({ step: i, message: `circle "${s.circle}" does not exist yet` }); break; }
+        const c = need(i, circ.center), from = need(i, s.from), to = need(i, s.to);
+        if (!c || !from || !to) break;
+        const ang = (p: Vec) => (Math.atan2(-(p.y - c.y), p.x - c.x) / D2R + 360) % 360;
+        draws.push({
+          id: `sec-arc-${i}`, type: "arc", center: circ.center, r: circ.r,
+          from: ang(from), to: ang(to),
+        } as GeoArc);
+        draws.push({ id: `sec-r1-${i}`, type: "segment", a: circ.center, b: String(s.from) } as GeoSegment);
+        draws.push({ id: `sec-r2-${i}`, type: "segment", a: circ.center, b: String(s.to) } as GeoSegment);
+        draws.push({
+          id: `sec-${i}`, type: "region", boundary: [circ.center, String(s.from), String(s.to)],
+          fill: s.fill ?? "#38bdf8", opacity: num(s.opacity, 0.2),
+          ...(s.area ? { area: s.area } : {}),
+        } as GeoRegion);
+        break;
+      }
+
+      /* ── number line & coordinate axes ──────────────────────────── */
+
+      case "numberLine": {
+        const from = num(s.from, 0), to = num(s.to, 10);
+        if (to <= from) { problems.push({ step: i, message: "a number line needs `to` greater than `from`" }); break; }
+        const step = Math.max(1e-6, num(s.step, (to - from) / 10));
+        const unit = 320 / (to - from);
+        const X = (v: number) => (v - from) * unit;
+        const startId = `nl${i}-start`, endId = `nl${i}-end`;
+        pts.set(startId, { p: { x: X(from) - 24, y: 0 } });
+        pts.set(endId, { p: { x: X(to) + 24, y: 0 } });
+        draws.push({ id: `nl${i}`, type: "segment", a: startId, b: endId, arrow: "both" } as GeoSegment);
+        for (let v = from, k = 0; v <= to + 1e-6; v += step, k++) {
+          const tickTop = `nl${i}-t${k}a`, tickBot = `nl${i}-t${k}b`;
+          pts.set(tickTop, { p: { x: X(v), y: -6 } });
+          pts.set(tickBot, { p: { x: X(v), y: 6 } });
+          draws.push({ id: `nl${i}-tick${k}`, type: "segment", a: tickTop, b: tickBot } as GeoSegment);
+          draws.push({
+            id: `nl${i}-lab${k}`, type: "label",
+            x: X(v), y: 24, text: String(Math.round(v * 1000) / 1000), fontSize: 13, color: "#0f172a",
+          } as GeoLabel);
+        }
+        hidden.add(startId); hidden.add(endId);
+        for (const key of [...pts.keys()]) if (key.startsWith(`nl${i}-t`)) hidden.add(key);
+        for (const m of Array.isArray(s.marks) ? s.marks : []) {
+          const v = num(m?.value, from);
+          put(m?.id ?? `nl${i}-m${v}`, { x: X(v), y: 0 }, m?.label);
+        }
+        break;
+      }
+
+      case "axes": {
+        const xMin = num(s.xMin, -5), xMax = num(s.xMax, 5);
+        const yMin = num(s.yMin, -5), yMax = num(s.yMax, 5);
+        const step = Math.max(1e-6, num(s.step, 1));
+        const unit = Math.min(320 / Math.max(1e-6, xMax - xMin), 240 / Math.max(1e-6, yMax - yMin));
+        axes = { xMin, xMax, yMin, yMax, unit };
+        const P = (x: number, y: number): Vec => ({ x: x * unit, y: -y * unit });
+        const originId = String(s.origin ?? "O");
+        put(originId, P(0, 0), originId);
+        const ids = {
+          xa: `ax${i}-x0`, xb: `ax${i}-x1`, ya: `ax${i}-y0`, yb: `ax${i}-y1`,
+        };
+        pts.set(ids.xa, { p: P(xMin, 0) }); pts.set(ids.xb, { p: P(xMax, 0) });
+        pts.set(ids.ya, { p: P(0, yMin) }); pts.set(ids.yb, { p: P(0, yMax) });
+        [ids.xa, ids.xb, ids.ya, ids.yb].forEach((k) => hidden.add(k));
+        draws.push({ id: `ax${i}-x`, type: "segment", a: ids.xa, b: ids.xb, arrow: "both" } as GeoSegment);
+        draws.push({ id: `ax${i}-y`, type: "segment", a: ids.ya, b: ids.yb, arrow: "both" } as GeoSegment);
+        for (let v = Math.ceil(xMin / step) * step; v <= xMax + 1e-6; v += step) {
+          if (Math.abs(v) < 1e-9) continue;
+          const p = P(v, 0);
+          draws.push({ id: `ax${i}-xl${v}`, type: "label", x: p.x, y: p.y + 18, text: String(Math.round(v * 1000) / 1000), fontSize: 12, color: "#0f172a" } as GeoLabel);
+        }
+        for (let v = Math.ceil(yMin / step) * step; v <= yMax + 1e-6; v += step) {
+          if (Math.abs(v) < 1e-9) continue;
+          const p = P(0, v);
+          draws.push({ id: `ax${i}-yl${v}`, type: "label", x: p.x - 18, y: p.y, text: String(Math.round(v * 1000) / 1000), fontSize: 12, color: "#0f172a" } as GeoLabel);
+        }
+        draws.push({ id: `ax${i}-xname`, type: "label", x: P(xMax, 0).x + 16, y: P(xMax, 0).y - 4, text: "x", fontSize: 14, color: "#0f172a" } as GeoLabel);
+        draws.push({ id: `ax${i}-yname`, type: "label", x: P(0, yMax).x + 12, y: P(0, yMax).y - 12, text: "y", fontSize: 14, color: "#0f172a" } as GeoLabel);
+        break;
+      }
+
+      case "plot": {
+        if (!axes) { problems.push({ step: i, message: "a plotted point needs an \"axes\" step first" }); break; }
+        put(s.id, { x: num(s.x, 0) * axes.unit, y: -num(s.y, 0) * axes.unit }, s.label);
+        break;
+      }
+
+
       default:
         problems.push({ step: i, message: `unknown construction step "${String((s as any)?.op)}"` });
     }
