@@ -649,6 +649,8 @@ export function useNotebook(notebookId: string | undefined) {
     notebook,
     sections,
     loading,
+    saveState,
+
     reload,
     addSection,
     addSubsection,
