@@ -19,6 +19,9 @@
 import type { Editor } from "@tiptap/react";
 import { editorZoom, isObjectDragging } from "./objectDrag";
 
+/** Meta flag identifying transactions dispatched by this guard itself. */
+export const LAYOUT_META = "sessionLayoutGuard";
+
 /** Breathing room kept between two sessions. */
 const GAP = 18;
 /** Ignore sub-pixel noise so the guard never loops on itself. */
@@ -102,6 +105,9 @@ export function runSessionLayout(editor: Editor) {
   if (!changed) return;
   // Layout housekeeping is never an Undo step for the teacher.
   tr.setMeta("addToHistory", false);
+  // Marks this as the guard's own write, so the guard never treats it as a
+  // fresh teacher edit (that would restart its pass budget forever).
+  tr.setMeta(LAYOUT_META, true);
   editor.view.dispatch(tr);
 }
 
@@ -155,7 +161,10 @@ export function attachSessionLayout(editor: Editor): () => void {
 
   const onTransaction = () => { observeFrames(); schedule(); };
   // A real edit by the teacher always earns a fresh budget of passes.
-  const onUpdate = () => { passes = 0; };
+  const onUpdate = ({ transaction }: { transaction: { getMeta: (k: string) => unknown } }) => {
+    if (transaction.getMeta(LAYOUT_META)) return;
+    passes = 0;
+  };
   editor.on("transaction", onTransaction);
   editor.on("update", onUpdate);
   observeFrames();
