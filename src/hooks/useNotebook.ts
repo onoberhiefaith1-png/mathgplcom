@@ -4,6 +4,9 @@ import { toast } from "@/hooks/use-toast";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 import { repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { withTimeout } from "@/lib/async/withTimeout";
+import { resilient, friendlyMessage } from "@/lib/net/resilient";
+import { writeLocalDraft, markLocalDraftSynced } from "@/lib/lessonnotes/localDraft";
+import type { SaveState } from "@/components/common/SaveStatusPill";
 
 export type SectionKind =
   | "introduction"
@@ -95,6 +98,7 @@ const onOpenSyncPromises = new Map<string, Promise<unknown>>();
 
 export function useNotebook(notebookId: string | undefined) {
   const [notebook, setNotebook] = useState<NotebookRow | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [loading, setLoading] = useState(true);
   // The legacy Smartboard tables load in the background — the editor only
@@ -535,14 +539,29 @@ export function useNotebook(notebookId: string | undefined) {
     async (json: any) => {
       if (!notebookId) return;
       setNotebook((prev) => (prev ? { ...prev, document_json: json } : prev));
-      const { error } = await supabase
-        .from("notebooks")
-        .update({ document_json: json } as any)
-        .eq("id", notebookId);
-      if (error) {
-        toast({ title: "Could not save document", variant: "destructive" });
+      // Mirror to this device first: even a total network failure cannot lose work.
+      writeLocalDraft(notebookId, json, true);
+      setSaveState("saving");
+      try {
+        await resilient(
+          async () => {
+            const { error } = await supabase
+              .from("notebooks")
+              .update({ document_json: json } as any)
+              .eq("id", notebookId);
+            if (error) throw error;
+          },
+          { attempts: 3, timeoutMs: 15_000 },
+        );
+      } catch (e) {
+        setSaveState(
+          typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "error",
+        );
+        toast({ title: friendlyMessage(e, "Couldn't save yet — your work is kept on this device."), variant: "destructive" });
         return;
       }
+      markLocalDraftSynced(notebookId);
+      setSaveState("saved");
       // Mirror the document into the legacy section/subsection/block tables
       // so the Smartboard presents what's actually in the lesson note.
       try {
@@ -555,6 +574,7 @@ export function useNotebook(notebookId: string | undefined) {
     },
     [notebookId],
   );
+
 
   /** Update paper appearance (size + style). */
   const updatePaperSettings = useCallback(
@@ -629,6 +649,8 @@ export function useNotebook(notebookId: string | undefined) {
     notebook,
     sections,
     loading,
+    saveState,
+
     reload,
     addSection,
     addSubsection,

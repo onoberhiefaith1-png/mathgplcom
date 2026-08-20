@@ -68,8 +68,7 @@ const SiteMedia = ({ media, className, fit = "cover", priority = false, alt = ""
       draggable={false}
       loading={priority ? "eager" : "lazy"}
       decoding={priority ? "sync" : "async"}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      {...({ fetchpriority: priority ? "high" : "auto" } as any)}
+      fetchPriority={priority ? "high" : "auto"}
       className={cn(className)}
       style={{ objectFit: fit }}
     />

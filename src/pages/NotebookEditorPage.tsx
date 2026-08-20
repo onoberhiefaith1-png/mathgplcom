@@ -30,6 +30,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Check, ChevronDown } from "lucide-react";
+import FeatureBoundary from "@/components/common/FeatureBoundary";
+import SaveStatusPill from "@/components/common/SaveStatusPill";
+import { readPendingLocalDraft, clearLocalDraft } from "@/lib/lessonnotes/localDraft";
 
 // The Co-Pilot is closed by default and only downloads when opened.
 const CoPilotPanel = lazy(() =>
@@ -42,9 +45,10 @@ const NotebookEditorPage = () => {
   // The same editor, frozen, when a school looks through a teacher's shelf.
   const { viewOnly, allowEdit } = useViewAs();
   const {
-    notebook, loading,
+    notebook, loading, saveState,
     saveDocumentJson, updatePaperSettings, saveZoom,
   } = useNotebook(id);
+
 
   // Zoom: local state primed from DB; debounced save back.
   const [zoom, setZoom] = useState<number>(1);
@@ -86,6 +90,16 @@ const NotebookEditorPage = () => {
     }
   };
   const [scanBusy, setScanBusy] = useState(false);
+
+  // Work that never reached the server (dropped connection, expired session) is
+  // kept on this device and offered back instead of being silently lost.
+  const [recovery, setRecovery] = useState<unknown | null>(null);
+  useEffect(() => {
+    if (!id || viewOnly) return;
+    const pending = readPendingLocalDraft(id);
+    if (pending) setRecovery(pending.doc);
+  }, [id, viewOnly]);
+
 
   // Which AI owns this workspace. Co-Pilot mode docks the panel at ~1/3 of the
   // screen and hides every per-section AI control; Builder keeps them.
@@ -231,11 +245,44 @@ const NotebookEditorPage = () => {
           </Button>
         </div>
 
-        <p className="px-3 pb-1 text-[10px] text-foreground/50 truncate">
-          {copilotOpen
-            ? "MathGPL Co-Pilot — Active. Section AI markers are hidden; Solution, Diagram, Tables, Graph, Assign and Floating work as normal editing tools."
-            : "MathGPL Math Engine — Active. Section tools are available, and every one of them is verified by the Engine."}
-        </p>
+        <div className="flex items-center gap-2 px-3 pb-1">
+          <p className="text-[10px] text-foreground/50 truncate">
+            {copilotOpen
+              ? "MathGPL Co-Pilot — Active. Section AI markers are hidden; Solution, Diagram, Tables, Graph, Assign and Floating work as normal editing tools."
+              : "MathGPL Math Engine — Active. Section tools are available, and every one of them is verified by the Engine."}
+          </p>
+          <SaveStatusPill state={viewOnly ? "idle" : saveState} className="ml-auto shrink-0" />
+        </div>
+        {recovery != null && (
+          <div className="mx-3 mb-2 flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <span className="flex-1">
+              This device has changes from your last session that never finished saving.
+            </span>
+            <Button
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                const doc = recovery;
+                setRecovery(null);
+                if (doc) saveDocumentJson(doc);
+              }}
+            >
+              Restore them
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                if (id) clearLocalDraft(id);
+                setRecovery(null);
+              }}
+            >
+              Discard
+            </Button>
+          </div>
+        )}
+
 
         <div className="h-0.5 w-full" style={{ background: theme.gradient }} aria-hidden />
       </header>
@@ -286,10 +333,14 @@ const NotebookEditorPage = () => {
             />
             {/* ONE Co-Pilot instance: docked on wide screens, slide-over on narrow */}
             <div className="fixed inset-y-0 right-0 z-40 w-[88%] max-w-[420px] shadow-2xl md:static md:inset-auto md:z-auto md:h-full md:w-[34%] md:min-w-[320px] md:max-w-[520px] md:shadow-none">
-              <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
-                <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setLessonAiMode("mathengine")} />
-              </Suspense>
+              {/* A Co-Pilot failure must never blank the lesson note. */}
+              <FeatureBoundary feature="MathGPL Co-Pilot">
+                <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
+                  <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setLessonAiMode("mathengine")} />
+                </Suspense>
+              </FeatureBoundary>
             </div>
+
           </>
         )}
 

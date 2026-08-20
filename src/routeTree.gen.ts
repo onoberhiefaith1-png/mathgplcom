@@ -20,6 +20,7 @@ import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/rout
 import { Route as LiveRouteRouteImport } from './routes/live/route'
 import { Route as SchoolRouteRouteImport } from './routes/school/route'
 import { Route as SmartboardRouteRouteImport } from './routes/smartboard/route'
+import { Route as StatusRouteImport } from './routes/status'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
 import { Route as WelcomeRouteImport } from './routes/welcome'
@@ -77,6 +78,7 @@ import { Route as AdminUsageRevenueIndexRouteImport } from './routes/admin/usage
 import { Route as AdminWebsiteIndexRouteImport } from './routes/admin/website/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
 import { Route as CSlugIndexRouteImport } from './routes/c/$slug/index'
 import { Route as CardSlugIndexRouteImport } from './routes/card/$slug/index'
@@ -337,6 +339,11 @@ const SchoolRouteRoute = SchoolRouteRouteImport.update({
 const SmartboardRouteRoute = SmartboardRouteRouteImport.update({
   id: '/smartboard',
   path: '/smartboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatusRoute = StatusRouteImport.update({
+  id: '/status',
+  path: '/status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudentRouteRoute = StudentRouteRouteImport.update({
@@ -624,6 +631,11 @@ const AdventureGamesIndexRoute = AdventureGamesIndexRouteImport.update({
 const AgeRangeIndexRoute = AgeRangeIndexRouteImport.update({
   id: '/age/$range/',
   path: '/age/$range/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssetsCategoryIndexRoute = AssetsCategoryIndexRouteImport.update({
@@ -1814,6 +1826,7 @@ export interface FileRoutesByFullPath {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
@@ -1854,6 +1867,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
@@ -2079,6 +2093,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
+  '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
@@ -2119,6 +2134,7 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
@@ -2356,6 +2372,7 @@ export interface FileRoutesById {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
@@ -2396,6 +2413,7 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
@@ -2634,6 +2652,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/status'
     | '/welcome'
     | '/api/course-background'
     | '/auth/accept-invite'
@@ -2674,6 +2693,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
@@ -2899,6 +2919,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/class'
+    | '/status'
     | '/welcome'
     | '/api/course-background'
     | '/auth/accept-invite'
@@ -2939,6 +2960,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
@@ -3175,6 +3197,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/status'
     | '/welcome'
     | '/api/course-background'
     | '/auth/accept-invite'
@@ -3215,6 +3238,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
@@ -3452,6 +3476,7 @@ export interface RootRouteChildren {
   SmartboardRouteRoute: typeof SmartboardRouteRouteWithChildren
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
+  StatusRoute: typeof StatusRoute
   WelcomeRoute: typeof WelcomeRoute
   ApiCourseBackgroundRoute: typeof ApiCourseBackgroundRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
@@ -3481,6 +3506,7 @@ export interface RootRouteChildren {
   SupportIndexRoute: typeof SupportIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
   HomepageReplaceBuildingFreeRoute: typeof HomepageReplaceBuildingFreeRoute
@@ -3641,6 +3667,13 @@ declare module '@tanstack/react-router' {
       path: '/smartboard'
       fullPath: '/smartboard'
       preLoaderRoute: typeof SmartboardRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/student': {
@@ -4040,6 +4073,13 @@ declare module '@tanstack/react-router' {
       path: '/age/$range'
       fullPath: '/age/$range/'
       preLoaderRoute: typeof AgeRangeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assets/$category/': {
@@ -5980,6 +6020,7 @@ const rootRouteChildren: RootRouteChildren = {
   SmartboardRouteRoute: SmartboardRouteRouteWithChildren,
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
+  StatusRoute: StatusRoute,
   WelcomeRoute: WelcomeRoute,
   ApiCourseBackgroundRoute: ApiCourseBackgroundRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
@@ -6009,6 +6050,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupportIndexRoute: SupportIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  ApiPublicHealthRoute: ApiPublicHealthRoute,
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
   HomepageReplaceBuildingFreeRoute: HomepageReplaceBuildingFreeRoute,
