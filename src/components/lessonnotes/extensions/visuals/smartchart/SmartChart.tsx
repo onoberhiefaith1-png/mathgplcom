@@ -55,7 +55,7 @@ function PlaceholderChart({
           </select>
         </PanelRow>
       </PanelGroup>
-      <div className="px-2 py-1 text-xs text-muted-foreground">
+      <div className="px-2 py-1 text-xs text-foreground/80">
         This chart kind is being upgraded to the interactive Smart Chart in an upcoming
         release. Switch to "Bar chart" or "Histogram" to try the new editor today.
       </div>

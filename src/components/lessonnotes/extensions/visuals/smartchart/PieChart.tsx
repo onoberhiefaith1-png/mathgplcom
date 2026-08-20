@@ -176,7 +176,7 @@ export function PieChart({ attrs, onChange, selected, assetId = "smartChart" }: 
                 onClick={(e) => e.stopPropagation()}
                 className="w-20 rounded border border-foreground/20 bg-background px-1.5 py-0.5 text-xs text-foreground text-right"
               />
-              <span className="text-[11px] text-muted-foreground">%</span>
+              <span className="text-[11px] font-medium text-foreground">%</span>
               <div className="ml-auto flex items-center gap-1">
                 <PanelColor
                   value={colorFor(s, i, palette)}
