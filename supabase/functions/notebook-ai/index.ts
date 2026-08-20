@@ -1049,7 +1049,7 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
         analysis?: any;
         progress?: { label: string; state: string }[];
         material?: { text?: string; files?: { name: string; mime: string; dataUrl: string }[] };
-        queue?: { key: string; label: string; kind: string }[];
+        queue?: { key: string; label: string; kind: string; plan?: string }[];
       };
       const stage = b.stage ?? "chat";
       const message = String(b.message ?? "").trim();
