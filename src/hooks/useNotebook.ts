@@ -535,14 +535,29 @@ export function useNotebook(notebookId: string | undefined) {
     async (json: any) => {
       if (!notebookId) return;
       setNotebook((prev) => (prev ? { ...prev, document_json: json } : prev));
-      const { error } = await supabase
-        .from("notebooks")
-        .update({ document_json: json } as any)
-        .eq("id", notebookId);
-      if (error) {
-        toast({ title: "Could not save document", variant: "destructive" });
+      // Mirror to this device first: even a total network failure cannot lose work.
+      writeLocalDraft(notebookId, json, true);
+      setSaveState("saving");
+      try {
+        await resilient(
+          async () => {
+            const { error } = await supabase
+              .from("notebooks")
+              .update({ document_json: json } as any)
+              .eq("id", notebookId);
+            if (error) throw error;
+          },
+          { attempts: 3, timeoutMs: 15_000 },
+        );
+      } catch (e) {
+        setSaveState(
+          typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "error",
+        );
+        toast({ title: friendlyMessage(e, "Couldn't save yet — your work is kept on this device."), variant: "destructive" });
         return;
       }
+      markLocalDraftSynced(notebookId);
+      setSaveState("saved");
       // Mirror the document into the legacy section/subsection/block tables
       // so the Smartboard presents what's actually in the lesson note.
       try {
@@ -555,6 +570,7 @@ export function useNotebook(notebookId: string | undefined) {
     },
     [notebookId],
   );
+
 
   /** Update paper appearance (size + style). */
   const updatePaperSettings = useCallback(
