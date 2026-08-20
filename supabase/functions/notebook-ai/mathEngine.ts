@@ -6,6 +6,8 @@
 // steps, final answer, diagram model) so the server and the client can
 // re-compute the mathematics before anything is displayed.
 
+import { CONSTRUCTION_STANDARD } from "./constructionStandard.ts";
+
 export type EngineOperation =
   | "generateLessonSection" | "generateExample" | "generateClasswork"
   | "generateAssignment" | "analyseQuestion" | "generateSimilarQuestions"
