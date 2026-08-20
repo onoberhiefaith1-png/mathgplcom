@@ -174,19 +174,44 @@ export function useCoPilotConversation(
     return () => { clearInterval(timer); setProgressLabel(null); };
   }, []);
 
-  /** One call to the Copilot backend, bounded so the panel can never hang. */
+  /**
+   * One call to the Copilot backend. Bounded so the panel can never hang, and
+   * genuinely cancellable so the teacher is never trapped behind a spinner.
+   */
   const ask = useCallback(async (payload: Record<string, unknown>) => {
     const snapshot = bridgeRef.current?.snapshot() ?? null;
-    const { data, error } = await withTimeout(
-      supabase.functions.invoke("notebook-ai", {
-        body: { mode: "copilot", snapshot, ...payload },
-      }),
-      COPILOT_CALL_TIMEOUT_MS,
-      "That took longer than expected and I stopped waiting — try again.",
-    );
-    if (error) throw error;
-    return (data ?? {}) as any;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    cancelledRef.current = false;
+    try {
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke("notebook-ai", {
+          body: { mode: "copilot", snapshot, ...payload },
+          signal: controller.signal,
+        }),
+        COPILOT_CALL_TIMEOUT_MS,
+        "That took longer than expected and I stopped waiting — try again.",
+      );
+      if (controller.signal.aborted) throw new DOMException("Aborted", "AbortError");
+      if (error) throw error;
+      return (data ?? {}) as any;
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+    }
   }, [bridgeRef]);
+
+  /** Cancel — a real stop, not a hidden request that keeps running. */
+  const cancel = useCallback(() => {
+    cancelledRef.current = true;
+    pauseRef.current = true;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setProgressLabel(null);
+    setRetry(null);
+    markBusy(false);
+    setStage((s) => (s === "greeting" ? "structure" : s === "analysing" ? "material" : s === "building" ? "idle" : s));
+    say("Stopped there. Everything already in the note is untouched — tell me what you'd like next.");
+  }, [markBusy, say]);
 
   // ── Stage 1: resume the lesson conversation, or greet once ────────────
   // The same conversation lives for the whole life of the lesson note: it is
