@@ -403,7 +403,7 @@ async function engineGenerate(opts: {
       const q = res.questions[0];
       // A constructed, verified figure travels WITH its question so the editor
       // can place the single authoritative diagram under the question body.
-      if (q?.scene) opts.onScene?.(q.scene);
+      if (res.scene) opts.onScene?.(res.scene);
       return q?.text?.trim() || null;
     }
 
