@@ -181,24 +181,73 @@ function evalArithmetic(raw: string): number {
 /**
  * Parse the Engine's JSON safely. Board notation uses single-backslash LaTeX
  * templates (\frac, \sqrt), and JSON.parse would eat "\f" as a form feed —
- * "\frac{1}{2}" would arrive as "rac{1}{2}". Escape those commands first.
+ * "\frac{1}{2}" would arrive as "rac{1}{2}". Any backslash that is not a legal
+ * JSON escape is doubled before parsing. Output is also often wrapped in prose
+ * or code fences, or cut off by a token limit, so we slice the balanced object
+ * and, as a last resort, repair an unterminated tail.
  */
-const LATEX_CMD = /\\(?=(frac|sqrt|square|times|cdot|pi|theta|alpha|beta|left|right|begin|end|text|le|ge|ne|approx|infty|circ|angle|triangle)\b)/g;
+
+// A backslash that does not begin a valid JSON escape sequence.
+const BAD_ESCAPE = /\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g;
+
+const stripFences = (s: string) =>
+  s.replace(/```[a-zA-Z]*\s*/g, "").replace(/```/g, "").trim();
+
+/** Slice the first balanced {...} block, ignoring braces inside strings. */
+function sliceObject(s: string): string | null {
+  const start = s.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return s.slice(start, i + 1);
+  }
+  return s.slice(start); // truncated — repaired below
+}
+
+/** Close an unterminated string / arrays / objects left by a truncated reply. */
+function repairTail(s: string): string {
+  let out = s, inStr = false, esc = false;
+  const stack: string[] = [];
+  for (const c of out) {
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{" || c === "[") stack.push(c);
+    else if (c === "}" || c === "]") stack.pop();
+  }
+  if (esc) out = out.slice(0, -1);
+  if (inStr) out += '"';
+  out = out.replace(/,\s*$/, "");
+  while (stack.length) out += stack.pop() === "{" ? "}" : "]";
+  return out;
+}
 
 // deno-lint-ignore no-explicit-any
 export function parseEngineJson(raw: string): any {
-  const cleaned = raw.trim()
-    .replace(/^```json\s*|\s*```$/g, "")
-    .replace(/^```\s*|\s*```$/g, "")
-    .replace(LATEX_CMD, "\\\\");
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (m) { try { return JSON.parse(m[0]); } catch { /* unreadable */ } }
-    return null;
+  const base = stripFences(String(raw ?? ""));
+  const candidates = [base, sliceObject(base) ?? ""].filter(Boolean);
+  for (const candidate of candidates) {
+    for (const text of [candidate, candidate.replace(BAD_ESCAPE, "\\\\")]) {
+      try { return JSON.parse(text); } catch { /* try next shape */ }
+      try { return JSON.parse(repairTail(text)); } catch { /* try next shape */ }
+    }
   }
+  return null;
 }
+
 
 
 const near = (a: number, b: number, eps = 1e-4) => Math.abs(a - b) <= eps * Math.max(1, Math.abs(a), Math.abs(b));
