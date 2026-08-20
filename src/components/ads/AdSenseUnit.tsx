@@ -32,7 +32,10 @@ const AdSenseUnit = ({
   const pushed = useRef(false);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    loadAdSenseScript();
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!mounted || pushed.current || !ref.current) return;
