@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import CommunityHome from "@/pages/community/CommunityHome";
-import { ADSENSE_SCRIPT_SRC } from "@/lib/ads/adsense";
+
 
 
 const DESCRIPTION =
