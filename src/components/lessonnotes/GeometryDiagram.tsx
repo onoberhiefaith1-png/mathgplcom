@@ -272,12 +272,12 @@ function renderObject(
       // Legacy parallel marks via `marks`
       if (o.marks === "parallel" || o.marks === "double-parallel" || o.marks === "triple-parallel") {
         const count = o.marks === "parallel" ? 1 : o.marks === "double-parallel" ? 2 : 3;
-        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, count, color, sw);
+        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, count, color, swMark);
       }
       // New independent parallel-marks
       const parGroup = (o as any).parallelMarks as number | undefined;
       if (parGroup && parGroup > 0) {
-        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, parGroup, color, sw);
+        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, parGroup, color, swMark);
       }
       // Arrows
       const arrow = (o as any).arrow as "none" | "start" | "end" | "both" | undefined;
@@ -493,7 +493,7 @@ function renderObject(
           <polyline
             key={o.id}
             points={`${cx + u1x * s},${cy + u1y * s} ${cx + (u1x + u2x) * s},${cy + (u1y + u2y) * s} ${cx + u2x * s},${cy + u2y * s}`}
-            fill="none" stroke={markStroke} strokeWidth={sw}
+            fill="none" stroke={markStroke} strokeWidth={swMark}
           />
         );
       }
@@ -519,12 +519,12 @@ function renderObject(
         <g key={o.id}>
           <path
             d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} ${sweep} ${x2} ${y2}`}
-            fill="none" stroke={markStroke} strokeWidth={sw}
+            fill="none" stroke={markStroke} strokeWidth={swMark}
           />
           {o.marker === "double" && (
             <path
               d={`M ${cx + Math.cos(a1) * (r - 4)} ${cy - Math.sin(a1) * (r - 4)} A ${r - 4} ${r - 4} 0 ${large} ${sweep} ${cx + Math.cos(a2) * (r - 4)} ${cy - Math.sin(a2) * (r - 4)}`}
-              fill="none" stroke={markStroke} strokeWidth={sw}
+              fill="none" stroke={markStroke} strokeWidth={swMark}
             />
           )}
           {o.value && (
