@@ -14,6 +14,7 @@ import {
   type GplSubSession,
 } from "@/lib/gpl/assetLibrary";
 import { useSignedUrl } from "@/components/gamebuilder/SignedMedia";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 interface Props {
   kind: "image" | "video";
@@ -45,6 +46,7 @@ function AssetTile({ asset, kind, onPick }: { asset: GplAsset; kind: "image" | "
 }
 
 export function MyGplMediaPicker({ kind, onClose, onPick }: Props) {
+  useEscapeClose(onClose);
   const [sessions, setSessions] = useState<GplSession[]>([]);
   const [session, setSession] = useState<GplSession | null>(null);
   const [subs, setSubs] = useState<GplSubSession[]>([]);

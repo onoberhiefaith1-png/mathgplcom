@@ -110,6 +110,7 @@ import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { SectionNav } from "./SectionNav";
 const EmojiPanel = lazy(() => import("./EmojiPanel").then((m) => ({ default: m.EmojiPanel })));
 import { EmojiMedia } from "./extensions/EmojiMedia";
 import { ConversionPanel } from "./ConversionPanel";
@@ -2899,7 +2900,9 @@ function DocumentEditorInner({
   useEffect(() => {
     const shell = ribbonShellRef.current;
     if (!shell) return;
-    const measure = () => setRibbonSpacerHeight(ribbonOpen ? shell.getBoundingClientRect().height : 0);
+    // The shell also holds the persistent section navigation, so its real
+    // height is reserved whether the toolbar is open or collapsed.
+    const measure = () => setRibbonSpacerHeight(shell.getBoundingClientRect().height);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(shell);
@@ -3307,6 +3310,9 @@ function DocumentEditorInner({
           </Btn>
         )}
         </div>
+        {/* Persistent section navigation — always visible, even with the
+            toolbar collapsed. Navigation only: no reload, no regeneration. */}
+        <SectionNav editor={editor} />
         <button
           type="button"
           onClick={() => setRibbonOpen((v) => !v)}

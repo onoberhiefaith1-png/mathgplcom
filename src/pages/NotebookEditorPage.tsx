@@ -107,6 +107,31 @@ const NotebookEditorPage = () => {
   const copilotOpen = aiMode === "copilot";
   const copilotBridgeRef = useRef<CoPilotBridge | null>(null);
 
+  // The lesson toolbar is fixed to the viewport, so it must know exactly how
+  // tall this header really is — otherwise it hides behind it whenever the
+  // header grows (narrow window, recovery banner, longer title).
+  const [headerEl, setHeaderEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!headerEl) {
+      root.style.removeProperty("--lesson-header-h");
+      return;
+    }
+    const measure = () => {
+      const h = Math.round(headerEl.getBoundingClientRect().height);
+      if (h > 0) root.style.setProperty("--lesson-header-h", `${h}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(headerEl);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      root.style.removeProperty("--lesson-header-h");
+    };
+  }, [headerEl]);
+
   const handleScanImage = useCallback(async (dataUrl: string) => {
     setScanBusy(true);
     try {
@@ -165,10 +190,11 @@ const NotebookEditorPage = () => {
   return (
     <main className="h-[100dvh] overflow-hidden text-foreground flex flex-col" style={{ background: "#15132a" }}>
       <header
+        ref={setHeaderEl}
         className="shrink-0 z-30 backdrop-blur-md border-b border-foreground/10"
         style={{ background: "rgba(21,19,42,0.85)" }}
       >
-        <div className="mx-auto max-w-7xl px-2 sm:px-4 py-2.5 flex items-center gap-1.5 sm:gap-3 overflow-hidden">
+        <div className="mx-auto max-w-7xl px-2 sm:px-4 py-1.5 sm:py-2.5 flex items-center gap-1.5 sm:gap-3 overflow-hidden">
           <Button
             variant="ghost" size="sm"
             onClick={() => navigate("/lesson-notes")}
@@ -246,7 +272,9 @@ const NotebookEditorPage = () => {
         </div>
 
         <div className="flex items-center gap-2 px-3 pb-1">
-          <p className="text-[10px] text-foreground/50 truncate">
+          {/* On narrow windows the header stays a single compact row so it can
+              never grow tall enough to swallow the lesson toolbar. */}
+          <p className="hidden md:block text-[10px] text-foreground/50 truncate">
             {copilotOpen
               ? "MathGPL Co-Pilot — Active. Section AI markers are hidden; Solution, Diagram, Tables, Graph, Assign and Floating work as normal editing tools."
               : "MathGPL Math Engine — Active. Section tools are available, and every one of them is verified by the Engine."}

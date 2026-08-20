@@ -626,7 +626,9 @@
 /* Collapsible ribbon toggle handle */
 .lesson-ribbon-shell {
   position: fixed;
-  top: 54px;
+  /* Measured from the real lesson-note header, so the toolbar can never end up
+     hidden behind a taller header (narrow window, recovery banner, …). */
+  top: var(--lesson-header-h, 54px);
   left: 0;
   right: 0;
   z-index: 25;

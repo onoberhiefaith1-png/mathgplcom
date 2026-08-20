@@ -19,6 +19,9 @@
 import type { Editor } from "@tiptap/react";
 import { editorZoom, isObjectDragging } from "./objectDrag";
 
+/** Meta flag identifying transactions dispatched by this guard itself. */
+export const LAYOUT_META = "sessionLayoutGuard";
+
 /** Breathing room kept between two sessions. */
 const GAP = 18;
 /** Ignore sub-pixel noise so the guard never loops on itself. */
@@ -102,6 +105,9 @@ export function runSessionLayout(editor: Editor) {
   if (!changed) return;
   // Layout housekeeping is never an Undo step for the teacher.
   tr.setMeta("addToHistory", false);
+  // Marks this as the guard's own write, so the guard never treats it as a
+  // fresh teacher edit (that would restart its pass budget forever).
+  tr.setMeta(LAYOUT_META, true);
   editor.view.dispatch(tr);
 }
 
@@ -109,13 +115,31 @@ export function runSessionLayout(editor: Editor) {
  * Keep the guard running for the lifetime of an editor: after document changes
  * (typing, AI generation, a new diagram) and after any size change of a session
  * frame. Returns a disposer.
+ *
+ * The guard writes transactions, and those transactions (plus the resulting
+ * resizes) call it again. To make a feedback loop impossible it converges in a
+ * bounded number of passes: after MAX_PASSES consecutive self-triggered passes
+ * it stops rescheduling until the teacher's next real edit or resize, so it can
+ * never occupy the main thread and freeze the workspace.
  */
+const MAX_PASSES = 6;
+/** Quiet window after which a burst of passes is considered a fresh change. */
+const BURST_RESET_MS = 400;
+
 export function attachSessionLayout(editor: Editor): () => void {
   let raf = 0;
+  let passes = 0;
+  let lastPassAt = 0;
+
   const schedule = () => {
     if (raf) return;
+    const now = Date.now();
+    if (now - lastPassAt > BURST_RESET_MS) passes = 0;
+    if (passes >= MAX_PASSES) return;
     raf = window.requestAnimationFrame(() => {
       raf = 0;
+      passes += 1;
+      lastPassAt = Date.now();
       try { runSessionLayout(editor); } catch { /* layout must never break editing */ }
     });
   };
@@ -135,14 +159,20 @@ export function attachSessionLayout(editor: Editor): () => void {
     });
   };
 
-
   const onTransaction = () => { observeFrames(); schedule(); };
+  // A real edit by the teacher always earns a fresh budget of passes.
+  const onUpdate = ({ transaction }: { transaction: { getMeta: (k: string) => unknown } }) => {
+    if (transaction.getMeta(LAYOUT_META)) return;
+    passes = 0;
+  };
   editor.on("transaction", onTransaction);
+  editor.on("update", onUpdate);
   observeFrames();
   schedule();
 
   return () => {
     editor.off("transaction", onTransaction);
+    editor.off("update", onUpdate);
     observer.disconnect();
     observed.clear();
     if (raf) window.cancelAnimationFrame(raf);

@@ -9,6 +9,7 @@ import { Camera, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Editor } from "@tiptap/react";
 import { captureNoteSelection, type CapturedContent } from "@/lib/lessonnotes/noteCapture";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 export interface SnipResult {
   /** Live note nodes, when the selection covered note content. */
@@ -63,6 +64,7 @@ const hasVisibleContent = (nodes: unknown[]): boolean =>
 
 
 export function SnipOverlay({ sheetEl, editor = null, onCancel, onCapture }: Props) {
+  useEscapeClose(onCancel);
   const [rect, setRect] = useState<Rect | null>(null);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);

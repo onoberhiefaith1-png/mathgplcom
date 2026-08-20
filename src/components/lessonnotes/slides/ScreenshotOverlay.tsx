@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Maximize2, X } from "lucide-react";
 import { cropScreenFrame, type ScreenFrame } from "@/lib/lessonnotes/screenCapture";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 interface Props {
   frame: ScreenFrame;
@@ -16,6 +17,7 @@ interface Props {
 interface Rect { left: number; top: number; width: number; height: number }
 
 export function ScreenshotOverlay({ frame, onCancel, onInsert }: Props) {
+  useEscapeClose(onCancel);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const [dragging, setDragging] = useState(false);
