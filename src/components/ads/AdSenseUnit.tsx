@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ADSENSE_CLIENT } from "@/lib/ads/adsense";
+import { ADSENSE_CLIENT, loadAdSenseScript } from "@/lib/ads/adsense";
 
 declare global {
   interface Window {
@@ -32,7 +32,10 @@ const AdSenseUnit = ({
   const pushed = useRef(false);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    loadAdSenseScript();
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!mounted || pushed.current || !ref.current) return;

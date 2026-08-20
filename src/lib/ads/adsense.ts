@@ -16,3 +16,21 @@ export const ADSENSE_SCRIPT_SRC =
  * block, so the page never shows an empty advertising gap.
  */
 export const HOMEPAGE_AD_SLOT_ID = "";
+
+/**
+ * Load the AdSense script *after* hydration.
+ *
+ * Loading it from the route `head()` let Google inject its own <ins> element
+ * into the document before React hydrated, which React reported as a hydration
+ * mismatch on every homepage visit. Injecting the tag from a client effect
+ * keeps the server and client markup identical.
+ */
+export function loadAdSenseScript(): void {
+  if (typeof document === "undefined") return;
+  if (document.querySelector(`script[src="${ADSENSE_SCRIPT_SRC}"]`)) return;
+  const script = document.createElement("script");
+  script.src = ADSENSE_SCRIPT_SRC;
+  script.async = true;
+  script.crossOrigin = "anonymous";
+  document.head.appendChild(script);
+}
