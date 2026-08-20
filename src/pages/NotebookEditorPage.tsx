@@ -336,7 +336,7 @@ const NotebookEditorPage = () => {
               {/* A Co-Pilot failure must never blank the lesson note. */}
               <FeatureBoundary feature="MathGPL Co-Pilot">
                 <Suspense fallback={<div className="h-full border-l border-foreground/10 bg-background" />}>
-                  <CoPilotPanel bridgeRef={copilotBridgeRef} onClose={() => setLessonAiMode("mathengine")} />
+                  <CoPilotPanel bridgeRef={copilotBridgeRef} notebookId={id} onClose={() => setLessonAiMode("mathengine")} />
                 </Suspense>
               </FeatureBoundary>
             </div>
