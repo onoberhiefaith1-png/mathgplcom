@@ -95,6 +95,12 @@ export function useCoPilotConversation(
   const materialRef = useRef<CoPilotMaterial>(emptyMaterial());
   const pauseRef = useRef(false);
   const greetedRef = useRef(false);
+  /** Mirrors `busy` so a second click can never start a duplicate request. */
+  const busyRef = useRef(false);
+  /** The in-flight Co-Pilot request, so Cancel is a real cancellation. */
+  const abortRef = useRef<AbortController | null>(null);
+  /** Set by Cancel: the reply of the abandoned request is discarded. */
+  const cancelledRef = useRef(false);
 
   /** The persistent lesson conversation this note owns. */
   const sessionRef = useRef<CoPilotSessionState | null>(null);
