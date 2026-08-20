@@ -25,7 +25,34 @@ interface RawResponse {
   questions?: EngineQuestion[];
   analysis?: EngineResult["analysis"];
   scene?: unknown;
+  construction?: unknown;
   error?: string;
+}
+
+/**
+ * A figure is CONSTRUCTED, never painted. When the Engine returns a
+ * construction program we solve it locally into exact coordinates and verify
+ * the finished figure; only a verified diagram becomes a scene.
+ */
+async function sceneFromResponse(
+  raw: RawResponse,
+  question: string,
+): Promise<{ scene: unknown; problems: string[] }> {
+  if (!raw.construction || typeof raw.construction !== "object") {
+    return { scene: raw.scene, problems: [] };
+  }
+  const [{ compileConstruction }, { verifyScene }] = await Promise.all([
+    import("@/lib/geometry/construct/compile"),
+    import("@/lib/geometry/construct/validate"),
+  ]);
+  const { scene, problems } = compileConstruction(raw.construction as any);
+  const built = problems.map((p) => `Diagram: ${p.message}`);
+  if (!scene) return { scene: undefined, problems: built.length ? built : ["Diagram: the figure could not be constructed."] };
+  const verdict = verifyScene(scene, question);
+  return {
+    scene: verdict.ok ? scene : undefined,
+    problems: [...built, ...verdict.problems.map((p) => `Diagram: ${p}`)],
+  };
 }
 
 async function callEngine(req: EngineRequest, problems: string[]): Promise<RawResponse> {
