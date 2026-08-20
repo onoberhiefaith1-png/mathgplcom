@@ -75,7 +75,8 @@ Return STRICT JSON only — no markdown, no code fence — exactly this shape:
       "diagramDescription": "",
       "labels": []
     }
-  ]
+  ],
+  "construction": null
 }
 For operations that do not produce questions, return "questions": [].
 `.trim();
