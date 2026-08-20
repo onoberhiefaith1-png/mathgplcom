@@ -173,6 +173,16 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
           <MaterialIntake onSubmit={provideMaterial} onSkip={skipMaterial} busy={busy} />
         )}
 
+        {stage === "blueprint" && queue.length > 0 && (
+          <BlueprintCard
+            queue={queue}
+            busy={busy}
+            onEdit={editBlueprintItem}
+            onRevise={(k, i) => void reviseBlueprintItem(k, i)}
+            onApprove={approveBlueprint}
+          />
+        )}
+
         {(stage === "building" || stage === "idle") && queue.length > 0 && (
           <BuildProgress
             queue={queue}
@@ -182,10 +192,20 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
         )}
 
         {busy && (
-          <p className="text-[11.5px] text-slate-500 inline-flex items-center gap-1.5">
+          <p className="text-[11.5px] text-slate-600 inline-flex items-center gap-1.5">
             <Loader2 className="h-3 w-3 animate-spin" />
-            {STAGE_TEXT[stage] ?? "Thinking"}…
+            {progressLabel ?? STAGE_TEXT[stage] ?? "Thinking"}…
           </p>
+        )}
+
+        {!busy && retry && (
+          <Button
+            size="sm" variant="outline"
+            className="h-7 text-[11.5px] border-slate-300 text-slate-800"
+            onClick={retry.run}
+          >
+            {retry.label}
+          </Button>
         )}
       </div>
 
