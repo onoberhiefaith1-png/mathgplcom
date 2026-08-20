@@ -16,11 +16,6 @@ export const Route = createFileRoute("/community/")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
-    // The community rotating building carries the platform advertisement
-    // boards, so AdSense must load here as well as on the homepage.
-    scripts: [
-      { src: ADSENSE_SCRIPT_SRC, async: true, crossOrigin: "anonymous" },
-    ],
   }),
 
   component: CommunityHome,
