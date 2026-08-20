@@ -3,6 +3,7 @@
 // the actual picking and the insertion.
 import { createPortal } from "react-dom";
 import { FolderOpen, Images, Puzzle, X } from "lucide-react";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 export type ImportSource = "gallery" | "file" | "mygpl";
 
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function ImportSourceDialog({ kind, onPick, onClose }: Props) {
+  useEscapeClose(onClose);
   const noun = kind === "image" ? "image" : "video";
   const options: { key: ImportSource; icon: React.ReactNode; label: string; hint: string }[] = [
     {
