@@ -286,18 +286,77 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
     : { x: 0, y: 0 };
 
   const hide = new Set((program.hide ?? []).map(String));
-  const pointObjects: GeoPoint[] = [...pts.entries()].map(([id, v]) => {
-    const p = fit(v.p);
+  const fitted = new Map<string, Vec>([...pts.entries()].map(([id, v]) => [id, fit(v.p)]));
+
+  /** Unit directions of the drawn edges meeting a point (fitted space). */
+  const incident = (id: string): Vec[] => {
+    const p = fitted.get(id);
+    if (!p) return [];
+    const out: Vec[] = [];
+    for (const o of draws) {
+      if (o.type !== "segment") continue;
+      const other = o.a === id ? o.b : o.b === id ? o.a : null;
+      if (!other) continue;
+      const q = fitted.get(other);
+      if (!q) continue;
+      const d = sub(q, p);
+      const l = len(d) || 1;
+      out.push(mul(d, 1 / l));
+    }
+    return out;
+  };
+
+  /**
+   * Textbook label placement: the letter goes into the widest gap around its
+   * point — clear of every edge meeting it and clear of nearby points. For a
+   * collinear figure (A — P — B) that puts each letter off the line instead of
+   * on it, which is exactly what the centroid rule used to get wrong.
+   */
+  const labelDirection = (id: string): Vec => {
+    const p = fitted.get(id)!;
+    const edges = incident(id);
+    const neighbours = [...fitted.entries()]
+      .filter(([k]) => k !== id)
+      .map(([, q]) => {
+        const d = sub(q, p);
+        const l = len(d) || 1;
+        return { u: mul(d, 1 / l), l };
+      });
     const away = sub(p, centroid);
-    const d = len(away) || 1;
+    const outward = len(away) > 1 ? mul(away, 1 / len(away)) : { x: 0, y: 1 };
+
+    let best = outward;
+    let bestScore = -Infinity;
+    for (let k = 0; k < 24; k++) {
+      const t = (k / 24) * Math.PI * 2;
+      const u = { x: Math.cos(t), y: Math.sin(t) };
+      let score = 0;
+      // never along an edge
+      for (const e of edges) score += 1.6 * (1 - Math.abs(e.x * u.x + e.y * u.y));
+      // never towards a close neighbour
+      for (const n of neighbours) {
+        const align = n.u.x * u.x + n.u.y * u.y;
+        if (align > 0) score -= align * align * (70 / Math.max(35, n.l));
+      }
+      score += 0.6 * (outward.x * u.x + outward.y * u.y);
+      score += 0.25 * u.y; // gentle textbook preference for below the figure
+      if (score > bestScore) { bestScore = score; best = u; }
+    }
+    return best;
+  };
+
+  const pointObjects: GeoPoint[] = [...pts.entries()].map(([id, v]) => {
+    const p = fitted.get(id)!;
+    const u = labelDirection(id);
     return {
       id, type: "point", x: p.x, y: p.y,
       ...(hide.has(id) ? {} : { label: v.label ?? id }),
-      labelOffset: { dx: Math.round((away.x / d) * 14), dy: Math.round((away.y / d) * 14) },
+      labelOffset: { dx: Math.round(u.x * 16), dy: Math.round(u.y * 16) },
       labelFontSize: 15,
       color: "#0f172a",
     };
   });
+
 
   // circles/arcs carry a radius in the old space — scale it too
   const scaled = draws.map((o) =>
