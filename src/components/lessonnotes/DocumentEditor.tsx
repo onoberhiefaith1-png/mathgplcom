@@ -427,7 +427,10 @@ async function aiGenerate(opts: {
   existingHeading?: string;
   inheritedContext?: boolean;
   lessonContext?: LessonTeachingContext;
+  /** Receives the verified 2D figure constructed for a generated question. */
+  onScene?: (scene: unknown) => void;
 }): Promise<string> {
+
   const { hasCreditsForGeneration, INSUFFICIENT_CREDITS_MESSAGE } = await import("@/lib/costs/creditGuard");
   if (!(await hasCreditsForGeneration())) throw new Error(INSUFFICIENT_CREDITS_MESSAGE);
   const fromEngine = await engineGenerate(opts);
