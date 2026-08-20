@@ -98,6 +98,7 @@ const onOpenSyncPromises = new Map<string, Promise<unknown>>();
 
 export function useNotebook(notebookId: string | undefined) {
   const [notebook, setNotebook] = useState<NotebookRow | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [sections, setSections] = useState<SectionRow[]>([]);
   const [loading, setLoading] = useState(true);
   // The legacy Smartboard tables load in the background — the editor only
