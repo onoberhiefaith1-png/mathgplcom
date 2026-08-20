@@ -30,7 +30,8 @@ const STAGE_TEXT: Record<string, string> = {
   greeting: "Reading the lesson",
   structure: "Waiting on the structure",
   material: "Waiting on your material",
-  analysing: "Analysing the topic",
+  analysing: "Planning the lesson",
+  blueprint: "Working on the plan",
   building: "Building the lesson",
   idle: "Thinking",
 };
