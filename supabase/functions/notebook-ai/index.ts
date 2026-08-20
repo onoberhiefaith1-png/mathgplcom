@@ -1040,8 +1040,8 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
     if (body.mode === "copilot") {
       const b = body as {
         mode: "copilot";
-        stage?: "greet" | "structureConfirmed" | "analyse" | "chat";
-        copilotMode?: "plan" | "create";
+        stage?: "greet" | "structureConfirmed" | "analyse" | "blueprint" | "reviseItem" | "chat";
+        item?: { key: string; label: string; kind: string; plan?: string };
         message?: string;
         history?: { role: string; text: string }[];
         snapshot?: any;
