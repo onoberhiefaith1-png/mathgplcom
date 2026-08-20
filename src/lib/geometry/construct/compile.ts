@@ -424,7 +424,7 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
     ? mul([...pts.values()].reduce((acc, v) => add(acc, fit(v.p)), { x: 0, y: 0 }), 1 / pts.size)
     : { x: 0, y: 0 };
 
-  const hide = new Set((program.hide ?? []).map(String));
+  const hide = new Set([...(program.hide ?? []).map(String), ...hidden]);
   const fitted = new Map<string, Vec>([...pts.entries()].map(([id, v]) => [id, fit(v.p)]));
 
   /** Unit directions of the drawn edges meeting a point (fitted space). */
