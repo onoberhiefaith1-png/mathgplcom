@@ -1,11 +1,10 @@
 // Stage 3 of the fixed Copilot procedure — Additional Information.
 //
-// Text, voice note, image, screenshot, textbook page, file or an existing
-// question. Skipping is a normal path: the Copilot builds from the note's
-// own context when nothing is provided.
+// This stage is OPTIONAL. "Proceed" is a first-class action: the Copilot then
+// plans and builds the lesson from the note's own topic and its own knowledge.
 
 import { useRef, useState } from "react";
-import { Loader2, Mic, MicOff, Paperclip, X } from "lucide-react";
+import { ArrowRight, Loader2, Mic, MicOff, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AutoTextarea from "@/components/lessonnotes/AutoTextarea";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -32,7 +31,6 @@ const MaterialIntake = ({ onSubmit, onSkip, busy }: Props) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const voice = useVoiceInput(setText);
 
-
   const attach = async (list: FileList | null) => {
     if (!list?.length) return;
     setReading(true);
@@ -53,11 +51,14 @@ const MaterialIntake = ({ onSubmit, onSkip, busy }: Props) => {
   const disabled = busy || reading;
 
   return (
-    <div className="rounded-xl border border-foreground/12 bg-foreground/[0.04] p-3 space-y-2">
-      <p className="text-[9px] uppercase tracking-[0.28em] text-foreground/40">Additional information</p>
-      <p className="text-[11.5px] text-foreground/60">
-        Anything that shows me the level, style and difficulty you want: a note, a voice
-        note, a photograph of a textbook page, a screenshot, a file or an existing question.
+    <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2 shadow-sm">
+      <p className="text-[9px] uppercase tracking-[0.28em] text-slate-500">
+        Additional information · optional
+      </p>
+      <p className="text-[11.5px] text-slate-600">
+        Only if you want to steer the level, style or difficulty: a note, a voice note, a
+        photograph of a textbook page, a screenshot or a file. Otherwise choose
+        <span className="font-medium text-slate-900"> Proceed</span> and I'll plan the lesson myself.
       </p>
 
       <AutoTextarea
@@ -66,18 +67,18 @@ const MaterialIntake = ({ onSubmit, onSkip, busy }: Props) => {
         minRows={2}
         maxRows={7}
         placeholder="Type or dictate your direction for this lesson…"
-        className="w-full rounded-lg bg-background/40 border border-foreground/15 px-2.5 py-2 text-[12.5px] text-foreground/90 placeholder:text-foreground/30 outline-none focus:border-amber-300/50"
+        className="w-full rounded-lg bg-white border border-slate-300 px-2.5 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-slate-600"
       />
 
       {files.length > 0 && (
         <ul className="space-y-1">
           {files.map((f, i) => (
-            <li key={`${f.name}-${i}`} className="flex items-center gap-1.5 text-[11px] text-foreground/70">
-              <Paperclip className="h-3 w-3 text-foreground/40" />
+            <li key={`${f.name}-${i}`} className="flex items-center gap-1.5 text-[11.5px] text-slate-700">
+              <Paperclip className="h-3 w-3 text-slate-400" />
               <span className="truncate flex-1">{f.name}</span>
               <button
                 onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
-                className="text-foreground/40 hover:text-foreground"
+                className="text-slate-400 hover:text-slate-900"
                 aria-label={`Remove ${f.name}`}
               >
                 <X className="h-3 w-3" />
@@ -99,14 +100,14 @@ const MaterialIntake = ({ onSubmit, onSkip, busy }: Props) => {
       <div className="flex items-center gap-1.5 pt-0.5">
         <Button
           size="sm" variant="ghost" disabled={disabled}
-          className="h-7 gap-1.5 text-[11px] text-foreground/65"
+          className="h-7 gap-1.5 text-[11.5px] text-slate-600 hover:text-slate-900"
           onClick={() => inputRef.current?.click()}
         >
           {reading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />} Attach
         </Button>
         <Button
           size="sm" variant="ghost" disabled={disabled}
-          className={`h-7 gap-1.5 text-[11px] ${voice.listening ? "text-red-400" : "text-foreground/65"}`}
+          className={`h-7 gap-1.5 text-[11.5px] ${voice.listening ? "text-red-600" : "text-slate-600 hover:text-slate-900"}`}
           onClick={() => (voice.listening ? voice.stop() : voice.start())}
         >
           {voice.transcribing ? <Loader2 className="h-3 w-3 animate-spin" />
@@ -114,20 +115,22 @@ const MaterialIntake = ({ onSubmit, onSkip, busy }: Props) => {
           {voice.listening ? "Stop" : "Voice note"}
         </Button>
         <span className="flex-1" />
-        <Button
-          size="sm" variant="ghost" disabled={disabled}
-          className="h-7 text-[11px] text-foreground/50"
-          onClick={onSkip}
-        >
-          Skip
-        </Button>
+        {(text.trim() || files.length > 0) && (
+          <Button
+            size="sm" variant="outline" disabled={disabled}
+            className="h-7 text-[11.5px] border-slate-300 text-slate-800"
+            onClick={() => onSubmit({ text: text.trim(), files })}
+          >
+            Use this
+          </Button>
+        )}
         <Button
           size="sm"
-          disabled={disabled || (!text.trim() && files.length === 0)}
-          className="h-7 text-[11px] bg-amber-400 text-amber-950 hover:bg-amber-300"
-          onClick={() => onSubmit({ text: text.trim(), files })}
+          disabled={disabled}
+          className="h-7 gap-1.5 text-[11.5px] bg-slate-900 text-white hover:bg-slate-800"
+          onClick={() => (text.trim() || files.length ? onSubmit({ text: text.trim(), files }) : onSkip())}
         >
-          Use this
+          Proceed <ArrowRight className="h-3 w-3" />
         </Button>
       </div>
     </div>
