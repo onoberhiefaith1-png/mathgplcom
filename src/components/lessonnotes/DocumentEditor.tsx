@@ -3307,6 +3307,9 @@ function DocumentEditorInner({
           </Btn>
         )}
         </div>
+        {/* Persistent section navigation — always visible, even with the
+            toolbar collapsed. Navigation only: no reload, no regeneration. */}
+        <SectionNav editor={editor} />
         <button
           type="button"
           onClick={() => setRibbonOpen((v) => !v)}
