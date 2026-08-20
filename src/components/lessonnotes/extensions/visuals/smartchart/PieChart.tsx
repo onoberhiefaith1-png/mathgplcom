@@ -144,7 +144,7 @@ export function PieChart({ attrs, onChange, selected, assetId = "smartChart" }: 
 
       <PanelGroup label="Sections">
         {sectors.length === 0 && (
-          <div className="px-2 py-1 text-xs text-muted-foreground">
+          <div className="px-2 py-1 text-xs text-slate-900">
             Press <b>Add section</b> below to start. Each section shows a category name and its percentage.
           </div>
         )}
@@ -353,8 +353,8 @@ export function PieChart({ attrs, onChange, selected, assetId = "smartChart" }: 
                       y1={inner.y}
                       x2={outer.x}
                       y2={outer.y}
-                      stroke="currentColor"
-                      strokeOpacity={0.5}
+                      stroke="#0f172a"
+                      strokeOpacity={0.75}
                       strokeWidth={0.8}
                     />
                   )}
@@ -365,7 +365,7 @@ export function PieChart({ attrs, onChange, selected, assetId = "smartChart" }: 
                       textAnchor={anchor}
                       fontSize={13}
                       fontWeight={600}
-                      fill={isSmall ? "currentColor" : "#0f172a"}
+                      fill="#0f172a"
                     >
                       {nameText}
                     </text>
@@ -376,7 +376,7 @@ export function PieChart({ attrs, onChange, selected, assetId = "smartChart" }: 
                       y={pos.y + (showName ? 12 : 5)}
                       textAnchor={anchor}
                       fontSize={12}
-                      fill={isSmall ? "currentColor" : "#0f172a"}
+                      fill="#0f172a"
                     >
                       {pctText}
                     </text>
@@ -388,7 +388,7 @@ export function PieChart({ attrs, onChange, selected, assetId = "smartChart" }: 
       </div>
 
       {/* Compact totals strip under the chart, always visible */}
-      <div className="mt-2 flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
+      <div className="mt-2 flex items-center justify-center gap-4 text-[12px] font-medium text-slate-900">
         <span>Total: <span className="tabular-nums text-foreground">{formatPct(total)}%</span></span>
         <span>Remaining: <span
           className={
