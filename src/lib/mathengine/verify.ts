@@ -198,17 +198,42 @@ export function checkClaim(claim: EngineClaim | null | undefined): { ok: boolean
       return { ok: true };
     }
     case "arithmetic": {
-      try {
-        const left = evaluateExpression(claim.expression);
-        const right = parseNumeric(claim.value);
-        if (right === null) return { ok: false, detail: `The stated value "${claim.value}" is not a number.` };
-        return near(left, right, 1e-4)
-          ? { ok: true }
-          : { ok: false, detail: `${claim.expression} evaluates to ${left}, not ${claim.value}.` };
-      } catch (e) {
-        return { ok: false, detail: `Could not re-compute ${claim.expression}: ${(e as Error).message}` };
+      // A claim may hold several parts ("x=180-105; y=180-80") and each part
+      // may be written as an equation. Check every part independently.
+      const parts = String(claim.expression ?? "")
+        .split(/[;\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const values = String(claim.value ?? "")
+        .split(/[;,\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (!parts.length) return { ok: true };
+
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const sides = part.split("=").map((s) => s.trim()).filter(Boolean);
+        const rhs = sides.length > 1 ? sides[sides.length - 1] : part;
+        const expected = sides.length > 1 && parseNumeric(sides[0]) !== null
+          ? sides[0]
+          : (values[i] ?? (parts.length === 1 ? values[0] : undefined));
+
+        let computed: number;
+        try {
+          computed = evaluateExpression(rhs);
+        } catch (e) {
+          return { ok: false, detail: `Could not re-compute ${part}: ${(e as Error).message}` };
+        }
+        if (expected === undefined) continue; // nothing claimed to compare against
+        const right = parseNumeric(expected);
+        if (right === null) return { ok: false, detail: `The stated value "${expected}" is not a number.` };
+        if (!near(computed, right, 1e-4)) {
+          return { ok: false, detail: `${rhs} evaluates to ${computed}, not ${expected}.` };
+        }
       }
+      return { ok: true };
     }
+
     default:
       return { ok: true };
   }
