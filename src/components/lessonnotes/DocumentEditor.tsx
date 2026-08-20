@@ -1598,14 +1598,32 @@ function DocumentEditorInner({
       }
     }
 
-
-    // NO AUTOMATIC QUESTION-SIDE DIAGRAM. A question block never asks the model
-    // to invent a figure, and nothing is ever inserted above the Solution
-    // heading. The single authoritative diagram comes from the original
-    // generation path only.
-
+    // THE ONE AUTHORITATIVE DIAGRAM. Nothing is ever "painted": this figure was
+    // CONSTRUCTED from the Engine's mathematical program, solved into exact
+    // coordinates and verified before it got here. It is inserted once, at the
+    // end of the question body (never above a Solution heading), and stays
+    // editable and owned by this question forever.
+    if (
+      engineScene &&
+      !isSolutionBlock &&
+      isQuestionSectionKind(info.kind) &&
+      !ownedQuestionDiagram &&
+      !preservedDiagrams.length
+    ) {
+      const at = Math.min(questionBodyEnd, editor.state.doc.content.size);
+      editor.chain().focus().insertContentAt(at, {
+        type: "geometryDiagram",
+        attrs: {
+          scene: engineScene,
+          topic: contextAt(info.headingPos)?.subtopic ?? contextAt(info.headingPos)?.topic ?? null,
+          diagramId: newDiagramId(),
+          ownerQuestionId: ensureOwnerQuestionId(editor, info.headingPos),
+        },
+      }).run();
+    }
 
     if (isQuestionSectionKind(info.kind)) return;
+
 
     await persistAndOfferFloating(generationKind, content, {
       from: insertFrom,
