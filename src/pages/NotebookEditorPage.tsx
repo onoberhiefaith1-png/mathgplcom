@@ -253,6 +253,35 @@ const NotebookEditorPage = () => {
           </p>
           <SaveStatusPill state={viewOnly ? "idle" : saveState} className="ml-auto shrink-0" />
         </div>
+        {recovery != null && (
+          <div className="mx-3 mb-2 flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <span className="flex-1">
+              This device has changes from your last session that never finished saving.
+            </span>
+            <Button
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                const doc = recovery;
+                setRecovery(null);
+                if (doc) saveDocumentJson(doc);
+              }}
+            >
+              Restore them
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                if (id) clearLocalDraft(id);
+                setRecovery(null);
+              }}
+            >
+              Discard
+            </Button>
+          </div>
+        )}
 
 
         <div className="h-0.5 w-full" style={{ background: theme.gradient }} aria-hidden />
