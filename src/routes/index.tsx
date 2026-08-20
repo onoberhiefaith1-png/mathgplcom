@@ -55,11 +55,6 @@ export const Route = createFileRoute("/")({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
-    // Google AdSense loads on the homepage only — never from __root — so no
-    // other page of the site serves Google advertisements.
-    scripts: [
-      { src: ADSENSE_SCRIPT_SRC, async: true, crossOrigin: "anonymous" },
-    ],
   }),
   component: Landing,
 });
