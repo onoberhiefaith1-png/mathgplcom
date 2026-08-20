@@ -12,8 +12,9 @@ import { SECTION_LABELS, SOLUTION_SECTION_KINDS, type SectionKind } from "@/lib/
 export type CoPilotStage =
   | "greeting"     // opening line, structure card being prepared
   | "structure"    // teacher adjusts the numbers
-  | "material"     // additional information intake
-  | "analysing"    // reading the teacher's material
+  | "material"     // additional information intake (always optional)
+  | "analysing"    // planning the lesson (analysis → blueprint)
+  | "blueprint"    // the teacher reviews / edits the plan before anything is written
   | "building"     // working through the queue
   | "idle";        // supervision / free conversation
 
@@ -75,9 +76,31 @@ export interface BuildItem {
   withSolution: boolean;
   /** Short professional note about WHY this item looks like it does. */
   note?: string;
+  /** The planned content of this item — shown in the blueprint, editable. */
+  plan?: string;
+  /** The Co-Pilot's own decision: does this item need a 2D diagram? */
+  needsDiagram?: boolean;
+  /** Named existing 3D asset to place, when the item is a 3D one. */
+  asset3d?: string;
+  /** True once the teacher edited or revised the planned line. */
+  edited?: boolean;
   state: "pending" | "running" | "done" | "failed" | "skipped";
   detail?: string;
 }
+
+/** The narrated planning steps — the panel rotates through these while planning. */
+export const PLANNING_STEPS = [
+  "Analysing the topic",
+  "Checking the mathematical structure",
+  "Planning the examples",
+  "Checking question progression",
+  "Preparing the lesson blueprint",
+];
+
+/** "proceed" and friends: the teacher telling the Co-Pilot to get on with it. */
+export const isProceedIntent = (text: string) =>
+  /^(ok(ay)?[,. ]*)?(please\s+)?(proceed|go ahead|carry on|continue|go on|build it|build the lesson|just build it|start|begin|approved?[.! ]*(build it)?)\b/i
+    .test(text.trim());
 
 /** Turn the confirmed structure counts into the ordered build queue. */
 export function buildQueue(counts: StructureCounts): BuildItem[] {
@@ -113,6 +136,11 @@ export function itemInstruction(
   const lines: string[] = [];
 
   lines.push(`Write the ${item.label} for this subtopic.`);
+
+  // The approved blueprint line is the leading instruction for this item.
+  if (item.plan) lines.push(`This item was planned and approved by the teacher as: ${item.plan}`);
+  if (item.needsDiagram) lines.push("This item needs a proper 2D mathematical diagram: build it with the geometry construction engine, accurate and fully labelled.");
+  if (item.asset3d) lines.push(`Do not draw a 3D picture: state that the existing MathGPL 3D asset "${item.asset3d}" belongs here.`);
 
   if (item.kind === "example" && item.total > 1) {
     lines.push(

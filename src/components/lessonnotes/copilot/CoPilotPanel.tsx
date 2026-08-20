@@ -17,6 +17,7 @@ import { useCoPilotConversation } from "@/lib/lessonnotes/copilot/conversation";
 import { isDestructive, type CoPilotBridge, type CoPilotMessage } from "@/lib/lessonnotes/copilot/actions";
 import StructureCard from "./StructureCard";
 import MaterialIntake from "./MaterialIntake";
+import BlueprintCard from "./BlueprintCard";
 import BuildProgress from "./BuildProgress";
 
 interface Props {
@@ -29,7 +30,8 @@ const STAGE_TEXT: Record<string, string> = {
   greeting: "Reading the lesson",
   structure: "Waiting on the structure",
   material: "Waiting on your material",
-  analysing: "Analysing the topic",
+  analysing: "Planning the lesson",
+  blueprint: "Working on the plan",
   building: "Building the lesson",
   idle: "Thinking",
 };
@@ -116,6 +118,7 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
     messages, busy, send, approve, reject,
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial, queue, resumeBuild,
+    progressLabel, retry, editBlueprintItem, reviseBlueprintItem, approveBlueprint,
   } = useCoPilotConversation(bridgeRef);
   const [text, setText] = useState("");
   const voice = useVoiceInput(setText as any);
@@ -170,6 +173,16 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
           <MaterialIntake onSubmit={provideMaterial} onSkip={skipMaterial} busy={busy} />
         )}
 
+        {stage === "blueprint" && queue.length > 0 && (
+          <BlueprintCard
+            queue={queue}
+            busy={busy}
+            onEdit={editBlueprintItem}
+            onRevise={(k, i) => void reviseBlueprintItem(k, i)}
+            onApprove={approveBlueprint}
+          />
+        )}
+
         {(stage === "building" || stage === "idle") && queue.length > 0 && (
           <BuildProgress
             queue={queue}
@@ -179,10 +192,20 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
         )}
 
         {busy && (
-          <p className="text-[11.5px] text-slate-500 inline-flex items-center gap-1.5">
+          <p className="text-[11.5px] text-slate-600 inline-flex items-center gap-1.5">
             <Loader2 className="h-3 w-3 animate-spin" />
-            {STAGE_TEXT[stage] ?? "Thinking"}…
+            {progressLabel ?? STAGE_TEXT[stage] ?? "Thinking"}…
           </p>
+        )}
+
+        {!busy && retry && (
+          <Button
+            size="sm" variant="outline"
+            className="h-7 text-[11.5px] border-slate-300 text-slate-800"
+            onClick={retry.run}
+          >
+            {retry.label}
+          </Button>
         )}
       </div>
 

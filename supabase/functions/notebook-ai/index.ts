@@ -1040,8 +1040,8 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
     if (body.mode === "copilot") {
       const b = body as {
         mode: "copilot";
-        stage?: "greet" | "structureConfirmed" | "analyse" | "chat";
-        copilotMode?: "plan" | "create";
+        stage?: "greet" | "structureConfirmed" | "analyse" | "blueprint" | "reviseItem" | "chat";
+        item?: { key: string; label: string; kind: string; plan?: string };
         message?: string;
         history?: { role: string; text: string }[];
         snapshot?: any;
@@ -1049,7 +1049,7 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
         analysis?: any;
         progress?: { label: string; state: string }[];
         material?: { text?: string; files?: { name: string; mime: string; dataUrl: string }[] };
-        queue?: { key: string; label: string; kind: string }[];
+        queue?: { key: string; label: string; kind: string; plan?: string }[];
       };
       const stage = b.stage ?? "chat";
       const message = String(b.message ?? "").trim();
@@ -1092,9 +1092,15 @@ You never write the mathematics yourself in a reply — the note's own
 generators do that. You decide what should be built and why.
 The lesson procedure is FIXED and you must not renegotiate it:
 greeting → lesson structure (the teacher sets the numbers) → additional
-information → analysis of that material → build → supervision.
+information (OPTIONAL) → lesson blueprint → build → supervision.
+Additional information is optional context, never a requirement. If the
+teacher says "proceed", it means you have enough: plan and build from your own
+teaching knowledge and the note's topic. Never ask for permission twice and
+never ask a question you can decide professionally yourself (difficulty,
+whether a diagram is needed, wording, progression) — decide it and say why.
 Never ask "how many examples do you want?" — that is a control the teacher
-already sets. Speak like a colleague: short, concrete, classroom language.
+already sets. Speak like a colleague: short, concrete, classroom language, and
+never repeat the same fixed phrase twice in a session.
 Changing numbers in a question is NOT changing the mathematics; only a change
 of method, structure or concept is.`;
 
@@ -1131,6 +1137,91 @@ of method, structure or concept is.`;
         return new Response(JSON.stringify({ reply: sanitizePresentation(reply).trim() }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // ── Stage: revise ONE blueprint line ─────────────────────────
+      if (stage === "reviseItem") {
+        const it = b.item ?? { key: "", label: "item", kind: "example", plan: "" };
+        const others = (Array.isArray(b.queue) ? b.queue : [])
+          .filter((q) => q.key !== it.key)
+          .map((q) => `- ${q.label}: ${q.plan || "(planned)"}`).join("\n");
+        const shape = `{ "reply": "one or two sentences", "plan": "the revised plan for this item only", "needsDiagram": false }`;
+        const raw = await callAI([
+          { role: "system", content: `${systemKnowledge}\n\n${contextBlock}\n\n${jsonOnly(shape)}` },
+          { role: "user", content: [
+            `Revise the plan for ${it.label} (${it.kind}) only. Leave every other item alone.`,
+            `Current plan: ${it.plan || "(none yet)"}`,
+            others ? `The rest of the lesson (for context, do not change):\n${others}` : "",
+            `The teacher's instruction: ${message || "improve it"}`,
+            `Keep it a PLAN, not the finished mathematics. Decide yourself whether this item needs a 2D diagram.`,
+          ].filter(Boolean).join("\n\n") },
+        ]);
+        const cleaned = stripFences(String(raw)).trim();
+        let parsedR: any = {};
+        try { parsedR = JSON.parse(cleaned); } catch {
+          const s = cleaned.indexOf("{"); const e = cleaned.lastIndexOf("}");
+          if (s >= 0 && e > s) { try { parsedR = JSON.parse(cleaned.slice(s, e + 1)); } catch { parsedR = {}; } }
+        }
+        return new Response(JSON.stringify({
+          reply: sanitizePresentation(String(parsedR?.reply ?? "")).trim(),
+          plan: sanitizePresentation(String(parsedR?.plan ?? "")).trim(),
+          needsDiagram: parsedR?.needsDiagram === true,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // ── Stage: analysis + lesson blueprint (nothing is written yet) ──
+      if (stage === "blueprint") {
+        const files = Array.isArray(b.material?.files) ? b.material!.files!.slice(0, 6) : [];
+        const queue = Array.isArray(b.queue) ? b.queue : [];
+        const blocks: any[] = [{
+          type: "text",
+          text: [
+            `Plan this lesson. Do NOT write the finished mathematics — plan it.`,
+            b.material?.text
+              ? `The teacher's direction: ${b.material.text}`
+              : `The teacher gave no additional information and told you to proceed: use your own teaching knowledge of this topic and the note's subtopic.`,
+            queue.length
+              ? `The lesson to plan, in order:\n${queue.map((q) => `- ${q.key}: ${q.label} (${q.kind})`).join("\n")}`
+              : "",
+            `For EVERY item give one short teacher-readable line saying exactly what will be built: for an example, the actual question type and the numbers/shape it will use; for an explanation, the idea it covers; for classwork/exercise/homework, the question type and its difficulty relative to the examples. Rising difficulty across items, no repetition, and only methods already demonstrated in the examples for practice items.`,
+            `Decide professionally, without asking: whether the item needs an accurate 2D mathematical diagram (needsDiagram), or whether an existing MathGPL 3D asset should be placed instead (asset3d, naming the shape). Every mathematics question will get a full worked solution at build time — do not ask about that.`,
+          ].filter(Boolean).join("\n\n"),
+        }];
+        for (const f of files) {
+          const url = String(f?.dataUrl ?? "");
+          if (!url.startsWith("data:")) continue;
+          if (String(f.mime ?? "").startsWith("image/")) blocks.push({ type: "image_url", image_url: { url } });
+          else blocks.push({ type: "file", file: { filename: f.name || "material", file_data: url } });
+        }
+        const shape = `{
+  "reply": "two or three sentences: what you are planning and that they can edit any line before you build",
+  "analysis": { "level": "", "style": "", "method": "", "progression": "", "terminology": "", "brief": "one paragraph handed to every generator" },
+  "blueprint": [{ "key": "example-1", "plan": "what will be built here", "needsDiagram": false, "asset3d": null, "note": "short reason" }]
+}`;
+        const raw = await callAI([
+          { role: "system", content: `${systemKnowledge}\n\n${contextBlock}\n\n${jsonOnly(shape)}` },
+          { role: "user", content: blocks },
+        ]);
+        const cleaned = stripFences(String(raw)).trim();
+        let parsedB: any = {};
+        try { parsedB = JSON.parse(cleaned); } catch {
+          const s = cleaned.indexOf("{"); const e = cleaned.lastIndexOf("}");
+          if (s >= 0 && e > s) { try { parsedB = JSON.parse(cleaned.slice(s, e + 1)); } catch { parsedB = {}; } }
+        }
+        const blueprint = Array.isArray(parsedB?.blueprint)
+          ? parsedB.blueprint.map((r: any) => ({
+              key: String(r?.key ?? ""),
+              plan: sanitizePresentation(String(r?.plan ?? "")).trim(),
+              needsDiagram: r?.needsDiagram === true,
+              asset3d: r?.asset3d ? String(r.asset3d) : null,
+              note: r?.note ? sanitizePresentation(String(r.note)).trim() : "",
+            }))
+          : [];
+        return new Response(JSON.stringify({
+          reply: sanitizePresentation(String(parsedB?.reply ?? "")).trim(),
+          analysis: parsedB?.analysis ?? null,
+          blueprint,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       // ── Stage: analyse the teacher's material ────────────────────
@@ -1220,9 +1311,9 @@ HOW YOU WORK
    solution: if there is no solution yet, propose generating the solution
    first. Never propose a second solution for a question that already has one;
    offer to replace it instead (and mark that action destructive).
-${b.copilotMode === "create"
-  ? "MODE: CREATE — the teacher expects action. Propose the actions needed; additive work runs immediately, anything that replaces existing content still waits for confirmation."
-  : "MODE: PLAN — discussion only. Explain your reading and what you WOULD do, list it under \"steps\", and return \"actions\": []. You may not act in this mode; the teacher switches to CREATE when they want it built."}
+8. There is one conversational mode. Propose the actions the teacher's request
+   needs: additive work runs immediately, anything that replaces existing
+   content waits for a one-line confirmation.
 
 
 AVAILABLE ACTIONS (use these names exactly):

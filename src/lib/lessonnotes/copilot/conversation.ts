@@ -19,7 +19,7 @@ import {
 } from "./actions";
 
 import {
-  DEFAULT_STRUCTURE, buildQueue, emptyMaterial, itemInstruction,
+  DEFAULT_STRUCTURE, PLANNING_STEPS, buildQueue, emptyMaterial, isProceedIntent, itemInstruction,
   type BuildItem, type CoPilotAnalysis, type CoPilotMaterial,
   type CoPilotStage, type StructureCounts,
 } from "./procedure";
@@ -70,6 +70,10 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
   const [counts, setCounts] = useState<StructureCounts>({ ...DEFAULT_STRUCTURE });
   const [queue, setQueue] = useState<BuildItem[]>([]);
   const [analysis, setAnalysis] = useState<CoPilotAnalysis | null>(null);
+  /** The narrated planning line, so the panel never shows one frozen phrase. */
+  const [progressLabel, setProgressLabel] = useState<string | null>(null);
+  /** Set whenever a call fails or times out: the panel offers "Try again". */
+  const [retry, setRetry] = useState<{ label: string; run: () => void } | null>(null);
 
   const stageRef = useRef(stage);
   stageRef.current = stage;
@@ -89,6 +93,17 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
 
   const patch = useCallback((id: string, next: Partial<CoPilotMessage>) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...next } : m)));
+  }, []);
+
+  /** Rotate real planning steps while a long call is in flight. */
+  const narrate = useCallback((steps: string[]) => {
+    let i = 0;
+    setProgressLabel(steps[0] ?? null);
+    const timer = setInterval(() => {
+      i = Math.min(i + 1, steps.length - 1);
+      setProgressLabel(steps[i]);
+    }, 4500);
+    return () => { clearInterval(timer); setProgressLabel(null); };
   }, []);
 
   /** One call to the Copilot backend, bounded so the panel can never hang. */
@@ -197,14 +212,17 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     }
   }, [ask, bridgeRef, counts, say]);
 
-  // ── Stage 4: analysis of the teacher's material ──────────────────────
-  const analyseThenBuild = useCallback(async (material: CoPilotMaterial) => {
+  // ── Stage 4: plan the lesson (analysis → blueprint). Nothing is written
+  // into the note here: the teacher reviews and approves the plan first.
+  const planLesson = useCallback(async (material: CoPilotMaterial) => {
     materialRef.current = material;
+    setRetry(null);
     setStage("analysing");
     setBusy(true);
+    const stopNarration = narrate(PLANNING_STEPS);
     try {
       const data = await ask({
-        stage: "analyse",
+        stage: "blueprint",
         structure: counts,
         material: { text: material.text, files: material.files },
         queue: queueRef.current.map((q) => ({ key: q.key, label: q.label, kind: q.kind })),
@@ -213,25 +231,83 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
       const parsed = sanitizeAnalysis(data.analysis);
       setAnalysis(parsed);
       analysisRef.current = parsed;
-      const notes: Record<string, string> = {};
-      if (Array.isArray(data.itemNotes)) {
-        for (const n of data.itemNotes) {
-          if (n && typeof n.key === "string" && typeof n.note === "string") notes[n.key] = n.note.trim();
+
+      const plans: Record<string, Partial<BuildItem>> = {};
+      if (Array.isArray(data.blueprint)) {
+        for (const b of data.blueprint) {
+          if (!b || typeof b.key !== "string") continue;
+          plans[b.key] = {
+            plan: typeof b.plan === "string" ? b.plan.trim() : "",
+            needsDiagram: b.needsDiagram === true,
+            asset3d: typeof b.asset3d === "string" && b.asset3d.trim() ? b.asset3d.trim() : undefined,
+            note: typeof b.note === "string" ? b.note.trim() : undefined,
+          };
         }
       }
       setQueue((prev) => {
-        const out = prev.map((q) => ({ ...q, note: notes[q.key] || q.note }));
+        const out = prev.map((q) => ({ ...q, ...(plans[q.key] ?? {}) }));
         queueRef.current = out;
         return out;
       });
       if (reply) say(reply);
+      setStage("blueprint");
     } catch (e) {
-      say(`I couldn't read that material properly (${e instanceof Error ? e.message : String(e)}), so I'll build from the note's own topic and subtopic instead.`);
+      const detail = e instanceof Error ? e.message : String(e);
+      say(`I couldn't finish planning the lesson: ${detail}`);
+      setRetry({ label: "Plan the lesson again", run: () => void planLesson(materialRef.current) });
+      setStage("blueprint");
     } finally {
+      stopNarration();
       setBusy(false);
     }
-    await runBuild();
-  }, [ask, counts, runBuild, say]);
+  }, [ask, counts, narrate, say]);
+
+  /** The teacher edits one blueprint line directly. */
+  const editBlueprintItem = useCallback((key: string, text: string) => {
+    setQueue((prev) => {
+      const out = prev.map((q) => (q.key === key ? { ...q, plan: text, edited: true } : q));
+      queueRef.current = out;
+      return out;
+    });
+  }, []);
+
+  /** "make Example 2 harder" — revise ONLY that line, leave the rest alone. */
+  const reviseBlueprintItem = useCallback(async (key: string, instruction: string) => {
+    const item = queueRef.current.find((q) => q.key === key);
+    if (!item) return;
+    setRetry(null);
+    setBusy(true);
+    setProgressLabel(`Revising ${item.label}`);
+    try {
+      const data = await ask({
+        stage: "reviseItem",
+        structure: counts,
+        analysis: analysisRef.current,
+        item: { key: item.key, label: item.label, kind: item.kind, plan: item.plan ?? "" },
+        queue: queueRef.current.map((q) => ({ key: q.key, label: q.label, kind: q.kind, plan: q.plan ?? "" })),
+        message: instruction,
+      });
+      const plan = String(data.plan ?? "").trim();
+      if (plan) {
+        setQueue((prev) => {
+          const out = prev.map((q) => (q.key === key
+            ? { ...q, plan, edited: true, needsDiagram: data.needsDiagram === true ? true : q.needsDiagram }
+            : q));
+          queueRef.current = out;
+          return out;
+        });
+      }
+      const reply = String(data.reply ?? "").trim();
+      say(reply || `${item.label} updated — the rest of the plan is untouched.`);
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : String(e);
+      say(`I couldn't revise ${item.label}: ${detail}`);
+      setRetry({ label: `Revise ${item.label} again`, run: () => void reviseBlueprintItem(key, instruction) });
+    } finally {
+      setProgressLabel(null);
+      setBusy(false);
+    }
+  }, [ask, counts, say]);
 
   // ── Stage 2 → 3 ─────────────────────────────────────────────────────
   const confirmStructure = useCallback(async () => {
@@ -244,16 +320,18 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     try {
       const data = await ask({ stage: "structureConfirmed", structure: counts });
       const reply = String(data.reply ?? "").trim();
-      say(reply || "Structure noted. Before I start, give me any material or direction you want me to follow — or skip and I'll work from the current subtopic.");
+      say(reply || "Structure noted. Additional information is optional — paste anything you want me to follow, or just say Proceed and I'll plan the lesson myself.");
     } catch {
-      say("Structure noted. Before I start, give me any material or direction you want me to follow — or skip and I'll work from the current subtopic.");
+      say("Structure noted. Additional information is optional — paste anything you want me to follow, or just say Proceed and I'll plan the lesson myself.");
     } finally {
       setBusy(false);
     }
   }, [ask, counts, say]);
 
-  const provideMaterial = useCallback((m: CoPilotMaterial) => { void analyseThenBuild(m); }, [analyseThenBuild]);
-  const skipMaterial = useCallback(() => { void analyseThenBuild(emptyMaterial()); }, [analyseThenBuild]);
+  const provideMaterial = useCallback((m: CoPilotMaterial) => { void planLesson(m); }, [planLesson]);
+  /** "Proceed without additional information" — never a blocked path. */
+  const skipMaterial = useCallback(() => { void planLesson(emptyMaterial()); }, [planLesson]);
+  const approveBlueprint = useCallback(() => { void runBuild(); }, [runBuild]);
   const resumeBuild = useCallback(() => { void runBuild(); }, [runBuild]);
 
   // ── Approved-proposal execution (supervision stage) ──────────────────
@@ -313,6 +391,34 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
       return;
     }
 
+    // "Proceed" always means proceed: never a request for more information.
+    if (isProceedIntent(clean)) {
+      if (stageRef.current === "material") {
+        say("That's enough to work with — I'll plan the lesson from the topic, the structure you set and what I know about teaching it.");
+        void planLesson(emptyMaterial());
+        return;
+      }
+      if (stageRef.current === "blueprint" && queueRef.current.length) {
+        say("Right — I'll turn the approved plan into the full lesson now. Every question goes in with its complete solution.");
+        void runBuild();
+        return;
+      }
+      if (stageRef.current === "structure") {
+        void confirmStructure();
+        return;
+      }
+    }
+
+    // At the blueprint stage a named item is revised on its own.
+    if (stageRef.current === "blueprint" && queueRef.current.length) {
+      const hit = queueRef.current.find((q) =>
+        clean.toLowerCase().includes(q.label.toLowerCase()));
+      if (hit) {
+        void reviseBlueprintItem(hit.key, clean);
+        return;
+      }
+    }
+
     setBusy(true);
     try {
       const history = [...messages, teacherMsg].slice(-12).map((m) => ({ role: m.role, text: m.text }));
@@ -344,11 +450,13 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
       }
 
     } catch (e) {
-      say(`I could not complete that: ${e instanceof Error ? e.message : String(e)}`);
+      const detail = e instanceof Error ? e.message : String(e);
+      say(`I could not complete that: ${detail}`);
+      setRetry({ label: "Try that again", run: () => void send(clean) });
     } finally {
       setBusy(false);
     }
-  }, [ask, counts, execute, messages, say]);
+  }, [ask, confirmStructure, counts, execute, messages, planLesson, reviseBlueprintItem, runBuild, say]);
 
   const approve = useCallback((m: CoPilotMessage) => {
     if (!m.proposal) return;
@@ -365,5 +473,7 @@ export function useCoPilotConversation(bridgeRef: React.MutableRefObject<CoPilot
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial,
     queue, resumeBuild, analysis,
+    progressLabel, retry,
+    editBlueprintItem, reviseBlueprintItem, approveBlueprint,
   };
 }
