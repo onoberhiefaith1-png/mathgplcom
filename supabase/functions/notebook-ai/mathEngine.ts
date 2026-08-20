@@ -150,6 +150,10 @@ export function buildEnginePrompt(input: EnginePromptInput): string {
       "Fix the mathematics itself — do not restate the same numbers with different words.",
     );
   }
+  if (["generateGeometry", "verifyGeometry", "generateExample", "generateClasswork",
+       "generateAssignment", "generateLessonSection"].includes(input.operation)) {
+    lines.push("", CONSTRUCTION_STANDARD);
+  }
   lines.push("", SHAPE);
   return lines.join("\n");
 }
