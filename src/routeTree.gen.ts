@@ -20,6 +20,7 @@ import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/rout
 import { Route as LiveRouteRouteImport } from './routes/live/route'
 import { Route as SchoolRouteRouteImport } from './routes/school/route'
 import { Route as SmartboardRouteRouteImport } from './routes/smartboard/route'
+import { Route as StatusRouteImport } from './routes/status'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
 import { Route as WelcomeRouteImport } from './routes/welcome'
@@ -338,6 +339,11 @@ const SchoolRouteRoute = SchoolRouteRouteImport.update({
 const SmartboardRouteRoute = SmartboardRouteRouteImport.update({
   id: '/smartboard',
   path: '/smartboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatusRoute = StatusRouteImport.update({
+  id: '/status',
+  path: '/status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudentRouteRoute = StudentRouteRouteImport.update({
@@ -1820,6 +1826,7 @@ export interface FileRoutesByFullPath {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
@@ -2086,6 +2093,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
+  '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
@@ -2364,6 +2372,7 @@ export interface FileRoutesById {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
@@ -2643,6 +2652,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/status'
     | '/welcome'
     | '/api/course-background'
     | '/auth/accept-invite'
@@ -2909,6 +2919,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/class'
+    | '/status'
     | '/welcome'
     | '/api/course-background'
     | '/auth/accept-invite'
@@ -3186,6 +3197,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/status'
     | '/welcome'
     | '/api/course-background'
     | '/auth/accept-invite'
@@ -3464,6 +3476,7 @@ export interface RootRouteChildren {
   SmartboardRouteRoute: typeof SmartboardRouteRouteWithChildren
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
+  StatusRoute: typeof StatusRoute
   WelcomeRoute: typeof WelcomeRoute
   ApiCourseBackgroundRoute: typeof ApiCourseBackgroundRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
@@ -3654,6 +3667,13 @@ declare module '@tanstack/react-router' {
       path: '/smartboard'
       fullPath: '/smartboard'
       preLoaderRoute: typeof SmartboardRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/student': {
@@ -6000,6 +6020,7 @@ const rootRouteChildren: RootRouteChildren = {
   SmartboardRouteRoute: SmartboardRouteRouteWithChildren,
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
+  StatusRoute: StatusRoute,
   WelcomeRoute: WelcomeRoute,
   ApiCourseBackgroundRoute: ApiCourseBackgroundRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
