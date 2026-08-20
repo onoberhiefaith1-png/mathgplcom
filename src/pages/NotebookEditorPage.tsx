@@ -32,6 +32,7 @@ import {
 import { Check, ChevronDown } from "lucide-react";
 import FeatureBoundary from "@/components/common/FeatureBoundary";
 import SaveStatusPill from "@/components/common/SaveStatusPill";
+import { readPendingLocalDraft, clearLocalDraft } from "@/lib/lessonnotes/localDraft";
 
 // The Co-Pilot is closed by default and only downloads when opened.
 const CoPilotPanel = lazy(() =>
@@ -89,6 +90,16 @@ const NotebookEditorPage = () => {
     }
   };
   const [scanBusy, setScanBusy] = useState(false);
+
+  // Work that never reached the server (dropped connection, expired session) is
+  // kept on this device and offered back instead of being silently lost.
+  const [recovery, setRecovery] = useState<unknown | null>(null);
+  useEffect(() => {
+    if (!id || viewOnly) return;
+    const pending = readPendingLocalDraft(id);
+    if (pending) setRecovery(pending.doc);
+  }, [id, viewOnly]);
+
 
   // Which AI owns this workspace. Co-Pilot mode docks the panel at ~1/3 of the
   // screen and hides every per-section AI control; Builder keeps them.
