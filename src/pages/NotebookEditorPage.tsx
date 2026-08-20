@@ -107,6 +107,31 @@ const NotebookEditorPage = () => {
   const copilotOpen = aiMode === "copilot";
   const copilotBridgeRef = useRef<CoPilotBridge | null>(null);
 
+  // The lesson toolbar is fixed to the viewport, so it must know exactly how
+  // tall this header really is — otherwise it hides behind it whenever the
+  // header grows (narrow window, recovery banner, longer title).
+  const [headerEl, setHeaderEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!headerEl) {
+      root.style.removeProperty("--lesson-header-h");
+      return;
+    }
+    const measure = () => {
+      const h = Math.round(headerEl.getBoundingClientRect().height);
+      if (h > 0) root.style.setProperty("--lesson-header-h", `${h}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(headerEl);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      root.style.removeProperty("--lesson-header-h");
+    };
+  }, [headerEl]);
+
   const handleScanImage = useCallback(async (dataUrl: string) => {
     setScanBusy(true);
     try {
