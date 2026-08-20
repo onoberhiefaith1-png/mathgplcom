@@ -15,6 +15,7 @@ import { FullscreenToggle } from "@/components/common/FullscreenToggle";
 import { RouterErrorBoundary } from "@/components/common/RouterErrorBoundary";
 import ImpersonationBanner from "@/components/accounts/ImpersonationBanner";
 import GlobalSoundtrack from "@/components/audio/GlobalSoundtrack";
+import ConnectionIndicator from "@/components/common/ConnectionIndicator";
 
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
@@ -90,7 +91,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      {/* The AdSense script injects its own <ins> into the body, which would
+          otherwise be reported as a hydration mismatch on every ad page. */}
+      <body suppressHydrationWarning>
         {children}
         <Scripts />
       </body>
@@ -124,6 +127,7 @@ function RootComponent() {
           <ImpersonationBanner />
           <FullscreenToggle />
           <GlobalSoundtrack />
+          <ConnectionIndicator />
 
           <NavHistoryProvider>
             <Outlet />
