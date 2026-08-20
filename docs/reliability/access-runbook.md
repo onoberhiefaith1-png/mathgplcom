@@ -58,3 +58,23 @@ Never expose status codes, stack traces or service names. Use:
 Unsaved lesson-note changes are mirrored to the teacher's device
 (`mathgpl.draft.<notebookId>` in local storage) and offered back on reopen, so a
 failed save never destroys work.
+
+## 6. Evidence commands for a reported privacy warning
+
+Run these first — they settle in one step whether the problem is ours:
+
+```bash
+curl -sS -o /dev/null -w "%{http_code} %{ssl_verify_result}\n" https://mathgpl.com/
+curl -sS -o /dev/null -w "%{http_code} %{ssl_verify_result}\n" https://www.mathgpl.com/
+echo | openssl s_client -connect mathgpl.com:443 -servername mathgpl.com 2>/dev/null \
+  | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
+getent hosts mathgpl.com www.mathgpl.com
+```
+
+Healthy baseline (confirmed 20 Aug 2026): `200 0` for the apex, `302 0` for
+`www`, certificates issued by Google Trust Services (`CN=WE1`) covering each
+name separately, both resolving to `185.158.133.1`.
+
+If `ssl_verify_result` is `0` here but a device still warns, the interception is
+on the client network — send the teacher to `/help/connection` and follow §1.
+Only a non-zero verify result or a non-200/302 response makes it a hosting issue.

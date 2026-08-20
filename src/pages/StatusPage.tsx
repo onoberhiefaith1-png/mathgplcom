@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { resilient, friendlyMessage } from "@/lib/net/resilient";
 
 type Service = { name: string; status: "operational" | "degraded" | "down"; responseMs: number | null };
@@ -105,7 +106,15 @@ const StatusPage = () => {
         </div>
       </div>
 
-      <p className="mt-6 text-xs text-muted-foreground">
+      <p className="mt-6 text-sm text-muted-foreground">
+        Seeing a “connection is not private” warning instead?{" "}
+        <Link to="/help/connection" className="font-medium text-primary underline">
+          Read what causes it
+        </Link>
+        .
+      </p>
+
+      <p className="mt-3 text-xs text-muted-foreground">
         Work you have already saved is never affected by a temporary outage, and unsaved changes stay
         on your device until the connection returns.
       </p>

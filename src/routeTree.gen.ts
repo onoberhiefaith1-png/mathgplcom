@@ -44,6 +44,7 @@ import { Route as CommunityIndexRouteImport } from './routes/community/index'
 import { Route as CourseBuilderIndexRouteImport } from './routes/course-builder/index'
 import { Route as FamilyIndexRouteImport } from './routes/family/index'
 import { Route as GHandleRouteImport } from './routes/g/$handle'
+import { Route as HelpConnectionRouteImport } from './routes/help/connection'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
 import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/index'
@@ -459,6 +460,11 @@ const FamilyIndexRoute = FamilyIndexRouteImport.update({
 const GHandleRoute = GHandleRouteImport.update({
   id: '/g/$handle',
   path: '/g/$handle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpConnectionRoute = HelpConnectionRouteImport.update({
+  id: '/help/connection',
+  path: '/help/connection',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeIndexRoute = HomeIndexRouteImport.update({
@@ -1838,6 +1844,7 @@ export interface FileRoutesByFullPath {
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
+  '/help/connection': typeof HelpConnectionRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -2105,6 +2112,7 @@ export interface FileRoutesByTo {
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
+  '/help/connection': typeof HelpConnectionRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/access': typeof AccessIndexRoute
   '/account': typeof AccountIndexRoute
@@ -2384,6 +2392,7 @@ export interface FileRoutesById {
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
+  '/help/connection': typeof HelpConnectionRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -2664,6 +2673,7 @@ export interface FileRouteTypes {
     | '/auth/teacher'
     | '/auth/verified'
     | '/g/$handle'
+    | '/help/connection'
     | '/plans/gateway'
     | '/access/'
     | '/account/'
@@ -2931,6 +2941,7 @@ export interface FileRouteTypes {
     | '/auth/teacher'
     | '/auth/verified'
     | '/g/$handle'
+    | '/help/connection'
     | '/plans/gateway'
     | '/access'
     | '/account'
@@ -3209,6 +3220,7 @@ export interface FileRouteTypes {
     | '/auth/teacher'
     | '/auth/verified'
     | '/g/$handle'
+    | '/help/connection'
     | '/plans/gateway'
     | '/access/'
     | '/account/'
@@ -3488,6 +3500,7 @@ export interface RootRouteChildren {
   AuthTeacherRoute: typeof AuthTeacherRoute
   AuthVerifiedRoute: typeof AuthVerifiedRoute
   GHandleRoute: typeof GHandleRoute
+  HelpConnectionRoute: typeof HelpConnectionRoute
   PlansGatewayRoute: typeof PlansGatewayRoute
   AccessIndexRoute: typeof AccessIndexRoute
   AccountIndexRoute: typeof AccountIndexRoute
@@ -3835,6 +3848,13 @@ declare module '@tanstack/react-router' {
       path: '/g/$handle'
       fullPath: '/g/$handle'
       preLoaderRoute: typeof GHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help/connection': {
+      id: '/help/connection'
+      path: '/help/connection'
+      fullPath: '/help/connection'
+      preLoaderRoute: typeof HelpConnectionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home/': {
@@ -6032,6 +6052,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthTeacherRoute: AuthTeacherRoute,
   AuthVerifiedRoute: AuthVerifiedRoute,
   GHandleRoute: GHandleRoute,
+  HelpConnectionRoute: HelpConnectionRoute,
   PlansGatewayRoute: PlansGatewayRoute,
   AccessIndexRoute: AccessIndexRoute,
   AccountIndexRoute: AccountIndexRoute,
