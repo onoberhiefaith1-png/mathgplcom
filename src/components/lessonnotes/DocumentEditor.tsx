@@ -110,6 +110,7 @@ import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { instructionTriggersStandards } from "@/lib/lessonnotes/editSuggestions";
 import { AssetSelectionProvider, useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { SectionNav } from "./SectionNav";
 const EmojiPanel = lazy(() => import("./EmojiPanel").then((m) => ({ default: m.EmojiPanel })));
 import { EmojiMedia } from "./extensions/EmojiMedia";
 import { ConversionPanel } from "./ConversionPanel";
