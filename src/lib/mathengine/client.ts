@@ -89,14 +89,21 @@ export async function runEngine(req: EngineRequest): Promise<EngineResult> {
     last = await callEngine(req, problems);
     const questions = Array.isArray(last.questions) ? last.questions : [];
 
+    const questionText = req.question || questions[0]?.text || "";
+    const built = await sceneFromResponse(last, questionText);
+
     if (!OPERATIONS_RETURNING_QUESTIONS.includes(req.operation)) {
+      if (built.problems.length && !built.scene && attempts < MAX_ATTEMPTS) {
+        problems = built.problems;
+        continue;
+      }
       return {
         operation: req.operation,
         narration: String(last.narration ?? "").trim(),
         questions,
         analysis: last.analysis ?? null,
-        scene: last.scene,
-        verification: { ok: true, checks: [] },
+        scene: built.scene,
+        verification: { ok: !built.problems.length, checks: [] },
         attempts,
       };
     }
@@ -111,8 +118,11 @@ export async function runEngine(req: EngineRequest): Promise<EngineResult> {
     }
 
     const perQuestion = questions.map((q) => verifyQuestion(q, { method: req.method }));
-    const failed = perQuestion.flatMap((v, i) =>
-      v.ok ? [] : verificationProblems(v).map((p) => `Question ${i + 1}: ${p}`));
+    const failed = [
+      ...perQuestion.flatMap((v, i) =>
+        v.ok ? [] : verificationProblems(v).map((p) => `Question ${i + 1}: ${p}`)),
+      ...(built.scene ? [] : built.problems),
+    ];
 
     if (!failed.length) {
       return {
@@ -120,7 +130,7 @@ export async function runEngine(req: EngineRequest): Promise<EngineResult> {
         narration: String(last.narration ?? "").trim(),
         questions,
         analysis: last.analysis ?? null,
-        scene: last.scene,
+        scene: built.scene,
         verification: {
           ok: true,
           checks: perQuestion.flatMap((v) => v.checks),
