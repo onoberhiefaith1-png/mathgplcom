@@ -317,7 +317,12 @@ export function useCoPilotConversation(
       if (item.state === "done") continue;
       if (pauseRef.current || cancelledRef.current) {
         pauseRef.current = false;
-        if (cancelledRef.current) { markBusy(false); setStage("idle"); return; }
+        if (cancelledRef.current) {
+          if (abortRef.current === runController) abortRef.current = null;
+          finishWorking("stopped");
+          setStage("idle");
+          return;
+        }
         markBusy(false);
         setStage("idle");
         say("I've paused the build here so nothing runs past your comment. Tell me what to change and I'll carry on from this point.");
@@ -341,10 +346,17 @@ export function useCoPilotConversation(
         }
         mark(item.key, { state: "done" });
       } catch (e) {
-        if (isAbort(e)) { mark(item.key, { state: "pending" }); markBusy(false); setStage("idle"); return; }
+        if (isAbort(e)) {
+          mark(item.key, { state: "pending" });
+          if (abortRef.current === runController) abortRef.current = null;
+          finishWorking("stopped");
+          setStage("idle");
+          return;
+        }
         const detail = e instanceof Error ? e.message : String(e);
         mark(item.key, { state: "failed", detail });
-        markBusy(false);
+        if (abortRef.current === runController) abortRef.current = null;
+        finishWorking("failed");
         setStage("idle");
         say(`I stopped at ${item.label}. ${detail} Everything built before it is untouched — tell me how you'd like to proceed.`);
         return;

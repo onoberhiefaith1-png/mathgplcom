@@ -56,10 +56,11 @@ async function sceneFromResponse(
 }
 
 async function callEngine(req: EngineRequest, problems: string[]): Promise<RawResponse> {
+  const { signal, ...requestBody } = req;
   const { data, error } = await withTimeout(
     supabase.functions.invoke("notebook-ai", {
-      body: { mode: "mathengine", ...req, previousProblems: problems },
-       signal: req.signal,
+      body: { mode: "mathengine", ...requestBody, previousProblems: problems },
+      signal,
     }),
     ENGINE_TIMEOUT_MS,
     "The mathematics took longer than expected, so I stopped waiting. Try again.",
