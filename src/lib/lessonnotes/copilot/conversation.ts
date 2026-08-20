@@ -24,6 +24,12 @@ import {
   type CoPilotStage, type StructureCounts,
 } from "./procedure";
 
+import {
+  appendMessage, loadMessages, loadOrCreateSession, patchSession, resumeSummary,
+  updateMessage, type CoPilotSessionState,
+} from "./session";
+
+
 const uid = () => `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 const sanitizeProposal = (raw: any): CoPilotProposal | undefined => {
