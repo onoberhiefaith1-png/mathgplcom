@@ -26,7 +26,9 @@ export function useAdminLiveRefresh(keys: string[]) {
       channel.on("postgres_changes", { event: "*", schema: "public", table }, refresh);
     }
     channel.subscribe();
+    const timer = window.setInterval(refresh, REFRESH_MS);
     return () => {
+      window.clearInterval(timer);
       void supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
