@@ -9,7 +9,7 @@
 // happens; anything that replaces existing content asks first.
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Mic, MicOff, Send, Sparkles, X, Check, CircleDot } from "lucide-react";
+import { Loader2, Mic, MicOff, Send, Sparkles, X, Check, CircleDot, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AutoTextarea from "@/components/lessonnotes/AutoTextarea";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
@@ -118,13 +118,15 @@ function MessageBubble({
 
 export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
   const {
-    messages, busy, send, approve, reject, cancel,
+    messages, busy, lifecycle, send, approve, reject, cancel,
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial, queue, resumeBuild,
-    progressLabel, retry, editBlueprintItem, reviseBlueprintItem, approveBlueprint,
+    progressLabel, retry, editBlueprintItem, reviseBlueprintItem, approveBlueprint, startNextCycle,
   } = useCoPilotConversation(bridgeRef, notebookId);
 
   const [text, setText] = useState("");
+  const [subtopicTitle, setSubtopicTitle] = useState("");
+  const [addingSubtopic, setAddingSubtopic] = useState(false);
   const voice = useVoiceInput(setText as any);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -139,6 +141,15 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
     setText("");
     voice.reset();
     void send(value);
+  };
+
+  const buildComplete = queue.length > 0 && queue.every((item) => item.state === "done");
+  const confirmSubtopic = () => {
+    const title = subtopicTitle.trim();
+    if (!title) return;
+    void startNextCycle(title);
+    setSubtopicTitle("");
+    setAddingSubtopic(false);
   };
 
   return (
@@ -195,11 +206,40 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
           />
         )}
 
+        {!busy && stage === "idle" && buildComplete && (
+          <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+            <p className="text-[11.5px] text-slate-700">Continue editing this subtopic, or begin the next one.</p>
+            {!addingSubtopic ? (
+              <Button size="sm" variant="outline" className="h-8 w-full text-[11.5px]" onClick={() => setAddingSubtopic(true)}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> New subtopic
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <input
+                  autoFocus
+                  value={subtopicTitle}
+                  onChange={(event) => setSubtopicTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") { event.preventDefault(); confirmSubtopic(); }
+                    if (event.key === "Escape") setAddingSubtopic(false);
+                  }}
+                  placeholder="Subtopic title"
+                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[13px] text-slate-900 outline-none focus:border-slate-500"
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-7 flex-1 text-[11.5px]" disabled={!subtopicTitle.trim()} onClick={confirmSubtopic}>Start subtopic</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-[11.5px]" onClick={() => setAddingSubtopic(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {busy && (
           <div className="flex items-center gap-2">
             <p className="text-[11.5px] text-slate-600 inline-flex items-center gap-1.5">
               <Loader2 className="h-3 w-3 animate-spin" />
-              {progressLabel ?? STAGE_TEXT[stage] ?? "Thinking"}…
+              {progressLabel ?? (lifecycle === "validating" ? "Validating" : lifecycle === "generating" ? "Generating" : STAGE_TEXT[stage] ?? "Thinking")}…
             </p>
             <Button
               size="sm" variant="ghost"
