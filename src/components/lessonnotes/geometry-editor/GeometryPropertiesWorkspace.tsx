@@ -17,6 +17,7 @@ import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import { GeometryWorkbench } from "./GeometryWorkbench";
 import { GeometryMapPanel, type MapContext } from "./GeometryMapPanel";
 import { keepLiveIds, readMap, writeMap } from "@/lib/geometry/map/model";
+import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 interface Props {
   scene: GeometryScene;
@@ -56,6 +57,9 @@ const LIGHT_TOKENS = {
 export function GeometryPropertiesWorkspace({
   scene, onChange, onClose, context, onOpenSolution, topic,
 }: Props) {
+  // Escape always returns the teacher to the lesson note, even if the
+  // workspace's own Back button is ever unreachable.
+  useEscapeClose(onClose);
   const [rawHighlight, setRawHighlight] = useState<GeoId[]>([]);
   const doc = readMap(scene);
   const empty = scene.objects.length === 0;
