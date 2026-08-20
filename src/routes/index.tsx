@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import Index from "@/pages/Index";
 import WelcomePage from "@/pages/WelcomePage";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { ADSENSE_SCRIPT_SRC } from "@/lib/ads/adsense";
+
 import { getSiteContent } from "@/lib/site/siteContent.functions";
 import { EMPTY_SITE_CONTENT, type SiteContent } from "@/lib/site/types";
 
