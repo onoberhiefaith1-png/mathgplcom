@@ -29,6 +29,8 @@ import {
   updateMessage, type CoPilotSessionState,
 } from "./session";
 
+export type CoPilotLifecycle = "ready" | "thinking" | "generating" | "validating" | "stopped" | "failed";
+
 
 const uid = () => `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -74,6 +76,7 @@ export function useCoPilotConversation(
 ) {
   const [messages, setMessages] = useState<CoPilotMessage[]>([]);
   const [busy, setBusy] = useState(false);
+  const [lifecycle, setLifecycle] = useState<CoPilotLifecycle>("ready");
 
   const [stage, setStage] = useState<CoPilotStage>("greeting");
   const [counts, setCounts] = useState<StructureCounts>({ ...DEFAULT_STRUCTURE });
@@ -107,6 +110,16 @@ export function useCoPilotConversation(
     busyRef.current = next;
     setBusy(next);
   }, []);
+
+  const setWorking = useCallback((next: Exclude<CoPilotLifecycle, "ready" | "stopped" | "failed">) => {
+    setLifecycle(next);
+    markBusy(true);
+  }, [markBusy]);
+
+  const finishWorking = useCallback((next: "ready" | "stopped" | "failed" = "ready") => {
+    setLifecycle(next);
+    markBusy(false);
+  }, [markBusy]);
 
   /** An aborted request must never speak — the teacher already moved on. */
   const isAbort = (e: unknown) =>
@@ -208,10 +221,10 @@ export function useCoPilotConversation(
     abortRef.current = null;
     setProgressLabel(null);
     setRetry(null);
-    markBusy(false);
+    finishWorking("stopped");
     setStage((s) => (s === "greeting" ? "structure" : s === "analysing" ? "material" : s === "building" ? "idle" : s));
     say("Stopped there. Everything already in the note is untouched — tell me what you'd like next.");
-  }, [markBusy, say]);
+  }, [finishWorking, say]);
 
   // ── Stage 1: resume the lesson conversation, or greet once ────────────
   // The same conversation lives for the whole life of the lesson note: it is
@@ -287,8 +300,10 @@ export function useCoPilotConversation(
     if (!bridge) { say("The lesson note is not ready yet — open it and I'll start."); setStage("idle"); return; }
     cancelledRef.current = false;
     pauseRef.current = false;
+    const runController = new AbortController();
+    abortRef.current = runController;
     setStage("building");
-    markBusy(true);
+    setWorking("generating");
 
     const mark = (key: string, next: Partial<BuildItem>) => {
       setQueue((prev) => {
@@ -302,7 +317,12 @@ export function useCoPilotConversation(
       if (item.state === "done") continue;
       if (pauseRef.current || cancelledRef.current) {
         pauseRef.current = false;
-        if (cancelledRef.current) { markBusy(false); setStage("idle"); return; }
+        if (cancelledRef.current) {
+          if (abortRef.current === runController) abortRef.current = null;
+          finishWorking("stopped");
+          setStage("idle");
+          return;
+        }
         markBusy(false);
         setStage("idle");
         say("I've paused the build here so nothing runs past your comment. Tell me what to change and I'll carry on from this point.");
@@ -315,26 +335,36 @@ export function useCoPilotConversation(
           ? await bridge.insertSectionRef(item.kind)
           : (await bridge.insertSection(item.kind), bridge.snapshot()?.focusedRef ?? null);
         if (!ref) throw new Error("I could not place that section in the note.");
-        await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false);
+        await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false, runController.signal);
         if (item.withSolution && !cancelledRef.current) {
+          setLifecycle("validating");
           await bridge.generateSolution(
             ref,
             "Write the full step-by-step classroom solution for this question, one micro-step per line.",
+            runController.signal,
           );
         }
         mark(item.key, { state: "done" });
       } catch (e) {
-        if (isAbort(e)) { mark(item.key, { state: "pending" }); markBusy(false); setStage("idle"); return; }
+        if (isAbort(e)) {
+          mark(item.key, { state: "pending" });
+          if (abortRef.current === runController) abortRef.current = null;
+          finishWorking("stopped");
+          setStage("idle");
+          return;
+        }
         const detail = e instanceof Error ? e.message : String(e);
         mark(item.key, { state: "failed", detail });
-        markBusy(false);
+        if (abortRef.current === runController) abortRef.current = null;
+        finishWorking("failed");
         setStage("idle");
         say(`I stopped at ${item.label}. ${detail} Everything built before it is untouched — tell me how you'd like to proceed.`);
         return;
       }
     }
 
-    markBusy(false);
+    if (abortRef.current === runController) abortRef.current = null;
+    finishWorking();
     setStage("idle");
     try {
       const data = await ask({
@@ -349,7 +379,7 @@ export function useCoPilotConversation(
     } catch (e) {
       if (!isAbort(e)) say("The lesson is built. Read through it and tell me anything you want changed.");
     }
-  }, [ask, bridgeRef, counts, markBusy, say]);
+  }, [ask, bridgeRef, counts, finishWorking, say, setWorking]);
 
   // ── Stage 4: plan the lesson (analysis → blueprint). Nothing is written
   // into the note here: the teacher reviews and approves the plan first.
@@ -359,8 +389,9 @@ export function useCoPilotConversation(
     cancelledRef.current = false;
     setRetry(null);
     setStage("analysing");
-    markBusy(true);
+    setWorking("thinking");
     const stopNarration = narrate(PLANNING_STEPS);
+    let outcome: "ready" | "stopped" | "failed" = "ready";
     try {
       const data = await ask({
         stage: "blueprint",
@@ -393,16 +424,17 @@ export function useCoPilotConversation(
       if (reply) say(reply);
       setStage("blueprint");
     } catch (e) {
-      if (isAbort(e)) { setStage("material"); return; }
+      if (isAbort(e)) { outcome = "stopped"; setStage("material"); return; }
+      outcome = "failed";
       const detail = e instanceof Error ? e.message : String(e);
       say(`I couldn't finish planning the lesson: ${detail}`);
       setRetry({ label: "Plan the lesson again", run: () => void planLesson(materialRef.current) });
       setStage("blueprint");
     } finally {
       stopNarration();
-      markBusy(false);
+      finishWorking(outcome);
     }
-  }, [ask, counts, markBusy, narrate, say]);
+  }, [ask, counts, finishWorking, narrate, say, setWorking]);
 
   /** The teacher edits one blueprint line directly. */
   const editBlueprintItem = useCallback((key: string, text: string) => {
@@ -505,38 +537,58 @@ export function useCoPilotConversation(
         return;
       }
     }
-    markBusy(true);
+    const runController = new AbortController();
+    abortRef.current = runController;
+    setWorking("generating");
     const live = [...steps];
     for (let i = 0; i < proposal.actions.length; i++) {
+      if (runController.signal.aborted || cancelledRef.current) {
+        if (abortRef.current === runController) abortRef.current = null;
+        finishWorking("stopped");
+        return;
+      }
       live[i] = { ...live[i], state: "running" };
       patch(id, { run: [...live] });
       try {
-        await runCoPilotAction(bridge, proposal.actions[i]);
+        await runCoPilotAction(bridge, proposal.actions[i], runController.signal);
+        if (runController.signal.aborted || cancelledRef.current) throw new DOMException("Aborted", "AbortError");
         live[i] = { ...live[i], state: "done" };
       } catch (e) {
-        if (isAbort(e)) { markBusy(false); return; }
+        if (isAbort(e)) {
+          if (abortRef.current === runController) abortRef.current = null;
+          finishWorking("stopped");
+          return;
+        }
         live[i] = { ...live[i], state: "failed", detail: e instanceof Error ? e.message : String(e) };
         patch(id, { run: [...live] });
-        markBusy(false);
+        if (abortRef.current === runController) abortRef.current = null;
+        finishWorking("failed");
         say(`I stopped at "${live[i].label}". ${live[i].detail ?? ""} Nothing after that step was changed.`);
         return;
       }
       patch(id, { run: [...live] });
     }
-    markBusy(false);
+    if (abortRef.current === runController) abortRef.current = null;
+    finishWorking();
     say("Done — that's applied to the note.");
-  }, [bridgeRef, markBusy, patch, say]);
+  }, [bridgeRef, finishWorking, patch, say, setWorking]);
 
 
   /** A new subtopic continues the SAME conversation as a new cycle. */
-  const startNextCycle = useCallback((label: string) => {
+  const startNextCycle = useCallback(async (label: string) => {
+    const clean = label.trim();
+    if (!clean || busyRef.current) return;
+    await bridgeRef.current?.insertSubtopic?.(clean);
     cycleRef.current += 1;
+    setCounts({ ...DEFAULT_STRUCTURE });
+    setAnalysis(null);
+    analysisRef.current = null;
     setQueue([]);
     queueRef.current = [];
     setStage("structure");
-    saveState({ cycle: cycleRef.current, queue: [], stage: "structure", subtopic: label });
-    say("New subtopic, same lesson — everything already in the note stays. Set the numbers for this part and I'll plan it.");
-  }, [saveState, say]);
+    saveState({ cycle: cycleRef.current, queue: [], structure: { ...DEFAULT_STRUCTURE }, analysis: null, stage: "structure", subtopic: clean });
+    say(`New subtopic: ${clean}. Everything already in the note stays. Set the numbers for this part and I'll plan it.`);
+  }, [bridgeRef, saveState, say]);
 
 
   const send = useCallback(async (text: string) => {
@@ -556,13 +608,6 @@ export function useCoPilotConversation(
       say("Understood — I'll finish the item I'm on and stop there so we can deal with that first.");
       return;
     }
-
-    // A new subtopic starts a fresh cycle without ending the conversation.
-    if (stageRef.current === "idle" && /\b(next|new|another)\s+(sub-?topic|section|part)\b/i.test(clean)) {
-      startNextCycle(bridgeRef.current?.snapshot()?.activeSubtopic ?? "");
-      return;
-    }
-
 
     // "Proceed" always means proceed: never a request for more information.
     if (isProceedIntent(clean)) {
@@ -643,11 +688,11 @@ export function useCoPilotConversation(
   }, [patch, say]);
 
   return {
-    messages, busy, send, approve, reject, cancel,
+    messages, busy, lifecycle, send, approve, reject, cancel,
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial,
     queue, resumeBuild, analysis,
     progressLabel, retry,
-    editBlueprintItem, reviseBlueprintItem, approveBlueprint,
+    editBlueprintItem, reviseBlueprintItem, approveBlueprint, startNextCycle,
   };
 }

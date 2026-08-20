@@ -56,9 +56,11 @@ async function sceneFromResponse(
 }
 
 async function callEngine(req: EngineRequest, problems: string[]): Promise<RawResponse> {
+  const { signal, ...requestBody } = req;
   const { data, error } = await withTimeout(
     supabase.functions.invoke("notebook-ai", {
-      body: { mode: "mathengine", ...req, previousProblems: problems },
+      body: { mode: "mathengine", ...requestBody, previousProblems: problems },
+      signal,
     }),
     ENGINE_TIMEOUT_MS,
     "The mathematics took longer than expected, so I stopped waiting. Try again.",
@@ -85,6 +87,7 @@ export async function runEngine(req: EngineRequest): Promise<EngineResult> {
   let last: RawResponse | null = null;
 
   while (attempts < MAX_ATTEMPTS) {
+    if (req.signal?.aborted) throw new DOMException("Aborted", "AbortError");
     attempts++;
     last = await callEngine(req, problems);
     const questions = Array.isArray(last.questions) ? last.questions : [];

@@ -95,8 +95,10 @@ export interface CoPilotBridge {
   insertSection: (kind: string) => Promise<void>;
   /** Insert a section and return the ref of the section just created. */
   insertSectionRef?: (kind: string) => Promise<string | null>;
-  generateQuestion: (ref: string, instruction: string, replace: boolean) => Promise<void>;
-  generateSolution: (ref: string, instruction: string) => Promise<void>;
+  /** Insert and activate a real lesson-note subtopic heading. */
+  insertSubtopic?: (title: string) => Promise<void>;
+  generateQuestion: (ref: string, instruction: string, replace: boolean, signal?: AbortSignal) => Promise<void>;
+  generateSolution: (ref: string, instruction: string, signal?: AbortSignal) => Promise<void>;
   buildGeometryMap: (ref: string) => Promise<void>;
   openGeometry2D: (ref: string | null) => Promise<void>;
   openSmartTable: () => Promise<void>;
@@ -160,7 +162,8 @@ export function validateAction(
 }
 
 /** Run one action through the bridge. Unknown names are refused here. */
-export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction): Promise<void> {
+export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const snap = bridge.snapshot();
   const ref = a.target ?? null;
   if (NEEDS_TARGET.includes(a.name) && !ref) {
@@ -174,13 +177,13 @@ export async function runCoPilotAction(bridge: CoPilotBridge, a: CoPilotAction):
       await bridge.insertSection(a.sectionKind || "example");
       return;
     case "generateQuestion":
-      await bridge.generateQuestion(ref!, a.instruction ?? "", false);
+      await bridge.generateQuestion(ref!, a.instruction ?? "", false, signal);
       return;
     case "regenerateQuestion":
-      await bridge.generateQuestion(ref!, a.instruction ?? "", true);
+      await bridge.generateQuestion(ref!, a.instruction ?? "", true, signal);
       return;
     case "generateSolution":
-      await bridge.generateSolution(ref!, a.instruction ?? "");
+      await bridge.generateSolution(ref!, a.instruction ?? "", signal);
       return;
     case "buildGeometryMap":
       await bridge.buildGeometryMap(ref!);

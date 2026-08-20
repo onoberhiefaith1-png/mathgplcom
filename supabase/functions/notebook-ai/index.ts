@@ -5,6 +5,7 @@ meterFunction("notebook-ai");
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { PEDAGOGY_REFERENCE } from "./pedagogyReference.ts";
+import { COPILOT_TRAINING_STANDARD } from "./copilotTrainingStandard.ts";
 import { toUnicodeMath, isStillDirty } from "./unicodeMath.ts";
 import { RENDERING_STANDARD } from "./renderingStandard.ts";
 import { BENCHMARK_STANDARD } from "./benchmarkStandard.ts";
@@ -1102,7 +1103,9 @@ Never ask "how many examples do you want?" — that is a control the teacher
 already sets. Speak like a colleague: short, concrete, classroom language, and
 never repeat the same fixed phrase twice in a session.
 Changing numbers in a question is NOT changing the mathematics; only a change
-of method, structure or concept is.`;
+of method, structure or concept is.
+
+${COPILOT_TRAINING_STANDARD}`;
 
       const jsonOnly = (shape: string) =>
         `Reply with JSON ONLY, no code fence:\n${shape}`;

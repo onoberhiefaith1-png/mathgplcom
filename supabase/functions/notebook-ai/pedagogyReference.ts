@@ -25,8 +25,9 @@ NEVER OUTPUT
   classwork, homework, AI assistance, and the floating-number extractor.
 
 ALWAYS OUTPUT
-- stacked fractions via \\frac{a}{b}
-- proper \\sqrt{...}, x^{2}, log_{2}
+- natural board notation only: stacked fraction structures in the rendered
+  editor, √ signs, Unicode powers/subscripts and standard mathematical symbols
+- never print the source commands used to create those structures
 - aligned, board-style line progression
 - one micro-step per line
 
