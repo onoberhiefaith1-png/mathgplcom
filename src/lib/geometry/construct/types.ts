@@ -45,7 +45,24 @@ export type ConstructionStep =
   /** Shaded region bounded by the listed points. */
   | { op: "shade"; points: string[]; fill?: string; opacity?: number; area?: string }
   /** Free text placed near a constructed point. */
-  | { op: "text"; near?: string; text: string; dx?: number; dy?: number; fontSize?: number };
+  | { op: "text"; near?: string; text: string; dx?: number; dy?: number; fontSize?: number }
+  /** A point through `through`, in the direction of a→b (exactly parallel). */
+  | { op: "parallel"; id: string; through: string; a: string; b: string; by?: number; label?: string }
+  /** A point through `through`, exactly perpendicular to a→b. */
+  | { op: "perpendicular"; id: string; through: string; a: string; b: string; by?: number; label?: string }
+  /** A point making `at`→id the tangent to `circle` at the point `at`. */
+  | { op: "tangentAt"; id: string; circle: string; at: string; by?: number; label?: string }
+  /** Arrowed segment (a vector). */
+  | { op: "vector"; a: string; b: string; label?: string; dashed?: boolean }
+  /** Sector of a circle between two of its points. */
+  | { op: "sector"; circle: string; from: string; to: string; fill?: string; opacity?: number; area?: string }
+  /** A number line from `from` to `to`, ticked every `step`. */
+  | { op: "numberLine"; from: number; to: number; step?: number; marks?: Array<{ value: number; id?: string; label?: string }> }
+  /** Coordinate axes with optional grid. */
+  | { op: "axes"; xMin?: number; xMax?: number; yMin?: number; yMax?: number; step?: number; grid?: boolean; origin?: string }
+  /** A plotted point in axes coordinates (requires an earlier "axes" step). */
+  | { op: "plot"; id: string; x: number; y: number; label?: string };
+
 
 export interface ConstructionProgram {
   /** One-line description of the figure, for the caption. */

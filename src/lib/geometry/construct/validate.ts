@@ -86,6 +86,48 @@ export function verifyScene(scene: GeometryScene | null, question = ""): Diagram
   add("inside bounds", !outside,
     outside ? `Point ${outside.label ?? outside.id} falls outside the diagram frame.` : undefined);
 
+  // labels must not collide with each other, nor sit on a drawn segment
+  const lettered = points.filter((p) => (p as any).label);
+  const labelPos = lettered.map((p) => {
+    const off = (p as any).labelOffset ?? { dx: 0, dy: -14 };
+    return { id: (p as any).label as string, x: p.x + (off.dx ?? 0), y: p.y + (off.dy ?? 0) };
+  });
+  let labelClash: string | null = null;
+  for (let i = 0; i < labelPos.length && !labelClash; i++) {
+    for (let j = i + 1; j < labelPos.length; j++) {
+      if (Math.hypot(labelPos[i].x - labelPos[j].x, labelPos[i].y - labelPos[j].y) < 13) {
+        labelClash = `${labelPos[i].id} and ${labelPos[j].id}`;
+        break;
+      }
+    }
+  }
+  add("labels do not collide", !labelClash,
+    labelClash ? `Two labels are printed on top of each other (${labelClash}).` : undefined);
+
+  let onLine: string | null = null;
+  for (const o of scene.objects) {
+    if (o.type !== "segment" || onLine) continue;
+    const a = pointById(scene, o.a), b = pointById(scene, o.b);
+    if (!a || !b) continue;
+    const abx = b.x - a.x, aby = b.y - a.y;
+    const l2 = abx * abx + aby * aby;
+    if (l2 === 0) continue;
+    for (const lp of labelPos) {
+      const t = ((lp.x - a.x) * abx + (lp.y - a.y) * aby) / l2;
+      if (t < 0.02 || t > 0.98) continue;
+      const px = a.x + abx * t, py = a.y + aby * t;
+      if (Math.hypot(lp.x - px, lp.y - py) < 7) { onLine = lp.id; break; }
+    }
+  }
+  add("labels clear of the figure", !onLine,
+    onLine ? `Label ${onLine} is printed on top of a line instead of beside it.` : undefined);
+
+  // every label sits inside the frame too
+  const clipped = labelPos.find((lp) =>
+    lp.x < 6 || lp.y < 6 || lp.x > scene.bounds.width - 6 || lp.y > scene.bounds.height - 6);
+  add("labels inside the frame", !clipped,
+    clipped ? `Label ${clipped.id} falls outside the diagram frame.` : undefined);
+
   // labels the question names must appear
   const named = [...String(question).matchAll(/\b([A-Z])(?![A-Za-z])/g)].map((m) => m[1]);
   const have = new Set(points.map((p) => (p.label ?? "").trim()).filter(Boolean));
@@ -93,6 +135,7 @@ export function verifyScene(scene: GeometryScene | null, question = ""): Diagram
   const labelsOk = wanted.length === 0 || named.length === 0 || wanted.length > 3;
   add("labels match the question", labelsOk,
     labelsOk ? undefined : `The question names ${wanted.join(", ")} but the diagram does not label ${wanted.length > 1 ? "them" : "it"}.`);
+
 
   return { ok: problems.length === 0, problems, checks };
 }

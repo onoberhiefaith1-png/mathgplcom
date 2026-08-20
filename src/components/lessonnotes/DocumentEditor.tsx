@@ -153,7 +153,7 @@ import { useLessonAiContextStore, sameSubtopic } from "@/lib/lessonnotes/aiConte
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
-import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor } from "@/lib/lessonnotes/containerRange";
+import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor, ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
 import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
 
 /** Stable identity for a diagram, so a Solution can reference it instead of
@@ -372,6 +372,8 @@ async function engineGenerate(opts: {
   blockKind?: "problem" | "solution" | "text";
   activeQuestion?: string;
   context?: string;
+  /** Receives the verified, constructed 2D figure for a generated question. */
+  onScene?: (scene: unknown) => void;
 }): Promise<string | null> {
   const { runEngine } = await import("@/lib/mathengine/client");
   const base = {
@@ -399,8 +401,12 @@ async function engineGenerate(opts: {
           : "generateExample";
       const res = await runEngine({ ...base, operation, count: 1 });
       const q = res.questions[0];
+      // A constructed, verified figure travels WITH its question so the editor
+      // can place the single authoritative diagram under the question body.
+      if (res.scene) opts.onScene?.(res.scene);
       return q?.text?.trim() || null;
     }
+
   } catch {
     // A refusal or a failed verification is never shown as fabricated
     // mathematics — the ordinary generation path handles it instead.
@@ -421,7 +427,10 @@ async function aiGenerate(opts: {
   existingHeading?: string;
   inheritedContext?: boolean;
   lessonContext?: LessonTeachingContext;
+  /** Receives the verified 2D figure constructed for a generated question. */
+  onScene?: (scene: unknown) => void;
 }): Promise<string> {
+
   const { hasCreditsForGeneration, INSUFFICIENT_CREDITS_MESSAGE } = await import("@/lib/costs/creditGuard");
   if (!(await hasCreditsForGeneration())) throw new Error(INSUFFICIENT_CREDITS_MESSAGE);
   const fromEngine = await engineGenerate(opts);
@@ -1263,6 +1272,8 @@ function DocumentEditorInner({
         : undefined;
 
     let content: string;
+    // The verified figure the Math Engine constructed for THIS question, if any.
+    let engineScene: unknown = null;
     try {
       content = (await aiGenerate({
         kind: generationKind,
@@ -1277,7 +1288,11 @@ function DocumentEditorInner({
         existingHeading: editor.state.doc.nodeAt(info.headingPos)?.textContent?.trim(),
         inheritedContext: isSolutionBlock ? true : undefined,
         lessonContext: collectLessonContext(info.headingPos, generationKind),
+        // ONE QUESTION = ONE DIAGRAM: only accepted when this question does not
+        // already own an authoritative figure.
+        onScene: (scene) => { if (!ownedQuestionDiagram) engineScene = scene; },
       })).trim();
+
     } catch (err: any) {
       const msg = String(err?.message ?? err);
       if (msg.includes("question_lock_mismatch") || msg.includes("missing_inherited_question")) {
@@ -1583,14 +1598,32 @@ function DocumentEditorInner({
       }
     }
 
-
-    // NO AUTOMATIC QUESTION-SIDE DIAGRAM. A question block never asks the model
-    // to invent a figure, and nothing is ever inserted above the Solution
-    // heading. The single authoritative diagram comes from the original
-    // generation path only.
-
+    // THE ONE AUTHORITATIVE DIAGRAM. Nothing is ever "painted": this figure was
+    // CONSTRUCTED from the Engine's mathematical program, solved into exact
+    // coordinates and verified before it got here. It is inserted once, at the
+    // end of the question body (never above a Solution heading), and stays
+    // editable and owned by this question forever.
+    if (
+      engineScene &&
+      !isSolutionBlock &&
+      isQuestionSectionKind(info.kind) &&
+      !ownedQuestionDiagram &&
+      !preservedDiagrams.length
+    ) {
+      const at = Math.min(questionBodyEnd, editor.state.doc.content.size);
+      editor.chain().focus().insertContentAt(at, {
+        type: "geometryDiagram",
+        attrs: {
+          scene: engineScene,
+          topic: contextAt(info.headingPos)?.subtopic ?? contextAt(info.headingPos)?.topic ?? null,
+          diagramId: newDiagramId(),
+          ownerQuestionId: ensureOwnerQuestionId(editor, info.headingPos),
+        },
+      }).run();
+    }
 
     if (isQuestionSectionKind(info.kind)) return;
+
 
     await persistAndOfferFloating(generationKind, content, {
       from: insertFrom,
