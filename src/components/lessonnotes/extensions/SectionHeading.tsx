@@ -55,6 +55,8 @@ export interface SectionAiCallContext {
   context?: TeacherContext;
   /** Report pipeline progress back to the popover. */
   reportStage?: (stage: StageId) => void;
+  /** Allows the Co-Pilot to stop a long generation without blocking the note. */
+  signal?: AbortSignal;
 }
 
 interface SectionHeadingOptions {

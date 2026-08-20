@@ -300,6 +300,8 @@ export function useCoPilotConversation(
     if (!bridge) { say("The lesson note is not ready yet — open it and I'll start."); setStage("idle"); return; }
     cancelledRef.current = false;
     pauseRef.current = false;
+    const runController = new AbortController();
+    abortRef.current = runController;
     setStage("building");
     setWorking("generating");
 
@@ -328,12 +330,13 @@ export function useCoPilotConversation(
           ? await bridge.insertSectionRef(item.kind)
           : (await bridge.insertSection(item.kind), bridge.snapshot()?.focusedRef ?? null);
         if (!ref) throw new Error("I could not place that section in the note.");
-        await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false);
+        await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false, runController.signal);
         if (item.withSolution && !cancelledRef.current) {
           setLifecycle("validating");
           await bridge.generateSolution(
             ref,
             "Write the full step-by-step classroom solution for this question, one micro-step per line.",
+            runController.signal,
           );
         }
         mark(item.key, { state: "done" });
@@ -348,6 +351,7 @@ export function useCoPilotConversation(
       }
     }
 
+    if (abortRef.current === runController) abortRef.current = null;
     finishWorking();
     setStage("idle");
     try {

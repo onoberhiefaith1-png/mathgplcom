@@ -374,6 +374,7 @@ async function engineGenerate(opts: {
   context?: string;
   /** Receives the verified, constructed 2D figure for a generated question. */
   onScene?: (scene: unknown) => void;
+  signal?: AbortSignal;
 }): Promise<string | null> {
   const { runEngine } = await import("@/lib/mathengine/client");
   const base = {
@@ -388,7 +389,7 @@ async function engineGenerate(opts: {
     if (opts.blockKind === "solution") {
       const question = String(opts.activeQuestion ?? "").trim();
       if (!question) return null;
-      const res = await runEngine({ ...base, operation: "solveQuestion", question, count: 1 });
+      const res = await runEngine({ ...base, operation: "solveQuestion", question, count: 1, signal: opts.signal });
       const q = res.questions[0];
       if (!q) return null;
       return q.solutionSteps.join("\n").trim() || null;
@@ -399,7 +400,7 @@ async function engineGenerate(opts: {
         : opts.kind === "homework" || opts.kind === "assessment"
           ? "generateAssignment"
           : "generateExample";
-      const res = await runEngine({ ...base, operation, count: 1 });
+      const res = await runEngine({ ...base, operation, count: 1, signal: opts.signal });
       const q = res.questions[0];
       // A constructed, verified figure travels WITH its question so the editor
       // can place the single authoritative diagram under the question body.
@@ -429,6 +430,7 @@ async function aiGenerate(opts: {
   lessonContext?: LessonTeachingContext;
   /** Receives the verified 2D figure constructed for a generated question. */
   onScene?: (scene: unknown) => void;
+  signal?: AbortSignal;
 }): Promise<string> {
 
   const { hasCreditsForGeneration, INSUFFICIENT_CREDITS_MESSAGE } = await import("@/lib/costs/creditGuard");
@@ -453,6 +455,7 @@ async function aiGenerate(opts: {
       lessonContext: opts.lessonContext ?? null,
       workspaceManifest: buildWorkspaceManifest(),
     },
+    signal: opts.signal,
   }), 45_000, "Lesson generation took too long. Please try again.");
   if (error) {
     // supabase.functions.invoke surfaces a generic "non-2xx status code"
@@ -1291,6 +1294,7 @@ function DocumentEditorInner({
         // ONE QUESTION = ONE DIAGRAM: only accepted when this question does not
         // already own an authoritative figure.
         onScene: (scene) => { if (!ownedQuestionDiagram) engineScene = scene; },
+        signal: info.signal,
       })).trim();
 
     } catch (err: any) {
@@ -2537,7 +2541,7 @@ function DocumentEditorInner({
     return hit;
   };
 
-  const copilotSectionAi = async (ref: string, instruction: string, action: SectionAction) => {
+  const copilotSectionAi = async (ref: string, instruction: string, action: SectionAction, signal?: AbortSignal) => {
     if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
     const hit = copilotResolve(ref);
     const doc = editor.state.doc;
@@ -2553,6 +2557,7 @@ function DocumentEditorInner({
       sectionText,
       action,
       images: [],
+      signal,
     });
   };
 
@@ -2599,13 +2604,14 @@ function DocumentEditorInner({
         insertSubtopic(title);
       },
 
-      generateQuestion: async (ref2, instruction, replace) =>
-        copilotSectionAi(ref2, instruction || "Generate this section.", replace ? "regenerate" : "generate"),
-      generateSolution: async (ref2, instruction) =>
+      generateQuestion: async (ref2, instruction, replace, signal) =>
+        copilotSectionAi(ref2, instruction || "Generate this section.", replace ? "regenerate" : "generate", signal),
+      generateSolution: async (ref2, instruction, signal) =>
         copilotSectionAi(
           ref2,
           [instruction, "Write the full step-by-step solution for this question."].filter(Boolean).join(" "),
           "extend",
+          signal,
         ),
       buildGeometryMap: async (ref2) => {
         if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");

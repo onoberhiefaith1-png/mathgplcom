@@ -97,8 +97,8 @@ export interface CoPilotBridge {
   insertSectionRef?: (kind: string) => Promise<string | null>;
   /** Insert and activate a real lesson-note subtopic heading. */
   insertSubtopic?: (title: string) => Promise<void>;
-  generateQuestion: (ref: string, instruction: string, replace: boolean) => Promise<void>;
-  generateSolution: (ref: string, instruction: string) => Promise<void>;
+  generateQuestion: (ref: string, instruction: string, replace: boolean, signal?: AbortSignal) => Promise<void>;
+  generateSolution: (ref: string, instruction: string, signal?: AbortSignal) => Promise<void>;
   buildGeometryMap: (ref: string) => Promise<void>;
   openGeometry2D: (ref: string | null) => Promise<void>;
   openSmartTable: () => Promise<void>;
