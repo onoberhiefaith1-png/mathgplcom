@@ -118,7 +118,7 @@ function MessageBubble({
 
 export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
   const {
-    messages, busy, send, approve, reject,
+    messages, busy, send, approve, reject, cancel,
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial, queue, resumeBuild,
     progressLabel, retry, editBlueprintItem, reviseBlueprintItem, approveBlueprint,
@@ -196,10 +196,19 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
         )}
 
         {busy && (
-          <p className="text-[11.5px] text-slate-600 inline-flex items-center gap-1.5">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            {progressLabel ?? STAGE_TEXT[stage] ?? "Thinking"}…
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-[11.5px] text-slate-600 inline-flex items-center gap-1.5">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {progressLabel ?? STAGE_TEXT[stage] ?? "Thinking"}…
+            </p>
+            <Button
+              size="sm" variant="ghost"
+              className="h-6 px-2 text-[11px] text-slate-500 hover:text-slate-900"
+              onClick={cancel}
+            >
+              Cancel
+            </Button>
+          </div>
         )}
 
         {!busy && retry && (

@@ -100,6 +100,12 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   const displayW = explicitWidth ?? (large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
   const displayH = explicitHeight ?? (displayW / W) * H;
 
+  // Examination-textbook ink: the figure must never look heavier than the
+  // numbers beside it. The SVG is scaled to fit, which would multiply the
+  // stroke, so the weight is divided back out to land at ~1.1px on screen.
+  const displayScale = W > 0 ? displayW / W : 1;
+  const inkWeight = Math.min(1.25, Math.max(0.55, 1.1 / (displayScale || 1)));
+
   const colourOf = (id: string): string => {
     if (!diff) return baseStroke;
     if (diff.added.has(id)) return ACCENT_ADD;
@@ -116,7 +122,7 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     const out: React.ReactNode[] = [];
     for (const o of scene.objects) {
       if (o.type !== "region") continue;
-      const node = renderObject(o, scene, colourOf(o.id), originPad);
+      const node = renderObject(o, scene, colourOf(o.id), originPad, inkWeight);
       if (node) out.push(node);
     }
     for (const o of scene.objects) {
@@ -136,11 +142,11 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
         );
         continue;
       }
-      const node = renderObject(o, scene, c, originPad);
+      const node = renderObject(o, scene, c, originPad, inkWeight);
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff, originPad, baseStroke, ghostHidden]);
+  }, [scene, diff, originPad, baseStroke, ghostHidden, inkWeight]);
 
 
   return (
@@ -181,8 +187,12 @@ function renderObject(
   scene: GeometryScene,
   stroke: string,
   pad: number,
+  ink = 1.1,
 ): React.ReactNode {
-  const sw = 1.4;
+  /** Construction lines. */
+  const sw = ink;
+  /** Ticks, angle arcs and parallel chevrons sit one step lighter. */
+  const swMark = Math.max(0.5, ink * 0.85);
   switch (o.type) {
     case "point": {
       const p = o as GeoPoint;
@@ -262,12 +272,12 @@ function renderObject(
       // Legacy parallel marks via `marks`
       if (o.marks === "parallel" || o.marks === "double-parallel" || o.marks === "triple-parallel") {
         const count = o.marks === "parallel" ? 1 : o.marks === "double-parallel" ? 2 : 3;
-        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, count, color, sw);
+        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, count, color, swMark);
       }
       // New independent parallel-marks
       const parGroup = (o as any).parallelMarks as number | undefined;
       if (parGroup && parGroup > 0) {
-        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, parGroup, color, sw);
+        renderParallelChevrons(marks, mx, my, dx, dy, len, nx, ny, parGroup, color, swMark);
       }
       // Arrows
       const arrow = (o as any).arrow as "none" | "start" | "end" | "both" | undefined;
@@ -483,7 +493,7 @@ function renderObject(
           <polyline
             key={o.id}
             points={`${cx + u1x * s},${cy + u1y * s} ${cx + (u1x + u2x) * s},${cy + (u1y + u2y) * s} ${cx + u2x * s},${cy + u2y * s}`}
-            fill="none" stroke={markStroke} strokeWidth={sw}
+            fill="none" stroke={markStroke} strokeWidth={swMark}
           />
         );
       }
@@ -509,12 +519,12 @@ function renderObject(
         <g key={o.id}>
           <path
             d={`M ${x1} ${y1} A ${r} ${r} 0 ${large} ${sweep} ${x2} ${y2}`}
-            fill="none" stroke={markStroke} strokeWidth={sw}
+            fill="none" stroke={markStroke} strokeWidth={swMark}
           />
           {o.marker === "double" && (
             <path
               d={`M ${cx + Math.cos(a1) * (r - 4)} ${cy - Math.sin(a1) * (r - 4)} A ${r - 4} ${r - 4} 0 ${large} ${sweep} ${cx + Math.cos(a2) * (r - 4)} ${cy - Math.sin(a2) * (r - 4)}`}
-              fill="none" stroke={markStroke} strokeWidth={sw}
+              fill="none" stroke={markStroke} strokeWidth={swMark}
             />
           )}
           {o.value && (
