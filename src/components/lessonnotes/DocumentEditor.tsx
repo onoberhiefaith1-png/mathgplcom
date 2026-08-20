@@ -153,7 +153,7 @@ import { useLessonAiContextStore, sameSubtopic } from "@/lib/lessonnotes/aiConte
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
-import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor } from "@/lib/lessonnotes/containerRange";
+import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor, ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
 import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
 
 /** Stable identity for a diagram, so a Solution can reference it instead of
