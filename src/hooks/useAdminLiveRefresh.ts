@@ -3,7 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 
-const TABLES = ["usage_events", "credit_ledger", "credit_purchases", "payment_transactions", "credit_wallets"] as const;
+// Internal cost/profit rows (usage_events) are deliberately not streamed live —
+// they never leave the admin-only read path — so money screens also refresh on
+// a short interval to stay current.
+const TABLES = ["credit_ledger", "credit_purchases", "payment_transactions", "credit_wallets"] as const;
+const REFRESH_MS = 20000;
 
 /**
  * Admin money screens refresh themselves. Anything that changes the financial
