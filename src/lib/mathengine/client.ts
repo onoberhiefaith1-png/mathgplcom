@@ -25,7 +25,34 @@ interface RawResponse {
   questions?: EngineQuestion[];
   analysis?: EngineResult["analysis"];
   scene?: unknown;
+  construction?: unknown;
   error?: string;
+}
+
+/**
+ * A figure is CONSTRUCTED, never painted. When the Engine returns a
+ * construction program we solve it locally into exact coordinates and verify
+ * the finished figure; only a verified diagram becomes a scene.
+ */
+async function sceneFromResponse(
+  raw: RawResponse,
+  question: string,
+): Promise<{ scene: unknown; problems: string[] }> {
+  if (!raw.construction || typeof raw.construction !== "object") {
+    return { scene: raw.scene, problems: [] };
+  }
+  const [{ compileConstruction }, { verifyScene }] = await Promise.all([
+    import("@/lib/geometry/construct/compile"),
+    import("@/lib/geometry/construct/validate"),
+  ]);
+  const { scene, problems } = compileConstruction(raw.construction as any);
+  const built = problems.map((p) => `Diagram: ${p.message}`);
+  if (!scene) return { scene: undefined, problems: built.length ? built : ["Diagram: the figure could not be constructed."] };
+  const verdict = verifyScene(scene, question);
+  return {
+    scene: verdict.ok ? scene : undefined,
+    problems: [...built, ...verdict.problems.map((p) => `Diagram: ${p}`)],
+  };
 }
 
 async function callEngine(req: EngineRequest, problems: string[]): Promise<RawResponse> {
@@ -62,14 +89,21 @@ export async function runEngine(req: EngineRequest): Promise<EngineResult> {
     last = await callEngine(req, problems);
     const questions = Array.isArray(last.questions) ? last.questions : [];
 
+    const questionText = req.question || questions[0]?.text || "";
+    const built = await sceneFromResponse(last, questionText);
+
     if (!OPERATIONS_RETURNING_QUESTIONS.includes(req.operation)) {
+      if (built.problems.length && !built.scene && attempts < MAX_ATTEMPTS) {
+        problems = built.problems;
+        continue;
+      }
       return {
         operation: req.operation,
         narration: String(last.narration ?? "").trim(),
         questions,
         analysis: last.analysis ?? null,
-        scene: last.scene,
-        verification: { ok: true, checks: [] },
+        scene: built.scene,
+        verification: { ok: !built.problems.length, checks: [] },
         attempts,
       };
     }
@@ -84,8 +118,11 @@ export async function runEngine(req: EngineRequest): Promise<EngineResult> {
     }
 
     const perQuestion = questions.map((q) => verifyQuestion(q, { method: req.method }));
-    const failed = perQuestion.flatMap((v, i) =>
-      v.ok ? [] : verificationProblems(v).map((p) => `Question ${i + 1}: ${p}`));
+    const failed = [
+      ...perQuestion.flatMap((v, i) =>
+        v.ok ? [] : verificationProblems(v).map((p) => `Question ${i + 1}: ${p}`)),
+      ...(built.scene ? [] : built.problems),
+    ];
 
     if (!failed.length) {
       return {
@@ -93,7 +130,7 @@ export async function runEngine(req: EngineRequest): Promise<EngineResult> {
         narration: String(last.narration ?? "").trim(),
         questions,
         analysis: last.analysis ?? null,
-        scene: last.scene,
+        scene: built.scene,
         verification: {
           ok: true,
           checks: perQuestion.flatMap((v) => v.checks),

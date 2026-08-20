@@ -6,6 +6,8 @@
 // steps, final answer, diagram model) so the server and the client can
 // re-compute the mathematics before anything is displayed.
 
+import { CONSTRUCTION_STANDARD } from "./constructionStandard.ts";
+
 export type EngineOperation =
   | "generateLessonSection" | "generateExample" | "generateClasswork"
   | "generateAssignment" | "analyseQuestion" | "generateSimilarQuestions"
@@ -73,7 +75,8 @@ Return STRICT JSON only — no markdown, no code fence — exactly this shape:
       "diagramDescription": "",
       "labels": []
     }
-  ]
+  ],
+  "construction": null
 }
 For operations that do not produce questions, return "questions": [].
 `.trim();
@@ -96,7 +99,7 @@ const OPERATION_BRIEF: Record<EngineOperation, string> = {
   verifySolution:
     "Check the supplied solution against the supplied question. Report every mathematical error in narration. Return no new questions.",
   generateGeometry:
-    "Build the mathematical model of the required figure: compute coordinates, state every label, and describe angle/arc/parallel marks. Never describe a picture you have not computed.",
+    "Build the required figure as a CONSTRUCTION PROGRAM (see the construction standard below). State what is mathematically true about the figure; never invent coordinates and never paint a picture.",
   verifyGeometry:
     "Check the supplied diagram summary against the question: every required vertex, angle marker, arc, label and mark. Report mismatches in narration.",
   analyseUploadedMaterial:
@@ -147,6 +150,10 @@ export function buildEnginePrompt(input: EnginePromptInput): string {
       ...input.previousProblems.slice(0, 8).map((p) => `• ${p}`),
       "Fix the mathematics itself — do not restate the same numbers with different words.",
     );
+  }
+  if (["generateGeometry", "verifyGeometry", "generateExample", "generateClasswork",
+       "generateAssignment", "generateLessonSection"].includes(input.operation)) {
+    lines.push("", CONSTRUCTION_STANDARD);
   }
   lines.push("", SHAPE);
   return lines.join("\n");
