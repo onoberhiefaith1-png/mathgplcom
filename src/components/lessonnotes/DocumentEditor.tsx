@@ -372,6 +372,8 @@ async function engineGenerate(opts: {
   blockKind?: "problem" | "solution" | "text";
   activeQuestion?: string;
   context?: string;
+  /** Receives the verified, constructed 2D figure for a generated question. */
+  onScene?: (scene: unknown) => void;
 }): Promise<string | null> {
   const { runEngine } = await import("@/lib/mathengine/client");
   const base = {
@@ -399,8 +401,12 @@ async function engineGenerate(opts: {
           : "generateExample";
       const res = await runEngine({ ...base, operation, count: 1 });
       const q = res.questions[0];
+      // A constructed, verified figure travels WITH its question so the editor
+      // can place the single authoritative diagram under the question body.
+      if (q?.scene) opts.onScene?.(q.scene);
       return q?.text?.trim() || null;
     }
+
   } catch {
     // A refusal or a failed verification is never shown as fabricated
     // mathematics — the ordinary generation path handles it instead.
