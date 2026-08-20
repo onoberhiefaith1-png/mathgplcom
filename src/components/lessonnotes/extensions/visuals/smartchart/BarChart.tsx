@@ -238,7 +238,7 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
         <PanelRow label="Scale (1 cm =)">
           <PanelNumber value={unitsPerCm} min={0.001} step={1}
             onChange={(v) => setScale(v)} />
-          <span className="text-[11px] text-muted-foreground">units</span>
+          <span className="text-[11px] font-medium text-foreground">units</span>
         </PanelRow>
         <PanelRow label="Axis height (cm)">
           <PanelNumber value={axisMaxCm} min={3} max={60}
@@ -272,7 +272,7 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
 
       <PanelGroup label="Bars">
         {rows.length === 0 && (
-          <div className="px-2 py-1 text-xs text-muted-foreground">
+          <div className="px-2 py-1 text-xs text-foreground/80">
             Click the “+” at the end of the X-axis to add a bar.
           </div>
         )}
@@ -287,7 +287,7 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
                 }} />
             </PanelRow>
             <PanelRow label="Value">
-              <span className="px-1 text-[11px] tabular-nums text-muted-foreground">
+              <span className="px-1 text-[11px] tabular-nums text-foreground/80">
                 {((r.heightCm ?? 0) * unitsPerCm).toFixed(attrs.numbers.decimals)}
               </span>
             </PanelRow>
