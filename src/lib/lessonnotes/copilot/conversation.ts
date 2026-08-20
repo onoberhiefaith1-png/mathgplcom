@@ -477,8 +477,8 @@ export function useCoPilotConversation(
     setStage("structure");
     saveState({ cycle: cycleRef.current, queue: [], stage: "structure", subtopic: label });
     say("New subtopic, same lesson — everything already in the note stays. Set the numbers for this part and I'll plan it.");
-  }, [save
-State, say]);
+  }, [saveState, say]);
+
 
   const send = useCallback(async (text: string) => {
     const clean = text.trim();
