@@ -181,6 +181,8 @@ const BARSTYLE_DEFAULT: BarStyle = { borderColor: "#0f172a", borderThickness: 1.
 const FONTS_DEFAULT: FontStyle = { family: "system-ui, sans-serif", size: 12, bold: false, italic: false };
 const LEGEND_DEFAULT: LegendStyle = { show: false, position: "bottom" };
 const PLOTAREA_DEFAULT: PlotAreaStyle = { background: "transparent", border: "transparent", borderThickness: 0, padding: 0 };
+const EXAM_DEFAULT: ExamMode = { hideValues: false, hideCategoryLabels: false, hideAxisTitles: false, blank: false };
+
 
 /**
  * Chart text/axis ink must stay legible on the note's white page: any light
