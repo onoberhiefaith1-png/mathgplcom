@@ -118,6 +118,7 @@ export function CoPilotPanel({ bridgeRef, onClose }: Props) {
     messages, busy, send, approve, reject,
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial, queue, resumeBuild,
+    progressLabel, retry, editBlueprintItem, reviseBlueprintItem, approveBlueprint,
   } = useCoPilotConversation(bridgeRef);
   const [text, setText] = useState("");
   const voice = useVoiceInput(setText as any);
