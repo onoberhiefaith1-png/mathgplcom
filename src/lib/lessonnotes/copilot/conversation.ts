@@ -375,6 +375,7 @@ export function useCoPilotConversation(
     setStage("analysing");
     setWorking("thinking");
     const stopNarration = narrate(PLANNING_STEPS);
+    let outcome: "ready" | "stopped" | "failed" = "ready";
     try {
       const data = await ask({
         stage: "blueprint",
@@ -407,14 +408,15 @@ export function useCoPilotConversation(
       if (reply) say(reply);
       setStage("blueprint");
     } catch (e) {
-      if (isAbort(e)) { setStage("material"); return; }
+      if (isAbort(e)) { outcome = "stopped"; setStage("material"); return; }
+      outcome = "failed";
       const detail = e instanceof Error ? e.message : String(e);
       say(`I couldn't finish planning the lesson: ${detail}`);
       setRetry({ label: "Plan the lesson again", run: () => void planLesson(materialRef.current) });
       setStage("blueprint");
     } finally {
       stopNarration();
-      finishWorking(isAbort(e) ? "stopped" : "failed");
+      finishWorking(outcome);
     }
   }, [ask, counts, finishWorking, narrate, say, setWorking]);
 
