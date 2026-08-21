@@ -340,6 +340,62 @@ export const QuestionProgressContainer = ({
         />
       </svg>
 
+      {/* Energy field — a continuous particle cloud poured in with the liquid.
+          It is clipped to the chamber and to the filled region only, so it can
+          never escape the vessel. Density (not question count) sets how many. */}
+      {energy?.path && particleCount > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            left: `${chXPct}%`,
+            top: `${ch.y1 * 100}%`,
+            width: `${chWPct}%`,
+            height: `${(ch.y2 - ch.y1) * 100}%`,
+            overflow: "hidden",
+            borderRadius: "6%",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: `${pct * 100}%`,
+              overflow: "hidden",
+              transition: "height 600ms cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
+          >
+            {particles.slice(0, particleCount).map((p, i) => (
+              <div
+                key={i}
+                className="animate-pulse"
+                style={{
+                  position: "absolute",
+                  left: `${p.x * 100}%`,
+                  bottom: `${p.y * 100}%`,
+                  width: `${particleSizePct}%`,
+                  aspectRatio: "1 / 1",
+                  transform: "translate(-50%, 50%)",
+                  animationDuration: `${p.dur}s`,
+                  animationDelay: `${p.delay}s`,
+                }}
+              >
+                <SignedMedia
+                  path={energy.path}
+                  source={energy.source}
+                  mediaType={energy.mediaType}
+                  fit="contain"
+                  className="h-full w-full"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+
       {!hideProgressText && (
         <div
           style={{
