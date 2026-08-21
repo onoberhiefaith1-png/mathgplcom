@@ -298,7 +298,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
       }
 
       for (let j = 0; j < sec.subsections.length; j++) {
-        const { problem, solution, solutionObjects } = sec.subsections[j];
+        const { problem, solution, solutionObjects, problemObjects } = sec.subsections[j];
         let subId = claimed[j]?.id ?? null;
         if (subId) {
           if ((claimed[j] as ExistingSub).order_index !== j) {
