@@ -46,6 +46,9 @@ export interface BlockRow {
   kind: BlockKind;
   content_ascii: string;
   order_index: number;
+  /** Objects (tables, diagrams, charts, 3D scenes) captured with this block.
+   *  Shape: { objects: SolutionObject[] }. */
+  content_json?: any | null;
 }
 
 export interface SubsectionRow {
