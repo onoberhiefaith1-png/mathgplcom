@@ -102,7 +102,7 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
     counters.set(kind, next);
     const ordinal = explicitNumber ?? next;
     const base = SECTION_LABELS[kind] ?? title;
-    current = {
+    const seg: LessonSegment = {
       kind,
       title: title || base,
       ordinal,
@@ -113,7 +113,9 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
       implicit,
       nodes: [],
     };
-    segments.push(current);
+    current = seg;
+    segments.push(seg);
+    return seg;
   };
 
   for (const node of content) {
@@ -126,8 +128,8 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
       }
       // Descriptive heading → ordinary content of the current session.
     }
-    if (!current) open("explanation", "", 0, null, true);
-    (current as LessonSegment).nodes.push(node);
+    const seg = current ?? open("explanation", "", 0, null, true);
+    seg.nodes.push(node);
   }
 
   return segments;
