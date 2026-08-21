@@ -37,23 +37,6 @@ const DB_KIND: Record<SectionKind, string> = {
   custom_session: "example",
 };
 
-/** Concatenate the visible text of a TipTap node, preserving math as their
- *  raw LaTeX value (so the floating-number extractor can read it). */
-function nodeText(node: Node): string {
-  if (!node) return "";
-  if (node.type === "text") return String(node.text ?? "");
-  if (node.type === "mathInline" || node.type === "mathBlock") {
-    return String(node.attrs?.value ?? "");
-  }
-  if (Array.isArray(node.content)) return node.content.map(nodeText).join("");
-  return "";
-}
-
-const isHeading = (n: Node, maxLevel = 6) =>
-  n?.type === "heading" && (n.attrs?.level ?? 6) <= maxLevel;
-
-const headingText = (n: Node) => nodeText(n).trim();
-
 /** A flattened section as understood by the Smartboard. */
 interface ParsedSection {
   kind: SectionKind;
@@ -75,56 +58,6 @@ interface ParsedSection {
 /** Normalize a problem string for matching across edits (case/whitespace). */
 const normalizeProblem = (s: string): string =>
   String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-
-/** Collect inline object nodes (asset-library visuals) nested inside a block. */
-function collectInlineObjects(node: Node, out: Node[]): void {
-  if (!node || typeof node !== "object") return;
-  if (INLINE_OBJECT_TYPES.has(String(node.type))) { out.push(node); return; }
-  if (Array.isArray(node.content)) for (const c of node.content) collectInlineObjects(c, out);
-}
-
-/** Render a contiguous run of body nodes into plain text (paragraph per line)
- *  PLUS the ordered list of non-text objects (tables, diagrams, charts, 3D
- *  scenes, …) found inside it. Objects are never flattened away. */
-function renderBodyRich(nodes: Node[]): { text: string; objects: SolutionObject[] } {
-  const lines: string[] = [];
-  const objects: SolutionObject[] = [];
-  const counters = new Map<string, number>();
-
-  const pushObject = (n: Node) => {
-    const nodeType = String(n?.type ?? "");
-    if (!nodeType) return;
-    const attrs = (n?.attrs && typeof n.attrs === "object") ? n.attrs : {};
-    const idx = counters.get(nodeType) ?? 0;
-    counters.set(nodeType, idx + 1);
-    const family = objectFamily(nodeType, attrs);
-    objects.push({
-      objId: `${nodeType}#${idx}`,
-      nodeType,
-      family,
-      label: familyLabel(family),
-      attrs,
-      afterLine: lines.length,
-      inline: INLINE_OBJECT_TYPES.has(nodeType),
-    });
-  };
-
-  for (const n of nodes) {
-    if (!n) continue;
-    if (isObjectNodeType(n.type)) { pushObject(n); continue; }
-    const t = nodeText(n).trim();
-    if (t) lines.push(t);
-    const inlineObjs: Node[] = [];
-    collectInlineObjects(n, inlineObjs);
-    for (const o of inlineObjs) pushObject(o);
-  }
-  return { text: lines.join("\n").trim(), objects };
-}
-
-/** Text-only view, for section bodies that have no object support. */
-function renderBody(nodes: Node[]): string {
-  return renderBodyRich(nodes).text;
-}
 
 
 /**
