@@ -50,7 +50,9 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
       if (raf.current) return;
       raf.current = window.requestAnimationFrame(() => {
         raf.current = 0;
-        setEntries(readOutline(editor));
+        const o = readOutline(editor);
+        (window as any).__outline = { n: o.length, editor: !!editor };
+        setEntries(o);
       });
     };
     refresh();
