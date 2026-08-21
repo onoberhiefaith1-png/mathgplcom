@@ -677,7 +677,6 @@ const SettingsPanel = ({
             )}
           </Section>
           </>
-          )}
         </>
       )}
     </div>
