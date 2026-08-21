@@ -587,7 +587,6 @@ const SettingsPanel = ({
           </Section>
           )}
 
-          {barType === "segmented" && (
           <>
           <Section title="Fill style">
             <div className="grid grid-cols-2 gap-2">
