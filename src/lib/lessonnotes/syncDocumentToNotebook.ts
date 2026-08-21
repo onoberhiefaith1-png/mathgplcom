@@ -319,7 +319,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
           if (!subRow) continue;
           subId = subRow.id as string;
         }
-        await writeBlocks(sectionId, subId, problem, solution, solutionObjects ?? []);
+        await writeBlocks(sectionId, subId, problem, solution, solutionObjects ?? [], problemObjects ?? []);
       }
 
       // Subsections the teacher genuinely deleted.
