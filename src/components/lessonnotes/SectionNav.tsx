@@ -50,11 +50,7 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
       if (raf.current) return;
       raf.current = window.requestAnimationFrame(() => {
         raf.current = 0;
-        const o = readOutline(editor);
-        const names: string[] = [];
-        try { editor.state.doc.descendants((n) => { names.push(n.type.name); return true; }); } catch { /* debug */ }
-        (window as any).__outline = names.slice(0, 60).join(",") + "|size=" + editor.state.doc.content.size;
-        setEntries(o);
+        setEntries(readOutline(editor));
       });
     };
     refresh();
@@ -63,7 +59,10 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
     editor.on("transaction", refresh);
     return () => {
       editor.off("transaction", refresh);
+      // Clear the handle as well: a cancelled frame must never leave the
+      // scheduler "armed", or a remount would skip every future refresh.
       if (raf.current) window.cancelAnimationFrame(raf.current);
+      raf.current = 0;
     };
   }, [editor]);
 
@@ -96,7 +95,7 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
   }, [editor]);
 
   const items = useMemo(() => entries, [entries]);
-  if (!items.length) return <div data-section-nav="empty" data-editor={String(!!editor)} data-n={items.length} hidden />;
+  if (!items.length) return null;
 
   return (
     <nav
