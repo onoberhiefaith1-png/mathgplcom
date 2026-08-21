@@ -24,6 +24,11 @@ export interface SolutionObject {
   afterLine: number;
   /** True when the node is an inline node and must be wrapped to render. */
   inline?: boolean;
+  /** True when this object lives inside a Solution session. */
+  inSolution?: boolean;
+  /** False only for 2D/3D geometry inside a Solution: the object stays in the
+   *  lesson note but is excluded from the student Smartboard guide. */
+  presentOnBoard?: boolean;
 }
 
 /** Node types that carry prose / equations — never objects. */
