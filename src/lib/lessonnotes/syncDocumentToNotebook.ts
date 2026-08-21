@@ -12,14 +12,9 @@
 // the problem text stays the same.
 
 import { supabase } from "@/integrations/supabase/client";
-import { detectSectionKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
-import {
-  INLINE_OBJECT_TYPES,
-  familyLabel,
-  isObjectNodeType,
-  objectFamily,
-  type SolutionObject,
-} from "@/lib/floating/solutionItems";
+import { type SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import { buildLessonOutline, renderSegmentBody } from "@/lib/lessonnotes/lessonOutline";
+import { type SolutionObject } from "@/lib/floating/solutionItems";
 
 type Node = any;
 
