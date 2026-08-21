@@ -144,6 +144,7 @@ import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2, LayoutGrid as LayoutGridIcon } from "lucide-react";
 import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
+import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
