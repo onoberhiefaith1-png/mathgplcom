@@ -64,8 +64,17 @@ interface ParsedSection {
   kind: SectionKind;
   /** Used only for non-question sections. */
   loose: string[];
+  /** Objects (tables, diagrams, 3D scenes, charts) inside a non-question
+   *  session. They belong to the session and are presented with it. */
+  looseObjects: SolutionObject[];
   /** Used only for question kinds. */
-  subsections: { problem: string; solution: string; solutionObjects: SolutionObject[] }[];
+  subsections: {
+    problem: string;
+    solution: string;
+    solutionObjects: SolutionObject[];
+    /** Objects that belong to the QUESTION itself (not its solution). */
+    problemObjects: SolutionObject[];
+  }[];
 }
 
 /** Normalize a problem string for matching across edits (case/whitespace). */
