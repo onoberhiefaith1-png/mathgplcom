@@ -7053,6 +7053,23 @@ const BeatBlock = ({
   const opacityClass = isCurrent ? "opacity-100" : "opacity-75";
   const revealClass = isCurrent ? "sb-writing-in" : "";
 
+  // Session objects (Smart Table, chart, question diagram, 3D scene) render
+  // with the session they belong to. Geometry captured inside a Solution is
+  // already filtered out upstream — the teacher displays it separately.
+  const BeatObjects = ({ beat: b }: { beat: Beat }) => {
+    const objs = b.objects ?? [];
+    if (!objs.length) return null;
+    return (
+      <div className="mt-4 space-y-4">
+        {objs.map((o) => (
+          <div key={o.objId} className="lesson-doc" style={{ fontSize: "0.5em" }}>
+            <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // Synthetic cover beat — title / topic / subtopic / date.
   if (beat.id === "__cover__") {
     return (
