@@ -345,9 +345,9 @@ function GeometryDiagramView({
                 });
               }}
               className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded text-foreground hover:bg-foreground/5"
-              title="AI edit"
+              title="AI Edit"
             >
-              <Sparkles className="h-3 w-3" /> AI
+              <Sparkles className="h-3 w-3" /> AI Edit
             </button>
             <button
               type="button"

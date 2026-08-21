@@ -10,8 +10,7 @@
 // the smartboard later.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Sparkles, Loader2, Mic, Square, X } from "lucide-react";
+import { Sparkles, Loader2, Mic, Square, X, Check, RefreshCw, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { VoiceWave } from "./VoiceWave";
@@ -31,7 +30,7 @@ interface Props {
   open: boolean;
   target: AiEditTarget | null;
   /** Run AI with the given instruction; resolve with the proposed new text. */
-  onGenerate: (instruction: string, target: AiEditTarget) => Promise<string>;
+  onGenerate: (instruction: string, target: AiEditTarget, signal?: AbortSignal) => Promise<string>;
   /** Apply the proposed text back to the document. */
   onApply: (proposed: string) => void;
   onClose: () => void;
@@ -83,6 +82,8 @@ export function AiEditPanel({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [diag, setDiag] = useState<AiEditDiagnostics | null>(null);
   const [revealedCount, setRevealedCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const voice = useVoiceInput(setInstruction as any);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -119,19 +120,39 @@ export function AiEditPanel({
 
   const runWith = async (text: string) => {
     if (!target) return;
+    // A new request always supersedes the previous one.
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     setBusy(true);
+    setError(null);
     setDiag(null);
     setRevealedCount(0);
     try {
-      const result = await onGenerate(text, target);
+      const result = await onGenerate(text, target, ctrl.signal);
+      if (ctrl.signal.aborted) return;
       setProposed(result);
       const d = getDiagnostics?.() ?? null;
       setDiag(d);
       // Start reveal immediately with first row visible.
       if (d && d.items.length > 0) setRevealedCount(1);
+    } catch (e: unknown) {
+      if (ctrl.signal.aborted) return;
+      // Failures, timeouts, quota — reported HERE only. The teacher's content
+      // is never touched.
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "AI could not complete this edit.");
     } finally {
-      setBusy(false);
+      if (abortRef.current === ctrl) abortRef.current = null;
+      if (!ctrl.signal.aborted) setBusy(false);
     }
+  };
+
+  /** Stop an in-flight request without touching the note. */
+  const cancelRequest = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setBusy(false);
   };
 
   const handleGenerate = async () => {
@@ -154,38 +175,53 @@ export function AiEditPanel({
     await runWith(label);
   };
 
+  /** Accept — apply the proposal to exactly the selected range. */
   const handleApply = () => {
     if (proposed == null) return;
     onApply(proposed);
     onClose();
   };
 
+  /** Edit again — keep the proposal in view and take a further instruction. */
+  const handleEditAgain = () => {
+    setProposed(null);
+    setError(null);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  /** Cancel — leave the note exactly as it was. */
   const handleCancel = () => {
-    if (proposed != null) {
-      // Back to instruction stage so the teacher can adjust the prompt.
-      setProposed(null);
-      return;
-    }
+    cancelRequest();
     onClose();
   };
 
+  if (!open) return null;
+
   return (
-    <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-md flex flex-col p-0"
-      >
-        <SheetHeader className="px-4 py-3 border-b">
-          <SheetTitle className="flex items-center gap-2 text-sm">
-            <Sparkles className="h-4 w-4 text-primary" />
-            AI Edit
-            {target && (
-              <span className="text-[10px] uppercase tracking-wider text-foreground/55 font-normal">
-                · {SELECTION_KIND_LABELS[target.kind]}
-              </span>
-            )}
-          </SheetTitle>
-        </SheetHeader>
+    <div
+      role="dialog"
+      aria-label="AI Edit"
+      // Non-modal on purpose: while AI works the teacher can still scroll,
+      // type, save and navigate the lesson note behind this pane.
+      className="fixed inset-y-0 right-0 z-40 w-full sm:w-[420px] max-w-full flex flex-col bg-background border-l border-foreground/15 shadow-2xl"
+    >
+      <div className="px-4 py-3 border-b flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <h2 className="text-sm font-medium">AI Edit</h2>
+        {target && (
+          <span className="text-[10px] uppercase tracking-wider text-foreground/55">
+            · {SELECTION_KIND_LABELS[target.kind]}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="ml-auto p-1 rounded hover:bg-foreground/10"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
 
         {/* Selected content preview (always visible). */}
         {target && (
@@ -194,6 +230,18 @@ export function AiEditPanel({
             <div className="text-sm max-h-24 overflow-auto whitespace-pre-wrap break-words">
               {safePreview(target.text)}
             </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="mx-4 mt-3 rounded-md border border-red-400/40 bg-red-50 dark:bg-red-950/20 p-3 text-xs text-red-700 dark:text-red-300 flex items-start gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span className="flex-1">
+              {error}
+              <span className="block mt-1 text-[11px] opacity-80">
+                Your content was not changed. Adjust the instruction and try again.
+              </span>
+            </span>
           </div>
         )}
 
@@ -443,19 +491,36 @@ export function AiEditPanel({
             onClick={handleCancel}
             className="text-xs px-3 py-1.5 rounded border border-foreground/15 hover:bg-foreground/10 inline-flex items-center gap-1"
           >
-            <X className="h-3 w-3" /> {proposed != null ? "Back" : "Cancel"}
+            <X className="h-3 w-3" /> Cancel
           </button>
-          {proposed != null && (
+          {busy && (
             <button
               type="button"
-              onClick={handleApply}
-              className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90"
+              onClick={cancelRequest}
+              className="ml-auto text-xs px-3 py-1.5 rounded border border-foreground/20 hover:bg-foreground/5 inline-flex items-center gap-1.5"
             >
-              <Sparkles className="h-3 w-3" /> Apply Changes
+              <Square className="h-3 w-3" /> Stop
             </button>
           )}
+          {!busy && proposed != null && (
+            <>
+              <button
+                type="button"
+                onClick={handleEditAgain}
+                className="ml-auto text-xs px-3 py-1.5 rounded border border-foreground/20 hover:bg-foreground/5 inline-flex items-center gap-1.5"
+              >
+                <RefreshCw className="h-3 w-3" /> Edit again
+              </button>
+              <button
+                type="button"
+                onClick={handleApply}
+                className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90"
+              >
+                <Check className="h-3 w-3" /> Accept
+              </button>
+            </>
+          )}
         </div>
-      </SheetContent>
-    </Sheet>
+    </div>
   );
 }

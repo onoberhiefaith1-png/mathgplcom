@@ -152,6 +152,7 @@ import {
 } from "@/lib/lessonnotes/lessonContext";
 import { useLessonAiContextStore, sameSubtopic } from "@/lib/lessonnotes/aiContext";
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
+import { applyAutoNumbering } from "@/lib/lessonnotes/autoNumber";
 
 import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor, ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
@@ -551,6 +552,7 @@ function DocumentEditorInner({
    * bottom can never rise above the last rendered object on the page. */
   const NOTE_STEP_MM = 50;
   const sheetElRef = useRef<HTMLDivElement | null>(null);
+  const numberTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pageExtraMm, setPageExtraMm] = useState<number>(pageExtraMmProp ?? 0);
   useEffect(() => {
     if (typeof pageExtraMmProp === "number") setPageExtraMm(pageExtraMmProp);
@@ -1751,6 +1753,12 @@ function DocumentEditorInner({
       },
     },
     onUpdate: ({ editor }) => {
+      // Problem 1 → Solution 1, Problem 2 → Solution 2 … kept correct while
+      // the teacher adds, removes or reorders items.
+      if (numberTimer.current) clearTimeout(numberTimer.current);
+      numberTimer.current = setTimeout(() => {
+        try { applyAutoNumbering(editor); } catch { /* never break typing */ }
+      }, 400);
       if (saveTimer.current) clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => onDocChange(editor.getJSON()), 600);
     },

@@ -11,7 +11,6 @@ import type { Editor } from "@tiptap/react";
 import { Copy, Scissors, Trash2, CopyPlus, MessageSquare, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 import {
   detectSelectionKindFromSlice,
   type SelectionKind,
@@ -33,8 +32,6 @@ interface Props {
 }
 
 export function SelectionToolbar({ editor, suppressed, onAiEdit }: Props) {
-  /** AI Edit belongs to MathGPL Builder mode; Co-Pilot handles selections. */
-  const builderAi = useBuilderAiVisible();
   if (!editor) return null;
 
   const captureSnapshot = (): SelectionSnapshot | null => {
@@ -128,19 +125,17 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit }: Props) {
         <ToolBtn label="Delete" onClick={del}><Trash2 className="h-3.5 w-3.5" /></ToolBtn>
         <ToolBtn label="Duplicate" onClick={duplicate}><CopyPlus className="h-3.5 w-3.5" /></ToolBtn>
         <ToolBtn label="Comment" onClick={comment}><MessageSquare className="h-3.5 w-3.5" /></ToolBtn>
-        {builderAi && (
-          <>
-            <div className="w-px h-4 bg-foreground/15 mx-0.5" />
-            <button
-              type="button"
-              onClick={handleAiEdit}
-              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary"
-              title="AI Edit"
-            >
-              <Sparkles className="h-3.5 w-3.5" /> AI Edit
-            </button>
-          </>
-        )}
+        {/* AI Edit is an EDITOR, not a generator: available in every mode,
+            including Manual, because the teacher explicitly asks for it. */}
+        <div className="w-px h-4 bg-foreground/15 mx-0.5" />
+        <button
+          type="button"
+          onClick={handleAiEdit}
+          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary/10 hover:bg-primary/20 text-primary"
+          title="AI Edit"
+        >
+          <Sparkles className="h-3.5 w-3.5" /> AI Edit
+        </button>
       </div>
     </BubbleMenu>
   );
