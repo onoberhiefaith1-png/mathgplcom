@@ -94,7 +94,7 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
   }, [editor]);
 
   const items = useMemo(() => entries, [entries]);
-  if (!items.length) return null;
+  if (!items.length) return <div data-section-nav="empty" hidden />;
 
   return (
     <nav
