@@ -24,6 +24,10 @@ export interface Beat {
   reasoning?: string;
   sectionKind: SectionKind;
   fragments?: string[];
+  /** Objects belonging to this beat's session (tables, diagrams, charts, 3D).
+   *  Already filtered: geometry captured inside a Solution never appears here,
+   *  because the teacher displays those diagrams separately. */
+  objects?: SolutionObject[];
 }
 
 /** One solution line worth of guidance inside a reservoir — the answer key
