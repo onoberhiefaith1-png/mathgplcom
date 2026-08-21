@@ -97,7 +97,7 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
     level: number,
     explicitNumber: number | null,
     implicit: boolean,
-  ) => {
+  ): LessonSegment => {
     const next = (counters.get(kind) ?? 0) + 1;
     counters.set(kind, next);
     const ordinal = explicitNumber ?? next;
