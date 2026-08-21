@@ -9,6 +9,14 @@ import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { normEq } from "./rowAscii";
+import type { SolutionObject } from "@/lib/floating/solutionItems";
+import { boardObjects } from "@/lib/lessonnotes/lessonOutline";
+
+/** Objects stored on a block, filtered to what the student board may show. */
+const blockObjects = (block?: BlockRow | null): SolutionObject[] => {
+  const raw = (block as any)?.content_json?.objects;
+  return Array.isArray(raw) ? boardObjects(raw as SolutionObject[]) : [];
+};
 
 export type BeatKind =
   | "text"            // intro/explanation/summary — full block
