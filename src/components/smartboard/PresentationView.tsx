@@ -7087,6 +7087,7 @@ const BeatBlock = ({
             {beat.content}
           </SmartboardLessonText>
         </div>
+        <BeatObjects beat={beat} />
       </div>
     );
   }
