@@ -53,7 +53,7 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
         const o = readOutline(editor);
         const names: string[] = [];
         try { editor.state.doc.descendants((n) => { names.push(n.type.name); return true; }); } catch { /* debug */ }
-        (window as any).__outline = { n: o.length, names: names.slice(0, 40), size: editor.state.doc.content.size };
+        (window as any).__outline = names.slice(0, 60).join(",") + "|size=" + editor.state.doc.content.size;
         setEntries(o);
       });
     };
