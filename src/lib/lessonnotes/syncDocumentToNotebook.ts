@@ -158,10 +158,19 @@ async function writeBlocks(
   problem: string,
   solution: string,
   solutionObjects: SolutionObject[] = [],
+  problemObjects: SolutionObject[] = [],
 ): Promise<void> {
   await supabase.from("notebook_blocks").delete().eq("subsection_id", subsectionId);
   await supabase.from("notebook_blocks").insert([
-    { section_id: sectionId, subsection_id: subsectionId, kind: "problem" as any, order_index: 0, content_ascii: problem },
+    {
+      section_id: sectionId,
+      subsection_id: subsectionId,
+      kind: "problem" as any,
+      order_index: 0,
+      content_ascii: problem,
+      // Objects that belong to the QUESTION (tables, diagrams, charts, 3D).
+      content_json: (problemObjects.length ? { objects: problemObjects } : null) as any,
+    },
     {
       section_id: sectionId,
       subsection_id: subsectionId,
