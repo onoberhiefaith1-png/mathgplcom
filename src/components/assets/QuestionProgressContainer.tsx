@@ -176,6 +176,28 @@ export const QuestionProgressContainer = ({
     }));
   }, [id, CH_X, CH_Y, CH_W, CH_H]);
 
+  // Deterministic scatter: one pool, sliced by density × fill so the field
+  // grows with the liquid instead of being tied to question count.
+  const particles = useMemo(() => {
+    const seed = id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    const rand = (n: number) => {
+      const x = Math.sin(seed * 3.11 + n * 12.9898) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    return Array.from({ length: 90 }, (_, i) => ({
+      x: 0.06 + rand(i) * 0.88,
+      y: rand(i + 101) * 0.98,
+      dur: 1.1 + rand(i + 211) * 1.8,
+      delay: rand(i + 307) * 1.6,
+    }));
+  }, [id]);
+
+  const energyDensity = clamp01(energy?.density ?? 0.5);
+  const particleCount = energy?.path
+    ? Math.round(pct * (10 + energyDensity * 80))
+    : 0;
+  const particleSizePct = 10 * (energy?.scale ?? 1);
+
   const chXPct = ch.x1 * 100;
   const chWPct = (ch.x2 - ch.x1) * 100;
   const topPlateW = chWPct * 1.15;
