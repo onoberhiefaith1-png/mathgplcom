@@ -211,7 +211,7 @@ export function GeometryAiPanel() {
               onClick={apply}
               className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs px-3 py-2 rounded bg-primary text-primary-foreground"
             >
-              Apply Changes
+              Accept
             </button>
             <button
               type="button"
@@ -220,7 +220,7 @@ export function GeometryAiPanel() {
               className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded border border-foreground/20 hover:bg-foreground/5"
             >
               {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-              Regenerate
+              Edit again
             </button>
             <button
               type="button"
