@@ -134,6 +134,10 @@ export interface ProgressConfig {
   barType?: "liquid" | "segmented";
   /** selected Liquid Fill style (crystal vessel theme). */
   liquidStyleId?: string;
+  /** Liquid Fill only — teacher-chosen liquid colour (hex). */
+  liquidColor?: string;
+  /** Liquid Fill only — energy particle density 0..1 (defaults to 0.5). */
+  energyDensity?: number;
   /** built-in frame design id; when absent the element's own storagePath is used. */
   presetId?: string;
   /** marks the student must earn to fully charge the tower. */
