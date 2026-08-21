@@ -33,6 +33,17 @@ const THEMES: Record<CrystalTheme, ThemeTokens> = {
   gold:   { primary: "#ffc83a", light: "#fff4c2", deep: "#6e4500", glow: "#ffd96a", counter: "#fff8d6", frame: goldFrame.url },
 };
 
+/** A continuous energy field poured into the vessel with the liquid. */
+export interface LiquidEnergy {
+  path: string;
+  mediaType: MediaType;
+  source?: MediaSource;
+  /** particle size multiplier (1 = default). */
+  scale?: number;
+  /** 0..1 — how many particles fill the liquid region. */
+  density?: number;
+}
+
 interface Props {
   current: number;
   max: number;
@@ -40,10 +51,32 @@ interface Props {
   /** Pixel width, or "fill" to track the parent's width. */
   width?: number | "fill";
   hideProgressText?: boolean;
+  /** Teacher-chosen liquid colour; falls back to the style's palette. */
+  fillColor?: string;
+  /** Replaces the painted style frame (teacher's own uploaded artwork). */
+  frameSrc?: string;
+  /** When set, the filled region carries a continuous energy particle field. */
+  energy?: LiquidEnergy | null;
   className?: string;
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+const hexToRgb = (hex: string): [number, number, number] | null => {
+  let h = hex.replace("#", "").trim();
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length !== 6) return null;
+  const n = parseInt(h, 16);
+  if (Number.isNaN(n)) return null;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+
+const mix = (hex: string, target: number, amount: number): string => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const out = rgb.map((c) => Math.round(c + (target - c) * amount));
+  return `rgb(${out[0]},${out[1]},${out[2]})`;
+};
 
 export const QuestionProgressContainer = ({
   current,
@@ -51,9 +84,21 @@ export const QuestionProgressContainer = ({
   theme = "blue",
   width = 220,
   hideProgressText = false,
+  fillColor,
+  frameSrc,
+  energy = null,
   className,
 }: Props) => {
-  const t = THEMES[theme];
+  const base = THEMES[theme];
+  const t: ThemeTokens = fillColor
+    ? {
+        ...base,
+        primary: fillColor,
+        light: mix(fillColor, 255, 0.62),
+        deep: mix(fillColor, 0, 0.55),
+        glow: mix(fillColor, 255, 0.3),
+      }
+    : base;
   const ch = (chambers as Record<string, { x1: number; y1: number; x2: number; y2: number; w: number; h: number }>)[theme];
   const pct = max > 0 ? clamp01(current / max) : 0;
   const id = useMemo(() => Math.random().toString(36).slice(2, 9), []);
