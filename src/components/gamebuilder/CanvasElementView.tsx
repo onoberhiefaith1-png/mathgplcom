@@ -190,6 +190,23 @@ const CanvasElementView = ({
               theme={getLiquidStyle(element.progress.liquidStyleId).id}
               current={element.progress.currentMarks ?? 0}
               max={element.progress.totalMarks > 0 ? element.progress.totalMarks : 1}
+              fillColor={
+                (element.progress.fillStyle ?? "plain") === "plain"
+                  ? element.progress.liquidColor
+                  : undefined
+              }
+              frameSrc={element.progress.liquidStyleId ? undefined : element.storagePath || undefined}
+              energy={
+                element.progress.fillStyle === "effect" && element.progress.effectStoragePath
+                  ? {
+                      path: element.progress.effectStoragePath,
+                      mediaType: element.progress.effectMediaType ?? "image",
+                      source: element.progress.effectSource,
+                      scale: element.progress.effectScale ?? 1,
+                      density: element.progress.energyDensity ?? 0.5,
+                    }
+                  : null
+              }
             />
           ) : (
             <div
