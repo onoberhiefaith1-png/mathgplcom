@@ -54,10 +54,15 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
       });
     };
     refresh();
-    editor.on("update", refresh);
+    // "transaction" (not "update") so a programmatic setContent — how a saved
+    // note is loaded — also refreshes the outline.
+    editor.on("transaction", refresh);
     return () => {
-      editor.off("update", refresh);
+      editor.off("transaction", refresh);
+      // Clear the handle as well: a cancelled frame must never leave the
+      // scheduler "armed", or a remount would skip every future refresh.
       if (raf.current) window.cancelAnimationFrame(raf.current);
+      raf.current = 0;
     };
   }, [editor]);
 
