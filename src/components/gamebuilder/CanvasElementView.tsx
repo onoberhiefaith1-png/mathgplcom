@@ -195,7 +195,11 @@ const CanvasElementView = ({
                   ? element.progress.liquidColor
                   : undefined
               }
-              frameSrc={element.progress.liquidStyleId ? undefined : element.storagePath || undefined}
+              frameMedia={
+                element.progress.liquidStyleId || !element.storagePath
+                  ? null
+                  : { path: element.storagePath, mediaType: element.mediaType, source: element.source }
+              }
               energy={
                 element.progress.fillStyle === "effect" && element.progress.effectStoragePath
                   ? {

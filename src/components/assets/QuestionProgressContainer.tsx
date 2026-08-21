@@ -56,7 +56,7 @@ interface Props {
   /** Teacher-chosen liquid colour; falls back to the style's palette. */
   fillColor?: string;
   /** Replaces the painted style frame (teacher's own uploaded artwork). */
-  frameSrc?: string;
+  frameMedia?: { path: string; mediaType: MediaType; source?: MediaSource } | null;
   /** When set, the filled region carries a continuous energy particle field. */
   energy?: LiquidEnergy | null;
   className?: string;
@@ -87,7 +87,7 @@ export const QuestionProgressContainer = ({
   width = 220,
   hideProgressText = false,
   fillColor,
-  frameSrc,
+  frameMedia = null,
   energy = null,
   className,
 }: Props) => {
@@ -238,12 +238,22 @@ export const QuestionProgressContainer = ({
       role="img"
       aria-label={`Progress ${current} of ${max}`}
     >
-      <img
-        src={frameSrc || t.frame}
-        alt=""
-        draggable={false}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", userSelect: "none" }}
-      />
+      {frameMedia?.path ? (
+        <SignedMedia
+          path={frameMedia.path}
+          source={frameMedia.source}
+          mediaType={frameMedia.mediaType}
+          fit="contain"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+        />
+      ) : (
+        <img
+          src={t.frame}
+          alt=""
+          draggable={false}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", userSelect: "none" }}
+        />
+      )}
 
       <svg
         viewBox={`0 0 ${VB_W} ${VB_H}`}
