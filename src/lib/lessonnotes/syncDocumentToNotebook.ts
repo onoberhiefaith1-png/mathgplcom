@@ -332,13 +332,19 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
         await supabase.from("notebook_subsections").delete().in("id", target.subs.map((p) => p.id));
       }
       await supabase.from("notebook_blocks").delete().eq("section_id", sectionId).is("subsection_id", null);
-      if (sec.loose.length) {
+      if (sec.loose.length || sec.looseObjects.length) {
+        const texts = sec.loose.length ? sec.loose : [""];
         await supabase.from("notebook_blocks").insert(
-          sec.loose.map((text, k) => ({
+          texts.map((text, k) => ({
             section_id: sectionId,
             kind: "text" as any,
             order_index: k,
             content_ascii: text,
+            // Objects inside a non-question session (tables, diagrams, charts)
+            // travel with the session so the Smartboard can present them.
+            content_json: (k === 0 && sec.looseObjects.length
+              ? { objects: sec.looseObjects }
+              : null) as any,
           })),
         );
       }
