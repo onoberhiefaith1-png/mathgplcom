@@ -5,6 +5,8 @@ import purpleFrame from "@/assets/qpc/frame-purple.png.asset.json";
 import orangeFrame from "@/assets/qpc/frame-orange.png.asset.json";
 import goldFrame from "@/assets/qpc/frame-gold.png.asset.json";
 import chambers from "@/assets/qpc/chambers.json";
+import SignedMedia from "@/components/gamebuilder/SignedMedia";
+import type { MediaSource, MediaType } from "@/lib/games/types";
 
 /**
  * Question Progress Container — fantasy stone-and-crystal vessel. The outer
@@ -215,7 +217,7 @@ export const QuestionProgressContainer = ({
       aria-label={`Progress ${current} of ${max}`}
     >
       <img
-        src={t.frame}
+        src={frameSrc || t.frame}
         alt=""
         draggable={false}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", userSelect: "none" }}
