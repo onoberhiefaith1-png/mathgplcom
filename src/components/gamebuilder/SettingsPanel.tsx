@@ -497,7 +497,8 @@ const SettingsPanel = ({
 
           <Section title="Style">
             {barType === "liquid" ? (
-              <div className="grid grid-cols-3 gap-2">
+              <>
+                <div className="grid grid-cols-3 gap-2">
                 {LIQUID_STYLES.map((s) => {
                   const active = (progress.liquidStyleId ?? DEFAULT_LIQUID_STYLE) === s.id;
                   return (
@@ -508,7 +509,12 @@ const SettingsPanel = ({
                     </button>
                   );
                 })}
-              </div>
+                </div>
+                <button type="button" onClick={() => patchProgress({ liquidStyleId: undefined })}
+                  className={cn("w-full rounded-md border px-2 py-1.5 text-xs transition", !progress.liquidStyleId ? "border-primary bg-primary/20 text-foreground" : "border-border/50 text-muted-foreground hover:border-primary/50")}>
+                  Use my uploaded frame
+                </button>
+              </>
             ) : (
               <>
                 <div className="grid grid-cols-3 gap-2">
@@ -599,16 +605,28 @@ const SettingsPanel = ({
               ))}
             </div>
             {(progress.fillStyle ?? "plain") === "plain" && (
-              <Row label="Fill color">
-                <div className="flex items-center gap-2">
-                  <input type="color" value={progress.plainColor ?? "#8a5cff"} onChange={(e) => patchProgress({ plainColor: e.target.value })}
-                    className="h-8 w-12 cursor-pointer rounded-md border border-border/50 bg-transparent" />
-                  <Input value={progress.plainColor ?? "#8a5cff"} onChange={(e) => patchProgress({ plainColor: e.target.value })} className="h-8 flex-1" />
-                </div>
-              </Row>
+              barType === "liquid" ? (
+                <Row label="Liquid color">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={progress.liquidColor ?? "#3fb6ff"} onChange={(e) => patchProgress({ liquidColor: e.target.value })}
+                      className="h-8 w-12 cursor-pointer rounded-md border border-border/50 bg-transparent" />
+                    <Input value={progress.liquidColor ?? "#3fb6ff"} onChange={(e) => patchProgress({ liquidColor: e.target.value })} className="h-8 flex-1" />
+                  </div>
+                </Row>
+              ) : (
+                <Row label="Fill color">
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={progress.plainColor ?? "#8a5cff"} onChange={(e) => patchProgress({ plainColor: e.target.value })}
+                      className="h-8 w-12 cursor-pointer rounded-md border border-border/50 bg-transparent" />
+                    <Input value={progress.plainColor ?? "#8a5cff"} onChange={(e) => patchProgress({ plainColor: e.target.value })} className="h-8 flex-1" />
+                  </div>
+                </Row>
+              )
             )}
             <p className="text-[11px] text-muted-foreground">
-              Boxes always fill edge-to-edge with no gaps. Plain paints one solid color; Energy fills each lit slot with your uploaded effect.
+              {barType === "liquid"
+                ? "Plain paints the rising liquid in one colour; Energy fills the liquid region with a continuous field of your uploaded effect."
+                : "Boxes always fill edge-to-edge with no gaps. Plain paints one solid color; Energy fills each lit slot with your uploaded effect."}
             </p>
           </Section>
 
@@ -619,11 +637,18 @@ const SettingsPanel = ({
               </Button>
             )}
             <p className="text-[10px] text-muted-foreground/70">
-              A picked energy applies to all {progress.segments} slots by default — override any single slot below.
+              {barType === "liquid"
+                ? "The energy fills the liquid region as a continuous particle field — it rises and thickens with the marks, and never leaves the vessel."
+                : `A picked energy applies to all ${progress.segments} slots by default — override any single slot below.`}
             </p>
             <Row label={`Effect size (${Math.round((progress.effectScale ?? 1) * 100)}%)`}>
               <Slider min={50} max={250} step={5} value={[(progress.effectScale ?? 1) * 100]} onValueChange={([v]) => patchProgress({ effectScale: v / 100 })} />
             </Row>
+            {barType === "liquid" && (
+              <Row label={`Particle density (${Math.round((progress.energyDensity ?? 0.5) * 100)}%)`}>
+                <Slider min={5} max={100} step={5} value={[(progress.energyDensity ?? 0.5) * 100]} onValueChange={([v]) => patchProgress({ energyDensity: v / 100 })} />
+              </Row>
+            )}
             {effects.length === 0 ? (
               <p className="text-[11px] text-muted-foreground">No energy yet — tap the button above to upload or choose one.</p>
             ) : (
@@ -644,6 +669,7 @@ const SettingsPanel = ({
                     })}
                   </div>
                 </Row>
+                {barType === "segmented" && (
                 <Row label="Per-slot energy (overrides default)">
                   <div className="space-y-1.5">
                     {Array.from({ length: progress.segments }).map((_, i) => {
@@ -673,6 +699,7 @@ const SettingsPanel = ({
                     })}
                   </div>
                 </Row>
+                )}
               </>
             )}
           </Section>
