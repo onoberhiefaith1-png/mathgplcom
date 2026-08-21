@@ -71,6 +71,81 @@ export function detectSectionKind(text: string): SectionKind | null {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// STRUCTURAL RECOGNITION (deterministic — never AI, never loose matching)
+//
+// A session marker is a HEADING whose text IS the session name, optionally
+// numbered ("Example 2", "Solution 1:"). Ordinary content such as
+// "Introduction to cyclic quadrilaterals" or a paragraph that merely contains
+// the word "introduction" is NEVER a marker. Headings inserted from the
+// Section menu additionally carry a `sessionKind` stamp, which always wins.
+// ---------------------------------------------------------------------------
+
+/** Exact session names accepted as structural markers, longest first. */
+const STRUCTURAL_NAMES: Array<[string, SectionKind]> = [
+  ["worked solution", "solution"],
+  ["game questions", "game_questions"],
+  ["game question", "game_questions"],
+  ["introduction", "introduction"],
+  ["intro", "introduction"],
+  ["objectives", "objectives"],
+  ["objective", "objectives"],
+  ["explanation", "explanation"],
+  ["example", "example"],
+  ["exercise", "exercise"],
+  ["classwork", "classwork"],
+  ["class work", "classwork"],
+  ["homework", "homework"],
+  ["home work", "homework"],
+  ["assignment", "homework"],
+  ["assessment", "assessment"],
+  ["quiz", "assessment"],
+  ["test", "assessment"],
+  ["summary", "summary"],
+  ["conclusion", "summary"],
+  ["recap", "summary"],
+  ["solution", "solution"],
+];
+
+export interface StructuralHeading {
+  kind: SectionKind;
+  /** Number written on the heading itself ("Example 2" → 2), else null. */
+  number: number | null;
+  /** The heading's own text, trimmed. */
+  title: string;
+}
+
+/**
+ * Strict structural classification of a heading.
+ * Returns null for ordinary text and for descriptive headings.
+ */
+export function structuralHeadingKind(
+  text: string,
+  level: number,
+  attrs?: { sessionKind?: unknown } | null,
+): StructuralHeading | null {
+  const title = (text || "").trim();
+  const stamped = typeof attrs?.sessionKind === "string" ? attrs.sessionKind : "";
+  const numberOf = (s: string): number | null => {
+    const m = s.match(/(\d+)\s*[:.\-–]?\s*$/);
+    return m ? Number(m[1]) : null;
+  };
+  if (stamped && stamped in SECTION_LABELS) {
+    return { kind: stamped as SectionKind, number: numberOf(title), title };
+  }
+  if (!title || level > 3) return null;
+  // Normalise: strip trailing punctuation, collapse whitespace, lowercase.
+  const t = title.replace(/\s+/g, " ").replace(/[:.\-–—]+$/, "").trim().toLowerCase();
+  if (!t) return null;
+  for (const [name, kind] of STRUCTURAL_NAMES) {
+    if (t === name) return { kind, number: null, title };
+    // "example 2", "solution 1", "exercise no 3"
+    const m = t.match(new RegExp(`^${name}\\s*(?:no\\.?|number|#)?\\s*(\\d{1,3})$`));
+    if (m) return { kind, number: Number(m[1]), title };
+  }
+  return null;
+}
+
 /** Structural role of a heading inside a lesson note.
  *  - level 1 heading that is not a known section  → SUBTOPIC (structural)
  *  - level 2 heading that is not a known section  → custom session
