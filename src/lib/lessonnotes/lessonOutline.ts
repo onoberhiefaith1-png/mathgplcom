@@ -102,11 +102,15 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
     counters.set(kind, next);
     const ordinal = explicitNumber ?? next;
     const base = SECTION_LABELS[kind] ?? title;
+    // Repeatable sessions (and Solutions) always read "Example 1", "Solution 2"
+    // so the teacher and the Smartboard name the same segment identically.
+    const numbered = kind === "solution" || REPEATABLE_SECTION_KINDS.has(kind);
+    const label = numbered ? `${base} ${ordinal}` : base;
     const seg: LessonSegment = {
       kind,
       title: title || base,
       ordinal,
-      label: title || base,
+      label,
       index: segments.length,
       level,
       isSolution: kind === "solution",
