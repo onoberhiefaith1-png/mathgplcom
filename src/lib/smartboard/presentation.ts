@@ -251,12 +251,14 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
   for (const sec of sections) {
     if (sec.kind === "introduction" || sec.kind === "explanation" || sec.kind === "summary") {
       const text = sec.loose.map((b) => b.content_ascii).filter(Boolean).join("\n\n").trim();
-      if (text) {
+      const objects = sec.loose.flatMap((b) => blockObjects(b));
+      if (text || objects.length) {
         beats.push({
           id: `${sec.id}-text`,
           kind: "text",
           content: text,
           sectionKind: sec.kind,
+          objects,
         });
       }
       continue;
