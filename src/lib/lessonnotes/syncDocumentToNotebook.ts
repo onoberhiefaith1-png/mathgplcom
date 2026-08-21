@@ -12,14 +12,9 @@
 // the problem text stays the same.
 
 import { supabase } from "@/integrations/supabase/client";
-import { detectSectionKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
-import {
-  INLINE_OBJECT_TYPES,
-  familyLabel,
-  isObjectNodeType,
-  objectFamily,
-  type SolutionObject,
-} from "@/lib/floating/solutionItems";
+import { type SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import { buildLessonOutline, renderSegmentBody } from "@/lib/lessonnotes/lessonOutline";
+import { type SolutionObject } from "@/lib/floating/solutionItems";
 
 type Node = any;
 
@@ -42,190 +37,89 @@ const DB_KIND: Record<SectionKind, string> = {
   custom_session: "example",
 };
 
-/** Concatenate the visible text of a TipTap node, preserving math as their
- *  raw LaTeX value (so the floating-number extractor can read it). */
-function nodeText(node: Node): string {
-  if (!node) return "";
-  if (node.type === "text") return String(node.text ?? "");
-  if (node.type === "mathInline" || node.type === "mathBlock") {
-    return String(node.attrs?.value ?? "");
-  }
-  if (Array.isArray(node.content)) return node.content.map(nodeText).join("");
-  return "";
-}
-
-const isHeading = (n: Node, maxLevel = 6) =>
-  n?.type === "heading" && (n.attrs?.level ?? 6) <= maxLevel;
-
-const headingText = (n: Node) => nodeText(n).trim();
-
 /** A flattened section as understood by the Smartboard. */
 interface ParsedSection {
   kind: SectionKind;
   /** Used only for non-question sections. */
   loose: string[];
+  /** Objects (tables, diagrams, 3D scenes, charts) inside a non-question
+   *  session. They belong to the session and are presented with it. */
+  looseObjects: SolutionObject[];
   /** Used only for question kinds. */
-  subsections: { problem: string; solution: string; solutionObjects: SolutionObject[] }[];
+  subsections: {
+    problem: string;
+    solution: string;
+    solutionObjects: SolutionObject[];
+    /** Objects that belong to the QUESTION itself (not its solution). */
+    problemObjects: SolutionObject[];
+  }[];
 }
 
 /** Normalize a problem string for matching across edits (case/whitespace). */
 const normalizeProblem = (s: string): string =>
   String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 
-/** Collect inline object nodes (asset-library visuals) nested inside a block. */
-function collectInlineObjects(node: Node, out: Node[]): void {
-  if (!node || typeof node !== "object") return;
-  if (INLINE_OBJECT_TYPES.has(String(node.type))) { out.push(node); return; }
-  if (Array.isArray(node.content)) for (const c of node.content) collectInlineObjects(c, out);
-}
 
-/** Render a contiguous run of body nodes into plain text (paragraph per line)
- *  PLUS the ordered list of non-text objects (tables, diagrams, charts, 3D
- *  scenes, …) found inside it. Objects are never flattened away. */
-function renderBodyRich(nodes: Node[]): { text: string; objects: SolutionObject[] } {
-  const lines: string[] = [];
-  const objects: SolutionObject[] = [];
-  const counters = new Map<string, number>();
-
-  const pushObject = (n: Node) => {
-    const nodeType = String(n?.type ?? "");
-    if (!nodeType) return;
-    const attrs = (n?.attrs && typeof n.attrs === "object") ? n.attrs : {};
-    const idx = counters.get(nodeType) ?? 0;
-    counters.set(nodeType, idx + 1);
-    const family = objectFamily(nodeType, attrs);
-    objects.push({
-      objId: `${nodeType}#${idx}`,
-      nodeType,
-      family,
-      label: familyLabel(family),
-      attrs,
-      afterLine: lines.length,
-      inline: INLINE_OBJECT_TYPES.has(nodeType),
-    });
-  };
-
-  for (const n of nodes) {
-    if (!n) continue;
-    if (isObjectNodeType(n.type)) { pushObject(n); continue; }
-    const t = nodeText(n).trim();
-    if (t) lines.push(t);
-    const inlineObjs: Node[] = [];
-    collectInlineObjects(n, inlineObjs);
-    for (const o of inlineObjs) pushObject(o);
-  }
-  return { text: lines.join("\n").trim(), objects };
-}
-
-/** Text-only view, for section bodies that have no object support. */
-function renderBody(nodes: Node[]): string {
-  return renderBodyRich(nodes).text;
-}
-
-
-/** Split a question section's body into one subsection per H3 "Solution"
- *  boundary. Any H3 whose text matches another section kind starts a NEW
- *  subsection (e.g. "Example 2").
+/**
+ * Parse a TipTap document into the Smartboard structure.
  *
- *  EVERY QUESTION SECTION OWNS AT LEAST ONE SUBSECTION. A freshly inserted
- *  Example has an empty question and an empty Solution; it must still get a
- *  row so the Floating Numbers workspace can be opened (blank) right away
- *  instead of reporting "not ready". */
-function splitQuestionBody(nodes: Node[]): { problem: string; solution: string; solutionObjects: SolutionObject[] }[] {
-  const out: { problem: string; solution: string; solutionObjects: SolutionObject[] }[] = [];
-  let problemBuf: Node[] = [];
-  let solutionBuf: Node[] = [];
-  let mode: "problem" | "solution" = "problem";
-  let sawSolutionHeading = false;
-
-  const flush = () => {
-    const problem = renderBody(problemBuf);
-    const sol = renderBodyRich(solutionBuf);
-    if (problem || sol.text || sol.objects.length || sawSolutionHeading) {
-      out.push({ problem, solution: sol.text, solutionObjects: sol.objects });
-    }
-    problemBuf = [];
-    solutionBuf = [];
-    mode = "problem";
-    sawSolutionHeading = false;
-  };
-
-  for (const n of nodes) {
-    if (isHeading(n, 3)) {
-      const t = headingText(n).toLowerCase();
-      if (t.startsWith("solution") || t.includes("worked solution")) {
-        mode = "solution";
-        sawSolutionHeading = true;
-        continue;
-      }
-      // Numbered subsection marker like "Example 2" → start a new subsection.
-      if (/\b(example|exercise|classwork|homework|question|q)\s*\d/i.test(t)) {
-        flush();
-        continue;
-      }
-      // Some other H3 — fold the heading text into the current buffer.
-    }
-    if (mode === "problem") problemBuf.push(n);
-    else solutionBuf.push(n);
-  }
-  flush();
-  // Section with nothing in it at all still gets one empty slot.
-  if (out.length === 0) out.push({ problem: "", solution: "", solutionObjects: [] });
-  return out;
-}
-
-
-// Free-positioned Master Sensor frames are pure containers: the headings,
-// questions and solutions inside them are real document content and must be
-// parsed exactly like top-level nodes, otherwise the Floating Numbers page
-// finds no solution for anything written inside a frame.
-const CONTAINER_TYPES = new Set(["canvasFrame", "pageFrame", "canvasLayer"]);
-
-const flattenContainers = (nodes: Node[]): Node[] => {
-  const out: Node[] = [];
-  for (const n of nodes) {
-    if (n && CONTAINER_TYPES.has((n as any).type) && Array.isArray((n as any).content)) {
-      out.push(...flattenContainers((n as any).content as Node[]));
-    } else if (n) {
-      out.push(n);
-    }
-  }
-  return out;
-};
-
-/** Parse a TipTap document into the Smartboard structure. */
+ * SEGMENTATION IS DETERMINISTIC and comes from `buildLessonOutline`: each
+ * structural session heading opens a segment which ends at the line before the
+ * next structural heading. A `Solution N` segment is folded into the question
+ * segment immediately above it, which is what keeps Solution 1 attached to
+ * Example 1 and Solution 2 to Example 2 no matter what is inserted between
+ * them. No AI, no line numbers, no guessing from ordinary paragraph text.
+ */
 export function parseDocumentToSections(doc: any): ParsedSection[] {
-  const content: Node[] = flattenContainers(Array.isArray(doc?.content) ? doc.content : []);
-  const sections: { kind: SectionKind; body: Node[] }[] = [];
-  let current: { kind: SectionKind; body: Node[] } | null = null;
+  const segments = buildLessonOutline(doc);
+  const out: ParsedSection[] = [];
+  let lastQuestion: ParsedSection | null = null;
 
-  for (const node of content) {
-    if (isHeading(node, 2)) {
-      const k = detectSectionKind(headingText(node));
-      if (k && k !== "solution") {
-        current = { kind: k, body: [] };
-        sections.push(current);
+  for (const seg of segments) {
+    if (seg.kind === "solution") {
+      const body = renderSegmentBody(seg.nodes, true);
+      const host = lastQuestion?.subsections[lastQuestion.subsections.length - 1];
+      if (host) {
+        host.solution = [host.solution, body.text].filter(Boolean).join("\n");
+        host.solutionObjects = [...host.solutionObjects, ...body.objects];
         continue;
       }
-      // H1/H2 with unrecognised text → keep it inside the current section.
+      // Orphan solution (no question above it): keep it as readable content.
+      out.push({ kind: "explanation", loose: body.text ? [body.text] : [], looseObjects: body.objects, subsections: [] });
+      continue;
     }
-    if (!current) {
-      // Preamble before the first recognised heading goes into an implicit
-      // explanation section so nothing is silently dropped.
-      current = { kind: "explanation", body: [] };
-      sections.push(current);
+
+    if (isQuestionKind(seg.kind)) {
+      // EVERY question segment owns exactly one subsection, even when empty,
+      // so the Floating workspace can always be opened for it.
+      const body = renderSegmentBody(seg.nodes, false);
+      const section: ParsedSection = {
+        kind: seg.kind,
+        loose: [],
+        looseObjects: [],
+        subsections: [{
+          problem: body.text,
+          solution: "",
+          solutionObjects: [],
+          problemObjects: body.objects,
+        }],
+      };
+      out.push(section);
+      lastQuestion = section;
+      continue;
     }
-    current.body.push(node);
+
+    const body = renderSegmentBody(seg.nodes, false);
+    out.push({
+      kind: seg.kind,
+      loose: body.text ? [body.text] : [],
+      looseObjects: body.objects,
+      subsections: [],
+    });
+    lastQuestion = null;
   }
 
-  return sections.map((s) => {
-    if (isQuestionKind(s.kind)) {
-      const subs = splitQuestionBody(s.body);
-      return { kind: s.kind, loose: [], subsections: subs };
-    }
-    const text = renderBody(s.body);
-    return { kind: s.kind, loose: text ? [text] : [], subsections: [] };
-  });
+  return out;
 }
 
 /** Reconcile the legacy section/subsection/block rows for `notebookId` with
@@ -264,10 +158,19 @@ async function writeBlocks(
   problem: string,
   solution: string,
   solutionObjects: SolutionObject[] = [],
+  problemObjects: SolutionObject[] = [],
 ): Promise<void> {
   await supabase.from("notebook_blocks").delete().eq("subsection_id", subsectionId);
   await supabase.from("notebook_blocks").insert([
-    { section_id: sectionId, subsection_id: subsectionId, kind: "problem" as any, order_index: 0, content_ascii: problem },
+    {
+      section_id: sectionId,
+      subsection_id: subsectionId,
+      kind: "problem" as any,
+      order_index: 0,
+      content_ascii: problem,
+      // Objects that belong to the QUESTION (tables, diagrams, charts, 3D).
+      content_json: (problemObjects.length ? { objects: problemObjects } : null) as any,
+    },
     {
       section_id: sectionId,
       subsection_id: subsectionId,
@@ -395,7 +298,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
       }
 
       for (let j = 0; j < sec.subsections.length; j++) {
-        const { problem, solution, solutionObjects } = sec.subsections[j];
+        const { problem, solution, solutionObjects, problemObjects } = sec.subsections[j];
         let subId = claimed[j]?.id ?? null;
         if (subId) {
           if ((claimed[j] as ExistingSub).order_index !== j) {
@@ -416,7 +319,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
           if (!subRow) continue;
           subId = subRow.id as string;
         }
-        await writeBlocks(sectionId, subId, problem, solution, solutionObjects ?? []);
+        await writeBlocks(sectionId, subId, problem, solution, solutionObjects ?? [], problemObjects ?? []);
       }
 
       // Subsections the teacher genuinely deleted.
@@ -429,13 +332,19 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
         await supabase.from("notebook_subsections").delete().in("id", target.subs.map((p) => p.id));
       }
       await supabase.from("notebook_blocks").delete().eq("section_id", sectionId).is("subsection_id", null);
-      if (sec.loose.length) {
+      if (sec.loose.length || sec.looseObjects.length) {
+        const texts = sec.loose.length ? sec.loose : [""];
         await supabase.from("notebook_blocks").insert(
-          sec.loose.map((text, k) => ({
+          texts.map((text, k) => ({
             section_id: sectionId,
             kind: "text" as any,
             order_index: k,
             content_ascii: text,
+            // Objects inside a non-question session (tables, diagrams, charts)
+            // travel with the session so the Smartboard can present them.
+            content_json: (k === 0 && sec.looseObjects.length
+              ? { objects: sec.looseObjects }
+              : null) as any,
           })),
         );
       }

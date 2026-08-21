@@ -9,6 +9,14 @@ import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { normEq } from "./rowAscii";
+import type { SolutionObject } from "@/lib/floating/solutionItems";
+import { boardObjects } from "@/lib/lessonnotes/lessonOutline";
+
+/** Objects stored on a block, filtered to what the student board may show. */
+const blockObjects = (block?: BlockRow | null): SolutionObject[] => {
+  const raw = (block as any)?.content_json?.objects;
+  return Array.isArray(raw) ? boardObjects(raw as SolutionObject[]) : [];
+};
 
 export type BeatKind =
   | "text"            // intro/explanation/summary — full block
@@ -24,6 +32,10 @@ export interface Beat {
   reasoning?: string;
   sectionKind: SectionKind;
   fragments?: string[];
+  /** Objects belonging to this beat's session (tables, diagrams, charts, 3D).
+   *  Already filtered: geometry captured inside a Solution never appears here,
+   *  because the teacher displays those diagrams separately. */
+  objects?: SolutionObject[];
 }
 
 /** One solution line worth of guidance inside a reservoir — the answer key
@@ -239,12 +251,14 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
   for (const sec of sections) {
     if (sec.kind === "introduction" || sec.kind === "explanation" || sec.kind === "summary") {
       const text = sec.loose.map((b) => b.content_ascii).filter(Boolean).join("\n\n").trim();
-      if (text) {
+      const objects = sec.loose.flatMap((b) => blockObjects(b));
+      if (text || objects.length) {
         beats.push({
           id: `${sec.id}-text`,
           kind: "text",
           content: text,
           sectionKind: sec.kind,
+          objects,
         });
       }
       continue;
@@ -296,6 +310,9 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
           content: problem,
           sectionKind: sec.kind,
           fragments,
+          // Objects the QUESTION owns (a table, a chart, a question diagram).
+          // Solution diagrams are deliberately absent — see blockObjects().
+          objects: blockObjects(problemBlock),
         });
       }
     }
