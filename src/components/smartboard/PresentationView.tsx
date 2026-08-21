@@ -7127,6 +7127,7 @@ const BeatBlock = ({
             {beat.content}
           </SmartboardLessonText>
         </div>
+        <BeatObjects beat={beat} />
         {/* Auto-write the "Solution" header beneath the question, then stop.
             The teacher solves the rest by hand using the carrier. */}
         <div
