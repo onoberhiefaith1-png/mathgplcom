@@ -310,6 +310,9 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
           content: problem,
           sectionKind: sec.kind,
           fragments,
+          // Objects the QUESTION owns (a table, a chart, a question diagram).
+          // Solution diagrams are deliberately absent — see blockObjects().
+          objects: blockObjects(problemBlock),
         });
       }
     }
