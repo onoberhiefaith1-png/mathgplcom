@@ -16,6 +16,7 @@
 //  - NO AI is involved. This is pure editor state.
 
 import {
+  REPEATABLE_SECTION_KINDS,
   SECTION_LABELS,
   structuralHeadingKind,
   type SectionKind,
