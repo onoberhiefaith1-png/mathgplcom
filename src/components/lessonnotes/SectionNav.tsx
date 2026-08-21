@@ -51,7 +51,9 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
       raf.current = window.requestAnimationFrame(() => {
         raf.current = 0;
         const o = readOutline(editor);
-        (window as any).__outline = { n: o.length, editor: !!editor };
+        const names: string[] = [];
+        try { editor.state.doc.descendants((n) => { names.push(n.type.name); return true; }); } catch { /* debug */ }
+        (window as any).__outline = { n: o.length, names: names.slice(0, 40), size: editor.state.doc.content.size };
         setEntries(o);
       });
     };
