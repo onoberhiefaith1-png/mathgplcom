@@ -343,6 +343,13 @@
   max-width: 100%;
   height: auto;
 }
+/* Projected diagrams stay legible but never swallow the lesson text. */
+.sb-board-object svg,
+.sb-board-object canvas,
+.sb-board-object img {
+  max-height: 60vh;
+}
+
 .sb-board-object [data-scene3d-wrapper="true"] {
   max-width: 100%;
 }
