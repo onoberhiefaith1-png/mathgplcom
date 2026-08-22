@@ -200,3 +200,39 @@ export const readSolutionObjects = (contentJson: any): SolutionObject[] => {
   }
   return out;
 };
+
+/** NOTE-ATTACHMENT LAW (diagrams).
+ *
+ *  A diagram is Notes-layer content: it can never be highlighted and never
+ *  becomes a Floating Number. Instead it rides the NOTE of the entry ABOVE it,
+ *  exactly like unhighlighted prose. A diagram that precedes every entry has no
+ *  parent, so it becomes a standalone note-only entry.
+ *
+ *  `entries` must be in document order and expose their document position.
+ *  The caller decides what a "leading" entry looks like — this helper only
+ *  reports the assignment. */
+export const assignNoteObjects = <T,>(
+  entries: Array<{ entry: T; pos: number }>,
+  objects: SolutionObject[],
+): { byIndex: Map<number, SolutionObject[]>; leading: SolutionObject[] } => {
+  const byIndex = new Map<number, SolutionObject[]>();
+  const leading: SolutionObject[] = [];
+  const noteObjects = (objects ?? [])
+    .filter((o) => !isFloatableObject(o))
+    .sort((a, b) => a.afterLine - b.afterLine);
+  for (const object of noteObjects) {
+    // The object sits immediately BEFORE its `afterLine`.
+    const pos = object.afterLine - 0.5;
+    let owner = -1;
+    for (let i = 0; i < entries.length; i++) {
+      if (entries[i].pos <= pos) owner = i;
+      else break;
+    }
+    if (owner < 0) {
+      leading.push(object);
+      continue;
+    }
+    byIndex.set(owner, [...(byIndex.get(owner) ?? []), object]);
+  }
+  return { byIndex, leading };
+};
