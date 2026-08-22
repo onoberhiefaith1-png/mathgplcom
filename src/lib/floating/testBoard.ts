@@ -26,7 +26,10 @@ export interface FloatingTestBoard {
   question: QuestionPayload;
   total: number;
   title: string;
+  /** Fresh per entry — every open is a brand new, disposable sitting. */
+  sittingId: string;
 }
+
 
 const code = () => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
