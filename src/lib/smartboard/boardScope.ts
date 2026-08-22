@@ -54,3 +54,25 @@ export const buildBoardScope = (input: BoardScopeInput): string => {
 /** Namespaced localStorage key for one board-content bucket. */
 export const boardKey = (bucket: string, scope: string): string =>
   `smartboard:${bucket}:${scope}`;
+
+/**
+ * Drop every cached bucket belonging to ONE board scope.
+ *
+ * Only temporary board content is removed — lesson notes, questions,
+ * solutions, floating-number configurations and diagrams live in the database
+ * and are never touched here.
+ */
+export const clearBoardScope = (scope: string): void => {
+  if (typeof window === "undefined") return;
+  try {
+    const suffix = `:${scope}`;
+    const doomed: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.startsWith("smartboard:") && key.endsWith(suffix)) doomed.push(key);
+    }
+    for (const key of doomed) window.localStorage.removeItem(key);
+  } catch {
+    /* private mode / quota — a fresh board is still rendered */
+  }
+};
