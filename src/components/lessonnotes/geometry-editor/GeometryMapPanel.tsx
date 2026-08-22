@@ -19,6 +19,8 @@ import {
   type GeometryMapDoc, type GeometryMapItem,
 } from "@/lib/geometry/map/model";
 import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
+import { PropertyComposer } from "./PropertyComposer";
+
 
 interface Props {
   scene: GeometryScene;
