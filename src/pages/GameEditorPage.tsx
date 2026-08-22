@@ -30,6 +30,7 @@ import {
   Plus,
   Radio,
   Sliders,
+  Timer,
   TowerControl,
   Trophy,
   Video,
@@ -67,6 +68,7 @@ import {
   adventureModeOf,
   adventureModeLabel,
   nextBarRole,
+  roleOf,
   LEARNING_BAR_LABEL,
   TIME_BAR_LABEL,
   type AdventureMode,
@@ -742,12 +744,17 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
   //
   // Every Scene / Learning Point owns exactly two bars: the system-owned Time
   // Progress Bar and the Learning Progress Bar that carries the questions.
-  const addProgressTower = useCallback(() => {
-    const role = nextBarRole(elements);
+  const addProgressTower = useCallback((wanted?: BarRole) => {
+    const free = nextBarRole(elements);
+    const taken = wanted ? elements.some((e) => e.kind === "progress_bar" && roleOf(e) === wanted) : false;
+    const role = wanted && !taken ? wanted : wanted ? null : free;
     if (!role) {
       toast({
-        title: "Both Progress Bars already exist",
-        description: `Each Scene has one ${TIME_BAR_LABEL} and one ${LEARNING_BAR_LABEL}. Select one to edit it.`,
+        title: wanted === "time" ? "This Scene already has a Timer" : "Both Progress Bars already exist",
+        description:
+          wanted === "time"
+            ? `Each Scene has one ${TIME_BAR_LABEL}. Select it on the stage to edit its duration and display.`
+            : `Each Scene has one ${TIME_BAR_LABEL} and one ${LEARNING_BAR_LABEL}. Select one to edit it.`,
       });
       return;
     }
@@ -770,7 +777,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
       animation: defaultAnimation(),
       progress: {
         role,
-        ...(role === "time" ? { timeDurationSeconds: 300 } : {}),
+        ...(role === "time" ? { timeDurationSeconds: 300, timerDisplay: "segmented" as const } : {}),
         segments: 10,
         presetId: DEFAULT_PRESET_ID,
         totalMarks: 400,
@@ -865,7 +872,7 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
         animation: defaultAnimation(),
         progress: {
           role,
-          ...(role === "time" ? { timeDurationSeconds: 300 } : {}),
+          ...(role === "time" ? { timeDurationSeconds: 300, timerDisplay: "segmented" as const } : {}),
           segments: 10,
           presetId,
           totalMarks: 400,
@@ -1907,8 +1914,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                 </Button>
               );
             })}
-            <Button size="sm" className={cmpBtn} variant="secondary" onClick={addProgressTower}>
+            <Button size="sm" className={cmpBtn} variant="secondary" onClick={() => addProgressTower("learning")}>
               <TowerControl className={cmpIcon} /> Progress Bar
+            </Button>
+            <Button size="sm" className={cmpBtn} variant="secondary" onClick={() => addProgressTower("time")}>
+              <Timer className={cmpIcon} /> Timer
             </Button>
             <Button size="sm" className={cmpBtn} onClick={() => openAsset("effect")}>
               <Layers className={cmpIcon} /> Add Effect
