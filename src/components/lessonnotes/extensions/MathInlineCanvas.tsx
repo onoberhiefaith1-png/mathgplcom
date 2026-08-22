@@ -461,7 +461,7 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 
 export function MathInlineCanvas({
   root, onChange, onBlur, focused, onFocus, entryPoint, entryCursor,
-  onExitLeft, onExitRight, onInsertObjectAsset,
+  onExitLeft, onExitRight, onInsertObjectAsset, insertRequest,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>(
     () => entryCursor ?? { path: [], index: root.length },
