@@ -66,7 +66,11 @@ export interface FloatingLine {
   marks?: number;
   /** Set when this line was generated from a highlighted table workspace. */
   table?: FloatingTableRef;
+  /** Notes-layer objects (diagrams) that belong to this line's NOTE. Never
+   *  highlightable, never chips — lesson content that travels with the note. */
+  noteObjects?: unknown[];
 }
+
 
 export type ScoringMode = "equal" | "individual";
 

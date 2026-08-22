@@ -105,7 +105,7 @@ import {
   floatingWriteNote,
   type FloatingChannelHost,
 } from "@/lib/smartboard/boardWriter/floatingChannel";
-import { noteForLine } from "@/lib/smartboard/boardWriter/noteSource";
+import { noteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
@@ -146,6 +146,7 @@ import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2, LayoutGrid
 import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
+import type { SolutionObject } from "@/lib/floating/solutionItems";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -689,6 +690,9 @@ const PresentationView = ({
   // stepping through guided lines. Reset whenever the active example changes
   // (handled alongside other per-example state below).
   const [notebookRowLines, setNotebookRowLines] = useState<Set<number>>(() => new Set());
+  /** Notes-layer objects (diagrams) currently revealed with a teaching note.
+   *  Session-only: pressing the note icon shows them, closing hides them. */
+  const [revealedNoteObjects, setRevealedNoteObjects] = useState<SolutionObject[]>([]);
   // Live snapshot for the Board Writer channels (read at write time).
   const notebookRowLinesRef = useRef<Set<number>>(new Set());
   notebookRowLinesRef.current = notebookRowLines;
@@ -5930,6 +5934,13 @@ const PresentationView = ({
             const currentNotebookPending = !noteGateOpen(curLineIdx);
             const revealNotebookText =
               notebookRevealIdx != null ? notebookFor(notebookRevealIdx) : currentNotebookText;
+            // DIAGRAM LAW: diagrams are note content. They ride the note of the
+            // line above them and appear when the teacher opens that note.
+            const noteObjectsFor = (k: number): SolutionObject[] =>
+              noteObjectsForLine<SolutionObject>(
+                guidedLines[k] as { noteObjects?: SolutionObject[] } | undefined,
+              );
+            const revealNoteObjects = noteObjectsFor(notebookRevealIdx ?? curLineIdx);
             const markCurrentNotebookRead = () => {
               const k = notebookRevealIdx ?? curLineIdx;
               setShownNotebookIdx((prev) => {
@@ -6023,6 +6034,8 @@ const PresentationView = ({
                   onPrevLine={goPrev}
                   onNextLine={goNext}
                   notebookText={revealNotebookText}
+                  noteObjectCount={revealNoteObjects.length}
+                  onShowNoteObjects={() => setRevealedNoteObjects(revealNoteObjects)}
                   onWriteNotebookToBoard={(text) => {
                     // Same direct note channel the Presenter Preview uses:
                     // anchors under the line's own board row, writes (or
@@ -6040,6 +6053,29 @@ const PresentationView = ({
                   placeholderColor={placeholderColor}
                 />
 
+                {revealedNoteObjects.length > 0 && (
+                  <div className="pointer-events-auto fixed bottom-24 right-6 z-[95] max-h-[70vh] w-[42vw] max-w-[720px] overflow-auto rounded-2xl border border-black/10 bg-white/95 p-4 shadow-2xl">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-black/60">
+                        Lesson note
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRevealedNoteObjects([])}
+                        className="rounded-md border border-black/10 px-2 py-1 text-xs text-black/70"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    <div className="space-y-6">
+                      {revealedNoteObjects.map((o) => (
+                        <div key={o.objId} className="lesson-doc sb-board-object w-full max-w-full">
+                          <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <StructurePanel
                   chromeFg={palette.chromeFg}

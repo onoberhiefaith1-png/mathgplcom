@@ -27,7 +27,8 @@ import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditP
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
-import { readSolutionObjects, isFloatableObject } from "@/lib/floating/solutionItems";
+import { readSolutionObjects, isFloatableObject, type SolutionObject } from "@/lib/floating/solutionItems";
+import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import TableWorkspace from "@/components/floating/TableWorkspace";
 import { useArchivedFeature } from "@/hooks/useArchivedFeature";
 import FloatingArchivePanel, { type ArchivedVersion } from "@/components/floating/FloatingArchivePanel";
@@ -104,6 +105,25 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
   };
 };
 
+
+/** Read-only note content: a diagram belongs to the Notes layer, so it is
+ *  shown for context and can never be highlighted or turned into a chip. */
+const NoteObjectCard = ({ objects }: { objects: SolutionObject[] }) => {
+  if (!objects.length) return null;
+  return (
+    <div className="my-2 space-y-3 rounded-lg border border-dashed border-border/70 bg-muted/30 p-3">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
+        Note content · not highlightable
+      </div>
+      {objects.map((o) => (
+        <div key={o.objId} className="lesson-doc w-full max-w-full overflow-auto">
+          <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} />
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const FloatingNumbersPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
   const navigate = useNavigate();
@@ -121,6 +141,8 @@ const FloatingNumbersPage = () => {
   const [fromHighlights, setFromHighlights] = useState(false);
   /* Highlight stream (text lines + table workspaces), in document order. */
   const [entries, setEntries] = useState<Entry[]>([]);
+  /** Diagrams that sit ABOVE every highlight — note-only lesson content. */
+  const [leadingNoteObjects, setLeadingNoteObjects] = useState<SolutionObject[]>([]);
   /* Table workspace UI state — which table is in Retention mode, and which
      manual line is currently collecting cell clicks. */
   const [retentionTable, setRetentionTable] = useState<string | null>(null);
@@ -531,7 +553,7 @@ const FloatingNumbersPage = () => {
       });
 
       const highlights = (ss as any).floating_highlights as
-        | { groupId: number; payload: string; notebookOnly?: boolean; object?: any }[] | null;
+        | { groupId: number; payload: string; notebookOnly?: boolean; object?: any; noteObjects?: any }[] | null;
       const persisted = (ss as any).floating_lines as FloatingLine[] | null;
 
       const savedScoring = (ss as any).floating_scoring as FloatingScoring | null;
@@ -542,9 +564,25 @@ const FloatingNumbersPage = () => {
       // Highlight stream, in document order. Text highlights become one
       // Floating Number line each; a highlighted TABLE becomes a workspace
       // that can own many lines. Non-table objects (diagrams) stay skipped.
-      const ordered = Array.isArray(highlights)
-        ? highlights.filter((h) => !h.notebookOnly)
-        : [];
+      // DIAGRAM LAW: diagrams are NOTE content. They never become rows of
+      // their own — each one rides the note of the entry above it, and any
+      // diagram above every entry is shown on its own as note-only content.
+      const readNoteObjs = (raw: any): SolutionObject[] =>
+        readSolutionObjects({ objects: Array.isArray(raw) ? raw : [] })
+          .filter((o) => !isFloatableObject(o));
+      const allHighlights = Array.isArray(highlights) ? highlights : [];
+      setLeadingNoteObjects(
+        allHighlights
+          .filter((h) => h.notebookOnly)
+          .flatMap((h) => readNoteObjs((h as any).noteObjects)),
+      );
+      const noteObjByPayload = new Map<string, SolutionObject[]>();
+      for (const h of allHighlights) {
+        if (h.notebookOnly) continue;
+        const objs = readNoteObjs((h as any).noteObjects);
+        if (objs.length) noteObjByPayload.set(String(h.payload ?? ""), objs);
+      }
+      const ordered = allHighlights.filter((h) => !h.notebookOnly);
       const seq: Entry[] = [];
       for (const h of ordered) {
         const obj = (h as any).object;
@@ -613,11 +651,16 @@ const FloatingNumbersPage = () => {
           if (idx < 0 && hi < persistedList.length && !used.has(hi)) {
             idx = hi;
           }
+          const noteObjs = noteObjByPayload.get(payload);
           if (idx >= 0) {
             used.add(idx);
             // Lock the equation to the permanent highlight payload while keeping
             // the persisted fillers + selection state.
-            reconciled.push({ ...persistedList[idx], equation: payload });
+            reconciled.push({
+              ...persistedList[idx],
+              equation: payload,
+              noteObjects: noteObjs,
+            });
             continue;
           }
           reconciled.push({
@@ -626,6 +669,7 @@ const FloatingNumbersPage = () => {
             fillers: [],
             containers: [],
             arrangement: [],
+            noteObjects: noteObjs,
           });
         }
         setLines(reconciled);
@@ -1406,6 +1450,7 @@ const FloatingNumbersPage = () => {
             </div>
           ) : (
             <div className="space-y-1" ref={workspaceRef}>
+              <NoteObjectCard objects={leadingNoteObjects} />
               {groups.map((g) => {
                 const renderLine = (l: FloatingLine, i: number) => {
                   const isSelected = l.lineId === selectedLineId;
@@ -1430,6 +1475,9 @@ const FloatingNumbersPage = () => {
                           dirtyRef.current = true;
                           setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
                         }}
+                      />
+                      <NoteObjectCard
+                        objects={((l.noteObjects ?? []) as SolutionObject[])}
                       />
                     </div>
                   );

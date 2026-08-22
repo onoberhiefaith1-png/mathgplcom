@@ -33,6 +33,7 @@ import {
   familyLabel,
   readSolutionObjects,
   isFloatableObject,
+  assignNoteObjects,
   type SolutionObject,
 } from "@/lib/floating/solutionItems";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
@@ -51,7 +52,11 @@ interface Highlight {
   /** Set when the highlight is a whole object (table, diagram, chart, …)
    *  rather than a run of text tokens. */
   object?: SolutionObject;
+  /** Notes-layer objects (diagrams) that belong to THIS entry's note. They are
+   *  never highlightable and never become floating numbers. */
+  noteObjects?: SolutionObject[];
 }
+
 interface Snapshot { highlights: Highlight[]; nextId: number }
 
 export const restorePersistedHighlights = (
@@ -203,7 +208,11 @@ const firstLineOf = (h: Highlight): number => {
   return h.tokens.length ? Math.min(...h.tokens.map((t) => t.line)) : Number.MAX_SAFE_INTEGER;
 };
 
-const orderedHighlights = (source: Highlight[], lines: string[]) => {
+const orderedHighlights = (
+  source: Highlight[],
+  lines: string[],
+  allObjects: SolutionObject[] = [],
+) => {
   // Text highlights keep the existing notebook-checkpoint behaviour untouched.
   const textOnly = source.filter((h) => !h.object);
   const objects = source.filter((h) => !!h.object);
@@ -212,15 +221,36 @@ const orderedHighlights = (source: Highlight[], lines: string[]) => {
     .map((h, i) => ({ h, i, pos: firstLineOf(h) }))
     .sort((a, b) => (a.pos - b.pos) || (a.i - b.i))
     .map(({ h }) => h);
-  return merged.map((h, i) => ({
+  // DIAGRAM LAW: diagrams never become rows of their own. Each one rides the
+  // NOTE of the entry above it; a diagram above everything becomes its own
+  // standalone note-only entry (no floating number).
+  const positioned = merged.map((h) => ({ entry: h, pos: firstLineOf(h) }));
+  const { byIndex, leading } = assignNoteObjects(positioned, allObjects);
+  const withObjects: Highlight[] = merged.map((h, i) => {
+    const objs = byIndex.get(i);
+    return objs && objs.length ? { ...h, noteObjects: objs } : h;
+  });
+  if (leading.length) {
+    withObjects.unshift({
+      groupId: -1,
+      tokens: [],
+      payload: "",
+      precedingNotebook: "",
+      notebookOnly: true,
+      noteObjects: leading,
+    });
+  }
+  return withObjects.map((h, i) => ({
     groupId: i + 1,
     tokens: h.tokens,
     payload: h.payload,
     precedingNotebook: h.precedingNotebook ?? "",
     notebookOnly: h.notebookOnly === true,
     ...(h.object ? { object: h.object } : {}),
+    ...(h.noteObjects?.length ? { noteObjects: h.noteObjects } : {}),
   }));
 };
+
 
 const coerceFloatingLine = (line: any): FloatingLine => ({
   lineId: String(line?.lineId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -281,6 +311,9 @@ const FloatingPreparationPage = () => {
   const saveTimerRef = useRef<number | null>(null);
   const latestHighlightsRef = useRef<Highlight[]>([]);
   const linesRef = useRef<string[]>([]);
+  const objectsRef = useRef<SolutionObject[]>([]);
+  /** True when this solution already had a saved highlight state on load. */
+  const priorSavedRef = useRef(false);
 
   const docRef = useRef<HTMLDivElement | null>(null);
 
@@ -292,9 +325,13 @@ const FloatingPreparationPage = () => {
     linesRef.current = lines;
   }, [lines]);
 
+  useEffect(() => {
+    objectsRef.current = objects;
+  }, [objects]);
+
   const saveHighlightState = useCallback(async (source: Highlight[]) => {
     if (!subsectionId) return false;
-    const ordered = orderedHighlights(source, linesRef.current);
+    const ordered = orderedHighlights(source, linesRef.current, objectsRef.current);
     const activePayloads = new Set(ordered.filter((h) => !h.notebookOnly).map((h) => String(h.payload ?? "")));
     const { data: ss } = await supabase
       .from("notebook_subsections")
@@ -319,7 +356,7 @@ const FloatingPreparationPage = () => {
       toast({ title: "Could not save highlights", description: error.message, variant: "destructive" });
       return false;
     }
-    if (JSON.stringify(ordered) === JSON.stringify(orderedHighlights(latestHighlightsRef.current, linesRef.current))) {
+    if (JSON.stringify(ordered) === JSON.stringify(orderedHighlights(latestHighlightsRef.current, linesRef.current, objectsRef.current))) {
       dirtyRef.current = false;
     }
     return true;
@@ -415,11 +452,29 @@ const FloatingPreparationPage = () => {
         const restored = restorePersistedHighlights(prior as any);
         setHighlights(restored.highlights);
         nextIdRef.current = restored.nextId;
+        priorSavedRef.current = true;
       }
       setLoading(false);
     })();
     return () => { alive = false; };
   }, [notebookId, subsectionId]);
+
+  /* ---------- Diagram note-content seeding ----------
+   * A diagram is never highlighted, so without this the teacher could leave
+   * the page having "done nothing" and the diagram would never reach the
+   * Floating Number page or the Smartboard note. Seeding runs only when it
+   * cannot clobber a saved state: either highlights exist (and were restored)
+   * or nothing was ever saved for this solution. */
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (loading || seededRef.current) return;
+    const diagrams = objects.filter((o) => !isFloatableObject(o));
+    if (diagrams.length === 0) return;
+    if (priorSavedRef.current && highlights.length === 0) return;
+    seededRef.current = true;
+    void saveHighlightState(highlights);
+  }, [loading, objects, highlights, saveHighlightState]);
+
 
   /* ---------- Tokenized rows ---------- */
   const rows = useMemo(() => lines.map((l) => tokenize(l)), [lines]);
