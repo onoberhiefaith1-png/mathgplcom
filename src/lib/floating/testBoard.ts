@@ -79,7 +79,7 @@ async function ensureTestClass(ownerId: string): Promise<string> {
  * Question scoping is exact: `question.id === subsectionId`, so no other
  * example, question or part of the lesson note is ever loaded.
  */
-export async function ensureFloatingTestBoard(subsectionId: string): Promise<FloatingTestBoard> {
+async function openFloatingTestBoard(subsectionId: string): Promise<FloatingTestBoard> {
   const end = diag.start("floating.test.open", { subsectionId });
   try {
     const { data: userData } = await supabase.auth.getUser();
