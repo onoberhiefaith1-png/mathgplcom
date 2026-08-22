@@ -3688,6 +3688,19 @@ function NotebookGeometryOverlay({
     saveNotebookGeometry(notebookId, next);
   });
 
+  // Every change to the page drawing is written into the document too, so the
+  // note's own autosave persists it and the Smartboard can render it.
+  useEffect(() => {
+    if (!tiptapEditor) return;
+    const t = window.setTimeout(() => {
+      try {
+        syncPageGeometryNode(tiptapEditor, storedScene, paperLayerRef.current, notebookId);
+      } catch { /* never break the editor for a diagram save */ }
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [storedScene, tiptapEditor, paperLayerRef, notebookId]);
+
+
   // Entrance to the existing Geometry Properties workspace (same scene).
   const [propertiesOpen, setPropertiesOpen] = useState(false);
 
