@@ -52,8 +52,26 @@ export function GeometryMapPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [relinkId, setRelinkId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [onlyThisPart, setOnlyThisPart] = useState(false);
+  const [onlyThisPart, setOnlyThisPart] = useState(true);
   const generate = useServerFn(generateGeometryMap);
+
+  /** Teacher-authored property built by the visual composer. */
+  const addComposed = (draft: { statement: string; reason: string; objectIds: GeoId[] }) => {
+    const item: GeometryMapItem = {
+      id: newMapItemId(),
+      order: doc.items.length,
+      principle: draft.reason || draft.statement,
+      relation: draft.statement,
+      explanation: draft.reason,
+      usedTo: "",
+      stepIndex: doc.items.length + 1,
+      objectIds: keepLiveIds(scene, draft.objectIds),
+      source: "teacher",
+      enabled: true,
+    };
+    onDocChange(upsertMapItem(doc, item));
+  };
+
 
   const items = useMemo(
     () => [...doc.items].sort((a, b) => a.order - b.order),
