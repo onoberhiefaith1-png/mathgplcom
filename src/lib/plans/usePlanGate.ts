@@ -28,13 +28,13 @@ export const PLAN_AUDIENCE_FOR_ROLE: Record<string, PlanAudience | null> = {
  * nobody is ever locked out of their own workspace.
  */
 export function usePlanGate() {
-  const { role, isLoading: roleLoading } = useAccount();
+  const { role, userId, isLoading: roleLoading } = useAccount();
   const audience = role ? PLAN_AUDIENCE_FOR_ROLE[role] ?? null : null;
 
   const mine = useQuery({
     queryKey: ["my-plan"],
     queryFn: () => fetchMyPlan({}),
-    enabled: Boolean(audience),
+    enabled: Boolean(audience) && Boolean(userId),
   });
 
   const plans = useQuery({
