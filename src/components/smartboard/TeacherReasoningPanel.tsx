@@ -313,9 +313,29 @@ const TeacherReasoningPanel = ({
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [assessmentId, studentId, refreshProgress]);
 
+  // Same-page feed (test sitting): identical payloads, delivered in-process.
+  useEffect(() => {
+    if (!localLive) return;
+    const chan = localLiveChannel(assessmentId, studentId);
+    const offBoard = subscribeLocalLive(chan, "board", (raw) => {
+      const p = raw as LivePayload | null;
+      if (!p) return;
+      liveAtRef.current = Date.now();
+      setLive(p);
+    });
+    const offCheck = subscribeLocalLive(chan, "check", (raw) => {
+      const p = raw as CheckPayload | null;
+      if (!p) return;
+      setLastCheck(p);
+      void refreshProgress();
+    });
+    return () => { offBoard(); offCheck(); };
+  }, [localLive, assessmentId, studentId, refreshProgress]);
+
   const isLive = Date.now() - liveAtRef.current < 6000 && !!live;
   const feed = isLive ? live : (live ?? fallback);
   const usingFallback = !isLive && !!fallback && !live;
+
 
   // ── The CURRENT line — always follows the student's cursor. ──────────────
   const currentQid = feed?.questionId ?? null;
