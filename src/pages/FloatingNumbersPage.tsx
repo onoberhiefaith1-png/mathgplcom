@@ -110,19 +110,19 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
  *  shown for context and can never be highlighted or turned into a chip. */
 const NoteObjectCard = ({ objects }: { objects: SolutionObject[] }) => {
   if (!objects.length) return null;
+  // Notes-layer lesson content: rendered inline inside its owning line's note,
+  // at note scale — never a separate framed sheet.
   return (
-    <div className="my-2 space-y-3 rounded-lg border border-dashed border-border/70 bg-muted/30 p-3">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-foreground/55">
-        Note content · not highlightable
-      </div>
+    <div className="my-1 space-y-2">
       {objects.map((o) => (
-        <div key={o.objId} className="lesson-doc w-full max-w-full overflow-auto">
+        <div key={o.objId} className="lesson-doc max-w-full select-none">
           <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} />
         </div>
       ))}
     </div>
   );
 };
+
 
 const FloatingNumbersPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
