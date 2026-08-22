@@ -73,7 +73,12 @@ function MemberPlansPage() {
     enabled: !!audience,
   });
 
-  const mine = useQuery({ queryKey: ["my-plan"], queryFn: () => fetchMyPlan({}) });
+  // Requires a session: without one the server function rejects the request.
+  const mine = useQuery({
+    queryKey: ["my-plan"],
+    queryFn: () => fetchMyPlan({}),
+    enabled: Boolean(userId),
+  });
   const current = mine.data?.subscription ?? null;
 
   const creditOptions = useQuery({
