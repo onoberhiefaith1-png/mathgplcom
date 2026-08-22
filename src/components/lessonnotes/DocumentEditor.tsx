@@ -278,6 +278,13 @@ const saveNotebookGeometry = (notebookId: string | undefined, scene: GeometrySce
  * inside the section the drawing sits in. The document save then carries it to
  * the note, to the blocks, and on to the teacher and student boards.
  */
+const pageGroupTop = (group: GeometryScene): number => {
+  const ys = group.objects
+    .map((o) => ("y" in o && typeof (o as { y?: number }).y === "number" ? (o as { y: number }).y : null))
+    .filter((y): y is number => y !== null);
+  return ys.length ? Math.min(...ys) : Number.POSITIVE_INFINITY;
+};
+
 const syncPageGeometryNode = (
   editor: Editor,
   scene: GeometryScene,
@@ -295,9 +302,8 @@ const syncPageGeometryNode = (
   });
 
   const hasContent = (scene?.objects?.length ?? 0) > 0;
-  const nextJson = JSON.stringify(scene ?? null);
 
-  // Nothing drawn any more → drop the carrier.
+  // Nothing drawn any more → drop every carrier.
   if (!hasContent) {
     if (!existing.length) return;
     let tr = editor.state.tr;
@@ -306,58 +312,60 @@ const syncPageGeometryNode = (
     return;
   }
 
-  // Already up to date (and de-duplicated).
-  if (existing.length === 1 && existing[0].json === nextJson) return;
+  // One carrier per visually separate drawing, each anchored to the line it
+  // was drawn beside — so the note's reading order is the board's order.
+  const groups = splitPageGeometryScene(scene);
+  const wanted = (groups.length ? groups : [scene]).map((group) => ({
+    group,
+    top: pageGroupTop(group),
+  }));
 
-  const attrs = {
-    scene,
-    pageLayer: true,
-    diagramId: `dgm_page_${notebookId ?? "note"}`,
-    align: "center",
-  };
+  // Top-level block boundaries with their on-screen vertical position.
+  const blocks: Array<{ pos: number; top: number }> = [];
+  editor.state.doc.forEach((node, offset) => {
+    let top = Number.POSITIVE_INFINITY;
+    try { top = editor.view.coordsAtPos(offset + (node.isAtom ? 0 : 1)).top; } catch { /* off-screen */ }
+    blocks.push({ pos: offset, top });
+  });
+  const docEnd = editor.state.doc.content.size;
 
-  if (existing.length) {
-    let tr = editor.state.tr;
-    // Keep the first carrier, refresh its scene, remove any strays.
-    for (const e of [...existing].slice(1).sort((a, b) => b.pos - a.pos)) {
-      tr = tr.delete(e.pos, e.pos + e.size);
+  const paperRect = layer?.getBoundingClientRect();
+  const scaleY = layer && paperRect?.height && layer.offsetHeight
+    ? paperRect.height / layer.offsetHeight
+    : 1;
+
+  const targets = wanted.map(({ group, top }) => {
+    let pos = docEnd;
+    if (paperRect && Number.isFinite(top)) {
+      // The drawing belongs AFTER the line it overlaps: anchor before the
+      // first block that starts below the top of the figure.
+      const clientY = paperRect.top + (top - 24) * scaleY;
+      const after = blocks.find((b) => b.top > clientY);
+      if (after) pos = after.pos;
     }
-    tr = tr.setNodeMarkup(existing[0].pos, undefined, attrs);
-    if (tr.docChanged) editor.view.dispatch(tr);
-    return;
-  }
+    return { group, pos };
+  }).sort((a, b) => a.pos - b.pos);
 
-  // First save: place the carrier at the end of the section the drawing is in,
-  // so the board shows the diagram with the right part of the lesson.
-  let insertAt = editor.state.doc.content.size;
-  const topY = Math.min(
-    ...scene.objects.map((o) => ("y" in o && typeof (o as { y?: number }).y === "number"
-      ? (o as { y: number }).y
-      : Number.POSITIVE_INFINITY)),
-  );
-  if (layer && Number.isFinite(topY)) {
-    const paperRect = layer.getBoundingClientRect();
-    const scaleY = paperRect.height && layer.offsetHeight ? paperRect.height / layer.offsetHeight : 1;
-    const clientY = paperRect.top + (topY - 24) * scaleY;
-    const headings: number[] = [];
-    editor.state.doc.descendants((node, pos) => {
-      if (node.type.name === "heading") headings.push(pos);
-      return true;
-    });
-    let sectionIdx = -1;
-    headings.forEach((pos, i) => {
-      try {
-        if (editor.view.coordsAtPos(pos + 1).top <= clientY) sectionIdx = i;
-      } catch { /* off-screen heading */ }
-    });
-    if (sectionIdx >= 0) {
-      const nextHeading = headings[sectionIdx + 1];
-      insertAt = typeof nextHeading === "number" ? nextHeading : editor.state.doc.content.size;
-    }
-  }
-  const tr = editor.state.tr.insert(insertAt, type.create(attrs));
-  editor.view.dispatch(tr);
+  // Already correct (same scenes, same anchors) → leave the document alone so
+  // the mirror never churns the editor while the teacher types.
+  const stable = existing.length === targets.length
+    && existing.every((e, i) => e.json === JSON.stringify(targets[i].group) && e.pos === targets[i].pos);
+  if (stable) return;
+
+  let tr = editor.state.tr;
+  for (const e of [...existing].sort((a, b) => b.pos - a.pos)) tr = tr.delete(e.pos, e.pos + e.size);
+  targets.forEach(({ group, pos }, index) => {
+    const at = Math.min(tr.mapping.map(pos), tr.doc.content.size);
+    tr = tr.insert(at, type.create({
+      scene: group,
+      pageLayer: true,
+      diagramId: `dgm_page_${notebookId ?? "note"}_${index}`,
+      align: "center",
+    }));
+  });
+  if (tr.docChanged) editor.view.dispatch(tr);
 };
+
 
 /** Bridge so the toolbar Dustbin can clean 2D diagram content that lives in
  *  the notebook-wide geometry scene. Only 2D objects are ever eligible —
