@@ -71,6 +71,10 @@ const WorldSegment = ({
   // tower partially hides the other, reading as a single continuous structure.
   const radius = WORLD_RADIUS + (index % 2 === 0 ? 0.14 : 0);
 
+  // Cursor is scoped to the canvas and always cleared on unmount / context
+  // loss, so a hover can never leave the whole page on a hand cursor.
+  const setCursor = useSceneCursor();
+
   // No texture yet (first load / re-sign in flight) → draw nothing for this
   // slice rather than a white panel. Siblings keep rendering.
   if (!texture) return null;
@@ -82,12 +86,12 @@ const WorldSegment = ({
         if (!interactive) return;
         e.stopPropagation();
         onHoverChange(true);
-        document.body.style.cursor = "pointer";
+        setCursor("pointer");
       }}
       onPointerOut={() => {
         if (!interactive) return;
         onHoverChange(false);
-        document.body.style.cursor = "default";
+        setCursor("default");
       }}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         if (!interactive) return;
