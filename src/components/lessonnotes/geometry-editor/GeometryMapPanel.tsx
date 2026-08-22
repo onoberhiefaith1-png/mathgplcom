@@ -239,33 +239,38 @@ export function GeometryMapPanel({
       </button>
 
 
-      <button
-        type="button"
-        onClick={runGenerate}
-        disabled={busy || !hasSolution}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-2.5 py-2 text-[12px] font-medium text-primary-foreground disabled:opacity-60"
-      >
-        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-        {status === "stale"
-          ? "Regenerate map"
-          : doc.items.length ? "Rebuild map from solution" : "Generate map from solution"}
-      </button>
+      {showAi && (
+        <>
+          <button
+            type="button"
+            onClick={runGenerate}
+            disabled={busy || !hasSolution}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-2.5 py-2 text-[12px] font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {status === "stale"
+              ? "Regenerate map"
+              : doc.items.length ? "Rebuild map from solution" : "Generate map from solution"}
+          </button>
 
-      {!hasSolution && (
-        <div className="rounded border border-amber-400/40 bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800">
-          This question has no saved solution yet. The map is always derived from the
-          solution.
-          {onOpenSolution && (
-            <button
-              type="button"
-              onClick={onOpenSolution}
-              className="mt-1.5 block rounded border border-amber-500/50 px-2 py-1 text-[11px] font-medium hover:bg-amber-100"
-            >
-              Open Solution
-            </button>
+          {!hasSolution && (
+            <div className="rounded border border-amber-400/40 bg-amber-50 px-2 py-1.5 text-[11px] leading-snug text-amber-800">
+              This question has no saved solution yet. The AI helper is always derived from the
+              solution.
+              {onOpenSolution && (
+                <button
+                  type="button"
+                  onClick={onOpenSolution}
+                  className="mt-1.5 block rounded border border-amber-500/50 px-2 py-1 text-[11px] font-medium hover:bg-amber-100"
+                >
+                  Open Solution
+                </button>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
+
 
 
       <div className="flex items-center justify-between gap-2 rounded-md border border-foreground/15 px-2 py-1.5">
