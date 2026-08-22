@@ -53,6 +53,8 @@ export function GeometryMapPanel({
   const [relinkId, setRelinkId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [onlyThisPart, setOnlyThisPart] = useState(true);
+  const [showAi, setShowAi] = useState(false);
+
   const generate = useServerFn(generateGeometryMap);
 
   /** Teacher-authored property built by the visual composer. */
