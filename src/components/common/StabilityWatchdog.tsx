@@ -10,6 +10,7 @@ import { startFreezeMonitor } from "@/lib/stability/freezeMonitor";
 import { exposeStabilityDebug } from "@/lib/stability/registry";
 import { hydrateAppContext, setAppContext } from "@/lib/stability/appContext";
 import { startInteractionResetGuards } from "@/lib/stability/interactionReset";
+import { startOverlayGuard } from "@/lib/stability/overlayGuard";
 
 const StabilityWatchdog = () => {
   useEffect(() => {
@@ -19,10 +20,12 @@ const StabilityWatchdog = () => {
     const stopWatchdog = startWatchdog();
     const stopMonitor = startFreezeMonitor();
     const stopInteractionGuards = startInteractionResetGuards();
+    const stopOverlayGuard = startOverlayGuard();
     return () => {
       stopWatchdog();
       stopMonitor();
       stopInteractionGuards();
+      stopOverlayGuard();
     };
   }, []);
 
