@@ -194,6 +194,12 @@ interface Props {
    *  notebook icon — empty/undefined means NO icon. There is no
    *  fallback to `explanation` or any other text. */
   notebookText?: string;
+  /** Number of notes-layer objects (diagrams) attached to the current line's
+   *  note. A note exists when there is prose OR at least one object, so a
+   *  diagram-only note still shows the notebook icon. */
+  noteObjectCount?: number;
+  /** Reveals the note's diagrams at classroom scale on the board. */
+  onShowNoteObjects?: () => void;
   /** Writes a prose line onto the smartboard surface itself. Provided by
    *  the parent (PresentationView) so the FloatingNumberPanel never has to
    *  touch the writing-tree directly. */
@@ -223,6 +229,8 @@ export const FloatingNumberPanel = ({
   onPing, beatId,
   lineNumber, lineCount, lineLabel, tagOfLineIdx, onPrevLine, onNextLine,
   notebookText,
+  noteObjectCount = 0,
+  onShowNoteObjects,
   onWriteNotebookToBoard,
   onNotebookRead,
   frozen = false,
@@ -597,13 +605,16 @@ export const FloatingNumberPanel = ({
           // NO fallback: a line without a real note never shows an icon
           // and can never write solution text onto the board.
           const prose = (notebookText ?? "").trim();
-          if (!prose) return null;
+          // DIAGRAM LAW: a diagram is note content. The icon shows for prose
+          // OR for an attached diagram — a diagram-only note is still a note.
+          if (!prose && noteObjectCount === 0) return null;
           const pulse = notebookPending;
           return (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onWriteNotebookToBoard?.(prose);
+                if (prose) onWriteNotebookToBoard?.(prose);
+                if (noteObjectCount > 0) onShowNoteObjects?.();
                 onNotebookRead?.();
                 onPing();
               }}
