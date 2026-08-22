@@ -21,6 +21,8 @@ export type BlockKind = "problem" | "solution" | "reasoning" | "text";
 
 export interface NotebookRow {
   id: string;
+  /** Account that owns this note. Only the owner may write to it. */
+  owner_id?: string | null;
   title: string | null;
   teacher: string;
   class_name: string;
