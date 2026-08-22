@@ -20,6 +20,7 @@ import {
   Plus,
 } from "lucide-react";
 import DashboardShell from "@/components/accounts/DashboardShell";
+import ApplicationArchiveCard from "@/components/admin/ApplicationArchiveCard";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
 import { useMathgplId } from "@/lib/accounts/useMathgplId";
 
