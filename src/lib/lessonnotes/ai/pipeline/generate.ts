@@ -94,7 +94,7 @@ export async function runQuestionPipeline(input: PipelineInput): Promise<Generat
   obj.questionText = questionText;
 
   // ── diagram (only when the blueprint says so) ───────────────────────────
-  if (obj.blueprint.diagramRequired && input.generateDiagram) {
+  if (obj.blueprint.diagramRequired && input.generateDiagram && !input.questionHasDiagram) {
     input.onStage?.("GENERATING_DIAGRAM");
     obj.stage = "GENERATING_DIAGRAM";
     try {
