@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bell, Menu, Search, X } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Menu, Search, X } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "@/lib/router-compat";
 import { useAccount } from "@/lib/accounts/useAccount";
