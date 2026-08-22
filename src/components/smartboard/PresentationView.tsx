@@ -4037,40 +4037,55 @@ const PresentationView = ({
 
   }, [freeLines, guidedLines, activeReservoir, activeLayout, current?.id, activeLineIdx]);
 
+  // Same-page feed. When the Evaluation panel lives in THIS page (the
+  // Floating Number test sitting) realtime broadcasts never come back to
+  // their own tab, so the identical payload also goes through the in-page
+  // bridge. Null outside a test sitting — remote mirroring is untouched.
+  const localLiveChan = useMemo(
+    () => (testMode && assessmentId && selfId ? localLiveChannel(assessmentId, selfId) : null),
+    [testMode, assessmentId, selfId],
+  );
+  const liveFeedActive = liveChanReady || !!localLiveChan;
+
   const publishLiveSnapshot = useCallback(() => {
+    const payload = buildLiveSnapshot();
+    publishLocalLive(localLiveChan, "board", payload);
     const ch = liveBroadcastChanRef.current;
     if (!ch || !liveChanReady) return;
-    void ch.send({ type: "broadcast", event: "board", payload: buildLiveSnapshot() });
-  }, [liveChanReady, buildLiveSnapshot]);
+    void ch.send({ type: "broadcast", event: "board", payload });
+  }, [liveChanReady, buildLiveSnapshot, localLiveChan]);
 
   // Push a snapshot on every board change (debounced) — and immediately once
   // the channel is ready so a teacher joining mid-session sees the line.
   const liveBroadcastTimer = useRef<number | null>(null);
   useEffect(() => {
-    if (!assessmentMode || role !== "student" || !liveChanReady) return;
+    if (!assessmentMode || role !== "student" || !liveFeedActive) return;
     if (liveBroadcastTimer.current) window.clearTimeout(liveBroadcastTimer.current);
     liveBroadcastTimer.current = window.setTimeout(() => { publishLiveSnapshot(); }, 120);
     return () => { if (liveBroadcastTimer.current) window.clearTimeout(liveBroadcastTimer.current); };
-  }, [assessmentMode, role, liveChanReady, publishLiveSnapshot]);
+  }, [assessmentMode, role, liveFeedActive, publishLiveSnapshot]);
 
   // Heartbeat — keeps a late-opening reasoning panel populated even when the
   // student is idle.
   useEffect(() => {
-    if (!assessmentMode || role !== "student" || !liveChanReady) return;
+    if (!assessmentMode || role !== "student" || !liveFeedActive) return;
     const id = window.setInterval(() => { publishLiveSnapshot(); }, 4000);
     return () => window.clearInterval(id);
-  }, [assessmentMode, role, liveChanReady, publishLiveSnapshot]);
+  }, [assessmentMode, role, liveFeedActive, publishLiveSnapshot]);
 
   // Broadcast the outcome of a real (persisting) check so the reasoning panel
   // can show what the student actually scored, and from which path.
   const broadcastCheckResult = useCallback(
     (info: { questionId: string; lineId: string; mode: "manual" | "auto"; correct: boolean; verdict?: string; diagnosis?: { code: string; label: string; detail: string }; marks?: number; studentAscii?: string }) => {
+      const payload = { ...info, ts: Date.now() };
+      publishLocalLive(localLiveChan, "check", payload);
       const ch = liveBroadcastChanRef.current;
       if (!ch || !liveChanReady) return;
-      void ch.send({ type: "broadcast", event: "check", payload: { ...info, ts: Date.now() } });
+      void ch.send({ type: "broadcast", event: "check", payload });
     },
-    [liveChanReady],
+    [liveChanReady, localLiveChan],
   );
+
   broadcastCheckResultRef.current = broadcastCheckResult;
 
   // ── LIVE REASONING EVALUATION ───────────────────────────────────────────
