@@ -62,7 +62,7 @@ export default function PlansPage() {
  */
 function MemberPlansPage() {
   const qc = useQueryClient();
-  const { role, isLoading } = useAccount();
+  const { role, userId, isLoading } = useAccount();
   const audience = role ? AUDIENCE_FOR_ROLE[role] ?? null : null;
   const [pending, setPending] = useState<string | null>(null);
   const environment = getPaddleEnvironment();
