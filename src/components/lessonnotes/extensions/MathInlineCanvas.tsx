@@ -540,6 +540,24 @@ export function MathInlineCanvas({
     setAnchor(null);
   }, [onChange, root, cursor]);
 
+  // Host-driven insertion at the caret (Add Function menu, picked diagram
+  // reference…). Applied exactly once per nonce.
+  const lastInsertNonce = useRef<number | null>(null);
+  useEffect(() => {
+    if (!insertRequest) return;
+    if (lastInsertNonce.current === insertRequest.nonce) return;
+    lastInsertNonce.current = insertRequest.nonce;
+    let next = { root, cursor };
+    if (insertRequest.text) {
+      for (const ch of insertRequest.text) next = insertChar(next.root, next.cursor, ch);
+    } else if (insertRequest.node) {
+      next = insertNode(next.root, next.cursor, insertRequest.node);
+    } else return;
+    apply(next);
+    inputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insertRequest?.nonce]);
+
   /** Delete the current selection first (typing replaces a selection, just
    *  like text). Returns the tree/cursor to continue editing from. */
   const withSelectionCleared = useCallback((): { root: Row; cursor: Cursor } => {
