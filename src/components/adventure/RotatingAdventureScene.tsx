@@ -12,6 +12,7 @@ import {
 } from "@/lib/homepage/homepageConfig";
 import { adForOuterPosition, useAdImageUrls, useFacingAdRotation, usePlayableAds } from "@/lib/homepage/advertisements";
 import BuildingBillboard from "@/components/adventure/BuildingBillboard";
+import { useSceneCursor } from "@/lib/stability/useSceneCursor";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
