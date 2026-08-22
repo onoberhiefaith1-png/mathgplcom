@@ -16,6 +16,7 @@ import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { ensureFloatingTestBoard, type FloatingTestBoard } from "@/lib/floating/testBoard";
 import { friendlyMessage } from "@/lib/net/resilient";
+import RecoveryBoundary from "@/components/common/RecoveryBoundary";
 
 const FloatingTestBoardPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
@@ -158,16 +159,18 @@ const FloatingTestBoardPage = () => {
         </div>
         {evalOpen && uid && (
           <div className={evalFull ? "flex-1 min-w-0 overflow-hidden" : "w-[24%] min-w-[260px] flex-none overflow-hidden"}>
-            <TeacherReasoningPanel
-              assessmentId={board.assessmentId}
-              studentId={uid}
-              questionId={subsectionId ?? null}
-              studentName="Test"
-              localLive
-              fullscreen={evalFull}
-              onToggleFullscreen={() => setEvalFull((v) => !v)}
-              onClose={() => { setEvalFull(false); setEvalOpen(false); }}
-            />
+            <RecoveryBoundary label="Evaluation">
+  <TeacherReasoningPanel
+                assessmentId={board.assessmentId}
+                studentId={uid}
+                questionId={subsectionId ?? null}
+                studentName="Test"
+                localLive
+                fullscreen={evalFull}
+                onToggleFullscreen={() => setEvalFull((v) => !v)}
+                onClose={() => { setEvalFull(false); setEvalOpen(false); }}
+              />
+            </RecoveryBoundary>
           </div>
         )}
       </div>

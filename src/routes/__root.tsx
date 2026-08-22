@@ -6,7 +6,10 @@ import {
   HeadContent,
   Outlet,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
+import { setAppContext } from "@/lib/stability/appContext";
+
 
 import "../styles.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,6 +19,7 @@ import { RouterErrorBoundary } from "@/components/common/RouterErrorBoundary";
 import ImpersonationBanner from "@/components/accounts/ImpersonationBanner";
 import GlobalSoundtrack from "@/components/audio/GlobalSoundtrack";
 import ConnectionIndicator from "@/components/common/ConnectionIndicator";
+import StabilityWatchdog from "@/components/common/StabilityWatchdog";
 
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
@@ -103,6 +107,13 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Keep the central context aware of where the teacher actually is, so any
+  // recovery (or a manual refresh) returns to this screen, not a waiting board.
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  useEffect(() => {
+    setAppContext({ route: pathname });
+  }, [pathname]);
+
   useEffect(() => {
     const onError = (event: ErrorEvent) => recoverFromStaleChunk(event.error ?? event.message);
     const onRejection = (event: PromiseRejectionEvent) => recoverFromStaleChunk(event.reason);
@@ -128,6 +139,8 @@ function RootComponent() {
           <FullscreenToggle />
           <GlobalSoundtrack />
           <ConnectionIndicator />
+          <StabilityWatchdog />
+
 
           <NavHistoryProvider>
             <Outlet />

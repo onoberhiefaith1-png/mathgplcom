@@ -9,6 +9,7 @@ import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import PresentationView from "@/components/smartboard/PresentationView";
 import TeacherReasoningPanel from "@/components/smartboard/TeacherReasoningPanel";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
+import RecoveryBoundary from "@/components/common/RecoveryBoundary";
 
 import {
   buildAssessmentBoardSource,
@@ -126,15 +127,17 @@ const TeacherAssessmentViewerPage = () => {
         </div>
         {reasoningOpen && assessmentId && studentId && (
           <div className={reasoningFull ? "flex-1 min-w-0 overflow-hidden" : "w-[20%] min-w-[260px] flex-none overflow-hidden"}>
-            <TeacherReasoningPanel
-              assessmentId={assessmentId}
-              studentId={studentId}
-              questionId={questionId}
-              studentName={studentName}
-              fullscreen={reasoningFull}
-              onToggleFullscreen={() => setReasoningFull((v) => !v)}
-              onClose={() => { setReasoningFull(false); setReasoningOpen(false); }}
-            />
+            <RecoveryBoundary label="Evaluation">
+  <TeacherReasoningPanel
+                assessmentId={assessmentId}
+                studentId={studentId}
+                questionId={questionId}
+                studentName={studentName}
+                fullscreen={reasoningFull}
+                onToggleFullscreen={() => setReasoningFull((v) => !v)}
+                onClose={() => { setReasoningFull(false); setReasoningOpen(false); }}
+              />
+            </RecoveryBoundary>
           </div>
         )}
 

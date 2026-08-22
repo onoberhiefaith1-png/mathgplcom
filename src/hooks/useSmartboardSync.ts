@@ -6,7 +6,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { useLiveChannel } from "@/lib/stability/useLiveChannel";
+import { usePolling } from "@/lib/stability/usePolling";
+
 
 export type BoardSnapshot = {
   v: number;
@@ -50,6 +52,8 @@ export function useSmartboardSync(opts: {
     return () => { cancelled = true; };
   }, []);
 
+  const loadRef = useRef<() => Promise<void>>(async () => {});
+
   useEffect(() => {
     if (!classId) return;
     let cancelled = false;
@@ -71,45 +75,30 @@ export function useSmartboardSync(opts: {
       if (error) console.warn("[smartboard-sync] state reload failed", error.message);
     };
 
+    loadRef.current = load;
     void load();
 
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    let retries = 0;
-
-    const subscribe = () => {
-      ch = supabase
-        .channel(`sb-sync-${classId}`, { config: { private: true } })
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
-          (payload: { new?: unknown }) => apply((payload.new ?? null) as never),
-        )
-        .subscribe((status) => {
-          // A private channel join can fail if the socket token wasn't ready.
-            // Re-auth and resubscribe so live sync self-heals instead of going blank.
-            if (status === "SUBSCRIBED") {
-              retries = 0;
-              void load();
-              return;
-            }
-            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && retries < 6 && !cancelled) {
-              retries += 1;
-            if (ch) supabase.removeChannel(ch);
-              window.setTimeout(() => { if (!cancelled) void ensureRealtimeAuth().then(subscribe); }, Math.min(3000, 400 * retries));
-          }
-        });
-    };
-
-    void ensureRealtimeAuth().then(() => { if (!cancelled) subscribe(); });
-
-    const poll = window.setInterval(() => { void load(); }, 4000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(poll);
-      if (ch) supabase.removeChannel(ch);
-    };
+    return () => { cancelled = true; };
   }, [classId]);
+
+  // One managed subscription per class — remounting replaces it instead of
+  // adding a second listener, and rejoins back off instead of hammering.
+  useLiveChannel({
+    key: `sb-sync-${classId ?? "none"}`,
+    enabled,
+    build: (channel) => {
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
+        () => { void loadRef.current(); },
+      );
+    },
+    onJoined: () => { void loadRef.current(); },
+  });
+
+  // Safety net for missed events; pauses while the tab is hidden.
+  usePolling("smartboard-sync", () => loadRef.current(), 5000, { enabled, immediate: false });
+
 
   const pushSnapshot = useCallback((state: BoardState) => {
     if (!classId || !selfId) return;

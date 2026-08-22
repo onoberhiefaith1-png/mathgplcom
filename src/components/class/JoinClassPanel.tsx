@@ -4,6 +4,7 @@ import { Copy, Check, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { useToast } from "@/hooks/use-toast";
+import { usePolling } from "@/lib/stability/usePolling";
 
 type PreviousClass = { id: string; name: string };
 type Invitation = { id: string; class_id: string; class_name: string };
@@ -132,26 +133,24 @@ const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: 
 
   // Polling fallback — if realtime is delayed or blocked, still bounce the
   // student into the classroom within a few seconds of teacher approval.
-  useEffect(() => {
-    if (!userId || !pendingClassId) return;
-    let cancelled = false;
-    const tick = async () => {
+  usePolling(
+    "join-class-approval",
+    async () => {
+      if (!userId || !pendingClassId) return;
       const { data } = await supabase
         .from("class_members")
         .select("class_id")
         .eq("class_id", pendingClassId)
         .eq("user_id", userId)
         .maybeSingle();
-      if (cancelled) return;
       if (data?.class_id) {
         toast({ title: "Approved", description: "Opening your classroom…" });
         navigate(`/student/class/${data.class_id}`);
       }
-    };
-    const id = window.setInterval(tick, 3000);
-    void tick();
-    return () => { cancelled = true; window.clearInterval(id); };
-  }, [userId, pendingClassId, navigate, toast]);
+    },
+    3000,
+    { enabled: !!userId && !!pendingClassId },
+  );
 
   const submit = async (rawCode: string) => {
     const code = extractCode(rawCode);

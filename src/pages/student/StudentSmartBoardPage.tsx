@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Loader2, Presentation } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { useLiveChannel } from "@/lib/stability/useLiveChannel";
+import { usePolling } from "@/lib/stability/usePolling";
+
 import PresentationView from "@/components/smartboard/PresentationView";
 
 type ClassBoardState = {
@@ -93,19 +95,14 @@ const StudentSmartBoardPage = () => {
     return () => { cancelled = true; };
   }, [classId, navigate, loadBoardState]);
 
-  // Follow the teacher's class-board row with one source of truth. The periodic
-  // refresh is intentional: if a realtime event is missed while the socket is
-  // authenticating, students still recover instead of staying on a blank board.
-  useEffect(() => {
-    if (!classId || !authorized) return;
-    let cancelled = false;
-    let ch: ReturnType<typeof supabase.channel> | null = null;
-    let retries = 0;
-    const poll = window.setInterval(() => { void loadBoardState(); }, 3000);
-    const subscribe = () => void ensureRealtimeAuth().then(() => {
-      if (cancelled) return;
-      ch = supabase
-        .channel(`student-class-smartboard-${classId}`, { config: { private: true } })
+  // Follow the teacher's class-board row with one source of truth. One managed
+  // subscription (replaced, never stacked) plus a visibility-aware safety poll
+  // so a missed realtime event can never leave a student on a blank board.
+  useLiveChannel({
+    key: `student-class-smartboard-${classId ?? "none"}`,
+    enabled: !!classId && !!authorized,
+    build: (channel) => {
+      channel
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "class_smartboard_state", filter: `class_id=eq.${classId}` },
@@ -115,28 +112,15 @@ const StudentSmartBoardPage = () => {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "classes", filter: `id=eq.${classId}` },
           () => { void loadBoardState(); },
-        )
-        .subscribe((status) => {
-          if (cancelled) return;
-          if (status === "SUBSCRIBED") {
-            retries = 0;
-            void loadBoardState();
-            return;
-          }
-          if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") && retries < 5) {
-            retries += 1;
-            if (ch) supabase.removeChannel(ch);
-            window.setTimeout(() => { if (!cancelled) subscribe(); }, Math.min(3000, 350 * retries));
-          }
-        });
-    });
-    subscribe();
-    return () => {
-      cancelled = true;
-      window.clearInterval(poll);
-      if (ch) supabase.removeChannel(ch);
-    };
-  }, [classId, authorized, loadBoardState]);
+        );
+    },
+    onJoined: () => { void loadBoardState(); },
+  });
+
+  usePolling("student-class-board", () => loadBoardState(), 4000, {
+    enabled: !!classId && !!authorized,
+  });
+
 
   if (authorized === null) {
     return (

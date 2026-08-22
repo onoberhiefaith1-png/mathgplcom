@@ -14,6 +14,7 @@ import magicBallStorm from "@/assets/effects/video-fx/magic_ball_storm.mp4.asset
 import thorLightningOverlay11 from "@/assets/effects/video-fx/thor_lightning_overlay_11.mp4.asset.json";
 import halfDomeShockwave from "@/assets/effects/video-fx/half_dome_shockwave.mp4.asset.json";
 import magicEnergyBurstPink from "@/assets/effects/video-fx/magic_energy_burst_pink.mp4.asset.json";
+import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
 
 const academies = [
   { slug: "algebra", label: "Algebra", image: algebraIsland.url },
@@ -559,6 +560,7 @@ const Showcase = ({ onDoorReady, onZoomStart }: { onDoorReady: (academy: (typeof
 };
 
 export const AdventurePortalScene = () => {
+  const gpuRecovery = useWebglRecovery("adventure-portal");
   const [zoomingAcademy, setZoomingAcademy] = useState<(typeof academies)[number] | null>(null);
   const [effectAcademy, setEffectAcademy] = useState<(typeof academies)[number] | null>(null);
   const [enteredAcademy, setEnteredAcademy] = useState<(typeof academies)[number] | null>(null);
@@ -648,7 +650,7 @@ export const AdventurePortalScene = () => {
             className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
             loading="eager"
           />
-          <Canvas camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
+          <Canvas key={gpuRecovery.resetKey} onCreated={({ gl }) => gpuRecovery.attach(gl.domElement)} camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
             <Suspense fallback={null}>
               <Showcase onDoorReady={setEffectAcademy} onZoomStart={setZoomingAcademy} />
             </Suspense>

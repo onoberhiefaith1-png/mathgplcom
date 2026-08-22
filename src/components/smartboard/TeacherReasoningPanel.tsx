@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
 import { localLiveChannel, subscribeLocalLive } from "@/lib/smartboard/localLiveBridge";
+import { usePolling } from "@/lib/stability/usePolling";
 
 import { collapseNestedBoxes, structureHash, type Row } from "@/lib/smartboard/mathTree";
 import MathTreeRender from "./MathTreeRender";
@@ -165,10 +166,8 @@ const TeacherReasoningPanel = ({
   const liveAtRef = useRef<number>(0);
 
   // Repaint the freshness indicator once a second.
-  useEffect(() => {
-    const id = window.setInterval(() => forceTick((n) => n + 1), 1000);
-    return () => window.clearInterval(id);
-  }, []);
+  usePolling("evaluation-freshness", () => forceTick((n) => n + 1), 1000, { immediate: false });
+
 
   // Assessment shape + answer key.
   useEffect(() => {
@@ -200,11 +199,8 @@ const TeacherReasoningPanel = ({
     });
   }, [assessmentId, studentId]);
 
-  useEffect(() => {
-    void refreshProgress();
-    const id = window.setInterval(() => { void refreshProgress(); }, 4000);
-    return () => window.clearInterval(id);
-  }, [refreshProgress]);
+  usePolling("evaluation-progress", () => refreshProgress(), 4000);
+
 
   // ── Durable fallback: the persisted board state row. Used whenever no
   // broadcast has arrived recently (idle / offline student). ───────────────
@@ -281,14 +277,15 @@ const TeacherReasoningPanel = ({
   }, [assessmentId, studentId, scopeQuestionId]);
 
 
-  useEffect(() => {
-    void loadFallback();
-    const id = window.setInterval(() => {
+  usePolling(
+    "evaluation-fallback",
+    () => {
       // Only poll while the live feed is stale.
-      if (Date.now() - liveAtRef.current > 5000) void loadFallback();
-    }, 3000);
-    return () => window.clearInterval(id);
-  }, [loadFallback]);
+      if (Date.now() - liveAtRef.current > 5000) return loadFallback();
+    },
+    3000,
+  );
+
 
   // ── Live board broadcast from the student's Smartboard. ──────────────────
   useEffect(() => {

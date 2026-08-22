@@ -3,6 +3,7 @@ import { useNavigate } from "@/lib/router-compat";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { usePolling } from "@/lib/stability/usePolling";
 
 const extractCode = (raw: string): string => {
   const trimmed = raw.trim();
@@ -83,17 +84,17 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
 
 
   // Poll while a request is pending so approval opens the session automatically.
-  useEffect(() => {
-    if (!userId || !pendingClassId) return;
-    let cancelled = false;
-    const tick = async () => {
+  usePolling(
+    "join-session-approval",
+    async () => {
+      if (!userId || !pendingClassId) return;
       const { data } = await supabase
         .from("class_members")
         .select("class_id")
         .eq("class_id", pendingClassId)
         .eq("user_id", userId)
         .maybeSingle();
-      if (cancelled || !data?.class_id) return;
+      if (!data?.class_id) return;
       const { data: s } = await supabase
         .from("sessions")
         .select("id")
@@ -101,11 +102,10 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
         .maybeSingle();
       toast({ title: "Approved", description: "Opening your session…" });
       navigate(s?.id ? `/live/s/${s.id}` : `/student/class/${data.class_id}`);
-    };
-    const id = window.setInterval(tick, 3000);
-    void tick();
-    return () => { cancelled = true; window.clearInterval(id); };
-  }, [userId, pendingClassId, navigate, toast]);
+    },
+    3000,
+    { enabled: !!userId && !!pendingClassId },
+  );
 
   const submit = async (raw: string) => {
     const parsed = extractCode(raw);
