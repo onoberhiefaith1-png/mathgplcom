@@ -212,7 +212,7 @@ export function useNotebook(notebookId: string | undefined) {
     }));
     setSections(built);
     setStructureLoaded(true);
-  }, [notebookId]);
+  }, [notebookId, guardWrite]);
 
   const reload = useCallback(async () => {
     if (!notebookId) return;
@@ -234,7 +234,7 @@ export function useNotebook(notebookId: string | undefined) {
 
   useEffect(() => {
     reload();
-  }, [reload]);
+  }, [reload, guardWrite]);
 
 
   // Auto-migrate any legacy notebook to document mode on open so there's
@@ -338,6 +338,7 @@ export function useNotebook(notebookId: string | undefined) {
   const addSection = useCallback(
     async (kind: SectionKind) => {
       if (!notebookId) return;
+      if (!guardWrite()) return;
       const order_index = sections.length;
       const { data, error } = await supabase
         .from("notebook_sections")
@@ -369,7 +370,7 @@ export function useNotebook(notebookId: string | undefined) {
       }
       await reload();
     },
-    [notebookId, sections.length, reload],
+    [notebookId, sections.length, reload, guardWrite],
   );
 
   const addSubsection = useCallback(
@@ -377,6 +378,7 @@ export function useNotebook(notebookId: string | undefined) {
       const sec = sections.find((s) => s.id === sectionId);
       if (!sec) return;
       const order_index = sec.subsections.length;
+      if (!guardWrite()) return;
       const { data: sub, error } = await supabase
         .from("notebook_subsections")
         .insert({ section_id: sectionId, order_index })
@@ -393,7 +395,7 @@ export function useNotebook(notebookId: string | undefined) {
       ]);
       await reload();
     },
-    [sections, reload],
+    [sections, reload, guardWrite],
   );
 
   /**
@@ -403,6 +405,7 @@ export function useNotebook(notebookId: string | undefined) {
    */
   const appendTextBlock = useCallback(async (): Promise<string | null> => {
     if (!notebookId) return null;
+    if (!guardWrite()) return null;
     let targetSectionId = sections.length > 0 ? sections[sections.length - 1].id : null;
     if (!targetSectionId) {
       const { data: secData, error: secErr } = await supabase
@@ -430,23 +433,25 @@ export function useNotebook(notebookId: string | undefined) {
     }
     await reload();
     return data.id as string;
-  }, [notebookId, sections, reload]);
+  }, [notebookId, sections, reload, guardWrite]);
 
 
   const deleteSection = useCallback(
     async (sectionId: string) => {
+      if (!guardWrite()) return;
       await supabase.from("notebook_sections").delete().eq("id", sectionId);
       await reload();
     },
-    [reload],
+    [reload, guardWrite],
   );
 
   const deleteSubsection = useCallback(
     async (subsectionId: string) => {
+      if (!guardWrite()) return;
       await supabase.from("notebook_subsections").delete().eq("id", subsectionId);
       await reload();
     },
-    [reload],
+    [reload, guardWrite],
   );
 
   // local optimistic update of block text
@@ -466,14 +471,16 @@ export function useNotebook(notebookId: string | undefined) {
   const updateNotebook = useCallback(
     async (patch: Partial<Pick<NotebookRow, "title" | "subject" | "subtopic" | "class_name" | "teacher" | "session">>) => {
       if (!notebookId) return;
+      if (!guardWrite()) return;
       setNotebook((prev) => (prev ? { ...prev, ...patch } : prev));
       const { error } = await supabase.from("notebooks").update(patch).eq("id", notebookId);
       if (error) toast({ title: "Could not save notebook", variant: "destructive" });
     },
-    [notebookId],
+    [notebookId, guardWrite],
   );
 
   const updateBlockContent = useCallback(async (blockId: string, ascii: string) => {
+    if (!guardWrite()) return;
     setSections((prev) =>
       prev.map((sec) => ({
         ...sec,
@@ -490,6 +497,7 @@ export function useNotebook(notebookId: string | undefined) {
   /** Insert one or more new numbered subsections seeded with given problem strings into a section. */
   const insertProblemsIntoSection = useCallback(
     async (sectionId: string, problems: string[]) => {
+      if (!guardWrite()) return;
       const sec = sections.find((s) => s.id === sectionId);
       if (!sec) return;
       let order = sec.subsections.length;
@@ -508,12 +516,13 @@ export function useNotebook(notebookId: string | undefined) {
       }
       await reload();
     },
-    [sections, reload],
+    [sections, reload, guardWrite],
   );
 
   /** Swap two blocks' content in one round-trip (used by solve_with_reasoning). */
   const updateTwoBlocks = useCallback(
     async (a: { id: string; content: string }, b: { id: string; content: string }) => {
+      if (!guardWrite()) return;
       setSections((prev) =>
         prev.map((sec) => ({
           ...sec,
@@ -539,6 +548,7 @@ export function useNotebook(notebookId: string | undefined) {
   /** Move a section up or down by swapping order_index with its neighbour. */
   const moveSection = useCallback(
     async (sectionId: string, direction: "up" | "down") => {
+      if (!guardWrite()) return;
       const idx = sections.findIndex((s) => s.id === sectionId);
       if (idx < 0) return;
       const swapIdx = direction === "up" ? idx - 1 : idx + 1;
@@ -557,7 +567,7 @@ export function useNotebook(notebookId: string | undefined) {
       ]);
       await reload();
     },
-    [sections, reload],
+    [sections, reload, guardWrite],
   );
 
   /** Save the Word-style document body (ProseMirror JSON). Debounced upstream. */
@@ -566,6 +576,7 @@ export function useNotebook(notebookId: string | undefined) {
   const saveCompanionJson = useCallback(
     async (json: any) => {
       if (!notebookId) return;
+      if (!guardWrite()) return;
       setNotebook((prev) => (prev ? { ...prev, companion_json: json } : prev));
       const { error } = await supabase
         .from("notebooks")
@@ -573,12 +584,13 @@ export function useNotebook(notebookId: string | undefined) {
         .eq("id", notebookId);
       if (error) toast({ title: "Could not save companion page", variant: "destructive" });
     },
-    [notebookId],
+    [notebookId, guardWrite],
   );
 
   const saveDocumentJson = useCallback(
     async (json: any) => {
       if (!notebookId) return;
+      if (!guardWrite()) return;
       setNotebook((prev) => (prev ? { ...prev, document_json: json } : prev));
       // Mirror to this device first: even a total network failure cannot lose work.
       writeLocalDraft(notebookId, json, true);
@@ -613,7 +625,7 @@ export function useNotebook(notebookId: string | undefined) {
         console.warn("[syncDocumentToNotebook] failed:", e);
       }
     },
-    [notebookId],
+    [notebookId, guardWrite],
   );
 
 
@@ -621,25 +633,28 @@ export function useNotebook(notebookId: string | undefined) {
   const updatePaperSettings = useCallback(
     async (patch: { paper_size?: string; paper_style?: string; page_extra_mm?: number }) => {
       if (!notebookId) return;
+      if (!guardWrite()) return;
       setNotebook((prev) => (prev ? { ...prev, ...patch } : prev));
       await supabase.from("notebooks").update(patch as any).eq("id", notebookId);
     },
-    [notebookId],
+    [notebookId, guardWrite],
   );
 
   /** Persist per-notebook zoom (debounced upstream). */
   const saveZoom = useCallback(
     async (zoom: number) => {
       if (!notebookId) return;
+      if (!guardWrite()) return;
       setNotebook((prev) => (prev ? { ...prev, zoom } : prev));
       await supabase.from("notebooks").update({ zoom } as any).eq("id", notebookId);
     },
-    [notebookId],
+    [notebookId, guardWrite],
   );
 
   /** Convert the legacy block layout into a ProseMirror doc and turn on document mode. */
   const enableDocumentMode = useCallback(async () => {
     if (!notebookId) return;
+    if (!guardWrite()) return;
     const blocks: any[] = [];
     sections.forEach((sec) => {
       blocks.push({
@@ -684,13 +699,14 @@ export function useNotebook(notebookId: string | undefined) {
     if (blocks.length === 0) blocks.push({ type: "paragraph" });
     const doc = { type: "doc", content: blocks };
     await saveDocumentJson(doc);
-  }, [notebookId, sections, saveDocumentJson]);
+  }, [notebookId, sections, saveDocumentJson, guardWrite]);
 
   return {
     notebook,
     sections,
     loading,
     saveState,
+    canEdit,
 
     reload,
     addSection,
