@@ -220,6 +220,23 @@ export function GeometryMapPanel({
         </p>
       )}
 
+      {/* Teacher authoring comes first — the property builder, not the AI. */}
+      <PropertyComposer
+        scene={scene}
+        targetId={relinkId ? null : targetId}
+        onHighlight={onHighlight}
+        onAdd={addComposed}
+      />
+
+      <button
+        type="button"
+        onClick={() => setShowAi((v) => !v)}
+        className="self-start text-[11px] text-foreground/55 underline underline-offset-2"
+      >
+        {showAi ? "Hide AI helper" : "AI helper (optional)"}
+      </button>
+
+
       <button
         type="button"
         onClick={runGenerate}
