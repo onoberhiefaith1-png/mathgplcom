@@ -693,24 +693,6 @@ const FloatingNumbersPage = () => {
     toast({ title: "Version restored", description: "The archived floating numbers are back on the page." });
   }, [archiveLines]);
 
-  /* ---------- Test on Smartboard ---------- */
-  const [openingTest, setOpeningTest] = useState(false);
-  const testOnSmartboard = useCallback(async () => {
-    if (!info || openingTest) return;
-    const end = diag.start("floating.test.launch", { subsectionId: info.subsectionId });
-    setOpeningTest(true);
-    try {
-      if (dirtyRef.current) await persistRef.current(true);
-      end("ok");
-      navigate(`/lesson-notes/${notebookId}/floating/${info.subsectionId}/test`);
-    } catch (e: any) {
-      end("fail", { error: String(e?.message ?? e) });
-      toast({ title: "Could not open the test board", description: String(e?.message ?? e), variant: "destructive" });
-    } finally {
-      setOpeningTest(false);
-    }
-  }, [info, openingTest, navigate, notebookId]);
-
   /* ---------- AI Generate (all lines at once) ---------- */
   const generateAll = useCallback(async () => {
     if (!info || generating) return; // single-flight — Generate can never stack
@@ -962,6 +944,24 @@ const FloatingNumbersPage = () => {
       window.removeEventListener("beforeunload", onHide);
     };
   }, []);
+
+  /* ---------- Test on Smartboard ---------- */
+  const [openingTest, setOpeningTest] = useState(false);
+  const testOnSmartboard = useCallback(async () => {
+    if (!info || openingTest) return;
+    const end = diag.start("floating.test.launch", { subsectionId: info.subsectionId });
+    setOpeningTest(true);
+    try {
+      if (dirtyRef.current) await persistRef.current(true);
+      end("ok");
+      navigate(`/lesson-notes/${notebookId}/floating/${info.subsectionId}/test`);
+    } catch (e: any) {
+      end("fail", { error: String(e?.message ?? e) });
+      toast({ title: "Could not open the test board", description: String(e?.message ?? e), variant: "destructive" });
+    } finally {
+      setOpeningTest(false);
+    }
+  }, [info, openingTest, navigate, notebookId]);
 
   /* Save pending edits before an in-app navigation, then route. */
   const flushThenNavigate = useCallback(async (to: string) => {
