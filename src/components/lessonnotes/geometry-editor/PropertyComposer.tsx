@@ -1,72 +1,108 @@
-// PropertyComposer — the teacher's visual builder for one geometry property.
+// PropertyComposer — the teacher's builder for one geometry property.
 //
-// The teacher never types object labels. Clicking a part of the SAME diagram
-// drops a chip bound to that object's stable id; the keypad drops real
-// mathematical operators between the chips. The result is one relationship
-// statement plus its reason, linked to every object it mentions.
+// There is NO on-screen mathematical keyboard. The teacher types with the
+// keyboard of the device, inside the SAME live mathematics editor the lesson
+// note lines and Smart Table cells use, so every established shortcut applies
+// (`/` fraction, `#` power, `##` index, auto-pairing brackets, `@` assets).
+//
+// Two extra ways to land content at the caret:
+//   • Pick from diagram — clicking a part of the SAME diagram inserts that
+//     object's reference and records its stable id.
+//   • Add function     — inserts a mathematical structure (root, fraction,
+//     power, index, brackets, sin/cos/tan, angle, degree) at the caret.
 
-import { useEffect, useRef, useState } from "react";
-import { Check, Hand, RotateCcw, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, Hand, RotateCcw, Trash2 } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import { objectChipLabel } from "@/lib/geometry/map/model";
+import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
+import {
+  mkBracket, mkFrac, mkSqrt, mkSub, mkSup,
+  type Node as MathNode, type Row as MathRow,
+} from "@/lib/smartboard/mathTree";
 
-/** One piece of the statement: a diagram-bound chip, or a typed symbol. */
-export interface ComposerToken {
-  key: string;
-  text: string;
-  objectId?: GeoId;
-}
-
-const OPERATORS = [
-  "=", "+", "−", "×", "÷", "(", ")", "/",
-  "∠", "°", "√", "²", "π", "∥", "⊥", "≅", "~", "≠", "<", ">", "½",
-  "x", "y", "θ", "r", "sin", "cos", "tan", "180°", "90°", "360°",
+/** Add-function menu: structures land at the caret, text lands as characters. */
+const FUNCTIONS: { label: string; node?: () => MathNode; text?: string }[] = [
+  { label: "Square root  √", node: () => mkSqrt() },
+  { label: "nth root  ⁿ√", node: () => mkSqrt(true) },
+  { label: "Fraction  a/b", node: () => mkFrac() },
+  { label: "Power  x²", node: () => mkSup() },
+  { label: "Index  x₁", node: () => mkSub() },
+  { label: "Parentheses ( )", node: () => mkBracket("(", ")") },
+  { label: "Absolute | |", node: () => mkBracket("|", "|") },
+  { label: "Angle  ∠", text: "∠" },
+  { label: "Degree  °", text: "°" },
+  { label: "sin", text: "sin" },
+  { label: "cos", text: "cos" },
+  { label: "tan", text: "tan" },
 ];
-
-let seq = 0;
-const nextKey = () => `t${++seq}_${Math.random().toString(36).slice(2, 6)}`;
 
 export function PropertyComposer({
   scene, targetId, onHighlight, onAdd,
 }: {
   scene: GeometryScene;
-  /** Currently selected diagram object — becomes a chip while picking. */
+  /** Currently selected diagram object — inserted while picking. */
   targetId: GeoId | null;
   onHighlight: (ids: GeoId[]) => void;
   onAdd: (draft: { statement: string; reason: string; objectIds: GeoId[] }) => void;
 }) {
-  const [tokens, setTokens] = useState<ComposerToken[]>([]);
+  const [root, setRoot] = useState<MathRow>([]);
   const [reason, setReason] = useState("");
   const [picking, setPicking] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  /** Object ids referenced by the expression, with the label they were
+   *  inserted as, so a removed reference drops its id on save. */
+  const [refs, setRefs] = useState<{ id: GeoId; label: string }[]>([]);
+  const [insertRequest, setInsertRequest] =
+    useState<{ nonce: number; node?: MathNode; text?: string } | null>(null);
+  const nonce = useRef(0);
   const lastPicked = useRef<GeoId | null>(null);
 
-  // Pick mode: every part clicked on the diagram becomes a chip.
+  const request = (req: { node?: MathNode; text?: string }) => {
+    nonce.current += 1;
+    setInsertRequest({ nonce: nonce.current, ...req });
+  };
+
+  // Pick mode: every part clicked on the diagram is inserted at the caret.
   useEffect(() => {
     if (!picking || !targetId) return;
     if (lastPicked.current === targetId) return;
     lastPicked.current = targetId;
-    setTokens((t) => [
-      ...t,
-      { key: nextKey(), text: objectChipLabel(scene, targetId), objectId: targetId },
-    ]);
+    const label = objectChipLabel(scene, targetId);
+    request({ text: label });
+    setRefs((r) => (r.some((x) => x.id === targetId) ? r : [...r, { id: targetId, label }]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId, picking]);
 
+  const statement = useMemo(() => {
+    try { return normalizeMathSource(treeToLatex(root)).trim(); } catch { return ""; }
+  }, [root]);
+
+  /** Only ids whose label survives in the expression stay linked. */
+  const objectIds = useMemo(
+    () => refs.filter((r) => statement.includes(r.label)).map((r) => r.id),
+    [refs, statement],
+  );
+
   // Live highlight of everything the statement references.
-  const objectIds = [...new Set(tokens.map((t) => t.objectId).filter(Boolean))] as GeoId[];
   useEffect(() => {
     onHighlight(objectIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objectIds.join(",")]);
 
-  const statement = tokens.map((t) => t.text).join(" ").replace(/\s+([)°²])/g, "$1").trim();
+  const reset = () => {
+    setRoot([]);
+    setRefs([]);
+    setReason("");
+    lastPicked.current = null;
+  };
 
   const add = () => {
     if (!statement) return;
     onAdd({ statement, reason: reason.trim(), objectIds });
-    setTokens([]);
-    setReason("");
-    lastPicked.current = null;
+    reset();
   };
 
   return (
@@ -86,42 +122,54 @@ export function PropertyComposer({
         </button>
       </div>
 
-      {/* The statement being built */}
-      <div className="mt-1.5 min-h-[34px] flex flex-wrap items-center gap-1 rounded border border-foreground/20 bg-background px-1.5 py-1">
-        {tokens.length === 0 && (
-          <span className="text-[11px] text-foreground/45">
-            Click a point, line, angle or area on the diagram, then add an operator.
-          </span>
-        )}
-        {tokens.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            title="Remove"
-            onClick={() => setTokens((list) => list.filter((x) => x.key !== t.key))}
-            className={`rounded px-1.5 py-[1px] text-[12px] ${
-              t.objectId
-                ? "border border-primary/45 bg-primary/10 font-medium"
-                : "text-foreground/85"
-            }`}
-          >
-            {t.text}
-          </button>
-        ))}
+      {/* The live mathematics editor — device keyboard + platform shortcuts */}
+      <div
+        className="mt-1.5 min-h-[34px] rounded border border-foreground/25 bg-background px-1.5 py-1 text-[14px] text-foreground"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <MathInlineCanvas
+          root={root}
+          onChange={setRoot}
+          onBlur={() => { /* stay open; Add property commits */ }}
+          focused
+          onFocus={() => { /* already focused */ }}
+          insertRequest={insertRequest}
+        />
       </div>
+      {root.length === 0 && (
+        <p className="mt-1 text-[11px] text-foreground/50">
+          Type with your keyboard: <span className="font-medium">/</span> fraction,{" "}
+          <span className="font-medium">#</span> power, <span className="font-medium">##</span> index.
+          Click a part of the diagram to insert it.
+        </p>
+      )}
 
-      {/* Operator / symbol keypad */}
-      <div className="mt-1.5 flex flex-wrap gap-1">
-        {OPERATORS.map((op) => (
-          <button
-            key={op}
-            type="button"
-            onClick={() => setTokens((t) => [...t, { key: nextKey(), text: op }])}
-            className="rounded border border-foreground/20 bg-background px-1.5 py-[2px] text-[11.5px] hover:bg-foreground/[0.06]"
-          >
-            {op}
-          </button>
-        ))}
+      {/* Add function */}
+      <div className="relative mt-1.5">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((o) => !o)}
+          className="inline-flex items-center gap-1 rounded border border-foreground/25 bg-background px-2 py-1 text-[11.5px]"
+        >
+          Add function <ChevronDown className="h-3 w-3" />
+        </button>
+        {menuOpen && (
+          <div className="absolute z-30 mt-1 max-h-56 w-48 overflow-auto rounded-md border border-foreground/20 bg-background p-1 shadow-lg">
+            {FUNCTIONS.map((f) => (
+              <button
+                key={f.label}
+                type="button"
+                onClick={() => {
+                  request(f.node ? { node: f.node() } : { text: f.text });
+                  setMenuOpen(false);
+                }}
+                className="block w-full rounded px-2 py-1 text-left text-[12px] hover:bg-foreground/[0.07]"
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <label className="mt-1.5 block">
@@ -147,14 +195,14 @@ export function PropertyComposer({
         </button>
         <button
           type="button"
-          onClick={() => setTokens((t) => t.slice(0, -1))}
+          onClick={() => setRoot((r) => r.slice(0, -1))}
           className="inline-flex items-center gap-1 rounded border border-foreground/20 px-2 py-1 text-[11px]"
         >
           <RotateCcw className="h-3 w-3" /> Undo
         </button>
         <button
           type="button"
-          onClick={() => { setTokens([]); setReason(""); lastPicked.current = null; onHighlight([]); }}
+          onClick={() => { reset(); onHighlight([]); }}
           className="inline-flex items-center gap-1 rounded border border-foreground/20 px-2 py-1 text-[11px]"
         >
           <Trash2 className="h-3 w-3" /> Clear
