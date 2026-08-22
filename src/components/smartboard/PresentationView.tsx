@@ -7090,7 +7090,8 @@ const BeatBlock = ({
           <div
             key={o.objId}
             className="lesson-doc sb-board-object w-full max-w-full"
-            style={{ fontSize: "0.6rem" }}
+            style={{ fontSize: "1rem" }}
+
           >
             <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation />
           </div>
