@@ -332,7 +332,7 @@ export function useNotebook(notebookId: string | undefined) {
     supabase.from("notebooks").update({ document_json: doc } as any).eq("id", notebook.id);
     // Newly-migrated doc — sync immediately too.
     syncDocumentToNotebook(notebook.id, doc).catch(() => { /* noop */ });
-  }, [notebook, sections, loading, structureLoaded]);
+  }, [notebook, sections, loading, structureLoaded, canEdit]);
 
 
   const addSection = useCallback(
