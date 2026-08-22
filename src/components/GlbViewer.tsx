@@ -2,6 +2,7 @@ import { Suspense, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stage, useGLTF } from "@react-three/drei";
 import { Box } from "lucide-react";
+import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
 
 const Model = ({ src }: { src: string }) => {
   const { scene } = useGLTF(src);
@@ -16,6 +17,7 @@ const Model = ({ src }: { src: string }) => {
  */
 const GlbViewer = ({ src }: { src: string }) => {
   const [active, setActive] = useState(false);
+  const gpuRecovery = useWebglRecovery("glb-viewer");
 
   if (!active) {
     return (
@@ -33,7 +35,7 @@ const GlbViewer = ({ src }: { src: string }) => {
 
   return (
     <div className="aspect-square w-full overflow-hidden rounded-lg bg-background/40">
-      <Canvas camera={{ position: [0, 1, 3], fov: 45 }}>
+      <Canvas key={gpuRecovery.resetKey} onCreated={({ gl }) => gpuRecovery.attach(gl.domElement)} camera={{ position: [0, 1, 3], fov: 45 }}>
         <Suspense fallback={null}>
           <Stage environment="city" intensity={0.6}>
             <Model src={src} />

@@ -11,6 +11,7 @@ import statisticsImage from "@/assets/academy/statistics.png";
 import calculusImage from "@/assets/academy/calculus.png";
 import academyBackground from "@/assets/academy_background.png";
 import academyClouds from "@/assets/academy_clouds.png";
+import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
 
 const subjects = [
   { slug: "algebra", image: algebraImage },
@@ -358,7 +359,9 @@ const AcademyStructure = () => {
   );
 };
 
-export const RotatingBuildingArchive = () => (
+export const RotatingBuildingArchive = () => {
+  const gpuRecovery = useWebglRecovery("building-archive");
+  return (
   <main className="cinematic-sky relative h-screen w-screen overflow-hidden animate-fade-in">
     <img
       src={academyBackground}
@@ -367,7 +370,7 @@ export const RotatingBuildingArchive = () => (
       loading="eager"
     />
     <div className="academy-background-blend pointer-events-none absolute inset-0" />
-    <Canvas camera={{ position: [0, -0.45, 7.4], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
+    <Canvas key={gpuRecovery.resetKey} onCreated={({ gl }) => gpuRecovery.attach(gl.domElement)} camera={{ position: [0, -0.45, 7.4], fov: 42, near: 0.1, far: 100 }} dpr={[1, 1.75]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}>
       <Suspense fallback={null}>
         <AcademyStructure />
       </Suspense>
@@ -375,6 +378,7 @@ export const RotatingBuildingArchive = () => (
     <div className="academy-vignette pointer-events-none absolute inset-0" />
     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent" />
   </main>
-);
+  );
+};
 
 export { subjects };
