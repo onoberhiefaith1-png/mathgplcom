@@ -9,9 +9,9 @@ import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import PresentationView from "@/components/smartboard/PresentationView";
 import TeacherReasoningPanel from "@/components/smartboard/TeacherReasoningPanel";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
+import RecoveryBoundary from "@/components/common/RecoveryBoundary";
 
 import {
-import RecoveryBoundary from "@/components/common/RecoveryBoundary";
   buildAssessmentBoardSource,
   type AssessmentLike,
 } from "@/lib/assessments/assessmentBoardSource";
