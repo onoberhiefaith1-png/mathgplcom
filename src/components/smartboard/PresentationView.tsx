@@ -318,6 +318,7 @@ const PresentationView = ({
   viewOnly = false,
   smartCardSlug = null,
   participantKey = null,
+  testMode = false,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -342,6 +343,9 @@ const PresentationView = ({
   /** Public Smart Card challenge — grading runs without an account. */
   smartCardSlug?: string | null;
   participantKey?: string | null;
+  /** Teacher's temporary Floating Number test: same board, same engine, but
+   *  nothing is recorded — marks live only for this sitting. */
+  testMode?: boolean;
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
@@ -391,7 +395,7 @@ const PresentationView = ({
     assessmentId,
     studentId: boardStudentId,
     questionId: boardQuestionId,
-    enabled: assessmentMode && !!boardStudentId,
+    enabled: assessmentMode && !!boardStudentId && !testMode,
   });
   const applyingRemoteRef = useRef(false);
 
@@ -450,7 +454,9 @@ const PresentationView = ({
   }, [boardStudentId]);
 
   // Seed progress from the server on open + follow live updates.
+  // A test sitting always starts from zero and is never seeded or mirrored.
   useEffect(() => {
+    if (testMode) { setSolvedSlots({}); setAssessScore(0); return; }
     if (!assessmentMode || !assessmentId || !progressOwnerId) return;
     let cancelled = false;
     (async () => {
@@ -468,6 +474,7 @@ const PresentationView = ({
   }, [assessmentMode, assessmentId, progressOwnerId]);
 
   useEffect(() => {
+    if (testMode) return;
     if (!assessmentMode || !assessmentId || !progressOwnerId) return;
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
@@ -3593,7 +3600,9 @@ const PresentationView = ({
           studentAscii: ascii,
           mode,
           allowedFloatingTokens: expectedFrags,
-          persist: true,
+          // A test never writes progress: the engine grades, the board keeps
+          // the score in memory only.
+          persist: !testMode,
           ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
         },
       });
@@ -3619,8 +3628,16 @@ const PresentationView = ({
       });
 
       if (res?.correct) {
-        setSolvedSlots(res.solvedLines ?? {});
-        setAssessScore(Number(res.score ?? 0));
+        const awarded = Number(res?.marks ?? target.marks ?? 0);
+        if (testMode) {
+          // Nothing was persisted, so the sitting accumulates its own total.
+          const slot = `${current.id}:${target.lineId}`;
+          setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
+          setAssessScore((prev) => prev + awarded);
+        } else {
+          setSolvedSlots(res.solvedLines ?? {});
+          setAssessScore(Number(res.score ?? 0));
+        }
         setWrongLine((w) => (w === rowNum ? null : w));
       }
 

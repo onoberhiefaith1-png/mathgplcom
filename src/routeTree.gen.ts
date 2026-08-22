@@ -221,6 +221,7 @@ import { Route as GamesFractionsImproperToMixedDifficultyIndexRouteImport } from
 import { Route as GamesFractionsMixedToImproperDifficultyIndexRouteImport } from './routes/games/fractions/mixed-to-improper/$difficulty/index'
 import { Route as LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRouteImport } from './routes/lesson-notes/$notebookId/floating-prep/$subsectionId/index'
 import { Route as LessonNotesNotebookIdFloatingSubsectionIdIndexRouteImport } from './routes/lesson-notes/$notebookId/floating/$subsectionId/index'
+import { Route as LessonNotesNotebookIdFloatingSubsectionIdTestRouteImport } from './routes/lesson-notes/$notebookId/floating/$subsectionId/test'
 import { Route as LiveSmartCardsCardIdGameDashboardIndexRouteImport } from './routes/live/smart-cards/$cardId/game-dashboard/index'
 import { Route as LiveSmartCardsCardIdGameSetupIndexRouteImport } from './routes/live/smart-cards/$cardId/game-setup/index'
 import { Route as LiveWorkspaceClassIdAdventuresIndexRouteImport } from './routes/live/workspace/$classId/adventures/index'
@@ -1421,6 +1422,12 @@ const LessonNotesNotebookIdFloatingSubsectionIdIndexRoute =
     path: '/$notebookId/floating/$subsectionId/',
     getParentRoute: () => LessonNotesRouteRoute,
   } as any)
+const LessonNotesNotebookIdFloatingSubsectionIdTestRoute =
+  LessonNotesNotebookIdFloatingSubsectionIdTestRouteImport.update({
+    id: '/$notebookId/floating/$subsectionId/test',
+    path: '/$notebookId/floating/$subsectionId/test',
+    getParentRoute: () => LessonNotesRouteRoute,
+  } as any)
 const LiveSmartCardsCardIdGameDashboardIndexRoute =
   LiveSmartCardsCardIdGameDashboardIndexRouteImport.update({
     id: '/smart-cards/$cardId/game-dashboard/',
@@ -2014,6 +2021,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
   '/teaching-hub/students/$userId/': typeof TeachingHubStudentsUserIdIndexRoute
   '/family/children/$childId/classes/$classId': typeof FamilyChildrenChildIdClassesClassIdRoute
+  '/lesson-notes/$notebookId/floating/$subsectionId/test': typeof LessonNotesNotebookIdFloatingSubsectionIdTestRoute
   '/school/students/$userId/classes/$classId': typeof SchoolStudentsUserIdClassesClassIdRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
@@ -2282,6 +2290,7 @@ export interface FileRoutesByTo {
   '/teaching-hub/settings/archive': typeof TeachingHubSettingsArchiveIndexRoute
   '/teaching-hub/students/$userId': typeof TeachingHubStudentsUserIdIndexRoute
   '/family/children/$childId/classes/$classId': typeof FamilyChildrenChildIdClassesClassIdRoute
+  '/lesson-notes/$notebookId/floating/$subsectionId/test': typeof LessonNotesNotebookIdFloatingSubsectionIdTestRoute
   '/school/students/$userId/classes/$classId': typeof SchoolStudentsUserIdClassesClassIdRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
@@ -2562,6 +2571,7 @@ export interface FileRoutesById {
   '/teaching-hub/settings/archive/': typeof TeachingHubSettingsArchiveIndexRoute
   '/teaching-hub/students/$userId/': typeof TeachingHubStudentsUserIdIndexRoute
   '/family/children/$childId/classes/$classId': typeof FamilyChildrenChildIdClassesClassIdRoute
+  '/lesson-notes/$notebookId/floating/$subsectionId/test': typeof LessonNotesNotebookIdFloatingSubsectionIdTestRoute
   '/school/students/$userId/classes/$classId': typeof SchoolStudentsUserIdClassesClassIdRoute
   '/school/teachers/$userId/classes/$classId': typeof SchoolTeachersUserIdClassesClassIdRoute
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
@@ -2843,6 +2853,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/settings/archive/'
     | '/teaching-hub/students/$userId/'
     | '/family/children/$childId/classes/$classId'
+    | '/lesson-notes/$notebookId/floating/$subsectionId/test'
     | '/school/students/$userId/classes/$classId'
     | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$id'
@@ -3111,6 +3122,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/settings/archive'
     | '/teaching-hub/students/$userId'
     | '/family/children/$childId/classes/$classId'
+    | '/lesson-notes/$notebookId/floating/$subsectionId/test'
     | '/school/students/$userId/classes/$classId'
     | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$id'
@@ -3390,6 +3402,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/settings/archive/'
     | '/teaching-hub/students/$userId/'
     | '/family/children/$childId/classes/$classId'
+    | '/lesson-notes/$notebookId/floating/$subsectionId/test'
     | '/school/students/$userId/classes/$classId'
     | '/school/teachers/$userId/classes/$classId'
     | '/school/teachers/$userId/lesson-notes/$id'
@@ -5089,6 +5102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdIndexRouteImport
       parentRoute: typeof LessonNotesRouteRoute
     }
+    '/lesson-notes/$notebookId/floating/$subsectionId/test': {
+      id: '/lesson-notes/$notebookId/floating/$subsectionId/test'
+      path: '/$notebookId/floating/$subsectionId/test'
+      fullPath: '/lesson-notes/$notebookId/floating/$subsectionId/test'
+      preLoaderRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdTestRouteImport
+      parentRoute: typeof LessonNotesRouteRoute
+    }
     '/live/smart-cards/$cardId/game-dashboard/': {
       id: '/live/smart-cards/$cardId/game-dashboard/'
       path: '/smart-cards/$cardId/game-dashboard'
@@ -5698,6 +5718,7 @@ const FamilyRouteRouteWithChildren = FamilyRouteRoute._addFileChildren(
 interface LessonNotesRouteRouteChildren {
   LessonNotesIndexRoute: typeof LessonNotesIndexRoute
   LessonNotesIdIndexRoute: typeof LessonNotesIdIndexRoute
+  LessonNotesNotebookIdFloatingSubsectionIdTestRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdTestRoute
   LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute: typeof LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute
   LessonNotesNotebookIdFloatingSubsectionIdIndexRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdIndexRoute
   LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute: typeof LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute
@@ -5706,6 +5727,8 @@ interface LessonNotesRouteRouteChildren {
 const LessonNotesRouteRouteChildren: LessonNotesRouteRouteChildren = {
   LessonNotesIndexRoute: LessonNotesIndexRoute,
   LessonNotesIdIndexRoute: LessonNotesIdIndexRoute,
+  LessonNotesNotebookIdFloatingSubsectionIdTestRoute:
+    LessonNotesNotebookIdFloatingSubsectionIdTestRoute,
   LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute:
     LessonNotesNotebookIdFloatingPrepSubsectionIdIndexRoute,
   LessonNotesNotebookIdFloatingSubsectionIdIndexRoute:

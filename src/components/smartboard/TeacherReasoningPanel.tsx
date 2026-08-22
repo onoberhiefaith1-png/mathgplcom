@@ -422,7 +422,7 @@ const TeacherReasoningPanel = ({
       <div className="flex items-start justify-between gap-2 border-b border-border px-3 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-sm font-semibold">
-            <span>🧠</span> Reasoning
+            <span>🧠</span> Evaluation
           </div>
           <div className="truncate text-[11px] text-muted-foreground">{studentName}</div>
         </div>
@@ -432,7 +432,7 @@ const TeacherReasoningPanel = ({
               type="button"
               onClick={onToggleFullscreen}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-              aria-label={fullscreen ? "Exit reasoning full screen" : "Reasoning full screen"}
+              aria-label={fullscreen ? "Exit evaluation full screen" : "Evaluation full screen"}
               title={fullscreen ? "Exit full screen" : "Full screen"}
             >
               {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -442,7 +442,7 @@ const TeacherReasoningPanel = ({
             type="button"
             onClick={onClose}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label="Close reasoning panel"
+            aria-label="Close evaluation panel"
           >
             <XIcon className="h-4 w-4" />
           </button>
@@ -539,7 +539,7 @@ const TeacherReasoningPanel = ({
                   (shownVerdict
                     ? verdictLabel(shownVerdict)
                     : studentAscii.trim()
-                      ? "The reasoning engine is evaluating this line."
+                      ? "The evaluation engine is evaluating this line."
                       : "No line content to evaluate yet.")}
               </div>
               {shownDiagnosis?.code && (
