@@ -110,6 +110,36 @@ export function useNotebook(notebookId: string | undefined) {
   // needs the notebooks row to open, so it must never wait for them.
   const [structureLoaded, setStructureLoaded] = useState(false);
 
+  // A note can be OPENED by people who only have read access (shared class
+  // member, Community viewer, school owner). Every write path below must stay
+  // silent for them — otherwise merely opening a shared note fires blocked
+  // writes and the editor shows "Could not add section" errors.
+  const [viewerId, setViewerId] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (alive) setViewerId(data.user?.id ?? null);
+    });
+    return () => { alive = false; };
+  }, []);
+  const canEdit = !!notebook && !!viewerId && notebook.owner_id === viewerId;
+  const canEditRef = useRef(false);
+  canEditRef.current = canEdit;
+  /** Guard for every mutating callback. Returns false (and warns once) when read-only. */
+  const readOnlyBlocked = useRef(false);
+  const guardWrite = useCallback(() => {
+    if (canEditRef.current) return true;
+    if (!readOnlyBlocked.current) {
+      readOnlyBlocked.current = true;
+      toast({
+        title: "This lesson note is read-only",
+        description: "You're viewing someone else's note. Make a copy to edit it.",
+      });
+    }
+    return false;
+  }, []);
+
+
   /** The three legacy structure queries (Smartboard tables). Background work. */
   const loadStructure = useCallback(async () => {
     if (!notebookId) return;
