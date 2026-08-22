@@ -203,7 +203,11 @@ const firstLineOf = (h: Highlight): number => {
   return h.tokens.length ? Math.min(...h.tokens.map((t) => t.line)) : Number.MAX_SAFE_INTEGER;
 };
 
-const orderedHighlights = (source: Highlight[], lines: string[]) => {
+const orderedHighlights = (
+  source: Highlight[],
+  lines: string[],
+  allObjects: SolutionObject[] = [],
+) => {
   // Text highlights keep the existing notebook-checkpoint behaviour untouched.
   const textOnly = source.filter((h) => !h.object);
   const objects = source.filter((h) => !!h.object);
@@ -212,15 +216,36 @@ const orderedHighlights = (source: Highlight[], lines: string[]) => {
     .map((h, i) => ({ h, i, pos: firstLineOf(h) }))
     .sort((a, b) => (a.pos - b.pos) || (a.i - b.i))
     .map(({ h }) => h);
-  return merged.map((h, i) => ({
+  // DIAGRAM LAW: diagrams never become rows of their own. Each one rides the
+  // NOTE of the entry above it; a diagram above everything becomes its own
+  // standalone note-only entry (no floating number).
+  const positioned = merged.map((h) => ({ entry: h, pos: firstLineOf(h) }));
+  const { byIndex, leading } = assignNoteObjects(positioned, allObjects);
+  const withObjects: Highlight[] = merged.map((h, i) => {
+    const objs = byIndex.get(i);
+    return objs && objs.length ? { ...h, noteObjects: objs } : h;
+  });
+  if (leading.length) {
+    withObjects.unshift({
+      groupId: -1,
+      tokens: [],
+      payload: "",
+      precedingNotebook: "",
+      notebookOnly: true,
+      noteObjects: leading,
+    });
+  }
+  return withObjects.map((h, i) => ({
     groupId: i + 1,
     tokens: h.tokens,
     payload: h.payload,
     precedingNotebook: h.precedingNotebook ?? "",
     notebookOnly: h.notebookOnly === true,
     ...(h.object ? { object: h.object } : {}),
+    ...(h.noteObjects?.length ? { noteObjects: h.noteObjects } : {}),
   }));
 };
+
 
 const coerceFloatingLine = (line: any): FloatingLine => ({
   lineId: String(line?.lineId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto
