@@ -7,7 +7,7 @@ import { useMemo } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { GeometryDiagramNode } from "./extensions/GeometryDiagram";
-import { Scene3DDiagramNode } from "./extensions/Scene3DDiagram";
+import { Scene3DDiagramNode, setScene3DPresentationMode } from "./extensions/Scene3DDiagram";
 import { MathTableNode } from "./extensions/MathTable";
 import { SmartGraphNode } from "./extensions/SmartGraph";
 import { SmartCalcNode } from "./extensions/SmartCalc";
