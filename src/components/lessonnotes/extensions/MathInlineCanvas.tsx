@@ -80,6 +80,11 @@ interface Props {
    *  expression. The host decides what to do (usually: commit this math run
    *  and drop the object into the surrounding note). */
   onInsertObjectAsset?: (asset: AssetDef) => void;
+  /** Imperative insert at the current caret, used by hosts that offer their
+   *  own "insert structure / insert reference" affordances (e.g. the geometry
+   *  property composer's Add Function menu and Pick-from-diagram). The
+   *  `nonce` makes each request unique; the host bumps it per insertion. */
+  insertRequest?: { nonce: number; node?: Node; text?: string } | null;
 }
 
 
