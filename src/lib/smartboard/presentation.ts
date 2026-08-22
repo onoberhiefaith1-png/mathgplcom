@@ -10,6 +10,7 @@ import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { normEq } from "./rowAscii";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
+import { readSolutionObjects, isFloatableObject } from "@/lib/floating/solutionItems";
 import { boardObjects, notesLayerObjects } from "@/lib/lessonnotes/lessonOutline";
 
 /** Objects stored on a block, filtered to what the student board may show. */
@@ -26,6 +27,13 @@ const solutionNotesObjects = (block?: BlockRow | null): SolutionObject[] => {
   const raw = (block as any)?.content_json?.objects;
   return Array.isArray(raw) ? notesLayerObjects(raw as SolutionObject[]) : [];
 };
+
+/** Restore persisted note-attached objects (diagrams). Floatable objects can
+ *  never be note content, so they are dropped defensively. */
+const readNoteObjects = (raw: any): SolutionObject[] =>
+  readSolutionObjects({ objects: Array.isArray(raw) ? raw : [] }).filter(
+    (o) => !isFloatableObject(o),
+  );
 
 export type BeatKind =
   | "text"            // intro/explanation/summary — full block
@@ -74,6 +82,10 @@ export interface ReservoirLine {
   /** Set when the line came from a highlighted table workspace. Carries the
    *  grid snapshot + retained cells so the board can render the table. */
   table?: FloatingTableRef;
+  /** NOTES-LAYER objects (diagrams) belonging to this line's NOTE. They never
+   *  enter the floating sequence — pressing the note icon reveals them with
+   *  the note prose. */
+  noteObjects?: SolutionObject[];
 }
 
 export interface Reservoir {
@@ -388,7 +400,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // its workspace generated (matched by objId on the saved floating
       // lines). Other objects (diagrams) are still skipped.
       const rawHighlights = ((sub as any).floating_highlights as
-        | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean; object?: any }[]
+        | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean; object?: any; noteObjects?: any }[]
         | null
         | undefined)?.filter((h) => !h?.object || h.object?.family === "table");
 
@@ -408,16 +420,20 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // belongs to the highlight ABOVE it, so leading prose has no parent
       // and remains independent.
       const sourceLines = rawHighlights && rawHighlights.length > 0
-        ? rawHighlights.reduce<Array<{ equation: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef }>>((acc, h, hi) => {
+        ? rawHighlights.reduce<Array<{ equation: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
+            // Diagrams attached to this entry's note (never floating content).
+            const noteObjects = readNoteObjects((h as any).noteObjects);
             if (h.notebookOnly) {
               const nb = String(h.precedingNotebook ?? "").trim();
-              if (!nb) return acc;
+              // A note-only row survives when it carries prose OR a diagram.
+              if (!nb && noteObjects.length === 0) return acc;
               acc.push({
                 equation: "",
                 fillers: [],
                 containers: [],
                 notebook: nb,
                 notebookOnly: true,
+                noteObjects,
               });
               return acc;
             }
@@ -448,6 +464,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
               equation: payload,
               notebook: ownNotebook || undefined,
               notebookOnly: false,
+              noteObjects,
             });
             return acc;
           }, [])
@@ -460,6 +477,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           const rl = sourceLines[k];
           const eq = (rl.equation ?? "").trim();
           const isNotebookOnly = (rl as any).notebookOnly === true;
+          const lineNoteObjects = readNoteObjects((rl as any).noteObjects);
           if (!eq && !isNotebookOnly) continue;
           // Preserve the EXACT order the teacher generated. No shuffle, no
           // rearrangement — the floating-number page should reflect the
@@ -504,6 +522,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             notebook,
             notebookOnly: isNotebookOnly,
             table: (rl as any).table,
+            noteObjects: lineNoteObjects.length ? lineNoteObjects : undefined,
           });
         }
       }
