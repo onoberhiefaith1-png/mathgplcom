@@ -36,6 +36,12 @@ export interface PipelineInput extends PipelineHooks {
   generateQuestion: (args: { directive: string; blueprint: QuestionBlueprint }) => Promise<string>;
   /** Optional: build the diagram for a blueprint that requires one. */
   generateDiagram?: (args: { blueprint: QuestionBlueprint; question: string }) => Promise<unknown | null>;
+  /**
+   * True when the question being worked on ALREADY owns its diagram. One
+   * question = one diagram: the diagram stage is then skipped outright, so no
+   * second figure can ever be drawn above the Solution.
+   */
+  questionHasDiagram?: boolean;
   /** Optional: solve the generated question. */
   generateSolution?: (args: { blueprint: QuestionBlueprint; question: string }) => Promise<string>;
   /** Skip validation gates (used for non-question sections). */
