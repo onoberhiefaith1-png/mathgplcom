@@ -20,21 +20,18 @@ const ImpersonationBanner = () => {
   const bannerRef = useRef<HTMLDivElement>(null);
   const drag = useDraggableTab("mgpl:impersonation-tab-x");
 
-
   useEffect(() => {
     setInfo(activeImpersonation());
-    const onStorage = () => setInfo(activeImpersonation());
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  useEffect(() => {
     try {
       setFolded(sessionStorage.getItem(FOLDED_KEY) === "1");
     } catch {
       // sessionStorage may be unavailable in some environments.
     }
+    const onStorage = () => setInfo(activeImpersonation());
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
+
 
   useEffect(() => {
     try {
