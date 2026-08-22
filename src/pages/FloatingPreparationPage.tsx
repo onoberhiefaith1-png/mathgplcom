@@ -863,27 +863,28 @@ const FloatingPreparationPage = () => {
                 const floatable = isFloatableObject(obj);
                 const on = floatable && highlightedObjectIds.has(obj.objId);
                 if (!floatable) {
-                  // NOTES LAYER — a diagram is permanent lesson content. It is
-                  // shown here for context but can never be highlighted,
+                  // NOTES LAYER — a diagram is permanent lesson content. It
+                  // renders inline, exactly where it sits in the note: no card,
+                  // no caption, no extra sheet. It can never be highlighted,
                   // numbered or converted into a Floating Number.
                   return (
                     <div
                       key={`obj-${obj.objId}`}
-                      className="my-4 rounded-md p-3 ring-1 ring-[hsl(220_15%_60%/0.3)] bg-[hsl(220_20%_97%)]"
+                      className="group/noteobj relative my-2 select-none"
                       style={{ lineHeight: "normal" }}
+                      title={`${familyLabel(obj.family)} · notes content`}
                     >
-                      <div
-                        className="text-[12px] font-medium mb-2 select-none uppercase tracking-wide"
-                        style={{ color: "hsl(220 20% 45%)" }}
+                      <SolutionObjectView nodeType={obj.nodeType} attrs={obj.attrs} />
+                      <span
+                        className="pointer-events-none absolute right-0 top-0 rounded px-1.5 py-0.5 text-[11px] opacity-0 transition-opacity group-hover/noteobj:opacity-100"
+                        style={{ background: "hsl(220 20% 96%)", color: "hsl(220 20% 45%)" }}
                       >
-                        {familyLabel(obj.family)} · notes content (not highlightable)
-                      </div>
-                      <div className="overflow-x-auto">
-                        <SolutionObjectView nodeType={obj.nodeType} attrs={obj.attrs} />
-                      </div>
+                        notes content
+                      </span>
                     </div>
                   );
                 }
+
                 return (
                   <div
                     key={`obj-${obj.objId}`}
