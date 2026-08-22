@@ -37,8 +37,14 @@ export interface QuestionPayload {
     /** Teacher's correct equation for this line (the orange line). Student-safe
      *  only in the sense that it is NOT sent to the board — it stays in the
      *  answer key. Kept here so board sources can carry it for the teacher. */
+    /** The teaching note authored by THIS line's own highlight
+     *  (`precedingNotebook`). Absent ⇒ this line has no note, ever. */
+    note?: string;
+    /** A standalone note with no equation of its own. */
+    noteOnly?: boolean;
   }[];
 }
+
 
 export interface AnswerKeyLine {
   questionId: string;
