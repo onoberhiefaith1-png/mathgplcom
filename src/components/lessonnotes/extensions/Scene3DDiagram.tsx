@@ -53,7 +53,7 @@ function Scene3DDiagramView({ node, updateAttributes, deleteNode, selected, edit
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sceneKey],
   );
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(presentationMode);
   const height = Number(node.attrs.height) || 360;
   useRegisterAssetSnapshot(!!selected, "scene3d", () => ({
     node: node.toJSON(),
