@@ -1468,6 +1468,14 @@ const FloatingNumbersPage = () => {
         </div>
       </div>
 
+      {archiveOpen && info && (
+        <FloatingArchivePanel
+          subsectionId={info.subsectionId}
+          onClose={() => setArchiveOpen(false)}
+          onRestore={restoreArchived}
+        />
+      )}
+
       <AiEditPanel
         open={aiEditOpen}
         target={aiEditTarget}
