@@ -2,6 +2,7 @@ import { useCallback, useRef } from "react";
 import SignedMedia from "./SignedMedia";
 import ChromaVideo from "./ChromaVideo";
 import ProgressColumn from "./ProgressColumn";
+import TimerVideoView from "./TimerVideoView";
 import { getPreset } from "@/lib/games/progressPresets";
 import { getLiquidStyle } from "@/lib/games/liquidStyles";
 import QuestionProgressContainer from "@/components/assets/QuestionProgressContainer";
