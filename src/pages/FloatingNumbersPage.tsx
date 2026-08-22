@@ -107,6 +107,9 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
 const FloatingNumbersPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
   const navigate = useNavigate();
+  // Floating Number AI is a retired feature while archived (see Application Archive).
+  const { archived: aiArchivedRaw } = useArchivedFeature("floating_number_ai");
+  const aiArchived = aiArchivedRaw !== false;
   const [info, setInfo] = useState<SubInfo | null>(null);
   const [lines, setLines] = useState<FloatingLine[]>([]);
   const [loading, setLoading] = useState(true);
