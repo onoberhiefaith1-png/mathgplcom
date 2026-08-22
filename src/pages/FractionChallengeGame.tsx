@@ -71,8 +71,8 @@ const Inner = ({ kind, difficulty }: InnerProps) => {
 
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
-      <div className="absolute inset-0 bg-gradient-to-b from-[hsl(244_46%_8%)] via-[hsl(250_38%_12%)] to-[hsl(244_46%_6%)]" />
-      <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(hsl(200_90%_70%/0.4)_1px,transparent_1px)] [background-size:32px_32px]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[hsl(244_46%_8%)] via-[hsl(250_38%_12%)] to-[hsl(244_46%_6%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:radial-gradient(hsl(200_90%_70%/0.4)_1px,transparent_1px)] [background-size:32px_32px]" />
       <div className="relative z-10 flex h-full flex-col">
         <TopHud
           onSettings={() => setSettingsOpen(true)}

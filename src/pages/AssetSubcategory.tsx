@@ -236,9 +236,9 @@ const BundledAssetSubcategory = () => {
                       {g.image ? (
                         <img src={g.image} alt={g.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-110" />
                       ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-background" />
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/40 to-background" />
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/95 via-background/40 to-transparent" />
                       <div className="absolute inset-x-0 bottom-0 p-3">
                         <div className="text-sm font-semibold drop-shadow sm:text-base">{g.name}</div>
                         <div className="text-xs text-muted-foreground">{g.assets.length} clips</div>

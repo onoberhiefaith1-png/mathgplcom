@@ -51,7 +51,7 @@ const MediaFrame = ({
         className="absolute inset-0 h-full w-full"
       />
     ) : (
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,hsl(258_70%_35%/0.5),transparent_60%),radial-gradient(circle_at_75%_70%,hsl(210_80%_40%/0.35),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,hsl(258_70%_35%/0.5),transparent_60%),radial-gradient(circle_at_75%_70%,hsl(210_80%_40%/0.35),transparent_55%)]" />
     )}
   </div>
 );
@@ -66,7 +66,7 @@ const Hero = ({ section }: { section: SiteSectionResolved }) => (
       ) : (
         <div className="h-full w-full bg-[radial-gradient(circle_at_25%_20%,hsl(258_70%_30%),hsl(224_70%_8%)_65%)]" />
       )}
-      <div className="absolute inset-0 bg-gradient-to-b from-[hsl(224_70%_6%)]/85 via-[hsl(224_70%_6%)]/45 to-[hsl(224_70%_6%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[hsl(224_70%_6%)]/85 via-[hsl(224_70%_6%)]/45 to-[hsl(224_70%_6%)]" />
     </div>
 
     <div className="relative mx-auto w-full max-w-6xl px-6 pb-24 pt-32">
@@ -98,7 +98,7 @@ const Statement = ({ section }: { section: SiteSectionResolved }) =>
     <section className="relative overflow-hidden">
       <div className="absolute inset-0">
         <SiteMedia media={section.media} alt="" className="h-full w-full" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(224_70%_6%)]/85 via-[hsl(224_70%_6%)]/60 to-[hsl(224_70%_6%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[hsl(224_70%_6%)]/85 via-[hsl(224_70%_6%)]/60 to-[hsl(224_70%_6%)]" />
       </div>
       <div className="relative mx-auto max-w-5xl px-6 py-28 text-center sm:py-40">
         <Reveal>
@@ -154,9 +154,9 @@ const Panels = ({ section }: { section: SiteSectionResolved }) => (
             {item.media ? (
               <SiteMedia media={item.media} alt={item.label ?? ""} className="absolute inset-0 h-full w-full transition duration-700 group-hover:scale-[1.04]" />
             ) : (
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_30%,hsl(258_70%_35%/0.45),transparent_60%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_40%_30%,hsl(258_70%_35%/0.45),transparent_60%)]" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[hsl(224_70%_6%)] via-transparent to-transparent" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[hsl(224_70%_6%)] via-transparent to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-6">
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-300/90">
                 {item.label}
@@ -214,7 +214,7 @@ const Showcase = ({ section }: { section: SiteSectionResolved }) => (
               {item.media ? (
                 <SiteMedia media={item.media} alt={item.label ?? ""} className="absolute inset-0 h-full w-full" />
               ) : (
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_40%,hsl(210_80%_40%/0.35),transparent_60%)]" />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_60%_40%,hsl(210_80%_40%/0.35),transparent_60%)]" />
               )}
             </div>
           </div>
@@ -261,7 +261,7 @@ const Cinematic = ({ section }: { section: SiteSectionResolved }) => {
               {frame?.media ? (
                 <SiteMedia media={frame.media} alt={frame.label ?? ""} className="absolute inset-0 h-full w-full" />
               ) : (
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,hsl(258_70%_38%/0.45),transparent_65%)]" />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,hsl(258_70%_38%/0.45),transparent_65%)]" />
               )}
             </div>
             {frame?.label && <p className="mt-4 text-center text-sm text-white/50">{frame.label}</p>}
@@ -354,7 +354,7 @@ const Workflow = ({ section }: { section: SiteSectionResolved }) => (
                 {item.media ? (
                   <SiteMedia media={item.media} alt={item.label ?? ""} className="absolute inset-0 h-full w-full" />
                 ) : (
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_55%_35%,hsl(210_80%_40%/0.3),transparent_60%)]" />
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_55%_35%,hsl(210_80%_40%/0.3),transparent_60%)]" />
                 )}
               </div>
             </div>
@@ -490,9 +490,9 @@ const Audience = ({ section }: { section: SiteSectionResolved }) => (
             {item.media ? (
               <SiteMedia media={item.media} alt={item.label ?? ""} className="absolute inset-0 h-full w-full" />
             ) : (
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,hsl(258_70%_38%/0.45),transparent_60%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,hsl(258_70%_38%/0.45),transparent_60%)]" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[hsl(224_70%_6%)] via-[hsl(224_70%_6%)]/20 to-transparent" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[hsl(224_70%_6%)] via-[hsl(224_70%_6%)]/20 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-8">
               <p className="text-xs font-semibold uppercase tracking-[0.4em] text-amber-300/90">
                 {item.label}

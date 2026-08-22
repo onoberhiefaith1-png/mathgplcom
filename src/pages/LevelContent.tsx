@@ -40,7 +40,7 @@ const LevelContent = ({ mode }: { mode: Mode }) => {
         alt={`Level ${level.id} backdrop`}
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/55 via-background/35 to-background/85" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/55 via-background/35 to-background/85" />
       <div className="relative z-10">
       <header className="flex items-start justify-between p-5 sm:p-8">
         <div>
