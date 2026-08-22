@@ -39,6 +39,8 @@ const WorkspaceLayout = ({
   const { displayName } = useProfileSummary();
   const { counts } = useConnectionCounts();
   const location = useLocation();
+  const { goBack, goForward } = useNavHistory();
+
   const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
   const [term, setTerm] = useState("");
