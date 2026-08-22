@@ -3554,6 +3554,9 @@ function NotebookGeometryOverlay({
     const diagrams: Array<{ pos: number; size: number; scene: unknown; dx: number; dy: number }> = [];
     tiptapEditor.state.doc.descendants((node, pos) => {
       if (node.type.name !== "geometryDiagram") return true;
+      // The page-layer carrier IS the saved copy of this overlay — never
+      // merge it back into itself, and never delete it.
+      if (node.attrs?.pageLayer) return true;
       const wrap = document.querySelector(`[data-geometry-pos="${pos}"]`) as HTMLElement | null;
       const rect = wrap?.getBoundingClientRect();
       diagrams.push({
