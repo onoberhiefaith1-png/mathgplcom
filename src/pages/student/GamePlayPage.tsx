@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPreset } from "@/lib/games/progressPresets";
+import { resolveTimerOutcome, failureMessageOf } from "@/lib/games/timerOutcome";
+import { playNarration } from "@/lib/games/audio";
+import { getSignedUrl } from "@/lib/games/urls";
 import { checkpointAt, checkpointsOf, normalizeCanvas, timeBarOf, type GameRow, type Scene } from "@/lib/games/types";
 import VideoBackgroundLayer, { type VideoBackgroundHandle } from "@/components/gamebuilder/VideoBackgroundLayer";
 import type { GameBoard } from "@/lib/games/gameQuestions";
@@ -380,6 +383,25 @@ const GamePlayPage = () => {
 
   // Time beat the goal (Part 7): expired with no valid, in-time win.
   const timeUp = timeExpired && !transfer.won;
+
+  // The Timer measures time; the Progress Bar measures score. The outcome is
+  // resolved in one place so the message a student sees is always the authored
+  // one, and the optional failure narration speaks exactly once.
+  const timerConfig = useMemo(() => {
+    const id = teacherLed ? stageTimeBarId : timeBar.elementId;
+    if (!id) return null;
+    return sync.elements.find((el) => el.id === id)?.progress ?? null;
+  }, [teacherLed, stageTimeBarId, timeBar.elementId, sync.elements]);
+  const timerOutcome = resolveTimerOutcome({ expired: timeExpired, goalReached: transfer.won });
+  const timerFailureMessage = failureMessageOf(timerConfig);
+  const failureSpokenRef = useRef(false);
+  useEffect(() => {
+    if (timerOutcome !== "failure" || failureSpokenRef.current) return;
+    failureSpokenRef.current = true;
+    const path = timerConfig?.failureNarrationPath;
+    if (!path) return;
+    void getSignedUrl(path).then((url) => playNarration(url));
+  }, [timerOutcome, timerConfig]);
   const myGroupId = myGroupIdEarly;
 
   // Group outcome — a race winner (Adventure) or the encouraging message shown
@@ -908,9 +930,7 @@ const GamePlayPage = () => {
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                 <div className="rounded-xl border border-destructive/40 bg-background/90 px-8 py-5 text-center shadow-2xl">
                   <div className="text-lg font-bold text-destructive">Time Up</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    The game has ended. No reward was awarded.
-                  </div>
+                  <div className="mt-1 max-w-sm text-xs text-muted-foreground">{timerFailureMessage}</div>
                 </div>
               </div>
             )}
