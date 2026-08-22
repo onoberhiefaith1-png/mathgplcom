@@ -120,7 +120,7 @@ const STUDENT: WorkspaceNavGroup[] = [
       { to: "/student/assignments", label: "Assignments", icon: ClipboardList },
       { to: "/student/adventures", label: "Adventure", icon: Compass },
       { to: "/student/skill-builder", label: "Skill Builder", icon: GraduationCap },
-      { to: "/student/join", label: "Join Class", icon: Inbox },
+      
     ],
   },
   {
