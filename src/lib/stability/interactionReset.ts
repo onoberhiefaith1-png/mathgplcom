@@ -23,6 +23,7 @@ const cursorTargets = new Set<HTMLElement>();
 const captured = new Set<{ el: Element; pointerId: number }>();
 
 let patched = false;
+let pointersDown = 0;
 let guardsStarted = 0;
 
 /** Scope a cursor to one element — never to <body>. */
@@ -118,12 +119,22 @@ export function startInteractionResetGuards(): () => void {
   const onVisibility = () => {
     if (document.hidden) resetInteractionState("tab-hidden");
   };
-  const onPointerUp = () => releasePointerCaptures();
-  const onPointerCancel = () => resetInteractionState("pointer-cancel");
+  const onPointerDown = () => {
+    pointersDown += 1;
+  };
+  const onPointerUp = () => {
+    pointersDown = Math.max(0, pointersDown - 1);
+    releasePointerCaptures();
+  };
+  const onPointerCancel = () => {
+    pointersDown = 0;
+    resetInteractionState("pointer-cancel");
+  };
 
   window.addEventListener("blur", onBlur);
   window.addEventListener("pageshow", onBlur);
   document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("pointerdown", onPointerDown, true);
   window.addEventListener("pointerup", onPointerUp, true);
   window.addEventListener("pointercancel", onPointerCancel, true);
 
@@ -132,9 +143,18 @@ export function startInteractionResetGuards(): () => void {
     window.removeEventListener("blur", onBlur);
     window.removeEventListener("pageshow", onBlur);
     document.removeEventListener("visibilitychange", onVisibility);
-    window.removeEventListener("pointerup", onPointerUp, true);
+    window.removeEventListener("pointerdown", onPointerDown, true);
+  window.removeEventListener("pointerup", onPointerUp, true);
     window.removeEventListener("pointercancel", onPointerCancel, true);
   };
+}
+
+/**
+ * True while the teacher is actively pressing/drawing. The freeze monitor must
+ * never tear down a live drag, so it skips healing while this is true.
+ */
+export function pointerInteractionActive() {
+  return pointersDown > 0;
 }
 
 /** True when the guards are installed (used by diagnostics). */

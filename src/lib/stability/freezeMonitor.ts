@@ -11,7 +11,11 @@
  * same symptom (page painted, every click swallowed).
  */
 import { oldestResources, resourceCounts } from "./registry";
-import { describeInteractionState, resetInteractionState } from "./interactionReset";
+import {
+  describeInteractionState,
+  pointerInteractionActive,
+  resetInteractionState,
+} from "./interactionReset";
 
 export type FreezeReport = {
   at: number;
@@ -54,7 +58,7 @@ function record(source: FreezeReport["source"], blockedMs: number) {
     (!!report.interaction.bodyCursor ||
       report.interaction.cursorOverrides > 0 ||
       report.interaction.pointerCaptures > 0);
-  if (stale && blockedMs > 400) {
+  if (stale && blockedMs > 400 && !pointerInteractionActive()) {
     resetInteractionState("freeze-monitor");
     report.healed = true;
   }
