@@ -343,6 +343,9 @@ const PresentationView = ({
   /** Public Smart Card challenge — grading runs without an account. */
   smartCardSlug?: string | null;
   participantKey?: string | null;
+  /** Teacher's temporary Floating Number test: same board, same engine, but
+   *  nothing is recorded — marks live only for this sitting. */
+  testMode?: boolean;
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
