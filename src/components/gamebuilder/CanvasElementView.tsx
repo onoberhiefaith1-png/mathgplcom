@@ -184,7 +184,25 @@ const CanvasElementView = ({
         }}
       >
         {element.kind === "progress_bar" && element.progress ? (
-          element.progress.barType === "liquid" ? (
+          element.progress.timerDisplay === "video" && element.progress.timerVideo?.storagePath ? (
+            // Video Timer: the loop region is the clock, so the video replaces
+            // the tower/vessel entirely. Scoring stays on the Progress Bar.
+            <TimerVideoView
+              config={element.progress.timerVideo}
+              remainingSeconds={
+                (element.progress.timeDurationSeconds ?? 0) > 0
+                  ? Math.max(
+                      0,
+                      (element.progress.timeDurationSeconds ?? 0) *
+                        (1 -
+                          (element.progress.currentMarks ?? 0) /
+                            Math.max(1, element.progress.totalMarks || 1)),
+                    )
+                  : null
+              }
+              className="w-full"
+            />
+          ) : element.progress.barType === "liquid" ? (
             <QuestionProgressContainer
               width="fill"
               theme={getLiquidStyle(element.progress.liquidStyleId).id}
