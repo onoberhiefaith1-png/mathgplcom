@@ -19,6 +19,8 @@ import {
   type GeometryMapDoc, type GeometryMapItem,
 } from "@/lib/geometry/map/model";
 import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
+import { MathText } from "@/lib/geometry/map/renderStatement";
+import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { PropertyComposer } from "./PropertyComposer";
 
 
