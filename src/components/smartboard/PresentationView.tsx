@@ -318,6 +318,7 @@ const PresentationView = ({
   viewOnly = false,
   smartCardSlug = null,
   participantKey = null,
+  testMode = false,
 }: {
   notebookId?: string | null;
   classId?: string | null;
