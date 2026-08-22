@@ -7085,15 +7085,51 @@ const BeatBlock = ({
     const objs = b.objects ?? [];
     if (!objs.length) return null;
     return (
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 space-y-8">
         {objs.map((o) => (
           <div
             key={o.objId}
             className="lesson-doc sb-board-object w-full max-w-full"
             style={{ fontSize: "1rem" }}
-
           >
             <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const FlowingTextAndObjects = ({ beat: b }: { beat: Beat }) => {
+    const lines = String(b.content ?? "").split(/\r?\n/);
+    const objects = [...(b.objects ?? [])].sort((a, c) => a.afterLine - c.afterLine);
+    if (!objects.length) {
+      return (
+        <SmartboardLessonText jitter={jitter} seed={b.id.length} placeholderColor={placeholderColor}>
+          {b.content}
+        </SmartboardLessonText>
+      );
+    }
+    const slots = new Map<number, typeof objects>();
+    for (const object of objects) {
+      const at = Math.max(0, Math.min(lines.length, Number.isFinite(object.afterLine) ? object.afterLine : lines.length));
+      slots.set(at, [...(slots.get(at) ?? []), object]);
+    }
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: lines.length + 1 }, (_, index) => (
+          <div key={`${b.id}-flow-${index}`}>
+            {(slots.get(index) ?? []).map((object) => (
+              <div key={object.objId} className="lesson-doc sb-board-object my-7 w-full max-w-full">
+                <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs ?? {}} presentation />
+              </div>
+            ))}
+            {index < lines.length && lines[index].trim() && (
+              <div>
+                <SmartboardLessonText jitter={jitter} seed={b.id.length + index * 17} placeholderColor={placeholderColor}>
+                  {lines[index]}
+                </SmartboardLessonText>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -7131,11 +7167,8 @@ const BeatBlock = ({
     return (
       <div data-sb-beat className={`transition-opacity duration-300 ${opacityClass} ${revealClass}`}>
         <div style={{ color: ink, fontSize: "1em" }}>
-          <SmartboardLessonText jitter={jitter} seed={beat.id.length} placeholderColor={placeholderColor}>
-            {beat.content}
-          </SmartboardLessonText>
+          <FlowingTextAndObjects beat={beat} />
         </div>
-        <BeatObjects beat={beat} />
       </div>
     );
   }

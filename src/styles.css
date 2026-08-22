@@ -343,8 +343,22 @@
   max-width: 100%;
   height: auto;
 }
-/* Projected diagrams stay legible but never swallow the lesson text. */
-.sb-board-object svg,
+
+.sb-geometry-groups {
+  display: grid;
+  gap: 2rem;
+  width: 100%;
+  justify-items: start;
+}
+
+.sb-geometry-diagram {
+  display: block;
+  width: min(100%, 54rem);
+  min-width: min(26rem, 100%);
+  max-height: none;
+  color: var(--sb-fg);
+}
+
 .sb-board-object canvas,
 .sb-board-object img {
   max-height: 60vh;
