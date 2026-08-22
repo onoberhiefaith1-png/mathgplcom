@@ -43,6 +43,9 @@ interface Props {
   ghostHidden?: boolean;
   /** Crop empty notebook canvas and strengthen ink for projection. */
   presentation?: boolean;
+  /** Crop empty notebook canvas but keep normal lesson-note ink weight. */
+  crop?: boolean;
+
 }
 
 const STROKE = "#1f1f24";
