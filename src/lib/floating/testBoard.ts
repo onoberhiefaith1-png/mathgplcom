@@ -174,17 +174,31 @@ export async function ensureFloatingTestBoard(subsectionId: string): Promise<Flo
       assessmentId = created.id as string;
     }
 
-    await supabase.from("assessment_answer_keys").delete().eq("assessment_id", assessmentId);
+    // One conflict-safe write. Repeated opens can never collide on the
+    // primary key, so the duplicate-key condition cannot occur at all.
     const { error: keyErr } = await supabase
       .from("assessment_answer_keys")
-      .insert({ assessment_id: assessmentId, lines: answerKey as never });
-    if (keyErr) throw new Error(keyErr.message);
+      .upsert(
+        { assessment_id: assessmentId, lines: answerKey as never },
+        { onConflict: "assessment_id" },
+      );
+    if (keyErr && (keyErr as { code?: string }).code !== "23505") {
+      // A 23505 here means the identical row already exists — the desired
+      // end state — so only genuine failures are surfaced.
+      const { error: updErr } = await supabase
+        .from("assessment_answer_keys")
+        .update({ lines: answerKey as never })
+        .eq("assessment_id", assessmentId);
+      if (updErr) throw new Error(updErr.message);
+    }
 
     // A test never keeps results: clear anything an earlier test left behind.
     await supabase.from("assessment_progress").delete().eq("assessment_id", assessmentId);
 
+    const sittingId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     end("ok", { assessmentId, questionId: subsectionId, total });
-    return { assessmentId, classId, notebookId, sectionId, question, total, title };
+    return { assessmentId, classId, notebookId, sectionId, question, total, title, sittingId };
+
   } catch (error) {
     end("fail", { error: String((error as Error)?.message ?? error) });
     throw error;
