@@ -52,7 +52,11 @@ interface Highlight {
   /** Set when the highlight is a whole object (table, diagram, chart, …)
    *  rather than a run of text tokens. */
   object?: SolutionObject;
+  /** Notes-layer objects (diagrams) that belong to THIS entry's note. They are
+   *  never highlightable and never become floating numbers. */
+  noteObjects?: SolutionObject[];
 }
+
 interface Snapshot { highlights: Highlight[]; nextId: number }
 
 export const restorePersistedHighlights = (
