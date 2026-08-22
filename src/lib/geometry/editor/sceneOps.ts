@@ -145,18 +145,26 @@ export function addCircleByRadius(scene: GeometryScene, center: GeoId, radiusPt:
   if (!c || !r) return ok(scene);
   const radius = Math.hypot(r.x - c.x, r.y - c.y);
   const id = newId("c", scene);
-  const circ: GeoCircle = { id, type: "circle", center, r: radius };
+  const circ: GeoCircle = { id, type: "circle", center, rim: radiusPt, r: radius };
   return ok(withObjects(scene, [...scene.objects, circ]), [id]);
 }
 
-/** Free-drag circle (center + numeric radius). */
+/**
+ * Free-drag circle: centre point plus a rim point on the circumference.
+ * The rim point is a real construction point, so the teacher can grab it to
+ * change the radius afterwards.
+ */
 export function addCircleAt(scene: GeometryScene, cx: number, cy: number, r: number): OpResult {
   const cid = newId("p", scene);
   const center: GeoPoint = { id: cid, type: "point", x: cx, y: cy, label: nextPointLabel(scene) };
-  const id = newId("c", { ...scene, objects: [...scene.objects, center] });
-  const circ: GeoCircle = { id, type: "circle", center: cid, r };
-  return ok(withObjects(scene, [...scene.objects, center, circ]), [cid, id]);
+  const withCentre = { ...scene, objects: [...scene.objects, center] };
+  const rid = newId("p", withCentre);
+  const rim: GeoPoint = { id: rid, type: "point", x: cx + r, y: cy };
+  const id = newId("c", { ...withCentre, objects: [...withCentre.objects, rim] });
+  const circ: GeoCircle = { id, type: "circle", center: cid, rim: rid, r };
+  return ok(withObjects(scene, [...scene.objects, center, rim, circ]), [cid, rid, id]);
 }
+
 
 /* ─── Circle through three existing points (circumcircle) ───────────── */
 export function addCircleThrough3(
@@ -414,11 +422,51 @@ function isCollinear(
 
 
 /* ─── Move a point ──────────────────────────────────────────────────── */
+/**
+ * Moving a point respects the circle construction:
+ *   • moving a CENTRE translates the whole circle — its rim point travels
+ *     with it, so the radius never changes;
+ *   • moving a RIM point changes the radius only — the centre stays put.
+ */
 export function movePoint(scene: GeometryScene, id: GeoId, x: number, y: number): OpResult {
-  const objects = scene.objects.map((o) =>
-    o.id === id && o.type === "point" ? { ...o, x, y } : o,
-  );
-  return ok({ ...scene, objects }, [], [id]);
+  const moved = pointById(scene, id);
+  const changed: GeoId[] = [id];
+
+  // Centre drags carry their rim points along by the same delta.
+  const carried = new Map<GeoId, { x: number; y: number }>();
+  if (moved) {
+    const dx = x - moved.x;
+    const dy = y - moved.y;
+    for (const o of scene.objects) {
+      if (o.type !== "circle" || o.center !== id || !o.rim) continue;
+      const rim = pointById(scene, o.rim);
+      if (!rim) continue;
+      carried.set(o.rim, { x: rim.x + dx, y: rim.y + dy });
+      changed.push(o.rim);
+    }
+  }
+
+  let objects = scene.objects.map((o) => {
+    if (o.type !== "point") return o;
+    if (o.id === id) return { ...o, x, y };
+    const c = carried.get(o.id);
+    return c ? { ...o, ...c } : o;
+  });
+
+  // Radius is derived, never stored independently.
+  const next: GeometryScene = { ...scene, objects };
+  objects = objects.map((o) => {
+    if (o.type !== "circle" || !o.rim) return o;
+    const c = pointById(next, o.center);
+    const rim = pointById(next, o.rim);
+    if (!c || !rim) return o;
+    const r = Math.hypot(rim.x - c.x, rim.y - c.y);
+    if (Math.abs(r - o.r) < 1e-6) return o;
+    changed.push(o.id);
+    return { ...o, r };
+  });
+
+  return ok({ ...scene, objects }, [], changed);
 }
 
 /* ─── Rotate whole scene around its bounds center ───────────────────── */

@@ -270,6 +270,95 @@ const saveNotebookGeometry = (notebookId: string | undefined, scene: GeometrySce
   try { localStorage.setItem(key, JSON.stringify(scene)); } catch { /* noop */ }
 };
 
+/**
+ * PERMANENCE LAW. A 2D diagram drawn straight onto the page used to live only
+ * in localStorage, so it never reached the saved note and could never appear
+ * on the Smartboard. The page scene is therefore mirrored into the document as
+ * a single invisible `geometryDiagram` carrier node (pageLayer: true), placed
+ * inside the section the drawing sits in. The document save then carries it to
+ * the note, to the blocks, and on to the teacher and student boards.
+ */
+const syncPageGeometryNode = (
+  editor: Editor,
+  scene: GeometryScene,
+  layer: HTMLElement | null,
+  notebookId: string | undefined,
+) => {
+  const type = editor.schema.nodes.geometryDiagram;
+  if (!type) return;
+  const existing: Array<{ pos: number; size: number; json: string }> = [];
+  editor.state.doc.descendants((node, pos) => {
+    if (node.type.name === "geometryDiagram" && node.attrs?.pageLayer) {
+      existing.push({ pos, size: node.nodeSize, json: JSON.stringify(node.attrs.scene ?? null) });
+    }
+    return true;
+  });
+
+  const hasContent = (scene?.objects?.length ?? 0) > 0;
+  const nextJson = JSON.stringify(scene ?? null);
+
+  // Nothing drawn any more → drop the carrier.
+  if (!hasContent) {
+    if (!existing.length) return;
+    let tr = editor.state.tr;
+    for (const e of [...existing].sort((a, b) => b.pos - a.pos)) tr = tr.delete(e.pos, e.pos + e.size);
+    if (tr.docChanged) editor.view.dispatch(tr);
+    return;
+  }
+
+  // Already up to date (and de-duplicated).
+  if (existing.length === 1 && existing[0].json === nextJson) return;
+
+  const attrs = {
+    scene,
+    pageLayer: true,
+    diagramId: `dgm_page_${notebookId ?? "note"}`,
+    align: "center",
+  };
+
+  if (existing.length) {
+    let tr = editor.state.tr;
+    // Keep the first carrier, refresh its scene, remove any strays.
+    for (const e of [...existing].slice(1).sort((a, b) => b.pos - a.pos)) {
+      tr = tr.delete(e.pos, e.pos + e.size);
+    }
+    tr = tr.setNodeMarkup(existing[0].pos, undefined, attrs);
+    if (tr.docChanged) editor.view.dispatch(tr);
+    return;
+  }
+
+  // First save: place the carrier at the end of the section the drawing is in,
+  // so the board shows the diagram with the right part of the lesson.
+  let insertAt = editor.state.doc.content.size;
+  const topY = Math.min(
+    ...scene.objects.map((o) => ("y" in o && typeof (o as { y?: number }).y === "number"
+      ? (o as { y: number }).y
+      : Number.POSITIVE_INFINITY)),
+  );
+  if (layer && Number.isFinite(topY)) {
+    const paperRect = layer.getBoundingClientRect();
+    const scaleY = paperRect.height && layer.offsetHeight ? paperRect.height / layer.offsetHeight : 1;
+    const clientY = paperRect.top + (topY - 24) * scaleY;
+    const headings: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === "heading") headings.push(pos);
+      return true;
+    });
+    let sectionIdx = -1;
+    headings.forEach((pos, i) => {
+      try {
+        if (editor.view.coordsAtPos(pos + 1).top <= clientY) sectionIdx = i;
+      } catch { /* off-screen heading */ }
+    });
+    if (sectionIdx >= 0) {
+      const nextHeading = headings[sectionIdx + 1];
+      insertAt = typeof nextHeading === "number" ? nextHeading : editor.state.doc.content.size;
+    }
+  }
+  const tr = editor.state.tr.insert(insertAt, type.create(attrs));
+  editor.view.dispatch(tr);
+};
+
 /** Bridge so the toolbar Dustbin can clean 2D diagram content that lives in
  *  the notebook-wide geometry scene. Only 2D objects are ever eligible —
  *  lesson-note text, tables, graphs, 3D scenes and text boxes are untouched. */
@@ -3554,6 +3643,9 @@ function NotebookGeometryOverlay({
     const diagrams: Array<{ pos: number; size: number; scene: unknown; dx: number; dy: number }> = [];
     tiptapEditor.state.doc.descendants((node, pos) => {
       if (node.type.name !== "geometryDiagram") return true;
+      // The page-layer carrier IS the saved copy of this overlay — never
+      // merge it back into itself, and never delete it.
+      if (node.attrs?.pageLayer) return true;
       const wrap = document.querySelector(`[data-geometry-pos="${pos}"]`) as HTMLElement | null;
       const rect = wrap?.getBoundingClientRect();
       diagrams.push({
@@ -3595,6 +3687,19 @@ function NotebookGeometryOverlay({
     setStoredScene(next);
     saveNotebookGeometry(notebookId, next);
   });
+
+  // Every change to the page drawing is written into the document too, so the
+  // note's own autosave persists it and the Smartboard can render it.
+  useEffect(() => {
+    if (!tiptapEditor) return;
+    const t = window.setTimeout(() => {
+      try {
+        syncPageGeometryNode(tiptapEditor, storedScene, paperLayerRef.current, notebookId);
+      } catch { /* never break the editor for a diagram save */ }
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [storedScene, tiptapEditor, paperLayerRef, notebookId]);
+
 
   // Entrance to the existing Geometry Properties workspace (same scene).
   const [propertiesOpen, setPropertiesOpen] = useState(false);

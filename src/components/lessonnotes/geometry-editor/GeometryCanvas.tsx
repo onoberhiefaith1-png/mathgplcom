@@ -11,7 +11,7 @@ import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
 
 import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
-  addCircleThrough3, closePolygon, addAngle, midpointOfSegment, eraseObject,
+  closePolygon, addAngle, midpointOfSegment, eraseObject,
   movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel, eraseStructural,
   addCurve, addRegion, addCurvedRegion,
 } from "@/lib/geometry/editor/sceneOps";
@@ -201,6 +201,31 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
     const rawId = hit?.id ?? null;
     const hitId = rawId ? rawId.split("#")[0] : null;
 
+    // CIRCLE CONSTRUCTION HANDLES. The centre and the rim point of a circle
+    // are always grabbable in edit mode — even when the teacher has hidden
+    // the dots for a clean board figure. Centre drag moves the whole circle;
+    // rim drag changes the radius.
+    if (tool === "select" || tool === "move") {
+      let handle: { circleId: GeoId; pointId: GeoId } | null = null;
+      let best = 12;
+      for (const o of scene.objects) {
+        if (o.type !== "circle") continue;
+        for (const pid of [o.center, o.rim]) {
+          if (!pid) continue;
+          const pt = pointById(scene, pid);
+          if (!pt) continue;
+          const d = Math.hypot(pt.x - p.x, pt.y - p.y);
+          if (d <= best) { best = d; handle = { circleId: o.id, pointId: pid }; }
+        }
+      }
+      if (handle) {
+        setSelectedIds([handle.circleId]);
+        setSelectionKind("segmentBody");
+        setDragging({ pointId: handle.pointId });
+        return;
+      }
+    }
+
 
 
 
@@ -307,14 +332,14 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
         break;
       }
       case "circle": {
-        // 3-click circle: pick 3 points the circle should pass through.
-        // (Points 1 & 3 lie on the circle; point 2 forces the direction it
-        // passes through.) Falls back to drag-from-center when the teacher
-        // presses and drags on empty space without snapping.
+        // A circle is a construction of TWO points: first click = centre,
+        // second click = a point on the circumference. The radius is the
+        // distance between them, so dragging the centre moves the circle and
+        // dragging the rim point resizes it.
         const created = ensurePoint(p.x, p.y);
         const next = [...pendingIds, created.id];
-        if (next.length === 3) {
-          apply(addCircleThrough3(created.scene, next[0], next[1], next[2]));
+        if (next.length === 2) {
+          apply(addCircleByRadius(created.scene, next[0], next[1]));
           setPendingIds([]);
         } else {
           setPendingIds(next);

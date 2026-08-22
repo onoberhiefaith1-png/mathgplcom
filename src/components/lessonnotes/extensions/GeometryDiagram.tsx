@@ -546,6 +546,24 @@ function StudentGuideDiagram({ scene }: { scene: GeometryScene }) {
   );
 }
 
+/** The page-layer carrier: persisted with the note, drawn by the page overlay. */
+function PageLayerCarrierView() {
+  return (
+    <NodeViewWrapper
+      as="div"
+      data-page-layer-diagram="true"
+      className="h-0 overflow-hidden"
+      contentEditable={false}
+      aria-hidden="true"
+    />
+  );
+}
+
+function GeometryDiagramNodeView(props: NodeViewProps) {
+  if (props.node.attrs.pageLayer) return <PageLayerCarrierView />;
+  return <GeometryDiagramView {...props} />;
+}
+
 export const GeometryDiagramNode = Node.create({
   name: "geometryDiagram",
   group: "block",
@@ -590,6 +608,16 @@ export const GeometryDiagramNode = Node.create({
           attrs.questionText ? { "data-question-text": attrs.questionText } : {},
       },
 
+      // The notebook-wide 2D layer. A diagram drawn straight onto the page is
+      // rendered by the page overlay, but it MUST also live in the document so
+      // it is saved with the note and reaches the Smartboard. That node is
+      // flagged pageLayer and renders nothing of its own (no double drawing).
+      pageLayer: {
+        default: false,
+        parseHTML: (el) => el.getAttribute("data-page-layer") === "true",
+        renderHTML: (attrs) => (attrs.pageLayer ? { "data-page-layer": "true" } : {}),
+      },
+
       align: {
         default: "center",
         parseHTML: (el) => el.getAttribute("data-align") || "center",
@@ -612,6 +640,6 @@ export const GeometryDiagramNode = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(GeometryDiagramView);
+    return ReactNodeViewRenderer(GeometryDiagramNodeView);
   },
 });
