@@ -363,6 +363,7 @@ const syncPageGeometryNode = (
     && existing.every((e, i) => e.json === JSON.stringify(targets[i].group) && e.pos === targets[i].pos);
   if (stable) return;
 
+  console.debug("[pageGeom]", { existing: existing.map((e) => e.pos), targets: targets.map((t) => t.pos), tops: wanted.map((w) => w.top), blocks: blocksInPaperSpace.map((b) => Math.round(b.y)) });
   let tr = editor.state.tr;
   for (const e of [...existing].sort((a, b) => b.pos - a.pos)) tr = tr.delete(e.pos, e.pos + e.size);
   targets.forEach(({ group, pos }, index) => {
