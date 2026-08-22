@@ -104,10 +104,15 @@ const subsectionHasContent = (sub: SubsectionRow): boolean => {
   if ((lines?.length ?? 0) > 0) return true;
   const highlights = (sub as any).floating_highlights as any[] | null | undefined;
   if ((highlights?.length ?? 0) > 0) return true;
+  // A question can be drawn entirely as an OBJECT — a diagram, a 3D scene, a
+  // graph or a table — with no typed text at all. That is still real lesson
+  // content, so the beat must exist or the diagram would never reach the board.
+  if (sub.blocks.some((b) => blockObjects(b).length > 0)) return true;
   return sub.blocks.some(
     (b) => b.kind !== "problem" && String(b.content_ascii ?? "").trim().length > 0,
   );
 };
+
 
 const cleanFragments = (items: string[] | undefined | null): string[] =>
   (items ?? [])
