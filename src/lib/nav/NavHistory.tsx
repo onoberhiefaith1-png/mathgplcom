@@ -4,7 +4,10 @@ import { useLocation, useNavigate, useNavigationType } from "@/lib/router-compat
 type NavHistoryCtx = {
   canGoBack: () => boolean;
   goBack: (fallback?: string) => void;
+  /** Steps forward in browser history, when the user has gone back before. */
+  goForward: () => void;
 };
+
 
 const Ctx = createContext<NavHistoryCtx | null>(null);
 
@@ -53,7 +56,9 @@ export const NavHistoryProvider = ({ children }: { children: ReactNode }) => {
     [navigate],
   );
 
-  return <Ctx.Provider value={{ canGoBack, goBack }}>{children}</Ctx.Provider>;
+  const goForward = useCallback(() => { navigate(1); }, [navigate]);
+
+  return <Ctx.Provider value={{ canGoBack, goBack, goForward }}>{children}</Ctx.Provider>;
 };
 
 export const useNavHistory = (): NavHistoryCtx => {
@@ -66,7 +71,9 @@ export const useNavHistory = (): NavHistoryCtx => {
         if (window.history.length > 1) window.history.back();
         else if (fallback) window.location.assign(fallback);
       },
+      goForward: () => window.history.forward(),
     };
   }
+
   return v;
 };

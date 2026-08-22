@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { GraduationCap, UserPlus, Users } from "lucide-react";
+import { GraduationCap, Users } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import { EmptyNote, RailCard } from "@/components/workspace/DashboardParts";
+import JoinClassPanel from "@/components/class/JoinClassPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { connectedOwner, connectedSchoolByOrg } from "@/lib/student/workspaceAccess";
+
 
 /**
  * Inside one school or one teacher.
@@ -85,15 +87,13 @@ const WorkspaceHomePage = ({ kind, id }: { kind: "school" | "teacher"; id: strin
       </RailCard>
       <RailCard title="Join a class here">
         <p className="text-xs text-muted-foreground">
-          Have a join code from {name}? Add that class to your dashboard.
+          Have a join code or invite link from {name}? Enter it below and you go straight into the classroom.
         </p>
-        <Link
-          to="/student/join"
-          className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-primary/50 bg-primary/10 px-4 text-sm font-medium text-primary transition hover:bg-primary/20"
-        >
-          <UserPlus className="h-4 w-4" /> Join Class
-        </Link>
+        <div className="mt-3">
+          <JoinClassPanel />
+        </div>
       </RailCard>
+
     </>
   );
 

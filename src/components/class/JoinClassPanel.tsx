@@ -162,42 +162,47 @@ const JoinClassPanel = ({ initialCode, light }: { initialCode?: string; light?: 
     if (!userId) return;
     setSubmitting(true);
     try {
-      // The code identifies the class; the relationship grants entry. A code
-      // for a private workspace the student has no relationship with is not a
-      // way in.
-      const { data: gate, error: lookupErr } = await supabase
-        .rpc("class_join_gate", { code })
-        .maybeSingle();
-      if (lookupErr || !gate) {
+      // Inside a workspace the student has already entered, the code is the
+      // door: the database enrols them straight away. Outside it, the code
+      // only files a request the teacher has to approve.
+      const { data: joined, error: joinErr } = await supabase.rpc("join_class_with_code", { code });
+      const result = (joined ?? null) as { status: string; class_id?: string; org_id?: string | null } | null;
+
+      if (joinErr || !result || result.status === "not_found") {
         toast({ title: "Class not found", description: "Check the code or link and try again.", variant: "destructive" });
         return;
       }
-      const { id: classId, allowed, org_id: orgId } = gate as {
-        id: string;
-        allowed: boolean;
-        org_id: string | null;
-      };
-      if (!allowed) {
-        // A school's class only ever admits that school's own students, so the
-        // refusal names the school the student would have to belong to.
-        let schoolName = "";
-        if (orgId) {
-          const { data: org } = await supabase
-            .from("organizations")
-            .select("name")
-            .eq("id", orgId)
-            .maybeSingle();
-          schoolName = org?.name ?? "";
-        }
-        toast({
-          title: "Ask your school to add you",
-          description: schoolName
-            ? `This class belongs to ${schoolName}, so only its students can join. Ask the school or your teacher to add you.`
-            : "This class belongs to a private workspace, so the teacher or school has to invite you.",
-          variant: "destructive",
-        });
+
+      if (result.status === "joined" && result.class_id) {
+        toast({ title: "Joined", description: "Opening your classroom…" });
+        navigate(`/student/class/${result.class_id}`);
         return;
       }
+
+      // not_entered — the student is not inside that teacher's or school's
+      // workspace yet, so the teacher decides.
+      const classId = result.class_id!;
+      const orgId = result.org_id ?? null;
+      if (!classId) {
+        toast({ title: "Class not found", variant: "destructive" });
+        return;
+      }
+      let schoolName = "";
+      if (orgId) {
+        const { data: org } = await supabase
+          .from("organizations")
+          .select("name")
+          .eq("id", orgId)
+          .maybeSingle();
+        schoolName = org?.name ?? "";
+      }
+      toast({
+        title: "Enter the workspace first",
+        description: schoolName
+          ? `This class belongs to ${schoolName}. Open that school from your dashboard, then join the class inside it.`
+          : "Open the teacher or school from your dashboard first, then join the class inside their workspace. A request has been sent meanwhile.",
+      });
+
 
       const { data: existingMember } = await supabase
         .from("class_members")

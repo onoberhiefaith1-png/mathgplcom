@@ -81,11 +81,11 @@ const StudentClassesPage = () => {
 
 
         {!viewing && (
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Join a class</h2>
-            <JoinClassPanel />
-          </section>
+          <p className="text-xs text-muted-foreground">
+            To add a class, open your school or teacher from the dashboard and use Join Class inside their workspace.
+          </p>
         )}
+
       </main>
     </div>
   );

@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { Bell, Menu, Search, X } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Menu, Search, X } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "@/lib/router-compat";
+import { useNavHistory } from "@/lib/nav/NavHistory";
+
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { ROLE_LABEL } from "@/lib/accounts/roles";
@@ -39,6 +41,8 @@ const WorkspaceLayout = ({
   const { displayName } = useProfileSummary();
   const { counts } = useConnectionCounts();
   const location = useLocation();
+  const { goBack, goForward } = useNavHistory();
+
   const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
   const [term, setTerm] = useState("");
@@ -161,10 +165,31 @@ const WorkspaceLayout = ({
               >
                 <Menu className="h-5 w-5" />
               </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Back"
+                  title="Back"
+                  onClick={() => goBack("/")}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-ws-border/70 bg-ws-panel/60 text-muted-foreground transition hover:border-ws-gold/50 hover:text-foreground sm:h-11 sm:w-11"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Forward"
+                  title="Forward"
+                  onClick={goForward}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-ws-border/70 bg-ws-panel/60 text-muted-foreground transition hover:border-ws-gold/50 hover:text-foreground sm:h-11 sm:w-11"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
               <div className="min-w-0">
                 <h1 className="truncate text-base font-semibold sm:text-lg">{title}</h1>
                 {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
               </div>
+
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <form onSubmit={search} className="hidden md:block">

@@ -136,7 +136,6 @@ import { Route as SmartboardNotebookIdIndexRouteImport } from './routes/smartboa
 import { Route as StudentAdventuresIndexRouteImport } from './routes/student/adventures/index'
 import { Route as StudentAssignmentsIndexRouteImport } from './routes/student/assignments/index'
 import { Route as StudentClassesIndexRouteImport } from './routes/student/classes/index'
-import { Route as StudentJoinIndexRouteImport } from './routes/student/join/index'
 import { Route as StudentSkillBuilderIndexRouteImport } from './routes/student/skill-builder/index'
 import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$subject/index'
 import { Route as TeachingHubClassesIndexRouteImport } from './routes/teaching-hub/classes/index'
@@ -207,7 +206,6 @@ import { Route as FamilyChildrenChildIdAdventuresIndexRouteImport } from './rout
 import { Route as FamilyChildrenChildIdAssignmentsIndexRouteImport } from './routes/family/children/$childId/assignments/index'
 import { Route as FamilyChildrenChildIdClassesIndexRouteImport } from './routes/family/children/$childId/classes/index'
 import { Route as FamilyChildrenChildIdClassesClassIdRouteImport } from './routes/family/children/$childId/classes/$classId'
-import { Route as FamilyChildrenChildIdJoinIndexRouteImport } from './routes/family/children/$childId/join/index'
 import { Route as FamilyChildrenChildIdSkillBuilderIndexRouteImport } from './routes/family/children/$childId/skill-builder/index'
 import { Route as GamesAbacusRepresentDifficultyIndexRouteImport } from './routes/games/abacus/represent/$difficulty/index'
 import { Route as GamesDecimalsKindDifficultyIndexRouteImport } from './routes/games/decimals/$kind/$difficulty/index'
@@ -236,7 +234,6 @@ import { Route as SchoolStudentsUserIdAdventuresIndexRouteImport } from './route
 import { Route as SchoolStudentsUserIdAssignmentsIndexRouteImport } from './routes/school/students/$userId/assignments/index'
 import { Route as SchoolStudentsUserIdClassesIndexRouteImport } from './routes/school/students/$userId/classes/index'
 import { Route as SchoolStudentsUserIdClassesClassIdRouteImport } from './routes/school/students/$userId/classes/$classId'
-import { Route as SchoolStudentsUserIdJoinIndexRouteImport } from './routes/school/students/$userId/join/index'
 import { Route as SchoolStudentsUserIdSkillBuilderIndexRouteImport } from './routes/school/students/$userId/skill-builder/index'
 import { Route as SchoolTeachersUserIdClassesIndexRouteImport } from './routes/school/teachers/$userId/classes/index'
 import { Route as SchoolTeachersUserIdClassesClassIdRouteImport } from './routes/school/teachers/$userId/classes/$classId'
@@ -268,7 +265,6 @@ import { Route as TeachingHubStudentsUserIdAdventuresIndexRouteImport } from './
 import { Route as TeachingHubStudentsUserIdAssignmentsIndexRouteImport } from './routes/teaching-hub/students/$userId/assignments/index'
 import { Route as TeachingHubStudentsUserIdClassesIndexRouteImport } from './routes/teaching-hub/students/$userId/classes/index'
 import { Route as TeachingHubStudentsUserIdClassesClassIdRouteImport } from './routes/teaching-hub/students/$userId/classes/$classId'
-import { Route as TeachingHubStudentsUserIdJoinIndexRouteImport } from './routes/teaching-hub/students/$userId/join/index'
 import { Route as TeachingHubStudentsUserIdSkillBuilderIndexRouteImport } from './routes/teaching-hub/students/$userId/skill-builder/index'
 import { Route as LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRouteImport } from './routes/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/index'
 import { Route as StudentClassClassIdAssessmentAssessmentIdIndexRouteImport } from './routes/student/class/$classId/assessment/$assessmentId/index'
@@ -934,11 +930,6 @@ const StudentClassesIndexRoute = StudentClassesIndexRouteImport.update({
   path: '/classes/',
   getParentRoute: () => StudentRouteRoute,
 } as any)
-const StudentJoinIndexRoute = StudentJoinIndexRouteImport.update({
-  id: '/join/',
-  path: '/join/',
-  getParentRoute: () => StudentRouteRoute,
-} as any)
 const StudentSkillBuilderIndexRoute =
   StudentSkillBuilderIndexRouteImport.update({
     id: '/skill-builder/',
@@ -1338,12 +1329,6 @@ const FamilyChildrenChildIdClassesClassIdRoute =
     path: '/children/$childId/classes/$classId',
     getParentRoute: () => FamilyRouteRoute,
   } as any)
-const FamilyChildrenChildIdJoinIndexRoute =
-  FamilyChildrenChildIdJoinIndexRouteImport.update({
-    id: '/children/$childId/join/',
-    path: '/children/$childId/join/',
-    getParentRoute: () => FamilyRouteRoute,
-  } as any)
 const FamilyChildrenChildIdSkillBuilderIndexRoute =
   FamilyChildrenChildIdSkillBuilderIndexRouteImport.update({
     id: '/children/$childId/skill-builder/',
@@ -1510,12 +1495,6 @@ const SchoolStudentsUserIdClassesClassIdRoute =
   SchoolStudentsUserIdClassesClassIdRouteImport.update({
     id: '/students/$userId/classes/$classId',
     path: '/students/$userId/classes/$classId',
-    getParentRoute: () => SchoolRouteRoute,
-  } as any)
-const SchoolStudentsUserIdJoinIndexRoute =
-  SchoolStudentsUserIdJoinIndexRouteImport.update({
-    id: '/students/$userId/join/',
-    path: '/students/$userId/join/',
     getParentRoute: () => SchoolRouteRoute,
   } as any)
 const SchoolStudentsUserIdSkillBuilderIndexRoute =
@@ -1702,12 +1681,6 @@ const TeachingHubStudentsUserIdClassesClassIdRoute =
   TeachingHubStudentsUserIdClassesClassIdRouteImport.update({
     id: '/students/$userId/classes/$classId',
     path: '/students/$userId/classes/$classId',
-    getParentRoute: () => TeachingHubRouteRoute,
-  } as any)
-const TeachingHubStudentsUserIdJoinIndexRoute =
-  TeachingHubStudentsUserIdJoinIndexRouteImport.update({
-    id: '/students/$userId/join/',
-    path: '/students/$userId/join/',
     getParentRoute: () => TeachingHubRouteRoute,
   } as any)
 const TeachingHubStudentsUserIdSkillBuilderIndexRoute =
@@ -1953,7 +1926,6 @@ export interface FileRoutesByFullPath {
   '/student/adventures/': typeof StudentAdventuresIndexRoute
   '/student/assignments/': typeof StudentAssignmentsIndexRoute
   '/student/classes/': typeof StudentClassesIndexRoute
-  '/student/join/': typeof StudentJoinIndexRoute
   '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
@@ -2030,7 +2002,6 @@ export interface FileRoutesByFullPath {
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
-  '/family/children/$childId/join/': typeof FamilyChildrenChildIdJoinIndexRoute
   '/family/children/$childId/skill-builder/': typeof FamilyChildrenChildIdSkillBuilderIndexRoute
   '/games/abacus/represent/$difficulty/': typeof GamesAbacusRepresentDifficultyIndexRoute
   '/games/decimals/$kind/$difficulty/': typeof GamesDecimalsKindDifficultyIndexRoute
@@ -2057,7 +2028,6 @@ export interface FileRoutesByFullPath {
   '/school/students/$userId/adventures/': typeof SchoolStudentsUserIdAdventuresIndexRoute
   '/school/students/$userId/assignments/': typeof SchoolStudentsUserIdAssignmentsIndexRoute
   '/school/students/$userId/classes/': typeof SchoolStudentsUserIdClassesIndexRoute
-  '/school/students/$userId/join/': typeof SchoolStudentsUserIdJoinIndexRoute
   '/school/students/$userId/skill-builder/': typeof SchoolStudentsUserIdSkillBuilderIndexRoute
   '/school/teachers/$userId/classes/': typeof SchoolTeachersUserIdClassesIndexRoute
   '/school/teachers/$userId/lesson-notes/': typeof SchoolTeachersUserIdLessonNotesIndexRoute
@@ -2085,7 +2055,6 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/students/$userId/adventures/': typeof TeachingHubStudentsUserIdAdventuresIndexRoute
   '/teaching-hub/students/$userId/assignments/': typeof TeachingHubStudentsUserIdAssignmentsIndexRoute
   '/teaching-hub/students/$userId/classes/': typeof TeachingHubStudentsUserIdClassesIndexRoute
-  '/teaching-hub/students/$userId/join/': typeof TeachingHubStudentsUserIdJoinIndexRoute
   '/teaching-hub/students/$userId/skill-builder/': typeof TeachingHubStudentsUserIdSkillBuilderIndexRoute
   '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/': typeof LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute
   '/student/class/$classId/assessment/$assessmentId/': typeof StudentClassClassIdAssessmentAssessmentIdIndexRoute
@@ -2222,7 +2191,6 @@ export interface FileRoutesByTo {
   '/student/adventures': typeof StudentAdventuresIndexRoute
   '/student/assignments': typeof StudentAssignmentsIndexRoute
   '/student/classes': typeof StudentClassesIndexRoute
-  '/student/join': typeof StudentJoinIndexRoute
   '/student/skill-builder': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes': typeof TeachingHubClassesIndexRoute
@@ -2299,7 +2267,6 @@ export interface FileRoutesByTo {
   '/family/children/$childId/adventures': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes': typeof FamilyChildrenChildIdClassesIndexRoute
-  '/family/children/$childId/join': typeof FamilyChildrenChildIdJoinIndexRoute
   '/family/children/$childId/skill-builder': typeof FamilyChildrenChildIdSkillBuilderIndexRoute
   '/games/abacus/represent/$difficulty': typeof GamesAbacusRepresentDifficultyIndexRoute
   '/games/decimals/$kind/$difficulty': typeof GamesDecimalsKindDifficultyIndexRoute
@@ -2326,7 +2293,6 @@ export interface FileRoutesByTo {
   '/school/students/$userId/adventures': typeof SchoolStudentsUserIdAdventuresIndexRoute
   '/school/students/$userId/assignments': typeof SchoolStudentsUserIdAssignmentsIndexRoute
   '/school/students/$userId/classes': typeof SchoolStudentsUserIdClassesIndexRoute
-  '/school/students/$userId/join': typeof SchoolStudentsUserIdJoinIndexRoute
   '/school/students/$userId/skill-builder': typeof SchoolStudentsUserIdSkillBuilderIndexRoute
   '/school/teachers/$userId/classes': typeof SchoolTeachersUserIdClassesIndexRoute
   '/school/teachers/$userId/lesson-notes': typeof SchoolTeachersUserIdLessonNotesIndexRoute
@@ -2354,7 +2320,6 @@ export interface FileRoutesByTo {
   '/teaching-hub/students/$userId/adventures': typeof TeachingHubStudentsUserIdAdventuresIndexRoute
   '/teaching-hub/students/$userId/assignments': typeof TeachingHubStudentsUserIdAssignmentsIndexRoute
   '/teaching-hub/students/$userId/classes': typeof TeachingHubStudentsUserIdClassesIndexRoute
-  '/teaching-hub/students/$userId/join': typeof TeachingHubStudentsUserIdJoinIndexRoute
   '/teaching-hub/students/$userId/skill-builder': typeof TeachingHubStudentsUserIdSkillBuilderIndexRoute
   '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings': typeof LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute
   '/student/class/$classId/assessment/$assessmentId': typeof StudentClassClassIdAssessmentAssessmentIdIndexRoute
@@ -2503,7 +2468,6 @@ export interface FileRoutesById {
   '/student/adventures/': typeof StudentAdventuresIndexRoute
   '/student/assignments/': typeof StudentAssignmentsIndexRoute
   '/student/classes/': typeof StudentClassesIndexRoute
-  '/student/join/': typeof StudentJoinIndexRoute
   '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
@@ -2580,7 +2544,6 @@ export interface FileRoutesById {
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
-  '/family/children/$childId/join/': typeof FamilyChildrenChildIdJoinIndexRoute
   '/family/children/$childId/skill-builder/': typeof FamilyChildrenChildIdSkillBuilderIndexRoute
   '/games/abacus/represent/$difficulty/': typeof GamesAbacusRepresentDifficultyIndexRoute
   '/games/decimals/$kind/$difficulty/': typeof GamesDecimalsKindDifficultyIndexRoute
@@ -2607,7 +2570,6 @@ export interface FileRoutesById {
   '/school/students/$userId/adventures/': typeof SchoolStudentsUserIdAdventuresIndexRoute
   '/school/students/$userId/assignments/': typeof SchoolStudentsUserIdAssignmentsIndexRoute
   '/school/students/$userId/classes/': typeof SchoolStudentsUserIdClassesIndexRoute
-  '/school/students/$userId/join/': typeof SchoolStudentsUserIdJoinIndexRoute
   '/school/students/$userId/skill-builder/': typeof SchoolStudentsUserIdSkillBuilderIndexRoute
   '/school/teachers/$userId/classes/': typeof SchoolTeachersUserIdClassesIndexRoute
   '/school/teachers/$userId/lesson-notes/': typeof SchoolTeachersUserIdLessonNotesIndexRoute
@@ -2635,7 +2597,6 @@ export interface FileRoutesById {
   '/teaching-hub/students/$userId/adventures/': typeof TeachingHubStudentsUserIdAdventuresIndexRoute
   '/teaching-hub/students/$userId/assignments/': typeof TeachingHubStudentsUserIdAssignmentsIndexRoute
   '/teaching-hub/students/$userId/classes/': typeof TeachingHubStudentsUserIdClassesIndexRoute
-  '/teaching-hub/students/$userId/join/': typeof TeachingHubStudentsUserIdJoinIndexRoute
   '/teaching-hub/students/$userId/skill-builder/': typeof TeachingHubStudentsUserIdSkillBuilderIndexRoute
   '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/': typeof LessonNotesNotebookIdFloatingSubsectionIdAiSettingsIndexRoute
   '/student/class/$classId/assessment/$assessmentId/': typeof StudentClassClassIdAssessmentAssessmentIdIndexRoute
@@ -2785,7 +2746,6 @@ export interface FileRouteTypes {
     | '/student/adventures/'
     | '/student/assignments/'
     | '/student/classes/'
-    | '/student/join/'
     | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
@@ -2862,7 +2822,6 @@ export interface FileRouteTypes {
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
     | '/family/children/$childId/classes/'
-    | '/family/children/$childId/join/'
     | '/family/children/$childId/skill-builder/'
     | '/games/abacus/represent/$difficulty/'
     | '/games/decimals/$kind/$difficulty/'
@@ -2889,7 +2848,6 @@ export interface FileRouteTypes {
     | '/school/students/$userId/adventures/'
     | '/school/students/$userId/assignments/'
     | '/school/students/$userId/classes/'
-    | '/school/students/$userId/join/'
     | '/school/students/$userId/skill-builder/'
     | '/school/teachers/$userId/classes/'
     | '/school/teachers/$userId/lesson-notes/'
@@ -2917,7 +2875,6 @@ export interface FileRouteTypes {
     | '/teaching-hub/students/$userId/adventures/'
     | '/teaching-hub/students/$userId/assignments/'
     | '/teaching-hub/students/$userId/classes/'
-    | '/teaching-hub/students/$userId/join/'
     | '/teaching-hub/students/$userId/skill-builder/'
     | '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/'
     | '/student/class/$classId/assessment/$assessmentId/'
@@ -3054,7 +3011,6 @@ export interface FileRouteTypes {
     | '/student/adventures'
     | '/student/assignments'
     | '/student/classes'
-    | '/student/join'
     | '/student/skill-builder'
     | '/subjects/$subject'
     | '/teaching-hub/classes'
@@ -3131,7 +3087,6 @@ export interface FileRouteTypes {
     | '/family/children/$childId/adventures'
     | '/family/children/$childId/assignments'
     | '/family/children/$childId/classes'
-    | '/family/children/$childId/join'
     | '/family/children/$childId/skill-builder'
     | '/games/abacus/represent/$difficulty'
     | '/games/decimals/$kind/$difficulty'
@@ -3158,7 +3113,6 @@ export interface FileRouteTypes {
     | '/school/students/$userId/adventures'
     | '/school/students/$userId/assignments'
     | '/school/students/$userId/classes'
-    | '/school/students/$userId/join'
     | '/school/students/$userId/skill-builder'
     | '/school/teachers/$userId/classes'
     | '/school/teachers/$userId/lesson-notes'
@@ -3186,7 +3140,6 @@ export interface FileRouteTypes {
     | '/teaching-hub/students/$userId/adventures'
     | '/teaching-hub/students/$userId/assignments'
     | '/teaching-hub/students/$userId/classes'
-    | '/teaching-hub/students/$userId/join'
     | '/teaching-hub/students/$userId/skill-builder'
     | '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings'
     | '/student/class/$classId/assessment/$assessmentId'
@@ -3334,7 +3287,6 @@ export interface FileRouteTypes {
     | '/student/adventures/'
     | '/student/assignments/'
     | '/student/classes/'
-    | '/student/join/'
     | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
@@ -3411,7 +3363,6 @@ export interface FileRouteTypes {
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
     | '/family/children/$childId/classes/'
-    | '/family/children/$childId/join/'
     | '/family/children/$childId/skill-builder/'
     | '/games/abacus/represent/$difficulty/'
     | '/games/decimals/$kind/$difficulty/'
@@ -3438,7 +3389,6 @@ export interface FileRouteTypes {
     | '/school/students/$userId/adventures/'
     | '/school/students/$userId/assignments/'
     | '/school/students/$userId/classes/'
-    | '/school/students/$userId/join/'
     | '/school/students/$userId/skill-builder/'
     | '/school/teachers/$userId/classes/'
     | '/school/teachers/$userId/lesson-notes/'
@@ -3466,7 +3416,6 @@ export interface FileRouteTypes {
     | '/teaching-hub/students/$userId/adventures/'
     | '/teaching-hub/students/$userId/assignments/'
     | '/teaching-hub/students/$userId/classes/'
-    | '/teaching-hub/students/$userId/join/'
     | '/teaching-hub/students/$userId/skill-builder/'
     | '/lesson-notes/$notebookId/floating/$subsectionId/ai-settings/'
     | '/student/class/$classId/assessment/$assessmentId/'
@@ -4507,13 +4456,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudentClassesIndexRouteImport
       parentRoute: typeof StudentRouteRoute
     }
-    '/student/join/': {
-      id: '/student/join/'
-      path: '/join'
-      fullPath: '/student/join/'
-      preLoaderRoute: typeof StudentJoinIndexRouteImport
-      parentRoute: typeof StudentRouteRoute
-    }
     '/student/skill-builder/': {
       id: '/student/skill-builder/'
       path: '/skill-builder'
@@ -5004,13 +4946,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FamilyChildrenChildIdClassesClassIdRouteImport
       parentRoute: typeof FamilyRouteRoute
     }
-    '/family/children/$childId/join/': {
-      id: '/family/children/$childId/join/'
-      path: '/children/$childId/join'
-      fullPath: '/family/children/$childId/join/'
-      preLoaderRoute: typeof FamilyChildrenChildIdJoinIndexRouteImport
-      parentRoute: typeof FamilyRouteRoute
-    }
     '/family/children/$childId/skill-builder/': {
       id: '/family/children/$childId/skill-builder/'
       path: '/children/$childId/skill-builder'
@@ -5205,13 +5140,6 @@ declare module '@tanstack/react-router' {
       path: '/students/$userId/classes/$classId'
       fullPath: '/school/students/$userId/classes/$classId'
       preLoaderRoute: typeof SchoolStudentsUserIdClassesClassIdRouteImport
-      parentRoute: typeof SchoolRouteRoute
-    }
-    '/school/students/$userId/join/': {
-      id: '/school/students/$userId/join/'
-      path: '/students/$userId/join'
-      fullPath: '/school/students/$userId/join/'
-      preLoaderRoute: typeof SchoolStudentsUserIdJoinIndexRouteImport
       parentRoute: typeof SchoolRouteRoute
     }
     '/school/students/$userId/skill-builder/': {
@@ -5429,13 +5357,6 @@ declare module '@tanstack/react-router' {
       path: '/students/$userId/classes/$classId'
       fullPath: '/teaching-hub/students/$userId/classes/$classId'
       preLoaderRoute: typeof TeachingHubStudentsUserIdClassesClassIdRouteImport
-      parentRoute: typeof TeachingHubRouteRoute
-    }
-    '/teaching-hub/students/$userId/join/': {
-      id: '/teaching-hub/students/$userId/join/'
-      path: '/students/$userId/join'
-      fullPath: '/teaching-hub/students/$userId/join/'
-      preLoaderRoute: typeof TeachingHubStudentsUserIdJoinIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
     '/teaching-hub/students/$userId/skill-builder/': {
@@ -5690,7 +5611,6 @@ interface FamilyRouteRouteChildren {
   FamilyChildrenChildIdAdventuresIndexRoute: typeof FamilyChildrenChildIdAdventuresIndexRoute
   FamilyChildrenChildIdAssignmentsIndexRoute: typeof FamilyChildrenChildIdAssignmentsIndexRoute
   FamilyChildrenChildIdClassesIndexRoute: typeof FamilyChildrenChildIdClassesIndexRoute
-  FamilyChildrenChildIdJoinIndexRoute: typeof FamilyChildrenChildIdJoinIndexRoute
   FamilyChildrenChildIdSkillBuilderIndexRoute: typeof FamilyChildrenChildIdSkillBuilderIndexRoute
 }
 
@@ -5706,7 +5626,6 @@ const FamilyRouteRouteChildren: FamilyRouteRouteChildren = {
     FamilyChildrenChildIdAssignmentsIndexRoute,
   FamilyChildrenChildIdClassesIndexRoute:
     FamilyChildrenChildIdClassesIndexRoute,
-  FamilyChildrenChildIdJoinIndexRoute: FamilyChildrenChildIdJoinIndexRoute,
   FamilyChildrenChildIdSkillBuilderIndexRoute:
     FamilyChildrenChildIdSkillBuilderIndexRoute,
 }
@@ -5834,7 +5753,6 @@ interface SchoolRouteRouteChildren {
   SchoolStudentsUserIdAdventuresIndexRoute: typeof SchoolStudentsUserIdAdventuresIndexRoute
   SchoolStudentsUserIdAssignmentsIndexRoute: typeof SchoolStudentsUserIdAssignmentsIndexRoute
   SchoolStudentsUserIdClassesIndexRoute: typeof SchoolStudentsUserIdClassesIndexRoute
-  SchoolStudentsUserIdJoinIndexRoute: typeof SchoolStudentsUserIdJoinIndexRoute
   SchoolStudentsUserIdSkillBuilderIndexRoute: typeof SchoolStudentsUserIdSkillBuilderIndexRoute
   SchoolTeachersUserIdClassesIndexRoute: typeof SchoolTeachersUserIdClassesIndexRoute
   SchoolTeachersUserIdLessonNotesIndexRoute: typeof SchoolTeachersUserIdLessonNotesIndexRoute
@@ -5863,7 +5781,6 @@ const SchoolRouteRouteChildren: SchoolRouteRouteChildren = {
   SchoolStudentsUserIdAssignmentsIndexRoute:
     SchoolStudentsUserIdAssignmentsIndexRoute,
   SchoolStudentsUserIdClassesIndexRoute: SchoolStudentsUserIdClassesIndexRoute,
-  SchoolStudentsUserIdJoinIndexRoute: SchoolStudentsUserIdJoinIndexRoute,
   SchoolStudentsUserIdSkillBuilderIndexRoute:
     SchoolStudentsUserIdSkillBuilderIndexRoute,
   SchoolTeachersUserIdClassesIndexRoute: SchoolTeachersUserIdClassesIndexRoute,
@@ -5898,7 +5815,6 @@ interface StudentRouteRouteChildren {
   StudentAdventuresIndexRoute: typeof StudentAdventuresIndexRoute
   StudentAssignmentsIndexRoute: typeof StudentAssignmentsIndexRoute
   StudentClassesIndexRoute: typeof StudentClassesIndexRoute
-  StudentJoinIndexRoute: typeof StudentJoinIndexRoute
   StudentSkillBuilderIndexRoute: typeof StudentSkillBuilderIndexRoute
   StudentClassClassIdIndexRoute: typeof StudentClassClassIdIndexRoute
   StudentSchoolsOrgIdIndexRoute: typeof StudentSchoolsOrgIdIndexRoute
@@ -5925,7 +5841,6 @@ const StudentRouteRouteChildren: StudentRouteRouteChildren = {
   StudentAdventuresIndexRoute: StudentAdventuresIndexRoute,
   StudentAssignmentsIndexRoute: StudentAssignmentsIndexRoute,
   StudentClassesIndexRoute: StudentClassesIndexRoute,
-  StudentJoinIndexRoute: StudentJoinIndexRoute,
   StudentSkillBuilderIndexRoute: StudentSkillBuilderIndexRoute,
   StudentClassClassIdIndexRoute: StudentClassClassIdIndexRoute,
   StudentSchoolsOrgIdIndexRoute: StudentSchoolsOrgIdIndexRoute,
@@ -5985,7 +5900,6 @@ interface TeachingHubRouteRouteChildren {
   TeachingHubStudentsUserIdAdventuresIndexRoute: typeof TeachingHubStudentsUserIdAdventuresIndexRoute
   TeachingHubStudentsUserIdAssignmentsIndexRoute: typeof TeachingHubStudentsUserIdAssignmentsIndexRoute
   TeachingHubStudentsUserIdClassesIndexRoute: typeof TeachingHubStudentsUserIdClassesIndexRoute
-  TeachingHubStudentsUserIdJoinIndexRoute: typeof TeachingHubStudentsUserIdJoinIndexRoute
   TeachingHubStudentsUserIdSkillBuilderIndexRoute: typeof TeachingHubStudentsUserIdSkillBuilderIndexRoute
   TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute: typeof TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute
   TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute: typeof TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute
@@ -6030,8 +5944,6 @@ const TeachingHubRouteRouteChildren: TeachingHubRouteRouteChildren = {
     TeachingHubStudentsUserIdAssignmentsIndexRoute,
   TeachingHubStudentsUserIdClassesIndexRoute:
     TeachingHubStudentsUserIdClassesIndexRoute,
-  TeachingHubStudentsUserIdJoinIndexRoute:
-    TeachingHubStudentsUserIdJoinIndexRoute,
   TeachingHubStudentsUserIdSkillBuilderIndexRoute:
     TeachingHubStudentsUserIdSkillBuilderIndexRoute,
   TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute:
