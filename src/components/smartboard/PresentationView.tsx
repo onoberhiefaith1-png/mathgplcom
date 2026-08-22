@@ -75,7 +75,6 @@ import { FloatingNumberPanel } from "./FloatingNumberPanel";
 import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
-import BoardEmojiDock from "./BoardEmojiDock";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
 import { clampRowSpacing, normalizeRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import {
@@ -6572,17 +6571,7 @@ const PresentationView = ({
 
 
 
-      {/* Official GPL emoji — same central library as the Lesson Note panel. */}
-      {canEdit && carrierVisible && (
-        <BoardEmojiDock
-          onInsert={(glyph) => insertCharAtSensor(glyph, "mid")}
-          chromeBg={palette.chromeBg}
-          chromeFg={palette.chromeFg}
-          chromeBorder={palette.chromeBorder}
-          ink={ink}
-          bottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
-        />
-      )}
+      {/* Emoji dock removed from the Smartboard by request — no replacement. */}
 
       {/* Permanent activation buttons for the three workspace assistants. */}
       {canEdit && carrierVisible && (

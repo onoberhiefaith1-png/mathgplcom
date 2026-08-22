@@ -434,6 +434,30 @@ export type Database = {
           },
         ]
       }
+      archived_features: {
+        Row: {
+          archived: boolean
+          created_at: string
+          display_name: string
+          feature_key: string
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          created_at?: string
+          display_name: string
+          feature_key: string
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          created_at?: string
+          display_name?: string
+          feature_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       assessment_answer_keys: {
         Row: {
           assessment_id: string

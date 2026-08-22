@@ -38,6 +38,7 @@ const REPEAT_MS = 90;
 const SENSOR_IDLE_MS = 50_000;
 // Half-width/height of the invisible activity hot-zone centred on the pad.
 const HOT_ZONE_HALF = 140;
+const DRAG_KEY = "sb.sensorDPad.offset";
 
 export const SensorDPad = ({
   onUp, onDown, onLeft, onRight,
@@ -50,6 +51,21 @@ export const SensorDPad = ({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const idleTimerRef = useRef<number | null>(null);
   const [visible, setVisible] = useState(true);
+  // Drag offset applied on top of the default bottom-centre position. The pad
+  // keeps its design and behaviour; only its resting place moves so it can sit
+  // under one thumb on a phone. Persisted for the session.
+  const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAG_KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as { x?: number; y?: number };
+        setOffset({ x: Number(p.x) || 0, y: Number(p.y) || 0 });
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const clearHold = useCallback(() => {
     if (holdRef.current.timer != null) window.clearTimeout(holdRef.current.timer);
@@ -165,7 +181,7 @@ export const SensorDPad = ({
       style={{
         left: "50%",
         bottom: bottomPx,
-        transform: "translateX(-50%)",
+        transform: `translateX(-50%) translate(${offset.x}px, ${offset.y}px)`,
         userSelect: "none",
         pointerEvents: visible ? "auto" : "none",
         opacity: visible ? 1 : 0,
@@ -190,9 +206,36 @@ export const SensorDPad = ({
           {btn(canLeft, onLeft, <ChevronLeft className="h-5 w-5" />, "Sensor left")}
         </div>
         <div
-          aria-hidden
+          role="button"
+          tabIndex={-1}
+          aria-label="Drag sensor controller"
+          title="Drag to move"
           className="grid place-items-center"
-          style={{ opacity: 0.35 }}
+          style={{ opacity: 0.35, touchAction: "none", cursor: "grab" }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+            dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y };
+            setVisible(true);
+            kickIdle();
+          }}
+          onPointerMove={(e) => {
+            const d = dragRef.current;
+            if (!d) return;
+            const half = window.innerWidth / 2 - 70;
+            const x = Math.max(-half, Math.min(half, d.ox + (e.clientX - d.startX)));
+            const maxUp = Math.max(0, window.innerHeight - 180);
+            const y = Math.max(-maxUp, Math.min(120, d.oy + (e.clientY - d.startY)));
+            setOffset({ x, y });
+            kickIdle();
+          }}
+          onPointerUp={(e) => {
+            dragRef.current = null;
+            (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+            try { sessionStorage.setItem(DRAG_KEY, JSON.stringify(offset)); } catch { /* ignore */ }
+          }}
+          onPointerCancel={() => { dragRef.current = null; }}
         >
           <span
             style={{

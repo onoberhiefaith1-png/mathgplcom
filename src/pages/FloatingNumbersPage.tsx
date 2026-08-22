@@ -29,6 +29,7 @@ import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/
 import { buildLessonContext } from "@/lib/floating/lessonContext";
 import { readSolutionObjects } from "@/lib/floating/solutionItems";
 import TableWorkspace from "@/components/floating/TableWorkspace";
+import { useArchivedFeature } from "@/hooks/useArchivedFeature";
 import FloatingArchivePanel, { type ArchivedVersion } from "@/components/floating/FloatingArchivePanel";
 import { diag } from "@/lib/diagnostics/opLog";
 import {
@@ -106,6 +107,9 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
 const FloatingNumbersPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
   const navigate = useNavigate();
+  // Floating Number AI is a retired feature while archived (see Application Archive).
+  const { archived: aiArchivedRaw } = useArchivedFeature("floating_number_ai");
+  const aiArchived = aiArchivedRaw !== false;
   const [info, setInfo] = useState<SubInfo | null>(null);
   const [lines, setLines] = useState<FloatingLine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1536,7 +1540,11 @@ const FloatingNumbersPage = () => {
         }}
       />
       </div>
-      {/* Right: Floating Number AI Assistant — permanent panel */}
+      {/* Right: Floating Number AI Assistant.
+          Retired via the Application Archive (platform console → Application
+          Archive → Floating Number AI). The implementation below is preserved
+          untouched; restoring the feature mounts it again. */}
+      {!aiArchived && (
       <aside className="hidden lg:flex w-[380px] h-screen sticky top-0">
         <div className="w-full h-full">
           <AssistantPanel
@@ -1571,6 +1579,7 @@ const FloatingNumbersPage = () => {
           />
         </div>
       </aside>
+      )}
     </div>
   );
 };

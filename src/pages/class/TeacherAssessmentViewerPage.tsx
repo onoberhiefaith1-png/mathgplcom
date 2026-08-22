@@ -164,9 +164,9 @@ const TeacherAssessmentViewerPage = () => {
             type="button"
             onClick={() => setReasoningOpen((v) => !v)}
             className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${reasoningOpen ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
-            title="Mathematical Reasoning (live debug)"
+            title="Live evaluation"
           >
-            <Brain className="h-3.5 w-3.5" /> Reasoning
+            <Brain className="h-3.5 w-3.5" /> Evaluation
           </button>
         </div>
       </div>
