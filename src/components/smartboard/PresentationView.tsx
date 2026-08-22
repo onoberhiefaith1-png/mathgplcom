@@ -4096,7 +4096,7 @@ const PresentationView = ({
   // ever see the same verdict.
   const liveEvalKeyRef = useRef<string>("");
   useEffect(() => {
-    if (!assessmentMode || role !== "student" || !liveChanReady) return;
+    if (!assessmentMode || role !== "student" || !liveFeedActive) return;
     if (!assessmentId || !current) return;
     const lineId = guidedLines[activeLineIdx]?.lineId ?? null;
     if (!lineId) return;
@@ -4129,30 +4129,29 @@ const PresentationView = ({
             correct?: boolean; verdict?: string; marks?: number;
             diagnosis?: { code: string; label: string; detail: string };
           } | null;
+          const payload = {
+            ts: Date.now(),
+            questionId: current.id,
+            lineId,
+            mode: "live" as const,
+            correct: !!res?.correct,
+            verdict: res?.verdict,
+            diagnosis: res?.diagnosis,
+            marks: Number(res?.marks ?? 0),
+            studentAscii: ascii,
+          };
+          publishLocalLive(localLiveChan, "check", payload);
           const ch = liveBroadcastChanRef.current;
           if (!ch) return;
-          void ch.send({
-            type: "broadcast",
-            event: "check",
-            payload: {
-              ts: Date.now(),
-              questionId: current.id,
-              lineId,
-              mode: "live",
-              correct: !!res?.correct,
-              verdict: res?.verdict,
-              diagnosis: res?.diagnosis,
-              marks: Number(res?.marks ?? 0),
-              studentAscii: ascii,
-            },
-          });
+          void ch.send({ type: "broadcast", event: "check", payload });
         } catch { /* live debugger only — never disturbs the student */ }
       })();
     }, 500);
     return () => window.clearTimeout(id);
   }, [
-    assessmentMode, role, liveChanReady, assessmentId, current, guidedLines,
+    assessmentMode, role, liveFeedActive, localLiveChan, assessmentId, current, guidedLines,
     activeLineIdx, freeLines, solvedSlots,
+
   ]);
 
 
