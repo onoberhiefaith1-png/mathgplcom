@@ -197,20 +197,16 @@ const StudentDashboard = () => {
           ))}
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 rounded-2xl border border-border/60 bg-background/40 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold">Join a class</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Have a join code from your teacher? Add the class to your dashboard.
-            </p>
-          </div>
-          <Link
-            to="/student/join"
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-primary/50 bg-primary/10 px-5 text-sm font-medium text-primary transition hover:bg-primary/20"
-          >
-            <UserPlus className="h-4 w-4" /> Join Class
-          </Link>
+        {/* A class always lives inside a teacher's or a school's workspace, so
+            joining one happens in there — never from this personal dashboard. */}
+        <div className="mt-3 rounded-2xl border border-border/60 bg-background/40 p-5">
+          <h3 className="text-sm font-semibold">How you join a class</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Open a school or a teacher above to step inside their workspace. Join Class lives in there, and your join
+            code or invite link takes you straight into the classroom.
+          </p>
         </div>
+
       </section>
 
       <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
