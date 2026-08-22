@@ -37,8 +37,14 @@ export interface QuestionPayload {
     /** Teacher's correct equation for this line (the orange line). Student-safe
      *  only in the sense that it is NOT sent to the board — it stays in the
      *  answer key. Kept here so board sources can carry it for the teacher. */
+    /** The teaching note authored by THIS line's own highlight
+     *  (`precedingNotebook`). Absent ⇒ this line has no note, ever. */
+    note?: string;
+    /** A standalone note with no equation of its own. */
+    noteOnly?: boolean;
   }[];
 }
+
 
 export interface AnswerKeyLine {
   questionId: string;
@@ -73,6 +79,93 @@ const cleanFillers = (fillers: string[] | undefined): string[] =>
 
 const marksFor = (line: FloatingLine): number => markForLine(line);
 
+/** Saved highlight shape (the authoring record for one floating line). */
+interface SavedHighlight {
+  payload?: string;
+  precedingNotebook?: string;
+  notebookOnly?: boolean;
+  object?: { objId?: string; family?: string } | null;
+}
+
+interface CompileSource {
+  line: FloatingLine;
+  note?: string;
+  noteOnly?: boolean;
+}
+
+const normEq = (s: string): string =>
+  String(s ?? "").replace(/\s+/g, " ").trim();
+
+/**
+ * Attach each line's OWN teaching note, using the same law the lesson-note
+ * board uses: a note belongs to the highlight above it, and a line has a note
+ * only when its own highlight authored one. Standalone (`notebookOnly`)
+ * highlights become note-only lines in their saved position.
+ *
+ * When the subsection has no saved highlights the floating lines pass through
+ * unchanged — exactly today's behaviour, with no notes invented.
+ */
+const withHighlightNotes = (
+  flLines: FloatingLine[],
+  rawHighlights: unknown,
+): CompileSource[] => {
+  const highlights = (Array.isArray(rawHighlights) ? rawHighlights : []) as SavedHighlight[];
+  const usable = highlights.filter((h) => !h?.object || h.object?.family === "table");
+  if (usable.length === 0) return flLines.map((line) => ({ line }));
+
+  const byEquation = new Map<string, FloatingLine[]>();
+  for (const l of flLines) {
+    const k = normEq(String(l.equation ?? ""));
+    if (!k) continue;
+    const bucket = byEquation.get(k) ?? [];
+    bucket.push(l);
+    byEquation.set(k, bucket);
+  }
+  const consumed = new Set<FloatingLine>();
+  const takeMatch = (payload: string): FloatingLine | null => {
+    const bucket = byEquation.get(normEq(payload));
+    if (!bucket) return null;
+    const hit = bucket.find((l) => !consumed.has(l)) ?? null;
+    if (hit) consumed.add(hit);
+    return hit;
+  };
+
+  const out: CompileSource[] = [];
+  usable.forEach((h, hi) => {
+    const note = String(h?.precedingNotebook ?? "").trim();
+    if (h?.notebookOnly) {
+      if (!note) return;
+      out.push({
+        line: { lineId: `note-${hi}`, equation: "", fillers: [], containers: [] } as unknown as FloatingLine,
+        note,
+        noteOnly: true,
+      });
+      return;
+    }
+    if (h?.object) {
+      // Table workspace: every saved line that belongs to it, in saved order.
+      const objId = String(h.object?.objId ?? "");
+      for (const l of flLines) {
+        if (String((l as any)?.table?.objId ?? "") !== objId) continue;
+        consumed.add(l);
+        out.push({ line: l });
+      }
+      return;
+    }
+    const payload = String(h?.payload ?? "").trim();
+    const matched = takeMatch(payload);
+    if (!matched) return;
+    out.push({ line: matched, note: note || undefined });
+  });
+
+  // Any floating line no highlight claimed still belongs to the question —
+  // it simply has no note.
+  for (const l of flLines) if (!consumed.has(l)) out.push({ line: l });
+  return out.length > 0 ? out : flLines.map((line) => ({ line }));
+};
+
+
+
 
 export async function getNotebookScoreLabel(notebookId: string): Promise<string> {
   const { data } = await supabase
@@ -87,7 +180,7 @@ export async function getNotebookScoreLabel(notebookId: string): Promise<string>
 export async function compileSectionQuestions(sectionId: string): Promise<CompiledSection> {
   const { data: subs } = await supabase
     .from("notebook_subsections")
-    .select("id, order_index, floating_lines")
+    .select("id, order_index, floating_lines, floating_highlights")
     .eq("section_id", sectionId)
     .order("order_index", { ascending: true });
 
@@ -111,8 +204,26 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
   for (const s of subs ?? []) {
     const sid = (s as any).id as string;
     const flLines = ((s as any).floating_lines ?? []) as FloatingLine[];
+    // NOTE-ATTACHMENT LAW (identical to the lesson board): a line has a note
+    // if and only if its OWN highlight authored one (`precedingNotebook`).
+    // No equation-match fallback, no positional guessing, no explanations.
+    const sourceLines = withHighlightNotes(flLines, (s as any).floating_highlights);
     const lines: QuestionPayload["lines"] = [];
-    for (const line of flLines) {
+    for (const src of sourceLines) {
+      const { line, note, noteOnly } = src;
+      if (noteOnly) {
+        // A standalone note carries no equation, no chips and no marks — it
+        // still occupies its own board line so the note reaches the student.
+        lines.push({
+          lineId: line.lineId,
+          chips: [],
+          marks: 0,
+          containers: [],
+          note,
+          noteOnly: true,
+        });
+        continue;
+      }
       // Two DIFFERENT objects, never interchangeable:
       //  • chips   — the draggable floating numbers handed to the student.
       //  • tokens/equationAscii — the teacher's correct line (the answer key).
@@ -135,6 +246,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
         chips: rearrangeStream(studentChips),
         marks,
         containers: (line.containers ?? []) as ContainerKind[],
+        ...(note ? { note } : {}),
       });
       answerKey.push({
         questionId: sid,
@@ -150,6 +262,8 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
 
   return { questions, answerKey, total };
 }
+
+
 
 export async function compileNotebookQuestions(notebookId: string): Promise<CompiledSection> {
   const { data: sections } = await supabase

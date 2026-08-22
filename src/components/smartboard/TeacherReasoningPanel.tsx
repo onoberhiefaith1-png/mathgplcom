@@ -8,6 +8,8 @@ import { X as XIcon, CheckCircle2, XCircle, Loader2, Maximize2, Minimize2 } from
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
+import { localLiveChannel, subscribeLocalLive } from "@/lib/smartboard/localLiveBridge";
+
 import { collapseNestedBoxes, structureHash, type Row } from "@/lib/smartboard/mathTree";
 import MathTreeRender from "./MathTreeRender";
 import { PresenterMath, PRESENTER_INK, toDisplaySafe } from "./PresenterMath";
@@ -133,6 +135,10 @@ interface Props {
   /** Dedicated Reasoning full screen (independent of the Smartboard's). */
   fullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  /** The board is running in THIS page (Floating Number test sitting): also
+   *  listen on the in-page bridge, because realtime broadcasts never come
+   *  back to their own tab. */
+  localLive?: boolean;
 }
 
 const TeacherReasoningPanel = ({
@@ -143,7 +149,9 @@ const TeacherReasoningPanel = ({
   onClose,
   fullscreen = false,
   onToggleFullscreen,
+  localLive = false,
 }: Props) => {
+
 
   const [questions, setQuestions] = useState<QuestionShape[]>([]);
   const [keyLines, setKeyLines] = useState<KeyLine[]>([]);
@@ -307,9 +315,29 @@ const TeacherReasoningPanel = ({
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [assessmentId, studentId, refreshProgress]);
 
+  // Same-page feed (test sitting): identical payloads, delivered in-process.
+  useEffect(() => {
+    if (!localLive) return;
+    const chan = localLiveChannel(assessmentId, studentId);
+    const offBoard = subscribeLocalLive(chan, "board", (raw) => {
+      const p = raw as LivePayload | null;
+      if (!p) return;
+      liveAtRef.current = Date.now();
+      setLive(p);
+    });
+    const offCheck = subscribeLocalLive(chan, "check", (raw) => {
+      const p = raw as CheckPayload | null;
+      if (!p) return;
+      setLastCheck(p);
+      void refreshProgress();
+    });
+    return () => { offBoard(); offCheck(); };
+  }, [localLive, assessmentId, studentId, refreshProgress]);
+
   const isLive = Date.now() - liveAtRef.current < 6000 && !!live;
   const feed = isLive ? live : (live ?? fallback);
   const usingFallback = !isLive && !!fallback && !live;
+
 
   // ── The CURRENT line — always follows the student's cursor. ──────────────
   const currentQid = feed?.questionId ?? null;

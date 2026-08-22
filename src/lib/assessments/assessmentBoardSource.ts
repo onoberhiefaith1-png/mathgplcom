@@ -7,8 +7,19 @@ import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 export interface AssessmentQuestion {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number; containers?: string[]; equation?: string }[];
+  lines: {
+    lineId: string;
+    chips: string[];
+    marks: number;
+    containers?: string[];
+    equation?: string;
+    /** Teaching note authored by this line's own highlight. */
+    note?: string;
+    /** Standalone note line (no equation of its own). */
+    noteOnly?: boolean;
+  }[];
 }
+
 
 export interface AssessmentLike {
   id: string;
@@ -52,7 +63,12 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
         fragmentEnd: fragments.length,
         lineId: ln.lineId,
         marks: Math.max(0, Number(ln.marks) || 0),
+        // The note travels with the line, so the board's existing note
+        // machinery (icon, reveal, write-to-board, gate) works unchanged.
+        notebook: ln.note && String(ln.note).trim() ? String(ln.note) : undefined,
+        notebookOnly: ln.noteOnly === true,
       });
+
     }
 
     reservoirs.push({ beatId: q.id, caption, fragments, lines });
