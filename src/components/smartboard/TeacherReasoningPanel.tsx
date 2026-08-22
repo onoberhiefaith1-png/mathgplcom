@@ -8,6 +8,8 @@ import { X as XIcon, CheckCircle2, XCircle, Loader2, Maximize2, Minimize2 } from
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { rowToAscii } from "@/lib/smartboard/rowAscii";
+import { localLiveChannel, subscribeLocalLive } from "@/lib/smartboard/localLiveBridge";
+
 import { collapseNestedBoxes, structureHash, type Row } from "@/lib/smartboard/mathTree";
 import MathTreeRender from "./MathTreeRender";
 import { PresenterMath, PRESENTER_INK, toDisplaySafe } from "./PresenterMath";
