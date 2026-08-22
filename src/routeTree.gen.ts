@@ -136,7 +136,6 @@ import { Route as SmartboardNotebookIdIndexRouteImport } from './routes/smartboa
 import { Route as StudentAdventuresIndexRouteImport } from './routes/student/adventures/index'
 import { Route as StudentAssignmentsIndexRouteImport } from './routes/student/assignments/index'
 import { Route as StudentClassesIndexRouteImport } from './routes/student/classes/index'
-import { Route as StudentJoinIndexRouteImport } from './routes/student/join/index'
 import { Route as StudentSkillBuilderIndexRouteImport } from './routes/student/skill-builder/index'
 import { Route as SubjectsSubjectIndexRouteImport } from './routes/subjects/$subject/index'
 import { Route as TeachingHubClassesIndexRouteImport } from './routes/teaching-hub/classes/index'
@@ -932,11 +931,6 @@ const StudentAssignmentsIndexRoute = StudentAssignmentsIndexRouteImport.update({
 const StudentClassesIndexRoute = StudentClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
-  getParentRoute: () => StudentRouteRoute,
-} as any)
-const StudentJoinIndexRoute = StudentJoinIndexRouteImport.update({
-  id: '/join/',
-  path: '/join/',
   getParentRoute: () => StudentRouteRoute,
 } as any)
 const StudentSkillBuilderIndexRoute =
@@ -1953,7 +1947,6 @@ export interface FileRoutesByFullPath {
   '/student/adventures/': typeof StudentAdventuresIndexRoute
   '/student/assignments/': typeof StudentAssignmentsIndexRoute
   '/student/classes/': typeof StudentClassesIndexRoute
-  '/student/join/': typeof StudentJoinIndexRoute
   '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
@@ -2222,7 +2215,6 @@ export interface FileRoutesByTo {
   '/student/adventures': typeof StudentAdventuresIndexRoute
   '/student/assignments': typeof StudentAssignmentsIndexRoute
   '/student/classes': typeof StudentClassesIndexRoute
-  '/student/join': typeof StudentJoinIndexRoute
   '/student/skill-builder': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes': typeof TeachingHubClassesIndexRoute
@@ -2503,7 +2495,6 @@ export interface FileRoutesById {
   '/student/adventures/': typeof StudentAdventuresIndexRoute
   '/student/assignments/': typeof StudentAssignmentsIndexRoute
   '/student/classes/': typeof StudentClassesIndexRoute
-  '/student/join/': typeof StudentJoinIndexRoute
   '/student/skill-builder/': typeof StudentSkillBuilderIndexRoute
   '/subjects/$subject/': typeof SubjectsSubjectIndexRoute
   '/teaching-hub/classes/': typeof TeachingHubClassesIndexRoute
@@ -2785,7 +2776,6 @@ export interface FileRouteTypes {
     | '/student/adventures/'
     | '/student/assignments/'
     | '/student/classes/'
-    | '/student/join/'
     | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
@@ -3054,7 +3044,6 @@ export interface FileRouteTypes {
     | '/student/adventures'
     | '/student/assignments'
     | '/student/classes'
-    | '/student/join'
     | '/student/skill-builder'
     | '/subjects/$subject'
     | '/teaching-hub/classes'
@@ -3334,7 +3323,6 @@ export interface FileRouteTypes {
     | '/student/adventures/'
     | '/student/assignments/'
     | '/student/classes/'
-    | '/student/join/'
     | '/student/skill-builder/'
     | '/subjects/$subject/'
     | '/teaching-hub/classes/'
@@ -4505,13 +4493,6 @@ declare module '@tanstack/react-router' {
       path: '/classes'
       fullPath: '/student/classes/'
       preLoaderRoute: typeof StudentClassesIndexRouteImport
-      parentRoute: typeof StudentRouteRoute
-    }
-    '/student/join/': {
-      id: '/student/join/'
-      path: '/join'
-      fullPath: '/student/join/'
-      preLoaderRoute: typeof StudentJoinIndexRouteImport
       parentRoute: typeof StudentRouteRoute
     }
     '/student/skill-builder/': {
@@ -5898,7 +5879,6 @@ interface StudentRouteRouteChildren {
   StudentAdventuresIndexRoute: typeof StudentAdventuresIndexRoute
   StudentAssignmentsIndexRoute: typeof StudentAssignmentsIndexRoute
   StudentClassesIndexRoute: typeof StudentClassesIndexRoute
-  StudentJoinIndexRoute: typeof StudentJoinIndexRoute
   StudentSkillBuilderIndexRoute: typeof StudentSkillBuilderIndexRoute
   StudentClassClassIdIndexRoute: typeof StudentClassClassIdIndexRoute
   StudentSchoolsOrgIdIndexRoute: typeof StudentSchoolsOrgIdIndexRoute
@@ -5925,7 +5905,6 @@ const StudentRouteRouteChildren: StudentRouteRouteChildren = {
   StudentAdventuresIndexRoute: StudentAdventuresIndexRoute,
   StudentAssignmentsIndexRoute: StudentAssignmentsIndexRoute,
   StudentClassesIndexRoute: StudentClassesIndexRoute,
-  StudentJoinIndexRoute: StudentJoinIndexRoute,
   StudentSkillBuilderIndexRoute: StudentSkillBuilderIndexRoute,
   StudentClassClassIdIndexRoute: StudentClassClassIdIndexRoute,
   StudentSchoolsOrgIdIndexRoute: StudentSchoolsOrgIdIndexRoute,

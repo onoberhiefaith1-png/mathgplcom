@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { GraduationCap, UserPlus, Users } from "lucide-react";
+import { GraduationCap, Users } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import { EmptyNote, RailCard } from "@/components/workspace/DashboardParts";
+import JoinClassPanel from "@/components/class/JoinClassPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { connectedOwner, connectedSchoolByOrg } from "@/lib/student/workspaceAccess";
+
 
 /**
  * Inside one school or one teacher.
