@@ -133,6 +133,10 @@ interface Props {
   /** Dedicated Reasoning full screen (independent of the Smartboard's). */
   fullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  /** The board is running in THIS page (Floating Number test sitting): also
+   *  listen on the in-page bridge, because realtime broadcasts never come
+   *  back to their own tab. */
+  localLive?: boolean;
 }
 
 const TeacherReasoningPanel = ({
@@ -143,7 +147,9 @@ const TeacherReasoningPanel = ({
   onClose,
   fullscreen = false,
   onToggleFullscreen,
+  localLive = false,
 }: Props) => {
+
 
   const [questions, setQuestions] = useState<QuestionShape[]>([]);
   const [keyLines, setKeyLines] = useState<KeyLine[]>([]);
