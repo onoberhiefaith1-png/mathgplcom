@@ -116,6 +116,28 @@ export interface SlotEffect {
  */
 export type BarRole = "time" | "learning";
 
+/** How the Timer renders itself. */
+export type TimerDisplay = "segmented" | "liquid" | "video";
+
+/**
+ * Video Timer regions, in seconds of the uploaded video.
+ * Intro plays once and is NOT timed. The loop region repeats for the whole
+ * configured duration — it is the clock. Outro plays on failure only.
+ */
+export interface TimerVideoConfig {
+  assetId?: string;
+  storagePath?: string;
+  source?: MediaSource;
+  /** natural duration of the uploaded video, when known. */
+  duration?: number;
+  introStart?: number;
+  introEnd?: number;
+  loopStart?: number;
+  loopEnd?: number;
+  outroStart?: number;
+  outroEnd?: number;
+}
+
 export interface ProgressConfig {
   /** Fixed role of this bar inside its Scene / Learning Point. */
   role?: BarRole;
@@ -124,6 +146,19 @@ export interface ProgressConfig {
    * `0` (or missing) means **No Time**: no timer at all.
    */
   timeDurationSeconds?: number;
+
+  // ── Timer system (role === "time" only) ───────────────────────────────────
+  /**
+   * How the Timer draws itself. Missing → falls back to `barType`, so legacy
+   * time bars keep their current look.
+   */
+  timerDisplay?: TimerDisplay;
+  /** Shown when the Timer runs out and the required score was not reached. */
+  failureMessage?: string;
+  /** Optional narration played after the failure message / outro video. */
+  failureNarrationPath?: string;
+  /** Video Timer authoring: the loop region is the actual clock. */
+  timerVideo?: TimerVideoConfig;
 
   /** number of slots in the tower (defaults to 10). */
   segments: number;

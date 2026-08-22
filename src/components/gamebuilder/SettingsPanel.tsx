@@ -30,6 +30,9 @@ import { getSignedUrl } from "@/lib/games/urls";
 import { PROGRESS_PRESETS } from "@/lib/games/progressPresets";
 import { LIQUID_STYLES, DEFAULT_LIQUID_STYLE } from "@/lib/games/liquidStyles";
 import { TIME_BAR_LABEL, TIME_DURATION_OPTIONS, roleOf } from "@/lib/games/types";
+import { fmtClock, parseClock } from "@/lib/games/timerVideo";
+import { DEFAULT_FAILURE_MESSAGE } from "@/lib/games/timerOutcome";
+import TimerVideoTimeline from "./TimerVideoTimeline";
 import { cn } from "@/lib/utils";
 import type {
   AnimationType,
@@ -147,6 +150,10 @@ const SettingsPanel = ({
   onOpenQuestions,
 }: SettingsPanelProps) => {
   const [effects, setEffects] = useState<GameAssetRow[]>([]);
+  // Free-entry Timer duration, kept in sync with the selected element.
+  const timerSeconds = element?.progress?.timeDurationSeconds ?? 0;
+  const [timeText, setTimeText] = useState(() => fmtClock(timerSeconds));
+  useEffect(() => { setTimeText(fmtClock(timerSeconds)); }, [timerSeconds, element?.id]);
 
   useEffect(() => {
     if (element?.kind === "progress_bar") {
@@ -168,6 +175,8 @@ const SettingsPanel = ({
   // The Time Progress Bar is system-owned: appearance and duration only.
   const isTimeBar = element.kind === "progress_bar" && roleOf(element) === "time";
   const barType = progress?.barType ?? "segmented";
+  // Legacy time bars have no explicit display: they keep their existing look.
+  const timerDisplay = progress?.timerDisplay ?? barType;
   const anim = element.animation;
   const slant = element.slant ?? defaultSlant();
   const patchSlant = (p: Partial<NonNullable<CanvasElement["slant"]>>) =>
@@ -431,20 +440,106 @@ const SettingsPanel = ({
               </Section>
 
               <Section title="Time Duration">
-                <Select
-                  value={String(progress.timeDurationSeconds ?? 0)}
-                  onValueChange={(v) => patchProgress({ timeDurationSeconds: Number(v) })}
-                >
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {TIME_DURATION_OPTIONS.map((o) => (
-                      <SelectItem key={o.seconds} value={String(o.seconds)}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={
+                      TIME_DURATION_OPTIONS.some((o) => o.seconds === (progress.timeDurationSeconds ?? 0))
+                        ? String(progress.timeDurationSeconds ?? 0)
+                        : "custom"
+                    }
+                    onValueChange={(v) => {
+                      if (v === "custom") return;
+                      patchProgress({ timeDurationSeconds: Number(v) });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {TIME_DURATION_OPTIONS.map((o) => (
+                        <SelectItem key={o.seconds} value={String(o.seconds)}>{o.label}</SelectItem>
+                      ))}
+                      <SelectItem value="custom">Custom…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={timeText}
+                    placeholder="mm:ss"
+                    onChange={(e) => setTimeText(e.target.value)}
+                    onBlur={() => {
+                      const secs = parseClock(timeText);
+                      if (secs != null) patchProgress({ timeDurationSeconds: secs });
+                      else setTimeText(fmtClock(progress.timeDurationSeconds ?? 0));
+                    }}
+                    className="h-8 w-24"
+                  />
+                </div>
                 <p className="text-[11px] text-muted-foreground">
-                  No Time hides the timer completely — students keep solving until the Progress Bar is full.
-                  A Video Adventure needs a duration on every Learning Point.
+                  Enter any length as mm:ss (or minutes). None hides the timer completely — students keep solving
+                  until the Progress Bar is full. A Video Adventure needs a duration on every Learning Point.
+                </p>
+              </Section>
+
+              <Section title="Timer Display">
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { id: "segmented" as const, label: "Segmented" },
+                    { id: "liquid" as const, label: "Fillable" },
+                    { id: "video" as const, label: "Video" },
+                  ]).map((d) => {
+                    const active = timerDisplay === d.id;
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() =>
+                          patchProgress(
+                            d.id === "video"
+                              ? { timerDisplay: "video" }
+                              : {
+                                  timerDisplay: d.id,
+                                  barType: d.id,
+                                  ...(d.id === "liquid"
+                                    ? { liquidStyleId: progress.liquidStyleId ?? DEFAULT_LIQUID_STYLE }
+                                    : {}),
+                                },
+                          )
+                        }
+                        className={cn(
+                          "rounded-md border px-2 py-2 text-xs transition",
+                          active
+                            ? "border-primary bg-primary/20 text-foreground"
+                            : "border-border/50 text-muted-foreground hover:border-primary/50",
+                        )}
+                      >
+                        {d.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  The Timer measures time only. Score always stays with the Progress Bar.
+                </p>
+              </Section>
+
+              {timerDisplay === "video" && (
+                <Section title="Video Timer">
+                  <TimerVideoTimeline
+                    value={progress.timerVideo}
+                    timerSeconds={progress.timeDurationSeconds ?? 0}
+                    onChange={(patch) => patchProgress({ timerVideo: { ...(progress.timerVideo ?? {}), ...patch } })}
+                  />
+                </Section>
+              )}
+
+              <Section title="When Time Runs Out">
+                <Input
+                  value={progress.failureMessage ?? ""}
+                  placeholder={DEFAULT_FAILURE_MESSAGE}
+                  onChange={(e) => patchProgress({ failureMessage: e.target.value })}
+                  className="h-8"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Shown to students who run out of time before reaching the required score.
+                  {timerDisplay === "video" ? " The Outro region plays first." : ""}
                 </p>
               </Section>
             </>
@@ -475,6 +570,7 @@ const SettingsPanel = ({
           </>
           )}
 
+          {!isTimeBar && (
           <Section title="Progress Bar Type">
             <div className="grid grid-cols-2 gap-2">
               {([
@@ -494,7 +590,9 @@ const SettingsPanel = ({
               })}
             </div>
           </Section>
+          )}
 
+          {timerDisplay !== "video" && (
           <Section title="Style">
             {barType === "liquid" ? (
               <>
@@ -536,6 +634,7 @@ const SettingsPanel = ({
               </>
             )}
           </Section>
+          )}
 
           {!isTimeBar && (
           <Section title="Scoring">
