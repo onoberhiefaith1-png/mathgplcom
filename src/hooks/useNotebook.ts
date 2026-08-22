@@ -149,8 +149,12 @@ export function useNotebook(notebookId: string | undefined) {
         subsection_id: b.subsection_id,
         kind: b.kind,
         content_ascii: b.content_ascii ?? "",
+        // Objects (diagrams, tables, charts, 3D scenes) live here. Without it
+        // the Smartboard would never see any lesson-note object.
+        content_json: b.content_json ?? null,
         order_index: b.order_index,
       };
+
       if (b.subsection_id) {
         const arr = blockBySub.get(b.subsection_id) ?? [];
         arr.push(row);
