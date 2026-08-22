@@ -30,6 +30,7 @@ import {
   Plus,
   Radio,
   Sliders,
+  Timer,
   TowerControl,
   Trophy,
   Video,
