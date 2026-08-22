@@ -17,7 +17,8 @@
 import type { Beat, Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 import { buildBeats, buildReservoirs } from "@/lib/smartboard/presentation";
 import type { SectionRow, NotebookRow } from "@/hooks/useNotebook";
-import { noteForLine } from "@/lib/smartboard/boardWriter/noteSource";
+import { noteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
+import type { SolutionObject } from "@/lib/floating/solutionItems";
 
 /** A single teacher note, paragraph-preserving. */
 export interface TeacherNote {
@@ -25,6 +26,8 @@ export interface TeacherNote {
   text: string;
   /** One entry per paragraph (blank-line separated), trimmed. */
   paragraphs: string[];
+  /** Notes-layer objects (diagrams) that belong to this note. */
+  objects: SolutionObject[];
 }
 
 /** One solution line inside a solution beat. */
@@ -80,10 +83,12 @@ const buildNote = (line: ReservoirLine): TeacherNote | undefined => {
   // Purity + fallback-free note law lives in noteSource; we never
   // synthesize notes from explanations or positional guesses here.
   const text = noteForLine({ notebook: line.notebook }).trim();
-  if (!text) return undefined;
+  const objects = noteObjectsForLine<SolutionObject>({ noteObjects: line.noteObjects });
+  // A note exists when there is prose OR note content (a diagram).
+  if (!text && objects.length === 0) return undefined;
   const paras = paragraphsOf(text);
-  if (paras.length === 0) return undefined;
-  return { text, paragraphs: paras };
+  if (paras.length === 0 && objects.length === 0) return undefined;
+  return { text, paragraphs: paras, objects };
 };
 
 const buildSolutionLines = (reservoir: Reservoir): ModelSolutionLine[] =>

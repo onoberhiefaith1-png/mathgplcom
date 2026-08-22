@@ -14,6 +14,8 @@
 
 export interface NoteCarrier {
   notebook?: string;
+  /** Notes-layer objects (diagrams) attached to this line's note. */
+  noteObjects?: unknown[];
 }
 
 /** NOTE-PURITY LAW: a note is prose. A row is treated as math-shaped
@@ -43,3 +45,12 @@ export const noteForLine = (line: NoteCarrier | undefined | null): string => {
   if (rows.some(looksLikeMath)) return "";
   return text;
 };
+
+/** Notes-layer objects attached to a line's note. A diagram is note content by
+ *  law, so a line with objects HAS a note even when it carries no prose. */
+export const noteObjectsForLine = <T,>(line: { noteObjects?: T[] } | undefined | null): T[] =>
+  Array.isArray(line?.noteObjects) ? (line!.noteObjects as T[]) : [];
+
+/** True when the line has anything a teacher can place on the board. */
+export const hasNoteContent = (line: NoteCarrier | undefined | null): boolean =>
+  noteForLine(line).length > 0 || noteObjectsForLine(line).length > 0;
