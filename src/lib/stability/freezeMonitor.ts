@@ -16,6 +16,7 @@ import {
   pointerInteractionActive,
   resetInteractionState,
 } from "./interactionReset";
+import { healLeakedOverlays } from "./overlayGuard";
 
 export type FreezeReport = {
   at: number;
@@ -62,6 +63,9 @@ function record(source: FreezeReport["source"], blockedMs: number) {
     resetInteractionState("freeze-monitor");
     report.healed = true;
   }
+  // The dominant real cause of click-death: a dismissed dialog / sheet whose
+  // portal or body pointer-events lock survived its unmount.
+  if (blockedMs > 400 && healLeakedOverlays("freeze-monitor") > 0) report.healed = true;
   reports.push(report);
   if (reports.length > MAX_REPORTS) reports.shift();
   if (blockedMs > 1_500) {
