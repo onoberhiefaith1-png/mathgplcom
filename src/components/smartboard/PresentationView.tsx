@@ -7077,21 +7077,28 @@ const BeatBlock = ({
   const revealClass = isCurrent ? "sb-writing-in" : "";
 
   // Session objects (Smart Table, chart, question diagram, 3D scene) render
-  // with the session they belong to. Geometry captured inside a Solution is
-  // already filtered out upstream — the teacher displays it separately.
+  // with the session they belong to. Diagrams are NOTES-layer content: they
+  // always travel with their note group — including diagrams drawn inside a
+  // Solution — and they render at full board scale so they stay legible when
+  // projected.
   const BeatObjects = ({ beat: b }: { beat: Beat }) => {
     const objs = b.objects ?? [];
     if (!objs.length) return null;
     return (
-      <div className="mt-4 space-y-4">
+      <div className="mt-6 space-y-6">
         {objs.map((o) => (
-          <div key={o.objId} className="lesson-doc" style={{ fontSize: "0.5em" }}>
-            <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} />
+          <div
+            key={o.objId}
+            className="lesson-doc sb-board-object w-full max-w-full"
+            style={{ fontSize: "0.6rem" }}
+          >
+            <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation />
           </div>
         ))}
       </div>
     );
   };
+
 
   // Synthetic cover beat — title / topic / subtopic / date.
   if (beat.id === "__cover__") {
