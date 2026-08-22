@@ -113,6 +113,7 @@ export function overlayHealCount() {
 export function startOverlayGuard(): () => void {
   if (typeof window === "undefined") return () => {};
 
+  (window as any).__healOverlays = healLeakedOverlays;
   const sweep = window.setInterval(() => healLeakedOverlays("sweep"), 1_000);
 
   // A click that lands on nothing but a full-screen layer is the user telling
