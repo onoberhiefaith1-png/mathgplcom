@@ -53,7 +53,13 @@ const ids = (rows: { id: string }[] | null) => (rows ?? []).map((r) => r.id);
 
 /** Class ids owned by this teacher inside the active workspace. */
 async function ownedClassIds(userId: string, orgId: string | null): Promise<string[]> {
-  const base = supabase.from("classes").select("id").eq("owner_id", userId);
+  // Internal holder classes (Live, Smart Cards, Floating Number tests) are not
+  // teaching classes and must never appear in workspace counts.
+  const base = supabase
+    .from("classes")
+    .select("id")
+    .eq("owner_id", userId)
+    .eq("workspace", "classroom");
   const { data } = await (orgId ? base.eq("org_id", orgId) : base.is("org_id", null));
   return ids(data as { id: string }[] | null);
 }

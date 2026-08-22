@@ -24,7 +24,11 @@ const TeacherStudentWorkspacePage = ({ userId }: { userId: string }) => {
       const { data: userData } = await supabase.auth.getUser();
       const me = userData.user;
       if (!me) return [] as { id: string; name: string }[];
-      const { data: mine } = await supabase.from("classes").select("id, name").eq("owner_id", me.id);
+      const { data: mine } = await supabase
+        .from("classes")
+        .select("id, name")
+        .eq("owner_id", me.id)
+        .eq("workspace", "classroom");
       const rows = (mine ?? []) as { id: string; name: string | null }[];
       if (rows.length === 0) return [];
       const { data: members } = await supabase
