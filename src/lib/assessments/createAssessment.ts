@@ -79,6 +79,93 @@ const cleanFillers = (fillers: string[] | undefined): string[] =>
 
 const marksFor = (line: FloatingLine): number => markForLine(line);
 
+/** Saved highlight shape (the authoring record for one floating line). */
+interface SavedHighlight {
+  payload?: string;
+  precedingNotebook?: string;
+  notebookOnly?: boolean;
+  object?: { objId?: string; family?: string } | null;
+}
+
+interface CompileSource {
+  line: FloatingLine;
+  note?: string;
+  noteOnly?: boolean;
+}
+
+const normEq = (s: string): string =>
+  String(s ?? "").replace(/\s+/g, " ").trim();
+
+/**
+ * Attach each line's OWN teaching note, using the same law the lesson-note
+ * board uses: a note belongs to the highlight above it, and a line has a note
+ * only when its own highlight authored one. Standalone (`notebookOnly`)
+ * highlights become note-only lines in their saved position.
+ *
+ * When the subsection has no saved highlights the floating lines pass through
+ * unchanged — exactly today's behaviour, with no notes invented.
+ */
+const withHighlightNotes = (
+  flLines: FloatingLine[],
+  rawHighlights: unknown,
+): CompileSource[] => {
+  const highlights = (Array.isArray(rawHighlights) ? rawHighlights : []) as SavedHighlight[];
+  const usable = highlights.filter((h) => !h?.object || h.object?.family === "table");
+  if (usable.length === 0) return flLines.map((line) => ({ line }));
+
+  const byEquation = new Map<string, FloatingLine[]>();
+  for (const l of flLines) {
+    const k = normEq(String(l.equation ?? ""));
+    if (!k) continue;
+    const bucket = byEquation.get(k) ?? [];
+    bucket.push(l);
+    byEquation.set(k, bucket);
+  }
+  const consumed = new Set<FloatingLine>();
+  const takeMatch = (payload: string): FloatingLine | null => {
+    const bucket = byEquation.get(normEq(payload));
+    if (!bucket) return null;
+    const hit = bucket.find((l) => !consumed.has(l)) ?? null;
+    if (hit) consumed.add(hit);
+    return hit;
+  };
+
+  const out: CompileSource[] = [];
+  usable.forEach((h, hi) => {
+    const note = String(h?.precedingNotebook ?? "").trim();
+    if (h?.notebookOnly) {
+      if (!note) return;
+      out.push({
+        line: { lineId: `note-${hi}`, equation: "", fillers: [], containers: [] } as unknown as FloatingLine,
+        note,
+        noteOnly: true,
+      });
+      return;
+    }
+    if (h?.object) {
+      // Table workspace: every saved line that belongs to it, in saved order.
+      const objId = String(h.object?.objId ?? "");
+      for (const l of flLines) {
+        if (String((l as any)?.table?.objId ?? "") !== objId) continue;
+        consumed.add(l);
+        out.push({ line: l });
+      }
+      return;
+    }
+    const payload = String(h?.payload ?? "").trim();
+    const matched = takeMatch(payload);
+    if (!matched) return;
+    out.push({ line: matched, note: note || undefined });
+  });
+
+  // Any floating line no highlight claimed still belongs to the question —
+  // it simply has no note.
+  for (const l of flLines) if (!consumed.has(l)) out.push({ line: l });
+  return out.length > 0 ? out : flLines.map((line) => ({ line }));
+};
+
+
+
 
 export async function getNotebookScoreLabel(notebookId: string): Promise<string> {
   const { data } = await supabase
