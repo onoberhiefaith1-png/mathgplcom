@@ -11,8 +11,13 @@ import { fetchMyPlan } from "@/lib/plans/plans.functions";
  * the card simply does not render for them.
  */
 const PlanSummaryCard = () => {
-  const { role } = useAccount();
-  const plan = useQuery({ queryKey: ["my-plan"], queryFn: () => fetchMyPlan({}) });
+  const { role, userId } = useAccount();
+  // Requires a session: without one the server function rejects the request.
+  const plan = useQuery({
+    queryKey: ["my-plan"],
+    queryFn: () => fetchMyPlan({}),
+    enabled: Boolean(userId),
+  });
   if (role === "student") return null;
 
   const current = plan.data?.subscription ?? null;
