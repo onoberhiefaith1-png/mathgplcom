@@ -311,6 +311,7 @@ const FloatingPreparationPage = () => {
   const saveTimerRef = useRef<number | null>(null);
   const latestHighlightsRef = useRef<Highlight[]>([]);
   const linesRef = useRef<string[]>([]);
+  const objectsRef = useRef<SolutionObject[]>([]);
 
   const docRef = useRef<HTMLDivElement | null>(null);
 
@@ -322,9 +323,13 @@ const FloatingPreparationPage = () => {
     linesRef.current = lines;
   }, [lines]);
 
+  useEffect(() => {
+    objectsRef.current = objects;
+  }, [objects]);
+
   const saveHighlightState = useCallback(async (source: Highlight[]) => {
     if (!subsectionId) return false;
-    const ordered = orderedHighlights(source, linesRef.current);
+    const ordered = orderedHighlights(source, linesRef.current, objectsRef.current);
     const activePayloads = new Set(ordered.filter((h) => !h.notebookOnly).map((h) => String(h.payload ?? "")));
     const { data: ss } = await supabase
       .from("notebook_subsections")
@@ -349,7 +354,7 @@ const FloatingPreparationPage = () => {
       toast({ title: "Could not save highlights", description: error.message, variant: "destructive" });
       return false;
     }
-    if (JSON.stringify(ordered) === JSON.stringify(orderedHighlights(latestHighlightsRef.current, linesRef.current))) {
+    if (JSON.stringify(ordered) === JSON.stringify(orderedHighlights(latestHighlightsRef.current, linesRef.current, objectsRef.current))) {
       dirtyRef.current = false;
     }
     return true;
