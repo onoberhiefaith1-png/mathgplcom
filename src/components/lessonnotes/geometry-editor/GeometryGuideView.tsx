@@ -70,10 +70,15 @@ export function GeometryGuideView({
                   {i + 1}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[12px] font-semibold leading-snug">{item.principle}</p>
+                  <p className="text-[12px] font-semibold leading-snug">
+                    <MathText value={item.principle} />
+                  </p>
                   {item.relation && (
-                    <p className="text-[12.5px] leading-snug">{item.relation}</p>
+                    <p className="text-[12.5px] leading-snug">
+                      <MathText value={item.relation} />
+                    </p>
                   )}
+
                   {item.explanation && (
                     <p className="text-[10.5px] leading-snug text-foreground/60">
                       {item.explanation}

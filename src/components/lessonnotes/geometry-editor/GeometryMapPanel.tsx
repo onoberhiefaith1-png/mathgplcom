@@ -361,9 +361,14 @@ export function GeometryMapPanel({
             {nodes.map((n) => (
               <li key={n.id} className="text-[11px] leading-snug">
                 <span className="text-foreground/40">↓ </span>
-                <span className="font-medium">{n.principle || "—"}</span>
-                {n.produces && <span className="text-foreground/55"> → {n.produces}</span>}
+                <span className="font-medium">
+                  {n.principle ? <MathText value={n.principle} /> : "—"}
+                </span>
+                {n.produces && (
+                  <span className="text-foreground/55"> → <MathText value={n.produces} /></span>
+                )}
               </li>
+
             ))}
             <li className="text-[11px] text-foreground/60">↓ Answer</li>
           </ol>
@@ -399,11 +404,14 @@ function ItemRow({
           </span>
           <div className="min-w-0">
             <p className="text-[12px] font-semibold leading-snug">
-              {item.principle || "Untitled principle"}
+              {item.principle ? <MathText value={item.principle} /> : "Untitled principle"}
             </p>
             {item.relation && (
-              <p className="text-[12px] leading-snug text-foreground/85">{item.relation}</p>
+              <p className="text-[12px] leading-snug text-foreground/85">
+                <MathText value={item.relation} />
+              </p>
             )}
+
             {item.usedTo && (
               <p className="text-[10.5px] text-foreground/55">{item.usedTo}</p>
             )}
