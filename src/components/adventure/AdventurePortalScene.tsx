@@ -179,6 +179,7 @@ const WorldSegment = ({
   onActivate: (index: number) => void;
   onHoverChange: (hovered: boolean) => void;
 }) => {
+  const setCursor = useSceneCursor();
   const groupRef = useRef<THREE.Group>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
   const portalRef = useRef<THREE.Group>(null);
@@ -399,6 +400,7 @@ const Showcase = ({ onDoorReady, onZoomStart }: { onDoorReady: (academy: (typeof
   const flashOpacityRef = useRef(0);
   const enteredRef = useRef(false);
   const flashPlaneRef = useRef<THREE.Mesh>(null);
+  const setCursor = useSceneCursor();
   const { camera } = useThree();
 
   const uniqueUrls = useMemo(() => Array.from(new Set(academies.map((a) => a.image))), []);

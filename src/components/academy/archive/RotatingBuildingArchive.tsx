@@ -37,6 +37,7 @@ const academyRadius = 2.85;
 const academyHeight = 2.82;
 
 const AcademyPanel = ({ image, index, hovered, selected, onHover, onSelect, slug }: AcademyPanelProps) => {
+  const setCursor = useSceneCursor();
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const texture = useLoader(THREE.TextureLoader, image);
@@ -302,6 +303,7 @@ const AcademyStructure = () => {
   const [selected, setSelected] = useState<number | null>(null);
   const speedRef = useRef((Math.PI * 2) / 25);
   const navigate = useNavigate();
+  const setCursor = useSceneCursor();
   const { camera } = useThree();
 
   useFrame((_, delta) => {
