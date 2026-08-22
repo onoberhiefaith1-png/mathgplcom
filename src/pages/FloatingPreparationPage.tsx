@@ -312,6 +312,8 @@ const FloatingPreparationPage = () => {
   const latestHighlightsRef = useRef<Highlight[]>([]);
   const linesRef = useRef<string[]>([]);
   const objectsRef = useRef<SolutionObject[]>([]);
+  /** True when this solution already had a saved highlight state on load. */
+  const priorSavedRef = useRef(false);
 
   const docRef = useRef<HTMLDivElement | null>(null);
 
