@@ -204,3 +204,20 @@ async function openFloatingTestBoard(subsectionId: string): Promise<FloatingTest
     throw error;
   }
 }
+
+/**
+ * Single-flight entry point. A second open for the same solution while one is
+ * already running shares the in-flight result instead of racing it, so the
+ * test record and its answer key are never written twice concurrently.
+ */
+const inFlight = new Map<string, Promise<FloatingTestBoard>>();
+
+export function ensureFloatingTestBoard(subsectionId: string): Promise<FloatingTestBoard> {
+  const running = inFlight.get(subsectionId);
+  if (running) return running;
+  const p = openFloatingTestBoard(subsectionId).finally(() => {
+    inFlight.delete(subsectionId);
+  });
+  inFlight.set(subsectionId, p);
+  return p;
+}
