@@ -2,6 +2,8 @@ import { useState, type ReactNode } from "react";
 import { Bell, ChevronLeft, ChevronRight, Menu, Search, X } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "@/lib/router-compat";
+import { useNavHistory } from "@/lib/nav/NavHistory";
+
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { ROLE_LABEL } from "@/lib/accounts/roles";
