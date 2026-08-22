@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" role="img" aria-label="Diagram, geometry objects, teacher properties and the two-way panel">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .s { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .b { font-size: 14px; font-weight: 480; }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { stroke: hsl(var(--accent)); }
+    .accf { fill: hsl(var(--accent)); }
+  </style>
+  <defs>
+    <marker id="a" markerWidth="7" markerHeight="7" refX="6" refY="3.2" orient="auto">
+      <path d="M0 0 L6 3.2 L0 6.4 z" fill="hsl(var(--muted-foreground))"/>
+    </marker>
+    <marker id="aa" markerWidth="7" markerHeight="7" refX="6" refY="3.2" orient="auto">
+      <path d="M0 0 L6 3.2 L0 6.4 z" fill="hsl(var(--accent))"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="24" width="150" height="52" rx="8"/>
+  <text class="b" x="91" y="48" text-anchor="middle">One diagram</text>
+  <text class="s" x="91" y="65" text-anchor="middle">the selected one only</text>
+
+  <rect class="box" x="16" y="112" width="150" height="52" rx="8"/>
+  <text class="b" x="91" y="136" text-anchor="middle">Geometry objects</text>
+  <text class="s" x="91" y="153" text-anchor="middle">stable internal ids</text>
+
+  <rect class="box" x="16" y="200" width="150" height="66" rx="8"/>
+  <text class="b" x="91" y="226" text-anchor="middle">Teacher properties</text>
+  <text class="s" x="91" y="243" text-anchor="middle">expression + referenced ids</text>
+
+  <line class="w" x1="91" y1="76" x2="91" y2="108" marker-end="url(#a)"/>
+  <line class="w" x1="91" y1="164" x2="91" y2="196" marker-end="url(#a)"/>
+
+  <rect class="zone" x="230" y="24" width="394" height="242" rx="8"/>
+  <text class="s" x="242" y="44">two-way panel</text>
+
+  <rect class="box" x="256" y="64" width="160" height="48" rx="8"/>
+  <text class="b" x="336" y="93" text-anchor="middle">Click an object</text>
+
+  <rect class="box" x="452" y="64" width="150" height="48" rx="8"/>
+  <text class="b" x="527" y="86" text-anchor="middle">Matching</text>
+  <text class="b" x="527" y="102" text-anchor="middle">properties listed</text>
+
+  <line class="w" x1="416" y1="88" x2="448" y2="88" marker-end="url(#a)"/>
+
+  <rect class="box acc" x="452" y="176" width="150" height="48" rx="8"/>
+  <text class="b" x="527" y="198" text-anchor="middle">Click a property</text>
+  <text class="s" x="527" y="215" text-anchor="middle">its objects glow</text>
+
+  <rect class="box" x="256" y="176" width="160" height="48" rx="8"/>
+  <text class="b" x="336" y="205" text-anchor="middle">Diagram highlights</text>
+
+  <line class="w acc" x1="448" y1="200" x2="420" y2="200" marker-end="url(#aa)"/>
+  <circle class="accf" cx="620" cy="200" r="9"/>
+  <text x="620" y="204" text-anchor="middle" style="font-size:11px" fill="hsl(var(--accent-foreground))">1</text>
+  <text class="s" x="256" y="256">1 — matching is by stored object ids, never by parsing the equation text</text>
+</svg>
