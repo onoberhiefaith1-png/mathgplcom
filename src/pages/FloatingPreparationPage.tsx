@@ -450,11 +450,29 @@ const FloatingPreparationPage = () => {
         const restored = restorePersistedHighlights(prior as any);
         setHighlights(restored.highlights);
         nextIdRef.current = restored.nextId;
+        priorSavedRef.current = true;
       }
       setLoading(false);
     })();
     return () => { alive = false; };
   }, [notebookId, subsectionId]);
+
+  /* ---------- Diagram note-content seeding ----------
+   * A diagram is never highlighted, so without this the teacher could leave
+   * the page having "done nothing" and the diagram would never reach the
+   * Floating Number page or the Smartboard note. Seeding runs only when it
+   * cannot clobber a saved state: either highlights exist (and were restored)
+   * or nothing was ever saved for this solution. */
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (loading || seededRef.current) return;
+    const diagrams = objects.filter((o) => !isFloatableObject(o));
+    if (diagrams.length === 0) return;
+    if (priorSavedRef.current && highlights.length === 0) return;
+    seededRef.current = true;
+    void saveHighlightState(highlights);
+  }, [loading, objects, highlights, saveHighlightState]);
+
 
   /* ---------- Tokenized rows ---------- */
   const rows = useMemo(() => lines.map((l) => tokenize(l)), [lines]);
