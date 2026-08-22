@@ -12,6 +12,7 @@ import calculusImage from "@/assets/academy/calculus.png";
 import academyBackground from "@/assets/academy_background.png";
 import academyClouds from "@/assets/academy_clouds.png";
 import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
+import { useSceneCursor } from "@/lib/stability/useSceneCursor";
 
 const subjects = [
   { slug: "algebra", image: algebraImage },
@@ -75,11 +76,11 @@ const AcademyPanel = ({ image, index, hovered, selected, onHover, onSelect, slug
         onPointerOver={(event) => {
           event.stopPropagation();
           onHover(index);
-          document.body.style.cursor = "pointer";
+          setCursor("pointer");
         }}
         onPointerOut={() => {
           onHover(null);
-          document.body.style.cursor = "default";
+          setCursor("default");
         }}
         onClick={handleClick}
       >
@@ -326,7 +327,7 @@ const AcademyStructure = () => {
 
   const selectPanel = (index: number, slug: string) => {
     setSelected(index);
-    document.body.style.cursor = "default";
+    setCursor("default");
     window.setTimeout(() => navigate(`/subjects/${slug}`), 1050);
   };
 
