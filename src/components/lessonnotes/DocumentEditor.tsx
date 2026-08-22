@@ -76,6 +76,8 @@ const MathTablesPicker = lazy(() => import("./math-tools/MathTablesPicker").then
 const SmartCalculator = lazy(() => import("./math-tools/SmartCalculator").then((m) => ({ default: m.SmartCalculator })));
 const MathObjectsPicker = lazy(() => import("./math-objects/MathObjectsPicker").then((m) => ({ default: m.MathObjectsPicker })));
 import { EMPTY_SCENE, sanitizeScene, pointById, type GeometryScene } from "@/lib/geometry/scene";
+import { splitPageGeometryScene } from "@/lib/geometry/presentation";
+
 import {
   addAngle,
   addArcThrough3,
