@@ -163,6 +163,7 @@ const FloatingTestBoardPage = () => {
               studentId={uid}
               questionId={subsectionId ?? null}
               studentName="Test"
+              localLive
               fullscreen={evalFull}
               onToggleFullscreen={() => setEvalFull((v) => !v)}
               onClose={() => { setEvalFull(false); setEvalOpen(false); }}
