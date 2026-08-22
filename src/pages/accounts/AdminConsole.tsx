@@ -271,7 +271,8 @@ const AdminConsole = () => {
         ))}
       </div>
 
-      <section className="mt-8 rounded-3xl border border-dash-border bg-dash-surface p-6 shadow-[var(--shadow-dash)]">
+      <div className="mt-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <section className="rounded-3xl border border-dash-border bg-dash-surface p-6 shadow-[var(--shadow-dash)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-dash-surface-foreground">My accounts</h2>
@@ -318,6 +319,8 @@ const AdminConsole = () => {
           ))}
         </div>
       </section>
+      <ApplicationArchiveCard />
+      </div>
 
 
       <div className="mt-8 flex flex-wrap gap-2">
