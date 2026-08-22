@@ -1245,15 +1245,21 @@ function DocumentEditorInner({
       ? diagramsOwnedByQuestion(editor.state.doc, solutionSource!.parentPos, isSolutionLabel)
       : [];
     // Backward-compatible repair for notes saved before permanent ownership:
-    // keep the first authoritative scene and remove only later geometryDiagram
-    // nodes associated with this same question. The cleanup is one undoable
-    // document step and never redraws or mutates the retained diagram.
+    // keep the first authoritative scene and remove only later AI-GENERATED
+    // geometryDiagram nodes associated with this same question.
+    //
+    // A DIAGRAM THE TEACHER DREW IS PERMANENT LESSON CONTENT: it is never
+    // removed here. Only diagrams the model authored (they carry
+    // `questionText`) can be de-duplicated, and only the teacher can delete
+    // their own figure. The cleanup is one undoable document step.
     if (ownedQuestionDiagrams.length > 1) {
       const duplicates = ownedQuestionDiagrams.slice(1).sort((a, b) => b.pos - a.pos);
       const tr = editor.state.tr;
       for (const duplicate of duplicates) {
         const live = tr.doc.nodeAt(duplicate.pos);
-        if (live?.type.name === "geometryDiagram") {
+        const aiAuthored = typeof live?.attrs?.questionText === "string"
+          && String(live.attrs.questionText).trim().length > 0;
+        if (live?.type.name === "geometryDiagram" && aiAuthored) {
           tr.delete(duplicate.pos, duplicate.pos + live.nodeSize);
         }
       }

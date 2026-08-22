@@ -32,6 +32,7 @@ import {
   buildSolutionItems,
   familyLabel,
   readSolutionObjects,
+  isFloatableObject,
   type SolutionObject,
 } from "@/lib/floating/solutionItems";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
@@ -76,7 +77,9 @@ export const restorePersistedHighlights = (
     }
     if (p?.object && typeof p.object === "object" && p.object.nodeType) {
       const obj = readSolutionObjects({ objects: [p.object] })[0];
-      if (obj) {
+      // DIAGRAM LAW: a diagram is Notes-layer content. Legacy saves that
+      // highlighted a diagram are dropped, never restored as floating rows.
+      if (obj && isFloatableObject(obj)) {
         restored.push({
           groupId: nextRealId++,
           tokens: [],
@@ -582,6 +585,8 @@ const FloatingPreparationPage = () => {
 
   /* ---------- One-click object highlight (tables / diagrams) ---------- */
   const toggleObject = useCallback((obj: SolutionObject) => {
+    // Diagrams can never be highlighted or turned into Floating Numbers.
+    if (!isFloatableObject(obj)) return;
     pushHistory();
     dirtyRef.current = true;
     setHighlights((prev) => {
@@ -800,7 +805,30 @@ const FloatingPreparationPage = () => {
             {items.map((item) => {
               if (item.kind === "object") {
                 const obj = item.object;
-                const on = highlightedObjectIds.has(obj.objId);
+                const floatable = isFloatableObject(obj);
+                const on = floatable && highlightedObjectIds.has(obj.objId);
+                if (!floatable) {
+                  // NOTES LAYER — a diagram is permanent lesson content. It is
+                  // shown here for context but can never be highlighted,
+                  // numbered or converted into a Floating Number.
+                  return (
+                    <div
+                      key={`obj-${obj.objId}`}
+                      className="my-4 rounded-md p-3 ring-1 ring-[hsl(220_15%_60%/0.3)] bg-[hsl(220_20%_97%)]"
+                      style={{ lineHeight: "normal" }}
+                    >
+                      <div
+                        className="text-[12px] font-medium mb-2 select-none uppercase tracking-wide"
+                        style={{ color: "hsl(220 20% 45%)" }}
+                      >
+                        {familyLabel(obj.family)} · notes content (not highlightable)
+                      </div>
+                      <div className="overflow-x-auto">
+                        <SolutionObjectView nodeType={obj.nodeType} attrs={obj.attrs} />
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div
                     key={`obj-${obj.objId}`}

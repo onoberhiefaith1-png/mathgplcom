@@ -29,6 +29,14 @@ export interface SolutionObject {
   /** False only for 2D/3D geometry inside a Solution: the object stays in the
    *  lesson note but is excluded from the student Smartboard guide. */
   presentOnBoard?: boolean;
+  /** Which architectural layer owns this object.
+   *  "solution" → mathematical working, highlightable / floating-capable.
+   *  "notes"    → explanatory / supporting content (ALL diagrams live here). */
+  layer?: "solution" | "notes";
+  /** False for every diagram: it can never become a Floating Number chip. */
+  floatable?: boolean;
+  /** Persistent diagram identity carried from the lesson-note node. */
+  diagramId?: string | null;
 }
 
 /** Node types that carry prose / equations — never objects. */
@@ -113,6 +121,22 @@ export const objectFamily = (nodeType: string, attrs: Record<string, any> = {}):
 };
 
 
+/** DIAGRAM LAW: a diagram is Notes-layer content. It is never highlightable,
+ *  never a Floating Number, never part of the mathematical floating sequence —
+ *  regardless of whether it sits inside or outside a Solution. */
+export const isDiagramFamily = (family: ObjectFamily): boolean => family === "diagram";
+
+export const isFloatableObject = (
+  o: Pick<SolutionObject, "family" | "floatable">,
+): boolean => o.floatable === false ? false : !isDiagramFamily(o.family);
+
+/** Layer an object belongs to, derived from its own nature and location. */
+export const objectLayer = (
+  family: ObjectFamily,
+  inSolution: boolean,
+): "solution" | "notes" =>
+  isDiagramFamily(family) ? "notes" : inSolution ? "solution" : "notes";
+
 export const familyLabel = (family: ObjectFamily): string =>
   family === "table" ? "Table" : family === "diagram" ? "Diagram" : "Object";
 
@@ -165,6 +189,13 @@ export const readSolutionObjects = (contentJson: any): SolutionObject[] => {
       attrs,
       afterLine: Number(o?.afterLine) || 0,
       inline: o?.inline === true,
+      inSolution: o?.inSolution === true,
+      presentOnBoard: o?.presentOnBoard !== false,
+      // Layer / floatability are DERIVED, never trusted from old records, so
+      // legacy diagram highlights stop behaving like floating content.
+      layer: objectLayer(family, o?.inSolution === true),
+      floatable: !isDiagramFamily(family),
+      diagramId: typeof (attrs as any)?.diagramId === "string" ? (attrs as any).diagramId : null,
     });
   }
   return out;

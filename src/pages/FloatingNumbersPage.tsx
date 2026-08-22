@@ -27,7 +27,7 @@ import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditP
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
-import { readSolutionObjects } from "@/lib/floating/solutionItems";
+import { readSolutionObjects, isFloatableObject } from "@/lib/floating/solutionItems";
 import TableWorkspace from "@/components/floating/TableWorkspace";
 import { useArchivedFeature } from "@/hooks/useArchivedFeature";
 import FloatingArchivePanel, { type ArchivedVersion } from "@/components/floating/FloatingArchivePanel";
@@ -551,6 +551,9 @@ const FloatingNumbersPage = () => {
         if (obj) {
           const parsed = readSolutionObjects({ objects: [obj] })[0];
           if (!parsed) continue;
+          // DIAGRAM LAW: diagrams belong to the Notes layer. They never become
+          // a floating workspace, a chip or a numbered floating line.
+          if (!isFloatableObject(parsed)) continue;
           // EVERY object travels: tables and Smart Structures become
           // workspaces; diagrams, graphs, 3D scenes, animations and images
           // become a single placeable lesson object.

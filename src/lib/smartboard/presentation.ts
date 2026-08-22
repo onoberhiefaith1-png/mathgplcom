@@ -10,12 +10,21 @@ import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { normEq } from "./rowAscii";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
-import { boardObjects } from "@/lib/lessonnotes/lessonOutline";
+import { boardObjects, notesLayerObjects } from "@/lib/lessonnotes/lessonOutline";
 
 /** Objects stored on a block, filtered to what the student board may show. */
 const blockObjects = (block?: BlockRow | null): SolutionObject[] => {
   const raw = (block as any)?.content_json?.objects;
   return Array.isArray(raw) ? boardObjects(raw as SolutionObject[]) : [];
+};
+
+/** NOTES-LAYER objects captured inside a Solution (diagrams, 3D scenes,
+ *  graphs). They are NOT part of the floating solution — the reservoir never
+ *  sees them — but they are permanent lesson content and therefore still
+ *  render with the question/note block they belong to, in document order. */
+const solutionNotesObjects = (block?: BlockRow | null): SolutionObject[] => {
+  const raw = (block as any)?.content_json?.objects;
+  return Array.isArray(raw) ? notesLayerObjects(raw as SolutionObject[]) : [];
 };
 
 export type BeatKind =
@@ -310,9 +319,13 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
           content: problem,
           sectionKind: sec.kind,
           fragments,
-          // Objects the QUESTION owns (a table, a chart, a question diagram).
-          // Solution diagrams are deliberately absent — see blockObjects().
-          objects: blockObjects(problemBlock),
+          // Objects the QUESTION owns (a table, a chart, a question diagram)
+          // PLUS notes-layer diagrams drawn inside the Solution: those keep
+          // their instructional position instead of vanishing from the board.
+          objects: [
+            ...blockObjects(problemBlock),
+            ...solutionNotesObjects(findBlock(sub.blocks, "solution")),
+          ],
         });
       }
     }
