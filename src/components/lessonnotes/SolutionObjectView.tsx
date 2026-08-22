@@ -6,7 +6,7 @@
 import { useMemo } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { GeometryDiagramNode, PresentationGeometryDiagram } from "./extensions/GeometryDiagram";
+import { GeometryDiagramNode, PresentationGeometryDiagram, InlineGeometryDiagram } from "./extensions/GeometryDiagram";
 import { sanitizeScene } from "@/lib/geometry/scene";
 import { Scene3DDiagramNode, setScene3DPresentationMode } from "./extensions/Scene3DDiagram";
 import { MathTableNode } from "./extensions/MathTable";
@@ -33,13 +33,18 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false }: Pr
   // Set BEFORE the editor is created so the node views read it on first mount.
   if (presentation) setScene3DPresentationMode(true);
 
-  const presentationScene = nodeType === "geometryDiagram" && presentation
+  const geometryScene = nodeType === "geometryDiagram"
     ? sanitizeScene(attrs?.scene)
     : null;
 
-  if (presentationScene) {
-    return <PresentationGeometryDiagram scene={presentationScene} pageLayer={attrs?.pageLayer === true} />;
+  if (geometryScene) {
+    // One diagram engine, one renderer: the board strengthens ink, every other
+    // read-only surface renders it at note scale, cropped to the figure.
+    return presentation
+      ? <PresentationGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />
+      : <InlineGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />;
   }
+
 
   const content = useMemo(() => {
     // A page-layer diagram is invisible inside the note (the page overlay draws

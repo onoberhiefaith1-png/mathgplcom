@@ -43,6 +43,9 @@ interface Props {
   ghostHidden?: boolean;
   /** Crop empty notebook canvas and strengthen ink for projection. */
   presentation?: boolean;
+  /** Crop empty notebook canvas but keep normal lesson-note ink weight. */
+  crop?: boolean;
+
 }
 
 const STROKE = "#1f1f24";
@@ -96,19 +99,20 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, ghostHidden, presentation = false }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, ghostHidden, presentation = false, crop = false }: Props) {
   const baseStroke = stroke ?? STROKE;
   const pad = 24;
+  const cropped = presentation || crop;
   // Grow the viewBox to fit any object that extends past scene.bounds so
   // nothing gets clipped — the whole lesson note is the drawing paper.
   const vb = computeSceneViewBox(scene, pad);
   const occupied = computeSceneExtent(scene);
-  const minX = presentation ? occupied.minX : vb.minX;
-  const minY = presentation ? occupied.minY : vb.minY;
+  const minX = cropped ? occupied.minX : vb.minX;
+  const minY = cropped ? occupied.minY : vb.minY;
   const occupiedW = Math.max(1, occupied.maxX - occupied.minX);
   const occupiedH = Math.max(1, occupied.maxY - occupied.minY);
-  const W = presentation ? occupiedW + pad * 2 : Math.max(vb.W, minViewW ?? 0);
-  const H = presentation ? occupiedH + pad * 2 : Math.max(vb.H, minViewH ?? 0);
+  const W = cropped ? occupiedW + pad * 2 : Math.max(vb.W, minViewW ?? 0);
+  const H = cropped ? occupiedH + pad * 2 : Math.max(vb.H, minViewH ?? 0);
   const displayW = explicitWidth ?? (presentation ? Math.min(Math.max(W * 1.35, 420), 860) : large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
   const displayH = explicitHeight ?? (displayW / W) * H;
 
@@ -127,8 +131,9 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   };
 
   const originPad = pad; // objects rendered with local pad; wrapper <g> translates
-  const translateX = presentation ? pad - minX : -minX;
-  const translateY = presentation ? pad - minY : -minY;
+  const translateX = cropped ? pad - minX : -minX;
+  const translateY = cropped ? pad - minY : -minY;
+
 
   const elements = useMemo(() => {
     const out: React.ReactNode[] = [];
