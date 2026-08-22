@@ -93,7 +93,7 @@ export async function getNotebookScoreLabel(notebookId: string): Promise<string>
 export async function compileSectionQuestions(sectionId: string): Promise<CompiledSection> {
   const { data: subs } = await supabase
     .from("notebook_subsections")
-    .select("id, order_index, floating_lines")
+    .select("id, order_index, floating_lines, floating_highlights")
     .eq("section_id", sectionId)
     .order("order_index", { ascending: true });
 
@@ -117,8 +117,26 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
   for (const s of subs ?? []) {
     const sid = (s as any).id as string;
     const flLines = ((s as any).floating_lines ?? []) as FloatingLine[];
+    // NOTE-ATTACHMENT LAW (identical to the lesson board): a line has a note
+    // if and only if its OWN highlight authored one (`precedingNotebook`).
+    // No equation-match fallback, no positional guessing, no explanations.
+    const sourceLines = withHighlightNotes(flLines, (s as any).floating_highlights);
     const lines: QuestionPayload["lines"] = [];
-    for (const line of flLines) {
+    for (const src of sourceLines) {
+      const { line, note, noteOnly } = src;
+      if (noteOnly) {
+        // A standalone note carries no equation, no chips and no marks — it
+        // still occupies its own board line so the note reaches the student.
+        lines.push({
+          lineId: line.lineId,
+          chips: [],
+          marks: 0,
+          containers: [],
+          note,
+          noteOnly: true,
+        });
+        continue;
+      }
       // Two DIFFERENT objects, never interchangeable:
       //  • chips   — the draggable floating numbers handed to the student.
       //  • tokens/equationAscii — the teacher's correct line (the answer key).
@@ -141,6 +159,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
         chips: rearrangeStream(studentChips),
         marks,
         containers: (line.containers ?? []) as ContainerKind[],
+        ...(note ? { note } : {}),
       });
       answerKey.push({
         questionId: sid,
@@ -153,6 +172,10 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
     if (lines.length === 0) continue;
     questions.push({ id: sid, questionText: problemBySub.get(sid) ?? "", lines });
   }
+
+  return { questions, answerKey, total };
+}
+
 
   return { questions, answerKey, total };
 }
