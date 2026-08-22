@@ -324,13 +324,31 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
           content: problem,
           sectionKind: sec.kind,
           fragments,
-          // Objects the QUESTION owns (a table, a chart, a question diagram)
-          // PLUS notes-layer diagrams drawn inside the Solution: those keep
-          // their instructional position instead of vanishing from the board.
-          objects: [
-            ...blockObjects(problemBlock),
-            ...solutionNotesObjects(findBlock(sub.blocks, "solution")),
-          ],
+          // Every object this session owns, in block order:
+          //  - the QUESTION's own objects (table, chart, question diagram)
+          //  - notes-layer diagrams drawn inside the Solution — they keep their
+          //    instructional position instead of vanishing from the board
+          //  - objects stored on any other block of the subsection, so nothing
+          //    a teacher drew can be silently dropped.
+          objects: (() => {
+            const out: SolutionObject[] = [];
+            const seen = new Set<string>();
+            const push = (list: SolutionObject[]) => {
+              for (const o of list) {
+                const key = o.objId ?? `${o.nodeType}#${out.length}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push(o);
+              }
+            };
+            push(blockObjects(problemBlock));
+            for (const b of sub.blocks) {
+              if (b === problemBlock) continue;
+              push(b.kind === "solution" ? solutionNotesObjects(b) : blockObjects(b));
+            }
+            return out;
+          })(),
+
         });
       }
     }
