@@ -14,6 +14,7 @@
 
 import type { Editor } from "@tiptap/react";
 import { closeHistory } from "@tiptap/pm/history";
+import { registerInteractionResetter } from "@/lib/stability/interactionReset";
 
 export type ObjectKind = "solution" | "diagram";
 
@@ -213,6 +214,18 @@ export function startObjectDrag(
   let base = { dx: 0, dy: 0 };
   /** Frames dragged along with the main object, with their own origins. */
   let group: { el: HTMLElement; pos: number; x: number; y: number }[] = [];
+  let unregisterResetter = () => {};
+
+  const cleanup = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", cancel);
+    window.removeEventListener("blur", cancel);
+    dragging = false;
+    if (ghost) ghost.style.transform = "";
+    for (const g of group) g.el.style.transform = "";
+    unregisterResetter();
+  };
 
   const collectGroup = () => {
     group = [];
@@ -257,11 +270,7 @@ export function startObjectDrag(
   };
 
   const up = (ev: PointerEvent | MouseEvent) => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
-    dragging = false;
-    if (ghost) ghost.style.transform = "";
-    for (const g of group) g.el.style.transform = "";
+    cleanup();
     if (!moved || pos == null || !origin) return;
     const dx = (ev.clientX - startX) / z - base.dx;
     const dy = (ev.clientY - startY) / z - base.dy;
@@ -271,11 +280,14 @@ export function startObjectDrag(
     ]);
   };
 
+  const cancel = () => cleanup();
 
+  unregisterResetter = registerInteractionResetter(cancel);
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", cancel);
+  window.addEventListener("blur", cancel);
   return () => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
+    cleanup();
   };
 }

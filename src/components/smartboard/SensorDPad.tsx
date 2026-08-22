@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSmartboardRoot } from "./SmartboardRoot";
+import { registerInteractionResetter } from "@/lib/stability/interactionReset";
 
 interface Props {
   onUp: () => void;
@@ -127,6 +128,14 @@ export const SensorDPad = ({
 
   useEffect(() => () => clearHold(), [clearHold]);
 
+  useEffect(
+    () => registerInteractionResetter(() => {
+      dragRef.current = null;
+      clearHold();
+    }),
+    [clearHold],
+  );
+
   const startHold = useCallback((fn: () => void) => {
     fn();
     kickIdle();
@@ -165,7 +174,7 @@ export const SensorDPad = ({
         border: `1px solid ${chromeBorder}`,
         boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
         opacity: enabled ? 0.7 : 0.22,
-        cursor: enabled ? "pointer" : "not-allowed",
+        cursor: "default",
       }}
     >
       {icon}
@@ -211,7 +220,7 @@ export const SensorDPad = ({
           aria-label="Drag sensor controller"
           title="Drag to move"
           className="grid place-items-center"
-          style={{ opacity: 0.35, touchAction: "none", cursor: "grab" }}
+          style={{ opacity: 0.35, touchAction: "none", cursor: "default" }}
           onPointerDown={(e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -235,7 +244,14 @@ export const SensorDPad = ({
             (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
             try { sessionStorage.setItem(DRAG_KEY, JSON.stringify(offset)); } catch { /* ignore */ }
           }}
-          onPointerCancel={() => { dragRef.current = null; }}
+          onPointerCancel={(e) => {
+            dragRef.current = null;
+            try {
+              (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+            } catch {
+              // Global recovery may already have released it.
+            }
+          }}
         >
           <span
             style={{

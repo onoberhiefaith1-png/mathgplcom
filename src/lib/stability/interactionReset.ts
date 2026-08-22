@@ -25,13 +25,17 @@ const captured = new Set<{ el: Element; pointerId: number }>();
 let patched = false;
 let pointersDown = 0;
 let guardsStarted = 0;
+let lastPointer = { x: 0, y: 0, at: 0 };
 
 /** Scope a cursor to one element — never to <body>. */
 export function setScopedCursor(el: HTMLElement | null | undefined, cursor: string) {
   if (!el) return;
-  el.style.cursor = cursor;
-  if (cursor && cursor !== "default" && cursor !== "auto") cursorTargets.add(el);
-  else cursorTargets.delete(el);
+  // Product rule: the interface always uses the normal arrow. Keep accepting
+  // the requested value so existing scene call sites remain behaviorally
+  // compatible, but never allow a temporary hand/grab cursor to be installed.
+  void cursor;
+  el.style.cursor = "default";
+  cursorTargets.delete(el);
 }
 
 /** Put every overridden cursor back, including any legacy global write. */
@@ -76,6 +80,7 @@ export function registerInteractionResetter(fn: Resetter): () => void {
  * things that should already be gone.
  */
 export function resetInteractionState(reason: string) {
+  pointersDown = 0;
   clearCursorOverrides();
   releasePointerCaptures();
   for (const fn of [...resetters]) {
@@ -119,12 +124,22 @@ export function startInteractionResetGuards(): () => void {
   const onVisibility = () => {
     if (document.hidden) resetInteractionState("tab-hidden");
   };
-  const onPointerDown = () => {
+  const rememberPointer = (event: PointerEvent) => {
+    lastPointer = { x: event.clientX, y: event.clientY, at: Date.now() };
+  };
+  const onPointerDown = (event: PointerEvent) => {
+    rememberPointer(event);
     pointersDown += 1;
   };
-  const onPointerUp = () => {
+  const onPointerMove = (event: PointerEvent) => {
+    rememberPointer(event);
+  };
+  const onPointerUp = (event: PointerEvent) => {
+    rememberPointer(event);
     pointersDown = Math.max(0, pointersDown - 1);
-    releasePointerCaptures();
+    // Let the owning component receive pointerup and release its own capture
+    // first. The microtask is a fallback for interrupted component cleanup.
+    queueMicrotask(releasePointerCaptures);
   };
   const onPointerCancel = () => {
     pointersDown = 0;
@@ -135,6 +150,7 @@ export function startInteractionResetGuards(): () => void {
   window.addEventListener("pageshow", onBlur);
   document.addEventListener("visibilitychange", onVisibility);
   window.addEventListener("pointerdown", onPointerDown, true);
+  window.addEventListener("pointermove", onPointerMove, true);
   window.addEventListener("pointerup", onPointerUp, true);
   window.addEventListener("pointercancel", onPointerCancel, true);
 
@@ -144,7 +160,8 @@ export function startInteractionResetGuards(): () => void {
     window.removeEventListener("pageshow", onBlur);
     document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("pointerdown", onPointerDown, true);
-  window.removeEventListener("pointerup", onPointerUp, true);
+    window.removeEventListener("pointermove", onPointerMove, true);
+    window.removeEventListener("pointerup", onPointerUp, true);
     window.removeEventListener("pointercancel", onPointerCancel, true);
   };
 }
@@ -168,8 +185,9 @@ export function interactionGuardsActive() {
  */
 export function describeInteractionState(x?: number, y?: number) {
   if (typeof document === "undefined") return null;
-  const px = x ?? window.innerWidth / 2;
-  const py = y ?? window.innerHeight / 2;
+  const recentPointer = Date.now() - lastPointer.at < 30_000;
+  const px = x ?? (recentPointer ? lastPointer.x : window.innerWidth / 2);
+  const py = y ?? (recentPointer ? lastPointer.y : window.innerHeight / 2);
   const el = document.elementFromPoint(px, py);
   return {
     bodyCursor: document.body.style.cursor || null,

@@ -17,7 +17,7 @@ export function useSceneCursor() {
   const canvas = useThree((state) => state.gl.domElement);
 
   const setCursor = useCallback(
-    (cursor: "pointer" | "default") => setScopedCursor(canvas, cursor),
+    (_cursor: "pointer" | "default") => setScopedCursor(canvas, "default"),
     [canvas],
   );
 

@@ -1193,6 +1193,19 @@ select optgroup {
   animation: geo-halo-pulse 2.2s ease-in-out infinite;
 }
 
+/*
+ * Interaction safety: MathsGPL deliberately uses the normal arrow everywhere.
+ * Clickability is communicated by control shape, focus rings and hover state —
+ * never by a hand/grab cursor that can survive an interrupted interaction.
+ */
+html,
+body,
+body *,
+body *::before,
+body *::after {
+  cursor: default !important;
+}
+
 @keyframes geo-halo-in {
   from { opacity: 0; }
   to { opacity: 1; }

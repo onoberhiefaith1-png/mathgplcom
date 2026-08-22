@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { registerInteractionResetter } from "@/lib/stability/interactionReset";
 
 /**
  * Makes a small floating tab draggable left/right so it can be moved away from
@@ -8,6 +9,14 @@ export function useDraggableTab(storageKey: string) {
   const [offsetX, setOffsetX] = useState(0);
   const dragRef = useRef<{ startX: number; startOffset: number; moved: boolean } | null>(null);
   const [dragging, setDragging] = useState(false);
+
+  useEffect(
+    () => registerInteractionResetter(() => {
+      dragRef.current = null;
+      setDragging(false);
+    }),
+    [],
+  );
 
   useEffect(() => {
     try {
@@ -56,7 +65,11 @@ export function useDraggableTab(storageKey: string) {
       const drag = dragRef.current;
       dragRef.current = null;
       setDragging(false);
-      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      try {
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+      } catch {
+        // A global recovery may already have released an interrupted drag.
+      }
       if (drag?.moved) {
         justDragged.current = true;
         persist(offsetX);
