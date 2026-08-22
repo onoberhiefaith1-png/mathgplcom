@@ -584,6 +584,32 @@ export function PresentationGeometryDiagram({ scene, pageLayer }: { scene: Geome
   );
 }
 
+/**
+ * Note-scale read-only diagram (Highlighting page, Floating Numbers page).
+ * It crops the empty notebook canvas so the figure reads exactly as it does in
+ * the lesson note — never a giant mostly-empty sheet — and keeps lesson-note
+ * ink weight (the board, not this, strengthens ink).
+ */
+export function InlineGeometryDiagram({ scene, pageLayer }: { scene: GeometryScene; pageLayer?: boolean }) {
+  const groups = useMemo(
+    () => (pageLayer ? splitPageGeometryScene(scene) : [scene]),
+    [scene, pageLayer],
+  );
+  return (
+    <>
+      {groups.map((group, index) => (
+        <StaticGeometryDiagram
+          key={`${index}-${group.objects.map((o) => o.id).join("-")}`}
+          scene={group}
+          crop
+        />
+      ))}
+    </>
+  );
+}
+
+
+
 export const GeometryDiagramNode = Node.create({
   name: "geometryDiagram",
   group: "block",
