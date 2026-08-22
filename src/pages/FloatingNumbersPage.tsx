@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, ChevronRight, Loader2, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
+import { Archive, ArrowLeft, ChevronRight, Loader2, MonitorPlay, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { withTimeout } from "@/lib/async/withTimeout";
@@ -29,6 +29,8 @@ import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/
 import { buildLessonContext } from "@/lib/floating/lessonContext";
 import { readSolutionObjects } from "@/lib/floating/solutionItems";
 import TableWorkspace from "@/components/floating/TableWorkspace";
+import FloatingArchivePanel, { type ArchivedVersion } from "@/components/floating/FloatingArchivePanel";
+import { diag } from "@/lib/diagnostics/opLog";
 import {
   gridFromAnyObject,
   generateTableLines,
@@ -640,11 +642,82 @@ const FloatingNumbersPage = () => {
   }, [subsectionId, notebookId, navigate]);
 
 
+  /* ---------- Archive (previously generated configurations) ---------- */
+  const [archiveOpen, setArchiveOpen] = useState(false);
+
+  /** Snapshot the configuration that is about to be replaced. */
+  const archiveLines = useCallback(async (source: string, snapshot: FloatingLine[]) => {
+    if (!info) return;
+    const rows = snapshot
+      .filter((l) => (l.fillers?.length ?? 0) > 0 || (l.containers?.length ?? 0) > 0)
+      .map((l) => ({
+        subsection_id: info.subsectionId,
+        line_id: l.lineId,
+        chips: (l.fillers ?? []) as any,
+        scaffolds: (l.containers ?? []) as any,
+        source,
+      }));
+    if (rows.length === 0) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user?.id;
+      if (!uid) return;
+      await supabase
+        .from("floating_chip_snapshots")
+        .insert(rows.map((r) => ({ ...r, owner_id: uid })) as any);
+    } catch (e) {
+      console.warn("[floating] could not archive configuration", e);
+    }
+  }, [info]);
+
+  const restoreArchived = useCallback((version: ArchivedVersion) => {
+    const byLine = new Map(version.lines.map((l) => [l.lineId, l]));
+    setLines((prev) => {
+      void archiveLines("pre-restore", prev);
+      return prev.map((l) => {
+        const hit = byLine.get(l.lineId);
+        if (!hit) return l;
+        const fillers = hit.chips.map(String);
+        return {
+          ...l,
+          fillers,
+          containers: hit.containers,
+          arrangement: identityArrangement(fillers.length),
+          fillersSelected: fillers.map(() => false),
+          containersSelected: hit.containers.map(() => false),
+        };
+      });
+    });
+    dirtyRef.current = true;
+    setArchiveOpen(false);
+    toast({ title: "Version restored", description: "The archived floating numbers are back on the page." });
+  }, [archiveLines]);
+
+  /* ---------- Test on Smartboard ---------- */
+  const [openingTest, setOpeningTest] = useState(false);
+  const testOnSmartboard = useCallback(async () => {
+    if (!info || openingTest) return;
+    const end = diag.start("floating.test.launch", { subsectionId: info.subsectionId });
+    setOpeningTest(true);
+    try {
+      if (dirtyRef.current) await persistRef.current(true);
+      end("ok");
+      navigate(`/lesson-notes/${notebookId}/floating/${info.subsectionId}/test`);
+    } catch (e: any) {
+      end("fail", { error: String(e?.message ?? e) });
+      toast({ title: "Could not open the test board", description: String(e?.message ?? e), variant: "destructive" });
+    } finally {
+      setOpeningTest(false);
+    }
+  }, [info, openingTest, navigate, notebookId]);
+
   /* ---------- AI Generate (all lines at once) ---------- */
   const generateAll = useCallback(async () => {
-    if (!info) return;
+    if (!info || generating) return; // single-flight — Generate can never stack
+    const endDiag = diag.start("floating.generate", { subsectionId: info.subsectionId });
     setGenerating(true);
     try {
+      await archiveLines("pre-generate", lines);
       const body = fromHighlights
         ? {
             mode: "floating_highlights",
@@ -759,12 +832,14 @@ const FloatingNumbersPage = () => {
       });
       dirtyRef.current = true;
       toast({ title: "Floating numbers ready", description: `${next.length} lines prepared.` });
+      endDiag("ok");
     } catch (e: any) {
+      endDiag("fail", { error: String(e?.message ?? e) });
       toast({ title: "Could not generate", description: e?.message ?? String(e), variant: "destructive" });
     } finally {
       setGenerating(false);
     }
-  }, [info, lines, fromHighlights, highlightsData]);
+  }, [info, generating, lines, fromHighlights, highlightsData, archiveLines]);
 
   const shuffleAll = useCallback(() => {
     dirtyRef.current = true;
@@ -773,18 +848,19 @@ const FloatingNumbersPage = () => {
 
   const resetAll = useCallback(() => {
     dirtyRef.current = true;
-    setLines((prev) =>
-      prev.map((l) => ({
+    setLines((prev) => {
+      void archiveLines("pre-reset", prev);
+      return prev.map((l) => ({
         ...l,
         fillers: [],
         containers: [],
         arrangement: [],
         fillersSelected: [],
         containersSelected: [],
-      })),
-    );
+      }));
+    });
     toast({ title: "Reset", description: "All floating numbers cleared. You can now build them manually." });
-  }, []);
+  }, [archiveLines]);
 
   /* ---------- Persist (used by autosave + manual Save) ---------- */
   const persist = useCallback(async (silent: boolean) => {
