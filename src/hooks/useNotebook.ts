@@ -245,6 +245,8 @@ export function useNotebook(notebookId: string | undefined) {
   const syncedOnOpenRef = useRef<string | null>(null);
   useEffect(() => {
     if (!notebook || loading) return;
+    // Read-only viewers never repair, migrate or re-sync the note.
+    if (!canEdit) return;
     // One-time repair + sync of existing doc on first open — shared
     // across ALL hook instances (see onOpenSyncPromises above). Every
     // instance reloads once the single sync settles so the Smartboard
