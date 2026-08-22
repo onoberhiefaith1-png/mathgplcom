@@ -41,6 +41,8 @@ interface Props {
    * and un-hide construction points that the clean-up pass hid.
    */
   ghostHidden?: boolean;
+  /** Crop empty notebook canvas and strengthen ink for projection. */
+  presentation?: boolean;
 }
 
 const STROKE = "#1f1f24";
@@ -94,23 +96,27 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, ghostHidden }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, ghostHidden, presentation = false }: Props) {
   const baseStroke = stroke ?? STROKE;
   const pad = 24;
   // Grow the viewBox to fit any object that extends past scene.bounds so
   // nothing gets clipped — the whole lesson note is the drawing paper.
   const vb = computeSceneViewBox(scene, pad);
-  const { minX, minY } = vb;
-  const W = Math.max(vb.W, minViewW ?? 0);
-  const H = Math.max(vb.H, minViewH ?? 0);
-  const displayW = explicitWidth ?? (large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
+  const occupied = computeSceneExtent(scene);
+  const minX = presentation ? occupied.minX : vb.minX;
+  const minY = presentation ? occupied.minY : vb.minY;
+  const occupiedW = Math.max(1, occupied.maxX - occupied.minX);
+  const occupiedH = Math.max(1, occupied.maxY - occupied.minY);
+  const W = presentation ? occupiedW + pad * 2 : Math.max(vb.W, minViewW ?? 0);
+  const H = presentation ? occupiedH + pad * 2 : Math.max(vb.H, minViewH ?? 0);
+  const displayW = explicitWidth ?? (presentation ? Math.min(Math.max(W * 1.35, 420), 860) : large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
   const displayH = explicitHeight ?? (displayW / W) * H;
 
   // Examination-textbook ink: the figure must never look heavier than the
   // numbers beside it. The SVG is scaled to fit, which would multiply the
   // stroke, so the weight is divided back out to land at ~1.1px on screen.
   const displayScale = W > 0 ? displayW / W : 1;
-  const inkWeight = 1.1 / (displayScale || 1);
+  const inkWeight = (presentation ? 2 : 1.1) / (displayScale || 1);
 
   const colourOf = (id: string): string => {
     if (!diff) return baseStroke;
@@ -121,8 +127,8 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   };
 
   const originPad = pad; // objects rendered with local pad; wrapper <g> translates
-  const translateX = pad - minX - pad; // = -minX
-  const translateY = pad - minY - pad; // = -minY
+  const translateX = presentation ? pad - minX : -minX;
+  const translateY = presentation ? pad - minY : -minY;
 
   const elements = useMemo(() => {
     const out: React.ReactNode[] = [];
@@ -171,7 +177,10 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
 
 
 function computeSceneExtent(scene: GeometryScene): { minX: number; minY: number; maxX: number; maxY: number } {
-  let minX = 0, minY = 0, maxX = 0, maxY = 0;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
   const consider = (x: number, y: number) => {
     if (x < minX) minX = x; if (y < minY) minY = y;
     if (x > maxX) maxX = x; if (y > maxY) maxY = y;
@@ -183,6 +192,9 @@ function computeSceneExtent(scene: GeometryScene): { minX: number; minY: number;
       const c = pointById(scene, o.center);
       if (c) { consider(c.x - o.r, c.y - o.r); consider(c.x + o.r, c.y + o.r); }
     }
+  }
+  if (![minX, minY, maxX, maxY].every(Number.isFinite)) {
+    return { minX: 0, minY: 0, maxX: scene.bounds.width ?? 360, maxY: scene.bounds.height ?? 240 };
   }
   return { minX, minY, maxX, maxY };
 }

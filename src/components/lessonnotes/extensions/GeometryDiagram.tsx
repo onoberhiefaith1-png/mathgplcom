@@ -37,6 +37,7 @@ import {
 import { useRegisterAssetEditor } from "@/hooks/useAssetSelection";
 import { useRegisterAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { cn } from "@/lib/utils";
+import { splitPageGeometryScene } from "@/lib/geometry/presentation";
 
 const OPEN_EVENT = "geometry-ai-edit:open";
 
@@ -562,6 +563,25 @@ function PageLayerCarrierView() {
 function GeometryDiagramNodeView(props: NodeViewProps) {
   if (props.node.attrs.pageLayer) return <PageLayerCarrierView />;
   return <GeometryDiagramView {...props} />;
+}
+
+export function PresentationGeometryDiagram({ scene, pageLayer }: { scene: GeometryScene; pageLayer?: boolean }) {
+  const groups = useMemo(
+    () => pageLayer ? splitPageGeometryScene(scene) : [scene],
+    [scene, pageLayer],
+  );
+  return (
+    <div className="sb-geometry-groups">
+      {groups.map((group, index) => (
+        <StaticGeometryDiagram
+          key={`${index}-${group.objects.map((o) => o.id).join("-")}`}
+          scene={group}
+          presentation
+          className="sb-geometry-diagram"
+        />
+      ))}
+    </div>
+  );
 }
 
 export const GeometryDiagramNode = Node.create({
