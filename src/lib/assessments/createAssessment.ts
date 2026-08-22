@@ -177,8 +177,6 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
 }
 
 
-  return { questions, answerKey, total };
-}
 
 export async function compileNotebookQuestions(notebookId: string): Promise<CompiledSection> {
   const { data: sections } = await supabase
