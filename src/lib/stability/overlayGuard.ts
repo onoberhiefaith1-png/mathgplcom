@@ -65,7 +65,7 @@ export function healLeakedOverlays(reason: string): number {
     const closed = state === "closed";
     // A closed overlay is always garbage. An untagged full-screen overlay is
     // only garbage when no dialog is actually open behind it.
-    if (closed || (!open && isFullScreen(el) && getComputedStyle(el).pointerEvents !== "none")) {
+    if (closed || (!open && isFullScreen(el))) {
       try {
         el.remove();
         fixed += 1;
