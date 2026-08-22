@@ -161,10 +161,31 @@ const WorkspaceLayout = ({
               >
                 <Menu className="h-5 w-5" />
               </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Back"
+                  title="Back"
+                  onClick={() => goBack("/")}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-ws-border/70 bg-ws-panel/60 text-muted-foreground transition hover:border-ws-gold/50 hover:text-foreground sm:h-11 sm:w-11"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Forward"
+                  title="Forward"
+                  onClick={goForward}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-ws-border/70 bg-ws-panel/60 text-muted-foreground transition hover:border-ws-gold/50 hover:text-foreground sm:h-11 sm:w-11"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
               <div className="min-w-0">
                 <h1 className="truncate text-base font-semibold sm:text-lg">{title}</h1>
                 {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
               </div>
+
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <form onSubmit={search} className="hidden md:block">
