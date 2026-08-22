@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Route } from "lucide-react";
 import type { GeometryScene } from "@/lib/geometry/scene";
+import { MathText } from "@/lib/geometry/map/renderStatement";
 import {
   keepLiveIds,
   objectChipLabel,
