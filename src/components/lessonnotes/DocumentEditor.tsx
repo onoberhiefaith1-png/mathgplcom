@@ -336,17 +336,26 @@ const syncPageGeometryNode = (
     ? paperRect.height / layer.offsetHeight
     : 1;
 
+  // Both sides are compared in paper-layer coordinates (scene space), never in
+  // viewport space — otherwise the current scroll position decides the anchor.
+  const blocksInPaperSpace = paperRect && scaleY
+    ? blocks.map((b) => ({
+      pos: b.pos,
+      y: Number.isFinite(b.top) ? (b.top - paperRect.top) / scaleY + 24 : Number.POSITIVE_INFINITY,
+    }))
+    : [];
+
   const targets = wanted.map(({ group, top }) => {
     let pos = docEnd;
-    if (paperRect && Number.isFinite(top)) {
+    if (blocksInPaperSpace.length && Number.isFinite(top)) {
       // The drawing belongs AFTER the line it overlaps: anchor before the
       // first block that starts below the top of the figure.
-      const clientY = paperRect.top + (top - 24) * scaleY;
-      const after = blocks.find((b) => b.top > clientY);
+      const after = blocksInPaperSpace.find((b) => b.y > top);
       if (after) pos = after.pos;
     }
     return { group, pos };
   }).sort((a, b) => a.pos - b.pos);
+
 
   // Already correct (same scenes, same anchors) → leave the document alone so
   // the mirror never churns the editor while the teacher types.
