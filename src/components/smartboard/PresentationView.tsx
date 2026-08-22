@@ -138,6 +138,8 @@ import StudentAccessControl from "./StudentAccessControl";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { localLiveChannel, publishLocalLive } from "@/lib/smartboard/localLiveBridge";
+
 import { extractTermsFromAscii } from "@/lib/smartboard/floatingExtractor";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2, LayoutGrid as LayoutGridIcon } from "lucide-react";
