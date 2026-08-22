@@ -64,8 +64,8 @@ export function GeometryMapPanel({
     const item: GeometryMapItem = {
       id: newMapItemId(),
       order: doc.items.length,
-      principle: draft.reason || draft.statement,
-      relation: draft.statement,
+      principle: draft.reason || normalizeMathSource(draft.statement),
+      relation: normalizeMathSource(draft.statement),
       explanation: draft.reason,
       usedTo: "",
       stepIndex: doc.items.length + 1,
@@ -498,7 +498,7 @@ function ItemForm({
             onSave({
               ...item,
               principle: principle.trim(),
-              relation: stripNumericAnswers(relation),
+              relation: normalizeMathSource(stripNumericAnswers(relation)),
               usedTo: stripNumericAnswers(usedTo),
               explanation: stripNumericAnswers(explanation),
             })
