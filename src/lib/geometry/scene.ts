@@ -77,7 +77,15 @@ export interface GeoCircle {
   id: GeoId;
   type: "circle";
   center: GeoId; // point id
+  /** Radius, always kept equal to |center → rim| when `rim` is present. */
   r: number;
+  /**
+   * A circle is a CONSTRUCTION: the centre plus one point on the
+   * circumference. Dragging the centre moves the whole circle; dragging the
+   * rim point changes the radius. Legacy circles are backfilled with a rim
+   * point on load, so `rim` is optional only for old data.
+   */
+  rim?: GeoId;
   label?: string;
   dashed?: boolean;
   /** Fill color for enclosed disk. */

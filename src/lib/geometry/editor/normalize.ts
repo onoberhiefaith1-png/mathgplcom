@@ -34,8 +34,34 @@ function findCrossingPoint(seg: GeoSegment, scene: GeometryScene): GeoPoint | nu
   return null;
 }
 
+/**
+ * Legacy circles stored only a numeric radius, so there was nothing on the
+ * circumference to grab. Give every such circle a rim point at exactly that
+ * radius. It is hidden, so old diagrams look identical, but the circle is now
+ * a real centre + rim construction and stays adjustable. Idempotent.
+ */
+function ensureCircleRimPoints(scene: GeometryScene): GeometryScene {
+  const missing = scene.objects.filter(
+    (o) => o.type === "circle" && (!o.rim || !pointById(scene, o.rim)),
+  );
+  if (missing.length === 0) return scene;
+  let objects: GeoObject[] = [...scene.objects];
+  for (const o of missing) {
+    if (o.type !== "circle") continue;
+    const c = pointById({ ...scene, objects }, o.center);
+    if (!c) continue;
+    const rid = newId("p", { ...scene, objects });
+    const rim: GeoPoint = { id: rid, type: "point", x: c.x + o.r, y: c.y, hidden: true };
+    objects = objects
+      .map((x) => (x.id === o.id ? { ...o, rim: rid } : x))
+      .concat(rim);
+  }
+  return { ...scene, objects };
+}
+
 /** Split every segment that crosses over a third point. Idempotent. */
-export function normalizeScene(scene: GeometryScene): GeometryScene {
+export function normalizeScene(input: GeometryScene): GeometryScene {
+  const scene = ensureCircleRimPoints(input);
   let objects: GeoObject[] = [...scene.objects];
   let changed = true;
   let guard = 0;

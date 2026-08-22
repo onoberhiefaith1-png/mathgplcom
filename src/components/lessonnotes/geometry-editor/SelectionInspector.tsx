@@ -3,7 +3,7 @@
 // so a Point shows only Point props, a Segment body shows the foldable
 // line sections, etc.
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import type { GeometryScene, GeoObject, GeoPoint, GeoSegment, GeoAngle, GeoRegion, GeoLabel, GeoId, GeoCircle, GeoArc, GeoCurve } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
 import { patchObject, addAngle, addFloatingLabel } from "@/lib/geometry/editor/sceneOps";
@@ -621,6 +621,7 @@ function ClosedAreaPanel({
       <FillablePanel
         obj={c as any}
         onPatch={(p) => onApply(patchObject(scene, c.id, p as any).scene)}
+        extra={<CirclePointsToggle scene={scene} circle={c} onApply={onApply} />}
         onAddText={() => {
           const cp = pointById(scene, c.center);
           if (!cp) return;
@@ -643,7 +644,38 @@ function ClosedAreaPanel({
 }
 
 
-function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: string; r?: number; fill?: string; fillOpacity?: number; dashed?: boolean; area?: string }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean; area: string }>) => void; onAddText?: () => void }) {
+/**
+ * A circle is a centre + rim construction. The teacher can hide either dot for
+ * a clean board figure; both stay grabbable in edit mode, so the circle can
+ * still be moved and resized.
+ */
+function CirclePointsToggle({
+  scene, circle, onApply,
+}: { scene: GeometryScene; circle: GeoCircle; onApply: (s: GeometryScene) => void }) {
+  const centre = pointById(scene, circle.center);
+  const rim = circle.rim ? pointById(scene, circle.rim) : null;
+  const set = (id: string, hidden: boolean) =>
+    onApply(patchObject(scene, id, { hidden } as any).scene);
+  return (
+    <div className="space-y-1.5 border-t border-foreground/10 pt-2">
+      <p className="text-[10px] uppercase tracking-wider text-foreground/55">Construction points</p>
+      {centre && (
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={!centre.hidden} onChange={(e) => set(centre.id, !e.target.checked)} />
+          <span>Show centre point (drag to move the circle)</span>
+        </label>
+      )}
+      {rim && (
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={!rim.hidden} onChange={(e) => set(rim.id, !e.target.checked)} />
+          <span>Show rim point (drag to change the radius)</span>
+        </label>
+      )}
+    </div>
+  );
+}
+
+function FillablePanel({ obj, onPatch, onAddText, extra }: { obj: { id: string; type: string; r?: number; fill?: string; fillOpacity?: number; dashed?: boolean; area?: string }; onPatch: (p: Partial<{ fill: string; fillOpacity: number; dashed: boolean; area: string }>) => void; onAddText?: () => void; extra?: ReactNode }) {
   const [enabled, setEnabled] = useState<boolean>(!!obj.fill);
   const [color, setColor] = useState<string>(obj.fill ?? "#3b82f6");
   const [opacity, setOpacity] = useState<number>(obj.fillOpacity ?? 0.2);
@@ -689,6 +721,7 @@ function FillablePanel({ obj, onPatch, onAddText }: { obj: { id: string; type: s
         <input type="checkbox" checked={!!obj.dashed} onChange={(e) => onPatch({ dashed: e.target.checked })} />
         <span>Dashed</span>
       </label>
+      {extra}
       {onAddText && (
         <button
           type="button"

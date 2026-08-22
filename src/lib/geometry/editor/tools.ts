@@ -57,7 +57,7 @@ export const TOOLS: ToolDescriptor[] = [
   { id: "point", label: "Point", hint: "Click to place a point", group: "draw", shortcut: "P" },
   { id: "line", label: "Line", hint: "Click points in sequence; Esc to finish", group: "draw", shortcut: "L" },
   { id: "polygon", label: "Polygon", hint: "Click points; press Close (or Enter) to finish", group: "shape", shortcut: "G" },
-  { id: "circle", label: "Circle", hint: "Click 3 points on the circle (start, through, end)", group: "shape", shortcut: "C" },
+  { id: "circle", label: "Circle", hint: "Click the centre, then a point on the circle (drag the rim point to resize)", group: "shape", shortcut: "C" },
   { id: "arc", label: "Arc", hint: "Click 3 points: start, through, end", group: "shape", shortcut: "A" },
   { id: "angle", label: "Angle", hint: "Click arm1, vertex, arm2", group: "mark", shortcut: "N" },
   { id: "rightAngle", label: "Right angle", hint: "Click an angle (or segment) to mark 90°", group: "mark" },
