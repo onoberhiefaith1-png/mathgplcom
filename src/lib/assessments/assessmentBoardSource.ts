@@ -63,7 +63,12 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
         fragmentEnd: fragments.length,
         lineId: ln.lineId,
         marks: Math.max(0, Number(ln.marks) || 0),
+        // The note travels with the line, so the board's existing note
+        // machinery (icon, reveal, write-to-board, gate) works unchanged.
+        notebook: ln.note && String(ln.note).trim() ? String(ln.note) : undefined,
+        notebookOnly: ln.noteOnly === true,
       });
+
     }
 
     reservoirs.push({ beatId: q.id, caption, fragments, lines });
