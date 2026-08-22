@@ -334,6 +334,21 @@
   .sb-writing-in { animation: none; }
 }
 
+/* Board objects (diagrams, 3D scenes, graphs, tables) fill the available board
+   width and never overflow it, so a projected diagram stays legible. */
+.sb-board-object svg,
+.sb-board-object canvas,
+.sb-board-object img,
+.sb-board-object table {
+  max-width: 100%;
+  height: auto;
+}
+.sb-board-object [data-scene3d-wrapper="true"] {
+  max-width: 100%;
+}
+
+
+
 /* Smartboard writing sensor — soft pulse, never a harsh blink. */
 @keyframes sb-sensor-pulse {
   0%, 100% { opacity: 1; }

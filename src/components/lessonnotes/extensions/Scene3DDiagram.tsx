@@ -21,6 +21,15 @@ import { cn } from "@/lib/utils";
 
 const EDIT_EVENT = "geometry3d-workspace:open";
 
+/** Presentation (Smartboard) rendering: the board is non-interactive, so a 3D
+ *  scene must mount itself instead of waiting for a click that can never
+ *  happen. Set by the read-only object renderer before the editor is created. */
+let presentationMode = false;
+export const setScene3DPresentationMode = (on: boolean) => {
+  presentationMode = on;
+};
+
+
 /** Ask the DocumentEditor to reopen the workspace with this scene. */
 export function openScene3DWorkspace(detail: {
   scene: Scene3D;
@@ -44,7 +53,7 @@ function Scene3DDiagramView({ node, updateAttributes, deleteNode, selected, edit
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sceneKey],
   );
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(presentationMode);
   const height = Number(node.attrs.height) || 360;
   useRegisterAssetSnapshot(!!selected, "scene3d", () => ({
     node: node.toJSON(),
