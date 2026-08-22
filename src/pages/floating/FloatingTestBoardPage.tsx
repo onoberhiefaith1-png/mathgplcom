@@ -7,10 +7,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Loader2, RotateCcw } from "lucide-react";
+import { ArrowLeft, Loader2, RotateCcw, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import PresentationView from "@/components/smartboard/PresentationView";
+import TeacherReasoningPanel from "@/components/smartboard/TeacherReasoningPanel";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { ensureFloatingTestBoard, type FloatingTestBoard } from "@/lib/floating/testBoard";
@@ -25,6 +26,9 @@ const FloatingTestBoardPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sitting, setSitting] = useState(0);
+  // Teacher-side Evaluation panel (same engine as the student-work viewer).
+  const [evalOpen, setEvalOpen] = useState(true);
+  const [evalFull, setEvalFull] = useState(false);
 
   const backTo = `/lesson-notes/${notebookId}/floating/${subsectionId}`;
 
@@ -136,28 +140,68 @@ const FloatingTestBoardPage = () => {
 
   return (
     <>
-      <PresentationView
-        key={`${scopeKey}#${sitting}`}
-        role="student"
-        source={boardSource}
-        notebookId={board.notebookId}
-        assessmentId={board.assessmentId}
-        classId={board.classId}
-        workspace="floating_test"
-        boardStudentId={uid}
-        boardQuestionId={subsectionId ?? null}
-        testMode
-      />
-      <div className="fixed bottom-3 left-1/2 z-[80] flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-3 py-1.5 text-xs shadow-lg">
-        <span className="font-medium text-muted-foreground">
-          Test sitting — nothing is saved · {board.total} marks
-        </span>
-        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={restart}>
-          <RotateCcw className="mr-1 h-3.5 w-3.5" /> Restart
-        </Button>
-        <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => navigate(backTo)}>
-          Exit test
-        </Button>
+      <div className="fixed inset-0 flex bg-background">
+        {/* Kept mounted in Evaluation full screen so the live board keeps running. */}
+        <div className={evalFull ? "pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0" : "relative flex-1 min-w-0"}>
+          <PresentationView
+            key={`${scopeKey}#${sitting}`}
+            role="student"
+            source={boardSource}
+            notebookId={board.notebookId}
+            assessmentId={board.assessmentId}
+            classId={board.classId}
+            workspace="floating_test"
+            boardStudentId={uid}
+            boardQuestionId={subsectionId ?? null}
+            testMode
+          />
+        </div>
+        {evalOpen && uid && (
+          <div className={evalFull ? "flex-1 min-w-0 overflow-hidden" : "w-[24%] min-w-[260px] flex-none overflow-hidden"}>
+            <TeacherReasoningPanel
+              assessmentId={board.assessmentId}
+              studentId={uid}
+              questionId={subsectionId ?? null}
+              studentName="Test"
+              fullscreen={evalFull}
+              onToggleFullscreen={() => setEvalFull((v) => !v)}
+              onClose={() => { setEvalFull(false); setEvalOpen(false); }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* No View Only / Edit controls: this is the teacher testing the question
+          themselves, not a visit to a real student's workspace. */}
+      <div className="pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-2 shadow-lg backdrop-blur">
+          <button
+            type="button"
+            onClick={() => navigate(backTo)}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs hover:bg-accent"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </button>
+          <div className="text-xs text-muted-foreground">Viewing:</div>
+          <div className="text-xs font-semibold">Test</div>
+          <button
+            type="button"
+            onClick={() => setEvalOpen((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${evalOpen ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+            title="Live evaluation"
+          >
+            <Brain className="h-3.5 w-3.5" /> Evaluation
+          </button>
+          <span className="text-[11px] text-muted-foreground">
+            Nothing saved · {board.total} marks
+          </span>
+          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={restart}>
+            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Restart
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => navigate(backTo)}>
+            Exit test
+          </Button>
+        </div>
       </div>
     </>
   );
