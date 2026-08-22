@@ -1574,8 +1574,9 @@ RULES
   page (each block's question, its diagram, its solution). When a question already
   exists for the block being generated, copy THAT question verbatim into
   "sourceQuestion" — never replace it with a different one. When the question's data
-  lives in an already-drawn diagram, treat that diagram as the given information,
-  set diagramRequired true and reuse its exact labels; never describe a new figure.
+  lives in an already-drawn diagram, that diagram IS the given information: reuse it
+  exactly as it is, set "diagramRequired" false, leave "diagramDescription" empty and
+  never describe, request or re-draw another figure. One question has ONE diagram.
 • Continue the session: a new question must follow the topic, subtopic, method and
   difficulty of the work already present, and must never repeat an existing question.
 
