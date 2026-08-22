@@ -123,7 +123,7 @@ const ReasoningPage = () => {
           <BackButton className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-black/5" iconClassName="mr-2 h-4 w-4">
             Back
           </BackButton>
-          <h1 className="text-2xl font-semibold text-amber-900">Reasoning</h1>
+          <h1 className="text-2xl font-semibold text-amber-900">Evaluation</h1>
           <Button onClick={goVerify}>
             Continue to Verification <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
