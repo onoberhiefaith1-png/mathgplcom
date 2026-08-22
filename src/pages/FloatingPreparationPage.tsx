@@ -33,6 +33,7 @@ import {
   familyLabel,
   readSolutionObjects,
   isFloatableObject,
+  assignNoteObjects,
   type SolutionObject,
 } from "@/lib/floating/solutionItems";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
