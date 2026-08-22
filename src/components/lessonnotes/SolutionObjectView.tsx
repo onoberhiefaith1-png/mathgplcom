@@ -33,13 +33,18 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false }: Pr
   if (presentation) setScene3DPresentationMode(true);
 
   const content = useMemo(() => {
-    const node = { type: nodeType, attrs: attrs ?? {} };
+    // A page-layer diagram is invisible inside the note (the page overlay draws
+    // it there), but on the board it IS the diagram — so render it normally.
+    const clean = { ...(attrs ?? {}) };
+    if (clean.pageLayer) clean.pageLayer = false;
+    const node = { type: nodeType, attrs: clean };
     const inline = INLINE_OBJECT_TYPES.has(nodeType);
     return {
       type: "doc",
       content: [inline ? { type: "paragraph", content: [node] } : node],
     };
   }, [nodeType, attrs]);
+
 
 
   const editor = useEditor(
