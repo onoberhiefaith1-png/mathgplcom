@@ -16,7 +16,7 @@ export const VisualGroupingMini = ({ n, groupSize }: Props) => {
   if (n === null || groupSize === null) {
     return (
       <div className="rounded-xl border-2 border-amber-400/30 bg-card/40 p-3 backdrop-blur min-h-[260px] relative overflow-hidden">
-        <div className="absolute inset-0 flex flex-wrap content-center justify-center gap-1.5 opacity-30">
+        <div className="pointer-events-none absolute inset-0 flex flex-wrap content-center justify-center gap-1.5 opacity-30">
           {Array.from({ length: 36 }).map((_, i) => (
             <span
               key={i}

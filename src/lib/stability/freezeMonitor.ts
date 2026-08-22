@@ -11,6 +11,11 @@
  * same symptom (page painted, every click swallowed).
  */
 import { oldestResources, resourceCounts } from "./registry";
+import {
+  describeInteractionState,
+  pointerInteractionActive,
+  resetInteractionState,
+} from "./interactionReset";
 
 export type FreezeReport = {
   at: number;
@@ -18,6 +23,10 @@ export type FreezeReport = {
   source: "longtask" | "tick";
   topElement?: string;
   counts: Record<string, number>;
+  /** Cursor / pointer-capture snapshot taken at the moment of the freeze. */
+  interaction?: ReturnType<typeof describeInteractionState>;
+  /** True when stale interaction state was found and cleared silently. */
+  healed?: boolean;
 };
 
 const reports: FreezeReport[] = [];
@@ -38,7 +47,21 @@ function record(source: FreezeReport["source"], blockedMs: number) {
     source,
     topElement: describeTopElement(),
     counts: resourceCounts(),
+    interaction: describeInteractionState(),
   };
+
+  // Self-heal, never reload: if a cursor override or a pointer capture is still
+  // held while the interface is blocked, that is exactly the state a refresh
+  // used to clear — clear it here instead and keep the page as it is.
+  const stale =
+    !!report.interaction &&
+    (!!report.interaction.bodyCursor ||
+      report.interaction.cursorOverrides > 0 ||
+      report.interaction.pointerCaptures > 0);
+  if (stale && blockedMs > 400 && !pointerInteractionActive()) {
+    resetInteractionState("freeze-monitor");
+    report.healed = true;
+  }
   reports.push(report);
   if (reports.length > MAX_REPORTS) reports.shift();
   if (blockedMs > 1_500) {

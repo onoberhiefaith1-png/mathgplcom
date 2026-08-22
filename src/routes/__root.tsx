@@ -9,6 +9,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { setAppContext } from "@/lib/stability/appContext";
+import { resetInteractionState } from "@/lib/stability/interactionReset";
 
 
 import "../styles.css";
@@ -112,6 +113,9 @@ function RootComponent() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   useEffect(() => {
     setAppContext({ route: pathname });
+    // Leaving a screen ends every interaction it started: cursor overrides,
+    // pointer capture, drag/selection and tool state all go with it.
+    resetInteractionState("route-change");
   }, [pathname]);
 
   useEffect(() => {

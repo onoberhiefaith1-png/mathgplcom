@@ -53,7 +53,7 @@ const DashboardHero = ({ blurb, mode = "self" }: { blurb?: string; mode?: "self"
         ) : (
           <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ))}
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
 
       <div className="absolute bottom-0 left-0 right-0 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 p-5 sm:p-6">
         <div className="min-w-0">

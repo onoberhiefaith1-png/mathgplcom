@@ -12,6 +12,7 @@ import calculusImage from "@/assets/academy/calculus.png";
 import academyBackground from "@/assets/academy_background.png";
 import academyClouds from "@/assets/academy_clouds.png";
 import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
+import { useSceneCursor } from "@/lib/stability/useSceneCursor";
 
 const subjects = [
   { slug: "algebra", image: algebraImage },
@@ -36,6 +37,7 @@ const academyRadius = 2.85;
 const academyHeight = 2.82;
 
 const AcademyPanel = ({ image, index, hovered, selected, onHover, onSelect, slug }: AcademyPanelProps) => {
+  const setCursor = useSceneCursor();
   const meshRef = useRef<THREE.Mesh>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const texture = useLoader(THREE.TextureLoader, image);
@@ -75,11 +77,11 @@ const AcademyPanel = ({ image, index, hovered, selected, onHover, onSelect, slug
         onPointerOver={(event) => {
           event.stopPropagation();
           onHover(index);
-          document.body.style.cursor = "pointer";
+          setCursor("pointer");
         }}
         onPointerOut={() => {
           onHover(null);
-          document.body.style.cursor = "default";
+          setCursor("default");
         }}
         onClick={handleClick}
       >
@@ -301,6 +303,7 @@ const AcademyStructure = () => {
   const [selected, setSelected] = useState<number | null>(null);
   const speedRef = useRef((Math.PI * 2) / 25);
   const navigate = useNavigate();
+  const setCursor = useSceneCursor();
   const { camera } = useThree();
 
   useFrame((_, delta) => {
@@ -326,7 +329,7 @@ const AcademyStructure = () => {
 
   const selectPanel = (index: number, slug: string) => {
     setSelected(index);
-    document.body.style.cursor = "default";
+    setCursor("default");
     window.setTimeout(() => navigate(`/subjects/${slug}`), 1050);
   };
 

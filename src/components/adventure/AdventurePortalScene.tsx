@@ -15,6 +15,7 @@ import thorLightningOverlay11 from "@/assets/effects/video-fx/thor_lightning_ove
 import halfDomeShockwave from "@/assets/effects/video-fx/half_dome_shockwave.mp4.asset.json";
 import magicEnergyBurstPink from "@/assets/effects/video-fx/magic_energy_burst_pink.mp4.asset.json";
 import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
+import { useSceneCursor } from "@/lib/stability/useSceneCursor";
 
 const academies = [
   { slug: "algebra", label: "Algebra", image: algebraIsland.url },
@@ -178,6 +179,7 @@ const WorldSegment = ({
   onActivate: (index: number) => void;
   onHoverChange: (hovered: boolean) => void;
 }) => {
+  const setCursor = useSceneCursor();
   const groupRef = useRef<THREE.Group>(null);
   const materialRef = useRef<THREE.MeshBasicMaterial>(null);
   const portalRef = useRef<THREE.Group>(null);
@@ -326,12 +328,12 @@ const WorldSegment = ({
           if (!interactive) return;
           e.stopPropagation();
           onHoverChange(true);
-          document.body.style.cursor = "pointer";
+          setCursor("pointer");
         }}
         onPointerOut={() => {
           if (!interactive) return;
           onHoverChange(false);
-          document.body.style.cursor = "default";
+          setCursor("default");
         }}
         onClick={(e: ThreeEvent<MouseEvent>) => {
           if (!interactive) return;
@@ -398,6 +400,7 @@ const Showcase = ({ onDoorReady, onZoomStart }: { onDoorReady: (academy: (typeof
   const flashOpacityRef = useRef(0);
   const enteredRef = useRef(false);
   const flashPlaneRef = useRef<THREE.Mesh>(null);
+  const setCursor = useSceneCursor();
   const { camera } = useThree();
 
   const uniqueUrls = useMemo(() => Array.from(new Set(academies.map((a) => a.image))), []);
@@ -495,7 +498,7 @@ const Showcase = ({ onDoorReady, onZoomStart }: { onDoorReady: (academy: (typeof
       approachProgressRef.current = 1;
       if (!enteredRef.current && selectedIndexRef.current !== null) {
         enteredRef.current = true;
-        document.body.style.cursor = "default";
+        setCursor("default");
         onDoorReady(academies[selectedIndexRef.current]);
       }
       pauseProgressRef.current = Math.min(1, pauseProgressRef.current + delta / 2.8);

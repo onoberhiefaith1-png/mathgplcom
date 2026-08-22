@@ -9,6 +9,7 @@ import { startWatchdog } from "@/lib/stability/watchdog";
 import { startFreezeMonitor } from "@/lib/stability/freezeMonitor";
 import { exposeStabilityDebug } from "@/lib/stability/registry";
 import { hydrateAppContext, setAppContext } from "@/lib/stability/appContext";
+import { startInteractionResetGuards } from "@/lib/stability/interactionReset";
 
 const StabilityWatchdog = () => {
   useEffect(() => {
@@ -17,9 +18,11 @@ const StabilityWatchdog = () => {
     exposeStabilityDebug();
     const stopWatchdog = startWatchdog();
     const stopMonitor = startFreezeMonitor();
+    const stopInteractionGuards = startInteractionResetGuards();
     return () => {
       stopWatchdog();
       stopMonitor();
+      stopInteractionGuards();
     };
   }, []);
 

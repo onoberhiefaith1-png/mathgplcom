@@ -54,7 +54,7 @@ const StudentView = ({ tree }: { tree: CourseTree }) => {
         ) : cover ? (
           <img src={cover} alt={`${course.title} cover`} className="h-full w-full object-cover" />
         ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/85 to-slate-900/25" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/85 to-slate-900/25" />
         <div className="absolute bottom-4 left-5 right-5 text-white">
           <h2 className="text-xl font-semibold">{course.title || "Untitled course"}</h2>
           <p className="text-xs text-white/80">

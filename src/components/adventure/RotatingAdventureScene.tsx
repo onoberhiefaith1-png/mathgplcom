@@ -12,6 +12,9 @@ import {
 } from "@/lib/homepage/homepageConfig";
 import { adForOuterPosition, useAdImageUrls, useFacingAdRotation, usePlayableAds } from "@/lib/homepage/advertisements";
 import BuildingBillboard from "@/components/adventure/BuildingBillboard";
+import { useSceneCursor } from "@/lib/stability/useSceneCursor";
+import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
+import { setScopedCursor } from "@/lib/stability/interactionReset";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
@@ -71,6 +74,10 @@ const WorldSegment = ({
   // tower partially hides the other, reading as a single continuous structure.
   const radius = WORLD_RADIUS + (index % 2 === 0 ? 0.14 : 0);
 
+  // Cursor is scoped to the canvas and always cleared on unmount / context
+  // loss, so a hover can never leave the whole page on a hand cursor.
+  const setCursor = useSceneCursor();
+
   // No texture yet (first load / re-sign in flight) → draw nothing for this
   // slice rather than a white panel. Siblings keep rendering.
   if (!texture) return null;
@@ -82,12 +89,12 @@ const WorldSegment = ({
         if (!interactive) return;
         e.stopPropagation();
         onHoverChange(true);
-        document.body.style.cursor = "pointer";
+        setCursor("pointer");
       }}
       onPointerOut={() => {
         if (!interactive) return;
         onHoverChange(false);
-        document.body.style.cursor = "default";
+        setCursor("default");
       }}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         if (!interactive) return;
@@ -417,8 +424,7 @@ export const RotatingAdventureScene = ({
   // ONE WebGL context for the life of the page. The canvas is never keyed on
   // artwork URLs — swapping textures happens INSIDE the live scene, so the
   // building never blinks out while config or signed URLs settle.
-  const [ctxKey, setCtxKey] = useState(0);
-  const remountedRef = useRef(false);
+  const gpu = useWebglRecovery("homepage-building");
   const [painted, setPainted] = useState(false);
   const [artworkReady, setArtworkReady] = useState(false);
   const { config, ready } = useHomepageConfig({ mode: configMode, ...(ownerUserId ? { ownerUserId } : {}) });
@@ -452,7 +458,7 @@ export const RotatingAdventureScene = ({
   const usingCustom = config.buildingMode === "custom" && !!config.customBuilding;
   // Only reveal the canvas once it has painted AND the artwork has decoded, so
   // no untextured (white) geometry is ever on screen.
-  const visible = painted && artworkReady;
+  const visible = painted && artworkReady && gpu.alive;
   const handleArtworkReady = useCallback(() => setArtworkReady(true), []);
 
   return (
@@ -466,31 +472,16 @@ export const RotatingAdventureScene = ({
           style={{ opacity: visible ? 1 : 0 }}
         >
           <Canvas
-            key={ctxKey}
+            key={gpu.resetKey}
             camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
             dpr={[1, 1.25]}
             gl={{ antialias: true, alpha: true, powerPreference: "default", failIfMajorPerformanceCaveat: false, preserveDrawingBuffer: false }}
             onCreated={({ gl }) => {
-              const canvas = gl.domElement;
-              let restoreTimer: number | undefined;
-              // Standard, no-remount recovery: block the default teardown and
-              // wait for the browser to restore the same context.
-              canvas.addEventListener("webglcontextlost", (e: Event) => {
-                e.preventDefault();
-                setPainted(false);
-                if (remountedRef.current) return;
-                window.clearTimeout(restoreTimer);
-                restoreTimer = window.setTimeout(() => {
-                  // Last resort, once only — never a loss → remount → loss loop.
-                  remountedRef.current = true;
-                  setCtxKey((k) => k + 1);
-                }, 2500);
-              });
-              canvas.addEventListener("webglcontextrestored", () => {
-                window.clearTimeout(restoreTimer);
-                setPainted(true);
-              });
-              // Fade in on the first painted frame so any reload dissolves softly.
+              // Shared recovery: block the default teardown so the browser can
+              // restore the SAME context, clear any hover cursor the loss froze,
+              // and fade in on the first painted frame.
+              gpu.attach(gl.domElement);
+              setScopedCursor(gl.domElement, "default");
               requestAnimationFrame(() => setPainted(true));
             }}
           >
