@@ -7,8 +7,19 @@ import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 export interface AssessmentQuestion {
   id: string;
   questionText: string;
-  lines: { lineId: string; chips: string[]; marks: number; containers?: string[]; equation?: string }[];
+  lines: {
+    lineId: string;
+    chips: string[];
+    marks: number;
+    containers?: string[];
+    equation?: string;
+    /** Teaching note authored by this line's own highlight. */
+    note?: string;
+    /** Standalone note line (no equation of its own). */
+    noteOnly?: boolean;
+  }[];
 }
+
 
 export interface AssessmentLike {
   id: string;
