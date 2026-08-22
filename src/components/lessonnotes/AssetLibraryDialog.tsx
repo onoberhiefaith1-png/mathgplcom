@@ -201,13 +201,20 @@ function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
   const code = getEffectiveShortCode(a);
   const label = getEffectiveLabel(a);
 
+  // The tile carries its own controls (favourite heart, edit popover), so it is
+  // an activatable container rather than a <button> — nesting buttons breaks
+  // hydration and can leave the dialog unresponsive.
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onPick(a)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPick(a); }
+      }}
       title={`@${code || a.id}`}
       className={
-        "group relative flex flex-col items-center justify-between gap-1.5 rounded-lg border border-foreground/10 bg-background hover:border-primary/60 hover:bg-primary/5 transition p-2 text-center " +
+        "group relative flex cursor-pointer flex-col items-center justify-between gap-1.5 rounded-lg border border-foreground/10 bg-background hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition p-2 text-center " +
         (isArithmetic ? "h-40" : "h-28")
       }
     >
@@ -224,7 +231,7 @@ function Tile({ a, onPick }: { a: AssetDef; onPick: (a: AssetDef) => void }) {
           @{code}
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
