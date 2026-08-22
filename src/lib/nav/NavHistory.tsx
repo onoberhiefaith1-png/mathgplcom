@@ -4,7 +4,10 @@ import { useLocation, useNavigate, useNavigationType } from "@/lib/router-compat
 type NavHistoryCtx = {
   canGoBack: () => boolean;
   goBack: (fallback?: string) => void;
+  /** Steps forward in browser history, when the user has gone back before. */
+  goForward: () => void;
 };
+
 
 const Ctx = createContext<NavHistoryCtx | null>(null);
 
