@@ -23,8 +23,10 @@ import {
 } from "@/lib/lessonnotes/sectionKinds";
 import {
   familyLabel,
+  isDiagramFamily,
   isObjectNodeType,
   objectFamily,
+  objectLayer,
   INLINE_OBJECT_TYPES,
   type SolutionObject,
 } from "@/lib/floating/solutionItems";
@@ -161,12 +163,13 @@ export const isGeometryObject = (nodeType: string): boolean =>
  * Render a segment's body into plain text lines PLUS the ordered objects it
  * contains (tables, smart tables, diagrams, 3D scenes, charts, images).
  *
- * `inSolution` drives the presentation flags:
+ * `inSolution` drives the LAYER, not deletion:
  *   - Every object records which session it belongs to.
- *   - 2D diagrams and 3D geometry inside a Solution keep living in the note
- *     but are flagged `presentOnBoard: false`, so the Smartboard guide skips
- *     them (the teacher shows them separately).
- *   - Tables — ordinary, Smart, LCM, statistics — are NEVER filtered.
+ *   - Diagrams (2D geometry, 3D scenes, graphs, visuals) ALWAYS belong to the
+ *     NOTES layer: never highlightable, never a Floating Number — but always
+ *     rendered with the note/content block that surrounds them.
+ *   - Tables — ordinary, Smart, LCM, statistics — stay in the Solution layer
+ *     when they sit inside a Solution, so they remain floating-capable.
  */
 export function renderSegmentBody(
   nodes: Node[],
@@ -183,9 +186,15 @@ export function renderSegmentBody(
     const idx = counters.get(nodeType) ?? 0;
     counters.set(nodeType, idx + 1);
     const family = objectFamily(nodeType, attrs);
-    const geometry = isGeometryObject(nodeType);
+    const diagram = isDiagramFamily(family);
+    const persistentId =
+      typeof attrs.diagramId === "string" && attrs.diagramId
+        ? attrs.diagramId
+        : null;
     objects.push({
-      objId: `${nodeType}#${idx}`,
+      // Persistent identity first: a diagram keeps the SAME objId across
+      // edits, re-saves, floating generation and Smartboard renders.
+      objId: persistentId ? `${nodeType}#${persistentId}` : `${nodeType}#${idx}`,
       nodeType,
       family,
       label: familyLabel(family),
@@ -193,7 +202,13 @@ export function renderSegmentBody(
       afterLine: lines.length,
       inline: INLINE_OBJECT_TYPES.has(nodeType),
       inSolution,
-      presentOnBoard: !(inSolution && geometry),
+      // A diagram is permanent lesson content: it always travels to the
+      // Smartboard with the note group it belongs to. Inside a Solution it is
+      // simply routed through the NOTES layer instead of the floating stream.
+      presentOnBoard: true,
+      layer: objectLayer(family, inSolution),
+      floatable: !diagram,
+      diagramId: persistentId,
     });
   };
 
@@ -212,3 +227,12 @@ export function renderSegmentBody(
 /** Objects that may be shown on the student Smartboard for this segment. */
 export const boardObjects = (objects: SolutionObject[]): SolutionObject[] =>
   (objects ?? []).filter((o) => o.presentOnBoard !== false);
+
+/** Notes-layer objects: diagrams and supporting content. They render with the
+ *  note/content block, never inside the floating solution stream. */
+export const notesLayerObjects = (objects: SolutionObject[]): SolutionObject[] =>
+  (objects ?? []).filter((o) => o.presentOnBoard !== false && o.floatable === false);
+
+/** Solution-layer objects: tables and structures that may float. */
+export const solutionLayerObjects = (objects: SolutionObject[]): SolutionObject[] =>
+  (objects ?? []).filter((o) => o.floatable !== false);

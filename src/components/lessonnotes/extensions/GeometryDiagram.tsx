@@ -99,6 +99,17 @@ function GeometryDiagramView({
     suggestedSection: "diagrams" as const,
   }));
 
+  // PERMANENT IDENTITY. Every diagram gets a persistent id the first time it
+  // is mounted, so the same object is referenced by the Solution, the
+  // Highlighting workflow and the Smartboard instead of being recreated.
+  useEffect(() => {
+    if (node.attrs.diagramId) return;
+    updateAttributes({
+      diagramId: `dgm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.attrs.diagramId]);
+
   useEffect(() => {
     if (selected) kickAi();
     return () => { if (hideTimer.current) window.clearTimeout(hideTimer.current); };

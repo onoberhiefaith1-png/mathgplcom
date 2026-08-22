@@ -132,6 +132,14 @@ export const Scene3DDiagramNode = Node.create({
 
   addAttributes() {
     return {
+      // Persistent identity so the same 3D diagram travels with its note
+      // group instead of being recreated on every render/save.
+      diagramId: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-diagram-id") || null,
+        renderHTML: (attrs: Record<string, any>) =>
+          attrs.diagramId ? { "data-diagram-id": attrs.diagramId } : {},
+      },
       scene: {
         default: EMPTY_SCENE_3D,
         parseHTML: (el) => {
