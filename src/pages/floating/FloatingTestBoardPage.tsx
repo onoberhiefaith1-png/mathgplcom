@@ -144,7 +144,7 @@ const FloatingTestBoardPage = () => {
         {/* Kept mounted in Evaluation full screen so the live board keeps running. */}
         <div className={evalFull ? "pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0" : "relative flex-1 min-w-0"}>
           <PresentationView
-            key={`${scopeKey}#${sitting}`}
+            key={`${scopeKey}#${board.sittingId}#${sitting}`}
             role="student"
             source={boardSource}
             notebookId={board.notebookId}
