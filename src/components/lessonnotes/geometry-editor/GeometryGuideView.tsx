@@ -12,6 +12,8 @@ import { ColoredMathText } from "@/lib/geometry/map/renderTokens";
 import {
   keepLiveIds,
   objectChipLabel,
+  itemTokenColors,
+  objectColor,
   publishedMapItems,
   readMap,
   type GeometryMapItem,
