@@ -673,21 +673,13 @@ const FloatingNumbersPage = () => {
           });
         }
         setLines(reconciled);
-      } else if (persisted && Array.isArray(persisted) && persisted.length > 0) {
-        // Legacy: no highlights — show previously generated lines if any.
-        setLines(persisted.map(normalizeFloatingLine));
       } else {
-        // Legacy flow (no highlights): seed empty lines from raw solution.
-        setLines(
-          linesFromSolution(solution).map((l) => ({
-            lineId: l.id,
-            equation: l.text,
-            fillers: [],
-            containers: [],
-            arrangement: [],
-          })),
-        );
+        // SELECTION LAW: this page NEVER re-interprets the solution. With no
+        // saved highlights there is nothing to generate — the teacher must go
+        // back to the Highlighting Page and select content first.
+        setLines([]);
       }
+
       setLoading(false);
     })();
   }, [subsectionId, notebookId, navigate]);
