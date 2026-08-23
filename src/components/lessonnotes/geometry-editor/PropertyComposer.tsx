@@ -39,17 +39,32 @@ const FUNCTIONS: { label: string; node?: () => MathNode; text?: string }[] = [
   { label: "tan", text: "tan" },
 ];
 
+export interface ComposedProperty {
+  statement: string;
+  reason: string;
+  objectIds: GeoId[];
+  /** Text → object id bindings: the link lives on the id, not the wording. */
+  tokens: { token: string; objectId: GeoId }[];
+  /** Optional wording to show on the Smartboard instead of the relation. */
+  boardText?: string;
+}
+
 export function PropertyComposer({
-  scene, targetId, onHighlight, onAdd,
+  scene, targetId, onHighlight, onAdd, colorOf, onColor,
 }: {
   scene: GeometryScene;
   /** Currently selected diagram object — inserted while picking. */
   targetId: GeoId | null;
   onHighlight: (ids: GeoId[]) => void;
-  onAdd: (draft: { statement: string; reason: string; objectIds: GeoId[] }) => void;
+  onAdd: (draft: ComposedProperty) => void;
+  /** Review colour currently stored for a diagram object. */
+  colorOf?: (id: GeoId) => string | undefined;
+  /** Paint the selected diagram object (colour belongs to the object). */
+  onColor?: (id: GeoId, color: string | null) => void;
 }) {
   const [root, setRoot] = useState<MathRow>([]);
   const [reason, setReason] = useState("");
+  const [boardText, setBoardText] = useState("");
   const [picking, setPicking] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   /** Object ids referenced by the expression, with the label they were
@@ -58,32 +73,40 @@ export function PropertyComposer({
   const [insertRequest, setInsertRequest] =
     useState<{ nonce: number; node?: MathNode; text?: string } | null>(null);
   const nonce = useRef(0);
-  const lastPicked = useRef<GeoId | null>(null);
 
   const request = (req: { node?: MathNode; text?: string }) => {
     nonce.current += 1;
     setInsertRequest({ nonce: nonce.current, ...req });
   };
 
-  // Pick mode: every part clicked on the diagram is inserted at the caret.
+  // Pick mode: EVERY click on the diagram is inserted at the caret — including
+  // a repeat click on the part that is already selected, so the sensor never
+  // goes quiet and no double-clicking is needed.
   useEffect(() => {
-    if (!picking || !targetId) return;
-    if (lastPicked.current === targetId) return;
-    lastPicked.current = targetId;
-    const label = objectChipLabel(scene, targetId);
-    request({ text: label });
-    setRefs((r) => (r.some((x) => x.id === targetId) ? r : [...r, { id: targetId, label }]));
+    if (!picking) return;
+    return onGeoPick((id) => {
+      const label = objectChipLabel(scene, id);
+      request({ text: label });
+      setRefs((r) => (r.some((x) => x.id === id && x.label === label) ? r : [...r, { id, label }]));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetId, picking]);
+  }, [picking, scene]);
 
   const statement = useMemo(() => {
     try { return normalizeMathSource(treeToLatex(root)).trim(); } catch { return ""; }
   }, [root]);
 
-  /** Only ids whose label survives in the expression stay linked. */
-  const objectIds = useMemo(
-    () => refs.filter((r) => statement.includes(r.label)).map((r) => r.id),
+  /** Only references the teacher kept in the expression stay linked. */
+  const tokens = useMemo(
+    () =>
+      refs
+        .filter((r) => statement.includes(r.label))
+        .map((r) => ({ token: r.label, objectId: r.id })),
     [refs, statement],
+  );
+  const objectIds = useMemo(
+    () => [...new Set(tokens.map((t) => t.objectId))],
+    [tokens],
   );
 
   // Live highlight of everything the statement references.
@@ -96,12 +119,18 @@ export function PropertyComposer({
     setRoot([]);
     setRefs([]);
     setReason("");
-    lastPicked.current = null;
+    setBoardText("");
   };
 
   const add = () => {
     if (!statement) return;
-    onAdd({ statement, reason: reason.trim(), objectIds });
+    onAdd({
+      statement,
+      reason: reason.trim(),
+      objectIds,
+      tokens,
+      ...(boardText.trim() ? { boardText: boardText.trim() } : {}),
+    });
     reset();
   };
 
