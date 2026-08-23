@@ -5082,7 +5082,47 @@ const PresentationView = ({
 
       {/* Review Properties dock — a right column, ~1/5 of the board, opened
           only by the top-bar button and closed with its own ✕. */}
-      {review.open && review.active && (
+      {/* RELATIONSHIP PAGE — opened from the Properties icon beside a diagram.
+          A clean full screen: the diagram alone, with its properties on the
+          right, and one way back to the board. */}
+      {review.open && review.fullscreen && review.active && (
+        <div className="absolute inset-0 z-[90] flex flex-col bg-white md:flex-row">
+          <div className="relative flex flex-1 items-center justify-center overflow-auto p-6">
+            <button
+              type="button"
+              onClick={() => reviewProperties.setOpen(false)}
+              className="absolute left-4 top-4 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
+            >
+              &larr; Back to board
+            </button>
+            <PresentationGeometryDiagram
+              scene={review.active.scene}
+              highlightIds={review.highlightIds}
+              onPickObject={(id) =>
+                review.active && reviewProperties.pickObject(review.active, id)
+              }
+            />
+          </div>
+          <div className="h-[45%] w-full shrink-0 overflow-auto border-t border-slate-200 md:h-full md:w-[30%] md:min-w-[280px] md:border-l md:border-t-0">
+            <ReviewPropertiesPanel
+              scene={review.active.scene}
+              role={isTeacher ? "teacher" : "student"}
+              selectedObjectId={review.selectedObjectId}
+              activePropertyId={review.activePropertyId}
+              onPickProperty={(item) => {
+                if (!item || !review.active) {
+                  reviewProperties.pickProperty(null, []);
+                  return;
+                }
+                reviewProperties.pickProperty(item.id, itemObjectIds(item));
+              }}
+              onClose={() => reviewProperties.setOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {review.open && !review.fullscreen && review.active && (
         <div className="absolute inset-x-0 bottom-0 z-[70] h-[62%] w-full overflow-auto overscroll-contain rounded-t-2xl shadow-2xl md:inset-x-auto md:bottom-auto md:right-0 md:top-0 md:h-full md:w-[20%] md:min-w-[240px] md:overflow-visible md:rounded-none md:shadow-none">
           <ReviewPropertiesPanel
             scene={review.active.scene}
