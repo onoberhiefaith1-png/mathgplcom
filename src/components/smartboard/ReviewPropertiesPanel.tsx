@@ -10,10 +10,12 @@ import { useMemo } from "react";
 import { X } from "lucide-react";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import { MathText } from "@/lib/geometry/map/renderStatement";
+import { ColoredMathText } from "@/lib/geometry/map/renderTokens";
 import { describeObject } from "@/lib/geometry/properties/model";
 import {
   itemObjectIds,
   itemsForObject,
+  itemTokenColors,
   objectColor,
   objectChipLabel,
   readMap,
@@ -132,7 +134,10 @@ export function ReviewPropertiesPanel({
                         </p>
                       )}
                       <p className="text-[14px] leading-snug">
-                        <MathText value={item.boardText || item.relation} />
+                        <ColoredMathText
+                          value={item.boardText || item.relation}
+                          tokens={itemTokenColors(doc, item)}
+                        />
                       </p>
                       {item.explanation && (
                         <p className="mt-0.5 text-[11px] leading-snug opacity-70">

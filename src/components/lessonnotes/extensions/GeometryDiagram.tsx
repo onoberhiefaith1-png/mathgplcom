@@ -12,7 +12,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { closeHistory, undoDepth, redoDepth } from "@tiptap/pm/history";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Copy, Sparkles, Trash2 } from "lucide-react";
+import { Copy, Shapes, Sparkles, Trash2 } from "lucide-react";
 import {
   type GeometryScene,
   sanitizeScene,
@@ -25,6 +25,8 @@ import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/Geomet
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
 import { GeometryPropertiesWorkspace } from "@/components/lessonnotes/geometry-editor/GeometryPropertiesWorkspace";
 import { GeometryGuideView } from "@/components/lessonnotes/geometry-editor/GeometryGuideView";
+import { SmartboardPropertyTest } from "@/components/lessonnotes/geometry-editor/SmartboardPropertyTest";
+import { sceneHasReviewableProperties } from "@/lib/smartboard/reviewProperties";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
@@ -527,22 +529,45 @@ function LiveEditor({
 }
 
 /**
- * Read-only student view: the same static diagram plus the published guide.
- * Clicking a relationship highlights the objects it refers to — no editing,
- * no AI, no second diagram.
+ * Read-only view of a lesson-note diagram: the same structured diagram object
+ * plus the published guide. When the teacher has attached Geometry Properties
+ * to THIS diagram, a small property bar appears underneath it and opens the
+ * existing Review Properties panel for that diagram only. With no properties
+ * the diagram is simply view-only — no bar at all.
  */
 function StudentGuideDiagram({ scene }: { scene: GeometryScene }) {
   const [ids, setIds] = useState<string[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const diff = useMemo(
     () => (ids.length
       ? { added: new Set(ids), removed: new Set<string>(), changed: new Set<string>() }
       : undefined),
     [ids],
   );
+  const hasProperties = useMemo(
+    () => sceneHasReviewableProperties(scene, "teacher"),
+    [scene],
+  );
   return (
     <>
       <StaticGeometryDiagram scene={scene} diff={diff} />
       <GeometryGuideView scene={scene} onHighlight={setIds} />
+      {hasProperties && (
+        <div className="mt-1 flex justify-center">
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
+            className="inline-flex items-center gap-1 rounded-full border border-foreground/20 bg-background/80 px-2 py-[2px] text-[10.5px] text-foreground/70 hover:bg-foreground/5"
+            title="Review the Geometry Properties of this diagram"
+          >
+            <Shapes className="h-3 w-3" /> Geometry Properties
+          </button>
+        </div>
+      )}
+      {reviewOpen && (
+        <SmartboardPropertyTest scene={scene} onClose={() => setReviewOpen(false)} />
+      )}
     </>
   );
 }

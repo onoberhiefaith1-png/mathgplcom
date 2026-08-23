@@ -17,6 +17,7 @@ import {
   keepLiveIds, mapInventory, mapStatus, newMapItemId, objectChipLabel, pathway,
   removeMapItem, reorderMap, stripNumericAnswers, upsertMapItem,
   type GeometryMapDoc, type GeometryMapItem,
+  autoColorObject,
   objectColor,
   setObjectColor,
   itemsForObject,
@@ -240,6 +241,10 @@ export function GeometryMapPanel({
         onAdd={addComposed}
         colorOf={(id) => objectColor(doc, id)}
         onColor={(id, color) => onDocChange(setObjectColor(doc, id, color))}
+        onAutoColor={(id) => {
+          const next = autoColorObject(doc, id);
+          if (next !== doc) onDocChange(next);
+        }}
       />
 
       <button

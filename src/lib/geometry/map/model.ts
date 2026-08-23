@@ -64,6 +64,12 @@ export interface GeometryMapDoc {
    * painted the same — even after the label text changes.
    */
   colors?: Record<GeoId, string>;
+  /**
+   * How far the automatic colour sequence has advanced. A manual colour is an
+   * override for ONE object and never moves this cursor, so the next object
+   * picked continues the original sequence.
+   */
+  colorCursor?: number;
 }
 
 /** Teacher palette for object colouring. */
@@ -75,6 +81,9 @@ export const OBJECT_COLORS: { name: string; value: string }[] = [
   { name: "Amber", value: "#d97706" },
   { name: "Purple", value: "#7c3aed" },
 ];
+
+/** The automatic colour sequence: Red → Blue → Yellow → Red → … */
+export const COLOR_SEQUENCE: string[] = ["#e11d48", "#2563eb", "#d97706"];
 
 export type MapStatus = "none" | "ready" | "stale";
 
@@ -202,6 +211,9 @@ function sanitizeMap(raw: unknown): GeometryMapDoc | null {
   }
   return {
     ...(Object.keys(colors).length ? { colors } : {}),
+    ...(typeof r.colorCursor === "number" && r.colorCursor >= 0
+      ? { colorCursor: Math.floor(r.colorCursor) }
+      : {}),
     version: 2,
     published: !!r.published,
     generatedFromSolution: !!r.generatedFromSolution,
@@ -409,4 +421,35 @@ export function labelOwnerColor(
   label: { id: GeoId; ownerId?: GeoId },
 ): string | undefined {
   return objectColor(doc, label.ownerId ?? label.id);
+}
+
+/**
+ * Give a newly touched object the next colour in the sequence. Objects that
+ * already carry a colour (automatic or manual) are left alone, and a manual
+ * override never advances the sequence — so the next automatic assignment
+ * continues Red → Blue → Yellow exactly where the sequence stood.
+ */
+export function autoColorObject(doc: GeometryMapDoc, id: GeoId): GeometryMapDoc {
+  const key = baseId(id);
+  if (doc.colors?.[key]) return doc;
+  const cursor = doc.colorCursor ?? 0;
+  const color = COLOR_SEQUENCE[cursor % COLOR_SEQUENCE.length];
+  return {
+    ...doc,
+    colors: { ...(doc.colors ?? {}), [key]: color },
+    colorCursor: cursor + 1,
+  };
+}
+
+/** Token → colour, for painting each geometry reference inside a property. */
+export function itemTokenColors(
+  doc: GeometryMapDoc,
+  item: GeometryMapItem,
+): { token: string; color: string }[] {
+  const out: { token: string; color: string }[] = [];
+  for (const t of item.tokens ?? []) {
+    const color = objectColor(doc, t.objectId);
+    if (color && t.token) out.push({ token: t.token, color });
+  }
+  return out.sort((a, b) => b.token.length - a.token.length);
 }
