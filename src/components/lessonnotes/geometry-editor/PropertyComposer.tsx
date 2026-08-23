@@ -74,9 +74,6 @@ export function PropertyComposer({
   const [boardText, setBoardText] = useState("");
   const [picking, setPicking] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
-  /** Object ids referenced by the expression, with the label they were
-   *  inserted as, so a removed reference drops its id on save. */
-  const [refs, setRefs] = useState<{ id: GeoId; label: string }[]>([]);
   const [insertRequest, setInsertRequest] =
     useState<{ nonce: number; node?: MathNode; text?: string } | null>(null);
   const nonce = useRef(0);
@@ -86,16 +83,15 @@ export function PropertyComposer({
     setInsertRequest({ nonce: nonce.current, ...req });
   };
 
-  // Pick mode: EVERY click on the diagram is inserted at the caret — including
-  // a repeat click on the part that is already selected, so the sensor never
-  // goes quiet and no double-clicking is needed.
+  // Pick mode: EVERY click on the diagram inserts a geometry-reference BOX at
+  // the caret — including a repeat click on the part that is already selected,
+  // so the sensor never goes quiet. The box carries the object's id; the text
+  // it shows is only a label the teacher may freely edit.
   useEffect(() => {
     if (!picking) return;
     return onGeoPick((id) => {
-      const label = objectChipLabel(scene, id);
       onAutoColor?.(id);
-      request({ text: label });
-      setRefs((r) => (r.some((x) => x.id === id && x.label === label) ? r : [...r, { id, label }]));
+      request({ node: mkGeoRef(id, objectChipLabel(scene, id)) });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picking, scene]);
@@ -104,13 +100,14 @@ export function PropertyComposer({
     try { return normalizeMathSource(treeToLatex(root)).trim(); } catch { return ""; }
   }, [root]);
 
-  /** Only references the teacher kept in the expression stay linked. */
+  /** Links come from the boxes still present in the tree — not from wording. */
   const tokens = useMemo(
     () =>
-      refs
-        .filter((r) => statement.includes(r.label))
-        .map((r) => ({ token: r.label, objectId: r.id })),
-    [refs, statement],
+      collectGeoRefs(root).map((r) => ({
+        token: r.label,
+        objectId: r.objectId as GeoId,
+      })),
+    [root],
   );
   const objectIds = useMemo(
     () => [...new Set(tokens.map((t) => t.objectId))],
@@ -122,6 +119,7 @@ export function PropertyComposer({
     onHighlight(objectIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objectIds.join(",")]);
+
 
   const reset = () => {
     setRoot([]);
