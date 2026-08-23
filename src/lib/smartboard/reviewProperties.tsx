@@ -20,6 +20,8 @@ export interface ReviewDiagram {
 interface ReviewState {
   /** Panel open state — closed by default; the diagram keeps the full board. */
   open: boolean;
+  /** True when the review runs as its own full-screen relationship page. */
+  fullscreen: boolean;
   /** Diagrams currently on the board that carry reviewable properties. */
   candidates: ReviewDiagram[];
   /** The diagram whose properties are being reviewed. */
@@ -33,6 +35,7 @@ const registry = new Map<string, ReviewDiagram>();
 
 let state: ReviewState = {
   open: false,
+  fullscreen: false,
   candidates: [],
   active: null,
   selectedObjectId: null,
@@ -75,8 +78,19 @@ export const reviewProperties = {
     emit(
       open
         ? { open: true, active: state.active ?? state.candidates[0] ?? null }
-        : { open: false, active: null, selectedObjectId: null, activePropertyId: null, highlightIds: [] },
+        : { open: false, fullscreen: false, active: null, selectedObjectId: null, activePropertyId: null, highlightIds: [] },
     );
+  },
+  /** Open the review for ONE specific diagram (the icon beside it). */
+  openFor(diagram: ReviewDiagram, fullscreen = false) {
+    emit({
+      open: true,
+      fullscreen,
+      active: diagram,
+      selectedObjectId: null,
+      activePropertyId: null,
+      highlightIds: [],
+    });
   },
   /** A presented diagram announces itself (pass null to withdraw). */
   register(diagram: ReviewDiagram | null, key: string) {

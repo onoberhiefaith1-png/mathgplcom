@@ -56,7 +56,12 @@ interface Props {
    * over the same geometry so clicking reports the object's stable id.
    */
   onPickObject?: (id: string) => void;
-
+  /**
+   * Board zoom. The whole figure — geometry, labels and ink weight — grows or
+   * shrinks by this factor while keeping its exact proportions, so zooming the
+   * Smartboard scales the diagram just like it scales the writing.
+   */
+  zoom?: number;
 }
 
 
@@ -113,7 +118,7 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, presentation = false, crop = false, highlightIds, onPickObject }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, presentation = false, crop = false, highlightIds, onPickObject, zoom }: Props) {
   const baseStroke = stroke ?? STROKE;
   const pad = 24;
   const cropped = presentation || crop;
@@ -127,13 +132,19 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   const occupiedH = Math.max(1, occupied.maxY - occupied.minY);
   const W = cropped ? occupiedW + pad * 2 : Math.max(vb.W, minViewW ?? 0);
   const H = cropped ? occupiedH + pad * 2 : Math.max(vb.H, minViewH ?? 0);
-  const displayW = explicitWidth ?? (presentation ? Math.min(Math.max(W * 1.35, 420), 860) : large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
-  const displayH = explicitHeight ?? (displayW / W) * H;
+  const baseW = explicitWidth ?? (presentation ? Math.min(Math.max(W * 1.35, 420), 860) : large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
+  const baseH = explicitHeight ?? (baseW / W) * H;
+  // Board zoom multiplies width AND height by the same factor, so the figure
+  // keeps its dimensions exactly and never distorts.
+  const zoomFactor = Number.isFinite(zoom) && (zoom as number) > 0 ? (zoom as number) : 1;
+  const displayW = baseW * zoomFactor;
+  const displayH = baseH * zoomFactor;
 
   // Examination-textbook ink: the figure must never look heavier than the
   // numbers beside it. The SVG is scaled to fit, which would multiply the
   // stroke, so the weight is divided back out to land at ~1.1px on screen.
-  const displayScale = W > 0 ? displayW / W : 1;
+  // Ink weight is computed at the UNZOOMED scale so strokes grow with zoom.
+  const displayScale = W > 0 ? baseW / W : 1;
   const inkWeight = (presentation ? 2 : 1.1) / (displayScale || 1);
 
   const highlight = useMemo(

@@ -591,10 +591,12 @@ function GeometryDiagramNodeView(props: NodeViewProps) {
 }
 
 export function PresentationGeometryDiagram({
-  scene, pageLayer, highlightIds, onPickObject,
+  scene, pageLayer, highlightIds, onPickObject, zoom,
 }: {
   scene: GeometryScene;
   pageLayer?: boolean;
+  /** Board zoom — the diagram scales with the writing, keeping proportions. */
+  zoom?: number;
   /** Review Properties: object ids to light up. */
   highlightIds?: string[];
   /** Review Properties: report the clicked object's stable id. */
@@ -612,6 +614,7 @@ export function PresentationGeometryDiagram({
           scene={group}
           presentation
           className="sb-geometry-diagram"
+          zoom={zoom}
           highlightIds={highlightIds}
           onPickObject={onPickObject}
         />

@@ -37,7 +37,36 @@ export interface SolutionObject {
   floatable?: boolean;
   /** Persistent diagram identity carried from the lesson-note node. */
   diagramId?: string | null;
+  /** PLACEMENT HOME — the session this object belongs to, recorded once when
+   *  the note is parsed so the Smartboard never has to re-derive it:
+   *  `<segmentIndex>:<kind>:<ordinal>` e.g. "3:example:2". */
+  sectionKey?: string | null;
+  /** Human label of the owning session ("Example 2", "Introduction"). */
+  sectionLabel?: string | null;
+  /** Zero-based position of this object among the objects of its session. */
+  sectionOrdinal?: number;
+  /** Document order of the owning session in the lesson note. */
+  sectionIndex?: number;
 }
+
+/** PLACEMENT LAW: objects render in the order
+ *  (owning session → position inside that session → line they follow).
+ *  Legacy records without a home fall back to their saved order. */
+export const compareObjectPlacement = (a: SolutionObject, b: SolutionObject): number => {
+  const ai = Number.isFinite(a.sectionIndex as number) ? (a.sectionIndex as number) : Number.MAX_SAFE_INTEGER;
+  const bi = Number.isFinite(b.sectionIndex as number) ? (b.sectionIndex as number) : Number.MAX_SAFE_INTEGER;
+  if (ai !== bi) return ai - bi;
+  const al = a.afterLine ?? 0;
+  const bl = b.afterLine ?? 0;
+  if (al !== bl) return al - bl;
+  const ao = Number.isFinite(a.sectionOrdinal as number) ? (a.sectionOrdinal as number) : 0;
+  const bo = Number.isFinite(b.sectionOrdinal as number) ? (b.sectionOrdinal as number) : 0;
+  return ao - bo;
+};
+
+/** Stable placement sort (never mutates the input). */
+export const sortByPlacement = (objects: SolutionObject[]): SolutionObject[] =>
+  [...(objects ?? [])].sort(compareObjectPlacement);
 
 /** Node types that carry prose / equations — never objects. */
 const TEXTUAL = new Set([
@@ -196,6 +225,11 @@ export const readSolutionObjects = (contentJson: any): SolutionObject[] => {
       layer: objectLayer(family, o?.inSolution === true),
       floatable: !isDiagramFamily(family),
       diagramId: typeof (attrs as any)?.diagramId === "string" ? (attrs as any).diagramId : null,
+      // Placement home survives every re-save; legacy rows simply have none.
+      sectionKey: typeof o?.sectionKey === "string" ? o.sectionKey : null,
+      sectionLabel: typeof o?.sectionLabel === "string" ? o.sectionLabel : null,
+      sectionOrdinal: Number.isFinite(Number(o?.sectionOrdinal)) ? Number(o.sectionOrdinal) : undefined,
+      sectionIndex: Number.isFinite(Number(o?.sectionIndex)) ? Number(o.sectionIndex) : undefined,
     });
   }
   return out;
@@ -219,7 +253,7 @@ export const assignNoteObjects = <T,>(
   const leading: SolutionObject[] = [];
   const noteObjects = (objects ?? [])
     .filter((o) => !isFloatableObject(o))
-    .sort((a, b) => a.afterLine - b.afterLine);
+    .sort(compareObjectPlacement);
   for (const object of noteObjects) {
     // The object sits immediately BEFORE its `afterLine`.
     const pos = object.afterLine - 0.5;

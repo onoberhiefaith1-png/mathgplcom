@@ -148,6 +148,7 @@ import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewProperties";
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
+import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { itemObjectIds } from "@/lib/geometry/map/model";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import {
@@ -5082,7 +5083,47 @@ const PresentationView = ({
 
       {/* Review Properties dock — a right column, ~1/5 of the board, opened
           only by the top-bar button and closed with its own ✕. */}
-      {review.open && review.active && (
+      {/* RELATIONSHIP PAGE — opened from the Properties icon beside a diagram.
+          A clean full screen: the diagram alone, with its properties on the
+          right, and one way back to the board. */}
+      {review.open && review.fullscreen && review.active && (
+        <div className="absolute inset-0 z-[90] flex flex-col bg-white md:flex-row">
+          <div className="relative flex flex-1 items-center justify-center overflow-auto p-6">
+            <button
+              type="button"
+              onClick={() => reviewProperties.setOpen(false)}
+              className="absolute left-4 top-4 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
+            >
+              &larr; Back to board
+            </button>
+            <PresentationGeometryDiagram
+              scene={review.active.scene}
+              highlightIds={review.highlightIds}
+              onPickObject={(id) =>
+                review.active && reviewProperties.pickObject(review.active, id)
+              }
+            />
+          </div>
+          <div className="h-[45%] w-full shrink-0 overflow-auto border-t border-slate-200 md:h-full md:w-[30%] md:min-w-[280px] md:border-l md:border-t-0">
+            <ReviewPropertiesPanel
+              scene={review.active.scene}
+              role={isTeacher ? "teacher" : "student"}
+              selectedObjectId={review.selectedObjectId}
+              activePropertyId={review.activePropertyId}
+              onPickProperty={(item) => {
+                if (!item || !review.active) {
+                  reviewProperties.pickProperty(null, []);
+                  return;
+                }
+                reviewProperties.pickProperty(item.id, itemObjectIds(item));
+              }}
+              onClose={() => reviewProperties.setOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {review.open && !review.fullscreen && review.active && (
         <div className="absolute inset-x-0 bottom-0 z-[70] h-[62%] w-full overflow-auto overscroll-contain rounded-t-2xl shadow-2xl md:inset-x-auto md:bottom-auto md:right-0 md:top-0 md:h-full md:w-[20%] md:min-w-[240px] md:overflow-visible md:rounded-none md:shadow-none">
           <ReviewPropertiesPanel
             scene={review.active.scene}
@@ -5600,6 +5641,7 @@ const PresentationView = ({
                   topic={notebook?.subject ?? ""}
                   subtopic={notebook?.subtopic ?? ""}
                   dateLabel={today()}
+                  zoom={zoom}
                 />
               </div>
             </div>
@@ -6115,8 +6157,12 @@ const PresentationView = ({
                     </div>
                     <div className="space-y-6">
                       {revealedNoteObjects.map((o) => (
-                        <div key={o.objId} className="lesson-doc sb-board-object w-full max-w-full">
-                          <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation />
+                        <div
+                          key={o.objId}
+                          className="lesson-doc sb-board-object w-full max-w-full"
+                          style={{ fontSize: `${zoom}rem` }}
+                        >
+                          <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation zoom={zoom} />
                         </div>
                       ))}
                     </div>
@@ -7142,10 +7188,12 @@ const PresentationView = ({
 
 const BeatBlock = ({
   beat, isCurrent, ink, placeholderColor, accent, jitter,
-  notebookTitle, topic, subtopic, dateLabel,
+  notebookTitle, topic, subtopic, dateLabel, zoom = 1,
 }: {
   beat: Beat;
   isCurrent: boolean;
+  /** Board zoom — diagrams and objects scale with the writing. */
+  zoom?: number;
   ink: string;
   placeholderColor: string;
   accent: string;
@@ -7172,9 +7220,9 @@ const BeatBlock = ({
           <div
             key={o.objId}
             className="lesson-doc sb-board-object w-full max-w-full"
-            style={{ fontSize: "1rem" }}
+            style={{ fontSize: `${zoom}rem` }}
           >
-            <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation />
+            <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation zoom={zoom} />
           </div>
         ))}
       </div>
@@ -7201,8 +7249,12 @@ const BeatBlock = ({
         {Array.from({ length: lines.length + 1 }, (_, index) => (
           <div key={`${b.id}-flow-${index}`}>
             {(slots.get(index) ?? []).map((object) => (
-              <div key={object.objId} className="lesson-doc sb-board-object my-7 w-full max-w-full">
-                <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs ?? {}} presentation />
+              <div
+                key={object.objId}
+                className="lesson-doc sb-board-object my-7 w-full max-w-full"
+                style={{ fontSize: `${zoom}rem` }}
+              >
+                <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs ?? {}} presentation zoom={zoom} />
               </div>
             ))}
             {index < lines.length && lines[index].trim() && (

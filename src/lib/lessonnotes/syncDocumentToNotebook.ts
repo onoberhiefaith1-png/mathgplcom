@@ -13,7 +13,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { type SectionKind } from "@/lib/lessonnotes/sectionKinds";
-import { buildLessonOutline, renderSegmentBody } from "@/lib/lessonnotes/lessonOutline";
+import { buildLessonOutline, renderSegmentBody, segmentHome } from "@/lib/lessonnotes/lessonOutline";
 import { type SolutionObject } from "@/lib/floating/solutionItems";
 
 type Node = any;
@@ -77,7 +77,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
 
   for (const seg of segments) {
     if (seg.kind === "solution") {
-      const body = renderSegmentBody(seg.nodes, true);
+      const body = renderSegmentBody(seg.nodes, true, segmentHome(seg));
       const host = lastQuestion?.subsections[lastQuestion.subsections.length - 1];
       if (host) {
         host.solution = [host.solution, body.text].filter(Boolean).join("\n");
@@ -92,7 +92,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
     if (isQuestionKind(seg.kind)) {
       // EVERY question segment owns exactly one subsection, even when empty,
       // so the Floating workspace can always be opened for it.
-      const body = renderSegmentBody(seg.nodes, false);
+      const body = renderSegmentBody(seg.nodes, false, segmentHome(seg));
       const section: ParsedSection = {
         kind: seg.kind,
         loose: [],
@@ -109,7 +109,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
       continue;
     }
 
-    const body = renderSegmentBody(seg.nodes, false);
+    const body = renderSegmentBody(seg.nodes, false, segmentHome(seg));
     out.push({
       kind: seg.kind,
       loose: body.text ? [body.text] : [],
