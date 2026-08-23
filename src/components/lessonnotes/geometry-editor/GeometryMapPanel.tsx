@@ -348,6 +348,7 @@ export function GeometryMapPanel({
               item={item}
               scene={scene}
               active={activeId === item.id}
+              colorForObject={(oid) => objectColor(doc, oid)}
               onPick={() => pick(item)}
               onEdit={() => setEditingId(item.id)}
               onToggle={() => onDocChange(upsertMapItem(doc, { ...item, enabled: !item.enabled }))}
