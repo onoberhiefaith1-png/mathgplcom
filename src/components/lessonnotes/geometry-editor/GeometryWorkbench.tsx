@@ -16,7 +16,9 @@ import { GeometryModeProvider, useGeometryMode } from "./GeometryModeContext";
 import { GeometryToolbox } from "./GeometryToolbox";
 import { DiagramToolsPanel } from "./DiagramToolsPanel";
 import { SelectionInspector } from "./SelectionInspector";
+import { ResponsivePanel, useSheetPanels } from "@/components/ui/responsive-panel";
 import { cn } from "@/lib/utils";
+
 
 interface Props {
   scene: GeometryScene;
