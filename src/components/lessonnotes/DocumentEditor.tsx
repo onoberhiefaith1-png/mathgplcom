@@ -3759,21 +3759,47 @@ function NotebookGeometryOverlay({
   }), [storedScene, paperSize.width, paperSize.height]);
 
   const geometryEditor = useGeometryEditor(scene, (next) => {
+    // A user-driven change: an empty result here IS a real erase, so the saved
+    // copy in the note may now follow the drawing down to nothing.
+    if ((next.objects?.length ?? 0) === 0) erasedRef.current = true;
     setStoredScene(next);
     saveNotebookGeometry(notebookId, next);
   });
 
   // Every change to the page drawing is written into the document too, so the
   // note's own autosave persists it and the Smartboard can render it.
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => {
+    if (!tiptapEditor) return;
+    try {
+      syncPageGeometryNode(
+        tiptapEditor, storedScene, paperLayerRef.current, notebookId, erasedRef.current,
+      );
+    } catch { /* never break the editor for a diagram save */ }
+  };
+
   useEffect(() => {
     if (!tiptapEditor) return;
-    const t = window.setTimeout(() => {
-      try {
-        syncPageGeometryNode(tiptapEditor, storedScene, paperLayerRef.current, notebookId);
-      } catch { /* never break the editor for a diagram save */ }
-    }, 500);
+    const t = window.setTimeout(() => flushRef.current(), 500);
     return () => window.clearTimeout(t);
   }, [storedScene, tiptapEditor, paperLayerRef, notebookId]);
+
+  // Leaving the page (tab hide, close, sign-out, unmount) must never lose the
+  // last strokes — write them into the document immediately.
+  useEffect(() => {
+    const flush = () => flushRef.current();
+    const onVisibility = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flush();
+    };
+  }, []);
+
 
 
   // Entrance to the existing Geometry Properties workspace (same scene).
