@@ -14,7 +14,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Hand, RotateCcw, Trash2 } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
-import { objectChipLabel } from "@/lib/geometry/map/model";
+import { objectChipLabel, OBJECT_COLORS } from "@/lib/geometry/map/model";
+import { onGeoPick } from "@/lib/geometry/pickBus";
 import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
@@ -142,7 +143,7 @@ export function PropertyComposer({
         </p>
         <button
           type="button"
-          onClick={() => { setPicking((p) => !p); lastPicked.current = null; }}
+          onClick={() => setPicking((p) => !p)}
           className={`inline-flex items-center gap-1 rounded-full border px-2 py-[2px] text-[10.5px] ${
             picking ? "border-primary bg-primary text-primary-foreground" : "border-foreground/25"
           }`}
