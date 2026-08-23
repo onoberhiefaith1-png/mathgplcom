@@ -12,12 +12,13 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft, Info, MonitorPlay } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
 import { GeometryWorkbench } from "./GeometryWorkbench";
 import { GeometryMapPanel, type MapContext } from "./GeometryMapPanel";
 import { keepLiveIds, readMap, writeMap } from "@/lib/geometry/map/model";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
+import { SmartboardPropertyTest } from "./SmartboardPropertyTest";
 
 interface Props {
   scene: GeometryScene;
@@ -61,6 +62,7 @@ export function GeometryPropertiesWorkspace({
   // workspace's own Back button is ever unreachable.
   useEscapeClose(onClose);
   const [rawHighlight, setRawHighlight] = useState<GeoId[]>([]);
+  const [testing, setTesting] = useState(false);
   const doc = readMap(scene);
   const empty = scene.objects.length === 0;
   const ctx: MapContext = context ?? {
@@ -84,6 +86,14 @@ export function GeometryPropertiesWorkspace({
           className="inline-flex items-center gap-1.5 rounded-md border border-black/15 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 hover:bg-black/5"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Lesson Note
+        </button>
+        <button
+          type="button"
+          onClick={() => setTesting(true)}
+          disabled={empty}
+          className="inline-flex items-center gap-1.5 rounded-md border border-black/15 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 hover:bg-black/5 disabled:opacity-50"
+        >
+          <MonitorPlay className="h-3.5 w-3.5" /> Test on Smartboard
         </button>
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold tracking-tight text-slate-900">
@@ -157,6 +167,9 @@ export function GeometryPropertiesWorkspace({
         </span>
       </footer>
 
+      {testing && (
+        <SmartboardPropertyTest scene={scene} onClose={() => setTesting(false)} />
+      )}
     </div>
   );
 
