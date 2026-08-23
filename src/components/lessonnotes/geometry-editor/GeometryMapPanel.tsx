@@ -17,6 +17,9 @@ import {
   keepLiveIds, mapInventory, mapStatus, newMapItemId, objectChipLabel, pathway,
   removeMapItem, reorderMap, stripNumericAnswers, upsertMapItem,
   type GeometryMapDoc, type GeometryMapItem,
+  objectColor,
+  setObjectColor,
+  itemsForObject,
 } from "@/lib/geometry/map/model";
 import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
 import { MathText } from "@/lib/geometry/map/renderStatement";
@@ -183,7 +186,7 @@ export function GeometryMapPanel({
   };
 
   const shown = onlyThisPart && targetId
-    ? items.filter((i) => i.objectIds.includes(targetId))
+    ? itemsForObject(items, targetId)
     : items;
 
   const nodes = pathway(doc);
