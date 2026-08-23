@@ -78,8 +78,19 @@ export const reviewProperties = {
     emit(
       open
         ? { open: true, active: state.active ?? state.candidates[0] ?? null }
-        : { open: false, active: null, selectedObjectId: null, activePropertyId: null, highlightIds: [] },
+        : { open: false, fullscreen: false, active: null, selectedObjectId: null, activePropertyId: null, highlightIds: [] },
     );
+  },
+  /** Open the review for ONE specific diagram (the icon beside it). */
+  openFor(diagram: ReviewDiagram, fullscreen = false) {
+    emit({
+      open: true,
+      fullscreen,
+      active: diagram,
+      selectedObjectId: null,
+      activePropertyId: null,
+      highlightIds: [],
+    });
   },
   /** A presented diagram announces itself (pass null to withdraw). */
   register(diagram: ReviewDiagram | null, key: string) {
