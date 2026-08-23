@@ -56,8 +56,10 @@ export function GeometryWorkbench(props: Props) {
 function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds, relatedIds, emphasisIds, hideLeftTools }: Props) {
   const editor = useGeometryEditor(scene, onChange);
   const { mode, setMode, tool } = useGeometryMode();
+  const phone = useSheetPanels();
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+
 
   // The workbench is always in Geometry Mode — that is what makes the canvas
   // live and the tool panels visible.
