@@ -5099,6 +5099,22 @@ const PresentationView = ({
           <ArrowLeft className="h-3.5 w-3.5" /> Shelf
         </button>
 
+        {/* REVIEW PROPERTIES — reviews the teacher-authored Geometry Properties
+            of the diagram already on this board. Never opens on its own. */}
+        {review.candidates.length > 0 && (
+          <button
+            onClick={() => reviewProperties.setOpen(!review.open)}
+            className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide"
+            style={review.open
+              ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
+              : { color: palette.chromeFg, borderColor: palette.chromeBorder }}
+            title="Review the properties attached to this diagram"
+          >
+            Review properties
+          </button>
+        )}
+
+
         {/* WORKSPACE SWITCH — a two-sided control: left is this writing
             workspace, right is the companion Lesson Note page of the same note. */}
         <span
