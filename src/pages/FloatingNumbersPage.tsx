@@ -74,8 +74,9 @@ const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto
   ? (crypto as any).randomUUID()
   : `id-${Math.random().toString(36).slice(2)}`);
 
-const linesFromSolution = (sol: string): { id: string; text: string }[] =>
-  sol.split("\n").map((l) => l.trim()).filter(Boolean).map((text) => ({ id: newId(), text }));
+// SELECTION LAW: there is deliberately NO solution→lines derivation here.
+// Only the Highlighting Page decides what becomes a Floating Number.
+
 
 /**
  * Teacher chips are the source of truth. Save/reload must not reinterpret
@@ -673,21 +674,13 @@ const FloatingNumbersPage = () => {
           });
         }
         setLines(reconciled);
-      } else if (persisted && Array.isArray(persisted) && persisted.length > 0) {
-        // Legacy: no highlights — show previously generated lines if any.
-        setLines(persisted.map(normalizeFloatingLine));
       } else {
-        // Legacy flow (no highlights): seed empty lines from raw solution.
-        setLines(
-          linesFromSolution(solution).map((l) => ({
-            lineId: l.id,
-            equation: l.text,
-            fillers: [],
-            containers: [],
-            arrangement: [],
-          })),
-        );
+        // SELECTION LAW: this page NEVER re-interprets the solution. With no
+        // saved highlights there is nothing to generate — the teacher must go
+        // back to the Highlighting Page and select content first.
+        setLines([]);
       }
+
       setLoading(false);
     })();
   }, [subsectionId, notebookId, navigate]);
@@ -1445,9 +1438,24 @@ const FloatingNumbersPage = () => {
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading…
             </div>
           ) : groups.length === 0 ? (
-            <div className="py-12 text-center text-sm text-foreground/55">
-              No solution lines yet. Generate the solution in the lesson note first.
+            <div className="py-12 text-center text-sm text-foreground/60 space-y-3">
+              <div className="font-medium" style={{ color: "hsl(220 35% 18%)" }}>
+                Nothing highlighted yet
+              </div>
+              <p className="max-w-md mx-auto">
+                This page only builds what you highlighted on the Floating Highlighting Page.
+                Highlight the parts of the solution you want to become Floating Numbers —
+                everything you leave unhighlighted stays as lesson notes.
+              </p>
+              <button
+                onClick={() => navigate(`/lesson-notes/${notebookId}/floating-prep/${subsectionId}`)}
+                className="text-xs px-3 py-1.5 rounded-md border border-foreground/25"
+                style={{ color: "hsl(220 35% 18%)" }}
+              >
+                Go to Floating Highlighting Page
+              </button>
             </div>
+
           ) : (
             <div className="space-y-1" ref={workspaceRef}>
               <NoteObjectCard objects={leadingNoteObjects} />

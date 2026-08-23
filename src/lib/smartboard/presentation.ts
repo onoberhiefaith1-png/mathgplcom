@@ -222,6 +222,49 @@ const parseSolutionExplanations = (
 
 };
 
+/** SELECTION LAW fallback: with no teacher highlights, nothing floats. The
+ *  lesson still reaches the board as NOTES — one note-only row per prose
+ *  block, in source order, with every notes-layer diagram attached to the
+ *  row above it (or to its own leading row when it precedes all prose). */
+const notesOnlyRows = (
+  parsed: { equation: string; explanation?: string }[],
+  noteObjects: SolutionObject[],
+): Array<{
+  equation: string;
+  fillers: string[];
+  containers: ContainerKind[];
+  notebook?: string;
+  notebookOnly?: boolean;
+  noteObjects?: SolutionObject[];
+}> => {
+  const rows = parsed
+    .map((p) => String(p.explanation ?? "").trim())
+    .filter(Boolean)
+    .map((notebook) => ({
+      equation: "",
+      fillers: [] as string[],
+      containers: [] as ContainerKind[],
+      notebook,
+      notebookOnly: true,
+      noteObjects: undefined as SolutionObject[] | undefined,
+    }));
+  const diagrams = (noteObjects ?? []).filter((o) => !isFloatableObject(o));
+  if (diagrams.length === 0) return rows;
+  if (rows.length === 0) {
+    return [{
+      equation: "",
+      fillers: [],
+      containers: [],
+      notebook: undefined,
+      notebookOnly: true,
+      noteObjects: diagrams,
+    }];
+  }
+  rows[rows.length - 1].noteObjects = diagrams;
+  return rows;
+};
+
+
 /** Deterministic per-line shuffle so floating chips never appear in the
  *  equation's natural order. Seeded by `${subId}-line-${k}` so reopening the
  *  lesson yields the same arrangement. */
@@ -398,11 +441,26 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // onto lines whose Floating Panel entry had no note. Never restore.
       // Whole-object highlights: a highlighted TABLE expands into the lines
       // its workspace generated (matched by objId on the saved floating
-      // lines). Other objects (diagrams) are still skipped.
+      // lines). Any other object (a diagram) can NEVER float — but its note
+      // content must not vanish with it, so the row is converted into a
+      // note-only row carrying the diagram as note content.
       const rawHighlights = ((sub as any).floating_highlights as
         | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean; object?: any; noteObjects?: any }[]
         | null
-        | undefined)?.filter((h) => !h?.object || h.object?.family === "table");
+        | undefined)?.map((h) => {
+          if (!h?.object || h.object?.family === "table") return h;
+          return {
+            ...h,
+            object: undefined,
+            payload: "",
+            notebookOnly: true,
+            noteObjects: [
+              ...(Array.isArray(h.noteObjects) ? h.noteObjects : []),
+              h.object,
+            ],
+          };
+        });
+
 
       // Per-line answer key — preferred path when the Lesson Note has been
       // saved with structured floating_lines. Each line contributes its
@@ -410,7 +468,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       const lines: ReservoirLine[] = [];
       const fragmentsFromLines: string[] = [];
       const solutionBlock = findBlock(sub.blocks, "solution");
-      const solutionLines = splitSolutionLines(solutionBlock?.content_ascii);
+      // NOTE: the solution text is never split into floating fragments here.
       // Walk the FULL solution text (math + prose) so we can attach any
       // narrative explanation directly to the equation it follows.
       const parsedSolution = parseSolutionExplanations(solutionBlock?.content_ascii);
@@ -470,7 +528,15 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           }, [])
         : rawLines && rawLines.length > 0
           ? rawLines
-          : solutionLines.map((equation) => ({ equation, fillers: fillersFromEquation(equation), containers: detectStructures(equation) as ContainerKind[] }));
+          // SELECTION LAW: nothing was highlighted, so nothing floats. The
+          // solution is NOT re-interpreted into floating fragments. Instead
+          // the board still shows the lesson content as NOTES: unhighlighted
+          // prose becomes note text and every notes-layer diagram rides it.
+          : notesOnlyRows(
+              parsedSolution,
+              solutionNotesObjects(solutionBlock),
+            );
+
 
       if (sourceLines && sourceLines.length > 0) {
         for (let k = 0; k < sourceLines.length; k++) {
@@ -546,15 +612,14 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             : bucket?.viewRearranged && bucket.viewRearranged.length > 0
               ? cleanTeacherFragments(bucket.viewRearranged)
               : [];
-      const solutionFallback = dropContextualLeadingPlus(
-        cleanFragments(solutionLines.flatMap(fillersFromEquation)),
-      );
+      // SELECTION LAW: there is no solution-derived fragment fallback. Chips
+      // exist only where the teacher highlighted content; otherwise the
+      // reservoir carries notes only.
       const fragments: string[] =
         fragmentsFromLines.length > 0
           ? fragmentsFromLines
-          : bucketCombined.length > 0
-            ? bucketCombined
-            : solutionFallback;
+          : bucketCombined;
+
 
       // Parity guard: any teacher-sourced fragment must survive byte-identical.
       const teacherSource = (bucket?.fillers && bucket.fillers.length > 0)
