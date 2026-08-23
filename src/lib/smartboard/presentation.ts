@@ -485,7 +485,15 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           }, [])
         : rawLines && rawLines.length > 0
           ? rawLines
-          : solutionLines.map((equation) => ({ equation, fillers: fillersFromEquation(equation), containers: detectStructures(equation) as ContainerKind[] }));
+          // SELECTION LAW: nothing was highlighted, so nothing floats. The
+          // solution is NOT re-interpreted into floating fragments. Instead
+          // the board still shows the lesson content as NOTES: unhighlighted
+          // prose becomes note text and every notes-layer diagram rides it.
+          : notesOnlyRows(
+              parsedSolution,
+              solutionNotesObjects(solutionBlock),
+            );
+
 
       if (sourceLines && sourceLines.length > 0) {
         for (let k = 0; k < sourceLines.length; k++) {
