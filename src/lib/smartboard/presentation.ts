@@ -398,11 +398,26 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // onto lines whose Floating Panel entry had no note. Never restore.
       // Whole-object highlights: a highlighted TABLE expands into the lines
       // its workspace generated (matched by objId on the saved floating
-      // lines). Other objects (diagrams) are still skipped.
+      // lines). Any other object (a diagram) can NEVER float — but its note
+      // content must not vanish with it, so the row is converted into a
+      // note-only row carrying the diagram as note content.
       const rawHighlights = ((sub as any).floating_highlights as
         | { payload?: string; precedingNotebook?: string; notebookOnly?: boolean; object?: any; noteObjects?: any }[]
         | null
-        | undefined)?.filter((h) => !h?.object || h.object?.family === "table");
+        | undefined)?.map((h) => {
+          if (!h?.object || h.object?.family === "table") return h;
+          return {
+            ...h,
+            object: undefined,
+            payload: "",
+            notebookOnly: true,
+            noteObjects: [
+              ...(Array.isArray(h.noteObjects) ? h.noteObjects : []),
+              h.object,
+            ],
+          };
+        });
+
 
       // Per-line answer key — preferred path when the Lesson Note has been
       // saved with structured floating_lines. Each line contributes its
