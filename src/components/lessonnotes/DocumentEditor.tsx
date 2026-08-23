@@ -287,11 +287,40 @@ const pageGroupTop = (group: GeometryScene): number => {
   return ys.length ? Math.min(...ys) : Number.POSITIVE_INFINITY;
 };
 
+/**
+ * Read the saved page drawing back OUT of the document. The lesson note (and
+ * therefore the database) is the source of truth: local storage is only a
+ * same-browser cache. Every `pageLayer` carrier is merged into one scene,
+ * de-duplicated by object id.
+ */
+const sceneFromDocument = (editor: Editor): GeometryScene | null => {
+  const objects: GeometryScene["objects"] = [];
+  const seen = new Set<string>();
+  let bounds: GeometryScene["bounds"] | undefined;
+  editor.state.doc.descendants((node) => {
+    if (node.type.name !== "geometryDiagram" || !node.attrs?.pageLayer) return true;
+    const scene = sanitizeScene(node.attrs.scene) as GeometryScene | null;
+    if (!scene?.objects?.length) return true;
+    if (!bounds) bounds = scene.bounds;
+    for (const o of scene.objects) {
+      if (seen.has(o.id)) continue;
+      seen.add(o.id);
+      objects.push(o);
+    }
+    return true;
+  });
+  if (!objects.length) return null;
+  return { ...EMPTY_SCENE, bounds: bounds ?? EMPTY_SCENE.bounds, objects };
+};
+
 const syncPageGeometryNode = (
   editor: Editor,
   scene: GeometryScene,
   layer: HTMLElement | null,
   notebookId: string | undefined,
+  /** Saved diagrams are removed ONLY when the teacher actually erased them in
+   *  this session. An empty scene from a cold start never destroys the note. */
+  allowClear = false,
 ) => {
   const type = editor.schema.nodes.geometryDiagram;
   if (!type) return;
@@ -305,14 +334,15 @@ const syncPageGeometryNode = (
 
   const hasContent = (scene?.objects?.length ?? 0) > 0;
 
-  // Nothing drawn any more → drop every carrier.
+  // Nothing drawn any more → drop every carrier, but only on a real erase.
   if (!hasContent) {
-    if (!existing.length) return;
+    if (!existing.length || !allowClear) return;
     let tr = editor.state.tr;
     for (const e of [...existing].sort((a, b) => b.pos - a.pos)) tr = tr.delete(e.pos, e.pos + e.size);
     if (tr.docChanged) editor.view.dispatch(tr);
     return;
   }
+
 
   // One carrier per visually separate drawing, each anchored to the line it
   // was drawn beside — so the note's reading order is the board's order.
