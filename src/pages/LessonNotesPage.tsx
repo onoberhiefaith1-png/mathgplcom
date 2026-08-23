@@ -85,7 +85,10 @@ const LessonNotesPage = () => {
     query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
     // When someone else's shelf is being viewed read-only, show their notes.
     query = withOwnerView(query);
-    const { data, error } = await query.order("updated_at", { ascending: false });
+    // The note last worked on must always be the first note on the shelf.
+    const { data, error } = await query
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false });
     if (error) {
       toast({ title: "Could not load notebooks", description: error.message, variant: "destructive" });
     } else {
@@ -97,6 +100,19 @@ const LessonNotesPage = () => {
 
 
   useEffect(() => { setPage(0); load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [view]);
+
+  // Coming back from the editor must never show a stale shelf: the note just
+  // worked on is re-read whenever this page becomes visible again.
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") { setPage(0); load(); } };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [view]);
 
 
   const create = async (v: CreateNotebookValues) => {
@@ -263,21 +279,26 @@ const LessonNotesPage = () => {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
-              {pageItems.map((nb) => (
-                <NotebookCard
-                  key={nb.id}
-                  nb={nb}
-                  archived={view === "archive"}
-                  onOpen={() => navigate(`${livePrefix}/lesson-notes/${nb.id}`)}
-                  onPresent={() => navigate(`/smartboard/${nb.id}`)}
-                  onRename={() => renameNotebook(nb)}
-                  onDuplicate={() => duplicate(nb)}
-                  onCover={() => setCoverFor(nb)}
-                  onShare={() => setShareFor(nb)}
-                  onArchive={() => setArchived(nb, view !== "archive")}
-                  onDelete={() => deleteNotebook(nb)}
-
-                />
+              {pageItems.map((nb, i) => (
+                <div key={nb.id} className="relative">
+                  {view === "active" && page === 0 && i === 0 && (
+                    <span className="absolute -top-2 left-2 z-10 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow">
+                      Last worked on
+                    </span>
+                  )}
+                  <NotebookCard
+                    nb={nb}
+                    archived={view === "archive"}
+                    onOpen={() => navigate(`${livePrefix}/lesson-notes/${nb.id}`)}
+                    onPresent={() => navigate(`/smartboard/${nb.id}`)}
+                    onRename={() => renameNotebook(nb)}
+                    onDuplicate={() => duplicate(nb)}
+                    onCover={() => setCoverFor(nb)}
+                    onShare={() => setShareFor(nb)}
+                    onArchive={() => setArchived(nb, view !== "archive")}
+                    onDelete={() => deleteNotebook(nb)}
+                  />
+                </div>
               ))}
             </div>
             {totalPages > 1 && (
