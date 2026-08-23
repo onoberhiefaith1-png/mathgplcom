@@ -468,7 +468,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       const lines: ReservoirLine[] = [];
       const fragmentsFromLines: string[] = [];
       const solutionBlock = findBlock(sub.blocks, "solution");
-      const solutionLines = splitSolutionLines(solutionBlock?.content_ascii);
+      // NOTE: the solution text is never split into floating fragments here.
       // Walk the FULL solution text (math + prose) so we can attach any
       // narrative explanation directly to the equation it follows.
       const parsedSolution = parseSolutionExplanations(solutionBlock?.content_ascii);
