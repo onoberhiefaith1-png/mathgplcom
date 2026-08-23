@@ -20,6 +20,8 @@ export interface ReviewDiagram {
 interface ReviewState {
   /** Panel open state — closed by default; the diagram keeps the full board. */
   open: boolean;
+  /** True when the review runs as its own full-screen relationship page. */
+  fullscreen: boolean;
   /** Diagrams currently on the board that carry reviewable properties. */
   candidates: ReviewDiagram[];
   /** The diagram whose properties are being reviewed. */
