@@ -612,15 +612,14 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             : bucket?.viewRearranged && bucket.viewRearranged.length > 0
               ? cleanTeacherFragments(bucket.viewRearranged)
               : [];
-      const solutionFallback = dropContextualLeadingPlus(
-        cleanFragments(solutionLines.flatMap(fillersFromEquation)),
-      );
+      // SELECTION LAW: there is no solution-derived fragment fallback. Chips
+      // exist only where the teacher highlighted content; otherwise the
+      // reservoir carries notes only.
       const fragments: string[] =
         fragmentsFromLines.length > 0
           ? fragmentsFromLines
-          : bucketCombined.length > 0
-            ? bucketCombined
-            : solutionFallback;
+          : bucketCombined;
+
 
       // Parity guard: any teacher-sourced fragment must survive byte-identical.
       const teacherSource = (bucket?.fillers && bucket.fillers.length > 0)
