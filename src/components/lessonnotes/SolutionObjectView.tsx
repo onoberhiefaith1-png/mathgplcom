@@ -27,13 +27,9 @@ interface Props {
    *  mount themselves (the board is non-interactive, so nothing can click
    *  a "tap to explore" placeholder). */
   presentation?: boolean;
-  /** Review Properties: object ids to light up on a presented diagram. */
-  highlightIds?: string[];
-  /** Review Properties: report a clicked geometry object's stable id. */
-  onPickObject?: (id: string) => void;
 }
 
-export const SolutionObjectView = ({ nodeType, attrs, presentation = false, highlightIds, onPickObject }: Props) => {
+export const SolutionObjectView = ({ nodeType, attrs, presentation = false }: Props) => {
   // Set BEFORE the editor is created so the node views read it on first mount.
   if (presentation) setScene3DPresentationMode(true);
 
@@ -44,17 +40,19 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, high
   if (geometryScene) {
     // One diagram engine, one renderer: the board strengthens ink, every other
     // read-only surface renders it at note scale, cropped to the figure.
+    // On the board the same scene also becomes reviewable, so the teacher's
+    // Geometry Properties attach to these exact objects.
     return presentation
       ? (
-        <PresentationGeometryDiagram
+        <ReviewableBoardDiagram
           scene={geometryScene}
+          diagramId={String(attrs?.diagramId ?? "")}
           pageLayer={attrs?.pageLayer === true}
-          highlightIds={highlightIds}
-          onPickObject={onPickObject}
         />
       )
       : <InlineGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />;
   }
+
 
 
 
