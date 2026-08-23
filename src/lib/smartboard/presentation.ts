@@ -222,6 +222,49 @@ const parseSolutionExplanations = (
 
 };
 
+/** SELECTION LAW fallback: with no teacher highlights, nothing floats. The
+ *  lesson still reaches the board as NOTES — one note-only row per prose
+ *  block, in source order, with every notes-layer diagram attached to the
+ *  row above it (or to its own leading row when it precedes all prose). */
+const notesOnlyRows = (
+  parsed: { equation: string; explanation?: string }[],
+  noteObjects: SolutionObject[],
+): Array<{
+  equation: string;
+  fillers: string[];
+  containers: ContainerKind[];
+  notebook?: string;
+  notebookOnly?: boolean;
+  noteObjects?: SolutionObject[];
+}> => {
+  const rows = parsed
+    .map((p) => String(p.explanation ?? "").trim())
+    .filter(Boolean)
+    .map((notebook) => ({
+      equation: "",
+      fillers: [] as string[],
+      containers: [] as ContainerKind[],
+      notebook,
+      notebookOnly: true,
+      noteObjects: undefined as SolutionObject[] | undefined,
+    }));
+  const diagrams = (noteObjects ?? []).filter((o) => !isFloatableObject(o));
+  if (diagrams.length === 0) return rows;
+  if (rows.length === 0) {
+    return [{
+      equation: "",
+      fillers: [],
+      containers: [],
+      notebook: undefined,
+      notebookOnly: true,
+      noteObjects: diagrams,
+    }];
+  }
+  rows[rows.length - 1].noteObjects = diagrams;
+  return rows;
+};
+
+
 /** Deterministic per-line shuffle so floating chips never appear in the
  *  equation's natural order. Seeded by `${subId}-line-${k}` so reopening the
  *  lesson yields the same arrangement. */
