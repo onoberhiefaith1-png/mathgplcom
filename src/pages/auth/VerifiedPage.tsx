@@ -62,11 +62,12 @@ const VerifiedPage = () => {
         )}
 
         <Link
-          to={ready && user ? (subscribes ? "/plans/gateway" : "/") : "/login"}
+          to={ready && user ? "/" : "/login"}
           className="mt-7 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-amber-400 px-6 text-base font-semibold text-slate-900 transition hover:bg-amber-300"
         >
-          {ready && user ? (subscribes ? "Choose your plan" : "Enter MathGPL") : "Log in"}
+          {ready && user ? "Enter MathGPL" : "Log in"}
         </Link>
+
 
       </section>
     </main>
