@@ -74,8 +74,9 @@ const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto
   ? (crypto as any).randomUUID()
   : `id-${Math.random().toString(36).slice(2)}`);
 
-const linesFromSolution = (sol: string): { id: string; text: string }[] =>
-  sol.split("\n").map((l) => l.trim()).filter(Boolean).map((text) => ({ id: newId(), text }));
+// SELECTION LAW: there is deliberately NO solution→lines derivation here.
+// Only the Highlighting Page decides what becomes a Floating Number.
+
 
 /**
  * Teacher chips are the source of truth. Save/reload must not reinterpret
