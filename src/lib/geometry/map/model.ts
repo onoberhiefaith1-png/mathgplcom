@@ -211,6 +211,9 @@ function sanitizeMap(raw: unknown): GeometryMapDoc | null {
   }
   return {
     ...(Object.keys(colors).length ? { colors } : {}),
+    ...(typeof r.colorCursor === "number" && r.colorCursor >= 0
+      ? { colorCursor: Math.floor(r.colorCursor) }
+      : {}),
     version: 2,
     published: !!r.published,
     generatedFromSolution: !!r.generatedFromSolution,
