@@ -778,7 +778,9 @@ function renderObject(
     }
     case "label": {
       const lx = o.x + pad, ly = o.y + pad;
-      const rot = o.rotation ?? 0;
+      const rot = normalizeRotation(o.rotation);
+      // Pivot on the visual centre of the text so it spins in place.
+      const { cx, cy } = labelCenter({ ...o, x: lx, y: ly });
       return (
         <text
           {...TEXT_INK_PROPS}
@@ -787,7 +789,7 @@ function renderObject(
           fontFamily={LABEL_FONT} fontSize={o.fontSize ?? 13}
           fontStyle={o.italic ? "italic" : "normal"}
           fill={o.color ?? stroke} textAnchor="middle"
-          transform={rot ? `rotate(${rot} ${lx} ${ly})` : undefined}
+          transform={rot ? `rotate(${rot} ${cx} ${cy})` : undefined}
         >
           {o.text}
         </text>

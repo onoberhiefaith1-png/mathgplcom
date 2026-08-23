@@ -126,13 +126,14 @@ export function pickHit(scene: GeometryScene, x: number, y: number, hit = 8): Hi
   for (let i = scene.objects.length - 1; i >= 0; i--) {
     const o = scene.objects[i];
     if (o.type !== "label" || !o.text) continue;
-    const fs = o.fontSize ?? 13;
-    const w = Math.max(14, o.text.length * fs * 0.58);
-    const h = fs * 1.3;
+    const { width: w, height: h } = labelTextMetrics(o);
+    // Rotated text: map the pointer back into the text's own frame first so
+    // rotated words stay selectable and draggable.
+    const p = unrotatePoint({ x, y }, labelCenter(o), o.rotation ?? 0);
     // Text is centre-anchored on (x, y) with the baseline at y.
     if (
-      x >= o.x - w / 2 - 3 && x <= o.x + w / 2 + 3 &&
-      y >= o.y - h && y <= o.y + h * 0.35
+      p.x >= o.x - w / 2 - 3 && p.x <= o.x + w / 2 + 3 &&
+      p.y >= o.y - h && p.y <= o.y + h * 0.35
     ) {
       return { id: o.id, kind: "label" };
     }
