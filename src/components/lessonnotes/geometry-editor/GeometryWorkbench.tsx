@@ -125,6 +125,52 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
     return () => ro.disconnect();
   }, []);
 
+  // Phones: both tool columns move into bottom sheets so the drawing canvas
+  // gets the whole screen width. Desktop/tablet keep the pinned columns.
+  if (phone) {
+    return (
+      <div className={cn("relative flex h-full w-full min-h-0 flex-col gap-1 p-1", className)}>
+        <div className="flex shrink-0 items-center gap-2">
+          {hideLeftTools ? null : (
+            <button
+              type="button"
+              onClick={() => setLeftOpen(true)}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-foreground/15 px-3 text-xs font-semibold"
+            >
+              <PanelLeftOpen className="h-3.5 w-3.5" /> Tools
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setRightOpen(true)}
+            className="ml-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-foreground/15 px-3 text-xs font-semibold"
+          >
+            <PanelRightOpen className="h-3.5 w-3.5" /> {rightPanelTitle ?? "Diagram Tools"}
+          </button>
+        </div>
+
+        <div ref={areaRef} className="min-w-0 min-h-0 flex-1 overflow-auto overscroll-contain">
+          <GeometryCanvas
+            editor={editor}
+            stroke={stroke}
+            highlightIds={highlightIds}
+            relatedIds={relatedIds}
+            emphasisIds={emphasisIds}
+            minViewW={Math.max(0, area.w - 8)}
+            minViewH={Math.max(0, area.h - 8)}
+          />
+        </div>
+
+        <ResponsivePanel title="Geometry tools" open={leftOpen} onOpenChange={setLeftOpen} heightClass="h-[60vh]">
+          <GeometryToolbox inline onExit={() => setLeftOpen(false)} chrome={chrome} />
+        </ResponsivePanel>
+        <ResponsivePanel title={rightPanelTitle ?? "Diagram Tools"} open={rightOpen} onOpenChange={setRightOpen}>
+          {rightPanel}
+        </ResponsivePanel>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("relative flex h-full w-full min-h-0 gap-1 p-1", className)}>
       {hideLeftTools ? null : leftOpen ? (
@@ -142,6 +188,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
           <PanelLeftOpen className="h-3.5 w-3.5" />
         </button>
       )}
+
 
 
       {/* Transparent drawing area — no surface of its own, scrolls vertically
