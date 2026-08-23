@@ -51,7 +51,7 @@ export interface ComposedProperty {
 }
 
 export function PropertyComposer({
-  scene, targetId, onHighlight, onAdd, colorOf, onColor,
+  scene, targetId, onHighlight, onAdd, colorOf, onColor, onAutoColor,
 }: {
   scene: GeometryScene;
   /** Currently selected diagram object — inserted while picking. */
@@ -62,6 +62,12 @@ export function PropertyComposer({
   colorOf?: (id: GeoId) => string | undefined;
   /** Paint the selected diagram object (colour belongs to the object). */
   onColor?: (id: GeoId, color: string | null) => void;
+  /**
+   * A newly referenced object takes the next colour of the automatic sequence
+   * (Red → Blue → Yellow → …). Objects already coloured keep their colour, and
+   * a manual choice never resets the sequence.
+   */
+  onAutoColor?: (id: GeoId) => void;
 }) {
   const [root, setRoot] = useState<MathRow>([]);
   const [reason, setReason] = useState("");
@@ -87,6 +93,7 @@ export function PropertyComposer({
     if (!picking) return;
     return onGeoPick((id) => {
       const label = objectChipLabel(scene, id);
+      onAutoColor?.(id);
       request({ text: label });
       setRefs((r) => (r.some((x) => x.id === id && x.label === label) ? r : [...r, { id, label }]));
     });
