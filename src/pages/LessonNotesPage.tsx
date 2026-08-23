@@ -85,7 +85,10 @@ const LessonNotesPage = () => {
     query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
     // When someone else's shelf is being viewed read-only, show their notes.
     query = withOwnerView(query);
-    const { data, error } = await query.order("updated_at", { ascending: false });
+    // The note last worked on must always be the first note on the shelf.
+    const { data, error } = await query
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false });
     if (error) {
       toast({ title: "Could not load notebooks", description: error.message, variant: "destructive" });
     } else {
