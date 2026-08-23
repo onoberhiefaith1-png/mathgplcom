@@ -134,7 +134,10 @@ export function ReviewPropertiesPanel({
                         </p>
                       )}
                       <p className="text-[14px] leading-snug">
-                        <MathText value={item.boardText || item.relation} />
+                        <ColoredMathText
+                          value={item.boardText || item.relation}
+                          tokens={itemTokenColors(doc, item)}
+                        />
                       </p>
                       {item.explanation && (
                         <p className="mt-0.5 text-[11px] leading-snug opacity-70">
