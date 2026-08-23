@@ -5081,6 +5081,32 @@ const PresentationView = ({
 
 
 
+      {/* Review Properties dock — a right column, ~1/5 of the board, opened
+          only by the top-bar button and closed with its own ✕. */}
+      {review.open && review.active && (
+        <div className="absolute right-0 top-0 z-[70] h-full w-[20%] min-w-[240px]">
+          <ReviewPropertiesPanel
+            scene={review.active.scene}
+            role={isTeacher ? "teacher" : "student"}
+            selectedObjectId={review.selectedObjectId}
+            activePropertyId={review.activePropertyId}
+            onPickProperty={(item) => {
+              if (!item || !review.active) {
+                reviewProperties.pickProperty(null, []);
+                return;
+              }
+              const doc = readProperties(review.active.scene);
+              reviewProperties.pickProperty(item.id, propertyObjectIds(doc, item));
+            }}
+            onClose={() => reviewProperties.setOpen(false)}
+            fg={palette.chromeFg}
+            bg={palette.chromeBg}
+            border={palette.chromeBorder}
+            accent={palette.accent}
+          />
+        </div>
+      )}
+
       {/* Top chrome — narrow centered pill, slides out of view by default.
           Pull-tab at top-center reveals it. */}
       <header
