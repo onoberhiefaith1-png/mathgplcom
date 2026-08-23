@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { GraduationCap, Globe2, Image, LogOut, Package, ShieldCheck, Users } from "lucide-react";
 
