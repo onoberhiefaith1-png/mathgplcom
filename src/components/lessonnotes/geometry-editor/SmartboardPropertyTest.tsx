@@ -1,14 +1,14 @@
-// SmartboardPropertyTest — the teacher's rehearsal of exactly what a student
-// gets on the Smartboard for THIS diagram.
+// SmartboardPropertyTest — the TEACHER Smartboard test for one diagram.
 //
-// It reuses the presentation renderer and the board's own Review Properties
-// dock, so nothing is re-implemented and nothing is regenerated: clicking a
-// part lists the properties linked to that part by object identity, and
-// clicking a property lights up the parts it refers to.
+// It is a teacher-only rehearsal: a pure white board carrying the exact,
+// complete diagram object from the lesson note (never cropped, never
+// reconstructed from text) plus the board's own Review Properties dock.
+// Clicking a part lists the properties linked to that part by object
+// identity; clicking a property lights up the parts it refers to.
 
 import { useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
+import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
 import { itemObjectIds, type GeometryMapItem } from "@/lib/geometry/map/model";
 import type { GeometryScene } from "@/lib/geometry/scene";
@@ -20,15 +20,15 @@ export function SmartboardPropertyTest({
   scene: GeometryScene;
   onClose: () => void;
 }) {
-  const [role, setRole] = useState<"teacher" | "student">("student");
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [highlightIds, setHighlightIds] = useState<string[]>([]);
 
   const board = useMemo(
     () => (
-      <PresentationGeometryDiagram
+      <GeometryDiagram
         scene={scene}
+        large
         highlightIds={highlightIds}
         onPickObject={(id) => {
           setSelectedObjectId(id);
@@ -51,40 +51,33 @@ export function SmartboardPropertyTest({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] flex bg-[#0b1120] text-white">
-      <div className="relative flex min-w-0 flex-1 items-center justify-center p-6">
-        <div className="rounded-lg bg-white p-4 shadow-2xl">{board}</div>
-
-        <div className="absolute left-4 top-4 flex items-center gap-2">
+    <div className="fixed inset-0 z-[120] flex bg-white text-[#0f172a]">
+      <div className="relative flex min-w-0 flex-1 flex-col bg-white">
+        <div className="flex items-center gap-3 border-b border-black/10 bg-white px-3 py-2">
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-md border border-white/25 px-2.5 py-1.5 text-[12px] font-medium hover:bg-white/10"
+            className="inline-flex items-center gap-1.5 rounded-md border border-black/15 px-2.5 py-1.5 text-[12px] font-medium text-slate-700 hover:bg-black/5"
           >
             <X className="h-3.5 w-3.5" /> Close test
           </button>
-          <div className="flex overflow-hidden rounded-md border border-white/25 text-[11.5px]">
-            {(["student", "teacher"] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRole(r)}
-                className={`px-2.5 py-1.5 ${role === r ? "bg-white text-[#0b1120]" : "hover:bg-white/10"}`}
-              >
-                As {r}
-              </button>
-            ))}
-          </div>
-          <span className="text-[11px] text-white/60">
-            Smartboard test · tap a part of the diagram
-          </span>
+          <p className="text-[12.5px] font-semibold tracking-tight text-slate-900">
+            Teacher Smartboard Test
+            <span className="ml-2 font-normal text-slate-500">
+              tap a part of the diagram
+            </span>
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-auto bg-white p-6">
+          <div className="mx-auto w-full max-w-[1100px] bg-white">{board}</div>
         </div>
       </div>
 
-      <div className="h-full w-[20%] min-w-[240px]">
+      <div className="h-full w-[22%] min-w-[260px] bg-white">
         <ReviewPropertiesPanel
           scene={scene}
-          role={role}
+          role="teacher"
           selectedObjectId={selectedObjectId}
           activePropertyId={activeId}
           onPickProperty={pick}
