@@ -10,8 +10,7 @@
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { GeometryScene } from "@/lib/geometry/scene";
-import { readProperties } from "@/lib/geometry/properties/model";
-import { reviewableItems } from "@/lib/geometry/properties/review";
+import { readMap, reviewableMapItems } from "@/lib/geometry/map/model";
 
 export interface ReviewDiagram {
   diagramId: string;
@@ -129,7 +128,7 @@ export function sceneHasReviewableProperties(
   role: "teacher" | "student",
 ): boolean {
   try {
-    return reviewableItems(readProperties(scene), role).length > 0;
+    return reviewableMapItems(readMap(scene), role).length > 0;
   } catch {
     return false;
   }
