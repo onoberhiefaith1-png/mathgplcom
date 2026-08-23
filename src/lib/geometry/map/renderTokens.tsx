@@ -2,7 +2,10 @@
 //
 // A property such as `BC^2 = CA^2 + AB^2` is rendered ONCE through the shared
 // math renderer, but each geometry reference inside it is painted with the
-// colour of the object it is bound to (by id, never by matching text alone).
+// colour of the object it is bound to. References authored as `\georef{id}{label}`
+// carry that binding structurally, so the colour follows the object even when
+// the teacher renames the label. Plain-text token matching remains only as a
+// fallback for properties authored before geometry-reference boxes existed.
 
 import type { ReactNode } from "react";
 import { MathText } from "@/lib/geometry/map/renderStatement";
@@ -10,6 +13,41 @@ import { MathText } from "@/lib/geometry/map/renderStatement";
 export interface TokenColor {
   token: string;
   color: string;
+}
+
+const GEOREF = /\\georef\{([^}]*)\}\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+
+/** Strip geometry-reference macros down to their labels (for plain contexts). */
+export function stripGeoRefs(value: string): string {
+  return value.replace(GEOREF, (_m, _id, label) => label);
+}
+
+function renderWithGeoRefs(
+  value: string,
+  colorForObject: (objectId: string) => string | undefined,
+  fallback: string | undefined,
+): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  GEOREF.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = GEOREF.exec(value)) !== null) {
+    if (m.index > last) {
+      parts.push(<MathText key={`t${key++}`} value={value.slice(last, m.index)} />);
+    }
+    const color = colorForObject(m[1]) ?? fallback;
+    parts.push(
+      <span key={`g${key++}`} style={color ? { color } : undefined}>
+        <MathText value={m[2]} />
+      </span>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < value.length) {
+    parts.push(<MathText key={`t${key++}`} value={value.slice(last)} />);
+  }
+  return parts;
 }
 
 /**
@@ -20,11 +58,25 @@ export interface TokenColor {
 export function ColoredMathText({
   value,
   tokens,
+  colorForObject,
+  fallbackColor,
 }: {
   value: string;
   tokens: TokenColor[];
+  /** Colour of a geometry object, resolved by its stable id. */
+  colorForObject?: (objectId: string) => string | undefined;
+  /** Colour for a reference whose object has no colour yet. */
+  fallbackColor?: string;
 }) {
   if (!value) return null;
+
+  // Structural references win: identity, not wording, decides the colour.
+  if (GEOREF.test(value)) {
+    GEOREF.lastIndex = 0;
+    const byId = colorForObject ?? (() => undefined);
+    return <>{renderWithGeoRefs(value, byId, fallbackColor)}</>;
+  }
+
   const marks = tokens.filter((t) => t.token && value.includes(t.token));
   if (marks.length === 0) return <MathText value={value} />;
 
