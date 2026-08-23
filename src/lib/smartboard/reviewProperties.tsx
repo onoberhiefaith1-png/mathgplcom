@@ -2,20 +2,13 @@
 // Geometry Properties of the diagram currently on the Smartboard.
 //
 // The board does not own a second geometry viewer: every presented diagram is
-// the exact saved lesson-note scene. This context lets that already-rendered
+// the exact saved lesson-note scene. This tiny store lets that already-rendered
 // diagram report clicks and receive highlights, and lets the top bar know
 // whether the presented diagram carries any authored properties at all.
 //
 // Everything is local and synchronous — no fetch, no AI, no regeneration.
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import { readProperties } from "@/lib/geometry/properties/model";
 import { reviewableItems } from "@/lib/geometry/properties/review";
@@ -25,10 +18,9 @@ export interface ReviewDiagram {
   scene: GeometryScene;
 }
 
-interface ReviewApi {
+interface ReviewState {
   /** Panel open state — closed by default; the diagram keeps the full board. */
   open: boolean;
-  setOpen: (open: boolean) => void;
   /** Diagrams currently on the board that carry reviewable properties. */
   candidates: ReviewDiagram[];
   /** The diagram whose properties are being reviewed. */
@@ -36,33 +28,99 @@ interface ReviewApi {
   selectedObjectId: string | null;
   activePropertyId: string | null;
   highlightIds: string[];
-  /** A presented diagram announces itself (and withdraws on unmount). */
-  register: (diagram: ReviewDiagram | null, key: string) => void;
-  /** A click on a geometry object inside a presented diagram. */
-  pickObject: (diagram: ReviewDiagram, objectId: string) => void;
-  /** A click on a property in the panel. */
-  pickProperty: (propertyId: string | null, objectIds: string[]) => void;
-  reset: () => void;
 }
 
-const noop = () => {};
+const registry = new Map<string, ReviewDiagram>();
 
-const ReviewPropertiesContext = createContext<ReviewApi>({
+let state: ReviewState = {
   open: false,
-  setOpen: noop,
   candidates: [],
   active: null,
   selectedObjectId: null,
   activePropertyId: null,
   highlightIds: [],
-  register: noop,
-  pickObject: noop,
-  pickProperty: noop,
-  reset: noop,
-});
+};
 
-export function useReviewProperties(): ReviewApi {
-  return useContext(ReviewPropertiesContext);
+const listeners = new Set<() => void>();
+
+const emit = (patch: Partial<ReviewState>) => {
+  state = { ...state, ...patch };
+  listeners.forEach((l) => l());
+};
+
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => listeners.delete(l);
+};
+
+const syncCandidates = () => {
+  const candidates = Array.from(registry.values());
+  const active = state.active
+    && candidates.some((c) => c.diagramId === state.active!.diagramId)
+    ? candidates.find((c) => c.diagramId === state.active!.diagramId)!
+    : null;
+  // The presented diagram changed under us (next question, next section):
+  // drop every review selection so nothing from the old diagram survives.
+  const dropped = !!state.active && !active;
+  emit({
+    candidates,
+    active,
+    ...(dropped
+      ? { selectedObjectId: null, activePropertyId: null, highlightIds: [] }
+      : {}),
+  });
+};
+
+export const reviewProperties = {
+  setOpen(open: boolean) {
+    emit(
+      open
+        ? { open: true, active: state.active ?? state.candidates[0] ?? null }
+        : { open: false, active: null, selectedObjectId: null, activePropertyId: null, highlightIds: [] },
+    );
+  },
+  /** A presented diagram announces itself (pass null to withdraw). */
+  register(diagram: ReviewDiagram | null, key: string) {
+    if (diagram) registry.set(key, diagram);
+    else registry.delete(key);
+    syncCandidates();
+  },
+  /** A click on a geometry object inside a presented diagram. */
+  pickObject(diagram: ReviewDiagram, objectId: string) {
+    emit({
+      active: diagram,
+      selectedObjectId: objectId,
+      // A new object always clears the previous property highlight.
+      activePropertyId: null,
+      highlightIds: [objectId],
+    });
+  },
+  /** A click on a property in the panel. */
+  pickProperty(propertyId: string | null, objectIds: string[]) {
+    emit({
+      activePropertyId: propertyId,
+      highlightIds: propertyId
+        ? objectIds
+        : state.selectedObjectId
+          ? [state.selectedObjectId]
+          : [],
+    });
+  },
+  reset() {
+    emit({ active: null, selectedObjectId: null, activePropertyId: null, highlightIds: [] });
+  },
+};
+
+const getSnapshot = () => state;
+
+export function useReviewProperties(): ReviewState & typeof reviewProperties {
+  const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return useMemo(() => ({ ...snap, ...reviewProperties }), [snap]);
+}
+
+/** Subscribe to just the open flag — for the top-bar button. */
+export function useReviewOpen(): boolean {
+  return useSyncExternalStore(subscribe, () => state.open, () => state.open);
 }
 
 /** True when this scene carries at least one property the audience may see. */
@@ -77,97 +135,11 @@ export function sceneHasReviewableProperties(
   }
 }
 
-export function ReviewPropertiesProvider({
-  role,
-  children,
-}: {
-  role: "teacher" | "student";
-  children: React.ReactNode;
-}) {
-  const [open, setOpenState] = useState(false);
-  const [registry, setRegistry] = useState<Record<string, ReviewDiagram>>({});
-  const [active, setActive] = useState<ReviewDiagram | null>(null);
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
-  const [activePropertyId, setActivePropertyId] = useState<string | null>(null);
-  const [highlightIds, setHighlightIds] = useState<string[]>([]);
-
-  const register = useCallback((diagram: ReviewDiagram | null, key: string) => {
-    setRegistry((prev) => {
-      if (!diagram) {
-        if (!(key in prev)) return prev;
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      }
-      if (prev[key]?.scene === diagram.scene && prev[key]?.diagramId === diagram.diagramId) {
-        return prev;
-      }
-      return { ...prev, [key]: diagram };
-    });
-  }, []);
-
-  const candidates = useMemo(() => Object.values(registry), [registry]);
-
-  const reset = useCallback(() => {
-    setActive(null);
-    setSelectedObjectId(null);
-    setActivePropertyId(null);
-    setHighlightIds([]);
-  }, []);
-
-  const setOpen = useCallback((next: boolean) => {
-    setOpenState(next);
-    if (!next) reset();
-  }, [reset]);
-
-  const pickObject = useCallback((diagram: ReviewDiagram, objectId: string) => {
-    setActive((prev) =>
-      prev && prev.diagramId === diagram.diagramId ? { ...prev, scene: diagram.scene } : diagram,
-    );
-    setSelectedObjectId(objectId);
-    // A new object always clears the previous property highlight.
-    setActivePropertyId(null);
-    setHighlightIds([objectId]);
-  }, []);
-
-  const pickProperty = useCallback((propertyId: string | null, objectIds: string[]) => {
-    setActivePropertyId(propertyId);
-    setHighlightIds(propertyId ? objectIds : selectedObjectId ? [selectedObjectId] : []);
-  }, [selectedObjectId]);
-
-  // The presented diagram changed under us (next question, next section):
-  // drop every review selection so nothing from the old diagram survives.
-  useEffect(() => {
-    if (!active) return;
-    if (!candidates.some((c) => c.diagramId === active.diagramId)) reset();
-  }, [candidates, active, reset]);
-
-  // When only one reviewable diagram is on the board, it is the review target.
-  useEffect(() => {
-    if (!open || active || candidates.length !== 1) return;
-    setActive(candidates[0]);
-  }, [open, active, candidates]);
-
-  const api = useMemo<ReviewApi>(() => ({
-    open,
-    setOpen,
-    candidates,
-    active,
-    selectedObjectId,
-    activePropertyId,
-    highlightIds,
-    register,
-    pickObject,
-    pickProperty,
-    reset,
-  }), [open, setOpen, candidates, active, selectedObjectId, activePropertyId,
-      highlightIds, register, pickObject, pickProperty, reset]);
-
-  void role;
-
-  return (
-    <ReviewPropertiesContext.Provider value={api}>
-      {children}
-    </ReviewPropertiesContext.Provider>
-  );
+/** Stable registration helper for a presented diagram. */
+export function useRegisterReviewDiagram(
+  key: string,
+  diagram: ReviewDiagram | null,
+) {
+  const register = useCallback(reviewProperties.register, []);
+  return { key, diagram, register };
 }
