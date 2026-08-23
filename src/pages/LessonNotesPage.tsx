@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { activeSchoolOrgId, withOwnerView } from "@/lib/accounts/workspaceScope";
+import { activeSchoolOrgId, myOwnerId } from "@/lib/accounts/workspaceScope";
 import { useViewAs } from "@/lib/accounts/viewAs";
 
 
