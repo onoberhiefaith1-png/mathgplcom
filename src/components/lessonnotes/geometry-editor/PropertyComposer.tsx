@@ -19,8 +19,9 @@ import { onGeoPick } from "@/lib/geometry/pickBus";
 import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
+import { collectGeoRefs } from "@/lib/geometry/map/geoRefs";
 import {
-  mkBracket, mkFrac, mkSqrt, mkSub, mkSup,
+  mkBracket, mkFrac, mkGeoRef, mkSqrt, mkSub, mkSup,
   type Node as MathNode, type Row as MathRow,
 } from "@/lib/smartboard/mathTree";
 
@@ -123,7 +124,6 @@ export function PropertyComposer({
 
   const reset = () => {
     setRoot([]);
-    setRefs([]);
     setReason("");
     setBoardText("");
   };
