@@ -6,7 +6,8 @@
 import { useMemo } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { GeometryDiagramNode, PresentationGeometryDiagram, InlineGeometryDiagram } from "./extensions/GeometryDiagram";
+import { GeometryDiagramNode, InlineGeometryDiagram } from "./extensions/GeometryDiagram";
+import { ReviewableBoardDiagram } from "@/components/smartboard/ReviewableBoardDiagram";
 import { sanitizeScene } from "@/lib/geometry/scene";
 import { Scene3DDiagramNode, setScene3DPresentationMode } from "./extensions/Scene3DDiagram";
 import { MathTableNode } from "./extensions/MathTable";
