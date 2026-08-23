@@ -148,7 +148,7 @@ import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewProperties";
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
-import { itemObjectIds, readMap } from "@/lib/geometry/map/model";
+import { itemObjectIds } from "@/lib/geometry/map/model";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
