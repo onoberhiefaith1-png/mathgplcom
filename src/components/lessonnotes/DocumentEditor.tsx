@@ -3655,10 +3655,36 @@ function NotebookGeometryOverlay({
   const [storedScene, setStoredScene] = useState<GeometryScene>(() => loadNotebookGeometry(notebookId));
   const [paperSize, setPaperSize] = useState({ width: 720, height: 960 });
   const [docTick, setDocTick] = useState(0);
+  /** True once the teacher actually erased/edited the drawing in this session.
+   *  Only then may the saved copy in the note be removed. */
+  const erasedRef = useRef(false);
+  /** Which note we have already hydrated from the saved document. */
+  const hydratedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    hydratedRef.current = null;
+    erasedRef.current = false;
     setStoredScene(loadNotebookGeometry(notebookId));
   }, [notebookId]);
+
+  // PERMANENCE: the lesson note is the source of truth. As soon as the saved
+  // document is available, the page drawing is rebuilt from its `pageLayer`
+  // carriers; local storage is only used when the note has nothing saved yet.
+  useEffect(() => {
+    if (!tiptapEditor) return;
+    const key = notebookId ?? "note";
+    if (hydratedRef.current === key) return;
+    let fromDoc: GeometryScene | null = null;
+    try { fromDoc = sceneFromDocument(tiptapEditor); } catch { fromDoc = null; }
+    if (!fromDoc) return; // nothing saved (yet) — keep the local cache
+    hydratedRef.current = key;
+    setStoredScene((prev) => {
+      if ((prev.objects?.length ?? 0) > (fromDoc!.objects?.length ?? 0)) return prev;
+      saveNotebookGeometry(notebookId, fromDoc!);
+      return fromDoc!;
+    });
+  }, [tiptapEditor, notebookId, docTick]);
+
 
   useEffect(() => {
     const layer = paperLayerRef.current;
