@@ -279,21 +279,26 @@ const LessonNotesPage = () => {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
-              {pageItems.map((nb) => (
-                <NotebookCard
-                  key={nb.id}
-                  nb={nb}
-                  archived={view === "archive"}
-                  onOpen={() => navigate(`${livePrefix}/lesson-notes/${nb.id}`)}
-                  onPresent={() => navigate(`/smartboard/${nb.id}`)}
-                  onRename={() => renameNotebook(nb)}
-                  onDuplicate={() => duplicate(nb)}
-                  onCover={() => setCoverFor(nb)}
-                  onShare={() => setShareFor(nb)}
-                  onArchive={() => setArchived(nb, view !== "archive")}
-                  onDelete={() => deleteNotebook(nb)}
-
-                />
+              {pageItems.map((nb, i) => (
+                <div key={nb.id} className="relative">
+                  {view === "active" && page === 0 && i === 0 && (
+                    <span className="absolute -top-2 left-2 z-10 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950 shadow">
+                      Last worked on
+                    </span>
+                  )}
+                  <NotebookCard
+                    nb={nb}
+                    archived={view === "archive"}
+                    onOpen={() => navigate(`${livePrefix}/lesson-notes/${nb.id}`)}
+                    onPresent={() => navigate(`/smartboard/${nb.id}`)}
+                    onRename={() => renameNotebook(nb)}
+                    onDuplicate={() => duplicate(nb)}
+                    onCover={() => setCoverFor(nb)}
+                    onShare={() => setShareFor(nb)}
+                    onArchive={() => setArchived(nb, view !== "archive")}
+                    onDelete={() => deleteNotebook(nb)}
+                  />
+                </div>
               ))}
             </div>
             {totalPages > 1 && (
