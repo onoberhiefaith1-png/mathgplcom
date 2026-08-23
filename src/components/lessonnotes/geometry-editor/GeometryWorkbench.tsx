@@ -60,6 +60,14 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
 
+  // On phones the tool columns are sheets, so they must start closed — the
+  // canvas owns the screen until the teacher asks for a panel.
+  useEffect(() => {
+    if (phone) { setLeftOpen(false); setRightOpen(false); }
+  }, [phone]);
+
+
+
 
   // The workbench is always in Geometry Mode — that is what makes the canvas
   // live and the tool panels visible.
