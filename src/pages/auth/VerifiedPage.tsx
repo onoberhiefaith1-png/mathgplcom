@@ -5,7 +5,6 @@ import { CheckCircle2, GraduationCap } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useMathgplId } from "@/lib/accounts/useMathgplId";
 import { sendAccountCreatedNotice } from "@/lib/accounts/accountId.functions";
-import { usePlanGate } from "@/lib/plans/usePlanGate";
 
 
 /**
@@ -20,9 +19,8 @@ import { usePlanGate } from "@/lib/plans/usePlanGate";
 const VerifiedPage = () => {
   const { user, ready } = useAuth();
   const { mathgplId, typeLabel } = useMathgplId();
-  // Teacher, school and parent accounts choose a plan before entering.
-  const { subscribes } = usePlanGate();
   const notify = useServerFn(sendAccountCreatedNotice);
+
 
   const sent = useRef(false);
 
@@ -62,11 +60,12 @@ const VerifiedPage = () => {
         )}
 
         <Link
-          to={ready && user ? (subscribes ? "/plans/gateway" : "/") : "/login"}
+          to={ready && user ? "/" : "/login"}
           className="mt-7 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl bg-amber-400 px-6 text-base font-semibold text-slate-900 transition hover:bg-amber-300"
         >
-          {ready && user ? (subscribes ? "Choose your plan" : "Enter MathGPL") : "Log in"}
+          {ready && user ? "Enter MathGPL" : "Log in"}
         </Link>
+
 
       </section>
     </main>

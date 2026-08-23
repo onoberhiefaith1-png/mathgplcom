@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { GraduationCap, Globe2, Image, LogOut, Package, ShieldCheck, Users } from "lucide-react";
 
@@ -10,7 +10,7 @@ import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { WORKSPACE_LABEL, WORKSPACE_PATH } from "@/lib/accounts/roles";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { usePlanGate } from "@/lib/plans/usePlanGate";
+import PlanInviteBanner from "@/components/plans/PlanInviteBanner";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -27,9 +27,6 @@ const Index = () => {
   // Students never teach — their primary entry point is joining a teacher's class.
   const isStudent = role === "student" && !elevated;
 
-  // Teacher, school and parent accounts pick a platform plan before the
-  // building opens. With nothing published for their type, the gate stays open.
-  const { needsPlan } = usePlanGate();
   // Central pipeline decides WHICH building and whether ads play on it.
   // Platform owner only: flip the building on screen between the real Pro
   // building and the Free advertising building. Preview only.
@@ -37,9 +34,7 @@ const Index = () => {
   const building = useBuildingContext(
     isPlatformOwner ? { previewVersion: preview } : undefined,
   );
-  useEffect(() => {
-    if (needsPlan) navigate("/plans/gateway", { replace: true });
-  }, [needsPlan, navigate]);
+
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -164,7 +159,9 @@ const Index = () => {
         </Link>
       )}
 
+      <PlanInviteBanner />
       <LegalLinkStrip />
+
     </>
   );
 };
