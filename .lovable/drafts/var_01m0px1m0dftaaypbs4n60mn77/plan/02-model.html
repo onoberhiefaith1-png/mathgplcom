@@ -1,0 +1,56 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .mut { fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { stroke: hsl(var(--accent)); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="8" width="300" height="130" rx="8"/>
+  <text class="mut" x="20" y="28">property line (teacher types here)</text>
+
+  <rect class="bx acc" x="28" y="44" width="72" height="38" rx="8" stroke-width="1.5"/>
+  <text class="lbl" x="64" y="68" text-anchor="middle">EF</text>
+  <circle cx="100" cy="44" r="8" fill="hsl(var(--accent))"/>
+  <text x="100" y="48" text-anchor="middle" font-size="10" fill="hsl(var(--accent-foreground))">×</text>
+
+  <text class="lbl" x="112" y="68">² =</text>
+
+  <rect class="bx" x="152" y="44" width="72" height="38" rx="8"/>
+  <text class="lbl" x="188" y="68" text-anchor="middle">Y</text>
+  <text class="lbl" x="236" y="68">² + …</text>
+
+  <text class="mut" x="28" y="104">box = geometry reference · text inside = label only</text>
+  <text class="mut" x="28" y="122">× removes the reference · empty label keeps it</text>
+
+  <rect class="zone" x="336" y="8" width="296" height="130" rx="8"/>
+  <text class="mut" x="348" y="28">what the box stores</text>
+  <text class="mono" x="348" y="52">objectId  = s_17          (identity)</text>
+  <text class="mono" x="348" y="72">geometry  = segment(E, F)  (never text)</text>
+  <text class="mono" x="348" y="92">label     = "Y"            (free text)</text>
+  <text class="mono" x="348" y="112">colour    = from objectId  (not label)</text>
+
+  <line class="wire" x1="188" y1="152" x2="188" y2="176" marker-end="url(#a)"/>
+  <text class="mut" x="200" y="170">one colour per object id</text>
+
+  <rect class="bx" x="24" y="186" width="126" height="42" rx="8"/>
+  <text class="lbl" x="87" y="212" text-anchor="middle">diagram + label</text>
+  <rect class="bx" x="170" y="186" width="126" height="42" rx="8"/>
+  <text class="lbl" x="233" y="212" text-anchor="middle">property text</text>
+  <rect class="bx" x="316" y="186" width="126" height="42" rx="8"/>
+  <text class="lbl" x="379" y="212" text-anchor="middle">review panel</text>
+  <rect class="bx" x="462" y="186" width="150" height="42" rx="8"/>
+  <text class="lbl" x="537" y="212" text-anchor="middle">Smartboard highlight</text>
+
+  <text class="mut" x="24" y="258">Auto sequence: Black → Blue → Red → Purple → Green → Orange → repeat.</text>
+  <text class="mut" x="24" y="276">A manual recolour changes one object only; the next pick still takes the next colour in order.</text>
+</svg>
