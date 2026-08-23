@@ -159,7 +159,9 @@ const Index = () => {
         </Link>
       )}
 
+      <PlanInviteBanner />
       <LegalLinkStrip />
+
     </>
   );
 };
