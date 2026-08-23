@@ -10,13 +10,15 @@ import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { normEq } from "./rowAscii";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
-import { readSolutionObjects, isFloatableObject } from "@/lib/floating/solutionItems";
+import { readSolutionObjects, isFloatableObject, sortByPlacement } from "@/lib/floating/solutionItems";
 import { boardObjects, notesLayerObjects } from "@/lib/lessonnotes/lessonOutline";
 
 /** Objects stored on a block, filtered to what the student board may show. */
 const blockObjects = (block?: BlockRow | null): SolutionObject[] => {
   const raw = (block as any)?.content_json?.objects;
-  return Array.isArray(raw) ? boardObjects(raw as SolutionObject[]) : [];
+  // PLACEMENT LAW: always ordered by the object's recorded home, never by the
+  // order rows happened to arrive in.
+  return Array.isArray(raw) ? sortByPlacement(boardObjects(raw as SolutionObject[])) : [];
 };
 
 /** NOTES-LAYER objects captured inside a Solution (diagrams, 3D scenes,
@@ -25,14 +27,16 @@ const blockObjects = (block?: BlockRow | null): SolutionObject[] => {
  *  render with the question/note block they belong to, in document order. */
 const solutionNotesObjects = (block?: BlockRow | null): SolutionObject[] => {
   const raw = (block as any)?.content_json?.objects;
-  return Array.isArray(raw) ? notesLayerObjects(raw as SolutionObject[]) : [];
+  return Array.isArray(raw) ? sortByPlacement(notesLayerObjects(raw as SolutionObject[])) : [];
 };
 
 /** Restore persisted note-attached objects (diagrams). Floatable objects can
  *  never be note content, so they are dropped defensively. */
 const readNoteObjects = (raw: any): SolutionObject[] =>
-  readSolutionObjects({ objects: Array.isArray(raw) ? raw : [] }).filter(
-    (o) => !isFloatableObject(o),
+  sortByPlacement(
+    readSolutionObjects({ objects: Array.isArray(raw) ? raw : [] }).filter(
+      (o) => !isFloatableObject(o),
+    ),
   );
 
 export type BeatKind =
@@ -248,7 +252,7 @@ const notesOnlyRows = (
       notebookOnly: true,
       noteObjects: undefined as SolutionObject[] | undefined,
     }));
-  const diagrams = (noteObjects ?? []).filter((o) => !isFloatableObject(o));
+  const diagrams = sortByPlacement((noteObjects ?? []).filter((o) => !isFloatableObject(o)));
   if (diagrams.length === 0) return rows;
   if (rows.length === 0) {
     return [{
@@ -401,7 +405,10 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
               if (b === problemBlock) continue;
               push(b.kind === "solution" ? solutionNotesObjects(b) : blockObjects(b));
             }
-            return out;
+            // Final guarantee: the beat's objects follow their recorded home
+            // (session → position in session), so a diagram can never drift
+            // ahead of or behind a sibling drawn in the same session.
+            return sortByPlacement(out);
           })(),
 
         });

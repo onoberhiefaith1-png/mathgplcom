@@ -56,7 +56,12 @@ interface Props {
    * over the same geometry so clicking reports the object's stable id.
    */
   onPickObject?: (id: string) => void;
-
+  /**
+   * Board zoom. The whole figure — geometry, labels and ink weight — grows or
+   * shrinks by this factor while keeping its exact proportions, so zooming the
+   * Smartboard scales the diagram just like it scales the writing.
+   */
+  zoom?: number;
 }
 
 

@@ -188,9 +188,27 @@ export const isGeometryObject = (nodeType: string): boolean =>
  *   - Tables — ordinary, Smart, LCM, statistics — stay in the Solution layer
  *     when they sit inside a Solution, so they remain floating-capable.
  */
+/** The session a set of objects belongs to — its PLACEMENT HOME. Recorded on
+ *  every object so the Smartboard positions it without re-deriving anything. */
+export interface SegmentHome {
+  /** Document order of the owning session (the host question for Solutions). */
+  index: number;
+  kind: SectionKind;
+  ordinal: number;
+  label: string;
+}
+
+export const segmentHome = (seg: LessonSegment): SegmentHome => ({
+  index: seg.index,
+  kind: seg.kind,
+  ordinal: seg.ordinal,
+  label: seg.label,
+});
+
 export function renderSegmentBody(
   nodes: Node[],
   inSolution = false,
+  home?: SegmentHome | null,
 ): { text: string; objects: SolutionObject[] } {
   const lines: string[] = [];
   const objects: SolutionObject[] = [];
@@ -226,6 +244,11 @@ export function renderSegmentBody(
       layer: objectLayer(family, inSolution),
       floatable: !diagram,
       diagramId: persistentId,
+      // PLACEMENT HOME — "this diagram belongs to Example 2", recorded once.
+      sectionKey: home ? `${home.index}:${home.kind}:${home.ordinal}` : null,
+      sectionLabel: home ? home.label : null,
+      sectionIndex: home ? home.index : undefined,
+      sectionOrdinal: objects.length,
     });
   };
 
