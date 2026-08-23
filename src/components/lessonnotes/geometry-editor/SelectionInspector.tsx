@@ -839,7 +839,7 @@ function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject, initial =
       y = pts.reduce((a, p) => a + p.y, 0) / pts.length;
     }
   }
-  const op = addFloatingLabel(scene, x, y, initial, shape.id);
+  const op = addFloatingLabel(scene, x, y, initial, obj.id);
   return { scene: op.scene, id: op.addedIds[0] };
 }
 
