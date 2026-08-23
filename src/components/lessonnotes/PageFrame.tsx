@@ -83,9 +83,8 @@ export function PageFrame({ size, style, zoom = 1, extraMm = 0, sheetRef, childr
         <div ref={sheetRef} style={sheet}>
           <div style={inner}>{children}</div>
         </div>
-
-
-
+      </div>
     </div>
+
   );
 }
