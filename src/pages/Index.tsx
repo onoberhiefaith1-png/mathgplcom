@@ -27,9 +27,6 @@ const Index = () => {
   // Students never teach — their primary entry point is joining a teacher's class.
   const isStudent = role === "student" && !elevated;
 
-  // Teacher, school and parent accounts pick a platform plan before the
-  // building opens. With nothing published for their type, the gate stays open.
-  const { needsPlan } = usePlanGate();
   // Central pipeline decides WHICH building and whether ads play on it.
   // Platform owner only: flip the building on screen between the real Pro
   // building and the Free advertising building. Preview only.
@@ -37,9 +34,7 @@ const Index = () => {
   const building = useBuildingContext(
     isPlatformOwner ? { previewVersion: preview } : undefined,
   );
-  useEffect(() => {
-    if (needsPlan) navigate("/plans/gateway", { replace: true });
-  }, [needsPlan, navigate]);
+
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
