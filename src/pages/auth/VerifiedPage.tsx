@@ -5,7 +5,6 @@ import { CheckCircle2, GraduationCap } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useMathgplId } from "@/lib/accounts/useMathgplId";
 import { sendAccountCreatedNotice } from "@/lib/accounts/accountId.functions";
-import { usePlanGate } from "@/lib/plans/usePlanGate";
 
 
 /**
