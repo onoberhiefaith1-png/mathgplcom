@@ -30,6 +30,8 @@ import {
   INLINE_OBJECT_TYPES,
   type SolutionObject,
 } from "@/lib/floating/solutionItems";
+import { structureToLatex } from "@/lib/lessonnotes/mathStructureLatex";
+
 
 type Node = any;
 
@@ -49,16 +51,31 @@ export const flattenContainers = (nodes: Node[]): Node[] => {
   return out;
 };
 
-/** Visible text of a node, math preserved as its raw value. */
+/** Visible text of a node, math preserved LOSSLESSLY.
+ *
+ *  Two-dimensional structures (fractions, radicals, matrices, big operators)
+ *  are serialized to the LaTeX that `renderMathInline` understands, so a
+ *  fraction written in the note stays a stacked fraction on the Floating page
+ *  and on the Smartboard. Nothing is ever flattened into ambiguous text. */
 export function nodeText(node: Node): string {
   if (!node) return "";
   if (node.type === "text") return String(node.text ?? "");
   if (node.type === "mathInline" || node.type === "mathBlock") {
     return String(node.attrs?.value ?? "");
   }
+  if (node.type === "mathStructure") {
+    const kids = Array.isArray(node.content) ? node.content : [];
+    const slots = kids.map((k: Node) => nodeText(k));
+    return structureToLatex(
+      String(node.attrs?.kind ?? "fraction"),
+      (node.attrs?.attrs as Record<string, unknown>) ?? {},
+      slots,
+    );
+  }
   if (Array.isArray(node.content)) return node.content.map(nodeText).join("");
   return "";
 }
+
 
 export interface LessonSegment {
   /** Session kind of the START marker. */

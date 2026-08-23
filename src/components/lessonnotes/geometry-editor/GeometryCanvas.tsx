@@ -68,6 +68,15 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
   const [circleDrag, setCircleDrag] = useState<{ cx: number; cy: number; r: number } | null>(null);
   const [inlineEdit, setInlineEdit] = useState<{ id: GeoId; field: "label" | "value" | "text"; value: string; x: number; y: number } | null>(null);
 
+  // No dashed preview may outlive the gesture that created it: switching tool
+  // or clearing the pending anchors drops every in-progress stroke, so nothing
+  // is left behind as a faint line/slash on the diagram.
+  useEffect(() => {
+    setHover(null);
+    setCircleDrag(null);
+  }, [tool]);
+
+
   // Tracks temporary construction points created during the current
   // Add Angle / Add Area session. Used to auto-remove them when the
   // teacher chose "Without Label" and the annotation is completed or
@@ -904,7 +913,7 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
   return (
     <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
       <div className="absolute inset-0">
-        <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} stroke={stroke} minViewW={minViewW} minViewH={minViewH} ghostHidden />
+        <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} stroke={stroke} minViewW={minViewW} minViewH={minViewH} />
       </div>
       {annotationHint && (
         <div className="absolute left-2 top-2 z-10 px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] shadow-sm pointer-events-none">
