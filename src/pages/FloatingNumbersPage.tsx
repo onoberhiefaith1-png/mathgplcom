@@ -1437,9 +1437,24 @@ const FloatingNumbersPage = () => {
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading…
             </div>
           ) : groups.length === 0 ? (
-            <div className="py-12 text-center text-sm text-foreground/55">
-              No solution lines yet. Generate the solution in the lesson note first.
+            <div className="py-12 text-center text-sm text-foreground/60 space-y-3">
+              <div className="font-medium" style={{ color: "hsl(220 35% 18%)" }}>
+                Nothing highlighted yet
+              </div>
+              <p className="max-w-md mx-auto">
+                This page only builds what you highlighted on the Floating Highlighting Page.
+                Highlight the parts of the solution you want to become Floating Numbers —
+                everything you leave unhighlighted stays as lesson notes.
+              </p>
+              <button
+                onClick={() => navigate(`/lesson-notes/${notebookId}/floating-prep/${subsectionId}`)}
+                className="text-xs px-3 py-1.5 rounded-md border border-foreground/25"
+                style={{ color: "hsl(220 35% 18%)" }}
+              >
+                Go to Floating Highlighting Page
+              </button>
             </div>
+
           ) : (
             <div className="space-y-1" ref={workspaceRef}>
               <NoteObjectCard objects={leadingNoteObjects} />
