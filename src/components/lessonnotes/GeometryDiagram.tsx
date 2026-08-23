@@ -110,7 +110,7 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, ghostHidden, presentation = false, crop = false }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, ghostHidden, presentation = false, crop = false, highlightIds, onPickObject }: Props) {
   const baseStroke = stroke ?? STROKE;
   const pad = 24;
   const cropped = presentation || crop;
@@ -133,7 +133,13 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   const displayScale = W > 0 ? displayW / W : 1;
   const inkWeight = (presentation ? 2 : 1.1) / (displayScale || 1);
 
+  const highlight = useMemo(
+    () => new Set((highlightIds ?? []).filter(Boolean)),
+    [highlightIds],
+  );
+
   const colourOf = (id: string): string => {
+    if (highlight.has(id)) return ACCENT_REVIEW;
     if (!diff) return baseStroke;
     if (diff.added.has(id)) return ACCENT_ADD;
     if (diff.changed.has(id)) return ACCENT_CHG;
@@ -174,8 +180,25 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff, originPad, baseStroke, ghostHidden, inkWeight]);
+  }, [scene, diff, originPad, baseStroke, ghostHidden, inkWeight, highlight]);
 
+  // Review halo: a soft glow behind every highlighted object so a lit angle or
+  // side reads instantly from the back of the classroom.
+  const halo = useMemo(() => {
+    if (highlight.size === 0) return null;
+    const out: React.ReactNode[] = [];
+    for (const o of scene.objects) {
+      if (!highlight.has(o.id)) continue;
+      const node = renderObject(o, scene, ACCENT_REVIEW, originPad, inkWeight * 4.5);
+      if (node) out.push(<g key={`halo-${o.id}`} opacity={0.22}>{node}</g>);
+    }
+    return out;
+  }, [scene, highlight, originPad, inkWeight]);
+
+  const hits = useMemo(() => {
+    if (!onPickObject) return null;
+    return buildHitLayer(scene, originPad, inkWeight, onPickObject);
+  }, [scene, originPad, inkWeight, onPickObject]);
 
   return (
     <svg
@@ -186,10 +209,137 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
       className={className}
       style={{ background: "transparent", overflow: "visible" }}
     >
-      <g transform={`translate(${translateX}, ${translateY})`}>{elements}</g>
+      <g transform={`translate(${translateX}, ${translateY})`}>
+        {halo}
+        {elements}
+        {hits}
+      </g>
     </svg>
   );
 }
+
+/**
+ * Invisible click targets over the SAME objects the figure already draws, each
+ * carrying its stable object id. Read-only surfaces (Smartboard review) use
+ * this to pick geometry without a second geometry engine.
+ */
+function buildHitLayer(
+  scene: GeometryScene,
+  pad: number,
+  ink: number,
+  onPick: (id: string) => void,
+): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  const grab = Math.max(6, ink * 6);
+  const common = (id: string) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      e.stopPropagation();
+      onPick(id);
+    },
+    style: { pointerEvents: "all" as const },
+  });
+
+  // Points last (drawn on top) so a vertex wins over the sides through it.
+  const ordered = [...scene.objects].sort((a, b) => rank(a.type) - rank(b.type));
+  for (const o of ordered) {
+    switch (o.type) {
+      case "segment":
+      case "line":
+      case "ray": {
+        const a = pointById(scene, (o as GeoSegmentLike).a);
+        const b = pointById(scene, (o as GeoSegmentLike).b);
+        if (!a || !b) break;
+        out.push(
+          <line
+            key={`hit-${o.id}`}
+            x1={a.x + pad} y1={a.y + pad} x2={b.x + pad} y2={b.y + pad}
+            stroke="transparent" strokeWidth={grab * 1.6} strokeLinecap="round"
+            {...common(o.id)}
+          />,
+        );
+        break;
+      }
+      case "circle":
+      case "arc": {
+        const c = pointById(scene, (o as { center: string }).center);
+        const r = (o as { r: number }).r;
+        if (!c || !(r > 0)) break;
+        out.push(
+          <circle
+            key={`hit-${o.id}`}
+            cx={c.x + pad} cy={c.y + pad} r={r}
+            fill="none" stroke="transparent" strokeWidth={grab * 1.6}
+            {...common(o.id)}
+          />,
+        );
+        break;
+      }
+      case "angle": {
+        const v = pointById(scene, (o as { vertex: string }).vertex);
+        if (!v) break;
+        const r = ((o as { arcRadius?: number }).arcRadius ?? 18) + grab;
+        out.push(
+          <circle
+            key={`hit-${o.id}`}
+            cx={v.x + pad} cy={v.y + pad} r={r}
+            fill="transparent" stroke="none"
+            {...common(o.id)}
+          />,
+        );
+        break;
+      }
+      case "region": {
+        const path = regionEdgesToPath(o as never, scene, pad);
+        if (!path) break;
+        out.push(
+          <path key={`hit-${o.id}`} d={path} fill="transparent" stroke="none" {...common(o.id)} />,
+        );
+        break;
+      }
+      case "label": {
+        const l = o as { x: number; y: number; fontSize?: number };
+        const s = (l.fontSize ?? 13) + grab;
+        out.push(
+          <rect
+            key={`hit-${o.id}`}
+            x={l.x + pad - s} y={l.y + pad - s} width={s * 2} height={s * 2}
+            fill="transparent" stroke="none"
+            {...common(o.id)}
+          />,
+        );
+        break;
+      }
+      case "point": {
+        const p = o as GeoPoint;
+        if (p.hidden) break;
+        out.push(
+          <circle
+            key={`hit-${o.id}`}
+            cx={p.x + pad} cy={p.y + pad} r={Math.max(grab, (p.size ?? 2.6) + grab)}
+            fill="transparent" stroke="none"
+            {...common(o.id)}
+          />,
+        );
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  return out;
+}
+
+type GeoSegmentLike = { a: string; b: string };
+
+function rank(type: string): number {
+  if (type === "region") return 0;
+  if (type === "circle" || type === "arc" || type === "curve") return 1;
+  if (type === "segment" || type === "line" || type === "ray") return 2;
+  if (type === "angle") return 3;
+  if (type === "label") return 4;
+  return 5; // point
+}
+
 
 
 function computeSceneExtent(scene: GeometryScene): { minX: number; minY: number; maxX: number; maxY: number } {
