@@ -9,8 +9,10 @@ import { createPortal } from "react-dom";
 import { useAssetSelection } from "@/hooks/useAssetSelection";
 import { useAssetSnapshot } from "@/hooks/useAssetSnapshot";
 import { AddToLibraryDialog } from "./AddToLibraryDialog";
+import { ResponsivePanel, useSheetPanels } from "@/components/ui/responsive-panel";
 import type { AssetSnapshot } from "@/lib/lessonnotes/assets/customAssets";
 import { ChevronLeft, ChevronRight, Library, Settings2, X } from "lucide-react";
+
 
 export function PropertiesPanel() {
   const { reg } = useAssetSelection();
