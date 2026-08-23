@@ -40,7 +40,6 @@ interface Props {
    * The live editing canvas turns this on so a teacher can still see, select
    * and un-hide construction points that the clean-up pass hid.
    */
-  ghostHidden?: boolean;
   /** Crop empty notebook canvas and strengthen ink for projection. */
   presentation?: boolean;
   /** Crop empty notebook canvas but keep normal lesson-note ink weight. */
@@ -112,7 +111,7 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, ghostHidden, presentation = false, crop = false, highlightIds, onPickObject }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, presentation = false, crop = false, highlightIds, onPickObject }: Props) {
   const baseStroke = stroke ?? STROKE;
   const pad = 24;
   const cropped = presentation || crop;
@@ -164,25 +163,16 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     for (const o of scene.objects) {
       if (o.type === "region") continue;
       const c = colourOf(o.id);
-      if (ghostHidden && o.type === "point" && (o as GeoPoint).hidden) {
-        const p = o as GeoPoint;
-        out.push(
-          <circle
-            key={`ghost-${p.id}`}
-            cx={p.x + originPad}
-            cy={p.y + originPad}
-            r={(p.size ?? 2.6) + 0.4}
-            fill={c}
-            opacity={0.22}
-          />,
-        );
-        continue;
-      }
+      // A hidden point is HIDDEN — never a faint ghost mark. Translucent
+      // stand-ins were the source of the leftover slash/line artifacts seen
+      // after deleting, moving or hiding an object.
+      if (o.type === "point" && (o as GeoPoint).hidden) continue;
+
       const node = renderObject(o, scene, c, originPad, inkWeight);
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff, originPad, baseStroke, ghostHidden, inkWeight, highlight]);
+  }, [scene, diff, originPad, baseStroke, inkWeight, highlight]);
 
   // Review halo: a soft glow behind every highlighted object so a lit angle or
   // side reads instantly from the back of the classroom.
