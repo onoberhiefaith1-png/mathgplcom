@@ -35,6 +35,7 @@ const registry = new Map<string, ReviewDiagram>();
 
 let state: ReviewState = {
   open: false,
+  fullscreen: false,
   candidates: [],
   active: null,
   selectedObjectId: null,
