@@ -296,10 +296,9 @@
      objects that genuinely need width scroll inside their own container. */
   @media (max-width: 767px) {
     body img,
-    body svg,
-    body video,
-    body canvas {
+    body video {
       max-width: 100%;
+      height: auto;
     }
   }
 
