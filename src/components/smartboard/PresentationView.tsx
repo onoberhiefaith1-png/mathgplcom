@@ -146,6 +146,10 @@ import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2, LayoutGrid
 import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
+import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewProperties";
+import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
+import { propertyObjectIds } from "@/lib/geometry/properties/review";
+import { readProperties } from "@/lib/geometry/properties/model";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
