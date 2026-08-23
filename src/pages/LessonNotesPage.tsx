@@ -101,6 +101,19 @@ const LessonNotesPage = () => {
 
   useEffect(() => { setPage(0); load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [view]);
 
+  // Coming back from the editor must never show a stale shelf: the note just
+  // worked on is re-read whenever this page becomes visible again.
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") { setPage(0); load(); } };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [view]);
+
 
   const create = async (v: CreateNotebookValues) => {
     if (!allowEdit()) return;
