@@ -588,7 +588,17 @@ const NodeView = ({
       return <BinomView node={node} parentPath={parentPath} idxInRow={idxInRow}
         cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />;
 
+    // A geometry reference renders as its label only: the identity it carries
+    // is meaning for the Smartboard, never extra ink on the board.
+    case "georef":
+      return (
+        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+          {R(0)}
+        </span>
+      );
+
     case "box": {
+
       // A box node is only a cursor target. Do not draw a second outer cube:
       // the editable child row already renders the single usable placeholder
       // when empty, and that child placeholder disappears as soon as typing
