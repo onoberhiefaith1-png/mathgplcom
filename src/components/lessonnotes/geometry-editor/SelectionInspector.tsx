@@ -839,7 +839,7 @@ function addFloatingLabelAtShape(scene: GeometryScene, obj: GeoObject, initial =
       y = pts.reduce((a, p) => a + p.y, 0) / pts.length;
     }
   }
-  const op = addFloatingLabel(scene, x, y, initial);
+  const op = addFloatingLabel(scene, x, y, initial, shape.id);
   return { scene: op.scene, id: op.addedIds[0] };
 }
 
@@ -853,7 +853,7 @@ function addTextAtAngle(
   const v = pointById(scene, angle.vertex);
   const x = v ? v.x + 18 : 24;
   const y = v ? v.y - 18 : 24;
-  const op = addFloatingLabel(scene, x, y, "Text");
+  const op = addFloatingLabel(scene, x, y, "Text", angle.id);
   onApply(op.scene);
   if (onSelect) onSelect(op.addedIds[0], "label");
 }

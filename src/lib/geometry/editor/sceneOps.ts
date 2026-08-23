@@ -245,9 +245,16 @@ export function patchObject(scene: GeometryScene, id: GeoId, patch: Partial<GeoO
   return ok({ ...scene, objects }, [], [id]);
 }
 
-export function addFloatingLabel(scene: GeometryScene, x: number, y: number, text: string): OpResult {
+export function addFloatingLabel(
+  scene: GeometryScene,
+  x: number,
+  y: number,
+  text: string,
+  /** The geometry object this text annotates — identity stays on the object. */
+  ownerId?: GeoId,
+): OpResult {
   const id = newId("lbl", scene);
-  const lbl: GeoLabel = { id, type: "label", x, y, text };
+  const lbl: GeoLabel = { id, type: "label", x, y, text, ...(ownerId ? { ownerId } : {}) };
   return ok(withObjects(scene, [...scene.objects, lbl]), [id]);
 }
 
