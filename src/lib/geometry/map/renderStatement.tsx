@@ -10,15 +10,21 @@ import type { ReactNode } from "react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 
-/** Render a stored property statement as mathematics. */
+/** Geometry-reference macro: `\georef{objectId}{label}`. */
+const GEOREF = /\\georef\{[^}]*\}\{((?:[^{}]|\{[^{}]*\})*)\}/g;
+
+/** Render a stored property statement as mathematics. Geometry references fall
+ *  back to their label here, so no surface can ever leak the raw macro. */
 export function renderStatement(value: string): ReactNode {
   if (!value) return null;
+  const plain = value.replace(GEOREF, (_m, label) => label);
   try {
-    return renderMathInline(normalizeMathSource(value));
+    return renderMathInline(normalizeMathSource(plain));
   } catch {
-    return value;
+    return plain;
   }
 }
+
 
 /** Inline component form, for use directly inside JSX. */
 export function MathText({ value }: { value: string }) {
