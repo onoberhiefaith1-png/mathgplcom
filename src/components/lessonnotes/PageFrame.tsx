@@ -73,15 +73,18 @@ export function PageFrame({ size, style, zoom = 1, extraMm = 0, sheetRef, childr
   };
 
   return (
-    <div
-      style={{
-        // CSS zoom keeps layout math simple and matches the existing notebook zoom UX.
-        zoom,
-      } as CSSProperties}
-    >
-      <div ref={sheetRef} style={sheet}>
-        <div style={inner}>{children}</div>
-      </div>
+    <div ref={fitRef as unknown as Ref<HTMLDivElement>} style={{ width: "100%" }}>
+      <div
+        style={{
+          // CSS zoom keeps layout math simple and matches the existing notebook zoom UX.
+          zoom: effectiveZoom,
+        } as CSSProperties}
+      >
+        <div ref={sheetRef} style={sheet}>
+          <div style={inner}>{children}</div>
+        </div>
+
+
 
     </div>
   );
