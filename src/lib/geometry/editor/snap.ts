@@ -2,6 +2,7 @@
 
 import type { GeometryScene, GeoPoint } from "../scene";
 import { pointById } from "../scene";
+import { labelCenter, labelTextMetrics, unrotatePoint } from "../textRotation";
 
 export interface SnapTarget {
   x: number;
