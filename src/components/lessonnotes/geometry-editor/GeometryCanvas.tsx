@@ -246,6 +246,9 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
           // away. Shift-click still builds a multi-object selection for
           // constraints (equal marks, isosceles, angle-from-two-lines).
           const additive = e.shiftKey;
+          // Report the CLICK itself so sensors (property composer, relink)
+          // stay live even when the same part is clicked again.
+          emitGeoPick(hit.id);
           if (additive) {
             const next = selectedIds.includes(hit.id)
               ? selectedIds.filter((id) => id !== hit.id)

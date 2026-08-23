@@ -29,8 +29,22 @@ export interface GeometryMapItem {
   needsTokens?: string[];
   /** Exact diagram objects that glow when the item is clicked. */
   objectIds: GeoId[];
+  /**
+   * Every reference inserted from the diagram: the text it was written as and
+   * the stable id it belongs to. The LINK lives on the id, so renaming or
+   * clearing the label on the diagram never breaks the property.
+   */
+  tokens?: MapTokenBinding[];
+  /** Optional wording shown on the Smartboard instead of the relation. */
+  boardText?: string;
   source: "ai" | "teacher";
   enabled: boolean;
+}
+
+export interface MapTokenBinding {
+  /** The text as it appears inside the relation, e.g. "AB", "∠ABC". */
+  token: string;
+  objectId: GeoId;
 }
 
 export interface GeometryMapDoc {
@@ -44,7 +58,23 @@ export interface GeometryMapDoc {
   solutionHash?: string;
   generatedAt?: string;
   items: GeometryMapItem[];
+  /**
+   * Review colour per DIAGRAM OBJECT id. The colour belongs to the geometry,
+   * so the object, its label and every property term that references it are
+   * painted the same — even after the label text changes.
+   */
+  colors?: Record<GeoId, string>;
 }
+
+/** Teacher palette for object colouring. */
+export const OBJECT_COLORS: { name: string; value: string }[] = [
+  { name: "Ink", value: "#0f172a" },
+  { name: "Blue", value: "#2563eb" },
+  { name: "Red", value: "#e11d48" },
+  { name: "Green", value: "#059669" },
+  { name: "Amber", value: "#d97706" },
+  { name: "Purple", value: "#7c3aed" },
+];
 
 export type MapStatus = "none" | "ready" | "stale";
 
@@ -148,11 +178,30 @@ function sanitizeMap(raw: unknown): GeometryMapDoc | null {
       objectIds: Array.isArray(item.objectIds)
         ? [...new Set(item.objectIds.filter((x): x is string => typeof x === "string"))]
         : [],
+      tokens: Array.isArray(item.tokens)
+        ? (item.tokens as MapTokenBinding[])
+            .filter(
+              (t) =>
+                !!t && typeof t.token === "string" && typeof t.objectId === "string" && !!t.token,
+            )
+            .map((t) => ({ token: t.token, objectId: t.objectId }))
+        : undefined,
+      boardText:
+        typeof item.boardText === "string" && item.boardText.trim()
+          ? item.boardText.trim()
+          : undefined,
       source: item.source === "teacher" ? "teacher" : "ai",
       enabled: item.enabled !== false,
     });
   });
+  const colors: Record<GeoId, string> = {};
+  if (r.colors && typeof r.colors === "object") {
+    for (const [id, value] of Object.entries(r.colors as Record<string, unknown>)) {
+      if (typeof value === "string" && value.trim()) colors[id] = value;
+    }
+  }
   return {
+    ...(Object.keys(colors).length ? { colors } : {}),
     version: 2,
     published: !!r.published,
     generatedFromSolution: !!r.generatedFromSolution,
@@ -286,4 +335,78 @@ export function mapInventory(scene: GeometryScene) {
     typeLabel: TYPE_LABEL[o.type] ?? o.type,
     name: displayName(scene, o),
   }));
+}
+
+/* ───────────── identity-based links ───────────── */
+
+const baseId = (id: string): string => id.split("#")[0];
+
+/**
+ * Every diagram object a map item is linked to — its explicit `objectIds`
+ * plus the ids behind each token it references. Ids only, never label text.
+ */
+export function itemObjectIds(item: GeometryMapItem): GeoId[] {
+  const ids = [
+    ...item.objectIds,
+    ...(item.tokens ?? []).map((t) => t.objectId),
+  ].map(baseId);
+  return [...new Set(ids)];
+}
+
+/** Items of THIS diagram linked to THIS object, by identity. */
+export function itemsForObject(
+  items: GeometryMapItem[],
+  objectId: GeoId,
+): GeometryMapItem[] {
+  const target = baseId(objectId);
+  return items.filter((i) => itemObjectIds(i).some((id) => id === target));
+}
+
+/** Items an audience is allowed to review on the board. */
+export function reviewableMapItems(
+  doc: GeometryMapDoc,
+  role: "teacher" | "student",
+): GeometryMapItem[] {
+  const items = [...doc.items]
+    .filter((i) => i.enabled !== false && (i.relation.trim() || i.principle.trim()))
+    .sort((a, b) => a.order - b.order);
+  return role === "teacher" ? items : doc.published ? items : [];
+}
+
+/** Object ids in this scene that carry at least one reviewable item. */
+export function objectsWithMapItems(
+  scene: GeometryScene,
+  items: GeometryMapItem[],
+): Set<GeoId> {
+  const alive = new Set(scene.objects.map((o) => o.id));
+  const out = new Set<GeoId>();
+  for (const item of items) {
+    for (const id of itemObjectIds(item)) if (alive.has(id)) out.add(id);
+  }
+  return out;
+}
+
+/* ───────────── colour belongs to the object ───────────── */
+
+export function objectColor(doc: GeometryMapDoc, id: GeoId): string | undefined {
+  return doc.colors?.[baseId(id)];
+}
+
+export function setObjectColor(
+  doc: GeometryMapDoc,
+  id: GeoId,
+  color: string | null,
+): GeometryMapDoc {
+  const next = { ...(doc.colors ?? {}) };
+  if (color) next[baseId(id)] = color;
+  else delete next[baseId(id)];
+  return { ...doc, colors: next };
+}
+
+/** The colours a label should inherit: the object it annotates owns them. */
+export function labelOwnerColor(
+  doc: GeometryMapDoc,
+  label: { id: GeoId; ownerId?: GeoId },
+): string | undefined {
+  return objectColor(doc, label.ownerId ?? label.id);
 }
