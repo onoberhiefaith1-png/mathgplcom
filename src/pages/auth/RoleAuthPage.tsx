@@ -124,12 +124,16 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
         try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
         setUnverified(false);
         try {
-          const session = await signIn({
+          const result = await signIn({
             data: { mathgplId: (values.mathgpl_id ?? "").trim(), password: values.password },
           });
+          if (!result.ok) {
+            if (result.reason === "unconfirmed") setUnverified(true);
+            throw new Error(result.message);
+          }
           const { error } = await supabase.auth.setSession({
-            access_token: session.accessToken,
-            refresh_token: session.refreshToken,
+            access_token: result.accessToken,
+            refresh_token: result.refreshToken,
           });
           if (error) throw error;
         } catch (error) {
@@ -137,6 +141,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
           if (/not confirmed/i.test(message)) setUnverified(true);
           throw new Error(message);
         }
+
         return;
       }
 

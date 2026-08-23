@@ -20,11 +20,25 @@ import {
   userIdSchema,
 } from "./accountIdRules";
 
+/**
+ * A wrong ID or password is an ordinary outcome of a login form, not a server
+ * fault, so it is RETURNED as `{ ok: false }` instead of thrown. Throwing here
+ * surfaced the failed attempt as an unhandled server-function runtime error
+ * (dev error overlay, blank screen) even though the form handled it.
+ */
 export const signInWithMathgplId = createServerFn({ method: "POST" })
   .inputValidator((data: { mathgplId: string; password: string }) => credentialsSchema.parse(data))
-  .handler(async ({ data }) => {
-    throttle(data.mathgplId);
-    if (!ID_PATTERN.test(data.mathgplId)) throw new Error(GENERIC_SIGN_IN_ERROR);
+  .handler(async ({ data }): Promise<
+    | { ok: true; accessToken: string; refreshToken: string }
+    | { ok: false; reason: "invalid" | "unconfirmed" | "throttled"; message: string }
+  > => {
+    try {
+      throttle(data.mathgplId);
+    } catch (error) {
+      return { ok: false, reason: "throttled", message: (error as Error).message };
+    }
+    const invalid = { ok: false, reason: "invalid", message: GENERIC_SIGN_IN_ERROR } as const;
+    if (!ID_PATTERN.test(data.mathgplId)) return invalid;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
@@ -32,11 +46,11 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
       .select("user_id")
       .eq("mathgpl_id", data.mathgplId)
       .maybeSingle();
-    if (!row?.user_id) throw new Error(GENERIC_SIGN_IN_ERROR);
+    if (!row?.user_id) return invalid;
 
     const { data: found } = await supabaseAdmin.auth.admin.getUserById(row.user_id);
     const email = found?.user?.email;
-    if (!email) throw new Error(GENERIC_SIGN_IN_ERROR);
+    if (!email) return invalid;
 
     const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
     const client = createClient(process.env["SUPABASE_URL"]!, key, {
@@ -56,16 +70,22 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
     const { data: signIn, error } = await client.auth.signInWithPassword({ email, password: data.password });
     if (error || !signIn.session) {
       if (error && /not confirmed/i.test(error.message)) {
-        throw new Error("Please confirm your email address before signing in.");
+        return {
+          ok: false,
+          reason: "unconfirmed",
+          message: "Please confirm your email address before signing in.",
+        };
       }
-      throw new Error(GENERIC_SIGN_IN_ERROR);
+      return invalid;
     }
 
     return {
+      ok: true,
       accessToken: signIn.session.access_token,
       refreshToken: signIn.session.refresh_token,
     };
   });
+
 
 /**
  * The permanent MathGPL ID of a freshly created account, so the sign-up

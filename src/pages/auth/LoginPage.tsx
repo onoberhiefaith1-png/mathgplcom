@@ -107,12 +107,17 @@ const LoginPage = () => {
 
       try { localStorage.setItem("mathgpl:remember", remember ? "1" : "0"); } catch { /* ignore */ }
       setUnverified(false);
-      const session = await signIn({ data: { mathgplId, password } });
+      const result = await signIn({ data: { mathgplId, password } });
+      if (!result.ok) {
+        if (result.reason === "unconfirmed") setUnverified(true);
+        throw new Error(result.message);
+      }
       const { error } = await supabase.auth.setSession({
-        access_token: session.accessToken,
-        refresh_token: session.refreshToken,
+        access_token: result.accessToken,
+        refresh_token: result.refreshToken,
       });
       if (error) throw error;
+
       // The session listener redirects; nothing else to do here.
     } catch (error) {
       const message = (error as Error).message ?? "Could not sign in";
