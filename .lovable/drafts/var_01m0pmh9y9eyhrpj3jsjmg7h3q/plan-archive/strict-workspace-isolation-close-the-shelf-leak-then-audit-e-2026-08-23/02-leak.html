@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="100%" role="img" aria-label="How another teacher's published note reaches your shelf today, and the owner filter that stops it">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .lbl { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .mono { font-family: var(--font-mono); font-size: 11px; }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zn { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { stroke: hsl(var(--accent)); stroke-width: 1; fill: none; }
+    .halo { paint-order: stroke; stroke: hsl(var(--background)); stroke-width: 4px; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+    <marker id="b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--accent))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text class="lbl" x="0" y="14">Teacher A's note, published to Community</text>
+
+  <rect class="bx" x="0" y="30" width="150" height="54" rx="8"/>
+  <text class="lbl" x="14" y="52">A's note</text>
+  <text x="14" y="70">owner = A · published</text>
+
+  <path class="w" d="M156 57 H220" marker-end="url(#a)"/>
+
+  <rect class="zn" x="228" y="18" width="192" height="150" rx="8"/>
+  <text class="mono" x="238" y="34">read rules (correct)</text>
+  <rect class="bx" x="242" y="44" width="164" height="26" rx="8"/>
+  <text x="254" y="61">owner reads own</text>
+  <rect class="bx" x="242" y="76" width="164" height="26" rx="8"/>
+  <text x="254" y="93">community published</text>
+  <rect class="bx" x="242" y="108" width="164" height="26" rx="8"/>
+  <text x="254" y="125">shared to class / school</text>
+
+  <path class="w" d="M424 89 H492" marker-end="url(#a)"/>
+
+  <rect class="bx" x="500" y="30" width="140" height="118" rx="8"/>
+  <text class="lbl" x="514" y="52">B's shelf query</text>
+  <text x="514" y="72">workspace ✓</text>
+  <text x="514" y="90">archive state ✓</text>
+  <text x="514" y="108">storage scope ✓</text>
+  <text class="mono" x="514" y="132">owner — missing</text>
+
+  <path class="acc" d="M570 156 V206" marker-end="url(#b)"/>
+  <rect x="440" y="212" width="200" height="34" rx="17" fill="hsl(var(--accent))"/>
+  <text x="460" y="234" fill="hsl(var(--accent-foreground))" font-size="12">add: owner = signed-in user</text>
+
+  <circle cx="14" cy="228" r="11" fill="hsl(var(--accent))"/>
+  <text x="14" y="232" text-anchor="middle" fill="hsl(var(--accent-foreground))" font-size="12">1</text>
+  <text class="halo" x="34" y="224">The rules stay as they are — Community, class sharing and school review need them.</text>
+  <text class="halo" x="34" y="242">Only the private shelves gain an explicit owner filter, so publication stops bleeding through.</text>
+</svg>

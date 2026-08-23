@@ -1,7 +1,7 @@
 // CRUD for saved games.
 import { supabase } from "@/integrations/supabase/client";
 import { GameCanvas, GameRow, makeScene } from "./types";
-import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
+import { activeSchoolOrgId, myOwnerId } from "@/lib/accounts/workspaceScope";
 
 
 const emptyCanvas = (): GameCanvas => {
@@ -33,6 +33,9 @@ export const listGames = async (): Promise<GameRow[]> => {
   const orgId = await activeSchoolOrgId();
   let query = supabase.from("games").select("*");
   query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
+  // Private list: only the adventures this person built. Community-published or
+  // class-linked adventures belong to those surfaces, not to someone else's list.
+  query = query.eq("owner_id", await myOwnerId());
   const { data, error } = await query.order("updated_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as GameRow[];

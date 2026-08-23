@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { activeSchoolOrgId, withOwnerView } from "@/lib/accounts/workspaceScope";
+import { activeSchoolOrgId, myOwnerId } from "@/lib/accounts/workspaceScope";
 import { useViewAs } from "@/lib/accounts/viewAs";
 
 
@@ -83,8 +83,11 @@ const LessonNotesPage = () => {
       .eq("storage_scope", "workspace");
     query = view === "archive" ? query.not("archived_at", "is", null) : query.is("archived_at", null);
     query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
-    // When someone else's shelf is being viewed read-only, show their notes.
-    query = withOwnerView(query);
+    // This shelf is private: only the signed-in person's own notes, or — in
+    // read-only view-as — that person's own notes. Material shared to a class
+    // or published to Community appears there, never on someone else's shelf.
+    query = query.eq("owner_id", await myOwnerId());
+
     // The note last worked on must always be the first note on the shelf.
     const { data, error } = await query
       .order("updated_at", { ascending: false })

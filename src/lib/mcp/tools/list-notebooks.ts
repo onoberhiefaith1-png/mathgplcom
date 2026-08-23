@@ -21,11 +21,20 @@ export default defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const { data, error } = await supabaseForUser(ctx)
+    const client = supabaseForUser(ctx);
+    // The caller's own notebooks only: the owner comes from their verified
+    // token, never from anything the caller sends.
+    const { data: me } = await client.auth.getUser();
+    if (!me.user) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const { data, error } = await client
       .from("notebooks")
       .select("id,title,subject,subtopic,updated_at")
+      .eq("owner_id", me.user.id)
       .order("updated_at", { ascending: false })
       .limit(limit);
+
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
       content: [{ type: "text", text: JSON.stringify(data, null, 2) }],

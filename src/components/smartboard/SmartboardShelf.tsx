@@ -9,7 +9,7 @@ import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/Noteb
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Eye, PlayCircle, Check } from "lucide-react";
 import { loadApprovedAt } from "@/lib/smartboard/presentationPlan";
-import { activeSchoolOrgId, withOwnerView } from "@/lib/accounts/workspaceScope";
+import { activeSchoolOrgId, myOwnerId } from "@/lib/accounts/workspaceScope";
 
 interface NotebookRow extends NotebookCoverData {
   id: string;
@@ -36,7 +36,9 @@ export const SmartboardShelf = () => {
         .from("notebooks")
         .select("id,title,teacher,class_name,session,subject,color_index");
       query = orgId ? query.eq("org_id", orgId) : query.is("org_id", null);
-      query = withOwnerView(query);
+      // Private shelf: own notes only. Shared/published material shows up where
+      // it is shared, never here.
+      query = query.eq("owner_id", await myOwnerId());
       const { data, error } = await query.order("updated_at", { ascending: false });
 
       if (error) {

@@ -80,3 +80,25 @@ export function withOwnerView<T extends { eq: (c: string, v: string) => T }>(que
   const viewing = currentViewAs();
   return viewing ? query.eq("owner_id", viewing.ownerId) : query;
 }
+
+/** No real row carries this owner: a fail-closed filter when there is no session. */
+const NOBODY = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * The owner a "my content" list belongs to.
+ *
+ * Private shelves must never lean on the database's wider read paths
+ * (Community publication, class sharing, school review) — those exist so
+ * shared material shows up *where it is shared*, not on someone else's own
+ * shelf. Every list of "my …" therefore states its owner explicitly, taken
+ * from the session (or the explicit read-only view-as target), never from
+ * anything the browser could supply.
+ */
+export async function myOwnerId(): Promise<string> {
+  const viewing = currentViewAs();
+  if (viewing) return viewing.ownerId;
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? NOBODY;
+}
+
+
