@@ -538,6 +538,8 @@ const PresentationView = ({
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [topOpen, setTopOpen] = useState(false);
+  // Review Properties: the diagram already on this board plus its selection.
+  const review = useReviewProperties();
   const [railOpen, setRailOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
