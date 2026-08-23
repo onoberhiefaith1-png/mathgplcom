@@ -33,15 +33,16 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
   .inputValidator((data: { mathgplId: string; password: string }) => credentialsSchema.parse(data))
   .handler(async ({ data }): Promise<
     | { ok: true; accessToken: string; refreshToken: string }
-    | { ok: false; reason: "invalid" | "unconfirmed" | "throttled"; message: string }
+    | { ok: false; reason: "id_not_found" | "email_not_found" | "password_incorrect" | "unconfirmed" | "throttled"; message: string }
   > => {
     try {
       throttle(data.mathgplId);
     } catch (error) {
       return { ok: false, reason: "throttled", message: (error as Error).message };
     }
-    const invalid = { ok: false, reason: "invalid", message: GENERIC_SIGN_IN_ERROR } as const;
-    if (!ID_PATTERN.test(data.mathgplId)) return invalid;
+    if (!ID_PATTERN.test(data.mathgplId)) {
+      return { ok: false, reason: "id_not_found", message: ID_NOT_FOUND_MESSAGE };
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
@@ -49,11 +50,15 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
       .select("user_id")
       .eq("mathgpl_id", data.mathgplId)
       .maybeSingle();
-    if (!row?.user_id) return invalid;
+    if (!row?.user_id) {
+      return { ok: false, reason: "id_not_found", message: ID_NOT_FOUND_MESSAGE };
+    }
 
     const { data: found } = await supabaseAdmin.auth.admin.getUserById(row.user_id);
     const email = found?.user?.email;
-    if (!email) return invalid;
+    if (!email) {
+      return { ok: false, reason: "email_not_found", message: EMAIL_NOT_FOUND_MESSAGE };
+    }
 
     const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
     const client = createClient(process.env["SUPABASE_URL"]!, key, {
@@ -79,7 +84,7 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
           message: "Please confirm your email address before signing in.",
         };
       }
-      return invalid;
+      return { ok: false, reason: "password_incorrect", message: PASSWORD_INCORRECT_MESSAGE };
     }
 
     return {
