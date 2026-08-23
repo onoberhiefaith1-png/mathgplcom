@@ -31,6 +31,15 @@ export function PageFrame({ size, style, zoom = 1, extraMm = 0, sheetRef, childr
   const minHeightPx = heightMm * MM_TO_PX + extraPx;
   const marginPx = MARGIN_MM * MM_TO_PX;
 
+  // Auto fit-to-width: on viewports narrower than the paper sheet the whole
+  // sheet is scaled uniformly so its full width is visible — A4 proportions,
+  // margins and line breaks stay exactly as on desktop, nothing reflows.
+  // Capped at 1, so at desktop widths this is a no-op and `zoom` is untouched.
+  const bp = useBreakpoint();
+  const { ref: fitRef, scale: fit } = useFitToWidth(widthPx + 8, bp !== "desktop");
+  const effectiveZoom = zoom * fit;
+
+
   const sheet: CSSProperties = {
     width: widthPx,
     minHeight: minHeightPx,
