@@ -25,6 +25,7 @@ import {
 import { onGeoPick } from "@/lib/geometry/pickBus";
 import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
 import { MathText } from "@/lib/geometry/map/renderStatement";
+import { ColoredMathText } from "@/lib/geometry/map/renderTokens";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { PropertyComposer, type ComposedProperty } from "./PropertyComposer";
 
@@ -397,9 +398,12 @@ export function GeometryMapPanel({
 
 function ItemRow({
   index, item, scene, active, onPick, onEdit, onToggle, onDelete, onMove,
+  colorForObject,
 }: {
   index: number;
   item: GeometryMapItem;
+  /** Colour of a geometry object, by stable id — never by label text. */
+  colorForObject?: (objectId: string) => string | undefined;
   scene: GeometryScene;
   active: boolean;
   onPick: () => void;
@@ -427,7 +431,7 @@ function ItemRow({
               <p className="text-[12px] leading-snug text-foreground/85">
                 <ColoredMathText
                   value={item.relation}
-                  tokens={colorForObject ? [] : []}
+                  tokens={[]}
                   colorForObject={colorForObject}
                 />
               </p>
