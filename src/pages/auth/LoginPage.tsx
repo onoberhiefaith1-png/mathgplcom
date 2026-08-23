@@ -82,6 +82,7 @@ const LoginPage = () => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    let authErrorTitle = "Could not sign in";
     try {
       if (recover) {
         const parsedEmail = z.string().trim().email("Enter a valid email address").max(255).parse(email);
@@ -110,6 +111,10 @@ const LoginPage = () => {
       const result = await signIn({ data: { mathgplId, password } });
       if (!result.ok) {
         if (result.reason === "unconfirmed") setUnverified(true);
+        if (result.reason === "id_not_found") authErrorTitle = "MathGPL ID not found";
+        if (result.reason === "email_not_found") authErrorTitle = "Email not registered";
+        if (result.reason === "password_incorrect") authErrorTitle = "Incorrect password";
+        if (result.reason === "throttled") authErrorTitle = "Too many attempts";
         throw new Error(result.message);
       }
       const { error } = await supabase.auth.setSession({
@@ -127,7 +132,7 @@ const LoginPage = () => {
           ? "Could not send your MathGPL ID"
           : recover === "password"
             ? "Could not send reset link"
-            : "Could not sign in",
+            : authErrorTitle,
         description: message,
         variant: "destructive",
       });
