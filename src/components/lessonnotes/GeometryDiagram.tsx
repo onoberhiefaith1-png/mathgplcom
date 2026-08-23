@@ -289,7 +289,9 @@ function buildHitLayer(
         break;
       }
       case "region": {
-        const path = regionEdgesToPath(o as never, scene, pad);
+        const reg = o as { boundary: string[]; edges?: never };
+        const path = regionEdgesToPath(scene, reg.boundary, reg.edges, pad);
+
         if (!path) break;
         out.push(
           <path key={`hit-${o.id}`} d={path} fill="transparent" stroke="none" {...common(o.id)} />,
