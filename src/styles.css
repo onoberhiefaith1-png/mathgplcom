@@ -281,11 +281,28 @@
     @apply border-border;
   }
 
+  html {
+    max-width: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    max-width: 100%;
     overflow-x: hidden;
     overflow-y: auto;
   }
+
+  /* Phones: nothing may force the app wider than the device. Workspace
+     objects that genuinely need width scroll inside their own container. */
+  @media (max-width: 767px) {
+    body img,
+    body svg,
+    body video,
+    body canvas {
+      max-width: 100%;
+    }
+  }
+
 }
 
 /* ==== PORTED CUSTOM CSS (appended verbatim from the old src/index.css) ==== */
