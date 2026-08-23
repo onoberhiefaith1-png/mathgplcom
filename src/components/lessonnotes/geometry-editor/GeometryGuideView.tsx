@@ -8,6 +8,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Route } from "lucide-react";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import { MathText } from "@/lib/geometry/map/renderStatement";
+import { ColoredMathText } from "@/lib/geometry/map/renderTokens";
 import {
   keepLiveIds,
   objectChipLabel,
@@ -76,7 +77,11 @@ export function GeometryGuideView({
                   </p>
                   {item.relation && (
                     <p className="text-[12.5px] leading-snug">
-                      <MathText value={item.relation} />
+                      <ColoredMathText
+                        value={item.relation}
+                        tokens={itemTokenColors(doc, item)}
+                        colorForObject={(oid) => objectColor(doc, oid)}
+                      />
                     </p>
                   )}
 

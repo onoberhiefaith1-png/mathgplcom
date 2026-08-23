@@ -425,7 +425,11 @@ function ItemRow({
             </p>
             {item.relation && (
               <p className="text-[12px] leading-snug text-foreground/85">
-                <MathText value={item.relation} />
+                <ColoredMathText
+                  value={item.relation}
+                  tokens={colorForObject ? [] : []}
+                  colorForObject={colorForObject}
+                />
               </p>
             )}
 
