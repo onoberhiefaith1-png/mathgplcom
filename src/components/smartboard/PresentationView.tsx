@@ -5600,6 +5600,7 @@ const PresentationView = ({
                   topic={notebook?.subject ?? ""}
                   subtopic={notebook?.subtopic ?? ""}
                   dateLabel={today()}
+                  zoom={zoom}
                 />
               </div>
             </div>
@@ -6115,8 +6116,12 @@ const PresentationView = ({
                     </div>
                     <div className="space-y-6">
                       {revealedNoteObjects.map((o) => (
-                        <div key={o.objId} className="lesson-doc sb-board-object w-full max-w-full">
-                          <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation />
+                        <div
+                          key={o.objId}
+                          className="lesson-doc sb-board-object w-full max-w-full"
+                          style={{ fontSize: `${zoom}rem` }}
+                        >
+                          <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation zoom={zoom} />
                         </div>
                       ))}
                     </div>
@@ -7142,10 +7147,12 @@ const PresentationView = ({
 
 const BeatBlock = ({
   beat, isCurrent, ink, placeholderColor, accent, jitter,
-  notebookTitle, topic, subtopic, dateLabel,
+  notebookTitle, topic, subtopic, dateLabel, zoom = 1,
 }: {
   beat: Beat;
   isCurrent: boolean;
+  /** Board zoom — diagrams and objects scale with the writing. */
+  zoom?: number;
   ink: string;
   placeholderColor: string;
   accent: string;
@@ -7172,9 +7179,9 @@ const BeatBlock = ({
           <div
             key={o.objId}
             className="lesson-doc sb-board-object w-full max-w-full"
-            style={{ fontSize: "1rem" }}
+            style={{ fontSize: `${zoom}rem` }}
           >
-            <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation />
+            <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation zoom={zoom} />
           </div>
         ))}
       </div>
@@ -7201,8 +7208,12 @@ const BeatBlock = ({
         {Array.from({ length: lines.length + 1 }, (_, index) => (
           <div key={`${b.id}-flow-${index}`}>
             {(slots.get(index) ?? []).map((object) => (
-              <div key={object.objId} className="lesson-doc sb-board-object my-7 w-full max-w-full">
-                <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs ?? {}} presentation />
+              <div
+                key={object.objId}
+                className="lesson-doc sb-board-object my-7 w-full max-w-full"
+                style={{ fontSize: `${zoom}rem` }}
+              >
+                <SolutionObjectView nodeType={object.nodeType} attrs={object.attrs ?? {}} presentation zoom={zoom} />
               </div>
             ))}
             {index < lines.length && lines[index].trim() && (
