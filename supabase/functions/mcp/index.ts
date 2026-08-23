@@ -39,7 +39,12 @@ var list_notebooks_default = defineTool2({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
-    const { data, error } = await supabaseForUser(ctx).from("notebooks").select("id,title,subject,subtopic,updated_at").order("updated_at", { ascending: false }).limit(limit);
+    const client = supabaseForUser(ctx);
+    const { data: me } = await client.auth.getUser();
+    if (!me.user) {
+      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+    }
+    const { data, error } = await client.from("notebooks").select("id,title,subject,subtopic,updated_at").eq("owner_id", me.user.id).order("updated_at", { ascending: false }).limit(limit);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
       content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
