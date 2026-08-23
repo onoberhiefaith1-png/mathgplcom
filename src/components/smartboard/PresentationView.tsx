@@ -148,6 +148,7 @@ import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewProperties";
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
+import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { itemObjectIds } from "@/lib/geometry/map/model";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import {
