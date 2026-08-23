@@ -21,6 +21,7 @@ import {
   setObjectColor,
   itemsForObject,
 } from "@/lib/geometry/map/model";
+import { onGeoPick } from "@/lib/geometry/pickBus";
 import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
 import { MathText } from "@/lib/geometry/map/renderStatement";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
@@ -90,17 +91,19 @@ export function GeometryMapPanel({
   // Relink mode: every part the teacher clicks on the diagram is added to (or
   // removed from) the item being relinked. No typing of labels, ever.
   useEffect(() => {
-    if (!relinkId || !targetId) return;
-    const item = doc.items.find((i) => i.id === relinkId);
-    if (!item) return;
-    const has = item.objectIds.includes(targetId);
-    const nextIds = has
-      ? item.objectIds.filter((x) => x !== targetId)
-      : [...item.objectIds, targetId];
-    onDocChange(upsertMapItem(doc, { ...item, objectIds: keepLiveIds(scene, nextIds) }));
-    onHighlight(keepLiveIds(scene, nextIds));
+    if (!relinkId) return;
+    return onGeoPick((clicked) => {
+      const item = doc.items.find((i) => i.id === relinkId);
+      if (!item) return;
+      const has = item.objectIds.includes(clicked);
+      const nextIds = has
+        ? item.objectIds.filter((x) => x !== clicked)
+        : [...item.objectIds, clicked];
+      onDocChange(upsertMapItem(doc, { ...item, objectIds: keepLiveIds(scene, nextIds) }));
+      onHighlight(keepLiveIds(scene, nextIds));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetId, relinkId]);
+  }, [relinkId, doc, scene]);
 
   const pick = (item: GeometryMapItem) => {
     const next = activeId === item.id ? null : item.id;
