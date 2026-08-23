@@ -4,8 +4,6 @@
  */
 import { z } from "zod";
 
-export const GENERIC_SIGN_IN_ERROR = "Incorrect MathGPL ID or password.";
-
 export const ID_NOT_FOUND_MESSAGE = "We couldn't find a MathGPL ID matching that entry.";
 export const EMAIL_NOT_FOUND_MESSAGE = "This account does not have a registered email address.";
 export const PASSWORD_INCORRECT_MESSAGE = "The password you entered is incorrect.";

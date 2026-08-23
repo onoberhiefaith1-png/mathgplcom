@@ -12,7 +12,6 @@ import { createClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   EMAIL_NOT_FOUND_MESSAGE,
-  GENERIC_SIGN_IN_ERROR,
   ID_NOT_FOUND_MESSAGE,
   ID_PATTERN,
   PASSWORD_INCORRECT_MESSAGE,
