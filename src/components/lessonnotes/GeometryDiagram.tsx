@@ -45,8 +45,19 @@ interface Props {
   presentation?: boolean;
   /** Crop empty notebook canvas but keep normal lesson-note ink weight. */
   crop?: boolean;
+  /**
+   * Review highlighting: object ids drawn in the review accent. Used by the
+   * Smartboard's Review Properties panel — never by the editing canvas.
+   */
+  highlightIds?: string[];
+  /**
+   * Read-only object picking. When supplied, an invisible hit layer is drawn
+   * over the same geometry so clicking reports the object's stable id.
+   */
+  onPickObject?: (id: string) => void;
 
 }
+
 
 const STROKE = "#1f1f24";
 const ACCENT_ADD = "#10b981";
