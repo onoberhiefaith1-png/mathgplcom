@@ -202,6 +202,40 @@ export function PropertyComposer({
         )}
       </div>
 
+      {targetId && onColor && (
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
+            Colour {objectChipLabel(scene, targetId)}
+          </span>
+          {OBJECT_COLORS.map((c) => {
+            const on = colorOf?.(targetId) === c.value;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                title={c.name}
+                aria-label={`Colour ${c.name}`}
+                onClick={() => onColor(targetId, on ? null : c.value)}
+                className={`h-4 w-4 rounded-full border ${on ? "ring-2 ring-primary ring-offset-1" : "border-foreground/25"}`}
+                style={{ background: c.value }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      <label className="mt-1.5 block">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
+          Text on the Smartboard (optional)
+        </span>
+        <input
+          value={boardText}
+          onChange={(e) => setBoardText(e.target.value)}
+          placeholder="Wording students should read"
+          className="mt-0.5 w-full rounded border border-foreground/20 bg-background px-1.5 py-1 text-[12px]"
+        />
+      </label>
+
       <label className="mt-1.5 block">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
           Reason / name
