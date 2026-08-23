@@ -11,6 +11,7 @@ import type {
 } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
 import { regionEdgesToPath } from "@/lib/geometry/editor/boundary";
+import { labelCenter, normalizeRotation } from "@/lib/geometry/textRotation";
 
 interface Props {
   scene: GeometryScene;
