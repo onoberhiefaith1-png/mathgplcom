@@ -21,7 +21,7 @@ import {
 import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
 import { MathText } from "@/lib/geometry/map/renderStatement";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
-import { PropertyComposer } from "./PropertyComposer";
+import { PropertyComposer, type ComposedProperty } from "./PropertyComposer";
 
 
 interface Props {
@@ -60,7 +60,7 @@ export function GeometryMapPanel({
   const generate = useServerFn(generateGeometryMap);
 
   /** Teacher-authored property built by the visual composer. */
-  const addComposed = (draft: { statement: string; reason: string; objectIds: GeoId[] }) => {
+  const addComposed = (draft: ComposedProperty) => {
     const item: GeometryMapItem = {
       id: newMapItemId(),
       order: doc.items.length,
@@ -70,6 +70,8 @@ export function GeometryMapPanel({
       usedTo: "",
       stepIndex: doc.items.length + 1,
       objectIds: keepLiveIds(scene, draft.objectIds),
+      tokens: draft.tokens.filter((t) => keepLiveIds(scene, [t.objectId]).length > 0),
+      ...(draft.boardText ? { boardText: draft.boardText } : {}),
       source: "teacher",
       enabled: true,
     };
@@ -230,6 +232,8 @@ export function GeometryMapPanel({
         targetId={relinkId ? null : targetId}
         onHighlight={onHighlight}
         onAdd={addComposed}
+        colorOf={(id) => objectColor(doc, id)}
+        onColor={(id, color) => onDocChange(setObjectColor(doc, id, color))}
       />
 
       <button
