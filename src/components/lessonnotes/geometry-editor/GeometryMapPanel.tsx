@@ -17,11 +17,15 @@ import {
   keepLiveIds, mapInventory, mapStatus, newMapItemId, objectChipLabel, pathway,
   removeMapItem, reorderMap, stripNumericAnswers, upsertMapItem,
   type GeometryMapDoc, type GeometryMapItem,
+  objectColor,
+  setObjectColor,
+  itemsForObject,
 } from "@/lib/geometry/map/model";
+import { onGeoPick } from "@/lib/geometry/pickBus";
 import { generateGeometryMap } from "@/lib/geometry/map/geometryMap.functions";
 import { MathText } from "@/lib/geometry/map/renderStatement";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
-import { PropertyComposer } from "./PropertyComposer";
+import { PropertyComposer, type ComposedProperty } from "./PropertyComposer";
 
 
 interface Props {
@@ -60,7 +64,7 @@ export function GeometryMapPanel({
   const generate = useServerFn(generateGeometryMap);
 
   /** Teacher-authored property built by the visual composer. */
-  const addComposed = (draft: { statement: string; reason: string; objectIds: GeoId[] }) => {
+  const addComposed = (draft: ComposedProperty) => {
     const item: GeometryMapItem = {
       id: newMapItemId(),
       order: doc.items.length,
@@ -70,6 +74,8 @@ export function GeometryMapPanel({
       usedTo: "",
       stepIndex: doc.items.length + 1,
       objectIds: keepLiveIds(scene, draft.objectIds),
+      tokens: draft.tokens.filter((t) => keepLiveIds(scene, [t.objectId]).length > 0),
+      ...(draft.boardText ? { boardText: draft.boardText } : {}),
       source: "teacher",
       enabled: true,
     };
@@ -85,17 +91,19 @@ export function GeometryMapPanel({
   // Relink mode: every part the teacher clicks on the diagram is added to (or
   // removed from) the item being relinked. No typing of labels, ever.
   useEffect(() => {
-    if (!relinkId || !targetId) return;
-    const item = doc.items.find((i) => i.id === relinkId);
-    if (!item) return;
-    const has = item.objectIds.includes(targetId);
-    const nextIds = has
-      ? item.objectIds.filter((x) => x !== targetId)
-      : [...item.objectIds, targetId];
-    onDocChange(upsertMapItem(doc, { ...item, objectIds: keepLiveIds(scene, nextIds) }));
-    onHighlight(keepLiveIds(scene, nextIds));
+    if (!relinkId) return;
+    return onGeoPick((clicked) => {
+      const item = doc.items.find((i) => i.id === relinkId);
+      if (!item) return;
+      const has = item.objectIds.includes(clicked);
+      const nextIds = has
+        ? item.objectIds.filter((x) => x !== clicked)
+        : [...item.objectIds, clicked];
+      onDocChange(upsertMapItem(doc, { ...item, objectIds: keepLiveIds(scene, nextIds) }));
+      onHighlight(keepLiveIds(scene, nextIds));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetId, relinkId]);
+  }, [relinkId, doc, scene]);
 
   const pick = (item: GeometryMapItem) => {
     const next = activeId === item.id ? null : item.id;
@@ -181,7 +189,7 @@ export function GeometryMapPanel({
   };
 
   const shown = onlyThisPart && targetId
-    ? items.filter((i) => i.objectIds.includes(targetId))
+    ? itemsForObject(items, targetId)
     : items;
 
   const nodes = pathway(doc);
@@ -230,6 +238,8 @@ export function GeometryMapPanel({
         targetId={relinkId ? null : targetId}
         onHighlight={onHighlight}
         onAdd={addComposed}
+        colorOf={(id) => objectColor(doc, id)}
+        onColor={(id, color) => onDocChange(setObjectColor(doc, id, color))}
       />
 
       <button

@@ -1,25 +1,25 @@
 // ReviewPropertiesPanel — the Smartboard's ~1/5-width review dock for the
-// teacher-authored Geometry Properties of the diagram currently on the board.
+// teacher-authored Geometry Map of the diagram currently on the board.
 //
-// It never generates, solves or infers mathematics. It retrieves the properties
-// stored on THIS diagram's scene, lists the ones referencing the selected
-// geometry object, and reports the objects a picked property refers to so the
+// It never generates, solves or infers mathematics. It retrieves the items
+// stored on THIS diagram's scene, lists the ones linked BY OBJECT IDENTITY to
+// the selected part, and reports the objects a picked item refers to so the
 // board can light them up. Diagram → property and property → diagram.
 
 import { useMemo } from "react";
 import { X } from "lucide-react";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import { MathText } from "@/lib/geometry/map/renderStatement";
+import { describeObject } from "@/lib/geometry/properties/model";
 import {
-  describeTarget,
-  readProperties,
-  type GeometryPropertyItem,
-} from "@/lib/geometry/properties/model";
-import {
-  itemsForObjectId,
-  propertyObjectIds,
-  reviewableItems,
-} from "@/lib/geometry/properties/review";
+  itemObjectIds,
+  itemsForObject,
+  objectColor,
+  objectChipLabel,
+  readMap,
+  reviewableMapItems,
+  type GeometryMapItem,
+} from "@/lib/geometry/map/model";
 
 interface Props {
   scene: GeometryScene;
@@ -27,7 +27,7 @@ interface Props {
   /** The geometry object the user clicked on the board, if any. */
   selectedObjectId: string | null;
   activePropertyId: string | null;
-  onPickProperty: (item: GeometryPropertyItem | null) => void;
+  onPickProperty: (item: GeometryMapItem | null) => void;
   onClose: () => void;
   fg?: string;
   bg?: string;
@@ -47,16 +47,17 @@ export function ReviewPropertiesPanel({
   border = "rgba(15,23,42,0.14)",
   accent = "#2563eb",
 }: Props) {
-  const doc = useMemo(() => readProperties(scene), [scene]);
-  const items = useMemo(() => reviewableItems(doc, role), [doc, role]);
+  const doc = useMemo(() => readMap(scene), [scene]);
+  const items = useMemo(() => reviewableMapItems(doc, role), [doc, role]);
   const shown = useMemo(
-    () => (selectedObjectId ? itemsForObjectId(doc, items, selectedObjectId) : []),
-    [doc, items, selectedObjectId],
+    () => (selectedObjectId ? itemsForObject(items, selectedObjectId) : []),
+    [items, selectedObjectId],
   );
   const target = useMemo(
-    () => describeTarget(scene, doc, selectedObjectId),
-    [scene, doc, selectedObjectId],
+    () => (selectedObjectId ? describeObject(scene, selectedObjectId) : null),
+    [scene, selectedObjectId],
   );
+  const targetColor = selectedObjectId ? objectColor(doc, selectedObjectId) : undefined;
 
   return (
     <aside
@@ -93,7 +94,10 @@ export function ReviewPropertiesPanel({
             <p className="text-[11px] uppercase tracking-wider opacity-60">
               {target?.typeLabel ?? "Selected"}
             </p>
-            <p className="mb-2 text-[15px] font-semibold leading-snug">
+            <p
+              className="mb-2 text-[15px] font-semibold leading-snug"
+              style={targetColor ? { color: targetColor } : undefined}
+            >
               {target?.name ?? "Selected object"}
             </p>
 
@@ -106,9 +110,11 @@ export function ReviewPropertiesPanel({
             <ul className="space-y-1.5">
               {shown.map((item) => {
                 const active = item.id === activePropertyId;
-                const refs = propertyObjectIds(doc, item)
-                  .map((id) => describeTarget(scene, doc, id)?.name)
-                  .filter((n): n is string => !!n);
+                const refs = itemObjectIds(item).map((id) => ({
+                  id,
+                  name: objectChipLabel(scene, id),
+                  color: objectColor(doc, id),
+                }));
                 return (
                   <li key={item.id}>
                     <button
@@ -120,23 +126,31 @@ export function ReviewPropertiesPanel({
                         background: active ? `${accent}1a` : "transparent",
                       }}
                     >
+                      {item.principle && (
+                        <p className="text-[12px] font-semibold leading-snug">
+                          <MathText value={item.principle} />
+                        </p>
+                      )}
                       <p className="text-[14px] leading-snug">
-                        <MathText value={item.content} />
+                        <MathText value={item.boardText || item.relation} />
                       </p>
-                      {item.reason && (
+                      {item.explanation && (
                         <p className="mt-0.5 text-[11px] leading-snug opacity-70">
-                          {item.reason}
+                          {item.explanation}
                         </p>
                       )}
                       {refs.length > 0 && (
                         <p className="mt-1 flex flex-wrap gap-1">
-                          {refs.map((name, i) => (
+                          {refs.map((r) => (
                             <span
-                              key={`${name}-${i}`}
+                              key={r.id}
                               className="rounded-full border px-1.5 py-[1px] text-[10px]"
-                              style={{ borderColor: border }}
+                              style={{
+                                borderColor: r.color ?? border,
+                                color: r.color ?? undefined,
+                              }}
                             >
-                              {name}
+                              {r.name}
                             </span>
                           ))}
                         </p>

@@ -174,6 +174,13 @@ export interface GeoLabel {
   color?: string;
   bold?: boolean;
   italic?: boolean;
+  /**
+   * The geometry object this text annotates, when it was created from one.
+   * Identity lives on the object, never on the text: clearing or deleting the
+   * text never removes the geometry, and the object's review colour is what
+   * this label is painted with.
+   */
+  ownerId?: GeoId;
 }
 
 export interface GeoCurve {

@@ -14,7 +14,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Hand, RotateCcw, Trash2 } from "lucide-react";
 import type { GeoId, GeometryScene } from "@/lib/geometry/scene";
-import { objectChipLabel } from "@/lib/geometry/map/model";
+import { objectChipLabel, OBJECT_COLORS } from "@/lib/geometry/map/model";
+import { onGeoPick } from "@/lib/geometry/pickBus";
 import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
@@ -39,17 +40,32 @@ const FUNCTIONS: { label: string; node?: () => MathNode; text?: string }[] = [
   { label: "tan", text: "tan" },
 ];
 
+export interface ComposedProperty {
+  statement: string;
+  reason: string;
+  objectIds: GeoId[];
+  /** Text → object id bindings: the link lives on the id, not the wording. */
+  tokens: { token: string; objectId: GeoId }[];
+  /** Optional wording to show on the Smartboard instead of the relation. */
+  boardText?: string;
+}
+
 export function PropertyComposer({
-  scene, targetId, onHighlight, onAdd,
+  scene, targetId, onHighlight, onAdd, colorOf, onColor,
 }: {
   scene: GeometryScene;
   /** Currently selected diagram object — inserted while picking. */
   targetId: GeoId | null;
   onHighlight: (ids: GeoId[]) => void;
-  onAdd: (draft: { statement: string; reason: string; objectIds: GeoId[] }) => void;
+  onAdd: (draft: ComposedProperty) => void;
+  /** Review colour currently stored for a diagram object. */
+  colorOf?: (id: GeoId) => string | undefined;
+  /** Paint the selected diagram object (colour belongs to the object). */
+  onColor?: (id: GeoId, color: string | null) => void;
 }) {
   const [root, setRoot] = useState<MathRow>([]);
   const [reason, setReason] = useState("");
+  const [boardText, setBoardText] = useState("");
   const [picking, setPicking] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   /** Object ids referenced by the expression, with the label they were
@@ -58,32 +74,40 @@ export function PropertyComposer({
   const [insertRequest, setInsertRequest] =
     useState<{ nonce: number; node?: MathNode; text?: string } | null>(null);
   const nonce = useRef(0);
-  const lastPicked = useRef<GeoId | null>(null);
 
   const request = (req: { node?: MathNode; text?: string }) => {
     nonce.current += 1;
     setInsertRequest({ nonce: nonce.current, ...req });
   };
 
-  // Pick mode: every part clicked on the diagram is inserted at the caret.
+  // Pick mode: EVERY click on the diagram is inserted at the caret — including
+  // a repeat click on the part that is already selected, so the sensor never
+  // goes quiet and no double-clicking is needed.
   useEffect(() => {
-    if (!picking || !targetId) return;
-    if (lastPicked.current === targetId) return;
-    lastPicked.current = targetId;
-    const label = objectChipLabel(scene, targetId);
-    request({ text: label });
-    setRefs((r) => (r.some((x) => x.id === targetId) ? r : [...r, { id: targetId, label }]));
+    if (!picking) return;
+    return onGeoPick((id) => {
+      const label = objectChipLabel(scene, id);
+      request({ text: label });
+      setRefs((r) => (r.some((x) => x.id === id && x.label === label) ? r : [...r, { id, label }]));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetId, picking]);
+  }, [picking, scene]);
 
   const statement = useMemo(() => {
     try { return normalizeMathSource(treeToLatex(root)).trim(); } catch { return ""; }
   }, [root]);
 
-  /** Only ids whose label survives in the expression stay linked. */
-  const objectIds = useMemo(
-    () => refs.filter((r) => statement.includes(r.label)).map((r) => r.id),
+  /** Only references the teacher kept in the expression stay linked. */
+  const tokens = useMemo(
+    () =>
+      refs
+        .filter((r) => statement.includes(r.label))
+        .map((r) => ({ token: r.label, objectId: r.id })),
     [refs, statement],
+  );
+  const objectIds = useMemo(
+    () => [...new Set(tokens.map((t) => t.objectId))],
+    [tokens],
   );
 
   // Live highlight of everything the statement references.
@@ -96,12 +120,18 @@ export function PropertyComposer({
     setRoot([]);
     setRefs([]);
     setReason("");
-    lastPicked.current = null;
+    setBoardText("");
   };
 
   const add = () => {
     if (!statement) return;
-    onAdd({ statement, reason: reason.trim(), objectIds });
+    onAdd({
+      statement,
+      reason: reason.trim(),
+      objectIds,
+      tokens,
+      ...(boardText.trim() ? { boardText: boardText.trim() } : {}),
+    });
     reset();
   };
 
@@ -113,7 +143,7 @@ export function PropertyComposer({
         </p>
         <button
           type="button"
-          onClick={() => { setPicking((p) => !p); lastPicked.current = null; }}
+          onClick={() => setPicking((p) => !p)}
           className={`inline-flex items-center gap-1 rounded-full border px-2 py-[2px] text-[10.5px] ${
             picking ? "border-primary bg-primary text-primary-foreground" : "border-foreground/25"
           }`}
@@ -171,6 +201,40 @@ export function PropertyComposer({
           </div>
         )}
       </div>
+
+      {targetId && onColor && (
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
+            Colour {objectChipLabel(scene, targetId)}
+          </span>
+          {OBJECT_COLORS.map((c) => {
+            const on = colorOf?.(targetId) === c.value;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                title={c.name}
+                aria-label={`Colour ${c.name}`}
+                onClick={() => onColor(targetId, on ? null : c.value)}
+                className={`h-4 w-4 rounded-full border ${on ? "ring-2 ring-primary ring-offset-1" : "border-foreground/25"}`}
+                style={{ background: c.value }}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      <label className="mt-1.5 block">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">
+          Text on the Smartboard (optional)
+        </span>
+        <input
+          value={boardText}
+          onChange={(e) => setBoardText(e.target.value)}
+          placeholder="Wording students should read"
+          className="mt-0.5 w-full rounded border border-foreground/20 bg-background px-1.5 py-1 text-[12px]"
+        />
+      </label>
 
       <label className="mt-1.5 block">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground/50">

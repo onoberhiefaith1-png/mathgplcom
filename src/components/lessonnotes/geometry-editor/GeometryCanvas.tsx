@@ -5,6 +5,7 @@
 import { useRef, useState, useMemo, useEffect } from "react";
 import type { GeometryScene, GeoPoint, GeoId } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
+import { emitGeoPick } from "@/lib/geometry/pickBus";
 import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, pickHit, pointsOnCircle, pointsOnArc, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
 import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
@@ -246,6 +247,9 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
           // away. Shift-click still builds a multi-object selection for
           // constraints (equal marks, isosceles, angle-from-two-lines).
           const additive = e.shiftKey;
+          // Report the CLICK itself so sensors (property composer, relink)
+          // stay live even when the same part is clicked again.
+          emitGeoPick(hit.id);
           if (additive) {
             const next = selectedIds.includes(hit.id)
               ? selectedIds.filter((id) => id !== hit.id)
