@@ -287,11 +287,40 @@ const pageGroupTop = (group: GeometryScene): number => {
   return ys.length ? Math.min(...ys) : Number.POSITIVE_INFINITY;
 };
 
+/**
+ * Read the saved page drawing back OUT of the document. The lesson note (and
+ * therefore the database) is the source of truth: local storage is only a
+ * same-browser cache. Every `pageLayer` carrier is merged into one scene,
+ * de-duplicated by object id.
+ */
+const sceneFromDocument = (editor: Editor): GeometryScene | null => {
+  const objects: GeometryScene["objects"] = [];
+  const seen = new Set<string>();
+  let bounds: GeometryScene["bounds"] | undefined;
+  editor.state.doc.descendants((node) => {
+    if (node.type.name !== "geometryDiagram" || !node.attrs?.pageLayer) return true;
+    const scene = sanitizeScene(node.attrs.scene) as GeometryScene | null;
+    if (!scene?.objects?.length) return true;
+    if (!bounds) bounds = scene.bounds;
+    for (const o of scene.objects) {
+      if (seen.has(o.id)) continue;
+      seen.add(o.id);
+      objects.push(o);
+    }
+    return true;
+  });
+  if (!objects.length) return null;
+  return { ...EMPTY_SCENE, bounds: bounds ?? EMPTY_SCENE.bounds, objects };
+};
+
 const syncPageGeometryNode = (
   editor: Editor,
   scene: GeometryScene,
   layer: HTMLElement | null,
   notebookId: string | undefined,
+  /** Saved diagrams are removed ONLY when the teacher actually erased them in
+   *  this session. An empty scene from a cold start never destroys the note. */
+  allowClear = false,
 ) => {
   const type = editor.schema.nodes.geometryDiagram;
   if (!type) return;
@@ -305,14 +334,15 @@ const syncPageGeometryNode = (
 
   const hasContent = (scene?.objects?.length ?? 0) > 0;
 
-  // Nothing drawn any more → drop every carrier.
+  // Nothing drawn any more → drop every carrier, but only on a real erase.
   if (!hasContent) {
-    if (!existing.length) return;
+    if (!existing.length || !allowClear) return;
     let tr = editor.state.tr;
     for (const e of [...existing].sort((a, b) => b.pos - a.pos)) tr = tr.delete(e.pos, e.pos + e.size);
     if (tr.docChanged) editor.view.dispatch(tr);
     return;
   }
+
 
   // One carrier per visually separate drawing, each anchored to the line it
   // was drawn beside — so the note's reading order is the board's order.
@@ -3625,10 +3655,36 @@ function NotebookGeometryOverlay({
   const [storedScene, setStoredScene] = useState<GeometryScene>(() => loadNotebookGeometry(notebookId));
   const [paperSize, setPaperSize] = useState({ width: 720, height: 960 });
   const [docTick, setDocTick] = useState(0);
+  /** True once the teacher actually erased/edited the drawing in this session.
+   *  Only then may the saved copy in the note be removed. */
+  const erasedRef = useRef(false);
+  /** Which note we have already hydrated from the saved document. */
+  const hydratedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    hydratedRef.current = null;
+    erasedRef.current = false;
     setStoredScene(loadNotebookGeometry(notebookId));
   }, [notebookId]);
+
+  // PERMANENCE: the lesson note is the source of truth. As soon as the saved
+  // document is available, the page drawing is rebuilt from its `pageLayer`
+  // carriers; local storage is only used when the note has nothing saved yet.
+  useEffect(() => {
+    if (!tiptapEditor) return;
+    const key = notebookId ?? "note";
+    if (hydratedRef.current === key) return;
+    let fromDoc: GeometryScene | null = null;
+    try { fromDoc = sceneFromDocument(tiptapEditor); } catch { fromDoc = null; }
+    if (!fromDoc) return; // nothing saved (yet) — keep the local cache
+    hydratedRef.current = key;
+    setStoredScene((prev) => {
+      if ((prev.objects?.length ?? 0) > (fromDoc!.objects?.length ?? 0)) return prev;
+      saveNotebookGeometry(notebookId, fromDoc!);
+      return fromDoc!;
+    });
+  }, [tiptapEditor, notebookId, docTick]);
+
 
   useEffect(() => {
     const layer = paperLayerRef.current;
@@ -3703,21 +3759,47 @@ function NotebookGeometryOverlay({
   }), [storedScene, paperSize.width, paperSize.height]);
 
   const geometryEditor = useGeometryEditor(scene, (next) => {
+    // A user-driven change: an empty result here IS a real erase, so the saved
+    // copy in the note may now follow the drawing down to nothing.
+    if ((next.objects?.length ?? 0) === 0) erasedRef.current = true;
     setStoredScene(next);
     saveNotebookGeometry(notebookId, next);
   });
 
   // Every change to the page drawing is written into the document too, so the
   // note's own autosave persists it and the Smartboard can render it.
+  const flushRef = useRef<() => void>(() => {});
+  flushRef.current = () => {
+    if (!tiptapEditor) return;
+    try {
+      syncPageGeometryNode(
+        tiptapEditor, storedScene, paperLayerRef.current, notebookId, erasedRef.current,
+      );
+    } catch { /* never break the editor for a diagram save */ }
+  };
+
   useEffect(() => {
     if (!tiptapEditor) return;
-    const t = window.setTimeout(() => {
-      try {
-        syncPageGeometryNode(tiptapEditor, storedScene, paperLayerRef.current, notebookId);
-      } catch { /* never break the editor for a diagram save */ }
-    }, 500);
+    const t = window.setTimeout(() => flushRef.current(), 500);
     return () => window.clearTimeout(t);
   }, [storedScene, tiptapEditor, paperLayerRef, notebookId]);
+
+  // Leaving the page (tab hide, close, sign-out, unmount) must never lose the
+  // last strokes — write them into the document immediately.
+  useEffect(() => {
+    const flush = () => flushRef.current();
+    const onVisibility = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flush();
+    };
+  }, []);
+
 
 
   // Entrance to the existing Geometry Properties workspace (same scene).
