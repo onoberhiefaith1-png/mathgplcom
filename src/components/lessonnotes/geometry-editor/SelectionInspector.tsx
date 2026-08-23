@@ -767,6 +767,29 @@ function LabelPanel({ label, onPatch, onDelete }: { label: GeoLabel; onPatch: (p
           className="h-6 w-10 rounded border border-foreground/20 bg-white cursor-pointer"
         />
       </Row>
+      <Row label="Rotation">
+        <div className="flex items-center gap-2 w-full">
+          <input
+            type="range" min={0} max={360} step={1}
+            value={normalizeRotation(label.rotation)}
+            onChange={(e) => onPatch({ rotation: normalizeRotation(Number(e.target.value)) })}
+            className="flex-1"
+          />
+          <div className="flex items-center gap-0.5">
+            <input
+              type="number" min={0} max={360} step={1}
+              value={normalizeRotation(label.rotation)}
+              onChange={(e) => {
+                const raw = Number(e.target.value);
+                onPatch({ rotation: Number.isFinite(raw) ? normalizeRotation(raw) : 0 });
+              }}
+              className="w-12 bg-white text-black border border-foreground/20 rounded px-1 py-0.5 text-[11px] tabular-nums outline-hidden focus:border-primary"
+              aria-label="Text rotation in degrees"
+            />
+            <span className="text-[10px] text-foreground/60">°</span>
+          </div>
+        </div>
+      </Row>
       <Row label="Style">
         <div className="flex items-center gap-2 w-full">
           <button
@@ -783,17 +806,7 @@ function LabelPanel({ label, onPatch, onDelete }: { label: GeoLabel; onPatch: (p
           >I</button>
         </div>
       </Row>
-      <Row label="Rotate">
-        <div className="flex items-center gap-2 w-full">
-          <input
-            type="range" min={-180} max={180} step={5}
-            value={label.rotation ?? 0}
-            onChange={(e) => onPatch({ rotation: Number(e.target.value) })}
-            className="flex-1"
-          />
-          <span className="text-[10px] tabular-nums w-8 text-foreground/60">{label.rotation ?? 0}°</span>
-        </div>
-      </Row>
+
       <p className="text-[10px] text-foreground/55">Drag the text on the canvas to move it anywhere.</p>
       <button type="button" onClick={onDelete} className="text-[11px] text-destructive underline">Remove text</button>
     </div>
