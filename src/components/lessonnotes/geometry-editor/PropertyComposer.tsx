@@ -169,6 +169,7 @@ export function PropertyComposer({
           focused
           onFocus={() => { /* already focused */ }}
           insertRequest={insertRequest}
+          geoRefColor={(id) => colorOf?.(id as GeoId) ?? "#0f172a"}
         />
       </div>
       {root.length === 0 && (
