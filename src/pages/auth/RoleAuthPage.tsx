@@ -97,6 +97,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+    let authErrorTitle = "Authentication error";
     try {
       if (mode === "forgot_id") {
         const email = z.string().trim().email().parse(values.email);
@@ -129,6 +130,10 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
           });
           if (!result.ok) {
             if (result.reason === "unconfirmed") setUnverified(true);
+            if (result.reason === "id_not_found") authErrorTitle = "MathGPL ID not found";
+            if (result.reason === "email_not_found") authErrorTitle = "Email not registered";
+            if (result.reason === "password_incorrect") authErrorTitle = "Incorrect password";
+            if (result.reason === "throttled") authErrorTitle = "Too many attempts";
             throw new Error(result.message);
           }
           const { error } = await supabase.auth.setSession({
@@ -228,7 +233,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
 
 
     } catch (err) {
-      toast({ title: "Authentication error", description: (err as Error).message, variant: "destructive" });
+      toast({ title: authErrorTitle, description: (err as Error).message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
