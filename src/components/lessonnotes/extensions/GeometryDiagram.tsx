@@ -12,7 +12,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { closeHistory, undoDepth, redoDepth } from "@tiptap/pm/history";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Copy, Sparkles, Trash2 } from "lucide-react";
+import { Copy, Shapes, Sparkles, Trash2 } from "lucide-react";
 import {
   type GeometryScene,
   sanitizeScene,
@@ -25,6 +25,8 @@ import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/Geomet
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
 import { GeometryPropertiesWorkspace } from "@/components/lessonnotes/geometry-editor/GeometryPropertiesWorkspace";
 import { GeometryGuideView } from "@/components/lessonnotes/geometry-editor/GeometryGuideView";
+import { SmartboardPropertyTest } from "@/components/lessonnotes/geometry-editor/SmartboardPropertyTest";
+import { sceneHasReviewableProperties } from "@/lib/smartboard/reviewProperties";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
