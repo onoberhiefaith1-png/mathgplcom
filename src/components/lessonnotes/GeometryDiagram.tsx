@@ -63,6 +63,8 @@ const STROKE = "#1f1f24";
 const ACCENT_ADD = "#10b981";
 const ACCENT_CHG = "#f59e0b";
 const ACCENT_DEL = "#ef4444";
+/** Review Properties highlight — teacher-authored relationship focus. */
+const ACCENT_REVIEW = "#2563eb";
 const LABEL_FONT = "'Times New Roman', Georgia, serif";
 const TEXT_INK_PROPS = {
   fontWeight: 400,
