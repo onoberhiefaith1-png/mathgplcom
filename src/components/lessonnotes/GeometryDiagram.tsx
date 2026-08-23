@@ -140,8 +140,14 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     [highlightIds],
   );
 
+  // Colour belongs to the geometry object, not to the text on it: the stored
+  // review colours are keyed by stable object id.
+  const objectColors = useMemo(() => readMap(scene).colors ?? {}, [scene]);
+
   const colourOf = (id: string): string => {
     if (highlight.has(id)) return ACCENT_REVIEW;
+    const own = objectColors[id];
+    if (own) return own;
     if (!diff) return baseStroke;
     if (diff.added.has(id)) return ACCENT_ADD;
     if (diff.changed.has(id)) return ACCENT_CHG;
@@ -163,7 +169,11 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     }
     for (const o of scene.objects) {
       if (o.type === "region") continue;
-      const c = colourOf(o.id);
+      const c = colourOf(
+        o.type === "label" && (o as { ownerId?: string }).ownerId
+          ? (o as { ownerId?: string }).ownerId!
+          : o.id,
+      );
       // A hidden point is HIDDEN — never a faint ghost mark. Translucent
       // stand-ins were the source of the leftover slash/line artifacts seen
       // after deleting, moving or hiding an object.
@@ -173,7 +183,7 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
       if (node) out.push(node);
     }
     return out;
-  }, [scene, diff, originPad, baseStroke, inkWeight, highlight]);
+  }, [scene, diff, originPad, baseStroke, inkWeight, highlight, objectColors]);
 
   // Review halo: a soft glow behind every highlighted object so a lit angle or
   // side reads instantly from the back of the classroom.
