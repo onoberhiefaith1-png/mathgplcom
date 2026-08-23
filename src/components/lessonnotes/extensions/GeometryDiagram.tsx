@@ -565,7 +565,16 @@ function GeometryDiagramNodeView(props: NodeViewProps) {
   return <GeometryDiagramView {...props} />;
 }
 
-export function PresentationGeometryDiagram({ scene, pageLayer }: { scene: GeometryScene; pageLayer?: boolean }) {
+export function PresentationGeometryDiagram({
+  scene, pageLayer, highlightIds, onPickObject,
+}: {
+  scene: GeometryScene;
+  pageLayer?: boolean;
+  /** Review Properties: object ids to light up. */
+  highlightIds?: string[];
+  /** Review Properties: report the clicked object's stable id. */
+  onPickObject?: (id: string) => void;
+}) {
   const groups = useMemo(
     () => pageLayer ? splitPageGeometryScene(scene) : [scene],
     [scene, pageLayer],
@@ -578,11 +587,14 @@ export function PresentationGeometryDiagram({ scene, pageLayer }: { scene: Geome
           scene={group}
           presentation
           className="sb-geometry-diagram"
+          highlightIds={highlightIds}
+          onPickObject={onPickObject}
         />
       ))}
     </div>
   );
 }
+
 
 /**
  * Note-scale read-only diagram (Highlighting page, Floating Numbers page).
