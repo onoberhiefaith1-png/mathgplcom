@@ -28,9 +28,11 @@ interface Props {
    *  mount themselves (the board is non-interactive, so nothing can click
    *  a "tap to explore" placeholder). */
   presentation?: boolean;
+  /** Board zoom — the diagram grows/shrinks with the board, proportionally. */
+  zoom?: number;
 }
 
-export const SolutionObjectView = ({ nodeType, attrs, presentation = false }: Props) => {
+export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom }: Props) => {
   // Set BEFORE the editor is created so the node views read it on first mount.
   if (presentation) setScene3DPresentationMode(true);
 
@@ -49,6 +51,7 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false }: Pr
           scene={geometryScene}
           diagramId={String(attrs?.diagramId ?? "")}
           pageLayer={attrs?.pageLayer === true}
+          zoom={zoom}
         />
       )
       : <InlineGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />;
