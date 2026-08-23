@@ -5,6 +5,9 @@
 
 import { type ReactNode, type CSSProperties, type Ref } from "react";
 import { paperBackground, PAPER_SIZES, type PaperSize, type PaperStyle } from "@/lib/lessonnotes/paperThemes";
+import { useFitToWidth } from "@/hooks/useFitToWidth";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
+
 
 interface Props {
   size: PaperSize;
