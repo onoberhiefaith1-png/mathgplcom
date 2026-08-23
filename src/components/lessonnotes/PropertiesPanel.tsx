@@ -20,6 +20,9 @@ export function PropertiesPanel() {
   const [expanded, setExpanded] = useState(false);
   const [libraryFor, setLibraryFor] = useState<AssetSnapshot | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
+  // Phones move the whole panel into a bottom sheet — it must never occupy
+  // phone screen width. Desktop/tablet keep the existing docked rail.
+  const phone = useSheetPanels();
 
   // Auto-expand the first time an asset is selected, and again whenever the
   // asset reports a *new inner selection* (a different line, label, angle …).
@@ -38,7 +41,7 @@ export function PropertiesPanel() {
   // notebook column can reserve space instead of being overlapped.
   useEffect(() => {
     const root = document.documentElement;
-    if (!reg) {
+    if (!reg || phone) {
       root.style.setProperty("--properties-panel-width", "0px");
       return () => root.style.setProperty("--properties-panel-width", "0px");
     }
@@ -49,13 +52,51 @@ export function PropertiesPanel() {
     }
 
     return () => root.style.setProperty("--properties-panel-width", "0px");
-  }, [reg, expanded]);
+  }, [reg, expanded, phone]);
 
   if (!reg || typeof document === "undefined") return null;
 
   const guardPanelEvent = (e: SyntheticEvent) => {
     e.stopPropagation();
   };
+
+  if (phone) {
+    return createPortal(
+      <>
+        {!expanded && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="fixed bottom-4 right-4 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-border bg-background px-4 text-xs font-semibold uppercase tracking-wide shadow-lg"
+            aria-label="Open settings"
+          >
+            <Settings2 className="h-4 w-4" /> Settings
+          </button>
+        )}
+        <ResponsivePanel title={reg.title} open={expanded} onOpenChange={setExpanded}>
+          <div className="space-y-3 text-sm text-foreground">
+            {reg.editor}
+            {entry && (
+              <button
+                type="button"
+                onClick={() => setLibraryFor(entry.snapshot())}
+                className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-xs font-semibold uppercase tracking-wide"
+              >
+                <Library className="h-3.5 w-3.5" /> Add to Asset Library
+              </button>
+            )}
+          </div>
+        </ResponsivePanel>
+        <AddToLibraryDialog
+          snapshot={libraryFor}
+          open={!!libraryFor}
+          onOpenChange={(o) => { if (!o) setLibraryFor(null); }}
+        />
+      </>,
+      document.body,
+    );
+  }
+
 
   if (!expanded) {
     return createPortal(
