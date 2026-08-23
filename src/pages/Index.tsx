@@ -10,7 +10,7 @@ import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { WORKSPACE_LABEL, WORKSPACE_PATH } from "@/lib/accounts/roles";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { usePlanGate } from "@/lib/plans/usePlanGate";
+import PlanInviteBanner from "@/components/plans/PlanInviteBanner";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 import { supabase } from "@/integrations/supabase/client";
 
