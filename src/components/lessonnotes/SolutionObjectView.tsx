@@ -6,7 +6,8 @@
 import { useMemo } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { GeometryDiagramNode, PresentationGeometryDiagram, InlineGeometryDiagram } from "./extensions/GeometryDiagram";
+import { GeometryDiagramNode, InlineGeometryDiagram } from "./extensions/GeometryDiagram";
+import { ReviewableBoardDiagram } from "@/components/smartboard/ReviewableBoardDiagram";
 import { sanitizeScene } from "@/lib/geometry/scene";
 import { Scene3DDiagramNode, setScene3DPresentationMode } from "./extensions/Scene3DDiagram";
 import { MathTableNode } from "./extensions/MathTable";
@@ -40,10 +41,20 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false }: Pr
   if (geometryScene) {
     // One diagram engine, one renderer: the board strengthens ink, every other
     // read-only surface renders it at note scale, cropped to the figure.
+    // On the board the same scene also becomes reviewable, so the teacher's
+    // Geometry Properties attach to these exact objects.
     return presentation
-      ? <PresentationGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />
+      ? (
+        <ReviewableBoardDiagram
+          scene={geometryScene}
+          diagramId={String(attrs?.diagramId ?? "")}
+          pageLayer={attrs?.pageLayer === true}
+        />
+      )
       : <InlineGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />;
   }
+
+
 
 
   const content = useMemo(() => {

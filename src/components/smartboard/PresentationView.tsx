@@ -146,6 +146,10 @@ import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2, LayoutGrid
 import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
+import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewProperties";
+import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
+import { propertyObjectIds } from "@/lib/geometry/properties/review";
+import { readProperties } from "@/lib/geometry/properties/model";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -538,6 +542,8 @@ const PresentationView = ({
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [topOpen, setTopOpen] = useState(false);
+  // Review Properties: the diagram already on this board plus its selection.
+  const review = useReviewProperties();
   const [railOpen, setRailOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -5075,6 +5081,32 @@ const PresentationView = ({
 
 
 
+      {/* Review Properties dock — a right column, ~1/5 of the board, opened
+          only by the top-bar button and closed with its own ✕. */}
+      {review.open && review.active && (
+        <div className="absolute right-0 top-0 z-[70] h-full w-[20%] min-w-[240px]">
+          <ReviewPropertiesPanel
+            scene={review.active.scene}
+            role={isTeacher ? "teacher" : "student"}
+            selectedObjectId={review.selectedObjectId}
+            activePropertyId={review.activePropertyId}
+            onPickProperty={(item) => {
+              if (!item || !review.active) {
+                reviewProperties.pickProperty(null, []);
+                return;
+              }
+              const doc = readProperties(review.active.scene);
+              reviewProperties.pickProperty(item.id, propertyObjectIds(doc, item));
+            }}
+            onClose={() => reviewProperties.setOpen(false)}
+            fg={palette.chromeFg}
+            bg={palette.chromeBg}
+            border={palette.chromeBorder}
+            accent={palette.accent}
+          />
+        </div>
+      )}
+
       {/* Top chrome — narrow centered pill, slides out of view by default.
           Pull-tab at top-center reveals it. */}
       <header
@@ -5098,6 +5130,22 @@ const PresentationView = ({
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Shelf
         </button>
+
+        {/* REVIEW PROPERTIES — reviews the teacher-authored Geometry Properties
+            of the diagram already on this board. Never opens on its own. */}
+        {review.candidates.length > 0 && (
+          <button
+            onClick={() => reviewProperties.setOpen(!review.open)}
+            className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide"
+            style={review.open
+              ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
+              : { color: palette.chromeFg, borderColor: palette.chromeBorder }}
+            title="Review the properties attached to this diagram"
+          >
+            Review properties
+          </button>
+        )}
+
 
         {/* WORKSPACE SWITCH — a two-sided control: left is this writing
             workspace, right is the companion Lesson Note page of the same note. */}
