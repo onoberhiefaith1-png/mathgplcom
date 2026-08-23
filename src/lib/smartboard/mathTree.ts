@@ -26,7 +26,16 @@ export type Node =
   | { kind: "matrix"; nRows: number; nCols: number; left: string; right: string; fns?: string[]; rows: Row[] }
   | { kind: "accent"; symbol: string; rows: Row[] } // [body]
   | { kind: "binom"; rows: Row[] }      // [top, bot]
-  | { kind: "box"; rows: Row[] };       // [body] — single empty slot rendered as outlined cell, top-aligned
+  | { kind: "box"; rows: Row[] }        // [body] — single empty slot rendered as outlined cell, top-aligned
+  /**
+   * GEOMETRY REFERENCE — the box IS the geometry object.
+   *
+   * `objectId` is the stable diagram id and the ONLY identity. `rows[0]` is the
+   * teacher's label: it can be edited, emptied or replaced by anything without
+   * ever changing what the box represents.
+   */
+  | { kind: "georef"; objectId: string; rows: Row[] };
+
 
 
 export type Row = Node[];
@@ -69,6 +78,15 @@ export const mkAccent = (symbol: string): Node =>
   ({ kind: "accent", symbol, rows: [[]] });
 export const mkBinom = (): Node => ({ kind: "binom", rows: [[], []] });
 export const mkBox = (): Node => ({ kind: "box", rows: [[]] });
+
+/** A geometry reference box. `label` only seeds the visible text — the link is
+ *  `objectId` and survives every later edit to that text. */
+export const mkGeoRef = (objectId: string, label = ""): Node => ({
+  kind: "georef",
+  objectId,
+  rows: [Array.from(label).map(mkChar)],
+});
+
 
 
 /* ─────────── helpers ─────────── */

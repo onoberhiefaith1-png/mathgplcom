@@ -75,6 +75,11 @@ const nodeToAscii = (n: Node): string => {
     // Dropping it here used to delete whole numerators (x=()/2a).
     case "box":
       return rowToAscii(n.rows[0] || []);
+    // A geometry reference reads as its LABEL: identity lives on `objectId`
+    // and never belongs in the mathematical text.
+    case "georef":
+      return rowToAscii(n.rows[0] || []);
+
     default: {
       // Exhaustiveness guard: a new node kind must never silently vanish.
       const _never: never = n;

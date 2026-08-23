@@ -20,6 +20,8 @@ import {
   mkBigOp,
   mkAccent,
   mkBinom,
+  mkGeoRef,
+
   mkBracket,
   mkMatrix,
   subRowsOf,
@@ -99,7 +101,27 @@ export function latexToTree(src: string): Row {
   if (!src) return row;
   let i = 0;
   while (i < src.length) {
+    // \georef{objectId}{label} — the box IS the geometry object. The first
+    // argument is the identity; the second is only the visible label and may
+    // legitimately be empty.
+    if (src.startsWith("\\georef", i)) {
+      const aOpen = i + 7;
+      const aEnd = matchBrace(src, aOpen);
+      if (aEnd > 0 && src[aEnd] === "{") {
+        const bEnd = matchBrace(src, aEnd);
+        if (bEnd > 0) {
+          const objectId = src.slice(aOpen + 1, aEnd - 1).trim();
+          const label = latexToTree(src.slice(aEnd + 1, bEnd - 1));
+          const n = mkGeoRef(objectId) as Extract<Node, { kind: "georef" }>;
+          n.rows = [label];
+          row.push(n);
+          i = bEnd;
+          continue;
+        }
+      }
+    }
     // \frac{a}{b}
+
     if (src.startsWith("\\frac", i)) {
       const aOpen = i + 5;
       const aEnd = matchBrace(src, aOpen);
@@ -380,7 +402,14 @@ export function treeToLatex(row: Row): string {
       out += `\\${macro}{${treeToLatex(subRowsOf(n)[0])}}`;
       continue;
     }
+    if (n.kind === "georef") {
+      // Identity first, label second. An empty label still round-trips, so
+      // clearing the text never loses the geometry link.
+      out += `\\georef{${n.objectId}}{${treeToLatex(subRowsOf(n)[0] ?? [])}}`;
+      continue;
+    }
     if (n.kind === "binom") {
+
       const [a, b] = subRowsOf(n);
       out += `\\binom{${treeToLatex(a)}}{${treeToLatex(b)}}`;
       continue;

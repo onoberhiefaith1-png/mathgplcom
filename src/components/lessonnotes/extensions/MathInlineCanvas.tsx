@@ -85,7 +85,11 @@ interface Props {
    *  property composer's Add Function menu and Pick-from-diagram). The
    *  `nonce` makes each request unique; the host bumps it per insertion. */
   insertRequest?: { nonce: number; node?: Node; text?: string } | null;
+  /** Colour for a geometry-reference box, resolved from the geometry object's
+   *  identity (`objectId`) — never from the label text inside the box. */
+  geoRefColor?: (objectId: string) => string;
 }
+
 
 
 const pathsEqual = (a: number[], b: number[]) =>
@@ -116,6 +120,66 @@ const Caret = ({ depth }: { depth: number }) => {
 /** Selection is broadcast through context so every nested RowView can
  *  highlight its own slice without threading a prop through every node. */
 const SelectionCtx = createContext<RowRange | null>(null);
+
+/** Geometry-reference services. A `georef` box IS a geometry object: its
+ *  colour comes from the object (never from the text inside it) and removing
+ *  the box is what breaks the link — editing the label never does. */
+const GeoRefCtx = createContext<{
+  colorOf: (objectId: string) => string;
+  onDelete: (nodePath: number[]) => void;
+} | null>(null);
+
+function GeoRefView({
+  node, path, cursor, focused,
+}: { node: Extract<Node, { kind: "georef" }>; path: number[]; cursor: Cursor; focused: boolean }) {
+  const ctx = useContext(GeoRefCtx);
+  const [hover, setHover] = useState(false);
+  const color = ctx?.colorOf(node.objectId) ?? "currentColor";
+  return (
+    <span
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "baseline",
+        border: `1.5px solid ${color}`,
+        borderRadius: 5,
+        padding: "0 4px",
+        margin: "0 1px",
+        color,
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      data-georef={node.objectId}
+    >
+      <RowView row={subRowsOf(node)[0] ?? []} path={[...path, 0]} cursor={cursor} focused={focused} />
+      {hover && ctx ? (
+        <span
+          role="button"
+          aria-label="Remove geometry reference"
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); ctx.onDelete(path); }}
+          style={{
+            position: "absolute",
+            top: "-0.7em",
+            right: "-0.6em",
+            fontSize: "0.62em",
+            lineHeight: "1em",
+            width: "1.2em",
+            height: "1.2em",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "999px",
+            background: color,
+            color: "#fff",
+          }}
+        >
+          ×
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 
 function RowView({
   row, path, cursor, focused,
@@ -418,7 +482,11 @@ function NodeView({
       </span>
     );
   }
+  if (node.kind === "georef") {
+    return <GeoRefView node={node} path={path} cursor={cursor} focused={focused} />;
+  }
   if (node.kind === "box") {
+
     return (
       <span style={{ display: "inline-block", border: "1px solid currentColor", padding: "0 3px" }}>
         <RowView row={subRowsOf(node)[0]} path={[...path, 0]} cursor={cursor} focused={focused} />
@@ -461,7 +529,7 @@ function moveVertical(root: Row, cursor: Cursor, dir: -1 | 1): Cursor {
 
 export function MathInlineCanvas({
   root, onChange, onBlur, focused, onFocus, entryPoint, entryCursor,
-  onExitLeft, onExitRight, onInsertObjectAsset, insertRequest,
+  onExitLeft, onExitRight, onInsertObjectAsset, insertRequest, geoRefColor,
 }: Props) {
   const [cursor, setCursor] = useState<Cursor>(
     () => entryCursor ?? { path: [], index: root.length },
@@ -851,13 +919,33 @@ export function MathInlineCanvas({
     closePicker();
   };
 
+  const geoRefServices = useMemo(
+    () => ({
+      colorOf: (objectId: string) => geoRefColor?.(objectId) ?? "currentColor",
+      onDelete: (nodePath: number[]) => {
+        const parentPath = nodePath.slice(0, -1);
+        const idx = nodePath[nodePath.length - 1];
+        const parentRow = getRowAt(root, parentPath);
+        if (!parentRow[idx]) return;
+        const nextRow = [...parentRow.slice(0, idx), ...parentRow.slice(idx + 1)];
+        apply({
+          root: setRowAt(root, parentPath, nextRow),
+          cursor: { path: parentPath, index: idx },
+        });
+      },
+    }),
+    [geoRefColor, root, apply],
+  );
+
   const rowNode = useMemo(
     () => <RowView row={root} path={[]} cursor={cursor} focused={focused} />,
     [root, cursor, focused],
   );
 
   return (
+    <GeoRefCtx.Provider value={geoRefServices}>
     <SelectionCtx.Provider value={focused ? selection : null}>
+
       <span
         ref={hostRef}
         className={`math-inline-display math-inline-editing inline-flex items-baseline align-baseline ${focused ? "outline outline-1 outline-primary/30 rounded-sm" : "cursor-text"}`}
@@ -917,6 +1005,8 @@ export function MathInlineCanvas({
         ) : null}
       </span>
     </SelectionCtx.Provider>
+    </GeoRefCtx.Provider>
+
   );
 }
 

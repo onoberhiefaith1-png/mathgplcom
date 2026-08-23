@@ -74,16 +74,20 @@ export interface GeometryMapDoc {
 
 /** Teacher palette for object colouring. */
 export const OBJECT_COLORS: { name: string; value: string }[] = [
-  { name: "Ink", value: "#0f172a" },
+  { name: "Black", value: "#0f172a" },
   { name: "Blue", value: "#2563eb" },
   { name: "Red", value: "#e11d48" },
-  { name: "Green", value: "#059669" },
-  { name: "Amber", value: "#d97706" },
   { name: "Purple", value: "#7c3aed" },
+  { name: "Green", value: "#059669" },
+  { name: "Orange", value: "#d97706" },
 ];
 
-/** The automatic colour sequence: Red → Blue → Yellow → Red → … */
-export const COLOR_SEQUENCE: string[] = ["#e11d48", "#2563eb", "#d97706"];
+/** Automatic sequence: Black → Blue → Red → Purple → Green → Orange → repeat.
+ *  A manual override never advances this cursor. */
+export const COLOR_SEQUENCE: string[] = [
+  "#0f172a", "#2563eb", "#e11d48", "#7c3aed", "#059669", "#d97706",
+];
+
 
 export type MapStatus = "none" | "ready" | "stale";
 
