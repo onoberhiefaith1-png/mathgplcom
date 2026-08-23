@@ -20,9 +20,8 @@ import { usePlanGate } from "@/lib/plans/usePlanGate";
 const VerifiedPage = () => {
   const { user, ready } = useAuth();
   const { mathgplId, typeLabel } = useMathgplId();
-  // Teacher, school and parent accounts choose a plan before entering.
-  const { subscribes } = usePlanGate();
   const notify = useServerFn(sendAccountCreatedNotice);
+
 
   const sent = useRef(false);
 
