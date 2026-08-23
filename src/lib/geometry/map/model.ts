@@ -64,6 +64,12 @@ export interface GeometryMapDoc {
    * painted the same — even after the label text changes.
    */
   colors?: Record<GeoId, string>;
+  /**
+   * How far the automatic colour sequence has advanced. A manual colour is an
+   * override for ONE object and never moves this cursor, so the next object
+   * picked continues the original sequence.
+   */
+  colorCursor?: number;
 }
 
 /** Teacher palette for object colouring. */
@@ -75,6 +81,9 @@ export const OBJECT_COLORS: { name: string; value: string }[] = [
   { name: "Amber", value: "#d97706" },
   { name: "Purple", value: "#7c3aed" },
 ];
+
+/** The automatic colour sequence: Red → Blue → Yellow → Red → … */
+export const COLOR_SEQUENCE: string[] = ["#e11d48", "#2563eb", "#d97706"];
 
 export type MapStatus = "none" | "ready" | "stale";
 
