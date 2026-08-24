@@ -5202,8 +5202,8 @@ const PresentationView = ({
             onClick={() => setActiveBoard("main")}
             className="inline-flex items-center px-2 py-1 text-xs disabled:opacity-40"
             disabled={activeBoard === "main"}
-            title="Writing workspace"
-            aria-label="Writing workspace"
+            title="Teaching board (Board A)"
+            aria-label="Teaching board"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
@@ -5212,8 +5212,8 @@ const PresentationView = ({
             onClick={() => setActiveBoard("tools")}
             className="inline-flex items-center px-2 py-1 text-xs disabled:opacity-40"
             disabled={activeBoard === "tools"}
-            title="Companion workspace"
-            aria-label="Companion workspace"
+            title="Interactive board (Board B)"
+            aria-label="Interactive board"
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
