@@ -72,11 +72,29 @@ export const CompanionNoteBoard = ({ notebookId, editable, onReturn, palette }: 
     if (copy) saveCompanionJson(copy);
   }, [notebook?.id, notebook?.companion_json, notebook?.document_json, notebookId, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* The editor is uncontrolled once mounted: feeding it a NEW documentJson
+   * (which happens the moment the first duplicate is saved) makes ProseMirror
+   * rebuild its DOM under React, producing "removeChild: node is not a child".
+   * So we freeze the doc we hand it at mount time and only change it through an
+   * explicit remount (copyEpoch). */
+  const initialDocRef = useRef<unknown>(undefined);
+  if (initialDocRef.current === undefined && notebook && !loading) {
+    // Wait for the first duplicate to land before mounting the editor, so we
+    // never mount empty and then swap the doc in.
+    if (!isEmptyDoc(notebook.companion_json)) {
+      initialDocRef.current = notebook.companion_json;
+    } else if (isEmptyDoc(notebook.document_json)) {
+      initialDocRef.current = null; // nothing to copy — start blank
+    }
+  }
+  const docReady = initialDocRef.current !== undefined;
+
   const recopyFromMaster = async () => {
     if (!notebook) return;
     const copy = duplicateNoteDoc(notebook.document_json);
     if (!copy) return;
     await saveCompanionJson(copy);
+    initialDocRef.current = copy;
     setCopyEpoch((n) => n + 1);
     setResetOpen(false);
   };
@@ -124,7 +142,7 @@ export const CompanionNoteBoard = ({ notebookId, editable, onReturn, palette }: 
       </div>
 
       <div className="min-h-0 flex-1">
-        {loading || !notebookId ? (
+        {loading || !notebookId || !docReady ? (
           <div className="grid h-full place-items-center text-[12px] text-white/60">
             Opening your working copy…
           </div>
@@ -133,7 +151,7 @@ export const CompanionNoteBoard = ({ notebookId, editable, onReturn, palette }: 
             key={`companion-${notebookId}-${copyEpoch}`}
             notebookId={notebookId}
             scopeSuffix="companion"
-            documentJson={notebook?.companion_json ?? null}
+            documentJson={(initialDocRef.current as any) ?? null}
             hideSessionControls
             paperSize={paperSize}
             paperStyle={paperStyle}
