@@ -72,6 +72,16 @@ export const CompanionNoteBoard = ({ notebookId, editable, onReturn, palette }: 
     if (copy) saveCompanionJson(copy);
   }, [notebook?.id, notebook?.companion_json, notebook?.document_json, notebookId, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* The editor is uncontrolled once mounted: feeding it a NEW documentJson
+   * (which happens the moment the first duplicate is saved) makes ProseMirror
+   * rebuild its DOM under React, producing "removeChild: node is not a child".
+   * So we freeze the doc we hand it at mount time and only change it through an
+   * explicit remount (copyEpoch). */
+  const initialDocRef = useRef<unknown>(undefined);
+  if (initialDocRef.current === undefined && notebook && !loading) {
+    initialDocRef.current = notebook.companion_json ?? null;
+  }
+
   const recopyFromMaster = async () => {
     if (!notebook) return;
     const copy = duplicateNoteDoc(notebook.document_json);
