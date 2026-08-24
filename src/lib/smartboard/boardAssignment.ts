@@ -14,11 +14,22 @@ import type { SolutionObject } from "@/lib/floating/solutionItems";
 
 export type BoardId = "A" | "B";
 
-/** ONLY diagrams and graphs are carried across to the working board.
- *  Tables, equations, text, emojis, images, calculator/conversion working and
- *  every other lesson-note object stay on Board A exactly as before. */
-export const boardForObject = (o: Pick<SolutionObject, "nodeType" | "family">): BoardId =>
-  o.family === "diagram" ? "B" : "A";
+/** Node types that are narrative decoration and therefore stay on Board A. */
+const BOARD_A_NODE_TYPES = new Set([
+  "emoji",
+  "emojiInline",
+  "lessonEmoji",
+  "image",
+  "stepAnimation",
+]);
+
+/** The interactive mathematics objects that live on Board B. */
+export const boardForObject = (o: Pick<SolutionObject, "nodeType" | "family">): BoardId => {
+  if (BOARD_A_NODE_TYPES.has(o.nodeType)) return "A";
+  // Everything captured as an object (table, diagram, graph, chart, 3D scene,
+  // arithmetic visual, calculator working…) is Board-B content.
+  return "B";
+};
 
 export const isBoardBObject = (o: Pick<SolutionObject, "nodeType" | "family">): boolean =>
   boardForObject(o) === "B";
