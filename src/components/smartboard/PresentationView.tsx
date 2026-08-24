@@ -7069,7 +7069,7 @@ const PresentationView = ({
           <InteractiveBoard
             sectionId={current?.sectionId ?? "lesson"}
             sectionLabel={current?.sectionLabel || current?.caption || notebook?.title || "Lesson"}
-            objects={boardBObjects}
+            
             notebookId={notebookId}
             editable={isTeacher}
             zoom={zoom}
