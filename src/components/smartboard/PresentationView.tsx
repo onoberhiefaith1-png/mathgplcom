@@ -7242,7 +7242,7 @@ const BeatBlock = ({
 
   const FlowingTextAndObjects = ({ beat: b }: { beat: Beat }) => {
     const lines = String(b.content ?? "").split(/\r?\n/);
-    const objects = splitObjectsByBoard(b.objects).boardA.sort((a, c) => a.afterLine - c.afterLine);
+    const objects = [...(b.objects ?? [])].sort((a, c) => a.afterLine - c.afterLine);
     if (!objects.length) {
       return (
         <SmartboardLessonText jitter={jitter} seed={b.id.length} placeholderColor={placeholderColor}>
