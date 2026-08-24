@@ -7050,7 +7050,7 @@ const PresentationView = ({
       {/* BOARD B — the interactive mathematics board for the SAME active
           section: Diagram / Table / Graph / Calculator / Conversion, plus the
           private companion Lesson Note page. Slides in from the right. */}
-      {isTeacher && !assessmentMode && (
+      {isTeacher && !assessmentMode && boardBMounted && (
         <div
           className="absolute inset-0"
           style={{
