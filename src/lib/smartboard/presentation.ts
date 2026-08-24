@@ -337,12 +337,14 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
       const text = sec.loose.map((b) => b.content_ascii).filter(Boolean).join("\n\n").trim();
       const objects = sec.loose.flatMap((b) => blockObjects(b));
       if (text || objects.length) {
+        const looseKey = `__sec_${sec.kind}`;
+        counters[looseKey] = (counters[looseKey] ?? 0) + 1;
         beats.push({
           id: `${sec.id}-text`,
           kind: "text",
           content: text,
           sectionKind: sec.kind,
-          sectionId: sectionIdFor(sec.kind, ++counters[`__sec_${sec.kind}`] || (counters[`__sec_${sec.kind}`] = 1)),
+          sectionId: sectionIdFor(sec.kind, counters[looseKey]),
           sectionLabel: `${sec.kind[0].toUpperCase()}${sec.kind.slice(1)}`,
           objects,
         });
