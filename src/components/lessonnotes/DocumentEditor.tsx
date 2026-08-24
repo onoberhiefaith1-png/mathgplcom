@@ -209,6 +209,9 @@ interface Props {
   exportFileName?: string;
   /** When true, the section picker only offers "Game Questions" (used by Adventure scenes). */
   gameQuestionsOnly?: boolean;
+  /** Board B (the teacher's working copy) has no Session system: hide the
+   *  session/subtopic authoring controls. */
+  hideSessionControls?: boolean;
   /** Explicit lesson-note id for callers that are not on the /lesson-notes/:id route
    *  (e.g. the Smartboard's companion workspace). Defaults to the route param. */
   notebookId?: string;
@@ -674,7 +677,7 @@ export function DocumentEditor(props: Props) {
 function DocumentEditorInner({
   documentJson, paperSize, paperStyle, zoom,
   onZoomChange, onPaperSizeChange, onPaperStyleChange, onDocChange,
-  notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly,
+  notebookContext, onPresent, onScanFromPhone, exportFileName, gameQuestionsOnly, hideSessionControls,
   pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
   notebookId: notebookIdProp, scopeSuffix, copilotBridgeRef,
 }: Props) {
@@ -3139,7 +3142,7 @@ function DocumentEditorInner({
             {(gameQuestionsOnly ? (["game_questions"] as SectionKind[]) : SECTION_OPTIONS).map((s) => (
               <DropdownMenuItem key={s} onClick={() => insertSection(s)}>{SECTION_LABELS[s]}</DropdownMenuItem>
             ))}
-            {!gameQuestionsOnly && (
+            {!gameQuestionsOnly && !hideSessionControls && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => { setSubtopicDraft(null); setSessionDraft({ title: "", withSolution: true }); }}>
