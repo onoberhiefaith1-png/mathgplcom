@@ -111,7 +111,8 @@ import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
 import { BoardToolLayer } from "./BoardToolLayer";
-import { CompanionNoteBoard } from "./CompanionNoteBoard";
+import { InteractiveBoard } from "./InteractiveBoard";
+import { splitObjectsByBoard } from "@/lib/smartboard/boardAssignment";
 import { FloatingToolLayer } from "./FloatingToolLayer";
 import { MathTablesPicker } from "@/components/lessonnotes/math-tools/MathTablesPicker";
 import { SmartCalculatorBody } from "@/components/lessonnotes/math-tools/SmartCalculator";
@@ -1923,6 +1924,9 @@ const PresentationView = ({
   const placeholderColor = resolvePlaceholderColor(placeholderColorId, surface);
   const current = beatCursor >= 0 ? beats[beatCursor] : undefined;
   const revealed = beatCursor >= 0 ? beats.slice(0, beatCursor + 1) : [];
+  // BOARD B payload — the interactive mathematics of the SAME active section.
+  // Section-scoped: objects from any other section never leak onto Board B.
+  const boardBObjects = splitObjectsByBoard(current?.objects).boardB;
   const phase = getPhase(current);
   const caps = phaseCapabilities(phase);
   const floatingVisible = !!current && beatNeedsFloatingMath(current) && caps.showFloatingMath;
@@ -5198,8 +5202,8 @@ const PresentationView = ({
             onClick={() => setActiveBoard("main")}
             className="inline-flex items-center px-2 py-1 text-xs disabled:opacity-40"
             disabled={activeBoard === "main"}
-            title="Writing workspace"
-            aria-label="Writing workspace"
+            title="Teaching board (Board A)"
+            aria-label="Teaching board"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
@@ -5208,8 +5212,8 @@ const PresentationView = ({
             onClick={() => setActiveBoard("tools")}
             className="inline-flex items-center px-2 py-1 text-xs disabled:opacity-40"
             disabled={activeBoard === "tools"}
-            title="Companion workspace"
-            aria-label="Companion workspace"
+            title="Interactive board (Board B)"
+            aria-label="Interactive board"
           >
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
@@ -7047,9 +7051,9 @@ const PresentationView = ({
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
       )}
       </div>
-      {/* COMPANION WORKSPACE — another instance of the Lesson Note editor,
-          private to this lesson note. Slides in from the right; its content
-          never mixes with the writing workspace. */}
+      {/* BOARD B — the interactive mathematics board for the SAME active
+          section: Diagram / Table / Graph / Calculator / Conversion, plus the
+          private companion Lesson Note page. Slides in from the right. */}
       {isTeacher && !assessmentMode && (
         <div
           className="absolute inset-0"
@@ -7062,15 +7066,20 @@ const PresentationView = ({
           }}
 
         >
-          <CompanionNoteBoard
+          <InteractiveBoard
+            sectionId={current?.sectionId ?? "lesson"}
+            sectionLabel={current?.sectionLabel || current?.caption || notebook?.title || "Lesson"}
+            objects={boardBObjects}
             notebookId={notebookId}
             editable={isTeacher}
+            zoom={zoom}
             onReturn={() => setActiveBoard("main")}
             palette={{
               chromeBg: palette.chromeBg,
               chromeFg: palette.chromeFg,
               chromeBorder: palette.chromeBorder,
               hoverBg: palette.hoverBg,
+              accent: palette.accent,
             }}
           />
         </div>
@@ -7212,7 +7221,9 @@ const BeatBlock = ({
   // Solution — and they render at full board scale so they stay legible when
   // projected.
   const BeatObjects = ({ beat: b }: { beat: Beat }) => {
-    const objs = b.objects ?? [];
+    // TWO-BOARD LAW: Diagram / Table / Graph belong to Board B. Board A keeps
+    // the teaching content only.
+    const objs = splitObjectsByBoard(b.objects).boardA;
     if (!objs.length) return null;
     return (
       <div className="mt-6 space-y-8">
@@ -7231,7 +7242,7 @@ const BeatBlock = ({
 
   const FlowingTextAndObjects = ({ beat: b }: { beat: Beat }) => {
     const lines = String(b.content ?? "").split(/\r?\n/);
-    const objects = [...(b.objects ?? [])].sort((a, c) => a.afterLine - c.afterLine);
+    const objects = splitObjectsByBoard(b.objects).boardA.sort((a, c) => a.afterLine - c.afterLine);
     if (!objects.length) {
       return (
         <SmartboardLessonText jitter={jitter} seed={b.id.length} placeholderColor={placeholderColor}>

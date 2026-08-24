@@ -51,6 +51,11 @@ export interface Beat {
   caption?: string;
   content: string;
   reasoning?: string;
+  /** SECTION IDENTITY — the one active lesson position shared by both boards
+   *  ("introduction", "example-1", "exercise-2", "cover"…). */
+  sectionId: string;
+  /** Human label of that section, used as the Board B heading. */
+  sectionLabel: string;
   sectionKind: SectionKind;
   fragments?: string[];
   /** Objects belonging to this beat's session (tables, diagrams, charts, 3D).
@@ -306,6 +311,10 @@ const shuffleLine = <T,>(arr: T[], seedStr: string): T[] => {
  *  Prepends one synthetic cover beat (`__cover__`) carrying title +
  *  topic + subtopic + date — rendered inline at the top of the
  *  continuous-scroll lesson canvas. */
+/** Stable section identity for a non-numbered section. */
+const sectionIdFor = (kind: string, ordinal: number): string =>
+  ordinal > 1 ? `${kind}-${ordinal}` : kind;
+
 export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null): Beat[] => {
   const beats: Beat[] = [];
   const counters: Record<string, number> = {};
@@ -318,6 +327,8 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
       content: notebook.title ?? "Untitled",
       reasoning: notebook.subtopic ?? "",
       sectionKind: "introduction",
+      sectionId: "cover",
+      sectionLabel: notebook.title ?? "Lesson",
     });
   }
 
@@ -326,11 +337,15 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
       const text = sec.loose.map((b) => b.content_ascii).filter(Boolean).join("\n\n").trim();
       const objects = sec.loose.flatMap((b) => blockObjects(b));
       if (text || objects.length) {
+        const looseKey = `__sec_${sec.kind}`;
+        counters[looseKey] = (counters[looseKey] ?? 0) + 1;
         beats.push({
           id: `${sec.id}-text`,
           kind: "text",
           content: text,
           sectionKind: sec.kind,
+          sectionId: sectionIdFor(sec.kind, counters[looseKey]),
+          sectionLabel: `${sec.kind[0].toUpperCase()}${sec.kind.slice(1)}`,
           objects,
         });
       }
@@ -382,6 +397,8 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
           caption,
           content: problem,
           sectionKind: sec.kind,
+          sectionId: `${sec.kind}-${n}`,
+          sectionLabel: caption,
           fragments,
           // Every object this session owns, in block order:
           //  - the QUESTION's own objects (table, chart, question diagram)

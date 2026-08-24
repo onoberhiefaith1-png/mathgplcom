@@ -47,6 +47,8 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
       caption,
       content: q.questionText ?? "",
       sectionKind: "example",
+      sectionId: `question-${qi + 1}`,
+      sectionLabel: caption,
     });
 
     const fragments: string[] = [];

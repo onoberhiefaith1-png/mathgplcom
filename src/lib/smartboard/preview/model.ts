@@ -120,6 +120,8 @@ export const buildLessonModel = (
         caption: r.caption,
         content: "",
         sectionKind: "example",
+        sectionId: r.beatId,
+        sectionLabel: r.caption,
       },
       reservoir: r,
       lines: buildSolutionLines(r),
@@ -140,7 +142,7 @@ export const modelBeatFor = (model: LessonModel, beatId: string): ModelBeat => {
   const sol = model.solutionsByBeatId[beatId];
   if (sol) return sol;
   const beat = model.beats.find((b) => b.id === beatId);
-  return { kind: "display", beat: beat ?? { id: beatId, kind: "text", content: "", sectionKind: "introduction" } };
+  return { kind: "display", beat: beat ?? { id: beatId, kind: "text", content: "", sectionKind: "introduction", sectionId: beatId, sectionLabel: "" } };
 };
 
 /** All solution lines for a beat — [] for display beats. Engines use
