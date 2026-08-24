@@ -1,31 +1,23 @@
-// BOARD B — the interactive mathematics board.
+// BOARD B — the teacher's interactive tools board.
 //
-// Think of a classroom with two physical boards used for the same lesson at the
-// same time: Board A carries the teaching (text, headings, questions,
-// solutions), Board B carries the interactive mathematics of the SAME lesson
-// position — Diagram, Table, Graph, Calculator, Conversion.
-//
-// It is NOT a second lesson and NOT an independent page: the active section is
-// owned by the Smartboard and passed in, so both boards always show the same
-// part of the lesson. The existing blank companion Lesson Note page stays
-// available here as a secondary mode.
+// Board A (the main teaching board) owns ALL lesson-note content: text,
+// headings, questions, solutions, equations AND diagrams, tables and graphs.
+// Board B is the secondary surface holding the teacher's tools for the same
+// lesson position: Calculator, Conversion and the blank companion Lesson Note
+// page. It never mirrors or duplicates lesson objects.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Calculator, NotebookPen, Repeat, Shapes } from "lucide-react";
-import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
+import { ArrowLeft, Calculator, NotebookPen, Repeat } from "lucide-react";
 import { SmartCalculatorBody } from "@/components/lessonnotes/math-tools/SmartCalculator";
 import { ConversionBody } from "@/components/lessonnotes/ConversionPanel";
 import { CompanionNoteBoard } from "./CompanionNoteBoard";
-import type { SolutionObject } from "@/lib/floating/solutionItems";
 
-type Mode = "objects" | "calculator" | "conversion" | "companion";
+type Mode = "calculator" | "conversion" | "companion";
 
 export interface InteractiveBoardProps {
   /** The single active lesson position, shared with Board A. */
   sectionId: string;
   sectionLabel: string;
-  /** Board-B objects belonging to THIS section only. */
-  objects: SolutionObject[];
   notebookId?: string;
   editable: boolean;
   zoom?: number;
@@ -42,20 +34,18 @@ export interface InteractiveBoardProps {
 export const InteractiveBoard = ({
   sectionId,
   sectionLabel,
-  objects,
   notebookId,
   editable,
-  zoom = 1,
   onReturn,
   palette,
 }: InteractiveBoardProps) => {
   // Tool choice is remembered PER SECTION, so moving away and coming back
   // restores the surface the teacher was using for that part of the lesson.
   const modeBySection = useRef<Record<string, Mode>>({});
-  const [mode, setMode] = useState<Mode>(() => modeBySection.current[sectionId] ?? "objects");
+  const [mode, setMode] = useState<Mode>(() => modeBySection.current[sectionId] ?? "calculator");
 
   useEffect(() => {
-    setMode(modeBySection.current[sectionId] ?? "objects");
+    setMode(modeBySection.current[sectionId] ?? "calculator");
   }, [sectionId]);
 
   const pick = (next: Mode) => {
@@ -70,9 +60,8 @@ export const InteractiveBoard = ({
     setVisited((prev) => (prev.includes(sectionId) ? prev : [...prev, sectionId]));
   }, [sectionId]);
 
-  const tabs: { id: Mode; label: string; icon: typeof Shapes }[] = useMemo(
+  const tabs: { id: Mode; label: string; icon: typeof Calculator }[] = useMemo(
     () => [
-      { id: "objects", label: "Section", icon: Shapes },
       { id: "calculator", label: "Calculator", icon: Calculator },
       { id: "conversion", label: "Conversion", icon: Repeat },
       { id: "companion", label: "Companion page", icon: NotebookPen },
@@ -126,41 +115,6 @@ export const InteractiveBoard = ({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {/* SECTION OBJECTS — only this section's interactive mathematics. */}
-        <div
-          className="absolute inset-0 overflow-y-auto overflow-x-hidden px-4 py-6 md:px-10"
-          style={{ display: mode === "objects" ? "block" : "none" }}
-        >
-          <div className="mx-auto w-full max-w-[1100px]">
-            <div className="mb-5 text-[13px] uppercase tracking-[0.2em] text-white/60">
-              {sectionLabel}
-            </div>
-            {objects.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-white/20 p-10 text-center text-[13px] text-white/60">
-                No diagram, table or graph in this part of the lesson. Use the
-                Calculator, Conversion or the companion page.
-              </div>
-            ) : (
-              <div className="space-y-10">
-                {objects.map((o) => (
-                  <div
-                    key={`${sectionId}-${o.objId}`}
-                    className="lesson-doc sb-board-object w-full max-w-full rounded-xl bg-white p-4 text-slate-900"
-                    style={{ fontSize: `${zoom}rem` }}
-                  >
-                    <SolutionObjectView
-                      nodeType={o.nodeType}
-                      attrs={o.attrs ?? {}}
-                      presentation
-                      zoom={zoom}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* CALCULATOR / CONVERSION — one instance per visited section, kept
             mounted so their working survives board and section switches. */}
         {visited.map((sid) => (
@@ -194,7 +148,7 @@ export const InteractiveBoard = ({
           <CompanionNoteBoard
             notebookId={notebookId}
             editable={editable}
-            onReturn={() => pick("objects")}
+            onReturn={() => pick("calculator")}
             palette={palette}
           />
         </div>
