@@ -7221,9 +7221,9 @@ const BeatBlock = ({
   // Solution — and they render at full board scale so they stay legible when
   // projected.
   const BeatObjects = ({ beat: b }: { beat: Beat }) => {
-    // TWO-BOARD LAW: Diagram / Table / Graph belong to Board B. Board A keeps
-    // the teaching content only.
-    const objs = splitObjectsByBoard(b.objects).boardA;
+    // Board A (the main teaching board) renders every object of its own
+    // section — diagrams, tables, graphs included — in lesson-note order.
+    const objs = b.objects ?? [];
     if (!objs.length) return null;
     return (
       <div className="mt-6 space-y-8">
