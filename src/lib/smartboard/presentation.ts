@@ -51,6 +51,11 @@ export interface Beat {
   caption?: string;
   content: string;
   reasoning?: string;
+  /** SECTION IDENTITY — the one active lesson position shared by both boards
+   *  ("introduction", "example-1", "exercise-2", "cover"…). */
+  sectionId: string;
+  /** Human label of that section, used as the Board B heading. */
+  sectionLabel: string;
   sectionKind: SectionKind;
   fragments?: string[];
   /** Objects belonging to this beat's session (tables, diagrams, charts, 3D).
