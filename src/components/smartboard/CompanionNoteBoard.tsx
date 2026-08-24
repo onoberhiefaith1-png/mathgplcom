@@ -142,7 +142,7 @@ export const CompanionNoteBoard = ({ notebookId, editable, onReturn, palette }: 
       </div>
 
       <div className="min-h-0 flex-1">
-        {loading || !notebookId ? (
+        {loading || !notebookId || !docReady ? (
           <div className="grid h-full place-items-center text-[12px] text-white/60">
             Opening your working copy…
           </div>
@@ -151,7 +151,7 @@ export const CompanionNoteBoard = ({ notebookId, editable, onReturn, palette }: 
             key={`companion-${notebookId}-${copyEpoch}`}
             notebookId={notebookId}
             scopeSuffix="companion"
-            documentJson={notebook?.companion_json ?? null}
+            documentJson={(initialDocRef.current as any) ?? null}
             hideSessionControls
             paperSize={paperSize}
             paperStyle={paperStyle}
