@@ -804,6 +804,11 @@ const PresentationView = ({
      Left: this writing workspace. Right: the companion Lesson Note page of the
      same note (stored on the notebook row, not in board storage). */
   const [activeBoard, setActiveBoard] = useState<"main" | "tools">("main");
+  /** Board B (the working copy editor) mounts on first use, then stays mounted. */
+  const [boardBMounted, setBoardBMounted] = useState(false);
+  useEffect(() => {
+    if (activeBoard === "tools") setBoardBMounted(true);
+  }, [activeBoard]);
   const [diagrams, setDiagrams] = useState<BoardDiagram[]>(() => {
     try {
       const raw = localStorage.getItem(DIAGRAMS_KEY);
