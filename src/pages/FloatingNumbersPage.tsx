@@ -27,7 +27,7 @@ import { AiEditPanel, type AiEditTarget } from "@/components/lessonnotes/AiEditP
 import { renderMathInline as renderMath } from "@/lib/notebook/mathRender";
 import AssistantPanel, { type ActiveHighlight, type LineUpdatePayload } from "@/components/floating/AssistantPanel";
 import { buildLessonContext } from "@/lib/floating/lessonContext";
-import { readSolutionObjects, isFloatableObject, type SolutionObject } from "@/lib/floating/solutionItems";
+import { readSolutionObjects, isFloatableObject, isDiagramFamily, type SolutionObject } from "@/lib/floating/solutionItems";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import TableWorkspace from "@/components/floating/TableWorkspace";
 import { useArchivedFeature } from "@/hooks/useArchivedFeature";
@@ -568,9 +568,13 @@ const FloatingNumbersPage = () => {
       // DIAGRAM LAW: diagrams are NOTE content. They never become rows of
       // their own — each one rides the note of the entry above it, and any
       // diagram above every entry is shown on its own as note-only content.
+      // DIAGRAM LAW (final): diagrams never enter the Floating Numbers page at
+      // all — not as rows, not as chips, not as attached note content. They
+      // stay in the Lesson Note and on the Smartboard. Only non-floatable
+      // NON-diagram note content (e.g. tables shown as notes) rides here.
       const readNoteObjs = (raw: any): SolutionObject[] =>
         readSolutionObjects({ objects: Array.isArray(raw) ? raw : [] })
-          .filter((o) => !isFloatableObject(o));
+          .filter((o) => !isFloatableObject(o) && !isDiagramFamily(o.family));
       const allHighlights = Array.isArray(highlights) ? highlights : [];
       setLeadingNoteObjects(
         allHighlights
