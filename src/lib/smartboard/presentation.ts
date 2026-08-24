@@ -311,6 +311,10 @@ const shuffleLine = <T,>(arr: T[], seedStr: string): T[] => {
  *  Prepends one synthetic cover beat (`__cover__`) carrying title +
  *  topic + subtopic + date — rendered inline at the top of the
  *  continuous-scroll lesson canvas. */
+/** Stable section identity for a non-numbered section. */
+const sectionIdFor = (kind: string, ordinal: number): string =>
+  ordinal > 1 ? `${kind}-${ordinal}` : kind;
+
 export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null): Beat[] => {
   const beats: Beat[] = [];
   const counters: Record<string, number> = {};
@@ -323,6 +327,8 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
       content: notebook.title ?? "Untitled",
       reasoning: notebook.subtopic ?? "",
       sectionKind: "introduction",
+      sectionId: "cover",
+      sectionLabel: notebook.title ?? "Lesson",
     });
   }
 
@@ -336,6 +342,8 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
           kind: "text",
           content: text,
           sectionKind: sec.kind,
+          sectionId: sectionIdFor(sec.kind, ++counters[`__sec_${sec.kind}`] || (counters[`__sec_${sec.kind}`] = 1)),
+          sectionLabel: `${sec.kind[0].toUpperCase()}${sec.kind.slice(1)}`,
           objects,
         });
       }
@@ -387,6 +395,8 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
           caption,
           content: problem,
           sectionKind: sec.kind,
+          sectionId: `${sec.kind}-${n}`,
+          sectionLabel: caption,
           fragments,
           // Every object this session owns, in block order:
           //  - the QUESTION's own objects (table, chart, question diagram)
