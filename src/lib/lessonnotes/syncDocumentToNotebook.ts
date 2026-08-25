@@ -255,18 +255,21 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
 
 
   // ---- 2. Match parsed sections to existing rows --------------------------
-  // Greedy, kind-aware, order-preserving: each parsed section claims the first
-  // unclaimed existing section of the same DB kind. Falls back to the first
-  // unclaimed section of any kind so a kind change (e.g. Example → Exercise)
-  // still keeps the same row — and therefore the same assignment link.
+  // DURABLE IDENTITY FIRST: a section claims the row carrying the same
+  // `doc_key` (outline position + kind + ordinal). Only when no keyed row
+  // exists do we fall back to the legacy greedy kind/order matching, so old
+  // notebooks keep working while new saves become positionally exact.
   const unclaimed = new Set(existing.map((e) => e.id));
   const byId = new Map(existing.map((e) => [e.id, e]));
-  const claimSection = (dbKind: string): ExistingSection | null => {
+  const claimSection = (dbKind: string, docKey: string): ExistingSection | null => {
     for (const e of existing) {
-      if (unclaimed.has(e.id) && e.kind === dbKind) { unclaimed.delete(e.id); return e; }
+      if (unclaimed.has(e.id) && e.doc_key && e.doc_key === docKey) { unclaimed.delete(e.id); return e; }
     }
     for (const e of existing) {
-      if (unclaimed.has(e.id)) { unclaimed.delete(e.id); return e; }
+      if (unclaimed.has(e.id) && !e.doc_key && e.kind === dbKind) { unclaimed.delete(e.id); return e; }
+    }
+    for (const e of existing) {
+      if (unclaimed.has(e.id) && !e.doc_key) { unclaimed.delete(e.id); return e; }
     }
     return null;
   };
@@ -274,46 +277,60 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
   for (let i = 0; i < parsed.length; i++) {
     const sec = parsed[i];
     const dbKind = DB_KIND[sec.kind];
-    let target = claimSection(dbKind);
+    let target = claimSection(dbKind, sec.docKey);
 
     if (target) {
-      if (target.kind !== dbKind || target.order_index !== i) {
+      if (target.kind !== dbKind || target.order_index !== i || target.doc_key !== sec.docKey) {
         await supabase
           .from("notebook_sections")
-          .update({ kind: dbKind as any, order_index: i })
+          .update({ kind: dbKind as any, order_index: i, doc_key: sec.docKey })
           .eq("id", target.id);
         target.kind = dbKind;
         target.order_index = i;
+        target.doc_key = sec.docKey;
       }
     } else {
       const { data: created, error } = await supabase
         .from("notebook_sections")
-        .insert({ notebook_id: notebookId, kind: dbKind as any, order_index: i })
+        .insert({ notebook_id: notebookId, kind: dbKind as any, order_index: i, doc_key: sec.docKey })
         .select("id")
         .single();
       if (error || !created) continue;
-      target = { id: created.id as string, kind: dbKind, order_index: i, subs: [] };
+      target = { id: created.id as string, kind: dbKind, order_index: i, doc_key: sec.docKey, subs: [] };
       byId.set(target.id, target);
     }
 
-    const sectionId = target.id;
+    const section: ExistingSection = target;
+    const sectionId = section.id;
 
     if (sec.subsections.length) {
-      // Match subsections: exact problem text first, then leftover rows in
-      // document order. Matched rows keep their id AND their floating state.
-      const pool = [...target.subs];
+      // Match subsections: durable doc_key first, then exact problem text, then
+      // leftover rows in document order. Matched rows keep their id AND their
+      // floating state.
+      const pool = [...section.subs];
+      const takeByKey = (docKey: string): ExistingSub | null => {
+        const idx = pool.findIndex((p) => p.doc_key && p.doc_key === docKey);
+        if (idx === -1) return null;
+        return pool.splice(idx, 1)[0];
+      };
       const takeByProblem = (problem: string): ExistingSub | null => {
         const key = normalizeProblem(problem);
         if (!key) return null;
-        const idx = pool.findIndex((p) => normalizeProblem(p.problem) === key);
+        const idx = pool.findIndex((p) => !p.doc_key && normalizeProblem(p.problem) === key);
         if (idx === -1) return null;
         return pool.splice(idx, 1)[0];
       };
 
-      const claimed: (ExistingSub | null)[] = sec.subsections.map((s) => takeByProblem(s.problem));
+      const claimed: (ExistingSub | null)[] = sec.subsections.map(
+        (s) => takeByKey(s.docKey) ?? takeByProblem(s.problem),
+      );
       for (let j = 0; j < claimed.length; j++) {
-        if (!claimed[j] && pool.length) claimed[j] = pool.shift()!;
+        if (!claimed[j] && pool.length) {
+          const idx = pool.findIndex((p) => !p.doc_key);
+          if (idx !== -1) claimed[j] = pool.splice(idx, 1)[0];
+        }
       }
+
 
       for (let j = 0; j < sec.subsections.length; j++) {
         const { problem, solution, solutionObjects, problemObjects } = sec.subsections[j];
