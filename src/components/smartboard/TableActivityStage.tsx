@@ -169,6 +169,8 @@ const TableActivityStage = ({
 
 
   const grid = group.grid;
+  const isMatrix = !!(grid as any).isMatrix;
+  const matrixBrackets = (grid as any).matrixBrackets as { left?: string; right?: string } | undefined;
 
   // Smart Structure: the static layer belongs to the asset, not to a table.
   const structureId = (grid as any).structureId as string | undefined;
@@ -231,7 +233,7 @@ const TableActivityStage = ({
         style={{ color: ink }}
       >
         {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        <Table2 className="h-4 w-4 opacity-70" />
+        {isMatrix ? <span className="text-sm font-bold opacity-80">[ ]</span> : <Table2 className="h-4 w-4 opacity-70" />}
         <span className="text-[15px] font-semibold">{group.label}</span>
       </button>
 
@@ -266,7 +268,11 @@ const TableActivityStage = ({
 
       {open && !(grid as any).object && !(structureId && canRenderStructure(structureId)) && (
         <div className="mt-1.5 overflow-auto" style={{ maxWidth: "100%" }}>
-          <table className="border-collapse text-[16px]" style={{ color: ink }}>
+          <div className={isMatrix ? "inline-flex items-stretch gap-2" : undefined}>
+            {isMatrix && matrixBrackets?.left && (
+              <span className="select-none text-[48px] leading-none" style={{ color: ink }}>{matrixBrackets.left}</span>
+            )}
+          <table className={isMatrix ? "border-separate border-spacing-x-4 border-spacing-y-2 text-[18px]" : "border-collapse text-[16px]"} style={{ color: ink }}>
 
             {grid.headers?.some((h) => String(h).trim()) && (
               <thead>
@@ -318,7 +324,7 @@ const TableActivityStage = ({
                         style={{
                           border: isSensor
                             ? "2px solid hsl(40 85% 55%)"
-                            : `1px solid ${border}`,
+                            : isMatrix ? "1px solid transparent" : `1px solid ${border}`,
                           background: inActive
                             ? dark ? "rgba(255,215,120,0.10)" : "rgba(255,215,120,0.22)"
                             : undefined,
@@ -371,6 +377,10 @@ const TableActivityStage = ({
               ))}
             </tbody>
           </table>
+            {isMatrix && matrixBrackets?.right && (
+              <span className="select-none text-[48px] leading-none" style={{ color: ink }}>{matrixBrackets.right}</span>
+            )}
+          </div>
         </div>
       )}
 

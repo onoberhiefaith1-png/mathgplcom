@@ -6282,6 +6282,7 @@ const PresentationView = ({
                           objId: activeTableGroup.objId,
                           label: activeTableGroup.label,
                           placed: !!activeTablePlacement,
+                            isMatrix: !!(activeTableGroup.grid as any).isMatrix,
                         }
                       : null
                   }
