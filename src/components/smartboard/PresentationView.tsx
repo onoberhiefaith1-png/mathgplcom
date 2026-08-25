@@ -7300,12 +7300,11 @@ const BeatBlock = ({
             {beat.caption}
           </div>
         )}
+        {/* PLACEMENT LAW: the question's own objects interleave with its text
+            at the line they were drawn beside — never piled beneath it. */}
         <div style={{ color: ink, fontSize: "1em" }}>
-          <SmartboardLessonText jitter={jitter * 0.6} seed={beat.id.length + 11} placeholderColor={placeholderColor}>
-            {beat.content}
-          </SmartboardLessonText>
+          <FlowingTextAndObjects beat={beat} />
         </div>
-        <FlowingTextAndObjects beat={beat} />
         {/* Auto-write the "Solution" header beneath the question, then stop.
             The teacher solves the rest by hand using the carrier. */}
         <div
