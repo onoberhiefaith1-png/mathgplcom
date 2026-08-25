@@ -3426,6 +3426,7 @@ function DocumentEditorInner({
         )}
         {builderAi && <GlobalAiButton onGenerate={handleGlobalAi} />}
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
+        <MatrixQuickPanel insertMath={insertMathStructure} />
 
         <button
           type="button"
