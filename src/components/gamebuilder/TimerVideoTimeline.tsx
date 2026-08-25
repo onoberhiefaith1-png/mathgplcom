@@ -65,6 +65,21 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
       outroEnd: undefined,
     });
 
+  /** Pick a video straight from the GPL Asset library (same storage bucket). */
+  const pickGpl = (asset: GplAsset) =>
+    onChange({
+      assetId: asset.id,
+      storagePath: asset.storage_path ?? asset.external_url ?? undefined,
+      source: asset.storage_path ? "storage" : "url",
+      duration: undefined,
+      introStart: undefined,
+      introEnd: undefined,
+      loopStart: undefined,
+      loopEnd: undefined,
+      outroStart: undefined,
+      outroEnd: undefined,
+    });
+
   const upload = async (file: File) => {
     setBusy(true);
     try {
