@@ -19,7 +19,7 @@
 // A toolbar sits underneath the table. It appears on any interaction near the
 // table and fades away after ~5s of inactivity.
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2 } from "lucide-react";
 import {
   cellKeysForLine,
@@ -37,6 +37,8 @@ import { useAutoHide } from "@/hooks/useAutoHide";
 import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { MathCellEditor } from "@/components/math/MathCellEditor";
+
 
 interface Props {
   group: TableGroup;
