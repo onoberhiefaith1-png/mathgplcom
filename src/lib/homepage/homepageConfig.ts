@@ -53,6 +53,30 @@ const archiveBuilding = async (version: "pro" | "free", config: HomepageConfig) 
   }
 };
 
+/** Speed is always read through here: 1 = normal, clamped to the 0.1–10 range. */
+export const BUILDING_SPEED_MIN = 0.1;
+export const BUILDING_SPEED_MAX = 10;
+export const clampBuildingSpeed = (value: number | undefined | null) => {
+  const n = typeof value === "number" && Number.isFinite(value) ? value : 1;
+  return Math.min(BUILDING_SPEED_MAX, Math.max(BUILDING_SPEED_MIN, n));
+};
+
+/** Slider position (0–1) ⇄ speed, with 1× sitting exactly in the middle. */
+export const speedToSlider = (speed: number) => {
+  const s = clampBuildingSpeed(speed);
+  return s <= 1
+    ? ((s - BUILDING_SPEED_MIN) / (1 - BUILDING_SPEED_MIN)) * 0.5
+    : 0.5 + ((s - 1) / (BUILDING_SPEED_MAX - 1)) * 0.5;
+};
+export const sliderToSpeed = (pos: number) => {
+  const p = Math.min(1, Math.max(0, pos));
+  const raw =
+    p <= 0.5
+      ? BUILDING_SPEED_MIN + (p / 0.5) * (1 - BUILDING_SPEED_MIN)
+      : 1 + ((p - 0.5) / 0.5) * (BUILDING_SPEED_MAX - 1);
+  return Math.round(raw * 100) / 100;
+};
+
 
 const readLocal = (): HomepageConfig => {
   if (typeof window === "undefined") return {};
