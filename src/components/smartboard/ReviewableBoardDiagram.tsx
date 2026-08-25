@@ -10,6 +10,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Shapes } from "lucide-react";
 import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
+import { DiagramZoomControl } from "@/components/lessonnotes/geometry-editor/DiagramZoomControl";
+import { useDiagramZoom } from "@/lib/geometry/useDiagramZoom";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import {
   reviewProperties,
@@ -37,6 +39,10 @@ export function ReviewableBoardDiagram({
   const keyRef = useRef<string>("");
   if (!keyRef.current) keyRef.current = `rvw_${++seq}`;
   const key = keyRef.current;
+  // Per-diagram zoom multiplies the board zoom: one uniform factor, so the
+  // figure keeps its exact proportions and its mathematics.
+  const { zoom: local, setZoom } = useDiagramZoom(diagramId || null);
+  const effectiveZoom = (Number.isFinite(zoom) && (zoom as number) > 0 ? (zoom as number) : 1) * local;
 
   const reviewable = useMemo(
     () => sceneHasReviewableProperties(scene, "teacher"),
@@ -52,11 +58,11 @@ export function ReviewableBoardDiagram({
   const isActive = review.open && review.active?.diagramId === diagramId;
 
   return (
-    <div className="relative">
+    <div className="relative group/diagram">
       <PresentationGeometryDiagram
         scene={scene}
         pageLayer={pageLayer}
-        zoom={zoom}
+        zoom={effectiveZoom}
         highlightIds={isActive ? review.highlightIds : undefined}
         onPickObject={
           review.open && reviewable && diagramId
@@ -64,6 +70,11 @@ export function ReviewableBoardDiagram({
             : undefined
         }
       />
+
+      {/* DIAGRAM ZOOM — this figure only, never the page or the app. */}
+      <div className="absolute -top-1 right-0 opacity-70 transition-opacity group-hover/diagram:opacity-100">
+        <DiagramZoomControl zoom={local} onZoom={setZoom} compact />
+      </div>
 
       {/* GEOMETRY PROPERTIES MARKER — present only when THIS diagram carries
           teacher-authored properties, wherever the diagram lives (Example,
