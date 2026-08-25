@@ -3996,7 +3996,7 @@ const PresentationView = ({
         sessionRef.current = null;
       }
     }
-  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine, guidedLines]);
+  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine, guidedLines, tableGroups]);
 
   // FIRST WRITE / EMPTY-AGAIN — the only place an attempt is created or
   // cancelled. Watches the live content of the active line.
