@@ -155,14 +155,17 @@ interface ExistingSub {
   id: string;
   order_index: number;
   problem: string;
+  doc_key: string | null;
 }
 
 interface ExistingSection {
   id: string;
   kind: string;
   order_index: number;
+  doc_key: string | null;
   subs: ExistingSub[];
 }
+
 
 async function writeBlocks(
   sectionId: string,
