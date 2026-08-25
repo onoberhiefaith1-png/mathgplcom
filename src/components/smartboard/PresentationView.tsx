@@ -2689,18 +2689,20 @@ const PresentationView = ({
   const activeTablePlaced = !!activeTablePlacement;
 
 
-  // Floating line change → seat the active table's sensor on that row/column.
+  // THE SENSOR IS TEACHER-OWNED. It is seated ONCE, when a table first
+  // becomes active, and after that it only ever moves because the teacher
+  // tapped a cell (or Σ Sum Row / Σ Sum Column placed a total). Nothing the
+  // student types may relocate it.
+  const tableSensorSeededRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!activeTableGroup) return;
     const objId = activeTableGroup.objId;
+    if (tableSensorSeededRef.current.has(objId)) return;
+    tableSensorSeededRef.current.add(objId);
     const target = firstOpenCell(activeTableGroup, activeTableEntries, activeLineIdx);
-    setTableSensorCells((prev) => {
-      const cur = prev[objId] ?? null;
-      if (cur && cellKeysForLine(activeTableGroup, activeLineIdx).includes(cur)) return prev;
-      return { ...prev, [objId]: target };
-    });
+    setTableSensorCells((prev) => (prev[objId] ? prev : { ...prev, [objId]: target }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeLineIdx]);
+  }, [activeTableGroup?.objId]);
 
 
   const setTableEntry = useCallback(
@@ -2905,21 +2907,10 @@ const PresentationView = ({
       void gradeTableTrackRef.current?.(activeLineIdx, "auto");
     }
 
-    const next = nextOpenLine(activeTableGroup, activeTableEntries, activeLineIdx);
-    if (next !== null && next !== activeLineIdx) {
-      setActiveLineIdx(next);
-      setFloatingLineIdx(next);
-      return;
-    }
-    if (isGroupComplete(activeTableGroup, activeTableEntries)) {
-      // BRANCH EXIT: return to the next MAIN-PATH node (T1 → L4, T2 → L6),
-      // never to the raw next line, which could be another table's child.
-      const back = nextMainStepAfter(steps, activeTableGroup);
-      if (back) {
-        setActiveLineIdx(back.lineIdx);
-        setFloatingLineIdx(back.lineIdx);
-      }
-    }
+    // MARKING ONLY — NO MOVEMENT. Completing a track awards it immediately
+    // (T1.1 as T1.1, T1.2 as T1.2 …) but the board never jumps: the teacher
+    // taps the next cell, and the existing Next control performs the branch
+    // exit back to the following main step (T1 → L4).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, steps, activeTablePlaced, guidedLines, current?.id]);
 

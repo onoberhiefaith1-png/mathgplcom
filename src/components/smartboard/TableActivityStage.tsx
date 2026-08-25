@@ -167,12 +167,6 @@ const TableActivityStage = ({
     if (line !== null && line !== activeLineIdx) onActivateLine(line);
   };
 
-  const moveWithin = (key: string, delta: number) => {
-    const cells = editableCellsForLine(group, activeLineIdx);
-    const i = cells.indexOf(key);
-    const next = cells[i + delta];
-    if (next) focusCell(next);
-  };
 
   const grid = group.grid;
 
