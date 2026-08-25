@@ -376,28 +376,56 @@ const HomepageBackground = ({
 /** A whole replacement building: one image or one looping video. */
 const CustomBuilding = ({
   element,
+  speed = 1,
 }: {
   element: NonNullable<ReturnType<typeof useHomepageConfig>["config"]["customBuilding"]>;
-}) => (
-  <div
-    className="pointer-events-none absolute"
-    style={{
-      left: `${element.x * 100}%`,
-      top: `${element.y * 100}%`,
-      width: `${element.scale * 100}%`,
-      transform: `translate(-50%, -50%) rotate(${element.rotation}deg)`,
-      opacity: element.opacity,
-    }}
-  >
-    <SignedMedia
-      path={element.storagePath}
-      source={element.source}
-      mediaType={element.mediaType}
-      fit="contain"
-      className="h-auto w-full"
-    />
-  </div>
-);
+  /** Video playback rate — 1 is the building's own natural speed. */
+  speed?: number;
+}) => {
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  // Any video inside this building plays at the authored speed.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const rate = clampBuildingSpeed(speed);
+    const apply = () => {
+      host.querySelectorAll("video").forEach((v) => {
+        try {
+          v.playbackRate = rate;
+        } catch {
+          /* some browsers refuse extreme rates — keep the default */
+        }
+      });
+    };
+    apply();
+    const t = window.setInterval(apply, 800);
+    return () => window.clearInterval(t);
+  }, [speed, element.storagePath]);
+
+  return (
+    <div
+      ref={hostRef}
+      className="pointer-events-none absolute"
+      style={{
+        left: `${element.x * 100}%`,
+        top: `${element.y * 100}%`,
+        width: `${element.scale * 100}%`,
+        transform: `translate(-50%, -50%) rotate(${element.rotation}deg)`,
+        opacity: element.opacity,
+      }}
+    >
+      <SignedMedia
+        path={element.storagePath}
+        source={element.source}
+        mediaType={element.mediaType}
+        fit="contain"
+        className="h-auto w-full"
+      />
+    </div>
+  );
+};
+
 
 export const RotatingAdventureScene = ({
   routeFor,
