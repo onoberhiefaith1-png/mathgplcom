@@ -19,13 +19,20 @@ export type AssetManagerRow = {
 
 async function listManagers(): Promise<AssetManagerRow[]> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: rows } = await supabaseAdmin
-    .from("asset_managers")
+  // The table is created by a staged migration, so it is not in the generated
+  // database types yet; the shape is asserted locally.
+  const { data } = await (supabaseAdmin.from as (t: string) => any)("asset_managers")
     .select("id, user_id, note, granted_at")
     .order("granted_at", { ascending: true })
     .limit(200);
+  const rows = (data ?? []) as {
+    id: string;
+    user_id: string;
+    note: string | null;
+    granted_at: string;
+  }[];
 
-  const ids = (rows ?? []).map((r) => r.user_id as string);
+  const ids = rows.map((r) => r.user_id);
   const names = new Map<string, string | null>();
   const emails = new Map<string, string | null>();
   if (ids.length) {
@@ -40,13 +47,13 @@ async function listManagers(): Promise<AssetManagerRow[]> {
     }
   }
 
-  return (rows ?? []).map((r) => ({
-    id: r.id as string,
-    userId: r.user_id as string,
-    email: emails.get(r.user_id as string) ?? null,
-    name: names.get(r.user_id as string) ?? null,
-    note: (r.note as string) ?? null,
-    grantedAt: r.granted_at as string,
+  return rows.map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    email: emails.get(r.user_id) ?? null,
+    name: names.get(r.user_id) ?? null,
+    note: r.note ?? null,
+    grantedAt: r.granted_at,
   }));
 }
 
@@ -77,8 +84,7 @@ export const grantAssetManager = createServerFn({ method: "POST" })
     }
     if (!userId) throw new Error(`No account found for ${email}.`);
 
-    await supabaseAdmin
-      .from("asset_managers")
+    await (supabaseAdmin.from as (t: string) => any)("asset_managers")
       .upsert(
         { user_id: userId, granted_by: context.userId, note: data.note?.trim() || null },
         { onConflict: "user_id" },
@@ -92,6 +98,6 @@ export const revokeAssetManager = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await assertPlatformAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("asset_managers").delete().eq("id", data.id);
+    await (supabaseAdmin.from as (t: string) => any)("asset_managers").delete().eq("id", data.id);
     return { rows: await listManagers() };
   });
