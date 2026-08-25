@@ -55,7 +55,11 @@ const AssetCategory = () => {
   const bundledOnly = (cat?.subcategories ?? []).filter((s) => !managedSlugs.has(s.slug));
   const nextOrder = subs.length ? Math.max(...subs.map((s) => s.sort_order)) + 1 : 0;
 
-  if (!cat && !loading && !session) return <Navigate to="/assets" replace />;
+  const missing = !cat && !loading && !session;
+  useEffect(() => {
+    if (missing) navigate("/assets", { replace: true });
+  }, [missing, navigate]);
+  if (missing) return null;
 
   const title = cat?.name ?? session?.name ?? "Assets";
 
