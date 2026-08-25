@@ -278,7 +278,9 @@ const Showcase = ({
     if (!worldRef.current) return;
     // Ease rotation to a gentle near-stop while a hovered academy invites a
     // click, and all the way to rest while a video advertisement plays.
-    const targetSpeed = pausedRef.current ? 0 : hoveredRef.current ? ringSpeed * 0.1 : ringSpeed;
+    const base = ringSpeed * speedMulRef.current;
+    const targetSpeed = pausedRef.current ? 0 : hoveredRef.current ? base * 0.1 : base;
+
     speedRef.current = THREE.MathUtils.damp(speedRef.current, targetSpeed, 3.2, delta);
     worldRef.current.rotation.y += speedRef.current * delta;
 
