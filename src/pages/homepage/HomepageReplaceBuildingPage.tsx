@@ -173,10 +173,16 @@ const HomepageReplaceBuildingPage = () => {
   };
 
   const applySavedBuilding = async (row: { config: typeof config; name: string }) => {
+    const nextBuilding = row.config.buildingMode === "custom" ? row.config.customBuilding ?? null : null;
     try {
-      await save(row.config);
+      await save({
+        buildingMode: row.config.buildingMode ?? "mathgpl",
+        customBuilding: row.config.customBuilding ?? null,
+        slotOverrides: row.config.slotOverrides,
+        buildingSpeed: clampBuildingSpeed(row.config.buildingSpeed),
+      });
       setSpeed(clampBuildingSpeed(row.config.buildingSpeed));
-      setBuilding(row.config.buildingMode === "custom" ? row.config.customBuilding ?? null : null);
+      setBuilding(nextBuilding);
       toast.success(`${row.name} applied`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not apply building");
