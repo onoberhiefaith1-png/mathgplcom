@@ -53,6 +53,7 @@ const TableWorkspace = ({
 }: Props) => {
   const retainedSet = new Set(retained);
   const activeSet = new Set(activeCells);
+  const isMatrix = !!grid.isMatrix;
   // Smart Structure: cells that are pure structure (bracket gutter, minus
   // column, divider) are retained by definition and never generate lines.
   const staticSet = new Set(grid.staticCells ?? []);
@@ -63,6 +64,46 @@ const TableWorkspace = ({
     : manualActive
       ? `Click cells to add them to the new line — same ${orientation === "row" ? "row" : "column"} only.`
       : "Choose an orientation, then Generate, or use “+ Add Line” to build lines by clicking cells.";
+
+  const renderCellButton = (v: string, k: string) => {
+    const structural = staticSet.has(k);
+    const isRetained = retainedSet.has(k);
+    const inLine = activeSet.has(k);
+    if (structural) {
+      return (
+        <td
+          key={k}
+          className="px-3 py-1.5 text-center select-none"
+          style={{
+            border: "1px dashed hsl(220 15% 40% / 0.3)",
+            background: "hsl(220 12% 90%)",
+            color: "hsl(220 20% 35%)",
+            minWidth: 56,
+          }}
+          title="Retained structure — never a Floating Number"
+        >
+          {grid.staticGlyphs?.[k] || <span className="text-foreground/25">▨</span>}
+        </td>
+      );
+    }
+    return (
+      <td
+        key={k}
+        onClick={() => onCellClick(k)}
+        className="px-3 py-1.5 text-center cursor-pointer select-none tabular-nums hover:bg-foreground/5"
+        style={{
+          border: isMatrix ? (inLine ? "2px solid hsl(40 85% 45%)" : "1px solid transparent") : inLine
+            ? "2px solid hsl(40 85% 45%)"
+            : "1px solid hsl(220 15% 40% / 0.5)",
+          background: isRetained ? "hsl(150 45% 88%)" : undefined,
+          minWidth: 56,
+        }}
+        title={isRetained ? "Retained — visible to students" : k}
+      >
+        {v ? renderMathInline(v, `twc-${grid.objId}-${k}`) : <span className="text-foreground/25">·</span>}
+      </td>
+    );
+  };
 
   return (
     <div
@@ -196,7 +237,13 @@ const TableWorkspace = ({
       ) : (
       /* Grid */
       <div className="px-3 py-3 overflow-x-auto">
-        <table className="border-collapse text-[14px]" style={{ color: "hsl(220 35% 18%)" }}>
+        <div className={isMatrix ? "inline-flex items-stretch gap-2" : undefined}>
+          {isMatrix && grid.matrixBrackets?.left && (
+            <span className="select-none text-[42px] leading-none" style={{ color: "hsl(220 35% 18%)" }}>
+              {grid.matrixBrackets.left}
+            </span>
+          )}
+        <table className={isMatrix ? "border-separate border-spacing-x-3 border-spacing-y-2 text-[16px]" : "border-collapse text-[14px]"} style={{ color: "hsl(220 35% 18%)" }}>
           {grid.headers.some((h) => h.trim()) && (
             <thead>
               <tr>
@@ -217,51 +264,19 @@ const TableWorkspace = ({
               <tr key={`r-${r}`}>
                 {row.map((v, c) => {
                   const k = cellKey(r, c);
-                  const structural = staticSet.has(k);
-                  const isRetained = retainedSet.has(k);
-                  const inLine = activeSet.has(k);
-                  if (structural) {
-                    // Static structure — the teacher's drawing. Never a
-                    // Floating Number, never clickable.
-                    return (
-                      <td
-                        key={k}
-                        className="px-3 py-1.5 text-center select-none"
-                        style={{
-                          border: "1px dashed hsl(220 15% 40% / 0.3)",
-                          background: "hsl(220 12% 90%)",
-                          color: "hsl(220 20% 35%)",
-                          minWidth: 56,
-                        }}
-                        title="Retained structure — never a Floating Number"
-                      >
-                        {grid.staticGlyphs?.[k] || <span className="text-foreground/25">▨</span>}
-                      </td>
-                    );
-                  }
-                  return (
-                    <td
-                      key={k}
-                      onClick={() => onCellClick(k)}
-                      className="px-3 py-1.5 text-center cursor-pointer select-none tabular-nums hover:bg-foreground/5"
-                      style={{
-                        border: inLine
-                          ? "2px solid hsl(40 85% 45%)"
-                          : "1px solid hsl(220 15% 40% / 0.5)",
-                        background: isRetained ? "hsl(150 45% 88%)" : undefined,
-                        minWidth: 56,
-                      }}
-                      title={isRetained ? "Retained — visible to students" : k}
-                    >
-                      {v ? renderMathInline(v, `twc-${grid.objId}-${k}`) : <span className="text-foreground/25">·</span>}
-                    </td>
-                  );
+                  return renderCellButton(v, k);
                 })}
 
               </tr>
             ))}
           </tbody>
         </table>
+          {isMatrix && grid.matrixBrackets?.right && (
+            <span className="select-none text-[42px] leading-none" style={{ color: "hsl(220 35% 18%)" }}>
+              {grid.matrixBrackets.right}
+            </span>
+          )}
+        </div>
         <p className="mt-2 text-[11px] text-foreground/55 italic">{hint}</p>
       </div>
       )}

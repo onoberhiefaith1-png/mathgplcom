@@ -214,7 +214,7 @@ interface Props {
   placeholderColor?: string;
   /** Set when the active lesson line IS a Smart Table. The strip then shows a
    *  single table-icon chip instead of equation fragments. */
-  tableChip?: { objId: string; label: string; placed: boolean } | null;
+  tableChip?: { objId: string; label: string; placed: boolean; isMatrix?: boolean } | null;
   /** Places (or re-places) the table on the board at the teacher's cursor. */
   onPlaceTable?: (objId: string) => void;
 
@@ -723,9 +723,9 @@ export const FloatingNumberPanel = ({
             <ChevronLeft size={22} />
           </button>
           {tableChip ? (
-            /* This lesson line IS a Smart Table. It shows one chip — the
-               table icon — instead of equation fragments. Tapping it places
-               the table on the board at the teacher's cursor. The table is
+            /* This lesson line IS a Smart Table / Matrix. It shows one chip —
+               instead of equation fragments. Tapping it places the object on
+               the board at the teacher's cursor. The object is
                permanent: removing it from the board never removes this chip. */
             <button
               onClick={(e) => { e.stopPropagation(); onPlaceTable?.(tableChip.objId); onPing(); }}
@@ -748,7 +748,7 @@ export const FloatingNumberPanel = ({
                 fontSize: 15,
               }}
             >
-              <TableIcon size={20} />
+              {tableChip.isMatrix ? <span style={{ fontWeight: 800, fontSize: 17 }}>[ ]</span> : <TableIcon size={20} />}
               <span style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {tableChip.label}
               </span>

@@ -31,10 +31,15 @@ const TableGridViewer = ({
   for (const t of table.tracks) for (const c of t.cells) cells.set(c.key, c);
   const activeKeys = new Set((table.activeTrack?.cells ?? []).map((c) => c.key));
   const headers = table.headers ?? [];
+  const isMatrix = !!table.isMatrix;
 
   return (
     <div className="overflow-x-auto">
-      <table className="border-collapse text-[14px]">
+      <div className={isMatrix ? "inline-flex items-stretch gap-1.5" : undefined}>
+        {isMatrix && table.matrixBrackets?.left && (
+          <span className="select-none text-[34px] leading-none">{table.matrixBrackets.left}</span>
+        )}
+      <table className={isMatrix ? "border-separate border-spacing-x-2 border-spacing-y-1 text-[14px]" : "border-collapse text-[14px]"}>
         {headers.some((h) => String(h ?? "").trim()) && (
           <thead>
             <tr>
@@ -69,7 +74,7 @@ const TableGridViewer = ({
                 return (
                   <td
                     key={key}
-                    className={`border border-border px-2 py-1 text-center tabular-nums ${tone} ${
+                    className={`${isMatrix ? "" : "border border-border"} px-2 py-1 text-center tabular-nums ${tone} ${
                       inActive ? "bg-amber-500/10" : ""
                     }`}
                     style={{ minWidth: 52 }}
@@ -85,6 +90,10 @@ const TableGridViewer = ({
           ))}
         </tbody>
       </table>
+        {isMatrix && table.matrixBrackets?.right && (
+          <span className="select-none text-[34px] leading-none">{table.matrixBrackets.right}</span>
+        )}
+      </div>
       {side === "student" && (
         <div className="mt-1 text-[10px] text-muted-foreground">
           {table.activeTrack

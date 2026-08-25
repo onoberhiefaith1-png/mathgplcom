@@ -25,9 +25,10 @@ export interface TableGroup {
   /** Reservoir line indices owned by this table, in order. */
   memberLineIdxs: number[];
   /** 1-based position of this table among the solution's tables, in document
-   *  order. THE branch identity: this table is the main-path node `T{n}` and
-   *  its children are `T{n}.1 … T{n}.m`. Numbering never runs across tables. */
+   *  order. THE branch identity: tables are `T{n}` and matrices are `M{n}`.
+   *  Children are numbered inside the branch (`T1.1`, `M1.1`, …). */
   tableIndex: number;
+  branchPrefix: "T" | "M";
 }
 
 
@@ -52,6 +53,8 @@ const normalise = (raw: string): string =>
 export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
   const out: TableGroup[] = [];
   const byObj = new Map<string, TableGroup>();
+  let tableNo = 0;
+  let matrixNo = 0;
   lines.forEach((line, idx) => {
     const t = line?.table;
     if (!t?.objId || !t.grid) return;
@@ -69,6 +72,8 @@ export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
       }
       return;
     }
+    const branchPrefix: TableGroup["branchPrefix"] = (t.grid as any).isMatrix ? "M" : "T";
+    const branchNo = branchPrefix === "M" ? ++matrixNo : ++tableNo;
     const group: TableGroup = {
       objId: t.objId,
       label: t.label || t.grid.label || "Table",
@@ -76,7 +81,8 @@ export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
       grid: t.grid,
       retained: Array.from(new Set([...(t.retained ?? []), ...structural])),
       memberLineIdxs: [idx],
-      tableIndex: out.length + 1,
+      tableIndex: branchNo,
+      branchPrefix,
     };
     byObj.set(t.objId, group);
     out.push(group);
@@ -226,6 +232,8 @@ export interface TableValidation {
   objId: string;
   label: string;
   orientation: "row" | "column";
+  isMatrix?: boolean;
+  matrixBrackets?: { left: string; right: string };
   /** Grid shape, so the Evaluation panel can draw the real table instead of
    *  flattening cells into a text line. */
   rows: number;
@@ -263,6 +271,8 @@ export const tableValidation = (
     objId: group.objId,
     label: group.label,
     orientation: group.orientation,
+    isMatrix: !!(group.grid as any).isMatrix,
+    matrixBrackets: (group.grid as any).matrixBrackets,
     rows: group.grid.rows,
     cols: group.grid.cols,
     headers: (group.grid.headers ?? []).map((h) => String(h ?? "")),
@@ -312,14 +322,16 @@ export const stepIdxForLine = (steps: LessonStep[], lineIdx: number): number => 
   return owner >= 0 ? owner : 0;
 };
 
+export const branchTagFor = (group: TableGroup): string => `${group.branchPrefix}${group.tableIndex}`;
+
 /** Main-path tag of a step: `L{n}` for an equation step (L numbers count ONLY
- *  non-table steps, so a table never consumes one) and `T{k}` for a table. */
+ *  non-branch steps, so a table/matrix never consumes one) and `T{k}`/`M{k}` for a branch. */
 export const mainTagForStep = (steps: LessonStep[], stepIdx: number): string => {
   let l = 0;
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i];
     if (!s.group) l += 1;
-    if (i === stepIdx) return s.group ? `T${s.group.tableIndex}` : `L${l}`;
+    if (i === stepIdx) return s.group ? branchTagFor(s.group) : `L${l}`;
   }
   return "";
 };
@@ -339,15 +351,15 @@ export const nextMainStepAfter = (
   return null;
 };
 
-/** T-series for a table: one child per member line, numbered INSIDE the
- *  table only — `T{k}.1 … T{k}.m`. Never lesson-wide. */
+/** Branch series for a table/matrix: one child per member line, numbered INSIDE
+ *  the branch only — `T{k}.1 …` or `M{k}.1 …`. Never lesson-wide. */
 export const tSeriesFor = (group: TableGroup): { label: string; lineIdx: number }[] =>
   group.memberLineIdxs.map((lineIdx, i) => ({
-    label: `T${group.tableIndex}.${i + 1}`,
+    label: `${branchTagFor(group)}.${i + 1}`,
     lineIdx,
   }));
 
-/** THE tag authority. A table child is `T{k}.{i}`, a table node is `T{k}`,
+/** THE tag authority. A branch child is `T{k}.{i}`/`M{k}.{i}`, a branch node is `T{k}`/`M{k}`,
  *  every other step is `L{n}`. Nothing else may derive a tag. */
 export const tagForLine = (
   steps: LessonStep[],
@@ -357,7 +369,7 @@ export const tagForLine = (
   const owner = groupForLine(groups, lineIdx);
   if (owner) {
     const pos = owner.memberLineIdxs.indexOf(lineIdx);
-    if (pos >= 0) return `T${owner.tableIndex}.${pos + 1}`;
+    if (pos >= 0) return `${branchTagFor(owner)}.${pos + 1}`;
   }
   return mainTagForStep(steps, stepIdxForLine(steps, lineIdx));
 };
