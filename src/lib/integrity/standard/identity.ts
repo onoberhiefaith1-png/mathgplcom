@@ -279,7 +279,7 @@ export const accounts: RequirementDomain = {
       severity: "LOW",
       permanent: "PENDING",
       notes:
-        "Reviewed 2026-08-25 across every /student route and src/pages/student/* screen: the surfaces open assigned work (assignments, adventures, classes, skill builder, gallery, smartboard, reports) and carry no authoring, publishing, deletion or admin controls, and no cost, margin or multiplier figures. The only prices shown are the workspace owner's published plans on the entry gateway, which are customer-facing by design.
+        "Reviewed 2026-08-25 across every /student route and src/pages/student/* screen: the surfaces open assigned work (assignments, adventures, classes, skill builder, gallery, smartboard, reports) and carry no authoring, publishing, deletion or admin controls, and no cost, margin or multiplier figures. The only prices shown are the workspace owner's published plans on the entry gateway, which are customer-facing by design.",
     },
   ],
 };
@@ -361,7 +361,7 @@ export const workspaces: RequirementDomain = {
       severity: "HIGH",
       permanent: "PENDING",
       notes:
-        "Cleared 2026-08-25: src/lib/accounts/__tests__/workspaceIsolation.test.ts now pins the scoping contract — a school workspace filters on org_id, the personal workspace filters org_id IS NULL (never unfiltered, which was the original leak), exactly one workspace filter is applied, and view-as pins the owner filter to the viewed person.
+        "Cleared 2026-08-25: src/lib/accounts/__tests__/workspaceIsolation.test.ts now pins the scoping contract — a school workspace filters on org_id, the personal workspace filters org_id IS NULL (never unfiltered, which was the original leak), exactly one workspace filter is applied, and view-as pins the owner filter to the viewed person.",
     },
     {
       id: "WS-004",

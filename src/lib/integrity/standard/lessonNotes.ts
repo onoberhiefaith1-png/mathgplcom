@@ -205,7 +205,7 @@ export const lessonNotes: RequirementDomain = {
       severity: "LOW",
       permanent: "PENDING",
       notes:
-        "Cleared 2026-08-25: CoverDesignerDialog is reachable from the notebook card menu and its onSave writes cover_config to the notebooks row (src/pages/LessonNotesPage.tsx saveCover), so the cover is stored, not regenerated per view. src/lib/lessonnotes/__tests__/coverThemes.test.ts pins exactly ten unique themes, one suggestion per theme and verbatim read-back of a stored cover.
+        "Cleared 2026-08-25: CoverDesignerDialog is reachable from the notebook card menu and its onSave writes cover_config to the notebooks row (src/pages/LessonNotesPage.tsx saveCover), so the cover is stored, not regenerated per view. src/lib/lessonnotes/__tests__/coverThemes.test.ts pins exactly ten unique themes, one suggestion per theme and verbatim read-back of a stored cover.",
     },
     {
       id: "LN-012",
@@ -429,7 +429,7 @@ export const tables: RequirementDomain = {
       severity: "MEDIUM",
       permanent: "PENDING",
       notes:
-        "Cleared 2026-08-25: src/lib/smartboard/__tests__/tableBranching.test.ts pins T1/T2 branch identity, Tk.1/Tk.2 children, the untouched L1/L2/L3 main sequence across two tables, return to the next main step at the end of a branch, and one branch per table even when its lines are not contiguous.
+        "Cleared 2026-08-25: src/lib/smartboard/__tests__/tableBranching.test.ts pins T1/T2 branch identity, Tk.1/Tk.2 children, the untouched L1/L2/L3 main sequence across two tables, return to the next main step at the end of a branch, and one branch per table even when its lines are not contiguous.",
     },
     {
       id: "TBL-003",
@@ -518,7 +518,7 @@ export const charts: RequirementDomain = {
       severity: "LOW",
       permanent: "PENDING",
       notes:
-        "Cleared 2026-08-25: the geometry arithmetic was extracted to barLayout.ts (the renderer no longer derives it inline) and src/lib/__tests__/chartBarGeometry.test.ts pins gap = bar width, Y-axis-to-first-bar = bar width, width changes moving both, and zero gap for a histogram.
+        "Cleared 2026-08-25: the geometry arithmetic was extracted to barLayout.ts (the renderer no longer derives it inline) and src/lib/__tests__/chartBarGeometry.test.ts pins gap = bar width, Y-axis-to-first-bar = bar width, width changes moving both, and zero gap for a histogram.",
     },
     {
       id: "CHT-002",

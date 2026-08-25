@@ -392,7 +392,7 @@ export const area: RequirementDomain = {
       severity: "LOW",
       permanent: "PENDING",
       notes:
-        "Cleared 2026-08-25: src/lib/geometry/__tests__/regionDelete.test.ts exercises the delete path — erasing a region removes only the region and leaves every boundary segment, every point and any other region untouched.
+        "Cleared 2026-08-25: src/lib/geometry/__tests__/regionDelete.test.ts exercises the delete path — erasing a region removes only the region and leaves every boundary segment, every point and any other region untouched.",
       notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION: delete behaviour was not exercised in this pass.",
     },
   ],

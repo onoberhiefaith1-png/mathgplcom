@@ -271,7 +271,7 @@ export const adminConsole: RequirementDomain = {
       severity: "MEDIUM",
       permanent: "PENDING",
       notes:
-        "Cleared 2026-08-25: the console screen exists and is reachable — AccessCodesPage renders AssetManagersCard for the asset-manager purpose, so the owner can whitelist and remove a manager there, backed by can_manage_gpl_assets / asset_managers.
+        "Cleared 2026-08-25: the console screen exists and is reachable — AccessCodesPage renders AssetManagersCard for the asset-manager purpose, so the owner can whitelist and remove a manager there, backed by can_manage_gpl_assets / asset_managers.",
     },
   ],
 };
