@@ -790,7 +790,7 @@ function DocumentEditorInner({
   const [tablesOpen, setTablesOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [objectsOpen, setObjectsOpen] = useState(false);
-  const [animateMode, setAnimateMode] = useState(false);
+  
   const { id: routeNotebookId } = useParams();
   // Callers off the /lesson-notes/:id route (the Smartboard companion page) pass
   // the id explicitly. `storageId` additionally namespaces local-only state so a
