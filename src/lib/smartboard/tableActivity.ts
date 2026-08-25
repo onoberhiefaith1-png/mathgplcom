@@ -263,7 +263,11 @@ export const tableValidation = (
     objId: group.objId,
     label: group.label,
     orientation: group.orientation,
+    rows: group.grid.rows,
+    cols: group.grid.cols,
+    headers: (group.grid.headers ?? []).map((h) => String(h ?? "")),
     tracks,
+
     activeTrack: tracks.find((t) => t.lineIdx === activeLineIdx) ?? null,
     groupComplete: isGroupComplete(group, entries),
   };
