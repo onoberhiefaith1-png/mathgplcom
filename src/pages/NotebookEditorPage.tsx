@@ -274,7 +274,7 @@ const NotebookEditorPage = () => {
           <Button
             size="sm" variant="ghost"
             className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
-            onClick={() => navigate(`/smartboard/${notebook.id}`)}
+            onClick={() => navigate(`/smartboard/${notebook.id}?from=note`)}
             title="Present"
           >
             <Presentation className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Present</span>
@@ -350,7 +350,7 @@ const NotebookEditorPage = () => {
             topic: notebook.title ?? "",
             subtopic: notebook.subtopic ?? "",
           }}
-          onPresent={() => navigate(`/smartboard/${notebook.id}`)}
+          onPresent={() => navigate(`/smartboard/${notebook.id}?from=note`)}
           onScanFromPhone={() => setQrOpen(true)}
           exportFileName={notebook.title || notebook.subtopic || "lesson-notes"}
           gameQuestionsOnly={(notebook as { purpose?: string }).purpose === "game"}
