@@ -15,6 +15,7 @@ import {
 
 const AssetCategory = () => {
   const { category } = useParams();
+  const navigate = useNavigate();
   const cat = getCategory(category);
   const { isManager } = useAssetManager();
 
