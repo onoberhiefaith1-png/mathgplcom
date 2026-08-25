@@ -151,8 +151,14 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
       type="number"
       step="0.1"
       min={0}
+      max={effectiveDuration || undefined}
+      disabled={effectiveDuration <= 0}
       value={Number(current.toFixed(2))}
-      onChange={(e) => onChange({ [key]: Math.max(0, Number(e.target.value) || 0) } as Partial<TimerVideoConfig>)}
+      onChange={(e) => {
+        const raw = Math.max(0, Number(e.target.value) || 0);
+        const clamped = effectiveDuration > 0 ? Math.min(effectiveDuration, raw) : raw;
+        onChange({ [key]: clamped } as Partial<TimerVideoConfig>);
+      }}
       className="h-8"
     />
   );
