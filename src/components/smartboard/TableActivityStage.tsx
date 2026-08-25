@@ -308,10 +308,18 @@ const TableActivityStage = ({
                       ? (glyph ?? "")
                       : retained ? expectedCellValue(group, k) : entries[k] ?? "";
 
+                    const editing = !!edit && edit.key === k && !retained && editable;
+
                     return (
                       <td
                         key={k}
-                        onClick={() => { if (!structural) focusCell(k); }}
+                        onClick={(e) => {
+                          if (structural) return;
+                          if (!editing && !retained && editable) {
+                            setEdit({ key: k, draft: String(entries[k] ?? ""), point: { x: e.clientX, y: e.clientY } });
+                          }
+                          focusCell(k);
+                        }}
                         className="p-0 text-center tabular-nums"
                         style={{
                           border: isSensor
@@ -329,27 +337,36 @@ const TableActivityStage = ({
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
                               : "\u00A0"}
                           </span>
-                        ) : (
-                          <input
-                            ref={(el) => { inputRefs.current[k] = el; }}
-                            data-sb-cell={k}
-                            value={value}
-                            onFocus={() => focusCell(k)}
-                            onChange={(e) => onEntry(k, e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const solved = tryEvaluate(value);
+                        ) : editing ? (
+                          // THE universal math editor inside the cell: `@` asset
+                          // picker, `#`/`##` powers and indices, `/` fractions.
+                          <span data-sb-cell={k} className="block px-2 py-1">
+                            <MathCellEditor
+                              value={edit!.draft}
+                              ink={ink}
+                              entryPoint={edit!.point}
+                              onChange={(v) => {
+                                setEdit((prev) => (prev && prev.key === k ? { ...prev, draft: v } : prev));
+                                onEntry(k, v);
+                              }}
+                              onCommit={() => {
+                                const raw = edit?.key === k ? edit.draft : String(entries[k] ?? "");
+                                const solved = tryEvaluate(raw);
                                 if (solved !== null) onEntry(k, solved);
+                                setEdit(null);
                                 moveWithin(k, 1);
-                              } else if (e.key === "Tab") {
-                                e.preventDefault();
-                                moveWithin(k, e.shiftKey ? -1 : 1);
-                              }
-                            }}
-                            className="w-full bg-transparent px-3 py-1.5 text-center outline-none"
-                            style={{ color: ink, minWidth: 68 }}
-                          />
+                              }}
+                            />
+                          </span>
+                        ) : (
+                          <span
+                            data-sb-cell={k}
+                            className="block px-3 py-1.5 cursor-text"
+                          >
+                            {String(value ?? "").trim()
+                              ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
+                              : "\u00A0"}
+                          </span>
                         )}
                       </td>
                     );
@@ -361,12 +378,13 @@ const TableActivityStage = ({
         </div>
       )}
 
-      {/* Object toolbar — underneath the table, auto-hiding after ~5s. */}
+      {/* Object toolbar — underneath the table. It stays put while the table is
+          open and a cell is selected, so Σ is always reachable in a lesson. */}
       <div
         className="mt-1 flex items-center gap-1 transition-opacity duration-300"
         style={{
-          opacity: toolbarVisible ? 1 : 0,
-          pointerEvents: toolbarVisible ? "auto" : "none",
+          opacity: toolbarVisible || (open && !!sensorCell) ? 1 : 0,
+          pointerEvents: toolbarVisible || (open && !!sensorCell) ? "auto" : "none",
         }}
       >
         <button
@@ -378,10 +396,26 @@ const TableActivityStage = ({
           {open ? "Collapse" : "Expand"}
         </button>
         {open && editable && (
-          <button onClick={() => { sumIntoTrack(); ping(); }} className={toolbarBtn} style={{ color: ink }}>
-            <Sigma className="h-3.5 w-3.5" /> Sum {group.orientation}
-          </button>
+          <>
+            <button
+              onClick={() => { sumTrack("row"); ping(); }}
+              className={toolbarBtn}
+              style={{ color: ink }}
+              title="Add every number in this row into its empty cell"
+            >
+              <Sigma className="h-3.5 w-3.5" /> Sum Row
+            </button>
+            <button
+              onClick={() => { sumTrack("col"); ping(); }}
+              className={toolbarBtn}
+              style={{ color: ink }}
+              title="Add every number in this column into its empty cell"
+            >
+              <Sigma className="h-3.5 w-3.5" /> Sum Column
+            </button>
+          </>
         )}
+
         {editable && onClear && (
           <button
             onClick={() => { onClear(); ping(); }}
