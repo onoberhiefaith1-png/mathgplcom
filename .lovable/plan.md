@@ -1,58 +1,49 @@
-# Restore visible asset-manager editing (without opening it to everyone)
+# A table stays a table: Note → Floating → Smartboard → Evaluation
 
-## What is actually happening
+The table engine, retention model and row/column assessment already exist. This plan closes the broken joints so a table never degrades into loose text, and its cell coordinates survive every stage.
 
-The editing controls were not removed. The permission check behind them
-(`can_manage_gpl_assets`) is returning **false** for the account currently signed in to
-the preview: `onoberhiefaith1+teacher@gmail.com` (teacher test account, signed in 04:31).
-Management is granted only to the platform-owner account
-(`onoberhiefaith1@gmail.com`) or to an account holding an active `asset_manager` staff
-code. So the library is correctly read-only for the teacher account — but there is no way
-to tell that from the screen, and no in-app way to give a second account manager rights.
+## 1. Floating shows ONE table object
 
-## What will change
+On the Generated Floating Numbers page a table currently appears as several numbered lines (one per row/column) with chips. Change the presentation only:
 
-1. **Owner-controlled Manager access**
-   A small "Asset managers" area inside the existing platform admin console where the
-   owner can grant or revoke asset-manager rights per account (by email / account ID).
-   Grants are stored server-side; revoking removes editing everywhere instantly.
-   The owner and co-admins always have manager rights.
+- The table occupies a single numbered floating item, shown with a table icon and the label `TABLE` (plus its name when the teacher gave one).
+- Clicking it opens the complete table workspace (the grid, orientation, Generate, Retention, + Add Line) exactly as today.
+- Row/column tracks stay inside the table as its internal T-series (T1, T2 …) — they are no longer separate top-level floating numbers, and no per-cell floating chips are ever produced.
+- Numbering for everything after the table follows from one item, not N.
 
-2. **A visible read-only signal on the asset pages**
-   On `/assets` and each category/sub-session page, non-managers see one quiet line:
-   "Read-only library — sign in with a manager account to add or edit assets."
-   Managers see the existing Add Session / Add Sub-Session / Add Asset buttons unchanged.
+## 2. Headings retained by default
 
-3. **No loosening of end-user permissions**
-   Students, parents, teachers and schools without a grant keep exactly today's
-   use-only experience: browse, insert, copy — no create, edit, deactivate or delete.
+Header cells are retained the moment a table enters Floating, so `x`, `y`, `S²` always appear for the student. The teacher can still retain or release any data cell; releasing a heading stays possible but is never the default.
+
+## 3. Retention is a coordinate, not a value
+
+Retention is already stored as `r:c` cell keys; the plan keeps that and removes any place where retained cells are compared or rebuilt by value. A retained `3` at row 1 / column 1 is never confused with a `3` elsewhere.
+
+## 4. Smartboard actually draws the table
+
+When the teacher reaches the table item, the board renders the teacher's grid — the exact row and column counts from the Lesson Note, retained cells read-only in their original positions, every other cell blank and answerable. No new table is generated, no values are written as free ink lines on the board. Students can only type into empty cells: no adding/removing rows or columns, no resizing, no moving cells.
+
+## 5. Evaluation becomes cell-aware and draws the table
+
+- The expected answer for a table track is stored and shown as a table, not as the string `3 4 Q`. The Evaluation panel renders the expected grid with values in their correct cells, next to the student's grid, compared cell by cell.
+- A mark is awarded when the required cells of the assessed row (row-oriented) or column (column-oriented) hold the correct values in the correct positions.
+- Values written anywhere outside the table never satisfy a table track — free ink is not accepted as a table answer.
+- Row means `(1,1) → (1,2) → (1,3)`; column means `(1,1) → (2,1) → (3,1)`, taken from real coordinates, never inferred from visual arrangement.
+
+## 6. Superscript symbol fix
+
+The header currently shows raw `x^{2}`. Table cells render mathematics through the existing math renderer, so `S²`, `x²` and fractions display properly and identically in the Lesson Note, Floating, Smartboard, student view, evaluation and expected answer.
+
+## 7. Identity through every stage
+
+Table id, row/column counts, cell coordinates, values, headings, retained set, orientation and marks travel as one object from note to evaluation. Nothing re-derives a table from text.
 
 ## Technical notes
 
-- Migration (additive): update `public.can_manage_gpl_assets()` to also return true for
-  `has_role(auth.uid(), 'co_admin')` and for an active row in a new
-  `public.gpl_asset_managers` table (`user_id`, `granted_by`, `created_at`,
-  `revoked_at`). Table gets `GRANT SELECT` to `authenticated`, `GRANT ALL` to
-  `service_role`, RLS on, owner/co-admin-only management policies, and a self-read
-  policy. Existing owner + `staff_codes` branches stay intact, so nothing currently
-  working is lost.
-- The RLS policies on `gpl_asset_sessions` / `gpl_asset_subsessions` / `gpl_assets`
-  already call `can_manage_gpl_assets()`, so server-side enforcement follows
-  automatically — the client flag is only for showing controls.
-- `src/lib/gpl/useAssetManager.ts`: expose `checked` usage so pages can render the
-  read-only note only after the session check resolves (avoids a flash).
-- `src/pages/Assets.tsx`, `src/pages/AssetCategory.tsx`,
-  `src/components/assets/manage/OfficialAssetSection.tsx`: add the read-only line for
-  non-managers; leave manager branches untouched.
-- New admin panel under the existing platform console route, reading/writing
-  `gpl_asset_managers` through an authenticated server function that verifies
-  owner/co-admin role before any write.
-
-## Verification
-
-- Signed in as owner: Add Session / Add Sub-Session / Add Asset all present on
-  `/assets` and `/assets/emoji`.
-- Grant the teacher test account manager rights from the console, reload: the same
-  controls appear for it; revoke, reload: they disappear and a direct write is rejected
-  by the database.
-- Signed in as a student: no management controls, read-only note visible.
+- `src/lib/lessonnotes/floatingCompile.ts` — mark table-derived lines as internal tracks of one owning object (`tableObjId`, `trackIdx`) instead of standalone floating numbers; keep the grid snapshot on the ref.
+- `src/pages/FloatingNumbersPage.tsx` + `src/components/floating/TableWorkspace.tsx` — render one numbered `TABLE` entry per table object; move the generated tracks inside the workspace; seed `retained` with header keys on first entry.
+- `src/lib/smartboard/tableActivity.ts` — one lesson step per table (already the case) plus expected-answer output as a grid (`{rows, cols, cells, retained}`) rather than a joined string; keep `isCellCorrect` coordinate-keyed.
+- `src/components/smartboard/PresentationView.tsx` / `TableActivityStage.tsx` — guarantee the table group renders the grid for the active track and suppress the free-text write path for table lines; enforce structure-locked student input.
+- `src/components/smartboard/TeacherReasoningPanel.tsx` — when the active line belongs to a table, replace the `EXPECTED LINE` / `STUDENT LINE` text rows with expected vs student grids and per-cell status; grading for table tracks ignores board ink.
+- Cell rendering goes through the existing math renderer (`mathStructureLatex` / unicode math) so `x^{2}` never surfaces.
+- No database migration: retention, orientation and grid already persist in `notebook_subsections.floating_highlights`.
