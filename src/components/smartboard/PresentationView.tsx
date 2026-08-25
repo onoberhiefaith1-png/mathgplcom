@@ -2883,9 +2883,28 @@ const PresentationView = ({
   // Completion → next row/column; last one ends the activity and the lesson
   // advances to the following line. Driven by the HIDDEN validation state:
   // nothing about this is displayed on the board.
+  //
+  // PER-TRACK MARKING: a track (a row under Row orientation, a column under
+  // Column orientation) is assessed and awarded the INSTANT its cells are
+  // complete — before the activity moves on. T1.1 marks as T1.1, T1.2 as
+  // T1.2, and so on; the final track is never the only one that scores.
+  const gradeTableTrackRef = useRef<
+    ((k: number, mode: "manual" | "auto") => Promise<void>) | null
+  >(null);
+  const tableTrackGradedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!activeTableGroup || !activeTablePlaced) return;
     if (!isLineComplete(activeTableGroup, activeTableEntries, activeLineIdx)) return;
+
+    // Award this track once. The guard is keyed on the question + line so
+    // re-renders (and the leave/idle paths) can never double-count it.
+    const lineId = guidedLines[activeLineIdx]?.lineId ?? null;
+    const guardKey = `${current?.id ?? ""}:${lineId ?? activeLineIdx}`;
+    if (!tableTrackGradedRef.current.has(guardKey)) {
+      tableTrackGradedRef.current.add(guardKey);
+      void gradeTableTrackRef.current?.(activeLineIdx, "auto");
+    }
+
     const next = nextOpenLine(activeTableGroup, activeTableEntries, activeLineIdx);
     if (next !== null && next !== activeLineIdx) {
       setActiveLineIdx(next);
@@ -2902,7 +2921,8 @@ const PresentationView = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, steps, activeTablePlaced]);
+  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, steps, activeTablePlaced, guidedLines, current?.id]);
+
 
 
 
@@ -3706,6 +3726,12 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableGroups, tableEntries, guidedLines, current, assessmentId, solvedSlots, testMode, smartCardSlug, participantKey, toast]);
 
+  // The completion effect above is declared earlier in the component, so it
+  // reaches the grader through this ref rather than the binding itself.
+  gradeTableTrackRef.current = gradeTableTrackThroughCells;
+
+
+
   const gradeLineThroughEngine = useCallback(async (
     k: number,
     mode: "manual" | "auto",
@@ -3928,7 +3954,16 @@ const PresentationView = ({
       // to freeze. A line that was merely visited leaves no trace.
       const leaving = resolveGradableLineRef.current(prev);
       const ascii = leaving?.ascii ?? "";
-      if (reasoningRef.current.hasAttempt(prev) && ascii.trim()) {
+      // A TABLE TRACK carries no board ink: its work lives in the cells. So
+      // leaving a row/column always grades it from those cells — including a
+      // partially wrong track, which records its verdict (and its zero)
+      // instead of being discarded as "an attempt that never existed".
+      const leavingTable = !!groupForLine(tableGroups, prev);
+      if (leavingTable) {
+        if (assessmentMode && role === "student") {
+          void silentAutoCheckLine(prev);
+        }
+      } else if (reasoningRef.current.hasAttempt(prev) && ascii.trim()) {
         reasoningRef.current.end(prev, ascii);
         freezeSession(sessionRef.current, ascii);
         frozenByLineRef.current[prev] = ascii;
@@ -3940,10 +3975,11 @@ const PresentationView = ({
         reasoningRef.current.cancel(prev);
         delete frozenByLineRef.current[prev];
       }
-      if (sessionRef.current && sessionRef.current.lineIdx === prev && !ascii.trim()) {
+      if (!leavingTable && sessionRef.current && sessionRef.current.lineIdx === prev && !ascii.trim()) {
         sessionRef.current = cancelSession(sessionRef.current);
       }
     }
+
 
     // NAVIGATION — record the visit only. Returning to a line releases its
     // freeze so the student continues exactly where they left off; the row
@@ -3960,7 +3996,7 @@ const PresentationView = ({
         sessionRef.current = null;
       }
     }
-  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine, guidedLines]);
+  }, [activeLineIdx, assessmentMode, role, silentAutoCheckLine, guidedLines, tableGroups]);
 
   // FIRST WRITE / EMPTY-AGAIN — the only place an attempt is created or
   // cancelled. Watches the live content of the active line.
@@ -4007,7 +4043,9 @@ const PresentationView = ({
     if (!assessmentMode || role !== "student") return;
     const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, 1500);
     return () => window.clearTimeout(id);
-  }, [assessmentMode, role, activeLineIdx, freeLines, silentAutoCheckLine]);
+    // `tableEntries` is here so a cell edit re-arms the debounce: a completed
+    // final row/column is never left unmarked just because the student stayed.
+  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, silentAutoCheckLine]);
 
 
 
