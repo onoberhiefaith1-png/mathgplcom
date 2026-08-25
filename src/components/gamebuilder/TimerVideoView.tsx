@@ -3,23 +3,23 @@
 //   Intro plays once (untimed) → the loop region repeats while the countdown
 //   runs → on failure the outro region plays once.
 //
-// The element also prints the remaining time so a student always knows where
-// they stand, even while a cinematic loop is playing.
+// The clip itself carries no clock overlay — the video IS the time.
 import { useEffect, useRef, useState } from "react";
 import { useSignedUrl } from "./SignedMedia";
-import { fmtClock, timerRegionsOf, type TimerVideoPhase } from "@/lib/games/timerVideo";
+import { timerRegionsOf, type TimerVideoPhase } from "@/lib/games/timerVideo";
 import type { TimerVideoConfig } from "@/lib/games/types";
 
 interface Props {
   config: TimerVideoConfig;
-  /** Seconds left on the Timer; null when the Timer has not started. */
-  remainingSeconds: number | null;
+  /** Seconds left on the Timer; null when the Timer has not started. Kept for
+   *  API compatibility — the video clip deliberately shows no clock. */
+  remainingSeconds?: number | null;
   /** true once the Timer expired without the required score. */
   failed?: boolean;
   className?: string;
 }
 
-const TimerVideoView = ({ config, remainingSeconds, failed = false, className }: Props) => {
+const TimerVideoView = ({ config, failed = false, className }: Props) => {
   const signedUrl = useSignedUrl(config.source === "url" ? null : config.storagePath ?? null);
   const url = config.source === "url" ? config.storagePath ?? null : signedUrl;
   const ref = useRef<HTMLVideoElement | null>(null);
