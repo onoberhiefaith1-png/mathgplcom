@@ -156,10 +156,12 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
   // review colours are keyed by stable object id.
   const objectColors = useMemo(() => readMap(scene).colors ?? {}, [scene]);
 
+  // COLOUR CODING LAW: a highlighted part keeps its authored colour. The
+  // neutral review accent is only the fallback when no colour was authored.
   const colourOf = (id: string): string => {
-    if (highlight.has(id)) return ACCENT_REVIEW;
     const own = objectColors[id];
     if (own) return own;
+    if (highlight.has(id)) return ACCENT_REVIEW;
     if (!diff) return baseStroke;
     if (diff.added.has(id)) return ACCENT_ADD;
     if (diff.changed.has(id)) return ACCENT_CHG;
@@ -174,6 +176,7 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
 
   const elements = useMemo(() => {
     const out: React.ReactNode[] = [];
+    const weightFor = (id: string) => (highlight.has(id) ? inkWeight * 1.9 : inkWeight);
     for (const o of scene.objects) {
       if (o.type !== "region") continue;
       const node = renderObject(o, scene, colourOf(o.id), originPad, inkWeight);
@@ -181,34 +184,35 @@ export function GeometryDiagram({ scene, diff, large, className, explicitWidth, 
     }
     for (const o of scene.objects) {
       if (o.type === "region") continue;
-      const c = colourOf(
+      const ownerId =
         o.type === "label" && (o as { ownerId?: string }).ownerId
           ? (o as { ownerId?: string }).ownerId!
-          : o.id,
-      );
+          : o.id;
+      const c = colourOf(ownerId);
       // A hidden point is HIDDEN — never a faint ghost mark. Translucent
       // stand-ins were the source of the leftover slash/line artifacts seen
       // after deleting, moving or hiding an object.
       if (o.type === "point" && (o as GeoPoint).hidden) continue;
 
-      const node = renderObject(o, scene, c, originPad, inkWeight);
+      const node = renderObject(o, scene, c, originPad, weightFor(ownerId));
       if (node) out.push(node);
     }
     return out;
   }, [scene, diff, originPad, baseStroke, inkWeight, highlight, objectColors]);
 
   // Review halo: a soft glow behind every highlighted object so a lit angle or
-  // side reads instantly from the back of the classroom.
+  // side reads instantly from the back of the classroom. The glow keeps the
+  // object's authored colour so the relationship key and figure always agree.
   const halo = useMemo(() => {
     if (highlight.size === 0) return null;
     const out: React.ReactNode[] = [];
     for (const o of scene.objects) {
       if (!highlight.has(o.id)) continue;
-      const node = renderObject(o, scene, ACCENT_REVIEW, originPad, inkWeight * 4.5);
+      const node = renderObject(o, scene, colourOf(o.id), originPad, inkWeight * 4.5);
       if (node) out.push(<g key={`halo-${o.id}`} opacity={0.22}>{node}</g>);
     }
     return out;
-  }, [scene, highlight, originPad, inkWeight]);
+  }, [scene, highlight, originPad, inkWeight, objectColors]);
 
   const hits = useMemo(() => {
     if (!onPickObject) return null;

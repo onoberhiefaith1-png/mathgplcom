@@ -15,6 +15,8 @@ import { readMap, reviewableMapItems } from "@/lib/geometry/map/model";
 export interface ReviewDiagram {
   diagramId: string;
   scene: GeometryScene;
+  /** Owning notebook, used for per-notebook relationship-view preferences. */
+  notebookId?: string;
 }
 
 interface ReviewState {
@@ -87,6 +89,17 @@ export const reviewProperties = {
       open: true,
       fullscreen,
       active: diagram,
+      selectedObjectId: null,
+      activePropertyId: null,
+      highlightIds: [],
+    });
+  },
+  /** Leave the relationship page and return to the board unchanged. */
+  close() {
+    emit({
+      open: false,
+      fullscreen: false,
+      active: null,
       selectedObjectId: null,
       activePropertyId: null,
       highlightIds: [],

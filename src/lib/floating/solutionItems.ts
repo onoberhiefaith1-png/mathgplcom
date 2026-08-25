@@ -37,7 +37,7 @@ export interface SolutionObject {
   floatable?: boolean;
   /** Persistent diagram identity carried from the lesson-note node. */
   diagramId?: string | null;
-  /** PLACEMENT HOME — the session this object belongs to, recorded once when
+  /** PLACEMENT HOME — the segment this object lives in, recorded once when
    *  the note is parsed so the Smartboard never has to re-derive it:
    *  `<segmentIndex>:<kind>:<ordinal>` e.g. "3:example:2". */
   sectionKey?: string | null;

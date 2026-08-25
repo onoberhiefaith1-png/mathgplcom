@@ -27,6 +27,7 @@ import {
   isObjectNodeType,
   objectFamily,
   objectLayer,
+  sortByPlacement,
   INLINE_OBJECT_TYPES,
   type SolutionObject,
 } from "@/lib/floating/solutionItems";
@@ -276,3 +277,7 @@ export const notesLayerObjects = (objects: SolutionObject[]): SolutionObject[] =
 /** Solution-layer objects: tables and structures that may float. */
 export const solutionLayerObjects = (objects: SolutionObject[]): SolutionObject[] =>
   (objects ?? []).filter((o) => o.floatable !== false);
+
+/** Backward-compatible name for the stored-home placement law. */
+export const orderByPlacement = (objects: SolutionObject[]): SolutionObject[] =>
+  sortByPlacement(objects);

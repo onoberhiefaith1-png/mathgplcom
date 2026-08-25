@@ -693,6 +693,15 @@ export const GeometryDiagramNode = Node.create({
         renderHTML: (attrs) =>
           attrs.questionText ? { "data-question-text": attrs.questionText } : {},
       },
+      // Permanent question ownership for diagrams inserted or detached from
+      // the flowing note. Presentation placement must not depend on where a
+      // free-positioned wrapper happens to sit in document JSON.
+      ownerQuestionId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-owner-question-id") || null,
+        renderHTML: (attrs) =>
+          attrs.ownerQuestionId ? { "data-owner-question-id": attrs.ownerQuestionId } : {},
+      },
 
       // The notebook-wide 2D layer. A diagram drawn straight onto the page is
       // rendered by the page overlay, but it MUST also live in the document so
