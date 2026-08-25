@@ -100,25 +100,17 @@ export const markForLine = (line: Pick<FloatingLine, "marks">): number => {
 export const totalMarks = (lines: Pick<FloatingLine, "marks">[]): number =>
   lines.reduce((sum, l) => sum + markForLine(l), 0);
 
-/** Brace-depth-aware whitespace tokenizer. Fallback when saved fillers empty. */
+/** Structure-aware tokenizer. Fallback when saved fillers are empty.
+ *  A matrix, summation, integral, limit, fraction or root stays ONE token so
+ *  it becomes one chip and one rendered symbol, never a spray of fragments. */
 export const tokensFromEquation = (equation: string): string[] => {
   const src = String(equation ?? "");
   if (!src.trim()) return [];
-  const out: string[] = [];
-  let cur = "";
-  let depth = 0;
-  for (let i = 0; i < src.length; i++) {
-    const ch = src[i];
-    if (ch === "{") depth++;
-    else if (ch === "}") depth = Math.max(0, depth - 1);
-    if (/\s/.test(ch) && depth === 0) {
-      if (cur) { out.push(cur); cur = ""; }
-    } else {
-      cur += ch;
-    }
-  }
-  if (cur) out.push(cur);
-  if (out.length <= 1 && !/\s/.test(src)) {
+  const out = tokenizeMath(src);
+  // A single glued term such as "2x+3=7" still splits on operators, but only
+  // when it holds no structure (splitting a matrix on "+" would break it).
+  const hasStructure = /\\(?:begin|left|frac|dfrac|tfrac|sqrt|root|binom|sum|prod|int|oint|lim)\b/.test(src);
+  if (out.length <= 1 && !/\s/.test(src) && !hasStructure) {
     const parts: string[] = [];
     let buf = "";
     for (const ch of src) {
