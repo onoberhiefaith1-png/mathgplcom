@@ -1,0 +1,66 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .tag { fill: hsl(var(--muted-foreground)); font-size: 11px; letter-spacing: .08em; }
+    .note { fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .chip { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .chiptxt { fill: hsl(var(--foreground)); font-size: 12px; }
+    .off { fill: hsl(var(--muted)); stroke: hsl(var(--border)); }
+    .offtxt { fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .sel { fill: hsl(var(--accent)); stroke: none; }
+    .seltxt { fill: hsl(var(--accent-foreground)); font-size: 12px; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--foreground)); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <!-- palette -->
+  <rect x="8" y="8" width="290" height="306" rx="8" class="chip"/>
+  <text x="24" y="30" class="lbl">Matrix</text>
+
+  <text x="24" y="54" class="tag">MATRIX</text>
+  <g>
+    <rect x="24" y="62" width="52" height="22" rx="8" class="chip"/><text x="36" y="77" class="chiptxt">2×2</text>
+    <rect x="82" y="62" width="52" height="22" rx="8" class="off"/><text x="94" y="77" class="offtxt">2×3</text>
+    <rect x="140" y="62" width="52" height="22" rx="8" class="off"/><text x="152" y="77" class="offtxt">3×2</text>
+    <rect x="198" y="62" width="52" height="22" rx="8" class="sel"/><text x="210" y="77" class="seltxt">3×3</text>
+    <rect x="24" y="90" width="52" height="22" rx="8" class="off"/><text x="36" y="105" class="offtxt">3×4</text>
+    <rect x="82" y="90" width="52" height="22" rx="8" class="off"/><text x="94" y="105" class="offtxt">4×3</text>
+    <rect x="140" y="90" width="52" height="22" rx="8" class="chip"/><text x="152" y="105" class="chiptxt">4×4</text>
+    <rect x="198" y="90" width="52" height="22" rx="8" class="off"/><text x="210" y="105" class="offtxt">4×5</text>
+    <rect x="24" y="118" width="52" height="22" rx="8" class="off"/><text x="36" y="133" class="offtxt">5×4</text>
+  </g>
+
+  <text x="24" y="162" class="tag">MATRIX OPERATIONS</text>
+  <rect x="24" y="170" width="66" height="22" rx="8" class="chip"/><text x="33" y="185" class="chiptxt">Transpose</text>
+  <rect x="96" y="170" width="72" height="22" rx="8" class="chip"/><text x="104" y="185" class="chiptxt">Determinant</text>
+  <rect x="174" y="170" width="52" height="22" rx="8" class="sel"/><text x="184" y="185" class="seltxt">Inverse</text>
+  <rect x="232" y="170" width="50" height="22" rx="8" class="chip"/><text x="241" y="185" class="chiptxt">Adjoint</text>
+
+  <text x="24" y="216" class="tag">SPECIAL MATRICES</text>
+  <rect x="24" y="224" width="52" height="22" rx="8" class="chip"/><text x="33" y="239" class="chiptxt">Identity</text>
+  <rect x="82" y="224" width="44" height="22" rx="8" class="chip"/><text x="94" y="239" class="chiptxt">Zero</text>
+  <rect x="132" y="224" width="54" height="22" rx="8" class="chip"/><text x="141" y="239" class="chiptxt">Diagonal</text>
+  <rect x="192" y="224" width="50" height="22" rx="8" class="chip"/><text x="202" y="239" class="chiptxt">Scalar</text>
+  <rect x="24" y="252" width="44" height="22" rx="8" class="off"/><text x="35" y="267" class="offtxt">Row</text>
+  <rect x="74" y="252" width="58" height="22" rx="8" class="off"/><text x="83" y="267" class="offtxt">Column</text>
+
+  <rect x="24" y="284" width="250" height="20" rx="8" class="chip"/>
+  <text x="34" y="298" class="note">Inverse of a 3 × 3 matrix — press Enter</text>
+
+  <!-- flow out -->
+  <path class="wire" marker-end="url(#a)" d="M298 160 H 350"/>
+  <rect x="356" y="90" width="264" height="140" rx="8" class="chip"/>
+  <text x="372" y="112" class="lbl">Lesson note, at the cursor</text>
+  <text x="372" y="136" class="mono">( □ □ □ )</text>
+  <text x="372" y="154" class="mono">( □ □ □ )  ⁻¹</text>
+  <text x="372" y="172" class="mono">( □ □ □ )</text>
+  <text x="372" y="200" class="note">editable cells · keep typing the equation</text>
+
+  <text x="356" y="262" class="note">grey = disabled by the square-only rule</text>
+  <text x="356" y="282" class="note">accent = pending selection, not yet inserted</text>
+</svg>
