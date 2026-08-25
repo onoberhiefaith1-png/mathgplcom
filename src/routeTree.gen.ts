@@ -72,6 +72,8 @@ import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost
 import { Route as AdminCostRevenueIndexRouteImport } from './routes/admin/cost-revenue/index'
 import { Route as AdminCreditsIndexRouteImport } from './routes/admin/credits/index'
 import { Route as AdminEmailIndexRouteImport } from './routes/admin/email/index'
+import { Route as AdminIntegrityIndexRouteImport } from './routes/admin/integrity/index'
+import { Route as AdminIntegritySegmentRouteImport } from './routes/admin/integrity/$segment'
 import { Route as AdminPlansIndexRouteImport } from './routes/admin/plans/index'
 import { Route as AdminSecurityIndexRouteImport } from './routes/admin/security/index'
 import { Route as AdminUsageAnalyticsIndexRouteImport } from './routes/admin/usage-analytics/index'
@@ -598,6 +600,16 @@ const AdminCreditsIndexRoute = AdminCreditsIndexRouteImport.update({
 const AdminEmailIndexRoute = AdminEmailIndexRouteImport.update({
   id: '/email/',
   path: '/email/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminIntegrityIndexRoute = AdminIntegrityIndexRouteImport.update({
+  id: '/integrity/',
+  path: '/integrity/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminIntegritySegmentRoute = AdminIntegritySegmentRouteImport.update({
+  id: '/integrity/$segment',
+  path: '/integrity/$segment',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminPlansIndexRoute = AdminPlansIndexRouteImport.update({
@@ -1854,6 +1866,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
@@ -1866,6 +1879,7 @@ export interface FileRoutesByFullPath {
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/credits/': typeof AdminCreditsIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/integrity/': typeof AdminIntegrityIndexRoute
   '/admin/plans/': typeof AdminPlansIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
   '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
@@ -2119,6 +2133,7 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
@@ -2131,6 +2146,7 @@ export interface FileRoutesByTo {
   '/admin/cost-revenue': typeof AdminCostRevenueIndexRoute
   '/admin/credits': typeof AdminCreditsIndexRoute
   '/admin/email': typeof AdminEmailIndexRoute
+  '/admin/integrity': typeof AdminIntegrityIndexRoute
   '/admin/plans': typeof AdminPlansIndexRoute
   '/admin/security': typeof AdminSecurityIndexRoute
   '/admin/usage-analytics': typeof AdminUsageAnalyticsIndexRoute
@@ -2396,6 +2412,7 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
@@ -2408,6 +2425,7 @@ export interface FileRoutesById {
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/credits/': typeof AdminCreditsIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/integrity/': typeof AdminIntegrityIndexRoute
   '/admin/plans/': typeof AdminPlansIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
   '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
@@ -2674,6 +2692,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/admin/integrity/$segment'
     | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
@@ -2686,6 +2705,7 @@ export interface FileRouteTypes {
     | '/admin/cost-revenue/'
     | '/admin/credits/'
     | '/admin/email/'
+    | '/admin/integrity/'
     | '/admin/plans/'
     | '/admin/security/'
     | '/admin/usage-analytics/'
@@ -2939,6 +2959,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/admin/integrity/$segment'
     | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
@@ -2951,6 +2972,7 @@ export interface FileRouteTypes {
     | '/admin/cost-revenue'
     | '/admin/credits'
     | '/admin/email'
+    | '/admin/integrity'
     | '/admin/plans'
     | '/admin/security'
     | '/admin/usage-analytics'
@@ -3215,6 +3237,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/admin/integrity/$segment'
     | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
@@ -3227,6 +3250,7 @@ export interface FileRouteTypes {
     | '/admin/cost-revenue/'
     | '/admin/credits/'
     | '/admin/email/'
+    | '/admin/integrity/'
     | '/admin/plans/'
     | '/admin/security/'
     | '/admin/usage-analytics/'
@@ -4006,6 +4030,20 @@ declare module '@tanstack/react-router' {
       path: '/email'
       fullPath: '/admin/email/'
       preLoaderRoute: typeof AdminEmailIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/integrity/': {
+      id: '/admin/integrity/'
+      path: '/integrity'
+      fullPath: '/admin/integrity/'
+      preLoaderRoute: typeof AdminIntegrityIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/integrity/$segment': {
+      id: '/admin/integrity/$segment'
+      path: '/integrity/$segment'
+      fullPath: '/admin/integrity/$segment'
+      preLoaderRoute: typeof AdminIntegritySegmentRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/plans/': {
@@ -5490,6 +5528,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminIntegritySegmentRoute: typeof AdminIntegritySegmentRoute
   AdminAccessCodesIndexRoute: typeof AdminAccessCodesIndexRoute
   AdminAdvertisementsIndexRoute: typeof AdminAdvertisementsIndexRoute
   AdminAssetsIndexRoute: typeof AdminAssetsIndexRoute
@@ -5498,6 +5537,7 @@ interface AdminRouteRouteChildren {
   AdminCostRevenueIndexRoute: typeof AdminCostRevenueIndexRoute
   AdminCreditsIndexRoute: typeof AdminCreditsIndexRoute
   AdminEmailIndexRoute: typeof AdminEmailIndexRoute
+  AdminIntegrityIndexRoute: typeof AdminIntegrityIndexRoute
   AdminPlansIndexRoute: typeof AdminPlansIndexRoute
   AdminSecurityIndexRoute: typeof AdminSecurityIndexRoute
   AdminUsageAnalyticsIndexRoute: typeof AdminUsageAnalyticsIndexRoute
@@ -5507,6 +5547,7 @@ interface AdminRouteRouteChildren {
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
+  AdminIntegritySegmentRoute: AdminIntegritySegmentRoute,
   AdminAccessCodesIndexRoute: AdminAccessCodesIndexRoute,
   AdminAdvertisementsIndexRoute: AdminAdvertisementsIndexRoute,
   AdminAssetsIndexRoute: AdminAssetsIndexRoute,
@@ -5515,6 +5556,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminCostRevenueIndexRoute: AdminCostRevenueIndexRoute,
   AdminCreditsIndexRoute: AdminCreditsIndexRoute,
   AdminEmailIndexRoute: AdminEmailIndexRoute,
+  AdminIntegrityIndexRoute: AdminIntegrityIndexRoute,
   AdminPlansIndexRoute: AdminPlansIndexRoute,
   AdminSecurityIndexRoute: AdminSecurityIndexRoute,
   AdminUsageAnalyticsIndexRoute: AdminUsageAnalyticsIndexRoute,
