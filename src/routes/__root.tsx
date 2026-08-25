@@ -108,6 +108,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Editor node views let ProseMirror re-parent DOM React also owns; guard the
+  // commit phase so a moved node can never blank the app.
+  installDomGuard();
   // Keep the central context aware of where the teacher actually is, so any
   // recovery (or a manual refresh) returns to this screen, not a waiting board.
   const pathname = useRouterState({ select: (state) => state.location.pathname });
