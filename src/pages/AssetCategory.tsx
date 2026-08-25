@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams } from "@/lib/router-compat";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Loader2, Plus } from "lucide-react";
 import SeamlessBackground from "@/components/SeamlessBackground";
 import { getCategory } from "@/data/assets";
@@ -15,6 +15,7 @@ import {
 
 const AssetCategory = () => {
   const { category } = useParams();
+  const navigate = useNavigate();
   const cat = getCategory(category);
   const { isManager } = useAssetManager();
 
@@ -55,7 +56,11 @@ const AssetCategory = () => {
   const bundledOnly = (cat?.subcategories ?? []).filter((s) => !managedSlugs.has(s.slug));
   const nextOrder = subs.length ? Math.max(...subs.map((s) => s.sort_order)) + 1 : 0;
 
-  if (!cat && !loading && !session) return <Navigate to="/assets" replace />;
+  const missing = !cat && !loading && !session;
+  useEffect(() => {
+    if (missing) navigate("/assets", { replace: true });
+  }, [missing, navigate]);
+  if (missing) return null;
 
   const title = cat?.name ?? session?.name ?? "Assets";
 
