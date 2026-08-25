@@ -9,6 +9,26 @@
 // ids. The Highlight Generation engine (highlightEngine.ts) works on that flat
 // list — its contract is unchanged.
 
+import { readStructureAt } from "@/lib/notebook/mathTokens";
+
+/** Structures kept whole as ONE atom. `\frac` and `\sqrt` are excluded — the
+ *  flat parser already draws them as real stacked/radical mathematics with
+ *  individually selectable parts. */
+const WHOLE_STRUCTURE = new Set([
+  "begin", "left",
+  "sum", "prod", "coprod", "int", "iint", "iiint", "oint",
+  "lim", "limsup", "liminf", "binom",
+  "vec", "hat", "bar", "overline", "underline", "tilde", "dot", "ddot",
+  "abs", "norm", "floor", "ceil", "overrightarrow",
+]);
+
+/** End index of a whole-structure token starting at `i`, else -1. */
+const wholeStructureAt = (s: string, i: number): number => {
+  const m = /^\\([A-Za-z]+)/.exec(s.slice(i));
+  if (!m || !WHOLE_STRUCTURE.has(m[1])) return -1;
+  return readStructureAt(s, i);
+};
+
 export type AtomKind =
   | "number"
   | "variable"
@@ -21,7 +41,12 @@ export type AtomKind =
   | "fraction-bar"  // container marker (the rule between num and den)
   | "root-sign"     // container marker (the √)
   | "function-name"
-  | "symbol";
+  | "symbol"
+  /** A whole mathematical structure (matrix, Σ/∫/lim with bounds, binom,
+   *  accent, \left…\right group) held as ONE indivisible atom. Its `value`
+   *  is the source LaTeX; the renderer draws it with `renderMathInline`,
+   *  exactly as the Highlighting page does. */
+  | "structure";
 
 export interface Atom {
   id: string;
@@ -127,7 +152,19 @@ class Parser {
       if (stopChars && stopChars.includes(c)) break;
       if (/\s/.test(c)) { this.i++; continue; }
 
-      if (c === "\\") { this.parseCommand(out); continue; }
+      if (c === "\\") {
+        // A complete structure the flat parser cannot draw (matrix, Σ/∫/lim
+        // with bounds, binom, accent, \left…\right) is ONE atom carrying its
+        // source LaTeX. Never chop it into characters.
+        const end = wholeStructureAt(this.s, this.i);
+        if (end > this.i) {
+          out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, end), "structure") });
+          this.i = end;
+          continue;
+        }
+        this.parseCommand(out);
+        continue;
+      }
 
       // Stray { → treat the group as a transparent container.
       if (c === "{") {
