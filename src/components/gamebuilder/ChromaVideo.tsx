@@ -8,6 +8,7 @@ interface ChromaVideoProps {
   source?: MediaSource;
   keyColor?: { r: number; g: number; b: number };
   tolerance?: number;
+  playbackRate?: number;
   className?: string;
   fit?: "cover" | "contain";
 }
@@ -19,6 +20,7 @@ const ChromaVideo = ({
   source = "storage",
   keyColor,
   tolerance = 0.12,
+  playbackRate = 1,
   className,
   fit = "contain",
 }: ChromaVideoProps) => {
@@ -107,6 +109,11 @@ const ChromaVideo = ({
       }
       video.crossOrigin = "anonymous";
       video.src = src;
+      try {
+        video.playbackRate = playbackRate;
+      } catch {
+        /* keep the browser default when this rate is refused */
+      }
       await video.play().catch(() => undefined);
       raf = requestAnimationFrame(render);
     };
@@ -120,7 +127,7 @@ const ChromaVideo = ({
       video.load();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [url, keyColor?.r, keyColor?.g, keyColor?.b, tolerance, failed]);
+  }, [url, keyColor?.r, keyColor?.g, keyColor?.b, tolerance, playbackRate, failed]);
 
   if (failed || !keyColor) {
     return (
