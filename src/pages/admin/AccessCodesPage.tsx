@@ -6,6 +6,7 @@ import DashboardShell from "@/components/accounts/DashboardShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import AssetManagersCard from "@/components/admin/assets/AssetManagersCard";
 import {
   createAccessCode,
   deleteAccessCode,
@@ -75,6 +76,8 @@ const AccessCodesPage = () => {
           ? "Full-access codes unlock the paid features of the person's own account. They carry no administrative rights."
           : "Asset-manager codes let the holder add and edit the official asset library on the Assets pages. They see nothing else of the console."}
       </p>
+
+      {purpose === "asset_manager" && <AssetManagersCard />}
 
       <div className="rounded-3xl border border-dash-surface/15 bg-dash-surface/5 p-6 backdrop-blur">
         <div className="flex flex-wrap items-end gap-3">

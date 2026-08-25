@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAssetManager } from "@/lib/gpl/useAssetManager";
 import ManagedFolderCard from "@/components/assets/manage/ManagedFolderCard";
+import ManagerStatusChip from "@/components/assets/manage/ManagerStatusChip";
 import FolderFormDialog from "@/components/assets/manage/FolderFormDialog";
 import { DeleteDialog } from "@/components/admin/assets/GplDialogs";
 import {
@@ -74,7 +75,10 @@ const Assets = () => {
           <p className="text-xs uppercase tracking-[0.45em] text-primary sm:text-sm drop-shadow">
             Game Assets
           </p>
-          <h1 className="mt-2 text-3xl font-semibold sm:text-5xl drop-shadow">Assets</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold sm:text-5xl drop-shadow">Assets</h1>
+            <ManagerStatusChip />
+          </div>
         </div>
         <Link
           to="/"
