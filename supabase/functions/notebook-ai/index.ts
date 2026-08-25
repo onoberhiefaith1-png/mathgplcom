@@ -1398,7 +1398,9 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         kind: "solution" | "fraction" | "matrix" | "equation" | "paragraph" | "lesson_section";
         instruction?: string;
         selectionText?: string;
+        selectionJson?: unknown;
         subject?: string; topic?: string; subtopic?: string;
+        workspaceManifest?: string;
         forceAllStandards?: boolean;
       };
       const selection = String(b.selectionText ?? "").trim();
@@ -1425,6 +1427,7 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
       const standardBlocks = [
         RENDERING_STANDARD,
         STRUCTURAL_STANDARD,
+        WORKSPACE_STANDARD,
         includeBenchmark ? BENCHMARK_STANDARD : "",
         includePedagogy ? PEDAGOGY_RULES : "",
       ].filter(Boolean).join("\n\n");
@@ -1439,6 +1442,8 @@ ${MATH_MARKUP_RULES}
 
 ${standardBlocks}
 
+${workspaceManifestBlock(b.workspaceManifest)}
+
 EDIT RULES:
 - Rewrite ONLY the selected fragment. Do not add headings, prefaces, or
   commentary. Output the replacement text exactly as it should appear in
@@ -1446,6 +1451,17 @@ EDIT RULES:
 - Preserve the teacher's intent. If the instruction asks for structural
   fixes, prefer the rendered template forms (\\frac{a}{b}, \\sqrt{...},
   x^{n}) over slash fractions or inline forms.
+- A matrix or vector MUST be emitted as one editable Matrix directive:
+  [[tool:structure kind="matrix" rows="2" cols="2" bracket="square" slots="a | b | c | d"]]
+  List slots in row-major order. Use bracket="round", "square", "brace", or
+  "determinant". Never emit \\begin{matrix}, \\begin{bmatrix}, or a typed grid.
+- Statistical, frequency, grouped-data, function, probability, tally, and
+  other editable data tables MUST use one Smart Table directive:
+  [[tool:smartTable headers="x | f" rows="1 | 2 ; 3 | 4"]]
+  Preserve every header and cell coordinate. Never flatten cells into lines.
+- Use a fixed registered Maths Table asset only when the selected content is
+  explicitly a known reference table; otherwise use Smart Table.
+- Directives must be on their own lines. Do not explain or print the directive.
 - Keep one micro-step per line when the fragment is a worked solution.`;
 
       const user = `SELECTED FRAGMENT (kind: ${b.kind}):
