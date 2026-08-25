@@ -269,11 +269,9 @@ const SettingsPanel = ({
               <Copy className="h-4 w-4" />
             </Button>
           )}
-          {!isTimeBar && (
-            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete} title="Remove">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete} title="Remove">
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
