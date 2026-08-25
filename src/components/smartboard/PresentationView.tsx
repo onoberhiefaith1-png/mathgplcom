@@ -2772,6 +2772,7 @@ const PresentationView = ({
    *  headings, structure, formatting and orientation are untouched. */
   const clearTableEntries = useCallback((group: typeof tableGroups[number]) => {
     setTableEntries((prev) => ({ ...prev, [group.objId]: {} }));
+    tableSensorSeededRef.current.delete(group.objId);
     setTableSensorCellFor(group.objId, null);
   }, [setTableSensorCellFor]);
 
@@ -6168,6 +6169,18 @@ const PresentationView = ({
                   return next;
                 });
                 return;
+              }
+              // BRANCH EXIT (explicit, teacher-driven): when every track of the
+              // active table is filled, Next returns to the next MAIN-PATH node
+              // (T1 → L4, T2 → L6), never to another table's child line.
+              if (activeTableGroup && isGroupComplete(activeTableGroup, activeTableEntries)) {
+                const back = nextMainStepAfter(steps, activeTableGroup);
+                if (back && back.lineIdx !== curLineIdx) {
+                  setActiveLineIdx(back.lineIdx);
+                  setFloatingLineIdx(back.lineIdx);
+                  setManualFloatingLineIdx(back.lineIdx);
+                  return;
+                }
               }
               stepToCounter(counterNumber);
             };
