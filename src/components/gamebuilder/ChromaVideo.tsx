@@ -28,10 +28,14 @@ const ChromaVideo = ({
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    setFailed(false);
+  }, [url, keyColor?.r, keyColor?.g, keyColor?.b, tolerance]);
+
+  useEffect(() => {
     if (!url || !keyColor || failed) return;
     const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.src = url;
+    let objectUrl: string | null = null;
+    let cancelled = false;
     video.muted = true;
     video.loop = true;
     video.playsInline = true;
@@ -54,6 +58,7 @@ const ChromaVideo = ({
       }
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) return;
+      ctx.clearRect(0, 0, w, h);
       ctx.drawImage(video, 0, 0, w, h);
       let frame: ImageData;
       try {
@@ -61,6 +66,7 @@ const ChromaVideo = ({
       } catch {
         setFailed(true);
         cancelAnimationFrame(raf);
+        video.pause();
         return;
       }
       const d = frame.data;
@@ -78,13 +84,41 @@ const ChromaVideo = ({
       ctx.putImageData(frame, 0, 0);
     };
 
-    video.play().catch(() => {});
-    raf = requestAnimationFrame(render);
+    const start = async () => {
+      let src = url;
+      try {
+        // Storage URLs are cross-origin signed links. Drawing them directly to a
+        // canvas can taint the canvas, which makes chroma removal fail and the
+        // browser falls back to the original black-background video. Fetching the
+        // file first and playing a local blob keeps the canvas readable, so the
+        // cut result can blend over any scene.
+        const response = await fetch(url, { mode: "cors" });
+        if (response.ok) {
+          objectUrl = URL.createObjectURL(await response.blob());
+          src = objectUrl;
+        }
+      } catch {
+        // Public URLs may not allow CORS fetches; try direct playback as a last
+        // resort and fall back to the raw video only if canvas reading fails.
+      }
+      if (cancelled) {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        return;
+      }
+      video.crossOrigin = "anonymous";
+      video.src = src;
+      await video.play().catch(() => undefined);
+      raf = requestAnimationFrame(render);
+    };
+
+    void start();
     return () => {
+      cancelled = true;
       cancelAnimationFrame(raf);
       video.pause();
       video.removeAttribute("src");
       video.load();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [url, keyColor?.r, keyColor?.g, keyColor?.b, tolerance, failed]);
 
