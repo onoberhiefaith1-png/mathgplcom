@@ -81,6 +81,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
   let lastQuestion: ParsedSection | null = null;
 
   for (const seg of segments) {
+    const key = segmentKey(seg);
     if (seg.kind === "solution") {
       // Persist the segment home so diagrams cannot drift between sessions.
       const body = renderSegmentBody(seg.nodes, true, segmentHome(seg));
@@ -91,7 +92,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
         continue;
       }
       // Orphan solution (no question above it): keep it as readable content.
-      out.push({ kind: "explanation", loose: body.text ? [body.text] : [], looseObjects: body.objects, subsections: [] });
+      out.push({ kind: "explanation", docKey: key, loose: body.text ? [body.text] : [], looseObjects: body.objects, subsections: [] });
       continue;
     }
 
@@ -101,6 +102,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
       const body = renderSegmentBody(seg.nodes, false, segmentHome(seg));
       const section: ParsedSection = {
         kind: seg.kind,
+        docKey: key,
         loose: [],
         looseObjects: [],
         subsections: [{
@@ -108,6 +110,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
           solution: "",
           solutionObjects: [],
           problemObjects: body.objects,
+          docKey: key,
         }],
       };
       out.push(section);
@@ -118,10 +121,14 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
     const body = renderSegmentBody(seg.nodes, false, segmentHome(seg));
     out.push({
       kind: seg.kind,
+      docKey: key,
       loose: body.text ? [body.text] : [],
       looseObjects: body.objects,
       subsections: [],
     });
+    lastQuestion = null;
+  }
+
     lastQuestion = null;
   }
 
