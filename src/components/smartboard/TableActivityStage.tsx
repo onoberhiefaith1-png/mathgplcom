@@ -109,19 +109,43 @@ const TableActivityStage = ({
   }, [open]);
 
 
-  // Keep the caret where the board's sensor is.
-  useEffect(() => {
-    if (!open || !sensorCell) return;
-    const el = inputRefs.current[sensorCell];
-    if (el && document.activeElement !== el) el.focus();
-  }, [open, sensorCell]);
+  /** The cell currently being typed into, with its live draft. */
+  const [edit, setEdit] = useState<{ key: string; draft: string; point: { x: number; y: number } | null } | null>(null);
 
-  const sumIntoTrack = () => {
-    const cells = cellKeysForLine(group, activeLineIdx);
-    const target = editableCellsForLine(group, activeLineIdx).find(
-      (k) => !String(entries[k] ?? "").trim(),
-    );
-    if (!target) return;
+  // The board's sensor owns which cell is being edited: opening a cell from
+  // the board (or Tab/Enter walking to the next one) starts its editor.
+  useEffect(() => {
+    if (!open || !editable || !sensorCell) { setEdit(null); return; }
+    if (isRetained(group, sensorCell)) { setEdit(null); return; }
+    setEdit((prev) => (prev && prev.key === sensorCell
+      ? prev
+      : { key: sensorCell, draft: String(entries[sensorCell] ?? ""), point: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editable, sensorCell, group]);
+
+  /** Sum a row or a column into its first empty editable cell.
+   *  Both directions are always offered — the table's own orientation only
+   *  decides marking, never which totals a teacher may build. */
+  const sumTrack = (dir: "row" | "col") => {
+    const pos = parseCellKey(sensorCell ?? "")
+      ?? (group.orientation === "row"
+        ? { r: activeLineIdx, c: 0 }
+        : { r: 0, c: activeLineIdx });
+
+    const cells: string[] = [];
+    if (dir === "row") {
+      for (let c = 0; c < grid.cols; c++) cells.push(cellKey(pos.r, c));
+    } else {
+      for (let r = 0; r < grid.rows; r++) cells.push(cellKey(r, pos.c));
+    }
+
+    const editableInTrack = cells.filter((k) => !isRetained(group, k));
+    if (editableInTrack.length === 0) return;
+    // Prefer the first empty editable cell; otherwise refresh the last one so
+    // a total can be recalculated after edits.
+    const target = editableInTrack.find((k) => !String(entries[k] ?? "").trim())
+      ?? editableInTrack[editableInTrack.length - 1];
+
     let total = 0;
     let any = false;
     for (const k of cells) {
@@ -132,8 +156,10 @@ const TableActivityStage = ({
     }
     if (!any) return;
     onEntry(target, formatNumber(total));
+    setEdit(null);
     onSensorCell(target);
   };
+
 
   const focusCell = (key: string) => {
     onSensorCell(key);
