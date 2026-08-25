@@ -389,7 +389,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
           })),
         );
       }
-      target.subs = [];
+      section.subs = [];
     }
   }
 
