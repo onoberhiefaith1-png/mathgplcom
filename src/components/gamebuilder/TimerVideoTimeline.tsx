@@ -212,6 +212,15 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
         </div>
       )}
 
+      {value?.storagePath && effectiveDuration <= 0 && (
+        <p className="text-[11px] text-muted-foreground">Reading the video length…</p>
+      )}
+      {value?.storagePath && effectiveDuration > 0 && !ready && (
+        <p className="text-[11px] text-destructive">
+          Give the Loop a length before previewing — the loop region is the countdown.
+        </p>
+      )}
+
       {PHASES.map((p) => (
         <div key={p.id} className="rounded-md border border-border/40 p-2">
           <div className="mb-1.5 flex items-center justify-between">
