@@ -14,7 +14,7 @@ import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
   closePolygon, addAngle, midpointOfSegment, eraseObject,
   movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel, eraseStructural,
-  addCurve, addRegion, addCurvedRegion,
+  addCurve, addRegion,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
