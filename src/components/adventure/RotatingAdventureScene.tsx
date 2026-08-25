@@ -6,10 +6,12 @@ import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { CORE_SLOTS, RING_SLOTS, defaultUrlFor } from "@/lib/homepage/buildingSlots";
 import {
+  clampBuildingSpeed,
   useHomepageConfig,
   useResolvedSlotUrls,
   type HomepageConfigMode,
 } from "@/lib/homepage/homepageConfig";
+
 import { adForOuterPosition, useAdImageUrls, useFacingAdRotation, usePlayableAds } from "@/lib/homepage/advertisements";
 import BuildingBillboard from "@/components/adventure/BuildingBillboard";
 import { useSceneCursor } from "@/lib/stability/useSceneCursor";
