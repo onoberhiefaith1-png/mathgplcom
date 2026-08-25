@@ -36,6 +36,7 @@ import { cellNumber, formatNumber, tryEvaluate } from "@/components/lessonnotes/
 import { useAutoHide } from "@/hooks/useAutoHide";
 import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
+import { renderMathInline } from "@/lib/notebook/mathRender";
 
 interface Props {
   group: TableGroup;
@@ -254,7 +255,9 @@ const TableActivityStage = ({
                       className="px-3 py-1.5 text-center font-semibold"
                       style={{ border: `1px solid ${border}` }}
                     >
-                      {h}
+                      {String(h ?? "").trim()
+                        ? renderMathInline(String(h), `tas-h-${group.objId}-${c}`)
+                        : "\u00A0"}
                     </th>
                   ))}
                 </tr>
@@ -294,7 +297,9 @@ const TableActivityStage = ({
                       >
                         {retained || !editable ? (
                           <span data-sb-cell={k} data-sb-locked="1" className="block px-3 py-1.5 opacity-90">
-                            {value || "\u00A0"}
+                            {String(value ?? "").trim()
+                              ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
+                              : "\u00A0"}
                           </span>
                         ) : (
                           <input
