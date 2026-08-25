@@ -21,7 +21,12 @@ export type AtomKind =
   | "fraction-bar"  // container marker (the rule between num and den)
   | "root-sign"     // container marker (the √)
   | "function-name"
-  | "symbol";
+  | "symbol"
+  /** A whole mathematical structure (matrix, Σ/∫/lim with bounds, binom,
+   *  accent, \left…\right group) held as ONE indivisible atom. Its `value`
+   *  is the source LaTeX; the renderer draws it with `renderMathInline`,
+   *  exactly as the Highlighting page does. */
+  | "structure";
 
 export interface Atom {
   id: string;
@@ -127,7 +132,19 @@ class Parser {
       if (stopChars && stopChars.includes(c)) break;
       if (/\s/.test(c)) { this.i++; continue; }
 
-      if (c === "\\") { this.parseCommand(out); continue; }
+      if (c === "\\") {
+        // A complete structure the flat parser cannot draw (matrix, Σ/∫/lim
+        // with bounds, binom, accent, \left…\right) is ONE atom carrying its
+        // source LaTeX. Never chop it into characters.
+        const end = wholeStructureAt(this.s, this.i);
+        if (end > this.i) {
+          out.push({ kind: "leaf", atom: this.atom(this.s.slice(this.i, end), "structure") });
+          this.i = end;
+          continue;
+        }
+        this.parseCommand(out);
+        continue;
+      }
 
       // Stray { → treat the group as a transparent container.
       if (c === "{") {
