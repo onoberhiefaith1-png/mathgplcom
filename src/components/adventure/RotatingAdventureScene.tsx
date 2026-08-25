@@ -504,7 +504,8 @@ export const RotatingAdventureScene = ({
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
       <HomepageBackground background={config.background} />
       {usingCustom ? (
-        <CustomBuilding element={config.customBuilding!} />
+        <CustomBuilding element={config.customBuilding!} speed={clampBuildingSpeed(config.buildingSpeed)} />
+
       ) : ready ? (
         <div
           className="absolute inset-0 transition-opacity duration-700"
