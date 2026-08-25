@@ -3726,6 +3726,12 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableGroups, tableEntries, guidedLines, current, assessmentId, solvedSlots, testMode, smartCardSlug, participantKey, toast]);
 
+  // The completion effect above is declared earlier in the component, so it
+  // reaches the grader through this ref rather than the binding itself.
+  gradeTableTrackRef.current = gradeTableTrackThroughCells;
+
+
+
   const gradeLineThroughEngine = useCallback(async (
     k: number,
     mode: "manual" | "auto",
