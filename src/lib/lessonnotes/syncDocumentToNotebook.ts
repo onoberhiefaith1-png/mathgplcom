@@ -129,8 +129,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
     lastQuestion = null;
   }
 
-    lastQuestion = null;
-  }
+
 
   return out;
 }
