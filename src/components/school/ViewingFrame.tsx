@@ -101,25 +101,6 @@ const ViewingFrame = ({
     );
   }
 
-  const [folded, setFolded] = useState(false);
-  const drag = useDraggableTab(`mgpl:viewing-frame-tab-x:${userId}:${kind}`);
-
-
-  useEffect(() => {
-    try {
-      setFolded(sessionStorage.getItem(foldKey(userId, kind, viewer)) === "1");
-    } catch {
-      // sessionStorage may be unavailable in some environments.
-    }
-  }, [userId, kind, viewer]);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(foldKey(userId, kind, viewer), folded ? "1" : "0");
-    } catch {
-      // ignore
-    }
-  }, [folded, userId, kind, viewer]);
 
   const exitLinkText = asParent
     ? "My children"
