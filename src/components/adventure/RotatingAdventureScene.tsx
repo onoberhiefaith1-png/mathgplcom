@@ -1,8 +1,9 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useNavigate } from "@/lib/router-compat";
 import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
+import ChromaVideo from "@/components/gamebuilder/ChromaVideo";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { CORE_SLOTS, RING_SLOTS, defaultUrlFor } from "@/lib/homepage/buildingSlots";
 import {
@@ -17,6 +18,7 @@ import BuildingBillboard from "@/components/adventure/BuildingBillboard";
 import { useSceneCursor } from "@/lib/stability/useSceneCursor";
 import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
 import { setScopedCursor } from "@/lib/stability/interactionReset";
+import type { BlendMode, CanvasElement } from "@/lib/games/types";
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
@@ -384,6 +386,19 @@ const HomepageBackground = ({
   );
 };
 
+const customBlendStyle = (element: CanvasElement): CSSProperties => {
+  if (element.bgRemoval === "screen-black") return { mixBlendMode: "screen" };
+  const map: Record<BlendMode, CSSProperties["mixBlendMode"]> = {
+    normal: "normal",
+    screen: "screen",
+    add: "plus-lighter",
+    multiply: "multiply",
+    lighten: "lighten",
+  };
+  const mode = element.blend && element.blend !== "normal" ? map[element.blend] : undefined;
+  return mode ? { mixBlendMode: mode } : {};
+};
+
 /** A whole replacement building: one image or one looping video. */
 const CustomBuilding = ({
   element,
@@ -414,6 +429,8 @@ const CustomBuilding = ({
     return () => window.clearInterval(t);
   }, [speed, element.storagePath]);
 
+  const rate = clampBuildingSpeed(speed);
+
   return (
     <div
       ref={hostRef}
@@ -426,13 +443,27 @@ const CustomBuilding = ({
         opacity: element.opacity,
       }}
     >
-      <SignedMedia
-        path={element.storagePath}
-        source={element.source}
-        mediaType={element.mediaType}
-        fit="contain"
-        className="h-auto w-full"
-      />
+      <div className="relative" style={customBlendStyle(element)}>
+        {element.mediaType === "video" && element.bgRemoval === "chroma" ? (
+          <ChromaVideo
+            path={element.storagePath}
+            source={element.source}
+            keyColor={element.keyColor}
+            tolerance={element.keyTolerance}
+            playbackRate={rate}
+            fit="contain"
+            className="h-auto w-full"
+          />
+        ) : (
+          <SignedMedia
+            path={element.storagePath}
+            source={element.source}
+            mediaType={element.mediaType}
+            fit="contain"
+            className="h-auto w-full"
+          />
+        )}
+      </div>
     </div>
   );
 };
@@ -495,6 +526,7 @@ export const RotatingAdventureScene = ({
   );
 
   const usingCustom = config.buildingMode === "custom" && !!config.customBuilding;
+  const customBuilding = usingCustom ? config.customBuilding : null;
   // Only reveal the canvas once it has painted AND the artwork has decoded, so
   // no untextured (white) geometry is ever on screen.
   const visible = painted && artworkReady && gpu.alive;
@@ -503,8 +535,8 @@ export const RotatingAdventureScene = ({
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
       <HomepageBackground background={config.background} />
-      {usingCustom ? (
-        <CustomBuilding element={config.customBuilding!} speed={clampBuildingSpeed(config.buildingSpeed)} />
+      {customBuilding ? (
+        <CustomBuilding element={customBuilding} speed={clampBuildingSpeed(config.buildingSpeed)} />
 
       ) : ready ? (
         <div

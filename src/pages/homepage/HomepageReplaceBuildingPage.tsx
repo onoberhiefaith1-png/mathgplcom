@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
-import AssetLibraryModal, { type UrlPick } from "@/components/gamebuilder/AssetLibraryModal";
+import BuildingLibraryModal, { type BuildingMediaPick } from "@/components/homepage/BuildingLibraryModal";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
 import { makeTransparent } from "@/lib/games/removeBackground";
 import { getSignedUrl } from "@/lib/games/urls";
@@ -13,7 +13,6 @@ import {
   defaultAnimation,
   defaultSlant,
   uid,
-  type AssetKind,
   type CanvasElement,
   type GameAssetRow,
   type MediaSource,
@@ -62,14 +61,14 @@ const HomepageReplaceBuildingPage = () => {
   const [building, setBuilding] = useState<CanvasElement | null>(null);
   const [speed, setSpeed] = useState(1);
   const [library, setLibrary] = useState(false);
-  const [kind, setKind] = useState<AssetKind>("reward");
   const [busy, setBusy] = useState(false);
   const [cutting, setCutting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (ready) setBuilding(config.customBuilding ?? null);
-  }, [ready, config.customBuilding]);
+    if (!ready) return;
+    setBuilding(config.buildingMode === "custom" ? config.customBuilding ?? null : null);
+  }, [ready, config.buildingMode, config.customBuilding]);
 
   useEffect(() => {
     if (ready) setSpeed(clampBuildingSpeed(config.buildingSpeed));
@@ -82,7 +81,7 @@ const HomepageReplaceBuildingPage = () => {
     setLibrary(false);
   };
 
-  const pickUrl = (pick: UrlPick) => {
+  const pickUrl = (pick: BuildingMediaPick) => {
     setBuilding(makeBuilding(pick.src, "url", pick.mediaType));
     setLibrary(false);
   };
@@ -130,6 +129,10 @@ const HomepageReplaceBuildingPage = () => {
               storagePath: renderPathOf(asset),
               source: "storage",
               mediaType: "image",
+              blend: "normal",
+              bgRemoval: "none",
+              keyColor: undefined,
+              keyTolerance: undefined,
             }
           : b,
       );
@@ -162,9 +165,27 @@ const HomepageReplaceBuildingPage = () => {
   const restore = async () => {
     try {
       await save({ buildingMode: "mathgpl", buildingSpeed: clampBuildingSpeed(speed) });
+      setBuilding(null);
       toast.success("MathGPL building restored");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
+    }
+  };
+
+  const applySavedBuilding = async (row: { config: typeof config; name: string }) => {
+    const nextBuilding = row.config.buildingMode === "custom" ? row.config.customBuilding ?? null : null;
+    try {
+      await save({
+        buildingMode: row.config.buildingMode ?? "mathgpl",
+        customBuilding: row.config.customBuilding ?? null,
+        slotOverrides: row.config.slotOverrides,
+        buildingSpeed: clampBuildingSpeed(row.config.buildingSpeed),
+      });
+      setSpeed(clampBuildingSpeed(row.config.buildingSpeed));
+      setBuilding(nextBuilding);
+      toast.success(`${row.name} applied`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not apply building");
     }
   };
 
@@ -177,7 +198,7 @@ const HomepageReplaceBuildingPage = () => {
         <h1 className="text-lg font-semibold tracking-wide">Replace Building</h1>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => void restore()}>
-            <RotateCcw className="mr-2 h-4 w-4" /> Restore MathGPL building
+            <RotateCcw className="mr-2 h-4 w-4" /> Switch to MathGPL building
           </Button>
           <Button size="sm" disabled={saving} onClick={() => void apply()}>
             <Check className="mr-2 h-4 w-4" /> {saving ? "Saving…" : "Save Building"}
@@ -288,14 +309,13 @@ const HomepageReplaceBuildingPage = () => {
 
       </main>
 
-      <AssetLibraryModal
+      <BuildingLibraryModal
         open={library}
         onOpenChange={setLibrary}
-        kind={kind}
-        onKindChange={setKind}
-        onPickUploaded={pickUploaded}
-        onPickUrl={pickUrl}
-        onPickPreset={() => toast.info("Presets are for progress bars, not buildings")}
+        target={version}
+        canIncludeFreeSnapshots={canSwitch}
+        onPickMedia={pickUrl}
+        onApplySnapshot={(row) => applySavedBuilding(row)}
       />
     </div>
   );
