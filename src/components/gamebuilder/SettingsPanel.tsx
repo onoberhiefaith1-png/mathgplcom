@@ -197,6 +197,25 @@ const SettingsPanel = ({
       )
     : 0;
 
+  // ── Nest: a time-driven preview of the Timer filling up ─────────────
+  // It steps the same fill the students will see (one segment for a segmented
+  // Timer, an even percentage for a fillable one). Editor preview only.
+  const timerStepPct = 10;
+  const timerFill = progress
+    ? Math.min(1, Math.max(0, progress.currentMarks / Math.max(1, progress.totalMarks)))
+    : 0;
+  const stepNest = (dir: 1 | 0) => {
+    if (!progress) return;
+    if (dir === 0) {
+      patchProgress({ currentMarks: 0 });
+      return;
+    }
+    const stepFraction =
+      timerDisplay === "segmented" ? 1 / Math.max(1, progress.segments) : timerStepPct / 100;
+    const next = Math.min(1, timerFill + stepFraction + 1e-6);
+    patchProgress({ currentMarks: Math.round(next * progress.totalMarks) });
+  };
+
   const setSlotEffect = (slotIdx: number, value: string) => {
     if (!progress) return;
     const slotEffects = { ...(progress.slotEffects ?? {}) };
