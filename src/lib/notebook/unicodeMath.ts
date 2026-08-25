@@ -3,6 +3,8 @@
 // Used by the floating-number extractor on both server and client so chips
 // never display raw `\sqrt`, `^{2}`, `**`, etc.
 
+import { readStructureAt } from "./mathTokens";
+
 const SUP: Record<string, string> = {
   "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
   "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
@@ -67,6 +69,49 @@ const holdFractions = (src: string, holds: string[]): string => {
 };
 
 
+/* ── structure protection (matrices, Σ, ∫, lim, \left…\right) ──────────
+ * These are SYMBOLS, exactly like a fraction or a root. Every brace/escape
+ * stripping pass below would dissolve `\begin{bmatrix}…\end{bmatrix}` into
+ * `\beginbmatrix…`, which is precisely the raw syntax teachers reported. So
+ * complete structures are lifted out behind private-use sentinels and put
+ * back verbatim at the very end.                                        */
+
+const STRUCT_TOKEN = (i: number) => `\uE003${String.fromCharCode(0xE300 + i)}\uE003`;
+
+/** Normalize the inner mathematics of a matrix/cases body cell by cell. */
+const normalizeEnvBody = (markup: string): string => {
+  const m = /^(\\begin\s*\{[A-Za-z*]+\})([\s\S]*)(\\end\s*\{[A-Za-z*]+\}[\s\S]*)$/.exec(markup);
+  if (!m) return markup;
+  const body = m[2]
+    .split(/\\\\/)
+    .map((row) => row.split("&").map((cell) => toUnicodeMath(cell)).join(" & "))
+    .join(" \\\\ ");
+  return `${m[1]}${body}${m[3]}`;
+};
+
+/** Replace every complete structure with a sentinel, storing it verbatim. */
+const holdStructures = (src: string, holds: string[]): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const end = readStructureAt(src, i);
+    // Fractions and roots keep their own dedicated handling below.
+    const isOwnHandled = /^\\(?:d|t)?frac\b|^\\sqrt\b|^\\root\b/.test(src.slice(i));
+    if (end > i && !isOwnHandled) {
+      const markup = src.slice(i, end);
+      out += STRUCT_TOKEN(holds.length);
+      holds.push("");
+      const at = holds.length - 1;
+      holds[at] = /^\\begin\b/.test(markup) ? normalizeEnvBody(markup) : markup;
+      i = end;
+      continue;
+    }
+    out += src[i++];
+  }
+  return out;
+};
+
+
 /** Convert any LaTeX / code-flavored math to Unicode classroom math. */
 export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
@@ -95,6 +140,9 @@ export const toUnicodeMath = (input: string): string => {
   // "strip stray braces" pass below used to turn `\frac{□}{□}` into
   // `\frac□□`, which the renderer then drew as an empty fraction (2 slots)
   // PLUS two orphan placeholder boxes — four cells for a two-cell object.
+  const structHolds: string[] = [];
+  s = holdStructures(s, structHolds);
+
   const fracHolds: string[] = [];
   s = holdFractions(s, fracHolds);
 
@@ -170,6 +218,11 @@ export const toUnicodeMath = (input: string): string => {
   fracHolds.forEach((markup, i) => {
     s = s.split(FRAC_TOKEN(i)).join(markup);
   });
+  // Matrices, big operators, limits and \left…\right groups come back whole:
+  // one symbol, braces intact, exactly as the classroom renderer expects.
+  structHolds.forEach((markup, i) => {
+    s = s.split(STRUCT_TOKEN(i)).join(markup);
+  });
 
   // Defence in depth: any leftover private-use sentinel must never reach the
   // DOM. If something earlier swallowed half a sentinel, drop the remnants
@@ -179,12 +232,26 @@ export const toUnicodeMath = (input: string): string => {
   return s.trim();
 };
 
+/** Remove every complete structure (matrix, Σ, ∫, lim, \left…\right, root)
+ *  before hunting for code residue: a whole structure is a legitimate
+ *  classroom symbol, never dirt. */
+const stripStructures = (src: string): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const end = readStructureAt(src, i);
+    if (end > i) { i = end; continue; }
+    out += src[i++];
+  }
+  return out;
+};
+
 /** Returns true if any forbidden code-syntax substring is still present. */
 export const isStillDirty = (s: string): boolean => {
   if (!s) return false;
   // Allow recognised structural macros the classroom renderer handles
   // natively (\frac{a}{b}, \sqrt{x}, empty power slot ^{□}).
-  const probe = s
+  const probe = stripStructures(s)
     .replace(/\\frac\s*\{[^{}]*\}\s*\{[^{}]*\}/g, "")
     .replace(/\\sqrt\s*\{[^{}]*\}/g, "")
     .replace(/\^\{\s*□\s*\}/g, "")

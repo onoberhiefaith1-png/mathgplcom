@@ -11,6 +11,7 @@
 //
 // Undo / Redo (buttons + ⌘Z / ⇧⌘Z) revert highlight actions.
 
+import { tokenizeMath } from "@/lib/notebook/mathTokens";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Copy, Download, Eraser, FileText, Loader2, Redo2, Sparkles, Undo2 } from "lucide-react";
@@ -265,24 +266,10 @@ const coerceFloatingLine = (line: any): FloatingLine => ({
   containersSelected: Array.isArray(line?.containersSelected) ? line.containersSelected : undefined,
 });
 
-/** Brace-depth aware whitespace tokenizer (keeps \frac{a}{b} as one token). */
-function tokenize(line: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let depth = 0;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === "{") depth++;
-    else if (ch === "}") depth = Math.max(0, depth - 1);
-    if (ch === " " && depth === 0) {
-      if (cur) { out.push(cur); cur = ""; }
-    } else {
-      cur += ch;
-    }
-  }
-  if (cur) out.push(cur);
-  return out;
-}
+/** Structure-aware tokenizer: a matrix, summation, integral, limit, fraction
+ *  or root is ONE token, so it renders as one symbol instead of decaying
+ *  into raw syntax fragments. */
+const tokenize = (line: string): string[] => tokenizeMath(line);
 
 const FloatingPreparationPage = () => {
   const { notebookId, subsectionId } = useParams<{ notebookId: string; subsectionId: string }>();
