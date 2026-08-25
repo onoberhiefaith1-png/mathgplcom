@@ -514,9 +514,9 @@ const FloatingNumbersPage = () => {
         containersSelected: result.containers.map(() => false),
       };
     }));
-    return true;
     dirtyRef.current = true;
     aiEditResultRef.current = null;
+    return true;
   }, [aiEditLineIndex]);
 
 
