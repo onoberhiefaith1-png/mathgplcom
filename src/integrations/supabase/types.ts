@@ -680,6 +680,30 @@ export type Database = {
           },
         ]
       }
+      asset_managers: {
+        Row: {
+          granted_at: string
+          granted_by: string | null
+          id: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       building_assets: {
         Row: {
           config: Json
