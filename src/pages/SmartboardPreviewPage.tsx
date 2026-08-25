@@ -286,7 +286,7 @@ const SmartboardPreviewPage = () => {
     if (!notebookId) return;
     markApproved(notebookId);
     toast({ title: "Presentation approved", description: "Launching Smartboard…" });
-    navigate(`/smartboard/${notebookId}`);
+    navigate(`/smartboard/${notebookId}${searchParams.get("from") === "note" ? "?from=note" : ""}`);
   };
   const onAiEdit = (label: string, note: string) => {
     // The AI Workshop pipeline for per-line corrections is wired in the
