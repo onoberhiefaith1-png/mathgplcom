@@ -168,7 +168,7 @@ export function MyGplMediaPicker({ kind, onClose, onPick }: Props) {
               ))}
               {!assets.length && (
                 <p className="col-span-full text-xs text-muted-foreground">
-                  No {kind === "image" ? "images" : "videos"} in this sub-session.
+                  No {kind === "any" ? "media" : kind === "image" ? "images" : "videos"} in this sub-session.
                 </p>
               )}
             </div>
