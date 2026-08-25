@@ -181,7 +181,7 @@ const BuildingLibraryModal = ({
                       onPickMedia({ name: item.name, src: item.src, mediaType: video ? "video" : "image" });
                       onOpenChange(false);
                     }}
-                    className="overflow-hidden rounded-lg border border-border/50 bg-[conic-gradient(#0000_90deg,#8883_0)] bg-[length:16px_16px] transition hover:border-primary/60"
+                    className="overflow-hidden rounded-lg border border-border/50 bg-muted/20 transition hover:border-primary/60"
                     title={item.name}
                   >
                     <div className="aspect-square w-full">
