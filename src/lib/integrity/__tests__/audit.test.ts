@@ -89,11 +89,29 @@ describe("requirement auditing", () => {
     expect(outcome.reason).toBeTruthy();
   });
 
-  it("reports manual checks as unverified rather than passing", async () => {
+  it("keeps a verified requirement at PASS when a check simply cannot run here", async () => {
     const outcome = await auditRequirement(
       { ...base, validation: [{ kind: "manual", target: "look at the board" }] },
       { routePaths, tables: {} },
     );
-    expect(outcome.status).toBe("UNKNOWN");
+    expect(outcome.status).toBe("PASS");
+    expect(outcome.evidence).toContain("not verified here");
+  });
+
+  it("does not degrade a requirement when the database could not be inspected", async () => {
+    const outcome = await auditRequirement(
+      { ...base, validation: [{ kind: "database", target: "notebooks" }] },
+      { routePaths, tables: {} },
+    );
+    expect(outcome.status).toBe("PASS");
+    expect(outcome.evidence).toContain("not verified here");
+  });
+
+  it("degrades on a database table that is genuinely absent", async () => {
+    const outcome = await auditRequirement(
+      { ...base, validation: [{ kind: "database", target: "ghost_table" }] },
+      { routePaths, tables: { ghost_table: { exists: false, detail: "table not found" } } },
+    );
+    expect(outcome.status).toBe("FAIL");
   });
 });
