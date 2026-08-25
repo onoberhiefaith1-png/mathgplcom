@@ -2576,7 +2576,11 @@ function DocumentEditorInner({
       });
       editor.chain().focus().insertContentAt(endPos, {
         type: "geometryDiagram",
-        attrs: { scene: detail.scene, diagramId: newDiagramId() },
+        attrs: {
+          scene: detail.scene,
+          diagramId: newDiagramId(),
+          ownerQuestionId: ensureOwnerQuestionId(editor, targetHeadingPos + 1),
+        },
       }).run();
     };
     window.addEventListener("geometry-editor:list-sections", listSections);
