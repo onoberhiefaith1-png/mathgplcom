@@ -48,9 +48,38 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
       .catch(console.error);
   }, []);
 
-  const regions = useMemo(() => timerRegionsOf(value), [value]);
+  // The video's real length, read straight off the element. Local state means the
+  // regions become editable the instant the metadata arrives, without waiting for
+  // the saved value to travel back through the element.
+  const [videoDuration, setVideoDuration] = useState(0);
+  useEffect(() => {
+    setVideoDuration(Number.isFinite(Number(value?.duration)) ? Number(value?.duration) || 0 : 0);
+  }, [value?.storagePath, value?.duration]);
+
+  const effectiveDuration = videoDuration || Number(value?.duration) || 0;
+  const regions = useMemo(() => timerRegionsOf(value, effectiveDuration), [value, effectiveDuration]);
   const lap = loopDurationOf(regions);
   const laps = lapsNeeded(regions, timerSeconds);
+  const ready = lap > 0.05;
+
+  /** First sight of a video: remember its length and lay the three regions out. */
+  const adoptDuration = (d: number) => {
+    if (!Number.isFinite(d) || d <= 0) return;
+    setVideoDuration(d);
+    const needsSeed =
+      value?.loopStart == null || value?.loopEnd == null || Math.abs((value?.duration ?? 0) - d) > 0.05;
+    if (!needsSeed) return;
+    const third = d / 3;
+    onChange({
+      duration: d,
+      introStart: value?.introStart ?? 0,
+      introEnd: value?.introEnd ?? third,
+      loopStart: value?.loopStart ?? third,
+      loopEnd: value?.loopEnd ?? third * 2,
+      outroStart: value?.outroStart ?? third * 2,
+      outroEnd: value?.outroEnd ?? d,
+    });
+  };
 
   const pick = (row: GameAssetRow) =>
     onChange({
