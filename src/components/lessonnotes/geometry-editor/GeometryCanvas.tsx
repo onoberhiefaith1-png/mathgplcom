@@ -988,9 +988,7 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
             apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (e.key === "Enter" && tool === "addArea" && pendingIds.length >= 3) {
-            const curveMode = annotationDraft?.traceMode === "curve";
-            apply(curveMode ? addCurvedRegion(scene, pendingIds) : addRegion(scene, pendingIds));
-            setPendingIds([]);
+            closeTraceNow(pendingIds);
           } else if (e.key === "Escape") {
             setPendingIds([]);
           }
