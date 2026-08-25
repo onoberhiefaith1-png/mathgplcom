@@ -19,7 +19,7 @@
 // A toolbar sits underneath the table. It appears on any interaction near the
 // table and fades away after ~5s of inactivity.
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Table2, ChevronDown, ChevronRight, Sigma, Eraser, EyeOff, Maximize2, Minimize2 } from "lucide-react";
 import {
   cellKeysForLine,
@@ -37,6 +37,8 @@ import { useAutoHide } from "@/hooks/useAutoHide";
 import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { MathCellEditor } from "@/components/math/MathCellEditor";
+
 
 interface Props {
   group: TableGroup;
@@ -79,7 +81,7 @@ const TableActivityStage = ({
 }: Props) => {
   const ink = dark ? "rgba(245,245,240,0.94)" : "#1a2230";
   const border = dark ? "rgba(245,245,240,0.38)" : "rgba(26,34,48,0.45)";
-  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  
   const hostRef = useRef<HTMLDivElement | null>(null);
 
   // Toolbar auto-hide / auto-show — 5s classroom window.
@@ -107,19 +109,43 @@ const TableActivityStage = ({
   }, [open]);
 
 
-  // Keep the caret where the board's sensor is.
-  useEffect(() => {
-    if (!open || !sensorCell) return;
-    const el = inputRefs.current[sensorCell];
-    if (el && document.activeElement !== el) el.focus();
-  }, [open, sensorCell]);
+  /** The cell currently being typed into, with its live draft. */
+  const [edit, setEdit] = useState<{ key: string; draft: string; point: { x: number; y: number } | null } | null>(null);
 
-  const sumIntoTrack = () => {
-    const cells = cellKeysForLine(group, activeLineIdx);
-    const target = editableCellsForLine(group, activeLineIdx).find(
-      (k) => !String(entries[k] ?? "").trim(),
-    );
-    if (!target) return;
+  // The board's sensor owns which cell is being edited: opening a cell from
+  // the board (or Tab/Enter walking to the next one) starts its editor.
+  useEffect(() => {
+    if (!open || !editable || !sensorCell) { setEdit(null); return; }
+    if (isRetained(group, sensorCell)) { setEdit(null); return; }
+    setEdit((prev) => (prev && prev.key === sensorCell
+      ? prev
+      : { key: sensorCell, draft: String(entries[sensorCell] ?? ""), point: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editable, sensorCell, group]);
+
+  /** Sum a row or a column into its first empty editable cell.
+   *  Both directions are always offered — the table's own orientation only
+   *  decides marking, never which totals a teacher may build. */
+  const sumTrack = (dir: "row" | "col") => {
+    const pos = parseCellKey(sensorCell ?? "")
+      ?? (group.orientation === "row"
+        ? { r: activeLineIdx, c: 0 }
+        : { r: 0, c: activeLineIdx });
+
+    const cells: string[] = [];
+    if (dir === "row") {
+      for (let c = 0; c < grid.cols; c++) cells.push(cellKey(pos.r, c));
+    } else {
+      for (let r = 0; r < grid.rows; r++) cells.push(cellKey(r, pos.c));
+    }
+
+    const editableInTrack = cells.filter((k) => !isRetained(group, k));
+    if (editableInTrack.length === 0) return;
+    // Prefer the first empty editable cell; otherwise refresh the last one so
+    // a total can be recalculated after edits.
+    const target = editableInTrack.find((k) => !String(entries[k] ?? "").trim())
+      ?? editableInTrack[editableInTrack.length - 1];
+
     let total = 0;
     let any = false;
     for (const k of cells) {
@@ -130,8 +156,10 @@ const TableActivityStage = ({
     }
     if (!any) return;
     onEntry(target, formatNumber(total));
+    setEdit(null);
     onSensorCell(target);
   };
+
 
   const focusCell = (key: string) => {
     onSensorCell(key);
@@ -280,10 +308,18 @@ const TableActivityStage = ({
                       ? (glyph ?? "")
                       : retained ? expectedCellValue(group, k) : entries[k] ?? "";
 
+                    const editing = !!edit && edit.key === k && !retained && editable;
+
                     return (
                       <td
                         key={k}
-                        onClick={() => { if (!structural) focusCell(k); }}
+                        onClick={(e) => {
+                          if (structural) return;
+                          if (!editing && !retained && editable) {
+                            setEdit({ key: k, draft: String(entries[k] ?? ""), point: { x: e.clientX, y: e.clientY } });
+                          }
+                          focusCell(k);
+                        }}
                         className="p-0 text-center tabular-nums"
                         style={{
                           border: isSensor
@@ -301,27 +337,36 @@ const TableActivityStage = ({
                               ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
                               : "\u00A0"}
                           </span>
-                        ) : (
-                          <input
-                            ref={(el) => { inputRefs.current[k] = el; }}
-                            data-sb-cell={k}
-                            value={value}
-                            onFocus={() => focusCell(k)}
-                            onChange={(e) => onEntry(k, e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const solved = tryEvaluate(value);
+                        ) : editing ? (
+                          // THE universal math editor inside the cell: `@` asset
+                          // picker, `#`/`##` powers and indices, `/` fractions.
+                          <span data-sb-cell={k} className="block px-2 py-1">
+                            <MathCellEditor
+                              value={edit!.draft}
+                              ink={ink}
+                              entryPoint={edit!.point}
+                              onChange={(v) => {
+                                setEdit((prev) => (prev && prev.key === k ? { ...prev, draft: v } : prev));
+                                onEntry(k, v);
+                              }}
+                              onCommit={() => {
+                                const raw = edit?.key === k ? edit.draft : String(entries[k] ?? "");
+                                const solved = tryEvaluate(raw);
                                 if (solved !== null) onEntry(k, solved);
+                                setEdit(null);
                                 moveWithin(k, 1);
-                              } else if (e.key === "Tab") {
-                                e.preventDefault();
-                                moveWithin(k, e.shiftKey ? -1 : 1);
-                              }
-                            }}
-                            className="w-full bg-transparent px-3 py-1.5 text-center outline-none"
-                            style={{ color: ink, minWidth: 68 }}
-                          />
+                              }}
+                            />
+                          </span>
+                        ) : (
+                          <span
+                            data-sb-cell={k}
+                            className="block px-3 py-1.5 cursor-text"
+                          >
+                            {String(value ?? "").trim()
+                              ? renderMathInline(String(value), `tas-c-${group.objId}-${k}`)
+                              : "\u00A0"}
+                          </span>
                         )}
                       </td>
                     );
@@ -333,12 +378,13 @@ const TableActivityStage = ({
         </div>
       )}
 
-      {/* Object toolbar — underneath the table, auto-hiding after ~5s. */}
+      {/* Object toolbar — underneath the table. It stays put while the table is
+          open and a cell is selected, so Σ is always reachable in a lesson. */}
       <div
         className="mt-1 flex items-center gap-1 transition-opacity duration-300"
         style={{
-          opacity: toolbarVisible ? 1 : 0,
-          pointerEvents: toolbarVisible ? "auto" : "none",
+          opacity: toolbarVisible || (open && !!sensorCell) ? 1 : 0,
+          pointerEvents: toolbarVisible || (open && !!sensorCell) ? "auto" : "none",
         }}
       >
         <button
@@ -350,10 +396,26 @@ const TableActivityStage = ({
           {open ? "Collapse" : "Expand"}
         </button>
         {open && editable && (
-          <button onClick={() => { sumIntoTrack(); ping(); }} className={toolbarBtn} style={{ color: ink }}>
-            <Sigma className="h-3.5 w-3.5" /> Sum {group.orientation}
-          </button>
+          <>
+            <button
+              onClick={() => { sumTrack("row"); ping(); }}
+              className={toolbarBtn}
+              style={{ color: ink }}
+              title="Add every number in this row into its empty cell"
+            >
+              <Sigma className="h-3.5 w-3.5" /> Sum Row
+            </button>
+            <button
+              onClick={() => { sumTrack("col"); ping(); }}
+              className={toolbarBtn}
+              style={{ color: ink }}
+              title="Add every number in this column into its empty cell"
+            >
+              <Sigma className="h-3.5 w-3.5" /> Sum Column
+            </button>
+          </>
         )}
+
         {editable && onClear && (
           <button
             onClick={() => { onClear(); ping(); }}
