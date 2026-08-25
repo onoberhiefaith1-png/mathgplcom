@@ -7,15 +7,39 @@ export const isVideoFile = (file: File) =>
 export const mediaTypeOf = (file: File): MediaType =>
   isVideoFile(file) ? "video" : "image";
 
+export const blobHasTransparency = async (blob: Blob): Promise<boolean> => {
+  const bitmap = await createImageBitmap(blob);
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return false;
+    ctx.drawImage(bitmap, 0, 0);
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 250) return true;
+    }
+    return false;
+  } finally {
+    bitmap.close();
+  }
+};
+
 export const makeTransparent = async (file: File): Promise<Blob> => {
   try {
     const blob = await removeBackground(file, {
       output: { format: "image/png", quality: 0.9 },
     });
+    const hasTransparency = await blobHasTransparency(blob);
+    if (!hasTransparency) {
+      throw new Error("Background removal did not create a transparent cutout");
+    }
     return blob;
   } catch (err) {
-    console.error("background removal failed, using original", err);
-    return file;
+    console.error("background removal failed", err);
+    if (err instanceof Error) throw err;
+    throw new Error("Background removal failed");
   }
 };
 

@@ -25,6 +25,10 @@ interface AssetLibraryModalProps {
   onPickUploaded: (asset: GameAssetRow) => void;
   onPickUrl: (pick: UrlPick) => void;
   onPickPreset: (presetId: string) => void;
+  title?: string;
+  initialCatalogCategory?: string | null;
+  myGplKind?: "image" | "video" | "any";
+  pickGplImmediately?: boolean;
 }
 
 const isPlaceable = (src: string) =>
@@ -58,8 +62,18 @@ const defaultCategoryFor = (kind: AssetKind): string => {
   }
 };
 
-const MathGplBrowser = ({ kind, onPick }: { kind: AssetKind; onPick: (p: UrlPick) => void }) => {
-  const [catSlug, setCatSlug] = useState<string | null>(defaultCategoryFor(kind));
+const MathGplBrowser = ({
+  kind,
+  onPick,
+  initialCategory,
+}: {
+  kind: AssetKind;
+  onPick: (p: UrlPick) => void;
+  initialCategory?: string | null;
+}) => {
+  const [catSlug, setCatSlug] = useState<string | null>(
+    initialCategory === undefined ? defaultCategoryFor(kind) : initialCategory,
+  );
   const [subSlug, setSubSlug] = useState<string | null>(null);
 
   const category: Category | null = useMemo(
@@ -190,12 +204,16 @@ const AssetLibraryModal = ({
   onPickUploaded,
   onPickUrl,
   onPickPreset,
+  title = "Add asset to your game",
+  initialCatalogCategory,
+  myGplKind,
+  pickGplImmediately,
 }: AssetLibraryModalProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[88vh] max-w-5xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="border-b border-border/50 px-5 py-4">
-          <DialogTitle>Add asset to your game</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="upload" className="flex min-h-0 flex-1 flex-col">
@@ -223,6 +241,8 @@ const AssetLibraryModal = ({
                 }}
                 value={kind}
                 onValueChange={(v) => onKindChange(v as AssetKind)}
+                myGplKind={myGplKind}
+                pickGplImmediately={pickGplImmediately}
               />
             </div>
           </TabsContent>
@@ -233,6 +253,7 @@ const AssetLibraryModal = ({
           >
             <MathGplBrowser
               kind={kind}
+              initialCategory={initialCatalogCategory}
               onPick={(p) => {
                 onPickUrl(p);
                 onOpenChange(false);

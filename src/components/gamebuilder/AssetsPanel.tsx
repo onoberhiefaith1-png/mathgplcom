@@ -41,16 +41,22 @@ interface AssetsPanelProps {
   onPickPreset?: (presetId: string) => void;
   value?: string;
   onValueChange?: (v: string) => void;
+  myGplKind?: "image" | "video" | "any";
+  pickGplImmediately?: boolean;
 }
 
 const KindGrid = ({
   kind,
   onPick,
   onPickPreset,
+  myGplKind = "image",
+  pickGplImmediately = false,
 }: {
   kind: AssetKind;
   onPick: (asset: GameAssetRow) => void;
   onPickPreset?: (presetId: string) => void;
+  myGplKind?: "image" | "video" | "any";
+  pickGplImmediately?: boolean;
 }) => {
   const { toast } = useToast();
   const [assets, setAssets] = useState<GameAssetRow[]>([]);
@@ -108,9 +114,13 @@ const KindGrid = ({
       const url = asset.external_url ?? (asset.storage_path ? await getSignedUrl(asset.storage_path) : null);
       if (!url) throw new Error("That GPL asset has no file behind it.");
       toast({ title: "Adding from My GPL assets…", description: asset.name });
-      await importUrlAsGameAsset(url, kind, asset.name);
+      const imported = await importUrlAsGameAsset(url, kind, asset.name);
       toast({ title: "Added", description: "Copied into your library." });
-      await refresh();
+      if (pickGplImmediately) {
+        onPick(imported);
+      } else {
+        await refresh();
+      }
     } catch (e) {
       console.error(e);
       toast({ title: "Could not add asset", description: String((e as Error).message), variant: "destructive" });
@@ -189,7 +199,7 @@ const KindGrid = ({
         My GPL assets
       </Button>
       {gplOpen && (
-        <MyGplMediaPicker kind="image" onClose={() => setGplOpen(false)} onPick={onPickGpl} />
+        <MyGplMediaPicker kind={myGplKind} onClose={() => setGplOpen(false)} onPick={onPickGpl} />
       )}
       {kind !== "background" && (
         <p className="text-[11px] leading-tight text-muted-foreground">
@@ -246,7 +256,14 @@ const KindGrid = ({
   );
 };
 
-const AssetsPanel = ({ onPick, onPickPreset, value, onValueChange }: AssetsPanelProps) => (
+const AssetsPanel = ({
+  onPick,
+  onPickPreset,
+  value,
+  onValueChange,
+  myGplKind,
+  pickGplImmediately,
+}: AssetsPanelProps) => (
   <Tabs
     value={value}
     onValueChange={onValueChange}
@@ -266,7 +283,13 @@ const AssetsPanel = ({ onPick, onPickPreset, value, onValueChange }: AssetsPanel
     <div className="mt-3 flex-1 overflow-y-auto pr-1">
       {TABS.map((t) => (
         <TabsContent key={t.kind} value={t.kind} className="mt-0">
-          <KindGrid kind={t.kind} onPick={onPick} onPickPreset={onPickPreset} />
+          <KindGrid
+            kind={t.kind}
+            onPick={onPick}
+            onPickPreset={onPickPreset}
+            myGplKind={myGplKind}
+            pickGplImmediately={pickGplImmediately}
+          />
         </TabsContent>
       ))}
       <TabsContent value="buildings" className="mt-0">
