@@ -40,6 +40,8 @@ const DB_KIND: Record<SectionKind, string> = {
 /** A flattened section as understood by the Smartboard. */
 interface ParsedSection {
   kind: SectionKind;
+  /** Permanent outline identity of this session ("4:example:3"). */
+  docKey: string;
   /** Used only for non-question sections. */
   loose: string[];
   /** Objects (tables, diagrams, 3D scenes, charts) inside a non-question
@@ -52,8 +54,11 @@ interface ParsedSection {
     solutionObjects: SolutionObject[];
     /** Objects that belong to the QUESTION itself (not its solution). */
     problemObjects: SolutionObject[];
+    /** Same permanent identity as the owning session. */
+    docKey: string;
   }[];
 }
+
 
 /** Normalize a problem string for matching across edits (case/whitespace). */
 const normalizeProblem = (s: string): string =>
