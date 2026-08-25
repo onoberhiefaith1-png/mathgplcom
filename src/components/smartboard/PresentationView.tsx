@@ -3570,11 +3570,125 @@ const PresentationView = ({
   /** Grade one line through the shared equivalence engine.
    *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent.
    *  `frozenAscii` (End Point) wins over whatever is on the board now. */
+  /** CELL-AWARE TABLE MARKING — a table line is never graded from board ink.
+   *  Its marks come from the cells themselves: the right value in the right
+   *  coordinate. Nothing else can earn the mark. */
+  const gradeTableTrackThroughCells = useCallback(async (
+    k: number,
+    mode: "manual" | "auto",
+  ) => {
+    const group = groupForLine(tableGroups, k);
+    if (!group || !current || !assessmentId) return;
+    const target = guidedLines[k];
+    if (!target?.lineId) return;
+    const slot = `${current.id}:${target.lineId}`;
+    if (slot in solvedSlots) {
+      if (mode === "manual") {
+        toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slot]} marks.` });
+      }
+      return;
+    }
+    const entries = tableEntries[group.objId] ?? {};
+    const cells = editableCellsForLine(group, k).filter(
+      (key) => expectedCellValue(group, key).trim().length > 0,
+    );
+    const wrong = cells.filter((key) => !isCellCorrect(group, entries, key));
+    const blank = cells.filter((key) => !String(entries[key] ?? "").trim());
+    const correct = cells.length > 0 && wrong.length === 0;
+    const label = trackLabel(group, k);
+    const studentAscii = cellKeysForLine(group, k)
+      .map((key) => (isRetained(group, key) ? expectedCellValue(group, key) : String(entries[key] ?? "")))
+      .filter((v) => v.trim().length > 0)
+      .join("  ");
+
+    broadcastCheckResultRef.current?.({
+      questionId: current.id,
+      lineId: target.lineId,
+      mode,
+      correct,
+      verdict: correct ? "equal" : "not_equal",
+      diagnosis: {
+        code: correct ? "table_complete" : blank.length ? "table_incomplete" : "table_cell_wrong",
+        label: correct ? `${label} complete` : blank.length ? `${label} incomplete` : `${label} — wrong cells`,
+        detail: correct
+          ? "Every cell of this row holds the expected value in the expected position."
+          : blank.length
+            ? `${blank.length} cell${blank.length === 1 ? "" : "s"} still empty in ${label}.`
+            : `${wrong.length} cell${wrong.length === 1 ? "" : "s"} do not match the expected value for ${label}.`,
+      },
+      marks: correct ? Number(target.marks ?? 0) : 0,
+      studentAscii,
+    });
+
+    if (!correct) {
+      if (mode === "manual") {
+        setCheckView({
+          lineNo: k + 1,
+          studentAscii,
+          correct: false,
+          label: blank.length ? `${label} incomplete` : `${label} — check your cells`,
+          detail: blank.length
+            ? "Some cells of this row are still empty."
+            : "Some values are not in the cell they belong to.",
+          marks: 0,
+        });
+      }
+      return;
+    }
+
+    const awarded = Number(target.marks ?? 0);
+    if (testMode) {
+      setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
+      setAssessScore((prev) => prev + awarded);
+    } else {
+      // The cells decided the verdict; the server only records it.
+      try {
+        const { data } = await supabase.functions.invoke("grade-line", {
+          body: {
+            assessmentId,
+            questionId: current.id,
+            lineId: target.lineId,
+            studentAscii,
+            mode,
+            persist: true,
+            ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
+          },
+        });
+        const res = data as { score?: number; solvedLines?: Record<string, number> } | null;
+        if (res?.solvedLines) setSolvedSlots(res.solvedLines);
+        if (typeof res?.score === "number") setAssessScore(res.score);
+        else {
+          setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
+          setAssessScore((prev) => prev + awarded);
+        }
+      } catch {
+        setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
+        setAssessScore((prev) => prev + awarded);
+      }
+    }
+    if (mode === "manual") {
+      setCheckView({
+        lineNo: k + 1,
+        studentAscii,
+        correct: true,
+        label: `${label} complete`,
+        detail: "Every cell holds the expected value in the expected position.",
+        marks: awarded,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableGroups, tableEntries, guidedLines, current, assessmentId, solvedSlots, testMode, smartCardSlug, participantKey, toast]);
+
   const gradeLineThroughEngine = useCallback(async (
     k: number,
     mode: "manual" | "auto",
     frozenAscii?: string,
   ) => {
+    // A table line is graded by its cells, never by board ink.
+    if (groupForLine(tableGroups, k)) {
+      await gradeTableTrackThroughCells(k, mode);
+      return;
+    }
     const resolved = resolveGradableLine(k);
     if (!resolved || !current || !assessmentId) return;
     const { target, expectedFrags, rowNum } = resolved;
