@@ -44,6 +44,7 @@ import {
   type TableGrid,
   type TableOrientation,
 } from "@/lib/floating/tableGrid";
+import { isEmptyMatrixLatex, splitMatrixChip } from "@/lib/floating/matrixChips";
 
 /** One item of the highlight stream: a text line, or a whole table workspace. */
 type Entry =
