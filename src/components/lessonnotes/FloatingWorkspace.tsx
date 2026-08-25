@@ -45,12 +45,17 @@ const CONTAINER_KINDS: ContainerKind[] = [
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
+/** Matrix chips on the prep page are STRUCTURE chips: the label shows the empty
+ *  bracketed grid (placeholders + dimensions), never any cell value. */
 const matrixChipLabel = (raw: string): string | null => {
   const grid = gridFromMatrixLatex(raw);
   if (!grid) return null;
   const left = grid.matrixBrackets?.left ?? "[";
   const right = grid.matrixBrackets?.right ?? "]";
-  return `${left ? `${left} ` : ""}${grid.rows} × ${grid.cols}${right ? ` ${right}` : ""}`;
+  const body = Array.from({ length: grid.rows }, () =>
+    Array.from({ length: grid.cols }, () => "□").join(" "),
+  ).join(" / ");
+  return `${left ? `${left} ` : ""}${body}${right ? ` ${right}` : ""} ${grid.rows} × ${grid.cols}`;
 };
 
 const parseContainerKind = (raw: string): ContainerKind | null => {
