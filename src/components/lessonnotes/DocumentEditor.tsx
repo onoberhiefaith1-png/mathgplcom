@@ -2249,6 +2249,15 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "emojiMedia", attrs: { src, kind } }).run();
   };
 
+  /** Toolbar → the SAME Smart Table the Asset Library inserts (never a new
+   *  table system, and never the Maths Table reference picker). */
+  const insertSmartTable = () => {
+    if (!editor) return;
+    const def = TABLES.find((a) => a.id === "smarttable");
+    if (!def) return;
+    insertAsset(editor, def);
+  };
+
   /** Quick Symbols palette → a real editable structure at the caret. */
   const insertQuickSymbol = (item: QuickStructItem) => {
     if (!editor) return;
