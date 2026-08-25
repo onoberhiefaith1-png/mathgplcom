@@ -22,6 +22,61 @@ import { hasDirectives, splitDirectives } from "@/lib/lessonnotes/ai/materialize
 
 type TipTapNode = any;
 
+const MATRIX_ENV_RE = /\\begin\{(bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix)\}([\s\S]*?)\\end\{\1\}/g;
+
+const matrixBracket = (env: string): string => {
+  if (env === "bmatrix") return "[";
+  if (env === "Bmatrix") return "{";
+  if (env === "vmatrix" || env === "Vmatrix") return "|";
+  return "(";
+};
+
+/** Defensive fallback for pasted/model LaTeX: convert it to the same editable
+ * matrix node used by the Matrix builder instead of displaying source code. */
+function matrixNode(env: string, body: string): TipTapNode | null {
+  const rows = body
+    .split(/\\\\/)
+    .map((row) => row.trim())
+    .filter(Boolean)
+    .map((row) => row.split("&").map((cell) => normalizeMathSource(stripDollars(cell.trim()))));
+  const cols = Math.max(0, ...rows.map((row) => row.length));
+  if (!rows.length || !cols) return null;
+  const slots = rows.flatMap((row) =>
+    Array.from({ length: cols }, (_, c) => ({
+      type: "mathSlot",
+      content: row[c] ? [{ type: "text", text: row[c] }] : [],
+    })),
+  );
+  return {
+    type: "paragraph",
+    content: [{
+      type: "mathStructure",
+      attrs: { kind: "matrix", attrs: { rows: rows.length, cols, br: matrixBracket(env) } },
+      content: slots,
+    }],
+  };
+}
+
+function splitRawMatrices(text: string): Array<{ kind: "text"; text: string } | { kind: "node"; node: TipTapNode }> {
+  const out: Array<{ kind: "text"; text: string } | { kind: "node"; node: TipTapNode }> = [];
+  let last = 0;
+  const re = new RegExp(MATRIX_ENV_RE.source, "g");
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text))) {
+    if (match.index > last) out.push({ kind: "text", text: text.slice(last, match.index) });
+    const node = matrixNode(match[1], match[2]);
+    if (node) out.push({ kind: "node", node });
+    else out.push({ kind: "text", text: match[0] });
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) out.push({ kind: "text", text: text.slice(last) });
+  return out;
+}
+
+export function hasStructuredAiContent(text: string): boolean {
+  return hasDirectives(text) || new RegExp(MATRIX_ENV_RE.source).test(text || "");
+}
+
 /* ------------------- ONE ENGINE: no splitting, ever -------------------
  *
  * The editor used to cut a line into many small math/prose atoms. Every gap
@@ -217,14 +272,15 @@ export function aiTextToNodes(
   // "Classwork 2:" from the model is stripped, never treated as a failure.
   const text = stripDuplicateHeading(textIn, opts?.existingHeading);
   if (!text.trim()) return [{ type: "paragraph" }];
-  if (!hasDirectives(text)) return plainAiTextToNodes(text);
-
   const out: TipTapNode[] = [];
-  for (const part of splitDirectives(text, opts)) {
-    if (part.kind === "node") { out.push(part.node); continue; }
-    const chunk = part.text.replace(/^\n+|\n+$/g, "");
-    if (!chunk.trim()) continue;
-    out.push(...plainAiTextToNodes(chunk).filter((n) => !isEmptyPara(n)));
+  for (const matrixPart of splitRawMatrices(text)) {
+    if (matrixPart.kind === "node") { out.push(matrixPart.node); continue; }
+    for (const part of splitDirectives(matrixPart.text, opts)) {
+      if (part.kind === "node") { out.push(part.node); continue; }
+      const chunk = part.text.replace(/^\n+|\n+$/g, "");
+      if (!chunk.trim()) continue;
+      out.push(...plainAiTextToNodes(chunk).filter((n) => !isEmptyPara(n)));
+    }
   }
   return out.length ? out : [{ type: "paragraph" }];
 }
