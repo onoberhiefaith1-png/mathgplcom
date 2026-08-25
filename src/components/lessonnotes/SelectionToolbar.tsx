@@ -85,7 +85,8 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit }: Props) {
       toast({ title: "This question already has its diagram" });
       return;
     }
-    const fragment = Array.isArray(snap.json) ? snap.json : snap.json?.content ?? null;
+    const snapshotJson = snap.json as { content?: unknown[] } | unknown[] | null;
+    const fragment = Array.isArray(snapshotJson) ? snapshotJson : snapshotJson?.content ?? null;
     if (!fragment) return;
     editor.chain().focus().insertContentAt(snap.to, fragment).run();
   };
