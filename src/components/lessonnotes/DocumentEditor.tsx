@@ -2259,7 +2259,7 @@ function DocumentEditorInner({
     insertAsset(editor, {
       id: `matrix-quick-${spec.rows}x${spec.cols}`,
       label: `${spec.rows}×${spec.cols} matrix`,
-      category: "Matrices" as any,
+      category: "Structures",
       keywords: ["matrix"],
       render: { kind: "structure", structure: "matrix", slots: spec.rows * spec.cols, attrs },
     });
@@ -3479,7 +3479,7 @@ function DocumentEditorInner({
 
         <button
           type="button"
-          onClick={() => setEmojiPanelOpen((v) => !v)}
+          onClick={() => { setEmojiPanelOpen((v) => !v); setMatrixPanelOpen(false); }}
           title="Emoji library"
           aria-pressed={emojiPanelOpen}
           className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${emojiPanelOpen ? "bg-foreground/10" : ""}`}
