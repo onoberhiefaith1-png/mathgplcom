@@ -11,6 +11,7 @@ import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 import { visiblePlaceholderColor } from "@/lib/smartboard/placeholderColor";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
+import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
 
 /** Background of the floating chip bar — placeholders must stay visible on it. */
 const CHIP_SURFACE = "#ffffff";
@@ -110,17 +111,13 @@ export const parseFractionChip = (label: string): FractionParts | null => {
 /** Render a chip's label as JSX. When the chip is a recognised fraction,
  *  draw a real stacked fraction with the variable riding on the numerator
  *  (so `¹⁰⁄₃x` reads as "10x over 3", never as "10 over 3 x"). */
-const matrixChipLabel = (raw: string): string | null => {
-  const grid = gridFromMatrixLatex(raw);
-  if (!grid) return null;
-  const left = grid.matrixBrackets?.left ?? "[";
-  const right = grid.matrixBrackets?.right ?? "]";
-  return `${left ? `${left} ` : ""}${grid.rows} × ${grid.cols}${right ? ` ${right}` : ""}`;
-};
+/** A matrix chip is a STRUCTURE chip: it shows the empty bracketed grid it will
+ *  insert (dimensions + brackets only), never any cell value. */
+const matrixChipShell = (raw: string) => matrixShellFromLatex(raw);
 
 const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: string; placeholderColor?: string }) => {
   const safe = assertDisplaySafe(label).cleaned;
-  const matrixLabel = matrixChipLabel(label);
+  const matrixShell = matrixChipShell(label);
   const frac = parseFractionChip(label);
   // The chip bar is WHITE. The board's placeholder colour is near-white
   // cream, so slots painted with it disappear here — which is why every
@@ -131,8 +128,31 @@ const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: s
     value.trim() === "□"
       ? <SmartboardPlaceholderSlot key={key} color={slotColor} size="panel" source="floating-number" />
       : <span key={key} style={{ padding: "0 4px", whiteSpace: "nowrap" }}>{value}</span>;
-  if (matrixLabel) {
-    return <span style={{ fontWeight: 800, letterSpacing: 0 }}>{matrixLabel}</span>;
+  if (matrixShell) {
+    // Empty structure preview: brackets + one placeholder slot per cell.
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontWeight: 800 }}>
+        {matrixShell.left && <span>{matrixShell.left}</span>}
+        <span style={{ display: "inline-flex", flexDirection: "column", gap: 1 }}>
+          {Array.from({ length: matrixShell.rows }, (_, r) => (
+            <span key={`mr-${r}`} style={{ display: "inline-flex", gap: 3 }}>
+              {Array.from({ length: matrixShell.cols }, (_, c) => (
+                <SmartboardPlaceholderSlot
+                  key={`mc-${r}-${c}`}
+                  color={slotColor}
+                  size="panel"
+                  source="floating-number"
+                />
+              ))}
+            </span>
+          ))}
+        </span>
+        {matrixShell.right && <span>{matrixShell.right}</span>}
+        <span style={{ fontSize: "0.7em", opacity: 0.7, marginLeft: 3 }}>
+          {matrixShell.rows} × {matrixShell.cols}
+        </span>
+      </span>
+    );
   }
   if (!frac) {
     return <span>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor: slotColor })}</span>;

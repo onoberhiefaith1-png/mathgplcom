@@ -85,6 +85,7 @@ import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
 import { clampRowSpacing, normalizeRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
+import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
 import {
   type Cursor, type Node, type Row,
   mkChar, mkSub, mkSup,
@@ -1740,21 +1741,19 @@ const PresentationView = ({
     });
   }, []);
 
-  /** Matrix chips are atomic lesson-note structures. A tap must expand the
-   *  saved matrix payload into the existing editable matrix node, pre-filled,
-   *  exactly like a square-root/fraction chip expands into its structure. */
+  /** A matrix chip is a STRUCTURE, never a finished object. Tapping it inserts
+   *  an EMPTY bracketed grid of the chosen dimensions with the cursor parked in
+   *  the first cell — exactly like a fraction or square-root shell. The teacher
+   *  then fills each cell independently from the value chips. Values are never
+   *  inserted together with the structure. */
   const insertMatrixAtSensor = useCallback((latex: string) => {
-    const matrixRow = latexToTree(latex);
-    if (matrixRow.length === 0) return;
+    const shell = matrixShellFromLatex(latex);
+    if (!shell) return;
+    const node = mkMatrix(shell.rows, shell.cols, shell.left || "(", shell.right || ")");
     editActiveRef.current((row, c) => {
-      let r = row;
-      let cur = exitCompletedScriptCursor(r, c);
-      for (const node of matrixRow) {
-        const res = treeInsertNode(r, cur, node, false);
-        r = res.root;
-        cur = res.cursor;
-      }
-      return { root: r, cursor: cur };
+      const cur = exitCompletedScriptCursor(row, c);
+      // descend = true → cursor lands inside the first (empty) matrix cell.
+      return treeInsertNode(row, cur, node, true);
     });
   }, []);
 
