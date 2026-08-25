@@ -417,7 +417,7 @@ export const tables: RequirementDomain = {
       },
       dependencies: ["FLT-003"],
       validation: [
-        { kind: "test", target: "TODO — no automated test pins Tk.n numbering" },
+        { kind: "test", target: "src/lib/smartboard/__tests__/tableBranching.test.ts" },
         { kind: "behaviour", target: "Two tables in one solution: confirm T1.x then T2.x with the main sequence intact" },
       ],
       restorationSource: "src/lib/smartboard/tableActivity.ts (current)",
@@ -504,12 +504,16 @@ export const charts: RequirementDomain = {
         "Bar width defaults to 2% of the plot width; gap between bars equals the bar width; the offset from the Y-axis to the first bar equals the bar width; a histogram uses zero gap.",
       behaviour: ["Changing bar width moves the gaps and the first-bar offset with it", "Histogram bars touch"],
       implementation: { files: ["src/components/lessonnotes/charts/BarChart.tsx", "src/lib/charts/scale.ts", "src/lib/charts/types.ts"] },
-      validation: [{ kind: "test", target: "TODO — no automated chart geometry test" }, { kind: "manual", target: "Measure gap vs bar width" }],
-      restorationSource: "src/lib/charts/scale.ts (current)",
-      status: "PARTIAL",
+      validation: [
+        { kind: "test", target: "src/lib/__tests__/chartBarGeometry.test.ts" },
+        { kind: "manual", target: "Measure gap vs bar width" },
+      ],
+      restorationSource: "src/components/lessonnotes/extensions/visuals/smartchart/barLayout.ts (current)",
+      status: "PASS",
       severity: "LOW",
       permanent: "PENDING",
-      notes: "PARTIAL: implemented, unpinned by tests.",
+      notes:
+        "Cleared 2026-08-25: the geometry arithmetic was extracted to barLayout.ts (the renderer no longer derives it inline) and src/lib/__tests__/chartBarGeometry.test.ts pins gap = bar width, Y-axis-to-first-bar = bar width, width changes moving both, and zero gap for a histogram.
     },
     {
       id: "CHT-002",
