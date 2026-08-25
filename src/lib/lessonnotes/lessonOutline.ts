@@ -291,7 +291,7 @@ export const orderByPlacement = (objects: SolutionObject[]): SolutionObject[] =>
 // whenever leftover rows exist or a question carries no plain text.
 
 const QUESTION_SEGMENT_KINDS = new Set<SectionKind>([
-  "example", "exercise", "classwork", "homework", "assessment", "game_questions", "custom_session",
+  "example", "exercise", "classwork", "homework", "assessment", "game_questions",
 ]);
 
 export const isQuestionSegmentKind = (k: SectionKind): boolean => QUESTION_SEGMENT_KINDS.has(k);
