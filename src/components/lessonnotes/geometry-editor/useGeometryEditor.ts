@@ -30,8 +30,10 @@ export interface UseGeometryEditorReturn {
   scene: GeometryScene;
   tool: ToolId;
   setTool: (t: ToolId) => void;
-  apply: (op: OpResult) => void;
-  commit: (next: GeometryScene) => void;
+  /** Commits the op and returns the scene actually stored (post-normalise). */
+  apply: (op: OpResult) => GeometryScene;
+
+  commit: (next: GeometryScene) => GeometryScene;
   selectedIds: GeoId[];
   setSelectedIds: (ids: GeoId[]) => void;
   selectionKind: HitKind | null;
@@ -79,12 +81,20 @@ export function useGeometryEditor(
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   const initialJson = useMemo(() => JSON.stringify(initial), [initial]);
   const sceneJsonRef = useRef(initialJson);
+  /** The exact JSON we last pushed upwards — used to ignore our own echo. */
+  const emittedJsonRef = useRef<string | null>(null);
+  /** Always the freshest scene, so two ops inside one gesture chain safely. */
+  const sceneRef = useRef<GeometryScene>(scene);
+  /** Pending construction clicks — never discarded by an incoming scene. */
+  const pendingRef = useRef<GeoId[]>([]);
   // Push the normalised scene back up on first mount so the notebook
   // persists the split segments (otherwise legacy DE-DO would re-appear
   // on the next reload).
   useEffect(() => {
     const normalised = normalise(initial, relevanceRef.current);
-    if (JSON.stringify(normalised) !== initialJson) {
+    const json = JSON.stringify(normalised);
+    if (json !== initialJson) {
+      emittedJsonRef.current = json;
       onChangeRef.current(normalised);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,17 +103,25 @@ export function useGeometryEditor(
   // Sync external scene changes back in (e.g. the AI Edit panel writes
   // a new scene to the node attrs).
   //
-  // This must NEVER disturb the current selection for a scene that is
-  // effectively the one already on screen: the node-view re-serialises the
-  // scene on every attr write (and on the first-mount normalisation pass),
-  // and clearing the selection there made a plain click on a line feel
-  // "glitchy" — the item was picked and then instantly dropped.
+  // This must NEVER disturb the current selection, the undo history or an
+  // in-progress construction for a scene that is effectively the one already
+  // on screen: the node-view re-serialises the scene on every attr write, and
+  // reloading there wiped the pending clicks — so a circle never got its
+  // second point and a polyline never joined to its previous point.
   useEffect(() => {
     if (sceneJsonRef.current === initialJson) return;
+    if (emittedJsonRef.current === initialJson) {
+      // Our own save coming back — adopt it as the baseline and stop.
+      sceneJsonRef.current = initialJson;
+      return;
+    }
     sceneJsonRef.current = initialJson;
     const next = normalise(initial, relevanceRef.current);
     const nextJson = JSON.stringify(next);
-    if (nextJson === JSON.stringify(scene)) return; // same content — keep selection
+    if (nextJson === JSON.stringify(sceneRef.current)) return; // same content
+    // A construction is in flight — never yank the scene out from under it.
+    if (pendingRef.current.length > 0) return;
+    sceneRef.current = next;
     setScene(next);
     setHistory(emptyHistory());
     // Keep whatever is still present in the incoming scene selected.
@@ -114,30 +132,39 @@ export function useGeometryEditor(
       if (kept.length === 0) setSelectionKind(null);
       return kept;
     });
-    setPendingIds((prev) => (prev.length ? [] : prev));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial, initialJson]);
 
 
-  const commit = useCallback((next: GeometryScene) => {
-    const normalised = ensureIntersectionPoints(next);
-    sceneJsonRef.current = JSON.stringify(normalised);
-    setHistory((h) => push(h, scene));
+  const commit = useCallback((next: GeometryScene): GeometryScene => {
+    // Same normalisation as the load path, so a saved scene and a reloaded
+    // scene are byte-identical and no phantom reload is triggered.
+    const normalised = normalise(next, relevanceRef.current);
+    const json = JSON.stringify(normalised);
+    if (json === JSON.stringify(sceneRef.current)) return sceneRef.current;
+    setHistory((h) => push(h, sceneRef.current));
+    sceneRef.current = normalised;
+    sceneJsonRef.current = json;
+    emittedJsonRef.current = json;
     setScene(normalised);
     onChangeRef.current(normalised);
-  }, [scene]);
+    return normalised;
+  }, []);
 
 
-  const apply = useCallback((op: OpResult) => {
-    if (op.scene === scene) return;
-    commit(op.scene);
+  const apply = useCallback((op: OpResult): GeometryScene => {
+    if (op.scene === sceneRef.current) return sceneRef.current;
+    const stored = commit(op.scene);
     const fl = [...op.addedIds, ...op.changedIds];
     if (fl.length) {
       setFlashIds(fl);
       if (flashTimer.current) window.clearTimeout(flashTimer.current);
       flashTimer.current = window.setTimeout(() => setFlashIds([]), 700);
     }
-  }, [commit, scene]);
+    return stored;
+  }, [commit]);
+
+
 
   const toggleSelected = useCallback((id: GeoId) => {
     setSelectedIdsState((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -152,34 +179,45 @@ export function useGeometryEditor(
 
 
   const doUndo = useCallback(() => {
-    const r = undo(history, scene);
+    const r = undo(history, sceneRef.current);
     if (!r) return;
-    sceneJsonRef.current = JSON.stringify(r.scene);
+    const json = JSON.stringify(r.scene);
+    sceneJsonRef.current = json;
+    emittedJsonRef.current = json;
+    sceneRef.current = r.scene;
     setHistory(r.history);
     setScene(r.scene);
     onChangeRef.current(r.scene);
-  }, [history, scene]);
+  }, [history]);
 
   const doRedo = useCallback(() => {
-    const r = redo(history, scene);
+    const r = redo(history, sceneRef.current);
     if (!r) return;
-    sceneJsonRef.current = JSON.stringify(r.scene);
+    const json = JSON.stringify(r.scene);
+    sceneJsonRef.current = json;
+    emittedJsonRef.current = json;
+    sceneRef.current = r.scene;
     setHistory(r.history);
     setScene(r.scene);
     onChangeRef.current(r.scene);
-  }, [history, scene]);
+  }, [history]);
 
-  const resetPending = useCallback(() => setPendingIds([]), []);
+  const setPending = useCallback((ids: GeoId[]) => {
+    pendingRef.current = ids;
+    setPendingIds(ids);
+  }, []);
+
+  const resetPending = useCallback(() => setPending([]), [setPending]);
 
   return {
     scene,
     tool,
     setTool: (t) => {
       if (tool === "curve" && t !== "curve" && pendingIds.length >= 2) {
-        commit(addCurve(scene, pendingIds).scene);
+        commit(addCurve(sceneRef.current, pendingIds).scene);
       }
       setTool(t);
-      setPendingIds([]);
+      setPending([]);
     },
     apply,
     commit,
@@ -191,8 +229,9 @@ export function useGeometryEditor(
     clearSelection,
     selectedObjects,
     pendingIds,
-    setPendingIds,
+    setPendingIds: setPending,
     resetPending,
+
     doUndo,
     doRedo,
     canUndo: history.past.length > 0,

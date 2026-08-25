@@ -151,13 +151,17 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
   };
 
   /** Find or create a point at (x,y), preferring an existing point via snap. */
-  const ensurePoint = (x: number, y: number): { id: GeoId; scene: GeometryScene } => {
-    const s = snap(scene, x, y);
-    if (s.pointId) return { id: s.pointId, scene };
-    const op = addPoint(scene, s.x, s.y);
-    apply(op);
-    return { id: op.addedIds[0], scene: op.scene };
+  const ensurePoint = (x: number, y: number, base?: GeometryScene): { id: GeoId; scene: GeometryScene } => {
+    const src = base ?? scene;
+    const s = snap(src, x, y);
+    if (s.pointId) return { id: s.pointId, scene: src };
+    const op = addPoint(src, s.x, s.y);
+    // `apply` returns the scene actually stored, so chained ops in the same
+    // click work off the freshest figure instead of a stale snapshot.
+    const stored = apply(op);
+    return { id: op.addedIds[0], scene: stored ?? op.scene };
   };
+
 
   const onPointerMove = (e: React.PointerEvent) => {
     const p = toLogical(e);
@@ -328,17 +332,17 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
         break;
       }
       case "line": {
+        // Continuous polyline: every click joins to the previous point, so a
+        // run of 100 clicks is one connected chain, not loose dots.
         const { id, scene: s1 } = ensurePoint(p.x, p.y);
-        if (pendingIds.length === 0) {
+        const prev = pendingIds.length ? pendingIds[pendingIds.length - 1] : null;
+        // If the previous anchor has gone (undo, external edit) restart the run
+        // from this click instead of silently dropping the segment.
+        const prevAlive = prev ? !!pointById(s1, prev) : false;
+        if (!prev || !prevAlive) {
           setPendingIds([id]);
         } else {
-          const prev = pendingIds[pendingIds.length - 1];
-          if (prev !== id) {
-            // Use the latest scene that already has the new point (s1).
-            const op = addSegment(s1, prev, id);
-            // apply replaces scene with op.scene
-            apply(op);
-          }
+          if (prev !== id) apply(addSegment(s1, prev, id));
           setPendingIds([...pendingIds, id]);
         }
         break;
@@ -354,27 +358,29 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
         // distance between them, so dragging the centre moves the circle and
         // dragging the rim point resizes it.
         const created = ensurePoint(p.x, p.y);
-        const next = [...pendingIds, created.id];
-        if (next.length === 2) {
-          apply(addCircleByRadius(created.scene, next[0], next[1]));
+        const centre = pendingIds.length ? pendingIds[pendingIds.length - 1] : null;
+        const centreAlive = centre ? !!pointById(created.scene, centre) : false;
+        if (centre && centreAlive && centre !== created.id) {
+          apply(addCircleByRadius(created.scene, centre, created.id));
           setPendingIds([]);
         } else {
-          setPendingIds(next);
+          setPendingIds([created.id]);
         }
         break;
       }
+
       case "compass": {
-        if (pendingIds.length === 0) {
-          const { id } = ensurePoint(p.x, p.y);
-          setPendingIds([id]);
-        } else {
-          const { id, scene: s1 } = ensurePoint(p.x, p.y);
-          const op = addCircleByRadius(s1, pendingIds[0], id);
-          apply(op);
+        const { id, scene: s1 } = ensurePoint(p.x, p.y);
+        const centre = pendingIds.length ? pendingIds[0] : null;
+        if (centre && pointById(s1, centre) && centre !== id) {
+          apply(addCircleByRadius(s1, centre, id));
           setPendingIds([]);
+        } else {
+          setPendingIds([id]);
         }
         break;
       }
+
       case "arc": {
         const { id, scene: s1 } = ensurePoint(p.x, p.y);
         const next = [...pendingIds, id];
