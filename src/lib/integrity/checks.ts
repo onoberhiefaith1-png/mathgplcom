@@ -153,7 +153,14 @@ export async function auditRequirement(
     else checks.push(unrunnable(spec, "behaviour probe could not be run here"));
   }
 
-  const ranHere = checks.filter((c) => c.kind === "module" || c.kind === "route" || c.kind === "database");
+  // A check counts as evidence only if it actually completed. UNKNOWN means the
+  // check could not run (database unreachable, suite not executable here), which
+  // is not a finding about the requirement.
+  const ranHere = checks.filter(
+    (c) =>
+      (c.kind === "module" || c.kind === "route" || c.kind === "database") &&
+      c.status !== "UNKNOWN",
+  );
   const problems = ranHere.filter((c) => c.status !== "PASS");
   const provenByDeepCheck = checks.some(
     (c) => (c.kind === "test" || c.kind === "behaviour") && c.status === "PASS",
