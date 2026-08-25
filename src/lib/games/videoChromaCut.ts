@@ -81,7 +81,7 @@ void main() {
     rgb = clamp(rgb - kn * spill * 0.6, 0.0, 1.0);
   }
 
-  gl_FragColor = vec4(rgb * alpha, alpha); // premultiplied for canvas alpha
+  gl_FragColor = vec4(rgb, alpha);
 }`;
 
 const compile = (gl: WebGLRenderingContext, type: number, src: string) => {
@@ -149,7 +149,7 @@ export const cutVideoBackground = async (
     canvas.width = width;
     canvas.height = height;
     const gl = canvas.getContext("webgl", {
-      premultipliedAlpha: true,
+      premultipliedAlpha: false,
       alpha: true,
       preserveDrawingBuffer: true,
     });
