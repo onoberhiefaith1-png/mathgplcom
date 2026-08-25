@@ -207,10 +207,10 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
   // ---- 1. Load the current tree ------------------------------------------
   const { data: secRows } = await supabase
     .from("notebook_sections")
-    .select("id, kind, order_index")
+    .select("id, kind, order_index, doc_key")
     .eq("notebook_id", notebookId)
     .order("order_index", { ascending: true });
-  const secList = (secRows ?? []) as { id: string; kind: string; order_index: number }[];
+  const secList = (secRows ?? []) as { id: string; kind: string; order_index: number; doc_key: string | null }[];
   const secIds = secList.map((s) => s.id);
 
   const subsBySection = new Map<string, ExistingSub[]>();
@@ -218,7 +218,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
     const [{ data: subs }, { data: blks }] = await Promise.all([
       supabase
         .from("notebook_subsections")
-        .select("id, section_id, order_index")
+        .select("id, section_id, order_index, doc_key")
         .in("section_id", secIds),
       supabase
         .from("notebook_blocks")
@@ -238,6 +238,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
         id: (s as any).id as string,
         order_index: Number((s as any).order_index) || 0,
         problem: problemBySub.get((s as any).id as string) ?? "",
+        doc_key: ((s as any).doc_key as string | null) ?? null,
       });
       subsBySection.set(sid, list);
     }
@@ -248,8 +249,10 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
     id: s.id,
     kind: String(s.kind),
     order_index: Number(s.order_index) || 0,
+    doc_key: s.doc_key ?? null,
     subs: subsBySection.get(s.id) ?? [],
   }));
+
 
   // ---- 2. Match parsed sections to existing rows --------------------------
   // Greedy, kind-aware, order-preserving: each parsed section claims the first
