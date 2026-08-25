@@ -24,12 +24,14 @@ export function ReviewableBoardDiagram({
   diagramId,
   pageLayer,
   zoom,
+  notebookId,
 }: {
   scene: GeometryScene;
   diagramId: string;
   pageLayer?: boolean;
   /** Board zoom — the figure scales with the writing, keeping proportions. */
   zoom?: number;
+  notebookId?: string;
 }) {
   const review = useReviewProperties();
   const keyRef = useRef<string>("");
@@ -43,9 +45,9 @@ export function ReviewableBoardDiagram({
 
   useEffect(() => {
     if (!reviewable || !diagramId) return;
-    reviewProperties.register({ diagramId, scene }, key);
+    reviewProperties.register({ diagramId, scene, notebookId }, key);
     return () => reviewProperties.register(null, key);
-  }, [reviewable, diagramId, scene, key]);
+  }, [reviewable, diagramId, scene, notebookId, key]);
 
   const isActive = review.open && review.active?.diagramId === diagramId;
 
@@ -58,7 +60,7 @@ export function ReviewableBoardDiagram({
         highlightIds={isActive ? review.highlightIds : undefined}
         onPickObject={
           review.open && reviewable && diagramId
-            ? (id) => reviewProperties.pickObject({ diagramId, scene }, id)
+            ? (id) => reviewProperties.pickObject({ diagramId, scene, notebookId }, id)
             : undefined
         }
       />
@@ -71,7 +73,7 @@ export function ReviewableBoardDiagram({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            reviewProperties.openFor({ diagramId, scene }, true);
+            reviewProperties.openFor({ diagramId, scene, notebookId }, true);
           }}
           className="absolute -top-1 left-0 inline-flex items-center gap-1 rounded-full border border-black/20 bg-white/90 px-2 py-[3px] text-[11px] font-medium text-slate-800 shadow-sm hover:bg-white"
           title="This diagram has geometry properties — open the relationships"

@@ -146,10 +146,12 @@ import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2, LayoutGrid
 import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
+import { BoardRelationshipView } from "@/components/smartboard/BoardRelationshipView";
 import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewProperties";
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
 import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { itemObjectIds } from "@/lib/geometry/map/model";
+import { sortByPlacement } from "@/lib/floating/solutionItems";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -5089,44 +5091,11 @@ const PresentationView = ({
       {/* Review Properties dock — a right column, ~1/5 of the board, opened
           only by the top-bar button and closed with its own ✕. */}
       {/* RELATIONSHIP PAGE — opened from the Properties icon beside a diagram.
-          A clean full screen: the diagram alone, with its properties on the
-          right, and one way back to the board. */}
-      {review.open && review.fullscreen && review.active && (
-        <div className="absolute inset-0 z-[90] flex flex-col bg-white md:flex-row">
-          <div className="relative flex flex-1 items-center justify-center overflow-auto p-6">
-            <button
-              type="button"
-              onClick={() => reviewProperties.setOpen(false)}
-              className="absolute left-4 top-4 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50"
-            >
-              &larr; Back to board
-            </button>
-            <PresentationGeometryDiagram
-              scene={review.active.scene}
-              highlightIds={review.highlightIds}
-              onPickObject={(id) =>
-                review.active && reviewProperties.pickObject(review.active, id)
-              }
-            />
-          </div>
-          <div className="h-[45%] w-full shrink-0 overflow-auto border-t border-slate-200 md:h-full md:w-[30%] md:min-w-[280px] md:border-l md:border-t-0">
-            <ReviewPropertiesPanel
-              scene={review.active.scene}
-              role={isTeacher ? "teacher" : "student"}
-              selectedObjectId={review.selectedObjectId}
-              activePropertyId={review.activePropertyId}
-              onPickProperty={(item) => {
-                if (!item || !review.active) {
-                  reviewProperties.pickProperty(null, []);
-                  return;
-                }
-                reviewProperties.pickProperty(item.id, itemObjectIds(item));
-              }}
-              onClose={() => reviewProperties.setOpen(false)}
-            />
-          </div>
-        </div>
-      )}
+          One shared page (same as the teacher's Smartboard test): the diagram
+          alone with its properties on the right, its own zoom, and one way back
+          to the board. */}
+      <BoardRelationshipView />
+
 
       {review.open && !review.fullscreen && review.active && (
         <div className="absolute inset-x-0 bottom-0 z-[70] h-[62%] w-full overflow-auto overscroll-contain rounded-t-2xl shadow-2xl md:inset-x-auto md:bottom-auto md:right-0 md:top-0 md:h-full md:w-[20%] md:min-w-[240px] md:overflow-visible md:rounded-none md:shadow-none">
@@ -7217,33 +7186,15 @@ const BeatBlock = ({
   const revealClass = isCurrent ? "sb-writing-in" : "";
 
   // Session objects (Smart Table, chart, question diagram, 3D scene) render
-  // with the session they belong to. Diagrams are NOTES-layer content: they
-  // always travel with their note group — including diagrams drawn inside a
-  // Solution — and they render at full board scale so they stay legible when
-  // projected.
-  const BeatObjects = ({ beat: b }: { beat: Beat }) => {
-    // Board A (the main teaching board) renders every object of its own
-    // section — diagrams, tables, graphs included — in lesson-note order.
-    const objs = b.objects ?? [];
-    if (!objs.length) return null;
-    return (
-      <div className="mt-6 space-y-8">
-        {objs.map((o) => (
-          <div
-            key={o.objId}
-            className="lesson-doc sb-board-object w-full max-w-full"
-            style={{ fontSize: `${zoom}rem` }}
-          >
-            <SolutionObjectView nodeType={o.nodeType} attrs={o.attrs ?? {}} presentation zoom={zoom} />
-          </div>
-        ))}
-      </div>
-    );
-  };
+  // with the session they belong to, at the line they were drawn beside —
+  // every beat now flows text and objects together (FlowingTextAndObjects),
+  // so a diagram can never be pushed to the bottom of its section.
+
+
 
   const FlowingTextAndObjects = ({ beat: b }: { beat: Beat }) => {
     const lines = String(b.content ?? "").split(/\r?\n/);
-    const objects = [...(b.objects ?? [])].sort((a, c) => a.afterLine - c.afterLine);
+    const objects = sortByPlacement(b.objects ?? []);
     if (!objects.length) {
       return (
         <SmartboardLessonText jitter={jitter} seed={b.id.length} placeholderColor={placeholderColor}>
@@ -7331,12 +7282,11 @@ const BeatBlock = ({
             {beat.caption}
           </div>
         )}
+        {/* PLACEMENT LAW: the question's own objects interleave with its text
+            at the line they were drawn beside — never piled beneath it. */}
         <div style={{ color: ink, fontSize: "1em" }}>
-          <SmartboardLessonText jitter={jitter * 0.6} seed={beat.id.length + 11} placeholderColor={placeholderColor}>
-            {beat.content}
-          </SmartboardLessonText>
+          <FlowingTextAndObjects beat={beat} />
         </div>
-        <BeatObjects beat={beat} />
         {/* Auto-write the "Solution" header beneath the question, then stop.
             The teacher solves the rest by hand using the carrier. */}
         <div

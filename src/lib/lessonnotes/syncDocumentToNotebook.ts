@@ -77,6 +77,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
 
   for (const seg of segments) {
     if (seg.kind === "solution") {
+      // Persist the segment home so diagrams cannot drift between sessions.
       const body = renderSegmentBody(seg.nodes, true, segmentHome(seg));
       const host = lastQuestion?.subsections[lastQuestion.subsections.length - 1];
       if (host) {

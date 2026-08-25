@@ -30,9 +30,11 @@ interface Props {
   presentation?: boolean;
   /** Board zoom — the diagram grows/shrinks with the board, proportionally. */
   zoom?: number;
+  /** Notebook owner, forwarded for relationship-view zoom persistence. */
+  notebookId?: string;
 }
 
-export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom }: Props) => {
+export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom, notebookId }: Props) => {
   // Set BEFORE the editor is created so the node views read it on first mount.
   if (presentation) setScene3DPresentationMode(true);
 
@@ -52,6 +54,7 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
           diagramId={String(attrs?.diagramId ?? "")}
           pageLayer={attrs?.pageLayer === true}
           zoom={zoom}
+          notebookId={notebookId}
         />
       )
       : <InlineGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />;

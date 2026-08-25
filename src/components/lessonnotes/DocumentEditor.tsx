@@ -356,11 +356,19 @@ const syncPageGeometryNode = (
   }));
 
   // Top-level block boundaries with their on-screen vertical position.
-  const blocks: Array<{ pos: number; top: number }> = [];
+  // Structural headings are retained separately: page drawings are first
+  // assigned to their visual session, then to a line inside that session.
+  // This prevents a drawing below the flowing editor body from falling through
+  // to the document end and joining every other drawing in the last section.
+  const blocks: Array<{ pos: number; top: number; heading: boolean }> = [];
   editor.state.doc.forEach((node, offset) => {
     let top = Number.POSITIVE_INFINITY;
     try { top = editor.view.coordsAtPos(offset + (node.isAtom ? 0 : 1)).top; } catch { /* off-screen */ }
-    blocks.push({ pos: offset, top });
+    blocks.push({
+      pos: offset,
+      top,
+      heading: node.type.name === "heading" && Number(node.attrs?.level ?? 6) <= 2,
+    });
   });
   const docEnd = editor.state.doc.content.size;
 
@@ -373,21 +381,42 @@ const syncPageGeometryNode = (
   // viewport space — otherwise the current scroll position decides the anchor.
   const blocksInPaperSpace = paperRect && scaleY
     ? blocks.map((b) => ({
-      pos: b.pos,
+      ...b,
       y: Number.isFinite(b.top) ? (b.top - paperRect.top) / scaleY + 24 : Number.POSITIVE_INFINITY,
     }))
     : [];
 
+  const visualSessions = blocksInPaperSpace
+    .filter((b) => b.heading && Number.isFinite(b.y))
+    .sort((a, b) => a.y - b.y);
+
   const targets = wanted.map(({ group, top }) => {
     let pos = docEnd;
     if (blocksInPaperSpace.length && Number.isFinite(top)) {
-      // The drawing belongs AFTER the line it overlaps: anchor before the
-      // first block that starts below the top of the figure.
-      const after = blocksInPaperSpace.find((b) => b.y > top);
-      if (after) pos = after.pos;
+      // First establish the visual session. Document order is not sufficient:
+      // free-positioned content can live at the end of the JSON while appearing
+      // halfway down the page.
+      let owner = visualSessions[0] ?? null;
+      for (const heading of visualSessions) {
+        if (heading.y > top) break;
+        owner = heading;
+      }
+      const nextHeading = owner
+        ? visualSessions.find((heading) => heading.y > owner.y) ?? null
+        : visualSessions[0] ?? null;
+      const minY = owner?.y ?? Number.NEGATIVE_INFINITY;
+      const maxY = nextHeading?.y ?? Number.POSITIVE_INFINITY;
+      const after = blocksInPaperSpace
+        .filter((b) => !b.heading && b.y >= minY && b.y < maxY && b.y > top)
+        .sort((a, b) => a.y - b.y)[0];
+
+      // If the figure sits below the final prose line in its session, anchor it
+      // immediately before the next session rather than at the document end.
+      pos = after?.pos ?? nextHeading?.pos ?? docEnd;
     }
     return { group, pos };
   }).sort((a, b) => a.pos - b.pos);
+
 
 
   // Already correct (same scenes, same anchors) → leave the document alone so
@@ -2547,7 +2576,11 @@ function DocumentEditorInner({
       });
       editor.chain().focus().insertContentAt(endPos, {
         type: "geometryDiagram",
-        attrs: { scene: detail.scene, diagramId: newDiagramId() },
+        attrs: {
+          scene: detail.scene,
+          diagramId: newDiagramId(),
+          ownerQuestionId: ensureOwnerQuestionId(editor, targetHeadingPos + 1),
+        },
       }).run();
     };
     window.addEventListener("geometry-editor:list-sections", listSections);
