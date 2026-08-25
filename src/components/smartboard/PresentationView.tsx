@@ -2883,9 +2883,28 @@ const PresentationView = ({
   // Completion → next row/column; last one ends the activity and the lesson
   // advances to the following line. Driven by the HIDDEN validation state:
   // nothing about this is displayed on the board.
+  //
+  // PER-TRACK MARKING: a track (a row under Row orientation, a column under
+  // Column orientation) is assessed and awarded the INSTANT its cells are
+  // complete — before the activity moves on. T1.1 marks as T1.1, T1.2 as
+  // T1.2, and so on; the final track is never the only one that scores.
+  const gradeTableTrackRef = useRef<
+    ((k: number, mode: "manual" | "auto") => Promise<void>) | null
+  >(null);
+  const tableTrackGradedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!activeTableGroup || !activeTablePlaced) return;
     if (!isLineComplete(activeTableGroup, activeTableEntries, activeLineIdx)) return;
+
+    // Award this track once. The guard is keyed on the question + line so
+    // re-renders (and the leave/idle paths) can never double-count it.
+    const lineId = guidedLines[activeLineIdx]?.lineId ?? null;
+    const guardKey = `${current?.id ?? ""}:${lineId ?? activeLineIdx}`;
+    if (!tableTrackGradedRef.current.has(guardKey)) {
+      tableTrackGradedRef.current.add(guardKey);
+      void gradeTableTrackRef.current?.(activeLineIdx, "auto");
+    }
+
     const next = nextOpenLine(activeTableGroup, activeTableEntries, activeLineIdx);
     if (next !== null && next !== activeLineIdx) {
       setActiveLineIdx(next);
@@ -2902,7 +2921,8 @@ const PresentationView = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, steps, activeTablePlaced]);
+  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, steps, activeTablePlaced, guidedLines, current?.id]);
+
 
 
 
