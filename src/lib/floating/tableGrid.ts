@@ -141,6 +141,20 @@ export const allCellKeys = (grid: TableGrid): string[] => {
   return out;
 };
 
+/** HEADER RETENTION LAW — a table's heading is the teacher's label, never a
+ *  student answer. When the grid carries its own `headers` they are drawn
+ *  outside the data cells and nothing needs retaining. When it does not, the
+ *  first data row acts as the heading row and is retained by default. */
+export const defaultRetainedCells = (grid: TableGrid): string[] => {
+  if (!grid || grid.object) return [];
+  if ((grid.headers ?? []).some((h) => String(h ?? "").trim().length > 0)) return [];
+  if (!grid.rows || !grid.cols) return [];
+  return Array.from({ length: grid.cols }, (_, c) => cellKey(0, c)).filter(
+    (k) => !isStaticCell(grid, k),
+  );
+};
+
+
 /** Orientation law: every cell of one Floating Number line must live in the
  *  same row (row-oriented) or the same column (column-oriented). */
 export const cellFitsLine = (

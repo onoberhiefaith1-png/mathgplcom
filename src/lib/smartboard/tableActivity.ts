@@ -226,10 +226,16 @@ export interface TableValidation {
   objId: string;
   label: string;
   orientation: "row" | "column";
+  /** Grid shape, so the Evaluation panel can draw the real table instead of
+   *  flattening cells into a text line. */
+  rows: number;
+  cols: number;
+  headers: string[];
   tracks: TableTrackStatus[];
   activeTrack: TableTrackStatus | null;
   groupComplete: boolean;
 }
+
 
 export const tableValidation = (
   group: TableGroup,
@@ -257,7 +263,11 @@ export const tableValidation = (
     objId: group.objId,
     label: group.label,
     orientation: group.orientation,
+    rows: group.grid.rows,
+    cols: group.grid.cols,
+    headers: (group.grid.headers ?? []).map((h) => String(h ?? "")),
     tracks,
+
     activeTrack: tracks.find((t) => t.lineIdx === activeLineIdx) ?? null,
     groupComplete: isGroupComplete(group, entries),
   };

@@ -38,6 +38,8 @@ import {
   generateTableLines,
   tableLineEquation,
   cellFitsLine,
+  defaultRetainedCells,
+
   type TableGrid,
   type TableOrientation,
 } from "@/lib/floating/tableGrid";
@@ -1061,17 +1063,23 @@ const FloatingNumbersPage = () => {
       for (const l of lines) {
         const t = l.table;
         if (!t?.objId || next[t.objId]) continue;
-        next[t.objId] = { orientation: t.orientation ?? "row", retained: t.retained ?? [] };
+        next[t.objId] = {
+          orientation: t.orientation ?? "row",
+          // HEADER RETENTION BY DEFAULT — the heading row/column of a table is
+          // the teacher's label, never the student's answer.
+          retained: t.retained ?? (t.grid ? defaultRetainedCells(t.grid as TableGrid) : []),
+        };
         changed = true;
       }
       for (const e of entries) {
         if (e.kind !== "table" || next[e.objId]) continue;
-        next[e.objId] = { orientation: "row", retained: [] };
+        next[e.objId] = { orientation: "row", retained: defaultRetainedCells(e.grid) };
         changed = true;
       }
       return changed ? next : prev;
     });
   }, [lines, entries]);
+
 
   /** Render groups: text lines and table workspaces, in document order.
    *  `insertAt` is where a table's lines start inside the flat `lines` list. */
@@ -1105,6 +1113,27 @@ const FloatingNumbersPage = () => {
     }
     return out;
   }, [entries, lines]);
+
+  /* THE NUMBERING LAW — a table is ONE floating number, whatever it generates.
+     Its rows/columns carry the lesson-wide T-series (T1, T2 …) instead of
+     lesson step numbers, so the table never inflates the lesson numbering. */
+  const numbering = useMemo(() => {
+    const lineTags: Record<number, string> = {};
+    const tableStep: Record<string, number> = {};
+    let step = 0;
+    let t = 0;
+    for (const g of groups) {
+      step += 1;
+      if (g.kind === "table") {
+        tableStep[g.objId] = step;
+        for (const it of g.items) { t += 1; lineTags[it.index] = `T${t}`; }
+      } else {
+        lineTags[g.index] = String(step);
+      }
+    }
+    return { lineTags, tableStep };
+  }, [groups]);
+
 
   const patchTableLines = useCallback(
     (objId: string, patch: Partial<NonNullable<FloatingLine["table"]>>) => {
@@ -1481,6 +1510,7 @@ const FloatingNumbersPage = () => {
                       <FloatingWorkspace
                         line={l}
                         index={i}
+                        tag={numbering.lineTags[i]}
                         scoreLabel={scoring.label}
                         scoringMode={scoring.mode}
                         onChange={(next) => {
@@ -1503,6 +1533,7 @@ const FloatingNumbersPage = () => {
                   <TableWorkspace
                     key={g.objId}
                     grid={g.grid}
+                    stepNo={numbering.tableStep[g.objId]}
                     orientation={cfg.orientation}
                     retained={cfg.retained}
                     retentionMode={retentionTable === g.objId}
