@@ -153,31 +153,34 @@ export async function auditRequirement(
     else checks.push(unrunnable(spec, "behaviour probe could not be run here"));
   }
 
-  const structural = worst(checks.map((c) => c.status));
+  const ranHere = checks.filter((c) => c.kind === "module" || c.kind === "route" || c.kind === "database");
+  const problems = ranHere.filter((c) => c.status !== "PASS");
   const provenByDeepCheck = checks.some(
     (c) => (c.kind === "test" || c.kind === "behaviour") && c.status === "PASS",
   );
 
-  let status = structural;
+  let status = req.status;
   let reason: string | null = null;
 
-  if (req.status !== "PASS" && !provenByDeepCheck) {
-    status = worst([structural, req.status]);
+  if (problems.length) {
+    // A real, executed check found something wrong — degrade.
+    status = worst([req.status, ...problems.map((c) => c.status)]);
+    reason = problems.map((c) => `${c.kind} ${c.target}: ${c.detail}`).join(" · ");
+  } else if (provenByDeepCheck) {
+    status = "PASS";
+  } else if (req.status !== "PASS") {
     reason =
       req.notes ??
       (req.status === "UNKNOWN"
         ? "The audit could not verify this behaviour from the available implementation evidence."
         : "The feature exists, but part of the approved behaviour is incomplete or incorrect.");
-  } else if (status !== "PASS") {
-    reason = checks
-      .filter((c) => c.status !== "PASS")
-      .map((c) => `${c.kind} ${c.target}: ${c.detail}`)
-      .join(" · ");
   }
 
-  const evidence = checks.length
-    ? checks.map((c) => `${c.kind} ${c.target} → ${c.status}`).join(" · ")
-    : "no checks declared";
+  const unverified = checks.filter((c) => !ranHere.includes(c));
+  const evidence = [
+    ...ranHere.map((c) => `${c.kind} ${c.target} → ${c.status}`),
+    ...unverified.map((c) => `${c.kind} ${c.target} → not verified here (${c.detail})`),
+  ].join(" · ") || "no checks declared";
 
   return { requirementId: req.id, status, evidence, reason, checks };
 }
