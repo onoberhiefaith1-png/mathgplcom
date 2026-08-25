@@ -1510,6 +1510,7 @@ const FloatingNumbersPage = () => {
                       <FloatingWorkspace
                         line={l}
                         index={i}
+                        tag={numbering.lineTags[i]}
                         scoreLabel={scoring.label}
                         scoringMode={scoring.mode}
                         onChange={(next) => {
@@ -1532,6 +1533,7 @@ const FloatingNumbersPage = () => {
                   <TableWorkspace
                     key={g.objId}
                     grid={g.grid}
+                    stepNo={numbering.tableStep[g.objId]}
                     orientation={cfg.orientation}
                     retained={cfg.retained}
                     retentionMode={retentionTable === g.objId}
