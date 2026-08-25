@@ -3954,7 +3954,16 @@ const PresentationView = ({
       // to freeze. A line that was merely visited leaves no trace.
       const leaving = resolveGradableLineRef.current(prev);
       const ascii = leaving?.ascii ?? "";
-      if (reasoningRef.current.hasAttempt(prev) && ascii.trim()) {
+      // A TABLE TRACK carries no board ink: its work lives in the cells. So
+      // leaving a row/column always grades it from those cells — including a
+      // partially wrong track, which records its verdict (and its zero)
+      // instead of being discarded as "an attempt that never existed".
+      const leavingTable = !!groupForLine(tableGroups, prev);
+      if (leavingTable) {
+        if (assessmentMode && role === "student") {
+          void silentAutoCheckLine(prev);
+        }
+      } else if (reasoningRef.current.hasAttempt(prev) && ascii.trim()) {
         reasoningRef.current.end(prev, ascii);
         freezeSession(sessionRef.current, ascii);
         frozenByLineRef.current[prev] = ascii;
@@ -3966,10 +3975,11 @@ const PresentationView = ({
         reasoningRef.current.cancel(prev);
         delete frozenByLineRef.current[prev];
       }
-      if (sessionRef.current && sessionRef.current.lineIdx === prev && !ascii.trim()) {
+      if (!leavingTable && sessionRef.current && sessionRef.current.lineIdx === prev && !ascii.trim()) {
         sessionRef.current = cancelSession(sessionRef.current);
       }
     }
+
 
     // NAVIGATION — record the visit only. Returning to a line releases its
     // freeze so the student continues exactly where they left off; the row
