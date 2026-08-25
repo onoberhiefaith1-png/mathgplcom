@@ -2893,7 +2893,7 @@ function DocumentEditorInner({
 
   // ── AI Edit (selection toolbar → AI panel) ─────────────────────────────
   const [aiEditTarget, setAiEditTarget] = useState<AiEditTarget | null>(null);
-  const aiEditRangeRef = useRef<{ from: number; to: number } | null>(null);
+  const aiEditRangeRef = useRef<{ from: number; to: number; json: unknown } | null>(null);
   const [aiEditOpen, setAiEditOpen] = useState(false);
 
   /** Custom apply target, set when AI Edit was requested by an asset. */
@@ -2901,7 +2901,7 @@ function DocumentEditorInner({
 
   const openAiEdit = (snap: SelectionSnapshot) => {
     aiEditBridgeApplyRef.current = null;
-    aiEditRangeRef.current = { from: snap.from, to: snap.to };
+    aiEditRangeRef.current = { from: snap.from, to: snap.to, json: snap.json };
     setAiEditTarget({ text: snap.text, kind: snap.kind, json: snap.json });
     setAiEditOpen(true);
   };
@@ -2949,18 +2949,33 @@ function DocumentEditorInner({
     return String((data as any)?.content ?? "").trim();
   };
 
-  const applyAiEdit = (proposed: string) => {
+  const applyAiEdit = (proposed: string): boolean => {
     const bridgeApply = aiEditBridgeApplyRef.current;
     if (bridgeApply) {
       bridgeApply(sanitizePresentation(proposed));
-      return;
+      return true;
     }
     const range = aiEditRangeRef.current;
-    if (!editor || !range) return;
+    if (!editor || !range) return false;
 
     const structured = hasStructuredAiContent(proposed);
     const clean = sanitizePresentation(proposed).replace(/\s*\n\s*/g, " ").trim();
-    if (!clean) return;
+    if (!clean) return false;
+
+    const docSize = editor.state.doc.content.size;
+    if (range.from < 0 || range.to <= range.from || range.to > docSize) return false;
+
+    // The panel owns the captured range while it is open. If another action
+    // changed that content, never replace a now-unrelated range silently.
+    const currentJson = editor.state.doc.slice(range.from, range.to).content.toJSON();
+    if (JSON.stringify(currentJson) !== JSON.stringify(range.json)) {
+      toast({
+        title: "Highlight changed",
+        description: "Highlight the content again, then apply the proposal.",
+        variant: "destructive",
+      });
+      return false;
+    }
 
     // Is the target an INLINE position (inside a single textblock)? Since a
     // line is now a single math object, that is the common case — and block
@@ -2972,37 +2987,53 @@ function DocumentEditorInner({
       inline = $from.parent.isTextblock && $from.parent === $to.parent;
     } catch { inline = false; }
 
+    let applied = false;
     if (inline && !structured) {
       const value = normalizeMathSource(clean);
       const content = HAS_MATH(clean)
         ? [{ type: "mathInline", attrs: { value } }]
         : [{ type: "text", text: clean }];
-      editor.chain().focus()
+      applied = editor.chain().focus()
         .insertContentAt({ from: range.from, to: range.to }, content as any)
         .run();
     } else if (structured && inline) {
       const $from = editor.state.doc.resolve(range.from);
       const depth = $from.depth;
-      const parentStart = $from.start(depth);
-      const parentEnd = $from.end(depth);
-      const before = editor.state.doc.textBetween(parentStart, range.from, "\n", "");
-      const after = editor.state.doc.textBetween(range.to, parentEnd, "\n", "");
-      const nodes = [
-        ...(before.trim() ? aiTextToNodes(before) : []),
-        ...aiTextToNodes(proposed),
-        ...(after.trim() ? aiTextToNodes(after) : []),
-      ];
-      editor.chain().focus()
-        .insertContentAt({ from: $from.before(depth), to: $from.after(depth) }, nodes)
-        .run();
+      const generated = aiTextToNodes(proposed);
+
+      // A single structured paragraph can replace the selection directly.
+      // This preserves the exact untouched content on both sides—including
+      // marks and inline math nodes—instead of flattening it through textBetween.
+      if (generated.length === 1 && generated[0]?.type === "paragraph") {
+        applied = editor.chain().focus()
+          .insertContentAt(
+            { from: range.from, to: range.to },
+            (generated[0].content ?? []) as any,
+          )
+          .run();
+      } else {
+        const parentStart = $from.start(depth);
+        const parentEnd = $from.end(depth);
+        const parentJson = $from.parent.toJSON();
+        const beforeContent = editor.state.doc.slice(parentStart, range.from).content.toJSON();
+        const afterContent = editor.state.doc.slice(range.to, parentEnd).content.toJSON();
+        const nodes = [
+          ...(beforeContent.length ? [{ ...parentJson, content: beforeContent }] : []),
+          ...generated,
+          ...(afterContent.length ? [{ ...parentJson, content: afterContent }] : []),
+        ];
+        applied = editor.chain().focus()
+          .insertContentAt({ from: $from.before(depth), to: $from.after(depth) }, nodes)
+          .run();
+      }
     } else {
       const nodes = aiTextToNodes(proposed);
-      editor.chain().focus()
+      applied = editor.chain().focus()
         .insertContentAt({ from: range.from, to: range.to }, nodes)
         .run();
     }
-    aiEditRangeRef.current = null;
-    closeAiEdit();
+    if (applied) aiEditRangeRef.current = null;
+    return applied;
   };
 
 

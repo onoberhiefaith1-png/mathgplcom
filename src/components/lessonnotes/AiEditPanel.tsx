@@ -34,8 +34,8 @@ interface Props {
   target: AiEditTarget | null;
   /** Run AI with the given instruction; resolve with the proposed new text. */
   onGenerate: (instruction: string, target: AiEditTarget, signal?: AbortSignal) => Promise<string>;
-  /** Apply the proposed text back to the document. */
-  onApply: (proposed: string) => void;
+  /** Apply the proposed text back to the document. False keeps the preview open. */
+  onApply: (proposed: string) => boolean | Promise<boolean>;
   onClose: () => void;
   /** Render a preview (current and proposed) — usually the math renderer. */
   renderPreview?: (text: string) => React.ReactNode;
@@ -216,10 +216,17 @@ export function AiEditPanel({
   };
 
   /** Accept — apply the proposal to exactly the selected range. */
-  const handleApply = () => {
+  const handleApply = async () => {
     if (proposed == null) return;
-    onApply(proposed);
-    onClose();
+    setError(null);
+    try {
+      const applied = await onApply(proposed);
+      if (applied) onClose();
+      else setError("The accepted edit could not replace the highlighted content. Your proposal is still here—highlight the content again and retry.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg || "The accepted edit could not be applied.");
+    }
   };
 
   /** Edit again — keep the proposal in view and take a further instruction. */
