@@ -494,13 +494,13 @@ const FloatingNumbersPage = () => {
     };
   } | null>(null);
 
-  const applyAiEdit = useCallback((_proposed: string) => {
+  const applyAiEdit = useCallback((_proposed: string): boolean => {
     const i = aiEditLineIndex;
     const result = aiEditResultRef.current;
-    if (i == null || !result) return;
+    if (i == null || !result) return false;
     if (result.status === "unresolved") {
       toast({ title: "Can't apply — issues remain", description: "Click Regenerate or add an instruction.", variant: "destructive" });
-      return;
+      return false;
     }
     setLines((prev) => prev.map((p, idx) => {
       if (idx !== i) return p;
@@ -516,6 +516,7 @@ const FloatingNumbersPage = () => {
     }));
     dirtyRef.current = true;
     aiEditResultRef.current = null;
+    return true;
   }, [aiEditLineIndex]);
 
 
