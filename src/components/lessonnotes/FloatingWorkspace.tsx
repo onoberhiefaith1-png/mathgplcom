@@ -22,6 +22,7 @@ import { toast } from "@/hooks/use-toast";
 import EquationAtoms from "@/components/floating/EquationAtoms";
 import { parseAtoms, reconstructAtomIds } from "@/lib/floating/atoms";
 import { buildChip as buildAtomChip, swapChips, type Chip } from "@/lib/floating/highlightEngine";
+import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
 
 interface Props {
   line: FloatingLine;
@@ -43,6 +44,14 @@ const CONTAINER_KINDS: ContainerKind[] = [
 ];
 
 const identityArrangement = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
+
+const matrixChipLabel = (raw: string): string | null => {
+  const grid = gridFromMatrixLatex(raw);
+  if (!grid) return null;
+  const left = grid.matrixBrackets?.left ?? "[";
+  const right = grid.matrixBrackets?.right ?? "]";
+  return `${left ? `${left} ` : ""}${grid.rows} × ${grid.cols}${right ? ` ${right}` : ""}`;
+};
 
 const parseContainerKind = (raw: string): ContainerKind | null => {
   const v = raw.trim().toLowerCase();
@@ -305,7 +314,7 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
           // not just the first term. extractTermsFromAscii returns one entry
           // per +/− term, and the old code rendered only [0], which silently
           // truncated polynomial chips to their leading term.
-          const label = cleaned;
+          const label = matrixChipLabel(cleaned) ?? cleaned;
 
           const originalIdx = line.arrangement[i] ?? i;
           return (

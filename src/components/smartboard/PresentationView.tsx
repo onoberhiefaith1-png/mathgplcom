@@ -103,6 +103,7 @@ import {
   rowHasTallStructure,
   isPlaceholderOnly,
 } from "@/lib/smartboard/mathTree";
+import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
 import { parkRowBelow } from "@/lib/smartboard/boardWriter/parkSensor";
@@ -1736,6 +1737,24 @@ const PresentationView = ({
       const fracNode: Node = { kind: "frac", rows: [numRow, denRow] };
       const res = treeInsertNode(r, cur, fracNode, false);
       return res;
+    });
+  }, []);
+
+  /** Matrix chips are atomic lesson-note structures. A tap must expand the
+   *  saved matrix payload into the existing editable matrix node, pre-filled,
+   *  exactly like a square-root/fraction chip expands into its structure. */
+  const insertMatrixAtSensor = useCallback((latex: string) => {
+    const matrixRow = latexToTree(latex);
+    if (matrixRow.length === 0) return;
+    editActiveRef.current((row, c) => {
+      let r = row;
+      let cur = exitCompletedScriptCursor(r, c);
+      for (const node of matrixRow) {
+        const res = treeInsertNode(r, cur, node, false);
+        r = res.root;
+        cur = res.cursor;
+      }
+      return { root: r, cursor: cur };
     });
   }, []);
 
@@ -6235,6 +6254,17 @@ const PresentationView = ({
                     // tapped value lands in the cell holding the sensor.
                     if (writeIntoTableCell(t)) return;
                     presentWriteAtSensor(t);
+                  }}
+                  onInsertMatrix={(latex) => {
+                    if (writeIntoTableCell(latex)) return;
+                    const cur = Math.floor(sensor.line);
+                    if (notebookRowLines.has(cur) || isLockedInkRow(sensor.line)) {
+                      let t = nextSensorRowBelow(cur);
+                      for (let g = 0; g < 200 && (notebookRowLines.has(t) || isLockedInkRow(t)); g++) t += 1;
+                      ensureBandCovers(t);
+                      setSensor((s) => ({ ...s, line: t, x: 0 }));
+                    }
+                    insertMatrixAtSensor(latex);
                   }}
                   onInsertFrac={(p) => {
                     // Same uncapped step-past-locked rule as every other

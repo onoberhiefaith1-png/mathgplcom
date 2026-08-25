@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { tokenizeMath } from "@/lib/notebook/mathTokens";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
-import { buildTableGroups, lessonSteps, tagForLine, mainTagForStep } from "@/lib/smartboard/tableActivity";
+import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 
 describe("tokenizeMath — structures are atomic", () => {
   it("keeps a bmatrix as one token", () => {
@@ -47,8 +47,8 @@ describe("unicodeMath — structures survive normalisation", () => {
   });
 });
 
-describe("floating matrices — matrix stays a grid", () => {
-  it("promotes a LaTeX bmatrix to a 2×2 matrix grid", () => {
+describe("floating matrices — matrix stays atomic", () => {
+  it("can read a LaTeX bmatrix as a 2×2 matrix payload", () => {
     const grid = gridFromMatrixLatex("\\begin{bmatrix}2 + 1 & 1 + 2 \\\\ 3 + 5 & 4 + 3\\end{bmatrix}");
     expect(grid).toMatchObject({
       isMatrix: true,
@@ -60,22 +60,16 @@ describe("floating matrices — matrix stays a grid", () => {
     expect(grid?.cells).toEqual([["2 + 1", "1 + 2"], ["3 + 5", "4 + 3"]]);
   });
 
-  it("numbers matrix branches with M-tags without consuming L-numbers", () => {
-    const matrix = gridFromMatrixLatex("\\begin{bmatrix}a & b \\\\ c & d\\end{bmatrix}");
-    expect(matrix).not.toBeNull();
-    if (!matrix) return;
-    const lines = [
-      { equation: "x=1", fillers: [], containers: [], fragmentStart: 0, fragmentEnd: 0 },
-      { equation: "a b", fillers: ["a", "b"], containers: [], fragmentStart: 0, fragmentEnd: 0, table: { objId: matrix.objId, orientation: "row" as const, cellKeys: ["0:0", "0:1"], grid: matrix } },
-      { equation: "c d", fillers: ["c", "d"], containers: [], fragmentStart: 0, fragmentEnd: 0, table: { objId: matrix.objId, orientation: "row" as const, cellKeys: ["1:0", "1:1"], grid: matrix } },
-      { equation: "y=2", fillers: [], containers: [], fragmentStart: 0, fragmentEnd: 0 },
-    ];
-    const groups = buildTableGroups(lines);
-    const steps = lessonSteps(lines.length, groups);
-    expect(mainTagForStep(steps, 0)).toBe("L1");
-    expect(mainTagForStep(steps, 1)).toBe("M1");
-    expect(tagForLine(steps, groups, 1)).toBe("M1.1");
-    expect(tagForLine(steps, groups, 2)).toBe("M1.2");
-    expect(mainTagForStep(steps, 2)).toBe("L2");
+  it("expands one matrix chip into one pre-filled editable matrix node", () => {
+    const row = latexToTree("\\begin{bmatrix}2 + 1 & 1 + 2 \\\\ 3 + 5 & 4 + 3\\end{bmatrix}");
+    expect(row).toHaveLength(1);
+    const matrix = row[0];
+    expect(matrix.kind).toBe("matrix");
+    if (matrix.kind !== "matrix") return;
+    expect(matrix.nRows).toBe(2);
+    expect(matrix.nCols).toBe(2);
+    expect(matrix.left).toBe("[");
+    expect(matrix.right).toBe("]");
+    expect(matrix.rows).toHaveLength(4);
   });
 });

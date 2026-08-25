@@ -109,6 +109,19 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
   };
 };
 
+/** A highlighted matrix is one mathematical structure, not a Smart Table.
+ * Keep its full LaTeX payload as a single chip so the Smartboard can expand it
+ * into the existing editable matrix node when the teacher taps it. */
+const ensureAtomicMatrixFiller = (line: FloatingLine, payload: string): FloatingLine => {
+  if (!gridFromMatrixLatex(payload) || (line.fillers?.length ?? 0) > 0) return line;
+  return {
+    ...line,
+    fillers: [payload],
+    fillersSelected: [false],
+    arrangement: [0],
+  };
+};
+
 
 /** Read-only note content: a diagram belongs to the Notes layer, so it is
  *  shown for context and can never be highlighted or turned into a chip. */
@@ -611,11 +624,6 @@ const FloatingNumbersPage = () => {
         }
         const payload = String(h.payload ?? "");
         if (!payload.trim()) continue;
-        const matrixGrid = gridFromMatrixLatex(payload, { objId: `matrix:${h.groupId}` });
-        if (matrixGrid) {
-          seq.push({ kind: "table", objId: matrixGrid.objId, grid: matrixGrid });
-          continue;
-        }
         seq.push({ kind: "text", highlight: { groupId: h.groupId, payload } });
       }
       setEntries(seq);
@@ -670,21 +678,21 @@ const FloatingNumbersPage = () => {
             used.add(idx);
             // Lock the equation to the permanent highlight payload while keeping
             // the persisted fillers + selection state.
-            reconciled.push({
+            reconciled.push(ensureAtomicMatrixFiller({
               ...persistedList[idx],
               equation: payload,
               noteObjects: noteObjs,
-            });
+            }, payload));
             continue;
           }
-          reconciled.push({
+          reconciled.push(ensureAtomicMatrixFiller({
             lineId: newId(),
             equation: payload,
             fillers: [],
             containers: [],
             arrangement: [],
             noteObjects: noteObjs,
-          });
+          }, payload));
         }
         setLines(reconciled);
       } else {
@@ -812,6 +820,17 @@ const FloatingNumbersPage = () => {
         const equation = fromHighlights
           ? (highlightsData[i]?.payload ?? existing[i]?.equation ?? a.equation ?? "")
           : (a.equation || existing[i]?.equation || "");
+        if (gridFromMatrixLatex(equation)) {
+          return {
+            lineId: existing[i]?.lineId ?? newId(),
+            equation,
+            fillers: [equation],
+            containers: [],
+            arrangement: [0],
+            fillersSelected: [false],
+            containersSelected: [],
+          };
+        }
         // Only show symbols that ACTUALLY appear in this equation (or in
         // structural fillers the AI tried to emit). Never default-show all.
         const containers = mergeStructures(
