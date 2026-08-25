@@ -232,12 +232,26 @@ export const toUnicodeMath = (input: string): string => {
   return s.trim();
 };
 
+/** Remove every complete structure (matrix, Σ, ∫, lim, \left…\right, root)
+ *  before hunting for code residue: a whole structure is a legitimate
+ *  classroom symbol, never dirt. */
+const stripStructures = (src: string): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const end = readStructureAt(src, i);
+    if (end > i) { i = end; continue; }
+    out += src[i++];
+  }
+  return out;
+};
+
 /** Returns true if any forbidden code-syntax substring is still present. */
 export const isStillDirty = (s: string): boolean => {
   if (!s) return false;
   // Allow recognised structural macros the classroom renderer handles
   // natively (\frac{a}{b}, \sqrt{x}, empty power slot ^{□}).
-  const probe = s
+  const probe = stripStructures(s)
     .replace(/\\frac\s*\{[^{}]*\}\s*\{[^{}]*\}/g, "")
     .replace(/\\sqrt\s*\{[^{}]*\}/g, "")
     .replace(/\^\{\s*□\s*\}/g, "")
