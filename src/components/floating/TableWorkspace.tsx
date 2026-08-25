@@ -18,7 +18,8 @@ import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView"
 interface Props {
   grid: TableGrid;
   /** The ONE floating number this whole table occupies in the lesson. */
-  stepNo?: number;
+  /** Main-path tag of this table, e.g. `T2`. */
+  stepNo?: string;
   orientation: TableOrientation;
   retained: string[];
   retentionMode: boolean;
@@ -74,7 +75,7 @@ const TableWorkspace = ({
       {/* Control strip */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b" style={{ borderColor: "hsl(220 15% 60% / 0.25)" }}>
         <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/55">
-          {stepNo ? `Line ${stepNo} · ` : ""}{grid.label} workspace
+          {stepNo ? `${stepNo} · ` : ""}{grid.label} workspace
         </span>
 
         <div className="inline-flex rounded-md overflow-hidden border border-foreground/20 ml-1">
