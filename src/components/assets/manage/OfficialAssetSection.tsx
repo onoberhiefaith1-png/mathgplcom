@@ -55,6 +55,11 @@ const typeOfFile = (file: File): GplAssetType => {
   return "image";
 };
 
+const mediaTypeOfAsset = (item: AssetFormItem): "image" | "video" => {
+  if (item.file?.type.startsWith("video/")) return "video";
+  return item.asset_type === "video" ? "video" : "image";
+};
+
 const baseName = (file: File) =>
   (file.name.replace(/\.[a-z0-9]+$/i, "").trim() || "Asset").slice(0, 80);
 
@@ -135,7 +140,7 @@ const OfficialAssetSection = ({ sessionSlug, subSlug, excludeUrls, heading }: Pr
         glyph: item.glyph || null,
         external_url: item.external_url || null,
         storage_path: storagePath,
-        media_type: item.asset_type === "video" ? "video" : "image",
+        media_type: mediaTypeOfAsset(item),
         sort_order: order,
       });
       order += 1;
