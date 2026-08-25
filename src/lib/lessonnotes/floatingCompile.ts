@@ -3,6 +3,10 @@
 // repeatable pattern, and (b) compile every per-line workspace into the one
 // Master Floating Bucket the Smartboard will later scroll through.
 
+import { tokenizeMath } from "@/lib/notebook/mathTokens";
+
+
+
 export type ContainerKind =
   | "fraction"
   | "bracket"
