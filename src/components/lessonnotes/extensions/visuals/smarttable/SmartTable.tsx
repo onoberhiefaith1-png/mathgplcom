@@ -869,14 +869,10 @@ export function SmartTable({ attrs, onChange, selected = false }: Props) {
 }
 
 /**
- * Cell editor = THE UNIVERSAL MATH EDITOR.
+ * Cell editor = THE UNIVERSAL MATH EDITOR (shared with the Smartboard table).
  *
- * Exactly the same `MathInlineCanvas` the lesson-note lines use, so every
- * mathematical tool available in the workspace is available inside a table
- * cell: `/` fractions, `#`/`##` powers and indices, smart brackets, roots and
- * infinite nesting, with the caret free to walk into every region.
- * Storage stays the shared LaTeX-lite string, so the display renderer
- * (`renderMathInline`) draws the committed cell identically.
+ * `/` fractions, `#`/`##` powers and indices, `@` Asset Library, smart
+ * brackets, roots and infinite nesting — identical in every table.
  */
 function MathCellEditor({ value, onChange, onCommit, entryPoint }: {
   value: string;
@@ -884,38 +880,19 @@ function MathCellEditor({ value, onChange, onCommit, entryPoint }: {
   onCommit: () => void;
   entryPoint?: { x: number; y: number } | null;
 }) {
-  const [root, setRoot] = useState<MathRow>(() => {
-    try { return latexToTree(normalizeMathSource(value)); } catch { return [] as MathRow; }
-  });
-
-  const commit = (next: MathRow) => {
-    setRoot(next);
-    try { onChange(normalizeMathSource(treeToLatex(next))); } catch { /* keep last good value */ }
-  };
-
   return (
-    <span
+    <SharedMathCellEditor
+      value={value}
+      onChange={onChange}
+      onCommit={onCommit}
+      entryPoint={entryPoint}
       className="smart-table-cell-editor inline-block min-w-[3rem] px-1 py-0.5 align-baseline"
-      style={{ color: "#0f172a" }}
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <MathInlineCanvas
-        root={root}
-        onChange={commit}
-        onBlur={onCommit}
-        focused
-        onFocus={() => { /* already focused */ }}
-        entryPoint={entryPoint ?? null}
-        onExitLeft={onCommit}
-        onExitRight={onCommit}
-        onInsertObjectAsset={(a) => {
-          onCommit();
-          toast({ title: `${a.label} is a page object`, description: "Insert it in the note, outside the table cell." });
-        }}
-      />
-    </span>
+      onObjectAsset={(a) =>
+        toast({ title: `${a.label} is a page object`, description: "Insert it in the note, outside the table cell." })
+      }
+    />
   );
 }
+
 
 export default SmartTable;
