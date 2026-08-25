@@ -6057,12 +6057,13 @@ const PresentationView = ({
               : -1;
             const counterNumber = tCount > 0 ? tIdx + 1 : activeStepIdx + 1;
             const counterTotal = tCount > 0 ? tCount : steps.length;
-            /* TAG — always the active floating number's own identifier:
-               `T{n}` (lesson-wide table sequence) inside a table, the lesson
-               step number outside. Never a lesson number for a table row. */
+            /* TAG — the active node's own identifier: `T{k}.{i}` inside an open
+               table branch, `T{k}` for a collapsed table, `L{n}` for an
+               equation. The main path never shows a child tag. */
             const counterLabel = tCount > 0
               ? (tSeries[tIdx]?.label ?? activeTag)
-              : tagForLine(steps, tableGroups, curLineIdx);
+              : mainTagForStep(steps, stepIdxForLine(steps, curLineIdx));
+
 
             const lineForCounter = (target: number): number | null => {
               if (tCount > 0) return tSeriesGroup?.memberLineIdxs[target] ?? null;
