@@ -376,7 +376,15 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
 
         <DialogFooter>
           {step && <span className="mr-auto text-xs text-muted-foreground">{step}</span>}
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (busy) abortRef.current?.abort();
+              else onClose();
+            }}
+          >
+            Cancel
+          </Button>
           <Button onClick={() => void submit()} disabled={busy || !valid}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
           </Button>
