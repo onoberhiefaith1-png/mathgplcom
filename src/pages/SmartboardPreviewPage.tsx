@@ -258,6 +258,11 @@ const Block = ({
 const SmartboardPreviewPage = () => {
   const { notebookId } = useParams<{ notebookId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Back the way you came: from a lesson note → that note; otherwise the shelf.
+  const backTarget = searchParams.get("from") === "note" && notebookId
+    ? { to: `/lesson-notes/${notebookId}`, label: "Lesson note" }
+    : { to: "/smartboard", label: "Shelf" };
   const { notebook, sections, loading } = useNotebook(notebookId);
 
   const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
