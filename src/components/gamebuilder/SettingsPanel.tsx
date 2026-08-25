@@ -735,6 +735,7 @@ const SettingsPanel = ({
           </Section>
           )}
 
+          {timerDisplay !== "video" && (
           <>
           <Section title="Fill style">
             <div className="grid grid-cols-2 gap-2">
