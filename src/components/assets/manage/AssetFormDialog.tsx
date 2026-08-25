@@ -16,6 +16,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { makeTransparent, isVideoFile } from "@/lib/games/removeBackground";
 import {
+  cutVideoBackground, NotKeyableError, type EdgeSoftness,
+} from "@/lib/games/videoChromaCut";
+import {
   GPL_SURFACES, SURFACE_LABEL, type GplAssetType, type GplSurface,
 } from "@/lib/gpl/assetLibrary";
 import { filesFromTransfer, linkFromTransfer } from "@/lib/clipboard/assetClipboard";
