@@ -110,13 +110,9 @@ export const parseFractionChip = (label: string): FractionParts | null => {
 /** Render a chip's label as JSX. When the chip is a recognised fraction,
  *  draw a real stacked fraction with the variable riding on the numerator
  *  (so `¹⁰⁄₃x` reads as "10x over 3", never as "10 over 3 x"). */
-const matrixChipLabel = (raw: string): string | null => {
-  const grid = gridFromMatrixLatex(raw);
-  if (!grid) return null;
-  const left = grid.matrixBrackets?.left ?? "[";
-  const right = grid.matrixBrackets?.right ?? "]";
-  return `${left ? `${left} ` : ""}${grid.rows} × ${grid.cols}${right ? ` ${right}` : ""}`;
-};
+/** A matrix chip is a STRUCTURE chip: it shows the empty bracketed grid it will
+ *  insert (dimensions + brackets only), never any cell value. */
+const matrixChipShell = (raw: string) => matrixShellFromLatex(raw);
 
 const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: string; placeholderColor?: string }) => {
   const safe = assertDisplaySafe(label).cleaned;
