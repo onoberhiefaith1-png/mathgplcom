@@ -3409,11 +3409,19 @@ function DocumentEditorInner({
         </div>
         <button
           type="button"
-          onClick={() => setTablesOpen(true)}
-          title="Insert a mathematical table (logs, sines, etc.)"
+          onClick={insertSmartTable}
+          title="Insert a Smart Table — interactive teaching/activity table"
           className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
         >
-          <TableIcon className="h-4 w-4" /> Tables
+          <Grid3X3 className="h-4 w-4" /> Smart Table
+        </button>
+        <button
+          type="button"
+          onClick={() => setTablesOpen(true)}
+          title="Insert a mathematical reference table (logs, antilogs, sines, etc.)"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <TableIcon className="h-4 w-4" /> Maths Table
         </button>
         <button
           type="button"
