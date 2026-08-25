@@ -281,3 +281,42 @@ export const solutionLayerObjects = (objects: SolutionObject[]): SolutionObject[
 /** Backward-compatible name for the stored-home placement law. */
 export const orderByPlacement = (objects: SolutionObject[]): SolutionObject[] =>
   sortByPlacement(objects);
+
+// ---------------------------------------------------------------------------
+// DURABLE SESSION IDENTITY
+// ---------------------------------------------------------------------------
+// A session's identity is its position + kind + ordinal in the outline. It is
+// written onto the stored rows (`doc_key`) so a Solution heading always
+// resolves to the SAME question row — never by counting rows, which drifts
+// whenever leftover rows exist or a question carries no plain text.
+
+const QUESTION_SEGMENT_KINDS = new Set<SectionKind>([
+  "example", "exercise", "classwork", "homework", "assessment", "game_questions", "custom_session",
+]);
+
+export const isQuestionSegmentKind = (k: SectionKind): boolean => QUESTION_SEGMENT_KINDS.has(k);
+
+/** The permanent key of one outline segment. */
+export const segmentKey = (seg: LessonSegment): string =>
+  `${seg.index}:${seg.kind}:${seg.ordinal}`;
+
+/**
+ * The key of the question segment that OWNS the structural heading at
+ * `structuralOrder` (0-based count of structural headings before it in the
+ * document). For a Solution heading this is the question above it; for a
+ * question heading it is itself. Returns null when nothing owns it.
+ */
+export function ownerQuestionKeyAt(doc: any, structuralOrder: number): string | null {
+  const segments = buildLessonOutline(doc);
+  const structural = segments.filter((s) => !s.implicit);
+  const seg = structural[structuralOrder];
+  if (!seg) return null;
+  if (isQuestionSegmentKind(seg.kind)) return segmentKey(seg);
+  if (!seg.isSolution) return null;
+  for (let i = seg.index - 1; i >= 0; i--) {
+    const candidate = segments[i];
+    if (candidate && isQuestionSegmentKind(candidate.kind)) return segmentKey(candidate);
+  }
+  return null;
+}
+
