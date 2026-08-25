@@ -13,7 +13,7 @@ import { latexToFriendly } from "@/lib/notebook/mathFriendly";
 import { detectSelectionKindFromText } from "@/lib/lessonnotes/detectSelectionKind";
 import { toast } from "@/hooks/use-toast";
 import { Sparkles } from "lucide-react";
-import { MathInlineCanvas } from "@/components/lessonnotes/extensions/MathInlineCanvas";
+import { MathCellEditor as SharedMathCellEditor } from "@/components/math/MathCellEditor";
 import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
 import type { Row as MathRow } from "@/lib/smartboard/mathTree";
 import {
