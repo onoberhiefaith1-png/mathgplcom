@@ -499,6 +499,53 @@ const SettingsPanel = ({
                 </p>
               </Section>
 
+              {timerDisplay !== "video" && (
+                <Section title="Nest — see it fill">
+                  {timerDisplay === "segmented" && (
+                    <Row label={`Segments (${progress.segments})`}>
+                      <Slider
+                        min={2}
+                        max={20}
+                        step={1}
+                        value={[progress.segments]}
+                        onValueChange={([v]) => patchProgress({ segments: v })}
+                      />
+                    </Row>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    {timerDisplay === "segmented"
+                      ? `${fmtClock(timerSeconds)} over ${progress.segments} segments — one bar rises every ${fmtClock(
+                          Math.round(timerSeconds / Math.max(1, progress.segments)),
+                        )}.`
+                      : `${fmtClock(timerSeconds)} rising smoothly — each step here is ${timerStepPct}% of the time.`}
+                  </p>
+                  <div className="rounded-lg border border-border/40 bg-muted/10 p-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {fmtClock(Math.round(timerSeconds * timerFill))} elapsed ·{" "}
+                        {fmtClock(Math.round(timerSeconds * (1 - timerFill)))} left
+                      </span>
+                      <span className="font-semibold text-primary">
+                        {timerDisplay === "segmented"
+                          ? `${Math.round(timerFill * progress.segments)} / ${progress.segments} risen`
+                          : `${Math.round(timerFill * 100)}%`}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <Button size="sm" onClick={() => stepNest(1)}>
+                        <SkipForward className="mr-1.5 h-3.5 w-3.5" /> Nest
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => stepNest(0)}>
+                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reset
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-[10px] text-muted-foreground/70">
+                      Preview only — it never starts the live session clock or changes any student's score.
+                    </p>
+                  </div>
+                </Section>
+              )}
+
               {timerDisplay === "video" && (
                 <Section title="Video Timer">
                   <TimerVideoTimeline
