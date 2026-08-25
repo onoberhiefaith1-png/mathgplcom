@@ -353,8 +353,10 @@ const TableActivityStage = ({
                                 const raw = edit?.key === k ? edit.draft : String(entries[k] ?? "");
                                 const solved = tryEvaluate(raw);
                                 if (solved !== null) onEntry(k, solved);
+                                // THE SENSOR IS TEACHER-OWNED: committing a
+                                // cell never walks to another cell. The next
+                                // cell is chosen by tapping it.
                                 setEdit(null);
-                                moveWithin(k, 1);
                               }}
                             />
                           </span>
