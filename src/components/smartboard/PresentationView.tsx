@@ -26,6 +26,11 @@ import {
   stepIdxForLine,
   tSeriesFor,
   tagForLine,
+  editableCellsForLine,
+  expectedCellValue,
+  isCellCorrect,
+  trackLabel,
+
 
   type TableEntries,
   type TableValidation,
