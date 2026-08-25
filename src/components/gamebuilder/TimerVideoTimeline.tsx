@@ -34,6 +34,7 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
   const [videos, setVideos] = useState<GameAssetRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState<Phase | null>(null);
+  const [gplOpen, setGplOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const url = useSignedUrl(value?.storagePath ?? null);
