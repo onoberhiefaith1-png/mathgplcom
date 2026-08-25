@@ -107,6 +107,7 @@ import type { QuickStructItem } from "@/lib/lessonnotes/symbolQuick";
 import { MatrixQuickPanel } from "./MatrixQuickPanel";
 import type { QuickMatrixSpec } from "@/lib/lessonnotes/matrixQuick";
 import { insertAsset } from "@/lib/lessonnotes/assets/insert";
+import { TABLES } from "@/lib/lessonnotes/assets/tables";
 
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
