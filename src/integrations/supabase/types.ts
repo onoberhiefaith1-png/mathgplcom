@@ -3681,6 +3681,137 @@ export type Database = {
           },
         ]
       }
+      integrity_audit_runs: {
+        Row: {
+          actor: string | null
+          fail_count: number
+          finished_at: string | null
+          id: string
+          missing_count: number
+          notes: string | null
+          partial_count: number
+          pass_count: number
+          run_no: number
+          segment_key: string
+          started_at: string
+          total: number
+          unknown_count: number
+        }
+        Insert: {
+          actor?: string | null
+          fail_count?: number
+          finished_at?: string | null
+          id?: string
+          missing_count?: number
+          notes?: string | null
+          partial_count?: number
+          pass_count?: number
+          run_no: number
+          segment_key: string
+          started_at?: string
+          total?: number
+          unknown_count?: number
+        }
+        Update: {
+          actor?: string | null
+          fail_count?: number
+          finished_at?: string | null
+          id?: string
+          missing_count?: number
+          notes?: string | null
+          partial_count?: number
+          pass_count?: number
+          run_no?: number
+          segment_key?: string
+          started_at?: string
+          total?: number
+          unknown_count?: number
+        }
+        Relationships: []
+      }
+      integrity_repair_orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          requirement_id: string
+          restoration_source: string | null
+          scope: string | null
+          segment_key: string
+          standard_snapshot: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          requirement_id: string
+          restoration_source?: string | null
+          scope?: string | null
+          segment_key: string
+          standard_snapshot: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          requirement_id?: string
+          restoration_source?: string | null
+          scope?: string | null
+          segment_key?: string
+          standard_snapshot?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      integrity_requirement_results: {
+        Row: {
+          check_details: Json
+          created_at: string
+          evidence: string | null
+          id: string
+          reason: string | null
+          requirement_id: string
+          run_id: string
+          segment_key: string
+          status: string
+        }
+        Insert: {
+          check_details?: Json
+          created_at?: string
+          evidence?: string | null
+          id?: string
+          reason?: string | null
+          requirement_id: string
+          run_id: string
+          segment_key: string
+          status: string
+        }
+        Update: {
+          check_details?: Json
+          created_at?: string
+          evidence?: string | null
+          id?: string
+          reason?: string | null
+          requirement_id?: string
+          run_id?: string
+          segment_key?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrity_requirement_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "integrity_audit_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_assignments: {
         Row: {
           archived_at: string | null
