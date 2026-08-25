@@ -3618,6 +3618,12 @@ function DocumentEditorInner({
         />
         </Suspense>
         )}
+        <MatrixQuickPanel
+          open={matrixPanelOpen}
+          onClose={() => setMatrixPanelOpen(false)}
+          onInsert={insertQuickMatrix}
+        />
+
         {slidePanelOpen && notebookId && (
           <SlidePanel
             notebookId={notebookId}
