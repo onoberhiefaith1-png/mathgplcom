@@ -701,7 +701,7 @@ const PresenterPreviewPanel = ({
                   const lineActive = isActive && activeLineIdx === k;
                   const lineKey = `${it.id}::${k}`;
                   const tag = tagAt(k);
-                  const tagCaption = tag.startsWith("T") ? tag : `Line ${tag}`;
+                  const tagCaption = tag;
                   const lineTarget: EditTarget = {
                     kind: "solution-line",
                     beatId: it.id,
