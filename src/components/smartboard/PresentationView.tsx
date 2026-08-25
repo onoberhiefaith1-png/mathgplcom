@@ -5136,12 +5136,12 @@ const PresentationView = ({
         }}
       >
         <button
-          onClick={() => navigate("/smartboard")}
+          onClick={() => navigate(backTarget.to)}
           className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs"
           style={{ color: palette.chromeFg }}
-          aria-label="Back to shelf"
+          aria-label={`Back to ${backTarget.label.toLowerCase()}`}
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Shelf
+          <ArrowLeft className="h-3.5 w-3.5" /> {backTarget.label}
         </button>
 
         {/* REVIEW PROPERTIES — reviews the teacher-authored Geometry Properties
