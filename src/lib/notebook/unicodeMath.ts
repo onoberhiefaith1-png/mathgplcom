@@ -67,7 +67,49 @@ const holdFractions = (src: string, holds: string[]): string => {
 };
 
 
-/** Convert any LaTeX / code-flavored math to Unicode classroom math. */
+/* ── structure protection (matrices, Σ, ∫, lim, \left…\right) ──────────
+ * These are SYMBOLS, exactly like a fraction or a root. Every brace/escape
+ * stripping pass below would dissolve `\begin{bmatrix}…\end{bmatrix}` into
+ * `\beginbmatrix…`, which is precisely the raw syntax teachers reported. So
+ * complete structures are lifted out behind private-use sentinels and put
+ * back verbatim at the very end.                                        */
+
+const STRUCT_TOKEN = (i: number) => `\uE003${String.fromCharCode(0xE300 + i)}\uE003`;
+
+/** Normalize the inner mathematics of a matrix/cases body cell by cell. */
+const normalizeEnvBody = (markup: string): string => {
+  const m = /^(\\begin\s*\{[A-Za-z*]+\})([\s\S]*)(\\end\s*\{[A-Za-z*]+\}[\s\S]*)$/.exec(markup);
+  if (!m) return markup;
+  const body = m[2]
+    .split(/\\\\/)
+    .map((row) => row.split("&").map((cell) => toUnicodeMath(cell)).join(" & "))
+    .join(" \\\\ ");
+  return `${m[1]}${body}${m[3]}`;
+};
+
+/** Replace every complete structure with a sentinel, storing it verbatim. */
+const holdStructures = (src: string, holds: string[]): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const end = readStructureAt(src, i);
+    // Fractions and roots keep their own dedicated handling below.
+    const isOwnHandled = /^\\(?:d|t)?frac\b|^\\sqrt\b|^\\root\b/.test(src.slice(i));
+    if (end > i && !isOwnHandled) {
+      const markup = src.slice(i, end);
+      out += STRUCT_TOKEN(holds.length);
+      holds.push("");
+      const at = holds.length - 1;
+      holds[at] = /^\\begin\b/.test(markup) ? normalizeEnvBody(markup) : markup;
+      i = end;
+      continue;
+    }
+    out += src[i++];
+  }
+  return out;
+};
+
+
 export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
   let s = String(input);
