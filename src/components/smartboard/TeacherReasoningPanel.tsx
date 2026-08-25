@@ -14,6 +14,90 @@ import { usePolling } from "@/lib/stability/usePolling";
 import { collapseNestedBoxes, structureHash, type Row } from "@/lib/smartboard/mathTree";
 import MathTreeRender from "./MathTreeRender";
 import { PresenterMath, PRESENTER_INK, toDisplaySafe } from "./PresenterMath";
+import { renderMathInline } from "@/lib/notebook/mathRender";
+import { parseCellKey } from "@/lib/floating/tableGrid";
+import type { TableValidation } from "@/lib/smartboard/tableActivity";
+
+/** Cell-aware table viewer. Values keep their coordinates: a value is only
+ *  ever shown (and only ever counted) in the cell it belongs to.
+ *  `side = "expected"` draws the teacher's grid, `"student"` the answers. */
+const TableGridViewer = ({
+  table,
+  side,
+}: {
+  table: TableValidation;
+  side: "expected" | "student";
+}) => {
+  const cells = new Map<string, TableValidation["tracks"][number]["cells"][number]>();
+  for (const t of table.tracks) for (const c of t.cells) cells.set(c.key, c);
+  const activeKeys = new Set((table.activeTrack?.cells ?? []).map((c) => c.key));
+  const headers = table.headers ?? [];
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="border-collapse text-[14px]">
+        {headers.some((h) => String(h ?? "").trim()) && (
+          <thead>
+            <tr>
+              {headers.map((h, c) => (
+                <th key={`th-${c}`} className="border border-border px-2 py-1 text-center font-semibold">
+                  {String(h ?? "").trim() ? renderMathInline(String(h), `tgv-h-${side}-${c}`) : "\u00A0"}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {Array.from({ length: table.rows }, (_, r) => (
+            <tr key={`tr-${r}`}>
+              {Array.from({ length: table.cols }, (_, c) => {
+                const key = `${r}:${c}`;
+                const cell = cells.get(key);
+                const inActive = activeKeys.has(key);
+                const value = side === "expected"
+                  ? cell?.expected ?? ""
+                  : cell?.status === "retained" ? cell.expected : cell?.given ?? "";
+                const tone =
+                  side === "student" && cell
+                    ? cell.status === "correct"
+                      ? "text-emerald-500"
+                      : cell.status === "incorrect"
+                        ? "text-destructive"
+                        : cell.status === "retained"
+                          ? "text-muted-foreground"
+                          : ""
+                    : "";
+                return (
+                  <td
+                    key={key}
+                    className={`border border-border px-2 py-1 text-center tabular-nums ${tone} ${
+                      inActive ? "bg-amber-500/10" : ""
+                    }`}
+                    style={{ minWidth: 52 }}
+                    title={key}
+                  >
+                    {String(value ?? "").trim()
+                      ? renderMathInline(String(value), `tgv-${side}-${key}`)
+                      : "\u00A0"}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {side === "student" && (
+        <div className="mt-1 text-[10px] text-muted-foreground">
+          {table.activeTrack
+            ? `${table.activeTrack.label} — ${table.activeTrack.cells.filter((c) => c.status === "correct").length}/${
+                table.activeTrack.cells.filter((c) => c.status !== "retained").length
+              } cells correct`
+            : "no active row"}
+        </div>
+      )}
+    </div>
+  );
+};
 
 type KeyLine = { questionId: string; lineId: string; tokens: string[]; equationAscii?: string };
 
@@ -33,6 +117,9 @@ type LivePayload = {
   activeRow?: number | null;
   attempt?: number;
   introducedTerms?: string[];
+  /** A TABLE STAYS A TABLE — the hidden Smart Table validation snapshot. When
+   *  present the expected / student lines are drawn as grids, never as text. */
+  table?: TableValidation | null;
 };
 type CheckPayload = {
   ts: number;
@@ -502,7 +589,9 @@ const TeacherReasoningPanel = ({
               resetKey={`${currentQid ?? ""}:${currentLid ?? ""}`}
               sticky
             >
-              {expectedAscii ? (
+              {feed.table ? (
+                <TableGridViewer table={feed.table} side="expected" />
+              ) : expectedAscii ? (
                 <PresenterMath ascii={expectedAscii} keyBase="reason-expected" color="currentColor" />
               ) : (
                 <span className="italic text-muted-foreground">no answer key</span>
@@ -519,7 +608,9 @@ const TeacherReasoningPanel = ({
                 </span>
               }
             >
-              {studentTree ? (
+              {feed.table ? (
+                <TableGridViewer table={feed.table} side="student" />
+              ) : studentTree ? (
                 // MIRROR: the exact object on the student's Smartboard.
                 <span style={{ color: "currentColor" }}>
                   <MathTreeRender
