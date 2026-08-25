@@ -104,6 +104,9 @@ import {
 
 import { MathSymbolPanel } from "./MathSymbolPanel";
 import { MatrixQuickPanel } from "./MatrixQuickPanel";
+import type { QuickMatrixSpec } from "@/lib/lessonnotes/matrixQuick";
+import { insertAsset } from "@/lib/lessonnotes/assets/insert";
+
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
 import { AiEditBridgeProvider, type AiEditRequest } from "@/hooks/useAiEditBridge";
