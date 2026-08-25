@@ -9,6 +9,7 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { setAppContext } from "@/lib/stability/appContext";
+import { installDomGuard } from "@/lib/stability/domGuard";
 import { resetInteractionState } from "@/lib/stability/interactionReset";
 
 
