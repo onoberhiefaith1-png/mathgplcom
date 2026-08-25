@@ -51,40 +51,39 @@ const normalise = (raw: string): string =>
  *  the student never types into the teacher's drawing. */
 export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
   const out: TableGroup[] = [];
+  const byObj = new Map<string, TableGroup>();
   lines.forEach((line, idx) => {
     const t = line?.table;
     if (!t?.objId || !t.grid) return;
     const structural = Array.isArray((t.grid as any).staticCells)
       ? ((t.grid as any).staticCells as string[])
       : [];
-    const last = out[out.length - 1];
-    if (last && last.objId === t.objId) {
-      last.memberLineIdxs.push(idx);
+    // ONE BRANCH PER TABLE: membership is keyed by objId, not adjacency, so a
+    // table whose lines are non-contiguous (or highlighted twice) can never
+    // split into two branches or claim two T numbers.
+    const existing = byObj.get(t.objId);
+    if (existing) {
+      existing.memberLineIdxs.push(idx);
       for (const k of [...(t.retained ?? []), ...structural]) {
-        if (!last.retained.includes(k)) last.retained.push(k);
+        if (!existing.retained.includes(k)) existing.retained.push(k);
       }
       return;
     }
-    out.push({
+    const group: TableGroup = {
       objId: t.objId,
       label: t.label || t.grid.label || "Table",
       orientation: t.orientation === "column" ? "column" : "row",
       grid: t.grid,
       retained: Array.from(new Set([...(t.retained ?? []), ...structural])),
       memberLineIdxs: [idx],
-      tStart: 0,
-    });
+      tableIndex: out.length + 1,
+    };
+    byObj.set(t.objId, group);
+    out.push(group);
   });
-
-  // Lesson-wide continuous T numbering: T1…Tn for the first table, then the
-  // next table carries on from n+1, and so on.
-  let running = 0;
-  for (const g of out) {
-    g.tStart = running;
-    running += g.memberLineIdxs.length;
-  }
   return out;
 };
+
 
 
 export const groupForLine = (
