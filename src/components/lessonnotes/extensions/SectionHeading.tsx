@@ -17,7 +17,8 @@ import { useLocation, useNavigate, useParams } from "@/lib/router-compat";
 import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import type { MaterialFile, StageId, TeacherContext } from "@/lib/lessonnotes/ai/pipeline/types";
 import { AssignDialog } from "../AssignDialog";
-import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, structuralHeadingKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import { ownerQuestionKeyAt } from "@/lib/lessonnotes/lessonOutline";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
@@ -149,52 +150,9 @@ function SectionHeadingView(props: NodeViewProps) {
     }
   }, [kind, computeSection, opts, text]);
 
-  /** Where this Solution heading sits in the document, expressed in the same
-   *  index space the sync layer uses for notebook_sections /
-   *  notebook_subsections rows. */
-  const locateIndices = useCallback((): { parentSectionIndex: number; subsectionIndex: number } | null => {
-    if (!notebookId || kind !== "solution") return null;
-    const pos = typeof getPos === "function" ? getPos() : null;
-    if (pos == null) return null;
-    const doc = editor.state.doc;
-    // Collect top-level H1/H2 section boundaries (parsed[] index parity).
-    const topHeadings: { pos: number; kind: SectionKind | null }[] = [];
-    doc.descendants((n, p) => {
-      if (n.type.name === "heading" && (n.attrs.level ?? 6) <= 2) {
-        topHeadings.push({ pos: p, kind: detectSectionKind(n.textContent) });
-        return false;
-      }
-      return true;
-    });
-    // Filter to ones the sync layer keeps as sections (skip "solution").
-    const sectionList = topHeadings.filter((h) => h.kind && h.kind !== "solution");
-    let parentSectionIndex = -1;
-    for (let i = 0; i < sectionList.length; i++) {
-      if (sectionList[i].pos < pos) parentSectionIndex = i;
-      else break;
-    }
-    if (parentSectionIndex < 0) return null;
-    // Count Solution H3s that precede this one within the parent section.
-    const parentStart = sectionList[parentSectionIndex].pos;
-    const parentEnd = parentSectionIndex + 1 < sectionList.length
-      ? sectionList[parentSectionIndex + 1].pos
-      : doc.content.size;
-    let subsectionIndex = 0;
-    let selfFound = false;
-    doc.descendants((n, p) => {
-      if (p < parentStart || p >= parentEnd) return true;
-      if (p === pos) { selfFound = true; return false; }
-      if (n.type.name === "heading" && (n.attrs.level ?? 6) <= 3) {
-        const t = (n.textContent || "").toLowerCase().trim();
-        if (t.startsWith("solution") || t.includes("worked solution")) {
-          subsectionIndex += 1;
-        }
-      }
-      return true;
-    });
-    if (!selfFound) return null;
-    return { parentSectionIndex, subsectionIndex };
-  }, [notebookId, kind, getPos, editor]);
+  // Positional row-counting is deliberately gone: it is what resolved the
+  // wrong solution. Identity (doc_key) is the only resolution path.
+
 
   /** Snapshot the question that this Solution belongs to: the text between the
    *  parent question heading and this Solution heading, plus any geometry
@@ -233,52 +191,77 @@ function SectionHeadingView(props: NodeViewProps) {
     return info?.sectionText ?? "";
   }, [computeSection]);
 
+  /** DURABLE IDENTITY of the question this Solution belongs to.
+   *  Counts the structural headings that precede this one (the same order
+   *  `buildLessonOutline` walks) and asks the outline which question segment
+   *  owns that position. The result is the exact `doc_key` written on the
+   *  stored rows, so Floating always opens THIS question's row — never a
+   *  neighbour's, even when the question carries no plain text (tables only). */
+  const docKeyForHeading = useCallback((): string | null => {
+    const pos = typeof getPos === "function" ? getPos() : null;
+    if (pos == null) return null;
+    const doc = editor.state.doc;
+    let order = 0;
+    let selfOrder: number | null = null;
+    doc.descendants((n, p) => {
+      if (n.type.name !== "heading") return true;
+      const level = Number(n.attrs?.level ?? 6);
+      const marker = structuralHeadingKind((n.textContent || "").trim(), level, n.attrs as any);
+      if (!marker) return false;
+      if (p === pos) { selfOrder = order; return false; }
+      order += 1;
+      return false;
+    });
+    if (selfOrder == null) return null;
+    return ownerQuestionKeyAt(doc.toJSON(), selfOrder);
+  }, [getPos, editor]);
+
   /** When the cached subsectionId attr is stale (sync rewrites IDs on every
-   *  save), resolve the live subsection for this Solution heading. Content
-   *  first — match the snapshotted question text against the stored problem
-   *  blocks — then fall back to the positional index, which can land on a
-   *  different (often empty) row when the doc and DB order diverge. */
+   *  save), resolve the live subsection for this Solution heading. Identity
+   *  first — the durable `doc_key` — then an exact question-text match for
+   *  legacy rows written before keys existed. There is no positional
+   *  fallback: guessing by row order is what opened the wrong solution. */
   const resolveSubsectionId = useCallback(async (): Promise<string | null> => {
     if (!notebookId) return null;
     const questionText = snapshotQuestion().text;
     const norm = (s: string) => String(s ?? "").replace(/\s+/g, "").toLowerCase();
     const wanted = norm(questionText);
-
-    const at = locateIndices();
+    const docKey = docKeyForHeading();
 
     const { data: secs } = await supabase
       .from("notebook_sections")
-      .select("id, order_index")
+      .select("id, order_index, doc_key")
       .eq("notebook_id", notebookId)
       .order("order_index", { ascending: true });
     const sectionIds = (secs ?? []).map((s: any) => s.id as string);
+    if (!sectionIds.length) return null;
 
-    // 1) Content match across this notebook's problem blocks.
-    if (wanted.length >= 4 && sectionIds.length) {
+    // 1) IDENTITY MATCH — the only reliable resolution.
+    if (docKey) {
+      const { data: keyed } = await supabase
+        .from("notebook_subsections")
+        .select("id, doc_key, section_id, order_index")
+        .in("section_id", sectionIds)
+        .eq("doc_key", docKey)
+        .order("order_index", { ascending: true });
+      const hit = (keyed ?? [])[0] as any;
+      if (hit?.id) return hit.id as string;
+    }
+
+    // 2) Legacy rows (no doc_key yet): exact question-text match only.
+    if (wanted.length >= 4) {
       const { data: problems } = await supabase
         .from("notebook_blocks")
         .select("subsection_id, content_ascii, kind, section_id")
         .in("section_id", sectionIds)
         .eq("kind", "problem" as any);
-      const hit = (problems ?? []).find((p: any) => {
-        const c = norm(p.content_ascii);
-        return c.length >= 4 && (c === wanted || c.includes(wanted) || wanted.includes(c));
-      }) as any;
+      const hit = (problems ?? []).find((p: any) => norm(p.content_ascii) === wanted) as any;
       if (hit?.subsection_id) return hit.subsection_id as string;
     }
 
-    // 2) Positional fallback (previous behaviour).
-    if (!at) return null;
-    const sec = (secs ?? [])[at.parentSectionIndex] as any;
-    if (!sec?.id) return null;
-    const { data: subs } = await supabase
-      .from("notebook_subsections")
-      .select("id, order_index")
-      .eq("section_id", sec.id)
-      .order("order_index", { ascending: true });
-    const sub = (subs ?? [])[at.subsectionIndex] as any;
-    return sub?.id ?? null;
-  }, [locateIndices, notebookId, snapshotQuestion]);
+    return null;
+  }, [docKeyForHeading, notebookId, snapshotQuestion]);
+
 
   const openSmartCard = useCallback(async () => {
     if (!notebookId) return;
@@ -311,22 +294,32 @@ function SectionHeadingView(props: NodeViewProps) {
 
   /** Floating Numbers must ALWAYS be reachable from a Solution heading, even
    *  when the solution is still empty — the workspace simply opens blank.
-   *  Resolve first; if the backing rows don't exist yet (brand-new section
-   *  that hasn't synced, or an empty question the sync layer skipped), create
-   *  them on the spot instead of refusing with a toast. */
+   *  Resolve by identity first; if the backing rows don't exist yet, run the
+   *  sync layer (which writes the durable keys) and resolve again. Only when
+   *  that still fails do we create a keyed row ourselves. Nothing is ever
+   *  claimed positionally. */
   const ensureSubsectionId = useCallback(async (): Promise<string | null> => {
     const resolved = await resolveSubsectionId();
     if (resolved) return resolved;
     if (!notebookId) return null;
-    const at = locateIndices();
-    if (!at) return null;
+
+    // The document is the source of truth: let the sync layer materialise the
+    // rows with their doc_keys, then resolve by identity again.
+    try {
+      await syncDocumentToNotebook(notebookId, editor.state.doc.toJSON());
+      const afterSync = await resolveSubsectionId();
+      if (afterSync) return afterSync;
+    } catch { /* fall through to direct creation */ }
+
+    const docKey = docKeyForHeading();
+    if (!docKey) return null;
 
     const { data: secs } = await supabase
       .from("notebook_sections")
-      .select("id, order_index")
+      .select("id, order_index, doc_key")
       .eq("notebook_id", notebookId)
       .order("order_index", { ascending: true });
-    let sectionId = ((secs ?? [])[at.parentSectionIndex] as any)?.id as string | undefined;
+    let sectionId = ((secs ?? []).find((s: any) => s.doc_key === docKey) as any)?.id as string | undefined;
     if (!sectionId) {
       const { data: created } = await supabase
         .from("notebook_sections")
@@ -334,6 +327,7 @@ function SectionHeadingView(props: NodeViewProps) {
           notebook_id: notebookId,
           kind: "example" as any,
           order_index: (secs ?? []).length,
+          doc_key: docKey,
         })
         .select("id")
         .single();
@@ -343,10 +337,10 @@ function SectionHeadingView(props: NodeViewProps) {
 
     const { data: subs } = await supabase
       .from("notebook_subsections")
-      .select("id, order_index")
+      .select("id, order_index, doc_key")
       .eq("section_id", sectionId)
       .order("order_index", { ascending: true });
-    const existingSub = ((subs ?? [])[at.subsectionIndex] as any)?.id as string | undefined;
+    const existingSub = ((subs ?? []).find((s: any) => s.doc_key === docKey) as any)?.id as string | undefined;
     if (existingSub) return existingSub;
 
     const { data: newSub } = await supabase
@@ -354,6 +348,7 @@ function SectionHeadingView(props: NodeViewProps) {
       .insert({
         section_id: sectionId,
         order_index: (subs ?? []).length,
+        doc_key: docKey,
         floating_lines: [],
       })
       .select("id")
@@ -366,7 +361,8 @@ function SectionHeadingView(props: NodeViewProps) {
       { section_id: sectionId, subsection_id: subId, kind: "reasoning" as any, order_index: 2, content_ascii: "" },
     ]);
     return subId;
-  }, [resolveSubsectionId, locateIndices, notebookId]);
+  }, [resolveSubsectionId, docKeyForHeading, notebookId, editor]);
+
 
 
   // ── SPLIT THE SOLUTION FROM ITS QUESTION ──────────────────────────────
