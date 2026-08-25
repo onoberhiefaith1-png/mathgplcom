@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
-import BuildingLibraryModal, { type BuildingMediaPick } from "@/components/homepage/BuildingLibraryModal";
+import AssetLibraryModal, { type UrlPick } from "@/components/gamebuilder/AssetLibraryModal";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
 import { makeTransparent } from "@/lib/games/removeBackground";
 import { getSignedUrl } from "@/lib/games/urls";
@@ -13,6 +13,7 @@ import {
   defaultAnimation,
   defaultSlant,
   uid,
+  type AssetKind,
   type CanvasElement,
   type GameAssetRow,
   type MediaSource,
@@ -61,6 +62,7 @@ const HomepageReplaceBuildingPage = () => {
   const [building, setBuilding] = useState<CanvasElement | null>(null);
   const [speed, setSpeed] = useState(1);
   const [library, setLibrary] = useState(false);
+  const [assetKind, setAssetKind] = useState<AssetKind>("reward");
   const [busy, setBusy] = useState(false);
   const [cutting, setCutting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -81,7 +83,7 @@ const HomepageReplaceBuildingPage = () => {
     setLibrary(false);
   };
 
-  const pickUrl = (pick: BuildingMediaPick) => {
+  const pickUrl = (pick: UrlPick) => {
     setBuilding(makeBuilding(pick.src, "url", pick.mediaType));
     setLibrary(false);
   };
@@ -101,7 +103,14 @@ const HomepageReplaceBuildingPage = () => {
 
   /** Cut the backdrop out of the building currently on the preview. */
   const removeBg = async () => {
-    if (!building || building.mediaType !== "image") return;
+    if (!building) {
+      toast.error("Choose an image building first");
+      return;
+    }
+    if (building.mediaType !== "image") {
+      toast.info("Videos use the chroma-key switch in Building settings");
+      return;
+    }
     setCutting(true);
     try {
       const url =
@@ -172,23 +181,6 @@ const HomepageReplaceBuildingPage = () => {
     }
   };
 
-  const applySavedBuilding = async (row: { config: typeof config; name: string }) => {
-    const nextBuilding = row.config.buildingMode === "custom" ? row.config.customBuilding ?? null : null;
-    try {
-      await save({
-        buildingMode: row.config.buildingMode ?? "mathgpl",
-        customBuilding: row.config.customBuilding ?? null,
-        slotOverrides: row.config.slotOverrides,
-        buildingSpeed: clampBuildingSpeed(row.config.buildingSpeed),
-      });
-      setSpeed(clampBuildingSpeed(row.config.buildingSpeed));
-      setBuilding(nextBuilding);
-      toast.success(`${row.name} applied`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not apply building");
-    }
-  };
-
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
@@ -238,11 +230,11 @@ const HomepageReplaceBuildingPage = () => {
               <Upload className="mr-2 h-4 w-4" /> {busy ? "Uploading…" : "Upload building"}
             </Button>
             <Button variant="outline" onClick={() => setLibrary(true)}>
-              Choose building from Asset Library
+              Choose from MathGPL Assets
             </Button>
             <Button
               variant="outline"
-              disabled={cutting || !building || building.mediaType !== "image"}
+              disabled={cutting}
               onClick={() => void removeBg()}
               title={
                 building && building.mediaType !== "image"
@@ -309,13 +301,18 @@ const HomepageReplaceBuildingPage = () => {
 
       </main>
 
-      <BuildingLibraryModal
+      <AssetLibraryModal
         open={library}
         onOpenChange={setLibrary}
-        target={version}
-        canIncludeFreeSnapshots={canSwitch}
-        onPickMedia={pickUrl}
-        onApplySnapshot={(row) => applySavedBuilding(row)}
+        kind={assetKind}
+        onKindChange={setAssetKind}
+        onPickUploaded={pickUploaded}
+        onPickUrl={pickUrl}
+        onPickPreset={() => toast.info("Progress bar presets cannot be used as the homepage building")}
+        title="Choose from MathGPL Assets"
+        initialCatalogCategory={null}
+        myGplKind="any"
+        pickGplImmediately
       />
     </div>
   );

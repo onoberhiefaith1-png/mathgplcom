@@ -17,14 +17,15 @@ import { useSignedUrl } from "@/components/gamebuilder/SignedMedia";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
 
 interface Props {
-  kind: "image" | "video";
+  kind: "image" | "video" | "any";
   onClose: () => void;
   onPick: (asset: GplAsset) => void;
 }
 
-function AssetTile({ asset, kind, onPick }: { asset: GplAsset; kind: "image" | "video"; onPick: () => void }) {
+function AssetTile({ asset, kind, onPick }: { asset: GplAsset; kind: "image" | "video" | "any"; onPick: () => void }) {
   const signed = useSignedUrl(asset.storage_path);
   const url = asset.external_url || signed;
+  const previewKind = kind === "any" ? asset.media_type : kind;
   return (
     <button
       type="button"
@@ -32,7 +33,7 @@ function AssetTile({ asset, kind, onPick }: { asset: GplAsset; kind: "image" | "
       className="group flex flex-col gap-1 rounded-lg border p-1.5 text-left hover:bg-muted"
     >
       <span className="grid h-16 w-full place-items-center overflow-hidden rounded bg-muted/60">
-        {url && kind === "image" ? (
+        {url && previewKind === "image" ? (
           <img src={url} alt={asset.name} className="h-full w-full object-contain" />
         ) : url ? (
           <video src={url} muted className="h-full w-full object-contain" />
@@ -75,7 +76,15 @@ export function MyGplMediaPicker({ kind, onClose, onPick }: Props) {
     if (!sub) return;
     setLoading(true);
     listAssets(sub.id)
-      .then((rows) => setAssets(rows.filter((a) => a.media_type === kind && a.is_active)))
+      .then((rows) =>
+        setAssets(
+          rows.filter((a) =>
+            kind === "any"
+              ? a.is_active && (a.media_type === "image" || a.media_type === "video")
+              : a.is_active && a.media_type === kind,
+          ),
+        ),
+      )
       .catch(() => setAssets([]))
       .finally(() => setLoading(false));
   }, [sub, kind]);
@@ -102,7 +111,7 @@ export function MyGplMediaPicker({ kind, onClose, onPick }: Props) {
           </button>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">
-              MyGPL {kind === "image" ? "images" : "videos"}
+              {kind === "any" ? "MyGPL media" : `MyGPL ${kind === "image" ? "images" : "videos"}`}
             </p>
             <p className="truncate text-[11px] text-muted-foreground">
               {sub ? `${session?.name} › ${sub.name}` : session ? session.name : "Choose a session"}
