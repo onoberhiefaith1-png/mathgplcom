@@ -725,7 +725,8 @@ export const design: RequirementDomain = {
       status: "PARTIAL",
       severity: "LOW",
       permanent: "PENDING",
-      notes: "PARTIAL: token discipline was not verified component-by-component in this pass.",
+      notes:
+        "PARTIAL, measured 2026-08-25: the token layer in src/styles.css is correct and every surface family keeps its theme, but a repository sweep of src/components and src/pages found 559 hard-coded colour-utility occurrences (text-white, bg-black, bg-[#...] and similar) that bypass the tokens. Clearing this requires an approved theming refactor across those files; it is deliberately NOT recorded as PASS.",
     },
   ],
 };

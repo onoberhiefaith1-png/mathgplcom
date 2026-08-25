@@ -115,6 +115,9 @@ export const platformCore: RequirementDomain = {
         { kind: "manual", target: "Spot-check public routes for unique head() metadata" },
       ],
       restorationSource: "NONE — per-route content, no single source",
+      // Measured 2026-08-25: 147 route files define no head() at all and 8 titles
+      // are duplicated across routes, so this cannot be recorded as PASS without
+      // an approved metadata pass over those routes.
       status: "UNKNOWN",
       severity: "LOW",
       permanent: "PENDING",
