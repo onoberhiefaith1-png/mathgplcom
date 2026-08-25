@@ -39,6 +39,11 @@ export interface FloatingTableRef {
     cells: string[][];
     rows: number;
     cols: number;
+    /** Matrix-as-grid: the Smartboard renders brackets, not table borders. */
+    isMatrix?: boolean;
+    matrixEnv?: string;
+    matrixBrackets?: { left: string; right: string };
+    sourceLatex?: string;
     /** Smart Structure: retained structural cells, never Floating Numbers. */
     staticCells?: string[];
     staticGlyphs?: Record<string, string>;
