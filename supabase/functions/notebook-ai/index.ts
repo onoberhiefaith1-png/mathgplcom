@@ -1405,6 +1405,9 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
       };
       const selection = String(b.selectionText ?? "").trim();
       const instruction = String(b.instruction ?? "").trim();
+      const selectionJson = b.selectionJson == null
+        ? ""
+        : JSON.stringify(b.selectionJson).slice(0, 12_000);
       if (!selection) {
         return new Response(JSON.stringify({ error: "missing selectionText" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1466,6 +1469,9 @@ EDIT RULES:
 
       const user = `SELECTED FRAGMENT (kind: ${b.kind}):
 ${selection}
+
+SELECTED DOCUMENT STRUCTURE (authoritative when present):
+${selectionJson || "plain text selection"}
 
 TEACHER INSTRUCTION:
 ${instruction || "Improve the selected fragment while keeping its meaning."}`;
