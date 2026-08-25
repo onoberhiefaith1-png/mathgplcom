@@ -619,11 +619,11 @@ export const stability: RequirementDomain = {
         { kind: "test", target: "src/lib/lessonnotes/__tests__/sessionLayoutBudget.test.ts" },
       ],
       restorationSource: "StabilityWatchdog + sessionLayout loop fix (current)",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "CRITICAL",
       permanent: "PENDING",
       notes:
-        "PARTIAL: multiple specific freezes were fixed, but there is no automated guard against the class of defect. This is the highest-value Section I test to add.",
+        "Cleared 2026-08-25: the freeze class now has an automated guard. The layout pass budget was extracted as a pure rule (layoutPassBudget in src/lib/lessonnotes/sessionLayout.ts) and src/lib/lessonnotes/__tests__/sessionLayoutBudget.test.ts proves a bounded burst, that a spent budget stays spent under relentless self-triggering (500 attempts produce at most MAX_PASSES runs, so the loop cannot run away), and that the budget only returns after the quiet window.",
     },
     {
       id: "STAB-003",
