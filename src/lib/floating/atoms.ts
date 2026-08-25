@@ -9,6 +9,26 @@
 // ids. The Highlight Generation engine (highlightEngine.ts) works on that flat
 // list — its contract is unchanged.
 
+import { readStructureAt } from "@/lib/notebook/mathTokens";
+
+/** Structures kept whole as ONE atom. `\frac` and `\sqrt` are excluded — the
+ *  flat parser already draws them as real stacked/radical mathematics with
+ *  individually selectable parts. */
+const WHOLE_STRUCTURE = new Set([
+  "begin", "left",
+  "sum", "prod", "coprod", "int", "iint", "iiint", "oint",
+  "lim", "limsup", "liminf", "binom",
+  "vec", "hat", "bar", "overline", "underline", "tilde", "dot", "ddot",
+  "abs", "norm", "floor", "ceil", "overrightarrow",
+]);
+
+/** End index of a whole-structure token starting at `i`, else -1. */
+const wholeStructureAt = (s: string, i: number): number => {
+  const m = /^\\([A-Za-z]+)/.exec(s.slice(i));
+  if (!m || !WHOLE_STRUCTURE.has(m[1])) return -1;
+  return readStructureAt(s, i);
+};
+
 export type AtomKind =
   | "number"
   | "variable"
