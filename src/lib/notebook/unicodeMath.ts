@@ -3,6 +3,8 @@
 // Used by the floating-number extractor on both server and client so chips
 // never display raw `\sqrt`, `^{2}`, `**`, etc.
 
+import { readStructureAt } from "./mathTokens";
+
 const SUP: Record<string, string> = {
   "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
   "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
@@ -110,6 +112,7 @@ const holdStructures = (src: string, holds: string[]): string => {
 };
 
 
+/** Convert any LaTeX / code-flavored math to Unicode classroom math. */
 export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
   let s = String(input);
@@ -137,6 +140,9 @@ export const toUnicodeMath = (input: string): string => {
   // "strip stray braces" pass below used to turn `\frac{□}{□}` into
   // `\frac□□`, which the renderer then drew as an empty fraction (2 slots)
   // PLUS two orphan placeholder boxes — four cells for a two-cell object.
+  const structHolds: string[] = [];
+  s = holdStructures(s, structHolds);
+
   const fracHolds: string[] = [];
   s = holdFractions(s, fracHolds);
 
@@ -211,6 +217,11 @@ export const toUnicodeMath = (input: string): string => {
   // fraction with exactly two cells.
   fracHolds.forEach((markup, i) => {
     s = s.split(FRAC_TOKEN(i)).join(markup);
+  });
+  // Matrices, big operators, limits and \left…\right groups come back whole:
+  // one symbol, braces intact, exactly as the classroom renderer expects.
+  structHolds.forEach((markup, i) => {
+    s = s.split(STRUCT_TOKEN(i)).join(markup);
   });
 
   // Defence in depth: any leftover private-use sentinel must never reach the
