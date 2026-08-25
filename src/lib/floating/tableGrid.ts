@@ -14,6 +14,14 @@ export type TableOrientation = "row" | "column";
 export interface TableGrid {
   objId: string;
   label: string;
+  /** True when this grid is a mathematical matrix, not a classroom table. */
+  isMatrix?: boolean;
+  /** Original LaTeX matrix environment (`bmatrix`, `pmatrix`, …). */
+  matrixEnv?: string;
+  /** Visual bracket pair retained from the source matrix. */
+  matrixBrackets?: { left: string; right: string };
+  /** Original source for lossless identity / persistence. */
+  sourceLatex?: string;
   /** Column headers (may be empty strings). */
   headers: string[];
   /** Data rows — always rectangular, headers excluded. */
@@ -91,6 +99,115 @@ const asStringMatrix = (raw: any, rows: number, cols: number): string[][] => {
   return out;
 };
 
+const MATRIX_BRACKETS: Record<string, { left: string; right: string }> = {
+  matrix: { left: "", right: "" },
+  pmatrix: { left: "(", right: ")" },
+  bmatrix: { left: "[", right: "]" },
+  Bmatrix: { left: "{", right: "}" },
+  vmatrix: { left: "|", right: "|" },
+  Vmatrix: { left: "‖", right: "‖" },
+  cases: { left: "{", right: "" },
+};
+
+const MATRIX_ENV_RE = /\\begin\s*\{(matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|cases)\}/;
+
+const hashText = (src: string): string => {
+  let h = 2166136261;
+  for (let i = 0; i < src.length; i++) {
+    h ^= src.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+};
+
+const findMatrixSource = (raw: string): { env: string; latex: string; body: string } | null => {
+  const src = String(raw ?? "");
+  const begin = MATRIX_ENV_RE.exec(src);
+  if (!begin) return null;
+  const env = begin[1];
+  const bodyStart = begin.index + begin[0].length;
+  const endTag = `\\end{${env}}`;
+  const endAt = src.indexOf(endTag, bodyStart);
+  if (endAt < 0) return null;
+  const latex = src.slice(begin.index, endAt + endTag.length);
+  return { env, latex, body: src.slice(bodyStart, endAt) };
+};
+
+const splitTopLevel = (src: string, delimiter: "row" | "cell"): string[] => {
+  const parts: string[] = [];
+  let cur = "";
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let nestedEnvDepth = 0;
+  for (let i = 0; i < src.length; i++) {
+    const rest = src.slice(i);
+    const begin = /^\\begin\s*\{[A-Za-z*]+\}/.exec(rest);
+    if (begin) {
+      nestedEnvDepth += 1;
+      cur += begin[0];
+      i += begin[0].length - 1;
+      continue;
+    }
+    const end = /^\\end\s*\{[A-Za-z*]+\}/.exec(rest);
+    if (end) {
+      nestedEnvDepth = Math.max(0, nestedEnvDepth - 1);
+      cur += end[0];
+      i += end[0].length - 1;
+      continue;
+    }
+    const ch = src[i];
+    if (delimiter === "row" && ch === "\\" && src[i + 1] === "\\" && braceDepth === 0 && bracketDepth === 0 && nestedEnvDepth === 0) {
+      parts.push(cur.trim());
+      cur = "";
+      i += 1;
+      continue;
+    }
+    if (delimiter === "cell" && ch === "&" && braceDepth === 0 && bracketDepth === 0 && nestedEnvDepth === 0) {
+      parts.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    if (ch === "{") braceDepth += 1;
+    else if (ch === "}") braceDepth = Math.max(0, braceDepth - 1);
+    else if (ch === "[") bracketDepth += 1;
+    else if (ch === "]") bracketDepth = Math.max(0, bracketDepth - 1);
+    cur += ch;
+  }
+  parts.push(cur.trim());
+  return parts;
+};
+
+export const isMatrixLatex = (raw: string): boolean => findMatrixSource(raw) !== null;
+
+/** Convert a LaTeX matrix environment into the same grid vocabulary used by
+ * Smart Tables. The matrix remains a matrix: headers stay empty, no row is
+ * retained by default, and the original bracket style is carried through. */
+export const gridFromMatrixLatex = (
+  raw: string,
+  opts: { objId?: string; label?: string } = {},
+): TableGrid | null => {
+  const found = findMatrixSource(raw);
+  if (!found) return null;
+  const rows = splitTopLevel(found.body, "row")
+    .map((row) => splitTopLevel(row, "cell"))
+    .filter((row) => row.some((cell) => cell.trim().length > 0));
+  if (!rows.length) return null;
+  const cols = Math.max(1, ...rows.map((row) => row.length));
+  const cells = rows.map((row) => Array.from({ length: cols }, (_, c) => String(row[c] ?? "").trim()));
+  return {
+    objId: opts.objId ?? `matrix:${hashText(found.latex)}`,
+    label: opts.label ?? `${rows.length}×${cols} Matrix`,
+    isMatrix: true,
+    matrixEnv: found.env,
+    matrixBrackets: MATRIX_BRACKETS[found.env] ?? MATRIX_BRACKETS.matrix,
+    sourceLatex: found.latex,
+    headers: Array.from({ length: cols }, () => ""),
+    cells,
+    rows: cells.length,
+    cols,
+  };
+};
+
 /** Normalise a captured table OR Smart Structure object into a grid. Returns
  *  null when the object carries no usable tabular data. */
 export const gridFromObject = (obj: SolutionObject): TableGrid | null => {
@@ -146,7 +263,7 @@ export const allCellKeys = (grid: TableGrid): string[] => {
  *  outside the data cells and nothing needs retaining. When it does not, the
  *  first data row acts as the heading row and is retained by default. */
 export const defaultRetainedCells = (grid: TableGrid): string[] => {
-  if (!grid || grid.object) return [];
+  if (!grid || grid.object || grid.isMatrix) return [];
   if ((grid.headers ?? []).some((h) => String(h ?? "").trim().length > 0)) return [];
   if (!grid.rows || !grid.cols) return [];
   return Array.from({ length: grid.cols }, (_, c) => cellKey(0, c)).filter(
