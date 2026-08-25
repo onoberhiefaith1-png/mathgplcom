@@ -60,14 +60,20 @@ const HomepageReplaceBuildingPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
   const { config, save, ready, saving } = useHomepageConfig({ mode: configMode });
   const [building, setBuilding] = useState<CanvasElement | null>(null);
+  const [speed, setSpeed] = useState(1);
   const [library, setLibrary] = useState(false);
   const [kind, setKind] = useState<AssetKind>("reward");
   const [busy, setBusy] = useState(false);
+  const [cutting, setCutting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (ready) setBuilding(config.customBuilding ?? null);
   }, [ready, config.customBuilding]);
+
+  useEffect(() => {
+    if (ready) setSpeed(clampBuildingSpeed(config.buildingSpeed));
+  }, [ready, config.buildingSpeed]);
 
   const elements = useMemo(() => (building ? [building] : []), [building]);
 
@@ -94,18 +100,64 @@ const HomepageReplaceBuildingPage = () => {
     }
   };
 
+  /** Cut the backdrop out of the building currently on the preview. */
+  const removeBg = async () => {
+    if (!building || building.mediaType !== "image") return;
+    setCutting(true);
+    try {
+      const url =
+        building.source === "url"
+          ? building.storagePath
+          : await getSignedUrl(building.storagePath);
+      if (!url) throw new Error("Could not load this building");
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Could not load this building");
+      const blob = await res.blob();
+      const cut = await makeTransparent(
+        new File([blob], "building.png", { type: blob.type || "image/png" }),
+      );
+      const asset = await uploadGameAsset(
+        new File([cut], "building-cutout.png", { type: "image/png" }),
+        "background",
+        "Building (cutout)",
+      );
+      // Keep the authored transform — only the artwork becomes transparent.
+      setBuilding((b) =>
+        b
+          ? {
+              ...b,
+              assetId: asset.id,
+              storagePath: renderPathOf(asset),
+              source: "storage",
+              mediaType: "image",
+            }
+          : b,
+      );
+      toast.success("Background removed — press Save Building to apply it");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Background removal failed");
+    } finally {
+      setCutting(false);
+    }
+  };
+
   const apply = async () => {
     if (!building?.storagePath) {
       toast.error("Upload or choose a building first");
       return;
     }
     try {
-      await save({ buildingMode: "custom", customBuilding: building });
+      await save({
+        buildingMode: "custom",
+        customBuilding: building,
+        buildingSpeed: clampBuildingSpeed(speed),
+      });
       toast.success("Building saved to your homepage");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     }
   };
+
 
   const restore = async () => {
     try {
