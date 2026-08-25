@@ -76,11 +76,6 @@ const TimerVideoView = ({ config, remainingSeconds, failed = false, className }:
         ) : (
           <div className="aspect-video w-full animate-pulse bg-muted/30" />
         )}
-        {remainingSeconds != null && (
-          <div className="absolute left-1/2 top-1.5 -translate-x-1/2 rounded-full bg-black/70 px-2.5 py-0.5 text-xs font-bold tabular-nums text-white">
-            {fmtClock(remainingSeconds)}
-          </div>
-        )}
       </div>
     </div>
   );
