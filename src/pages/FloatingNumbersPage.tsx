@@ -35,6 +35,7 @@ import FloatingArchivePanel, { type ArchivedVersion } from "@/components/floatin
 import { diag } from "@/lib/diagnostics/opLog";
 import {
   gridFromAnyObject,
+  gridFromMatrixLatex,
   generateTableLines,
   tableLineEquation,
   cellFitsLine,
@@ -610,6 +611,11 @@ const FloatingNumbersPage = () => {
         }
         const payload = String(h.payload ?? "");
         if (!payload.trim()) continue;
+        const matrixGrid = gridFromMatrixLatex(payload, { objId: `matrix:${h.groupId}` });
+        if (matrixGrid) {
+          seq.push({ kind: "table", objId: matrixGrid.objId, grid: matrixGrid });
+          continue;
+        }
         seq.push({ kind: "text", highlight: { groupId: h.groupId, payload } });
       }
       setEntries(seq);
@@ -1116,18 +1122,18 @@ const FloatingNumbersPage = () => {
   }, [entries, lines]);
 
   /* THE NUMBERING LAW — the main path carries L-numbers (equations only) and
-     one T-number per table. A table's rows/columns are its CHILDREN, numbered
-     inside that table: T1.1 … T1.n, T2.1 … T2.n. Tables never share a series
+     one T-number per table or M-number per matrix. A branch's rows/columns are its CHILDREN, numbered
+     inside that branch: T1.1 … T1.n, M1.1 … M1.n. Branches never share a series
      and never consume an L-number. */
   const numbering = useMemo(() => {
     const lineTags: Record<number, string> = {};
     const tableStep: Record<string, string> = {};
     let l = 0;
     let t = 0;
+    let m = 0;
     for (const g of groups) {
       if (g.kind === "table") {
-        t += 1;
-        const tag = `T${t}`;
+        const tag = g.grid.isMatrix ? `M${++m}` : `T${++t}`;
         tableStep[g.objId] = tag;
         for (let i = 0; i < g.items.length; i++) {
           lineTags[g.items[i].index] = `${tag}.${i + 1}`;
