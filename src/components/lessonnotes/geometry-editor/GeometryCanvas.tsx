@@ -67,6 +67,7 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
   };
 
   const svgRef = useRef<SVGSVGElement | null>(null);
+
   const [hover, setHover] = useState<{ x: number; y: number; snap: SnapTarget } | null>(null);
   const [dragging, setDragging] = useState<{ pointId: GeoId } | null>(null);
   const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "segmentText" | "angleValue" | "label"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
