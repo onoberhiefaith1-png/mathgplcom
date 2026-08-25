@@ -82,6 +82,16 @@ export const slugify = (value: string) =>
 
 const table = <T>(rows: unknown): T[] => (rows ?? []) as T[];
 
+const VIDEO_FILE_RE = /\.(mp4|mov|m4v|webm|ogg)(?:\?|$)/i;
+
+const normalizeAsset = (asset: GplAsset): GplAsset => {
+  const source = asset.storage_path ?? asset.external_url ?? "";
+  if (VIDEO_FILE_RE.test(source) && asset.media_type !== "video") {
+    return { ...asset, media_type: "video" };
+  }
+  return asset;
+};
+
 /* ─── Reads ─────────────────────────────────────────────────────────── */
 
 export const listSessions = async (): Promise<GplSession[]> => {
@@ -137,7 +147,7 @@ export const listAssets = async (subsessionId: string): Promise<GplAsset[]> => {
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
   if (error) throw error;
-  return table<GplAsset>(data);
+  return table<GplAsset>(data).map(normalizeAsset);
 };
 
 export const countSubSessions = async (): Promise<Record<string, number>> => {
@@ -190,7 +200,7 @@ export const searchLibrary = async (query: string): Promise<GplSearchHit[]> => {
 
   const sessionRows = table<GplSession>(sessions.data);
   const subRows = table<GplSubSession>(subs.data);
-  const assetRows = table<GplAsset>(assets.data);
+  const assetRows = table<GplAsset>(assets.data).map(normalizeAsset);
   const sessionById = new Map(sessionRows.map((s) => [s.id, s]));
   const subById = new Map(subRows.map((s) => [s.id, s]));
   const needle = q.toLowerCase();
