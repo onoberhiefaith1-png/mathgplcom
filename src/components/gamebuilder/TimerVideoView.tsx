@@ -20,7 +20,8 @@ interface Props {
 }
 
 const TimerVideoView = ({ config, remainingSeconds, failed = false, className }: Props) => {
-  const url = useSignedUrl(config.storagePath ?? null);
+  const signedUrl = useSignedUrl(config.source === "url" ? null : config.storagePath ?? null);
+  const url = config.source === "url" ? config.storagePath ?? null : signedUrl;
   const ref = useRef<HTMLVideoElement | null>(null);
   const [phase, setPhase] = useState<TimerVideoPhase>("intro");
   const regions = timerRegionsOf(config);
@@ -58,7 +59,7 @@ const TimerVideoView = ({ config, remainingSeconds, failed = false, className }:
 
   return (
     <div className={className}>
-      <div className="relative overflow-hidden rounded-lg border border-border/50 bg-black">
+      <div className="relative overflow-visible bg-transparent">
         {url ? (
           <video
             ref={ref}
@@ -70,7 +71,7 @@ const TimerVideoView = ({ config, remainingSeconds, failed = false, className }:
             onLoadedMetadata={(e) => {
               e.currentTarget.currentTime = regions.intro.start;
             }}
-            className="h-auto w-full object-contain"
+            className="h-auto w-full bg-transparent object-contain"
           />
         ) : (
           <div className="aspect-video w-full animate-pulse bg-muted/30" />
