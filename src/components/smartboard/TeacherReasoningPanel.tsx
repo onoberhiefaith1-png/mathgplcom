@@ -15,7 +15,6 @@ import { collapseNestedBoxes, structureHash, type Row } from "@/lib/smartboard/m
 import MathTreeRender from "./MathTreeRender";
 import { PresenterMath, PRESENTER_INK, toDisplaySafe } from "./PresenterMath";
 import { renderMathInline } from "@/lib/notebook/mathRender";
-import { parseCellKey } from "@/lib/floating/tableGrid";
 import type { TableValidation } from "@/lib/smartboard/tableActivity";
 
 /** Cell-aware table viewer. Values keep their coordinates: a value is only
