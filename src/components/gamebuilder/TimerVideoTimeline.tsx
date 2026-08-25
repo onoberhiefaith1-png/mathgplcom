@@ -7,7 +7,9 @@
 // The teacher picks or uploads a video, then sets the three regions. Preview
 // buttons play each region so the boundaries can be trusted before publishing.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Upload } from "lucide-react";
+import { Library, Play, Upload } from "lucide-react";
+import { MyGplMediaPicker } from "@/components/lessonnotes/slides/MyGplMediaPicker";
+import type { GplAsset } from "@/lib/gpl/assetLibrary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import SignedMedia, { useSignedUrl } from "./SignedMedia";
