@@ -150,52 +150,9 @@ function SectionHeadingView(props: NodeViewProps) {
     }
   }, [kind, computeSection, opts, text]);
 
-  /** Where this Solution heading sits in the document, expressed in the same
-   *  index space the sync layer uses for notebook_sections /
-   *  notebook_subsections rows. */
-  const locateIndices = useCallback((): { parentSectionIndex: number; subsectionIndex: number } | null => {
-    if (!notebookId || kind !== "solution") return null;
-    const pos = typeof getPos === "function" ? getPos() : null;
-    if (pos == null) return null;
-    const doc = editor.state.doc;
-    // Collect top-level H1/H2 section boundaries (parsed[] index parity).
-    const topHeadings: { pos: number; kind: SectionKind | null }[] = [];
-    doc.descendants((n, p) => {
-      if (n.type.name === "heading" && (n.attrs.level ?? 6) <= 2) {
-        topHeadings.push({ pos: p, kind: detectSectionKind(n.textContent) });
-        return false;
-      }
-      return true;
-    });
-    // Filter to ones the sync layer keeps as sections (skip "solution").
-    const sectionList = topHeadings.filter((h) => h.kind && h.kind !== "solution");
-    let parentSectionIndex = -1;
-    for (let i = 0; i < sectionList.length; i++) {
-      if (sectionList[i].pos < pos) parentSectionIndex = i;
-      else break;
-    }
-    if (parentSectionIndex < 0) return null;
-    // Count Solution H3s that precede this one within the parent section.
-    const parentStart = sectionList[parentSectionIndex].pos;
-    const parentEnd = parentSectionIndex + 1 < sectionList.length
-      ? sectionList[parentSectionIndex + 1].pos
-      : doc.content.size;
-    let subsectionIndex = 0;
-    let selfFound = false;
-    doc.descendants((n, p) => {
-      if (p < parentStart || p >= parentEnd) return true;
-      if (p === pos) { selfFound = true; return false; }
-      if (n.type.name === "heading" && (n.attrs.level ?? 6) <= 3) {
-        const t = (n.textContent || "").toLowerCase().trim();
-        if (t.startsWith("solution") || t.includes("worked solution")) {
-          subsectionIndex += 1;
-        }
-      }
-      return true;
-    });
-    if (!selfFound) return null;
-    return { parentSectionIndex, subsectionIndex };
-  }, [notebookId, kind, getPos, editor]);
+  // Positional row-counting is deliberately gone: it is what resolved the
+  // wrong solution. Identity (doc_key) is the only resolution path.
+
 
   /** Snapshot the question that this Solution belongs to: the text between the
    *  parent question heading and this Solution heading, plus any geometry
