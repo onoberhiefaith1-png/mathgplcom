@@ -70,9 +70,11 @@ const Leaf = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: LeafPro
       onMouseEnter={() => onHover?.(atom.id)}
       onMouseLeave={() => onHover?.(null)}
       style={style}
-      title={`${atom.kind} · ${atom.value}`}
+      title={atom.kind === "structure" ? "structure" : `${atom.kind} · ${atom.value}`}
     >
-      {atom.value}
+      {atom.kind === "structure"
+        ? renderMathInline(atom.value, `st-${atom.id}`)
+        : atom.value}
     </span>
   );
 };
