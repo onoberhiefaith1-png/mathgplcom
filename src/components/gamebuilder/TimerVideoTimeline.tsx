@@ -7,7 +7,9 @@
 // The teacher picks or uploads a video, then sets the three regions. Preview
 // buttons play each region so the boundaries can be trusted before publishing.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Upload } from "lucide-react";
+import { Library, Play, Upload } from "lucide-react";
+import { MyGplMediaPicker } from "@/components/lessonnotes/slides/MyGplMediaPicker";
+import type { GplAsset } from "@/lib/gpl/assetLibrary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import SignedMedia, { useSignedUrl } from "./SignedMedia";
@@ -34,9 +36,11 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
   const [videos, setVideos] = useState<GameAssetRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [previewing, setPreviewing] = useState<Phase | null>(null);
+  const [gplOpen, setGplOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const url = useSignedUrl(value?.storagePath ?? null);
+  const signedUrl = useSignedUrl(value?.source === "url" ? null : value?.storagePath ?? null);
+  const url = value?.source === "url" ? value?.storagePath ?? null : signedUrl;
 
   useEffect(() => {
     listGameAssets("background")
@@ -53,6 +57,21 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
       assetId: row.id,
       storagePath: renderPathOf(row),
       source: "storage",
+      duration: undefined,
+      introStart: undefined,
+      introEnd: undefined,
+      loopStart: undefined,
+      loopEnd: undefined,
+      outroStart: undefined,
+      outroEnd: undefined,
+    });
+
+  /** Pick a video straight from the GPL Asset library (same storage bucket). */
+  const pickGpl = (asset: GplAsset) =>
+    onChange({
+      assetId: asset.id,
+      storagePath: asset.storage_path ?? asset.external_url ?? undefined,
+      source: asset.storage_path ? "storage" : "url",
       duration: undefined,
       introStart: undefined,
       introEnd: undefined,
@@ -209,9 +228,26 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
           e.target.value = "";
         }}
       />
-      <Button size="sm" variant="secondary" className="w-full" disabled={busy} onClick={() => fileRef.current?.click()}>
-        <Upload className="mr-1.5 h-3.5 w-3.5" /> {busy ? "Uploading…" : "Upload timer video"}
-      </Button>
+      <p className="text-[11px] font-medium text-muted-foreground">Add timer video from</p>
+      <div className="grid grid-cols-2 gap-2">
+        <Button size="sm" variant="secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
+          <Upload className="mr-1.5 h-3.5 w-3.5" /> {busy ? "Uploading…" : "My device"}
+        </Button>
+        <Button size="sm" variant="secondary" disabled={busy} onClick={() => setGplOpen(true)}>
+          <Library className="mr-1.5 h-3.5 w-3.5" /> My GPL assets
+        </Button>
+      </div>
+
+      {gplOpen && (
+        <MyGplMediaPicker
+          kind="video"
+          onClose={() => setGplOpen(false)}
+          onPick={(asset) => {
+            setGplOpen(false);
+            pickGpl(asset);
+          }}
+        />
+      )}
     </div>
   );
 };
