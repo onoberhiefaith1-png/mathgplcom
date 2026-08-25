@@ -184,6 +184,7 @@ const Showcase = ({
   onArtworkReady,
   rotationPaused = false,
   onFrontIndexChange,
+  speed = 1,
 }: {
   ringUrls: string[];
   coreUrls: string[];
@@ -197,7 +198,10 @@ const Showcase = ({
   rotationPaused?: boolean;
   /** Reports which outer position (0–7) currently faces the camera. */
   onFrontIndexChange?: (index: number) => void;
+  /** Rotation rate multiplier — 1 is the cinematic default. */
+  speed?: number;
 }) => {
+
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
   const hoveredRef = useRef(false);
