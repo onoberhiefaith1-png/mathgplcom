@@ -233,52 +233,77 @@ function SectionHeadingView(props: NodeViewProps) {
     return info?.sectionText ?? "";
   }, [computeSection]);
 
+  /** DURABLE IDENTITY of the question this Solution belongs to.
+   *  Counts the structural headings that precede this one (the same order
+   *  `buildLessonOutline` walks) and asks the outline which question segment
+   *  owns that position. The result is the exact `doc_key` written on the
+   *  stored rows, so Floating always opens THIS question's row — never a
+   *  neighbour's, even when the question carries no plain text (tables only). */
+  const docKeyForHeading = useCallback((): string | null => {
+    const pos = typeof getPos === "function" ? getPos() : null;
+    if (pos == null) return null;
+    const doc = editor.state.doc;
+    let order = 0;
+    let selfOrder: number | null = null;
+    doc.descendants((n, p) => {
+      if (n.type.name !== "heading") return true;
+      const level = Number(n.attrs?.level ?? 6);
+      const marker = structuralHeadingKind((n.textContent || "").trim(), level, n.attrs as any);
+      if (!marker) return false;
+      if (p === pos) { selfOrder = order; return false; }
+      order += 1;
+      return false;
+    });
+    if (selfOrder == null) return null;
+    return ownerQuestionKeyAt(doc.toJSON(), selfOrder);
+  }, [getPos, editor]);
+
   /** When the cached subsectionId attr is stale (sync rewrites IDs on every
-   *  save), resolve the live subsection for this Solution heading. Content
-   *  first — match the snapshotted question text against the stored problem
-   *  blocks — then fall back to the positional index, which can land on a
-   *  different (often empty) row when the doc and DB order diverge. */
+   *  save), resolve the live subsection for this Solution heading. Identity
+   *  first — the durable `doc_key` — then an exact question-text match for
+   *  legacy rows written before keys existed. There is no positional
+   *  fallback: guessing by row order is what opened the wrong solution. */
   const resolveSubsectionId = useCallback(async (): Promise<string | null> => {
     if (!notebookId) return null;
     const questionText = snapshotQuestion().text;
     const norm = (s: string) => String(s ?? "").replace(/\s+/g, "").toLowerCase();
     const wanted = norm(questionText);
-
-    const at = locateIndices();
+    const docKey = docKeyForHeading();
 
     const { data: secs } = await supabase
       .from("notebook_sections")
-      .select("id, order_index")
+      .select("id, order_index, doc_key")
       .eq("notebook_id", notebookId)
       .order("order_index", { ascending: true });
     const sectionIds = (secs ?? []).map((s: any) => s.id as string);
+    if (!sectionIds.length) return null;
 
-    // 1) Content match across this notebook's problem blocks.
-    if (wanted.length >= 4 && sectionIds.length) {
+    // 1) IDENTITY MATCH — the only reliable resolution.
+    if (docKey) {
+      const { data: keyed } = await supabase
+        .from("notebook_subsections")
+        .select("id, doc_key, section_id, order_index")
+        .in("section_id", sectionIds)
+        .eq("doc_key", docKey)
+        .order("order_index", { ascending: true });
+      const hit = (keyed ?? [])[0] as any;
+      if (hit?.id) return hit.id as string;
+    }
+
+    // 2) Legacy rows (no doc_key yet): exact question-text match only.
+    if (wanted.length >= 4) {
       const { data: problems } = await supabase
         .from("notebook_blocks")
         .select("subsection_id, content_ascii, kind, section_id")
         .in("section_id", sectionIds)
         .eq("kind", "problem" as any);
-      const hit = (problems ?? []).find((p: any) => {
-        const c = norm(p.content_ascii);
-        return c.length >= 4 && (c === wanted || c.includes(wanted) || wanted.includes(c));
-      }) as any;
+      const hit = (problems ?? []).find((p: any) => norm(p.content_ascii) === wanted) as any;
       if (hit?.subsection_id) return hit.subsection_id as string;
     }
 
-    // 2) Positional fallback (previous behaviour).
-    if (!at) return null;
-    const sec = (secs ?? [])[at.parentSectionIndex] as any;
-    if (!sec?.id) return null;
-    const { data: subs } = await supabase
-      .from("notebook_subsections")
-      .select("id, order_index")
-      .eq("section_id", sec.id)
-      .order("order_index", { ascending: true });
-    const sub = (subs ?? [])[at.subsectionIndex] as any;
-    return sub?.id ?? null;
-  }, [locateIndices, notebookId, snapshotQuestion]);
+    return null;
+  }, [docKeyForHeading, notebookId, snapshotQuestion]);
+
 
   const openSmartCard = useCallback(async () => {
     if (!notebookId) return;
