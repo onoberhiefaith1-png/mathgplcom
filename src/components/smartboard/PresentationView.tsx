@@ -3836,6 +3836,8 @@ const PresentationView = ({
     }
   }, [
     resolveGradableLine, current, assessmentId, solvedSlots, activeLineIdx,
+    tableGroups, gradeTableTrackThroughCells,
+
     guidedLines.length, activeLayout, toast,
   ]);
 
