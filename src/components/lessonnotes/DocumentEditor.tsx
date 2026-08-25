@@ -70,7 +70,7 @@ import { AtCommand, type AtCommandState } from "./extensions/AtCommand";
 import { MathKeyShortcuts } from "./extensions/MathKeyShortcuts";
 import { AtCommandMenu } from "./AtCommandMenu";
 const AssetLibraryDialog = lazy(() => import("./AssetLibraryDialog").then((m) => ({ default: m.AssetLibraryDialog })));
-import { LayoutGrid, Grid3X3 } from "lucide-react";
+import { LayoutGrid, Grid3X3, FunctionSquare } from "lucide-react";
 import { StepAnimationNode, type AnimationFrame } from "./extensions/StepAnimation";
 const MathTablesPicker = lazy(() => import("./math-tools/MathTablesPicker").then((m) => ({ default: m.MathTablesPicker })));
 const SmartCalculator = lazy(() => import("./math-tools/SmartCalculator").then((m) => ({ default: m.SmartCalculator })));
@@ -2247,9 +2247,6 @@ function DocumentEditorInner({
   };
   const insertEmojiMedia = (src: string, kind: "image" | "video") => {
     editor?.chain().focus().insertContent({ type: "emojiMedia", attrs: { src, kind } }).run();
-  };
-  const insertMathStructure = (latex: string) => {
-    editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
 
   /** Quick Symbols palette → a real editable structure at the caret. */
