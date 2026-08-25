@@ -106,6 +106,24 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
     for (const id of sess.ids) s = eraseObject(s, id).scene;
     commit(s);
   };
+
+  /**
+   * AREA-005 — the one way an Area trace is closed, whichever gesture closed it
+   * (click back on the first point, double-click, or Enter). Every path applies
+   * the teacher's chosen fill and density, tidies the session's temporary
+   * points, and finishes with the new region selected.
+   */
+  const closeTraceNow = (points: GeoId[]) => {
+    const closed = closeAreaTrace(scene, points, {
+      curveMode: annotationDraft?.traceMode === "curve",
+      fill: annotationDraft?.fillColor ?? "#3b82f6",
+      opacity: annotationDraft?.fillOpacity ?? 0.25,
+    });
+    for (const op of closed.ops) apply(op);
+    finalizeSession(closed.scene);
+    finishTool(closed.regionId ? [closed.regionId] : [], closed.regionId ? "polygon" : null);
+  };
+
   // If the teacher switches to another tool mid-session, clean up
   // temporary points from the previous annotation if it was "Without Label".
   const prevAnnotationToolRef = useRef<string | null>(null);
