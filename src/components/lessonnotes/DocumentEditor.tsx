@@ -107,6 +107,7 @@ import type { QuickStructItem } from "@/lib/lessonnotes/symbolQuick";
 import { MatrixQuickPanel } from "./MatrixQuickPanel";
 import type { QuickMatrixSpec } from "@/lib/lessonnotes/matrixQuick";
 import { insertAsset } from "@/lib/lessonnotes/assets/insert";
+import { TABLES } from "@/lib/lessonnotes/assets/tables";
 
 import { SelectionToolbar, type SelectionSnapshot } from "./SelectionToolbar";
 import { AiEditPanel, type AiEditTarget } from "./AiEditPanel";
@@ -134,7 +135,7 @@ import {
   Download, Sparkles, Plus as PlusIcon,
   FileText, Smartphone, Presentation, X,
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Shapes, Table as TableIcon, LineChart, Calculator,
-  Film, Camera, ArrowLeftRight,
+  ArrowLeftRight,
 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -789,7 +790,7 @@ function DocumentEditorInner({
   const [tablesOpen, setTablesOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [objectsOpen, setObjectsOpen] = useState(false);
-  const [animateMode, setAnimateMode] = useState(false);
+  
   const { id: routeNotebookId } = useParams();
   // Callers off the /lesson-notes/:id route (the Smartboard companion page) pass
   // the id explicitly. `storageId` additionally namespaces local-only state so a
@@ -2249,6 +2250,15 @@ function DocumentEditorInner({
     editor?.chain().focus().insertContent({ type: "emojiMedia", attrs: { src, kind } }).run();
   };
 
+  /** Toolbar → the SAME Smart Table the Asset Library inserts (never a new
+   *  table system, and never the Maths Table reference picker). */
+  const insertSmartTable = () => {
+    if (!editor) return;
+    const def = TABLES.find((a) => a.id === "smarttable");
+    if (!def) return;
+    insertAsset(editor, def);
+  };
+
   /** Quick Symbols palette → a real editable structure at the caret. */
   const insertQuickSymbol = (item: QuickStructItem) => {
     if (!editor) return;
@@ -2861,7 +2871,7 @@ function DocumentEditorInner({
         }
         setDiagramTabsOpen(true);
       },
-      openSmartTable: async () => setTablesOpen(true),
+      openSmartTable: async () => insertSmartTable(),
       openSlideCanvas: async () => setSlidePanelOpen(true),
       openAssetLibrary: async () => setAssetLibOpen(true),
       editBlock: async (ref2, instruction) =>
@@ -3409,11 +3419,19 @@ function DocumentEditorInner({
         </div>
         <button
           type="button"
-          onClick={() => setTablesOpen(true)}
-          title="Insert a mathematical table (logs, sines, etc.)"
+          onClick={insertSmartTable}
+          title="Insert a Smart Table — interactive teaching/activity table"
           className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
         >
-          <TableIcon className="h-4 w-4" /> Tables
+          <Grid3X3 className="h-4 w-4" /> Smart Table
+        </button>
+        <button
+          type="button"
+          onClick={() => setTablesOpen(true)}
+          title="Insert a mathematical reference table (logs, antilogs, sines, etc.)"
+          className="p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10"
+        >
+          <TableIcon className="h-4 w-4" /> Maths Table
         </button>
         <button
           type="button"
@@ -3445,27 +3463,7 @@ function DocumentEditorInner({
         {/* Erase lives in the Diagram tools panel only — not duplicated here. */}
 
         <Btn onClick={insertMath} title="Insert math (fraction, root, exponent)"><Sigma className="h-4 w-4" /></Btn>
-        <button
-          type="button"
-          onClick={() => setAnimateMode((v) => !v)}
-          title={animateMode ? "Exit Animation Mode" : "Step Animation Mode — capture each step of a solution"}
-          className={cn(
-            "p-1.5 rounded inline-flex items-center gap-1 text-xs transition-colors",
-            animateMode ? "bg-primary text-primary-foreground" : "hover:bg-foreground/10",
-          )}
-        >
-          <Film className="h-4 w-4" /> Animate
-        </button>
-        {animateMode && (
-          <button
-            type="button"
-            onClick={captureStep}
-            title="Capture the current selection (or current block) as a new animation frame"
-            className="p-1.5 rounded inline-flex items-center gap-1 text-xs bg-primary/15 hover:bg-primary/25 text-primary"
-          >
-            <Camera className="h-4 w-4" /> Capture Step
-          </button>
-        )}
+        {/* Animate removed from the toolbar. */}
         {builderAi && <GlobalAiButton onGenerate={handleGlobalAi} />}
         <button
           type="button"
