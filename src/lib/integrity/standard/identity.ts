@@ -352,7 +352,7 @@ export const workspaces: RequirementDomain = {
       },
       dependencies: ["WS-001", "AST-002"],
       validation: [
-        { kind: "test", target: "TODO — no automated isolation suite exists yet" },
+        { kind: "test", target: "src/lib/accounts/__tests__/workspaceIsolation.test.ts" },
         { kind: "manual", target: "Sign in as two workspaces and confirm no cross-listing" },
       ],
       restorationSource: "archived plan '02-leak.html / 03-fix.md' in .lovable/drafts (isolation fix)",
