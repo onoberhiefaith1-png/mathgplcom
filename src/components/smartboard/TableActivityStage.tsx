@@ -81,7 +81,7 @@ const TableActivityStage = ({
 }: Props) => {
   const ink = dark ? "rgba(245,245,240,0.94)" : "#1a2230";
   const border = dark ? "rgba(245,245,240,0.38)" : "rgba(26,34,48,0.45)";
-  const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  
   const hostRef = useRef<HTMLDivElement | null>(null);
 
   // Toolbar auto-hide / auto-show — 5s classroom window.
