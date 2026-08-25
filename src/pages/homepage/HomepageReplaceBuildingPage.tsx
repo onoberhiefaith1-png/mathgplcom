@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, Check, RotateCcw, Upload } from "lucide-react";
+import { ArrowLeft, Check, Eraser, RotateCcw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
 import AssetLibraryModal, { type UrlPick } from "@/components/gamebuilder/AssetLibraryModal";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
+import { makeTransparent } from "@/lib/games/removeBackground";
+import { getSignedUrl } from "@/lib/games/urls";
 import {
   defaultAnimation,
   defaultSlant,
@@ -18,7 +20,15 @@ import {
   type MediaType,
 } from "@/lib/games/types";
 import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
-import { useHomepageConfig } from "@/lib/homepage/homepageConfig";
+import {
+  clampBuildingSpeed,
+  sliderToSpeed,
+  speedToSlider,
+  useHomepageConfig,
+} from "@/lib/homepage/homepageConfig";
+
+const SPEED_PRESETS = [0.1, 0.25, 0.5, 1, 2, 5, 10];
+
 
 const makeBuilding = (
   path: string,
@@ -50,14 +60,20 @@ const HomepageReplaceBuildingPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
   const { config, save, ready, saving } = useHomepageConfig({ mode: configMode });
   const [building, setBuilding] = useState<CanvasElement | null>(null);
+  const [speed, setSpeed] = useState(1);
   const [library, setLibrary] = useState(false);
   const [kind, setKind] = useState<AssetKind>("reward");
   const [busy, setBusy] = useState(false);
+  const [cutting, setCutting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (ready) setBuilding(config.customBuilding ?? null);
   }, [ready, config.customBuilding]);
+
+  useEffect(() => {
+    if (ready) setSpeed(clampBuildingSpeed(config.buildingSpeed));
+  }, [ready, config.buildingSpeed]);
 
   const elements = useMemo(() => (building ? [building] : []), [building]);
 
@@ -84,22 +100,68 @@ const HomepageReplaceBuildingPage = () => {
     }
   };
 
+  /** Cut the backdrop out of the building currently on the preview. */
+  const removeBg = async () => {
+    if (!building || building.mediaType !== "image") return;
+    setCutting(true);
+    try {
+      const url =
+        building.source === "url"
+          ? building.storagePath
+          : await getSignedUrl(building.storagePath);
+      if (!url) throw new Error("Could not load this building");
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Could not load this building");
+      const blob = await res.blob();
+      const cut = await makeTransparent(
+        new File([blob], "building.png", { type: blob.type || "image/png" }),
+      );
+      const asset = await uploadGameAsset(
+        new File([cut], "building-cutout.png", { type: "image/png" }),
+        "background",
+        "Building (cutout)",
+      );
+      // Keep the authored transform — only the artwork becomes transparent.
+      setBuilding((b) =>
+        b
+          ? {
+              ...b,
+              assetId: asset.id,
+              storagePath: renderPathOf(asset),
+              source: "storage",
+              mediaType: "image",
+            }
+          : b,
+      );
+      toast.success("Background removed — press Save Building to apply it");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Background removal failed");
+    } finally {
+      setCutting(false);
+    }
+  };
+
   const apply = async () => {
     if (!building?.storagePath) {
       toast.error("Upload or choose a building first");
       return;
     }
     try {
-      await save({ buildingMode: "custom", customBuilding: building });
+      await save({
+        buildingMode: "custom",
+        customBuilding: building,
+        buildingSpeed: clampBuildingSpeed(speed),
+      });
       toast.success("Building saved to your homepage");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     }
   };
 
+
   const restore = async () => {
     try {
-      await save({ buildingMode: "mathgpl" });
+      await save({ buildingMode: "mathgpl", buildingSpeed: clampBuildingSpeed(speed) });
       toast.success("MathGPL building restored");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -157,11 +219,65 @@ const HomepageReplaceBuildingPage = () => {
             <Button variant="outline" onClick={() => setLibrary(true)}>
               Choose building from Asset Library
             </Button>
+            <Button
+              variant="outline"
+              disabled={cutting || !building || building.mediaType !== "image"}
+              onClick={() => void removeBg()}
+              title={
+                building && building.mediaType !== "image"
+                  ? "Videos use the chroma-key switch in Building settings"
+                  : "Cut the backdrop out of this building"
+              }
+            >
+              <Eraser className="mr-2 h-4 w-4" /> {cutting ? "Removing…" : "Remove background"}
+            </Button>
           </div>
         </div>
 
-        <aside className="rounded-2xl border border-border bg-card/50 p-4">
-          <p className="mb-3 text-sm font-semibold">Building settings</p>
+        <aside className="space-y-4 rounded-2xl border border-border bg-card/50 p-4">
+          <p className="text-sm font-semibold">Building settings</p>
+
+          <div className="rounded-xl border border-border bg-background/40 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Speed
+              </span>
+              <span className="text-sm font-semibold">{speed.toFixed(2)}×</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.001}
+              value={speedToSlider(speed)}
+              onChange={(e) => setSpeed(sliderToSpeed(Number(e.target.value)))}
+              aria-label="Building speed"
+              className="w-full accent-primary"
+            />
+            <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+              <span>0.1× slower</span>
+              <span>1× normal</span>
+              <span>10× faster</span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {SPEED_PRESETS.map((p) => (
+                <Button
+                  key={p}
+                  type="button"
+                  size="sm"
+                  variant={Math.abs(speed - p) < 0.01 ? "default" : "outline"}
+                  onClick={() => setSpeed(p)}
+                >
+                  {p}×
+                </Button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              1× is the building's own natural speed — video playback for a replaced building,
+              rotation for the MathGPL building.
+            </p>
+          </div>
+
           <SettingsPanel
             element={building}
             onChange={(patch) => setBuilding((b) => (b ? { ...b, ...patch } : b))}
@@ -169,6 +285,7 @@ const HomepageReplaceBuildingPage = () => {
             onLayer={() => undefined}
           />
         </aside>
+
       </main>
 
       <AssetLibraryModal

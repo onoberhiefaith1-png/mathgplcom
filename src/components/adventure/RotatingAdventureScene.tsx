@@ -6,10 +6,12 @@ import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { CORE_SLOTS, RING_SLOTS, defaultUrlFor } from "@/lib/homepage/buildingSlots";
 import {
+  clampBuildingSpeed,
   useHomepageConfig,
   useResolvedSlotUrls,
   type HomepageConfigMode,
 } from "@/lib/homepage/homepageConfig";
+
 import { adForOuterPosition, useAdImageUrls, useFacingAdRotation, usePlayableAds } from "@/lib/homepage/advertisements";
 import BuildingBillboard from "@/components/adventure/BuildingBillboard";
 import { useSceneCursor } from "@/lib/stability/useSceneCursor";
@@ -182,6 +184,7 @@ const Showcase = ({
   onArtworkReady,
   rotationPaused = false,
   onFrontIndexChange,
+  speed = 1,
 }: {
   ringUrls: string[];
   coreUrls: string[];
@@ -195,7 +198,10 @@ const Showcase = ({
   rotationPaused?: boolean;
   /** Reports which outer position (0–7) currently faces the camera. */
   onFrontIndexChange?: (index: number) => void;
+  /** Rotation rate multiplier — 1 is the cinematic default. */
+  speed?: number;
 }) => {
+
   const worldRef = useRef<THREE.Group>(null);
   const speedRef = useRef(ringSpeed);
   const hoveredRef = useRef(false);
@@ -204,6 +210,9 @@ const Showcase = ({
   const { camera } = useThree();
   const pausedRef = useRef(rotationPaused);
   pausedRef.current = rotationPaused;
+  const speedMulRef = useRef(clampBuildingSpeed(speed));
+  speedMulRef.current = clampBuildingSpeed(speed);
+
 
 
   // Artwork per slot; repeated urls (the MathGPL hubs, the dome copies) load once.
@@ -269,7 +278,9 @@ const Showcase = ({
     if (!worldRef.current) return;
     // Ease rotation to a gentle near-stop while a hovered academy invites a
     // click, and all the way to rest while a video advertisement plays.
-    const targetSpeed = pausedRef.current ? 0 : hoveredRef.current ? ringSpeed * 0.1 : ringSpeed;
+    const base = ringSpeed * speedMulRef.current;
+    const targetSpeed = pausedRef.current ? 0 : hoveredRef.current ? base * 0.1 : base;
+
     speedRef.current = THREE.MathUtils.damp(speedRef.current, targetSpeed, 3.2, delta);
     worldRef.current.rotation.y += speedRef.current * delta;
 
@@ -376,28 +387,56 @@ const HomepageBackground = ({
 /** A whole replacement building: one image or one looping video. */
 const CustomBuilding = ({
   element,
+  speed = 1,
 }: {
   element: NonNullable<ReturnType<typeof useHomepageConfig>["config"]["customBuilding"]>;
-}) => (
-  <div
-    className="pointer-events-none absolute"
-    style={{
-      left: `${element.x * 100}%`,
-      top: `${element.y * 100}%`,
-      width: `${element.scale * 100}%`,
-      transform: `translate(-50%, -50%) rotate(${element.rotation}deg)`,
-      opacity: element.opacity,
-    }}
-  >
-    <SignedMedia
-      path={element.storagePath}
-      source={element.source}
-      mediaType={element.mediaType}
-      fit="contain"
-      className="h-auto w-full"
-    />
-  </div>
-);
+  /** Video playback rate — 1 is the building's own natural speed. */
+  speed?: number;
+}) => {
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  // Any video inside this building plays at the authored speed.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const rate = clampBuildingSpeed(speed);
+    const apply = () => {
+      host.querySelectorAll("video").forEach((v) => {
+        try {
+          v.playbackRate = rate;
+        } catch {
+          /* some browsers refuse extreme rates — keep the default */
+        }
+      });
+    };
+    apply();
+    const t = window.setInterval(apply, 800);
+    return () => window.clearInterval(t);
+  }, [speed, element.storagePath]);
+
+  return (
+    <div
+      ref={hostRef}
+      className="pointer-events-none absolute"
+      style={{
+        left: `${element.x * 100}%`,
+        top: `${element.y * 100}%`,
+        width: `${element.scale * 100}%`,
+        transform: `translate(-50%, -50%) rotate(${element.rotation}deg)`,
+        opacity: element.opacity,
+      }}
+    >
+      <SignedMedia
+        path={element.storagePath}
+        source={element.source}
+        mediaType={element.mediaType}
+        fit="contain"
+        className="h-auto w-full"
+      />
+    </div>
+  );
+};
+
 
 export const RotatingAdventureScene = ({
   routeFor,
@@ -465,7 +504,8 @@ export const RotatingAdventureScene = ({
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
       <HomepageBackground background={config.background} />
       {usingCustom ? (
-        <CustomBuilding element={config.customBuilding!} />
+        <CustomBuilding element={config.customBuilding!} speed={clampBuildingSpeed(config.buildingSpeed)} />
+
       ) : ready ? (
         <div
           className="absolute inset-0 transition-opacity duration-700"
@@ -493,6 +533,8 @@ export const RotatingAdventureScene = ({
                 routeFor={routeFor}
                 interactive={interactive}
                 onArtworkReady={handleArtworkReady}
+                speed={clampBuildingSpeed(config.buildingSpeed)}
+
                 rotationPaused={rotationPaused}
                 onFrontIndexChange={onFacingChange}
               />
