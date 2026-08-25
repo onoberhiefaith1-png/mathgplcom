@@ -1,0 +1,53 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: hsl(var(--accent)); }
+    .accfg { fill: hsl(var(--accent-foreground)); font-size: 11px; font-family: var(--font-sans); }
+  </style>
+  <defs>
+    <marker id="cv" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L6,3.5 L0,7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="110" width="150" height="70" rx="8"/>
+  <text class="lbl" x="91" y="140" text-anchor="middle">GeometryDiagram</text>
+  <text class="note" x="91" y="160" text-anchor="middle">uniform zoom factor</text>
+
+  <rect class="zone" x="230" y="20" width="394" height="260" rx="8"/>
+  <text class="note" x="240" y="38">pages that show a diagram</text>
+
+  <rect class="box" x="250" y="50" width="170" height="44" rx="8"/>
+  <text class="lbl" x="335" y="77" text-anchor="middle">Lesson note</text>
+  <rect class="box" x="250" y="110" width="170" height="44" rx="8"/>
+  <text class="lbl" x="335" y="137" text-anchor="middle">Geometry Properties</text>
+  <rect class="box" x="250" y="170" width="170" height="44" rx="8"/>
+  <text class="lbl" x="335" y="197" text-anchor="middle">Smartboard Test</text>
+  <rect class="box" x="250" y="230" width="170" height="44" rx="8"/>
+  <text class="lbl" x="335" y="257" text-anchor="middle">Smartboard / Solution</text>
+
+  <path class="wire" d="M166,145 C205,145 210,72 246,72" marker-end="url(#cv)"/>
+  <path class="wire" d="M166,145 L246,132" marker-end="url(#cv)"/>
+  <path class="wire" d="M166,145 C205,145 210,192 246,192" marker-end="url(#cv)"/>
+  <path class="wire" d="M166,145 C205,145 210,252 246,252" marker-end="url(#cv)"/>
+
+  <g>
+    <rect class="acc" x="470" y="52" width="110" height="30" rx="15"/>
+    <text class="accfg" x="525" y="71" text-anchor="middle">−   100%   +</text>
+    <rect class="acc" x="470" y="112" width="110" height="30" rx="15"/>
+    <text class="accfg" x="525" y="131" text-anchor="middle">−   100%   +</text>
+    <rect class="acc" x="470" y="172" width="110" height="30" rx="15"/>
+    <text class="accfg" x="525" y="191" text-anchor="middle">−   100%   +</text>
+    <rect class="acc" x="470" y="232" width="110" height="30" rx="15"/>
+    <text class="accfg" x="525" y="251" text-anchor="middle">−   100%   +</text>
+  </g>
+  <path class="wire" d="M424,72 L466,67" marker-end="url(#cv)"/>
+  <path class="wire" d="M424,132 L466,127" marker-end="url(#cv)"/>
+  <path class="wire" d="M424,192 L466,187" marker-end="url(#cv)"/>
+  <path class="wire" d="M424,252 L466,247" marker-end="url(#cv)"/>
+</svg>

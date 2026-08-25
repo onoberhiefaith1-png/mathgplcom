@@ -126,6 +126,7 @@ export function GeometryPropertiesWorkspace({
               scene={scene}
               onChange={onChange}
               className="h-full"
+              zoomKey={`properties:${(scene.meta as { diagramId?: string } | undefined)?.diagramId ?? "scene"}`}
               hideLeftTools
               highlightIds={highlightIds}
               relatedIds={highlightIds}
