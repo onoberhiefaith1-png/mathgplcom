@@ -3,6 +3,7 @@
 import type { Beat } from "@/lib/smartboard/presentation";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
+import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
 
 export interface AssessmentQuestion {
   id: string;
@@ -17,6 +18,8 @@ export interface AssessmentQuestion {
     note?: string;
     /** Standalone note line (no equation of its own). */
     noteOnly?: boolean;
+    /** Full table identity and grid snapshot; never flatten this into chips. */
+    table?: FloatingTableRef;
   }[];
 }
 
@@ -69,6 +72,7 @@ export function buildAssessmentBoardSource(assessment: AssessmentLike): Assessme
         // machinery (icon, reveal, write-to-board, gate) works unchanged.
         notebook: ln.note && String(ln.note).trim() ? String(ln.note) : undefined,
         notebookOnly: ln.noteOnly === true,
+        table: ln.table,
       });
 
     }
