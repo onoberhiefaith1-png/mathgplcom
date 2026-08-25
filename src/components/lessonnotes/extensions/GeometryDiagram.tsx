@@ -355,6 +355,7 @@ function GeometryDiagramView({
             onMouseEnter={kickAi}
             onMouseMove={kickAi}
           >
+            <DiagramZoomControl zoom={diagramZoom} onZoom={setDiagramZoom} compact className="border-0 bg-transparent shadow-none" />
             <button
               type="button"
               onClick={(e) => {
