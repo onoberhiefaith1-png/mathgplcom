@@ -14,10 +14,11 @@ import {
   addPoint, addSegment, addCircleByRadius, addCircleAt, addArcThrough3,
   closePolygon, addAngle, midpointOfSegment, eraseObject,
   movePoint, cycleEqualMarks, markParallel, patchObject, addFloatingLabel, eraseStructural,
-  addCurve, addRegion, addCurvedRegion,
+  addCurve, addRegion,
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
+import { closeAreaTrace } from "@/lib/geometry/editor/closeTrace";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
@@ -67,6 +68,7 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
   };
 
   const svgRef = useRef<SVGSVGElement | null>(null);
+
   const [hover, setHover] = useState<{ x: number; y: number; snap: SnapTarget } | null>(null);
   const [dragging, setDragging] = useState<{ pointId: GeoId } | null>(null);
   const [labelDrag, setLabelDrag] = useState<{ kind: "pointLabel" | "segmentLabel" | "segmentDistance" | "segmentText" | "angleValue" | "label"; id: GeoId; startX: number; startY: number; baseDx: number; baseDy: number } | null>(null);
@@ -105,6 +107,24 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
     for (const id of sess.ids) s = eraseObject(s, id).scene;
     commit(s);
   };
+
+  /**
+   * AREA-005 — the one way an Area trace is closed, whichever gesture closed it
+   * (click back on the first point, double-click, or Enter). Every path applies
+   * the teacher's chosen fill and density, tidies the session's temporary
+   * points, and finishes with the new region selected.
+   */
+  const closeTraceNow = (points: GeoId[]) => {
+    const closed = closeAreaTrace(scene, points, {
+      curveMode: annotationDraft?.traceMode === "curve",
+      fill: annotationDraft?.fillColor ?? "#3b82f6",
+      opacity: annotationDraft?.fillOpacity ?? 0.25,
+    });
+    for (const op of closed.ops) apply(op);
+    finalizeSession(closed.scene);
+    finishTool(closed.regionId ? [closed.regionId] : [], closed.regionId ? "polygon" : null);
+  };
+
   // If the teacher switches to another tool mid-session, clean up
   // temporary points from the previous annotation if it was "Without Label".
   const prevAnnotationToolRef = useRef<string | null>(null);
@@ -715,24 +735,7 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
         if (!wasExisting) trackSessionPoint("addArea", id);
         const closeOnStart = pendingIds.length >= 3 && id === pendingIds[0];
         if (closeOnStart) {
-          let op;
-          if (curveMode) {
-            op = addCurvedRegion(scene, pendingIds);
-            apply(op);
-            const rgnId = op.addedIds[0];
-            if (rgnId) {
-              const patched = patchObject(op.scene, rgnId, { fill, opacity } as any);
-              apply(patched);
-              finalizeSession(patched.scene);
-            } else {
-              finalizeSession(op.scene);
-            }
-          } else {
-            op = addRegion(scene, pendingIds, { fill, opacity });
-            apply(op);
-            finalizeSession(op.scene);
-          }
-          setPendingIds([]);
+          closeTraceNow(pendingIds);
         } else if (pendingIds[pendingIds.length - 1] !== id) {
           setPendingIds([...pendingIds, id]);
         }
@@ -972,9 +975,7 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
             apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (tool === "addArea" && pendingIds.length >= 3) {
-            const curveMode = annotationDraft?.traceMode === "curve";
-            apply(curveMode ? addCurvedRegion(scene, pendingIds) : addRegion(scene, pendingIds));
-            setPendingIds([]);
+            closeTraceNow(pendingIds);
           } else if (tool === "line") {
             setPendingIds([]);
           }
@@ -987,9 +988,7 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
             apply(addCurve(scene, pendingIds));
             setPendingIds([]);
           } else if (e.key === "Enter" && tool === "addArea" && pendingIds.length >= 3) {
-            const curveMode = annotationDraft?.traceMode === "curve";
-            apply(curveMode ? addCurvedRegion(scene, pendingIds) : addRegion(scene, pendingIds));
-            setPendingIds([]);
+            closeTraceNow(pendingIds);
           } else if (e.key === "Escape") {
             setPendingIds([]);
           }

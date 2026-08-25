@@ -316,8 +316,11 @@ export const area: RequirementDomain = {
         "After any close the region is the selection so its properties are editable.",
       ],
       implementation: {
-        files: ["src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx"],
-        symbols: ["addRegion", "addCurvedRegion", "finalizeSession"],
+        files: [
+          "src/lib/geometry/editor/closeTrace.ts",
+          "src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx",
+        ],
+        symbols: ["closeAreaTrace", "closeTraceNow", "finalizeSession"],
       },
       dependencies: ["AREA-002", "AREA-003"],
       validation: [
@@ -326,15 +329,17 @@ export const area: RequirementDomain = {
           target:
             "Choose a non-default fill and density, trace a region, close it by double-click and then by Enter; both must use the chosen values",
         },
-        { kind: "test", target: "TODO — no test covers the close paths (they live in pointer/keyboard handlers)" },
+        { kind: "module", target: "src/lib/geometry/editor/closeTrace.ts", expects: ["closeAreaTrace"] },
+        { kind: "module", target: "src/components/lessonnotes/geometry-editor/GeometryCanvas.tsx", expects: ["closeTraceNow(pendingIds)"] },
+        { kind: "test", target: "src/lib/geometry/__tests__/closeTrace.test.ts" },
       ],
       restorationSource:
-        ".lovable/plan/right-hand-add-area-configuration-first-then-region-pick-2026-08-15.md (approved behaviour) + the close-on-first-point branch in GeometryCanvas, which is the correct reference implementation",
-      status: "PARTIAL",
+        ".lovable/plan/right-hand-add-area-configuration-first-then-region-pick-2026-08-15.md (approved behaviour) + src/lib/geometry/editor/closeTrace.ts, the single shared close implementation",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
       notes:
-        "Evidence (GeometryCanvas.tsx, click path ~line 703-740 vs double-click ~line 974 and Enter ~line 989): the close-on-first-point branch passes { fill, opacity } and calls finalizeSession, but the double-click and Enter branches call addRegion/addCurvedRegion with NO options and do not finalise the session or select the region. A region closed those two ways therefore takes the engine defaults instead of the teacher's chosen colour/density, and any temporary trace points are not cleaned up. Documented only — not repaired in Phase 1.",
+        "Repaired and proven: all three close gestures (first-point click, double-click, Enter) now call one shared closeTraceNow, which delegates to closeAreaTrace with the chosen fill and density, finalises the session and finishes with the new region selected. src/lib/geometry/__tests__/closeTrace.test.ts covers straight and curve mode fill/density, the returned selectable region id and the under-three-points refusal (4 tests passing).",
     },
     {
       id: "AREA-006",
