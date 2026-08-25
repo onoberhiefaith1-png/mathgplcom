@@ -174,10 +174,8 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
               muted
               playsInline
               onTimeUpdate={onTimeUpdate}
-              onLoadedMetadata={(e) => {
-                const d = e.currentTarget.duration;
-                if (Number.isFinite(d) && Math.abs((value.duration ?? 0) - d) > 0.05) onChange({ duration: d });
-              }}
+              onLoadedMetadata={(e) => adoptDuration(e.currentTarget.duration)}
+              onDurationChange={(e) => adoptDuration(e.currentTarget.duration)}
               className="h-40 w-full bg-black object-contain"
             />
           ) : (
