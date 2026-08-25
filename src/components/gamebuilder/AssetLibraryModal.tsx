@@ -1,4 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  countSubSessions,
+  listAssets,
+  listSessions,
+  listSubSessions,
+  type GplAsset,
+  type GplSession,
+  type GplSubSession,
+} from "@/lib/gpl/assetLibrary";
+import { useSignedUrl } from "./SignedMedia";
 import { ArrowLeft, Sparkles, Upload as UploadIcon } from "lucide-react";
 import {
   Dialog,
@@ -62,6 +72,44 @@ const defaultCategoryFor = (kind: AssetKind): string => {
   }
 };
 
+/** Live-library tile: resolves the signed/external URL and hands it back on pick. */
+const LiveAssetTile = ({
+  asset,
+  onPick,
+}: {
+  asset: GplAsset;
+  onPick: (p: UrlPick) => void;
+}) => {
+  const signed = useSignedUrl(asset.external_url ? null : asset.storage_path);
+  const url = asset.external_url || signed;
+  const video = asset.media_type === "video";
+  return (
+    <button
+      key={asset.id}
+      type="button"
+      disabled={!url}
+      onClick={() =>
+        url && onPick({ name: asset.name, src: url, mediaType: video ? "video" : "image" })
+      }
+      className="group overflow-hidden rounded-lg border border-border/50 bg-muted/30 transition hover:border-primary/60 disabled:opacity-50"
+      title={asset.name}
+    >
+      <div className="aspect-square w-full">
+        {url && video ? (
+          <video src={url} className="h-full w-full object-contain" muted loop playsInline />
+        ) : url ? (
+          <img src={url} alt={asset.name} className="h-full w-full object-contain" draggable={false} />
+        ) : (
+          <span className="grid h-full w-full place-items-center text-lg">
+            {asset.glyph ?? "🖼"}
+          </span>
+        )}
+      </div>
+      <p className="truncate px-1 pb-1 text-[11px]">{asset.name}</p>
+    </button>
+  );
+};
+
 const MathGplBrowser = ({
   kind,
   onPick,
@@ -76,34 +124,190 @@ const MathGplBrowser = ({
   );
   const [subSlug, setSubSlug] = useState<string | null>(null);
 
+  // Live library (the same folders shown on the Assets page), plus the bundled
+  // catalogue behind it so nothing that existed before disappears.
+  const [sessions, setSessions] = useState<GplSession[]>([]);
+  const [subCounts, setSubCounts] = useState<Record<string, number>>({});
+  const [subs, setSubs] = useState<GplSubSession[]>([]);
+  const [liveAssets, setLiveAssets] = useState<GplAsset[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    Promise.all([listSessions(), countSubSessions()])
+      .then(([rows, counts]) => {
+        if (!alive) return;
+        setSessions(rows.filter((s) => s.is_active !== false));
+        setSubCounts(counts);
+      })
+      .catch(() => alive && setSessions([]))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const liveSession = useMemo(
+    () => sessions.find((s) => s.slug === catSlug) ?? null,
+    [sessions, catSlug],
+  );
+  const liveSub = useMemo(() => subs.find((s) => s.slug === subSlug) ?? null, [subs, subSlug]);
+
+  useEffect(() => {
+    if (!liveSession) {
+      setSubs([]);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    listSubSessions(liveSession.id)
+      .then((rows) => alive && setSubs(rows.filter((s) => s.is_active !== false)))
+      .catch(() => alive && setSubs([]))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [liveSession]);
+
+  useEffect(() => {
+    if (!liveSub) {
+      setLiveAssets([]);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    listAssets(liveSub.id)
+      .then((rows) =>
+        alive &&
+        setLiveAssets(
+          rows.filter(
+            (a) => a.is_active !== false && (a.media_type === "image" || a.media_type === "video"),
+          ),
+        ),
+      )
+      .catch(() => alive && setLiveAssets([]))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [liveSub]);
+
+  const managedSlugs = useMemo(() => new Set(sessions.map((s) => s.slug)), [sessions]);
+  const bundledOnly = useMemo(
+    () => assetCategories.filter((c) => !managedSlugs.has(c.slug)),
+    [managedSlugs],
+  );
+
   const category: Category | null = useMemo(
-    () => assetCategories.find((c) => c.slug === catSlug) ?? null,
-    [catSlug],
+    () => (liveSession ? null : assetCategories.find((c) => c.slug === catSlug) ?? null),
+    [catSlug, liveSession],
   );
   const subcategory: Subcategory | null = useMemo(
     () => category?.subcategories.find((s) => s.slug === subSlug) ?? null,
     [category, subSlug],
   );
 
-  if (!category) {
+  const openCategory = (slug: string) => {
+    setCatSlug(slug);
+    setSubSlug(null);
+  };
+
+  /* ── Level 1: every folder (live library + bundled) ── */
+  if (!category && !liveSession) {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        {assetCategories.map((c) => (
+      <div className="space-y-3">
+        {loading && <p className="text-xs text-muted-foreground">Loading your assets…</p>}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          {sessions.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => openCategory(s.slug)}
+              className="rounded-xl border border-border/50 bg-muted/30 p-5 text-left transition hover:border-primary/60 hover:bg-muted/50"
+            >
+              <p className="text-sm font-semibold">{s.name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {subCounts[s.id] ?? 0} collections
+              </p>
+            </button>
+          ))}
+          {bundledOnly.map((c) => (
+            <button
+              key={c.slug}
+              type="button"
+              onClick={() => openCategory(c.slug)}
+              className="rounded-xl border border-border/50 bg-muted/30 p-5 text-left transition hover:border-primary/60 hover:bg-muted/50"
+            >
+              <p className="text-sm font-semibold">{c.name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {c.subcategories.length} collections
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Live library folder ── */
+  if (liveSession) {
+    if (!liveSub) {
+      return (
+        <div className="space-y-3">
           <button
-            key={c.slug}
             type="button"
-            onClick={() => {
-              setCatSlug(c.slug);
-              setSubSlug(null);
-            }}
-            className="rounded-xl border border-border/50 bg-muted/30 p-5 text-left transition hover:border-primary/60 hover:bg-muted/50"
+            onClick={() => setCatSlug(null)}
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
-            <p className="text-sm font-semibold">{c.name}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {c.subcategories.length} collections
-            </p>
+            <ArrowLeft className="h-3.5 w-3.5" /> All categories
           </button>
-        ))}
+          <p className="text-sm font-semibold">{liveSession.name}</p>
+          {loading && <p className="text-xs text-muted-foreground">Loading…</p>}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {subs.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSubSlug(s.slug)}
+                className="rounded-xl border border-border/50 bg-muted/30 p-4 text-left transition hover:border-primary/60 hover:bg-muted/50"
+              >
+                <p className="text-sm font-medium">{s.name}</p>
+              </button>
+            ))}
+          </div>
+          {!loading && !subs.length && (
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              This folder has no collections yet.
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setSubSlug(null)}
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> {liveSession.name}
+        </button>
+        <p className="text-sm font-semibold">{liveSub.name}</p>
+        {loading ? (
+          <p className="text-xs text-muted-foreground">Loading…</p>
+        ) : liveAssets.length === 0 ? (
+          <p className="py-8 text-center text-xs text-muted-foreground">
+            No placeable images or videos in this collection.
+          </p>
+        ) : (
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+            {liveAssets.map((a) => (
+              <LiveAssetTile key={a.id} asset={a} onPick={onPick} />
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -118,9 +322,9 @@ const MathGplBrowser = ({
         >
           <ArrowLeft className="h-3.5 w-3.5" /> All categories
         </button>
-        <p className="text-sm font-semibold">{category.name}</p>
+        <p className="text-sm font-semibold">{category!.name}</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {category.subcategories.map((s) => (
+          {category!.subcategories.map((s) => (
             <button
               key={s.slug}
               type="button"
@@ -147,7 +351,7 @@ const MathGplBrowser = ({
         onClick={() => setSubSlug(null)}
         className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> {category.name}
+        <ArrowLeft className="h-3.5 w-3.5" /> {category!.name}
       </button>
       <p className="text-sm font-semibold">{subcategory.name}</p>
       {items.length === 0 ? (
@@ -165,7 +369,7 @@ const MathGplBrowser = ({
                 onClick={() =>
                   onPick({ name: a.name, src: a.src, mediaType: video ? "video" : "image" })
                 }
-                className="group overflow-hidden rounded-lg border border-border/50 bg-[conic-gradient(#0000_90deg,#8883_0)] bg-[length:16px_16px] transition hover:border-primary/60"
+                className="group overflow-hidden rounded-lg border border-border/50 bg-muted/30 transition hover:border-primary/60"
                 title={a.name}
               >
                 <div className="aspect-square w-full">
