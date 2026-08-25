@@ -102,7 +102,8 @@ import {
   loadAiPreferences,
 } from "./ai/aiPreferences";
 
-import { MathSymbolPanel } from "./MathSymbolPanel";
+import { SymbolQuickPanel } from "./SymbolQuickPanel";
+import type { QuickStructItem } from "@/lib/lessonnotes/symbolQuick";
 import { MatrixQuickPanel } from "./MatrixQuickPanel";
 import type { QuickMatrixSpec } from "@/lib/lessonnotes/matrixQuick";
 import { insertAsset } from "@/lib/lessonnotes/assets/insert";
@@ -2234,6 +2235,7 @@ function DocumentEditorInner({
   const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
   // Matrix quick-access dock panel — shares the width, never overlays the note.
   const [matrixPanelOpen, setMatrixPanelOpen] = useState(false);
+  const [symbolPanelOpen, setSymbolPanelOpen] = useState(false);
   const [slidePanelOpen, setSlidePanelOpen] = useState(false);
 
 
@@ -2248,6 +2250,19 @@ function DocumentEditorInner({
   };
   const insertMathStructure = (latex: string) => {
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
+  };
+
+  /** Quick Symbols palette → a real editable structure at the caret. */
+  const insertQuickSymbol = (item: QuickStructItem) => {
+    if (!editor) return;
+    if (item.prefix) editor.chain().focus().insertContent(item.prefix).run();
+    insertAsset(editor, {
+      id: `symbol-quick-${item.structure}`,
+      label: item.label,
+      category: "Structures",
+      keywords: ["symbol", item.structure],
+      render: { kind: "structure", structure: item.structure, slots: 1, attrs: item.attrs ?? {} },
+    });
   };
 
   /** Quick Matrix palette → a REAL matrix structure (same object the full
@@ -3455,10 +3470,18 @@ function DocumentEditorInner({
           </button>
         )}
         {builderAi && <GlobalAiButton onGenerate={handleGlobalAi} />}
-        <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
         <button
           type="button"
-          onClick={() => { setMatrixPanelOpen((v) => !v); setEmojiPanelOpen(false); }}
+          onClick={() => { setSymbolPanelOpen((v) => !v); setMatrixPanelOpen(false); setEmojiPanelOpen(false); }}
+          title="Symbols — quick access (click to insert at the cursor)"
+          aria-pressed={symbolPanelOpen}
+          className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${symbolPanelOpen ? "bg-foreground/10" : ""}`}
+        >
+          <FunctionSquare className="h-4 w-4" /> Symbols
+        </button>
+        <button
+          type="button"
+          onClick={() => { setMatrixPanelOpen((v) => !v); setEmojiPanelOpen(false); setSymbolPanelOpen(false); }}
           title="Matrix — quick access (dimension + operation → Enter)"
           aria-pressed={matrixPanelOpen}
           className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${matrixPanelOpen ? "bg-foreground/10" : ""}`}
@@ -3479,7 +3502,7 @@ function DocumentEditorInner({
 
         <button
           type="button"
-          onClick={() => { setEmojiPanelOpen((v) => !v); setMatrixPanelOpen(false); }}
+          onClick={() => { setEmojiPanelOpen((v) => !v); setMatrixPanelOpen(false); setSymbolPanelOpen(false); }}
           title="Emoji library"
           aria-pressed={emojiPanelOpen}
           className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${emojiPanelOpen ? "bg-foreground/10" : ""}`}
@@ -3618,6 +3641,12 @@ function DocumentEditorInner({
         />
         </Suspense>
         )}
+        <SymbolQuickPanel
+          open={symbolPanelOpen}
+          onClose={() => setSymbolPanelOpen(false)}
+          onInsertText={insertSymbolText}
+          onInsertStructure={insertQuickSymbol}
+        />
         <MatrixQuickPanel
           open={matrixPanelOpen}
           onClose={() => setMatrixPanelOpen(false)}
