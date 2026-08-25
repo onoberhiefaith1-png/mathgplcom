@@ -210,9 +210,26 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
           e.target.value = "";
         }}
       />
-      <Button size="sm" variant="secondary" className="w-full" disabled={busy} onClick={() => fileRef.current?.click()}>
-        <Upload className="mr-1.5 h-3.5 w-3.5" /> {busy ? "Uploading…" : "Upload timer video"}
-      </Button>
+      <p className="text-[11px] font-medium text-muted-foreground">Add timer video from</p>
+      <div className="grid grid-cols-2 gap-2">
+        <Button size="sm" variant="secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
+          <Upload className="mr-1.5 h-3.5 w-3.5" /> {busy ? "Uploading…" : "My device"}
+        </Button>
+        <Button size="sm" variant="secondary" disabled={busy} onClick={() => setGplOpen(true)}>
+          <Library className="mr-1.5 h-3.5 w-3.5" /> My GPL assets
+        </Button>
+      </div>
+
+      {gplOpen && (
+        <MyGplMediaPicker
+          kind="video"
+          onClose={() => setGplOpen(false)}
+          onPick={(asset) => {
+            setGplOpen(false);
+            pickGpl(asset);
+          }}
+        />
+      )}
     </div>
   );
 };
