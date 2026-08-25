@@ -161,7 +161,7 @@ const HomepageReplaceBuildingPage = () => {
 
   const restore = async () => {
     try {
-      await save({ buildingMode: "mathgpl" });
+      await save({ buildingMode: "mathgpl", buildingSpeed: clampBuildingSpeed(speed) });
       toast.success("MathGPL building restored");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
