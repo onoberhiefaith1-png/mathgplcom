@@ -1114,6 +1114,27 @@ const FloatingNumbersPage = () => {
     return out;
   }, [entries, lines]);
 
+  /* THE NUMBERING LAW — a table is ONE floating number, whatever it generates.
+     Its rows/columns carry the lesson-wide T-series (T1, T2 …) instead of
+     lesson step numbers, so the table never inflates the lesson numbering. */
+  const numbering = useMemo(() => {
+    const lineTags: Record<number, string> = {};
+    const tableStep: Record<string, number> = {};
+    let step = 0;
+    let t = 0;
+    for (const g of groups) {
+      step += 1;
+      if (g.kind === "table") {
+        tableStep[g.objId] = step;
+        for (const it of g.items) { t += 1; lineTags[it.index] = `T${t}`; }
+      } else {
+        lineTags[g.index] = String(step);
+      }
+    }
+    return { lineTags, tableStep };
+  }, [groups]);
+
+
   const patchTableLines = useCallback(
     (objId: string, patch: Partial<NonNullable<FloatingLine["table"]>>) => {
       dirtyRef.current = true;
