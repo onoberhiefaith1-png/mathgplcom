@@ -20,10 +20,13 @@ import {
 } from "@/lib/lessonnotes/editSuggestions";
 import type { SelectionKind } from "@/lib/lessonnotes/detectSelectionKind";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
+import { aiTextToNodes, hasStructuredAiContent } from "@/lib/lessonnotes/aiToNodes";
+import { renderMathInline } from "@/lib/notebook/mathRender";
 
 export interface AiEditTarget {
   text: string;
   kind: SelectionKind;
+  json?: unknown;
 }
 
 interface Props {
@@ -87,8 +90,45 @@ export function AiEditPanel({
   const voice = useVoiceInput(setInstruction as any);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  /** Never show raw syntax in a preview: clean first, then render. */
+  const structuredPreview = (text: string) => aiTextToNodes(text).map((node, index) => {
+    const child = node?.type === "paragraph" ? node.content?.[0] : node;
+    if (child?.type === "mathStructure" && child.attrs?.kind === "matrix") {
+      const attrs = child.attrs.attrs ?? {};
+      const rows = Number(attrs.rows) || 1;
+      const cols = Number(attrs.cols) || 1;
+      const slots = child.content ?? [];
+      return (
+        <div key={index} className="my-2 inline-grid gap-x-4 gap-y-1 border-x-2 border-foreground px-2 py-1"
+          style={{ gridTemplateColumns: `repeat(${cols}, minmax(2rem, auto))` }}>
+          {Array.from({ length: rows * cols }, (_, i) => (
+            <span key={i} className="text-center">{renderMathInline(slots[i]?.content?.[0]?.text ?? "")}</span>
+          ))}
+        </div>
+      );
+    }
+    if (child?.type === "mathVisual" && child.attrs?.family === "smarttable") {
+      const attrs = child.attrs.attrs ?? {};
+      const headers: string[] = Array.isArray(attrs.headers) ? attrs.headers : [];
+      const cells: string[][] = Array.isArray(attrs.cells) ? attrs.cells : [];
+      return (
+        <div key={index} className="my-2 overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            {headers.length > 0 && <thead><tr>{headers.map((cell, i) => <th key={i} className="border border-foreground/30 p-1.5">{renderMathInline(cell)}</th>)}</tr></thead>}
+            <tbody>{cells.map((row, r) => <tr key={r}>{row.map((cell, c) => <td key={c} className="border border-foreground/30 p-1.5 text-center">{renderMathInline(cell)}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      );
+    }
+    const source = node?.type === "mathBlock"
+      ? node.attrs?.value
+      : node?.content?.map((part: any) => part.text ?? part.attrs?.value ?? "").join("");
+    return source ? <div key={index}>{renderPreview ? renderPreview(source) : source}</div> : null;
+  });
+
+  /** Never show raw syntax in a preview: structured proposals use the same
+   * parser as Apply; plain text keeps the existing math renderer. */
   const safePreview = (text: string) => {
+    if (hasStructuredAiContent(text)) return structuredPreview(text);
     const clean = sanitizePresentation(text ?? "");
     return renderPreview ? renderPreview(clean) : clean;
   };

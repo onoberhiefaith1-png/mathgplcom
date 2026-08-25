@@ -162,7 +162,7 @@ import { useLessonAiContextStore, sameSubtopic } from "@/lib/lessonnotes/aiConte
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 import { applyAutoNumbering } from "@/lib/lessonnotes/autoNumber";
 
-import { aiTextToNodes, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
+import { aiTextToNodes, hasStructuredAiContent, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
 import { sectionEndWithin, clampInsideSection, diagramsOwnedByQuestion, ownerQuestionHeadingFor, ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
 import { describeExistingDiagram } from "@/lib/lessonnotes/diagramRef";
 
@@ -2902,7 +2902,7 @@ function DocumentEditorInner({
   const openAiEdit = (snap: SelectionSnapshot) => {
     aiEditBridgeApplyRef.current = null;
     aiEditRangeRef.current = { from: snap.from, to: snap.to };
-    setAiEditTarget({ text: snap.text, kind: snap.kind });
+    setAiEditTarget({ text: snap.text, kind: snap.kind, json: snap.json });
     setAiEditOpen(true);
   };
 
@@ -2936,9 +2936,11 @@ function DocumentEditorInner({
         kind: target.kind,
         instruction,
         selectionText,
+        selectionJson: target.json ?? null,
         subject: activeContext()?.subject ?? "Mathematics",
         topic: activeContext()?.topic ?? "",
         subtopic: activeContext()?.subtopic ?? "",
+        workspaceManifest: buildWorkspaceManifest(),
 
         forceAllStandards: instructionTriggersStandards(instruction),
       },
@@ -2956,6 +2958,7 @@ function DocumentEditorInner({
     const range = aiEditRangeRef.current;
     if (!editor || !range) return;
 
+    const structured = hasStructuredAiContent(proposed);
     const clean = sanitizePresentation(proposed).replace(/\s*\n\s*/g, " ").trim();
     if (!clean) return;
 
@@ -2969,13 +2972,28 @@ function DocumentEditorInner({
       inline = $from.parent.isTextblock && $from.parent === $to.parent;
     } catch { inline = false; }
 
-    if (inline) {
+    if (inline && !structured) {
       const value = normalizeMathSource(clean);
       const content = HAS_MATH(clean)
         ? [{ type: "mathInline", attrs: { value } }]
         : [{ type: "text", text: clean }];
       editor.chain().focus()
         .insertContentAt({ from: range.from, to: range.to }, content as any)
+        .run();
+    } else if (structured && inline) {
+      const $from = editor.state.doc.resolve(range.from);
+      const depth = $from.depth;
+      const parentStart = $from.start(depth);
+      const parentEnd = $from.end(depth);
+      const before = editor.state.doc.textBetween(parentStart, range.from, "\n", "");
+      const after = editor.state.doc.textBetween(range.to, parentEnd, "\n", "");
+      const nodes = [
+        ...(before.trim() ? aiTextToNodes(before) : []),
+        ...aiTextToNodes(proposed),
+        ...(after.trim() ? aiTextToNodes(after) : []),
+      ];
+      editor.chain().focus()
+        .insertContentAt({ from: $from.before(depth), to: $from.after(depth) }, nodes)
         .run();
     } else {
       const nodes = aiTextToNodes(proposed);
