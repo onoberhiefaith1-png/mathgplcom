@@ -2825,14 +2825,16 @@ const PresentationView = ({
     [tSeriesGroup],
   );
 
-  /** THE tag of the active floating number — `T{n}` inside a table, the
-   *  lesson step number outside. Every surface reads this one value. */
+  /** THE tag of the active floating number — `T{k}.{i}` inside an open table
+   *  branch, otherwise the main-path tag (`L{n}` or `T{k}`). One value, every
+   *  surface. A closed table NEVER shows a child tag. */
   const activeTag = useMemo(
     () => (tSeriesGroup
       ? tagForLine(steps, tableGroups, activeLineIdx)
-      : String(activeStepIdx + 1)),
+      : mainTagForStep(steps, activeStepIdx)),
     [tSeriesGroup, steps, tableGroups, activeLineIdx, activeStepIdx],
   );
+
   const activeTagRef = useRef(activeTag);
   activeTagRef.current = activeTag;
 
