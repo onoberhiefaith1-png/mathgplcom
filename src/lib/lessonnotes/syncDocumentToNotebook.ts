@@ -333,11 +333,15 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
 
 
       for (let j = 0; j < sec.subsections.length; j++) {
-        const { problem, solution, solutionObjects, problemObjects } = sec.subsections[j];
+        const { problem, solution, solutionObjects, problemObjects, docKey } = sec.subsections[j];
         let subId = claimed[j]?.id ?? null;
         if (subId) {
-          if ((claimed[j] as ExistingSub).order_index !== j) {
-            await supabase.from("notebook_subsections").update({ order_index: j }).eq("id", subId);
+          const row = claimed[j] as ExistingSub;
+          if (row.order_index !== j || row.doc_key !== docKey) {
+            await supabase
+              .from("notebook_subsections")
+              .update({ order_index: j, doc_key: docKey })
+              .eq("id", subId);
           }
         } else {
           const { data: subRow } = await supabase
@@ -345,6 +349,7 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
             .insert({
               section_id: sectionId,
               order_index: j,
+              doc_key: docKey,
               floating_highlights: null,
               floating_lines: [],
               floating_bucket: null,
@@ -363,9 +368,10 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
       }
     } else {
       // Loose (non-question) section — its blocks are disposable.
-      if (target.subs.length) {
-        await supabase.from("notebook_subsections").delete().in("id", target.subs.map((p) => p.id));
+      if (section.subs.length) {
+        await supabase.from("notebook_subsections").delete().in("id", section.subs.map((p) => p.id));
       }
+
       await supabase.from("notebook_blocks").delete().eq("section_id", sectionId).is("subsection_id", null);
       if (sec.loose.length || sec.looseObjects.length) {
         const texts = sec.loose.length ? sec.loose : [""];
