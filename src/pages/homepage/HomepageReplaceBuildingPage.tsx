@@ -219,11 +219,65 @@ const HomepageReplaceBuildingPage = () => {
             <Button variant="outline" onClick={() => setLibrary(true)}>
               Choose building from Asset Library
             </Button>
+            <Button
+              variant="outline"
+              disabled={cutting || !building || building.mediaType !== "image"}
+              onClick={() => void removeBg()}
+              title={
+                building && building.mediaType !== "image"
+                  ? "Videos use the chroma-key switch in Building settings"
+                  : "Cut the backdrop out of this building"
+              }
+            >
+              <Eraser className="mr-2 h-4 w-4" /> {cutting ? "Removing…" : "Remove background"}
+            </Button>
           </div>
         </div>
 
-        <aside className="rounded-2xl border border-border bg-card/50 p-4">
-          <p className="mb-3 text-sm font-semibold">Building settings</p>
+        <aside className="space-y-4 rounded-2xl border border-border bg-card/50 p-4">
+          <p className="text-sm font-semibold">Building settings</p>
+
+          <div className="rounded-xl border border-border bg-background/40 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Speed
+              </span>
+              <span className="text-sm font-semibold">{speed.toFixed(2)}×</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.001}
+              value={speedToSlider(speed)}
+              onChange={(e) => setSpeed(sliderToSpeed(Number(e.target.value)))}
+              aria-label="Building speed"
+              className="w-full accent-primary"
+            />
+            <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+              <span>0.1× slower</span>
+              <span>1× normal</span>
+              <span>10× faster</span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {SPEED_PRESETS.map((p) => (
+                <Button
+                  key={p}
+                  type="button"
+                  size="sm"
+                  variant={Math.abs(speed - p) < 0.01 ? "default" : "outline"}
+                  onClick={() => setSpeed(p)}
+                >
+                  {p}×
+                </Button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              1× is the building's own natural speed — video playback for a replaced building,
+              rotation for the MathGPL building.
+            </p>
+          </div>
+
           <SettingsPanel
             element={building}
             onChange={(patch) => setBuilding((b) => (b ? { ...b, ...patch } : b))}
@@ -231,6 +285,7 @@ const HomepageReplaceBuildingPage = () => {
             onLayer={() => undefined}
           />
         </aside>
+
       </main>
 
       <AssetLibraryModal
