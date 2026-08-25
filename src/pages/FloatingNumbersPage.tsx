@@ -38,6 +38,8 @@ import {
   generateTableLines,
   tableLineEquation,
   cellFitsLine,
+  defaultRetainedCells,
+
   type TableGrid,
   type TableOrientation,
 } from "@/lib/floating/tableGrid";
