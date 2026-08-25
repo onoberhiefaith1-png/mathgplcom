@@ -7,7 +7,7 @@
 // The teacher picks or uploads a video, then sets the three regions. Preview
 // buttons play each region so the boundaries can be trusted before publishing.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Library, Play, Upload } from "lucide-react";
+import { Library, Play, Square, Upload } from "lucide-react";
 import { MyGplMediaPicker } from "@/components/lessonnotes/slides/MyGplMediaPicker";
 import type { GplAsset } from "@/lib/gpl/assetLibrary";
 import { Button } from "@/components/ui/button";
@@ -123,13 +123,39 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
     }
   };
 
-  // Preview: seek to the region start and stop at its end.
-  const preview = (phase: Phase) => {
+  // Preview: seek to the region start and stop at its end. Metadata may not have
+  // arrived yet, so wait for it before seeking — otherwise the seek is dropped
+  // and the video appears to do nothing.
+  const preview = async (phase: Phase) => {
     const el = videoRef.current;
     if (!el) return;
+    if (!Number.isFinite(el.duration) || el.duration <= 0) {
+      el.preload = "auto";
+      el.load();
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          el.removeEventListener("loadedmetadata", done);
+          resolve();
+        };
+        el.addEventListener("loadedmetadata", done);
+        window.setTimeout(done, 4000);
+      });
+      adoptDuration(el.duration);
+    }
+    const start = Math.min(regions[phase].start, Math.max(0, (el.duration || 0) - 0.05));
     setPreviewing(phase);
-    el.currentTime = regions[phase].start;
+    try {
+      el.currentTime = start;
+    } catch {
+      /* seek unsupported before metadata — playback still starts from 0 */
+    }
     void el.play().catch(() => undefined);
+  };
+
+  const stopPreview = () => {
+    const el = videoRef.current;
+    setPreviewing(null);
+    el?.pause();
   };
   const onTimeUpdate = () => {
     const el = videoRef.current;
@@ -173,7 +199,11 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
               src={url}
               muted
               playsInline
+              preload="metadata"
+              controls
               onTimeUpdate={onTimeUpdate}
+              onEnded={() => setPreviewing(null)}
+              onLoadedData={(e) => adoptDuration(e.currentTarget.duration)}
               onLoadedMetadata={(e) => adoptDuration(e.currentTarget.duration)}
               onDurationChange={(e) => adoptDuration(e.currentTarget.duration)}
               className="h-40 w-full bg-black object-contain"
@@ -228,9 +258,20 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
               <div className="text-xs font-semibold">{p.label}</div>
               <div className="text-[11px] text-muted-foreground">{p.hint}</div>
             </div>
-            <Button size="sm" variant="secondary" disabled={!value?.storagePath || !ready} onClick={() => preview(p.id)}>
-              <Play className="mr-1 h-3 w-3" /> Preview
-            </Button>
+            {previewing === p.id ? (
+              <Button size="sm" variant="secondary" onClick={stopPreview}>
+                <Square className="mr-1 h-3 w-3" /> Stop
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!url}
+                onClick={() => void preview(p.id)}
+              >
+                <Play className="mr-1 h-3 w-3" /> Preview
+              </Button>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
