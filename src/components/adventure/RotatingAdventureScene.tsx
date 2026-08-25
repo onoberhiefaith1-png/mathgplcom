@@ -210,6 +210,9 @@ const Showcase = ({
   const { camera } = useThree();
   const pausedRef = useRef(rotationPaused);
   pausedRef.current = rotationPaused;
+  const speedMulRef = useRef(clampBuildingSpeed(speed));
+  speedMulRef.current = clampBuildingSpeed(speed);
+
 
 
   // Artwork per slot; repeated urls (the MathGPL hubs, the dome copies) load once.
