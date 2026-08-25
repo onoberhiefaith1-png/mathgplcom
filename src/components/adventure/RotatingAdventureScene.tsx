@@ -533,6 +533,8 @@ export const RotatingAdventureScene = ({
                 routeFor={routeFor}
                 interactive={interactive}
                 onArtworkReady={handleArtworkReady}
+                speed={clampBuildingSpeed(config.buildingSpeed)}
+
                 rotationPaused={rotationPaused}
                 onFrontIndexChange={onFacingChange}
               />
