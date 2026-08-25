@@ -85,6 +85,7 @@ import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
 import { clampRowSpacing, normalizeRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
+import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
 import {
   type Cursor, type Node, type Row,
   mkChar, mkSub, mkSup,
