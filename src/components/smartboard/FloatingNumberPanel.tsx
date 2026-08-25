@@ -10,6 +10,7 @@ import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 import { visiblePlaceholderColor } from "@/lib/smartboard/placeholderColor";
+import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
 
 /** Background of the floating chip bar — placeholders must stay visible on it. */
 const CHIP_SURFACE = "#ffffff";
@@ -109,8 +110,17 @@ export const parseFractionChip = (label: string): FractionParts | null => {
 /** Render a chip's label as JSX. When the chip is a recognised fraction,
  *  draw a real stacked fraction with the variable riding on the numerator
  *  (so `¹⁰⁄₃x` reads as "10x over 3", never as "10 over 3 x"). */
+const matrixChipLabel = (raw: string): string | null => {
+  const grid = gridFromMatrixLatex(raw);
+  if (!grid) return null;
+  const left = grid.matrixBrackets?.left ?? "[";
+  const right = grid.matrixBrackets?.right ?? "]";
+  return `${left ? `${left} ` : ""}${grid.rows} × ${grid.cols}${right ? ` ${right}` : ""}`;
+};
+
 const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: string; placeholderColor?: string }) => {
   const safe = assertDisplaySafe(label).cleaned;
+  const matrixLabel = matrixChipLabel(label);
   const frac = parseFractionChip(label);
   // The chip bar is WHITE. The board's placeholder colour is near-white
   // cream, so slots painted with it disappear here — which is why every
@@ -121,6 +131,9 @@ const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: s
     value.trim() === "□"
       ? <SmartboardPlaceholderSlot key={key} color={slotColor} size="panel" source="floating-number" />
       : <span key={key} style={{ padding: "0 4px", whiteSpace: "nowrap" }}>{value}</span>;
+  if (matrixLabel) {
+    return <span style={{ fontWeight: 800, letterSpacing: 0 }}>{matrixLabel}</span>;
+  }
   if (!frac) {
     return <span>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor: slotColor })}</span>;
   }
@@ -162,6 +175,9 @@ interface Props {
   activeIdx: number;
   visible: boolean;
   onInsert?: (token: string) => void;
+  /** Called when the tapped chip is a full LaTeX matrix environment; the
+   *  parent inserts a real matrix node instead of writing raw LaTeX. */
+  onInsertMatrix?: (latex: string) => void;
   /** Called when the tapped chip is a recognised stacked fraction; the parent
    *  inserts a real frac node so the board shows a proper bar (no slash). */
   onInsertFrac?: (parts: FractionParts) => void;
@@ -223,7 +239,7 @@ interface Props {
 export const FloatingNumberPanel = ({
   chromeFg,
   reservoirs, viewIdx, activeIdx, visible,
-  onInsert, onInsertFrac, activeLineIdx, consumedAbsIdx, onUse, onUnuse,
+  onInsert, onInsertMatrix, onInsertFrac, activeLineIdx, consumedAbsIdx, onUse, onUnuse,
   leftPx,
   viewportBottomInset = 0,
   onPing, beatId,
@@ -462,6 +478,12 @@ export const FloatingNumberPanel = ({
     } else {
       const reentryLen = Math.max(1, oldestUsedFlow.length || usedOrder.length || allSlots.length);
       setReentryOffset((o) => (o + 1) % reentryLen);
+    }
+    if (gridFromMatrixLatex(label) && onInsertMatrix) {
+      onInsertMatrix(label);
+      onUse?.(absIdx, label);
+      onPing();
+      return;
     }
     const frac = parseFractionChip(label);
     if (frac && onInsertFrac) {
