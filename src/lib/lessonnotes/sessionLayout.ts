@@ -122,9 +122,24 @@ export function runSessionLayout(editor: Editor) {
  * it stops rescheduling until the teacher's next real edit or resize, so it can
  * never occupy the main thread and freeze the workspace.
  */
-const MAX_PASSES = 6;
+export const MAX_PASSES = 6;
 /** Quiet window after which a burst of passes is considered a fresh change. */
-const BURST_RESET_MS = 400;
+export const BURST_RESET_MS = 400;
+
+/**
+ * Pure pass-budget decision, extracted so the anti-freeze guarantee can be
+ * pinned by tests (STAB-002): a burst of self-triggered passes is bounded, and
+ * a quiet window (or a real teacher edit) restores the full budget.
+ */
+export function layoutPassBudget(
+  passes: number,
+  lastPassAt: number,
+  now: number,
+): { run: boolean; passes: number } {
+  const reset = now - lastPassAt > BURST_RESET_MS;
+  const current = reset ? 0 : passes;
+  return { run: current < MAX_PASSES, passes: current };
+}
 
 export function attachSessionLayout(editor: Editor): () => void {
   let raf = 0;
@@ -133,9 +148,9 @@ export function attachSessionLayout(editor: Editor): () => void {
 
   const schedule = () => {
     if (raf) return;
-    const now = Date.now();
-    if (now - lastPassAt > BURST_RESET_MS) passes = 0;
-    if (passes >= MAX_PASSES) return;
+    const budget = layoutPassBudget(passes, lastPassAt, Date.now());
+    passes = budget.passes;
+    if (!budget.run) return;
     raf = window.requestAnimationFrame(() => {
       raf = 0;
       passes += 1;

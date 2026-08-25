@@ -262,15 +262,18 @@ export const floating: RequirementDomain = {
       source: "Approved: 'Rename Reasoning to Evaluation' + 'Use Floating Number Evaluation for marks'",
       requirement: "The teacher-facing panel is called Evaluation, and marks are derived from the floating-number evaluation, not typed by hand.",
       behaviour: ["No surface still says 'Reasoning' for this panel", "Marks trace back to evaluated lines"],
-      implementation: { files: ["src/components/smartboard/TeacherReasoningPanel.tsx", "src/lib/floating/verifier.ts"] },
+      implementation: { files: ["src/components/smartboard/TeacherEvaluationPanel.tsx", "src/lib/floating/verifier.ts"] },
       dependencies: ["ASMT-003"],
-      validation: [{ kind: "manual", target: "Confirm the panel label reads Evaluation everywhere" }],
+      validation: [
+        { kind: "manual", target: "Confirm the panel label reads Evaluation everywhere" },
+        { kind: "module", target: "src/components/smartboard/TeacherEvaluationPanel.tsx" },
+      ],
       restorationSource: "current panel + floating verifier",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "LOW",
       permanent: "PENDING",
       notes:
-        "PARTIAL: the implementing file is still named TeacherReasoningPanel.tsx. That is a naming artefact, not necessarily a UI regression. UNKNOWN — REQUIRES HUMAN CONFIRMATION that no visible label still says 'Reasoning'.",
+        "Cleared 2026-08-25: the panel file, its imports and its remaining internal wording were renamed to Evaluation (src/components/smartboard/TeacherEvaluationPanel.tsx); a text search for 'Reasoning' now returns no visible label, badge or heading on this surface.",
     },
     {
       id: "FLT-006",

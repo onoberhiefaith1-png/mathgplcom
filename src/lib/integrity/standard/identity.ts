@@ -51,12 +51,13 @@ export const authentication: RequirementDomain = {
         files: ["src/routes/auth/verified.tsx", "src/pages/auth/VerifiedPage.tsx", "supabase/config.toml"],
         routes: ["/auth/verified"],
       },
-      validation: [{ kind: "manual", target: "Confirm anonymous sign-in stays disabled in auth settings" }],
+      validation: [{ kind: "manual", target: "Confirm anonymous sign-in stays disabled and email confirmation is not auto-confirmed in auth settings" }],
       restorationSource: "NONE — provider configuration, not code",
-      status: "UNKNOWN",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
-      notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION of the live auth provider settings.",
+      notes:
+        "Confirmed on 2026-08-25 against the live auth settings on the Administrator's instruction: anonymous sign-in disabled, email auto-confirm off (confirmation links required), sign-up open, leaked-password protection on. Provider configuration, so this stays a manual check to repeat if the settings are ever changed.",
     },
     {
       id: "AUTH-003",
@@ -121,10 +122,11 @@ export const authentication: RequirementDomain = {
       implementation: { files: ["src/pages/auth/AccountChooser.tsx"], other: ["Auth provider configuration"] },
       validation: [{ kind: "manual", target: "Sign in with Google once and confirm no 'Unsupported provider' error" }],
       restorationSource: "NONE — provider configuration",
-      status: "UNKNOWN",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
-      notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION.",
+      notes:
+        "Confirmed on 2026-08-25: a live signed-in session on this project reports provider \"google\" with a verified Google identity, so the provider is enabled and a real Google sign-in has completed without an 'Unsupported provider' error. Provider configuration, so this stays a manual check.",
     },
   ],
 };

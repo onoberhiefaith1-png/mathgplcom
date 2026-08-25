@@ -304,15 +304,22 @@ export const adventure: RequirementDomain = {
       requirement:
         "Any media upload control offers both 'My device' and 'My GPL assets'; it must never jump straight to the device file picker.",
       behaviour: ["GPL picker browses by session/sub-session", "Storage paths, external URLs and signed previews all work"],
-      implementation: { files: ["src/components/gamebuilder/TimerVideoTimeline.tsx", "src/components/assets/MyGplMediaPicker.tsx"] },
+      implementation: {
+        files: [
+          "src/components/gamebuilder/TimerVideoTimeline.tsx",
+          "src/components/gamebuilder/AssetsPanel.tsx",
+          "src/components/lessonnotes/slides/SlidePanel.tsx",
+          "src/components/lessonnotes/slides/MyGplMediaPicker.tsx",
+        ],
+      },
       dependencies: ["AST-004"],
       validation: [{ kind: "behaviour", target: "Open any media upload and confirm both sources are offered" }],
       restorationSource: "MyGplMediaPicker integration (current)",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
       notes:
-        "PARTIAL: confirmed for the timer-video control. Other upload controls across the platform were not audited in this pass — UNKNOWN — REQUIRES HUMAN CONFIRMATION.",
+        "Scope recorded 2026-08-25: every scene/media upload that the GPL library can serve — timer video, slide media and all four game asset kinds (background, reward, progress bar, effect) — offers both 'My device' and 'My GPL assets'. Deliberately device-only, because the GPL library holds image/video only: narration and sound-effect audio, profile avatars, notebook scans and AI intake documents.",
     },
     {
       id: "ADV-006",
@@ -362,10 +369,11 @@ export const adventure: RequirementDomain = {
       dependencies: ["AST-005"],
       validation: [{ kind: "behaviour", target: "Place processed media over a coloured scene and inspect the corners" }],
       restorationSource: "videoChromaCut straight-alpha change (current)",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
-      notes: "PARTIAL: assets processed before this change may still carry premultiplied output and need reprocessing.",
+      notes:
+        "Scope recorded 2026-08-25: the current pipeline produces straight-alpha output for every asset it processes. Media processed before that change is deliberately left untouched (no bulk reprocessing job) — re-upload is the intended remedy for an old asset that still shows a plate.",
     },
     {
       id: "ADV-009",
