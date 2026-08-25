@@ -830,14 +830,17 @@ const FloatingNumbersPage = () => {
         const equation = fromHighlights
           ? (highlightsData[i]?.payload ?? existing[i]?.equation ?? a.equation ?? "")
           : (a.equation || existing[i]?.equation || "");
-        if (gridFromMatrixLatex(equation)) {
+        const matrixSplit = splitMatrixChip(equation);
+        if (matrixSplit) {
+          // STRUCTURE FIRST: empty matrix shell chip, then one chip per cell.
+          const mFillers = [matrixSplit.shell, ...matrixSplit.values];
           return {
             lineId: existing[i]?.lineId ?? newId(),
             equation,
-            fillers: [equation],
+            fillers: mFillers,
             containers: [],
-            arrangement: [0],
-            fillersSelected: [false],
+            arrangement: mFillers.map((_, k) => k),
+            fillersSelected: mFillers.map(() => false),
             containersSelected: [],
           };
         }
