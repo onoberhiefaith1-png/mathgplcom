@@ -11,11 +11,14 @@ import { Plus, RefreshCw, Lock, Rows3, Columns3 } from "lucide-react";
 import type { TableGrid, TableOrientation } from "@/lib/floating/tableGrid";
 import { cellKey } from "@/lib/floating/tableGrid";
 import { StructureStage, canRenderStructure } from "@/components/structures/StructureStage";
+import { renderMathInline } from "@/lib/notebook/mathRender";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 
 
 interface Props {
   grid: TableGrid;
+  /** The ONE floating number this whole table occupies in the lesson. */
+  stepNo?: number;
   orientation: TableOrientation;
   retained: string[];
   retentionMode: boolean;
@@ -33,6 +36,7 @@ interface Props {
 
 const TableWorkspace = ({
   grid,
+  stepNo,
   orientation,
   retained,
   retentionMode,
@@ -70,7 +74,7 @@ const TableWorkspace = ({
       {/* Control strip */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b" style={{ borderColor: "hsl(220 15% 60% / 0.25)" }}>
         <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/55">
-          {grid.label} workspace
+          {stepNo ? `Line ${stepNo} · ` : ""}{grid.label} workspace
         </span>
 
         <div className="inline-flex rounded-md overflow-hidden border border-foreground/20 ml-1">
@@ -179,7 +183,7 @@ const TableWorkspace = ({
                       }}
                       title={retainedSet.has(k) ? "Retained — visible to students" : k}
                     >
-                      {v || "·"}
+                      {v ? renderMathInline(v, `tws-${grid.objId}-${k}`) : "·"}
                     </button>
                   ))}
                 </div>
@@ -201,7 +205,7 @@ const TableWorkspace = ({
                     className="px-3 py-1.5 font-semibold text-center"
                     style={{ border: "1px solid hsl(220 15% 40% / 0.5)", background: "hsl(38 30% 92%)" }}
                   >
-                    {h || `C${c + 1}`}
+                    {h ? renderMathInline(h, `twh-${grid.objId}-${c}`) : `C${c + 1}`}
                   </th>
                 ))}
               </tr>
@@ -248,7 +252,7 @@ const TableWorkspace = ({
                       }}
                       title={isRetained ? "Retained — visible to students" : k}
                     >
-                      {v || <span className="text-foreground/25">·</span>}
+                      {v ? renderMathInline(v, `twc-${grid.objId}-${k}`) : <span className="text-foreground/25">·</span>}
                     </td>
                   );
                 })}
