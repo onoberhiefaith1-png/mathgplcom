@@ -18,6 +18,7 @@ import {
 } from "@/lib/geometry/editor/sceneOps";
 import type { ToolId } from "@/lib/geometry/editor/tools";
 import { cycleFromSegments } from "@/lib/geometry/editor/regions";
+import { closeAreaTrace } from "@/lib/geometry/editor/closeTrace";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
 import type { UseGeometryEditorReturn } from "./useGeometryEditor";
