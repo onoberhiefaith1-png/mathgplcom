@@ -2,7 +2,7 @@
 // becomes its own asset. Backgrounds can be removed before the file is stored,
 // so every teacher receives an already-transparent image.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import {
