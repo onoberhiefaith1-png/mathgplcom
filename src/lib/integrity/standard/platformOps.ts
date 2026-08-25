@@ -256,15 +256,22 @@ export const adminConsole: RequirementDomain = {
       requirement:
         "Asset management access is granted through can_manage_gpl_assets / asset_managers; the owner can whitelist a manager from the console.",
       behaviour: ["Losing the capability must not silently break asset creation", "Access errors say what is missing"],
-      implementation: { tables: ["asset_managers", "gpl_assets"], dbFunctions: ["can_manage_gpl_assets"] },
+      implementation: {
+        files: ["src/components/admin/assets/AssetManagersCard.tsx", "src/pages/admin/AccessCodesPage.tsx"],
+        tables: ["asset_managers", "gpl_assets"],
+        dbFunctions: ["can_manage_gpl_assets"],
+      },
       dependencies: ["AST-002", "ADM-001"],
-      validation: [{ kind: "database", target: "can_manage_gpl_assets" }],
+      validation: [
+        { kind: "database", target: "can_manage_gpl_assets" },
+        { kind: "module", target: "src/components/admin/assets/AssetManagersCard.tsx" },
+      ],
       restorationSource: "can_manage_gpl_assets + asset_managers (current)",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
       notes:
-        "PARTIAL: the capability exists; whether a console screen exists to whitelist a manager was not confirmed in this pass. UNKNOWN — REQUIRES HUMAN CONFIRMATION.",
+        "Cleared 2026-08-25: the console screen exists and is reachable — AccessCodesPage renders AssetManagersCard for the asset-manager purpose, so the owner can whitelist and remove a manager there, backed by can_manage_gpl_assets / asset_managers.
     },
   ],
 };
@@ -609,7 +616,7 @@ export const stability: RequirementDomain = {
       dependencies: ["STAB-001", "AI-007"],
       validation: [
         { kind: "behaviour", target: "Switch sections 20 times and confirm the workspace stays responsive" },
-        { kind: "test", target: "TODO — no automated freeze regression test exists" },
+        { kind: "test", target: "src/lib/lessonnotes/__tests__/sessionLayoutBudget.test.ts" },
       ],
       restorationSource: "StabilityWatchdog + sessionLayout loop fix (current)",
       status: "PARTIAL",

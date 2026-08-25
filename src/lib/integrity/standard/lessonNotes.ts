@@ -196,12 +196,16 @@ export const lessonNotes: RequirementDomain = {
       requirement: "A note cover can be generated from a fixed set of themes and stored on the notebook.",
       behaviour: ["Ten themes offered", "Generated cover is saved to the note, not regenerated on each view"],
       implementation: { tables: ["notebooks"], other: ["cover generation function"] },
-      validation: [{ kind: "manual", target: "Generate a cover and confirm it persists" }],
-      restorationSource: "NONE VERIFIED — generation path not re-checked in this pass",
-      status: "UNKNOWN",
+      validation: [
+        { kind: "manual", target: "Generate a cover and confirm it persists" },
+        { kind: "test", target: "src/lib/lessonnotes/__tests__/coverThemes.test.ts" },
+      ],
+      restorationSource: "src/lib/lessonnotes/coverThemes.ts + CoverDesignerDialog (current)",
+      status: "PASS",
       severity: "LOW",
       permanent: "PENDING",
-      notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION.",
+      notes:
+        "Cleared 2026-08-25: CoverDesignerDialog is reachable from the notebook card menu and its onSave writes cover_config to the notebooks row (src/pages/LessonNotesPage.tsx saveCover), so the cover is stored, not regenerated per view. src/lib/lessonnotes/__tests__/coverThemes.test.ts pins exactly ten unique themes, one suggestion per theme and verbatim read-back of a stored cover.
     },
     {
       id: "LN-012",
@@ -421,10 +425,11 @@ export const tables: RequirementDomain = {
         { kind: "behaviour", target: "Two tables in one solution: confirm T1.x then T2.x with the main sequence intact" },
       ],
       restorationSource: "src/lib/smartboard/tableActivity.ts (current)",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
-      notes: "PARTIAL: behaviour implemented, no regression test. Test is a Section I action.",
+      notes:
+        "Cleared 2026-08-25: src/lib/smartboard/__tests__/tableBranching.test.ts pins T1/T2 branch identity, Tk.1/Tk.2 children, the untouched L1/L2/L3 main sequence across two tables, return to the next main step at the end of a branch, and one branch per table even when its lines are not contiguous.
     },
     {
       id: "TBL-003",
