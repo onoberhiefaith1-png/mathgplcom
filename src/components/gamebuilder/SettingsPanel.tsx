@@ -440,40 +440,19 @@ const SettingsPanel = ({
               </Section>
 
               <Section title="Time Duration">
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={
-                      TIME_DURATION_OPTIONS.some((o) => o.seconds === (progress.timeDurationSeconds ?? 0))
-                        ? String(progress.timeDurationSeconds ?? 0)
-                        : "custom"
-                    }
-                    onValueChange={(v) => {
-                      if (v === "custom") return;
-                      patchProgress({ timeDurationSeconds: Number(v) });
-                    }}
-                  >
-                    <SelectTrigger className="h-8 flex-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {TIME_DURATION_OPTIONS.map((o) => (
-                        <SelectItem key={o.seconds} value={String(o.seconds)}>{o.label}</SelectItem>
-                      ))}
-                      <SelectItem value="custom">Custom…</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    value={timeText}
-                    placeholder="mm:ss"
-                    onChange={(e) => setTimeText(e.target.value)}
-                    onBlur={() => {
-                      const secs = parseClock(timeText);
-                      if (secs != null) patchProgress({ timeDurationSeconds: secs });
-                      else setTimeText(fmtClock(progress.timeDurationSeconds ?? 0));
-                    }}
-                    className="h-8 w-24"
-                  />
-                </div>
+                <Input
+                  value={timeText}
+                  placeholder="mm:ss"
+                  onChange={(e) => setTimeText(e.target.value)}
+                  onBlur={() => {
+                    const secs = parseClock(timeText);
+                    if (secs != null) patchProgress({ timeDurationSeconds: secs });
+                    else setTimeText(fmtClock(progress.timeDurationSeconds ?? 0));
+                  }}
+                  className="h-8"
+                />
                 <p className="text-[11px] text-muted-foreground">
-                  Enter any length as mm:ss (or minutes). None hides the timer completely — students keep solving
+                  Enter any length as mm:ss (or plain minutes). 0:00 hides the timer completely — students keep solving
                   until the Progress Bar is full. A Video Adventure needs a duration on every Learning Point.
                 </p>
               </Section>
