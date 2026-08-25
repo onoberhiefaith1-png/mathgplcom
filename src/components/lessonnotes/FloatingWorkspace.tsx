@@ -296,7 +296,9 @@ export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMo
           // \sqrt{□}, paired brackets with □ slots). Pass those straight to
           // the math renderer — DO NOT run them through isStillDirty, which
           // is meant for AI-generated free-form strings.
-          const isStructural = /\\frac|\\sqrt/.test(f) || /□/.test(f);
+          const isStructural =
+            /\\frac|\\sqrt|\\begin\{|\\sum|\\prod|\\int|\\oint|\\lim|\\binom|\\left/.test(f) ||
+            /□/.test(f);
           const cleaned = isStructural ? f : toUnicodeMath(f);
           if (!isStructural && isStillDirty(cleaned)) return null;
           // Multi-term chips (e.g. "Ax²+Bx+C") must show the WHOLE expression,
