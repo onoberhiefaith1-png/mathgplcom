@@ -2893,15 +2893,17 @@ const PresentationView = ({
       return;
     }
     if (isGroupComplete(activeTableGroup, activeTableEntries)) {
-      const last = activeTableGroup.memberLineIdxs[activeTableGroup.memberLineIdxs.length - 1];
-      const after = last + 1;
-      if (after < guidedLines.length) {
-        setActiveLineIdx(after);
-        setFloatingLineIdx(after);
+      // BRANCH EXIT: return to the next MAIN-PATH node (T1 → L4, T2 → L6),
+      // never to the raw next line, which could be another table's child.
+      const back = nextMainStepAfter(steps, activeTableGroup);
+      if (back) {
+        setActiveLineIdx(back.lineIdx);
+        setFloatingLineIdx(back.lineIdx);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, guidedLines.length, activeTablePlaced]);
+  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, steps, activeTablePlaced]);
+
 
 
   // NOTE GATE — one uniform live rule for every line, no special cases:
