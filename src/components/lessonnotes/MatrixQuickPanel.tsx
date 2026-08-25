@@ -1,23 +1,26 @@
-// Matrix quick-access palette — a compact popover in the lesson-note ribbon.
+// Matrix quick-access palette — a docked right-hand panel in the lesson note.
 //
-// Dimension + compatible operation / special type → Enter → inserted at the
+// It behaves like the Emoji Library: it SHARES the editor width instead of
+// covering the page. Dimension + compatible operation / special type → Enter →
+// a REAL matrix object (bracketed grid with editable cells) is inserted at the
 // cursor. It never replaces the full Matrix builder; it is the fast door for
-// writing several matrices inside one equation.
+// writing several matrices inside one lesson.
 
 import { useEffect, useState } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Grid3X3 } from "lucide-react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   QUICK_DIMS, QUICK_OPS, QUICK_SPECIALS,
-  buildQuickMatrixLatex, chooseDim, dimState, emptySelection, isReady,
-  opState, previewSentence, specialState, toggleOp, toggleSpecial,
+  chooseDim, dimState, emptySelection, isReady,
+  opState, previewSentence, quickMatrixSpec, specialState, toggleOp, toggleSpecial,
   type QuickSelection,
 } from "@/lib/lessonnotes/matrixQuick";
 
 interface Props {
-  /** Inserts a `mathInline` node carrying the built LaTeX. */
-  insertMath: (latex: string) => void;
+  open: boolean;
+  onClose: () => void;
+  /** Inserts a real matrix structure at the note's current cursor position. */
+  onInsert: (spec: ReturnType<typeof quickMatrixSpec>) => void;
 }
 
 function Chip({
@@ -56,41 +59,45 @@ const Band = ({ title, children }: { title: string; children: React.ReactNode })
   </section>
 );
 
-export function MatrixQuickPanel({ insertMath }: Props) {
-  const [open, setOpen] = useState(false);
+export function MatrixQuickPanel({ open, onClose, onInsert }: Props) {
   const [sel, setSel] = useState<QuickSelection>(emptySelection);
 
   useEffect(() => { if (!open) setSel(emptySelection()); }, [open]);
 
+  if (!open) return null;
+
   const submit = () => {
     if (!isReady(sel)) return;
-    insertMath(buildQuickMatrixLatex(sel));
+    onInsert(quickMatrixSpec(sel));
+    // The panel stays open so several matrices can be placed in a row.
     setSel(emptySelection());
-    setOpen(false);
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <aside
+      aria-label="Matrix quick access"
+      className="shrink-0 border-l border-border bg-background flex flex-col min-h-0 h-full self-stretch overscroll-contain"
+      style={{ width: "clamp(280px, 30%, 420px)" }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { e.preventDefault(); submit(); }
+      }}
+    >
+      <div className="h-11 px-3 flex items-center justify-between border-b border-border">
+        <div className="text-xs font-semibold uppercase tracking-wider text-foreground/80">
+          Matrix
+        </div>
         <button
           type="button"
-          title="Matrix — quick access (dimension + operation → Enter)"
-          aria-pressed={open}
-          className={cn(
-            "inline-flex items-center gap-1 rounded p-1.5 text-xs hover:bg-foreground/10",
-            open && "bg-foreground/10",
-          )}
+          onClick={onClose}
+          title="Close matrix panel"
+          aria-label="Close matrix panel"
+          className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted/60 text-foreground/70"
         >
-          <Grid3X3 className="h-4 w-4" /> Matrix
+          <X className="h-4 w-4" />
         </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-[300px] space-y-3 p-3"
-        onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); submit(); }
-        }}
-      >
+      </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-3">
         <Band title="Matrix">
           {QUICK_DIMS.map((d) => {
             const st = dimState(sel, d);
@@ -139,11 +146,12 @@ export function MatrixQuickPanel({ insertMath }: Props) {
             );
           })}
         </Band>
+      </div>
 
+      <div className="border-t border-border p-3 space-y-2">
         <p className="rounded border border-border bg-muted/40 px-2 py-1 text-[11px] text-foreground">
           {previewSentence(sel)}
         </p>
-
         <button
           type="button"
           onClick={submit}
@@ -157,8 +165,8 @@ export function MatrixQuickPanel({ insertMath }: Props) {
         >
           Enter
         </button>
-      </PopoverContent>
-    </Popover>
+      </div>
+    </aside>
   );
 }
 

@@ -70,7 +70,7 @@ import { AtCommand, type AtCommandState } from "./extensions/AtCommand";
 import { MathKeyShortcuts } from "./extensions/MathKeyShortcuts";
 import { AtCommandMenu } from "./AtCommandMenu";
 const AssetLibraryDialog = lazy(() => import("./AssetLibraryDialog").then((m) => ({ default: m.AssetLibraryDialog })));
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, Grid3X3 } from "lucide-react";
 import { StepAnimationNode, type AnimationFrame } from "./extensions/StepAnimation";
 const MathTablesPicker = lazy(() => import("./math-tools/MathTablesPicker").then((m) => ({ default: m.MathTablesPicker })));
 const SmartCalculator = lazy(() => import("./math-tools/SmartCalculator").then((m) => ({ default: m.SmartCalculator })));
@@ -2229,7 +2229,10 @@ function DocumentEditorInner({
 
   // Emoji Library dock panel (teacher-managed content).
   const [emojiPanelOpen, setEmojiPanelOpen] = useState(false);
+  // Matrix quick-access dock panel — shares the width, never overlays the note.
+  const [matrixPanelOpen, setMatrixPanelOpen] = useState(false);
   const [slidePanelOpen, setSlidePanelOpen] = useState(false);
+
 
   // Conversion tool.
   const [conversionOpen, setConversionOpen] = useState(false);
@@ -2243,6 +2246,30 @@ function DocumentEditorInner({
   const insertMathStructure = (latex: string) => {
     editor?.chain().focus().insertContent({ type: "mathInline", attrs: { value: latex } }).run();
   };
+
+  /** Quick Matrix palette → a REAL matrix structure (same object the full
+   *  Matrix builder creates), never a raw code string. */
+  const insertQuickMatrix = (spec: QuickMatrixSpec) => {
+    if (!editor) return;
+    const attrs: Record<string, unknown> = { rows: spec.rows, cols: spec.cols, br: spec.br };
+    if (spec.fns.length) attrs.fns = spec.fns;
+    insertAsset(editor, {
+      id: `matrix-quick-${spec.rows}x${spec.cols}`,
+      label: `${spec.rows}×${spec.cols} matrix`,
+      category: "Matrices" as any,
+      keywords: ["matrix"],
+      render: { kind: "structure", structure: "matrix", slots: spec.rows * spec.cols, attrs },
+    });
+    if (spec.template) {
+      const t = spec.template;
+      window.setTimeout(() => {
+        void import("@/lib/lessonnotes/matrixOps").then(({ applyTemplate }) => {
+          applyTemplate(editor, t);
+        });
+      }, 0);
+    }
+  };
+
 
   /** ── THE MASTER SENSOR ───────────────────────────────────────────────────
    *  One sensor, one cursor, two capabilities. The sensor IS the real editor
@@ -3426,7 +3453,16 @@ function DocumentEditorInner({
         )}
         {builderAi && <GlobalAiButton onGenerate={handleGlobalAi} />}
         <MathSymbolPanel insertText={insertSymbolText} insertMath={insertMathStructure} />
-        <MatrixQuickPanel insertMath={insertMathStructure} />
+        <button
+          type="button"
+          onClick={() => { setMatrixPanelOpen((v) => !v); setEmojiPanelOpen(false); }}
+          title="Matrix — quick access (dimension + operation → Enter)"
+          aria-pressed={matrixPanelOpen}
+          className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${matrixPanelOpen ? "bg-foreground/10" : ""}`}
+        >
+          <Grid3X3 className="h-4 w-4" /> Matrix
+        </button>
+
 
         <button
           type="button"

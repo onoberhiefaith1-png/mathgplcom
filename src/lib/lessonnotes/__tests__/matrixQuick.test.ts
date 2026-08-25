@@ -1,26 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildQuickMatrixLatex, chooseDim, dimState, emptySelection, opState,
-  specialState, toggleOp, toggleSpecial,
+  chooseDim, dimState, emptySelection, opState,
+  quickMatrixSpec, specialState, toggleOp, toggleSpecial,
 } from "../matrixQuick";
 
 const sel = (rows: number, cols: number) => chooseDim(emptySelection(), { rows, cols });
 
 describe("matrix quick access", () => {
   it("keeps 2×3 and 3×2 distinct", () => {
-    const a = buildQuickMatrixLatex(sel(2, 3));
-    const b = buildQuickMatrixLatex(sel(3, 2));
-    expect(a.split("\\\\").length).toBe(2);
-    expect(a.split("\\\\")[0].split("&").length).toBe(3);
-    expect(b.split("\\\\").length).toBe(3);
-    expect(b.split("\\\\")[0].split("&").length).toBe(2);
+    expect(quickMatrixSpec(sel(2, 3))).toMatchObject({ rows: 2, cols: 3 });
+    expect(quickMatrixSpec(sel(3, 2))).toMatchObject({ rows: 3, cols: 2 });
   });
 
-  it("wraps operations correctly", () => {
-    expect(buildQuickMatrixLatex(toggleOp(sel(3, 3), "inverse"))).toContain("^{-1}");
-    expect(buildQuickMatrixLatex(toggleOp(sel(3, 3), "transpose"))).toContain("^{T}");
-    expect(buildQuickMatrixLatex(toggleOp(sel(3, 3), "determinant"))).toContain("vmatrix");
-    expect(buildQuickMatrixLatex(toggleOp(sel(3, 3), "adjoint")).startsWith("adj ")).toBe(true);
+  it("maps operations onto real matrix notation functions", () => {
+    expect(quickMatrixSpec(toggleOp(sel(3, 3), "inverse")).fns).toContain("inverse");
+    expect(quickMatrixSpec(toggleOp(sel(3, 3), "transpose")).fns).toContain("transpose");
+    expect(quickMatrixSpec(toggleOp(sel(3, 3), "determinant")).fns).toContain("determinant");
+    expect(quickMatrixSpec(toggleOp(sel(3, 3), "adjoint")).fns).toContain("adjoint");
+  });
+
+  it("inserts a bracketed matrix, never a code string", () => {
+    const spec = quickMatrixSpec(sel(2, 2));
+    expect(spec.br).toBe("(");
+    expect(spec.template).toBeUndefined();
   });
 
   it("disables square-only options on non-square dimensions", () => {
@@ -37,17 +39,16 @@ describe("matrix quick access", () => {
     expect(dimState(s, { rows: 3, cols: 3 }).enabled).toBe(false);
   });
 
-  it("fills identity and zero matrices", () => {
-    expect(buildQuickMatrixLatex(toggleSpecial(sel(2, 2), "identity")))
-      .toBe("\\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix}");
-    expect(buildQuickMatrixLatex(toggleSpecial(sel(2, 2), "zero")))
-      .toBe("\\begin{pmatrix} 0 & 0 \\\\ 0 & 0 \\end{pmatrix}");
+  it("carries identity and zero as matrix templates", () => {
+    expect(quickMatrixSpec(toggleSpecial(sel(2, 2), "identity")).template).toBe("identity");
+    expect(quickMatrixSpec(toggleSpecial(sel(2, 2), "zero")).template).toBe("zero");
   });
 
   it("combines a special type with a compatible operation", () => {
     const s = toggleOp(toggleSpecial(sel(4, 4), "diagonal"), "inverse");
-    const out = buildQuickMatrixLatex(s);
-    expect(out).toContain("^{-1}");
-    expect(out.split("\\\\").length).toBe(4);
+    const spec = quickMatrixSpec(s);
+    expect(spec.template).toBe("diagonal");
+    expect(spec.fns).toContain("inverse");
+    expect(spec.rows).toBe(4);
   });
 });

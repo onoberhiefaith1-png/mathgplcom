@@ -158,43 +158,40 @@ export function previewSentence(s: QuickSelection): string {
   return `${head} of a ${kind}`;
 }
 
-const SLOT = "\\sl{}";
+/** Template applied to the inserted matrix (existing matrixOps templates). */
+export type QuickTemplate = "identity" | "zero" | "diagonal" | "scalar";
 
-function cellFor(s: QuickSelection, r: number, c: number): string {
-  switch (s.special) {
-    case "identity": return r === c ? "1" : "0";
-    case "zero": return "0";
-    case "diagonal": return r === c ? SLOT : "0";
-    case "scalar": return r === c ? "k" : "0";
-    default: return SLOT;
-  }
+/** What the palette hands to the editor: a REAL matrix structure descriptor. */
+export interface QuickMatrixSpec {
+  rows: number;
+  cols: number;
+  br: "(";
+  /** Existing MatrixFnId values — notation only, never evaluated. */
+  fns: Array<"transpose" | "inverse" | "determinant" | "adjoint">;
+  template?: QuickTemplate;
 }
+
+const TEMPLATE_FOR: Partial<Record<MatrixSpecialId, QuickTemplate>> = {
+  identity: "identity",
+  zero: "zero",
+  diagonal: "diagonal",
+  scalar: "scalar",
+};
 
 /**
- * LaTeX for the pending selection, using only constructs the lesson-note
- * math renderer already parses (`\begin{pmatrix|vmatrix}`, `^{…}`, `\sl{}`).
+ * Turn the pending selection into the same matrix structure descriptor the
+ * full Matrix builder produces, so the note receives a real bracketed grid
+ * with editable cells — never a raw code string.
  */
-export function buildQuickMatrixLatex(s: QuickSelection): string {
+export function quickMatrixSpec(s: QuickSelection): QuickMatrixSpec {
   const dim = s.dim ?? { rows: 2, cols: 2 };
-  const rows = Math.max(1, Math.min(20, dim.rows));
-  const cols = Math.max(1, Math.min(20, dim.cols));
-
-  const body: string[] = [];
-  for (let r = 0; r < rows; r++) {
-    const line: string[] = [];
-    for (let c = 0; c < cols; c++) line.push(cellFor(s, r, c));
-    body.push(line.join(" & "));
-  }
-
-  const env = s.ops.includes("determinant") ? "vmatrix" : "pmatrix";
-  let out = `\\begin{${env}} ${body.join(" \\\\ ")} \\end{${env}}`;
-
-  let sup = "";
-  for (const op of s.ops) {
-    if (op === "transpose") sup += "T";
-    else if (op === "inverse") sup += "-1";
-  }
-  if (sup) out = `${out}^{${sup}}`;
-  if (s.ops.includes("adjoint")) out = `adj ${out}`;
-  return out;
+  const rows = Math.max(1, Math.min(20, Math.floor(dim.rows)));
+  const cols = Math.max(1, Math.min(20, Math.floor(dim.cols)));
+  const order: MatrixOpId[] = ["determinant", "adjoint", "transpose", "inverse"];
+  const fns = order.filter((o) => s.ops.includes(o)) as QuickMatrixSpec["fns"];
+  const spec: QuickMatrixSpec = { rows, cols, br: "(", fns };
+  const template = s.special ? TEMPLATE_FOR[s.special] : undefined;
+  if (template) spec.template = template;
+  return spec;
 }
+
