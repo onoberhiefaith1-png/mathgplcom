@@ -64,8 +64,40 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
   const [url, setUrl] = useState("");
   const [surfaces, setSurfaces] = useState<GplSurface[]>([]);
   const [removeBg, setRemoveBg] = useState(false);
+  const [softness, setSoftness] = useState<EdgeSoftness>("normal");
+  const [keySwatch, setKeySwatch] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
+
+  const hasVideo = files.some((f) => isVideoFile(f));
+
+  // Show the detected background colour of the first video, so the teacher can
+  // see what is about to be cut before pressing save.
+  useEffect(() => {
+    if (!removeBg) {
+      setKeySwatch(null);
+      return;
+    }
+    const video = files.find((f) => isVideoFile(f));
+    if (!video) {
+      setKeySwatch(null);
+      return;
+    }
+    let cancelled = false;
+    const url = URL.createObjectURL(video);
+    void import("@/lib/games/removeBackground")
+      .then(({ detectMediaBackground }) => detectMediaBackground(url, "video"))
+      .then(({ color, keyable }) => {
+        if (cancelled) return;
+        setKeySwatch(keyable ? `rgb(${color.r}, ${color.g}, ${color.b})` : null);
+      })
+      .catch(() => !cancelled && setKeySwatch(null));
+    return () => {
+      cancelled = true;
+      URL.revokeObjectURL(url);
+    };
+  }, [removeBg, files]);
 
   useEffect(() => {
     if (!open) return;
@@ -76,6 +108,8 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
     setUrl(initial?.external_url ?? "");
     setSurfaces(initial?.surfaces ?? []);
     setRemoveBg(false);
+    setSoftness("normal");
+    setKeySwatch(null);
     setStep("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
