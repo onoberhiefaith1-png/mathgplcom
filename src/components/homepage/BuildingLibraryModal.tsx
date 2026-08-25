@@ -35,8 +35,12 @@ interface BuildingLibraryModalProps {
 }
 
 const structures = (): AssetItem[] => {
-  const environment = assetCategories.find((category) => category.slug === "environment");
-  const subcategory = environment?.subcategories.find((sub) => sub.slug === "structures");
+  const category = assetCategories.find(
+    (candidate) => candidate.slug === "props" || candidate.name === "Props",
+  );
+  const subcategory = category?.subcategories.find(
+    (sub) => sub.slug === "structures" || sub.name === "Structures",
+  );
   return subcategory?.assets ?? [];
 };
 
