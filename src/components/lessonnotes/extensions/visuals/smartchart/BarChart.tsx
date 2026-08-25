@@ -37,6 +37,8 @@ interface Props {
 // --- Graph paper constants (never exposed to teacher) ----------------
 const MINOR_PER_MAJOR = 4;      // fifths inside every cm
 const CM_PX = 40;               // SVG units per cm before zoom
+import { barLayout } from "./barLayout";
+
 const PAD = { top: 44, right: 40, bottom: 72, left: 72 };
 
 export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: Props) {
@@ -73,19 +75,20 @@ export function BarChart({ attrs, onChange, selected, assetId = "smartChart" }: 
   const svgH = PAD.top + plotH + PAD.bottom;
 
   // Bar width mode — identical for bar chart and histogram.
-  const widthMult = attrs.barWidthMode === "thin" ? 0.5
-    : attrs.barWidthMode === "wide" ? 1.5
-    : attrs.barWidthMode === "normal" ? 1.0
-    : 1.0; // auto ≡ strict gap=width, mult=1
-  const barWidth = Math.min(slotSvg, slotSvg * widthMult);
+  // Geometry rules live in barLayout.ts so tests can pin them (CHT-001).
   // Layout rule (identical for bar chart and histogram):
   //   • Distance from the Y-axis to the FIRST bar = one bar width.
   //   • Bar chart: gap between adjacent bars also = one bar width.
   //   • Histogram: adjacent bars touch (gap = 0).
   // This makes the label wrapper (70% of bar width) always fit its slot
   // whether the bars are contiguous (histogram) or spaced (bar chart).
-  const gap = isHistogram ? 0 : barWidth;
-  const xForBar = (i: number) => PAD.left + barWidth + i * (barWidth + gap);
+  const { barWidth, gap, xForBar } = barLayout({
+    barCount: nBars,
+    slotSvg,
+    mode: attrs.barWidthMode,
+    isHistogram,
+    padLeft: PAD.left,
+  });
 
   // Helpers
   const cmToY = useCallback(

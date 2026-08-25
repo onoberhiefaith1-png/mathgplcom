@@ -51,12 +51,13 @@ export const authentication: RequirementDomain = {
         files: ["src/routes/auth/verified.tsx", "src/pages/auth/VerifiedPage.tsx", "supabase/config.toml"],
         routes: ["/auth/verified"],
       },
-      validation: [{ kind: "manual", target: "Confirm anonymous sign-in stays disabled in auth settings" }],
+      validation: [{ kind: "manual", target: "Confirm anonymous sign-in stays disabled and email confirmation is not auto-confirmed in auth settings" }],
       restorationSource: "NONE — provider configuration, not code",
-      status: "UNKNOWN",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
-      notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION of the live auth provider settings.",
+      notes:
+        "Confirmed on 2026-08-25 against the live auth settings on the Administrator's instruction: anonymous sign-in disabled, email auto-confirm off (confirmation links required), sign-up open, leaked-password protection on. Provider configuration, so this stays a manual check to repeat if the settings are ever changed.",
     },
     {
       id: "AUTH-003",
@@ -121,10 +122,11 @@ export const authentication: RequirementDomain = {
       implementation: { files: ["src/pages/auth/AccountChooser.tsx"], other: ["Auth provider configuration"] },
       validation: [{ kind: "manual", target: "Sign in with Google once and confirm no 'Unsupported provider' error" }],
       restorationSource: "NONE — provider configuration",
-      status: "UNKNOWN",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
-      notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION.",
+      notes:
+        "Confirmed on 2026-08-25: a live signed-in session on this project reports provider \"google\" with a verified Google identity, so the provider is enabled and a real Google sign-in has completed without an 'Unsupported provider' error. Provider configuration, so this stays a manual check.",
     },
   ],
 };
@@ -273,10 +275,11 @@ export const accounts: RequirementDomain = {
       dependencies: ["RPT-002"],
       validation: [{ kind: "manual", target: "Review student routes for authoring controls that should not be there" }],
       restorationSource: "NONE — cross-cutting rule",
-      status: "UNKNOWN",
+      status: "PASS",
       severity: "LOW",
       permanent: "PENDING",
-      notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION: not exhaustively reviewed in this pass.",
+      notes:
+        "Reviewed 2026-08-25 across every /student route and src/pages/student/* screen: the surfaces open assigned work (assignments, adventures, classes, skill builder, gallery, smartboard, reports) and carry no authoring, publishing, deletion or admin controls, and no cost, margin or multiplier figures. The only prices shown are the workspace owner's published plans on the entry gateway, which are customer-facing by design.",
     },
   ],
 };
@@ -350,15 +353,15 @@ export const workspaces: RequirementDomain = {
       },
       dependencies: ["WS-001", "AST-002"],
       validation: [
-        { kind: "test", target: "TODO — no automated isolation suite exists yet" },
+        { kind: "test", target: "src/lib/accounts/__tests__/workspaceIsolation.test.ts" },
         { kind: "manual", target: "Sign in as two workspaces and confirm no cross-listing" },
       ],
       restorationSource: "archived plan '02-leak.html / 03-fix.md' in .lovable/drafts (isolation fix)",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "HIGH",
       permanent: "PENDING",
       notes:
-        "PARTIAL because there is no automated regression test pinning isolation; the fix itself is in place. Adding that test is a Section I action.",
+        "Cleared 2026-08-25: src/lib/accounts/__tests__/workspaceIsolation.test.ts now pins the scoping contract — a school workspace filters on org_id, the personal workspace filters org_id IS NULL (never unfiltered, which was the original leak), exactly one workspace filter is applied, and view-as pins the owner filter to the viewed person.",
     },
     {
       id: "WS-004",

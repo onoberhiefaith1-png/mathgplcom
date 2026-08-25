@@ -196,12 +196,16 @@ export const lessonNotes: RequirementDomain = {
       requirement: "A note cover can be generated from a fixed set of themes and stored on the notebook.",
       behaviour: ["Ten themes offered", "Generated cover is saved to the note, not regenerated on each view"],
       implementation: { tables: ["notebooks"], other: ["cover generation function"] },
-      validation: [{ kind: "manual", target: "Generate a cover and confirm it persists" }],
-      restorationSource: "NONE VERIFIED — generation path not re-checked in this pass",
-      status: "UNKNOWN",
+      validation: [
+        { kind: "manual", target: "Generate a cover and confirm it persists" },
+        { kind: "test", target: "src/lib/lessonnotes/__tests__/coverThemes.test.ts" },
+      ],
+      restorationSource: "src/lib/lessonnotes/coverThemes.ts + CoverDesignerDialog (current)",
+      status: "PASS",
       severity: "LOW",
       permanent: "PENDING",
-      notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION.",
+      notes:
+        "Cleared 2026-08-25: CoverDesignerDialog is reachable from the notebook card menu and its onSave writes cover_config to the notebooks row (src/pages/LessonNotesPage.tsx saveCover), so the cover is stored, not regenerated per view. src/lib/lessonnotes/__tests__/coverThemes.test.ts pins exactly ten unique themes, one suggestion per theme and verbatim read-back of a stored cover.",
     },
     {
       id: "LN-012",
@@ -417,14 +421,15 @@ export const tables: RequirementDomain = {
       },
       dependencies: ["FLT-003"],
       validation: [
-        { kind: "test", target: "TODO — no automated test pins Tk.n numbering" },
+        { kind: "test", target: "src/lib/smartboard/__tests__/tableBranching.test.ts" },
         { kind: "behaviour", target: "Two tables in one solution: confirm T1.x then T2.x with the main sequence intact" },
       ],
       restorationSource: "src/lib/smartboard/tableActivity.ts (current)",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
-      notes: "PARTIAL: behaviour implemented, no regression test. Test is a Section I action.",
+      notes:
+        "Cleared 2026-08-25: src/lib/smartboard/__tests__/tableBranching.test.ts pins T1/T2 branch identity, Tk.1/Tk.2 children, the untouched L1/L2/L3 main sequence across two tables, return to the next main step at the end of a branch, and one branch per table even when its lines are not contiguous.",
     },
     {
       id: "TBL-003",
@@ -504,12 +509,16 @@ export const charts: RequirementDomain = {
         "Bar width defaults to 2% of the plot width; gap between bars equals the bar width; the offset from the Y-axis to the first bar equals the bar width; a histogram uses zero gap.",
       behaviour: ["Changing bar width moves the gaps and the first-bar offset with it", "Histogram bars touch"],
       implementation: { files: ["src/components/lessonnotes/charts/BarChart.tsx", "src/lib/charts/scale.ts", "src/lib/charts/types.ts"] },
-      validation: [{ kind: "test", target: "TODO — no automated chart geometry test" }, { kind: "manual", target: "Measure gap vs bar width" }],
-      restorationSource: "src/lib/charts/scale.ts (current)",
-      status: "PARTIAL",
+      validation: [
+        { kind: "test", target: "src/lib/__tests__/chartBarGeometry.test.ts" },
+        { kind: "manual", target: "Measure gap vs bar width" },
+      ],
+      restorationSource: "src/components/lessonnotes/extensions/visuals/smartchart/barLayout.ts (current)",
+      status: "PASS",
       severity: "LOW",
       permanent: "PENDING",
-      notes: "PARTIAL: implemented, unpinned by tests.",
+      notes:
+        "Cleared 2026-08-25: the geometry arithmetic was extracted to barLayout.ts (the renderer no longer derives it inline) and src/lib/__tests__/chartBarGeometry.test.ts pins gap = bar width, Y-axis-to-first-bar = bar width, width changes moving both, and zero gap for a histogram.",
     },
     {
       id: "CHT-002",

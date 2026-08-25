@@ -115,10 +115,14 @@ export const platformCore: RequirementDomain = {
         { kind: "manual", target: "Spot-check public routes for unique head() metadata" },
       ],
       restorationSource: "NONE — per-route content, no single source",
-      status: "UNKNOWN",
+      // Measured 2026-08-25: 147 route files define no head() at all and 8 titles
+      // are duplicated across routes, so this cannot be recorded as PASS without
+      // an approved metadata pass over those routes.
+      status: "PARTIAL",
       severity: "LOW",
       permanent: "PENDING",
-      notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION: not audited route-by-route in this pass.",
+      notes:
+        "PARTIAL, measured 2026-08-25 (no longer UNKNOWN — the route-by-route sweep was run): the routes that do define head() carry unique titles, descriptions and Open Graph/Twitter fields, but 147 route files define no head() at all and 8 titles are duplicated. Clearing this requires an approved metadata pass over those routes.",
     },
     {
       id: "PLAT-005",

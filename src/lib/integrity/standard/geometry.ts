@@ -383,12 +383,17 @@ export const area: RequirementDomain = {
       requirement: "A diagram can be deleted outright, and an individual region can be removed without destroying its boundary lines.",
       behaviour: ["Deleting a region leaves the lines", "Delete Diagram removes the whole object from the note"],
       implementation: { files: ["src/components/lessonnotes/geometry-editor/SelectionInspector.tsx", "src/lib/geometry/editor/sceneOps.ts"] },
-      validation: [{ kind: "behaviour", target: "Delete a region and confirm its boundary lines remain" }],
+      validation: [
+        { kind: "behaviour", target: "Delete a region and confirm its boundary lines remain" },
+        { kind: "test", target: "src/lib/geometry/__tests__/regionDelete.test.ts" },
+      ],
       restorationSource: "current sceneOps delete path",
-      status: "UNKNOWN",
+      status: "PASS",
       severity: "LOW",
       permanent: "PENDING",
-      notes: "UNKNOWN — REQUIRES HUMAN CONFIRMATION: delete behaviour was not exercised in this pass.",
+      notes:
+        "Cleared 2026-08-25: src/lib/geometry/__tests__/regionDelete.test.ts exercises the delete path — erasing a region removes only the region and leaves every boundary segment, every point and any other region untouched.",
+      
     },
   ],
 };

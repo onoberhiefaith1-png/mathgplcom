@@ -11,7 +11,7 @@ import { ArrowLeft, Loader2, RotateCcw, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import PresentationView from "@/components/smartboard/PresentationView";
-import TeacherReasoningPanel from "@/components/smartboard/TeacherReasoningPanel";
+import TeacherEvaluationPanel from "@/components/smartboard/TeacherEvaluationPanel";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { ensureFloatingTestBoard, type FloatingTestBoard } from "@/lib/floating/testBoard";
@@ -160,7 +160,7 @@ const FloatingTestBoardPage = () => {
         {evalOpen && uid && (
           <div className={evalFull ? "flex-1 min-w-0 overflow-hidden" : "w-[24%] min-w-[260px] flex-none overflow-hidden"}>
             <RecoveryBoundary label="Evaluation">
-  <TeacherReasoningPanel
+  <TeacherEvaluationPanel
                 assessmentId={board.assessmentId}
                 studentId={uid}
                 questionId={subsectionId ?? null}

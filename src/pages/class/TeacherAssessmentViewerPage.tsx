@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2, Eye, Pencil, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import PresentationView from "@/components/smartboard/PresentationView";
-import TeacherReasoningPanel from "@/components/smartboard/TeacherReasoningPanel";
+import TeacherEvaluationPanel from "@/components/smartboard/TeacherEvaluationPanel";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
 import RecoveryBoundary from "@/components/common/RecoveryBoundary";
 
@@ -128,7 +128,7 @@ const TeacherAssessmentViewerPage = () => {
         {reasoningOpen && assessmentId && studentId && (
           <div className={reasoningFull ? "flex-1 min-w-0 overflow-hidden" : "w-[20%] min-w-[260px] flex-none overflow-hidden"}>
             <RecoveryBoundary label="Evaluation">
-  <TeacherReasoningPanel
+  <TeacherEvaluationPanel
                 assessmentId={assessmentId}
                 studentId={studentId}
                 questionId={questionId}

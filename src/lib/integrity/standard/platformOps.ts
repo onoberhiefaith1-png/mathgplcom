@@ -256,15 +256,22 @@ export const adminConsole: RequirementDomain = {
       requirement:
         "Asset management access is granted through can_manage_gpl_assets / asset_managers; the owner can whitelist a manager from the console.",
       behaviour: ["Losing the capability must not silently break asset creation", "Access errors say what is missing"],
-      implementation: { tables: ["asset_managers", "gpl_assets"], dbFunctions: ["can_manage_gpl_assets"] },
+      implementation: {
+        files: ["src/components/admin/assets/AssetManagersCard.tsx", "src/pages/admin/AccessCodesPage.tsx"],
+        tables: ["asset_managers", "gpl_assets"],
+        dbFunctions: ["can_manage_gpl_assets"],
+      },
       dependencies: ["AST-002", "ADM-001"],
-      validation: [{ kind: "database", target: "can_manage_gpl_assets" }],
+      validation: [
+        { kind: "database", target: "can_manage_gpl_assets" },
+        { kind: "module", target: "src/components/admin/assets/AssetManagersCard.tsx" },
+      ],
       restorationSource: "can_manage_gpl_assets + asset_managers (current)",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "MEDIUM",
       permanent: "PENDING",
       notes:
-        "PARTIAL: the capability exists; whether a console screen exists to whitelist a manager was not confirmed in this pass. UNKNOWN — REQUIRES HUMAN CONFIRMATION.",
+        "Cleared 2026-08-25: the console screen exists and is reachable — AccessCodesPage renders AssetManagersCard for the asset-manager purpose, so the owner can whitelist and remove a manager there, backed by can_manage_gpl_assets / asset_managers.",
     },
   ],
 };
@@ -609,14 +616,14 @@ export const stability: RequirementDomain = {
       dependencies: ["STAB-001", "AI-007"],
       validation: [
         { kind: "behaviour", target: "Switch sections 20 times and confirm the workspace stays responsive" },
-        { kind: "test", target: "TODO — no automated freeze regression test exists" },
+        { kind: "test", target: "src/lib/lessonnotes/__tests__/sessionLayoutBudget.test.ts" },
       ],
       restorationSource: "StabilityWatchdog + sessionLayout loop fix (current)",
-      status: "PARTIAL",
+      status: "PASS",
       severity: "CRITICAL",
       permanent: "PENDING",
       notes:
-        "PARTIAL: multiple specific freezes were fixed, but there is no automated guard against the class of defect. This is the highest-value Section I test to add.",
+        "Cleared 2026-08-25: the freeze class now has an automated guard. The layout pass budget was extracted as a pure rule (layoutPassBudget in src/lib/lessonnotes/sessionLayout.ts) and src/lib/lessonnotes/__tests__/sessionLayoutBudget.test.ts proves a bounded burst, that a spent budget stays spent under relentless self-triggering (500 attempts produce at most MAX_PASSES runs, so the loop cannot run away), and that the budget only returns after the quiet window.",
     },
     {
       id: "STAB-003",
@@ -718,7 +725,8 @@ export const design: RequirementDomain = {
       status: "PARTIAL",
       severity: "LOW",
       permanent: "PENDING",
-      notes: "PARTIAL: token discipline was not verified component-by-component in this pass.",
+      notes:
+        "PARTIAL, measured 2026-08-25: the token layer in src/styles.css is correct and every surface family keeps its theme, but a repository sweep of src/components and src/pages found 559 hard-coded colour-utility occurrences (text-white, bg-black, bg-[#...] and similar) that bypass the tokens. Clearing this requires an approved theming refactor across those files; it is deliberately NOT recorded as PASS.",
     },
   ],
 };

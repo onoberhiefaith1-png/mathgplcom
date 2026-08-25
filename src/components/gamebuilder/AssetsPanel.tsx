@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Upload } from "lucide-react";
+import { Library, Loader2, Upload } from "lucide-react";
+import { MyGplMediaPicker } from "@/components/lessonnotes/slides/MyGplMediaPicker";
+import { getSignedUrl } from "@/lib/games/urls";
+import type { GplAsset } from "@/lib/gpl/assetLibrary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +12,7 @@ import ShareMenu from "@/components/community/ShareMenu";
 import type { CommunityKind } from "@/lib/community/types";
 import {
   deleteGameAsset,
+  importUrlAsGameAsset,
   listGameAssets,
   renderPathOf,
   uploadGameAsset,
@@ -52,6 +56,7 @@ const KindGrid = ({
   const [assets, setAssets] = useState<GameAssetRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [gplOpen, setGplOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const refresh = async () => {
@@ -90,6 +95,27 @@ const KindGrid = ({
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  // Second source for every asset upload: the teacher's own GPL asset library.
+  // The chosen asset is copied into this game library so kind-specific
+  // processing (background removal for rewards/effects) still applies.
+  const onPickGpl = async (asset: GplAsset) => {
+    setGplOpen(false);
+    setUploading(true);
+    try {
+      const url = asset.external_url ?? (asset.storage_path ? await getSignedUrl(asset.storage_path) : null);
+      if (!url) throw new Error("That GPL asset has no file behind it.");
+      toast({ title: "Adding from My GPL assets…", description: asset.name });
+      await importUrlAsGameAsset(url, kind, asset.name);
+      toast({ title: "Added", description: "Copied into your library." });
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Could not add asset", description: String((e as Error).message), variant: "destructive" });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -153,6 +179,18 @@ const KindGrid = ({
         )}
         Upload {kind === "background" ? "background" : kind.replace("_", " ")}
       </Button>
+      <Button
+        variant="secondary"
+        className="w-full"
+        disabled={uploading}
+        onClick={() => setGplOpen(true)}
+      >
+        <Library className="mr-2 h-4 w-4" />
+        My GPL assets
+      </Button>
+      {gplOpen && (
+        <MyGplMediaPicker kind="image" onClose={() => setGplOpen(false)} onPick={onPickGpl} />
+      )}
       {kind !== "background" && (
         <p className="text-[11px] leading-tight text-muted-foreground">
           Background is auto-removed so it blends seamlessly. Videos keep their own transparency.
