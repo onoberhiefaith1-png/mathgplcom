@@ -121,6 +121,8 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
   const submit = async () => {
     if (!valid) return;
     setBusy(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const items: AssetFormItem[] = [];
 
@@ -134,6 +136,33 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
             const blob = await makeTransparent(raw);
             file = new File([blob], `${baseName(raw)}.png`, { type: "image/png" });
             assetType = "transparent";
+          } else if (removeBg && type === "video") {
+            try {
+              setStep(`Cutting background — 0%`);
+              const cut = await cutVideoBackground(raw, {
+                softness,
+                signal: controller.signal,
+                onProgress: (f) =>
+                  setStep(`Cutting background — ${Math.round(f * 100)}%`),
+              });
+              file = cut;
+              assetType = "transparent";
+            } catch (error) {
+              if ((error as Error).name === "AbortError") throw error;
+              if (error instanceof NotKeyableError) {
+                toast({
+                  title: "Background kept",
+                  description:
+                    `${raw.name}: the background isn't a flat colour, so the original video was stored untouched.`,
+                });
+              } else {
+                toast({
+                  title: "Could not cut the background",
+                  description: `${raw.name}: ${(error as Error).message} The original video was stored.`,
+                  variant: "destructive",
+                });
+              }
+            }
           }
           items.push({
             name: files.length === 1 && name.trim() ? name.trim() : baseName(raw),
