@@ -109,16 +109,25 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
   };
 };
 
-/** A highlighted matrix is one mathematical structure, not a Smart Table.
- * Keep its full LaTeX payload as a single chip so the Smartboard can expand it
- * into the existing editable matrix node when the teacher taps it. */
+/** A highlighted matrix is one mathematical STRUCTURE plus its cell values —
+ * never a pre-filled object. The line carries an empty matrix shell chip
+ * (dimensions + brackets only) followed by one chip per cell value in reading
+ * order, exactly like a fraction shell plus its numerator/denominator values.
+ * Lines saved under the old "whole payload in one chip" model are migrated
+ * here on load, so no cell content is lost. */
 const ensureAtomicMatrixFiller = (line: FloatingLine, payload: string): FloatingLine => {
-  if (!gridFromMatrixLatex(payload) || (line.fillers?.length ?? 0) > 0) return line;
+  const split = splitMatrixChip(payload);
+  if (!split) return line;
+  const existing = line.fillers ?? [];
+  const legacyAtomic =
+    existing.length === 1 && !!gridFromMatrixLatex(existing[0]) && !isEmptyMatrixLatex(existing[0]);
+  if (existing.length > 0 && !legacyAtomic) return line;
+  const fillers = [split.shell, ...split.values];
   return {
     ...line,
-    fillers: [payload],
-    fillersSelected: [false],
-    arrangement: [0],
+    fillers,
+    fillersSelected: fillers.map(() => false),
+    arrangement: fillers.map((_, i) => i),
   };
 };
 
