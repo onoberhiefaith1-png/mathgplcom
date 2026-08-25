@@ -24,11 +24,12 @@ export interface TableGroup {
   retained: string[];
   /** Reservoir line indices owned by this table, in order. */
   memberLineIdxs: number[];
-  /** How many table floating numbers precede this table in the lesson. The
-   *  T-series is lesson-wide and continuous: the first table starts at T1,
-   *  and every later table carries on from where the previous one ended. */
-  tStart: number;
+  /** 1-based position of this table among the solution's tables, in document
+   *  order. THE branch identity: this table is the main-path node `T{n}` and
+   *  its children are `T{n}.1 … T{n}.m`. Numbering never runs across tables. */
+  tableIndex: number;
 }
+
 
 
 /** Per-table student entries: cellKey -> raw text. */
