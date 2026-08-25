@@ -257,8 +257,47 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
                   checked={removeBg}
                   onCheckedChange={(checked) => setRemoveBg(checked === true)}
                 />
-                Remove background before storing (images only)
+                Remove background before storing (images and solid-colour videos)
               </label>
+
+              {removeBg && hasVideo && (
+                <div className="mt-3 space-y-2 rounded-md border border-border/60 p-3">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">Background detected:</span>
+                    {keySwatch ? (
+                      <span
+                        className="inline-block h-4 w-8 rounded border border-border"
+                        style={{ backgroundColor: keySwatch }}
+                        aria-label="Detected background colour"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">checking…</span>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Edge softness</Label>
+                    <div className="mt-1 flex gap-1">
+                      {(["tight", "normal", "soft"] as EdgeSoftness[]).map((option) => (
+                        <Button
+                          key={option}
+                          type="button"
+                          size="sm"
+                          variant={softness === option ? "default" : "outline"}
+                          onClick={() => setSoftness(option)}
+                          className="min-h-[36px] capitalize"
+                        >
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The clip keeps its own size, frame rate and detail — only the flat
+                    background colour is cut. Transparent video plays on Chrome, Edge and
+                    Firefox boards.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
