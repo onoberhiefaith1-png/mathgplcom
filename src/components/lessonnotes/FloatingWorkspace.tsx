@@ -33,6 +33,8 @@ interface Props {
   scoringMode?: "equal" | "individual";
   /** Opens the AI-Edit panel for this single line. */
   onAiEdit?: () => void;
+  /** TAG override — a table row is `T{n}`, not a lesson line number. */
+  tag?: string;
 }
 
 const CONTAINER_KINDS: ContainerKind[] = [
@@ -47,9 +49,9 @@ const parseContainerKind = (raw: string): ContainerKind | null => {
   return (CONTAINER_KINDS as string[]).includes(v) ? (v as ContainerKind) : null;
 };
 
-export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMode, onAiEdit }: Props) => {
+export const FloatingWorkspace = ({ line, index, onChange, scoreLabel, scoringMode, onAiEdit, tag }: Props) => {
   const fillers = applyArrangement(line.fillers, line.arrangement);
-  const lineNo = index + 1;
+  const lineNo = tag ?? String(index + 1);
   const fillersSelected = line.fillersSelected ?? line.fillers.map(() => false);
   const containersSelected = line.containersSelected ?? line.containers.map(() => false);
 
@@ -379,7 +381,7 @@ const EditableChip = ({
   value: string;
   displayLabel: string;
   displayKey: string;
-  lineNo: number;
+  lineNo: string;
   onCommit: (raw: string) => void;
   onRemove: () => void;
   variant?: "filler" | "symbol";
@@ -466,7 +468,7 @@ const EditableChip = ({
 const EmptyEntryBox = ({
   lineNo, placeholder, onCommit, widthClass = "w-24", variant = "filler",
 }: {
-  lineNo: number;
+  lineNo: string;
   placeholder: string;
   onCommit: (raw: string) => void;
   widthClass?: string;
@@ -514,7 +516,7 @@ const EmptyEntryBox = ({
   );
 };
 
-const TagBadge = ({ n }: { n: number }) => (
+const TagBadge = ({ n }: { n: string }) => (
   <span
     aria-hidden
     className="absolute pointer-events-none tabular-nums font-bold"
