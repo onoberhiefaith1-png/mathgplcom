@@ -26,6 +26,9 @@ import {
   stepIdxForLine,
   tSeriesFor,
   tagForLine,
+  mainTagForStep,
+  nextMainStepAfter,
+
   editableCellsForLine,
   expectedCellValue,
   isCellCorrect,
@@ -2825,14 +2828,16 @@ const PresentationView = ({
     [tSeriesGroup],
   );
 
-  /** THE tag of the active floating number — `T{n}` inside a table, the
-   *  lesson step number outside. Every surface reads this one value. */
+  /** THE tag of the active floating number — `T{k}.{i}` inside an open table
+   *  branch, otherwise the main-path tag (`L{n}` or `T{k}`). One value, every
+   *  surface. A closed table NEVER shows a child tag. */
   const activeTag = useMemo(
     () => (tSeriesGroup
       ? tagForLine(steps, tableGroups, activeLineIdx)
-      : String(activeStepIdx + 1)),
+      : mainTagForStep(steps, activeStepIdx)),
     [tSeriesGroup, steps, tableGroups, activeLineIdx, activeStepIdx],
   );
+
   const activeTagRef = useRef(activeTag);
   activeTagRef.current = activeTag;
 
@@ -2888,15 +2893,17 @@ const PresentationView = ({
       return;
     }
     if (isGroupComplete(activeTableGroup, activeTableEntries)) {
-      const last = activeTableGroup.memberLineIdxs[activeTableGroup.memberLineIdxs.length - 1];
-      const after = last + 1;
-      if (after < guidedLines.length) {
-        setActiveLineIdx(after);
-        setFloatingLineIdx(after);
+      // BRANCH EXIT: return to the next MAIN-PATH node (T1 → L4, T2 → L6),
+      // never to the raw next line, which could be another table's child.
+      const back = nextMainStepAfter(steps, activeTableGroup);
+      if (back) {
+        setActiveLineIdx(back.lineIdx);
+        setFloatingLineIdx(back.lineIdx);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, guidedLines.length, activeTablePlaced]);
+  }, [activeTableGroup?.objId, activeTableEntries, activeLineIdx, steps, activeTablePlaced]);
+
 
 
   // NOTE GATE — one uniform live rule for every line, no special cases:
@@ -6050,12 +6057,13 @@ const PresentationView = ({
               : -1;
             const counterNumber = tCount > 0 ? tIdx + 1 : activeStepIdx + 1;
             const counterTotal = tCount > 0 ? tCount : steps.length;
-            /* TAG — always the active floating number's own identifier:
-               `T{n}` (lesson-wide table sequence) inside a table, the lesson
-               step number outside. Never a lesson number for a table row. */
+            /* TAG — the active node's own identifier: `T{k}.{i}` inside an open
+               table branch, `T{k}` for a collapsed table, `L{n}` for an
+               equation. The main path never shows a child tag. */
             const counterLabel = tCount > 0
               ? (tSeries[tIdx]?.label ?? activeTag)
-              : tagForLine(steps, tableGroups, curLineIdx);
+              : mainTagForStep(steps, stepIdxForLine(steps, curLineIdx));
+
 
             const lineForCounter = (target: number): number | null => {
               if (tCount > 0) return tSeriesGroup?.memberLineIdxs[target] ?? null;

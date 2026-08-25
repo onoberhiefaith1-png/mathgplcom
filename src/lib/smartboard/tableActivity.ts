@@ -24,11 +24,12 @@ export interface TableGroup {
   retained: string[];
   /** Reservoir line indices owned by this table, in order. */
   memberLineIdxs: number[];
-  /** How many table floating numbers precede this table in the lesson. The
-   *  T-series is lesson-wide and continuous: the first table starts at T1,
-   *  and every later table carries on from where the previous one ended. */
-  tStart: number;
+  /** 1-based position of this table among the solution's tables, in document
+   *  order. THE branch identity: this table is the main-path node `T{n}` and
+   *  its children are `T{n}.1 … T{n}.m`. Numbering never runs across tables. */
+  tableIndex: number;
 }
+
 
 
 /** Per-table student entries: cellKey -> raw text. */
@@ -50,40 +51,39 @@ const normalise = (raw: string): string =>
  *  the student never types into the teacher's drawing. */
 export const buildTableGroups = (lines: ReservoirLine[]): TableGroup[] => {
   const out: TableGroup[] = [];
+  const byObj = new Map<string, TableGroup>();
   lines.forEach((line, idx) => {
     const t = line?.table;
     if (!t?.objId || !t.grid) return;
     const structural = Array.isArray((t.grid as any).staticCells)
       ? ((t.grid as any).staticCells as string[])
       : [];
-    const last = out[out.length - 1];
-    if (last && last.objId === t.objId) {
-      last.memberLineIdxs.push(idx);
+    // ONE BRANCH PER TABLE: membership is keyed by objId, not adjacency, so a
+    // table whose lines are non-contiguous (or highlighted twice) can never
+    // split into two branches or claim two T numbers.
+    const existing = byObj.get(t.objId);
+    if (existing) {
+      existing.memberLineIdxs.push(idx);
       for (const k of [...(t.retained ?? []), ...structural]) {
-        if (!last.retained.includes(k)) last.retained.push(k);
+        if (!existing.retained.includes(k)) existing.retained.push(k);
       }
       return;
     }
-    out.push({
+    const group: TableGroup = {
       objId: t.objId,
       label: t.label || t.grid.label || "Table",
       orientation: t.orientation === "column" ? "column" : "row",
       grid: t.grid,
       retained: Array.from(new Set([...(t.retained ?? []), ...structural])),
       memberLineIdxs: [idx],
-      tStart: 0,
-    });
+      tableIndex: out.length + 1,
+    };
+    byObj.set(t.objId, group);
+    out.push(group);
   });
-
-  // Lesson-wide continuous T numbering: T1…Tn for the first table, then the
-  // next table carries on from n+1, and so on.
-  let running = 0;
-  for (const g of out) {
-    g.tStart = running;
-    running += g.memberLineIdxs.length;
-  }
   return out;
 };
+
 
 
 export const groupForLine = (
@@ -312,17 +312,43 @@ export const stepIdxForLine = (steps: LessonStep[], lineIdx: number): number => 
   return owner >= 0 ? owner : 0;
 };
 
-/** T-series for a table: one entry per member line, in generated order.
- *  Numbering is lesson-wide and continuous (see `tStart`). */
+/** Main-path tag of a step: `L{n}` for an equation step (L numbers count ONLY
+ *  non-table steps, so a table never consumes one) and `T{k}` for a table. */
+export const mainTagForStep = (steps: LessonStep[], stepIdx: number): string => {
+  let l = 0;
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    if (!s.group) l += 1;
+    if (i === stepIdx) return s.group ? `T${s.group.tableIndex}` : `L${l}`;
+  }
+  return "";
+};
+
+/** The first MAIN-PATH step after a table branch — the single authority for
+ *  branch exit (`T1 → L4`, `T2 → L6`). Null when the table ends the solution. */
+export const nextMainStepAfter = (
+  steps: LessonStep[],
+  group: TableGroup,
+): LessonStep | null => {
+  const at = steps.findIndex((s) => s.group?.objId === group.objId);
+  if (at < 0) return null;
+  for (let i = at + 1; i < steps.length; i++) {
+    const s = steps[i];
+    if (!s.group || s.group.objId !== group.objId) return s;
+  }
+  return null;
+};
+
+/** T-series for a table: one child per member line, numbered INSIDE the
+ *  table only — `T{k}.1 … T{k}.m`. Never lesson-wide. */
 export const tSeriesFor = (group: TableGroup): { label: string; lineIdx: number }[] =>
   group.memberLineIdxs.map((lineIdx, i) => ({
-    label: `T${group.tStart + i + 1}`,
+    label: `T${group.tableIndex}.${i + 1}`,
     lineIdx,
   }));
 
-/** THE tag authority. Every floating number displays its own identifier:
- *  a table row is `T{n}` (lesson-wide sequence), any other line is its
- *  lesson step number. Nothing else may derive a tag. */
+/** THE tag authority. A table child is `T{k}.{i}`, a table node is `T{k}`,
+ *  every other step is `L{n}`. Nothing else may derive a tag. */
 export const tagForLine = (
   steps: LessonStep[],
   groups: TableGroup[],
@@ -331,10 +357,11 @@ export const tagForLine = (
   const owner = groupForLine(groups, lineIdx);
   if (owner) {
     const pos = owner.memberLineIdxs.indexOf(lineIdx);
-    if (pos >= 0) return `T${owner.tStart + pos + 1}`;
+    if (pos >= 0) return `T${owner.tableIndex}.${pos + 1}`;
   }
-  return String(stepIdxForLine(steps, lineIdx) + 1);
+  return mainTagForStep(steps, stepIdxForLine(steps, lineIdx));
 };
+
 
 
 /** Clear = drop every student-entered value; retained content is preserved

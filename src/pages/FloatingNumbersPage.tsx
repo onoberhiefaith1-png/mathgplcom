@@ -1114,25 +1114,31 @@ const FloatingNumbersPage = () => {
     return out;
   }, [entries, lines]);
 
-  /* THE NUMBERING LAW — a table is ONE floating number, whatever it generates.
-     Its rows/columns carry the lesson-wide T-series (T1, T2 …) instead of
-     lesson step numbers, so the table never inflates the lesson numbering. */
+  /* THE NUMBERING LAW — the main path carries L-numbers (equations only) and
+     one T-number per table. A table's rows/columns are its CHILDREN, numbered
+     inside that table: T1.1 … T1.n, T2.1 … T2.n. Tables never share a series
+     and never consume an L-number. */
   const numbering = useMemo(() => {
     const lineTags: Record<number, string> = {};
-    const tableStep: Record<string, number> = {};
-    let step = 0;
+    const tableStep: Record<string, string> = {};
+    let l = 0;
     let t = 0;
     for (const g of groups) {
-      step += 1;
       if (g.kind === "table") {
-        tableStep[g.objId] = step;
-        for (const it of g.items) { t += 1; lineTags[it.index] = `T${t}`; }
+        t += 1;
+        const tag = `T${t}`;
+        tableStep[g.objId] = tag;
+        for (let i = 0; i < g.items.length; i++) {
+          lineTags[g.items[i].index] = `${tag}.${i + 1}`;
+        }
       } else {
-        lineTags[g.index] = String(step);
+        l += 1;
+        lineTags[g.index] = `L${l}`;
       }
     }
     return { lineTags, tableStep };
   }, [groups]);
+
 
 
   const patchTableLines = useCallback(
