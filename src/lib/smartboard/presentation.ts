@@ -11,14 +11,14 @@ import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } fr
 import { normEq } from "./rowAscii";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { readSolutionObjects, isFloatableObject, sortByPlacement } from "@/lib/floating/solutionItems";
-import { boardObjects, notesLayerObjects } from "@/lib/lessonnotes/lessonOutline";
+import { boardObjects, notesLayerObjects, orderByPlacement } from "@/lib/lessonnotes/lessonOutline";
 
 /** Objects stored on a block, filtered to what the student board may show. */
 const blockObjects = (block?: BlockRow | null): SolutionObject[] => {
   const raw = (block as any)?.content_json?.objects;
   // PLACEMENT LAW: always ordered by the object's recorded home, never by the
   // order rows happened to arrive in.
-  return Array.isArray(raw) ? sortByPlacement(boardObjects(raw as SolutionObject[])) : [];
+  return Array.isArray(raw) ? orderByPlacement(boardObjects(raw as SolutionObject[])) : [];
 };
 
 /** NOTES-LAYER objects captured inside a Solution (diagrams, 3D scenes,
@@ -27,7 +27,7 @@ const blockObjects = (block?: BlockRow | null): SolutionObject[] => {
  *  render with the question/note block they belong to, in document order. */
 const solutionNotesObjects = (block?: BlockRow | null): SolutionObject[] => {
   const raw = (block as any)?.content_json?.objects;
-  return Array.isArray(raw) ? sortByPlacement(notesLayerObjects(raw as SolutionObject[])) : [];
+  return Array.isArray(raw) ? orderByPlacement(notesLayerObjects(raw as SolutionObject[])) : [];
 };
 
 /** Restore persisted note-attached objects (diagrams). Floatable objects can
@@ -451,8 +451,8 @@ export const buildBeats = (sections: SectionRow[], notebook?: NotebookRow | null
             };
             push(blockObjects(problemBlock));
             for (const b of sub.blocks) {
-              if (b === problemBlock) continue;
-              push(b.kind === "solution" ? solutionNotesObjects(b) : blockObjects(b));
+              if (b === problemBlock || b.kind === "solution") continue;
+              push(blockObjects(b));
             }
             // Final guarantee: the beat's objects follow their recorded home
             // (session → position in session), so a diagram can never drift
