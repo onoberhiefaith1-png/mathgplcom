@@ -337,22 +337,32 @@ function SectionHeadingView(props: NodeViewProps) {
 
   /** Floating Numbers must ALWAYS be reachable from a Solution heading, even
    *  when the solution is still empty — the workspace simply opens blank.
-   *  Resolve first; if the backing rows don't exist yet (brand-new section
-   *  that hasn't synced, or an empty question the sync layer skipped), create
-   *  them on the spot instead of refusing with a toast. */
+   *  Resolve by identity first; if the backing rows don't exist yet, run the
+   *  sync layer (which writes the durable keys) and resolve again. Only when
+   *  that still fails do we create a keyed row ourselves. Nothing is ever
+   *  claimed positionally. */
   const ensureSubsectionId = useCallback(async (): Promise<string | null> => {
     const resolved = await resolveSubsectionId();
     if (resolved) return resolved;
     if (!notebookId) return null;
-    const at = locateIndices();
-    if (!at) return null;
+
+    // The document is the source of truth: let the sync layer materialise the
+    // rows with their doc_keys, then resolve by identity again.
+    try {
+      await syncDocumentToNotebook(notebookId, editor.state.doc.toJSON());
+      const afterSync = await resolveSubsectionId();
+      if (afterSync) return afterSync;
+    } catch { /* fall through to direct creation */ }
+
+    const docKey = docKeyForHeading();
+    if (!docKey) return null;
 
     const { data: secs } = await supabase
       .from("notebook_sections")
-      .select("id, order_index")
+      .select("id, order_index, doc_key")
       .eq("notebook_id", notebookId)
       .order("order_index", { ascending: true });
-    let sectionId = ((secs ?? [])[at.parentSectionIndex] as any)?.id as string | undefined;
+    let sectionId = ((secs ?? []).find((s: any) => s.doc_key === docKey) as any)?.id as string | undefined;
     if (!sectionId) {
       const { data: created } = await supabase
         .from("notebook_sections")
@@ -360,6 +370,7 @@ function SectionHeadingView(props: NodeViewProps) {
           notebook_id: notebookId,
           kind: "example" as any,
           order_index: (secs ?? []).length,
+          doc_key: docKey,
         })
         .select("id")
         .single();
@@ -369,10 +380,10 @@ function SectionHeadingView(props: NodeViewProps) {
 
     const { data: subs } = await supabase
       .from("notebook_subsections")
-      .select("id, order_index")
+      .select("id, order_index, doc_key")
       .eq("section_id", sectionId)
       .order("order_index", { ascending: true });
-    const existingSub = ((subs ?? [])[at.subsectionIndex] as any)?.id as string | undefined;
+    const existingSub = ((subs ?? []).find((s: any) => s.doc_key === docKey) as any)?.id as string | undefined;
     if (existingSub) return existingSub;
 
     const { data: newSub } = await supabase
@@ -380,6 +391,7 @@ function SectionHeadingView(props: NodeViewProps) {
       .insert({
         section_id: sectionId,
         order_index: (subs ?? []).length,
+        doc_key: docKey,
         floating_lines: [],
       })
       .select("id")
@@ -392,7 +404,8 @@ function SectionHeadingView(props: NodeViewProps) {
       { section_id: sectionId, subsection_id: subId, kind: "reasoning" as any, order_index: 2, content_ascii: "" },
     ]);
     return subId;
-  }, [resolveSubsectionId, locateIndices, notebookId]);
+  }, [resolveSubsectionId, docKeyForHeading, notebookId, editor]);
+
 
 
   // ── SPLIT THE SOLUTION FROM ITS QUESTION ──────────────────────────────
