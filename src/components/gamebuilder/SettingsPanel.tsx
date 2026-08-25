@@ -29,7 +29,7 @@ import { detectMediaBackground } from "@/lib/games/removeBackground";
 import { getSignedUrl } from "@/lib/games/urls";
 import { PROGRESS_PRESETS } from "@/lib/games/progressPresets";
 import { LIQUID_STYLES, DEFAULT_LIQUID_STYLE } from "@/lib/games/liquidStyles";
-import { TIME_BAR_LABEL, TIME_DURATION_OPTIONS, roleOf } from "@/lib/games/types";
+import { TIME_BAR_LABEL, roleOf } from "@/lib/games/types";
 import { fmtClock, parseClock } from "@/lib/games/timerVideo";
 import { DEFAULT_FAILURE_MESSAGE } from "@/lib/games/timerOutcome";
 import TimerVideoTimeline from "./TimerVideoTimeline";
