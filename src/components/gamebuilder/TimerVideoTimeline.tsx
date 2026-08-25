@@ -233,9 +233,20 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
             </Button>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {numField(`${p.id}Start` as keyof TimerVideoConfig, regions[p.id].start)}
-            {numField(`${p.id}End` as keyof TimerVideoConfig, regions[p.id].end)}
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Start (s)</span>
+              {numField(`${p.id}Start` as keyof TimerVideoConfig, regions[p.id].start)}
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">End (s)</span>
+              {numField(`${p.id}End` as keyof TimerVideoConfig, regions[p.id].end)}
+            </div>
           </div>
+          {effectiveDuration > 0 && (
+            <p className="mt-1 text-[10px] text-muted-foreground/70">
+              0 – {effectiveDuration.toFixed(1)}s · {fmtClock(regions[p.id].start)} → {fmtClock(regions[p.id].end)}
+            </p>
+          )}
         </div>
       ))}
 
