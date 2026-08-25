@@ -11,6 +11,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
 import type { GeometryScene } from "@/lib/geometry/scene";
 import { GeometryCanvas } from "./GeometryCanvas";
+import { DiagramZoomControl } from "./DiagramZoomControl";
+import { useDiagramZoom } from "@/lib/geometry/useDiagramZoom";
 import { useGeometryEditor } from "./useGeometryEditor";
 import { GeometryModeProvider, useGeometryMode } from "./GeometryModeContext";
 import { GeometryToolbox } from "./GeometryToolbox";
@@ -43,6 +45,8 @@ interface Props {
   emphasisIds?: string[];
   /** Hides the drawing toolbox — used by relationship authoring (select only). */
   hideLeftTools?: boolean;
+  /** Remembers this diagram's visual zoom (uniform scale only). */
+  zoomKey?: string;
 }
 
 export function GeometryWorkbench(props: Props) {
@@ -53,12 +57,13 @@ export function GeometryWorkbench(props: Props) {
   );
 }
 
-function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds, relatedIds, emphasisIds, hideLeftTools }: Props) {
+function Workbench({ scene, onChange, onDeleteDiagram, history, className, stroke, chrome, renderRightPanel, rightPanelTitle, rightPanelWidthClass, highlightIds, relatedIds, emphasisIds, hideLeftTools, zoomKey }: Props) {
   const editor = useGeometryEditor(scene, onChange);
   const { mode, setMode, tool } = useGeometryMode();
   const phone = useSheetPanels();
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  const { zoom, setZoom } = useDiagramZoom(zoomKey ?? "workbench");
 
   // On phones the tool columns are sheets, so they must start closed — the
   // canvas owns the screen until the teacher asks for a panel.
@@ -159,6 +164,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
           >
             <PanelRightOpen className="h-3.5 w-3.5" /> {rightPanelTitle ?? "Diagram Tools"}
           </button>
+          <DiagramZoomControl zoom={zoom} onZoom={setZoom} compact />
         </div>
 
         <div ref={areaRef} className="min-w-0 min-h-0 flex-1 overflow-auto overscroll-contain">
@@ -170,6 +176,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
             emphasisIds={emphasisIds}
             minViewW={Math.max(0, area.w - 8)}
             minViewH={Math.max(0, area.h - 8)}
+            zoom={zoom}
           />
         </div>
 
@@ -205,7 +212,10 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
 
       {/* Transparent drawing area — no surface of its own, scrolls vertically
           while the two tool panels stay pinned to the edges. */}
-      <div ref={areaRef} className="min-w-0 min-h-0 flex-1 overflow-auto">
+      <div ref={areaRef} className="relative min-w-0 min-h-0 flex-1 overflow-auto">
+        <div className="pointer-events-auto sticky top-0 z-10 mb-1 flex justify-end">
+          <DiagramZoomControl zoom={zoom} onZoom={setZoom} />
+        </div>
         <GeometryCanvas
           editor={editor}
           stroke={stroke}
@@ -214,6 +224,7 @@ function Workbench({ scene, onChange, onDeleteDiagram, history, className, strok
           emphasisIds={emphasisIds}
           minViewW={Math.max(0, area.w - 8)}
           minViewH={Math.max(0, area.h - 8)}
+          zoom={zoom}
         />
       </div>
 

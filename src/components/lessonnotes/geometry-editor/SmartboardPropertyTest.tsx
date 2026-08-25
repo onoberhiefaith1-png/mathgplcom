@@ -10,33 +10,32 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { GeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
+import { DiagramZoomControl } from "./DiagramZoomControl";
+import { useDiagramZoom } from "@/lib/geometry/useDiagramZoom";
 import { itemObjectIds, type GeometryMapItem } from "@/lib/geometry/map/model";
 import type { GeometryScene } from "@/lib/geometry/scene";
-
-const ZOOM_MIN = 0.4;
-const ZOOM_MAX = 3.5;
-const ZOOM_STEP = 0.12;
-const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
 
 export function SmartboardPropertyTest({
   scene,
   onClose,
+  zoomKey,
 }: {
   scene: GeometryScene;
   onClose: () => void;
+  /** Remembers this diagram's zoom between visits. */
+  zoomKey?: string;
 }) {
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [highlightIds, setHighlightIds] = useState<string[]>([]);
-  const [zoom, setZoom] = useState(1);
-  const applyZoom = (next: number) => setZoom(clampZoom(next));
-
+  const { zoom, setZoom } = useDiagramZoom(zoomKey ?? "property-test");
 
   const board = useMemo(
     () => (
       <GeometryDiagram
         scene={scene}
         large
+        zoom={zoom}
         highlightIds={highlightIds}
         onPickObject={(id) => {
           setSelectedObjectId(id);
@@ -45,7 +44,7 @@ export function SmartboardPropertyTest({
         }}
       />
     ),
-    [scene, highlightIds],
+    [scene, highlightIds, zoom],
   );
 
   const pick = (item: GeometryMapItem | null) => {
@@ -70,31 +69,7 @@ export function SmartboardPropertyTest({
             <X className="h-3.5 w-3.5" /> Close test
           </button>
 
-          <div className="inline-flex shrink-0 items-center gap-0.5 rounded-md border border-black/20 bg-white shadow-sm">
-            <button
-              type="button"
-              onClick={() => applyZoom(zoom - ZOOM_STEP)}
-              className="px-3 py-1.5 text-base font-semibold leading-none text-slate-700 hover:bg-black/10"
-              aria-label="Zoom out diagram"
-              title="Zoom out"
-            >−</button>
-            <button
-              type="button"
-              onClick={() => applyZoom(1)}
-              className="min-w-[46px] border-x border-black/10 px-2 py-1.5 tabular-nums text-[11px] font-medium text-slate-600 hover:bg-black/10"
-              aria-label="Reset zoom"
-              title="Reset zoom"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button
-              type="button"
-              onClick={() => applyZoom(zoom + ZOOM_STEP)}
-              className="px-3 py-1.5 text-base font-semibold leading-none text-slate-700 hover:bg-black/10"
-              aria-label="Zoom in diagram"
-              title="Zoom in"
-            >+</button>
-          </div>
+          <DiagramZoomControl zoom={zoom} onZoom={setZoom} className="shrink-0" />
 
           <p className="text-[12.5px] font-semibold tracking-tight text-slate-900">
             Teacher Smartboard Test
@@ -106,9 +81,7 @@ export function SmartboardPropertyTest({
 
 
         <div className="min-h-0 flex-1 overflow-auto bg-white p-6">
-          <div className="mx-auto w-full max-w-[1100px] bg-white">
-            <div style={{ zoom }}>{board}</div>
-          </div>
+          <div className="mx-auto w-fit min-w-0 max-w-full bg-white">{board}</div>
         </div>
 
       </div>

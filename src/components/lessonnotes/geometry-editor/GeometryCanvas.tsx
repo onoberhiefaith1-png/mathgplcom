@@ -42,11 +42,15 @@ interface Props {
   relatedIds?: GeoId[];
   /** The relationship's own subject — emphasised halo. */
   emphasisIds?: GeoId[];
+  /** Uniform visual zoom for the drawing surface (geometry is unchanged). */
+  zoom?: number;
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightIds, relatedIds, emphasisIds }: Props) {
+export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightIds, relatedIds, emphasisIds, zoom }: Props) {
+  // One factor for width AND height — the figure can never be distorted.
+  const zoomFactor = Number.isFinite(zoom) && (zoom as number) > 0 ? (zoom as number) : 1;
 
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
   const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
@@ -915,7 +919,25 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
   const annotationHint = annotationHintFor(tool, pendingIds.length);
 
   return (
-    <div data-geometry-live-canvas="true" className="relative" style={{ width: W, height: H, overflow: "visible" }}>
+    <div
+      style={{
+        width: W * zoomFactor,
+        height: H * zoomFactor,
+        overflow: "visible",
+      }}
+    >
+    <div
+      data-geometry-live-canvas="true"
+      className="relative"
+      style={{
+        width: W,
+        height: H,
+        overflow: "visible",
+        transform: zoomFactor === 1 ? undefined : `scale(${zoomFactor})`,
+        transformOrigin: "0 0",
+      }}
+    >
+
       <div className="absolute inset-0">
         <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} stroke={stroke} minViewW={minViewW} minViewH={minViewH} />
       </div>
@@ -1019,8 +1041,10 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
         />
       )}
     </div>
+    </div>
   );
 }
+
 
 function cursorFor(t: ToolId): string {
   if (t === "select") return "default";
