@@ -2,7 +2,7 @@
 // becomes its own asset. Backgrounds can be removed before the file is stored,
 // so every teacher receives an already-transparent image.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import {
@@ -15,6 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { makeTransparent, isVideoFile } from "@/lib/games/removeBackground";
+import {
+  cutVideoBackground, NotKeyableError, type EdgeSoftness,
+} from "@/lib/games/videoChromaCut";
 import {
   GPL_SURFACES, SURFACE_LABEL, type GplAssetType, type GplSurface,
 } from "@/lib/gpl/assetLibrary";
@@ -61,8 +64,40 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
   const [url, setUrl] = useState("");
   const [surfaces, setSurfaces] = useState<GplSurface[]>([]);
   const [removeBg, setRemoveBg] = useState(false);
+  const [softness, setSoftness] = useState<EdgeSoftness>("normal");
+  const [keySwatch, setKeySwatch] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
+
+  const hasVideo = files.some((f) => isVideoFile(f));
+
+  // Show the detected background colour of the first video, so the teacher can
+  // see what is about to be cut before pressing save.
+  useEffect(() => {
+    if (!removeBg) {
+      setKeySwatch(null);
+      return;
+    }
+    const video = files.find((f) => isVideoFile(f));
+    if (!video) {
+      setKeySwatch(null);
+      return;
+    }
+    let cancelled = false;
+    const url = URL.createObjectURL(video);
+    void import("@/lib/games/removeBackground")
+      .then(({ detectMediaBackground }) => detectMediaBackground(url, "video"))
+      .then(({ color, keyable }) => {
+        if (cancelled) return;
+        setKeySwatch(keyable ? `rgb(${color.r}, ${color.g}, ${color.b})` : null);
+      })
+      .catch(() => !cancelled && setKeySwatch(null));
+    return () => {
+      cancelled = true;
+      URL.revokeObjectURL(url);
+    };
+  }, [removeBg, files]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,6 +108,8 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
     setUrl(initial?.external_url ?? "");
     setSurfaces(initial?.surfaces ?? []);
     setRemoveBg(false);
+    setSoftness("normal");
+    setKeySwatch(null);
     setStep("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -84,6 +121,8 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
   const submit = async () => {
     if (!valid) return;
     setBusy(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const items: AssetFormItem[] = [];
 
@@ -97,6 +136,33 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
             const blob = await makeTransparent(raw);
             file = new File([blob], `${baseName(raw)}.png`, { type: "image/png" });
             assetType = "transparent";
+          } else if (removeBg && type === "video") {
+            try {
+              setStep(`Cutting background — 0%`);
+              const cut = await cutVideoBackground(raw, {
+                softness,
+                signal: controller.signal,
+                onProgress: (f) =>
+                  setStep(`Cutting background — ${Math.round(f * 100)}%`),
+              });
+              file = cut;
+              assetType = "transparent";
+            } catch (error) {
+              if ((error as Error).name === "AbortError") throw error;
+              if (error instanceof NotKeyableError) {
+                toast({
+                  title: "Background kept",
+                  description:
+                    `${raw.name}: the background isn't a flat colour, so the original video was stored untouched.`,
+                });
+              } else {
+                toast({
+                  title: "Could not cut the background",
+                  description: `${raw.name}: ${(error as Error).message} The original video was stored.`,
+                  variant: "destructive",
+                });
+              }
+            }
           }
           items.push({
             name: files.length === 1 && name.trim() ? name.trim() : baseName(raw),
@@ -191,8 +257,47 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
                   checked={removeBg}
                   onCheckedChange={(checked) => setRemoveBg(checked === true)}
                 />
-                Remove background before storing (images only)
+                Remove background before storing (images and solid-colour videos)
               </label>
+
+              {removeBg && hasVideo && (
+                <div className="mt-3 space-y-2 rounded-md border border-border/60 p-3">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">Background detected:</span>
+                    {keySwatch ? (
+                      <span
+                        className="inline-block h-4 w-8 rounded border border-border"
+                        style={{ backgroundColor: keySwatch }}
+                        aria-label="Detected background colour"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">checking…</span>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Edge softness</Label>
+                    <div className="mt-1 flex gap-1">
+                      {(["tight", "normal", "soft"] as EdgeSoftness[]).map((option) => (
+                        <Button
+                          key={option}
+                          type="button"
+                          size="sm"
+                          variant={softness === option ? "default" : "outline"}
+                          onClick={() => setSoftness(option)}
+                          className="min-h-[36px] capitalize"
+                        >
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The clip keeps its own size, frame rate and detail — only the flat
+                    background colour is cut. Transparent video plays on Chrome, Edge and
+                    Firefox boards.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -271,7 +376,15 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
 
         <DialogFooter>
           {step && <span className="mr-auto text-xs text-muted-foreground">{step}</span>}
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (busy) abortRef.current?.abort();
+              else onClose();
+            }}
+          >
+            Cancel
+          </Button>
           <Button onClick={() => void submit()} disabled={busy || !valid}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
           </Button>
