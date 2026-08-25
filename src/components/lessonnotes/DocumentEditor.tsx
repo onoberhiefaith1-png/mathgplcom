@@ -2871,7 +2871,7 @@ function DocumentEditorInner({
         }
         setDiagramTabsOpen(true);
       },
-      openSmartTable: async () => setTablesOpen(true),
+      openSmartTable: async () => insertSmartTable(),
       openSlideCanvas: async () => setSlidePanelOpen(true),
       openAssetLibrary: async () => setAssetLibOpen(true),
       editBlock: async (ref2, instruction) =>
