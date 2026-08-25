@@ -1061,17 +1061,23 @@ const FloatingNumbersPage = () => {
       for (const l of lines) {
         const t = l.table;
         if (!t?.objId || next[t.objId]) continue;
-        next[t.objId] = { orientation: t.orientation ?? "row", retained: t.retained ?? [] };
+        next[t.objId] = {
+          orientation: t.orientation ?? "row",
+          // HEADER RETENTION BY DEFAULT — the heading row/column of a table is
+          // the teacher's label, never the student's answer.
+          retained: t.retained ?? (t.grid ? defaultRetainedCells(t.grid as TableGrid) : []),
+        };
         changed = true;
       }
       for (const e of entries) {
         if (e.kind !== "table" || next[e.objId]) continue;
-        next[e.objId] = { orientation: "row", retained: [] };
+        next[e.objId] = { orientation: "row", retained: defaultRetainedCells(e.grid) };
         changed = true;
       }
       return changed ? next : prev;
     });
   }, [lines, entries]);
+
 
   /** Render groups: text lines and table workspaces, in document order.
    *  `insertAt` is where a table's lines start inside the flat `lines` list. */
