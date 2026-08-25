@@ -228,7 +228,7 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
               <div className="text-xs font-semibold">{p.label}</div>
               <div className="text-[11px] text-muted-foreground">{p.hint}</div>
             </div>
-            <Button size="sm" variant="secondary" disabled={!value?.storagePath} onClick={() => preview(p.id)}>
+            <Button size="sm" variant="secondary" disabled={!value?.storagePath || !ready} onClick={() => preview(p.id)}>
               <Play className="mr-1 h-3 w-3" /> Preview
             </Button>
           </div>
