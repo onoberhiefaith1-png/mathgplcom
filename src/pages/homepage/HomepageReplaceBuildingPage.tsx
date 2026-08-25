@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, Check, RotateCcw, Upload } from "lucide-react";
+import { ArrowLeft, Check, Eraser, RotateCcw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import SettingsPanel from "@/components/gamebuilder/SettingsPanel";
 import AssetLibraryModal, { type UrlPick } from "@/components/gamebuilder/AssetLibraryModal";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
+import { makeTransparent } from "@/lib/games/removeBackground";
+import { getSignedUrl } from "@/lib/games/urls";
 import {
   defaultAnimation,
   defaultSlant,
@@ -18,7 +20,15 @@ import {
   type MediaType,
 } from "@/lib/games/types";
 import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
-import { useHomepageConfig } from "@/lib/homepage/homepageConfig";
+import {
+  clampBuildingSpeed,
+  sliderToSpeed,
+  speedToSlider,
+  useHomepageConfig,
+} from "@/lib/homepage/homepageConfig";
+
+const SPEED_PRESETS = [0.1, 0.25, 0.5, 1, 2, 5, 10];
+
 
 const makeBuilding = (
   path: string,
