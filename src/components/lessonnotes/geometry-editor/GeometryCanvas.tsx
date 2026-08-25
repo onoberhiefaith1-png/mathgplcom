@@ -715,24 +715,7 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
         if (!wasExisting) trackSessionPoint("addArea", id);
         const closeOnStart = pendingIds.length >= 3 && id === pendingIds[0];
         if (closeOnStart) {
-          let op;
-          if (curveMode) {
-            op = addCurvedRegion(scene, pendingIds);
-            apply(op);
-            const rgnId = op.addedIds[0];
-            if (rgnId) {
-              const patched = patchObject(op.scene, rgnId, { fill, opacity } as any);
-              apply(patched);
-              finalizeSession(patched.scene);
-            } else {
-              finalizeSession(op.scene);
-            }
-          } else {
-            op = addRegion(scene, pendingIds, { fill, opacity });
-            apply(op);
-            finalizeSession(op.scene);
-          }
-          setPendingIds([]);
+          closeTraceNow(pendingIds);
         } else if (pendingIds[pendingIds.length - 1] !== id) {
           setPendingIds([...pendingIds, id]);
         }
