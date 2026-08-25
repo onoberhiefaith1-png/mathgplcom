@@ -54,6 +54,25 @@ const ViewingFrame = ({
   const backTo = asParent ? "/family" : asTeacher ? "/teaching-hub/students" : basePath;
   const viewerLabel = asParent ? "Parent" : asTeacher ? "Teacher" : "School";
 
+  const [folded, setFolded] = useState(false);
+  const drag = useDraggableTab(`mgpl:viewing-frame-tab-x:${userId}:${kind}`);
+
+  useEffect(() => {
+    try {
+      setFolded(sessionStorage.getItem(foldKey(userId, kind, viewer)) === "1");
+    } catch {
+      // sessionStorage may be unavailable in some environments.
+    }
+  }, [userId, kind, viewer]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(foldKey(userId, kind, viewer), folded ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }, [folded, userId, kind, viewer]);
+
   if (asParent && !loading && !child) {
     return (
       <main className="mx-auto max-w-2xl p-8">
@@ -82,25 +101,6 @@ const ViewingFrame = ({
     );
   }
 
-  const [folded, setFolded] = useState(false);
-  const drag = useDraggableTab(`mgpl:viewing-frame-tab-x:${userId}:${kind}`);
-
-
-  useEffect(() => {
-    try {
-      setFolded(sessionStorage.getItem(foldKey(userId, kind, viewer)) === "1");
-    } catch {
-      // sessionStorage may be unavailable in some environments.
-    }
-  }, [userId, kind, viewer]);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(foldKey(userId, kind, viewer), folded ? "1" : "0");
-    } catch {
-      // ignore
-    }
-  }, [folded, userId, kind, viewer]);
 
   const exitLinkText = asParent
     ? "My children"
