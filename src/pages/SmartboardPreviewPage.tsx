@@ -16,7 +16,7 @@
 // copied verbatim from the Lesson Note.
 
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "@/lib/router-compat";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, Eye, EyeOff, Pencil, PlayCircle, RotateCcw, StickyNote } from "lucide-react";
 
 import { useNotebook, type SectionRow } from "@/hooks/useNotebook";
@@ -384,8 +384,8 @@ const SmartboardPreviewPage = () => {
         style={{ background: "rgba(246,244,239,0.9)", borderColor: "rgba(138,106,31,0.2)" }}
       >
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/smartboard")} className="gap-2">
-            <ArrowLeft className="h-4 w-4" /> Shelf
+          <Button variant="ghost" size="sm" onClick={() => navigate(backTarget.to)} className="gap-2">
+            <ArrowLeft className="h-4 w-4" /> {backTarget.label}
           </Button>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase tracking-[0.4em]" style={{ color: ACCENT }}>
