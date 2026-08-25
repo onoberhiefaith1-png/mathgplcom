@@ -116,7 +116,7 @@ const matrixChipShell = (raw: string) => matrixShellFromLatex(raw);
 
 const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: string; placeholderColor?: string }) => {
   const safe = assertDisplaySafe(label).cleaned;
-  const matrixLabel = matrixChipLabel(label);
+  const matrixShell = matrixChipShell(label);
   const frac = parseFractionChip(label);
   // The chip bar is WHITE. The board's placeholder colour is near-white
   // cream, so slots painted with it disappear here — which is why every
