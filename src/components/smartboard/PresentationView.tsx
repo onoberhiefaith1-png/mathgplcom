@@ -146,10 +146,12 @@ import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2, LayoutGrid
 import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
+import { BoardRelationshipView } from "@/components/smartboard/BoardRelationshipView";
 import { reviewProperties, useReviewProperties } from "@/lib/smartboard/reviewProperties";
 import { ReviewPropertiesPanel } from "@/components/smartboard/ReviewPropertiesPanel";
 import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions/GeometryDiagram";
 import { itemObjectIds } from "@/lib/geometry/map/model";
+import { sortByPlacement } from "@/lib/floating/solutionItems";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -7210,7 +7212,7 @@ const BeatBlock = ({
 
   const FlowingTextAndObjects = ({ beat: b }: { beat: Beat }) => {
     const lines = String(b.content ?? "").split(/\r?\n/);
-    const objects = [...(b.objects ?? [])].sort((a, c) => a.afterLine - c.afterLine);
+    const objects = sortByPlacement(b.objects ?? []);
     if (!objects.length) {
       return (
         <SmartboardLessonText jitter={jitter} seed={b.id.length} placeholderColor={placeholderColor}>
@@ -7303,7 +7305,7 @@ const BeatBlock = ({
             {beat.content}
           </SmartboardLessonText>
         </div>
-        <BeatObjects beat={beat} />
+        <FlowingTextAndObjects beat={beat} />
         {/* Auto-write the "Solution" header beneath the question, then stop.
             The teacher solves the rest by hand using the carrier. */}
         <div
