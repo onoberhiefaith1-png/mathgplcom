@@ -11,6 +11,7 @@ import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 import { visiblePlaceholderColor } from "@/lib/smartboard/placeholderColor";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
+import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
 
 /** Background of the floating chip bar — placeholders must stay visible on it. */
 const CHIP_SURFACE = "#ffffff";
