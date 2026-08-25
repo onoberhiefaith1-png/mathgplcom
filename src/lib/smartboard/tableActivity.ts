@@ -232,6 +232,8 @@ export interface TableValidation {
   objId: string;
   label: string;
   orientation: "row" | "column";
+  isMatrix?: boolean;
+  matrixBrackets?: { left: string; right: string };
   /** Grid shape, so the Evaluation panel can draw the real table instead of
    *  flattening cells into a text line. */
   rows: number;
@@ -269,6 +271,8 @@ export const tableValidation = (
     objId: group.objId,
     label: group.label,
     orientation: group.orientation,
+    isMatrix: !!(group.grid as any).isMatrix,
+    matrixBrackets: (group.grid as any).matrixBrackets,
     rows: group.grid.rows,
     cols: group.grid.cols,
     headers: (group.grid.headers ?? []).map((h) => String(h ?? "")),
