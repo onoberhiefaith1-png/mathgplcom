@@ -45,8 +45,6 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
   if (geometryScene) {
     // One diagram engine, one renderer: the board strengthens ink, every other
     // read-only surface renders it at note scale, cropped to the figure.
-    // On the board the same scene also becomes reviewable, so the teacher's
-    // Geometry Properties attach to these exact objects.
     return presentation
       ? (
         <ReviewableBoardDiagram
@@ -59,6 +57,15 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
       )
       : <InlineGeometryDiagram scene={geometryScene} pageLayer={attrs?.pageLayer === true} />;
   }
+
+  // Hooks live in a separate component so the geometry branch above can never
+  // change the hook order of a mounted component (that caused React to tear
+  // down TipTap's DOM and throw "removeChild ... not a child of this node").
+  return <EditorObjectView nodeType={nodeType} attrs={attrs} />;
+};
+
+const EditorObjectView = ({ nodeType, attrs }: { nodeType: string; attrs: Record<string, any> }) => {
+
 
 
 
