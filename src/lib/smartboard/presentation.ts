@@ -191,12 +191,12 @@ const splitSolutionLines = (solution: string | undefined | null): string[] =>
  *  Returns parsed entries in source order. */
 const parseSolutionExplanations = (
   solution: string | undefined | null,
-): { equation: string; explanation?: string }[] => {
+): { equation: string; explanation?: string; proseLine?: number }[] => {
   const raw = String(solution ?? "")
     .split(/\r?\n+/)
     .map((l) => l.trim())
     .filter(Boolean);
-  const out: { equation: string; explanation?: string }[] = [];
+  const out: { equation: string; explanation?: string; proseLine?: number }[] = [];
   const looksLikeMath = (l: string) => {
     const u = toUnicodeMath(l);
     if (!u || isStillDirty(u)) return false;
@@ -204,26 +204,32 @@ const parseSolutionExplanations = (
     return /[=+\-−×÷/^]/.test(u) || /^[\d\s.,()πθ]+$/.test(u);
   };
   let leading: string[] = [];
+  let leadingLine = 0;
   const LABEL_RE = /^(explanation|reason|note|check|reasoning)\s*[:：]?\s*$/i;
   const STRIP_LABEL_RE = /^(explanation|reason|note|reasoning)\s*[:：]\s*/i;
-  for (const rawLine of raw) {
-    const line = rawLine.trim();
+  for (let i = 0; i < raw.length; i++) {
+    const line = raw[i].trim();
     if (!line) continue;
     if (LABEL_RE.test(line)) continue; // bare label line — skip
     if (looksLikeMath(line)) {
       out.push({ equation: line });
       if (leading.length && out.length === 1) {
         out[0].explanation = leading.join("\n");
+        out[0].proseLine = leadingLine;
         leading = [];
       }
     } else {
       const stripped = line.replace(STRIP_LABEL_RE, "").trim();
       if (!stripped) continue;
       if (out.length === 0) {
+        if (!leading.length) leadingLine = i;
         leading.push(stripped);
       } else {
         const last = out[out.length - 1];
         last.explanation = last.explanation ? `${last.explanation}\n${stripped}` : stripped;
+        // SOURCE POSITION: the line this note starts on, so a diagram drawn
+        // beneath it can be matched to this note row and no other.
+        if (last.proseLine === undefined) last.proseLine = i;
       }
     }
   }
@@ -234,9 +240,10 @@ const parseSolutionExplanations = (
 /** SELECTION LAW fallback: with no teacher highlights, nothing floats. The
  *  lesson still reaches the board as NOTES — one note-only row per prose
  *  block, in source order, with every notes-layer diagram attached to the
- *  row above it (or to its own leading row when it precedes all prose). */
+ *  note row it actually sits under in the lesson note (never all piled on the
+ *  last row). A diagram that precedes all prose gets its own leading row. */
 const notesOnlyRows = (
-  parsed: { equation: string; explanation?: string }[],
+  parsed: { equation: string; explanation?: string; proseLine?: number }[],
   noteObjects: SolutionObject[],
 ): Array<{
   equation: string;
@@ -246,32 +253,57 @@ const notesOnlyRows = (
   notebookOnly?: boolean;
   noteObjects?: SolutionObject[];
 }> => {
+  const emptyRow = (notebook?: string) => ({
+    equation: "",
+    fillers: [] as string[],
+    containers: [] as ContainerKind[],
+    notebook,
+    notebookOnly: true,
+    noteObjects: undefined as SolutionObject[] | undefined,
+  });
+
   const rows = parsed
-    .map((p) => String(p.explanation ?? "").trim())
-    .filter(Boolean)
-    .map((notebook) => ({
-      equation: "",
-      fillers: [] as string[],
-      containers: [] as ContainerKind[],
-      notebook,
-      notebookOnly: true,
-      noteObjects: undefined as SolutionObject[] | undefined,
-    }));
+    .map((p) => ({ notebook: String(p.explanation ?? "").trim(), line: p.proseLine ?? 0 }))
+    .filter((r) => r.notebook)
+    .map((r) => ({ row: emptyRow(r.notebook), line: r.line }));
+
   const diagrams = sortByPlacement((noteObjects ?? []).filter((o) => !isFloatableObject(o)));
-  if (diagrams.length === 0) return rows;
+  if (diagrams.length === 0) return rows.map((r) => r.row);
   if (rows.length === 0) {
-    return [{
-      equation: "",
-      fillers: [],
-      containers: [],
-      notebook: undefined,
-      notebookOnly: true,
-      noteObjects: diagrams,
-    }];
+    const only = emptyRow(undefined);
+    only.noteObjects = diagrams;
+    return [only];
   }
-  rows[rows.length - 1].noteObjects = diagrams;
-  return rows;
+
+  // PLACEMENT LAW: a diagram belongs to the LAST note row that starts at or
+  // before the line the diagram was drawn on. A diagram above every note row
+  // becomes its own leading row, so nothing is ever pushed to the end.
+  const out: Array<ReturnType<typeof emptyRow>> = [];
+  const perRow = new Map<number, SolutionObject[]>();
+  const leading: SolutionObject[] = [];
+  for (const d of diagrams) {
+    const line = Number.isFinite(d.afterLine) ? d.afterLine : Number.MAX_SAFE_INTEGER;
+    let idx = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].line <= line) idx = i; else break;
+    }
+    if (idx < 0) { leading.push(d); continue; }
+    perRow.set(idx, [...(perRow.get(idx) ?? []), d]);
+  }
+  if (leading.length) {
+    const lead = emptyRow(undefined);
+    lead.noteObjects = leading;
+    out.push(lead);
+  }
+  rows.forEach((r, i) => {
+    const attached = perRow.get(i);
+    if (attached?.length) r.row.noteObjects = attached;
+    out.push(r.row);
+  });
+  return out;
+
 };
+
 
 
 /** Deterministic per-line shuffle so floating chips never appear in the
