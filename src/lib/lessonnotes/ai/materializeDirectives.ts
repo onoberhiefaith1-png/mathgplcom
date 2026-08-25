@@ -100,6 +100,23 @@ function smartTableNode(p: Record<string, string>): TipTapNode {
   };
 }
 
+const MATRIX_BRACKETS: Record<string, string> = {
+  round: "(", paren: "(", parentheses: "(", "(": "(",
+  square: "[", bracket: "[", brackets: "[", "[": "[",
+  brace: "{", braces: "{", curly: "{", "{": "{",
+  determinant: "|", det: "|", bars: "|", "|": "|",
+};
+
+function structureAttrs(p: Record<string, string>, base?: Record<string, unknown>): Record<string, unknown> {
+  const attrs: Record<string, unknown> = { ...(base ?? {}) };
+  if (p.rows && Number.isFinite(Number(p.rows))) attrs.rows = Math.max(1, Math.floor(Number(p.rows)));
+  if (p.cols && Number.isFinite(Number(p.cols))) attrs.cols = Math.max(1, Math.floor(Number(p.cols)));
+  if (p.br || p.bracket) attrs.br = MATRIX_BRACKETS[(p.br ?? p.bracket).toLowerCase()] ?? (p.br ?? p.bracket);
+  if (p.divider && Number.isFinite(Number(p.divider))) attrs.divider = Math.floor(Number(p.divider));
+  if (p.fns) attrs.fns = splitList(p.fns, ",");
+  return attrs;
+}
+
 
 /* -------------------------------- Graph ---------------------------------- */
 
@@ -196,13 +213,14 @@ function structureNode(
 ): TipTapNode | null {
   const kind = p.kind;
   if (!kind) return null;
+  const resolvedAttrs = structureAttrs(p, attrs);
   const values = splitList(p.slots);
-  const needed = Math.max(1, requiredSlotCount(kind, attrs) || values.length || 2);
+  const needed = Math.max(1, requiredSlotCount(kind, resolvedAttrs) || values.length || 2);
   const slots = Array.from({ length: needed }, (_, i) => ({
     type: "mathSlot",
     content: values[i] ? [{ type: "text", text: values[i] }] : [],
   }));
-  let content: any = { type: "mathStructure", attrs: { kind, attrs: attrs ?? {} }, content: slots };
+  let content: any = { type: "mathStructure", attrs: { kind, attrs: resolvedAttrs }, content: slots };
   const check = validateStructure(content);
   if ((check as any).ok === false) content = (check as any).fix;
   return { type: "paragraph", content: [content] };

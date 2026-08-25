@@ -20,7 +20,7 @@ export interface SelectionSnapshot {
   from: number;
   to: number;
   text: string;
-  json: any;
+  json: unknown;
   kind: SelectionKind;
 }
 
