@@ -19,6 +19,8 @@ import {
   EMPTY_SCENE,
 } from "@/lib/geometry/scene";
 import { GeometryDiagram as StaticGeometryDiagram } from "@/components/lessonnotes/GeometryDiagram";
+import { DiagramZoomControl } from "@/components/lessonnotes/geometry-editor/DiagramZoomControl";
+import { useDiagramZoom } from "@/lib/geometry/useDiagramZoom";
 import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
@@ -86,6 +88,11 @@ function GeometryDiagramView({
     : "justify-center";
 
   const instanceId = useMemo(() => Math.random().toString(36).slice(2, 10), []);
+
+  // DIAGRAM ZOOM — this figure only. One factor for width and height, so the
+  // geometry and every label/marker keep their exact proportions.
+  const { zoom: diagramZoom, setZoom: setDiagramZoom } =
+    useDiagramZoom((node.attrs.diagramId as string | null) ?? null);
 
   // Auto-hide action row.
   const [aiVisible, setAiVisible] = useState(false);
@@ -308,6 +315,7 @@ function GeometryDiagramView({
             scene={scene}
             onChange={commitScene}
             docHistory={docHistory}
+            zoom={diagramZoom}
             onDeleteDiagram={() => deleteNode()}
             relevanceText={(node.attrs.questionText as string) || undefined}
             // The map always reads the diagram's OWN question — never the caret's.
@@ -335,7 +343,7 @@ function GeometryDiagramView({
           />
 
         ) : (
-          <StudentGuideDiagram scene={scene} />
+          <StudentGuideDiagram scene={scene} zoom={diagramZoom} />
         )}
 
         {(selected || aiVisible) && (
@@ -401,9 +409,12 @@ function LiveEditor({
   relevanceText,
   getMapContext,
   onOpenSolution,
+  zoom,
 }: {
   instanceId: string;
   scene: GeometryScene;
+  /** Uniform visual zoom for this diagram (never changes the geometry). */
+  zoom?: number;
   /** Owning question text — drives the generated-diagram label clean-up. */
   relevanceText?: string;
   onChange: (next: GeometryScene, opts?: { addToHistory?: boolean }) => void;
@@ -513,7 +524,7 @@ function LiveEditor({
 
   return (
     <>
-      <GeometryCanvas editor={editor} />
+      <GeometryCanvas editor={editor} zoom={zoom} />
       {propertiesOpen && (
         <GeometryPropertiesWorkspace
           scene={editor.scene}
@@ -535,7 +546,7 @@ function LiveEditor({
  * existing Review Properties panel for that diagram only. With no properties
  * the diagram is simply view-only — no bar at all.
  */
-function StudentGuideDiagram({ scene }: { scene: GeometryScene }) {
+function StudentGuideDiagram({ scene, zoom }: { scene: GeometryScene; zoom?: number }) {
   const [ids, setIds] = useState<string[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
   const diff = useMemo(
@@ -550,7 +561,7 @@ function StudentGuideDiagram({ scene }: { scene: GeometryScene }) {
   );
   return (
     <>
-      <StaticGeometryDiagram scene={scene} diff={diff} />
+      <StaticGeometryDiagram scene={scene} diff={diff} zoom={zoom} />
       <GeometryGuideView scene={scene} onHighlight={setIds} />
       {hasProperties && (
         <div className="mt-1 flex justify-center">
