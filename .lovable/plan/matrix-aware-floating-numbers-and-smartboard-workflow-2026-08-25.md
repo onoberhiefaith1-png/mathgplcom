@@ -1,44 +1,66 @@
-# Matrix-aware Floating Numbers and Smartboard workflow
+# Matrix-aware Floating Numbers and Smartboard Workflow
 
 ## Goal
-Make a matrix stay a real matrix throughout the Floating workflow instead of becoming loose text fragments. A highlighted 2 by 2 matrix should appear as a single matrix step, then open on the Smartboard as an editable 2 by 2 grid where each cell is assessed independently.
+Make matrices behave as first-class mathematical structures throughout the floating workflow, instead of being flattened into raw text or fragments like `and`, `bmatrix`, or loose brackets.
 
-## What will change
+A matrix such as:
 
-1. **Recognize matrices as grid-backed structures**
-   - Parse LaTeX matrix environments such as `\begin{bmatrix} ... \end{bmatrix}` into rows, columns, bracket type, and cell contents.
-   - Preserve the original visible matrix form for display, while adding cell metadata for Floating and Smartboard interaction.
+```text
+[ 2 + 1   1 + 2 ]
+[ 3 + 5   4 + 3 ]
+```
 
-2. **Floating Highlighting page**
-   - Keep matrices atomic visually so they render like the Lesson Note, not raw `bmatrix` text.
-   - When the teacher selects a whole matrix, save enough metadata for the next stage to know it is a matrix workspace.
+must appear as a real 2 by 2 matrix in the floating preparation/generating flow and open on the Smartboard as an interactive 2 by 2 matrix activity.
 
-3. **Floating Generating page**
-   - Show the matrix as the first-class highlighted item, similar to how tables are shown.
-   - Generate per-cell/per-row child lines from the matrix without renumbering the main solution line sequence.
-   - Keep the main step as one matrix item, with children like `M1.1`, `M1.2`, etc.
+## User-visible behaviour
 
-4. **Smartboard Board A**
-   - Render the matrix as an actual matrix object at the point where it appears in the solution flow.
-   - Clicking/opening the matrix should show the same dimensions and bracket style, not a table-looking fallback.
-   - Students/teachers type directly into matrix cells using the existing math cell editor, so shortcuts such as `/`, `#`, and `##` work inside cells.
+1. **Floating preparation keeps the matrix shape**
+   - A highlighted matrix stays visually recognizable as a matrix.
+   - Matrix entries remain inside their correct cells.
+   - The system must not split matrix content into stray words, brackets, or raw LaTeX fragments.
 
-5. **Evaluation and marking**
-   - Validate matrix cells independently, using the same immediate line/track marking behaviour already implemented for Smart Tables.
-   - Completing a matrix child track should assess it immediately before moving to the next child track.
-   - Store the expected matrix cell values in the answer key, not just the final rendered matrix string.
+2. **Floating generating page treats the matrix as one branch point**
+   - The main solution line numbering continues normally.
+   - The matrix becomes its own branch activity, similar to tables.
+   - Matrix branch labels use a separate sequence, for example `M1`, `M1.1`, `M1.2`, etc.
 
-## Technical details
+3. **Smartboard opens the matrix as a grid**
+   - Clicking the matrix launches a 2 by 2 matrix workspace.
+   - Students enter each cell independently.
+   - The original bracket style is preserved where possible.
+   - The matrix is not converted into a generic table visually; it should still read as a matrix.
 
-- Extend the existing table-grid model rather than creating a new drawing system.
-- Add a matrix parser to the floating grid utilities, reusing the existing LaTeX/tree parser where useful.
-- Carry matrix metadata through `FloatingLine.table` or a compatible shared grid shape so the existing branch/group logic can be reused safely.
-- Add a matrix-specific Smartboard stage only where table rendering would visually misrepresent the matrix.
-- Keep all generated matrix rows tied to the active question/solution; no fallback matching by index to unrelated solutions.
+4. **Cell-aware evaluation**
+   - Each matrix cell is checked against the corresponding teacher-authored cell.
+   - Completing one matrix row/track can be marked before moving to the next.
+   - Evaluation must preserve coordinates, not just compare a final combined answer.
 
-## Validation
+5. **No regression for tables**
+   - Existing Smart Table behaviour remains intact.
+   - Table labels, retained headers, row/column tracks, and immediate marking continue to work.
 
-- Add unit tests for parsing `bmatrix`, `pmatrix`, and nested expressions inside matrix cells.
-- Verify the Floating Generating page displays the matrix as a matrix item, not raw text.
-- Verify the Smartboard opens a 2 by 2 matrix and accepts entries cell-by-cell.
-- Verify table behaviour still works unchanged.
+## Technical plan
+
+1. **Add matrix parsing helpers**
+   - Extend the floating grid helper layer with a matrix parser for LaTeX environments such as `matrix`, `pmatrix`, `bmatrix`, `Bmatrix`, `vmatrix`, and `Vmatrix`.
+   - Parse rows by `\\` and columns by `&`, while respecting nested braces so expressions like fractions and roots stay intact.
+   - Store matrix metadata: rows, columns, bracket/environment type, and per-cell source strings.
+
+2. **Promote highlighted matrices to matrix grid entries**
+   - In the floating generation pipeline, detect highlighted atomic matrix structures.
+   - Convert them into a matrix-grid reference instead of normal text tokens.
+   - Preserve the original matrix as the first visible item in the generated flow.
+
+3. **Reuse table-activity mechanics safely**
+   - Reuse the existing cell/track validation model where it fits.
+   - Add a matrix-specific display mode so Smartboard rendering uses matrix brackets rather than ordinary table borders.
+   - Keep table identifiers and matrix identifiers separate (`T` for table, `M` for matrix).
+
+4. **Render matrices consistently**
+   - Update floating preview/generating renderers to render matrix structures using the same math renderer used by lesson notes.
+   - Avoid raw LaTeX exposure on teacher-facing pages.
+
+5. **Verify the specific case**
+   - Confirm a 2 by 2 matrix with cells `2 + 1`, `1 + 2`, `3 + 5`, `4 + 3` appears as a matrix in floating generation.
+   - Confirm clicking it opens a 2 by 2 matrix activity on the Smartboard.
+   - Confirm entering each cell is evaluated cell-by-cell.
