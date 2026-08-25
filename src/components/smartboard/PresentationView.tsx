@@ -358,6 +358,13 @@ const PresentationView = ({
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
   const navigate = useNavigate();
+  // BACK THE WAY YOU CAME — a board opened from inside a lesson note returns
+  // to that note; a board opened from the shelf returns to the shelf.
+  const [searchParams] = useSearchParams();
+  const cameFromNote = searchParams.get("from") === "note" && !!notebookId;
+  const backTarget = cameFromNote
+    ? { to: `/lesson-notes/${notebookId}`, label: "Lesson note" }
+    : { to: "/smartboard", label: "Shelf" };
   // Assessment mode renders from an injected source and grades via the server.
   const assessmentMode = !!source && !!assessmentId;
 
