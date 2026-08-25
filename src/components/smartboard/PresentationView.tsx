@@ -26,6 +26,9 @@ import {
   stepIdxForLine,
   tSeriesFor,
   tagForLine,
+  mainTagForStep,
+  nextMainStepAfter,
+
   editableCellsForLine,
   expectedCellValue,
   isCellCorrect,
