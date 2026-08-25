@@ -48,9 +48,38 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
       .catch(console.error);
   }, []);
 
-  const regions = useMemo(() => timerRegionsOf(value), [value]);
+  // The video's real length, read straight off the element. Local state means the
+  // regions become editable the instant the metadata arrives, without waiting for
+  // the saved value to travel back through the element.
+  const [videoDuration, setVideoDuration] = useState(0);
+  useEffect(() => {
+    setVideoDuration(Number.isFinite(Number(value?.duration)) ? Number(value?.duration) || 0 : 0);
+  }, [value?.storagePath, value?.duration]);
+
+  const effectiveDuration = videoDuration || Number(value?.duration) || 0;
+  const regions = useMemo(() => timerRegionsOf(value, effectiveDuration), [value, effectiveDuration]);
   const lap = loopDurationOf(regions);
   const laps = lapsNeeded(regions, timerSeconds);
+  const ready = lap > 0.05;
+
+  /** First sight of a video: remember its length and lay the three regions out. */
+  const adoptDuration = (d: number) => {
+    if (!Number.isFinite(d) || d <= 0) return;
+    setVideoDuration(d);
+    const needsSeed =
+      value?.loopStart == null || value?.loopEnd == null || Math.abs((value?.duration ?? 0) - d) > 0.05;
+    if (!needsSeed) return;
+    const third = d / 3;
+    onChange({
+      duration: d,
+      introStart: value?.introStart ?? 0,
+      introEnd: value?.introEnd ?? third,
+      loopStart: value?.loopStart ?? third,
+      loopEnd: value?.loopEnd ?? third * 2,
+      outroStart: value?.outroStart ?? third * 2,
+      outroEnd: value?.outroEnd ?? d,
+    });
+  };
 
   const pick = (row: GameAssetRow) =>
     onChange({
@@ -122,8 +151,14 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
       type="number"
       step="0.1"
       min={0}
+      max={effectiveDuration || undefined}
+      disabled={effectiveDuration <= 0}
       value={Number(current.toFixed(2))}
-      onChange={(e) => onChange({ [key]: Math.max(0, Number(e.target.value) || 0) } as Partial<TimerVideoConfig>)}
+      onChange={(e) => {
+        const raw = Math.max(0, Number(e.target.value) || 0);
+        const clamped = effectiveDuration > 0 ? Math.min(effectiveDuration, raw) : raw;
+        onChange({ [key]: clamped } as Partial<TimerVideoConfig>);
+      }}
       className="h-8"
     />
   );
@@ -139,10 +174,8 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
               muted
               playsInline
               onTimeUpdate={onTimeUpdate}
-              onLoadedMetadata={(e) => {
-                const d = e.currentTarget.duration;
-                if (Number.isFinite(d) && Math.abs((value.duration ?? 0) - d) > 0.05) onChange({ duration: d });
-              }}
+              onLoadedMetadata={(e) => adoptDuration(e.currentTarget.duration)}
+              onDurationChange={(e) => adoptDuration(e.currentTarget.duration)}
               className="h-40 w-full bg-black object-contain"
             />
           ) : (
@@ -179,6 +212,15 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
         </div>
       )}
 
+      {value?.storagePath && effectiveDuration <= 0 && (
+        <p className="text-[11px] text-muted-foreground">Reading the video length…</p>
+      )}
+      {value?.storagePath && effectiveDuration > 0 && !ready && (
+        <p className="text-[11px] text-destructive">
+          Give the Loop a length before previewing — the loop region is the countdown.
+        </p>
+      )}
+
       {PHASES.map((p) => (
         <div key={p.id} className="rounded-md border border-border/40 p-2">
           <div className="mb-1.5 flex items-center justify-between">
@@ -186,14 +228,25 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
               <div className="text-xs font-semibold">{p.label}</div>
               <div className="text-[11px] text-muted-foreground">{p.hint}</div>
             </div>
-            <Button size="sm" variant="secondary" disabled={!value?.storagePath} onClick={() => preview(p.id)}>
+            <Button size="sm" variant="secondary" disabled={!value?.storagePath || !ready} onClick={() => preview(p.id)}>
               <Play className="mr-1 h-3 w-3" /> Preview
             </Button>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {numField(`${p.id}Start` as keyof TimerVideoConfig, regions[p.id].start)}
-            {numField(`${p.id}End` as keyof TimerVideoConfig, regions[p.id].end)}
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Start (s)</span>
+              {numField(`${p.id}Start` as keyof TimerVideoConfig, regions[p.id].start)}
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">End (s)</span>
+              {numField(`${p.id}End` as keyof TimerVideoConfig, regions[p.id].end)}
+            </div>
           </div>
+          {effectiveDuration > 0 && (
+            <p className="mt-1 text-[10px] text-muted-foreground/70">
+              0 – {effectiveDuration.toFixed(1)}s · {fmtClock(regions[p.id].start)} → {fmtClock(regions[p.id].end)}
+            </p>
+          )}
         </div>
       ))}
 

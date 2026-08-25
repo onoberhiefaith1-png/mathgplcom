@@ -29,7 +29,7 @@ import { detectMediaBackground } from "@/lib/games/removeBackground";
 import { getSignedUrl } from "@/lib/games/urls";
 import { PROGRESS_PRESETS } from "@/lib/games/progressPresets";
 import { LIQUID_STYLES, DEFAULT_LIQUID_STYLE } from "@/lib/games/liquidStyles";
-import { TIME_BAR_LABEL, TIME_DURATION_OPTIONS, roleOf } from "@/lib/games/types";
+import { TIME_BAR_LABEL, roleOf } from "@/lib/games/types";
 import { fmtClock, parseClock } from "@/lib/games/timerVideo";
 import { DEFAULT_FAILURE_MESSAGE } from "@/lib/games/timerOutcome";
 import TimerVideoTimeline from "./TimerVideoTimeline";
@@ -197,6 +197,25 @@ const SettingsPanel = ({
       )
     : 0;
 
+  // ── Nest: a time-driven preview of the Timer filling up ─────────────
+  // It steps the same fill the students will see (one segment for a segmented
+  // Timer, an even percentage for a fillable one). Editor preview only.
+  const timerStepPct = 10;
+  const timerFill = progress
+    ? Math.min(1, Math.max(0, progress.currentMarks / Math.max(1, progress.totalMarks)))
+    : 0;
+  const stepNest = (dir: 1 | 0) => {
+    if (!progress) return;
+    if (dir === 0) {
+      patchProgress({ currentMarks: 0 });
+      return;
+    }
+    const stepFraction =
+      timerDisplay === "segmented" ? 1 / Math.max(1, progress.segments) : timerStepPct / 100;
+    const next = Math.min(1, timerFill + stepFraction + 1e-6);
+    patchProgress({ currentMarks: Math.round(next * progress.totalMarks) });
+  };
+
   const setSlotEffect = (slotIdx: number, value: string) => {
     if (!progress) return;
     const slotEffects = { ...(progress.slotEffects ?? {}) };
@@ -250,11 +269,9 @@ const SettingsPanel = ({
               <Copy className="h-4 w-4" />
             </Button>
           )}
-          {!isTimeBar && (
-            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete} title="Remove">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete} title="Remove">
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -440,40 +457,19 @@ const SettingsPanel = ({
               </Section>
 
               <Section title="Time Duration">
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={
-                      TIME_DURATION_OPTIONS.some((o) => o.seconds === (progress.timeDurationSeconds ?? 0))
-                        ? String(progress.timeDurationSeconds ?? 0)
-                        : "custom"
-                    }
-                    onValueChange={(v) => {
-                      if (v === "custom") return;
-                      patchProgress({ timeDurationSeconds: Number(v) });
-                    }}
-                  >
-                    <SelectTrigger className="h-8 flex-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {TIME_DURATION_OPTIONS.map((o) => (
-                        <SelectItem key={o.seconds} value={String(o.seconds)}>{o.label}</SelectItem>
-                      ))}
-                      <SelectItem value="custom">Custom…</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    value={timeText}
-                    placeholder="mm:ss"
-                    onChange={(e) => setTimeText(e.target.value)}
-                    onBlur={() => {
-                      const secs = parseClock(timeText);
-                      if (secs != null) patchProgress({ timeDurationSeconds: secs });
-                      else setTimeText(fmtClock(progress.timeDurationSeconds ?? 0));
-                    }}
-                    className="h-8 w-24"
-                  />
-                </div>
+                <Input
+                  value={timeText}
+                  placeholder="mm:ss"
+                  onChange={(e) => setTimeText(e.target.value)}
+                  onBlur={() => {
+                    const secs = parseClock(timeText);
+                    if (secs != null) patchProgress({ timeDurationSeconds: secs });
+                    else setTimeText(fmtClock(progress.timeDurationSeconds ?? 0));
+                  }}
+                  className="h-8"
+                />
                 <p className="text-[11px] text-muted-foreground">
-                  Enter any length as mm:ss (or minutes). None hides the timer completely — students keep solving
+                  Enter any length as mm:ss (or plain minutes). 0:00 hides the timer completely — students keep solving
                   until the Progress Bar is full. A Video Adventure needs a duration on every Learning Point.
                 </p>
               </Section>
@@ -519,6 +515,53 @@ const SettingsPanel = ({
                   The Timer measures time only. Score always stays with the Progress Bar.
                 </p>
               </Section>
+
+              {timerDisplay !== "video" && (
+                <Section title="Nest — see it fill">
+                  {timerDisplay === "segmented" && (
+                    <Row label={`Segments (${progress.segments})`}>
+                      <Slider
+                        min={2}
+                        max={20}
+                        step={1}
+                        value={[progress.segments]}
+                        onValueChange={([v]) => patchProgress({ segments: v })}
+                      />
+                    </Row>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    {timerDisplay === "segmented"
+                      ? `${fmtClock(timerSeconds)} over ${progress.segments} segments — one bar rises every ${fmtClock(
+                          Math.round(timerSeconds / Math.max(1, progress.segments)),
+                        )}.`
+                      : `${fmtClock(timerSeconds)} rising smoothly — each step here is ${timerStepPct}% of the time.`}
+                  </p>
+                  <div className="rounded-lg border border-border/40 bg-muted/10 p-2.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {fmtClock(Math.round(timerSeconds * timerFill))} elapsed ·{" "}
+                        {fmtClock(Math.round(timerSeconds * (1 - timerFill)))} left
+                      </span>
+                      <span className="font-semibold text-primary">
+                        {timerDisplay === "segmented"
+                          ? `${Math.round(timerFill * progress.segments)} / ${progress.segments} risen`
+                          : `${Math.round(timerFill * 100)}%`}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <Button size="sm" onClick={() => stepNest(1)}>
+                        <SkipForward className="mr-1.5 h-3.5 w-3.5" /> Nest
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => stepNest(0)}>
+                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reset
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-[10px] text-muted-foreground/70">
+                      Preview only — it never starts the live session clock or changes any student's score.
+                    </p>
+                  </div>
+                </Section>
+              )}
 
               {timerDisplay === "video" && (
                 <Section title="Video Timer">
@@ -692,6 +735,7 @@ const SettingsPanel = ({
           </Section>
           )}
 
+          {timerDisplay !== "video" && (
           <>
           <Section title="Fill style">
             <div className="grid grid-cols-2 gap-2">
@@ -803,6 +847,7 @@ const SettingsPanel = ({
             )}
           </Section>
           </>
+          )}
         </>
       )}
     </div>
