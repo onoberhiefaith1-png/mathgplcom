@@ -127,8 +127,31 @@ const ChipLabel = ({ label, color, placeholderColor }: { label: string; color: s
     value.trim() === "□"
       ? <SmartboardPlaceholderSlot key={key} color={slotColor} size="panel" source="floating-number" />
       : <span key={key} style={{ padding: "0 4px", whiteSpace: "nowrap" }}>{value}</span>;
-  if (matrixLabel) {
-    return <span style={{ fontWeight: 800, letterSpacing: 0 }}>{matrixLabel}</span>;
+  if (matrixShell) {
+    // Empty structure preview: brackets + one placeholder slot per cell.
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontWeight: 800 }}>
+        {matrixShell.left && <span>{matrixShell.left}</span>}
+        <span style={{ display: "inline-flex", flexDirection: "column", gap: 1 }}>
+          {Array.from({ length: matrixShell.rows }, (_, r) => (
+            <span key={`mr-${r}`} style={{ display: "inline-flex", gap: 3 }}>
+              {Array.from({ length: matrixShell.cols }, (_, c) => (
+                <SmartboardPlaceholderSlot
+                  key={`mc-${r}-${c}`}
+                  color={slotColor}
+                  size="panel"
+                  source="floating-number"
+                />
+              ))}
+            </span>
+          ))}
+        </span>
+        {matrixShell.right && <span>{matrixShell.right}</span>}
+        <span style={{ fontSize: "0.7em", opacity: 0.7, marginLeft: 3 }}>
+          {matrixShell.rows} × {matrixShell.cols}
+        </span>
+      </span>
+    );
   }
   if (!frac) {
     return <span>{renderMathInline(safe, `fn-chip-${safe}`, { placeholderColor: slotColor })}</span>;
