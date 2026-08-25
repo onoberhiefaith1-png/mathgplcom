@@ -39,7 +39,8 @@ const TimerVideoTimeline = ({ value, timerSeconds, onChange }: Props) => {
   const [gplOpen, setGplOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const url = useSignedUrl(value?.storagePath ?? null);
+  const signedUrl = useSignedUrl(value?.source === "url" ? null : value?.storagePath ?? null);
+  const url = value?.source === "url" ? value?.storagePath ?? null : signedUrl;
 
   useEffect(() => {
     listGameAssets("background")
