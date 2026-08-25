@@ -17,6 +17,7 @@ import {
 } from "@/lib/floating/atoms";
 import { type Chip, applySelection } from "@/lib/floating/highlightEngine";
 import { ConnectedRadical } from "@/components/math/ConnectedRadical";
+import { renderMathInline } from "@/lib/notebook/mathRender";
 
 interface Props {
   equation: string;
