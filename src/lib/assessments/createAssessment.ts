@@ -7,6 +7,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   type FloatingLine,
+  type FloatingTableRef,
   markForLine,
   rearrangeStream,
   tokensFromEquation,
@@ -42,6 +43,9 @@ export interface QuestionPayload {
     note?: string;
     /** A standalone note with no equation of its own. */
     noteOnly?: boolean;
+    /** A table must cross the assessment boundary as a table. Without this
+     *  payload the Smartboard can only see the row's shuffled cell values. */
+    table?: FloatingTableRef;
   }[];
 }
 
@@ -246,6 +250,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
         chips: rearrangeStream(studentChips),
         marks,
         containers: (line.containers ?? []) as ContainerKind[],
+        ...(line.table ? { table: line.table } : {}),
         ...(note ? { note } : {}),
       });
       answerKey.push({

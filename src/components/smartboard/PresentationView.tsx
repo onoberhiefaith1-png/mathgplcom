@@ -2748,6 +2748,21 @@ const PresentationView = ({
     setExpandedTables((prev) => ({ ...prev, [objId]: true }));
   }, []);
 
+  // A table line is the activity itself, not an optional floating token. When
+  // the board opens on a table (especially Line 1 in a test), put the real grid
+  // on the writing surface immediately so it can never appear as flattened
+  // values such as "3 9 6" or as an empty ordinary writing line.
+  useEffect(() => {
+    if (!activeTableGroup || placedTables[activeTableGroup.objId]) return;
+    const row = Math.floor(sensorRef.current?.line ?? 0);
+    setPlacedTables((prev) => ({
+      ...prev,
+      [activeTableGroup.objId]: prev[activeTableGroup.objId] ?? { row },
+    }));
+    setExpandedTables((prev) => ({ ...prev, [activeTableGroup.objId]: true }));
+    setActiveTableObjId(activeTableGroup.objId);
+  }, [activeTableGroup, placedTables]);
+
   /** Clear = drop every student-entered value. Retained cells, formulas,
    *  headings, structure, formatting and orientation are untouched. */
   const clearTableEntries = useCallback((group: typeof tableGroups[number]) => {
