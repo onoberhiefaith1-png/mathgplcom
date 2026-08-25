@@ -4043,7 +4043,9 @@ const PresentationView = ({
     if (!assessmentMode || role !== "student") return;
     const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, 1500);
     return () => window.clearTimeout(id);
-  }, [assessmentMode, role, activeLineIdx, freeLines, silentAutoCheckLine]);
+    // `tableEntries` is here so a cell edit re-arms the debounce: a completed
+    // final row/column is never left unmarked just because the student stayed.
+  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, silentAutoCheckLine]);
 
 
 
