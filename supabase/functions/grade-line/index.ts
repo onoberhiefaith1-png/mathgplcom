@@ -141,7 +141,12 @@ Deno.serve(async (req) => {
     // belong to the active line just like tapped chips, so they are graded as
     // part of the expression — never rejected for "not being supplied".
     const verdict = await equivalent(teacherAscii, studentAscii);
-    const isCorrect = verdict === "equal";
+    // A line written exactly like the expected line is ALWAYS awarded, even
+    // when the expression is structured maths (matrix, determinant, stacked
+    // fraction) that the symbolic engines cannot parse.
+    const identical = structurallyIdentical(teacherAscii, studentAscii);
+    const isCorrect = verdict === "equal" || identical;
+
 
     // Specific, teacher-style diagnosis (1–3 words) for the Check Line popup.
     // Never contains the answer key.
