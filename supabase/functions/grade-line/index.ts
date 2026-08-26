@@ -11,7 +11,7 @@ meterFunction("grade-line");
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
-import { equivalent } from "../_shared/mathEquivalence.ts";
+import { equivalent, structurallyIdentical } from "../_shared/mathEquivalence.ts";
 import { diagnoseLine } from "../_shared/lineDiagnosis.ts";
 
 const BodySchema = z.object({
