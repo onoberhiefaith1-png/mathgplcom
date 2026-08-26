@@ -18,7 +18,7 @@ import { AiPopover, type AiGenerateOptions } from "../AiPopover";
 import type { MaterialFile, StageId, TeacherContext } from "@/lib/lessonnotes/ai/pipeline/types";
 import { AssignDialog } from "../AssignDialog";
 import { detectSectionKind, headingRole, SECTION_LABELS, REPEATABLE_SECTION_KINDS, structuralHeadingKind, type SectionKind } from "@/lib/lessonnotes/sectionKinds";
-import { ownerQuestionKeyAt } from "@/lib/lessonnotes/lessonOutline";
+import { ownerQuestionKeyAt, questionKeyForSectionId } from "@/lib/lessonnotes/lessonOutline";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { openSmartCardDraft } from "@/lib/smartcards/smartCards";
@@ -154,34 +154,100 @@ function SectionHeadingView(props: NodeViewProps) {
   // wrong solution. Identity (doc_key) is the only resolution path.
 
 
+  /** DURABLE OWNER of this heading: the `sectionId` of the question the
+   *  Solution belongs to. Read from the heading itself first, then from the
+   *  floating frame the Solution was dragged into, and only then inferred from
+   *  the flow (at which point it is stamped onto the heading so it can never
+   *  drift again). A Solution parked in a frame at the end of the document
+   *  therefore still knows its own question. */
+  const ownerQuestionIdForHeading = useCallback((): string | null => {
+    const pos = typeof getPos === "function" ? getPos() : null;
+    if (pos == null) return null;
+    const doc = editor.state.doc;
+
+    const own = (node.attrs as any)?.ownerQuestionId;
+    if (typeof own === "string" && own) return own;
+
+    // Enclosing container (canvasFrame etc.) may carry the ownership.
+    try {
+      const $pos = doc.resolve(pos);
+      for (let d = $pos.depth; d > 0; d--) {
+        const owner = ($pos.node(d).attrs as any)?.ownerQuestionId;
+        if (typeof owner === "string" && owner) return owner;
+      }
+    } catch { /* position no longer resolvable */ }
+
+    // Infer from the flow, then stamp it permanently on this heading.
+    const inferred = ensureOwnerQuestionId(editor, pos);
+    if (inferred) {
+      try {
+        const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
+          ...(node.attrs as any),
+          ownerQuestionId: inferred,
+        });
+        tr.setMeta("addToHistory", false);
+        editor.view.dispatch(tr);
+      } catch { /* stamping is best-effort */ }
+    }
+    return inferred;
+  }, [getPos, editor, node]);
+
   /** Snapshot the question that this Solution belongs to: the text between the
-   *  parent question heading and this Solution heading, plus any geometry
-   *  diagrams living in that range. */
+   *  OWNER question heading and the end of that question's own span, plus any
+   *  geometry diagrams living in that range. Ownership comes from the recorded
+   *  owner id, never from "the heading above me". */
   const snapshotQuestion = useCallback((): { text: string; scenes: GeometryScene[]; title: string } => {
     const pos = typeof getPos === "function" ? getPos() : null;
     const doc = editor.state.doc;
     if (pos == null) return { text: "", scenes: [], title: "Smart Card" };
-    let startPos = 0;
+
+    let startPos: number | null = null;
+    let endPos: number | null = null;
     let title = "Smart Card";
-    doc.descendants((n, p) => {
-      if (p >= pos) return false;
-      if (n.type.name === "heading" && detectSectionKind(n.textContent) !== "solution") {
-        startPos = p + n.nodeSize;
-        title = n.textContent || title;
-      }
-      return true;
-    });
-    const text = startPos < pos ? doc.textBetween(startPos, pos, "\n", "\n").trim() : "";
+
+    const ownerId = ownerQuestionIdForHeading();
+    if (ownerId) {
+      doc.descendants((n, p) => {
+        if (startPos != null) return false;
+        if (n.type.name !== "heading") return true;
+        if ((n.attrs as any)?.sectionId === ownerId) {
+          startPos = p + n.nodeSize;
+          endPos = sectionEndWithin(doc, p);
+          title = n.textContent || title;
+          return false;
+        }
+        return true;
+      });
+    }
+
+    if (startPos == null) {
+      // Legacy fallback: the question heading above this Solution in the flow.
+      let fallbackStart = 0;
+      doc.descendants((n, p) => {
+        if (p >= pos) return false;
+        if (n.type.name === "heading" && detectSectionKind(n.textContent) !== "solution") {
+          fallbackStart = p + n.nodeSize;
+          title = n.textContent || title;
+        }
+        return true;
+      });
+      startPos = fallbackStart;
+      endPos = pos;
+    }
+
+    const from = startPos as number;
+    const to = Math.max(from, Math.min(endPos ?? pos, doc.content.size));
+    const text = from < to ? doc.textBetween(from, to, "\n", "\n").trim() : "";
     const scenes: GeometryScene[] = [];
-    if (startPos < pos) {
-      doc.nodesBetween(startPos, pos, (n) => {
+    if (from < to) {
+      doc.nodesBetween(from, to, (n) => {
         if (n.type.name === "geometryDiagram" && (n.attrs as any)?.scene) {
           scenes.push((n.attrs as any).scene as GeometryScene);
         }
       });
     }
     return { text, scenes, title };
-  }, [getPos, editor]);
+  }, [getPos, editor, ownerQuestionIdForHeading]);
 
   /** The live solution text under this heading, straight from the document.
    *  Used so the Floating page always has the solution the teacher can see,
@@ -192,15 +258,21 @@ function SectionHeadingView(props: NodeViewProps) {
   }, [computeSection]);
 
   /** DURABLE IDENTITY of the question this Solution belongs to.
-   *  Counts the structural headings that precede this one (the same order
-   *  `buildLessonOutline` walks) and asks the outline which question segment
-   *  owns that position. The result is the exact `doc_key` written on the
-   *  stored rows, so Floating always opens THIS question's row — never a
-   *  neighbour's, even when the question carries no plain text (tables only). */
+   *  Ownership first: the recorded owner id resolves straight to that
+   *  question's outline key, so a Solution living inside a floating frame
+   *  still opens ITS OWN question's row. Counting structural headings is only
+   *  a fallback for headings with no owner id at all. */
   const docKeyForHeading = useCallback((): string | null => {
     const pos = typeof getPos === "function" ? getPos() : null;
     if (pos == null) return null;
     const doc = editor.state.doc;
+
+    const ownerId = ownerQuestionIdForHeading();
+    if (ownerId) {
+      const keyed = questionKeyForSectionId(doc.toJSON(), ownerId);
+      if (keyed) return keyed;
+    }
+
     let order = 0;
     let selfOrder: number | null = null;
     doc.descendants((n, p) => {
@@ -214,7 +286,8 @@ function SectionHeadingView(props: NodeViewProps) {
     });
     if (selfOrder == null) return null;
     return ownerQuestionKeyAt(doc.toJSON(), selfOrder);
-  }, [getPos, editor]);
+  }, [getPos, editor, ownerQuestionIdForHeading]);
+
 
   /** When the cached subsectionId attr is stale (sync rewrites IDs on every
    *  save), resolve the live subsection for this Solution heading. Identity

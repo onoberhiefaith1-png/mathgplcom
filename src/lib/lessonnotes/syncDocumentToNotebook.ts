@@ -13,7 +13,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { type SectionKind } from "@/lib/lessonnotes/sectionKinds";
-import { buildLessonOutline, renderSegmentBody, segmentHome, segmentKey } from "@/lib/lessonnotes/lessonOutline";
+import { buildLessonOutline, ownerQuestionSegment, renderSegmentBody, segmentHome, segmentKey } from "@/lib/lessonnotes/lessonOutline";
 import { type SolutionObject } from "@/lib/floating/solutionItems";
 
 type Node = any;
@@ -70,31 +70,23 @@ const normalizeProblem = (s: string): string =>
  *
  * SEGMENTATION IS DETERMINISTIC and comes from `buildLessonOutline`: each
  * structural session heading opens a segment which ends at the line before the
- * next structural heading. A `Solution N` segment is folded into the question
- * segment immediately above it, which is what keeps Solution 1 attached to
- * Example 1 and Solution 2 to Example 2 no matter what is inserted between
- * them. No AI, no line numbers, no guessing from ordinary paragraph text.
+ * next structural heading.
+ *
+ * OWNERSHIP IS RECORDED, NOT POSITIONAL: a `Solution` segment is folded into
+ * the question named by its owner id (`ownerQuestionId` on the heading, or on
+ * the floating frame it was dragged into). Only an owner-less legacy solution
+ * falls back to the question above it. That is why a solution parked in a
+ * frame at the very end of the note still belongs to its own question.
  */
 export function parseDocumentToSections(doc: any): ParsedSection[] {
   const segments = buildLessonOutline(doc);
   const out: ParsedSection[] = [];
-  let lastQuestion: ParsedSection | null = null;
+  const sectionForSegment = new Map<number, ParsedSection>();
 
+  // ── PASS 1: questions and plain sessions, in document order ─────────────
   for (const seg of segments) {
+    if (seg.kind === "solution") continue;
     const key = segmentKey(seg);
-    if (seg.kind === "solution") {
-      // Persist the segment home so diagrams cannot drift between sessions.
-      const body = renderSegmentBody(seg.nodes, true, segmentHome(seg));
-      const host = lastQuestion?.subsections[lastQuestion.subsections.length - 1];
-      if (host) {
-        host.solution = [host.solution, body.text].filter(Boolean).join("\n");
-        host.solutionObjects = [...host.solutionObjects, ...body.objects];
-        continue;
-      }
-      // Orphan solution (no question above it): keep it as readable content.
-      out.push({ kind: "explanation", docKey: key, loose: body.text ? [body.text] : [], looseObjects: body.objects, subsections: [] });
-      continue;
-    }
 
     if (isQuestionKind(seg.kind)) {
       // EVERY question segment owns exactly one subsection, even when empty,
@@ -114,7 +106,7 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
         }],
       };
       out.push(section);
-      lastQuestion = section;
+      sectionForSegment.set(seg.index, section);
       continue;
     }
 
@@ -126,13 +118,34 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
       looseObjects: body.objects,
       subsections: [],
     });
-    lastQuestion = null;
   }
 
-
+  // ── PASS 2: solutions, each into the question that owns it ──────────────
+  for (const seg of segments) {
+    if (seg.kind !== "solution") continue;
+    const owner = ownerQuestionSegment(segments, seg);
+    // Persist the OWNER's segment home so diagrams cannot drift sessions.
+    const body = renderSegmentBody(seg.nodes, true, segmentHome(owner ?? seg));
+    const section = owner ? sectionForSegment.get(owner.index) ?? null : null;
+    const host = section?.subsections[section.subsections.length - 1];
+    if (host) {
+      host.solution = [host.solution, body.text].filter(Boolean).join("\n");
+      host.solutionObjects = [...host.solutionObjects, ...body.objects];
+      continue;
+    }
+    // Orphan solution (no question owns it): keep it as readable content.
+    out.push({
+      kind: "explanation",
+      docKey: segmentKey(seg),
+      loose: body.text ? [body.text] : [],
+      looseObjects: body.objects,
+      subsections: [],
+    });
+  }
 
   return out;
 }
+
 
 /** Reconcile the legacy section/subsection/block rows for `notebookId` with
  *  the structure derived from the document JSON.

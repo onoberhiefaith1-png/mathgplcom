@@ -278,6 +278,10 @@ const FloatingPreparationPage = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
+  /** Which question this solution belongs to — shown in the header so a wrong
+   *  pairing is visible immediately instead of silently. */
+  const [questionLabel, setQuestionLabel] = useState("");
+
   const [paperSize, setPaperSize] = useState<PaperSize>("a4");
   const [paperStyle, setPaperStyle] = useState<PaperStyle>("ruled");
   const [documentJson, setDocumentJson] = useState<any | null>(null);
@@ -410,6 +414,11 @@ const FloatingPreparationPage = () => {
       setPaperStyle(((nbRes.data as any)?.paper_style as PaperStyle) || "ruled");
       setDocumentJson((nbRes.data as any)?.document_json ?? null);
       const solBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "solution") as any;
+      const probBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "problem") as any;
+      const probText = String(probBlock?.content_ascii ?? (handoff as any)?.problemText ?? "");
+      const firstLine = probText.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
+      setQuestionLabel(firstLine.length > 70 ? `${firstLine.slice(0, 70)}…` : firstLine);
+
       // Direct handoff: the Floating chip passes the live solution text from
       // the lesson note, so a solution that is visible on screen is NEVER
       // reported as missing here — even if the DB row hasn't caught up.
@@ -723,6 +732,12 @@ const FloatingPreparationPage = () => {
             <h1 className="text-sm font-medium truncate text-foreground/90">
               {title || "Notebook"} — Solution
             </h1>
+            {questionLabel ? (
+              <p className="text-[10px] text-foreground/55 truncate" title={questionLabel}>
+                {questionLabel}
+              </p>
+            ) : null}
+
           </div>
           <div className="flex items-center gap-2 shrink-0 justify-end">
             <span className="hidden xl:inline text-[11px] text-foreground/55 mr-1">{summary}</span>
