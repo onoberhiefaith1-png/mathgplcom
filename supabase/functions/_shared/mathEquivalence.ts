@@ -49,6 +49,86 @@ export function normalize(input: string): string {
   return s;
 }
 
+/* ── structural identity ───────────────────────────────────────────────────
+ * The symbolic/numeric engines only understand scalar algebra. Structured
+ * mathematics (matrices, determinants, stacked fractions, radicals written as
+ * LaTeX) cannot be parsed by mathjs, so a student line that is written
+ * EXACTLY like the expected line used to fall through to "not equivalent"
+ * and no marks were awarded. Structural identity is therefore checked first:
+ * when the student's line matches the expected line once cosmetic
+ * differences (spacing, LaTeX layout macros, bracket-size commands,
+ * placeholder braces, unicode variants) are removed, the line is correct by
+ * definition. */
+
+const LATEX_COSMETIC: Array<[RegExp, string]> = [
+  [/\\left\b|\\right\b/g, ""],
+  [/\\(?:bigg?l|bigg?r|Bigg?l|Bigg?r|big|Big|bigg|Bigg)\b/g, ""],
+  [/\\(?:quad|qquad|,|;|:|!|\s)/g, " "],
+  [/\\displaystyle|\\textstyle|\\limits|\\nolimits/g, " "],
+  [/\\(?:mathrm|mathit|mathbf|text|textrm|operatorname)\s*\{([^{}]*)\}/g, "$1"],
+  [/\\(?:cdot|times)\b/g, "*"],
+  [/\\div\b/g, "/"],
+  [/\\dfrac|\\tfrac/g, "\\frac"],
+  [/\\(?:begin|end)\s*\{\s*(?:aligned|align\*?|gather\*?|split)\s*\}/g, ""],
+  [/&/g, "\u0001"],   // cell separator (kept, canonical)
+  [/\\\\+/g, "\u0002"], // row separator (kept, canonical)
+  [/□|\u25A1|\u2610|\\square|\\Box/g, ""], // empty placeholder slots
+];
+
+/** Cosmetic-free skeleton of a written line, structure preserved. */
+export function canonicalStructure(input: string): string {
+  let s = String(input ?? "");
+  s = s.replace(/\u2212|[–—]/g, "-")
+    .replace(/\u00d7/g, "*")
+    .replace(/\u00b7/g, "*")
+    .replace(/\u00f7/g, "/")
+    .replace(/²/g, "^2")
+    .replace(/³/g, "^3");
+  for (const [re, rep] of LATEX_COSMETIC) s = s.replace(re, rep);
+  // Matrix environments differ only by bracket style; keep the style but drop
+  // the verbose environment syntax.
+  s = s.replace(/\\begin\s*\{\s*([bpBvV]?matrix)\s*\}/g, "<$1:")
+       .replace(/\\end\s*\{\s*[bpBvV]?matrix\s*\}/g, ">");
+  // Stacked fractions and radicals: one canonical spelling for both the
+  // LaTeX form (answer key) and the flattened form (student board).
+  for (let pass = 0; pass < 8; pass++) {
+    const next = s
+      .replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "($1)/($2)")
+      .replace(/\\sqrt\s*\[([^\]]*)\]\s*\{([^{}]*)\}/g, "root($1,$2)")
+      .replace(/\\sqrt\s*\{([^{}]*)\}/g, "sqrt($1)");
+    if (next === s) break;
+    s = next;
+  }
+  s = s.replace(/√\s*\(([^()]*)\)/g, "sqrt($1)").replace(/√\s*([A-Za-z0-9])/g, "sqrt($1)");
+  // Braces around single atoms are pure LaTeX grouping noise.
+  s = s.replace(/\{\s*([^{}\s])\s*\}/g, "$1");
+  s = s.replace(/\s+/g, "").replace(/[\u0001\u0002]+$/g, "");
+  // Parentheses around a single atom carry no structure: (2)/(3) == 2/3.
+  for (let i = 0; i < 4; i++) s = s.replace(/\(([A-Za-z0-9.]+)\)/g, "$1");
+  return s;
+}
+
+
+/** Is the student's line written identically to the expected line (ignoring
+ *  only cosmetic differences)? Structured maths relies on this. */
+export function structurallyIdentical(teacher: string, student: string): boolean {
+  const t = canonicalStructure(teacher);
+  const s = canonicalStructure(student);
+  if (!t || !s) return false;
+  if (t === s) return true;
+  // An equation written with its sides swapped is the same statement.
+  const tp = t.split("=");
+  const sp = s.split("=");
+  if (tp.length === 2 && sp.length === 2 && tp[0] === sp[1] && tp[1] === sp[0]) return true;
+  return false;
+}
+
+/** Does the line contain structured maths the scalar engines cannot parse? */
+export function hasStructuredMath(s: string): boolean {
+  return /\\begin\s*\{|\\frac|\\sqrt|\\binom|\\begin|matrix|\u0001/.test(String(s ?? ""));
+}
+
+
 
 function splitEq(s: string): { lhs: string; rhs: string | null } {
   const i = s.indexOf("=");
@@ -114,8 +194,11 @@ function numericEqual(a: any, b: any): Verdict {
 }
 
 export function deterministicVerdict(teacher: string, student: string): Verdict {
+  // Written exactly as expected → correct, whatever the engines can parse.
+  if (structurallyIdentical(teacher, student)) return "equal";
   const T = splitEq(normalize(teacher));
   const S = splitEq(normalize(student));
+
 
   if (T.rhs !== null) {
     const tL = tryParse(T.lhs); const tR = tryParse(T.rhs);

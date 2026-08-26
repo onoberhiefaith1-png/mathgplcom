@@ -9,7 +9,7 @@
 // The rule order below IS the priority order from the specification: the
 // first rule that matches wins, so the most specific issue is always reported.
 
-import { deterministicVerdict, normalize, type Verdict } from "./mathEquivalence.ts";
+import { deterministicVerdict, normalize, structurallyIdentical, type Verdict } from "./mathEquivalence.ts";
 
 export type DiagnosisCode =
   | "equivalent"
@@ -255,6 +255,15 @@ export function diagnoseLine(
   if (!student) {
     return D("cannot_evaluate_yet", "Nothing written", "This line is still empty, so there is no expression to evaluate.");
   }
+
+  // 0b — the student wrote the expected line. Structured mathematics
+  // (matrices, determinants, stacked fractions) cannot be parsed by the
+  // scalar engines, so this check must come BEFORE any validity or
+  // term-level rule; otherwise a perfect line is marked wrong.
+  if (structurallyIdentical(teacherAscii, studentAscii)) {
+    return D("equivalent", "Equivalent", "The line is written exactly as the expected step, so full marks are awarded.");
+  }
+
 
   // 1 — invalid notation
   if (looksInvalid(student) || !parses(student)) {
