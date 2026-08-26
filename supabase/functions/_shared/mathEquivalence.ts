@@ -89,11 +89,25 @@ export function canonicalStructure(input: string): string {
   // the verbose environment syntax.
   s = s.replace(/\\begin\s*\{\s*([bpBvV]?matrix)\s*\}/g, "<$1:")
        .replace(/\\end\s*\{\s*[bpBvV]?matrix\s*\}/g, ">");
+  // Stacked fractions and radicals: one canonical spelling for both the
+  // LaTeX form (answer key) and the flattened form (student board).
+  for (let pass = 0; pass < 8; pass++) {
+    const next = s
+      .replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "($1)/($2)")
+      .replace(/\\sqrt\s*\[([^\]]*)\]\s*\{([^{}]*)\}/g, "root($1,$2)")
+      .replace(/\\sqrt\s*\{([^{}]*)\}/g, "sqrt($1)");
+    if (next === s) break;
+    s = next;
+  }
+  s = s.replace(/√\s*\(([^()]*)\)/g, "sqrt($1)").replace(/√\s*([A-Za-z0-9])/g, "sqrt($1)");
   // Braces around single atoms are pure LaTeX grouping noise.
   s = s.replace(/\{\s*([^{}\s])\s*\}/g, "$1");
   s = s.replace(/\s+/g, "").replace(/[\u0001\u0002]+$/g, "");
+  // Parentheses around a single atom carry no structure: (2)/(3) == 2/3.
+  for (let i = 0; i < 4; i++) s = s.replace(/\(([A-Za-z0-9.]+)\)/g, "$1");
   return s;
 }
+
 
 /** Is the student's line written identically to the expected line (ignoring
  *  only cosmetic differences)? Structured maths relies on this. */
