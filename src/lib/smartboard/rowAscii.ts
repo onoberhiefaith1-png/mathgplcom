@@ -67,8 +67,23 @@ const nodeToAscii = (n: Node): string => {
       return rowToAscii(n.rows[0] || []);
     case "binom":
       return `binom(${rowToAscii(n.rows[0] || [])},${rowToAscii(n.rows[1] || [])})`;
-    case "matrix":
-      return `[matrix]`;
+    // A matrix must flatten to its VALUES, in the LaTeX environment the
+    // teacher's answer key uses. Emitting a placeholder such as "[matrix]"
+    // threw away every cell, so a student line written exactly like the
+    // expected matrix could never be graded as correct.
+    case "matrix": {
+      const env = MATRIX_ENV_FOR[n.left] ?? "bmatrix";
+      const cellCount = n.nRows * n.nCols;
+      const cells = Array.from({ length: cellCount }, (_, i) => rowToAscii(n.rows[i] || []).trim());
+      const body = Array.from({ length: n.nRows }, (_, r) =>
+        cells.slice(r * n.nCols, (r + 1) * n.nCols).join(" & "),
+      ).join(" \\\\ ");
+      const base = `\\begin{${env}}${body}\\end{${env}}`;
+      // Matrix Power keeps its exponent in the extra trailing slot.
+      const exp = n.fns?.includes("power") ? rowToAscii(n.rows[cellCount] || []).trim() : "";
+      return exp ? `(${base})^(${exp})` : base;
+    }
+
     // A box is a transparent container (an outlined writing cell). It carries
     // no mathematical meaning of its own — flatten its body verbatim so the
     // Smartboard, the Reasoning panel and the grader all read the SAME maths.
