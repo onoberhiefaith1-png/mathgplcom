@@ -106,7 +106,13 @@ export interface LessonSegment {
   implicit: boolean;
   /** Content nodes between START (exclusive) and END (inclusive). */
   nodes: Node[];
+  /** Durable id stamped on a QUESTION heading (`sectionId`), when it has one. */
+  sectionId: string | null;
+  /** For a Solution: the durable id of the question it belongs to. Read from
+   *  the heading, or from the floating frame the solution was dragged into. */
+  ownerQuestionId: string | null;
 }
+
 
 const isHeadingNode = (n: Node) => n?.type === "heading";
 
