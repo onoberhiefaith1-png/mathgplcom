@@ -180,8 +180,11 @@ function numericEqual(a: any, b: any): Verdict {
 }
 
 export function deterministicVerdict(teacher: string, student: string): Verdict {
+  // Written exactly as expected → correct, whatever the engines can parse.
+  if (structurallyIdentical(teacher, student)) return "equal";
   const T = splitEq(normalize(teacher));
   const S = splitEq(normalize(student));
+
 
   if (T.rhs !== null) {
     const tL = tryParse(T.lhs); const tR = tryParse(T.rhs);
