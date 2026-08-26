@@ -44,7 +44,14 @@ const normalizeLatexFractions = (raw: string): string => {
   return s;
 };
 
+/** Fence glyph → LaTeX matrix environment (same table the LaTeX writer uses). */
+const MATRIX_ENV_FOR: Record<string, string> = {
+  "": "matrix", "(": "pmatrix", "[": "bmatrix", "{": "Bmatrix",
+  "|": "vmatrix", "‖": "Vmatrix",
+};
+
 const nodeToAscii = (n: Node): string => {
+
   switch (n.kind) {
     case "char": return n.ch;
     case "frac":
