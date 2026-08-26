@@ -100,6 +100,9 @@ import {
   backspace as treeBackspace,
   moveLeft as treeMoveLeft,
   moveRight as treeMoveRight,
+  moveUp as treeMoveUp,
+  moveDown as treeMoveDown,
+
   nextEmptyRow as treeNextEmpty,
   rowHasTallStructure,
   isPlaceholderOnly,
@@ -2279,6 +2282,23 @@ const PresentationView = ({
    *  the empty solution space — it only stops at the top of the band. */
   const nudgeCursor = useCallback((dir: 1 | -1) => {
     if (!activeLayout || activeLayout.bandLines <= 0) return;
+    // STRUCTURE FIRST: while the caret sits inside a fraction, radical,
+    // power or matrix, ▲/▼ steps between that structure's slots (and ▲
+    // escapes it once there is nothing above). Only when there is no
+    // vertical target inside the maths does the sensor change board row.
+    {
+      const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+      const c = cursorRef.current;
+      if (rowInk.length > 0 && c.path.length >= 2) {
+        const next = dir < 0 ? treeMoveUp(rowInk, c) : treeMoveDown(rowInk, c);
+        if (next) {
+          setLiveCursor(next);
+          hiddenInputRef.current?.focus({ preventScroll: true });
+          return;
+        }
+      }
+    }
+
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
     const start = Math.floor(sensor.line) + dir;
@@ -2345,19 +2365,15 @@ const PresentationView = ({
     if (notebookRowLines.has(r)) return;
     const rowInk = freeLines[sensor.line] ?? freeLines[r] ?? [];
     if (rowInk.length > 0) {
-      // Written row: shifting the offset would drag the ink sideways.
-      // If this row belongs to the line the Floating Number display is
-      // showing (or is the sensor's own writing row), ◀/▶ walks the CARET
-      // through the existing ink instead — the teacher can edit anywhere
-      // inside the displayed line.
-      if (
-        !displayedLineRowsRef.current.has(r) &&
-        activeSensorPhysicalLineRef.current !== sensor.line
-      ) return;
+      // Written row: shifting the offset would drag the ink sideways, so
+      // ◀/▶ walks the CARET through the existing ink instead. This works on
+      // every writable row (no "displayed line" restriction) — it is the
+      // only way out of a nested slot such as a radical's radicand.
       setLiveCursor((c) => (dir > 0 ? treeMoveRight(rowInk, c) : treeMoveLeft(rowInk, c)));
       hiddenInputRef.current?.focus({ preventScroll: true });
       return;
     }
+
     const step = grid.FONT_PX * 0.6; // one ~character-width column
     const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
     const maxX = Math.max(0, boardW - grid.MARGIN_LEFT - grid.FONT_PX);
@@ -2397,20 +2413,23 @@ const PresentationView = ({
     // ↓ can always grow the band, so it's always enabled while solving.
     return true;
   })();
+  // ◀ / ▶ are ALWAYS live on a writable row. On an inked row they walk the
+  // caret through the equation (into and out of fractions, radicals,
+  // powers…) instead of shifting the row offset, so the sensor can never be
+  // trapped inside a structure slot.
   const canCursorLeft = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
-    if (rowInk.length > 0) return false;
+    if (rowInk.length > 0) return true;
     return sensor.x > 0;
   })();
   const canCursorRight = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
-    const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
-    if (rowInk.length > 0) return false;
     return true;
   })();
+
 
 
 
@@ -6555,6 +6574,23 @@ const PresentationView = ({
             setLiveCursor((c) => treeMoveRight(row, c));
             return;
           }
+          if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+            // STRUCTURE FIRST: step between the slots of the structure the
+            // caret is inside (denominator ↔ numerator, exponent ↔ base,
+            // matrix cell ↔ cell above/below); ▲ escapes the structure when
+            // there is nothing above. Row movement is the fallback.
+            const inkRow = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+            if (inkRow.length > 0 && cursor.path.length >= 2) {
+              const nextCursor = e.key === "ArrowUp"
+                ? treeMoveUp(inkRow, cursor)
+                : treeMoveDown(inkRow, cursor);
+              if (nextCursor) {
+                e.preventDefault();
+                setLiveCursor(nextCursor);
+                return;
+              }
+            }
+          }
           if (e.key === "ArrowUp") {
             e.preventDefault();
             // Lesson-line lock: Up-arrow cannot leave the active lesson line.
@@ -6571,6 +6607,7 @@ const PresentationView = ({
           }
           if (e.key === "ArrowDown") {
             e.preventDefault();
+
             const nextLine = sensor.line + 0.5;
             if (hasGuidedLines && activeLayout) {
               const expectedLineNum = bandStart(activeLayout) + activeLineIdx;
