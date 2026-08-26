@@ -732,6 +732,12 @@ const FloatingPreparationPage = () => {
             <h1 className="text-sm font-medium truncate text-foreground/90">
               {title || "Notebook"} — Solution
             </h1>
+            {questionLabel ? (
+              <p className="text-[10px] text-foreground/55 truncate" title={questionLabel}>
+                {questionLabel}
+              </p>
+            ) : null}
+
           </div>
           <div className="flex items-center gap-2 shrink-0 justify-end">
             <span className="hidden xl:inline text-[11px] text-foreground/55 mr-1">{summary}</span>
