@@ -414,6 +414,11 @@ const FloatingPreparationPage = () => {
       setPaperStyle(((nbRes.data as any)?.paper_style as PaperStyle) || "ruled");
       setDocumentJson((nbRes.data as any)?.document_json ?? null);
       const solBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "solution") as any;
+      const probBlock = (blocksRes.data ?? []).find((b: any) => b.kind === "problem") as any;
+      const probText = String(probBlock?.content_ascii ?? (handoff as any)?.problemText ?? "");
+      const firstLine = probText.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
+      setQuestionLabel(firstLine.length > 70 ? `${firstLine.slice(0, 70)}…` : firstLine);
+
       // Direct handoff: the Floating chip passes the live solution text from
       // the lesson note, so a solution that is visible on screen is NEVER
       // reported as missing here — even if the DB row hasn't caught up.
