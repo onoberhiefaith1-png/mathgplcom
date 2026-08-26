@@ -278,6 +278,10 @@ const FloatingPreparationPage = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
+  /** Which question this solution belongs to — shown in the header so a wrong
+   *  pairing is visible immediately instead of silently. */
+  const [questionLabel, setQuestionLabel] = useState("");
+
   const [paperSize, setPaperSize] = useState<PaperSize>("a4");
   const [paperStyle, setPaperStyle] = useState<PaperStyle>("ruled");
   const [documentJson, setDocumentJson] = useState<any | null>(null);
