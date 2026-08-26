@@ -256,6 +256,15 @@ export function diagnoseLine(
     return D("cannot_evaluate_yet", "Nothing written", "This line is still empty, so there is no expression to evaluate.");
   }
 
+  // 0b — the student wrote the expected line. Structured mathematics
+  // (matrices, determinants, stacked fractions) cannot be parsed by the
+  // scalar engines, so this check must come BEFORE any validity or
+  // term-level rule; otherwise a perfect line is marked wrong.
+  if (structurallyIdentical(teacherAscii, studentAscii)) {
+    return D("equivalent", "Equivalent", "The line is written exactly as the expected step, so full marks are awarded.");
+  }
+
+
   // 1 — invalid notation
   if (looksInvalid(student) || !parses(student)) {
     return D("invalid_expression", "Invalid expression", "The notation itself is not valid mathematics, so the line cannot be evaluated.");
