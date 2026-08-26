@@ -40,17 +40,26 @@ type Node = any;
  *  document content and must take part in segmentation. */
 const CONTAINER_TYPES = new Set(["canvasFrame", "pageFrame", "canvasLayer"]);
 
-export const flattenContainers = (nodes: Node[]): Node[] => {
+/** Marker written onto a heading that was flattened OUT of a floating frame,
+ *  carrying the frame's owner question so ownership survives the flattening. */
+const FRAME_OWNER = "__frameOwnerQuestionId";
+
+export const flattenContainers = (nodes: Node[], frameOwner: string | null = null): Node[] => {
   const out: Node[] = [];
   for (const n of nodes ?? []) {
     if (n && CONTAINER_TYPES.has(String(n.type)) && Array.isArray(n.content)) {
-      out.push(...flattenContainers(n.content as Node[]));
+      const owner =
+        typeof n.attrs?.ownerQuestionId === "string" && n.attrs.ownerQuestionId
+          ? (n.attrs.ownerQuestionId as string)
+          : frameOwner;
+      out.push(...flattenContainers(n.content as Node[], owner));
     } else if (n) {
-      out.push(n);
+      out.push(frameOwner && n.type === "heading" ? { ...n, [FRAME_OWNER]: frameOwner } : n);
     }
   }
   return out;
 };
+
 
 /** Visible text of a node, math preserved LOSSLESSLY.
  *
