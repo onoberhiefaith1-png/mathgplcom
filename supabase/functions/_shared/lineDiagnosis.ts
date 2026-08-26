@@ -9,7 +9,7 @@
 // The rule order below IS the priority order from the specification: the
 // first rule that matches wins, so the most specific issue is always reported.
 
-import { deterministicVerdict, normalize, type Verdict } from "./mathEquivalence.ts";
+import { deterministicVerdict, normalize, structurallyIdentical, type Verdict } from "./mathEquivalence.ts";
 
 export type DiagnosisCode =
   | "equivalent"
