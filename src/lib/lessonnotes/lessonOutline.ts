@@ -356,23 +356,47 @@ export const isQuestionSegmentKind = (k: SectionKind): boolean => QUESTION_SEGME
 export const segmentKey = (seg: LessonSegment): string =>
   `${seg.index}:${seg.kind}:${seg.ordinal}`;
 
+/** The question segment that owns `seg` — itself for a question, the recorded
+ *  owner for a Solution, and only then the question above it in the flow. */
+export function ownerQuestionSegment(
+  segments: LessonSegment[],
+  seg: LessonSegment,
+): LessonSegment | null {
+  if (isQuestionSegmentKind(seg.kind)) return seg;
+  if (!seg.isSolution) return null;
+  if (seg.ownerQuestionId) {
+    const owned = segments.find(
+      (s) => isQuestionSegmentKind(s.kind) && s.sectionId === seg.ownerQuestionId,
+    );
+    if (owned) return owned;
+  }
+  for (let i = seg.index - 1; i >= 0; i--) {
+    const candidate = segments[i];
+    if (candidate && isQuestionSegmentKind(candidate.kind)) return candidate;
+  }
+  return null;
+}
+
+/** Key of the question segment carrying `questionId`, if the note still has it. */
+export function questionKeyForSectionId(doc: any, questionId: string): string | null {
+  const segments = buildLessonOutline(doc);
+  const seg = segments.find((s) => isQuestionSegmentKind(s.kind) && s.sectionId === questionId);
+  return seg ? segmentKey(seg) : null;
+}
+
 /**
  * The key of the question segment that OWNS the structural heading at
  * `structuralOrder` (0-based count of structural headings before it in the
- * document). For a Solution heading this is the question above it; for a
- * question heading it is itself. Returns null when nothing owns it.
+ * document). Ownership follows the recorded owner id first, so a Solution
+ * dragged into a floating frame still resolves to its own question.
  */
 export function ownerQuestionKeyAt(doc: any, structuralOrder: number): string | null {
   const segments = buildLessonOutline(doc);
   const structural = segments.filter((s) => !s.implicit);
   const seg = structural[structuralOrder];
   if (!seg) return null;
-  if (isQuestionSegmentKind(seg.kind)) return segmentKey(seg);
-  if (!seg.isSolution) return null;
-  for (let i = seg.index - 1; i >= 0; i--) {
-    const candidate = segments[i];
-    if (candidate && isQuestionSegmentKind(candidate.kind)) return segmentKey(candidate);
-  }
-  return null;
+  const owner = ownerQuestionSegment(segments, seg);
+  return owner ? segmentKey(owner) : null;
 }
+
 
