@@ -133,6 +133,7 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
     level: number,
     explicitNumber: number | null,
     implicit: boolean,
+    ids?: { sectionId?: string | null; ownerQuestionId?: string | null },
   ): LessonSegment => {
     const next = (counters.get(kind) ?? 0) + 1;
     counters.set(kind, next);
@@ -152,6 +153,8 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
       isSolution: kind === "solution",
       implicit,
       nodes: [],
+      sectionId: ids?.sectionId ?? null,
+      ownerQuestionId: ids?.ownerQuestionId ?? null,
     };
     current = seg;
     segments.push(seg);
@@ -163,7 +166,18 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
       const level = Number(node.attrs?.level ?? 6);
       const marker = structuralHeadingKind(nodeText(node).trim(), level, node.attrs);
       if (marker) {
-        open(marker.kind, marker.title, level, marker.number, false);
+        const sectionId =
+          typeof node.attrs?.sectionId === "string" && node.attrs.sectionId
+            ? (node.attrs.sectionId as string)
+            : null;
+        const ownerQuestionId =
+          (typeof node.attrs?.ownerQuestionId === "string" && node.attrs.ownerQuestionId
+            ? (node.attrs.ownerQuestionId as string)
+            : null) ??
+          (typeof node[FRAME_OWNER] === "string" && node[FRAME_OWNER]
+            ? (node[FRAME_OWNER] as string)
+            : null);
+        open(marker.kind, marker.title, level, marker.number, false, { sectionId, ownerQuestionId });
         continue;
       }
       // Descriptive heading → ordinary content of the current session.
@@ -172,7 +186,34 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
     seg.nodes.push(node);
   }
 
+  // ── OWNERSHIP PASS ──────────────────────────────────────────────────────
+  // A Solution belongs to the question named by its owner id, wherever it
+  // physically sits (it may have been dragged into a floating frame at the
+  // very end of the document). Only an owner-less Solution falls back to the
+  // question above it in the flow. Its number always follows its owner, so
+  // Example 2's solution reads "Solution 2".
+  const byId = new Map<string, LessonSegment>();
+  for (const s of segments) {
+    if (s.sectionId && isQuestionSegmentKind(s.kind)) byId.set(s.sectionId, s);
+  }
+  for (const seg of segments) {
+    if (!seg.isSolution) continue;
+    let owner: LessonSegment | null =
+      (seg.ownerQuestionId ? byId.get(seg.ownerQuestionId) ?? null : null);
+    if (!owner) {
+      for (let i = seg.index - 1; i >= 0; i--) {
+        const c = segments[i];
+        if (c && isQuestionSegmentKind(c.kind)) { owner = c; break; }
+      }
+    }
+    if (!owner) continue;
+    seg.ownerQuestionId = owner.sectionId ?? seg.ownerQuestionId ?? null;
+    seg.ordinal = owner.ordinal;
+    seg.label = `${SECTION_LABELS.solution ?? "Solution"} ${owner.ordinal}`;
+  }
+
   return segments;
+
 }
 
 // ---------------------------------------------------------------------------
