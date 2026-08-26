@@ -343,6 +343,107 @@ export const moveRight = (root: Row, cursor: Cursor): Cursor => {
   return { path: parentPath, index: nodeIdx + 1 };
 };
 
+/* ─────────── vertical navigation (slot ↔ slot) ─────────── */
+
+/** Which sub-row sits visually ABOVE (dir = -1) or BELOW (dir = +1) the
+ *  sub-row `subIdx` of `node`. Null when the structure has no such slot. */
+const verticalSlot = (node: Node, subIdx: number, dir: 1 | -1): number | null => {
+  if (node.kind === "char") return null;
+  const subs = subRowsOf(node);
+  const ok = (i: number) => (i >= 0 && i < subs.length ? i : null);
+  switch (node.kind) {
+    case "frac":
+    case "binom":
+      // [top, bottom]
+      return dir === -1 ? (subIdx === 1 ? 0 : null) : (subIdx === 0 ? ok(1) : null);
+    case "sqrt":
+      // [radicand, index?] — the index sits above-left of the radicand.
+      if (subs.length < 2) return null;
+      return dir === -1 ? (subIdx === 0 ? 1 : null) : (subIdx === 1 ? 0 : null);
+    case "power":
+      // [base, exponent]
+      return dir === -1 ? (subIdx === 0 ? ok(1) : null) : (subIdx === 1 ? 0 : null);
+    case "subsup":
+    case "bigop": {
+      // [base/body, lower, upper] — visual order upper, base, lower.
+      if (dir === -1) {
+        if (subIdx === 1) return 0;
+        if (subIdx === 0) return ok(2);
+        return null;
+      }
+      if (subIdx === 2) return 0;
+      if (subIdx === 0) return ok(1);
+      return null;
+    }
+    case "matrix": {
+      const cells = node.nRows * node.nCols;
+      if (subIdx >= cells) return null; // matrix-power exponent slot
+      const target = subIdx + dir * node.nCols;
+      return target >= 0 && target < cells ? target : null;
+    }
+    default:
+      // Single-slot containers (bracket, accent, box, georef, sup, sub) have
+      // no internal vertical structure.
+      return null;
+  }
+};
+
+/** Move the caret UP.
+ *
+ *  Inside a structure it first steps to the slot above (denominator →
+ *  numerator, base → exponent, matrix cell → cell above). When the
+ *  enclosing structure has no slot above, the caret ESCAPES that structure
+ *  and parks immediately after it, so the next character is written beside
+ *  the structure instead of inside it. Returns null only when the caret is
+ *  already at the top level (the caller then moves to the previous board
+ *  row). */
+export const moveUp = (root: Row, cursor: Cursor): Cursor | null => {
+  let path = cursor.path;
+  let index = cursor.index;
+  while (path.length >= 2) {
+    const parentPath = path.slice(0, -2);
+    const nodeIdx = path[path.length - 2];
+    const subIdx = path[path.length - 1];
+    const node = getRowAt(root, parentPath)[nodeIdx];
+    if (!node || node.kind === "char") return null;
+    const target = verticalSlot(node, subIdx, -1);
+    if (target !== null) {
+      const row = subRowsOf(node)[target] ?? [];
+      return { path: [...parentPath, nodeIdx, target], index: Math.min(index, row.length) };
+    }
+    // Nothing above inside this structure — step out of it.
+    return { path: parentPath, index: nodeIdx + 1 };
+  }
+  return null;
+};
+
+/** Move the caret DOWN: numerator → denominator, exponent → base, matrix
+ *  cell → cell below. Returns null when the enclosing structure has no
+ *  slot below (the caller then moves to the next board row). */
+export const moveDown = (root: Row, cursor: Cursor): Cursor | null => {
+  if (cursor.path.length < 2) return null;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  const subIdx = cursor.path[cursor.path.length - 1];
+  const node = getRowAt(root, parentPath)[nodeIdx];
+  if (!node || node.kind === "char") return null;
+  const target = verticalSlot(node, subIdx, 1);
+  if (target === null) return null;
+  const row = subRowsOf(node)[target] ?? [];
+  return { path: [...parentPath, nodeIdx, target], index: Math.min(cursor.index, row.length) };
+};
+
+/** Park the caret immediately AFTER the structure the caret currently sits
+ *  inside. Unchanged when the caret is already at the top level. */
+export const exitContainerRight = (root: Row, cursor: Cursor): Cursor => {
+  if (cursor.path.length < 2) return cursor;
+  const parentPath = cursor.path.slice(0, -2);
+  const nodeIdx = cursor.path[cursor.path.length - 2];
+  return { path: parentPath, index: nodeIdx + 1 };
+};
+
+
+
 /** Stoppers that delimit the "current run" left of the cursor for tag-wrap. */
 const RUN_STOPPERS = new Set(["+", "−", "-", "×", "*", "÷", "/", "=", ",", ";", "(", "[", "{", " "]);
 
