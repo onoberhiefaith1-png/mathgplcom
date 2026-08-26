@@ -2403,11 +2403,14 @@ const PresentationView = ({
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     // ▲ is enabled whenever ANY empty writable row exists above the
     // sensor inside the active band — the sensor roams freely in the
-    // empty solution space.
+    // empty solution space. It is ALSO enabled while the caret sits inside
+    // a structure, because there ▲ steps/escapes slots rather than rows.
+    if (cursor.path.length >= 2) return true;
     const a = bandStart(activeLayout);
     const cand = findNextWritableEmptyRow(Math.floor(sensor.line) - 1, -1, activeLayout);
     return cand >= a;
   })();
+
   const canCursorDown = (() => {
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     // ↓ can always grow the band, so it's always enabled while solving.
