@@ -140,12 +140,14 @@ Deno.serve(async (req) => {
     // Provenance is informational only. Symbols the student types manually
     // belong to the active line just like tapped chips, so they are graded as
     // part of the expression — never rejected for "not being supplied".
-    const verdict = await equivalent(teacherAscii, studentAscii);
+    const rawVerdict = await equivalent(teacherAscii, studentAscii);
     // A line written exactly like the expected line is ALWAYS awarded, even
     // when the expression is structured maths (matrix, determinant, stacked
     // fraction) that the symbolic engines cannot parse.
     const identical = structurallyIdentical(teacherAscii, studentAscii);
-    const isCorrect = verdict === "equal" || identical;
+    const isCorrect = rawVerdict === "equal" || identical;
+    const verdict = isCorrect ? "equal" : rawVerdict;
+
 
 
     // Specific, teacher-style diagnosis (1–3 words) for the Check Line popup.
