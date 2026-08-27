@@ -2363,20 +2363,21 @@ const PresentationView = ({
    *  offset), so horizontal nudges must write BOTH sensor.x and the
    *  row's offset — sensor.x alone never moves the caret on screen. */
   const nudgeCursorHoriz = useCallback((dir: 1 | -1) => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return;
     const r = Math.floor(sensor.line);
     // Only bail if we're clearly on a restricted prose row.
     if (notebookRowLines.has(r)) return;
     const rowInk = freeLines[sensor.line] ?? freeLines[r] ?? [];
     if (rowInk.length > 0) {
       // Written row: shifting the offset would drag the ink sideways, so
-      // ◀/▶ walks the CARET through the existing ink instead. This works on
-      // every writable row (no "displayed line" restriction) — it is the
-      // only way out of a nested slot such as a radical's radicand.
+      // ◀/▶ walks the CARET through the existing ink instead. Checked before
+      // any board-layout guard — it is the only way out of a nested slot
+      // such as a radical's radicand.
       setLiveCursor((c) => (dir > 0 ? treeMoveRight(rowInk, c) : treeMoveLeft(rowInk, c)));
       hiddenInputRef.current?.focus({ preventScroll: true });
       return;
     }
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+
 
     const step = grid.FONT_PX * 0.6; // one ~character-width column
     const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
