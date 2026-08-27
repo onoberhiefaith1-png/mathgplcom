@@ -606,16 +606,20 @@ const NodeView = ({
 
     case "accent":
       return (
-        <span style={{
-          display: "inline-flex", flexDirection: "column", alignItems: "center",
-          verticalAlign: "baseline", lineHeight: 1, margin: "0 0.05em",
-        }}>
+        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
           <span style={{
-            fontSize: "0.75em", height: "0.5em", marginBottom: "-0.15em", lineHeight: 1,
-          }}>{node.symbol}</span>
-          <span>{R(0)}</span>
+            display: "inline-flex", flexDirection: "column", alignItems: "center",
+            verticalAlign: "baseline", lineHeight: 1, margin: "0 0.05em",
+          }}>
+            <span style={{
+              fontSize: "0.75em", height: "0.5em", marginBottom: "-0.15em", lineHeight: 1,
+            }}>{node.symbol}</span>
+            <span>{R(0)}</span>
+          </span>
+          <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
         </span>
       );
+
 
     case "binom":
       return <BinomView node={node} parentPath={parentPath} idxInRow={idxInRow}
