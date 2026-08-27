@@ -192,8 +192,35 @@ import {
   type StageError,
   type TeacherContext,
 } from "@/lib/lessonnotes/ai/pipeline/types";
+import {
+  expandSelectionToStructures,
+  isStructuralHtml,
+  rangeToStructuralPayload,
+  structuralHtmlToSlice,
+} from "@/lib/lessonnotes/structuralClipboard";
 
 const SECTION_OPTIONS: SectionKind[] = INSERT_SECTION_OPTIONS;
+
+/** Put the selected mathematical OBJECT on a native copy/cut event. Returns
+ *  true when we handled it, so ProseMirror's plain serialisation is skipped.
+ *  Selections that touch no structure fall through untouched. */
+const writeMathClipboard = (
+  view: { state: any; dispatch: (tr: any) => void },
+  event: ClipboardEvent,
+  isCut: boolean,
+): boolean => {
+  const state = view.state;
+  if (state.selection.empty || !event.clipboardData) return false;
+  const { from, to } = expandSelectionToStructures(state, state.selection.from, state.selection.to);
+  const payload = rangeToStructuralPayload(state, from, to);
+  if (!payload.hasStructure) return false;
+  event.preventDefault();
+  event.clipboardData.setData("text/html", payload.html);
+  event.clipboardData.setData("text/plain", payload.text);
+  if (isCut) view.dispatch(state.tr.delete(from, to).scrollIntoView());
+  return true;
+};
+
 
 
 interface Props {
