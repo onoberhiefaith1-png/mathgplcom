@@ -161,6 +161,49 @@ const AssignmentDashboardPage = () => {
     };
   }, [classId, assessments]);
 
+  // Per-question rows for the student table: label + each student's best time.
+  // Best time is decoration only — "View Student Work" is always available.
+  useEffect(() => {
+    if (assessments.length === 0) { setQuestionEntries([]); return; }
+    let cancelled = false;
+    const ids = assessments.map((a) => a.id);
+    (async () => {
+      const [{ data: qRows }, { data: att }] = await Promise.all([
+        supabase.from("assessments").select("id, questions").in("id", ids),
+        supabase
+          .from("assessment_timer_attempts")
+          .select("assessment_id, question_id, student_id, elapsed_ms, success")
+          .in("assessment_id", ids)
+          .eq("success", true),
+      ]);
+      if (cancelled) return;
+      const best = new Map<string, Record<string, number>>();
+      for (const a of ((att ?? []) as any[])) {
+        const key = `${a.assessment_id}:${a.question_id}`;
+        const bucket = best.get(key) ?? {};
+        const ms = Number(a.elapsed_ms) || 0;
+        const prev = bucket[a.student_id];
+        if (prev == null || ms < prev) bucket[a.student_id] = ms;
+        best.set(key, bucket);
+      }
+      const entries: QuestionEntry[] = [];
+      for (const row of ((qRows ?? []) as any[])) {
+        const qs = (row.questions ?? []) as Array<{ id: string; title?: string | null }>;
+        qs.forEach((q, i) => {
+          entries.push({
+            assessmentId: row.id,
+            questionId: q.id,
+            label: q.title?.trim() || `Question ${entries.length + 1 || i + 1}`,
+            bestByStudent: best.get(`${row.id}:${q.id}`) ?? {},
+          });
+        });
+      }
+      setQuestionEntries(entries);
+    })();
+    return () => { cancelled = true; };
+  }, [assessments]);
+
+
   const totalMarks = assessments.reduce((s, a) => s + a.total_marks, 0);
 
   const dashPath = `${classRoot()}/${classId}/assignments/${notebookId}/dashboard`;
