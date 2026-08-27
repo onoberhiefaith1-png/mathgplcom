@@ -3,17 +3,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, Loader2, Trophy, UserRound } from "lucide-react";
+import { ArrowLeft, Loader2, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  fetchPublicCard, formatDuration, loadRememberedIdentity, newParticipantKey,
-  pingPresence, rememberIdentity, reportProgress,
+  ensurePlayerIdentity, fetchPublicCard, formatDuration,
+  pingPresence, reportProgress,
   type CardIdentity, type LeaderboardEntry, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
+import PlayerNameChip from "@/components/public/PlayerNameChip";
 
 
 const SmartCardChallengePage = () => {
@@ -24,8 +24,6 @@ const SmartCardChallengePage = () => {
   const [payload, setPayload] = useState<PublicCardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [identity, setIdentity] = useState<CardIdentity | null>(null);
-  const [guestName, setGuestName] = useState("");
-  const [renaming, setRenaming] = useState(false);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [percent, setPercent] = useState(0);
@@ -42,34 +40,9 @@ const SmartCardChallengePage = () => {
     })();
   }, [slug]);
 
-  // A public Smart Card is a doorway into one problem: nobody is asked to sign
-  // in or choose a name first. Signed-in Smartboard profiles keep their
-  // username, a remembered guest keeps theirs, everyone else gets an automatic
-  // guest name so Start Challenge lands straight on the board.
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        setIdentity({
-          participantKey: data.user.id,
-          displayName:
-            (data.user.user_metadata?.display_name as string) ||
-            (data.user.email ?? "Player").split("@")[0],
-          remembered: true,
-        });
-        return;
-      }
-      const saved = loadRememberedIdentity();
-      if (saved) { setIdentity(saved); return; }
-      setIdentity({
-        participantKey: newParticipantKey(),
-        displayName: `Guest ${Math.floor(1000 + Math.random() * 9000)}`,
-        remembered: false,
-      });
-    })();
-  }, []);
-
-
+  // A public Smart Card is a doorway into one problem: the name was already
+  // set on the card page (default "User N"), so the board opens immediately.
+  useEffect(() => { void ensurePlayerIdentity().then(setIdentity); }, []);
 
   // Poll the public progress endpoint: it grades, qualifies and ranks.
   const poll = useCallback(async () => {
@@ -153,42 +126,7 @@ const SmartCardChallengePage = () => {
           <ArrowLeft className="h-3.5 w-3.5" /> Back to Smart Card
         </a>
         <span className="font-semibold">{payload.card.title}</span>
-        {renaming ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const name = guestName.trim();
-              if (name) {
-                const next = { ...identity, displayName: name };
-                setIdentity(next);
-                if (identity.remembered) rememberIdentity(next);
-              }
-              setRenaming(false);
-            }}
-            className="flex items-center gap-1"
-          >
-            <Input
-              autoFocus
-              value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
-              placeholder="Your username"
-              maxLength={40}
-              className="h-7 w-40 text-xs"
-            />
-            <Button size="sm" type="submit" className="h-7">Save</Button>
-          </form>
-        ) : (
-          <button
-            type="button"
-            onClick={() => { setGuestName(identity.displayName); setRenaming(true); }}
-            className="text-muted-foreground hover:underline"
-            title="Change the name shown on the leaderboard"
-          >
-            <UserRound className="mr-1 inline h-3 w-3" />
-            {identity.displayName}
-            {identity.remembered && <span className="ml-1 text-[10px] uppercase tracking-wide">· profile</span>}
-          </button>
-        )}
+        <PlayerNameChip identity={identity} onChange={setIdentity} />
         <span className="rounded-full bg-muted px-2 py-0.5 tabular-nums">{percent}%</span>
         {preview && (
           <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700">Preview — not counted</span>

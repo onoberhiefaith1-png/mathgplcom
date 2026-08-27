@@ -15,10 +15,8 @@ import { normalizeCanvas, type CanvasElement } from "@/lib/games/types";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { fetchPublicGameBundle, fetchPublicGameProgress, type PublicGameBundle } from "@/lib/smartcards/publicGame";
-import {
-  loadRememberedIdentity, newParticipantKey, pingPresence, rememberIdentity, type CardIdentity,
-} from "@/lib/smartcards/smartCards";
-import { supabase } from "@/integrations/supabase/client";
+import { ensurePlayerIdentity, pingPresence, type CardIdentity } from "@/lib/smartcards/smartCards";
+import PlayerNameChip from "@/components/public/PlayerNameChip";
 import { Button } from "@/components/ui/button";
 
 const SmartCardGamePage = () => {
@@ -31,8 +29,6 @@ const SmartCardGamePage = () => {
   const [loading, setLoading] = useState(true);
   // Public Game Challenge: anyone can play with a username, no account.
   const [identity, setIdentity] = useState<CardIdentity | null>(null);
-  const [guestName, setGuestName] = useState("");
-  const [authChecked, setAuthChecked] = useState(false);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [solved, setSolved] = useState<Record<string, Record<string, number>>>({});
   const [qualified, setQualified] = useState(false);
@@ -42,24 +38,9 @@ const SmartCardGamePage = () => {
   const startedAt = useRef<number>(Date.now());
 
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (data.user) {
-        setIdentity({
-          participantKey: data.user.id,
-          displayName:
-            (data.user.user_metadata?.display_name as string) ||
-            (data.user.email ?? "Player").split("@")[0],
-          remembered: true,
-        });
-      } else {
-        const saved = loadRememberedIdentity();
-        if (saved) setIdentity(saved);
-      }
-      setAuthChecked(true);
-    })();
-  }, []);
+  // The player name is already chosen on the Smart Card page (default
+  // "User N"), so the Game Challenge never asks for one.
+  useEffect(() => { void ensurePlayerIdentity().then(setIdentity); }, []);
 
 
   useEffect(() => {
@@ -195,45 +176,11 @@ const SmartCardGamePage = () => {
 
   if (!identity) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-6">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const name = guestName.trim();
-            if (!name) return;
-            const next = { participantKey: newParticipantKey(), displayName: name, remembered: false };
-            rememberIdentity(next);
-            setIdentity(next);
-          }}
-          className="w-full max-w-sm rounded-2xl border bg-white p-6 text-center shadow-xl"
-        >
-          <h1 className="text-lg font-bold text-slate-900">Choose a username</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            No account needed — your username is only used for this Game Challenge leaderboard.
-          </p>
-          <input
-            value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
-            placeholder="Your username"
-            maxLength={24}
-            className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-center text-sm outline-hidden focus:border-slate-500"
-          />
-          <Button type="submit" className="mt-3 w-full" disabled={!authChecked || !guestName.trim()}>
-            Enter Game Challenge
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-2 w-full"
-            onClick={() => navigate(`/c/${slug}${preview ? "?preview=1" : ""}`)}
-          >
-            Back to Smart Card
-          </Button>
-        </form>
+      <div className="flex min-h-screen items-center justify-center bg-[#0b0a16] text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Opening game challenge…
       </div>
     );
   }
-
 
   // Solving a question replaces the stage with the existing Student Smartboard.
   if (openBoard && boardSource && activeQuestion) {
@@ -244,7 +191,7 @@ const SmartCardGamePage = () => {
             <ArrowLeft className="mr-1 h-4 w-4" /> Back to game
           </Button>
           <span className="font-semibold">{openBoard.title}</span>
-          <span className="text-muted-foreground">{identity.displayName}</span>
+          <PlayerNameChip identity={identity} onChange={setIdentity} />
           {preview && (
             <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700">Preview — not counted</span>
           )}

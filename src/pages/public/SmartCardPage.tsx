@@ -13,9 +13,11 @@ import SmartCardQuestion from "@/components/smartcards/SmartCardView";
 
 import { supabase } from "@/integrations/supabase/client";
 import {
-  fetchChallengeDashboard, formatDuration, loadRememberedIdentity, newParticipantKey,
-  pingPresence, previewImageUrl, shareUrl, type CardStatsPublic, type PublicCardPayload,
+  ensurePlayerIdentity, fetchChallengeDashboard, formatDuration, loadRememberedIdentity,
+  newParticipantKey, pingPresence, previewImageUrl, shareUrl,
+  type CardIdentity, type CardStatsPublic, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
+import PlayerNameChip from "@/components/public/PlayerNameChip";
 
 
 const VISITOR_KEY = "smartcard:visitor";
@@ -56,6 +58,11 @@ const SmartCardPage = () => {
   // Never persisted, never visible to visitors — it only exists so the
   // teacher can take a screenshot to post beside the link.
   const [shareMode, setShareMode] = useState(false);
+
+  // The public player identity: a default "User N" is minted immediately so
+  // nothing ever gates the card, and it is editable right here.
+  const [identity, setIdentity] = useState<CardIdentity | null>(null);
+  useEffect(() => { void ensurePlayerIdentity().then(setIdentity); }, []);
 
   const [promo, setPromo] = useState(DEFAULT_PROMO);
   const [editingPromo, setEditingPromo] = useState(false);
@@ -350,13 +357,23 @@ const SmartCardPage = () => {
               </p>
             )
           ) : (
+            <>
+            {identity && (
+              <PlayerNameChip
+                identity={identity}
+                onChange={setIdentity}
+                variant="card"
+                className="mt-4"
+              />
+            )}
             <button
               type="button"
               onClick={open}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               <Play className="h-4 w-4" /> {isGame ? "Enter Game Challenge" : "Start Challenge"}
             </button>
+            </>
           )}
         </header>
 
