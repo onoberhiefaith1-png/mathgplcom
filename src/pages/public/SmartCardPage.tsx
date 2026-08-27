@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Camera, Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
+import ShareSheet from "@/components/public/ShareSheet";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchChallengeDashboard, formatDuration, loadRememberedIdentity, newParticipantKey,
@@ -55,6 +56,7 @@ const SmartCardPage = () => {
   // Never persisted, never visible to visitors — it only exists so the
   // teacher can take a screenshot to post beside the link.
   const [shareMode, setShareMode] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [promo, setPromo] = useState(DEFAULT_PROMO);
   const [editingPromo, setEditingPromo] = useState(false);
   const me = useRef<string>(visitorKey());
@@ -171,10 +173,10 @@ const SmartCardPage = () => {
             The link may be mistyped, or the card is no longer published by its author.
           </p>
           <a
-            href="/live"
+            href="/"
             className="mt-5 inline-flex items-center justify-center rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            Explore MathGPL Life
+            Visit MathGPL
           </a>
         </div>
       </div>
@@ -184,14 +186,11 @@ const SmartCardPage = () => {
   const card = payload.card;
   const isGame = card.publishMode === "game";
   const link = shareUrl(card.slug);
-  // Viewing is public; playing needs an account. A Game Challenge opens the
-  // Adventure stage, a normal card opens the board — and if the visitor is not
-  // signed in they go to sign-in first and are returned to this exact page.
-  const open = async () => {
-    const target = `/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`;
-    const { data } = await supabase.auth.getUser();
-    if (data.user) { navigate(target); return; }
-    navigate(`/auth?next=${encodeURIComponent(target)}`);
+  // A Smart Card is a standalone public question: opening it and solving it
+  // never asks for an account. A Game Challenge opens the Adventure stage, a
+  // normal card opens the board — the player only chooses a username.
+  const open = () => {
+    navigate(`/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`);
   };
 
   // Copy / Share put ONLY the short public URL on the clipboard — no HTML, no
@@ -203,11 +202,12 @@ const SmartCardPage = () => {
   };
 
   const shareCard = async () => {
+    // Native sheet where it exists (phones); the dialog everywhere else, so
+    // Share always does something visible.
     if (navigator.share) {
-      try { await navigator.share({ title: card.title, url: link }); return; } catch { /* cancelled */ }
+      try { await navigator.share({ title: card.title, url: link }); return; } catch { /* cancelled or unsupported */ }
     }
-    await copyCard();
-
+    setShareOpen(true);
   };
 
   const counters = [
@@ -316,7 +316,7 @@ const SmartCardPage = () => {
 
           {isGame && !shareMode && (
             <p className="mt-3 text-center text-[11px] text-slate-500">
-              Game Challenges require a Smartboard sign-in — rewards go to your personal gallery.
+              Choose a username on the next screen — no account needed.
             </p>
           )}
 
@@ -391,9 +391,22 @@ const SmartCardPage = () => {
           )}
         </section>
 
-        <footer className="pt-2 text-center text-xs text-slate-500">
-          <a href="/live" className="underline underline-offset-2">Explore more with MathGPL Life</a>
+        <footer className="pt-2 text-center">
+          <a
+            href="/"
+            className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-xs transition hover:bg-slate-50"
+          >
+            Visit MathGPL
+          </a>
+          <p className="mt-2 text-xs text-slate-500">Mathematics Reimagined — explore the full platform.</p>
         </footer>
+
+        <ShareSheet
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          url={link}
+          title={`${card.title} — solve this MathGPL Smart Card.`}
+        />
       </div>
     </div>
   );

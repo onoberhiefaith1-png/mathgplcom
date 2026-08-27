@@ -15,7 +15,9 @@ import { normalizeCanvas, type CanvasElement } from "@/lib/games/types";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { fetchPublicGameBundle, fetchPublicGameProgress, type PublicGameBundle } from "@/lib/smartcards/publicGame";
-import { pingPresence, type CardIdentity } from "@/lib/smartcards/smartCards";
+import {
+  loadRememberedIdentity, newParticipantKey, pingPresence, rememberIdentity, type CardIdentity,
+} from "@/lib/smartcards/smartCards";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -27,8 +29,9 @@ const SmartCardGamePage = () => {
 
   const [bundle, setBundle] = useState<PublicGameBundle | null>(null);
   const [loading, setLoading] = useState(true);
-  // Game Challenges are sign-in only: rewards land in the player's own gallery.
+  // Public Game Challenge: anyone can play with a username, no account.
   const [identity, setIdentity] = useState<CardIdentity | null>(null);
+  const [guestName, setGuestName] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [solved, setSolved] = useState<Record<string, Record<string, number>>>({});
@@ -50,6 +53,9 @@ const SmartCardGamePage = () => {
             (data.user.email ?? "Player").split("@")[0],
           remembered: true,
         });
+      } else {
+        const saved = loadRememberedIdentity();
+        if (saved) setIdentity(saved);
       }
       setAuthChecked(true);
     })();
@@ -182,7 +188,7 @@ const SmartCardGamePage = () => {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-slate-100 text-slate-600">
         <h1 className="text-lg font-semibold">This game challenge isn't available</h1>
-        <a className="text-sm underline" href="/live">Explore more with MathGPL Life</a>
+        <a className="text-sm underline" href="/">Visit MathGPL</a>
       </div>
     );
   }
@@ -190,31 +196,40 @@ const SmartCardGamePage = () => {
   if (!identity) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-6">
-        <div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-xl text-center">
-          <h1 className="text-lg font-bold text-slate-900">Sign in to play</h1>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const name = guestName.trim();
+            if (!name) return;
+            const next = { participantKey: newParticipantKey(), displayName: name, remembered: false };
+            rememberIdentity(next);
+            setIdentity(next);
+          }}
+          className="w-full max-w-sm rounded-2xl border bg-white p-6 text-center shadow-xl"
+        >
+          <h1 className="text-lg font-bold text-slate-900">Choose a username</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Game Challenges are for signed-in players only — your rewards are saved to your personal
-            gallery. Guests can still take the plain Challenge.
+            No account needed — your username is only used for this Game Challenge leaderboard.
           </p>
-          <Button
-            className="mt-4 w-full"
-            disabled={!authChecked}
-            onClick={() =>
-              navigate(
-                `/auth?next=${encodeURIComponent(window.location.pathname + window.location.search)}`,
-              )
-            }
-          >
-            Sign in to Smartboard
+          <input
+            value={guestName}
+            onChange={(e) => setGuestName(e.target.value)}
+            placeholder="Your username"
+            maxLength={24}
+            className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-center text-sm outline-hidden focus:border-slate-500"
+          />
+          <Button type="submit" className="mt-3 w-full" disabled={!authChecked || !guestName.trim()}>
+            Enter Game Challenge
           </Button>
           <Button
+            type="button"
             variant="outline"
             className="mt-2 w-full"
             onClick={() => navigate(`/c/${slug}${preview ? "?preview=1" : ""}`)}
           >
-            Back to dashboard
+            Back to Smart Card
           </Button>
-        </div>
+        </form>
       </div>
     );
   }

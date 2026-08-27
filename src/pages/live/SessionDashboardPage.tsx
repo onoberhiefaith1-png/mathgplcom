@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import JoinRequestsPanel from "@/components/class/JoinRequestsPanel";
+import AudienceEntryPanel from "@/components/live/AudienceEntryPanel";
+import { publicOrigin } from "@/lib/public/publicSite";
 import {
   LiveSession, formatCountdownLong, formatStartsAt, hydrateSession, scheduleLabel,
   scheduleStateOf, scheduleTone, updateSessionBroadcasts, SESSION_COLUMNS, fetchSessionCode,
@@ -94,7 +96,7 @@ const SessionDashboardPage = () => {
   const classId = session.class_id;
   const state = scheduleStateOf(session, now);
   const startMs = session.starts_at ? new Date(session.starts_at).getTime() : NaN;
-  const joinLink = `${window.location.origin}/live/join/${session.session_code}`;
+  const joinLink = `${publicOrigin()}/live/join/${session.session_code}`;
 
   const tiles: { label: string; icon: typeof Users; to: string }[] = [
     { label: "Audience", icon: Users, to: `/live/workspace/${classId}/students` },
@@ -192,6 +194,8 @@ const SessionDashboardPage = () => {
             </Link>
           ))}
         </div>
+
+        <AudienceEntryPanel sessionId={session.id} />
 
         <JoinRequestsPanel classId={classId} />
       </main>
