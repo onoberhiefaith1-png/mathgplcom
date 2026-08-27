@@ -555,6 +555,7 @@ const TeacherReasoningPanel = ({
   const shownCorrect = checkForThisLine ? checkForThisLine.correct : null;
   const shownVerdict = checkForThisLine?.verdict ?? null;
   const shownDiagnosis: DiagnosisShape | null = checkForThisLine?.diagnosis ?? null;
+  const evaluationFailed = shownVerdict === "error";
   const sourceBadge = checkForThisLine
     ? checkForThisLine.mode === "manual"
       ? "student Check"
@@ -562,6 +563,18 @@ const TeacherReasoningPanel = ({
         ? "auto check"
         : "live reasoning"
     : null;
+
+  // STALL GUARD — "Evaluating…" is never allowed to spin forever. If no verdict
+  // arrives for this line within a few seconds we say so plainly; a real
+  // verdict landing later clears it instantly.
+  const [stalled, setStalled] = useState(false);
+  const waitKey = `${currentQid ?? ""}:${currentLid ?? ""}:${studentAscii.trim()}`;
+  useEffect(() => {
+    setStalled(false);
+    if (!studentAscii.trim() || checkForThisLine) return;
+    const t = window.setTimeout(() => setStalled(true), 6000);
+    return () => window.clearTimeout(t);
+  }, [waitKey, checkForThisLine, studentAscii]);
 
   return (
     <div className="flex h-full flex-col border-l border-border bg-background text-foreground">
