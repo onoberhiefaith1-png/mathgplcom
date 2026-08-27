@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import JoinRequestsPanel from "@/components/class/JoinRequestsPanel";
 import {
-  LiveSession, formatNextLesson, formatRecurring, hydrateSession, roomLabel,
+  LiveSession, formatNextLesson, formatRoomSchedule, hydrateSession, roomLabel,
   roomStateOf, roomTone, updateSessionBroadcasts, querySessions, fetchSessionCode,
   fetchAllowFreeEntry, setLiveState,
 } from "@/lib/live/sessions";
@@ -168,7 +168,7 @@ const SessionDashboardPage = () => {
           {session.description && <p className="mt-2 text-sm text-muted-foreground">{session.description}</p>}
 
           <div className="mt-4 text-sm text-muted-foreground">
-            {formatRecurring(session.schedule_days, session.schedule_time)} · {session.duration_minutes} min ·{" "}
+            {formatRoomSchedule(session)} · {session.duration_minutes} min ·{" "}
             {session.time_zone}
           </div>
 

@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
-import { Home } from "lucide-react";
+import { Home, MoreHorizontal } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import { useHomepageConfig, resolveMediaUrl } from "@/lib/homepage/homepageConfig";
 import { useProfileSummary } from "@/lib/accounts/useProfileSummary";
 import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
+import HeroBackgroundDialog from "@/components/workspace/HeroBackgroundDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const greeting = () => {
   const hour = new Date().getHours();
@@ -23,18 +30,21 @@ const DashboardHero = ({ blurb, mode = "self" }: { blurb?: string; mode?: "self"
   const { config } = useHomepageConfig({ mode });
   const [url, setUrl] = useState<string | null>(null);
   const [kind, setKind] = useState<"video" | "image">("image");
+  const [editing, setEditing] = useState(false);
 
+  // The hero has its own background. When the workspace has not chosen one it
+  // falls back to the building scene, then to the shipped artwork.
   useEffect(() => {
     let alive = true;
-    const ref = config.background ?? null;
-    setKind(ref?.mediaType === "video" || !ref ? "video" : "image");
+    const ref = config.heroBackground ?? config.background ?? null;
+    setKind(ref ? (ref.mediaType === "video" ? "video" : "image") : "video");
     void resolveMediaUrl(ref).then((resolved) => {
       if (alive) setUrl(resolved ?? DEFAULT_BACKGROUND.url);
     });
     return () => {
       alive = false;
     };
-  }, [config.background]);
+  }, [config.heroBackground, config.background]);
 
   const name = firstName || displayName;
 
@@ -54,6 +64,28 @@ const DashboardHero = ({ blurb, mode = "self" }: { blurb?: string; mode?: "self"
           <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ))}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+
+      {mode === "self" && (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Workspace background options"
+              className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/70 bg-background/70 text-foreground backdrop-blur transition hover:border-primary/50"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setEditing(true)}>Change background</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <HeroBackgroundDialog
+            open={editing}
+            onOpenChange={setEditing}
+            fallbackUrl={url}
+            fallbackKind={kind}
+          />
+        </>
+      )}
 
       <div className="absolute bottom-0 left-0 right-0 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 p-5 sm:p-6">
         <div className="min-w-0">

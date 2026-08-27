@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { LiveSession, querySessions, formatRecurring, hydrateSession } from "@/lib/live/sessions";
+import { LiveSession, querySessions, formatRoomSchedule, hydrateSession } from "@/lib/live/sessions";
 
 /**
  * Gallery and Reports are session-scoped, so the Live dashboard sends the
@@ -80,7 +80,7 @@ const SessionPickerPage = ({
               >
                 <div className="truncate text-base font-semibold">{s.title}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {formatRecurring(s.schedule_days, s.schedule_time)}
+                  {formatRoomSchedule(s)}
                 </div>
               </Link>
             ))}

@@ -17,6 +17,12 @@ export type BuildingMode = "mathgpl" | "custom";
 export interface HomepageConfig {
   /** Layer behind the building. Null/absent = shipped clouds artwork. */
   background?: HomepageMediaRef | null;
+  /**
+   * The workspace dashboard hero strip (behind the greeting). Its own setting:
+   * changing it never touches the building background, and it has nothing to do
+   * with the account's profile picture. Null/absent = fall back to `background`.
+   */
+  heroBackground?: HomepageMediaRef | null;
   buildingMode?: BuildingMode;
   /** Artwork replacements for the original building, keyed by slot id. */
   slotOverrides?: Record<string, HomepageMediaRef>;

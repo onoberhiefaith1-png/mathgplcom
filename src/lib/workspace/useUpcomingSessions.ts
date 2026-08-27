@@ -30,7 +30,7 @@ export const useUpcomingSessions = () =>
       );
       return (rows ?? [])
         .map(hydrateSession)
-        .map((s) => ({ session: s, next: nextOccurrence(s.schedule_days, s.schedule_time) }))
+        .map((s) => ({ session: s, next: nextOccurrence(s.schedule_days, s.schedule_times)?.at ?? null }))
         .filter((entry): entry is { session: ReturnType<typeof hydrateSession>; next: Date } => Boolean(entry.next))
         .sort((a, b) => a.next.getTime() - b.next.getTime())
         .slice(0, 5)
