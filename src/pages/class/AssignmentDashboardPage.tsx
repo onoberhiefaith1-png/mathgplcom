@@ -8,7 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { loadLessonProgress, type LessonAssessment, type LessonMember } from "@/lib/assessments/lessonProgress";
-import { AssessmentStatusPanel, type StudentProgressRow } from "@/components/dashboards/AssessmentStatusPanel";
+import { AssessmentStatusPanel, type QuestionEntry, type StudentProgressRow } from "@/components/dashboards/AssessmentStatusPanel";
+import { resolveLiveAssessmentId } from "@/lib/assessments/liveJoin";
 import { StudentQuestionsPanel } from "@/components/dashboards/StudentQuestionsPanel";
 import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
 import AssignmentTimerPanel from "@/components/dashboards/AssignmentTimerPanel";
@@ -27,6 +28,8 @@ const AssignmentDashboardPage = () => {
   const [rows, setRows] = useState<StudentProgressRow[]>([]);
   const [firstAssessmentId, setFirstAssessmentId] = useState<string | null>(null);
   const [activeSet, setActiveSet] = useState<Set<string>>(new Set());
+  const [presenceByAssessment, setPresenceByAssessment] = useState<Record<string, string[]>>({});
+  const [questionEntries, setQuestionEntries] = useState<QuestionEntry[]>([]);
 
   const refresh = useCallback(async (
     a: LessonAssessment[] = assessments,
@@ -119,7 +122,11 @@ const AssignmentDashboardPage = () => {
     const recompute = () => {
       const merged = new Set<string>();
       for (const s of perAssessment.values()) for (const u of s) merged.add(u);
-      if (!cancelled) setActiveSet(merged);
+      if (cancelled) return;
+      setActiveSet(merged);
+      setPresenceByAssessment(
+        Object.fromEntries(Array.from(perAssessment.entries()).map(([k, v]) => [k, Array.from(v)])),
+      );
     };
     void ensureRealtimeAuth().then(() => {
       if (cancelled) return;
@@ -217,7 +224,13 @@ const AssignmentDashboardPage = () => {
               memberNames={new Map(members.map((m) => [m.user_id, m.display_name]))}
             />
 
-            <AssessmentStatusPanel rows={rows} onViewStudent={onView} onJoinLive={onJoinLive} />
+            <AssessmentStatusPanel
+              rows={rows}
+              onViewStudent={onView}
+              onJoinLive={onJoinLive}
+              questions={questionEntries}
+              onViewQuestion={onViewQuestion}
+            />
 
             {classId && assessments.length > 0 && (
               <StudentQuestionsPanel
