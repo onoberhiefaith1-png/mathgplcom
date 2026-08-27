@@ -1,6 +1,6 @@
 // Student Assessment Board.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -103,14 +103,26 @@ const AssessmentBoardPage = () => {
     return () => { cancelled = true; };
   }, [assessmentId, classId, navigate]);
 
+  // PRESENCE CARRIES THE OPEN QUESTION. The teacher's live viewer must know
+  // which question the student is on the instant it joins — before the first
+  // board frame — so the question id travels in the presence record and is
+  // re-tracked whenever the student moves to another question.
+  const presenceQuestionRef = useRef<string | null>(null);
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   useEffect(() => {
     if (!shouldTrackPresence || !classId || !assessmentId || !uid) return;
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let tracked = false;
     const track = async () => {
-      if (!channel || tracked) return;
-      await channel.track({ user_id: uid, source: "adventure", at: Date.now() });
+      if (!channel) return;
+      await channel.track({
+        user_id: uid,
+        source: "adventure",
+        questionId: presenceQuestionRef.current,
+        at: Date.now(),
+      });
       tracked = true;
     };
     const untrack = async () => {
@@ -124,6 +136,7 @@ const AssessmentBoardPage = () => {
       if (cancelled) return;
       const topic = assessmentPresenceTopic(classId, assessmentId);
       channel = supabase.channel(topic, { config: { presence: { key: uid } } });
+      presenceChannelRef.current = channel;
       channel.subscribe(async (s) => {
         if (s === "SUBSCRIBED") await track();
       });
@@ -134,6 +147,7 @@ const AssessmentBoardPage = () => {
       cancelled = true;
       window.removeEventListener("pagehide", onHide);
       window.removeEventListener("beforeunload", onHide);
+      presenceChannelRef.current = null;
       if (channel) supabase.removeChannel(channel);
     };
   }, [shouldTrackPresence, classId, assessmentId, uid]);
@@ -146,6 +160,13 @@ const AssessmentBoardPage = () => {
     () => questionParam ?? (assessment?.questions?.[0]?.id ?? null),
     [questionParam, assessment],
   );
+
+  useEffect(() => {
+    presenceQuestionRef.current = questionId;
+    const ch = presenceChannelRef.current;
+    if (!ch || !uid) return;
+    void ch.track({ user_id: uid, source: "adventure", questionId, at: Date.now() });
+  }, [questionId, uid]);
 
   // Keep ?q= in the URL so refresh / back restores the same question board.
   useEffect(() => {

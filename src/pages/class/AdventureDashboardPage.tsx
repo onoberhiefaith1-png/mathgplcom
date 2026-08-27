@@ -598,7 +598,7 @@ const AdventureDashboardPage = () => {
   const onViewStudent = (studentId: string) => {
     const first = boards[0]?.assessmentId;
     if (!first) return;
-    navigate(`${classRoot()}/${classId}/assessments/${first}/student/${studentId}?returnTo=${encodeURIComponent(`${classRoot()}/${classId}/adventures/${gameId}/dashboard`)}`);
+    navigate(`${classRoot()}/${classId}/assessments/${first}/student/${studentId}?mode=work&returnTo=${encodeURIComponent(`${classRoot()}/${classId}/adventures/${gameId}/dashboard`)}`);
   };
 
   const onJoinLive = (studentId: string) => {

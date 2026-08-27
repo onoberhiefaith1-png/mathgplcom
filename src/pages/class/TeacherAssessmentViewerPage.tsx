@@ -9,7 +9,7 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, Loader2, Eye, Pencil, Brain, Radio } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, Pencil, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
@@ -43,6 +43,7 @@ const TeacherAssessmentViewerPage = () => {
   );
   const modeChosenRef = useRef<boolean>(!!explicitQuestionId || requestedMode === "live" || requestedMode === "work");
   const [liveQuestionId, setLiveQuestionId] = useState<string | null>(null);
+  const [presenceQuestionId, setPresenceQuestionId] = useState<string | null>(null);
   const [lastFrameAt, setLastFrameAt] = useState<number>(0);
   const [pickedQuestionId, setPickedQuestionId] = useState<string | null>(null);
   const [persistedQuestionId, setPersistedQuestionId] = useState<string | null>(null);
@@ -59,10 +60,12 @@ const TeacherAssessmentViewerPage = () => {
     mode,
     explicitQuestionId,
     liveQuestionId,
+    presenceQuestionId,
     pickedQuestionId,
     lastPersistedQuestionId: persistedQuestionId,
     firstQuestionId: questions[0]?.id ?? null,
   });
+
 
   // ── Instant follow signal. The student's Smartboard broadcasts a snapshot on
   // every board change (~120ms) on a question-agnostic channel, and every
@@ -89,18 +92,27 @@ const TeacherAssessmentViewerPage = () => {
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [assessmentId, studentId]);
 
-  // ── Presence — is the student on the board right now? Drives the indicator
-  // and the default mode on first load. ────────────────────────────────────
+  // ── Presence — is the student on the board right now, and which question is
+  // open? The student tracks `questionId` in their presence record, so the
+  // teacher knows the student's question the instant they join, before the
+  // first board frame arrives. ─────────────────────────────────────────────
   useEffect(() => {
     if (!classId || !assessmentId || !studentId) return;
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
     const read = () => {
       if (!ch) return;
-      const state = ch.presenceState() as Record<string, unknown[]>;
-      const online = Object.keys(state).includes(studentId);
-      if (!cancelled) setStudentOnline(online);
-      if (!cancelled && online && !modeChosenRef.current) {
+      const state = ch.presenceState() as Record<string, Array<Record<string, unknown>>>;
+      const metas = state[studentId] ?? [];
+      const online = metas.length > 0;
+      if (cancelled) return;
+      setStudentOnline(online);
+      const qid = metas
+        .map((m) => (typeof m["questionId"] === "string" ? (m["questionId"] as string) : null))
+        .filter(Boolean)
+        .pop() ?? null;
+      if (qid) setPresenceQuestionId((prev) => (prev === qid ? prev : qid));
+      if (online && !modeChosenRef.current) {
         modeChosenRef.current = true;
         setMode("live");
       }
@@ -116,8 +128,10 @@ const TeacherAssessmentViewerPage = () => {
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, assessmentId, studentId]);
 
+
+
   // Broadcast frames also prove the student is live even when presence lags.
-  const liveFeedFresh = studentOnline || Date.now() - lastFrameAt < 8000;
+  void studentOnline; void lastFrameAt;
 
   // ── Slow fallback: the last question the student actually persisted. Only
   // used when no live frame is available (student offline / session closed).
@@ -136,7 +150,7 @@ const TeacherAssessmentViewerPage = () => {
 
   useEffect(() => { void loadPersisted(); }, [loadPersisted]);
   usePolling("assessment-viewer-persisted-question", () => {
-    if (liveQuestionId) return;
+    if (mode === "live" || liveQuestionId) return;
     return loadPersisted();
   }, 8000, { immediate: false });
 
@@ -177,6 +191,26 @@ const TeacherAssessmentViewerPage = () => {
       </div>
     );
   }
+
+  // LIVE NEVER GUESSES. Until the student's own board tells us which question
+  // they are on, nothing is shown — a stale question would be worse.
+  if (mode === "live" && !questionId) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-6 text-center text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <div className="text-sm">Waiting for {studentName || "the student"}'s board…</div>
+        <div className="text-xs">The view opens on whichever question they are working on.</div>
+        <button
+          type="button"
+          onClick={() => navigate(returnTo)}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
+        </button>
+      </div>
+    );
+  }
+
 
   return (
     <>
@@ -224,50 +258,27 @@ const TeacherAssessmentViewerPage = () => {
       </div>
 
 
-      {/* Mode switch + question strip (review mode only). */}
-      <div className="pointer-events-none fixed left-1/2 top-4 z-[80] -translate-x-1/2">
-        <div className="pointer-events-auto flex max-w-[92vw] flex-col items-center gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-border bg-background/90 p-1 shadow-lg backdrop-blur">
-            <button
-              type="button"
-              onClick={() => { modeChosenRef.current = true; setMode("live"); }}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${mode === "live" ? "bg-primary/10 text-primary" : "hover:bg-accent"}`}
-              title="Follow the student's board in real time"
-            >
-              <Radio className={`h-3.5 w-3.5 ${mode === "live" && liveFeedFresh ? "animate-pulse text-emerald-500" : ""}`} />
-              Join Student Live
-            </button>
-            <button
-              type="button"
-              onClick={() => { modeChosenRef.current = true; setPickedQuestionId((p) => p ?? questionId); setMode("work"); }}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${mode === "work" ? "bg-primary/10 text-primary" : "hover:bg-accent"}`}
-              title="Read saved work, question by question"
-            >
-              <Eye className="h-3.5 w-3.5" /> View Student Work
-            </button>
-            <span className="ml-1 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] text-muted-foreground">
-              <span className={`h-2 w-2 rounded-full ${liveFeedFresh ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-              {liveFeedFresh ? "On the board" : "Offline"}
-            </span>
+      {/* Question strip — review mode only. The mode itself is chosen on the
+          dashboard (Join Live / View Student Work), so the board carries no
+          mode switch and no online indicator. */}
+      {mode === "work" && questions.length > 1 && (
+        <div className="pointer-events-none fixed left-1/2 top-4 z-[80] -translate-x-1/2">
+          <div className="pointer-events-auto flex max-w-[92vw] flex-wrap items-center justify-center gap-1 rounded-2xl border border-border bg-background/90 px-2 py-1.5 shadow-lg backdrop-blur">
+            {questions.map((q, i) => (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => setPickedQuestionId(q.id)}
+                className={`rounded-md px-2 py-1 text-xs tabular-nums ${q.id === questionId ? "bg-primary/10 font-semibold text-primary" : "hover:bg-accent"}`}
+                title={`Question ${i + 1}`}
+              >
+                Q{i + 1}
+              </button>
+            ))}
           </div>
-
-          {mode === "work" && questions.length > 1 && (
-            <div className="flex max-w-full flex-wrap items-center justify-center gap-1 rounded-2xl border border-border bg-background/90 px-2 py-1.5 shadow-lg backdrop-blur">
-              {questions.map((q, i) => (
-                <button
-                  key={q.id}
-                  type="button"
-                  onClick={() => setPickedQuestionId(q.id)}
-                  className={`rounded-md px-2 py-1 text-xs tabular-nums ${q.id === questionId ? "bg-primary/10 font-semibold text-primary" : "hover:bg-accent"}`}
-                  title={`Question ${i + 1}`}
-                >
-                  Q{i + 1}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
-      </div>
+      )}
+
 
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">
         <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-2 shadow-lg backdrop-blur">

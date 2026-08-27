@@ -159,7 +159,7 @@ const AssignmentDashboardPage = () => {
   const onView = (studentId: string) => {
     const aid = firstAssessmentId;
     if (!aid) return;
-    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?returnTo=${encodeURIComponent(`${classRoot()}/${classId}/assignments/${notebookId}/dashboard`)}`);
+    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=work&returnTo=${encodeURIComponent(`${classRoot()}/${classId}/assignments/${notebookId}/dashboard`)}`);
   };
 
   const onJoinLive = (studentId: string) => {
