@@ -207,7 +207,10 @@ const SmartCardChallengePage = () => {
       <PresentationView
         key={`${payload.card.slug}:${identity.participantKey}`}
         role="student"
+        backTo={`/c/${payload.card.slug}${preview ? "?preview=1" : ""}`}
+        backLabel="Back to Smart Card"
         source={boardSource}
+
         assessmentId={payload.assessment?.id ?? null}
         classId={null}
         workspace="assignment"
