@@ -340,6 +340,7 @@ const PresentationView = ({
   smartCardSlug = null,
   participantKey = null,
   testMode = false,
+  timerEnabled = false,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -361,6 +362,8 @@ const PresentationView = ({
   gameId?: string | null;
   /** Force a read-only mirror (teacher "View Only" mode). */
   viewOnly?: boolean;
+  /** Teacher enabled the Assignment timer for this assessment. */
+  timerEnabled?: boolean;
   /** Public Smart Card challenge — grading runs without an account. */
   smartCardSlug?: string | null;
   participantKey?: string | null;
