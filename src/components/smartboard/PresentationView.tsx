@@ -3646,6 +3646,7 @@ const PresentationView = ({
         diagnosis?: { code: string; label: string; detail: string };
         marks?: number;
         studentAscii?: string;
+        progress?: { solvedLines: Record<string, number>; score: number };
       }) => void)
     | null
   >(null);
@@ -3855,7 +3856,7 @@ const PresentationView = ({
       return;
     }
     const resolved = resolveGradableLine(k);
-    if (!resolved || !current || !assessmentId) return;
+    if (!resolved || !current || !assessmentId) return false;
     const { target, expectedFrags, rowNum } = resolved;
     // Everything created between Start Point and End Point belongs to this
     // line; anything typed after the End Point does not.
@@ -3875,7 +3876,7 @@ const PresentationView = ({
           marks: 0,
         });
       }
-      return;
+      return false;
     }
     // AWARDED MARKS ARE PERMANENT — once a line has earned its mark it is
     // never re-evaluated, in either mode. Editing it afterwards cannot take
@@ -3891,7 +3892,7 @@ const PresentationView = ({
         if (mode === "manual") {
           toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slotKey]} marks.` });
         }
-        return;
+        return true;
       }
     }
 
@@ -3913,7 +3914,7 @@ const PresentationView = ({
       });
       if (error) {
         if (mode === "manual") throw error;
-        return;
+        return false;
       }
       const res = data as {
         correct: boolean; verdict?: string; marks?: number;
@@ -3930,6 +3931,9 @@ const PresentationView = ({
         diagnosis: res?.diagnosis,
         marks: Number(res?.marks ?? 0),
         studentAscii: ascii,
+        progress: res
+          ? { solvedLines: res.solvedLines ?? {}, score: Number(res.score ?? 0) }
+          : undefined,
       });
 
       if (res?.correct) {
@@ -3947,7 +3951,7 @@ const PresentationView = ({
               marks: 0,
             });
           }
-          return;
+          return true;
         }
         if (testMode) {
           // Nothing was persisted, so the sitting accumulates its own total.
@@ -3961,7 +3965,7 @@ const PresentationView = ({
         setWrongLine((w) => (w === rowNum ? null : w));
       }
 
-      if (mode !== "manual") return;
+      if (mode !== "manual") return true;
 
       if (res?.correct) {
         // Advance to the next line when the student checked the current one.
@@ -4003,10 +4007,12 @@ const PresentationView = ({
           marks: 0,
         });
       }
+      return true;
     } catch (e: any) {
       if (mode === "manual") {
         toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
       }
+      return false;
     } finally {
       if (mode === "manual") setAssessChecking(false);
     }
@@ -4014,7 +4020,7 @@ const PresentationView = ({
     resolveGradableLine, current, assessmentId, solvedSlots, activeLineIdx,
     tableGroups, gradeTableTrackThroughCells,
 
-    guidedLines.length, activeLayout, toast,
+    guidedLines.length, activeLayout, toast, testMode, smartCardSlug, participantKey,
   ]);
 
   // CHECK IS AN END POINT. Pressing Check closes the active session exactly
@@ -4045,6 +4051,7 @@ const PresentationView = ({
   // the SAME expression being sent to the engine twice while the student keeps
   // the line open, without ever blocking a changed expression.
   const autoGradedKeyRef = useRef<string>("");
+  const autoGradingKeyRef = useRef<string>("");
   const silentAutoCheckLine = useCallback(
     async (k: number, frozenAscii?: string) => {
       const ascii = typeof frozenAscii === "string"
@@ -4052,8 +4059,20 @@ const PresentationView = ({
         : (resolveGradableLineRef.current(k)?.ascii ?? "");
       const key = `${current?.id ?? ""}:${k}:${ascii}`;
       if (ascii.trim() && autoGradedKeyRef.current === key) return;
-      if (ascii.trim()) autoGradedKeyRef.current = key;
-      await gradeLineThroughEngine(k, "auto", frozenAscii);
+      if (!ascii.trim() || autoGradingKeyRef.current === key) return;
+      autoGradingKeyRef.current = key;
+      let completed = await gradeLineThroughEngine(k, "auto", frozenAscii);
+      // One bounded retry repairs a transient function/network interruption.
+      // The key is committed only after an authoritative response arrives.
+      if (!completed) {
+        await new Promise((resolve) => window.setTimeout(resolve, 800));
+        const latest = resolveGradableLineRef.current(k)?.ascii ?? "";
+        if (latest === ascii && current?.id) {
+          completed = await gradeLineThroughEngine(k, "auto", frozenAscii);
+        }
+      }
+      if (completed) autoGradedKeyRef.current = key;
+      if (autoGradingKeyRef.current === key) autoGradingKeyRef.current = "";
     },
     [gradeLineThroughEngine, current?.id],
   );
@@ -4421,7 +4440,7 @@ const PresentationView = ({
   // Broadcast the outcome of a real (persisting) check so the reasoning panel
   // can show what the student actually scored, and from which path.
   const broadcastCheckResult = useCallback(
-    (info: { questionId: string; lineId: string; mode: "manual" | "auto"; correct: boolean; verdict?: string; diagnosis?: { code: string; label: string; detail: string }; marks?: number; studentAscii?: string }) => {
+    (info: { questionId: string; lineId: string; mode: "manual" | "auto"; correct: boolean; verdict?: string; diagnosis?: { code: string; label: string; detail: string }; marks?: number; studentAscii?: string; progress?: { solvedLines: Record<string, number>; score: number } }) => {
       const payload = { ...info, ts: Date.now() };
       publishLocalLive(localLiveChan, "check", payload);
       const ch = liveBroadcastChanRef.current;
@@ -4433,71 +4452,9 @@ const PresentationView = ({
 
   broadcastCheckResultRef.current = broadcastCheckResult;
 
-  // ── LIVE REASONING EVALUATION ───────────────────────────────────────────
-  // The Reasoning panel no longer grades anything itself (it used to run its
-  // own dry run, which drifted away from the student's session). The student's
-  // engine runs one debounced, NON-PERSISTING evaluation of the active line
-  // and broadcasts it, so student, teacher, Check and silent marking can only
-  // ever see the same verdict.
-  const liveEvalKeyRef = useRef<string>("");
-  useEffect(() => {
-    if (!assessmentMode || role !== "student" || !liveFeedActive) return;
-    if (!assessmentId || !current) return;
-    const lineId = guidedLines[activeLineIdx]?.lineId ?? null;
-    if (!lineId) return;
-    const resolved = resolveGradableLineRef.current(activeLineIdx);
-    const ascii = resolved?.ascii ?? "";
-    if (!ascii.trim()) return;
-    const slot = `${current.id}:${lineId}`;
-    if (slot in solvedSlots) return; // permanent — never re-evaluated
-    const key = `${slot}|${ascii}`;
-    if (liveEvalKeyRef.current === key) return;
-
-    const id = window.setTimeout(() => {
-      liveEvalKeyRef.current = key;
-      void (async () => {
-        try {
-          const { data, error } = await supabase.functions.invoke("grade-line", {
-            body: {
-              assessmentId,
-              questionId: current.id,
-              lineId,
-              studentAscii: ascii,
-              mode: "manual",
-              allowedFloatingTokens: resolved?.expectedFrags ?? [],
-              persist: false,
-              ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
-            },
-          });
-          if (error) return;
-          const res = data as {
-            correct?: boolean; verdict?: string; marks?: number;
-            diagnosis?: { code: string; label: string; detail: string };
-          } | null;
-          const payload = {
-            ts: Date.now(),
-            questionId: current.id,
-            lineId,
-            mode: "live" as const,
-            correct: !!res?.correct,
-            verdict: res?.verdict,
-            diagnosis: res?.diagnosis,
-            marks: Number(res?.marks ?? 0),
-            studentAscii: ascii,
-          };
-          publishLocalLive(localLiveChan, "check", payload);
-          const ch = liveBroadcastChanRef.current;
-          if (!ch) return;
-          void ch.send({ type: "broadcast", event: "check", payload });
-        } catch { /* live debugger only — never disturbs the student */ }
-      })();
-    }, 500);
-    return () => window.clearTimeout(id);
-  }, [
-    assessmentMode, role, liveFeedActive, localLiveChan, assessmentId, current, guidedLines,
-    activeLineIdx, freeLines, solvedSlots,
-
-  ]);
+  // The persisting student auto-check above is also the live evaluation feed.
+  // There is deliberately no second observation-only grader here: the teacher
+  // sees the exact verdict and progress returned by the student's real check.
 
 
 

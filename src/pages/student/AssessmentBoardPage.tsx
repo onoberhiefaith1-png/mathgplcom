@@ -33,8 +33,6 @@ const AssessmentBoardPage = () => {
   const questionParam = searchParams.get("q");
   const openedFrom = searchParams.get("source");
   const gameId = searchParams.get("game");
-  const shouldTrackPresence =
-    openedFrom === "assignment" || openedFrom === "adventure" || !!gameId;
   const [loading, setLoading] = useState(true);
   const [assessment, setAssessment] = useState<Meta | null>(null);
   const [status, setStatus] = useState<string>("in_progress");
@@ -111,7 +109,7 @@ const AssessmentBoardPage = () => {
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
-    if (!shouldTrackPresence || !classId || !assessmentId || !uid) return;
+    if (!classId || !assessmentId || !uid) return;
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let tracked = false;
@@ -119,7 +117,7 @@ const AssessmentBoardPage = () => {
       if (!channel) return;
       await channel.track({
         user_id: uid,
-        source: "adventure",
+        source: openedFrom === "adventure" || !!gameId ? "adventure" : "assignment",
         questionId: presenceQuestionRef.current,
         at: Date.now(),
       });
@@ -150,7 +148,7 @@ const AssessmentBoardPage = () => {
       presenceChannelRef.current = null;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [shouldTrackPresence, classId, assessmentId, uid]);
+  }, [classId, assessmentId, uid, openedFrom, gameId]);
 
 
   // EVERY question gets its own Smartboard. When the URL omits ?q= (the
@@ -165,8 +163,13 @@ const AssessmentBoardPage = () => {
     presenceQuestionRef.current = questionId;
     const ch = presenceChannelRef.current;
     if (!ch || !uid) return;
-    void ch.track({ user_id: uid, source: "adventure", questionId, at: Date.now() });
-  }, [questionId, uid]);
+    void ch.track({
+      user_id: uid,
+      source: openedFrom === "adventure" || !!gameId ? "adventure" : "assignment",
+      questionId,
+      at: Date.now(),
+    });
+  }, [questionId, uid, openedFrom, gameId]);
 
   // Keep ?q= in the URL so refresh / back restores the same question board.
   useEffect(() => {
