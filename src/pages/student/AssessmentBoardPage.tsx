@@ -6,7 +6,11 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PresentationView from "@/components/smartboard/PresentationView";
+import ThreeViewFrame from "@/components/smartboard/ThreeViewFrame";
+import type { LineContext } from "@/components/smartboard/QuestionVideoPane";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
+import { loadQuestionVideo } from "@/lib/courses/questionVideoStore";
+import { videoLinesFromQuestion, videoReady, type QuestionVideoConfig } from "@/lib/courses/questionVideo";
 
 import {
   buildAssessmentBoardSource,
@@ -187,6 +191,29 @@ const AssessmentBoardPage = () => {
     return buildAssessmentBoardSource(scoped.questions?.length ? scoped : assessment);
   }, [assessment, questionId]);
 
+  // ── Interactive teaching video (Exercise Card questions) ─────────────────
+  const blockId = searchParams.get("block");
+  const [video, setVideo] = useState<QuestionVideoConfig | null>(null);
+  const [lineCtx, setLineCtx] = useState<LineContext>({
+    questionId: null, lineId: null, index: 0, total: 0, completed: false,
+  });
+
+  useEffect(() => {
+    if (!blockId || !questionId) { setVideo(null); return; }
+    let cancelled = false;
+    void loadQuestionVideo(blockId, questionId)
+      .then((cfg) => { if (!cancelled) setVideo(cfg); })
+      .catch(() => { if (!cancelled) setVideo(null); });
+    return () => { cancelled = true; };
+  }, [blockId, questionId]);
+
+  const videoLines = useMemo(() => {
+    const q = (assessment?.questions ?? []).find((x) => x.id === questionId);
+    return videoLinesFromQuestion(q?.lines as { lineId?: string | null; noteOnly?: boolean }[] | undefined);
+  }, [assessment, questionId]);
+
+
+
 
 
   const now = Date.now();
@@ -267,22 +294,32 @@ const AssessmentBoardPage = () => {
     questionId,
   });
 
+  const board = (
+    <PresentationView
+      key={scopeKey}
+      role="student"
+      source={boardSource}
+      notebookId={(assessment as unknown as { notebook_id?: string | null })?.notebook_id ?? null}
+      assessmentId={assessmentId ?? null}
+      classId={classId ?? null}
+      workspace={workspace}
+      gameId={gameId}
+      boardStudentId={uid}
+      boardQuestionId={questionId}
+      viewOnly={readOnly}
+      timerEnabled={timerSettings.timer_enabled}
+      onLineContext={videoReady(video) ? setLineCtx : undefined}
+    />
+  );
+
   return (
     <>
-      <PresentationView
-        key={scopeKey}
-        role="student"
-        source={boardSource}
-        notebookId={(assessment as unknown as { notebook_id?: string | null })?.notebook_id ?? null}
-        assessmentId={assessmentId ?? null}
-        classId={classId ?? null}
-        workspace={workspace}
-        gameId={gameId}
-        boardStudentId={uid}
-        boardQuestionId={questionId}
-        viewOnly={readOnly}
-        timerEnabled={timerSettings.timer_enabled}
-      />
+      {videoReady(video) && video ? (
+        <ThreeViewFrame config={video} lines={videoLines} lineContext={lineCtx} board={board} />
+      ) : (
+        board
+      )}
+
 
 
       {!isAdventure && status === "completed" && !isPastDue && (

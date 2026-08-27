@@ -81,7 +81,7 @@ const AssignmentDashboardPage = () => {
         display_name: nameByUid.get(uid) ?? "Student",
       }));
       const assList = ((ass ?? []) as any[])
-        .filter((x) => x.kind !== "adventure")
+        .filter((x) => x.kind !== "adventure" && x.kind !== "course_exercise")
         .map((x) => ({ id: x.id, total_marks: Number(x.total_marks ?? 0) }));
       setMembers(memList);
       setStudentCount(memList.length);

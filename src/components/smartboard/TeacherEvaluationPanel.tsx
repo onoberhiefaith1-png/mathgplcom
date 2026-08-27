@@ -611,7 +611,7 @@ const TeacherReasoningPanel = ({
       <div className="flex-1 min-h-0 space-y-3 overflow-y-auto p-3">
         {!feed ? (
           <div className="text-xs text-muted-foreground">
-            Waiting for the student's board… the current line appears here as soon as they open it.
+            Connected — this student has no written line yet. Their work appears here the moment they write.
           </div>
         ) : (
           <>
