@@ -166,10 +166,12 @@ export function parseDocumentToSections(doc: any): ParsedSection[] {
 
 interface ExistingSub {
   id: string;
+  section_id: string;
   order_index: number;
   problem: string;
   doc_key: string | null;
 }
+
 
 interface ExistingSection {
   id: string;
