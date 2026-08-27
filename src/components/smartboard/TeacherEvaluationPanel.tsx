@@ -382,6 +382,23 @@ const TeacherReasoningPanel = ({
   );
 
 
+  // ONE QUESTION AT A TIME. When the board switches question (the student
+  // moved, or the teacher picked another), every carried-over verdict and
+  // snapshot is dropped so Q3's last line can never be shown under Q1.
+  useEffect(() => {
+    setLive(null);
+    setLastCheck(null);
+    setFallback(null);
+    setFallbackAt(null);
+    liveAtRef.current = 0;
+  }, [scopeQuestionId]);
+
+  /** A frame belongs to this panel only when it is about the scoped question. */
+  const inScope = useCallback(
+    (qid?: string | null) => !scopeQuestionId || !qid || qid === scopeQuestionId,
+    [scopeQuestionId],
+  );
+
   // ── Live board broadcast from the student's Smartboard. ──────────────────
   useEffect(() => {
     let cancelled = false;
@@ -392,20 +409,20 @@ const TeacherReasoningPanel = ({
         .channel(`assessment-live-${assessmentId}-${studentId}`, { config: { broadcast: { self: false } } })
         .on("broadcast", { event: "board" }, (msg) => {
           const p = (msg as { payload?: LivePayload }).payload;
-          if (!p) return;
+          if (!p || !inScope(p.questionId)) return;
           liveAtRef.current = Date.now();
           setLive(p);
         })
         .on("broadcast", { event: "check" }, (msg) => {
           const p = (msg as { payload?: CheckPayload }).payload;
-          if (!p) return;
+          if (!p || !inScope(p.questionId)) return;
           setLastCheck(p);
           void refreshProgress();
         })
         .subscribe();
     });
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [assessmentId, studentId, refreshProgress]);
+  }, [assessmentId, studentId, refreshProgress, inScope]);
 
   // Same-page feed (test sitting): identical payloads, delivered in-process.
   useEffect(() => {
@@ -413,18 +430,18 @@ const TeacherReasoningPanel = ({
     const chan = localLiveChannel(assessmentId, studentId);
     const offBoard = subscribeLocalLive(chan, "board", (raw) => {
       const p = raw as LivePayload | null;
-      if (!p) return;
+      if (!p || !inScope(p.questionId)) return;
       liveAtRef.current = Date.now();
       setLive(p);
     });
     const offCheck = subscribeLocalLive(chan, "check", (raw) => {
       const p = raw as CheckPayload | null;
-      if (!p) return;
+      if (!p || !inScope(p.questionId)) return;
       setLastCheck(p);
       void refreshProgress();
     });
     return () => { offBoard(); offCheck(); };
-  }, [localLive, assessmentId, studentId, refreshProgress]);
+  }, [localLive, assessmentId, studentId, refreshProgress, inScope]);
 
   const isLive = Date.now() - liveAtRef.current < 6000 && !!live;
   const feed = isLive ? live : (live ?? fallback);
