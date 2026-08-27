@@ -119,12 +119,19 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
         .rpc("lookup_session_by_code", { code: parsed })
         .maybeSingle();
       if (error || !session) {
-        toast({ title: "Session not found", description: "Check the code and try again.", variant: "destructive" });
+        toast({
+          title: error ? "This room is not open yet" : "Room not found",
+          description: error
+            ? "The teacher has not opened this teaching room. Try the link again shortly."
+            : "Check the code and try again.",
+          variant: "destructive",
+        });
         return;
       }
       const found = session as { id: string; class_id: string };
 
-      // Audience member — straight into the session, no account, no approval.
+      // Audience member — straight into the session. No account, no class
+      // membership, no join request: the link itself is the credential.
       if (!userId) {
         navigate(`/live/s/${found.id}`);
         return;

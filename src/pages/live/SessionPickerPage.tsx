@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { LiveSession, SESSION_COLUMNS, formatStartsAt, hydrateSession } from "@/lib/live/sessions";
+import { LiveSession, querySessions, formatRecurring, hydrateSession } from "@/lib/live/sessions";
 
 /**
  * Gallery and Reports are session-scoped, so the Live dashboard sends the
@@ -30,13 +30,16 @@ const SessionPickerPage = ({
         navigate(`/auth?redirect=/live/${target === "report" ? "reports" : "gallery"}`);
         return;
       }
-      const { data } = await supabase
-        .from("sessions")
-        .select(SESSION_COLUMNS)
-        .eq("owner_id", userData.user.id)
-        .order("starts_at", { ascending: false, nullsFirst: false });
+      const data = await querySessions<Record<string, unknown>[]>((cols) =>
+        supabase
+          .from("sessions")
+          .select(cols)
+          .eq("owner_id", userData.user!.id)
+          .order("created_at", { ascending: false }) as never,
+      );
       if (cancelled) return;
-      setSessions(((data ?? []) as Record<string, unknown>[]).map(hydrateSession));
+      setSessions((data ?? []).map(hydrateSession));
+
       setLoading(false);
     })();
     return () => {
@@ -77,7 +80,7 @@ const SessionPickerPage = ({
               >
                 <div className="truncate text-base font-semibold">{s.title}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {formatStartsAt(s.starts_at, s.time_zone)}
+                  {formatRecurring(s.schedule_days, s.schedule_time)}
                 </div>
               </Link>
             ))}

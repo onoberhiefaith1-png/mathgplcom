@@ -8,25 +8,30 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LiveSession,
   deleteSession,
-  formatCountdownLong,
-  formatStartsAt,
-  scheduleLabel,
-  scheduleStateOf,
-  scheduleTone,
+  formatNextLesson,
+  formatRecurring,
+  roomLabel,
+  roomStateOf,
+  roomTone,
   hydrateSession,
-  SESSION_COLUMNS,
+  querySessions,
   fetchSessionCodes,
 } from "@/lib/live/sessions";
 
-import { useNowTick } from "@/lib/live/useCountdown";
 import JoinSessionPanel from "@/components/live/JoinSessionPanel";
 
+/**
+ * A teacher's Live rooms.
+ *
+ * Every room is permanent: it is listed until the teacher deletes it. The
+ * recurring schedule is shown as information, and only the teacher's own
+ * Start teaching switch makes a room Live.
+ */
 const SessionsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const now = useNowTick();
 
   const load = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -34,12 +39,14 @@ const SessionsPage = () => {
       navigate("/auth?redirect=/live/sessions");
       return;
     }
-    const { data } = await supabase
-      .from("sessions")
-      .select(SESSION_COLUMNS)
-      .eq("owner_id", userData.user.id)
-      .order("starts_at", { ascending: true, nullsFirst: false });
-    const rows = ((data ?? []) as Record<string, unknown>[]).map(hydrateSession);
+    const data = await querySessions<Record<string, unknown>[]>((cols) =>
+      supabase
+        .from("sessions")
+        .select(cols)
+        .eq("owner_id", userData.user!.id)
+        .order("created_at", { ascending: false }) as never,
+    );
+    const rows = (data ?? []).map(hydrateSession);
     const codes = await fetchSessionCodes(rows.map((r) => r.id));
     setSessions(rows.map((r) => ({ ...r, session_code: codes[r.id] ?? "" })));
     setLoading(false);
@@ -58,19 +65,18 @@ const SessionsPage = () => {
     load();
   };
 
-  const live = sessions.filter((s) => ["live", "starting-soon"].includes(scheduleStateOf(s, now)));
-  const upcoming = sessions.filter((s) => ["scheduled", "unscheduled"].includes(scheduleStateOf(s, now)));
-  const past = sessions.filter((s) => scheduleStateOf(s, now) === "ended");
+  const live = sessions.filter((s) => s.is_live);
+  const rooms = sessions.filter((s) => !s.is_live);
 
   const Card = ({ s }: { s: LiveSession }) => {
-    const state = scheduleStateOf(s, now);
-    const startMs = s.starts_at ? new Date(s.starts_at).getTime() : NaN;
+    const state = roomStateOf(s);
+    const next = formatNextLesson(s);
     return (
       <div className="group relative rounded-xl border border-border bg-card/40 p-4 backdrop-blur transition hover:border-primary/40">
         <Link to={`/live/sessions/${s.id}`} className="block pr-8">
           <div className="flex items-center gap-2">
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${scheduleTone[state]}`}>
-              {scheduleLabel[state]}
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${roomTone[state]}`}>
+              {roomLabel[state]}
             </span>
             {s.visibility === "public" && (
               <span className="rounded-full border border-border px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -79,9 +85,11 @@ const SessionsPage = () => {
             )}
           </div>
           <div className="mt-2 truncate text-base font-semibold">{s.title}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{formatStartsAt(s.starts_at, s.time_zone)}</div>
-          {state === "scheduled" && !Number.isNaN(startMs) && (
-            <div className="mt-2 text-xs text-cyan-200">Starts in {formatCountdownLong(startMs - now)}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {formatRecurring(s.schedule_days, s.schedule_time)}
+          </div>
+          {!s.is_live && next && (
+            <div className="mt-2 text-xs text-cyan-200">Next lesson: {next}</div>
           )}
           <div className="mt-2 text-xs text-muted-foreground">
             Code: <code className="rounded bg-background px-1.5 py-0.5">{s.session_code}</code>
@@ -134,7 +142,7 @@ const SessionsPage = () => {
               <PlusCircle className="h-10 w-10 text-primary" />
               <div className="text-xl font-semibold">Create Session</div>
               <p className="max-w-xs text-sm text-muted-foreground">
-                Schedule an online lesson, attach a lesson note and share the session code.
+                Open a permanent teaching room, set the day and time you normally teach, and share the code.
               </p>
             </Link>
           </section>
@@ -150,13 +158,12 @@ const SessionsPage = () => {
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
             <Radio className="h-6 w-6" />
-            No sessions yet. Create your first online lesson.
+            No sessions yet. Open your first teaching room.
           </div>
         ) : (
           <div className="space-y-8">
-            <Group title="Live & Starting Soon" items={live} />
-            <Group title="Upcoming" items={upcoming} />
-            <Group title="Past Sessions" items={past} />
+            <Group title="Live Now" items={live} />
+            <Group title="My Teaching Rooms" items={rooms} />
           </div>
         )}
       </main>
