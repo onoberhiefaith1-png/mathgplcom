@@ -347,6 +347,7 @@ const PresentationView = ({
 
   testMode = false,
   timerEnabled = false,
+  onLineContext,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -381,6 +382,23 @@ const PresentationView = ({
   /** Teacher's temporary Floating Number test: same board, same engine, but
    *  nothing is recorded — marks live only for this sitting. */
   testMode?: boolean;
+  /** Read-only reporter for the interactive teaching-video layer: the current
+   *  mathematical line and whether it is already awarded. Never writes back. */
+  onLineContext?: (ctx: {
+    questionId: string | null;
+    lineId: string | null;
+    index: number;
+    total: number;
+    completed: boolean;
+    /** The line whose mark was awarded most recently (a marking event). */
+    lastAwardedLineId?: string | null;
+    /** False until the student really activates a line (#, chip, Present,
+     *  Next, Previous, table cell) — the Introduction owns the board until then. */
+    lineEngaged?: boolean;
+    /** Increments when Reset begins a fresh video sequence. */
+    playbackResetGeneration?: number;
+  }) => void;
+
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
   const notebookId = notebookIdProp ?? params.notebookId;
@@ -924,6 +942,10 @@ const PresentationView = ({
   const lastAssistantActivityRef = useRef<number>(0);
   const pingAssistant = useCallback(() => { lastAssistantActivityRef.current = Date.now(); }, []);
   const toggleAssistant = useCallback((k: Assistant) => {
+    // Opening Floating Numbers is the student's explicit command to begin the
+    // current mathematical line. This must fire even when the cursor already
+    // rests on Line 1 and therefore has no index change to report.
+    if (k === "numbers") setLineEngaged(true);
     setActiveAssistant((prev) => (prev === k ? null : k));
     lastAssistantActivityRef.current = Date.now();
   }, []);
@@ -2512,12 +2534,24 @@ const PresentationView = ({
   // Presenter Preview and the Check engine could each believe a different
   // line was active. They are now ONE state. The old setter names are kept
   // as aliases so every existing call site funnels into the same value.
-  const [activeLineIdx, setActiveLineIdx] = useState<number>(0);
+  const [activeLineIdx, setActiveLineIdxState] = useState<number>(0);
+  // ENGAGEMENT — false until the student really activates a line (#, a
+  // floating chip, Present, Next, Previous, a table cell). The teaching
+  // video reads it so the Introduction owns the opening instead of being
+  // cut off by the default cursor sitting on Line 1.
+  const [lineEngaged, setLineEngaged] = useState(false);
+  const [playbackResetGeneration, setPlaybackResetGeneration] = useState(0);
+  /** Every real activation funnels here, so engagement is never guessed. */
+  const setActiveLineIdx = useCallback<React.Dispatch<React.SetStateAction<number>>>((v) => {
+    setLineEngaged(true);
+    setActiveLineIdxState(v);
+  }, []);
   const floatingLineIdx = activeLineIdx;
   const setFloatingLineIdx = setActiveLineIdx;
   const setManualFloatingLineIdx = useCallback((v: number | null) => {
     if (typeof v === "number") setActiveLineIdx(v);
-  }, []);
+  }, [setActiveLineIdx]);
+
 
   // ── REASONING ENGINE ────────────────────────────────────────────────────
   // The one brain: it owns the active line, binds it to the board row the
@@ -2613,10 +2647,12 @@ const PresentationView = ({
     // Reasoning is a live monitoring tool only — a new question/reservoir
     // starts from a completely empty engine.
     reasoningRef.current.reset();
-    setActiveLineIdx(restoredIdx);
-    setFloatingLineIdx(restoredIdx);
-    setManualFloatingLineIdx(null);
+    // Programmatic restore — NOT a student activation, so engagement stays off
+    // and an Introduction may still open the question.
+    setActiveLineIdxState(restoredIdx);
+    setLineEngaged(false);
     setNotebookRevealIdx(null);
+
     setNotebookAttentionIdx(new Set());
     // Purge legacy persisted "notebook shown" flags — they must never
     // pre-satisfy the note gate again. Fresh session, fresh gates.
@@ -3610,6 +3646,48 @@ const PresentationView = ({
     return n;
   }, [assessmentMode, current, guidedLines, solvedSlots]);
 
+  // ── Line context reporter (interactive teaching video) ───────────────────
+  // Read-only: the video layer listens to the ONE line cursor the board
+  // already keeps. Nothing here writes board, grading or navigation state.
+  const activeLineId = guidedLines[activeLineIdx]?.lineId ?? null;
+  const activeLineSolved =
+    !!current && !!activeLineId ? `${current.id}:${activeLineId}` in solvedSlots : false;
+
+  // The MARKING event: which line most recently earned its mark. Derived by
+  // diffing the awarded-slot map, so it fires once per award and never again
+  // on a re-render or on a revisit of an already-correct line.
+  const [lastAwardedLineId, setLastAwardedLineId] = useState<string | null>(null);
+  const seenSlotsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const keys = Object.keys(solvedSlots);
+    const seen = seenSlotsRef.current;
+    const added = keys.filter((k) => !seen.has(k));
+    seenSlotsRef.current = new Set(keys);
+    if (!added.length || !current) return;
+    const prefix = `${current.id}:`;
+    const mine = added.filter((k) => k.startsWith(prefix));
+    if (!mine.length) return;
+    setLastAwardedLineId(mine[mine.length - 1].slice(prefix.length));
+  }, [solvedSlots, current]);
+
+  useEffect(() => {
+    onLineContext?.({
+      questionId: current?.id ?? null,
+      lineId: activeLineId,
+      index: activeLineIdx,
+      total: guidedLines.length,
+      completed: activeLineSolved,
+      lastAwardedLineId,
+      lineEngaged,
+      playbackResetGeneration,
+    });
+  }, [
+    onLineContext, current?.id, activeLineId, activeLineIdx, guidedLines.length,
+    activeLineSolved, lastAwardedLineId, lineEngaged, playbackResetGeneration,
+  ]);
+
+
+
   /* ── Timer attempt: start on first real input, finish on full attempt ── */
 
   // A content change that follows a real user gesture is input; a change that
@@ -4294,8 +4372,9 @@ const PresentationView = ({
     if (boardIncoming.inkColorId) setInkColorId(boardIncoming.inkColorId as InkColorId);
     if (boardIncoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(boardIncoming.placeholderColorId));
     if (typeof boardIncoming.activeLineIdx === "number") {
-      setActiveLineIdx(boardIncoming.activeLineIdx);
-      setFloatingLineIdx(boardIncoming.activeLineIdx);
+      // Mirrored from another device — not this student's own activation.
+      setActiveLineIdxState(boardIncoming.activeLineIdx);
+
     }
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
@@ -5075,8 +5154,13 @@ const PresentationView = ({
     setTableEntries({});
     setWrongLine(null);
     setCheckView(null);
-    setActiveLineIdx(0);
-    setFloatingLineIdx(0);
+    // A fresh attempt reopens the lesson: engagement is cleared so the
+    // Introduction can play again before the first activation.
+    setActiveLineIdxState(0);
+    setLineEngaged(false);
+    setLastAwardedLineId(null);
+    setPlaybackResetGeneration((generation) => generation + 1);
+
     await timer.reset();
     toast({ title: "New attempt started", description: "Your earned marks and best time are unchanged." });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5485,7 +5569,9 @@ const PresentationView = ({
 
       {/* A student's question belongs to the assessment card they are on — it
           never goes to the general notification system. */}
-      {role === "student" && !smartCardSlug && !viewOnly && assessmentId && classIdProp && (
+      {/* Teacher test boards mount in student mode to reuse the solving
+          engine — but only students ask teachers, so never show it there. */}
+      {role === "student" && !testMode && !smartCardSlug && !viewOnly && assessmentId && classIdProp && (
         <AskAssessmentQuestion
           assessmentId={assessmentId}
           classId={classIdProp}
@@ -7233,6 +7319,9 @@ const PresentationView = ({
       {assessmentMode && (
         <>
           <div
+            // Row 1 of the board chrome. The video view switcher measures this
+            // element and stacks itself underneath, so the two never overlap.
+            data-board-chrome="top"
             className="absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
             style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
           >
