@@ -125,7 +125,7 @@ const SessionsPage = () => {
             <Settings className="h-3.5 w-3.5" /> Settings
           </Link>
           <Link
-            to="/community/session"
+            to="/community/live"
             className="inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-lg border border-border px-2 text-xs font-medium hover:bg-accent"
           >
             <Users className="h-3.5 w-3.5" /> Show in Community
