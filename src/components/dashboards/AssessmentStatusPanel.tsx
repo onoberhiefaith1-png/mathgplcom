@@ -113,9 +113,22 @@ export function AssessmentStatusPanel({
             </thead>
             <tbody>
               {visible.map((r) => (
+                <>
                 <tr key={r.studentId} className="border-t border-border">
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-2">
+                      {canExpand && (
+                        <button
+                          type="button"
+                          onClick={() => setExpanded((v) => (v === r.studentId ? null : r.studentId))}
+                          className="rounded p-0.5 hover:bg-accent"
+                          title="Per-question work"
+                        >
+                          {expanded === r.studentId
+                            ? <ChevronDown className="h-3.5 w-3.5" />
+                            : <ChevronRight className="h-3.5 w-3.5" />}
+                        </button>
+                      )}
                       <span
                         className={`h-2 w-2 rounded-full ${r.online ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
                         title={r.online ? "On the board" : "Offline"}
@@ -150,7 +163,41 @@ export function AssessmentStatusPanel({
                     </div>
                   </td>
                 </tr>
+                {canExpand && expanded === r.studentId && (
+                  <tr key={`${r.studentId}-questions`} className="border-t border-border bg-muted/20">
+                    <td colSpan={4} className="px-3 py-2">
+                      <div className="space-y-1">
+                        {questions!.map((q) => {
+                          const best = q.bestByStudent?.[r.studentId];
+                          return (
+                            <div
+                              key={`${q.assessmentId}-${q.questionId}`}
+                              className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5"
+                            >
+                              <div className="text-xs font-medium">{q.label}</div>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground">
+                                  <Timer className="h-3 w-3" />
+                                  {best != null ? `Best ${fmtMs(best)}` : "No best time"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => onViewQuestion!(r.studentId, q.assessmentId, q.questionId)}
+                                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent"
+                                >
+                                  <Eye className="h-3 w-3" /> View Student Work
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </>
               ))}
+
             </tbody>
           </table>
         )}
