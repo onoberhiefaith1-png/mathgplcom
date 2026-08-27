@@ -54,6 +54,7 @@ import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard
 
 import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
+import QuestionLeaderboardPanel from "./QuestionLeaderboardPanel";
 
 import { getPhase, phaseCapabilities } from "@/lib/smartboard/lessonPhase";
 import { renderMathInline } from "@/lib/notebook/mathRender";
@@ -5272,7 +5273,7 @@ const PresentationView = ({
           questionId={(boardQuestionId ?? current?.id) as string}
           classId={classIdProp}
           viewerId={progressOwnerId}
-          questionLabel={current?.title ?? null}
+          questionLabel={null}
           onClose={() => setLeaderboardOpen(false)}
           palette={{
             chromeBg: palette.chromeBg,
