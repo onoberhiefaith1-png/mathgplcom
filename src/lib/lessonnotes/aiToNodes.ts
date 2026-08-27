@@ -31,9 +31,11 @@ const matrixBracket = (env: string): string => {
   return "(";
 };
 
-/** Defensive fallback for pasted/model LaTeX: convert it to the same editable
- * matrix node used by the Matrix builder instead of displaying source code. */
-function matrixNode(env: string, body: string): TipTapNode | null {
+/** A model/pasted matrix environment becomes the SAME inline, fully editable
+ *  `mathStructure` node the manual Matrix tool inserts: one node, one slot per
+ *  cell, brackets owned by the node. Inline — so it can live beside `A =` in
+ *  one expression and the caret can sit before and after it. */
+function matrixInline(env: string, body: string): TipTapNode | null {
   const rows = body
     .split(/\\\\/)
     .map((row) => row.trim())
@@ -48,30 +50,24 @@ function matrixNode(env: string, body: string): TipTapNode | null {
     })),
   );
   return {
-    type: "paragraph",
-    content: [{
-      type: "mathStructure",
-      attrs: { kind: "matrix", attrs: { rows: rows.length, cols, br: matrixBracket(env) } },
-      content: slots,
-    }],
+    type: "mathStructure",
+    attrs: { kind: "matrix", attrs: { rows: rows.length, cols, br: matrixBracket(env) } },
+    content: slots,
   };
 }
 
-function splitRawMatrices(text: string): Array<{ kind: "text"; text: string } | { kind: "node"; node: TipTapNode }> {
-  const out: Array<{ kind: "text"; text: string } | { kind: "node"; node: TipTapNode }> = [];
-  let last = 0;
-  const re = new RegExp(MATRIX_ENV_RE.source, "g");
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(text))) {
-    if (match.index > last) out.push({ kind: "text", text: text.slice(last, match.index) });
-    const node = matrixNode(match[1], match[2]);
-    if (node) out.push({ kind: "node", node });
-    else out.push({ kind: "text", text: match[0] });
-    last = match.index + match[0].length;
-  }
-  if (last < text.length) out.push({ kind: "text", text: text.slice(last) });
-  return out;
+/** True when the text carries at least one matrix environment. */
+function hasMatrixEnv(text: string): boolean {
+  return new RegExp(MATRIX_ENV_RE.source).test(text || "");
 }
+
+/** Collapse newlines that sit INSIDE a matrix environment so line-based
+ *  processing never cuts a matrix in half. */
+function joinMatrixLines(text: string): string {
+  return text.replace(new RegExp(MATRIX_ENV_RE.source, "g"), (m) =>
+    m.replace(/\s*\n\s*/g, " "));
+}
+
 
 export function hasStructuredAiContent(text: string): boolean {
   return hasDirectives(text) || new RegExp(MATRIX_ENV_RE.source).test(text || "");
