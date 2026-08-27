@@ -107,6 +107,60 @@ export const useConnections = (status: ConnectionStatus | "all") => {
   });
 };
 
+/**
+ * Rejected requests, with the time they were rejected, filtered to the
+ * account's retention window and re-checked every minute so a row disappears
+ * on its own.
+ */
+export const useRejectedRequests = () => {
+  const { user } = useAuth();
+  const [tick, setTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const retention = useRetentionSetting();
+
+  const query = useQuery({
+    queryKey: ["rejected-requests", user?.id ?? "anon"],
+    enabled: Boolean(user?.id),
+    queryFn: fetchRejectedRequests,
+  });
+
+  return {
+    rows: retainedRejections(query.data ?? [], retention.hours, tick),
+    loading: query.isLoading || retention.loading,
+    retention,
+  };
+};
+
+/** How long this account keeps rejected requests visible. */
+export const useRetentionSetting = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["rejected-retention", user?.id ?? "anon"],
+    enabled: Boolean(user?.id),
+    staleTime: 5 * 60_000,
+    queryFn: fetchRetentionHours,
+  });
+
+  const save = useMutation({
+    mutationFn: (hours: number) => saveRetentionHours(hours),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rejected-retention"] }),
+  });
+
+  return {
+    hours: query.data ?? DEFAULT_RETENTION_HOURS,
+    loading: query.isLoading,
+    setHours: save.mutateAsync,
+    saving: save.isPending,
+  };
+};
+
 export const useConnectionCounts = () => {
   const { user } = useAuth();
   const query = useQuery({
