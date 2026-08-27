@@ -61,7 +61,7 @@ export const mkAbs = (): Node => mkBracket("|", "|");
 export const mkNorm = (): Node => mkBracket("‖", "‖");
 export const mkFloor = (): Node => mkBracket("⌊", "⌋");
 export const mkCeil = (): Node => mkBracket("⌈", "⌉");
-export const mkBigOp = (op: "sum" | "prod" | "int" | "oint" | "lim"): Node =>
+export const mkBigOp = (op: "sum" | "prod" | "coprod" | "int" | "oint" | "lim"): Node =>
   ({ kind: "bigop", op, rows: [[], [], []] });
 export const mkMatrix = (
   nRows: number, nCols: number, left = "(", right = ")", fns: string[] = [],
