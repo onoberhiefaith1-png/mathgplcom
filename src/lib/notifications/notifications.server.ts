@@ -356,33 +356,40 @@ export const namesFor = async (userIds: string[]): Promise<Map<string, string>> 
   return out;
 };
 
-/** Everyone who should see a reply: the thread's sender plus its recipients. */
-export const threadParticipants = async (
-  threadRootId: string,
-  excludeUserId: string,
+/**
+ * A response always goes back to whoever wrote the message being answered.
+ * That keeps a broadcast from turning into a group conversation: the reply is
+ * addressed to one person, in the same thread.
+ */
+export const replyRecipients = async (
+  messageId: string,
+  replierUserId: string,
 ): Promise<string[]> => {
   const db = await adminDb();
-  const { data: messages } = await db
+  const { data } = await db
     .from("notifications")
-    .select("id, sender_user_id")
-    .or(`id.eq.${threadRootId},thread_root_id.eq.${threadRootId}`);
-  const rows = (messages ?? []) as { id: string; sender_user_id: string | null }[];
-  const messageIds = rows.map((r) => r.id);
-  const senders = rows.map((r) => r.sender_user_id).filter((v): v is string => !!v);
-
-  // A reply goes back to the original sender only, keeping threads contextual
-  // rather than turning a broadcast into a group chat.
-  const { data: root } = await db
-    .from("notifications")
-    .select("sender_user_id")
-    .eq("id", threadRootId)
+    .select("sender_user_id, thread_root_id")
+    .eq("id", messageId)
     .maybeSingle();
-  const rootSender = (root as { sender_user_id: string | null } | null)?.sender_user_id ?? null;
+  const row = data as { sender_user_id: string | null; thread_root_id: string | null } | null;
+  const direct = row?.sender_user_id ?? null;
+  if (direct && direct !== replierUserId) return [direct];
 
-  void messageIds;
-  void senders;
-  return unique([rootSender].filter((v): v is string => !!v && v !== excludeUserId));
+  const rootId = row?.thread_root_id ?? messageId;
+  if (rootId !== messageId) {
+    const { data: root } = await db
+      .from("notifications")
+      .select("sender_user_id")
+      .eq("id", rootId)
+      .maybeSingle();
+    const rootSender = (root as { sender_user_id: string | null } | null)?.sender_user_id ?? null;
+    if (rootSender && rootSender !== replierUserId) return [rootSender];
+  }
+
+  // Automatic system notifications have no author to answer.
+  return [];
 };
+
 
 /** True when the user sent, or was addressed by, any message in the thread. */
 export const isThreadParticipant = async (
