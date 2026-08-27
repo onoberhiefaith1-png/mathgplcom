@@ -605,21 +605,80 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_timer_attempts: {
+        Row: {
+          assessment_id: string
+          attempt_lines: Json
+          attempt_no: number
+          completed_at: string | null
+          created_at: string
+          elapsed_ms: number
+          id: string
+          question_id: string
+          running: boolean
+          started_at: string | null
+          student_id: string
+          success: boolean
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          attempt_lines?: Json
+          attempt_no?: number
+          completed_at?: string | null
+          created_at?: string
+          elapsed_ms?: number
+          id?: string
+          question_id: string
+          running?: boolean
+          started_at?: string | null
+          student_id: string
+          success?: boolean
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          attempt_lines?: Json
+          attempt_no?: number
+          completed_at?: string | null
+          created_at?: string
+          elapsed_ms?: number
+          id?: string
+          question_id?: string
+          running?: boolean
+          started_at?: string | null
+          student_id?: string
+          success?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_timer_attempts_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessments: {
         Row: {
           assigned_at: string | null
           assignment_id: string | null
           class_id: string
+          closes_at: string | null
           created_at: string
           due_at: string | null
           id: string
           kind: string
           notebook_id: string | null
+          opens_at: string | null
           owner_id: string
           question_key: string | null
           questions: Json
           score_label: string
           section_id: string | null
+          timer_enabled: boolean
           title: string
           total_marks: number
           unassigned_at: string | null
@@ -629,16 +688,19 @@ export type Database = {
           assigned_at?: string | null
           assignment_id?: string | null
           class_id: string
+          closes_at?: string | null
           created_at?: string
           due_at?: string | null
           id?: string
           kind?: string
           notebook_id?: string | null
+          opens_at?: string | null
           owner_id: string
           question_key?: string | null
           questions?: Json
           score_label?: string
           section_id?: string | null
+          timer_enabled?: boolean
           title?: string
           total_marks?: number
           unassigned_at?: string | null
@@ -648,16 +710,19 @@ export type Database = {
           assigned_at?: string | null
           assignment_id?: string | null
           class_id?: string
+          closes_at?: string | null
           created_at?: string
           due_at?: string | null
           id?: string
           kind?: string
           notebook_id?: string | null
+          opens_at?: string | null
           owner_id?: string
           question_key?: string | null
           questions?: Json
           score_label?: string
           section_id?: string | null
+          timer_enabled?: boolean
           title?: string
           total_marks?: number
           unassigned_at?: string | null
@@ -5196,6 +5261,7 @@ export type Database = {
           last_name: string | null
           marketing_opt_in: boolean
           mathgpl_student_id: string | null
+          rejected_retention_hours: number
           school_name: string | null
           subjects_taught: string | null
           terms_accepted_at: string | null
@@ -5221,6 +5287,7 @@ export type Database = {
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
+          rejected_retention_hours?: number
           school_name?: string | null
           subjects_taught?: string | null
           terms_accepted_at?: string | null
@@ -5246,6 +5313,7 @@ export type Database = {
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
+          rejected_retention_hours?: number
           school_name?: string | null
           subjects_taught?: string | null
           terms_accepted_at?: string | null
@@ -7064,6 +7132,28 @@ export type Database = {
           invited_by_name: string
           org_id: string
           org_name: string
+        }[]
+      }
+      my_rejected_requests: {
+        Args: never
+        Returns: {
+          child_confirmed_at: string
+          child_name: string
+          child_user_id: string
+          counterpart_accepted_at: string
+          counterpart_name: string
+          counterpart_role: Database["public"]["Enums"]["app_role"]
+          counterpart_user_id: string
+          counterpart_username: string
+          created_at: string
+          direction: string
+          id: string
+          message: string
+          org_id: string
+          org_name: string
+          relation: Database["public"]["Enums"]["connection_relation"]
+          responded_at: string
+          status: string
         }[]
       }
       my_school_code: {
