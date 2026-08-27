@@ -1,23 +1,17 @@
 /**
  * The frame around someone else's workspace being viewed read-only.
  *
- * It adds nothing but a thin identity strip: below it, that person's own pages
- * render unchanged. Every write inside is refused by `ViewAsProvider`.
+ * It adds nothing but the read-only identity wrapper: below it, that person's
+ * own pages render unchanged. Every write inside is refused by `ViewAsProvider`.
  */
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, Eye, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import { ViewAsProvider } from "@/lib/accounts/viewAs";
 import { useSharedMember } from "@/lib/accounts/useSharedMember";
 import { useTeacherStudentContext } from "@/lib/accounts/useTeacherStudentContext";
 import { useChildren } from "@/lib/family/useFamily";
-import { useDraggableTab } from "@/hooks/useDraggableTab";
-
-function foldKey(userId: string, kind: string, viewer: string) {
-  return `mgpl:viewing-frame-folded:${userId}:${kind}:${viewer}`;
-}
 
 const ViewingFrame = ({
   userId,
