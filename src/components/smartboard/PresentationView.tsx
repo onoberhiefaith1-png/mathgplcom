@@ -2485,11 +2485,6 @@ const PresentationView = ({
   // reloads and across open/close of the # panel. We deliberately do NOT
   // snap back to Line 1 when the panel opens — that behaviour was replaced
   // by teacher-facing "line memory" (see the localStorage restore below).
-  const prevPanelOpenForFloatingRef = useRef<boolean>(panelOpen);
-  useEffect(() => {
-    prevPanelOpenForFloatingRef.current = panelOpen;
-  }, [panelOpen]);
-
   /* ── Line-by-line composer state ──
      For each active example reservoir, the teacher must reproduce every
      `reservoir.lines[k].equation` on the board IN ORDER before the Next
