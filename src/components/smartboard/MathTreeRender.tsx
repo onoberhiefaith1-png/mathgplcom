@@ -568,9 +568,11 @@ const NodeView = ({
       const glyph =
         node.op === "sum" ? "∑"
         : node.op === "prod" ? "∏"
+        : node.op === "coprod" ? "∐"
         : node.op === "int" ? "∫"
         : node.op === "oint" ? "∮"
         : "lim";
+
       const isTextual = node.op === "lim";
       const boundStyle: CSSProperties = {
         display: "inline-flex", justifyContent: "center",
