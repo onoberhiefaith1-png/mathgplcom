@@ -9,6 +9,7 @@ import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { loadLessonProgress, type LessonAssessment, type LessonMember } from "@/lib/assessments/lessonProgress";
 import { AssessmentStatusPanel, type StudentProgressRow } from "@/components/dashboards/AssessmentStatusPanel";
+import { StudentQuestionsPanel } from "@/components/dashboards/StudentQuestionsPanel";
 import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
 import AssignmentTimerPanel from "@/components/dashboards/AssignmentTimerPanel";
 
