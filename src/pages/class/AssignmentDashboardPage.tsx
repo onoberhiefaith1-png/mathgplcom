@@ -10,6 +10,7 @@ import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { loadLessonProgress, type LessonAssessment, type LessonMember } from "@/lib/assessments/lessonProgress";
 import { AssessmentStatusPanel, type StudentProgressRow } from "@/components/dashboards/AssessmentStatusPanel";
 import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
+import AssignmentTimerPanel from "@/components/dashboards/AssignmentTimerPanel";
 
 type NotebookMeta = { id: string; title: string | null; subtopic: string | null; subject: string | null };
 
@@ -189,6 +190,11 @@ const AssignmentDashboardPage = () => {
                 <Field label="Total Marks" value={String(totalMarks)} />
               </div>
             </section>
+
+            <AssignmentTimerPanel
+              assessmentIds={assessments.map((a) => a.id)}
+              memberNames={new Map(members.map((m) => [m.user_id, m.display_name]))}
+            />
 
             <AssessmentStatusPanel rows={rows} onViewStudent={onView} />
           </>
