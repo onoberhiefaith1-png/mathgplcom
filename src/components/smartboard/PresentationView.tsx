@@ -144,6 +144,7 @@ import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes 
 
 import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
+import { studentGradingKey } from "@/lib/assessments/studentGrading";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
 
 import ActiveStudentControl from "./ActiveStudentControl";
@@ -4057,7 +4058,7 @@ const PresentationView = ({
       const ascii = typeof frozenAscii === "string"
         ? frozenAscii
         : (resolveGradableLineRef.current(k)?.ascii ?? "");
-      const key = `${current?.id ?? ""}:${k}:${ascii}`;
+      const key = studentGradingKey(current?.id ?? "", k, ascii);
       if (ascii.trim() && autoGradedKeyRef.current === key) return;
       if (!ascii.trim() || autoGradingKeyRef.current === key) return;
       autoGradingKeyRef.current = key;
