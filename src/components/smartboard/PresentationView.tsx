@@ -3610,6 +3610,61 @@ const PresentationView = ({
     return n;
   }, [assessmentMode, current, guidedLines, solvedSlots]);
 
+  /* ── Timer attempt: start on first real input, finish on full attempt ── */
+
+  // A content change that follows a real user gesture is input; a change that
+  // arrives from the server (board hydration / live mirror) is not.
+  const lastGestureRef = useRef(0);
+  useEffect(() => {
+    if (!timer.active) return;
+    const note = () => { lastGestureRef.current = Date.now(); };
+    window.addEventListener("pointerdown", note, true);
+    window.addEventListener("keydown", note, true);
+    return () => {
+      window.removeEventListener("pointerdown", note, true);
+      window.removeEventListener("keydown", note, true);
+    };
+  }, [timer.active]);
+
+  useEffect(() => {
+    if (!timer.active || !timer.ready) return;
+    if (Date.now() - lastGestureRef.current > 2000) return;
+    timer.markInput();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeLines, boxes, smartLines, tableEntries, timer.active, timer.ready]);
+
+  // The attempt is complete only when every required line of this question is
+  // confirmed correct in THIS attempt.
+  const attemptSlots = useMemo(() => {
+    if (!current) return [] as string[];
+    return guidedLines
+      .filter((g) => g.lineId && !g.notebookOnly)
+      .map((g) => `${current.id}:${g.lineId}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, guidedLines]);
+
+  useEffect(() => {
+    if (!timer.active || attemptSlots.length === 0) return;
+    if (attemptSlots.every((slot) => slot in timer.confirmed)) timer.complete();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timer.active, timer.confirmed, attemptSlots]);
+
+  // RESET = a new attempt. Board contents, the attempt row and the clock go;
+  // permanent marks, the achievement row and the best time all stay.
+  const resetAttempt = useCallback(async () => {
+    clearInkOnly();
+    setBoxes([]);
+    setSmartLines([]);
+    setTableEntries({});
+    setWrongLine(null);
+    setCheckView(null);
+    setActiveLineIdx(0);
+    setFloatingLineIdx(0);
+    await timer.reset();
+    toast({ title: "New attempt started", description: "Your earned marks and best time are unchanged." });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearInkOnly, timer.reset, toast]);
+
   // Forward reference — the live-mirror broadcaster is defined further down.
   const broadcastCheckResultRef = useRef<
     | ((info: {
