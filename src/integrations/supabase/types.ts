@@ -7277,11 +7277,13 @@ export type Database = {
           allow_free_entry: boolean
           ask_participant_name: boolean
           broadcasts: Json
+          class_id: string
           description: string
           duration_minutes: number
           id: string
           is_live: boolean
           live_started_at: string
+          notebook_id: string
           schedule_days: number[]
           schedule_time: string
           starts_at: string
