@@ -15,6 +15,11 @@ import {
   detectSelectionKindFromSlice,
   type SelectionKind,
 } from "@/lib/lessonnotes/detectSelectionKind";
+import {
+  expandSelectionToStructures,
+  rangeToStructuralPayload,
+  writeStructuralClipboard,
+} from "@/lib/lessonnotes/structuralClipboard";
 
 export interface SelectionSnapshot {
   from: number;
@@ -35,8 +40,16 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit }: Props) {
   if (!editor) return null;
 
   const captureSnapshot = (): SelectionSnapshot | null => {
-    const { from, to, empty } = editor.state.selection;
+    const { empty } = editor.state.selection;
     if (empty) return null;
+    // A mathematical expression is one object: grow the range so neither end
+    // cuts through a matrix, fraction or radical. Copying part of a matrix
+    // copies the whole matrix, brackets and cells included.
+    const { from, to } = expandSelectionToStructures(
+      editor.state,
+      editor.state.selection.from,
+      editor.state.selection.to,
+    );
     const slice = editor.state.doc.slice(from, to);
     // textBetween skips atom math nodes. Use a leafText resolver so MathInline /
     // MathBlock contribute their LaTeX value, otherwise selections that contain
@@ -50,19 +63,27 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit }: Props) {
     return { from, to, text, json: (slice.content as any).toJSON?.() ?? null, kind };
   };
 
+  /** Structural copy: the clipboard carries the maths OBJECT (html) plus a
+   *  readable plain-text flavour for other apps. */
+  const putOnClipboard = async (snap: SelectionSnapshot): Promise<boolean> => {
+    const payload = rangeToStructuralPayload(editor.state, snap.from, snap.to);
+    return writeStructuralClipboard(payload);
+  };
+
   const copy = async () => {
     const snap = captureSnapshot();
     if (!snap) return;
-    try { await navigator.clipboard.writeText(snap.text); toast({ title: "Copied" }); }
-    catch { toast({ title: "Copy failed", variant: "destructive" }); }
+    const ok = await putOnClipboard(snap);
+    toast(ok ? { title: "Copied" } : { title: "Copy failed", variant: "destructive" });
   };
 
   const cut = async () => {
     const snap = captureSnapshot();
     if (!snap) return;
-    try { await navigator.clipboard.writeText(snap.text); } catch { /* noop */ }
+    await putOnClipboard(snap);
     editor.chain().focus().deleteRange({ from: snap.from, to: snap.to }).run();
   };
+
 
   const del = () => {
     const snap = captureSnapshot();
