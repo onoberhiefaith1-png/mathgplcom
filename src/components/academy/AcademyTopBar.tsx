@@ -105,6 +105,7 @@ const AcademyTopBar = () => {
 
       <div className="pointer-events-auto flex items-center gap-2">
         <WorkspaceSwitcher />
+        <NotificationBell />
         <AccountMenu />
         {ready && user && (
           <button
