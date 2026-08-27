@@ -10,6 +10,7 @@ import {
   Eraser, Undo2, Redo2, ScanEye, PanelLeftOpen, X as XIcon,
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
+import AskQuestionButton from "@/components/notifications/AskQuestionButton";
 import TableActivityStage from "./TableActivityStage";
 import {
   buildTableGroups,
