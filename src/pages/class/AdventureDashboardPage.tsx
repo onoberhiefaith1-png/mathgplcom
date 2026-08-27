@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { AssessmentStatusPanel } from "@/components/dashboards/AssessmentStatusPanel";
+import { StudentQuestionsPanel } from "@/components/dashboards/StudentQuestionsPanel";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } from "@/lib/games/prefetch";
 import { normalizeCanvas, timeBarOf, sceneTimeSeconds, checkpointAt, checkpointsOf, type GameRow, type Scene } from "@/lib/games/types";
