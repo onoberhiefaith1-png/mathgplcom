@@ -1933,7 +1933,27 @@ function DocumentEditorInner({
         class: "lesson-doc max-w-none focus:outline-hidden min-h-[60vh]",
         spellcheck: "true",
       },
+      // Keyboard copy/cut carry the mathematical OBJECT, exactly like the
+      // selection toolbar: the range is first grown to structure boundaries,
+      // then the schema markup (brackets, cells, nesting) goes on the
+      // clipboard alongside a readable plain-text flavour.
+      handleDOMEvents: {
+        copy: (view, event) => writeMathClipboard(view, event as ClipboardEvent, false),
+        cut: (view, event) => writeMathClipboard(view, event as ClipboardEvent, true),
+      },
+      // Paste inside the note rebuilds the object tree from our own markup,
+      // so a copied 2×2 matrix pastes back as a 2×2 matrix. Everything else
+      // (plain text, ChatGPT paste, foreign HTML) keeps its normal path.
+      handlePaste: (view, event) => {
+        const html = event.clipboardData?.getData("text/html");
+        if (!isStructuralHtml(html)) return false;
+        const slice = structuralHtmlToSlice(view.state.schema, html!);
+        if (!slice) return false;
+        view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+        return true;
+      },
     },
+
     onUpdate: ({ editor }) => {
       // Problem 1 → Solution 1, Problem 2 → Solution 2 … kept correct while
       // the teacher adds, removes or reorders items.
