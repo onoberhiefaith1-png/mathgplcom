@@ -2,6 +2,7 @@ import { Link, useParams } from "@/lib/router-compat";
 import { BookOpen, ClipboardList, Gamepad2, Presentation, UserRound } from "lucide-react";
 
 import AudienceShell from "./AudienceShell";
+import RoomInfoPage from "@/pages/live/RoomInfoPage";
 import { useAudienceAccess } from "@/lib/live/useAudienceAccess";
 import { guestDisplayName } from "@/lib/live/guest";
 import { formatNextLesson, formatRoomSchedule } from "@/lib/live/sessions";
@@ -20,6 +21,12 @@ const AudienceSessionPage = () => {
     { label: "Challenge", icon: ClipboardList, to: `/live/s/${sessionId}/challenge`, hint: "Solve the questions set for this session." },
     { label: "Game Challenge", icon: Gamepad2, to: `/live/s/${sessionId}/game`, hint: "Play the game challenge and solve to progress." },
   ];
+
+  // A Live room is permanent. Before the teacher presses Start teaching, the
+  // same public link shows the broadcast information page — never an error.
+  if (session && !session.is_live && !access.isOwner) {
+    return <RoomInfoPage session={session} />;
+  }
 
   return (
     <AudienceShell access={access}>

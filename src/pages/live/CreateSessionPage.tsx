@@ -1,18 +1,27 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "@/lib/router-compat";
+import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { LiveSession, SessionVisibility, createSession, dayName } from "@/lib/live/sessions";
+import {
+  LiveSession,
+  SessionVisibility,
+  ScheduleTimes,
+  createSession,
+  fetchAllowFreeEntry,
+  hydrateSession,
+  querySessions,
+  updateSession,
+} from "@/lib/live/sessions";
+import ScheduleEditor from "@/components/live/ScheduleEditor";
 import BroadcastEditor from "@/components/live/BroadcastEditor";
 import { BroadcastEntry, newBroadcastEntry } from "@/lib/live/broadcast";
 import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
 import { joinUrl } from "@/lib/links/publicUrl";
 import { copyText, selectAllIn } from "@/lib/clipboard/copyText";
-
 
 type NotebookOption = { id: string; label: string };
 
@@ -20,55 +29,57 @@ type NotebookOption = { id: string; label: string };
 const FIELD =
   "bg-muted text-foreground border-border placeholder:text-muted-foreground focus-visible:ring-primary";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
-const MINUTES = Array.from({ length: 60 }, (_, i) => pad(i));
-/** A teaching room recurs on chosen weekdays — Monday first, Sunday last. */
-const DAY_OPTIONS: { value: number; short: string }[] = [1, 2, 3, 4, 5, 6, 0].map((value) => ({
-  value,
-  short: dayName(value).slice(0, 3),
-}));
-/** 0.25 → 2 hours in quarter-hour steps, shown as decimal hours. */
+/** 0.25 → 6 hours in quarter-hour steps, shown as decimal hours. */
 const DURATION_OPTIONS = Array.from({ length: 24 }, (_, i) => (i + 1) * 0.25);
-
 
 const TIME_ZONES: string[] = (() => {
   const local = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  const common = [
-    local,
-    "UTC",
-    "Africa/Lagos",
-    "Europe/London",
-    "Europe/Berlin",
-    "America/New_York",
-    "America/Los_Angeles",
-    "Asia/Dubai",
-    "Asia/Kolkata",
-    "Asia/Singapore",
-    "Australia/Sydney",
-  ];
-  return Array.from(new Set(common));
+  return Array.from(
+    new Set([
+      local,
+      "UTC",
+      "Africa/Lagos",
+      "Europe/London",
+      "Europe/Berlin",
+      "America/New_York",
+      "America/Los_Angeles",
+      "Asia/Dubai",
+      "Asia/Kolkata",
+      "Asia/Singapore",
+      "Australia/Sydney",
+    ]),
+  );
 })();
 
+/**
+ * Open or edit a permanent Live teaching room.
+ *
+ * With a `sessionId` this is the room's Settings: it loads the existing room's
+ * values and saves back to that same room, so the code and join link never
+ * change and no second room is ever created.
+ */
 const CreateSessionPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { sessionId } = useParams<{ sessionId?: string }>();
+  const editing = Boolean(sessionId);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [notebookId, setNotebookId] = useState("");
   const [scheduleDays, setScheduleDays] = useState<number[]>([]);
-  const [hour, setHour] = useState("");
-  const [minute, setMinute] = useState("");
+  const [scheduleTimes, setScheduleTimes] = useState<ScheduleTimes>({});
   const [durationHours, setDurationHours] = useState(1);
 
   const [timeZone, setTimeZone] = useState(TIME_ZONES[0]);
-  const [visibility, setVisibility] = useState<SessionVisibility>("private");
+  const [visibility, setVisibility] = useState<SessionVisibility>("public");
   const [askParticipantName, setAskParticipantName] = useState(false);
+  const [allowFreeEntry, setAllowFreeEntry] = useState(true);
 
   const [broadcasts, setBroadcasts] = useState<BroadcastEntry[]>([newBroadcastEntry()]);
   const [notebooks, setNotebooks] = useState<NotebookOption[]>([]);
 
+  const [loading, setLoading] = useState(editing);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<LiveSession | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -80,7 +91,7 @@ const CreateSessionPage = () => {
         navigate("/auth?redirect=/live/sessions/create");
         return;
       }
-      // Only the active workspace's notes can be taught in a session.
+      // Only the active workspace's notes can be taught in a room.
       const orgId = await activeSchoolOrgId();
       let notesQuery = supabase
         .from("notebooks")
@@ -98,9 +109,38 @@ const CreateSessionPage = () => {
     })();
   }, [navigate]);
 
-  const toggleDay = (day: number) =>
-    setScheduleDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
-
+  // Settings: load this room's own values into the form.
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    (async () => {
+      const row = await querySessions<Record<string, unknown>>((cols) =>
+        supabase.from("sessions").select(cols).eq("id", sessionId).maybeSingle() as never,
+      );
+      if (cancelled) return;
+      if (!row) {
+        toast({ title: "Room not found", variant: "destructive" });
+        navigate("/live/sessions");
+        return;
+      }
+      const s = hydrateSession(row);
+      setTitle(s.title);
+      setDescription(s.description ?? "");
+      setNotebookId(s.notebook_id ?? "");
+      setScheduleDays(s.schedule_days);
+      setScheduleTimes(s.schedule_times);
+      setDurationHours(Math.max(0.25, (s.duration_minutes || 60) / 60));
+      setTimeZone(s.time_zone || TIME_ZONES[0]);
+      setVisibility(s.visibility);
+      setAskParticipantName(s.ask_participant_name);
+      setBroadcasts(s.broadcasts.length ? s.broadcasts : [newBroadcastEntry()]);
+      setAllowFreeEntry(await fetchAllowFreeEntry(sessionId));
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, navigate, toast]);
 
   const copy = async (label: string, value: string) => {
     if (await copyText(value)) {
@@ -118,7 +158,7 @@ const CreateSessionPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      toast({ title: "Session title is required", variant: "destructive" });
+      toast({ title: "Room title is required", variant: "destructive" });
       return;
     }
     const { data: userData } = await supabase.auth.getUser();
@@ -127,49 +167,108 @@ const CreateSessionPage = () => {
       return;
     }
 
-    const scheduleTime = hour !== "" && minute !== "" ? `${hour}:${minute}` : null;
-
+    const durationMinutes = Math.max(5, Math.round((Number(durationHours) || 1) * 60));
     setSubmitting(true);
     try {
+      if (editing && sessionId) {
+        const { error } = await updateSession(sessionId, {
+          title,
+          description,
+          notebookId: notebookId || null,
+          scheduleDays,
+          scheduleTimes,
+          durationMinutes,
+          timeZone,
+          visibility,
+          askParticipantName,
+          allowFreeEntry,
+          broadcasts,
+        });
+        if (error) throw new Error(error.message);
+        toast({ title: "Room updated" });
+        navigate(`/live/sessions/${sessionId}`);
+        return;
+      }
+
       const session = await createSession({
         title,
         description,
         notebookId: notebookId || null,
         scheduleDays,
-        scheduleTime,
-
-        durationMinutes: Math.max(5, Math.round((Number(durationHours) || 1) * 60)),
+        scheduleTime: null,
+        scheduleTimes,
+        durationMinutes,
         timeZone,
         visibility,
         askParticipantName,
         ownerId: userData.user.id,
         broadcasts,
-
       });
-
       setCreated(session);
     } catch (err) {
-      toast({ title: "Could not create session", description: String((err as Error).message ?? ""), variant: "destructive" });
+      toast({
+        title: editing ? "Could not save the room" : "Could not create the room",
+        description: String((err as Error).message ?? ""),
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
+  const Toggle = ({
+    on,
+    onToggle,
+    title: label,
+    hint,
+  }: {
+    on: boolean;
+    onToggle: () => void;
+    title: string;
+    hint: string;
+  }) => (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={on}
+      className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border p-4 text-left transition ${
+        on ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
+      }`}
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{label}</span>
+        <span className="mt-1 block text-xs text-muted-foreground">{hint}</span>
+      </span>
+      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-primary" : "bg-muted"}`}>
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-background transition-all ${
+            on ? "left-[1.375rem]" : "left-0.5"
+          }`}
+        />
+      </span>
+    </button>
+  );
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
-        <Link to="/live/sessions" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Sessions
+        <Link
+          to={editing && sessionId ? `/live/sessions/${sessionId}` : "/live/sessions"}
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> {editing ? "Room" : "Sessions"}
         </Link>
-        <h1 className="text-lg font-semibold tracking-wide">Create Session</h1>
+        <h1 className="text-lg font-semibold tracking-wide">{editing ? "Room Settings" : "Create Teaching Room"}</h1>
         <div className="w-32" />
       </header>
 
       <main className="mx-auto max-w-xl px-6 py-8">
-        {!created ? (
+        {loading ? (
+          <div className="text-center text-sm text-muted-foreground">Loading…</div>
+        ) : !created ? (
           <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-card/40 p-6 backdrop-blur">
             <div className="space-y-2">
-              <Label htmlFor="title">Session Title</Label>
+              <Label htmlFor="title">Room Title</Label>
               <Input id="title" className={FIELD} value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" />
             </div>
 
@@ -193,62 +292,18 @@ const CreateSessionPage = () => {
               <Textarea id="description" className={FIELD} value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
             </div>
 
-            <div className="space-y-2">
-              <Label>Teaching Days</Label>
-              <div className="flex flex-wrap gap-2">
-                {DAY_OPTIONS.map((d) => {
-                  const on = scheduleDays.includes(d.value);
-                  return (
-                    <button
-                      key={d.value}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => toggleDay(d.value)}
-                      className={`min-h-[40px] rounded-xl border px-3 text-sm font-medium transition ${
-                        on ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:bg-accent"
-                      }`}
-                    >
-                      {d.short}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                The day(s) you normally teach in this room. This is scheduling information — the room stays
-                open every day and never expires.
-              </p>
-            </div>
+            <ScheduleEditor
+              days={scheduleDays}
+              times={scheduleTimes}
+              onChange={(days, times) => {
+                setScheduleDays(days);
+                setScheduleTimes(times);
+              }}
+            />
 
             <div className="grid grid-cols-2 gap-3">
-
-
               <div className="space-y-2">
-                <Label>Teaching Time (24h)</Label>
-                <div className="flex items-center gap-2">
-                  <select
-                    aria-label="Hour"
-                    value={hour}
-                    onChange={(e) => setHour(e.target.value)}
-                    className={`h-10 w-full rounded-md border px-2 text-sm outline-hidden focus:border-primary ${FIELD}`}
-                  >
-                    <option value="">HH</option>
-                    {HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                  <span className="text-muted-foreground">:</span>
-                  <select
-                    aria-label="Minute"
-                    value={minute}
-                    onChange={(e) => setMinute(e.target.value)}
-                    className={`h-10 w-full rounded-md border px-2 text-sm outline-hidden focus:border-primary ${FIELD}`}
-                  >
-                    <option value="">MM</option>
-                    {MINUTES.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duration (hours)</Label>
+                <Label htmlFor="duration">Lesson length (hours)</Label>
                 <select
                   id="duration"
                   value={durationHours}
@@ -276,26 +331,19 @@ const CreateSessionPage = () => {
 
             <BroadcastEditor value={broadcasts} onChange={setBroadcasts} />
 
-
-
-
-
-
             <div className="space-y-2">
               <Label>Visibility</Label>
               <div className="grid grid-cols-2 gap-3">
                 {([
-                  { value: "private", title: "Private", hint: "Only people with the Session Code can join." },
-                  { value: "public", title: "Public", hint: "Listed for visitors to browse before it begins." },
+                  { value: "public", title: "Public", hint: "Listed in Community so anyone can find your teaching room." },
+                  { value: "private", title: "Private", hint: "Only people with the room code can come in." },
                 ] as const).map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
                     onClick={() => setVisibility(opt.value)}
                     className={`rounded-xl border p-3 text-left transition ${
-                      visibility === opt.value
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:bg-accent"
+                      visibility === opt.value ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
                     }`}
                   >
                     <div className="text-sm font-semibold">{opt.title}</div>
@@ -305,48 +353,38 @@ const CreateSessionPage = () => {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setAskParticipantName((v) => !v)}
-              aria-pressed={askParticipantName}
-              className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border p-4 text-left transition ${
-                askParticipantName ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
-              }`}
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold">Ask participants for a name</span>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  Audience members join the link instantly. Turn this on to request a display name first.
-                </span>
-              </span>
-              <span
-                className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-                  askParticipantName ? "bg-primary" : "bg-muted"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-background transition-all ${
-                    askParticipantName ? "left-[1.375rem]" : "left-0.5"
-                  }`}
-                />
-              </span>
-            </button>
+            <Toggle
+              on={allowFreeEntry}
+              onToggle={() => setAllowFreeEntry((v) => !v)}
+              title="Free entry"
+              hint="Live is public broadcasting: anyone with the link comes straight in. Turn this off to approve visitors one by one."
+            />
 
-
+            <Toggle
+              on={askParticipantName}
+              onToggle={() => setAskParticipantName((v) => !v)}
+              title="Ask participants for a name"
+              hint="Audience members join instantly. Turn this on to request a display name first."
+            />
 
             <button
               type="submit"
               disabled={submitting}
               className="w-full rounded-md bg-primary px-4 py-2.5 font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
             >
-              {submitting ? "Creating…" : "Create Session"}
+              {submitting ? "Saving…" : editing ? "Save Room" : "Create Teaching Room"}
             </button>
           </form>
         ) : (
           <div className="space-y-6 rounded-2xl border border-primary/40 bg-card/40 p-6 backdrop-blur">
-            <h2 className="text-xl font-semibold">Session created</h2>
+            <div>
+              <h2 className="text-xl font-semibold">Teaching room opened</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                This code and link are permanent — share them once and reuse them for every lesson.
+              </p>
+            </div>
             {([
-              { label: "Session Code", value: created.session_code },
+              { label: "Room Code", value: created.session_code },
               { label: "Join Link", value: joinUrl(created.session_code) },
             ] as const).map((row) => (
               <div key={row.label} className="space-y-1">
@@ -373,7 +411,7 @@ const CreateSessionPage = () => {
               onClick={() => navigate(`/live/sessions/${created.id}`)}
               className="w-full rounded-md bg-primary px-4 py-2.5 font-medium text-primary-foreground transition hover:opacity-90"
             >
-              Open Session Dashboard
+              Open Room Dashboard
             </button>
           </div>
         )}

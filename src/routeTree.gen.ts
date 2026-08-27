@@ -192,6 +192,7 @@ import { Route as LiveSSessionIdGameRouteImport } from './routes/live/s/$session
 import { Route as LiveSSessionIdNotesRouteImport } from './routes/live/s/$sessionId/notes'
 import { Route as LiveSessionsSessionIdIndexRouteImport } from './routes/live/sessions/$sessionId/index'
 import { Route as LiveSessionsSessionIdAudienceRouteImport } from './routes/live/sessions/$sessionId/audience'
+import { Route as LiveSessionsSessionIdSettingsRouteImport } from './routes/live/sessions/$sessionId/settings'
 import { Route as LiveSessionsCreateIndexRouteImport } from './routes/live/sessions/create/index'
 import { Route as LiveSmartCardsCardIdIndexRouteImport } from './routes/live/smart-cards/$cardId/index'
 import { Route as LiveWorkspaceClassIdIndexRouteImport } from './routes/live/workspace/$classId/index'
@@ -1254,6 +1255,12 @@ const LiveSessionsSessionIdAudienceRoute =
     path: '/sessions/$sessionId/audience',
     getParentRoute: () => LiveRouteRoute,
   } as any)
+const LiveSessionsSessionIdSettingsRoute =
+  LiveSessionsSessionIdSettingsRouteImport.update({
+    id: '/sessions/$sessionId/settings',
+    path: '/sessions/$sessionId/settings',
+    getParentRoute: () => LiveRouteRoute,
+  } as any)
 const LiveSessionsCreateIndexRoute = LiveSessionsCreateIndexRouteImport.update({
   id: '/sessions/create/',
   path: '/sessions/create/',
@@ -2030,6 +2037,7 @@ export interface FileRoutesByFullPath {
   '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
   '/live/s/$sessionId/notes': typeof LiveSSessionIdNotesRoute
   '/live/sessions/$sessionId/audience': typeof LiveSessionsSessionIdAudienceRoute
+  '/live/sessions/$sessionId/settings': typeof LiveSessionsSessionIdSettingsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -2308,6 +2316,7 @@ export interface FileRoutesByTo {
   '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
   '/live/s/$sessionId/notes': typeof LiveSSessionIdNotesRoute
   '/live/sessions/$sessionId/audience': typeof LiveSessionsSessionIdAudienceRoute
+  '/live/sessions/$sessionId/settings': typeof LiveSessionsSessionIdSettingsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -2598,6 +2607,7 @@ export interface FileRoutesById {
   '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
   '/live/s/$sessionId/notes': typeof LiveSSessionIdNotesRoute
   '/live/sessions/$sessionId/audience': typeof LiveSessionsSessionIdAudienceRoute
+  '/live/sessions/$sessionId/settings': typeof LiveSessionsSessionIdSettingsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -2889,6 +2899,7 @@ export interface FileRouteTypes {
     | '/live/s/$sessionId/game'
     | '/live/s/$sessionId/notes'
     | '/live/sessions/$sessionId/audience'
+    | '/live/sessions/$sessionId/settings'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -3167,6 +3178,7 @@ export interface FileRouteTypes {
     | '/live/s/$sessionId/game'
     | '/live/s/$sessionId/notes'
     | '/live/sessions/$sessionId/audience'
+    | '/live/sessions/$sessionId/settings'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -3456,6 +3468,7 @@ export interface FileRouteTypes {
     | '/live/s/$sessionId/game'
     | '/live/s/$sessionId/notes'
     | '/live/sessions/$sessionId/audience'
+    | '/live/sessions/$sessionId/settings'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -5014,6 +5027,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveSessionsSessionIdAudienceRouteImport
       parentRoute: typeof LiveRouteRoute
     }
+    '/live/sessions/$sessionId/settings': {
+      id: '/live/sessions/$sessionId/settings'
+      path: '/sessions/$sessionId/settings'
+      fullPath: '/live/sessions/$sessionId/settings'
+      preLoaderRoute: typeof LiveSessionsSessionIdSettingsRouteImport
+      parentRoute: typeof LiveRouteRoute
+    }
     '/live/sessions/create/': {
       id: '/live/sessions/create/'
       path: '/sessions/create'
@@ -5935,6 +5955,7 @@ interface LiveRouteRouteChildren {
   LiveSSessionIdGameRoute: typeof LiveSSessionIdGameRoute
   LiveSSessionIdNotesRoute: typeof LiveSSessionIdNotesRoute
   LiveSessionsSessionIdAudienceRoute: typeof LiveSessionsSessionIdAudienceRoute
+  LiveSessionsSessionIdSettingsRoute: typeof LiveSessionsSessionIdSettingsRoute
   LiveJoinCodeIndexRoute: typeof LiveJoinCodeIndexRoute
   LiveLessonNotesIdIndexRoute: typeof LiveLessonNotesIdIndexRoute
   LiveSSessionIdIndexRoute: typeof LiveSSessionIdIndexRoute
@@ -5971,6 +5992,7 @@ const LiveRouteRouteChildren: LiveRouteRouteChildren = {
   LiveSSessionIdGameRoute: LiveSSessionIdGameRoute,
   LiveSSessionIdNotesRoute: LiveSSessionIdNotesRoute,
   LiveSessionsSessionIdAudienceRoute: LiveSessionsSessionIdAudienceRoute,
+  LiveSessionsSessionIdSettingsRoute: LiveSessionsSessionIdSettingsRoute,
   LiveJoinCodeIndexRoute: LiveJoinCodeIndexRoute,
   LiveLessonNotesIdIndexRoute: LiveLessonNotesIdIndexRoute,
   LiveSSessionIdIndexRoute: LiveSSessionIdIndexRoute,

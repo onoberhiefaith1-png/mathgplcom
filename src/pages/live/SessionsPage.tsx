@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, PlusCircle, Radio } from "lucide-react";
+import { ArrowLeft, PlusCircle, Radio, Settings, Square, Trash2, Users } from "lucide-react";
 import ShareMenu from "@/components/community/ShareMenu";
+import { displayName as broadcastName } from "@/lib/live/broadcast";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +17,7 @@ import {
   hydrateSession,
   querySessions,
   fetchSessionCodes,
+  setLiveState,
 } from "@/lib/live/sessions";
 
 import JoinSessionPanel from "@/components/live/JoinSessionPanel";
@@ -65,6 +67,16 @@ const SessionsPage = () => {
     load();
   };
 
+  const toggleLive = async (s: LiveSession) => {
+    const { error } = await setLiveState(s.id, !s.is_live);
+    if (error) {
+      toast({ title: "Could not change teaching state", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: s.is_live ? "Teaching stopped" : "You are now teaching" });
+    load();
+  };
+
   const live = sessions.filter((s) => s.is_live);
   const rooms = sessions.filter((s) => !s.is_live);
 
@@ -95,6 +107,39 @@ const SessionsPage = () => {
             Code: <code className="rounded bg-background px-1.5 py-0.5">{s.session_code}</code>
           </div>
         </Link>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => toggleLive(s)}
+            className={`inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-semibold transition ${
+              s.is_live
+                ? "border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                : "border-emerald-300/50 bg-emerald-400/15 text-emerald-200 hover:bg-emerald-400/25"
+            }`}
+          >
+            {s.is_live ? <><Square className="h-3.5 w-3.5" /> Stop teaching</> : <><Radio className="h-3.5 w-3.5" /> Start teaching</>}
+          </button>
+          <Link
+            to={`/live/sessions/${s.id}/settings`}
+            className="inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-lg border border-border px-2 text-xs font-medium hover:bg-accent"
+          >
+            <Settings className="h-3.5 w-3.5" /> Settings
+          </Link>
+          <Link
+            to="/community/live"
+            className="inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-lg border border-border px-2 text-xs font-medium hover:bg-accent"
+          >
+            <Users className="h-3.5 w-3.5" /> Show in Community
+          </Link>
+          <button
+            type="button"
+            onClick={() => remove(s)}
+            className="inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-lg border border-border px-2 text-xs font-medium text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+        </div>
+
         <ShareMenu
           className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100"
           triggerClassName="h-7 w-7"
@@ -102,7 +147,13 @@ const SessionsPage = () => {
           sourceId={s.id}
           title={s.title}
           hashtags="#LiveSession"
-          payload={{ session_id: s.id, session_code: s.session_code }}
+          payload={{
+            session_id: s.id,
+            session_code: s.session_code,
+            schedule: formatRoomSchedule(s),
+            next_lesson: next,
+            platforms: s.broadcasts.map((b) => broadcastName(b)).join(", "),
+          }}
           onDelete={() => remove(s)}
           deleteLabel="Delete session"
         />
@@ -158,7 +209,7 @@ const SessionsPage = () => {
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
             <Radio className="h-6 w-6" />
-            No sessions yet. Open your first teaching room.
+            No teaching rooms yet. Open your first permanent room.
           </div>
         ) : (
           <div className="space-y-8">

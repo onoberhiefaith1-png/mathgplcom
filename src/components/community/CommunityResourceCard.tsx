@@ -221,6 +221,20 @@ const CommunityResourceCard = ({
           </p>
         )}
 
+        {isSession && (
+          <div className="space-y-0.5 text-xs text-dash-surface-muted">
+            {typeof card.payload?.schedule === "string" && <p>{card.payload.schedule}</p>}
+            {typeof card.payload?.next_lesson === "string" && card.payload.next_lesson && (
+              <p>Next lesson: {card.payload.next_lesson}</p>
+            )}
+            {typeof card.payload?.platforms === "string" && card.payload.platforms && (
+              <p className="inline-flex items-center gap-1">
+                <Radio className="h-3 w-3" /> {card.payload.platforms}
+              </p>
+            )}
+          </div>
+        )}
+
         {isClass && (
           <p className="text-xs text-dash-surface-muted">
             {(card.payload?.subject as string) ?? "Mathematics"}

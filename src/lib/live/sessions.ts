@@ -55,6 +55,11 @@ export type LiveSession = {
   live_started_at: string | null;
   created_at: string;
   updated_at: string;
+
+  /** Public presentation, filled by the public room lookup. */
+  teacher_name?: string | null;
+  subject?: string | null;
+  subtopic?: string | null;
 };
 
 /**
@@ -357,6 +362,46 @@ export const updateSessionSchedule = async (
       schedule_times: hydrateScheduleTimes(scheduleTimes ?? null, scheduleDays, scheduleTime),
     } as never)
     .eq("id", sessionId);
+
+export type UpdateSessionInput = {
+  title: string;
+  description?: string | null;
+  notebookId?: string | null;
+  scheduleDays: number[];
+  scheduleTimes: ScheduleTimes;
+  durationMinutes: number;
+  timeZone: string;
+  visibility: SessionVisibility;
+  broadcasts?: BroadcastEntry[];
+  askParticipantName?: boolean;
+  allowFreeEntry?: boolean;
+};
+
+/**
+ * Settings save path: this always edits the room the teacher opened and never
+ * creates a second one. The room's code and join link are untouched.
+ */
+export const updateSession = async (sessionId: string, input: UpdateSessionInput) => {
+  const base = {
+    title: input.title.trim(),
+    description: input.description?.trim() || null,
+    notebook_id: input.notebookId || null,
+    duration_minutes: input.durationMinutes,
+    time_zone: input.timeZone,
+    visibility: input.visibility,
+    broadcasts: normalizeBroadcasts(input.broadcasts ?? []) as unknown as never,
+    ask_participant_name: Boolean(input.askParticipantName),
+    allow_free_entry: input.allowFreeEntry === undefined ? true : Boolean(input.allowFreeEntry),
+    schedule_days: input.scheduleDays,
+    schedule_times: hydrateScheduleTimes(input.scheduleTimes, input.scheduleDays, null),
+  };
+  const res = await supabase.from("sessions").update(base as never).eq("id", sessionId);
+  if (!res.error) return res;
+
+  // Older deployments may lack the newest columns — save what they do have.
+  const { schedule_days, schedule_times, allow_free_entry, ...core } = base;
+  return supabase.from("sessions").update(core as never).eq("id", sessionId);
+};
 
 /**
  * LIVE is an explicit teacher action, never a consequence of the clock. The

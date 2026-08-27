@@ -10,6 +10,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { guestDisplayName, guestToken } from "@/lib/live/guest";
 import { BroadcastEntry, parseBroadcasts } from "@/lib/live/broadcast";
+import { parseScheduleTimes } from "@/lib/live/schedule";
 
 const rpc = supabase.rpc.bind(supabase) as unknown as (
   fn: string,
@@ -38,7 +39,11 @@ export type PublicSession = {
   broadcasts: BroadcastEntry[];
   schedule_days: number[];
   schedule_time: string | null;
+  schedule_times: Record<string, string>;
   is_live: boolean;
+  teacher_name: string | null;
+  subject: string | null;
+  subtopic: string | null;
   live_started_at: string | null;
 };
 
@@ -71,9 +76,22 @@ export async function fetchPublicSession(sessionId: string): Promise<PublicSessi
     broadcasts: parseBroadcasts(row.broadcasts),
     schedule_days: Array.isArray(row.schedule_days) ? row.schedule_days.map(Number) : [],
     schedule_time: typeof row.schedule_time === "string" ? row.schedule_time : null,
+    schedule_times: parseScheduleTimes(row.schedule_times),
     is_live: Boolean(row.is_live),
+    teacher_name: typeof row.teacher_name === "string" ? row.teacher_name : null,
+    subject: typeof row.subject === "string" ? row.subject : null,
+    subtopic: typeof row.subtopic === "string" ? row.subtopic : null,
     live_started_at: typeof row.live_started_at === "string" ? row.live_started_at : null,
   };
+}
+
+/**
+ * Is the teacher teaching right now? Polled by the public room page so a
+ * visitor sitting on the information page enters the class by itself.
+ */
+export async function fetchPublicLiveFlag(sessionId: string): Promise<boolean | null> {
+  const session = await fetchPublicSession(sessionId);
+  return session ? session.is_live : null;
 }
 
 /** Private meeting IDs/passwords are returned only after this guest is admitted. */
