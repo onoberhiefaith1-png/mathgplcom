@@ -1,0 +1,45 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <defs>
+    <marker id="ch" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text x="8" y="18" style="font-size:12px" fill="hsl(var(--muted-foreground))">one request record, seen from both sides</text>
+
+  <rect x="8" y="34" width="150" height="52" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="83" y="58" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Teacher A sends</text>
+  <text x="83" y="75" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">code or community</text>
+
+  <rect x="220" y="34" width="130" height="52" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="285" y="65" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">A · Outgoing</text>
+
+  <rect x="220" y="104" width="130" height="52" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="285" y="135" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">B · Incoming</text>
+
+  <line x1="158" y1="60" x2="216" y2="60" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <line x1="158" y1="60" x2="216" y2="128" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+
+  <rect x="430" y="34" width="180" height="52" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="520" y="58" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Connections</text>
+  <text x="520" y="75" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">both sides · unchanged</text>
+
+  <rect x="430" y="112" width="180" height="66" rx="8" fill="hsl(var(--accent))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="520" y="136" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--accent-foreground))">Rejected</text>
+  <text x="520" y="153" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">visible for retention period</text>
+  <text x="520" y="169" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">then gone by itself</text>
+
+  <line x1="350" y1="122" x2="426" y2="70" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <text x="384" y="94" text-anchor="middle" style="font-size:12px;paint-order:stroke" stroke="hsl(var(--background))" stroke-width="3" fill="hsl(var(--muted-foreground))">accept</text>
+
+  <line x1="350" y1="138" x2="426" y2="142" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <text x="388" y="132" text-anchor="middle" style="font-size:12px;paint-order:stroke" stroke="hsl(var(--background))" stroke-width="3" fill="hsl(var(--muted-foreground))">reject</text>
+
+  <rect x="8" y="212" width="602" height="72" rx="8" fill="none" stroke="hsl(var(--border))" stroke-dasharray="4 3"/>
+  <text x="20" y="232" style="font-size:12px" fill="hsl(var(--muted-foreground))">page header, unchanged in style</text>
+  <text x="20" y="256" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">← Back to Dashboard</text>
+  <rect x="330" y="240" width="130" height="30" rx="15" fill="hsl(var(--muted))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="395" y="259" text-anchor="middle" style="font-size:12px" fill="hsl(var(--foreground))">Connect with a code</text>
+  <rect x="470" y="240" width="140" height="30" rx="15" fill="hsl(var(--muted))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="540" y="259" text-anchor="middle" style="font-size:12px" fill="hsl(var(--foreground))">Community of Practice</text>
+</svg>
