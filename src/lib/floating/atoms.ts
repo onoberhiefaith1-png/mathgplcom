@@ -278,8 +278,11 @@ class Parser {
         continue;
       }
 
-      out.push({ kind: "leaf", atom: this.atom(c, "symbol") });
-      this.i++;
+      // Identity token (emoji, or any other single symbol). Step by whole
+      // grapheme so an emoji stays ONE selectable atom.
+      const g = graphemeAt(this.s, this.i) || c;
+      out.push({ kind: "leaf", atom: this.atom(g, "symbol") });
+      this.i += g.length;
     }
     return out;
   }
