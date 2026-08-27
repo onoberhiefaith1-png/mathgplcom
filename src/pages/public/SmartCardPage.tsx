@@ -401,12 +401,6 @@ const SmartCardPage = () => {
           <p className="mt-2 text-xs text-slate-500">Mathematics Reimagined — explore the full platform.</p>
         </footer>
 
-        <ShareSheet
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-          url={link}
-          title={`${card.title} — solve this MathGPL Smart Card.`}
-        />
       </div>
     </div>
   );
