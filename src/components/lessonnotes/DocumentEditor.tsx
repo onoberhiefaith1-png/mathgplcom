@@ -192,8 +192,35 @@ import {
   type StageError,
   type TeacherContext,
 } from "@/lib/lessonnotes/ai/pipeline/types";
+import {
+  expandSelectionToStructures,
+  isStructuralHtml,
+  rangeToStructuralPayload,
+  structuralHtmlToSlice,
+} from "@/lib/lessonnotes/structuralClipboard";
 
 const SECTION_OPTIONS: SectionKind[] = INSERT_SECTION_OPTIONS;
+
+/** Put the selected mathematical OBJECT on a native copy/cut event. Returns
+ *  true when we handled it, so ProseMirror's plain serialisation is skipped.
+ *  Selections that touch no structure fall through untouched. */
+const writeMathClipboard = (
+  view: { state: any; dispatch: (tr: any) => void },
+  event: ClipboardEvent,
+  isCut: boolean,
+): boolean => {
+  const state = view.state;
+  if (state.selection.empty || !event.clipboardData) return false;
+  const { from, to } = expandSelectionToStructures(state, state.selection.from, state.selection.to);
+  const payload = rangeToStructuralPayload(state, from, to);
+  if (!payload.hasStructure) return false;
+  event.preventDefault();
+  event.clipboardData.setData("text/html", payload.html);
+  event.clipboardData.setData("text/plain", payload.text);
+  if (isCut) view.dispatch(state.tr.delete(from, to).scrollIntoView());
+  return true;
+};
+
 
 
 interface Props {
@@ -1933,7 +1960,27 @@ function DocumentEditorInner({
         class: "lesson-doc max-w-none focus:outline-hidden min-h-[60vh]",
         spellcheck: "true",
       },
+      // Keyboard copy/cut carry the mathematical OBJECT, exactly like the
+      // selection toolbar: the range is first grown to structure boundaries,
+      // then the schema markup (brackets, cells, nesting) goes on the
+      // clipboard alongside a readable plain-text flavour.
+      handleDOMEvents: {
+        copy: (view, event) => writeMathClipboard(view, event as ClipboardEvent, false),
+        cut: (view, event) => writeMathClipboard(view, event as ClipboardEvent, true),
+      },
+      // Paste inside the note rebuilds the object tree from our own markup,
+      // so a copied 2×2 matrix pastes back as a 2×2 matrix. Everything else
+      // (plain text, ChatGPT paste, foreign HTML) keeps its normal path.
+      handlePaste: (view, event) => {
+        const html = event.clipboardData?.getData("text/html");
+        if (!isStructuralHtml(html)) return false;
+        const slice = structuralHtmlToSlice(view.state.schema, html!);
+        if (!slice) return false;
+        view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+        return true;
+      },
     },
+
     onUpdate: ({ editor }) => {
       // Problem 1 → Solution 1, Problem 2 → Solution 2 … kept correct while
       // the teacher adds, removes or reorders items.
