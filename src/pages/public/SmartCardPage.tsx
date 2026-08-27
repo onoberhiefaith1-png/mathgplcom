@@ -246,18 +246,13 @@ const SmartCardPage = () => {
             onClick={copyCard}
             className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
           >
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} Copy Smart Card
+            {copied === "ok" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied === "ok" ? "Link copied" : copied === "fail" ? "Copy failed — select the link" : "Copy Smart Card"}
           </button>
-          <button
-            type="button"
-            onClick={shareCard}
-            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
-          >
-            <Share2 className="h-3.5 w-3.5" /> Share Smart Card
-          </button>
-          <span className="flex items-center rounded-full bg-white/70 px-3 py-1.5 text-xs tabular-nums text-slate-500">
+          <span className="flex items-center rounded-full bg-white/70 px-3 py-1.5 text-xs tabular-nums text-slate-500 select-all">
             {link.replace(/^https?:\/\//, "")}
           </span>
+
           {creator && (
             <button
               type="button"
