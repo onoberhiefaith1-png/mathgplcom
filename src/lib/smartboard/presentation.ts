@@ -524,6 +524,13 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       const lines: ReservoirLine[] = [];
       const fragmentsFromLines: string[] = [];
       const solutionBlock = findBlock(sub.blocks, "solution");
+      const hasTeacherFloating =
+        (rawHighlights && rawHighlights.length > 0) ||
+        (rawLines && rawLines.length > 0) ||
+        (bucket?.fillers && bucket.fillers.length > 0) ||
+        (bucket?.viewCombined && bucket.viewCombined.length > 0) ||
+        (bucket?.viewRearranged && bucket.viewRearranged.length > 0);
+
       // NOTE: the solution text is never split into floating fragments here.
       // Walk the FULL solution text (math + prose) so we can attach any
       // narrative explanation directly to the equation it follows.
