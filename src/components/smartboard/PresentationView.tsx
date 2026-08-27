@@ -373,6 +373,11 @@ const PresentationView = ({
   /** Public Smart Card challenge — grading runs without an account. */
   smartCardSlug?: string | null;
   participantKey?: string | null;
+  /** Explicit Back target. Public Smart Cards return to their own card; every
+   *  other caller omits this and keeps the nav-history behaviour. */
+  backTo?: string | null;
+  backLabel?: string;
+
   /** Teacher's temporary Floating Number test: same board, same engine, but
    *  nothing is recorded — marks live only for this sitting. */
   testMode?: boolean;
