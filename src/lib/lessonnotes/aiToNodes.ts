@@ -269,17 +269,63 @@ export function aiTextToNodes(
   const text = stripDuplicateHeading(textIn, opts?.existingHeading);
   if (!text.trim()) return [{ type: "paragraph" }];
   const out: TipTapNode[] = [];
-  for (const matrixPart of splitRawMatrices(text)) {
-    if (matrixPart.kind === "node") { out.push(matrixPart.node); continue; }
-    for (const part of splitDirectives(matrixPart.text, opts)) {
-      if (part.kind === "node") { out.push(part.node); continue; }
-      const chunk = part.text.replace(/^\n+|\n+$/g, "");
-      if (!chunk.trim()) continue;
-      out.push(...plainAiTextToNodes(chunk).filter((n) => !isEmptyPara(n)));
+  for (const part of splitDirectives(text, opts)) {
+    if (part.kind === "node") { out.push(part.node); continue; }
+    const chunk = part.text.replace(/^\n+|\n+$/g, "");
+    if (!chunk.trim()) continue;
+    // Matrix lines are handled LINE BY LINE so `A =` and its matrix stay in
+    // one paragraph (one expression), never two blocks.
+    const lines = joinMatrixLines(chunk.replace(/\r\n/g, "\n")).split("\n");
+    let buffer: string[] = [];
+    const flush = () => {
+      if (!buffer.length) return;
+      const joined = buffer.join("\n");
+      buffer = [];
+      if (!joined.trim()) return;
+      out.push(...plainAiTextToNodes(joined).filter((n) => !isEmptyPara(n)));
+    };
+    for (const line of lines) {
+      if (hasMatrixEnv(line)) {
+        flush();
+        const para = matrixLineToParagraph(line);
+        if (para) out.push(para);
+        continue;
+      }
+      buffer.push(line);
     }
+    flush();
   }
   return out.length ? out : [{ type: "paragraph" }];
 }
+
+/** One AI line containing at least one matrix → ONE paragraph whose inline
+ *  content mixes prose/`mathInline` runs with inline matrix structures. */
+function matrixLineToParagraph(line: string): TipTapNode | null {
+  const re = new RegExp(MATRIX_ENV_RE.source, "g");
+  const content: TipTapNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  const pushText = (raw: string) => {
+    const clean = sanitizePresentation(raw);
+    if (!clean.trim()) {
+      if (raw && content.length) content.push({ type: "text", text: " " });
+      return;
+    }
+    const para = inlineMixedParagraph(clean);
+    for (const child of (para.content ?? []) as TipTapNode[]) content.push(child);
+    if (/\s$/.test(raw)) content.push({ type: "text", text: " " });
+  };
+  while ((match = re.exec(line))) {
+    if (match.index > last) pushText(line.slice(last, match.index));
+    const node = matrixInline(match[1], match[2]);
+    if (node) content.push(node);
+    else pushText(match[0]);
+    last = match.index + match[0].length;
+  }
+  if (last < line.length) pushText(line.slice(last));
+  return content.length ? { type: "paragraph", content } : null;
+}
+
 
 function plainAiTextToNodes(text: string): TipTapNode[] {
   if (!text) return [{ type: "paragraph" }];
