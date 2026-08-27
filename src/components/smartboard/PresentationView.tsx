@@ -54,6 +54,7 @@ import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard
 
 import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
+import QuestionLeaderboardPanel from "./QuestionLeaderboardPanel";
 
 import { getPhase, phaseCapabilities } from "@/lib/smartboard/lessonPhase";
 import { renderMathInline } from "@/lib/notebook/mathRender";
@@ -568,6 +569,8 @@ const PresentationView = ({
     return sanitizePlaceholderColorId(saved ?? DEFAULT_PLACEHOLDER_COLOR);
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+
   const [topOpen, setTopOpen] = useState(false);
   // Review Properties: the diagram already on this board plus its selection.
   const review = useReviewProperties();
@@ -5262,6 +5265,26 @@ const PresentationView = ({
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (
     <div className="absolute inset-0 flex overflow-hidden" style={{ background: palette.background }}>
+      {/* Per-question class ranking — opened from the Best Time chip. Overlays
+          the board without changing the question, the work, or the timer. */}
+      {leaderboardOpen && timer.active && assessmentId && (boardQuestionId ?? current?.id) && (
+        <QuestionLeaderboardPanel
+          assessmentId={assessmentId}
+          questionId={(boardQuestionId ?? current?.id) as string}
+          classId={classIdProp}
+          viewerId={progressOwnerId}
+          questionLabel={null}
+          onClose={() => setLeaderboardOpen(false)}
+          palette={{
+            chromeBg: palette.chromeBg,
+            chromeFg: palette.chromeFg,
+            chromeBorder: palette.chromeBorder,
+            hoverBg: palette.hoverBg,
+            accent: palette.accent,
+          }}
+        />
+      )}
+
       {/* Presenter Preview — 30% split pane (teacher only). Not an overlay:
           it lives as a flex sibling so the Smartboard container shrinks to
           fill the remaining space and every child (chrome, toolbars,
@@ -7292,9 +7315,15 @@ const PresentationView = ({
                 >
                   {formatAttemptTime(timer.elapsedMs)}
                 </span>
-                <span className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-80" title="Best verified time">
+                <button
+                  onClick={() => setLeaderboardOpen((v) => !v)}
+                  className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-80 hover:bg-black/10 hover:opacity-100 focus:outline-none focus-visible:ring-2"
+                  style={{ border: `1px solid ${palette.chromeBorder}` }}
+                  title="Best verified time — open the class ranking for this question"
+                >
                   Best {timer.bestMs == null ? "—" : formatAttemptTime(timer.bestMs)}
-                </span>
+                </button>
+
                 <button
                   onClick={() => { void resetAttempt(); }}
                   className="rounded-md px-2 py-1 text-[11px] font-medium hover:bg-black/5"
