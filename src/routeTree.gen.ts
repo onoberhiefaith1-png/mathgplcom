@@ -51,6 +51,8 @@ import { Route as LessonNotesIndexRouteImport } from './routes/lesson-notes/inde
 import { Route as LiveIndexRouteImport } from './routes/live/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
+import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
+import { Route as NotificationsNotificationIdRouteImport } from './routes/notifications/$notificationId'
 import { Route as PlansIndexRouteImport } from './routes/plans/index'
 import { Route as PlansGatewayRouteImport } from './routes/plans/gateway'
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
@@ -496,6 +498,17 @@ const MathboardIndexRoute = MathboardIndexRouteImport.update({
   path: '/mathboard/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotificationsIndexRoute = NotificationsIndexRouteImport.update({
+  id: '/notifications/',
+  path: '/notifications/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsNotificationIdRoute =
+  NotificationsNotificationIdRouteImport.update({
+    id: '/notifications/$notificationId',
+    path: '/notifications/$notificationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PlansIndexRoute = PlansIndexRouteImport.update({
   id: '/plans/',
   path: '/plans/',
@@ -1837,6 +1850,7 @@ export interface FileRoutesByFullPath {
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -1854,6 +1868,7 @@ export interface FileRoutesByFullPath {
   '/live/': typeof LiveIndexRoute
   '/login/': typeof LoginIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/notifications/': typeof NotificationsIndexRoute
   '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
   '/refund-policy/': typeof RefundPolicyIndexRoute
@@ -2104,6 +2119,7 @@ export interface FileRoutesByTo {
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/access': typeof AccessIndexRoute
   '/account': typeof AccountIndexRoute
@@ -2121,6 +2137,7 @@ export interface FileRoutesByTo {
   '/live': typeof LiveIndexRoute
   '/login': typeof LoginIndexRoute
   '/mathboard': typeof MathboardIndexRoute
+  '/notifications': typeof NotificationsIndexRoute
   '/plans': typeof PlansIndexRoute
   '/privacy': typeof PrivacyIndexRoute
   '/refund-policy': typeof RefundPolicyIndexRoute
@@ -2383,6 +2400,7 @@ export interface FileRoutesById {
   '/auth/verified': typeof AuthVerifiedRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
+  '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -2400,6 +2418,7 @@ export interface FileRoutesById {
   '/live/': typeof LiveIndexRoute
   '/login/': typeof LoginIndexRoute
   '/mathboard/': typeof MathboardIndexRoute
+  '/notifications/': typeof NotificationsIndexRoute
   '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
   '/refund-policy/': typeof RefundPolicyIndexRoute
@@ -2663,6 +2682,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/g/$handle'
     | '/help/connection'
+    | '/notifications/$notificationId'
     | '/plans/gateway'
     | '/access/'
     | '/account/'
@@ -2680,6 +2700,7 @@ export interface FileRouteTypes {
     | '/live/'
     | '/login/'
     | '/mathboard/'
+    | '/notifications/'
     | '/plans/'
     | '/privacy/'
     | '/refund-policy/'
@@ -2930,6 +2951,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/g/$handle'
     | '/help/connection'
+    | '/notifications/$notificationId'
     | '/plans/gateway'
     | '/access'
     | '/account'
@@ -2947,6 +2969,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/login'
     | '/mathboard'
+    | '/notifications'
     | '/plans'
     | '/privacy'
     | '/refund-policy'
@@ -3208,6 +3231,7 @@ export interface FileRouteTypes {
     | '/auth/verified'
     | '/g/$handle'
     | '/help/connection'
+    | '/notifications/$notificationId'
     | '/plans/gateway'
     | '/access/'
     | '/account/'
@@ -3225,6 +3249,7 @@ export interface FileRouteTypes {
     | '/live/'
     | '/login/'
     | '/mathboard/'
+    | '/notifications/'
     | '/plans/'
     | '/privacy/'
     | '/refund-policy/'
@@ -3487,6 +3512,7 @@ export interface RootRouteChildren {
   AuthVerifiedRoute: typeof AuthVerifiedRoute
   GHandleRoute: typeof GHandleRoute
   HelpConnectionRoute: typeof HelpConnectionRoute
+  NotificationsNotificationIdRoute: typeof NotificationsNotificationIdRoute
   PlansGatewayRoute: typeof PlansGatewayRoute
   AccessIndexRoute: typeof AccessIndexRoute
   AccountIndexRoute: typeof AccountIndexRoute
@@ -3497,6 +3523,7 @@ export interface RootRouteChildren {
   JoinIndexRoute: typeof JoinIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
   MathboardIndexRoute: typeof MathboardIndexRoute
+  NotificationsIndexRoute: typeof NotificationsIndexRoute
   PlansIndexRoute: typeof PlansIndexRoute
   PrivacyIndexRoute: typeof PrivacyIndexRoute
   RefundPolicyIndexRoute: typeof RefundPolicyIndexRoute
@@ -3883,6 +3910,20 @@ declare module '@tanstack/react-router' {
       path: '/mathboard'
       fullPath: '/mathboard/'
       preLoaderRoute: typeof MathboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications/': {
+      id: '/notifications/'
+      path: '/notifications'
+      fullPath: '/notifications/'
+      preLoaderRoute: typeof NotificationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications/$notificationId': {
+      id: '/notifications/$notificationId'
+      path: '/notifications/$notificationId'
+      fullPath: '/notifications/$notificationId'
+      preLoaderRoute: typeof NotificationsNotificationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plans/': {
@@ -6030,6 +6071,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthVerifiedRoute: AuthVerifiedRoute,
   GHandleRoute: GHandleRoute,
   HelpConnectionRoute: HelpConnectionRoute,
+  NotificationsNotificationIdRoute: NotificationsNotificationIdRoute,
   PlansGatewayRoute: PlansGatewayRoute,
   AccessIndexRoute: AccessIndexRoute,
   AccountIndexRoute: AccountIndexRoute,
@@ -6040,6 +6082,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinIndexRoute: JoinIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
   MathboardIndexRoute: MathboardIndexRoute,
+  NotificationsIndexRoute: NotificationsIndexRoute,
   PlansIndexRoute: PlansIndexRoute,
   PrivacyIndexRoute: PrivacyIndexRoute,
   RefundPolicyIndexRoute: RefundPolicyIndexRoute,
