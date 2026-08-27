@@ -394,38 +394,110 @@ function readBigOpBounds(src: string, i: number): { lower?: string; upper?: stri
   return { lower, upper, end: p };
 }
 
-/** Stacked big-operator: upper above glyph above lower. */
-function bigOperatorStack(
-  glyph: string, lower: ReactNode | null, upper: ReactNode | null, key: string,
+/* ------------------- large operators with limits -------------------
+ * One rule for EVERY large operator (∑ ∏ ∐ ∫ ∮ ⋃ ⋂ … and any future
+ * glyph): the operator owns its limits, and the whole operator group is
+ * centred on the mathematical axis (`vertical-align: middle`) so the body
+ * that follows sits BESIDE the operator on that axis instead of looking
+ * like a superscript. No per-glyph translate hacks. */
+
+type LargeOpMode =
+  /** limits stacked above and below the glyph (∑, ∏, ∐, ⋃ …) */
+  | "limits"
+  /** bounds beside the glyph, inline convention (∫, ∮) */
+  | "side"
+  /** upright operator name with one underset (lim) */
+  | "name";
+
+interface LargeOp { glyph: string; mode: LargeOpMode; scale: number }
+
+const MATH_FONT = '"Cambria Math", "STIX Two Math", "Times New Roman", serif';
+
+/** LaTeX command → operator description. Add a row to support a new operator. */
+const LARGE_OPS: Record<string, LargeOp> = {
+  sum: { glyph: "∑", mode: "limits", scale: 1.6 },
+  prod: { glyph: "∏", mode: "limits", scale: 1.6 },
+  coprod: { glyph: "∐", mode: "limits", scale: 1.6 },
+  bigcup: { glyph: "⋃", mode: "limits", scale: 1.6 },
+  bigcap: { glyph: "⋂", mode: "limits", scale: 1.6 },
+  int: { glyph: "∫", mode: "side", scale: 1.8 },
+  iint: { glyph: "∬", mode: "side", scale: 1.8 },
+  iiint: { glyph: "∭", mode: "side", scale: 1.8 },
+  oint: { glyph: "∮", mode: "side", scale: 1.8 },
+  lim: { glyph: "lim", mode: "name", scale: 1 },
+};
+
+/** Commands ordered so longer names match first (`iiint` before `int`). */
+const LARGE_OP_PATTERN = new RegExp(
+  `^\\\\(${Object.keys(LARGE_OPS).sort((a, b) => b.length - a.length).join("|")})`,
+);
+
+const boundStyle = (extra?: CSSProperties): CSSProperties => ({
+  fontSize: "0.62em",
+  minHeight: "0.7em",
+  lineHeight: 1,
+  ...extra,
+});
+
+/** Render one large operator with its limits attached. */
+function largeOperator(
+  op: LargeOp, lower: ReactNode | null, upper: ReactNode | null, key: string,
 ): ReactNode {
-  return createElement(
-    "span",
-    {
+  const glyph = createElement("span", {
+    key: "g",
+    style: {
+      fontSize: `${op.scale}em`,
+      lineHeight: 1,
+      fontFamily: op.mode === "name" ? undefined : MATH_FONT,
+      fontStyle: op.mode === "name" ? "normal" : undefined,
+    } as CSSProperties,
+  }, op.glyph);
+
+  // The group is centred on the maths axis; the body after it keeps the text
+  // baseline, which is what makes ∑ (2k²-k+1) read correctly.
+  const group = (children: ReactNode[]): ReactNode =>
+    createElement("span", {
       key,
       style: {
         display: "inline-flex",
-        flexDirection: "column",
         alignItems: "center",
-        verticalAlign: "baseline",
+        verticalAlign: "middle",
         margin: "0 2px",
         lineHeight: 1,
-        transform: "translateY(-0.35em)",
+      } as CSSProperties,
+    }, ...children);
+
+  if (op.mode === "side") {
+    // Inline convention: bounds ride beside the glyph, upper over lower.
+    const bounds = createElement("span", {
+      key: "b",
+      style: {
+        display: "inline-flex", flexDirection: "column",
+        justifyContent: "center", marginLeft: 1, lineHeight: 1,
       } as CSSProperties,
     },
-    createElement("span", {
-      key: "u",
-      style: { fontSize: "0.62em", minHeight: "0.7em", lineHeight: 1 },
-    }, upper ?? ""),
-    createElement("span", {
-      key: "g",
-      style: { fontSize: "1.6em", lineHeight: 1, fontFamily: '"Cambria Math", "STIX Two Math", "Times New Roman", serif' },
-    }, glyph),
-    createElement("span", {
-      key: "l",
-      style: { fontSize: "0.62em", minHeight: "0.7em", lineHeight: 1, marginTop: 1 },
-    }, lower ?? ""),
+      createElement("span", { key: "u", style: boundStyle() }, upper ?? ""),
+      createElement("span", { key: "l", style: boundStyle({ marginTop: 1 }) }, lower ?? ""),
+    );
+    return group([glyph, bounds]);
+  }
+
+  const stack = createElement("span", {
+    key: "s",
+    style: {
+      display: "inline-flex", flexDirection: "column",
+      alignItems: "center", lineHeight: 1,
+    } as CSSProperties,
+  },
+    op.mode === "name"
+      ? null
+      : createElement("span", { key: "u", style: boundStyle() }, upper ?? ""),
+    glyph,
+    createElement("span", { key: "l", style: boundStyle({ marginTop: 1 }) }, lower ?? ""),
   );
+  return group([stack]);
 }
+
 
 /** Matrix-style grid, optionally wrapped in left/right brackets. */
 function matrixSpan(
