@@ -53,7 +53,6 @@ const ParticipantSessionPage = () => {
         return;
       }
       setSession(row);
-      setName(user ? null : guestName());
       setLoading(false);
     })();
   }, [sessionId, navigate]);
@@ -139,43 +138,7 @@ const ParticipantSessionPage = () => {
           <div className="mt-3 text-sm text-muted-foreground">
             {formatStartsAt(session.starts_at, session.time_zone)} · {session.duration_minutes} min
           </div>
-          {audience && (
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground">
-              <UserRound className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Joined as {name ?? guestDisplayName()}</span>
-            </div>
-          )}
         </section>
-
-        {needsName && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!nameDraft.trim()) return;
-              setGuestName(nameDraft);
-              setName(nameDraft.trim());
-            }}
-            className="space-y-3 rounded-2xl border border-primary/40 bg-primary/5 p-5"
-          >
-            <label htmlFor="audience-name" className="text-sm font-medium">
-              Your teacher would like to know who's here
-            </label>
-            <input
-              id="audience-name"
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              placeholder="Your name"
-              autoComplete="name"
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-base outline-hidden focus:border-primary"
-            />
-            <button
-              type="submit"
-              className="min-h-[48px] w-full rounded-xl bg-primary px-4 text-base font-medium text-primary-foreground active:scale-[0.99]"
-            >
-              Continue
-            </button>
-          </form>
-        )}
 
         <BroadcastPanel entries={session.broadcasts} unlocked={!boardLocked} />
 
@@ -191,13 +154,6 @@ const ParticipantSessionPage = () => {
               {Number.isNaN(startMs) ? "" : formatCountdownLong(startMs - now)}
             </div>
           </section>
-        ) : audience ? (
-          <section className="rounded-2xl border border-emerald-300/40 bg-emerald-400/10 p-5 sm:p-6">
-            <div className="text-lg font-semibold text-emerald-100">You're in the session</div>
-            <p className="mt-1 text-sm text-emerald-100/80">
-              Use the broadcast link above to watch and take part. No account needed.
-            </p>
-          </section>
         ) : (
           <Link
             to={`/student/class/${classId}/smartboard`}
@@ -211,7 +167,7 @@ const ParticipantSessionPage = () => {
           </Link>
         )}
 
-        {!audience && (
+        {(
           <div className={`grid gap-3 sm:grid-cols-3 sm:gap-4 ${phone ? "grid-cols-2" : "grid-cols-2"}`}>
             {tiles.map(({ label, icon: Icon, to }) => (
               <Link
