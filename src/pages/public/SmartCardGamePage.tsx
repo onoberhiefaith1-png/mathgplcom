@@ -15,7 +15,9 @@ import { normalizeCanvas, type CanvasElement } from "@/lib/games/types";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { fetchPublicGameBundle, fetchPublicGameProgress, type PublicGameBundle } from "@/lib/smartcards/publicGame";
-import { pingPresence, type CardIdentity } from "@/lib/smartcards/smartCards";
+import {
+  loadRememberedIdentity, newParticipantKey, pingPresence, rememberIdentity, type CardIdentity,
+} from "@/lib/smartcards/smartCards";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
