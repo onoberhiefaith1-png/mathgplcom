@@ -2952,7 +2952,7 @@ const PresentationView = ({
   // complete — before the activity moves on. T1.1 marks as T1.1, T1.2 as
   // T1.2, and so on; the final track is never the only one that scores.
   const gradeTableTrackRef = useRef<
-    ((k: number, mode: "manual" | "auto") => Promise<void>) | null
+    ((k: number, mode: "manual" | "auto") => Promise<boolean>) | null
   >(null);
   const tableTrackGradedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -2965,7 +2965,9 @@ const PresentationView = ({
     const guardKey = `${current?.id ?? ""}:${lineId ?? activeLineIdx}`;
     if (!tableTrackGradedRef.current.has(guardKey)) {
       tableTrackGradedRef.current.add(guardKey);
-      void gradeTableTrackRef.current?.(activeLineIdx, "auto");
+      void gradeTableTrackRef.current?.(activeLineIdx, "auto").then((completed) => {
+        if (!completed) tableTrackGradedRef.current.delete(guardKey);
+      });
     }
 
     // MARKING ONLY — NO MOVEMENT. Completing a track awards it immediately
