@@ -568,6 +568,8 @@ const PresentationView = ({
     return sanitizePlaceholderColorId(saved ?? DEFAULT_PLACEHOLDER_COLOR);
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+
   const [topOpen, setTopOpen] = useState(false);
   // Review Properties: the diagram already on this board plus its selection.
   const review = useReviewProperties();
