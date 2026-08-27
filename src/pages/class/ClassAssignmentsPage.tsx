@@ -34,7 +34,7 @@ const ClassAssignmentsPage = () => {
         .eq("class_id", classId)
         .is("unassigned_at", null)
         .order("created_at", { ascending: false });
-      const raw = ((ass ?? []) as Assessment[]).filter((a) => a.kind !== "adventure");
+      const raw = ((ass ?? []) as Assessment[]).filter((a) => a.kind !== "adventure" && a.kind !== "course_exercise");
 
       const notebookIds = Array.from(new Set(raw.map((a) => a.notebook_id).filter(Boolean))) as string[];
       if (notebookIds.length) {

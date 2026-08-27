@@ -39,7 +39,7 @@ const code = () => {
 };
 
 /** One hidden container per teacher, created once and reused forever. */
-async function ensureTestClass(ownerId: string): Promise<string> {
+export async function ensureTestClass(ownerId: string): Promise<string> {
   const { data: existing } = await supabase
     .from("classes")
     .select("id")

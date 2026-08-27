@@ -36,7 +36,9 @@ const AskQuestionButton = ({ context }: { context: NotificationContext }) => {
   });
 
   return (
-    <div data-sb-chrome className="absolute bottom-4 left-4 z-[70]">
+    // Top-right, offset clear of the board's own marks / close and
+    // floating-number chrome; the panel opens downward from the button.
+    <div data-sb-chrome className="absolute right-4 top-4 z-[70] flex flex-col items-end gap-2 md:right-16">
       {!open ? (
         <Button
           type="button"

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "@/lib/router-compat";
 import { ChevronDown, ChevronUp, FileText, Flag, GripVertical, Plus, Trash2, Video as VideoIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,8 @@ import { BLOCK_ACCENT, type BlockKind, type CourseBlock, type CourseExerciseQues
 const FIELD = "min-h-[40px] bg-white text-slate-900 placeholder:text-slate-400 border-slate-300";
 
 export interface SectionsEditorProps {
+  /** Enables the per-card "View exercise" test path when known. */
+  courseId?: string;
   sections: CourseSection[];
   blocks: CourseBlock[];
   questions: CourseExerciseQuestion[];
@@ -204,20 +207,41 @@ const SectionsEditor = (p: SectionsEditorProps) => {
                             value={block.config.subtopic ?? ""}
                             onChange={(e) => p.onPatchBlock(block.id, { subtopic: e.target.value })}
                           />
-                          <Input
-                            className={FIELD}
-                            type="number"
-                            placeholder="Total marks"
-                            value={block.config.totalMarks ?? 0}
-                            onChange={(e) => p.onPatchBlock(block.id, { totalMarks: Number(e.target.value) || 0 })}
-                          />
-                          <Input
-                            className={FIELD}
-                            type="number"
-                            placeholder="Pass mark %"
-                            value={block.config.passMark ?? 80}
-                            onChange={(e) => p.onPatchBlock(block.id, { passMark: Number(e.target.value) || 0 })}
-                          />
+                          <div className="space-y-1">
+                            <Label className="text-xs">Total marks (from linked questions)</Label>
+                            <div className="flex min-h-[40px] items-center rounded-md border border-slate-300 bg-slate-100 px-3 text-sm text-slate-700">
+                              {qs.reduce((s, q) => s + (Number(q.total_marks) || 0), 0)}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs">Pass mark %</Label>
+                            <Input
+                              className={FIELD}
+                              type="number"
+                              placeholder="Pass mark %"
+                              value={block.config.passMark ?? 80}
+                              onChange={(e) => p.onPatchBlock(block.id, { passMark: Number(e.target.value) || 0 })}
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-black/20 p-2 text-xs">
+                            <span>
+                              {qs.length} question{qs.length === 1 ? "" : "s"} ·{" "}
+                              {qs.reduce((s, q) => s + (Number(q.total_marks) || 0), 0)} marks
+                            </span>
+                            {p.courseId ? (
+                              qs.length === 0 ? (
+                                <span className="text-white/50">Link a question to test this card</span>
+                              ) : (
+                                <Button asChild size="sm" variant="outline" className="h-8">
+                                  <Link to={`/course-builder/${p.courseId}/exercise/${block.id}`}>
+                                    View exercise
+                                  </Link>
+                                </Button>
+                              )
+                            ) : null}
+                          </div>
                           <div className="sm:col-span-2 rounded-lg bg-black/20 p-2 text-xs">
                             {qs.length === 0 ? (
                               <span>

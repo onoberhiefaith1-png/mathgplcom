@@ -1,0 +1,37 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--font-sans)">
+  <style>
+    .lbl{font-size:12px;fill:hsl(var(--muted-foreground))}
+    .box{fill:none;stroke:hsl(var(--muted-foreground));stroke-width:1}
+    .t{font-size:12px;fill:hsl(var(--foreground))}
+    .h{font-size:12px;fill:hsl(var(--foreground));font-weight:480}
+    .zone{fill:none;stroke:hsl(var(--border));stroke-width:1;stroke-dasharray:4 3}
+    .q{fill:hsl(var(--muted))}
+  </style>
+
+  <text x="8" y="14" class="lbl">now — two rows in the same place</text>
+  <rect x="8" y="24" width="290" height="120" class="zone" rx="8"/>
+  <rect x="40" y="44" width="226" height="26" class="box" rx="8"/>
+  <text x="52" y="61" class="t">Back · title · marks · timer</text>
+  <rect x="70" y="56" width="176" height="26" rx="13" fill="hsl(var(--card))" stroke="hsl(var(--accent))"/>
+  <text x="84" y="73" class="t">Smartboard | Split | Video</text>
+  <text x="40" y="112" class="lbl">overlapping, clipped, unclickable</text>
+
+  <text x="342" y="14" class="lbl">after — one vertical stack</text>
+  <rect x="342" y="24" width="290" height="120" class="zone" rx="8"/>
+  <rect x="362" y="40" width="250" height="26" class="box" rx="8"/>
+  <text x="374" y="57" class="t">Back · Practice · Discuss</text>
+  <rect x="400" y="76" width="174" height="26" rx="13" fill="hsl(var(--accent))" stroke="hsl(var(--accent))"/>
+  <text x="414" y="93" style="font-size:12px;fill:hsl(var(--accent-foreground))">Smartboard | Split | Video</text>
+  <text x="362" y="126" class="lbl">second row sits under the first, always</text>
+
+  <rect x="8" y="164" width="624" height="126" class="zone" rx="8"/>
+  <text x="20" y="182" class="h">content area</text>
+  <rect x="20" y="192" width="300" height="60" class="box" rx="8"/>
+  <text x="34" y="226" class="t">Smartboard</text>
+  <rect x="332" y="192" width="288" height="60" class="q" rx="8"/>
+  <rect x="332" y="192" width="288" height="60" class="box" rx="8"/>
+  <text x="346" y="220" class="t">video, own aspect ratio</text>
+  <rect x="346" y="228" width="120" height="14" rx="7" fill="hsl(var(--background))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="356" y="239" style="font-size:11px;fill:hsl(var(--foreground))">▶  🔊 ━━━  ⛶</text>
+  <text x="20" y="272" class="lbl">controls overlay the player only — never the mathematics</text>
+</svg>

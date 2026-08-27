@@ -211,6 +211,7 @@ import { Route as TeachingHubClassesClassIdIndexRouteImport } from './routes/tea
 import { Route as TeachingHubClassesCreateIndexRouteImport } from './routes/teaching-hub/classes/create/index'
 import { Route as TeachingHubSettingsArchiveIndexRouteImport } from './routes/teaching-hub/settings/archive/index'
 import { Route as TeachingHubStudentsUserIdIndexRouteImport } from './routes/teaching-hub/students/$userId/index'
+import { Route as CourseBuilderCourseIdExerciseBlockIdIndexRouteImport } from './routes/course-builder/$courseId/exercise/$blockId/index'
 import { Route as FamilyChildrenChildIdAdventuresIndexRouteImport } from './routes/family/children/$childId/adventures/index'
 import { Route as FamilyChildrenChildIdAssignmentsIndexRouteImport } from './routes/family/children/$childId/assignments/index'
 import { Route as FamilyChildrenChildIdClassesIndexRouteImport } from './routes/family/children/$childId/classes/index'
@@ -288,10 +289,13 @@ import { Route as StudentClassClassIdGamesGameIdPlayIndexRouteImport } from './r
 import { Route as StudentClassesClassIdGamesGameIdLiveIndexRouteImport } from './routes/student/classes/$classId/games/$gameId/live/index'
 import { Route as TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRouteImport } from './routes/teaching-hub/classes/$classId/adventures/$gameId/dashboard/index'
 import { Route as TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRouteImport } from './routes/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/index'
+import { Route as TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRouteImport } from './routes/teaching-hub/classes/$classId/courses/$courseId/exercises/index'
 import { Route as TeachingHubClassesClassIdGamesGameIdDashboardIndexRouteImport } from './routes/teaching-hub/classes/$classId/games/$gameId/dashboard/index'
 import { Route as TeachingHubClassesClassIdGamesGameIdLiveIndexRouteImport } from './routes/teaching-hub/classes/$classId/games/$gameId/live/index'
 import { Route as LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRouteImport } from './routes/live/workspace/$classId/assessments/$assessmentId/student/$studentId/index'
+import { Route as StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRouteImport } from './routes/student/class/$classId/courses/$courseId/exercise/$blockId/index'
 import { Route as TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRouteImport } from './routes/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/index'
+import { Route as TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRouteImport } from './routes/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -1361,6 +1365,12 @@ const TeachingHubStudentsUserIdIndexRoute =
     path: '/students/$userId/',
     getParentRoute: () => TeachingHubRouteRoute,
   } as any)
+const CourseBuilderCourseIdExerciseBlockIdIndexRoute =
+  CourseBuilderCourseIdExerciseBlockIdIndexRouteImport.update({
+    id: '/$courseId/exercise/$blockId/',
+    path: '/$courseId/exercise/$blockId/',
+    getParentRoute: () => CourseBuilderRouteRoute,
+  } as any)
 const FamilyChildrenChildIdAdventuresIndexRoute =
   FamilyChildrenChildIdAdventuresIndexRouteImport.update({
     id: '/children/$childId/adventures/',
@@ -1825,6 +1835,12 @@ const TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute =
       getParentRoute: () => TeachingHubRouteRoute,
     } as any,
   )
+const TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRoute =
+  TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRouteImport.update({
+    id: '/classes/$classId/courses/$courseId/exercises/',
+    path: '/classes/$classId/courses/$courseId/exercises/',
+    getParentRoute: () => TeachingHubRouteRoute,
+  } as any)
 const TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute =
   TeachingHubClassesClassIdGamesGameIdDashboardIndexRouteImport.update({
     id: '/classes/$classId/games/$gameId/dashboard/',
@@ -1845,11 +1861,25 @@ const LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute =
       getParentRoute: () => LiveRouteRoute,
     } as any,
   )
+const StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRoute =
+  StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRouteImport.update({
+    id: '/class/$classId/courses/$courseId/exercise/$blockId/',
+    path: '/class/$classId/courses/$courseId/exercise/$blockId/',
+    getParentRoute: () => StudentRouteRoute,
+  } as any)
 const TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute =
   TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRouteImport.update(
     {
       id: '/classes/$classId/assessments/$assessmentId/student/$studentId/',
       path: '/classes/$classId/assessments/$assessmentId/student/$studentId/',
+      getParentRoute: () => TeachingHubRouteRoute,
+    } as any,
+  )
+const TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRoute =
+  TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRouteImport.update(
+    {
+      id: '/classes/$classId/courses/$courseId/exercise/$blockId/',
+      path: '/classes/$classId/courses/$courseId/exercise/$blockId/',
       getParentRoute: () => TeachingHubRouteRoute,
     } as any,
   )
@@ -2064,6 +2094,7 @@ export interface FileRoutesByFullPath {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/course-builder/$courseId/exercise/$blockId/': typeof CourseBuilderCourseIdExerciseBlockIdIndexRoute
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
@@ -2134,10 +2165,13 @@ export interface FileRoutesByFullPath {
   '/student/classes/$classId/games/$gameId/live/': typeof StudentClassesClassIdGamesGameIdLiveIndexRoute
   '/teaching-hub/classes/$classId/adventures/$gameId/dashboard/': typeof TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute
   '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/': typeof TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute
+  '/teaching-hub/classes/$classId/courses/$courseId/exercises/': typeof TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRoute
   '/teaching-hub/classes/$classId/games/$gameId/dashboard/': typeof TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute
   '/teaching-hub/classes/$classId/games/$gameId/live/': typeof TeachingHubClassesClassIdGamesGameIdLiveIndexRoute
   '/live/workspace/$classId/assessments/$assessmentId/student/$studentId/': typeof LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
+  '/student/class/$classId/courses/$courseId/exercise/$blockId/': typeof StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRoute
   '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/': typeof TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
+  '/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId/': typeof TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -2338,6 +2372,7 @@ export interface FileRoutesByTo {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/course-builder/$courseId/exercise/$blockId': typeof CourseBuilderCourseIdExerciseBlockIdIndexRoute
   '/family/children/$childId/adventures': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes': typeof FamilyChildrenChildIdClassesIndexRoute
@@ -2408,10 +2443,13 @@ export interface FileRoutesByTo {
   '/student/classes/$classId/games/$gameId/live': typeof StudentClassesClassIdGamesGameIdLiveIndexRoute
   '/teaching-hub/classes/$classId/adventures/$gameId/dashboard': typeof TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute
   '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard': typeof TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute
+  '/teaching-hub/classes/$classId/courses/$courseId/exercises': typeof TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRoute
   '/teaching-hub/classes/$classId/games/$gameId/dashboard': typeof TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute
   '/teaching-hub/classes/$classId/games/$gameId/live': typeof TeachingHubClassesClassIdGamesGameIdLiveIndexRoute
   '/live/workspace/$classId/assessments/$assessmentId/student/$studentId': typeof LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
+  '/student/class/$classId/courses/$courseId/exercise/$blockId': typeof StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRoute
   '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId': typeof TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
+  '/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId': typeof TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -2624,6 +2662,7 @@ export interface FileRoutesById {
   '/school/teachers/$userId/lesson-notes/$id': typeof SchoolTeachersUserIdLessonNotesIdRoute
   '/school/teachers/$userId/smartboard/$notebookId': typeof SchoolTeachersUserIdSmartboardNotebookIdRoute
   '/teaching-hub/students/$userId/classes/$classId': typeof TeachingHubStudentsUserIdClassesClassIdRoute
+  '/course-builder/$courseId/exercise/$blockId/': typeof CourseBuilderCourseIdExerciseBlockIdIndexRoute
   '/family/children/$childId/adventures/': typeof FamilyChildrenChildIdAdventuresIndexRoute
   '/family/children/$childId/assignments/': typeof FamilyChildrenChildIdAssignmentsIndexRoute
   '/family/children/$childId/classes/': typeof FamilyChildrenChildIdClassesIndexRoute
@@ -2694,10 +2733,13 @@ export interface FileRoutesById {
   '/student/classes/$classId/games/$gameId/live/': typeof StudentClassesClassIdGamesGameIdLiveIndexRoute
   '/teaching-hub/classes/$classId/adventures/$gameId/dashboard/': typeof TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute
   '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/': typeof TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute
+  '/teaching-hub/classes/$classId/courses/$courseId/exercises/': typeof TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRoute
   '/teaching-hub/classes/$classId/games/$gameId/dashboard/': typeof TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute
   '/teaching-hub/classes/$classId/games/$gameId/live/': typeof TeachingHubClassesClassIdGamesGameIdLiveIndexRoute
   '/live/workspace/$classId/assessments/$assessmentId/student/$studentId/': typeof LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
+  '/student/class/$classId/courses/$courseId/exercise/$blockId/': typeof StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRoute
   '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/': typeof TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
+  '/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId/': typeof TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -2911,6 +2953,7 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/course-builder/$courseId/exercise/$blockId/'
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
     | '/family/children/$childId/classes/'
@@ -2981,10 +3024,13 @@ export interface FileRouteTypes {
     | '/student/classes/$classId/games/$gameId/live/'
     | '/teaching-hub/classes/$classId/adventures/$gameId/dashboard/'
     | '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/'
+    | '/teaching-hub/classes/$classId/courses/$courseId/exercises/'
     | '/teaching-hub/classes/$classId/games/$gameId/dashboard/'
     | '/teaching-hub/classes/$classId/games/$gameId/live/'
     | '/live/workspace/$classId/assessments/$assessmentId/student/$studentId/'
+    | '/student/class/$classId/courses/$courseId/exercise/$blockId/'
     | '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/'
+    | '/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -3185,6 +3231,7 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/course-builder/$courseId/exercise/$blockId'
     | '/family/children/$childId/adventures'
     | '/family/children/$childId/assignments'
     | '/family/children/$childId/classes'
@@ -3255,10 +3302,13 @@ export interface FileRouteTypes {
     | '/student/classes/$classId/games/$gameId/live'
     | '/teaching-hub/classes/$classId/adventures/$gameId/dashboard'
     | '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard'
+    | '/teaching-hub/classes/$classId/courses/$courseId/exercises'
     | '/teaching-hub/classes/$classId/games/$gameId/dashboard'
     | '/teaching-hub/classes/$classId/games/$gameId/live'
     | '/live/workspace/$classId/assessments/$assessmentId/student/$studentId'
+    | '/student/class/$classId/courses/$courseId/exercise/$blockId'
     | '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId'
+    | '/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId'
   id:
     | '__root__'
     | '/'
@@ -3470,6 +3520,7 @@ export interface FileRouteTypes {
     | '/school/teachers/$userId/lesson-notes/$id'
     | '/school/teachers/$userId/smartboard/$notebookId'
     | '/teaching-hub/students/$userId/classes/$classId'
+    | '/course-builder/$courseId/exercise/$blockId/'
     | '/family/children/$childId/adventures/'
     | '/family/children/$childId/assignments/'
     | '/family/children/$childId/classes/'
@@ -3540,10 +3591,13 @@ export interface FileRouteTypes {
     | '/student/classes/$classId/games/$gameId/live/'
     | '/teaching-hub/classes/$classId/adventures/$gameId/dashboard/'
     | '/teaching-hub/classes/$classId/assignments/$notebookId/dashboard/'
+    | '/teaching-hub/classes/$classId/courses/$courseId/exercises/'
     | '/teaching-hub/classes/$classId/games/$gameId/dashboard/'
     | '/teaching-hub/classes/$classId/games/$gameId/live/'
     | '/live/workspace/$classId/assessments/$assessmentId/student/$studentId/'
+    | '/student/class/$classId/courses/$courseId/exercise/$blockId/'
     | '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/'
+    | '/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -5093,6 +5147,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeachingHubStudentsUserIdIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
+    '/course-builder/$courseId/exercise/$blockId/': {
+      id: '/course-builder/$courseId/exercise/$blockId/'
+      path: '/$courseId/exercise/$blockId'
+      fullPath: '/course-builder/$courseId/exercise/$blockId/'
+      preLoaderRoute: typeof CourseBuilderCourseIdExerciseBlockIdIndexRouteImport
+      parentRoute: typeof CourseBuilderRouteRoute
+    }
     '/family/children/$childId/adventures/': {
       id: '/family/children/$childId/adventures/'
       path: '/children/$childId/adventures'
@@ -5632,6 +5693,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
+    '/teaching-hub/classes/$classId/courses/$courseId/exercises/': {
+      id: '/teaching-hub/classes/$classId/courses/$courseId/exercises/'
+      path: '/classes/$classId/courses/$courseId/exercises'
+      fullPath: '/teaching-hub/classes/$classId/courses/$courseId/exercises/'
+      preLoaderRoute: typeof TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
+    }
     '/teaching-hub/classes/$classId/games/$gameId/dashboard/': {
       id: '/teaching-hub/classes/$classId/games/$gameId/dashboard/'
       path: '/classes/$classId/games/$gameId/dashboard'
@@ -5653,11 +5721,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveWorkspaceClassIdAssessmentsAssessmentIdStudentStudentIdIndexRouteImport
       parentRoute: typeof LiveRouteRoute
     }
+    '/student/class/$classId/courses/$courseId/exercise/$blockId/': {
+      id: '/student/class/$classId/courses/$courseId/exercise/$blockId/'
+      path: '/class/$classId/courses/$courseId/exercise/$blockId'
+      fullPath: '/student/class/$classId/courses/$courseId/exercise/$blockId/'
+      preLoaderRoute: typeof StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRouteImport
+      parentRoute: typeof StudentRouteRoute
+    }
     '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/': {
       id: '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/'
       path: '/classes/$classId/assessments/$assessmentId/student/$studentId'
       fullPath: '/teaching-hub/classes/$classId/assessments/$assessmentId/student/$studentId/'
       preLoaderRoute: typeof TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
+    }
+    '/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId/': {
+      id: '/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId/'
+      path: '/classes/$classId/courses/$courseId/exercise/$blockId'
+      fullPath: '/teaching-hub/classes/$classId/courses/$courseId/exercise/$blockId/'
+      preLoaderRoute: typeof TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
   }
@@ -5772,11 +5854,14 @@ const CommunityRouteRouteWithChildren = CommunityRouteRoute._addFileChildren(
 interface CourseBuilderRouteRouteChildren {
   CourseBuilderIndexRoute: typeof CourseBuilderIndexRoute
   CourseBuilderCourseIdIndexRoute: typeof CourseBuilderCourseIdIndexRoute
+  CourseBuilderCourseIdExerciseBlockIdIndexRoute: typeof CourseBuilderCourseIdExerciseBlockIdIndexRoute
 }
 
 const CourseBuilderRouteRouteChildren: CourseBuilderRouteRouteChildren = {
   CourseBuilderIndexRoute: CourseBuilderIndexRoute,
   CourseBuilderCourseIdIndexRoute: CourseBuilderCourseIdIndexRoute,
+  CourseBuilderCourseIdExerciseBlockIdIndexRoute:
+    CourseBuilderCourseIdExerciseBlockIdIndexRoute,
 }
 
 const CourseBuilderRouteRouteWithChildren =
@@ -6023,6 +6108,7 @@ interface StudentRouteRouteChildren {
   StudentClassClassIdGameGameIdIndexRoute: typeof StudentClassClassIdGameGameIdIndexRoute
   StudentClassClassIdGamesGameIdPlayIndexRoute: typeof StudentClassClassIdGamesGameIdPlayIndexRoute
   StudentClassesClassIdGamesGameIdLiveIndexRoute: typeof StudentClassesClassIdGamesGameIdLiveIndexRoute
+  StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRoute: typeof StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRoute
 }
 
 const StudentRouteRouteChildren: StudentRouteRouteChildren = {
@@ -6060,6 +6146,8 @@ const StudentRouteRouteChildren: StudentRouteRouteChildren = {
     StudentClassClassIdGamesGameIdPlayIndexRoute,
   StudentClassesClassIdGamesGameIdLiveIndexRoute:
     StudentClassesClassIdGamesGameIdLiveIndexRoute,
+  StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRoute:
+    StudentClassClassIdCoursesCourseIdExerciseBlockIdIndexRoute,
 }
 
 const StudentRouteRouteWithChildren = StudentRouteRoute._addFileChildren(
@@ -6092,9 +6180,11 @@ interface TeachingHubRouteRouteChildren {
   TeachingHubStudentsUserIdSkillBuilderIndexRoute: typeof TeachingHubStudentsUserIdSkillBuilderIndexRoute
   TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute: typeof TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute
   TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute: typeof TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute
+  TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRoute: typeof TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRoute
   TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute: typeof TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute
   TeachingHubClassesClassIdGamesGameIdLiveIndexRoute: typeof TeachingHubClassesClassIdGamesGameIdLiveIndexRoute
   TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute: typeof TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute
+  TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRoute: typeof TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRoute
 }
 
 const TeachingHubRouteRouteChildren: TeachingHubRouteRouteChildren = {
@@ -6139,12 +6229,16 @@ const TeachingHubRouteRouteChildren: TeachingHubRouteRouteChildren = {
     TeachingHubClassesClassIdAdventuresGameIdDashboardIndexRoute,
   TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute:
     TeachingHubClassesClassIdAssignmentsNotebookIdDashboardIndexRoute,
+  TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRoute:
+    TeachingHubClassesClassIdCoursesCourseIdExercisesIndexRoute,
   TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute:
     TeachingHubClassesClassIdGamesGameIdDashboardIndexRoute,
   TeachingHubClassesClassIdGamesGameIdLiveIndexRoute:
     TeachingHubClassesClassIdGamesGameIdLiveIndexRoute,
   TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute:
     TeachingHubClassesClassIdAssessmentsAssessmentIdStudentStudentIdIndexRoute,
+  TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRoute:
+    TeachingHubClassesClassIdCoursesCourseIdExerciseBlockIdIndexRoute,
 }
 
 const TeachingHubRouteRouteWithChildren =

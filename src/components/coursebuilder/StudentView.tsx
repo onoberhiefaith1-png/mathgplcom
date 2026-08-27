@@ -30,7 +30,14 @@ const VideoBlockView = ({ url, title, mins }: { url?: string; title?: string; mi
 
 /** Exactly what a student sees. The teacher edits on the left and watches
  *  this update live on the right. */
-const StudentView = ({ tree }: { tree: CourseTree }) => {
+const StudentView = ({
+  tree,
+  onOpenExercise,
+}: {
+  tree: CourseTree;
+  /** Live student flow only: opens the Exercise Card's question list. */
+  onOpenExercise?: (blockId: string) => void;
+}) => {
   const { course, sections, blocks, questions } = tree;
   const cover = useCourseMediaUrl(course.background_url);
   const locked = course.learning_mode === "locked";
@@ -128,6 +135,15 @@ const StudentView = ({ tree }: { tree: CourseTree }) => {
                         <p className="mt-1 text-[11px] text-amber-700">
                           Unlocks once the previous exercise reaches its pass mark.
                         </p>
+                      )}
+                      {onOpenExercise && !isLocked && qs.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenExercise(block.id)}
+                          className="mt-2 inline-flex min-h-[40px] items-center rounded-lg bg-amber-600 px-3 text-xs font-semibold text-white transition hover:bg-amber-700"
+                        >
+                          View Questions
+                        </button>
                       )}
                     </div>
                   </div>

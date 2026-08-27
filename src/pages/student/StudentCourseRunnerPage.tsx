@@ -93,7 +93,13 @@ const StudentCourseRunnerPage = () => {
         ) : (
           <>
             <div className="mt-4">
-              <StudentView tree={tree} />
+              <StudentView
+                tree={tree}
+                onOpenExercise={(blockId) =>
+                  navigate(`/student/class/${classId}/courses/${courseId}/exercise/${blockId}`)
+                }
+              />
+
             </div>
             <div className="mt-6 flex justify-end">
               {done ? (

@@ -1,0 +1,55 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480 }
+    .note { fill: hsl(var(--muted-foreground)); font-size: 12px }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1 }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3 }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none }
+    .quiet { fill: hsl(var(--muted)); stroke: none }
+    .acc { fill: hsl(var(--accent)); stroke: none }
+    .accink { fill: hsl(var(--accent-foreground)); font-size: 11px }
+  </style>
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="8" width="624" height="150" rx="8"/>
+  <text class="note" x="20" y="26">one question session</text>
+
+  <rect class="box" x="28" y="40" width="150" height="46" rx="8"/>
+  <text class="lbl" x="103" y="68" text-anchor="middle">Smartboard layer</text>
+
+  <rect class="box" x="28" y="98" width="150" height="46" rx="8"/>
+  <text class="lbl" x="103" y="126" text-anchor="middle">Video layer</text>
+  <text class="note" x="188" y="120">one &lt;video&gt;, mounted once</text>
+  <text class="note" x="188" y="136">hidden = still playing</text>
+
+  <line class="wire" x1="178" y1="63" x2="330" y2="63" marker-end="url(#ch)"/>
+  <text class="note" x="188" y="56">line changes drive the video</text>
+
+  <rect class="quiet" x="340" y="34" width="270" height="116" rx="8"/>
+  <rect class="box" x="352" y="46" width="76" height="40" rx="8"/>
+  <text class="note" x="390" y="70" text-anchor="middle">Main</text>
+  <rect class="box" x="440" y="46" width="76" height="40" rx="8"/>
+  <text class="note" x="478" y="70" text-anchor="middle">Split</text>
+  <rect class="box" x="528" y="46" width="70" height="40" rx="8"/>
+  <text class="note" x="563" y="70" text-anchor="middle">Video</text>
+  <circle class="acc" cx="475" cy="120" r="11"/>
+  <text class="accink" x="475" y="124" text-anchor="middle">1</text>
+  <text class="note" x="494" y="124">views only — no new session</text>
+
+  <text class="note" x="20" y="196">one uploaded video, playback markers</text>
+  <rect class="quiet" x="20" y="206" width="600" height="22" rx="8"/>
+  <line class="wire" x1="140" y1="204" x2="140" y2="232"/>
+  <line class="wire" x1="260" y1="204" x2="260" y2="232"/>
+  <line class="wire" x1="400" y1="204" x2="400" y2="232"/>
+  <line class="wire" x1="520" y1="204" x2="520" y2="232"/>
+  <text class="note" x="80" y="248" text-anchor="middle">0:00–0:51</text>
+  <text class="note" x="200" y="248" text-anchor="middle">0:51–1:17</text>
+  <text class="note" x="330" y="248" text-anchor="middle">1:17–2:24</text>
+  <text class="note" x="460" y="248" text-anchor="middle">2:24–3:35</text>
+  <text class="note" x="570" y="248" text-anchor="middle">3:35–4:16</text>
+  <text class="note" x="20" y="276">the file is never cut — only start/end times are stored</text>
+</svg>

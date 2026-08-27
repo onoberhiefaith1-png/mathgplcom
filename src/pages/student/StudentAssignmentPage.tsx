@@ -63,7 +63,7 @@ const StudentAssignmentPage = () => {
       ((sects ?? []) as any[]).forEach((s, i) => order.set(s.id as string, i));
 
       const list = ((ass ?? []) as any[])
-        .filter((r) => r.kind !== "adventure")
+        .filter((r) => r.kind !== "adventure" && r.kind !== "course_exercise")
         .sort((a, b) => {
           const aOrder = a.section_id && order.has(a.section_id) ? order.get(a.section_id)! : Number.MAX_SAFE_INTEGER;
           const bOrder = b.section_id && order.has(b.section_id) ? order.get(b.section_id)! : Number.MAX_SAFE_INTEGER;

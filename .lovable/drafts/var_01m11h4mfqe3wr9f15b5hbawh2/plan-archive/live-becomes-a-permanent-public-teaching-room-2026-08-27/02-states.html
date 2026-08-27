@@ -1,0 +1,49 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One permanent link resolves to either the broadcast information page or the live dashboard">
+<style>
+  text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+  .lbl { font-size: 14px; font-weight: 480; }
+  .sm { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+  .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+  .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+  .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+  .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+  .acc { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; }
+  .halo { paint-order: stroke; stroke: hsl(var(--background)); stroke-width: 4px; }
+</style>
+<defs>
+  <marker id="cv" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+    <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+  </marker>
+</defs>
+
+<rect class="bx" x="16" y="118" width="176" height="64" rx="8"/>
+<text class="lbl" x="104" y="143" text-anchor="middle">Permanent Live Room</text>
+<text class="mono" x="104" y="163" text-anchor="middle">/live/join/ABC123</text>
+
+<rect class="acc" x="240" y="118" width="120" height="64" rx="24"/>
+<text class="lbl" x="300" y="145" text-anchor="middle">isTeaching?</text>
+<text class="sm" x="300" y="164" text-anchor="middle">teacher-controlled</text>
+
+<line class="wire" x1="192" y1="150" x2="236" y2="150" marker-end="url(#cv)"/>
+
+<path class="wire" d="M360 138 C 400 138, 400 66, 436 66" marker-end="url(#cv)"/>
+<text class="sm halo" x="400" y="58" text-anchor="middle">no</text>
+<path class="wire" d="M360 162 C 400 162, 400 234, 436 234" marker-end="url(#cv)"/>
+<text class="sm halo" x="400" y="228" text-anchor="middle">yes</text>
+
+<rect class="bx" x="440" y="24" width="184" height="86" rx="8"/>
+<text class="lbl" x="532" y="48" text-anchor="middle">Broadcast Information</text>
+<rect x="456" y="60" width="152" height="7" rx="3.5" fill="hsl(var(--border))"/>
+<rect x="456" y="74" width="120" height="7" rx="3.5" fill="hsl(var(--border))"/>
+<rect x="456" y="88" width="140" height="7" rx="3.5" fill="hsl(var(--border))"/>
+
+<rect class="bx" x="440" y="192" width="184" height="86" rx="8"/>
+<text class="lbl" x="532" y="216" text-anchor="middle">Live Teaching Dashboard</text>
+<rect x="456" y="228" width="76" height="34" rx="6" fill="hsl(var(--muted))"/>
+<rect x="540" y="228" width="68" height="34" rx="6" fill="hsl(var(--muted))"/>
+<text class="sm" x="494" y="249" text-anchor="middle">Notes · Board</text>
+<text class="sm" x="574" y="249" text-anchor="middle">Games</text>
+
+<rect class="zone" x="8" y="8" width="628" height="284" rx="8"/>
+<text class="sm" x="20" y="286">schedule is informational — it never ends the room</text>
+</svg>

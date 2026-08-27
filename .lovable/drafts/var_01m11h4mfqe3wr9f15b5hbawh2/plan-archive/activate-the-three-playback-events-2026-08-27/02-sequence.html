@@ -1,0 +1,19 @@
+<!doctype html>
+<html><body><svg viewBox="0 0 640 330" width="100%" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Smartboard video activation sequence">
+<style>
+  svg{font-family:var(--font-sans)} .box{fill:hsl(var(--card));stroke:hsl(var(--muted-foreground));stroke-width:1}.accent{fill:hsl(var(--accent));stroke:hsl(var(--accent-foreground));stroke-width:1}.t{fill:hsl(var(--card-foreground));font-size:14px;font-weight:480}.s{fill:hsl(var(--muted-foreground));font-size:12px}.wire{stroke:hsl(var(--muted-foreground));stroke-width:1;fill:none;marker-end:url(#a)}.dash{stroke-dasharray:4 3}.halo{paint-order:stroke;stroke:hsl(var(--background));stroke-width:5px;stroke-linejoin:round}.note{fill:hsl(var(--accent));}.nt{fill:hsl(var(--accent-foreground));font-size:12px;font-weight:600}
+</style>
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1l5 3-5 3" fill="none" stroke="hsl(var(--muted-foreground))"/></marker></defs>
+<rect class="box" x="24" y="36" width="150" height="62" rx="8"/><text class="t" x="99" y="62" text-anchor="middle">Smartboard opens</text><text class="s" x="99" y="81" text-anchor="middle">or Restart</text>
+<rect class="accent" x="246" y="36" width="150" height="62" rx="8"/><text class="t" x="321" y="62" text-anchor="middle">Introduction</text><text class="s" x="321" y="81" text-anchor="middle">starts when ready</text>
+<rect class="box" x="468" y="36" width="148" height="62" rx="8"/><text class="t" x="542" y="62" text-anchor="middle">No Introduction</text><text class="s" x="542" y="81" text-anchor="middle">wait silently</text>
+<path class="wire" d="M174 67H246"/><text class="s halo" x="210" y="56" text-anchor="middle">enabled</text><path class="wire dash" d="M174 86C286 131 408 130 484 99"/><text class="s halo" x="333" y="127" text-anchor="middle">not configured</text>
+<rect class="box" x="24" y="176" width="150" height="62" rx="8"/><text class="t" x="99" y="202" text-anchor="middle">Student clicks #</text><text class="s" x="99" y="221" text-anchor="middle">real activation</text>
+<rect class="accent" x="246" y="176" width="150" height="62" rx="8"/><text class="t" x="321" y="202" text-anchor="middle">Line 1</text><text class="s" x="321" y="221" text-anchor="middle">seek + play</text>
+<rect class="box" x="468" y="176" width="148" height="62" rx="8"/><text class="t" x="542" y="202" text-anchor="middle">Later lines</text><text class="s" x="542" y="221" text-anchor="middle">same cursor</text>
+<path class="wire" d="M174 207H246"/><path class="wire" d="M396 207H468"/>
+<rect class="box" x="152" y="270" width="174" height="46" rx="8"/><text class="t" x="239" y="298" text-anchor="middle">Final line mark awarded</text>
+<rect class="accent" x="394" y="270" width="174" height="46" rx="8"/><text class="t" x="481" y="298" text-anchor="middle">Conclusion to file end</text>
+<path class="wire" d="M326 293H394"/>
+<circle class="note" cx="228" cy="151" r="12"/><text class="nt" x="228" y="155" text-anchor="middle">1</text><text class="s" x="247" y="155"># interrupts the Introduction immediately</text>
+</svg></body></html>

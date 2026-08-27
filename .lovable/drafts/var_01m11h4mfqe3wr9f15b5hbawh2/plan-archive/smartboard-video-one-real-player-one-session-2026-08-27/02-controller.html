@@ -1,0 +1,51 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One video controller shared by three views, driven by the line cursor">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: none; stroke: hsl(var(--accent)); stroke-width: 1.5; }
+  </style>
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="8" width="292" height="118" rx="8"/>
+  <text class="note" x="20" y="26">selection — one cursor</text>
+  <rect class="box" x="24" y="38" width="120" height="34" rx="8"/>
+  <text class="lbl" x="84" y="59" text-anchor="middle">Present list</text>
+  <rect class="box" x="164" y="38" width="120" height="34" rx="8"/>
+  <text class="lbl" x="224" y="59" text-anchor="middle">Floating Numbers</text>
+  <rect class="box" x="94" y="86" width="120" height="30" rx="8"/>
+  <text class="lbl" x="154" y="105" text-anchor="middle">active line</text>
+  <line class="wire" x1="84" y1="72" x2="130" y2="86" marker-end="url(#ch)"/>
+  <line class="wire" x1="224" y1="72" x2="178" y2="86" marker-end="url(#ch)"/>
+
+  <rect class="acc" x="352" y="38" width="272" height="78" rx="8"/>
+  <text class="lbl" x="488" y="62" text-anchor="middle">Video controller (one element)</text>
+  <text class="mono" x="488" y="82" text-anchor="middle">currentTime · isPlaying · volume · muted</text>
+  <text class="mono" x="488" y="100" text-anchor="middle">activeSegment { start, end }</text>
+  <line class="wire" x1="214" y1="101" x2="348" y2="86" marker-end="url(#ch)"/>
+  <text class="note" x="270" y="128">seek + play</text>
+
+  <rect class="zone" x="352" y="140" width="272" height="60" rx="8"/>
+  <text class="note" x="364" y="158">player controls — video only</text>
+  <text class="mono" x="368" y="182">Prev · Play/Pause · Next · Replay · Volume</text>
+
+  <rect class="box" x="40" y="228" width="150" height="34" rx="8"/>
+  <text class="lbl" x="115" y="249" text-anchor="middle">Smartboard</text>
+  <rect class="box" x="210" y="228" width="150" height="34" rx="8"/>
+  <text class="lbl" x="285" y="249" text-anchor="middle">Split view</text>
+  <rect class="box" x="380" y="228" width="150" height="34" rx="8"/>
+  <text class="lbl" x="455" y="249" text-anchor="middle">Video</text>
+  <line class="wire" x1="470" y1="200" x2="455" y2="224" marker-end="url(#ch)"/>
+  <line class="wire" x1="440" y1="200" x2="285" y2="224" marker-end="url(#ch)"/>
+  <line class="wire" x1="410" y1="200" x2="115" y2="224" marker-end="url(#ch)"/>
+  <text class="note" x="40" y="292">Same element in all three — audio never stops, position never resets.</text>
+  <text class="note" x="40" y="312">Marks are a separate system: navigation never awards or revokes one.</text>
+</svg>

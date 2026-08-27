@@ -245,6 +245,7 @@ const CourseEditorPage = () => {
           {tab === "background" && <BackgroundEditor course={tree.course} onPatch={patchCourse} />}
           {tab === "sections" && (
             <SectionsEditor
+              courseId={tree.course.id}
               sections={tree.sections}
               blocks={tree.blocks}
               questions={tree.questions}

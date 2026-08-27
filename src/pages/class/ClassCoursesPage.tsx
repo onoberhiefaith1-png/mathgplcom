@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowDown, ArrowUp, GraduationCap, Loader2, Pencil, Plus, Trash2, GripVertical } from "lucide-react";
+import { ArrowDown, ArrowUp, GraduationCap, Loader2, MonitorPlay, Pencil, Plus, Trash2, GripVertical } from "lucide-react";
 import ClassPageShell from "@/components/class/ClassPageShell";
 import AssignCourseDialog from "@/components/coursebuilder/AssignCourseDialog";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
   type ClassCourse,
   type LearningMode,
 } from "@/lib/courses/classCourses";
+import { syncCourseExerciseAssessments } from "@/lib/courses/exerciseBoard";
 
 /** The class curriculum planner: assign, order and sequence existing courses. */
 const ClassCoursesPage = () => {
@@ -39,6 +40,9 @@ const ClassCoursesPage = () => {
     ]);
     setPathway(rows);
     setMode(settings.learning_mode);
+    // Prepare/refresh the hidden solving board behind every Exercise Card so
+    // students can open "View Questions" straight away.
+    void syncCourseExerciseAssessments(classId).catch(() => {});
   }, [classId]);
 
   useEffect(() => {
@@ -231,6 +235,14 @@ const ClassCoursesPage = () => {
                 >
                   <ArrowDown className="h-4 w-4" />
                 </button>
+                <Link
+                  to={`/teaching-hub/classes/${classId}/courses/${row.course.id}/exercises`}
+                  aria-label="Exercise Cards and teaching videos"
+                  title="Exercise Cards"
+                  className="grid h-11 w-11 place-items-center rounded-lg border border-dash-border text-dash-surface-muted transition hover:border-dash-gold"
+                >
+                  <MonitorPlay className="h-4 w-4" />
+                </Link>
                 <Link
                   to={`/course-builder/${row.course.id}`}
                   aria-label="Edit in Skill Builder"
