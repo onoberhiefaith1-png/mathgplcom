@@ -156,17 +156,31 @@ const AssignmentDashboardPage = () => {
 
   const totalMarks = assessments.reduce((s, a) => s + a.total_marks, 0);
 
+  const dashPath = `${classRoot()}/${classId}/assignments/${notebookId}/dashboard`;
+
   const onView = (studentId: string) => {
     const aid = firstAssessmentId;
     if (!aid) return;
-    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=work&returnTo=${encodeURIComponent(`${classRoot()}/${classId}/assignments/${notebookId}/dashboard`)}`);
+    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=work&returnTo=${encodeURIComponent(dashPath)}`);
+  };
+
+  const onViewQuestion = (studentId: string, assessmentId: string, questionId: string) => {
+    navigate(`${classRoot()}/${classId}/assessments/${assessmentId}/student/${studentId}?mode=work&q=${questionId}&returnTo=${encodeURIComponent(dashPath)}`);
   };
 
   const onJoinLive = (studentId: string) => {
-    const aid = firstAssessmentId;
+    // An assignment card spans several assessments; join the one the student
+    // actually has open, never blindly the first.
+    const aid = resolveLiveAssessmentId(
+      studentId,
+      presenceByAssessment,
+      assessments.map((a) => a.id),
+      firstAssessmentId,
+    );
     if (!aid) return;
-    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(`${classRoot()}/${classId}/assignments/${notebookId}/dashboard`)}`);
+    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(dashPath)}`);
   };
+
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
