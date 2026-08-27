@@ -1,5 +1,3 @@
-import { meterFunction } from "../_shared/usageMeter.ts";
-meterFunction("grade-line");
 // grade-line — per-line mathematical equivalence grader.
 //
 // Compares the student's single line (as ASCII) against the teacher's stored
@@ -7,12 +5,19 @@ meterFunction("grade-line");
 // the server. Grading uses the shared equivalence engine (symbolic → numeric →
 // LLM) and NEVER inspects chip order, floating-number provenance, or drag
 // history.
+//
+// MARKING IS NEVER GATED. Marking a student's line is part of doing the
+// assignment, not an AI purchase: this function is deliberately NOT wrapped in
+// `meterFunction`, so no credit reservation, entitlement check or 402 can ever
+// sit in front of a student's work being marked. AI usage is still accounted
+// for — against the assignment OWNER (the teacher), never the student.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
 import { equivalent, structurallyIdentical } from "../_shared/mathEquivalence.ts";
 import { diagnoseLine } from "../_shared/lineDiagnosis.ts";
+import { withUsageMeter } from "../_shared/usageMeter.ts";
 
 const BodySchema = z.object({
   assessmentId: z.string().uuid(),
