@@ -602,9 +602,11 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
                   );
                   return parsedSolution.map((p) => ({
                     equation: p.equation,
+                    fillers: undefined as string[] | undefined,
                     containers: detectStructures(p.equation) as ContainerKind[],
                     explanation: p.explanation,
                   }));
+
                 })()
               : notesOnlyRows(
                   parsedSolution,
