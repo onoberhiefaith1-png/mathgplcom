@@ -124,6 +124,8 @@ import { EmojiMedia } from "./extensions/EmojiMedia";
 import { ConversionPanel } from "./ConversionPanel";
 import { renderMathInline, HAS_MATH } from "@/lib/notebook/mathRender";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
+import { latexToTree, treeToLatex } from "@/lib/smartboard/mathTreeLatex";
+
 
 import { SlidePanel } from "@/components/lessonnotes/slides/SlidePanel";
 import {
