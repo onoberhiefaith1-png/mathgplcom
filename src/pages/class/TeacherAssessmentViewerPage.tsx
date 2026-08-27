@@ -192,6 +192,26 @@ const TeacherAssessmentViewerPage = () => {
     );
   }
 
+  // LIVE NEVER GUESSES. Until the student's own board tells us which question
+  // they are on, nothing is shown — a stale question would be worse.
+  if (mode === "live" && !questionId) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-6 text-center text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        <div className="text-sm">Waiting for {studentName || "the student"}'s board…</div>
+        <div className="text-xs">The view opens on whichever question they are working on.</div>
+        <button
+          type="button"
+          onClick={() => navigate(returnTo)}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
+        </button>
+      </div>
+    );
+  }
+
+
   return (
     <>
       <div className="fixed inset-0 flex bg-background">
