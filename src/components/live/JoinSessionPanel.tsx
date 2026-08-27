@@ -120,10 +120,8 @@ const JoinSessionPanel = ({ initialCode }: { initialCode?: string }) => {
         .maybeSingle();
       if (error || !session) {
         toast({
-          title: error ? "This room is not open yet" : "Room not found",
-          description: error
-            ? "The teacher has not opened this teaching room. Try the link again shortly."
-            : "Check the code and try again.",
+          title: "We couldn't find that room",
+          description: "This code doesn't match a teaching room. Check it and try again.",
           variant: "destructive",
         });
         return;

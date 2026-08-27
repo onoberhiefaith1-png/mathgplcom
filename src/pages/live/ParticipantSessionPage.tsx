@@ -14,6 +14,7 @@ import BroadcastPanel from "@/components/live/BroadcastPanel";
 import { guestDisplayName, guestName, setGuestName } from "@/lib/live/guest";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import AudienceSessionPage from "@/pages/live/audience/AudienceSessionPage";
+import RoomInfoPage from "@/pages/live/RoomInfoPage";
 
 /**
  * The session page serves two people from one link.
@@ -81,16 +82,19 @@ const ParticipantSessionPage = () => {
   if (notFound || !session) {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-xl font-semibold">Session unavailable</h1>
+        <h1 className="text-xl font-semibold">We couldn&rsquo;t find that room</h1>
         <p className="text-sm text-muted-foreground">
-          This live session link is no longer active. Ask your teacher for a fresh link.
+          This link doesn&rsquo;t match a teaching room. Rooms stay open permanently, so check the
+          code with your teacher and try again.
         </p>
         <Link to="/live/join" className="min-h-[44px] rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground">
-          Enter a session code
+          Enter a room code
         </Link>
       </div>
     );
   }
+
+  if (!session.is_live) return <RoomInfoPage session={session} />;
 
   const classId = session.class_id;
   const state = roomStateOf(session);
