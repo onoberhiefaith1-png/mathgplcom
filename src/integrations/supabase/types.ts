@@ -605,6 +605,63 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_student_questions: {
+        Row: {
+          answer_body: string | null
+          answered_at: string | null
+          answered_by: string | null
+          assessment_id: string
+          board_question_id: string | null
+          body: string
+          class_id: string
+          created_at: string
+          id: string
+          student_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          answer_body?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          assessment_id: string
+          board_question_id?: string | null
+          body: string
+          class_id: string
+          created_at?: string
+          id?: string
+          student_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          answer_body?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          assessment_id?: string
+          board_question_id?: string | null
+          body?: string
+          class_id?: string
+          created_at?: string
+          id?: string
+          student_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_student_questions_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_student_questions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_timer_attempts: {
         Row: {
           assessment_id: string
