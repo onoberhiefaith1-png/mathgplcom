@@ -11,7 +11,7 @@ import {
 } from "@/lib/live/sessions";
 import { useNowTick } from "@/lib/live/useCountdown";
 import BroadcastPanel from "@/components/live/BroadcastPanel";
-import { guestDisplayName, guestName, setGuestName } from "@/lib/live/guest";
+import AudienceShell from "@/components/live/AudienceShell";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 /**
@@ -81,7 +81,6 @@ const ParticipantSessionPage = () => {
   const startMs = session.starts_at ? new Date(session.starts_at).getTime() : NaN;
   const boardLocked = state === "scheduled" || state === "starting-soon";
   const audience = !signedIn;
-  const needsName = audience && session.ask_participant_name && !name;
   const phone = bp === "phone";
 
   const tiles: { label: string; icon: typeof BookOpen; to: string }[] = [
@@ -92,6 +91,29 @@ const ParticipantSessionPage = () => {
     { label: "Gallery", icon: ImageIcon, to: `/student/class/${classId}/gallery` },
     { label: "Report", icon: BarChart3, to: `/student/class/${classId}/report` },
   ];
+
+  if (audience) {
+    return (
+      <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
+        <header className="flex items-center justify-between px-4 py-4 sm:px-6">
+          <Link to="/live/join" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> Enter another code
+          </Link>
+          <h1 className="text-base font-semibold tracking-wide sm:text-lg">MathGPL Live</h1>
+        </header>
+        <main className="mx-auto w-full max-w-4xl px-4 pb-10 sm:px-6">
+          <AudienceShell
+            sessionId={session.id}
+            title={session.title}
+            description={session.description}
+            askName={session.ask_participant_name}
+            broadcasts={session.broadcasts}
+            locked={boardLocked}
+          />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
