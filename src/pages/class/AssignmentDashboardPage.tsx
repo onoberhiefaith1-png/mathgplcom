@@ -161,6 +161,12 @@ const AssignmentDashboardPage = () => {
     navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?returnTo=${encodeURIComponent(`${classRoot()}/${classId}/assignments/${notebookId}/dashboard`)}`);
   };
 
+  const onJoinLive = (studentId: string) => {
+    const aid = firstAssessmentId;
+    if (!aid) return;
+    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(`${classRoot()}/${classId}/assignments/${notebookId}/dashboard`)}`);
+  };
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
       <header className="flex items-center justify-between px-6 py-5">
@@ -196,7 +202,7 @@ const AssignmentDashboardPage = () => {
               memberNames={new Map(members.map((m) => [m.user_id, m.display_name]))}
             />
 
-            <AssessmentStatusPanel rows={rows} onViewStudent={onView} />
+            <AssessmentStatusPanel rows={rows} onViewStudent={onView} onJoinLive={onJoinLive} />
           </>
         )}
       </main>
