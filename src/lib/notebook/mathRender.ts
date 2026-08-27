@@ -234,7 +234,7 @@ export const mathLineMinHeight = (raw: string, base = 32, next?: string): number
 /** True if a string needs the structural renderer (vs flat text). */
 export const HAS_MATH = (s: string): boolean => {
   const n = normalizeMath(s);
-  return /\\frac\{|\\sqrt(?:\[[^\]]*\])?\{|\\sum|\\prod|\\int|\\oint|\\lim|\\begin\{|\\vec|\\hat|\\bar|\\binom|\\abs|\\norm|\\floor|\\ceil|\\sl\{|\^\{|_\{|[²³¹⁰⁴⁵⁶⁷⁸⁹₀-₉×÷±≤≥≠√→∞≈π·∛∜]/.test(n);
+  return /\\frac\{|\\sqrt(?:\[[^\]]*\])?\{|\\sum|\\prod|\\coprod|\\bigcup|\\bigcap|\\int|\\oint|\\lim|\\begin\{|\\vec|\\hat|\\bar|\\binom|\\abs|\\norm|\\floor|\\ceil|\\sl\{|\^\{|_\{|[²³¹⁰⁴⁵⁶⁷⁸⁹₀-₉×÷±≤≥≠√→∞≈π·∛∜]/.test(n);
 };
 
 /* ------------------------- options ------------------------- */
