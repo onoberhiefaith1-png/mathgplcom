@@ -75,7 +75,9 @@ const Leaf = ({ atom, isSelected, isRingHover, toggle, onHover, focus }: LeafPro
     >
       {atom.kind === "structure"
         ? renderMathInline(atom.value, `st-${atom.id}`)
-        : atom.value}
+        : hasEmoji(atom.value)
+          ? <span style={EMOJI_STYLE}>{atom.value}</span>
+          : atom.value}
     </span>
   );
 };
