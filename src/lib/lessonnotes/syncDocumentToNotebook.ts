@@ -251,12 +251,14 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
       const list = subsBySection.get(sid) ?? [];
       list.push({
         id: (s as any).id as string,
+        section_id: sid,
         order_index: Number((s as any).order_index) || 0,
         problem: problemBySub.get((s as any).id as string) ?? "",
         doc_key: ((s as any).doc_key as string | null) ?? null,
       });
       subsBySection.set(sid, list);
     }
+
     for (const list of subsBySection.values()) list.sort((a, b) => a.order_index - b.order_index);
   }
 
