@@ -4040,12 +4040,24 @@ const PresentationView = ({
   };
 
   // Silent auto-grading — same resolver, same engine, no UI feedback.
+  // MARKING BELONGS TO THE STUDENT'S BOARD. The verdict is recorded here and
+  // broadcast to the teacher; the student never sees it. The key guard stops
+  // the SAME expression being sent to the engine twice while the student keeps
+  // the line open, without ever blocking a changed expression.
+  const autoGradedKeyRef = useRef<string>("");
   const silentAutoCheckLine = useCallback(
     async (k: number, frozenAscii?: string) => {
+      const ascii = typeof frozenAscii === "string"
+        ? frozenAscii
+        : (resolveGradableLineRef.current(k)?.ascii ?? "");
+      const key = `${current?.id ?? ""}:${k}:${ascii}`;
+      if (ascii.trim() && autoGradedKeyRef.current === key) return;
+      if (ascii.trim()) autoGradedKeyRef.current = key;
       await gradeLineThroughEngine(k, "auto", frozenAscii);
     },
-    [gradeLineThroughEngine],
+    [gradeLineThroughEngine, current?.id],
   );
+
 
   // ── EDITING SESSION: Start Point / End Point ─────────────────────────
   // A session opens the moment the student enters a line (from the Floating
