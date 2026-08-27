@@ -687,10 +687,14 @@ const TeacherReasoningPanel = ({
                 )}
               </div>
               <div className="flex items-center gap-1.5 text-sm font-semibold">
-                {shownCorrect === true ? (
+                {evaluationFailed ? (
+                  <><XCircle className="h-4 w-4 text-amber-500" /> <span className="text-amber-500">{shownDiagnosis?.label ?? "Could not evaluate"}</span></>
+                ) : shownCorrect === true ? (
                   <><CheckCircle2 className="h-4 w-4 text-emerald-500" /> {shownDiagnosis?.label ?? "Equivalent"}</>
                 ) : shownCorrect === false ? (
                   <><XCircle className="h-4 w-4 text-red-500" /> {shownDiagnosis?.label ?? "Not equivalent"}</>
+                ) : studentAscii.trim() && stalled ? (
+                  <><XCircle className="h-4 w-4 text-amber-500" /> <span className="text-amber-500">Not evaluated yet</span></>
                 ) : studentAscii.trim() ? (
                   <><Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> <span className="text-muted-foreground">Evaluating…</span></>
                 ) : (
@@ -702,7 +706,9 @@ const TeacherReasoningPanel = ({
                   (shownVerdict
                     ? verdictLabel(shownVerdict)
                     : studentAscii.trim()
-                      ? "The evaluation engine is evaluating this line."
+                      ? stalled
+                        ? "No verdict has arrived for this line yet. It is marked as soon as the student's board finishes the step."
+                        : "The evaluation engine is evaluating this line."
                       : "No line content to evaluate yet.")}
               </div>
               {shownDiagnosis?.code && (
