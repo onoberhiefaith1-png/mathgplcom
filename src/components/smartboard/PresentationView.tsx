@@ -2281,11 +2281,12 @@ const PresentationView = ({
    *  margin (x=0) is enforced on every nudge. ▲ is free anywhere inside
    *  the empty solution space — it only stops at the top of the band. */
   const nudgeCursor = useCallback((dir: 1 | -1) => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return;
-    // STRUCTURE FIRST: while the caret sits inside a fraction, radical,
-    // power or matrix, ▲/▼ steps between that structure's slots (and ▲
-    // escapes it once there is nothing above). Only when there is no
-    // vertical target inside the maths does the sensor change board row.
+    // STRUCTURE FIRST — checked BEFORE any board-layout guard, so caret
+    // movement inside a fraction, radical, power, script or matrix cell
+    // never depends on band state. ▲/▼ steps between that structure's
+    // slots, searching outward through every enclosing structure, and ▲
+    // escapes once nothing sits above. Only when the maths offers no
+    // vertical target does the sensor change board row.
     {
       const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
       const c = cursorRef.current;
@@ -2298,6 +2299,9 @@ const PresentationView = ({
         }
       }
     }
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+
+
 
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
