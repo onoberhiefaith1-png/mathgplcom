@@ -16,7 +16,11 @@ export async function loadLessonProgress(
 ): Promise<StudentProgressRow[]> {
   const totalMarks = assessments.reduce((s, a) => s + (Number(a.total_marks) || 0), 0);
   const ids = assessments.map((a) => a.id);
-  const byStudent = new Map<string, { score: number; anyCompleted: boolean }>();
+  // COMPLETION IS PER ASSIGNMENT CARD, NOT PER QUESTION. A card is the whole set
+  // of questions compiled from one lesson note, so a student only counts as
+  // Completed once EVERY question in `assessments` reports completion. Score is
+  // never a completion signal.
+  const byStudent = new Map<string, { score: number; completedQuestions: Set<string> }>();
   if (ids.length) {
     const { data } = await supabase
       .from("assessment_progress")
@@ -24,20 +28,25 @@ export async function loadLessonProgress(
       .in("assessment_id", ids);
     for (const r of data ?? []) {
       const sid = (r as any).student_id as string;
-      const cur = byStudent.get(sid) ?? { score: 0, anyCompleted: false };
+      const cur = byStudent.get(sid) ?? { score: 0, completedQuestions: new Set<string>() };
       cur.score += Number((r as any).score ?? 0);
-      if ((r as any).status === "completed") cur.anyCompleted = true;
+      if ((r as any).status === "completed") {
+        cur.completedQuestions.add((r as any).assessment_id as string);
+      }
       byStudent.set(sid, cur);
     }
   }
   const contribMode = requiredContribution != null && requiredContribution > 0;
+  const questionCount = ids.length;
   return members.map((m) => {
     const p = byStudent.get(m.user_id);
     const score = p?.score ?? 0;
     const isActive = activeSet.has(m.user_id);
     const hitContribution = contribMode && score >= (requiredContribution as number);
+    const allQuestionsCompleted =
+      questionCount > 0 && (p?.completedQuestions.size ?? 0) >= questionCount;
     const status: StudentProgressRow["status"] =
-      (contribMode ? hitContribution : !!p?.anyCompleted)
+      (contribMode ? hitContribution : allQuestionsCompleted)
         ? "completed"
         : isActive
         ? "in_progress"
