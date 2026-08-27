@@ -524,6 +524,13 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       const lines: ReservoirLine[] = [];
       const fragmentsFromLines: string[] = [];
       const solutionBlock = findBlock(sub.blocks, "solution");
+      const hasTeacherFloating =
+        (rawHighlights && rawHighlights.length > 0) ||
+        (rawLines && rawLines.length > 0) ||
+        (bucket?.fillers && bucket.fillers.length > 0) ||
+        (bucket?.viewCombined && bucket.viewCombined.length > 0) ||
+        (bucket?.viewRearranged && bucket.viewRearranged.length > 0);
+
       // NOTE: the solution text is never split into floating fragments here.
       // Walk the FULL solution text (math + prose) so we can attach any
       // narrative explanation directly to the equation it follows.
@@ -584,14 +591,28 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           }, [])
         : rawLines && rawLines.length > 0
           ? rawLines
-          // SELECTION LAW: nothing was highlighted, so nothing floats. The
-          // solution is NOT re-interpreted into floating fragments. Instead
-          // the board still shows the lesson content as NOTES: unhighlighted
-          // prose becomes note text and every notes-layer diagram rides it.
-          : notesOnlyRows(
-              parsedSolution,
-              solutionNotesObjects(solutionBlock),
-            );
+          : hasTeacherFloating
+            ? []
+            : parsedSolution.length > 0
+              ? (() => {
+                  // eslint-disable-next-line no-console
+                  console.warn(
+                    "[smartboard fallback] no teacher-curated floating data; deriving chips from solution equations for beat",
+                    `${sub.id}-q`,
+                  );
+                  return parsedSolution.map((p) => ({
+                    equation: p.equation,
+                    fillers: undefined as string[] | undefined,
+                    containers: detectStructures(p.equation) as ContainerKind[],
+                    explanation: p.explanation,
+                  }));
+
+                })()
+              : notesOnlyRows(
+                  parsedSolution,
+                  solutionNotesObjects(solutionBlock),
+                );
+
 
 
       if (sourceLines && sourceLines.length > 0) {
