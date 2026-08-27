@@ -4181,7 +4181,7 @@ const PresentationView = ({
   // lines and already-solved slots, so this never disturbs the student.
   useEffect(() => {
     if (!assessmentMode || role !== "student") return;
-    const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, 1500);
+    const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, 900);
     return () => window.clearTimeout(id);
     // `tableEntries` is here so a cell edit re-arms the debounce: a completed
     // final row/column is never left unmarked just because the student stayed.
