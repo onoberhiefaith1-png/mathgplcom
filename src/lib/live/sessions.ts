@@ -66,7 +66,7 @@ export const SESSION_COLUMNS: string =
   "id, owner_id, class_id, notebook_id, title, description, starts_at, duration_minutes, time_zone, visibility, status, created_at, updated_at, broadcasts, ask_participant_name";
 
 /** Recurring-room columns, read separately so a row still loads without them. */
-const ROOM_COLUMNS = ", schedule_days, schedule_time, is_live, live_started_at";
+const ROOM_COLUMNS = ", schedule_days, schedule_time, schedule_times, is_live, live_started_at";
 
 let roomColumnsAvailable: boolean | null = null;
 
@@ -236,8 +236,10 @@ export type CreateSessionInput = {
   notebookId?: string | null;
   /** Recurring teaching days, 0 = Sunday … 6 = Saturday. */
   scheduleDays: number[];
-  /** Recurring teaching time as "HH:MM". */
+  /** Legacy single time, kept for callers that have not moved to per-day times. */
   scheduleTime: string | null;
+  /** Each teaching day's own time: { "1": "16:00", "4": "18:00" }. */
+  scheduleTimes?: ScheduleTimes;
   durationMinutes: number;
   timeZone: string;
   visibility: SessionVisibility;
@@ -297,6 +299,11 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
   const schedule = {
     schedule_days: input.scheduleDays,
     schedule_time: input.scheduleTime,
+    schedule_times: hydrateScheduleTimes(
+      input.scheduleTimes ?? null,
+      input.scheduleDays,
+      input.scheduleTime,
+    ),
     is_live: false,
   };
 
@@ -340,10 +347,15 @@ export const updateSessionSchedule = async (
   sessionId: string,
   scheduleDays: number[],
   scheduleTime: string | null,
+  scheduleTimes?: ScheduleTimes,
 ) =>
   supabase
     .from("sessions")
-    .update({ schedule_days: scheduleDays, schedule_time: scheduleTime } as never)
+    .update({
+      schedule_days: scheduleDays,
+      schedule_time: scheduleTime,
+      schedule_times: hydrateScheduleTimes(scheduleTimes ?? null, scheduleDays, scheduleTime),
+    } as never)
     .eq("id", sessionId);
 
 /**
