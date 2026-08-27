@@ -2,21 +2,24 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import {
   ArrowLeft, Users, BookOpen, Presentation, ClipboardList, Compass, Gamepad2,
-  Image as ImageIcon, BarChart3, Copy, Check, Radio,
+  Image as ImageIcon, BarChart3, Copy, Check, Radio, DoorOpen, Lock, Square,
 } from "lucide-react";
+import { setAllowFreeEntry } from "@/lib/live/audience";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import JoinRequestsPanel from "@/components/class/JoinRequestsPanel";
-import AudienceEntryPanel from "@/components/live/AudienceEntryPanel";
-import { publicOrigin } from "@/lib/public/publicSite";
 import {
-  LiveSession, formatCountdownLong, formatStartsAt, hydrateSession, scheduleLabel,
-  scheduleStateOf, scheduleTone, updateSessionBroadcasts, SESSION_COLUMNS, fetchSessionCode,
+  LiveSession, formatNextLesson, formatRecurring, hydrateSession, roomLabel,
+  roomStateOf, roomTone, updateSessionBroadcasts, querySessions, fetchSessionCode,
+  fetchAllowFreeEntry, setLiveState,
 } from "@/lib/live/sessions";
-import { useNowTick } from "@/lib/live/useCountdown";
 import BroadcastEditor from "@/components/live/BroadcastEditor";
 import { BroadcastEntry } from "@/lib/live/broadcast";
+import { joinUrl } from "@/lib/links/publicUrl";
+import { copyText, selectAllIn } from "@/lib/clipboard/copyText";
+
+
 
 
 const SessionDashboardPage = () => {
@@ -28,7 +31,23 @@ const SessionDashboardPage = () => {
   const [copied, setCopied] = useState<string | null>(null);
   const [broadcasts, setBroadcasts] = useState<BroadcastEntry[]>([]);
   const [savingBroadcasts, setSavingBroadcasts] = useState(false);
-  const now = useNowTick();
+  const [togglingLive, setTogglingLive] = useState(false);
+
+  /** The teacher's own switch — the clock never opens or closes a room. */
+  const toggleLive = async () => {
+    if (!session) return;
+    const next = !session.is_live;
+    setTogglingLive(true);
+    const { error } = await setLiveState(session.id, next);
+    setTogglingLive(false);
+    if (error) {
+      toast({ title: "Could not update the room", description: error.message, variant: "destructive" });
+      return;
+    }
+    setSession({ ...session, is_live: next });
+    toast({ title: next ? "You are live" : "Live teaching stopped" });
+  };
+
 
   const saveBroadcasts = async () => {
     if (!sessionId) return;
@@ -50,17 +69,16 @@ const SessionDashboardPage = () => {
         navigate(`/auth?redirect=/live/sessions/${sessionId}`);
         return;
       }
-      const { data, error } = await supabase
-        .from("sessions")
-        .select(SESSION_COLUMNS)
-        .eq("id", sessionId!)
-        .maybeSingle();
-      if (error || !data) {
+      const data = await querySessions<Record<string, unknown>>((cols) =>
+        supabase.from("sessions").select(cols).eq("id", sessionId!).maybeSingle() as never,
+      );
+      if (!data) {
+
         toast({ title: "Session not found", variant: "destructive" });
         navigate("/live/sessions");
         return;
       }
-      const row = hydrateSession(data as Record<string, unknown>);
+      const row = hydrateSession(data as unknown as Record<string, unknown>);
       if (row.owner_id !== userData.user.id) {
         navigate(`/live/s/${row.id}`, { replace: true });
         return;
@@ -70,21 +88,36 @@ const SessionDashboardPage = () => {
         navigate(redirect, { replace: true });
         return;
       }
-      setSession({ ...row, session_code: await fetchSessionCode(row.id) });
+      setSession({
+        ...row,
+        allow_free_entry: await fetchAllowFreeEntry(row.id),
+        session_code: await fetchSessionCode(row.id),
+      });
       setBroadcasts(row.broadcasts);
       setLoading(false);
 
     })();
   }, [sessionId, navigate, toast]);
 
+  const toggleFreeEntry = async () => {
+    if (!session) return;
+    const next = !session.allow_free_entry;
+    setSession({ ...session, allow_free_entry: next });
+    await setAllowFreeEntry(session.id, next);
+    toast({ title: next ? "Free entry is on" : "Approval is now required" });
+  };
+
   const copy = async (label: string, value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
+    if (await copyText(value)) {
       setCopied(label);
       setTimeout(() => setCopied(null), 1500);
-    } catch {
-      toast({ title: "Copy failed", variant: "destructive" });
+      return;
     }
+    toast({
+      title: "Copy blocked by your browser",
+      description: "Select the link and copy it manually.",
+      variant: "destructive",
+    });
   };
 
   if (loading || !session) {
@@ -94,12 +127,12 @@ const SessionDashboardPage = () => {
   }
 
   const classId = session.class_id;
-  const state = scheduleStateOf(session, now);
-  const startMs = session.starts_at ? new Date(session.starts_at).getTime() : NaN;
-  const joinLink = `${publicOrigin()}/live/join/${session.session_code}`;
+  const state = roomStateOf(session);
+
+  const joinLink = joinUrl(session.session_code);
 
   const tiles: { label: string; icon: typeof Users; to: string }[] = [
-    { label: "Audience", icon: Users, to: `/live/workspace/${classId}/students` },
+    { label: "Audience", icon: Users, to: `/live/sessions/${sessionId}/audience` },
     { label: "Lesson Notes", icon: BookOpen, to: `/live/workspace/${classId}/lesson-notes` },
     { label: "SmartBoard", icon: Presentation, to: `/live/workspace/${classId}/smartboard` },
     { label: "Challenges", icon: ClipboardList, to: `/live/workspace/${classId}/assignments` },
@@ -122,9 +155,9 @@ const SessionDashboardPage = () => {
       <main className="mx-auto max-w-5xl space-y-8 px-6 py-8">
         <section className="rounded-2xl border border-border bg-card/40 p-6 backdrop-blur">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${scheduleTone[state]}`}>
-              {state === "live" && <Radio className="h-3 w-3 animate-pulse" />}
-              {scheduleLabel[state]}
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${roomTone[state]}`}>
+              {state === "live" ? <Radio className="h-3 w-3 animate-pulse" /> : <DoorOpen className="h-3 w-3" />}
+              {roomLabel[state]}
             </span>
             <span className="rounded-full border border-border px-2.5 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
               {session.visibility === "public" ? "Public" : "Private"}
@@ -135,15 +168,33 @@ const SessionDashboardPage = () => {
           {session.description && <p className="mt-2 text-sm text-muted-foreground">{session.description}</p>}
 
           <div className="mt-4 text-sm text-muted-foreground">
-            {formatStartsAt(session.starts_at, session.time_zone)} · {session.duration_minutes} min · {session.time_zone}
+            {formatRecurring(session.schedule_days, session.schedule_time)} · {session.duration_minutes} min ·{" "}
+            {session.time_zone}
           </div>
 
-          {(state === "scheduled" || state === "starting-soon") && !Number.isNaN(startMs) && (
-            <div className="mt-4 rounded-xl border border-cyan-300/30 bg-cyan-400/10 p-4">
-              <div className="text-xs uppercase tracking-wider text-cyan-200/80">Starts in</div>
-              <div className="mt-1 text-2xl font-semibold text-cyan-100">{formatCountdownLong(startMs - now)}</div>
-            </div>
-          )}
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background/50 p-4">
+            <button
+              type="button"
+              onClick={toggleLive}
+              disabled={togglingLive}
+              className={`inline-flex min-h-[44px] items-center gap-2 rounded-xl px-4 text-sm font-semibold transition disabled:opacity-60 ${
+                session.is_live
+                  ? "bg-destructive text-destructive-foreground hover:opacity-90"
+                  : "bg-primary text-primary-foreground hover:opacity-90"
+              }`}
+            >
+              {session.is_live ? <Square className="h-4 w-4" /> : <Radio className="h-4 w-4" />}
+              {session.is_live ? "Stop teaching" : "Start teaching"}
+            </button>
+            <p className="text-xs text-muted-foreground">
+              {session.is_live
+                ? "Your audience sees this room as Live now."
+                : formatNextLesson(session)
+                  ? `The room stays open. Next lesson: ${formatNextLesson(session)}.`
+                  : "The room stays open — start teaching whenever you are ready."}
+            </p>
+          </div>
+
 
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             {([
@@ -153,7 +204,12 @@ const SessionDashboardPage = () => {
               <div key={row.label} className="space-y-1">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">{row.label}</div>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 truncate rounded-md border border-border bg-background px-2 py-1.5 text-xs">{row.value}</code>
+                  <code
+                    onClick={(e) => selectAllIn(e.currentTarget)}
+                    className="min-w-0 flex-1 cursor-text rounded-md border border-border bg-background px-2 py-1.5 text-xs break-all select-all"
+                  >
+                    {row.value}
+                  </code>
                   <button
                     type="button"
                     onClick={() => copy(row.label, row.value)}
@@ -166,6 +222,23 @@ const SessionDashboardPage = () => {
               </div>
             ))}
           </div>
+
+          <button
+            type="button"
+            onClick={toggleFreeEntry}
+            aria-pressed={session.allow_free_entry}
+            className={`mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+              session.allow_free_entry
+                ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-200"
+                : "border-border text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            {session.allow_free_entry ? <DoorOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            {session.allow_free_entry ? "Free entry on" : "Approval required"}
+          </button>
+          <p className="mt-2 text-xs text-muted-foreground">
+            With free entry on, anyone with the link or code enters straight away — no approval needed.
+          </p>
         </section>
 
         <section className="space-y-4 rounded-2xl border border-border bg-card/40 p-6 backdrop-blur">
@@ -194,8 +267,6 @@ const SessionDashboardPage = () => {
             </Link>
           ))}
         </div>
-
-        <AudienceEntryPanel sessionId={session.id} />
 
         <JoinRequestsPanel classId={classId} />
       </main>
