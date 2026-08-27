@@ -106,7 +106,7 @@ describe("the mandatory √(y/6) + 8/8 workflow", () => {
     const root: Row = [
       { ...s, rows: [[inner]] },
       mkChar("+"),
-      { ...f1, id: `${f1.id}-b`, rows: [[mkChar("8")], [mkChar("8")]] },
+      { ...(mkFrac() as Extract<ReturnType<typeof mkFrac>, { kind: "frac" }>), rows: [[mkChar("8")], [mkChar("8")]] },
     ];
 
     let c: Cursor = { path: [], index: 0 };
