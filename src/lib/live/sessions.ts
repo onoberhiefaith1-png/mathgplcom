@@ -11,6 +11,7 @@ export type LiveSession = {
   notebook_id: string | null;
   title: string;
   description: string | null;
+  /** Legacy one-time start. Kept for old rows only; never drives state. */
   starts_at: string | null;
   duration_minutes: number;
   time_zone: string;
@@ -20,9 +21,17 @@ export type LiveSession = {
   broadcasts: BroadcastEntry[];
   /** Teacher switch: ask link-holding audience members for a display name. */
   ask_participant_name: boolean;
+  /** Teacher switch: enter instantly (true) or wait for approval (false). */
+  allow_free_entry: boolean;
+  /** Recurring teaching days, 0 = Sunday … 6 = Saturday. Informational. */
+  schedule_days: number[];
+  /** Recurring teaching time as "HH:MM" in `time_zone`. Informational. */
+  schedule_time: string | null;
+  /** True only while the teacher is actually teaching. Never time-derived. */
+  is_live: boolean;
+  live_started_at: string | null;
   created_at: string;
   updated_at: string;
-
 };
 
 /**
@@ -30,8 +39,47 @@ export type LiveSession = {
  * the join code is private to the owner and is fetched through
  * `my_session_code`, so public/audience reads can never leak it.
  */
-export const SESSION_COLUMNS =
+export const SESSION_COLUMNS: string =
   "id, owner_id, class_id, notebook_id, title, description, starts_at, duration_minutes, time_zone, visibility, status, created_at, updated_at, broadcasts, ask_participant_name";
+
+/** Recurring-room columns, read separately so a row still loads without them. */
+const ROOM_COLUMNS = ", schedule_days, schedule_time, is_live, live_started_at";
+
+let roomColumnsAvailable: boolean | null = null;
+
+/**
+ * Read sessions with the recurring-room columns when the database has them and
+ * transparently fall back to the base columns when it does not.
+ */
+export const querySessions = async <T>(
+  build: (columns: string) => PromiseLike<{ data: T | null; error: unknown }>,
+): Promise<T | null> => {
+  if (roomColumnsAvailable !== false) {
+    const res = await build(SESSION_COLUMNS + ROOM_COLUMNS);
+    if (!res.error) {
+      roomColumnsAvailable = true;
+      return res.data;
+    }
+    roomColumnsAvailable = false;
+  }
+  const res = await build(SESSION_COLUMNS);
+  return res.data;
+};
+
+/**
+ * The free-entry switch is read on its own so a session still loads on
+ * deployments where the column has not landed yet; absent means free entry.
+ */
+export const fetchAllowFreeEntry = async (sessionId: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("allow_free_entry" as never)
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (error || !data) return true;
+  const value = (data as unknown as Record<string, unknown>).allow_free_entry;
+  return value === undefined || value === null ? true : Boolean(value);
+};
 
 /** Owner-only read of a session's private join code. */
 export const fetchSessionCode = async (sessionId: string): Promise<string> => {
@@ -44,49 +92,107 @@ export const fetchSessionCodes = async (ids: string[]): Promise<Record<string, s
   return Object.fromEntries(pairs);
 };
 
+const toDays = (value: unknown): number[] =>
+  Array.isArray(value)
+    ? value.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
+    : [];
+
 /** Rows come back with `broadcasts` as raw jsonb — normalise on read. */
 export const hydrateSession = (row: Record<string, unknown>): LiveSession => ({
   ...(row as unknown as LiveSession),
   broadcasts: parseBroadcasts(row.broadcasts),
   ask_participant_name: Boolean(row.ask_participant_name),
+  allow_free_entry: row.allow_free_entry === undefined ? true : Boolean(row.allow_free_entry),
   session_code: typeof row.session_code === "string" ? row.session_code : "",
+  schedule_days: toDays(row.schedule_days),
+  schedule_time: typeof row.schedule_time === "string" ? row.schedule_time : null,
+  is_live: Boolean(row.is_live),
+  live_started_at: typeof row.live_started_at === "string" ? row.live_started_at : null,
 });
 
+/* ------------------------------------------------------------------ *
+ * Persistent room state
+ *
+ * A Live Session is a teaching room that exists until the teacher deletes it.
+ * The clock never ends it: LIVE comes from the teacher's own switch, and the
+ * recurring schedule is only ever displayed.
+ * ------------------------------------------------------------------ */
 
+export type RoomState = "live" | "scheduled" | "open";
 
-/** Derived, schedule-driven state shown to teacher and participants. */
-export type ScheduleState = "unscheduled" | "scheduled" | "starting-soon" | "live" | "ended";
+export type RoomSchedule = Pick<LiveSession, "schedule_days" | "schedule_time" | "is_live">;
 
-const STARTING_SOON_MS = 15 * 60 * 1000;
-
-export const scheduleStateOf = (
-  session: Pick<LiveSession, "starts_at" | "duration_minutes">,
-  now: number = Date.now(),
-): ScheduleState => {
-  if (!session.starts_at) return "unscheduled";
-  const start = new Date(session.starts_at).getTime();
-  if (Number.isNaN(start)) return "unscheduled";
-  const end = start + Math.max(1, session.duration_minutes) * 60_000;
-  if (now >= end) return "ended";
-  if (now >= start) return "live";
-  if (start - now <= STARTING_SOON_MS) return "starting-soon";
-  return "scheduled";
+export const roomStateOf = (session: RoomSchedule): RoomState => {
+  if (session.is_live) return "live";
+  return session.schedule_days.length > 0 && session.schedule_time ? "scheduled" : "open";
 };
 
-export const scheduleLabel: Record<ScheduleState, string> = {
-  unscheduled: "Not scheduled",
-  scheduled: "Scheduled",
-  "starting-soon": "Starting soon",
+export const roomLabel: Record<RoomState, string> = {
   live: "Live now",
-  ended: "Ended",
+  scheduled: "Teaching room",
+  open: "Teaching room",
 };
 
-export const scheduleTone: Record<ScheduleState, string> = {
-  unscheduled: "border-border bg-muted/40 text-muted-foreground",
-  scheduled: "border-cyan-300/40 bg-cyan-400/10 text-cyan-200",
-  "starting-soon": "border-amber-300/40 bg-amber-400/10 text-amber-200",
+export const roomTone: Record<RoomState, string> = {
   live: "border-emerald-300/50 bg-emerald-400/15 text-emerald-200",
-  ended: "border-border bg-muted/40 text-muted-foreground",
+  scheduled: "border-cyan-300/40 bg-cyan-400/10 text-cyan-200",
+  open: "border-border bg-muted/40 text-muted-foreground",
+};
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export const dayName = (day: number): string => DAY_NAMES[((day % 7) + 7) % 7];
+
+/** "17:30" → "5:30 PM" */
+export const formatClockTime = (time: string | null): string => {
+  if (!time) return "";
+  const [h, m] = time.split(":").map((n) => Number(n));
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return time;
+  const suffix = h < 12 ? "AM" : "PM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
+};
+
+/** "Every Tuesday · 5:00 PM" / "Mondays & Thursdays · 4:00 PM" */
+export const formatRecurring = (days: number[], time: string | null): string => {
+  const sorted = Array.from(new Set(days)).sort((a, b) => a - b);
+  if (sorted.length === 0 || !time) return "Schedule not set";
+  const clock = formatClockTime(time);
+  if (sorted.length === 7) return `Every day · ${clock}`;
+  if (sorted.length === 1) return `Every ${dayName(sorted[0])} · ${clock}`;
+  const names = sorted.map((d) => `${dayName(d)}s`);
+  const last = names.pop() as string;
+  return `${names.join(", ")} & ${last} · ${clock}`;
+};
+
+/**
+ * The next time this room's lesson normally begins. Purely informational — it
+ * never expires and never blocks anything.
+ */
+export const nextOccurrence = (
+  days: number[],
+  time: string | null,
+  now: Date = new Date(),
+): Date | null => {
+  const sorted = Array.from(new Set(days)).sort((a, b) => a - b);
+  if (sorted.length === 0 || !time) return null;
+  const [h, m] = time.split(":").map((n) => Number(n));
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+
+  for (let ahead = 0; ahead <= 7; ahead++) {
+    const candidate = new Date(now);
+    candidate.setDate(candidate.getDate() + ahead);
+    candidate.setHours(h, m, 0, 0);
+    if (sorted.includes(candidate.getDay()) && candidate.getTime() > now.getTime()) return candidate;
+  }
+  return null;
+};
+
+/** "Tuesday · 5:00 PM" for the next lesson, or "" when unscheduled. */
+export const formatNextLesson = (session: RoomSchedule, now: Date = new Date()): string => {
+  const next = nextOccurrence(session.schedule_days, session.schedule_time, now);
+  if (!next) return "";
+  return `${dayName(next.getDay())} · ${formatClockTime(session.schedule_time)}`;
 };
 
 /** "2 Hours 35 Minutes 18 Seconds" — verbose countdown for the hero area. */
@@ -138,7 +244,10 @@ export type CreateSessionInput = {
   title: string;
   description?: string | null;
   notebookId?: string | null;
-  startsAt?: string | null;
+  /** Recurring teaching days, 0 = Sunday … 6 = Saturday. */
+  scheduleDays: number[];
+  /** Recurring teaching time as "HH:MM". */
+  scheduleTime: string | null;
   durationMinutes: number;
   timeZone: string;
   visibility: SessionVisibility;
@@ -147,8 +256,6 @@ export type CreateSessionInput = {
   /** Ask link-holding audience members for a display name before they take part. */
   askParticipantName?: boolean;
 };
-
-
 
 /**
  * A Session is backed by a hidden class row so every existing class-scoped
@@ -183,34 +290,47 @@ export const createSession = async (input: CreateSessionInput): Promise<LiveSess
     throw new Error(String((lastError as { message?: string })?.message ?? "Could not create session"));
   }
 
+  const base = {
+    owner_id: input.ownerId,
+    class_id: classId,
+    notebook_id: input.notebookId || null,
+    title: input.title.trim(),
+    description: input.description?.trim() || null,
+    duration_minutes: input.durationMinutes,
+    time_zone: input.timeZone,
+    visibility: input.visibility,
+    status: "published",
+    session_code: generateSessionCode(),
+    broadcasts: normalizeBroadcasts(input.broadcasts ?? []) as unknown as never,
+    ask_participant_name: Boolean(input.askParticipantName),
+  };
+  const schedule = {
+    schedule_days: input.scheduleDays,
+    schedule_time: input.scheduleTime,
+    is_live: false,
+  };
+
   for (let attempt = 0; attempt < 5; attempt++) {
+    // Only the recurring schedule is written; a room has no expiry date.
+    const payload = { ...base, session_code: generateSessionCode(), ...(roomColumnsAvailable === false ? {} : schedule) };
     const { data, error } = await supabase
       .from("sessions")
-      .insert({
-        owner_id: input.ownerId,
-        class_id: classId,
-        notebook_id: input.notebookId || null,
-        title: input.title.trim(),
-        description: input.description?.trim() || null,
-        starts_at: input.startsAt || null,
-        duration_minutes: input.durationMinutes,
-        time_zone: input.timeZone,
-        visibility: input.visibility,
-        status: "published",
-        session_code: generateSessionCode(),
-        broadcasts: normalizeBroadcasts(input.broadcasts ?? []) as unknown as never,
-        ask_participant_name: Boolean(input.askParticipantName),
-
-      })
+      .insert(payload as never)
       .select(SESSION_COLUMNS)
       .single();
     if (!error && data) {
-      const row = hydrateSession(data as Record<string, unknown>);
+      const row = hydrateSession({ ...(data as unknown as Record<string, unknown>), ...schedule });
       return { ...row, session_code: await fetchSessionCode(row.id) };
     }
 
     lastError = error;
-    if (error && (error as { code?: string }).code !== "23505") break;
+    const code = (error as { code?: string })?.code;
+    // Schedule columns not present yet — retry without them.
+    if (code === "42703" || code === "PGRST204") {
+      roomColumnsAvailable = false;
+      continue;
+    }
+    if (code !== "23505") break;
   }
 
   // Session row failed — remove the orphan class so nothing dangles.
@@ -225,7 +345,29 @@ export const updateSessionBroadcasts = async (sessionId: string, broadcasts: Bro
     .update({ broadcasts: normalizeBroadcasts(broadcasts) as unknown as never })
     .eq("id", sessionId);
 
+/** Teacher edits the recurring teaching schedule of a persistent room. */
+export const updateSessionSchedule = async (
+  sessionId: string,
+  scheduleDays: number[],
+  scheduleTime: string | null,
+) =>
+  supabase
+    .from("sessions")
+    .update({ schedule_days: scheduleDays, schedule_time: scheduleTime } as never)
+    .eq("id", sessionId);
 
+/**
+ * LIVE is an explicit teacher action, never a consequence of the clock. The
+ * room itself stays open either way.
+ */
+export const setLiveState = async (sessionId: string, isLive: boolean) =>
+  supabase
+    .from("sessions")
+    .update({
+      is_live: isLive,
+      live_started_at: isLive ? new Date().toISOString() : null,
+    } as never)
+    .eq("id", sessionId);
 
 export const deleteSession = async (session: Pick<LiveSession, "class_id">) => {
   // Deleting the backing class cascades to the session row and all its data.

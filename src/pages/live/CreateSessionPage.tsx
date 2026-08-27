@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, Copy, Check, CalendarIcon } from "lucide-react";
+import { ArrowLeft, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { LiveSession, SessionVisibility, createSession } from "@/lib/live/sessions";
+import { LiveSession, SessionVisibility, createSession, dayName } from "@/lib/live/sessions";
 import BroadcastEditor from "@/components/live/BroadcastEditor";
 import { BroadcastEntry, newBroadcastEntry } from "@/lib/live/broadcast";
 import { activeSchoolOrgId } from "@/lib/accounts/workspaceScope";
+import { joinUrl } from "@/lib/links/publicUrl";
+import { copyText, selectAllIn } from "@/lib/clipboard/copyText";
 
 
 type NotebookOption = { id: string; label: string };
@@ -23,9 +23,14 @@ const FIELD =
 const pad = (n: number) => String(n).padStart(2, "0");
 const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
 const MINUTES = Array.from({ length: 60 }, (_, i) => pad(i));
-const toISODate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** A teaching room recurs on chosen weekdays — Monday first, Sunday last. */
+const DAY_OPTIONS: { value: number; short: string }[] = [1, 2, 3, 4, 5, 6, 0].map((value) => ({
+  value,
+  short: dayName(value).slice(0, 3),
+}));
 /** 0.25 → 2 hours in quarter-hour steps, shown as decimal hours. */
 const DURATION_OPTIONS = Array.from({ length: 24 }, (_, i) => (i + 1) * 0.25);
+
 
 const TIME_ZONES: string[] = (() => {
   const local = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -52,11 +57,11 @@ const CreateSessionPage = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [notebookId, setNotebookId] = useState("");
-  const [dateObj, setDateObj] = useState<Date | undefined>(undefined);
+  const [scheduleDays, setScheduleDays] = useState<number[]>([]);
   const [hour, setHour] = useState("");
   const [minute, setMinute] = useState("");
   const [durationHours, setDurationHours] = useState(1);
-  const [dateOpen, setDateOpen] = useState(false);
+
   const [timeZone, setTimeZone] = useState(TIME_ZONES[0]);
   const [visibility, setVisibility] = useState<SessionVisibility>("private");
   const [askParticipantName, setAskParticipantName] = useState(false);
@@ -93,14 +98,21 @@ const CreateSessionPage = () => {
     })();
   }, [navigate]);
 
+  const toggleDay = (day: number) =>
+    setScheduleDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
+
+
   const copy = async (label: string, value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
+    if (await copyText(value)) {
       setCopied(label);
       setTimeout(() => setCopied(null), 1500);
-    } catch {
-      toast({ title: "Copy failed", variant: "destructive" });
+      return;
     }
+    toast({
+      title: "Copy blocked by your browser",
+      description: "Select the link below and copy it manually.",
+      variant: "destructive",
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,11 +127,7 @@ const CreateSessionPage = () => {
       return;
     }
 
-    let startsAt: string | null = null;
-    if (dateObj && hour !== "" && minute !== "") {
-      const local = new Date(`${toISODate(dateObj)}T${hour}:${minute}`);
-      if (!Number.isNaN(local.getTime())) startsAt = local.toISOString();
-    }
+    const scheduleTime = hour !== "" && minute !== "" ? `${hour}:${minute}` : null;
 
     setSubmitting(true);
     try {
@@ -127,7 +135,9 @@ const CreateSessionPage = () => {
         title,
         description,
         notebookId: notebookId || null,
-        startsAt,
+        scheduleDays,
+        scheduleTime,
+
         durationMinutes: Math.max(5, Math.round((Number(durationHours) || 1) * 60)),
         timeZone,
         visibility,
@@ -183,35 +193,37 @@ const CreateSessionPage = () => {
               <Textarea id="description" className={FIELD} value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Date</Label>
-                <Popover open={dateOpen} onOpenChange={setDateOpen}>
-                  <PopoverTrigger asChild>
+            <div className="space-y-2">
+              <Label>Teaching Days</Label>
+              <div className="flex flex-wrap gap-2">
+                {DAY_OPTIONS.map((d) => {
+                  const on = scheduleDays.includes(d.value);
+                  return (
                     <button
+                      key={d.value}
                       type="button"
-                      className={`flex h-10 w-full items-center justify-between rounded-md border px-3 text-sm ${FIELD}`}
+                      aria-pressed={on}
+                      onClick={() => toggleDay(d.value)}
+                      className={`min-h-[40px] rounded-xl border px-3 text-sm font-medium transition ${
+                        on ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:bg-accent"
+                      }`}
                     >
-                      <span className={dateObj ? "" : "text-muted-foreground"}>
-                        {dateObj ? dateObj.toLocaleDateString(undefined, { dateStyle: "medium" }) : "Pick a date"}
-                      </span>
-                      <CalendarIcon className="h-4 w-4 opacity-70" />
+                      {d.short}
                     </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dateObj}
-                      onSelect={(d) => { setDateObj(d); setDateOpen(false); }}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
+                  );
+                })}
               </div>
+              <p className="text-xs text-muted-foreground">
+                The day(s) you normally teach in this room. This is scheduling information — the room stays
+                open every day and never expires.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+
 
               <div className="space-y-2">
-                <Label>Start Time (24h)</Label>
+                <Label>Teaching Time (24h)</Label>
                 <div className="flex items-center gap-2">
                   <select
                     aria-label="Hour"
@@ -335,12 +347,17 @@ const CreateSessionPage = () => {
             <h2 className="text-xl font-semibold">Session created</h2>
             {([
               { label: "Session Code", value: created.session_code },
-              { label: "Join Link", value: `${window.location.origin}/live/join/${created.session_code}` },
+              { label: "Join Link", value: joinUrl(created.session_code) },
             ] as const).map((row) => (
               <div key={row.label} className="space-y-1">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">{row.label}</div>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 truncate rounded-md border border-border bg-background px-3 py-2 text-sm">{row.value}</code>
+                  <code
+                    onClick={(e) => selectAllIn(e.currentTarget)}
+                    className="flex-1 cursor-text rounded-md border border-border bg-background px-3 py-2 text-sm break-all select-all"
+                  >
+                    {row.value}
+                  </code>
                   <button
                     type="button"
                     onClick={() => copy(row.label, row.value)}

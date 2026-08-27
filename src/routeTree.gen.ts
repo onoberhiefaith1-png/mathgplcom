@@ -186,7 +186,12 @@ import { Route as GamesSubtractionDifficultyIndexRouteImport } from './routes/ga
 import { Route as LiveJoinCodeIndexRouteImport } from './routes/live/join/$code/index'
 import { Route as LiveLessonNotesIdIndexRouteImport } from './routes/live/lesson-notes/$id/index'
 import { Route as LiveSSessionIdIndexRouteImport } from './routes/live/s/$sessionId/index'
+import { Route as LiveSSessionIdBoardRouteImport } from './routes/live/s/$sessionId/board'
+import { Route as LiveSSessionIdChallengeRouteImport } from './routes/live/s/$sessionId/challenge'
+import { Route as LiveSSessionIdGameRouteImport } from './routes/live/s/$sessionId/game'
+import { Route as LiveSSessionIdNotesRouteImport } from './routes/live/s/$sessionId/notes'
 import { Route as LiveSessionsSessionIdIndexRouteImport } from './routes/live/sessions/$sessionId/index'
+import { Route as LiveSessionsSessionIdAudienceRouteImport } from './routes/live/sessions/$sessionId/audience'
 import { Route as LiveSessionsCreateIndexRouteImport } from './routes/live/sessions/create/index'
 import { Route as LiveSmartCardsCardIdIndexRouteImport } from './routes/live/smart-cards/$cardId/index'
 import { Route as LiveWorkspaceClassIdIndexRouteImport } from './routes/live/workspace/$classId/index'
@@ -1213,10 +1218,36 @@ const LiveSSessionIdIndexRoute = LiveSSessionIdIndexRouteImport.update({
   path: '/s/$sessionId/',
   getParentRoute: () => LiveRouteRoute,
 } as any)
+const LiveSSessionIdBoardRoute = LiveSSessionIdBoardRouteImport.update({
+  id: '/s/$sessionId/board',
+  path: '/s/$sessionId/board',
+  getParentRoute: () => LiveRouteRoute,
+} as any)
+const LiveSSessionIdChallengeRoute = LiveSSessionIdChallengeRouteImport.update({
+  id: '/s/$sessionId/challenge',
+  path: '/s/$sessionId/challenge',
+  getParentRoute: () => LiveRouteRoute,
+} as any)
+const LiveSSessionIdGameRoute = LiveSSessionIdGameRouteImport.update({
+  id: '/s/$sessionId/game',
+  path: '/s/$sessionId/game',
+  getParentRoute: () => LiveRouteRoute,
+} as any)
+const LiveSSessionIdNotesRoute = LiveSSessionIdNotesRouteImport.update({
+  id: '/s/$sessionId/notes',
+  path: '/s/$sessionId/notes',
+  getParentRoute: () => LiveRouteRoute,
+} as any)
 const LiveSessionsSessionIdIndexRoute =
   LiveSessionsSessionIdIndexRouteImport.update({
     id: '/sessions/$sessionId/',
     path: '/sessions/$sessionId/',
+    getParentRoute: () => LiveRouteRoute,
+  } as any)
+const LiveSessionsSessionIdAudienceRoute =
+  LiveSessionsSessionIdAudienceRouteImport.update({
+    id: '/sessions/$sessionId/audience',
+    path: '/sessions/$sessionId/audience',
     getParentRoute: () => LiveRouteRoute,
   } as any)
 const LiveSessionsCreateIndexRoute = LiveSessionsCreateIndexRouteImport.update({
@@ -1964,6 +1995,11 @@ export interface FileRoutesByFullPath {
   '/year/$n/': typeof YearNIndexRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/live/s/$sessionId/board': typeof LiveSSessionIdBoardRoute
+  '/live/s/$sessionId/challenge': typeof LiveSSessionIdChallengeRoute
+  '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
+  '/live/s/$sessionId/notes': typeof LiveSSessionIdNotesRoute
+  '/live/sessions/$sessionId/audience': typeof LiveSessionsSessionIdAudienceRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -2233,6 +2269,11 @@ export interface FileRoutesByTo {
   '/year/$n': typeof YearNIndexRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/live/s/$sessionId/board': typeof LiveSSessionIdBoardRoute
+  '/live/s/$sessionId/challenge': typeof LiveSSessionIdChallengeRoute
+  '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
+  '/live/s/$sessionId/notes': typeof LiveSSessionIdNotesRoute
+  '/live/sessions/$sessionId/audience': typeof LiveSessionsSessionIdAudienceRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -2514,6 +2555,11 @@ export interface FileRoutesById {
   '/year/$n/': typeof YearNIndexRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
+  '/live/s/$sessionId/board': typeof LiveSSessionIdBoardRoute
+  '/live/s/$sessionId/challenge': typeof LiveSSessionIdChallengeRoute
+  '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
+  '/live/s/$sessionId/notes': typeof LiveSSessionIdNotesRoute
+  '/live/sessions/$sessionId/audience': typeof LiveSessionsSessionIdAudienceRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -2796,6 +2842,11 @@ export interface FileRouteTypes {
     | '/year/$n/'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
+    | '/live/s/$sessionId/board'
+    | '/live/s/$sessionId/challenge'
+    | '/live/s/$sessionId/game'
+    | '/live/s/$sessionId/notes'
+    | '/live/sessions/$sessionId/audience'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -3065,6 +3116,11 @@ export interface FileRouteTypes {
     | '/year/$n'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
+    | '/live/s/$sessionId/board'
+    | '/live/s/$sessionId/challenge'
+    | '/live/s/$sessionId/game'
+    | '/live/s/$sessionId/notes'
+    | '/live/sessions/$sessionId/audience'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -3345,6 +3401,11 @@ export interface FileRouteTypes {
     | '/year/$n/'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
+    | '/live/s/$sessionId/board'
+    | '/live/s/$sessionId/challenge'
+    | '/live/s/$sessionId/game'
+    | '/live/s/$sessionId/notes'
+    | '/live/sessions/$sessionId/audience'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -4857,11 +4918,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveSSessionIdIndexRouteImport
       parentRoute: typeof LiveRouteRoute
     }
+    '/live/s/$sessionId/board': {
+      id: '/live/s/$sessionId/board'
+      path: '/s/$sessionId/board'
+      fullPath: '/live/s/$sessionId/board'
+      preLoaderRoute: typeof LiveSSessionIdBoardRouteImport
+      parentRoute: typeof LiveRouteRoute
+    }
+    '/live/s/$sessionId/challenge': {
+      id: '/live/s/$sessionId/challenge'
+      path: '/s/$sessionId/challenge'
+      fullPath: '/live/s/$sessionId/challenge'
+      preLoaderRoute: typeof LiveSSessionIdChallengeRouteImport
+      parentRoute: typeof LiveRouteRoute
+    }
+    '/live/s/$sessionId/game': {
+      id: '/live/s/$sessionId/game'
+      path: '/s/$sessionId/game'
+      fullPath: '/live/s/$sessionId/game'
+      preLoaderRoute: typeof LiveSSessionIdGameRouteImport
+      parentRoute: typeof LiveRouteRoute
+    }
+    '/live/s/$sessionId/notes': {
+      id: '/live/s/$sessionId/notes'
+      path: '/s/$sessionId/notes'
+      fullPath: '/live/s/$sessionId/notes'
+      preLoaderRoute: typeof LiveSSessionIdNotesRouteImport
+      parentRoute: typeof LiveRouteRoute
+    }
     '/live/sessions/$sessionId/': {
       id: '/live/sessions/$sessionId/'
       path: '/sessions/$sessionId'
       fullPath: '/live/sessions/$sessionId/'
       preLoaderRoute: typeof LiveSessionsSessionIdIndexRouteImport
+      parentRoute: typeof LiveRouteRoute
+    }
+    '/live/sessions/$sessionId/audience': {
+      id: '/live/sessions/$sessionId/audience'
+      path: '/sessions/$sessionId/audience'
+      fullPath: '/live/sessions/$sessionId/audience'
+      preLoaderRoute: typeof LiveSessionsSessionIdAudienceRouteImport
       parentRoute: typeof LiveRouteRoute
     }
     '/live/sessions/create/': {
@@ -5749,6 +5845,11 @@ interface LiveRouteRouteChildren {
   LiveLessonNotesIndexRoute: typeof LiveLessonNotesIndexRoute
   LiveReportsIndexRoute: typeof LiveReportsIndexRoute
   LiveSessionsIndexRoute: typeof LiveSessionsIndexRoute
+  LiveSSessionIdBoardRoute: typeof LiveSSessionIdBoardRoute
+  LiveSSessionIdChallengeRoute: typeof LiveSSessionIdChallengeRoute
+  LiveSSessionIdGameRoute: typeof LiveSSessionIdGameRoute
+  LiveSSessionIdNotesRoute: typeof LiveSSessionIdNotesRoute
+  LiveSessionsSessionIdAudienceRoute: typeof LiveSessionsSessionIdAudienceRoute
   LiveJoinCodeIndexRoute: typeof LiveJoinCodeIndexRoute
   LiveLessonNotesIdIndexRoute: typeof LiveLessonNotesIdIndexRoute
   LiveSSessionIdIndexRoute: typeof LiveSSessionIdIndexRoute
@@ -5780,6 +5881,11 @@ const LiveRouteRouteChildren: LiveRouteRouteChildren = {
   LiveLessonNotesIndexRoute: LiveLessonNotesIndexRoute,
   LiveReportsIndexRoute: LiveReportsIndexRoute,
   LiveSessionsIndexRoute: LiveSessionsIndexRoute,
+  LiveSSessionIdBoardRoute: LiveSSessionIdBoardRoute,
+  LiveSSessionIdChallengeRoute: LiveSSessionIdChallengeRoute,
+  LiveSSessionIdGameRoute: LiveSSessionIdGameRoute,
+  LiveSSessionIdNotesRoute: LiveSSessionIdNotesRoute,
+  LiveSessionsSessionIdAudienceRoute: LiveSessionsSessionIdAudienceRoute,
   LiveJoinCodeIndexRoute: LiveJoinCodeIndexRoute,
   LiveLessonNotesIdIndexRoute: LiveLessonNotesIdIndexRoute,
   LiveSSessionIdIndexRoute: LiveSSessionIdIndexRoute,
