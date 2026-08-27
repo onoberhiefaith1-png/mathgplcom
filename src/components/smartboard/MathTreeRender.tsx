@@ -267,18 +267,24 @@ const SqrtView = ({
   // both grow vertically when the radicand contains a fraction/nested
   // radical (identical to how the fraction bar already expands).
   return (
-    <ConnectedRadical
-      degree={hasIndex ? (
-        <RowView row={node.rows[1] ?? []} path={subPath(1)}
+    <span style={{ display: "inline-flex", alignItems: "stretch" }}>
+      <ConnectedRadical
+        degree={hasIndex ? (
+          <RowView row={node.rows[1] ?? []} path={subPath(1)}
+            cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
+        ) : undefined}
+      >
+        <RowView row={node.rows[0] ?? []} path={subPath(0)}
           cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
-      ) : undefined}
-    >
-      <RowView row={node.rows[0] ?? []} path={subPath(0)}
-        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
+      </ConnectedRadical>
+      {/* Exit zone lives OUTSIDE the radical: tapping just right of the
+          overline must activate the position AFTER the root, never the
+          radicand. This is what makes "√(y/6) + 8/8" writable. */}
       <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
-    </ConnectedRadical>
+    </span>
   );
 };
+
 
 const BracketView = ({
   node, parentPath, idxInRow, cursor, onCursorChange, caretColor, placeholderColor,
