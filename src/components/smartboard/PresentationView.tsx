@@ -4050,6 +4050,21 @@ const PresentationView = ({
     } catch (e: any) {
       if (mode === "manual") {
         toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
+      } else {
+        broadcastCheckResultRef.current?.({
+          questionId: current.id,
+          lineId: target.lineId ?? "",
+          mode,
+          correct: false,
+          verdict: "error",
+          diagnosis: {
+            code: "error",
+            label: "Could not evaluate",
+            detail: "The marking engine did not answer. Retrying.",
+          },
+          marks: 0,
+          studentAscii: ascii,
+        });
       }
       return false;
     } finally {
