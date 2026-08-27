@@ -2281,11 +2281,12 @@ const PresentationView = ({
    *  margin (x=0) is enforced on every nudge. ▲ is free anywhere inside
    *  the empty solution space — it only stops at the top of the band. */
   const nudgeCursor = useCallback((dir: 1 | -1) => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return;
-    // STRUCTURE FIRST: while the caret sits inside a fraction, radical,
-    // power or matrix, ▲/▼ steps between that structure's slots (and ▲
-    // escapes it once there is nothing above). Only when there is no
-    // vertical target inside the maths does the sensor change board row.
+    // STRUCTURE FIRST — checked BEFORE any board-layout guard, so caret
+    // movement inside a fraction, radical, power, script or matrix cell
+    // never depends on band state. ▲/▼ steps between that structure's
+    // slots, searching outward through every enclosing structure, and ▲
+    // escapes once nothing sits above. Only when the maths offers no
+    // vertical target does the sensor change board row.
     {
       const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
       const c = cursorRef.current;
@@ -2298,6 +2299,9 @@ const PresentationView = ({
         }
       }
     }
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+
+
 
     const a = bandStart(activeLayout);
     const b = bandEnd(activeLayout);
@@ -2359,20 +2363,21 @@ const PresentationView = ({
    *  offset), so horizontal nudges must write BOTH sensor.x and the
    *  row's offset — sensor.x alone never moves the caret on screen. */
   const nudgeCursorHoriz = useCallback((dir: 1 | -1) => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return;
     const r = Math.floor(sensor.line);
     // Only bail if we're clearly on a restricted prose row.
     if (notebookRowLines.has(r)) return;
     const rowInk = freeLines[sensor.line] ?? freeLines[r] ?? [];
     if (rowInk.length > 0) {
       // Written row: shifting the offset would drag the ink sideways, so
-      // ◀/▶ walks the CARET through the existing ink instead. This works on
-      // every writable row (no "displayed line" restriction) — it is the
-      // only way out of a nested slot such as a radical's radicand.
+      // ◀/▶ walks the CARET through the existing ink instead. Checked before
+      // any board-layout guard — it is the only way out of a nested slot
+      // such as a radical's radicand.
       setLiveCursor((c) => (dir > 0 ? treeMoveRight(rowInk, c) : treeMoveLeft(rowInk, c)));
       hiddenInputRef.current?.focus({ preventScroll: true });
       return;
     }
+    if (!activeLayout || activeLayout.bandLines <= 0) return;
+
 
     const step = grid.FONT_PX * 0.6; // one ~character-width column
     const boardW = boardScrollRef.current?.getBoundingClientRect().width ?? 1200;
@@ -2399,19 +2404,28 @@ const PresentationView = ({
     activeSensorPhysicalLineRef.current = sensor.line;
   }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, notebookRowLines, freeLines, setLiveCursor]);
 
+  /** True while the caret sits inside a nested slot of a structure on an
+   *  inked row — there the D-pad navigates the maths, not the board. */
+  const caretInStructure = (() => {
+    if (cursor.path.length < 2) return false;
+    const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    return rowInk.length > 0;
+  })();
+
   const canCursorUp = (() => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     // ▲ is enabled whenever ANY empty writable row exists above the
     // sensor inside the active band — the sensor roams freely in the
     // empty solution space. It is ALSO enabled while the caret sits inside
     // a structure, because there ▲ steps/escapes slots rather than rows.
-    if (cursor.path.length >= 2) return true;
+    if (caretInStructure) return true;
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     const a = bandStart(activeLayout);
     const cand = findNextWritableEmptyRow(Math.floor(sensor.line) - 1, -1, activeLayout);
     return cand >= a;
   })();
 
   const canCursorDown = (() => {
+    if (caretInStructure) return true;
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     // ↓ can always grow the band, so it's always enabled while solving.
     return true;
@@ -2421,17 +2435,20 @@ const PresentationView = ({
   // powers…) instead of shifting the row offset, so the sensor can never be
   // trapped inside a structure slot.
   const canCursorLeft = (() => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
     if (rowInk.length > 0) return true;
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     return sensor.x > 0;
   })();
   const canCursorRight = (() => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
+    const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    if (rowInk.length > 0) return true;
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     return true;
   })();
+
 
 
 

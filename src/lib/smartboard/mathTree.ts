@@ -418,20 +418,29 @@ export const moveUp = (root: Row, cursor: Cursor): Cursor | null => {
 };
 
 /** Move the caret DOWN: numerator → denominator, exponent → base, matrix
- *  cell → cell below. Returns null when the enclosing structure has no
- *  slot below (the caller then moves to the next board row). */
+ *  cell → cell below. When the innermost structure has no slot below, the
+ *  search continues OUTWARD through every enclosing structure (a fraction
+ *  inside a radical inside a matrix cell still steps to the cell below).
+ *  Returns null only when no enclosing structure offers a slot below — the
+ *  caller then moves to the next board row. */
 export const moveDown = (root: Row, cursor: Cursor): Cursor | null => {
-  if (cursor.path.length < 2) return null;
-  const parentPath = cursor.path.slice(0, -2);
-  const nodeIdx = cursor.path[cursor.path.length - 2];
-  const subIdx = cursor.path[cursor.path.length - 1];
-  const node = getRowAt(root, parentPath)[nodeIdx];
-  if (!node || node.kind === "char") return null;
-  const target = verticalSlot(node, subIdx, 1);
-  if (target === null) return null;
-  const row = subRowsOf(node)[target] ?? [];
-  return { path: [...parentPath, nodeIdx, target], index: Math.min(cursor.index, row.length) };
+  let path = cursor.path;
+  while (path.length >= 2) {
+    const parentPath = path.slice(0, -2);
+    const nodeIdx = path[path.length - 2];
+    const subIdx = path[path.length - 1];
+    const node = getRowAt(root, parentPath)[nodeIdx];
+    if (!node || node.kind === "char") return null;
+    const target = verticalSlot(node, subIdx, 1);
+    if (target !== null) {
+      const row = subRowsOf(node)[target] ?? [];
+      return { path: [...parentPath, nodeIdx, target], index: Math.min(cursor.index, row.length) };
+    }
+    path = parentPath;
+  }
+  return null;
 };
+
 
 /** Park the caret immediately AFTER the structure the caret currently sits
  *  inside. Unchanged when the caret is already at the top level. */

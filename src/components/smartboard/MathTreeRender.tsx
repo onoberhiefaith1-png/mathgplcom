@@ -211,7 +211,12 @@ interface NodeProps extends Common {
   idxInRow: number;
 }
 
-/** Tap zone on the right edge of every container → pops cursor *out* of it. */
+/** Tap zone on the right edge of every container → pops cursor *out* of it.
+ *  It keeps a small 0.35em layout footprint (so structures never touch) but
+ *  carries a wider, absolutely-positioned hit area that overlays the
+ *  neighbouring gap. That makes "the insertion point immediately after this
+ *  structure" easy to hit with a finger or the sensor, without changing the
+ *  visible geometry of the maths. */
 const RightEscape = ({
   parentPath, idxInRow, onCursorChange,
 }: { parentPath: number[]; idxInRow: number; onCursorChange: (c: Cursor) => void }) => (
@@ -223,11 +228,26 @@ const RightEscape = ({
       display: "inline-block",
       width: "0.35em",
       alignSelf: "stretch",
+      position: "relative",
       cursor: "text",
+      zIndex: 2,
     }}
     aria-hidden
-  />
+  >
+    <span
+      aria-hidden
+      style={{
+        position: "absolute",
+        left: "-0.1em",
+        right: "-0.45em",
+        top: "-0.15em",
+        bottom: "-0.15em",
+        cursor: "text",
+      }}
+    />
+  </span>
 );
+
 
 /* ─────────── container subcomponents (own their own hooks) ─────────── */
 
@@ -247,18 +267,24 @@ const SqrtView = ({
   // both grow vertically when the radicand contains a fraction/nested
   // radical (identical to how the fraction bar already expands).
   return (
-    <ConnectedRadical
-      degree={hasIndex ? (
-        <RowView row={node.rows[1] ?? []} path={subPath(1)}
+    <span style={{ display: "inline-flex", alignItems: "stretch" }}>
+      <ConnectedRadical
+        degree={hasIndex ? (
+          <RowView row={node.rows[1] ?? []} path={subPath(1)}
+            cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
+        ) : undefined}
+      >
+        <RowView row={node.rows[0] ?? []} path={subPath(0)}
           cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
-      ) : undefined}
-    >
-      <RowView row={node.rows[0] ?? []} path={subPath(0)}
-        cursor={cursor} onCursorChange={onCursorChange} caretColor={caretColor} placeholderColor={placeholderColor} />
+      </ConnectedRadical>
+      {/* Exit zone lives OUTSIDE the radical: tapping just right of the
+          overline must activate the position AFTER the root, never the
+          radicand. This is what makes "√(y/6) + 8/8" writable. */}
       <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
-    </ConnectedRadical>
+    </span>
   );
 };
+
 
 const BracketView = ({
   node, parentPath, idxInRow, cursor, onCursorChange, caretColor, placeholderColor,
@@ -448,31 +474,38 @@ const NodeView = ({
 
     case "sup":
       return (
-        <span style={{
-          display: "inline-block",
-          fontSize: "0.66em",
-          lineHeight: 1,
-          verticalAlign: "super",
-          transform: "translateY(0.06em)",
-          marginLeft: 1,
-        }}>
-          {R(0)}
+        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+          <span style={{
+            display: "inline-block",
+            fontSize: "0.66em",
+            lineHeight: 1,
+            verticalAlign: "super",
+            transform: "translateY(0.06em)",
+            marginLeft: 1,
+          }}>
+            {R(0)}
+          </span>
+          <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
         </span>
       );
 
     case "sub":
       return (
-        <span style={{
-          display: "inline-block",
-          fontSize: "0.66em",
-          lineHeight: 1,
-          verticalAlign: "sub",
-          transform: "translateY(-0.04em)",
-          marginLeft: 1,
-        }}>
-          {R(0)}
+        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+          <span style={{
+            display: "inline-block",
+            fontSize: "0.66em",
+            lineHeight: 1,
+            verticalAlign: "sub",
+            transform: "translateY(-0.04em)",
+            marginLeft: 1,
+          }}>
+            {R(0)}
+          </span>
+          <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
         </span>
       );
+
 
     case "subsup":
       {
@@ -573,16 +606,20 @@ const NodeView = ({
 
     case "accent":
       return (
-        <span style={{
-          display: "inline-flex", flexDirection: "column", alignItems: "center",
-          verticalAlign: "baseline", lineHeight: 1, margin: "0 0.05em",
-        }}>
+        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
           <span style={{
-            fontSize: "0.75em", height: "0.5em", marginBottom: "-0.15em", lineHeight: 1,
-          }}>{node.symbol}</span>
-          <span>{R(0)}</span>
+            display: "inline-flex", flexDirection: "column", alignItems: "center",
+            verticalAlign: "baseline", lineHeight: 1, margin: "0 0.05em",
+          }}>
+            <span style={{
+              fontSize: "0.75em", height: "0.5em", marginBottom: "-0.15em", lineHeight: 1,
+            }}>{node.symbol}</span>
+            <span>{R(0)}</span>
+          </span>
+          <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
         </span>
       );
+
 
     case "binom":
       return <BinomView node={node} parentPath={parentPath} idxInRow={idxInRow}
