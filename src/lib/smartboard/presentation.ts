@@ -584,14 +584,26 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           }, [])
         : rawLines && rawLines.length > 0
           ? rawLines
-          // SELECTION LAW: nothing was highlighted, so nothing floats. The
-          // solution is NOT re-interpreted into floating fragments. Instead
-          // the board still shows the lesson content as NOTES: unhighlighted
-          // prose becomes note text and every notes-layer diagram rides it.
-          : notesOnlyRows(
-              parsedSolution,
-              solutionNotesObjects(solutionBlock),
-            );
+          : hasTeacherFloating
+            ? []
+            : parsedSolution.length > 0
+              ? (() => {
+                  // eslint-disable-next-line no-console
+                  console.warn(
+                    "[smartboard fallback] no teacher-curated floating data; deriving chips from solution equations for beat",
+                    `${sub.id}-q`,
+                  );
+                  return parsedSolution.map((p) => ({
+                    equation: p.equation,
+                    containers: detectStructures(p.equation) as ContainerKind[],
+                    explanation: p.explanation,
+                  }));
+                })()
+              : notesOnlyRows(
+                  parsedSolution,
+                  solutionNotesObjects(solutionBlock),
+                );
+
 
 
       if (sourceLines && sourceLines.length > 0) {
