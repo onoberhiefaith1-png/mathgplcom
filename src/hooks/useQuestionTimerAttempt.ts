@@ -13,6 +13,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+// `assessment_timer_attempts` ships with this change, so the generated types
+// do not know it yet.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as unknown as { from: (t: string) => any };
+
 export type TimerAttemptRow = {
   id: string;
   attempt_no: number;
@@ -97,7 +102,7 @@ export function useQuestionTimerAttempt(opts: {
     setCompleted(false);
 
     (async () => {
-      const { data: rows, error } = await supabase
+      const { data: rows, error } = await db
         .from("assessment_timer_attempts")
         .select("id, attempt_no, started_at, elapsed_ms, running, attempt_lines, completed_at, success")
         .eq("assessment_id", assessmentId!)
@@ -128,14 +133,14 @@ export function useQuestionTimerAttempt(opts: {
         return;
       }
 
-      const { data: created, error: insErr } = await supabase
+      const { data: created, error: insErr } = await db
         .from("assessment_timer_attempts")
         .insert({
           assessment_id: assessmentId!,
           student_id: studentId!,
           question_id: questionId!,
           attempt_no: 1,
-        } as never)
+        })
         .select("id, attempt_no")
         .maybeSingle();
       if (cancelled) return;
@@ -151,11 +156,11 @@ export function useQuestionTimerAttempt(opts: {
   const patch = useCallback((fields: Record<string, unknown>) => {
     const id = rowIdRef.current;
     if (!id) return;
-    void supabase
+    void db
       .from("assessment_timer_attempts")
-      .update({ ...fields, updated_at: new Date().toISOString() } as never)
+      .update({ ...fields, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .then(({ error }) => {
+      .then(({ error }: { error: { message: string } | null }) => {
         if (error) console.warn("[timer-attempt] save failed", error.message);
       });
   }, []);
@@ -266,14 +271,14 @@ export function useQuestionTimerAttempt(opts: {
     setConfirmed({});
     setCompleted(false);
     setAttemptNo(nextNo);
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("assessment_timer_attempts")
       .insert({
         assessment_id: assessmentId!,
         student_id: studentId!,
         question_id: questionId!,
         attempt_no: nextNo,
-      } as never)
+      })
       .select("id")
       .maybeSingle();
     if (error) console.warn("[timer-attempt] new attempt failed", error.message);
