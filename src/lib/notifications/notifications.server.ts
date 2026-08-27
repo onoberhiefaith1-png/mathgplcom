@@ -1,0 +1,408 @@
+/**
+ * Server-only notification engine.
+ *
+ * Audience expansion runs against the structures the platform already owns —
+ * organizations, account_memberships, classes/class_members and connections —
+ * so a sender can only ever reach people they are genuinely related to.
+ */
+import type { AppRole } from "@/lib/accounts/roles";
+import {
+  applyAudienceEdits,
+  canUseAudience,
+  canFilterByRegion,
+  type AudienceRequest,
+  type NotificationKind,
+} from "./audience";
+import type { AudiencePerson, NotificationContext } from "./types";
+
+/* The notification tables are newer than the generated database types, so the
+   admin client is used untyped for them only. */
+type Db = {
+  from: (table: string) => any;
+  rpc: (fn: string, args?: Record<string, unknown>) => any;
+};
+
+const adminDb = async (): Promise<Db> => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin as unknown as Db;
+};
+
+const ids = (rows: unknown, key: string): string[] =>
+  ((rows ?? []) as Record<string, string | null>[])
+    .map((r) => r[key])
+    .filter((v): v is string => !!v);
+
+const unique = (values: string[]): string[] => [...new Set(values)];
+
+/** Users holding a given role. */
+const usersWithRole = async (db: Db, role: AppRole): Promise<string[]> => {
+  const { data } = await db.from("user_roles").select("user_id").eq("role", role);
+  return ids(data, "user_id");
+};
+
+/** Restrict a set of users to a region (profiles.country). */
+const withinRegion = async (db: Db, userIds: string[], region: string): Promise<string[]> => {
+  if (userIds.length === 0) return [];
+  const { data } = await db
+    .from("profiles")
+    .select("user_id")
+    .in("user_id", userIds)
+    .eq("country", region);
+  return ids(data, "user_id");
+};
+
+/** Users belonging to the given organizations with an active membership. */
+const membersOfOrgs = async (db: Db, orgIds: string[], role?: AppRole): Promise<string[]> => {
+  if (orgIds.length === 0) return [];
+  let query = db
+    .from("account_memberships")
+    .select("user_id, role, status")
+    .in("org_id", orgIds)
+    .eq("status", "active");
+  if (role) query = query.eq("role", role);
+  const { data } = await query;
+  return ids(data, "user_id");
+};
+
+/** Owners of the given organizations — the "school account" itself. */
+const ownersOfOrgs = async (db: Db, orgIds: string[]): Promise<string[]> => {
+  if (orgIds.length === 0) return [];
+  const { data } = await db.from("organizations").select("owner_user_id").in("id", orgIds);
+  return ids(data, "owner_user_id");
+};
+
+/** Accepted connection counterparts of a user for the given relations. */
+const connectedUsers = async (
+  db: Db,
+  userId: string,
+  relations: string[],
+): Promise<string[]> => {
+  const { data } = await db
+    .from("connections")
+    .select("from_user_id, to_user_id, relation, status")
+    .eq("status", "accepted")
+    .in("relation", relations)
+    .or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`);
+  const rows = (data ?? []) as { from_user_id: string; to_user_id: string }[];
+  return unique(
+    rows.map((r) => (r.from_user_id === userId ? r.to_user_id : r.from_user_id)).filter((v) => v !== userId),
+  );
+};
+
+/** Students in every class owned by a teacher. */
+const studentsOfTeacher = async (db: Db, teacherId: string): Promise<string[]> => {
+  const { data: classes } = await db.from("classes").select("id").eq("owner_id", teacherId);
+  const classIds = ids(classes, "id");
+  const rostered = await studentsOfClasses(db, classIds);
+  const connected = await connectedUsers(db, teacherId, ["teacher_student"]);
+  return unique([...rostered, ...connected]);
+};
+
+const studentsOfClasses = async (db: Db, classIds: string[]): Promise<string[]> => {
+  if (classIds.length === 0) return [];
+  const { data } = await db.from("class_members").select("user_id").in("class_id", classIds);
+  return ids(data, "user_id");
+};
+
+/** Organizations a school account owns. */
+export const ownedOrgIds = async (userId: string): Promise<string[]> => {
+  const db = await adminDb();
+  const { data } = await db.from("organizations").select("id").eq("owner_user_id", userId);
+  return ids(data, "id");
+};
+
+/**
+ * Everyone a sender may reach for one audience preset, before add/remove edits.
+ */
+export const reachableAudience = async (
+  role: AppRole,
+  userId: string,
+  request: AudienceRequest,
+): Promise<string[]> => {
+  if (!canUseAudience(role, request.kind)) {
+    throw new Error("This account cannot send to that audience.");
+  }
+  const db = await adminDb();
+  const isAdmin = role === "platform_owner" || role === "co_admin";
+  const region = canFilterByRegion(role) ? (request.region ?? null) : null;
+  const selectedOrgs = request.orgIds ?? [];
+
+  let base: string[] = [];
+
+  if (isAdmin) {
+    if (request.kind === "everyone") {
+      const { data } = await db.from("profiles").select("user_id");
+      base = ids(data, "user_id");
+    } else if (request.kind === "schools") {
+      base = selectedOrgs.length
+        ? await ownersOfOrgs(db, selectedOrgs)
+        : await usersWithRole(db, "school");
+    } else if (request.kind === "individuals") {
+      base = [];
+    } else {
+      const roleForKind: AppRole =
+        request.kind === "teachers" ? "teacher" : request.kind === "students" ? "student" : "parent";
+      base = await usersWithRole(db, roleForKind);
+      if (selectedOrgs.length) {
+        const inOrgs = new Set(await membersOfOrgs(db, selectedOrgs, roleForKind));
+        base = base.filter((id) => inOrgs.has(id));
+      }
+    }
+  } else if (role === "school") {
+    const orgs = await ownedOrgIds(userId);
+    const scoped = selectedOrgs.length ? selectedOrgs.filter((id) => orgs.includes(id)) : orgs;
+    if (request.kind === "teachers") {
+      base = unique([
+        ...(await membersOfOrgs(db, scoped, "teacher")),
+        ...(await connectedUsers(db, userId, ["school_teacher"])),
+      ]);
+    } else if (request.kind === "students") {
+      const { data: classes } = await db.from("classes").select("id").in("org_id", scoped.length ? scoped : ["00000000-0000-0000-0000-000000000000"]);
+      base = unique([
+        ...(await studentsOfClasses(db, ids(classes, "id"))),
+        ...(await membersOfOrgs(db, scoped, "student")),
+        ...(await connectedUsers(db, userId, ["school_student"])),
+      ]);
+    } else if (request.kind === "parents") {
+      base = await connectedUsers(db, userId, ["parent_school"]);
+    } else {
+      base = [];
+    }
+  } else if (role === "teacher") {
+    base = request.kind === "students" ? await studentsOfTeacher(db, userId) : [];
+  } else if (role === "parent") {
+    if (request.kind === "schools") base = await connectedUsers(db, userId, ["parent_school"]);
+    else if (request.kind === "teachers") base = await connectedUsers(db, userId, ["parent_teacher"]);
+    else base = [];
+  }
+
+  if (region) base = await withinRegion(db, base, region);
+  return unique(base);
+};
+
+/** The complete set of people a sender may address, for validating individuals. */
+const everyoneReachable = async (role: AppRole, userId: string): Promise<Set<string>> => {
+  const kinds =
+    role === "platform_owner" || role === "co_admin"
+      ? (["everyone"] as const)
+      : role === "school"
+        ? (["teachers", "students", "parents"] as const)
+        : role === "teacher"
+          ? (["students"] as const)
+          : role === "parent"
+            ? (["schools", "teachers"] as const)
+            : ([] as const);
+  const all: string[] = [];
+  for (const kind of kinds) {
+    all.push(...(await reachableAudience(role, userId, { kind })));
+  }
+  return new Set(all);
+};
+
+export const resolveRecipients = async (
+  role: AppRole,
+  userId: string,
+  request: AudienceRequest,
+): Promise<string[]> => {
+  const base = await reachableAudience(role, userId, request);
+  const include = request.includeUserIds ?? [];
+  if (include.length) {
+    const allowed = await everyoneReachable(role, userId);
+    const rejected = include.filter((id) => !allowed.has(id));
+    if (rejected.length) throw new Error("Some selected people are outside this account's reach.");
+  }
+  return applyAudienceEdits(base, include, request.excludeUserIds ?? [], userId);
+};
+
+/** People a sender can search through when picking individuals. */
+export const audiencePeople = async (
+  role: AppRole,
+  userId: string,
+  request: AudienceRequest,
+): Promise<AudiencePerson[]> => {
+  const userIds = await reachableAudience(role, userId, request);
+  if (userIds.length === 0) return [];
+  const db = await adminDb();
+  const capped = userIds.slice(0, 1000);
+  const { data: profiles } = await db
+    .from("profiles")
+    .select("user_id, display_name, full_name, username, country")
+    .in("user_id", capped);
+  const { data: roles } = await db.from("user_roles").select("user_id, role").in("user_id", capped);
+  const roleByUser = new Map<string, string>();
+  for (const r of (roles ?? []) as { user_id: string; role: string }[]) roleByUser.set(r.user_id, r.role);
+
+  return ((profiles ?? []) as Record<string, string | null>[]).map((p) => ({
+    userId: p["user_id"] as string,
+    name: p["display_name"] || p["full_name"] || p["username"] || "MathGPL account",
+    username: p["username"] ?? null,
+    role: roleByUser.get(p["user_id"] as string) ?? null,
+    region: p["country"] ?? null,
+    orgName: null,
+  }));
+};
+
+export type CreateNotification = {
+  kind: NotificationKind;
+  senderUserId: string | null;
+  senderRole: string | null;
+  subject?: string | null;
+  body: string;
+  context?: NotificationContext;
+  targetPath?: string | null;
+  recipients: string[];
+  threadRootId?: string | null;
+  parentId?: string | null;
+};
+
+/** Insert one message and fan it out to its recipients. */
+export const createNotification = async (input: CreateNotification): Promise<{ id: string; recipients: number }> => {
+  if (input.recipients.length === 0) throw new Error("No recipients for this notification.");
+  const db = await adminDb();
+  const { data, error } = await db
+    .from("notifications")
+    .insert({
+      kind: input.kind,
+      sender_user_id: input.senderUserId,
+      sender_role: input.senderRole,
+      subject: input.subject ?? null,
+      body: input.body,
+      context: input.context ?? {},
+      target_path: input.targetPath ?? null,
+      thread_root_id: input.threadRootId ?? null,
+      parent_id: input.parentId ?? null,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  const id = (data as { id: string }).id;
+
+  if (!input.threadRootId) {
+    await db.from("notifications").update({ thread_root_id: id }).eq("id", id);
+  }
+
+  const rows = unique(input.recipients).map((recipient_user_id) => ({
+    notification_id: id,
+    recipient_user_id,
+  }));
+  const { error: fanError } = await db.from("notification_recipients").insert(rows);
+  if (fanError) throw new Error(fanError.message);
+  return { id, recipients: rows.length };
+};
+
+/** Which teacher owns the activity a student is working on. */
+export const teacherForStudentContext = async (
+  studentId: string,
+  context: NotificationContext,
+): Promise<string[]> => {
+  const db = await adminDb();
+
+  if (context.assignmentId) {
+    const { data } = await db
+      .from("learning_assignments")
+      .select("created_by, class_id")
+      .eq("id", context.assignmentId)
+      .maybeSingle();
+    const row = data as { created_by: string | null; class_id: string | null } | null;
+    if (row?.created_by) return [row.created_by];
+    if (row?.class_id) {
+      const owner = await classOwner(db, row.class_id);
+      if (owner) return [owner];
+    }
+  }
+
+  if (context.classId) {
+    const owner = await classOwner(db, context.classId);
+    if (owner) return [owner];
+  }
+
+  // Fall back to the teacher(s) of every class the student belongs to.
+  const { data: memberships } = await db
+    .from("class_members")
+    .select("class_id")
+    .eq("user_id", studentId);
+  const classIds = ids(memberships, "class_id");
+  if (classIds.length) {
+    const { data: classes } = await db.from("classes").select("owner_id").in("id", classIds);
+    const owners = unique(ids(classes, "owner_id"));
+    if (owners.length) return owners;
+  }
+
+  // Last resort: any teacher directly connected to this student.
+  return await connectedUsers(db, studentId, ["teacher_student"]);
+};
+
+const classOwner = async (db: Db, classId: string): Promise<string | null> => {
+  const { data } = await db.from("classes").select("owner_id").eq("id", classId).maybeSingle();
+  return (data as { owner_id: string | null } | null)?.owner_id ?? null;
+};
+
+/** Display names for a set of users, used when rendering a thread. */
+export const namesFor = async (userIds: string[]): Promise<Map<string, string>> => {
+  const out = new Map<string, string>();
+  const list = unique(userIds.filter(Boolean));
+  if (list.length === 0) return out;
+  const db = await adminDb();
+  const { data } = await db
+    .from("profiles")
+    .select("user_id, display_name, full_name, username")
+    .in("user_id", list);
+  for (const p of (data ?? []) as Record<string, string | null>[]) {
+    out.set(
+      p["user_id"] as string,
+      p["display_name"] || p["full_name"] || p["username"] || "MathGPL account",
+    );
+  }
+  return out;
+};
+
+/** Everyone who should see a reply: the thread's sender plus its recipients. */
+export const threadParticipants = async (
+  threadRootId: string,
+  excludeUserId: string,
+): Promise<string[]> => {
+  const db = await adminDb();
+  const { data: messages } = await db
+    .from("notifications")
+    .select("id, sender_user_id")
+    .or(`id.eq.${threadRootId},thread_root_id.eq.${threadRootId}`);
+  const rows = (messages ?? []) as { id: string; sender_user_id: string | null }[];
+  const messageIds = rows.map((r) => r.id);
+  const senders = rows.map((r) => r.sender_user_id).filter((v): v is string => !!v);
+
+  // A reply goes back to the original sender only, keeping threads contextual
+  // rather than turning a broadcast into a group chat.
+  const { data: root } = await db
+    .from("notifications")
+    .select("sender_user_id")
+    .eq("id", threadRootId)
+    .maybeSingle();
+  const rootSender = (root as { sender_user_id: string | null } | null)?.sender_user_id ?? null;
+
+  void messageIds;
+  void senders;
+  return unique([rootSender].filter((v): v is string => !!v && v !== excludeUserId));
+};
+
+/** True when the user sent, or was addressed by, any message in the thread. */
+export const isThreadParticipant = async (
+  threadRootId: string,
+  userId: string,
+): Promise<boolean> => {
+  const db = await adminDb();
+  const { data: messages } = await db
+    .from("notifications")
+    .select("id, sender_user_id")
+    .or(`id.eq.${threadRootId},thread_root_id.eq.${threadRootId}`);
+  const rows = (messages ?? []) as { id: string; sender_user_id: string | null }[];
+  if (rows.some((r) => r.sender_user_id === userId)) return true;
+  const messageIds = rows.map((r) => r.id);
+  if (messageIds.length === 0) return false;
+  const { data } = await db
+    .from("notification_recipients")
+    .select("id")
+    .in("notification_id", messageIds)
+    .eq("recipient_user_id", userId)
+    .limit(1);
+  return ((data ?? []) as unknown[]).length > 0;
+};
