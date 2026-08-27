@@ -36,6 +36,7 @@ import {
   syncAdventureBoards,
   type QuestionRef,
 } from "@/lib/assignments/pipeline";
+import { autoArchiveExpired } from "@/lib/assignments/instances";
 
 type AssignTarget = "assignment" | "adventure" | "course";
 type ClassRow = {
@@ -88,6 +89,9 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
         .eq("owner_id", uid ?? "")
         .order("created_at", { ascending: true });
       const classList = (rows ?? []).map((r: any) => ({ id: r.id, name: r.name ?? "Class" }));
+
+      // Release every expired instance before deriving the checked classes.
+      await Promise.all(classList.map((c) => autoArchiveExpired(c.id)));
 
       // Permanent question identity — survives every note edit.
       const ref = await resolveQuestionRef(subsectionId);

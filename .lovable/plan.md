@@ -1,53 +1,51 @@
-# Fix assignment reassignment and enforce non-overlapping lesson text
+# Restore student-owned real-time marking
 
-## Confirmed causes
+## Goal
+Restore one authoritative pipeline:
 
-### Assignment lifecycle
+```text
+Student edits active question line
+  → student Smartboard evaluates after a short debounce
+  → correct result is persisted to that student's assessment progress
+  → the same result and updated marks are broadcast
+  → teacher observes the student's board, verdict, and total live
+```
 
-- Assignment expiry is enforced on child `assessments`, while duplicate prevention is controlled by the parent `learning_assignments.status`.
-- The existing expiry helper is not invoked before assignment checks and only reads the parent deadline, so expired child assessments can leave an active parent that blocks reassignment.
+The teacher view will remain read-only with respect to marking and will not run a second evaluator.
 
-### Lesson-note overlap
-
-- Clicking blank paper currently creates a `canvasFrame` for ordinary typed content at an absolute `x/y` position.
-- `canvasFrame` deliberately renders with `position:absolute`, so ordinary text, headings, generated solutions, and later flowing content can occupy the same vertical space.
-- The current layout guard only separates non-diagram frames from other frames and reserves space for frames that have a linked spacer. It does not prevent an ordinary text frame from covering normal document-flow content.
-- Diagrams already have a distinct `objectKind: "diagram"`, so they can remain the only overlap-capable content.
+## Confirmed current state
+- `PresentationView` currently starts two evaluations for the same active student line: a 500 ms non-persisting “live” check and a separate 900 ms persisting auto-check.
+- The persisting path suppresses retries by recording its deduplication key before the request succeeds, so one failed or interrupted request can leave unchanged correct work unmarked.
+- The backend already stores per-line marks under `questionId:lineId`; existing multi-question rows confirm marks from separate questions coexist and aggregate into one assessment score.
+- `TeacherEvaluationPanel` already consumes student board/check broadcasts and reads `assessment_progress`; it does not need its own marking engine.
 
 ## Implementation
+1. **Unify student evaluation**
+   - Replace the competing 500 ms observation-only call and 900 ms persisting call with one debounced student-owned evaluation path.
+   - Use the existing `grade-line` engine for manual Check, line exit, table completion, and idle completion.
+   - Persist normal student evaluations; preserve non-persisting behavior only for explicit tester/test mode.
 
-1. **Repair assignment expiry reconciliation**
-   - Derive each active assignment instance’s effective deadline from its linked assessment rows when the parent deadline is absent.
-   - Reconcile expiry before duplicate checks, Assign-dialog state, and class assignment lists.
-   - Archive expired or manually unassigned instances without deleting questions, work, grading, progress, or reports.
+2. **Make evaluation reliable**
+   - Deduplicate only successful evaluations, not requests that merely started.
+   - Allow the same unchanged expression to retry after network/function failure.
+   - Correct the grading callback dependencies so persistence mode and participant identity cannot be captured from a stale render.
+   - Guard async responses with assessment, question, line, and expression identity so a late result cannot mark or display under another question.
+   - Keep already-awarded `questionId:lineId` slots permanent and prevent double scoring.
 
-2. **Release the class for a fresh assignment run**
-   - Keep one active instance per class/notebook/mode while it is active.
-   - After expiry or unassignment, create a new parent and new active child rows; never revive or overwrite the previous run.
-   - Synchronize deadline changes between active parent and child records.
+3. **Stream the authoritative result**
+   - Broadcast the result returned by the persisting student call, including question ID, line ID, verdict, marks, and updated aggregate progress.
+   - Update the student's local progress from that same response.
+   - Have the teacher panel refresh from the student result/realtime progress event while rejecting out-of-scope question payloads.
+   - Publish the student's active-question presence for every assessment-board entry path, not only links carrying assignment/adventure query parameters.
 
-3. **Show current and historical assignments separately**
-   - Keep active work in the current Assignment section.
-   - Add `Previous Assignments` for expired and manually unassigned instances, keyed by assignment-instance ID and linked read-only to preserved results.
+4. **Preserve multi-question isolation**
+   - Keep independent board state per assessment + student + question.
+   - Keep line progress keyed by `questionId:lineId` and derive the overall assignment score from all solved slots.
+   - Reset transient evaluation state when the student changes question without clearing persisted marks from other questions.
 
-4. **Make ordinary lesson content participate in document flow**
-   - Stop creating absolute free-position frames for ordinary typing, headings, math structures, AI-generated text, and solutions.
-   - Resolve blank-paper clicks to a document insertion point in reading order so newly typed content occupies real height and naturally pushes every later text block downward like a word processor.
-   - Convert or render legacy non-diagram `canvasFrame` content in flow so existing overlapping notes recover without losing their text or editable math structure.
-   - Keep horizontal placement only where it can be represented safely without removing the block from flow.
+5. **Regression coverage and verification**
+   - Add tests for automatic persistence, retry after a failed request, no duplicate award, stale-response rejection, and two questions contributing independently to one total.
+   - Verify a student correct line updates stored progress and the teacher panel receives that exact evaluation without invoking grading itself.
 
-5. **Keep diagrams as the sole overlap exception**
-   - Preserve free drawing and free-positioned diagram frames, including the ability to place diagrams anywhere and overlap other content.
-   - Ensure diagram carriers remain excluded from text-flow spacing and from text-frame migration.
-
-6. **Regression coverage and verification**
-   - Test active duplicate blocking, expiry release, manual-unassign release, fresh reassignment, and preserved historical results.
-   - Test that multiline text, headings, editable math, AI output, and moved solutions increase layout height and push subsequent content down.
-   - Test that old non-diagram absolute frames recover into flow, while diagram frames retain absolute positioning and overlap freedom.
-   - Verify the lesson-note screenshot scenario in the running editor: no text collision after insertion or growth, with diagrams unchanged.
-
-## Technical scope
-
-- Assignment lifecycle helpers, assignment pipeline, Assign dialog, class Assignments page, student active filtering, and focused lifecycle tests.
-- Lesson-note sensor insertion, `canvasFrame` rendering/migration, session layout behavior, and focused editor layout tests.
-- No database schema change is expected; existing rows, grading, student access, expiry locks, and diagram behavior remain intact.
+## Scope
+No redesign of assignments, Smartboard controls, grading rules, answer keys, expiry, or teacher workflows.

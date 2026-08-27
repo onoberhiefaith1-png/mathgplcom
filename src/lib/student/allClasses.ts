@@ -130,7 +130,11 @@ export async function myAssignments(): Promise<GlobalAssignment[]> {
     notebook_id: string | null;
     class_id: string;
     due_at: string | null;
-  }[]).filter((r) => r.kind !== "adventure" && r.notebook_id);
+  }[]).filter((r) =>
+    r.kind !== "adventure" &&
+    r.notebook_id &&
+    (!r.due_at || Date.parse(r.due_at) > Date.now()),
+  );
   if (rows.length === 0) return [];
 
   const [{ data: progress }, { data: notebooks }] = await Promise.all([

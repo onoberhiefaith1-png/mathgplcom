@@ -104,6 +104,11 @@ export async function ensureAssignment(params: {
   const gameId = params.gameId ?? null;
   const keys = (params.questionKeys ?? []).filter(Boolean) as string[];
 
+  // The child assessment deadline is the edit-lock source of truth in older
+  // assignments. Reconcile it before the active-triple lookup so an expired
+  // historical run can never block a fresh one.
+  await autoArchiveExpired(params.classId);
+
   let existing = await findActiveAssignment(params.classId, params.notebookId, gameId, params.mode);
 
   // A note assigned before an Adventure was chosen has a game-less instance.
@@ -212,24 +217,52 @@ export async function archiveAssignment(
     .eq("status", "active");
 }
 
-/** Archive every active instance of a class whose due date has passed. */
+/** Archive every active instance of a class whose effective due date has
+ * passed. New records mirror the deadline on the parent, while older records
+ * may only have it on their child assessment/adventure rows. */
 export async function autoArchiveExpired(classId: string): Promise<number> {
-  const nowIso = new Date().toISOString();
+  const now = Date.now();
   const { data } = await (table() as any)
-    .select("id")
+    .select("id, due_at")
     .eq("class_id", classId)
-    .eq("status", "active")
-    .not("due_at", "is", null)
-    .lt("due_at", nowIso);
-  const rows = (data ?? []) as { id: string }[];
-  for (const r of rows) await archiveAssignment(r.id, "expired");
-  return rows.length;
+    .eq("status", "active");
+  const rows = (data ?? []) as { id: string; due_at: string | null }[];
+  if (!rows.length) return 0;
+
+  const ids = rows.map((r) => r.id);
+  const [{ data: assessmentDates }, { data: adventureDates }] = await Promise.all([
+    supabase.from("assessments").select("assignment_id, due_at").in("assignment_id" as never, ids as never),
+    supabase.from("class_adventure_notes").select("assignment_id, due_at").in("assignment_id" as never, ids as never),
+  ]);
+  const childDates = new Map<string, number[]>();
+  for (const child of [...((assessmentDates ?? []) as any[]), ...((adventureDates ?? []) as any[])]) {
+    if (!child.assignment_id || !child.due_at) continue;
+    const timestamp = Date.parse(child.due_at);
+    if (!Number.isFinite(timestamp)) continue;
+    const dates = childDates.get(child.assignment_id) ?? [];
+    dates.push(timestamp);
+    childDates.set(child.assignment_id, dates);
+  }
+
+  const expired = rows.filter((row) => {
+    const parentDate = row.due_at ? Date.parse(row.due_at) : Number.NaN;
+    // If child questions ever have different deadlines, the run remains active
+    // until the final question expires.
+    const children = childDates.get(row.id) ?? [];
+    const effective = Number.isFinite(parentDate)
+      ? parentDate
+      : children.length ? Math.max(...children) : Number.NaN;
+    return Number.isFinite(effective) && effective <= now;
+  });
+  for (const row of expired) await archiveAssignment(row.id, "expired");
+  return expired.length;
 }
 
 export async function listAssignments(
   classId: string,
   opts?: { status?: AssignmentStatus; mode?: AssignmentMode },
 ): Promise<LearningAssignment[]> {
+  await autoArchiveExpired(classId);
   let q = (table() as any).select(SELECT).eq("class_id", classId);
   if (opts?.status) q = q.eq("status", opts.status);
   if (opts?.mode) q = q.eq("mode", opts.mode);

@@ -15,7 +15,7 @@ import {
   compileQuestionSections,
   type AssessmentKind,
 } from "@/lib/assessments/createAssessment";
-import { ensureAssignment, archiveAssignment } from "@/lib/assignments/instances";
+import { ensureAssignment, archiveAssignment, autoArchiveExpired } from "@/lib/assignments/instances";
 
 export interface QuestionRef {
   subsectionId: string | null;
@@ -62,6 +62,15 @@ export async function loadAssignmentState(
   if (!notebookId || (!ref.questionKey && !ref.sectionId)) {
     return { assignmentByClass, adventureByClass };
   }
+
+  // Expired children are historical rows, not active checkbox state.
+  const { data: candidateClasses } = await supabase
+    .from("assessments")
+    .select("class_id")
+    .eq("notebook_id", notebookId)
+    .is("unassigned_at", null);
+  await Promise.all(Array.from(new Set(((candidateClasses ?? []) as any[]).map((r) => r.class_id as string)))
+    .map((classId) => autoArchiveExpired(classId)));
 
   const matches = (row: any) =>
     (ref.questionKey && row.question_key === ref.questionKey) ||
@@ -223,6 +232,7 @@ export async function assignAssessmentQuestion(params: {
   title: string;
   scoreLabel: string;
   gameId?: string | null;
+  dueAt?: string | null;
 }): Promise<string> {
   const { classId, notebookId, ref } = params;
   const { data: userData } = await supabase.auth.getUser();
@@ -240,6 +250,7 @@ export async function assignAssessmentQuestion(params: {
     mode: "assignment",
     questionKeys: [ref.questionKey],
     title: params.title,
+    dueAt: params.dueAt ?? null,
   });
 
   const [{ data }, archived] = await Promise.all([
@@ -281,6 +292,7 @@ export async function assignAssessmentQuestion(params: {
         total_marks: total,
         questions: questions as never,
         assignment_id: assignment.id,
+        ...(params.dueAt !== undefined ? { due_at: params.dueAt } : {}),
       } as never)
       .eq("id", hit.id);
     await supabase.from("assessment_answer_keys").delete().eq("assessment_id", hit.id);
@@ -305,6 +317,7 @@ export async function assignAssessmentQuestion(params: {
       total_marks: total,
       questions: questions as never,
       assignment_id: assignment.id,
+      due_at: params.dueAt ?? null,
     } as never)
     .select("id")
     .single();

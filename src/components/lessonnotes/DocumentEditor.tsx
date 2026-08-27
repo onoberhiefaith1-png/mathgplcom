@@ -2447,9 +2447,9 @@ function DocumentEditorInner({
     return Math.min($pos.after(depth), doc.content.size);
   };
 
-  /** Create a free frame at a paper coordinate and put the real caret inside
-   *  it. `nodes` defaults to a single empty paragraph (a bare sensor landing
-   *  spot, tracked for cleanup). Returns the position content starts at. */
+  /** Insert a flowing block at the document position nearest a paper point.
+   * Ordinary text is never absolutely positioned; it reserves real height and
+   * pushes everything below it down. Diagrams keep their separate overlay. */
   const createFreeFrame = (
     x: number,
     y: number,
@@ -2458,20 +2458,23 @@ function DocumentEditorInner({
     if (!editor) return 0;
     dropEmptyPendingFrame(true);
     const host = editor.view.dom as HTMLElement;
-    const avail = Math.max(160, (host.clientWidth || 640) - x - 8);
-    const at = editor.state.doc.content.size;
+    const blocks = Array.from(host.children) as HTMLElement[];
+    let index = blocks.findIndex((block) => block.offsetTop + block.offsetHeight / 2 > y);
+    if (index < 0) index = blocks.length;
+    let at = 0;
+    editor.state.doc.forEach((node, offset, childIndex) => {
+      if (childIndex === index) at = offset;
+      else if (index === blocks.length) at = editor.state.doc.content.size;
+    });
+    const content = nodes && nodes.length ? nodes : [{ type: "paragraph" }];
     editor.chain().focus()
-      .insertContentAt(at, {
-        type: "canvasFrame",
-        attrs: { x: Math.round(x), y: Math.round(y), w: Math.round(Math.min(420, avail)) },
-        content: nodes && nodes.length ? nodes : [{ type: "paragraph" }],
-      })
+      .insertContentAt(at, content)
       .run();
-    if (!nodes || !nodes.length) pendingFrameRef.current = at;
-    const inner = Math.min(at + 2, editor.state.doc.content.size);
+    pendingFrameRef.current = null;
+    const inner = Math.min(at + 1, editor.state.doc.content.size);
     editor.chain().focus().setTextSelection(inner).run();
     rememberSensor(editor.state.selection.to);
-    return at + 1;
+    return at;
   };
 
   /** Insert blocks AT THE SENSOR — the caret is the single source of truth, so
@@ -3126,9 +3129,8 @@ function DocumentEditorInner({
    *  A point that lands on real text (within a small tolerance of a caret
    *  position) puts the normal text cursor there. Anything else — blank space
    *  beside a line, under or around a diagram, the Note Extend region, the far
-   *  right of the sheet — parks a FREE sensor at that exact coordinate. The
-   *  sensor is never pushed under the previous section and never claimed by a
-   *  diagram. */
+    *  right of the sheet — inserts a normal flowing line at that vertical
+    *  position. The browser then pushes every later text block down. */
   const placeSensorAtPoint = (clientX: number, clientY: number): "doc" | "free" => {
     if (!editor) return "free";
     const view = editor.view;
@@ -3150,10 +3152,8 @@ function DocumentEditorInner({
       } catch { /* fall through to free placement */ }
     }
 
-    // Free placement — coordinates are paper-local (relative to the note body),
-    // so the sensor stays put while the page scrolls or zooms. A real frame is
-    // created immediately and the caret goes inside it, so the sensor is a full
-    // text editor from the very first keystroke.
+    // Blank-space placement becomes a normal document block. Horizontal clicks
+    // do not create overlap-capable text; only diagrams use the overlay layer.
     const host = view.dom as HTMLElement;
     const r = host.getBoundingClientRect();
     const z = zoom || 1;
