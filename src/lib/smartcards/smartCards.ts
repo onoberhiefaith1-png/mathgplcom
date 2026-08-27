@@ -82,8 +82,9 @@ const SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
 export const generateSlug = () =>
   Array.from({ length: 4 }, () => SLUG_ALPHABET[Math.floor(Math.random() * SLUG_ALPHABET.length)]).join("");
 
-export { PUBLIC_SITE, publicOrigin } from "@/lib/public/publicSite";
-import { publicOrigin } from "@/lib/public/publicSite";
+import { publicOrigin } from "@/lib/links/publicUrl";
+
+export { PUBLIC_SITE, publicOrigin } from "@/lib/links/publicUrl";
 
 /** Clean, one-line public link for the card. */
 export const cardUrl = (slug: string) => `${publicOrigin()}/c/${slug}`;
