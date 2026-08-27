@@ -43,6 +43,7 @@ const TeacherAssessmentViewerPage = () => {
   );
   const modeChosenRef = useRef<boolean>(!!explicitQuestionId || requestedMode === "live" || requestedMode === "work");
   const [liveQuestionId, setLiveQuestionId] = useState<string | null>(null);
+  const [presenceQuestionId, setPresenceQuestionId] = useState<string | null>(null);
   const [lastFrameAt, setLastFrameAt] = useState<number>(0);
   const [pickedQuestionId, setPickedQuestionId] = useState<string | null>(null);
   const [persistedQuestionId, setPersistedQuestionId] = useState<string | null>(null);
@@ -59,10 +60,12 @@ const TeacherAssessmentViewerPage = () => {
     mode,
     explicitQuestionId,
     liveQuestionId,
+    presenceQuestionId,
     pickedQuestionId,
     lastPersistedQuestionId: persistedQuestionId,
     firstQuestionId: questions[0]?.id ?? null,
   });
+
 
   // ── Instant follow signal. The student's Smartboard broadcasts a snapshot on
   // every board change (~120ms) on a question-agnostic channel, and every
