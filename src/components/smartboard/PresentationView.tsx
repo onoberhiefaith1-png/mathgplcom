@@ -2404,19 +2404,28 @@ const PresentationView = ({
     activeSensorPhysicalLineRef.current = sensor.line;
   }, [activeLayout, sensor.line, sensor.x, grid.FONT_PX, grid.MARGIN_LEFT, notebookRowLines, freeLines, setLiveCursor]);
 
+  /** True while the caret sits inside a nested slot of a structure on an
+   *  inked row — there the D-pad navigates the maths, not the board. */
+  const caretInStructure = (() => {
+    if (cursor.path.length < 2) return false;
+    const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    return rowInk.length > 0;
+  })();
+
   const canCursorUp = (() => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     // ▲ is enabled whenever ANY empty writable row exists above the
     // sensor inside the active band — the sensor roams freely in the
     // empty solution space. It is ALSO enabled while the caret sits inside
     // a structure, because there ▲ steps/escapes slots rather than rows.
-    if (cursor.path.length >= 2) return true;
+    if (caretInStructure) return true;
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     const a = bandStart(activeLayout);
     const cand = findNextWritableEmptyRow(Math.floor(sensor.line) - 1, -1, activeLayout);
     return cand >= a;
   })();
 
   const canCursorDown = (() => {
+    if (caretInStructure) return true;
     if (!activeLayout || activeLayout.bandLines <= 0) return false;
     // ↓ can always grow the band, so it's always enabled while solving.
     return true;
@@ -2426,17 +2435,20 @@ const PresentationView = ({
   // powers…) instead of shifting the row offset, so the sensor can never be
   // trapped inside a structure slot.
   const canCursorLeft = (() => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
     if (rowInk.length > 0) return true;
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     return sensor.x > 0;
   })();
   const canCursorRight = (() => {
-    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
+    const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    if (rowInk.length > 0) return true;
+    if (!activeLayout || activeLayout.bandLines <= 0) return false;
     return true;
   })();
+
 
 
 
