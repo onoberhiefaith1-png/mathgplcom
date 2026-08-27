@@ -5428,6 +5428,24 @@ const PresentationView = ({
           to the board. */}
       <BoardRelationshipView />
 
+      {/* A student's only way to start a message: ask about THIS work, with the
+          class, assignment and question attached automatically. */}
+      {role === "student" && !smartCardSlug && !viewOnly && (
+        <AskQuestionButton
+          context={{
+            classId: classIdProp,
+            notebookId: notebookId ?? null,
+            assignmentId: assessmentId,
+            adventureId: gameId,
+            boardQuestionId,
+            workspace,
+            source: "smartboard",
+          }}
+        />
+      )}
+
+
+
 
       {review.open && !review.fullscreen && review.active && (
         <div className="absolute inset-x-0 bottom-0 z-[70] h-[62%] w-full overflow-auto overscroll-contain rounded-t-2xl shadow-2xl md:inset-x-auto md:bottom-auto md:right-0 md:top-0 md:h-full md:w-[20%] md:min-w-[240px] md:overflow-visible md:rounded-none md:shadow-none">
