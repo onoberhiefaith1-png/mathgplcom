@@ -5,7 +5,7 @@
 // "View Student Work" action.
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Circle, CircleDashed } from "lucide-react";
+import { CheckCircle2, Circle, CircleDashed, Radio } from "lucide-react";
 
 
 
@@ -24,9 +24,12 @@ type Bucket = "in_progress" | "completed" | "inactive";
 export function AssessmentStatusPanel({
   rows,
   onViewStudent,
+  onJoinLive,
 }: {
   rows: StudentProgressRow[];
   onViewStudent: (studentId: string) => void;
+  /** Open the viewer following the student's board in real time. */
+  onJoinLive?: (studentId: string) => void;
 }) {
   const [active, setActive] = useState<Bucket>("in_progress");
 
@@ -87,19 +90,40 @@ export function AssessmentStatusPanel({
             <tbody>
               {visible.map((r) => (
                 <tr key={r.studentId} className="border-t border-border">
-                  <td className="px-3 py-2">{r.displayName}</td>
+                  <td className="px-3 py-2">
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className={`h-2 w-2 rounded-full ${r.online ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                        title={r.online ? "On the board" : "Offline"}
+                      />
+                      {r.displayName}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 tabular-nums">{Math.round(r.progressPct)}%</td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {r.score} / {r.totalMarks}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => onViewStudent(r.studentId)}
-                      className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
-                    >
-                      View Student Work
-                    </button>
+                    <div className="inline-flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => onViewStudent(r.studentId)}
+                        className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+                      >
+                        View Student Work
+                      </button>
+                      {onJoinLive && (
+                        <button
+                          type="button"
+                          onClick={() => onJoinLive(r.studentId)}
+                          disabled={!r.online}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs enabled:hover:bg-accent disabled:opacity-40"
+                          title={r.online ? "Follow this student's board live" : "Student is not on the board"}
+                        >
+                          <Radio className="h-3 w-3" /> Join Live
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

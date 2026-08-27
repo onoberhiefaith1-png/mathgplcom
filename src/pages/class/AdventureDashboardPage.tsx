@@ -600,6 +600,12 @@ const AdventureDashboardPage = () => {
     navigate(`${classRoot()}/${classId}/assessments/${first}/student/${studentId}?returnTo=${encodeURIComponent(`${classRoot()}/${classId}/adventures/${gameId}/dashboard`)}`);
   };
 
+  const onJoinLive = (studentId: string) => {
+    const first = boards[0]?.assessmentId;
+    if (!first) return;
+    navigate(`${classRoot()}/${classId}/assessments/${first}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(`${classRoot()}/${classId}/adventures/${gameId}/dashboard`)}`);
+  };
+
   return (
     <div className="min-h-screen w-full bg-[#0b0a16] text-foreground">
       <header className="flex items-center justify-between px-5 py-3">
@@ -914,7 +920,7 @@ const AdventureDashboardPage = () => {
                     )}
                   </div>
                 </div>
-                <AssessmentStatusPanel rows={sync.rows} onViewStudent={onViewStudent} />
+                <AssessmentStatusPanel rows={sync.rows} onViewStudent={onViewStudent} onJoinLive={onJoinLive} />
                 {classId && gameId && groupMode && (
                   <div className="mt-6 border-t border-border pt-4">
                     <GroupLeaderboard
