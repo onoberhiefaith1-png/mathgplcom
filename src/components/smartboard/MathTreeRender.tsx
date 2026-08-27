@@ -474,31 +474,38 @@ const NodeView = ({
 
     case "sup":
       return (
-        <span style={{
-          display: "inline-block",
-          fontSize: "0.66em",
-          lineHeight: 1,
-          verticalAlign: "super",
-          transform: "translateY(0.06em)",
-          marginLeft: 1,
-        }}>
-          {R(0)}
+        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+          <span style={{
+            display: "inline-block",
+            fontSize: "0.66em",
+            lineHeight: 1,
+            verticalAlign: "super",
+            transform: "translateY(0.06em)",
+            marginLeft: 1,
+          }}>
+            {R(0)}
+          </span>
+          <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
         </span>
       );
 
     case "sub":
       return (
-        <span style={{
-          display: "inline-block",
-          fontSize: "0.66em",
-          lineHeight: 1,
-          verticalAlign: "sub",
-          transform: "translateY(-0.04em)",
-          marginLeft: 1,
-        }}>
-          {R(0)}
+        <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+          <span style={{
+            display: "inline-block",
+            fontSize: "0.66em",
+            lineHeight: 1,
+            verticalAlign: "sub",
+            transform: "translateY(-0.04em)",
+            marginLeft: 1,
+          }}>
+            {R(0)}
+          </span>
+          <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
         </span>
       );
+
 
     case "subsup":
       {
