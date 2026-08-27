@@ -145,7 +145,13 @@ Deno.serve(async (req) => {
     // Provenance is informational only. Symbols the student types manually
     // belong to the active line just like tapped chips, so they are graded as
     // part of the expression — never rejected for "not being supplied".
-    const rawVerdict = await equivalent(teacherAscii, studentAscii);
+    // AI usage inside the equivalence engine is accounted for against the
+    // assignment owner (the teacher), never the student who is being marked.
+    const rawVerdict = await withUsageMeter(
+      (assessment.owner_id as string | null) ?? null,
+      "grade-line",
+      () => equivalent(teacherAscii, studentAscii),
+    );
     // A line written exactly like the expected line is ALWAYS awarded, even
     // when the expression is structured maths (matrix, determinant, stacked
     // fraction) that the symbolic engines cannot parse.
