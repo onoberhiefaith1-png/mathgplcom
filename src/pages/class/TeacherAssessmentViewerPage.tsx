@@ -9,7 +9,7 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, Loader2, Eye, Pencil, Brain, Radio } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, Pencil, Brain } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
@@ -131,7 +131,7 @@ const TeacherAssessmentViewerPage = () => {
 
 
   // Broadcast frames also prove the student is live even when presence lags.
-  const liveFeedFresh = studentOnline || Date.now() - lastFrameAt < 8000;
+  void studentOnline; void lastFrameAt;
 
   // ── Slow fallback: the last question the student actually persisted. Only
   // used when no live frame is available (student offline / session closed).
@@ -150,7 +150,7 @@ const TeacherAssessmentViewerPage = () => {
 
   useEffect(() => { void loadPersisted(); }, [loadPersisted]);
   usePolling("assessment-viewer-persisted-question", () => {
-    if (liveQuestionId) return;
+    if (mode === "live" || liveQuestionId) return;
     return loadPersisted();
   }, 8000, { immediate: false });
 
