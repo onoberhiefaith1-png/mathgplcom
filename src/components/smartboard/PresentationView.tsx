@@ -7236,13 +7236,24 @@ const PresentationView = ({
             className="absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
             style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
           >
-            <BackButton
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-black/5"
-              iconClassName="h-3.5 w-3.5"
-              ariaLabel="Back"
-            >
-              {" "}Back
-            </BackButton>
+            {backTo ? (
+              <a
+                href={backTo}
+                aria-label={backLabel}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-black/5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> {backLabel}
+              </a>
+            ) : (
+              <BackButton
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-black/5"
+                iconClassName="h-3.5 w-3.5"
+                ariaLabel="Back"
+              >
+                {" "}Back
+              </BackButton>
+            )}
+
             <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
 
             {beats.length > 1 && (
