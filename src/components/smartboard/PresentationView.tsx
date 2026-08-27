@@ -5429,19 +5429,13 @@ const PresentationView = ({
           to the board. */}
       <BoardRelationshipView />
 
-      {/* A student's only way to start a message: ask about THIS work, with the
-          class, assignment and question attached automatically. */}
-      {role === "student" && !smartCardSlug && !viewOnly && (
-        <AskQuestionButton
-          context={{
-            classId: classIdProp,
-            notebookId: notebookId ?? null,
-            assignmentId: assessmentId,
-            adventureId: gameId,
-            boardQuestionId,
-            workspace,
-            source: "smartboard",
-          }}
+      {/* A student's question belongs to the assessment card they are on — it
+          never goes to the general notification system. */}
+      {role === "student" && !smartCardSlug && !viewOnly && assessmentId && classIdProp && (
+        <AskAssessmentQuestion
+          assessmentId={assessmentId}
+          classId={classIdProp}
+          boardQuestionId={boardQuestionId ?? null}
         />
       )}
 
