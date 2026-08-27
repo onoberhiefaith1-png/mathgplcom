@@ -4010,6 +4010,44 @@ export type Database = {
           },
         ]
       }
+      live_entry_requests: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          guest_token: string
+          id: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          guest_token: string
+          id?: string
+          session_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          guest_token?: string
+          id?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_entry_requests_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_gallery_items: {
         Row: {
           created_at: string
@@ -5571,8 +5609,42 @@ export type Database = {
         }
         Relationships: []
       }
+      session_public_notes: {
+        Row: {
+          created_at: string
+          notebook_id: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          notebook_id: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          notebook_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_public_notes_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_public_notes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
+          allow_free_entry: boolean
           ask_participant_name: boolean
           broadcasts: Json
           class_id: string
@@ -5591,6 +5663,7 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          allow_free_entry?: boolean
           ask_participant_name?: boolean
           broadcasts?: Json
           class_id: string
@@ -5609,6 +5682,7 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          allow_free_entry?: boolean
           ask_participant_name?: boolean
           broadcasts?: Json
           class_id?: string
@@ -7094,6 +7168,83 @@ export type Database = {
       issue_account_id_for_email: { Args: { _email: string }; Returns: string }
       join_class_with_code: { Args: { code: string }; Returns: Json }
       join_org_with_invite: { Args: { _code: string }; Returns: string }
+      live_entry_status: {
+        Args: { _guest_token: string; _session_id: string }
+        Returns: string
+      }
+      live_public_activities: {
+        Args: { _session_id: string }
+        Returns: {
+          due_at: string
+          game_id: string
+          id: string
+          kind: string
+          notebook_id: string
+          status: string
+          title: string
+        }[]
+      }
+      live_public_note: {
+        Args: { _notebook_id: string; _session_id: string }
+        Returns: {
+          color_index: number
+          cover_config: Json
+          document_json: Json
+          id: string
+          paper_size: string
+          paper_style: string
+          subject: string
+          subtopic: string
+          teacher: string
+          title: string
+        }[]
+      }
+      live_public_notes: {
+        Args: { _session_id: string }
+        Returns: {
+          color_index: number
+          cover_config: Json
+          id: string
+          subject: string
+          subtopic: string
+          title: string
+        }[]
+      }
+      live_public_session: {
+        Args: { _session_id: string }
+        Returns: {
+          allow_free_entry: boolean
+          ask_participant_name: boolean
+          broadcasts: Json
+          description: string
+          duration_minutes: number
+          id: string
+          starts_at: string
+          status: string
+          time_zone: string
+          title: string
+        }[]
+      }
+      live_public_smartboard: {
+        Args: { _session_id: string }
+        Returns: {
+          notebook_id: string
+          state_json: Json
+          updated_at: string
+        }[]
+      }
+      live_request_entry: {
+        Args: {
+          _display_name?: string
+          _guest_token: string
+          _session_id: string
+        }
+        Returns: string
+      }
+      live_session_is_public: {
+        Args: { _session_id: string }
+        Returns: boolean
+      }
       lookup_class_by_code: {
         Args: { code: string }
         Returns: {
