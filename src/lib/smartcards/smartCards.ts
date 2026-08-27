@@ -582,6 +582,47 @@ export const newParticipantKey = (): string =>
       return v.toString(16);
     }));
 
+const PLAYER_COUNTER_KEY = "smartcard:playerCounter";
+
+const nextDefaultPlayerName = (): string => {
+  let n = 1;
+  try {
+    n = Math.max(1, Number(localStorage.getItem(PLAYER_COUNTER_KEY) ?? "0") + 1);
+    localStorage.setItem(PLAYER_COUNTER_KEY, String(n));
+  } catch { /* noop */ }
+  return `User ${n}`;
+};
+
+/**
+ * The single source of the public player identity. A signed-in visitor keeps
+ * their own name; a returning guest keeps theirs; a first-time visitor is
+ * given "User 1", "User 2" … so nothing ever asks them to sign in or choose a
+ * name before solving. Editing the name goes back through rememberIdentity.
+ */
+export const ensurePlayerIdentity = async (): Promise<CardIdentity> => {
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      return {
+        participantKey: data.user.id,
+        displayName:
+          (data.user.user_metadata?.display_name as string) ||
+          (data.user.email ?? "Player").split("@")[0],
+        remembered: true,
+      };
+    }
+  } catch { /* noop */ }
+  const saved = loadRememberedIdentity();
+  if (saved) return saved;
+  const fresh: CardIdentity = {
+    participantKey: newParticipantKey(),
+    displayName: nextDefaultPlayerName(),
+    remembered: true,
+  };
+  rememberIdentity(fresh);
+  return fresh;
+};
+
 export const formatDuration = (ms: number): string => {
   const total = Math.max(0, Math.round(ms / 1000));
   const m = Math.floor(total / 60);
