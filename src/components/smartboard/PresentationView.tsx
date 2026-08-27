@@ -3649,22 +3649,6 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timer.active, timer.confirmed, attemptSlots]);
 
-  // RESET = a new attempt. Board contents, the attempt row and the clock go;
-  // permanent marks, the achievement row and the best time all stay.
-  const resetAttempt = useCallback(async () => {
-    clearInkOnly();
-    setBoxes([]);
-    setSmartLines([]);
-    setTableEntries({});
-    setWrongLine(null);
-    setCheckView(null);
-    setActiveLineIdx(0);
-    setFloatingLineIdx(0);
-    await timer.reset();
-    toast({ title: "New attempt started", description: "Your earned marks and best time are unchanged." });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearInkOnly, timer.reset, toast]);
-
   // Forward reference — the live-mirror broadcaster is defined further down.
   const broadcastCheckResultRef = useRef<
     | ((info: {
@@ -5061,6 +5045,23 @@ const PresentationView = ({
     setBeatCursor(0);
     clearInkOnly();
   }, [clearInkOnly]);
+
+  // RESET = a new attempt. Board contents, the attempt row and the clock go;
+  // permanent marks, the achievement row and the best time all stay.
+  const resetAttempt = useCallback(async () => {
+    clearInkOnly();
+    setBoxes([]);
+    setSmartLines([]);
+    setTableEntries({});
+    setWrongLine(null);
+    setCheckView(null);
+    setActiveLineIdx(0);
+    setFloatingLineIdx(0);
+    await timer.reset();
+    toast({ title: "New attempt started", description: "Your earned marks and best time are unchanged." });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearInkOnly, timer.reset, toast]);
+
 
   // Real "click the # button" — opens the Numbers assistant panel and
   // points it at the target line so chips grey out as the AI picks them.
