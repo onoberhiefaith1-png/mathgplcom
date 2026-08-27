@@ -316,7 +316,7 @@ class Parser {
   /** {…} group OR single next atom — used for bare √x. */
   parseGroupOrNext(): Node[] {
     if (this.s[this.i] === "{") return this.parseGroup();
-    const oneChar = this.s[this.i] ?? "";
+    const oneChar = graphemeAt(this.s, this.i);
     if (!oneChar) return [];
     const saved = this.s;
     const before = this.i;
@@ -324,7 +324,7 @@ class Parser {
     this.i = 0;
     const nodes = this.parseSequence(null);
     this.s = saved;
-    this.i = before + 1;
+    this.i = before + oneChar.length;
     return nodes;
   }
 
