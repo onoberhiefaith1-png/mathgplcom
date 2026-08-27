@@ -323,32 +323,57 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
     const sectionId = section.id;
 
     if (sec.subsections.length) {
-      // Match subsections: durable doc_key first, then exact problem text, then
-      // leftover rows in document order. Matched rows keep their id AND their
-      // floating state.
+      // Match subsections: durable doc_key first, then exact problem text,
+      // then a global cross-section problem-text match (so renumbering or
+      // moving a question does not orphan its saved floating state), and
+      // finally leftover rows in document order. Matched rows keep their id
+      // AND their floating state.
       const pool = [...section.subs];
       const takeByKey = (docKey: string): ExistingSub | null => {
         const idx = pool.findIndex((p) => p.doc_key && p.doc_key === docKey);
         if (idx === -1) return null;
-        return pool.splice(idx, 1)[0];
+        const sub = pool.splice(idx, 1)[0];
+        claimedSubIds.add(sub.id);
+        return sub;
       };
       const takeByProblem = (problem: string): ExistingSub | null => {
         const key = normalizeProblem(problem);
         if (!key) return null;
         const idx = pool.findIndex((p) => !p.doc_key && normalizeProblem(p.problem) === key);
         if (idx === -1) return null;
-        return pool.splice(idx, 1)[0];
+        const sub = pool.splice(idx, 1)[0];
+        claimedSubIds.add(sub.id);
+        return sub;
+      };
+      const takeByProblemGlobal = (problem: string, dbKind: string): ExistingSub | null => {
+        const key = normalizeProblem(problem);
+        if (!key) return null;
+        for (const e of existing) {
+          if (e.kind !== dbKind) continue;
+          const idx = e.subs.findIndex((p) => !claimedSubIds.has(p.id) && !p.doc_key && normalizeProblem(p.problem) === key);
+          if (idx !== -1) {
+            const sub = e.subs.splice(idx, 1)[0];
+            claimedSubIds.add(sub.id);
+            return sub;
+          }
+        }
+        return null;
       };
 
       const claimed: (ExistingSub | null)[] = sec.subsections.map(
-        (s) => takeByKey(s.docKey) ?? takeByProblem(s.problem),
+        (s) => takeByKey(s.docKey) ?? takeByProblem(s.problem) ?? takeByProblemGlobal(s.problem, dbKind),
       );
       for (let j = 0; j < claimed.length; j++) {
         if (!claimed[j] && pool.length) {
           const idx = pool.findIndex((p) => !p.doc_key);
-          if (idx !== -1) claimed[j] = pool.splice(idx, 1)[0];
+          if (idx !== -1) {
+            const sub = pool.splice(idx, 1)[0];
+            claimedSubIds.add(sub.id);
+            claimed[j] = sub;
+          }
         }
       }
+
 
 
       for (let j = 0; j < sec.subsections.length; j++) {
