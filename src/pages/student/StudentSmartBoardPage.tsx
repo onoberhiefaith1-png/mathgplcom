@@ -117,7 +117,9 @@ const StudentSmartBoardPage = () => {
     onJoined: () => { void loadBoardState(); },
   });
 
-  usePolling("student-class-board", () => loadBoardState(), 4000, {
+  // Safety net only — live board deltas arrive over the realtime broadcast
+  // channel inside PresentationView/useSmartboardSync, not from this poll.
+  usePolling("student-class-board", () => loadBoardState(), 20000, {
     enabled: !!classId && !!authorized,
   });
 
