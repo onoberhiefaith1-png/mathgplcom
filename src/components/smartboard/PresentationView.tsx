@@ -7294,9 +7294,15 @@ const PresentationView = ({
                 >
                   {formatAttemptTime(timer.elapsedMs)}
                 </span>
-                <span className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-80" title="Best verified time">
+                <button
+                  onClick={() => setLeaderboardOpen((v) => !v)}
+                  className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-80 hover:bg-black/10 hover:opacity-100 focus:outline-none focus-visible:ring-2"
+                  style={{ border: `1px solid ${palette.chromeBorder}` }}
+                  title="Best verified time — open the class ranking for this question"
+                >
                   Best {timer.bestMs == null ? "—" : formatAttemptTime(timer.bestMs)}
-                </span>
+                </button>
+
                 <button
                   onClick={() => { void resetAttempt(); }}
                   className="rounded-md px-2 py-1 text-[11px] font-medium hover:bg-black/5"
