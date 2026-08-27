@@ -19,8 +19,26 @@ type ServiceReport = {
   critical: boolean;
 };
 
-const PROBE_TIMEOUT_MS = 4_000;
+const PROBE_TIMEOUT_MS = 8_000;
+const PROBE_ATTEMPTS = 2;
 
+async function attempt(url: string, init?: RequestInit): Promise<number | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    return response.status;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * One slow first request (cold connection) must never look like an outage, so
+ * every probe gets a second chance before it is reported as down.
+ */
 async function probe(
   name: string,
   critical: boolean,
@@ -28,25 +46,18 @@ async function probe(
   init?: RequestInit,
 ): Promise<ServiceReport> {
   const started = Date.now();
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
-    try {
-      const response = await fetch(url, { ...init, signal: controller.signal });
-      const responseMs = Date.now() - started;
-      // 4xx still proves the service answered; only 5xx / network failures matter.
-      return {
-        name,
-        critical,
-        responseMs,
-        status: response.status >= 500 ? "down" : "operational",
-      };
-    } finally {
-      clearTimeout(timer);
-    }
-  } catch {
-    return { name, critical, responseMs: Date.now() - started, status: "down" };
+  let status: number | null = null;
+  for (let i = 0; i < PROBE_ATTEMPTS; i += 1) {
+    status = await attempt(url, init);
+    // 4xx still proves the service answered; only 5xx / network failures matter.
+    if (status !== null && status < 500) break;
   }
+  return {
+    name,
+    critical,
+    responseMs: Date.now() - started,
+    status: status !== null && status < 500 ? "operational" : "down",
+  };
 }
 
 function overall(services: ServiceReport[]): "healthy" | "degraded" | "critical" {
