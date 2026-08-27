@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { AssessmentStatusPanel } from "@/components/dashboards/AssessmentStatusPanel";
+import { StudentQuestionsPanel } from "@/components/dashboards/StudentQuestionsPanel";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } from "@/lib/games/prefetch";
 import { normalizeCanvas, timeBarOf, sceneTimeSeconds, checkpointAt, checkpointsOf, type GameRow, type Scene } from "@/lib/games/types";
@@ -921,6 +922,19 @@ const AdventureDashboardPage = () => {
                   </div>
                 </div>
                 <AssessmentStatusPanel rows={sync.rows} onViewStudent={onViewStudent} onJoinLive={onJoinLive} />
+                {classId && boards.length > 0 && (
+                  <div className="mt-6">
+                    <StudentQuestionsPanel
+                      classId={classId}
+                      assessmentIds={boards.map((b) => b.assessmentId).filter((id): id is string => !!id)}
+                      questionLabels={new Map(
+                        boards
+                          .filter((b) => !!b.assessmentId)
+                          .map((b, i) => [b.assessmentId as string, `Question ${i + 1}`]),
+                      )}
+                    />
+                  </div>
+                )}
                 {classId && gameId && groupMode && (
                   <div className="mt-6 border-t border-border pt-4">
                     <GroupLeaderboard
