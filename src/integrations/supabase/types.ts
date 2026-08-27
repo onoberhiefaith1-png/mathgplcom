@@ -5261,6 +5261,7 @@ export type Database = {
           last_name: string | null
           marketing_opt_in: boolean
           mathgpl_student_id: string | null
+          rejected_retention_hours: number
           school_name: string | null
           subjects_taught: string | null
           terms_accepted_at: string | null
@@ -5286,6 +5287,7 @@ export type Database = {
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
+          rejected_retention_hours?: number
           school_name?: string | null
           subjects_taught?: string | null
           terms_accepted_at?: string | null
@@ -5311,6 +5313,7 @@ export type Database = {
           last_name?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
+          rejected_retention_hours?: number
           school_name?: string | null
           subjects_taught?: string | null
           terms_accepted_at?: string | null
@@ -7129,6 +7132,28 @@ export type Database = {
           invited_by_name: string
           org_id: string
           org_name: string
+        }[]
+      }
+      my_rejected_requests: {
+        Args: never
+        Returns: {
+          child_confirmed_at: string
+          child_name: string
+          child_user_id: string
+          counterpart_accepted_at: string
+          counterpart_name: string
+          counterpart_role: Database["public"]["Enums"]["app_role"]
+          counterpart_user_id: string
+          counterpart_username: string
+          created_at: string
+          direction: string
+          id: string
+          message: string
+          org_id: string
+          org_name: string
+          relation: Database["public"]["Enums"]["connection_relation"]
+          responded_at: string
+          status: string
         }[]
       }
       my_school_code: {
