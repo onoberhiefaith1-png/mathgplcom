@@ -51,12 +51,12 @@ const SmartCardPage = () => {
   const [payload, setPayload] = useState<(PublicCardPayload & { stats: CardStatsPublic }) | null>(null);
   const [stats, setStats] = useState<CardStatsPublic | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"ok" | "fail" | null>(null);
   // Share Card: a creator-only promotional VIEW of this same dashboard.
   // Never persisted, never visible to visitors — it only exists so the
   // teacher can take a screenshot to post beside the link.
   const [shareMode, setShareMode] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
+
   const [promo, setPromo] = useState(DEFAULT_PROMO);
   const [editingPromo, setEditingPromo] = useState(false);
   const me = useRef<string>(visitorKey());
