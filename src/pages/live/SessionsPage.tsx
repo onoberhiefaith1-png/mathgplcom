@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ArrowLeft, PlusCircle, Radio, Settings, Square, Trash2, Users } from "lucide-react";
 import ShareMenu from "@/components/community/ShareMenu";
+import { displayName as broadcastName } from "@/lib/live/broadcast";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -146,7 +147,13 @@ const SessionsPage = () => {
           sourceId={s.id}
           title={s.title}
           hashtags="#LiveSession"
-          payload={{ session_id: s.id, session_code: s.session_code }}
+          payload={{
+            session_id: s.id,
+            session_code: s.session_code,
+            schedule: formatRoomSchedule(s),
+            next_lesson: next,
+            platforms: s.broadcasts.map((b) => broadcastName(b)).join(", "),
+          }}
           onDelete={() => remove(s)}
           deleteLabel="Delete session"
         />
