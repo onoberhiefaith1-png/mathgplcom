@@ -4,7 +4,7 @@ import { BookOpen, ClipboardList, Gamepad2, Presentation, UserRound } from "luci
 import AudienceShell from "./AudienceShell";
 import { useAudienceAccess } from "@/lib/live/useAudienceAccess";
 import { guestDisplayName } from "@/lib/live/guest";
-import { formatNextLesson, formatRecurring } from "@/lib/live/sessions";
+import { formatNextLesson, formatRoomSchedule } from "@/lib/live/sessions";
 import BroadcastPanel from "@/components/live/BroadcastPanel";
 
 /** The four things an audience member can do in a MathGPL Live session. */
@@ -28,7 +28,7 @@ const AudienceSessionPage = () => {
         {session?.description && <p className="mt-2 text-sm text-muted-foreground">{session.description}</p>}
         {session && (
           <div className="mt-3 text-sm text-muted-foreground">
-            {formatRecurring(session.schedule_days, session.schedule_time)} · {session.duration_minutes} min
+            {formatRoomSchedule(session)} · {session.duration_minutes} min
           </div>
         )}
         {session && !session.is_live && formatNextLesson(session) && (

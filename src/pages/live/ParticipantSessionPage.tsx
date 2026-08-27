@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  LiveSession, formatNextLesson, formatRecurring, hydrateSession,
+  LiveSession, formatNextLesson, formatRoomSchedule, hydrateSession,
   roomLabel, roomStateOf, roomTone, querySessions,
 } from "@/lib/live/sessions";
 
@@ -130,7 +130,7 @@ const ParticipantSessionPage = () => {
           <div className="mt-3 text-2xl font-semibold sm:text-3xl">{session.title}</div>
           {session.description && <p className="mt-2 text-sm text-muted-foreground">{session.description}</p>}
           <div className="mt-3 text-sm text-muted-foreground">
-            {formatRecurring(session.schedule_days, session.schedule_time)} · {session.duration_minutes} min
+            {formatRoomSchedule(session)} · {session.duration_minutes} min
           </div>
           {!session.is_live && formatNextLesson(session) && (
             <div className="mt-1 text-sm text-cyan-200">Next lesson: {formatNextLesson(session)}</div>

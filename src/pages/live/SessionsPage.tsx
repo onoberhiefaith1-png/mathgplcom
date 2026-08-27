@@ -9,7 +9,7 @@ import {
   LiveSession,
   deleteSession,
   formatNextLesson,
-  formatRecurring,
+  formatRoomSchedule,
   roomLabel,
   roomStateOf,
   roomTone,
@@ -86,7 +86,7 @@ const SessionsPage = () => {
           </div>
           <div className="mt-2 truncate text-base font-semibold">{s.title}</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            {formatRecurring(s.schedule_days, s.schedule_time)}
+            {formatRoomSchedule(s)}
           </div>
           {!s.is_live && next && (
             <div className="mt-2 text-xs text-cyan-200">Next lesson: {next}</div>
