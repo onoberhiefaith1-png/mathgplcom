@@ -39,7 +39,10 @@ const SmartCardChallengePage = () => {
     })();
   }, [slug]);
 
-  // Signed-in Smartboard profiles keep their username; guests choose one per card.
+  // A public Smart Card is a doorway into one problem: nobody is asked to sign
+  // in or choose a name first. Signed-in Smartboard profiles keep their
+  // username, a remembered guest keeps theirs, everyone else gets an automatic
+  // guest name so Start Challenge lands straight on the board.
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
@@ -54,9 +57,16 @@ const SmartCardChallengePage = () => {
         return;
       }
       const saved = loadRememberedIdentity();
-      if (saved) setIdentity(saved);
+      if (saved) { setIdentity(saved); return; }
+      setIdentity({
+        participantKey: newParticipantKey(),
+        displayName: `Guest ${Math.floor(1000 + Math.random() * 9000)}`,
+        remembered: false,
+      });
     })();
   }, []);
+
+
 
   // Poll the public progress endpoint: it grades, qualifies and ranks.
   const poll = useCallback(async () => {
