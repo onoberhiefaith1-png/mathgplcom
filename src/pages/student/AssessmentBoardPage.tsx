@@ -1,6 +1,6 @@
 // Student Assessment Board.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
