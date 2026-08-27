@@ -10,6 +10,13 @@
 // list — its contract is unchanged.
 
 import { readStructureAt } from "@/lib/notebook/mathTokens";
+import { graphemes } from "@/lib/text/graphemes";
+
+/** The whole user-perceived character starting at `i` (an emoji, including
+ *  skin tones / ZWJ families / flags, is ONE grapheme — never half a
+ *  surrogate pair, which would render as a replacement diamond). */
+const graphemeAt = (s: string, i: number): string =>
+  graphemes(s.slice(i, i + 32))[0] ?? (s[i] ?? "");
 
 /** Structures kept whole as ONE atom. `\frac` and `\sqrt` are excluded — the
  *  flat parser already draws them as real stacked/radical mathematics with
