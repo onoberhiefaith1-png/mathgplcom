@@ -3717,9 +3717,9 @@ const PresentationView = ({
     mode: "manual" | "auto",
   ) => {
     const group = groupForLine(tableGroups, k);
-    if (!group || !current || !assessmentId) return;
+    if (!group || !current || !assessmentId) return false;
     const target = guidedLines[k];
-    if (!target?.lineId) return;
+    if (!target?.lineId) return false;
     const slot = `${current.id}:${target.lineId}`;
     // MASTERED LINES ARE NEVER RE-MARKED. With the timer on, a mastered line
     // still has to be confirmed for the CURRENT attempt, so the row is checked
@@ -3732,7 +3732,7 @@ const PresentationView = ({
         if (mode === "manual") {
           toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slot]} marks.` });
         }
-        return;
+        return true;
       }
     }
     const entries = tableEntries[group.objId] ?? {};
@@ -3781,7 +3781,7 @@ const PresentationView = ({
           marks: 0,
         });
       }
-      return;
+      return true;
     }
 
     const awarded = Number(target.marks ?? 0);
@@ -3798,7 +3798,7 @@ const PresentationView = ({
           marks: 0,
         });
       }
-      return;
+      return true;
     }
     if (testMode) {
       setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
@@ -3806,7 +3806,7 @@ const PresentationView = ({
     } else {
       // The cells decided the verdict; the server only records it.
       try {
-        const { data } = await supabase.functions.invoke("grade-line", {
+        const { data, error } = await supabase.functions.invoke("grade-line", {
           body: {
             assessmentId,
             questionId: current.id,
@@ -3817,6 +3817,7 @@ const PresentationView = ({
             ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
           },
         });
+        if (error) return false;
         const res = data as { score?: number; solvedLines?: Record<string, number> } | null;
         if (res?.solvedLines && typeof res.score === "number") {
           authoritativeProgress = { solvedLines: res.solvedLines, score: res.score };
@@ -3830,8 +3831,7 @@ const PresentationView = ({
           setAssessScore((prev) => prev + awarded);
         }
       } catch {
-        setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
-        setAssessScore((prev) => prev + awarded);
+        return false;
       }
     }
     broadcastCheckResultRef.current?.({
@@ -3855,6 +3855,7 @@ const PresentationView = ({
         marks: awarded,
       });
     }
+    return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tableGroups, tableEntries, guidedLines, current, assessmentId, solvedSlots, testMode, smartCardSlug, participantKey, toast]);
 
@@ -3871,8 +3872,7 @@ const PresentationView = ({
   ) => {
     // A table line is graded by its cells, never by board ink.
     if (groupForLine(tableGroups, k)) {
-      await gradeTableTrackThroughCells(k, mode);
-      return;
+      return gradeTableTrackThroughCells(k, mode);
     }
     const resolved = resolveGradableLine(k);
     if (!resolved || !current || !assessmentId) return false;
