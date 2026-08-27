@@ -45,8 +45,11 @@ export type LiveSession = {
   allow_free_entry: boolean;
   /** Recurring teaching days, 0 = Sunday … 6 = Saturday. Informational. */
   schedule_days: number[];
-  /** Recurring teaching time as "HH:MM" in `time_zone`. Informational. */
+  /** Legacy single time, kept only as a read fallback for old rows. */
   schedule_time: string | null;
+  /** Each teaching day's own time: { "1": "16:00", "4": "18:00" }. */
+  schedule_times: ScheduleTimes;
+
   /** True only while the teacher is actually teaching. Never time-derived. */
   is_live: boolean;
   live_started_at: string | null;
