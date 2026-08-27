@@ -40,6 +40,12 @@ interface SignedMediaProps {
   muted?: boolean;
   /** Videos only — fires when a non-looping video reaches its end. */
   onEnded?: () => void;
+  /** Fires once the browser has decoded enough media to display it. */
+  onLoad?: () => void;
+  /** Fires when signing or browser media decoding fails. */
+  onError?: () => void;
+  /** Maximum time to wait for a signed URL or decoded media. */
+  loadTimeoutMs?: number;
 }
 
 const SignedMedia = ({
@@ -52,9 +58,18 @@ const SignedMedia = ({
   loop = true,
   muted = true,
   onEnded,
+  onLoad,
+  onError,
+  loadTimeoutMs = 8_000,
 }: SignedMediaProps) => {
   const signed = useSignedUrl(source === "storage" ? path : null);
   const url = source === "url" ? path ?? null : signed;
+  useEffect(() => {
+    if (url || !path || !onError) return;
+    const timer = window.setTimeout(onError, loadTimeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [loadTimeoutMs, onError, path, url]);
+
   if (!url) {
     return <div className={cn("animate-pulse bg-muted/40", className)} aria-hidden />;
   }
@@ -69,6 +84,9 @@ const SignedMedia = ({
         muted={muted}
         playsInline
         onEnded={onEnded}
+        onLoadedData={onLoad}
+        onCanPlay={onLoad}
+        onError={onError}
       />
     );
   }
@@ -80,6 +98,8 @@ const SignedMedia = ({
       draggable={false}
       className={className}
       style={{ objectFit: fit }}
+      onLoad={onLoad}
+      onError={onError}
     />
   );
 };

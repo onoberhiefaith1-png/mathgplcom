@@ -11,6 +11,8 @@ interface ChromaVideoProps {
   playbackRate?: number;
   className?: string;
   fit?: "cover" | "contain";
+  onLoad?: () => void;
+  onError?: () => void;
 }
 
 const MAX_DIST = 441.6729559;
@@ -23,6 +25,8 @@ const ChromaVideo = ({
   playbackRate = 1,
   className,
   fit = "contain",
+  onLoad,
+  onError,
 }: ChromaVideoProps) => {
   const signed = useSignedUrl(source === "storage" ? path : null);
   const url = source === "url" ? path ?? null : signed;
@@ -42,11 +46,18 @@ const ChromaVideo = ({
     video.loop = true;
     video.playsInline = true;
     video.autoplay = true;
+    video.preload = "auto";
 
     const thr = tolerance * MAX_DIST;
     const feather = thr * 0.5;
     let raf = 0;
 
+    let reportedReady = false;
+    const reportFailure = () => {
+      if (cancelled) return;
+      setFailed(true);
+      onError?.();
+    };
     const render = () => {
       raf = requestAnimationFrame(render);
       const canvas = canvasRef.current;
@@ -59,14 +70,17 @@ const ChromaVideo = ({
         canvas.height = h;
       }
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
+      if (!ctx) {
+        reportFailure();
+        return;
+      }
       ctx.clearRect(0, 0, w, h);
       ctx.drawImage(video, 0, 0, w, h);
       let frame: ImageData;
       try {
         frame = ctx.getImageData(0, 0, w, h);
       } catch {
-        setFailed(true);
+        reportFailure();
         cancelAnimationFrame(raf);
         video.pause();
         return;
@@ -84,6 +98,10 @@ const ChromaVideo = ({
         }
       }
       ctx.putImageData(frame, 0, 0);
+      if (!reportedReady) {
+        reportedReady = true;
+        onLoad?.();
+      }
     };
 
     const start = async () => {
@@ -108,13 +126,15 @@ const ChromaVideo = ({
         return;
       }
       video.crossOrigin = "anonymous";
+      video.onerror = reportFailure;
       video.src = src;
       try {
         video.playbackRate = playbackRate;
       } catch {
         /* keep the browser default when this rate is refused */
       }
-      await video.play().catch(() => undefined);
+      await video.play().catch(reportFailure);
+      if (cancelled || failed) return;
       raf = requestAnimationFrame(render);
     };
 
@@ -127,11 +147,11 @@ const ChromaVideo = ({
       video.load();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [url, keyColor?.r, keyColor?.g, keyColor?.b, tolerance, playbackRate, failed]);
+  }, [url, keyColor?.r, keyColor?.g, keyColor?.b, tolerance, playbackRate, failed, onError, onLoad]);
 
   if (failed || !keyColor) {
     return (
-      <SignedMedia path={path} source={source} mediaType="video" fit={fit} className={className} />
+      <SignedMedia path={path} source={source} mediaType="video" fit={fit} className={className} onLoad={onLoad} onError={onError} />
     );
   }
 
