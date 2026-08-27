@@ -2275,8 +2275,13 @@ function DocumentEditorInner({
     const t = window.setTimeout(() => {
       if (!editor || editor.isDestroyed || !(editor as any).view?.dom) return;
       if (editor.isFocused) return;
-      const { doc, changed } = repairDocumentMath(editor.getJSON());
-      if (changed) editor.commands.setContent(doc, { emitUpdate: true });
+      const repaired = repairDocumentMath(editor.getJSON());
+      // Any solution that drifted away from its question is put back with it.
+      const paired = reconcileSolutionOwnership(repaired.doc);
+      if (repaired.changed || paired.changed) {
+        editor.commands.setContent(paired.doc, { emitUpdate: true });
+      }
+
     }, 400);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
