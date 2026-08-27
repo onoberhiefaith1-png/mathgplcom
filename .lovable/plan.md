@@ -1,43 +1,49 @@
-# Fix Floating-Number Pipeline to Class Teaching Workspace
+# Restore and harden the floating-number pipeline to the Class Smartboard
 
-## Goal
-Restore the existing pipeline so floating numbers created/saved in a Lesson Note appear in the Smartboard launched from the Class Dashboard, without redesigning the system.
+## Verified current state
 
-## Current understanding (verified)
-- The Smartboard source path is: `notebooks.document_json` → `syncDocumentToNotebook()` → `notebook_sections` / `notebook_subsections` / `notebook_blocks` → `useNotebook.loadStructure()` → `buildReservoirs()` → `FloatingNumberPanel`.
-- The class launcher (`ClassSmartBoardLauncher`) opens `/smartboard/:notebookId?classId=:classId`, so it uses the same `PresentationView` component.
-- Database check shows the attached notebook (`cdbaf0ae-d03b-4bdf-a0cc-2cd22b9dbe1c`) still has `floating_lines`, `floating_bucket`, and `floating_highlights` on its Example 1 subsection.
-- A headless run of that exact route shows the Floating Number panel can open and render chips.
-- The Lovable build is currently failing with a timeout, so the deployed preview is stale/broken and may be masking the actual runtime state.
-- A plausible break point is `syncDocumentToNotebook`: if a recent outline change (e.g. `ownerQuestionId`) shifted `doc_key` or normalized problem text, subsections are recreated and their saved floating state is dropped.
+- The notebook the user linked to the class smartboard (`ADD`, `0ad6002e-5bfa-4c07-813b-da3bc3d69771`) has three example subsections.
+- Every subsection has `floating_lines = []`, `floating_highlights = []`, and `floating_bucket = null`.
+- The Smartboard `buildReservoirs` function therefore builds an empty reservoir and shows "no floating numbers" — the visible symptom is a downstream effect of empty data, not a rendering bug.
+- `syncDocumentToNotebook` (triggered when the lesson opens) only initialises `floating_lines: []` when it creates a brand-new subsection. It does not overwrite an existing subsection's floating state, so the sync path itself is not wiping saved data. However, if the document's `doc_key` or normalised problem text drifts, the sync can insert a new empty subsection and leave the old one orphaned, which makes any previously saved floating lines unreachable.
+
+## Root cause
+
+The pipeline is broken at the point where floating chips are supposed to land in `notebook_subsections.floating_lines`. Either:
+
+1. The teacher's floating-number preparation was never persisted to that column, or
+2. A document re-sync created a new subsection and the old floating-bearing subsection became unreachable.
+
+Because the Smartboard reads only the final `floating_lines` column and has no fallback when that column is empty, the result is the same in both cases: "no floating numbers".
 
 ## Plan
 
-1. **Stabilize the build baseline**
-   - Investigate the current `deadline_exceeded` / timeout failure.
-   - Determine whether it is infrastructure or caused by a recent edit, and get a clean build before making pipeline changes.
+### A. Harden legacy subsection matching so floating state is not orphaned
 
-2. **Verify the class-dashboard smartboard route end-to-end**
-   - Re-run the headless path that launches from `/teaching-hub/classes/:classId/smartboard/` and selects the notebook, navigating to a question beat.
-   - Confirm whether the Floating Number panel opens and shows the saved chips.
+Update `src/lib/lessonnotes/syncDocumentToNotebook.ts` so that before inserting a new empty subsection, it searches for an existing unclaimed subsection with the same `section_id`, same normalised problem text, and same kind. If one exists, claim it (update its `doc_key` and `order_index`) and preserve its `floating_lines`, `floating_bucket`, and `floating_highlights`. Only if no match exists should a new empty row be inserted.
 
-3. **Trace the exact pipeline break**
-   - Add temporary diagnostics (or use existing logs) to `syncDocumentToNotebook`, `useNotebook.loadStructure`, and `buildReservoirs` to answer:
-     - Does `syncDocumentToNotebook` run when launched from the class dashboard?
-     - Does it match existing subsections by `doc_key` / problem text, or does it recreate them?
-     - If subsections are recreated, are `floating_lines`, `floating_bucket`, and `floating_highlights` lost?
-     - Does `loadStructure` return the floating columns to `PresentationView`?
-     - Does `buildReservoirs` produce non-empty `reservoirs` for the active beat?
+Also, after the sync completes, delete or archive any subsections in the same section that were not claimed by the current document parse and are not referenced by `notebook_blocks`. This prevents old floating-bearing rows from being left behind while new empty rows are used for teaching.
 
-4. **Patch the precise break**
-   - If the break is subsection re-creation losing floating state, make `syncDocumentToNotebook` preserve floating columns when it re-keys/moves a subsection, or make matching backward-compatible with the previous outline format.
-   - If the break is the on-open sync not firing for class-launched notes, fix the `useNotebook` trigger condition.
-   - If the break is in `buildReservoirs` filtering, adjust the empty/content checks without changing the overall pipeline.
+### B. Add a deterministic solution-derived fallback in `buildReservoirs`
 
-5. **Add regression coverage**
-   - Add a Playwright or unit test that simulates launching the class smartboard and asserts the Floating Number panel renders chips from saved `floating_bucket` / `floating_lines`.
+In `src/lib/smartboard/presentation.ts`, when a question has no teacher-curated floating data (`!highlights?.length && !rawLines?.length && !bucket?.fillers?.length`) but its solution block contains typed equations, derive one reservoir line per non-empty solution equation using the existing `fillersFromEquation` and `detectStructures` helpers. This fallback is scoped to the current question's solution and uses only the helpers that already exist in the codebase.
 
-6. **Verify the fix**
-   - Re-run the headless class-dashboard launch.
-   - Confirm the panel opens and the saved chips are present.
-   - Run `bunx tsgo --noEmit` and any relevant tests.
+This is a safety net, not a redesign of the Floating Numbers page. Teachers can still override the fallback by preparing chips on the Floating Numbers page; curated data always takes precedence. The fallback guarantees that a solved question never reaches the Smartboard with zero floating chips.
+
+### C. Add logging and regression coverage
+
+- Add console warnings in `buildReservoirs` when the fallback is triggered, so future debugging can distinguish curated data from fallback data.
+- Add a unit test for the fallback path covering a simple arithmetic equation like `2+2+2`.
+- Add a Playwright regression test that launches the class smartboard for a lesson with a solved example and verifies that floating chips are rendered, not the "no floating numbers" placeholder.
+
+### D. Verify the fix end-to-end
+
+- Typecheck the project.
+- Run the new unit test and the Playwright regression against the `ADD` notebook scenario.
+- Confirm that existing floating-prepared lessons still render their curated chips verbatim (no fallback substitution).
+
+## Out of scope
+
+- No changes to the Floating Numbers preparation UI.
+- No changes to the selection-law semantics for curated highlights.
+- No new backend tables or edge functions.
