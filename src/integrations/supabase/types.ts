@@ -5609,6 +5609,47 @@ export type Database = {
         }
         Relationships: []
       }
+      session_audience: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          guest_token: string
+          id: string
+          last_seen_at: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          guest_token: string
+          id?: string
+          last_seen_at?: string
+          session_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          guest_token?: string
+          id?: string
+          last_seen_at?: string
+          session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_audience_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_public_notes: {
         Row: {
           created_at: string
@@ -6905,6 +6946,10 @@ export type Database = {
       }
       can_manage_gpl_assets: { Args: never; Returns: boolean }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
+      class_has_open_live_session: {
+        Args: { _class_id: string }
+        Returns: boolean
+      }
       class_join_gate: {
         Args: { code: string }
         Returns: {
@@ -7386,6 +7431,10 @@ export type Database = {
           visibility: string
         }[]
       }
+      notebook_open_to_audience: {
+        Args: { _notebook_id: string }
+        Returns: boolean
+      }
       notebook_shared_to_member: {
         Args: { _notebook_id: string }
         Returns: boolean
@@ -7688,6 +7737,11 @@ export type Database = {
           org_name: string
           user_id: string
         }[]
+      }
+      session_is_open: { Args: { _session_id: string }; Returns: boolean }
+      session_owner_is: {
+        Args: { _session_id: string; _user_id: string }
+        Returns: boolean
       }
       set_accepts_requests: { Args: { _accept: boolean }; Returns: boolean }
       set_active_workspace: { Args: { _org_id: string }; Returns: string }
