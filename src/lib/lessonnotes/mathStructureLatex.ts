@@ -80,9 +80,14 @@ export function structureToLatex(
     case "bigop": {
       const sym = op === "∫" ? "\\int"
         : op === "∬" ? "\\iint"
+        : op === "∭" ? "\\iiint"
         : op === "∮" ? "\\oint"
+        : op === "∐" ? "\\coprod"
+        : op === "⋃" ? "\\bigcup"
+        : op === "⋂" ? "\\bigcap"
         : op === "Π" || op === "∏" ? "\\prod"
         : "\\sum";
+
       return `${sym}_${wrap(a)}^${wrap(b)}${wrap(c)}`;
     }
     case "evalbar":
