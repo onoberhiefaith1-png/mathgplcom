@@ -25,12 +25,11 @@ import {
   fetchAllowFreeEntry,
   hydrateSession,
 } from "@/lib/live/sessions";
-import {
-  fetchAdmittedBroadcastCredentials,
-  fetchPublicSession,
-} from "@/lib/live/publicAudience";
+import { fetchPublicLiveFlag, fetchPublicSession } from "@/lib/live/publicAudience";
 
 const HEARTBEAT_MS = 45_000;
+/** How often a visitor checks whether the teacher has started teaching. */
+const LIVE_POLL_MS = 8_000;
 
 export type AudienceAccess = {
   loading: boolean;
@@ -133,27 +132,17 @@ export const useAudienceAccess = (sessionId: string | undefined): AudienceAccess
     };
   }, [member]);
 
-  // Public links are always visible. Merge meeting IDs/passwords only after
-  // this guest has passed the room's free-entry or approval gate.
+  // A Live room is permanent: a visitor sitting on the information page enters
+  // the teaching dashboard by itself the moment the teacher starts teaching.
   useEffect(() => {
-    if (!sessionId || signedIn || !session || entryDecision({
-      allowFreeEntry: session.allow_free_entry,
-      status: member?.status ?? null,
-    }) !== "enter") return;
-
-    let cancelled = false;
-    void fetchAdmittedBroadcastCredentials(sessionId).then((credentials) => {
-      if (cancelled || credentials.length === 0) return;
-      setSession((current) => current ? {
-        ...current,
-        broadcasts: current.broadcasts.map((entry) => ({
-          ...entry,
-          ...credentials.find((privateEntry) => privateEntry.id === entry.id),
-        })),
-      } : current);
-    });
-    return () => { cancelled = true; };
-  }, [member?.status, session?.allow_free_entry, sessionId, signedIn]);
+    if (!sessionId || !session) return;
+    const id = window.setInterval(async () => {
+      const live = await fetchPublicLiveFlag(sessionId);
+      if (live === null) return;
+      setSession((current) => (current && current.is_live !== live ? { ...current, is_live: live } : current));
+    }, LIVE_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [sessionId, Boolean(session)]);
 
   const saveName = useCallback(
     async (value: string) => {

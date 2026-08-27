@@ -36,13 +36,13 @@ const AudienceShell = ({
   if (notFound || !session) {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-xl font-semibold">Session not open yet</h1>
+        <h1 className="text-xl font-semibold">We couldn&rsquo;t find that room</h1>
         <p className="text-sm text-muted-foreground">
-          This MathGPL Live session hasn&rsquo;t been opened by the teacher, or the link is no longer
-          active. Keep this page and try again, or enter the session code below.
+          This code doesn&rsquo;t match a MathGPL Live teaching room. Rooms never close or expire, so
+          check the code with your teacher and try again.
         </p>
         <Link to="/live/join" className="min-h-[44px] rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground">
-          Enter a session code
+          Enter a room code
         </Link>
       </div>
     );
