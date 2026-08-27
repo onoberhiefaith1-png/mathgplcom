@@ -77,7 +77,6 @@ import { FreeWriteLayer, type FreeLineMap } from "./FreeWriteLayer";
 import { graphemes } from "@/lib/text/graphemes";
 
 import { StylesRail } from "./StylesRail";
-import { BottomPanel, PANEL_HEIGHT, TAB_HEIGHT } from "./BottomPanel";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
 
 import { SensorDPad } from "./SensorDPad";
