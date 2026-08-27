@@ -3748,26 +3748,27 @@ const PresentationView = ({
       .filter((v) => v.trim().length > 0)
       .join("  ");
 
-    broadcastCheckResultRef.current?.({
-      questionId: current.id,
-      lineId: target.lineId,
-      mode,
-      correct,
-      verdict: correct ? "equal" : "not_equal",
-      diagnosis: {
-        code: correct ? "table_complete" : blank.length ? "table_incomplete" : "table_cell_wrong",
-        label: correct ? `${label} complete` : blank.length ? `${label} incomplete` : `${label} — wrong cells`,
-        detail: correct
-          ? "Every cell of this row holds the expected value in the expected position."
-          : blank.length
-            ? `${blank.length} cell${blank.length === 1 ? "" : "s"} still empty in ${label}.`
-            : `${wrong.length} cell${wrong.length === 1 ? "" : "s"} do not match the expected value for ${label}.`,
-      },
-      marks: correct ? Number(target.marks ?? 0) : 0,
-      studentAscii,
-    });
+    const tableDiagnosis = {
+      code: correct ? "table_complete" : blank.length ? "table_incomplete" : "table_cell_wrong",
+      label: correct ? `${label} complete` : blank.length ? `${label} incomplete` : `${label} — wrong cells`,
+      detail: correct
+        ? "Every cell of this row holds the expected value in the expected position."
+        : blank.length
+          ? `${blank.length} cell${blank.length === 1 ? "" : "s"} still empty in ${label}.`
+          : `${wrong.length} cell${wrong.length === 1 ? "" : "s"} do not match the expected value for ${label}.`,
+    };
 
     if (!correct) {
+      broadcastCheckResultRef.current?.({
+        questionId: current.id,
+        lineId: target.lineId,
+        mode,
+        correct: false,
+        verdict: "not_equal",
+        diagnosis: tableDiagnosis,
+        marks: 0,
+        studentAscii,
+      });
       if (mode === "manual") {
         setCheckView({
           lineNo: k + 1,
@@ -3784,6 +3785,7 @@ const PresentationView = ({
     }
 
     const awarded = Number(target.marks ?? 0);
+    let authoritativeProgress: { solvedLines: Record<string, number>; score: number } | undefined;
     timerRef.current.confirmLine(slot, confirmOnly ? (solvedSlots[slot] ?? 0) : awarded);
     if (confirmOnly) {
       if (mode === "manual") {
@@ -3816,8 +3818,13 @@ const PresentationView = ({
           },
         });
         const res = data as { score?: number; solvedLines?: Record<string, number> } | null;
-        if (res?.solvedLines) setSolvedSlots(res.solvedLines);
-        if (typeof res?.score === "number") setAssessScore(res.score);
+        if (res?.solvedLines && typeof res.score === "number") {
+          authoritativeProgress = { solvedLines: res.solvedLines, score: res.score };
+          setSolvedSlots(res.solvedLines);
+          setAssessScore(res.score);
+        }
+        else if (res?.solvedLines) setSolvedSlots(res.solvedLines);
+        else if (typeof res?.score === "number") setAssessScore(res.score);
         else {
           setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
           setAssessScore((prev) => prev + awarded);
@@ -3827,6 +3834,17 @@ const PresentationView = ({
         setAssessScore((prev) => prev + awarded);
       }
     }
+    broadcastCheckResultRef.current?.({
+      questionId: current.id,
+      lineId: target.lineId,
+      mode,
+      correct: true,
+      verdict: "equal",
+      diagnosis: tableDiagnosis,
+      marks: awarded,
+      studentAscii,
+      progress: authoritativeProgress,
+    });
     if (mode === "manual") {
       setCheckView({
         lineNo: k + 1,
