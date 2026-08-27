@@ -130,58 +130,11 @@ const SmartCardChallengePage = () => {
     );
   }
 
+  // The identity is minted automatically, so this is a blink, never a gate.
   if (!identity) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 p-6">
-        <div className="w-full max-w-sm rounded-2xl border bg-white p-6 shadow-xl">
-          <h1 className="text-lg font-bold text-slate-900">Welcome</h1>
-          <p className="mt-1 text-sm text-slate-500">Choose one option to start the challenge.</p>
-
-          <div className="mt-5 space-y-2">
-            <label className="text-xs font-medium text-slate-500">Continue as Guest</label>
-            <Input
-              value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
-              placeholder="Your username"
-              className="bg-slate-100"
-              maxLength={40}
-            />
-            <Button
-              className="w-full"
-              disabled={!guestName.trim()}
-              onClick={() => setIdentity({
-                participantKey: newParticipantKey(),
-                displayName: guestName.trim(),
-                remembered: false,
-              })}
-            >
-              <UserRound className="mr-1 h-4 w-4" /> Continue as Guest
-            </Button>
-          </div>
-
-          <div className="my-4 flex items-center gap-2 text-[11px] uppercase tracking-wider text-slate-400">
-            <span className="h-px flex-1 bg-slate-200" /> or <span className="h-px flex-1 bg-slate-200" />
-          </div>
-
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              const key = newParticipantKey();
-              const name = guestName.trim() || "Player";
-              // Smartboard profile: the username is remembered for future
-              // Smart Cards. It does NOT sign anyone into the full platform.
-              rememberIdentity({ participantKey: key, displayName: name, remembered: true });
-              setIdentity({ participantKey: key, displayName: name, remembered: true });
-            }}
-            disabled={!guestName.trim()}
-          >
-            <LogIn className="mr-1 h-4 w-4" /> Sign in to Smartboard
-          </Button>
-          <p className="mt-2 text-[11px] text-slate-400">
-            Signing in here only remembers your Smartboard username on this device.
-          </p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-500">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Opening challenge…
       </div>
     );
   }
@@ -190,11 +143,49 @@ const SmartCardChallengePage = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex flex-wrap items-center gap-3 border-b bg-card px-4 py-2 text-xs">
+        <a
+          href={`/c/${payload.card.slug}${preview ? "?preview=1" : ""}`}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium hover:bg-muted"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Smart Card
+        </a>
         <span className="font-semibold">{payload.card.title}</span>
-        <span className="text-muted-foreground">
-          {identity.displayName}
-          {identity.remembered && <span className="ml-1 text-[10px] uppercase tracking-wide">· profile</span>}
-        </span>
+        {renaming ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const name = guestName.trim();
+              if (name) {
+                const next = { ...identity, displayName: name };
+                setIdentity(next);
+                if (identity.remembered) rememberIdentity(next);
+              }
+              setRenaming(false);
+            }}
+            className="flex items-center gap-1"
+          >
+            <Input
+              autoFocus
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              placeholder="Your username"
+              maxLength={40}
+              className="h-7 w-40 text-xs"
+            />
+            <Button size="sm" type="submit" className="h-7">Save</Button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => { setGuestName(identity.displayName); setRenaming(true); }}
+            className="text-muted-foreground hover:underline"
+            title="Change the name shown on the leaderboard"
+          >
+            <UserRound className="mr-1 inline h-3 w-3" />
+            {identity.displayName}
+            {identity.remembered && <span className="ml-1 text-[10px] uppercase tracking-wide">· profile</span>}
+          </button>
+        )}
         <span className="rounded-full bg-muted px-2 py-0.5 tabular-nums">{percent}%</span>
         {preview && (
           <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700">Preview — not counted</span>
@@ -206,15 +197,9 @@ const SmartCardChallengePage = () => {
         )}
         <div className="ml-auto flex items-center gap-1">
           <Button size="sm" variant="ghost" onClick={() => void poll()}>Refresh score</Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => { forgetIdentity(); setIdentity(null); setGuestName(""); }}
-          >
-            Switch player
-          </Button>
         </div>
       </div>
+
 
       <PresentationView
         key={`${payload.card.slug}:${identity.participantKey}`}
