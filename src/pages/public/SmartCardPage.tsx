@@ -184,14 +184,11 @@ const SmartCardPage = () => {
   const card = payload.card;
   const isGame = card.publishMode === "game";
   const link = shareUrl(card.slug);
-  // Viewing is public; playing needs an account. A Game Challenge opens the
-  // Adventure stage, a normal card opens the board — and if the visitor is not
-  // signed in they go to sign-in first and are returned to this exact page.
-  const open = async () => {
-    const target = `/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`;
-    const { data } = await supabase.auth.getUser();
-    if (data.user) { navigate(target); return; }
-    navigate(`/auth?next=${encodeURIComponent(target)}`);
+  // A Smart Card is a standalone public question: opening it and solving it
+  // never asks for an account. A Game Challenge opens the Adventure stage, a
+  // normal card opens the board — the player only chooses a username.
+  const open = () => {
+    navigate(`/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`);
   };
 
   // Copy / Share put ONLY the short public URL on the clipboard — no HTML, no
