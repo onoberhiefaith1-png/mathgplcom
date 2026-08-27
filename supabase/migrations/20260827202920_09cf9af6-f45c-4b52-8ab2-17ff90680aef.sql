@@ -1,16 +1,7 @@
 -- MathGPL Live — audience access layer.
---
--- A person who receives a Live invite link or Join Code participates in ONE
--- session without an account. They are audience, never a member: nothing here
--- creates a profile, a Student ID or permanent history. Anonymous reads are
--- scoped to the backing class of a session that is currently open (published or
--- live), and only to the content the teacher already shared with participants.
-
--- 1. Teacher switch: free entry vs approval.
 alter table public.sessions
   add column if not exists allow_free_entry boolean not null default true;
 
--- 2. Audience roll for a session.
 create table if not exists public.session_audience (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.sessions(id) on delete cascade,
@@ -32,8 +23,6 @@ grant all on public.session_audience to service_role;
 
 alter table public.session_audience enable row level security;
 
--- 3. Helpers. security definer so an anonymous visitor can be checked against a
--- session without being able to read the sessions table broadly.
 create or replace function public.session_is_open(_session_id uuid)
 returns boolean
 language sql
@@ -77,7 +66,6 @@ grant execute on function public.session_is_open(uuid) to anon, authenticated;
 grant execute on function public.session_owner_is(uuid, uuid) to anon, authenticated;
 grant execute on function public.class_has_open_live_session(uuid) to anon, authenticated;
 
--- 4. Audience roll policies.
 drop policy if exists "Audience joins an open session" on public.session_audience;
 create policy "Audience joins an open session"
 on public.session_audience for insert to anon, authenticated
@@ -100,7 +88,6 @@ on public.session_audience for all to authenticated
 using (public.session_owner_is(session_id, auth.uid()))
 with check (public.session_owner_is(session_id, auth.uid()));
 
--- 5. Realtime so the teacher list and the visitor's approval state update live.
 do $$
 begin
   begin
@@ -109,7 +96,6 @@ begin
   end;
 end $$;
 
--- 6. Narrow anonymous reads for audience surfaces.
 grant select on public.classes to anon;
 grant select on public.class_smartboard_state to anon;
 grant select on public.class_lesson_notes to anon;
@@ -140,8 +126,6 @@ create policy "Audience reads shared session notes"
 on public.class_lesson_notes for select to anon
 using (public.class_has_open_live_session(class_id) and visibility = 'student_access_enabled');
 
--- A notebook is audience-readable when it is shared with the session's class,
--- is the class's active board notebook, or is attached to an active challenge.
 create or replace function public.notebook_open_to_audience(_notebook_id uuid)
 returns boolean
 language sql
@@ -194,7 +178,17 @@ using (
 drop policy if exists "Audience reads open notebook blocks" on public.notebook_blocks;
 create policy "Audience reads open notebook blocks"
 on public.notebook_blocks for select to anon
-using (public.notebook_open_to_audience(notebook_id));
+using (
+  exists (
+    select 1 from public.notebook_sections s
+    where s.id = section_id and public.notebook_open_to_audience(s.notebook_id)
+  )
+  or exists (
+    select 1 from public.notebook_subsections sub
+    join public.notebook_sections s2 on s2.id = sub.section_id
+    where sub.id = subsection_id and public.notebook_open_to_audience(s2.notebook_id)
+  )
+);
 
 drop policy if exists "Audience reads live challenges" on public.learning_assignments;
 create policy "Audience reads live challenges"
