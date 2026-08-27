@@ -193,22 +193,34 @@ const SmartCardPage = () => {
     navigate(`/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`);
   };
 
-  // Copy / Share put ONLY the short public URL on the clipboard — no HTML, no
-  // image data. Platforms fetch the card snapshot from the page metadata.
+  // Copy puts ONLY the short public URL on the clipboard — no HTML, no title,
+  // no image data. The textarea fallback covers browsers/embeds where the
+  // async clipboard API is unavailable or blocked.
   const copyCard = async () => {
-    await navigator.clipboard?.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    const write = async () => {
+      try {
+        await navigator.clipboard.writeText(link);
+        return true;
+      } catch { /* fall through */ }
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = link;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch {
+        return false;
+      }
+    };
+    setCopied((await write()) ? "ok" : "fail");
+    setTimeout(() => setCopied(null), 2200);
   };
 
-  const shareCard = async () => {
-    // Native sheet where it exists (phones); the dialog everywhere else, so
-    // Share always does something visible.
-    if (navigator.share) {
-      try { await navigator.share({ title: card.title, url: link }); return; } catch { /* cancelled or unsupported */ }
-    }
-    setShareOpen(true);
-  };
 
   const counters = [
     { label: "Total players", value: stats?.totalPlayers ?? 0, icon: Users },
