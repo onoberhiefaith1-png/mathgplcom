@@ -277,7 +277,9 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
   // exists do we fall back to the legacy greedy kind/order matching, so old
   // notebooks keep working while new saves become positionally exact.
   const unclaimed = new Set(existing.map((e) => e.id));
+  const claimedSubIds = new Set<string>();
   const byId = new Map(existing.map((e) => [e.id, e]));
+
   const claimSection = (dbKind: string, docKey: string): ExistingSection | null => {
     for (const e of existing) {
       if (unclaimed.has(e.id) && e.doc_key && e.doc_key === docKey) { unclaimed.delete(e.id); return e; }
