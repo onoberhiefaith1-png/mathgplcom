@@ -1,46 +1,53 @@
-# Fix the Assignment → Class lifecycle
+# Fix assignment reassignment and enforce non-overlapping lesson text
 
-## Confirmed cause
+## Confirmed causes
 
-The active/previous lifecycle is split across two records:
+### Assignment lifecycle
 
-- The teacher’s deadline is saved on the child `assessments` rows.
-- Duplicate prevention is controlled by the parent `learning_assignments.status`.
-- The existing expiry helper checks only the parent deadline, is not called anywhere, and therefore never archives parents whose child deadline has passed.
+- Assignment expiry is enforced on child `assessments`, while duplicate prevention is controlled by the parent `learning_assignments.status`.
+- The existing expiry helper is not invoked before assignment checks and only reads the parent deadline, so expired child assessments can leave an active parent that blocks reassignment.
 
-This leaves an expired assignment marked `active`, so both the Assign dialog and the database uniqueness guard continue to block a fresh assignment instance. Current database rows confirm this state exists: active parent instances with no parent deadline and already-expired child deadlines.
+### Lesson-note overlap
+
+- Clicking blank paper currently creates a `canvasFrame` for ordinary typed content at an absolute `x/y` position.
+- `canvasFrame` deliberately renders with `position:absolute`, so ordinary text, headings, generated solutions, and later flowing content can occupy the same vertical space.
+- The current layout guard only separates non-diagram frames from other frames and reserves space for frames that have a linked spacer. It does not prevent an ordinary text frame from covering normal document-flow content.
+- Diagrams already have a distinct `objectKind: "diagram"`, so they can remain the only overlap-capable content.
 
 ## Implementation
 
-1. **Make expiry reconciliation authoritative**
-   - Update the lifecycle helper to determine an assignment instance’s effective deadline from its linked assessment rows when the parent deadline is absent.
-   - Archive each expired parent through the existing archive path so its child rows receive `unassigned_at`, while questions, board work, grades, progress, reports, and results remain stored.
-   - Keep the archived parent immutable as the historical assignment instance.
+1. **Repair assignment expiry reconciliation**
+   - Derive each active assignment instance’s effective deadline from its linked assessment rows when the parent deadline is absent.
+   - Reconcile expiry before duplicate checks, Assign-dialog state, and class assignment lists.
+   - Archive expired or manually unassigned instances without deleting questions, work, grading, progress, or reports.
 
-2. **Release reassignment before duplicate checks**
-   - Reconcile expired instances before `ensureAssignment` and before the Assign dialog calculates checked classes.
-   - An active instance still blocks duplicates; an expired or teacher-unassigned instance does not.
-   - Reassigning creates a new `learning_assignments` parent and new active assessment rows rather than reviving or overwriting archived history.
+2. **Release the class for a fresh assignment run**
+   - Keep one active instance per class/notebook/mode while it is active.
+   - After expiry or unassignment, create a new parent and new active child rows; never revive or overwrite the previous run.
+   - Synchronize deadline changes between active parent and child records.
 
-3. **Keep parent and child deadlines synchronized**
-   - When the teacher changes an assignment end date/time, update both the linked active parent instance and its child assessment rows.
-   - Preserve the existing student edit lock and deadline behavior.
+3. **Show current and historical assignments separately**
+   - Keep active work in the current Assignment section.
+   - Add `Previous Assignments` for expired and manually unassigned instances, keyed by assignment-instance ID and linked read-only to preserved results.
 
-4. **Add Active and Previous Assignments views**
-   - Reconcile expiry when the teacher opens the class Assignments page.
-   - Keep current cards in the active section.
-   - Add a `Previous Assignments` section sourced from archived instances, including expired and manually unassigned history, with clear archived reason/date and read-only access to historical results.
-   - Ensure historical instances are keyed by assignment-instance ID so repeated use of the same lesson note appears as separate runs.
+4. **Make ordinary lesson content participate in document flow**
+   - Stop creating absolute free-position frames for ordinary typing, headings, math structures, AI-generated text, and solutions.
+   - Resolve blank-paper clicks to a document insertion point in reading order so newly typed content occupies real height and naturally pushes every later text block downward like a word processor.
+   - Convert or render legacy non-diagram `canvasFrame` content in flow so existing overlapping notes recover without losing their text or editable math structure.
+   - Keep horizontal placement only where it can be represented safely without removing the block from flow.
 
-5. **Protect all existing behavior with tests**
-   - Active duplicate assignment remains blocked/idempotent.
-   - Expiry archives the old instance and releases the same class for reassignment.
-   - Manual unassignment also releases reassignment.
-   - Reassignment creates a fresh active instance while the old instance and its student work/results remain unchanged.
-   - Active and Previous dashboard grouping does not combine separate runs of the same notebook.
+5. **Keep diagrams as the sole overlap exception**
+   - Preserve free drawing and free-positioned diagram frames, including the ability to place diagrams anywhere and overlap other content.
+   - Ensure diagram carriers remain excluded from text-flow spacing and from text-frame migration.
+
+6. **Regression coverage and verification**
+   - Test active duplicate blocking, expiry release, manual-unassign release, fresh reassignment, and preserved historical results.
+   - Test that multiline text, headings, editable math, AI output, and moved solutions increase layout height and push subsequent content down.
+   - Test that old non-diagram absolute frames recover into flow, while diagram frames retain absolute positioning and overlap freedom.
+   - Verify the lesson-note screenshot scenario in the running editor: no text collision after insertion or growth, with diagrams unchanged.
 
 ## Technical scope
 
-- Primary code: assignment instance lifecycle, assignment pipeline, Assign dialog, class Assignments page, and focused lifecycle tests.
-- Database structure and existing uniqueness rules remain intact; no records are deleted.
-- Existing grading, student access, timer/expiry lock, live evaluation, and report calculations are not redesigned.
+- Assignment lifecycle helpers, assignment pipeline, Assign dialog, class Assignments page, student active filtering, and focused lifecycle tests.
+- Lesson-note sensor insertion, `canvasFrame` rendering/migration, session layout behavior, and focused editor layout tests.
+- No database schema change is expected; existing rows, grading, student access, expiry locks, and diagram behavior remain intact.
