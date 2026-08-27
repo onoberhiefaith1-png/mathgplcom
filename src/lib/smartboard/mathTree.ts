@@ -22,7 +22,7 @@ export type Node =
   | { kind: "sub"; rows: Row[] }        // [body]
   | { kind: "subsup"; rows: Row[] }     // [base, sub, sup]
   | { kind: "bracket"; left: BracketKind; right: BracketKind; rows: Row[] } // [body]
-  | { kind: "bigop"; op: "sum" | "prod" | "int" | "oint" | "lim"; rows: Row[] } // [body, lower, upper]
+  | { kind: "bigop"; op: "sum" | "prod" | "coprod" | "int" | "oint" | "lim"; rows: Row[] } // [body, lower, upper]
   | { kind: "matrix"; nRows: number; nCols: number; left: string; right: string; fns?: string[]; rows: Row[] }
   | { kind: "accent"; symbol: string; rows: Row[] } // [body]
   | { kind: "binom"; rows: Row[] }      // [top, bot]
@@ -61,7 +61,7 @@ export const mkAbs = (): Node => mkBracket("|", "|");
 export const mkNorm = (): Node => mkBracket("‖", "‖");
 export const mkFloor = (): Node => mkBracket("⌊", "⌋");
 export const mkCeil = (): Node => mkBracket("⌈", "⌉");
-export const mkBigOp = (op: "sum" | "prod" | "int" | "oint" | "lim"): Node =>
+export const mkBigOp = (op: "sum" | "prod" | "coprod" | "int" | "oint" | "lim"): Node =>
   ({ kind: "bigop", op, rows: [[], [], []] });
 export const mkMatrix = (
   nRows: number, nCols: number, left = "(", right = ")", fns: string[] = [],

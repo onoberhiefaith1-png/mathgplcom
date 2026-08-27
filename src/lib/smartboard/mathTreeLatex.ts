@@ -45,8 +45,10 @@ const matchBrace = (s: string, i: number): number => {
 
 const isBaseChar = (ch: string): boolean => /[A-Za-z0-9)\]}]/.test(ch);
 
-type BigOpName = "sum" | "prod" | "int" | "oint" | "lim";
-const BIG_OPS: BigOpName[] = ["sum", "prod", "int", "oint", "lim"];
+type BigOpName = "sum" | "prod" | "coprod" | "int" | "oint" | "lim";
+// Longest first so `\coprod` is not read as `\prod` (and future long names win).
+const BIG_OPS: BigOpName[] = ["coprod", "sum", "prod", "oint", "int", "lim"];
+
 
 /** LaTeX accent macro → the glyph drawn above the body. */
 const ACCENTS: Record<string, string> = {
