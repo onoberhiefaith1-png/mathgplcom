@@ -1979,6 +1979,8 @@ const PresentationView = ({
     studentId: boardStudentId,
     questionId: boardQuestionId ?? current?.id ?? null,
   });
+  const timerRef = useRef(timer);
+  timerRef.current = timer;
 
   const phase = getPhase(current);
   const caps = phaseCapabilities(phase);
@@ -3692,11 +3694,19 @@ const PresentationView = ({
     const target = guidedLines[k];
     if (!target?.lineId) return;
     const slot = `${current.id}:${target.lineId}`;
+    // MASTERED LINES ARE NEVER RE-MARKED. With the timer on, a mastered line
+    // still has to be confirmed for the CURRENT attempt, so the row is checked
+    // without awarding anything a second time.
+    let confirmOnly = false;
     if (slot in solvedSlots) {
-      if (mode === "manual") {
-        toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slot]} marks.` });
+      if (timerRef.current.active && !(slot in timerRef.current.confirmed)) {
+        confirmOnly = true;
+      } else {
+        if (mode === "manual") {
+          toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slot]} marks.` });
+        }
+        return;
       }
-      return;
     }
     const entries = tableEntries[group.objId] ?? {};
     const cells = editableCellsForLine(group, k).filter(
@@ -3747,6 +3757,20 @@ const PresentationView = ({
     }
 
     const awarded = Number(target.marks ?? 0);
+    timerRef.current.confirmLine(slot, confirmOnly ? (solvedSlots[slot] ?? 0) : awarded);
+    if (confirmOnly) {
+      if (mode === "manual") {
+        setCheckView({
+          lineNo: k + 1,
+          studentAscii,
+          correct: true,
+          label: `${label} confirmed`,
+          detail: "Correct for this attempt. The marks for this row were already earned.",
+          marks: 0,
+        });
+      }
+      return;
+    }
     if (testMode) {
       setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
       setAssessScore((prev) => prev + awarded);
@@ -3831,18 +3855,19 @@ const PresentationView = ({
     // AWARDED MARKS ARE PERMANENT — once a line has earned its mark it is
     // never re-evaluated, in either mode. Editing it afterwards cannot take
     // the mark away and cannot earn it twice.
-    {
-      const slot = `${current.id}:${target.lineId}`;
-      if (slot in solvedSlots) {
+    const slotKey = `${current.id}:${target.lineId}`;
+    // With the timer on, a mastered line is still re-checked (never re-marked)
+    // so the CURRENT attempt row can confirm it.
+    let confirmOnly = false;
+    if (slotKey in solvedSlots) {
+      if (timerRef.current.active && !(slotKey in timerRef.current.confirmed)) {
+        confirmOnly = true;
+      } else {
         if (mode === "manual") {
-          toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slot]} marks.` });
+          toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slotKey]} marks.` });
         }
         return;
       }
-    }
-    if (mode === "auto") {
-      const slot = `${current.id}:${target.lineId}`;
-      if (slot in solvedSlots) return; // already awarded
     }
 
     if (mode === "manual") setAssessChecking(true);
@@ -3857,7 +3882,7 @@ const PresentationView = ({
           allowedFloatingTokens: expectedFrags,
           // A test never writes progress: the engine grades, the board keeps
           // the score in memory only.
-          persist: !testMode,
+          persist: !testMode && !confirmOnly,
           ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
         },
       });
@@ -3884,6 +3909,21 @@ const PresentationView = ({
 
       if (res?.correct) {
         const awarded = Number(res?.marks ?? target.marks ?? 0);
+        timerRef.current.confirmLine(slotKey, confirmOnly ? (solvedSlots[slotKey] ?? 0) : awarded);
+        if (confirmOnly) {
+          setWrongLine((w) => (w === rowNum ? null : w));
+          if (mode === "manual") {
+            setCheckView({
+              lineNo: k + 1,
+              studentAscii: ascii,
+              correct: true,
+              label: "Confirmed for this attempt",
+              detail: "Correct. The marks for this line were already earned.",
+              marks: 0,
+            });
+          }
+          return;
+        }
         if (testMode) {
           // Nothing was persisted, so the sitting accumulates its own total.
           const slot = `${current.id}:${target.lineId}`;
