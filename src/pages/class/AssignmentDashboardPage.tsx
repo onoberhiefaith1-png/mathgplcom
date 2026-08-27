@@ -8,7 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { loadLessonProgress, type LessonAssessment, type LessonMember } from "@/lib/assessments/lessonProgress";
-import { AssessmentStatusPanel, type StudentProgressRow } from "@/components/dashboards/AssessmentStatusPanel";
+import { AssessmentStatusPanel, type QuestionEntry, type StudentProgressRow } from "@/components/dashboards/AssessmentStatusPanel";
+import { resolveLiveAssessmentId } from "@/lib/assessments/liveJoin";
 import { StudentQuestionsPanel } from "@/components/dashboards/StudentQuestionsPanel";
 import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
 import AssignmentTimerPanel from "@/components/dashboards/AssignmentTimerPanel";
@@ -27,6 +28,8 @@ const AssignmentDashboardPage = () => {
   const [rows, setRows] = useState<StudentProgressRow[]>([]);
   const [firstAssessmentId, setFirstAssessmentId] = useState<string | null>(null);
   const [activeSet, setActiveSet] = useState<Set<string>>(new Set());
+  const [presenceByAssessment, setPresenceByAssessment] = useState<Record<string, string[]>>({});
+  const [questionEntries, setQuestionEntries] = useState<QuestionEntry[]>([]);
 
   const refresh = useCallback(async (
     a: LessonAssessment[] = assessments,
@@ -119,7 +122,11 @@ const AssignmentDashboardPage = () => {
     const recompute = () => {
       const merged = new Set<string>();
       for (const s of perAssessment.values()) for (const u of s) merged.add(u);
-      if (!cancelled) setActiveSet(merged);
+      if (cancelled) return;
+      setActiveSet(merged);
+      setPresenceByAssessment(
+        Object.fromEntries(Array.from(perAssessment.entries()).map(([k, v]) => [k, Array.from(v)])),
+      );
     };
     void ensureRealtimeAuth().then(() => {
       if (cancelled) return;
@@ -154,19 +161,76 @@ const AssignmentDashboardPage = () => {
     };
   }, [classId, assessments]);
 
+  // Per-question rows for the student table: label + each student's best time.
+  // Best time is decoration only — "View Student Work" is always available.
+  useEffect(() => {
+    if (assessments.length === 0) { setQuestionEntries([]); return; }
+    let cancelled = false;
+    const ids = assessments.map((a) => a.id);
+    (async () => {
+      const [{ data: qRows }, { data: att }] = await Promise.all([
+        supabase.from("assessments").select("id, questions").in("id", ids),
+        supabase
+          .from("assessment_timer_attempts")
+          .select("assessment_id, question_id, student_id, elapsed_ms, success")
+          .in("assessment_id", ids)
+          .eq("success", true),
+      ]);
+      if (cancelled) return;
+      const best = new Map<string, Record<string, number>>();
+      for (const a of ((att ?? []) as any[])) {
+        const key = `${a.assessment_id}:${a.question_id}`;
+        const bucket = best.get(key) ?? {};
+        const ms = Number(a.elapsed_ms) || 0;
+        const prev = bucket[a.student_id];
+        if (prev == null || ms < prev) bucket[a.student_id] = ms;
+        best.set(key, bucket);
+      }
+      const entries: QuestionEntry[] = [];
+      for (const row of ((qRows ?? []) as any[])) {
+        const qs = (row.questions ?? []) as Array<{ id: string; title?: string | null }>;
+        qs.forEach((q, i) => {
+          entries.push({
+            assessmentId: row.id,
+            questionId: q.id,
+            label: q.title?.trim() || `Question ${entries.length + 1 || i + 1}`,
+            bestByStudent: best.get(`${row.id}:${q.id}`) ?? {},
+          });
+        });
+      }
+      setQuestionEntries(entries);
+    })();
+    return () => { cancelled = true; };
+  }, [assessments]);
+
+
   const totalMarks = assessments.reduce((s, a) => s + a.total_marks, 0);
+
+  const dashPath = `${classRoot()}/${classId}/assignments/${notebookId}/dashboard`;
 
   const onView = (studentId: string) => {
     const aid = firstAssessmentId;
     if (!aid) return;
-    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=work&returnTo=${encodeURIComponent(`${classRoot()}/${classId}/assignments/${notebookId}/dashboard`)}`);
+    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=work&returnTo=${encodeURIComponent(dashPath)}`);
+  };
+
+  const onViewQuestion = (studentId: string, assessmentId: string, questionId: string) => {
+    navigate(`${classRoot()}/${classId}/assessments/${assessmentId}/student/${studentId}?mode=work&q=${questionId}&returnTo=${encodeURIComponent(dashPath)}`);
   };
 
   const onJoinLive = (studentId: string) => {
-    const aid = firstAssessmentId;
+    // An assignment card spans several assessments; join the one the student
+    // actually has open, never blindly the first.
+    const aid = resolveLiveAssessmentId(
+      studentId,
+      presenceByAssessment,
+      assessments.map((a) => a.id),
+      firstAssessmentId,
+    );
     if (!aid) return;
-    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(`${classRoot()}/${classId}/assignments/${notebookId}/dashboard`)}`);
+    navigate(`${classRoot()}/${classId}/assessments/${aid}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(dashPath)}`);
   };
+
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-background via-background to-muted/20 text-foreground">
@@ -203,7 +267,13 @@ const AssignmentDashboardPage = () => {
               memberNames={new Map(members.map((m) => [m.user_id, m.display_name]))}
             />
 
-            <AssessmentStatusPanel rows={rows} onViewStudent={onView} onJoinLive={onJoinLive} />
+            <AssessmentStatusPanel
+              rows={rows}
+              onViewStudent={onView}
+              onJoinLive={onJoinLive}
+              questions={questionEntries}
+              onViewQuestion={onViewQuestion}
+            />
 
             {classId && assessments.length > 0 && (
               <StudentQuestionsPanel

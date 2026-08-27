@@ -48,7 +48,9 @@ const TeacherAssessmentViewerPage = () => {
   const [pickedQuestionId, setPickedQuestionId] = useState<string | null>(null);
   const [persistedQuestionId, setPersistedQuestionId] = useState<string | null>(null);
   const [studentOnline, setStudentOnline] = useState(false);
+  const [siblingIds, setSiblingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [assessment, setAssessment] = useState<AssessmentLike | null>(null);
   const [studentName, setStudentName] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
@@ -128,6 +130,45 @@ const TeacherAssessmentViewerPage = () => {
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, assessmentId, studentId]);
 
+  // ── Join Live must connect to the session the student ALREADY has open.
+  // Because the dashboard's "In Progress" covers the whole card, the student
+  // may be live on a sibling assessment; if so, hop straight to it instead of
+  // waiting forever on an empty room. ──────────────────────────────────────
+  useEffect(() => {
+    if (mode !== "live" || !classId || !assessmentId || !studentId) return;
+    if (studentOnline) return; // already in the right room
+    const others = siblingIds.filter((id) => id !== assessmentId);
+
+    if (others.length === 0) return;
+    let cancelled = false;
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      for (const id of others) {
+        const ch = supabase.channel(assessmentPresenceTopic(classId, id), {
+          config: { presence: { key: `viewer-${id}` } },
+        });
+        const read = () => {
+          if (cancelled) return;
+          const state = ch.presenceState() as Record<string, unknown[]>;
+          if ((state[studentId] ?? []).length === 0) return;
+          cancelled = true;
+          navigate(
+            `${classRoot()}/${classId}/assessments/${id}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(returnTo)}`,
+            { replace: true },
+          );
+        };
+        ch.on("presence", { event: "sync" }, read)
+          .on("presence", { event: "join" }, read)
+          .subscribe(async (status) => { if (status === "SUBSCRIBED") { await ch.track({ role: "viewer" }); read(); } });
+        channels.push(ch);
+      }
+    });
+    return () => { cancelled = true; for (const ch of channels) supabase.removeChannel(ch); };
+  }, [mode, studentOnline, classId, assessmentId, studentId, siblingIds, navigate, returnTo]);
+
+
+
 
 
   // Broadcast frames also prove the student is live even when presence lags.
@@ -168,6 +209,20 @@ const TeacherAssessmentViewerPage = () => {
       ]);
       if (!a) { navigate(returnTo, { replace: true }); return; }
       setAssessment(a as unknown as AssessmentLike);
+      // An assignment card is a SET of assessments (one per question). The
+      // student may be live on any of them, so keep the siblings to hand.
+      const notebookId = (a as { notebook_id?: string | null }).notebook_id ?? null;
+      if (notebookId) {
+        const { data: sibs } = await supabase
+          .from("assessments")
+          .select("id, created_at")
+          .eq("class_id", classId)
+          .eq("notebook_id", notebookId)
+          .is("unassigned_at", null)
+          .order("created_at", { ascending: true });
+        setSiblingIds(((sibs ?? []) as Array<{ id: string }>).map((s) => s.id));
+      }
+
       const m = ((mem ?? []) as any[]).find((x) => x.user_id === studentId);
       setStudentName(m?.display_name ?? "Student");
       setLoading(false);
@@ -200,13 +255,23 @@ const TeacherAssessmentViewerPage = () => {
         <Loader2 className="h-5 w-5 animate-spin" />
         <div className="text-sm">Waiting for {studentName || "the student"}'s board…</div>
         <div className="text-xs">The view opens on whichever question they are working on.</div>
-        <button
-          type="button"
-          onClick={() => navigate(returnTo)}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back
-        </button>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(returnTo)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </button>
+          <button
+            type="button"
+            onClick={() => { modeChosenRef.current = true; setMode("work"); }}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            <Eye className="h-3.5 w-3.5" /> View saved work instead
+          </button>
+        </div>
+
       </div>
     );
   }

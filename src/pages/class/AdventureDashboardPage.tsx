@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { AssessmentStatusPanel } from "@/components/dashboards/AssessmentStatusPanel";
+import { resolveLiveAssessmentId } from "@/lib/assessments/liveJoin";
 import { StudentQuestionsPanel } from "@/components/dashboards/StudentQuestionsPanel";
 import GameCanvas from "@/components/gamebuilder/GameCanvas";
 import { getPrefetched, prefetchGame, updatePrefetchedGame, waitForSceneReady } from "@/lib/games/prefetch";
@@ -602,7 +603,12 @@ const AdventureDashboardPage = () => {
   };
 
   const onJoinLive = (studentId: string) => {
-    const first = boards[0]?.assessmentId;
+    const first = resolveLiveAssessmentId(
+      studentId,
+      sync.presenceByAssessment,
+      boards.map((b) => b.assessmentId),
+      boards[0]?.assessmentId ?? null,
+    );
     if (!first) return;
     navigate(`${classRoot()}/${classId}/assessments/${first}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(`${classRoot()}/${classId}/adventures/${gameId}/dashboard`)}`);
   };

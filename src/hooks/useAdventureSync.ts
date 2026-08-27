@@ -328,6 +328,7 @@ export function useAdventureSync({
     memberSet,
     studentCount: memberIds.length,
     activeSet,
+    presenceByAssessment,
     scoresByAssessment,
     mySolvedByAssessment,
     boardByElement,
