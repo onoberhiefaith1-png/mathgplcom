@@ -18,6 +18,7 @@ import {
 import { type Chip, applySelection } from "@/lib/floating/highlightEngine";
 import { ConnectedRadical } from "@/components/math/ConnectedRadical";
 import { renderMathInline } from "@/lib/notebook/mathRender";
+import { EMOJI_STYLE, hasEmoji } from "@/lib/text/graphemes";
 
 interface Props {
   equation: string;
