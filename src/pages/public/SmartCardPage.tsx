@@ -8,9 +8,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, Camera, Check, Copy, Loader2, Play, Share2, Trophy, Users, Zap, Target } from "lucide-react";
+import { ArrowLeft, Camera, Check, Copy, Loader2, Play, Trophy, Users, Zap, Target } from "lucide-react";
 import SmartCardQuestion from "@/components/smartcards/SmartCardView";
-import ShareSheet from "@/components/public/ShareSheet";
+
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchChallengeDashboard, formatDuration, loadRememberedIdentity, newParticipantKey,
@@ -51,12 +51,12 @@ const SmartCardPage = () => {
   const [payload, setPayload] = useState<(PublicCardPayload & { stats: CardStatsPublic }) | null>(null);
   const [stats, setStats] = useState<CardStatsPublic | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"ok" | "fail" | null>(null);
   // Share Card: a creator-only promotional VIEW of this same dashboard.
   // Never persisted, never visible to visitors — it only exists so the
   // teacher can take a screenshot to post beside the link.
   const [shareMode, setShareMode] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
+
   const [promo, setPromo] = useState(DEFAULT_PROMO);
   const [editingPromo, setEditingPromo] = useState(false);
   const me = useRef<string>(visitorKey());
@@ -193,22 +193,34 @@ const SmartCardPage = () => {
     navigate(`/c/${card.slug}/${isGame ? "game" : "solve"}${preview ? "?preview=1" : ""}`);
   };
 
-  // Copy / Share put ONLY the short public URL on the clipboard — no HTML, no
-  // image data. Platforms fetch the card snapshot from the page metadata.
+  // Copy puts ONLY the short public URL on the clipboard — no HTML, no title,
+  // no image data. The textarea fallback covers browsers/embeds where the
+  // async clipboard API is unavailable or blocked.
   const copyCard = async () => {
-    await navigator.clipboard?.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    const write = async () => {
+      try {
+        await navigator.clipboard.writeText(link);
+        return true;
+      } catch { /* fall through */ }
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = link;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch {
+        return false;
+      }
+    };
+    setCopied((await write()) ? "ok" : "fail");
+    setTimeout(() => setCopied(null), 2200);
   };
 
-  const shareCard = async () => {
-    // Native sheet where it exists (phones); the dialog everywhere else, so
-    // Share always does something visible.
-    if (navigator.share) {
-      try { await navigator.share({ title: card.title, url: link }); return; } catch { /* cancelled or unsupported */ }
-    }
-    setShareOpen(true);
-  };
 
   const counters = [
     { label: "Total players", value: stats?.totalPlayers ?? 0, icon: Users },
@@ -246,18 +258,13 @@ const SmartCardPage = () => {
             onClick={copyCard}
             className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
           >
-            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />} Copy Smart Card
+            {copied === "ok" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied === "ok" ? "Link copied" : copied === "fail" ? "Copy failed — select the link" : "Copy Smart Card"}
           </button>
-          <button
-            type="button"
-            onClick={shareCard}
-            className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 shadow-xs transition hover:bg-slate-50"
-          >
-            <Share2 className="h-3.5 w-3.5" /> Share Smart Card
-          </button>
-          <span className="flex items-center rounded-full bg-white/70 px-3 py-1.5 text-xs tabular-nums text-slate-500">
+          <span className="flex items-center rounded-full bg-white/70 px-3 py-1.5 text-xs tabular-nums text-slate-500 select-all">
             {link.replace(/^https?:\/\//, "")}
           </span>
+
           {creator && (
             <button
               type="button"
@@ -401,12 +408,6 @@ const SmartCardPage = () => {
           <p className="mt-2 text-xs text-slate-500">Mathematics Reimagined — explore the full platform.</p>
         </footer>
 
-        <ShareSheet
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-          url={link}
-          title={`${card.title} — solve this MathGPL Smart Card.`}
-        />
       </div>
     </div>
   );
