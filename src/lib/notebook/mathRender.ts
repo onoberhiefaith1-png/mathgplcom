@@ -812,8 +812,8 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
       continue;
     }
 
-    // ---- big operators: \sum, \prod, \int, \oint, \lim ----
-    const bigMatch = /^\\(sum|prod|int|oint|lim)/.exec(src.slice(i));
+    // ---- large operators with limits: \sum \prod \coprod \int \oint \lim … ----
+    const bigMatch = LARGE_OP_PATTERN.exec(src.slice(i));
     if (bigMatch) {
       const name = bigMatch[1];
       const after = i + name.length + 1;
@@ -823,48 +823,13 @@ function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] 
         ? renderInner(bounds.lower, `${keyBase}-bl${k}`, ctx) : null;
       const upperNodes = bounds.upper !== undefined
         ? renderInner(bounds.upper, `${keyBase}-bu${k}`, ctx) : null;
-      if (name === "sum") out.push(bigOperatorStack("∑", lowerNodes, upperNodes, `${keyBase}-sm-${k++}`));
-      else if (name === "prod") out.push(bigOperatorStack("∏", lowerNodes, upperNodes, `${keyBase}-pr-${k++}`));
-      else if (name === "oint") out.push(bigOperatorStack("∮", lowerNodes, upperNodes, `${keyBase}-oi-${k++}`));
-      else if (name === "lim") {
-        // lim text with underset
-        out.push(createElement(
-          "span",
-          {
-            key: `${keyBase}-lm-${k++}`,
-            style: {
-              display: "inline-flex", flexDirection: "column", alignItems: "center",
-              verticalAlign: "baseline", lineHeight: 1, margin: "0 2px",
-              transform: "translateY(-0.15em)",
-            } as CSSProperties,
-          },
-          createElement("span", { key: "n", style: { fontStyle: "normal" } }, "lim"),
-          createElement("span", {
-            key: "u",
-            style: { fontSize: "0.6em", marginTop: 1, minHeight: "0.7em" },
-          }, lowerNodes ?? ""),
-        ));
-      } else {
-        // \int — classic textbook: bounds as superscript/subscript next to the glyph.
-        const intGlyph = createElement("span", {
-          key: "g",
-          style: { fontSize: "1.8em", lineHeight: 0.9, fontFamily: '"Cambria Math", "STIX Two Math", "Times New Roman", serif', display: "inline-block", verticalAlign: "middle", transform: "translateY(-0.05em)" },
-        }, "∫");
-        const bounds2 = createElement("span", {
-          key: "b",
-          style: { display: "inline-flex", flexDirection: "column", justifyContent: "center", fontSize: "0.6em", marginLeft: 1, lineHeight: 1 },
-        },
-          createElement("span", { key: "u", style: { minHeight: "0.7em" } }, upperNodes ?? ""),
-          createElement("span", { key: "l", style: { minHeight: "0.7em", marginTop: 1 } }, lowerNodes ?? ""),
-        );
-        out.push(createElement("span", {
-          key: `${keyBase}-in-${k++}`,
-          style: { display: "inline-flex", alignItems: "center", verticalAlign: "middle", margin: "0 2px" },
-        }, intGlyph, bounds2));
-      }
+      out.push(largeOperator(
+        LARGE_OPS[name]!, lowerNodes, upperNodes, `${keyBase}-${name}-${k++}`,
+      ));
       i = bounds.end;
       continue;
     }
+
 
     // ---- accents ----
     const accentMatch = /^\\(vec|hat|bar|tilde|dot|ddot)\{/.exec(src.slice(i));
