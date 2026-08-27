@@ -7225,31 +7225,79 @@ const PresentationView = ({
               </div>
             )}
 
-            {/* Per-line ticks for the current question */}
+            {/* Per-line ticks for the current question.
+                Top row  = PERMANENT ACHIEVEMENT (mastered, never removed)
+                Bottom row = CURRENT ATTEMPT (timer only, cleared by Reset) */}
             {hasGuidedLines && (
-              <div className="flex items-center gap-1">
-                {guidedLines.map((ln, k) => {
-                  const slot = slotFor(k);
-                  const solved = !!slot && slot in solvedSlots;
-                  return (
-                    <span
-                      key={k}
-                      className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
-                      style={solved
-                        ? { background: "rgba(34,197,94,0.18)", color: "#16a34a", borderColor: "rgba(34,197,94,0.5)" }
-                        : { borderColor: palette.chromeBorder, opacity: 0.55 }}
-                      title={`Line ${k + 1}${solved ? " · solved" : ""}`}
-                    >
-                      {solved ? <CheckIcon className="h-3 w-3" /> : k + 1}
-                    </span>
-                  );
-                })}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1" title="Mastered">
+                  {guidedLines.map((ln, k) => {
+                    const slot = slotFor(k);
+                    const solved = !!slot && slot in solvedSlots;
+                    return (
+                      <span
+                        key={k}
+                        className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
+                        style={solved
+                          ? { background: "rgba(34,197,94,0.18)", color: "#16a34a", borderColor: "rgba(34,197,94,0.5)" }
+                          : { borderColor: palette.chromeBorder, opacity: 0.55 }}
+                        title={`Line ${k + 1}${solved ? " · mastered" : ""}`}
+                      >
+                        {solved ? <CheckIcon className="h-3 w-3" /> : k + 1}
+                      </span>
+                    );
+                  })}
+                </div>
+                {timer.active && (
+                  <div className="flex items-center gap-1" title="This attempt">
+                    {guidedLines.map((ln, k) => {
+                      const slot = slotFor(k);
+                      const done = !!slot && slot in timer.confirmed;
+                      return (
+                        <span
+                          key={k}
+                          className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
+                          style={done
+                            ? { background: "rgba(56,189,248,0.18)", color: "#0284c7", borderColor: "rgba(56,189,248,0.55)" }
+                            : { borderColor: palette.chromeBorder, opacity: 0.45 }}
+                          title={`Line ${k + 1} · this attempt${done ? " · correct" : ""}`}
+                        >
+                          {done ? <CheckIcon className="h-3 w-3" /> : k + 1}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
             <div className="ml-1 rounded-lg px-2 py-1 text-sm font-bold tabular-nums" style={{ background: palette.hoverBg }}>
               {assessScore} <span className="opacity-60">/ {assessTotal}</span>
             </div>
+
+            {/* Attempt timer — HH:MM:SS, best time, and Reset (new attempt). */}
+            {timer.active && (
+              <div className="inline-flex items-center gap-1.5">
+                <span
+                  className="rounded-md px-2 py-1 text-xs font-semibold tabular-nums"
+                  style={{ background: palette.hoverBg }}
+                  title={timer.running ? "Timing this attempt" : "Timer paused — starts on your first input"}
+                >
+                  {formatAttemptTime(timer.elapsedMs)}
+                </span>
+                <span className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-80" title="Best verified time">
+                  Best {timer.bestMs == null ? "—" : formatAttemptTime(timer.bestMs)}
+                </span>
+                <button
+                  onClick={() => { void resetAttempt(); }}
+                  className="rounded-md px-2 py-1 text-[11px] font-medium hover:bg-black/5"
+                  style={{ border: `1px solid ${palette.chromeBorder}` }}
+                  title="Start a new attempt — clears the board and the clock, keeps your marks and best time"
+                >
+                  Reset
+                </button>
+              </div>
+            )}
 
             {/* Zoom controls */}
             <div className="inline-flex items-center gap-0.5 rounded-md" style={{ background: palette.hoverBg }}>
