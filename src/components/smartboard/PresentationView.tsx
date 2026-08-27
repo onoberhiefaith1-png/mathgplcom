@@ -5714,10 +5714,8 @@ const PresentationView = ({
         className="relative z-10 h-full w-full overflow-x-hidden overflow-y-auto overscroll-contain"
         style={{
           paddingTop: 24,
-          // Reserve only the COLLAPSED bottom-tab height. Expanding the
-          // Writing Lab no longer reflows the canvas — the panel floats
-          // above as an overlay (see BottomPanel mount below).
-          paddingBottom: 24 + TAB_HEIGHT,
+          // No bottom panel or tab; the canvas fills to the edge.
+          paddingBottom: 24,
           paddingRight: 0,
           cursor: eraseMode ? "cell" : undefined,
           // Touch devices: a finger on the board writes/erases instead of
@@ -6172,7 +6170,7 @@ const PresentationView = ({
             // first activated. Clamped inside the band / above the last line.
             const host = boardScrollRef.current;
             const visH = viewportH || host?.clientHeight || 0;
-            const padBot = 24 + (panelOpen ? PANEL_HEIGHT : TAB_HEIGHT);
+            const padBot = 24;
             const upperBound = Math.max(finalLineBottomPx + 8, bandTopPx + 8);
             let defaultY = bandDefaultY;
             if (host && visH > 0) {
@@ -6428,7 +6426,7 @@ const PresentationView = ({
                     })
                   }
                   leftPx={grid.MARGIN_LEFT + 8}
-                  viewportBottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
+                  viewportBottomInset={0}
                   onPing={pingAssistant}
                   beatId={beatKey}
                   lineNumber={hasGuidedLines ? counterNumber : undefined}
@@ -6800,7 +6798,7 @@ const PresentationView = ({
         const HOME_LEFT = 12;
         // Stack above the bottom-left Floating Numbers AssistantButton so the
         // eraser never sits under (or near) any right-edge control.
-        const HOME_BOTTOM = (panelOpen ? PANEL_HEIGHT : TAB_HEIGHT) + 12 + 52;
+        const HOME_BOTTOM = 12 + 52;
         const wiping = !!eraserDrag;
         // Convert viewport pointer coords to Smartboard-pane-local coords.
         // The pane has `transform: translateZ(0)`, so any `position: fixed`
@@ -7075,7 +7073,7 @@ const PresentationView = ({
           chromeFg={palette.chromeFg}
           chromeBorder={palette.chromeBorder}
           ink={ink}
-          bottomInset={panelOpen ? PANEL_HEIGHT : TAB_HEIGHT}
+          bottomInset={0}
           liftRightBottom={hasGuidedLines ? 64 : 0}
         />
       )}
@@ -7117,18 +7115,6 @@ const PresentationView = ({
 
 
 
-      {canEdit && (
-        <BottomPanel
-          open={panelOpen}
-          onToggle={() => setPanelOpen((v) => !v)}
-          onInsertChar={insertCharAtSensor}
-          onInsertNode={insertNodeAtSensor}
-          chromeBg={palette.chromeBg}
-          chromeFg={palette.chromeFg}
-          chromeBorder={palette.chromeBorder}
-          isDark={isDark}
-        />
-      )}
 
       {/* Permanent Sensor Controller (D-pad). Visible whenever the
           Floating Number workspace is active. Only moves the sensor. */}
@@ -7146,7 +7132,7 @@ const PresentationView = ({
           canDown={canCursorDown}
           canLeft={canCursorLeft}
           canRight={canCursorRight}
-          bottomPx={(panelOpen ? PANEL_HEIGHT : TAB_HEIGHT) + 16}
+          bottomPx={16}
         />
       )}
 
