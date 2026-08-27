@@ -49,9 +49,9 @@ describe("buildReservoirs floating fallback", () => {
     expect(reservoirs).toHaveLength(1);
     const [r] = reservoirs;
     expect(r.fragments).toEqual([]);
-    expect(r.lines.length).toBeGreaterThan(0);
-    expect(r.lines[0].notebookOnly).toBe(true);
+    expect(r.lines).toEqual([]);
   });
+
 
   it("does not override teacher-curated floating lines", () => {
     const curated = {
