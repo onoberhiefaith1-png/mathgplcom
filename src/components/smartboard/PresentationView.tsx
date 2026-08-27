@@ -1966,6 +1966,16 @@ const PresentationView = ({
   const placeholderColor = resolvePlaceholderColor(placeholderColorId, surface);
   const current = beatCursor >= 0 ? beats[beatCursor] : undefined;
   const revealed = beatCursor >= 0 ? beats.slice(0, beatCursor + 1) : [];
+
+  // ── Timer attempt layer (optional, teacher-enabled, per question) ────────
+  // A SECOND temporary layer. It never grades and never writes progress.
+  const timer = useQuestionTimerAttempt({
+    enabled: !!timerEnabled && assessmentMode && !testMode && role === "student" && !viewOnly,
+    assessmentId,
+    studentId: boardStudentId,
+    questionId: boardQuestionId ?? current?.id ?? null,
+  });
+
   const phase = getPhase(current);
   const caps = phaseCapabilities(phase);
   const floatingVisible = !!current && beatNeedsFloatingMath(current) && caps.showFloatingMath;
