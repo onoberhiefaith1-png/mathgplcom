@@ -1,78 +1,23 @@
--- Broadcast entries can carry meeting links and passwords, so anonymous
--- audience links must never be able to read that column straight off the row.
-revoke select on public.sessions from anon;
-revoke select on public.sessions from authenticated;
+-- Session rows carry the private join code and the broadcasts column (meeting
+-- links and credentials). Anonymous visitors and unrelated signed-in users must
+-- never read those straight off the table: public/guest access goes only
+-- through the sanitising `live_public_session` function.
 
-grant select (
-  id,
-  owner_id,
-  class_id,
-  notebook_id,
-  title,
-  description,
-  starts_at,
-  duration_minutes,
-  time_zone,
-  visibility,
-  status,
-  created_at,
-  updated_at,
-  ask_participant_name
-) on public.sessions to anon;
-
-grant select (
-  id,
-  owner_id,
-  class_id,
-  notebook_id,
-  title,
-  description,
-  starts_at,
-  duration_minutes,
-  time_zone,
-  visibility,
-  status,
-  created_at,
-  updated_at,
-  ask_participant_name
-) on public.sessions to authenticated;
-
--- Public discovery policies can still expose only the safe columns above;
--- they can no longer be used to request broadcasts or the private join code.
+-- 1. Anonymous audience links no longer read the base table at all.
 drop policy if exists "Audience links read open sessions" on public.sessions;
+revoke select on public.sessions from anon;
 
--- Audience members get the broadcast details only once the session is open
--- (no scheduled start, or the start time has passed). Owners always see them.
-create or replace function public.live_session_broadcasts(_session_id uuid)
-returns jsonb
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select case
-    when s.owner_id = auth.uid() then coalesce(s.broadcasts, '[]'::jsonb)
-    when (s.starts_at is null or now() >= s.starts_at)
-      and (
-        public.is_class_member(s.class_id)
-        or (
-          s.visibility = 'public'
-          and s.status = any (array['published', 'live', 'ended'])
-        )
-      )
-      then coalesce(s.broadcasts, '[]'::jsonb)
-    else '[]'::jsonb
-  end
-  from public.sessions s
-  where s.id = _session_id
-    and (
-      s.owner_id = auth.uid()
-      or public.is_class_member(s.class_id)
-      or (
-        s.visibility = 'public'
-        and s.status = any (array['published', 'live', 'ended'])
-      )
-    )
-$$;
+-- 2. Signed-in access is scoped to the room's owner and its class members;
+--    being signed in is no longer enough to read another teacher's room.
+drop policy if exists "Anyone signed in can view public published sessions" on public.sessions;
 
-grant execute on function public.live_session_broadcasts(uuid) to anon, authenticated;
+create policy "Owners and class members read sessions"
+on public.sessions
+for select
+to authenticated
+using (
+  owner_id = auth.uid()
+  or public.is_class_member(class_id)
+);
+
+grant select on public.sessions to authenticated;
