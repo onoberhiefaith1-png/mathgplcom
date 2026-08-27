@@ -83,7 +83,6 @@ import { Route as AdminUsageRevenueIndexRouteImport } from './routes/admin/usage
 import { Route as AdminWebsiteIndexRouteImport } from './routes/admin/website/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
-import { Route as ApiPublicHdbgRouteImport } from './routes/api/public/hdbg'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
 import { Route as CSlugIndexRouteImport } from './routes/c/$slug/index'
@@ -660,11 +659,6 @@ const AdventureGamesIndexRoute = AdventureGamesIndexRouteImport.update({
 const AgeRangeIndexRoute = AgeRangeIndexRouteImport.update({
   id: '/age/$range/',
   path: '/age/$range/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHdbgRoute = ApiPublicHdbgRouteImport.update({
-  id: '/api/public/hdbg',
-  path: '/api/public/hdbg',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
@@ -1888,7 +1882,6 @@ export interface FileRoutesByFullPath {
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
-  '/api/public/hdbg': typeof ApiPublicHdbgRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
@@ -2158,7 +2151,6 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
-  '/api/public/hdbg': typeof ApiPublicHdbgRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
@@ -2440,7 +2432,6 @@ export interface FileRoutesById {
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
-  '/api/public/hdbg': typeof ApiPublicHdbgRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
@@ -2723,7 +2714,6 @@ export interface FileRouteTypes {
     | '/terms/'
     | '/.lovable/oauth/consent'
     | '/admin/integrity/$segment'
-    | '/api/public/hdbg'
     | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
@@ -2993,7 +2983,6 @@ export interface FileRouteTypes {
     | '/terms'
     | '/.lovable/oauth/consent'
     | '/admin/integrity/$segment'
-    | '/api/public/hdbg'
     | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
@@ -3274,7 +3263,6 @@ export interface FileRouteTypes {
     | '/terms/'
     | '/.lovable/oauth/consent'
     | '/admin/integrity/$segment'
-    | '/api/public/hdbg'
     | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
@@ -3544,7 +3532,6 @@ export interface RootRouteChildren {
   SupportIndexRoute: typeof SupportIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
-  ApiPublicHdbgRoute: typeof ApiPublicHdbgRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
@@ -4147,13 +4134,6 @@ declare module '@tanstack/react-router' {
       path: '/age/$range'
       fullPath: '/age/$range/'
       preLoaderRoute: typeof AgeRangeIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hdbg': {
-      id: '/api/public/hdbg'
-      path: '/api/public/hdbg'
-      fullPath: '/api/public/hdbg'
-      preLoaderRoute: typeof ApiPublicHdbgRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/health': {
@@ -6111,7 +6091,6 @@ const rootRouteChildren: RootRouteChildren = {
   SupportIndexRoute: SupportIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
-  ApiPublicHdbgRoute: ApiPublicHdbgRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
