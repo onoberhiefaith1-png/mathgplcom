@@ -570,15 +570,6 @@ const PresentationView = ({
   // Review Properties: the diagram already on this board plus its selection.
   const review = useReviewProperties();
   const [railOpen, setRailOpen] = useState(false);
-  const [panelOpen, setPanelOpen] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try { return window.localStorage.getItem("smartboard:bottomPanelOpen") === "1"; }
-    catch { return false; }
-  });
-  useEffect(() => {
-    try { window.localStorage.setItem("smartboard:bottomPanelOpen", panelOpen ? "1" : "0"); }
-    catch { /* noop */ }
-  }, [panelOpen]);
   const [eraseMode, setEraseMode] = useState(false);
   const isErasingRef = useRef(false);
   // Left-rail (undo/redo) auto-hide: invisible by default, revealed on
