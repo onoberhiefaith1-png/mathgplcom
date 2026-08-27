@@ -130,6 +130,43 @@ const TeacherAssessmentViewerPage = () => {
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, assessmentId, studentId]);
 
+  // ── Join Live must connect to the session the student ALREADY has open.
+  // Because the dashboard's "In Progress" covers the whole card, the student
+  // may be live on a sibling assessment; if so, hop straight to it instead of
+  // waiting forever on an empty room. ──────────────────────────────────────
+  useEffect(() => {
+    if (mode !== "live" || !classId || !assessmentId || !studentId) return;
+    const others = siblingIds.filter((id) => id !== assessmentId);
+    if (others.length === 0) return;
+    let cancelled = false;
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      for (const id of others) {
+        const ch = supabase.channel(assessmentPresenceTopic(classId, id), {
+          config: { presence: { key: `viewer-${id}` } },
+        });
+        const read = () => {
+          if (cancelled) return;
+          const state = ch.presenceState() as Record<string, unknown[]>;
+          if ((state[studentId] ?? []).length === 0) return;
+          cancelled = true;
+          navigate(
+            `${classRoot()}/${classId}/assessments/${id}/student/${studentId}?mode=live&returnTo=${encodeURIComponent(returnTo)}`,
+            { replace: true },
+          );
+        };
+        ch.on("presence", { event: "sync" }, read)
+          .on("presence", { event: "join" }, read)
+          .subscribe(async (status) => { if (status === "SUBSCRIBED") { await ch.track({ role: "viewer" }); read(); } });
+        channels.push(ch);
+      }
+    });
+    return () => { cancelled = true; for (const ch of channels) supabase.removeChannel(ch); };
+  }, [mode, classId, assessmentId, studentId, siblingIds, navigate, returnTo]);
+
+
+
 
 
   // Broadcast frames also prove the student is live even when presence lags.
