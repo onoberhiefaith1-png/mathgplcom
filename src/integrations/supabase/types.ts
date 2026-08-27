@@ -5699,6 +5699,7 @@ export type Database = {
           owner_id: string
           schedule_days: number[]
           schedule_time: string | null
+          schedule_times: Json
           session_code: string
           starts_at: string | null
           status: string
@@ -5722,6 +5723,7 @@ export type Database = {
           owner_id: string
           schedule_days?: number[]
           schedule_time?: string | null
+          schedule_times?: Json
           session_code: string
           starts_at?: string | null
           status?: string
@@ -5745,6 +5747,7 @@ export type Database = {
           owner_id?: string
           schedule_days?: number[]
           schedule_time?: string | null
+          schedule_times?: Json
           session_code?: string
           starts_at?: string | null
           status?: string
@@ -7225,10 +7228,6 @@ export type Database = {
       issue_account_id_for_email: { Args: { _email: string }; Returns: string }
       join_class_with_code: { Args: { code: string }; Returns: Json }
       join_org_with_invite: { Args: { _code: string }; Returns: string }
-      live_admitted_broadcast_credentials: {
-        Args: { _guest_token: string; _session_id: string }
-        Returns: Json
-      }
       live_entry_status: {
         Args: { _guest_token: string; _session_id: string }
         Returns: string
@@ -7286,8 +7285,12 @@ export type Database = {
           notebook_id: string
           schedule_days: number[]
           schedule_time: string
+          schedule_times: Json
           starts_at: string
           status: string
+          subject: string
+          subtopic: string
+          teacher_name: string
           time_zone: string
           title: string
         }[]

@@ -1,5 +1,25 @@
 import { supabase } from "@/integrations/supabase/client";
 import { BroadcastEntry, normalizeBroadcasts, parseBroadcasts } from "@/lib/live/broadcast";
+import {
+  ScheduleEntry,
+  ScheduleTimes,
+  formatNextLesson as formatNextLessonOf,
+  formatSchedule,
+  hydrateScheduleTimes,
+  nextOccurrence,
+  scheduleEntries,
+} from "@/lib/live/schedule";
+
+export {
+  dayName,
+  formatClockTime,
+  formatSchedule,
+  nextOccurrence,
+  scheduleEntries,
+  WEEK_ORDER,
+} from "@/lib/live/schedule";
+export type { ScheduleEntry, ScheduleTimes } from "@/lib/live/schedule";
+
 
 export type SessionVisibility = "private" | "public";
 export type SessionStatus = "draft" | "published" | "live" | "ended";
@@ -25,8 +45,11 @@ export type LiveSession = {
   allow_free_entry: boolean;
   /** Recurring teaching days, 0 = Sunday … 6 = Saturday. Informational. */
   schedule_days: number[];
-  /** Recurring teaching time as "HH:MM" in `time_zone`. Informational. */
+  /** Legacy single time, kept only as a read fallback for old rows. */
   schedule_time: string | null;
+  /** Each teaching day's own time: { "1": "16:00", "4": "18:00" }. */
+  schedule_times: ScheduleTimes;
+
   /** True only while the teacher is actually teaching. Never time-derived. */
   is_live: boolean;
   live_started_at: string | null;
@@ -98,33 +121,40 @@ const toDays = (value: unknown): number[] =>
     : [];
 
 /** Rows come back with `broadcasts` as raw jsonb — normalise on read. */
-export const hydrateSession = (row: Record<string, unknown>): LiveSession => ({
-  ...(row as unknown as LiveSession),
-  broadcasts: parseBroadcasts(row.broadcasts),
-  ask_participant_name: Boolean(row.ask_participant_name),
-  allow_free_entry: row.allow_free_entry === undefined ? true : Boolean(row.allow_free_entry),
-  session_code: typeof row.session_code === "string" ? row.session_code : "",
-  schedule_days: toDays(row.schedule_days),
-  schedule_time: typeof row.schedule_time === "string" ? row.schedule_time : null,
-  is_live: Boolean(row.is_live),
-  live_started_at: typeof row.live_started_at === "string" ? row.live_started_at : null,
-});
+export const hydrateSession = (row: Record<string, unknown>): LiveSession => {
+  const days = toDays(row.schedule_days);
+  const legacyTime = typeof row.schedule_time === "string" ? row.schedule_time : null;
+  return {
+    ...(row as unknown as LiveSession),
+    broadcasts: parseBroadcasts(row.broadcasts),
+    ask_participant_name: Boolean(row.ask_participant_name),
+    allow_free_entry: row.allow_free_entry === undefined ? true : Boolean(row.allow_free_entry),
+    session_code: typeof row.session_code === "string" ? row.session_code : "",
+    schedule_days: days,
+    schedule_time: legacyTime,
+    schedule_times: hydrateScheduleTimes(row.schedule_times, days, legacyTime),
+    is_live: Boolean(row.is_live),
+    live_started_at: typeof row.live_started_at === "string" ? row.live_started_at : null,
+  };
+};
 
 /* ------------------------------------------------------------------ *
  * Persistent room state
  *
- * A Live Session is a teaching room that exists until the teacher deletes it.
- * The clock never ends it: LIVE comes from the teacher's own switch, and the
- * recurring schedule is only ever displayed.
+ * A Live room exists until the teacher deletes it. The clock never ends it:
+ * LIVE comes from the teacher's own Start teaching switch, and the recurring
+ * per-day schedule is only ever displayed.
  * ------------------------------------------------------------------ */
 
 export type RoomState = "live" | "scheduled" | "open";
 
-export type RoomSchedule = Pick<LiveSession, "schedule_days" | "schedule_time" | "is_live">;
+export type RoomSchedule = Pick<LiveSession, "schedule_days" | "schedule_times" | "is_live">;
 
 export const roomStateOf = (session: RoomSchedule): RoomState => {
   if (session.is_live) return "live";
-  return session.schedule_days.length > 0 && session.schedule_time ? "scheduled" : "open";
+  return scheduleEntries(session.schedule_days, session.schedule_times).length > 0
+    ? "scheduled"
+    : "open";
 };
 
 export const roomLabel: Record<RoomState, string> = {
@@ -139,61 +169,21 @@ export const roomTone: Record<RoomState, string> = {
   open: "border-border bg-muted/40 text-muted-foreground",
 };
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+/** "Monday 4:00 PM · Thursday 6:00 PM" for one room. */
+export const formatRoomSchedule = (session: RoomSchedule): string =>
+  formatSchedule(session.schedule_days, session.schedule_times);
 
-export const dayName = (day: number): string => DAY_NAMES[((day % 7) + 7) % 7];
+export const roomScheduleEntries = (session: RoomSchedule): ScheduleEntry[] =>
+  scheduleEntries(session.schedule_days, session.schedule_times);
 
-/** "17:30" → "5:30 PM" */
-export const formatClockTime = (time: string | null): string => {
-  if (!time) return "";
-  const [h, m] = time.split(":").map((n) => Number(n));
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return time;
-  const suffix = h < 12 ? "AM" : "PM";
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
-};
+/** "Thursday · 6:00 PM" for the next lesson, or "" when unscheduled. */
+export const formatNextLesson = (session: RoomSchedule, now: Date = new Date()): string =>
+  formatNextLessonOf(session.schedule_days, session.schedule_times, now);
 
-/** "Every Tuesday · 5:00 PM" / "Mondays & Thursdays · 4:00 PM" */
-export const formatRecurring = (days: number[], time: string | null): string => {
-  const sorted = Array.from(new Set(days)).sort((a, b) => a - b);
-  if (sorted.length === 0 || !time) return "Schedule not set";
-  const clock = formatClockTime(time);
-  if (sorted.length === 7) return `Every day · ${clock}`;
-  if (sorted.length === 1) return `Every ${dayName(sorted[0])} · ${clock}`;
-  const names = sorted.map((d) => `${dayName(d)}s`);
-  const last = names.pop() as string;
-  return `${names.join(", ")} & ${last} · ${clock}`;
-};
+/** The next lesson start, honouring each day's own time. Never an expiry. */
+export const nextRoomLesson = (session: RoomSchedule, now: Date = new Date()): Date | null =>
+  nextOccurrence(session.schedule_days, session.schedule_times, now)?.at ?? null;
 
-/**
- * The next time this room's lesson normally begins. Purely informational — it
- * never expires and never blocks anything.
- */
-export const nextOccurrence = (
-  days: number[],
-  time: string | null,
-  now: Date = new Date(),
-): Date | null => {
-  const sorted = Array.from(new Set(days)).sort((a, b) => a - b);
-  if (sorted.length === 0 || !time) return null;
-  const [h, m] = time.split(":").map((n) => Number(n));
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-
-  for (let ahead = 0; ahead <= 7; ahead++) {
-    const candidate = new Date(now);
-    candidate.setDate(candidate.getDate() + ahead);
-    candidate.setHours(h, m, 0, 0);
-    if (sorted.includes(candidate.getDay()) && candidate.getTime() > now.getTime()) return candidate;
-  }
-  return null;
-};
-
-/** "Tuesday · 5:00 PM" for the next lesson, or "" when unscheduled. */
-export const formatNextLesson = (session: RoomSchedule, now: Date = new Date()): string => {
-  const next = nextOccurrence(session.schedule_days, session.schedule_time, now);
-  if (!next) return "";
-  return `${dayName(next.getDay())} · ${formatClockTime(session.schedule_time)}`;
-};
 
 /** "2 Hours 35 Minutes 18 Seconds" — verbose countdown for the hero area. */
 export const formatCountdownLong = (ms: number): string => {
