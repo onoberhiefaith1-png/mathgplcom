@@ -1,0 +1,39 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .gone { stroke: hsl(var(--border)); stroke-width: 1; fill: none; stroke-dasharray: 4 3; }
+    .acc { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="40" width="180" height="96" rx="8"/>
+  <text class="lbl" x="32" y="66">Smart Card page</text>
+  <text class="mono" x="32" y="86">/c/&lt;slug&gt;</text>
+  <rect class="acc" x="32" y="98" width="148" height="24" rx="12"/>
+  <text class="note" x="42" y="114">Playing as: User 1  ✎</text>
+
+  <line class="wire" x1="196" y1="88" x2="266" y2="88" marker-end="url(#a)"/>
+  <text class="note" x="200" y="78">Start</text>
+
+  <rect class="box" x="272" y="40" width="160" height="96" rx="8"/>
+  <text class="lbl" x="288" y="66">Smart Board</text>
+  <text class="note" x="288" y="86">solve · mark · time</text>
+  <text class="note" x="288" y="106">name editable in top bar</text>
+
+  <path class="wire" d="M352 136 C352 176 200 176 106 150" marker-end="url(#a)"/>
+  <text class="note" x="196" y="172">Back to Smart Card</text>
+
+  <rect class="gone" x="464" y="40" width="160" height="96" rx="8"/>
+  <text class="note" x="480" y="72">removed</text>
+  <text class="note" x="480" y="92">sign-in / role choice</text>
+  <text class="note" x="480" y="112">“Choose a username” wall</text>
+</svg>
