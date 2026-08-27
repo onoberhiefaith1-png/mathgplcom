@@ -6,27 +6,9 @@
  * "Access denied". Everything shareable is built through here.
  */
 
-/** The public site — never a development/preview host. */
-export const PUBLIC_SITE = "https://mathgpl.com";
+import { PUBLIC_SITE, publicOrigin } from "@/lib/public/publicSite";
 
-/**
- * Hosts that are private by design.
- */
-const isPrivateHost = (host: string) =>
-  host === "localhost" ||
-  host.endsWith(".localhost") ||
-  host === "127.0.0.1" ||
-  host.endsWith(".lovableproject.com") ||
-  host.endsWith(".lovable.dev") ||
-  host.endsWith(".sandbox.lovable.dev") ||
-  host.includes("preview--") ||
-  host.includes("id-preview");
-
-export const publicOrigin = (): string => {
-  if (typeof window === "undefined") return PUBLIC_SITE;
-  const { origin, hostname } = window.location;
-  return isPrivateHost(hostname) ? PUBLIC_SITE : origin;
-};
+export { PUBLIC_SITE, publicOrigin };
 
 /** The one shareable MathGPL Live entry link: the code is the credential. */
 export const joinUrl = (code: string): string =>
