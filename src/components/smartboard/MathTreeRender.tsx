@@ -211,7 +211,12 @@ interface NodeProps extends Common {
   idxInRow: number;
 }
 
-/** Tap zone on the right edge of every container → pops cursor *out* of it. */
+/** Tap zone on the right edge of every container → pops cursor *out* of it.
+ *  It keeps a small 0.35em layout footprint (so structures never touch) but
+ *  carries a wider, absolutely-positioned hit area that overlays the
+ *  neighbouring gap. That makes "the insertion point immediately after this
+ *  structure" easy to hit with a finger or the sensor, without changing the
+ *  visible geometry of the maths. */
 const RightEscape = ({
   parentPath, idxInRow, onCursorChange,
 }: { parentPath: number[]; idxInRow: number; onCursorChange: (c: Cursor) => void }) => (
@@ -223,11 +228,26 @@ const RightEscape = ({
       display: "inline-block",
       width: "0.35em",
       alignSelf: "stretch",
+      position: "relative",
       cursor: "text",
+      zIndex: 2,
     }}
     aria-hidden
-  />
+  >
+    <span
+      aria-hidden
+      style={{
+        position: "absolute",
+        left: "-0.1em",
+        right: "-0.45em",
+        top: "-0.15em",
+        bottom: "-0.15em",
+        cursor: "text",
+      }}
+    />
+  </span>
 );
+
 
 /* ─────────── container subcomponents (own their own hooks) ─────────── */
 
