@@ -5693,8 +5693,12 @@ export type Database = {
           description: string | null
           duration_minutes: number
           id: string
+          is_live: boolean
+          live_started_at: string | null
           notebook_id: string | null
           owner_id: string
+          schedule_days: number[]
+          schedule_time: string | null
           session_code: string
           starts_at: string | null
           status: string
@@ -5712,8 +5716,12 @@ export type Database = {
           description?: string | null
           duration_minutes?: number
           id?: string
+          is_live?: boolean
+          live_started_at?: string | null
           notebook_id?: string | null
           owner_id: string
+          schedule_days?: number[]
+          schedule_time?: string | null
           session_code: string
           starts_at?: string | null
           status?: string
@@ -5731,8 +5739,12 @@ export type Database = {
           description?: string | null
           duration_minutes?: number
           id?: string
+          is_live?: boolean
+          live_started_at?: string | null
           notebook_id?: string | null
           owner_id?: string
+          schedule_days?: number[]
+          schedule_time?: string | null
           session_code?: string
           starts_at?: string | null
           status?: string
