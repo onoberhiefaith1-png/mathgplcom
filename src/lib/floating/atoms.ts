@@ -300,7 +300,7 @@ class Parser {
       return body;
     }
     if (this.i < this.s.length) {
-      const c = this.s[this.i]; this.i++; return c;
+      const c = graphemeAt(this.s, this.i); this.i += c.length; return c;
     }
     return "";
   }
