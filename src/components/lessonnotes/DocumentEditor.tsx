@@ -1913,9 +1913,13 @@ function DocumentEditorInner({
   // `renderMathInline` — the AI Edit renderer. Legacy notes fragmented into
   // many atoms heal themselves here, so no seam-gaps and no raw markup.
   const normalizedDoc = useMemo(
-    () => repairDocumentMath(sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC).doc,
+    () =>
+      reconcileSolutionOwnership(
+        repairDocumentMath(sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC).doc,
+      ).doc,
     [documentJson],
   );
+
 
   const [atState, setAtState] = useState<AtCommandState>({ active: false, query: "", from: 0, to: 0, coords: null });
 
