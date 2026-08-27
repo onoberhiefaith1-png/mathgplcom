@@ -19,6 +19,12 @@ import { useGameTimeBar } from "@/hooks/useGameTimeBar";
 
 type Meta = AssessmentLike & { due_at: string | null };
 
+type TimerSettings = { timer_enabled: boolean; opens_at: string | null; closes_at: string | null };
+
+// Timer columns ship with this change, so the generated types don't know them.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as unknown as { from: (t: string) => any };
+
 const AssessmentBoardPage = () => {
   const { classId, assessmentId } = useParams<{ classId: string; assessmentId: string }>();
   const navigate = useNavigate();
@@ -33,6 +39,9 @@ const AssessmentBoardPage = () => {
   const [assessment, setAssessment] = useState<Meta | null>(null);
   const [status, setStatus] = useState<string>("in_progress");
   const [uid, setUid] = useState<string | null>(null);
+  const [timerSettings, setTimerSettings] = useState<TimerSettings>({
+    timer_enabled: false, opens_at: null, closes_at: null,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +83,19 @@ const AssessmentBoardPage = () => {
         .eq("student_id", userData.user.id)
         .maybeSingle();
       setStatus(prog?.status ?? "in_progress");
+
+      const { data: t } = await db
+        .from("assessments")
+        .select("timer_enabled, opens_at, closes_at")
+        .eq("id", assessmentId)
+        .maybeSingle();
+      if (!cancelled && t) {
+        setTimerSettings({
+          timer_enabled: !!t.timer_enabled,
+          opens_at: t.opens_at ?? null,
+          closes_at: t.closes_at ?? null,
+        });
+      }
 
       setAssessment(a as unknown as Meta);
       setLoading(false);
@@ -143,7 +165,10 @@ const AssessmentBoardPage = () => {
 
 
 
-  const isPastDue = !!assessment?.due_at && new Date(assessment.due_at).getTime() <= Date.now();
+  const now = Date.now();
+  const notOpenYet = !!timerSettings.opens_at && new Date(timerSettings.opens_at).getTime() > now;
+  const isClosed = !!timerSettings.closes_at && new Date(timerSettings.closes_at).getTime() <= now;
+  const isPastDue = (!!assessment?.due_at && new Date(assessment.due_at).getTime() <= Date.now()) || isClosed;
   const isAdventure = openedFrom === "adventure" || !!gameId;
 
   const timeBar = useGameTimeBar(gameId);
@@ -190,6 +215,17 @@ const AssessmentBoardPage = () => {
     );
   }
 
+  if (notOpenYet) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-background px-6 text-center text-muted-foreground">
+        <div className="text-lg font-semibold text-foreground">This assignment isn't open yet</div>
+        <div className="text-sm">
+          It opens on {new Date(timerSettings.opens_at!).toLocaleString()}.
+        </div>
+      </div>
+    );
+  }
+
   const showSubmit = !isPastDue && !isAdventure && !timeExpired;
   const readOnly = isPastDue || timeExpired;
 
@@ -221,6 +257,7 @@ const AssessmentBoardPage = () => {
         boardStudentId={uid}
         boardQuestionId={questionId}
         viewOnly={readOnly}
+        timerEnabled={timerSettings.timer_enabled}
       />
 
 
