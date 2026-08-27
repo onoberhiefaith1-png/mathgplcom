@@ -3935,6 +3935,24 @@ const PresentationView = ({
       });
       if (error) {
         if (mode === "manual") throw error;
+        // AN AUTOMATIC EVALUATION ALWAYS REPORTS AN OUTCOME. Going silent here
+        // leaves the teacher's Evaluation panel spinning forever, so a failure
+        // is broadcast as such; the retry still runs and replaces it with the
+        // real verdict.
+        broadcastCheckResultRef.current?.({
+          questionId: current.id,
+          lineId: target.lineId ?? "",
+          mode,
+          correct: false,
+          verdict: "error",
+          diagnosis: {
+            code: "error",
+            label: "Could not evaluate",
+            detail: "The marking engine did not answer. Retrying.",
+          },
+          marks: 0,
+          studentAscii: ascii,
+        });
         return false;
       }
       const res = data as {
