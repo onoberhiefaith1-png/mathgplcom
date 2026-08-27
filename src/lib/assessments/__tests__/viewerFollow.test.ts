@@ -13,19 +13,26 @@ describe("resolveViewerQuestionId", () => {
     ).toBe("q3");
   });
 
-  it("live mode: falls back to the last persisted question when the student is offline", () => {
+  it("live mode: uses the question the student reports through presence before the first frame", () => {
     expect(
       resolveViewerQuestionId({
         mode: "live",
         liveQuestionId: null,
-        lastPersistedQuestionId: "q2",
+        presenceQuestionId: "q1",
+        lastPersistedQuestionId: "q3",
         firstQuestionId: "q1",
       }),
-    ).toBe("q2");
+    ).toBe("q1");
   });
 
-  it("live mode: never lands on nothing", () => {
-    expect(resolveViewerQuestionId({ mode: "live", firstQuestionId: "q1" })).toBe("q1");
+  it("live mode: never falls back to the last saved question", () => {
+    expect(
+      resolveViewerQuestionId({
+        mode: "live",
+        lastPersistedQuestionId: "q3",
+        firstQuestionId: "q1",
+      }),
+    ).toBeNull();
   });
 
   it("work mode: ignores the live question and uses the teacher's pick", () => {
