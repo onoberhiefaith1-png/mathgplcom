@@ -136,7 +136,9 @@ const TeacherAssessmentViewerPage = () => {
   // waiting forever on an empty room. ──────────────────────────────────────
   useEffect(() => {
     if (mode !== "live" || !classId || !assessmentId || !studentId) return;
+    if (studentOnline) return; // already in the right room
     const others = siblingIds.filter((id) => id !== assessmentId);
+
     if (others.length === 0) return;
     let cancelled = false;
     const channels: ReturnType<typeof supabase.channel>[] = [];
