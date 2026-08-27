@@ -92,18 +92,27 @@ const TeacherAssessmentViewerPage = () => {
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [assessmentId, studentId]);
 
-  // ── Presence — is the student on the board right now? Drives the indicator
-  // and the default mode on first load. ────────────────────────────────────
+  // ── Presence — is the student on the board right now, and which question is
+  // open? The student tracks `questionId` in their presence record, so the
+  // teacher knows the student's question the instant they join, before the
+  // first board frame arrives. ─────────────────────────────────────────────
   useEffect(() => {
     if (!classId || !assessmentId || !studentId) return;
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
     const read = () => {
       if (!ch) return;
-      const state = ch.presenceState() as Record<string, unknown[]>;
-      const online = Object.keys(state).includes(studentId);
-      if (!cancelled) setStudentOnline(online);
-      if (!cancelled && online && !modeChosenRef.current) {
+      const state = ch.presenceState() as Record<string, Array<Record<string, unknown>>>;
+      const metas = state[studentId] ?? [];
+      const online = metas.length > 0;
+      if (cancelled) return;
+      setStudentOnline(online);
+      const qid = metas
+        .map((m) => (typeof m["questionId"] === "string" ? (m["questionId"] as string) : null))
+        .filter(Boolean)
+        .pop() ?? null;
+      if (qid) setPresenceQuestionId((prev) => (prev === qid ? prev : qid));
+      if (online && !modeChosenRef.current) {
         modeChosenRef.current = true;
         setMode("live");
       }
@@ -118,6 +127,8 @@ const TeacherAssessmentViewerPage = () => {
     });
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
   }, [classId, assessmentId, studentId]);
+
+
 
   // Broadcast frames also prove the student is live even when presence lags.
   const liveFeedFresh = studentOnline || Date.now() - lastFrameAt < 8000;
