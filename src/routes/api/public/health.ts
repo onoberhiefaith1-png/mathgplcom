@@ -115,7 +115,9 @@ export const Route = createFileRoute("/api/public/health")({
             })),
           }),
           {
-            status: status === "critical" ? 503 : 200,
+            // Always 200: this endpoint reports on other services and must not
+            // itself look like a failing page. Read `status` in the body.
+            status: 200,
             headers: {
               "content-type": "application/json; charset=utf-8",
               "cache-control": "no-store",
