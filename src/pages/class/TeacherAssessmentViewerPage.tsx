@@ -165,7 +165,7 @@ const TeacherAssessmentViewerPage = () => {
       }
     });
     return () => { cancelled = true; for (const ch of channels) supabase.removeChannel(ch); };
-  }, [mode, classId, assessmentId, studentId, siblingIds, navigate, returnTo]);
+  }, [mode, studentOnline, classId, assessmentId, studentId, siblingIds, navigate, returnTo]);
 
 
 
