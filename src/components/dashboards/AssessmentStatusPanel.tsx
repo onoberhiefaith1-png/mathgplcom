@@ -5,7 +5,7 @@
 // "View Student Work" action.
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Circle, CircleDashed, Radio } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, Radio, Eye, Timer } from "lucide-react";
 
 
 
@@ -19,19 +19,41 @@ export type StudentProgressRow = {
   online: boolean;
 };
 
+/** One question of the assignment card, with each student's best time (ms). */
+export type QuestionEntry = {
+  assessmentId: string;
+  questionId: string;
+  label: string;
+  bestByStudent?: Record<string, number>;
+};
+
 type Bucket = "in_progress" | "completed" | "inactive";
+
+const fmtMs = (ms: number) => {
+  const s = Math.round(ms / 100) / 10;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  return `${m}m ${Math.round(s - m * 60)}s`;
+};
 
 export function AssessmentStatusPanel({
   rows,
   onViewStudent,
   onJoinLive,
+  questions,
+  onViewQuestion,
 }: {
   rows: StudentProgressRow[];
   onViewStudent: (studentId: string) => void;
   /** Open the viewer following the student's board in real time. */
   onJoinLive?: (studentId: string) => void;
+  /** Questions of this assignment card, for per-question saved work. */
+  questions?: QuestionEntry[];
+  /** Open one question's saved work for this student. */
+  onViewQuestion?: (studentId: string, assessmentId: string, questionId: string) => void;
 }) {
   const [active, setActive] = useState<Bucket>("in_progress");
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const buckets = useMemo(() => {
     const inProgress = rows.filter((r) => r.status === "in_progress");
@@ -41,6 +63,8 @@ export function AssessmentStatusPanel({
   }, [rows]);
 
   const visible = buckets[active];
+  const canExpand = !!(questions && questions.length > 0 && onViewQuestion);
+
 
   return (
     <div className="space-y-3">
