@@ -139,6 +139,7 @@ type CheckPayload = {
   diagnosis?: DiagnosisShape;
   marks?: number;
   studentAscii?: string;
+  progress?: { solvedLines: Record<string, number>; score: number };
 };
 type DiagnosisShape = { code: string; label: string; detail: string };
 const verdictLabel = (v: string): string => {
@@ -417,7 +418,11 @@ const TeacherReasoningPanel = ({
           const p = (msg as { payload?: CheckPayload }).payload;
           if (!p || !inScope(p.questionId)) return;
           setLastCheck(p);
-          void refreshProgress();
+          if (p.progress) {
+            setProgress({ solved_lines: p.progress.solvedLines, score: p.progress.score });
+          } else {
+            void refreshProgress();
+          }
         })
         .subscribe();
     });
@@ -438,7 +443,11 @@ const TeacherReasoningPanel = ({
       const p = raw as CheckPayload | null;
       if (!p || !inScope(p.questionId)) return;
       setLastCheck(p);
-      void refreshProgress();
+      if (p.progress) {
+        setProgress({ solved_lines: p.progress.solvedLines, score: p.progress.score });
+      } else {
+        void refreshProgress();
+      }
     });
     return () => { offBoard(); offCheck(); };
   }, [localLive, assessmentId, studentId, refreshProgress, inScope]);
