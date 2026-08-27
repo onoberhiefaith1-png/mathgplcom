@@ -25,6 +25,8 @@ const SmartCardChallengePage = () => {
   const [loading, setLoading] = useState(true);
   const [identity, setIdentity] = useState<CardIdentity | null>(null);
   const [guestName, setGuestName] = useState("");
+  const [renaming, setRenaming] = useState(false);
+
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [percent, setPercent] = useState(0);
   const [qualified, setQualified] = useState(false);
