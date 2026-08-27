@@ -48,7 +48,9 @@ const TeacherAssessmentViewerPage = () => {
   const [pickedQuestionId, setPickedQuestionId] = useState<string | null>(null);
   const [persistedQuestionId, setPersistedQuestionId] = useState<string | null>(null);
   const [studentOnline, setStudentOnline] = useState(false);
+  const [siblingIds, setSiblingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [assessment, setAssessment] = useState<AssessmentLike | null>(null);
   const [studentName, setStudentName] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
