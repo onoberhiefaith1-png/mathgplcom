@@ -17,7 +17,6 @@ import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSou
 import { fetchPublicGameBundle, fetchPublicGameProgress, type PublicGameBundle } from "@/lib/smartcards/publicGame";
 import { ensurePlayerIdentity, pingPresence, type CardIdentity } from "@/lib/smartcards/smartCards";
 import PlayerNameChip from "@/components/public/PlayerNameChip";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
 const SmartCardGamePage = () => {
