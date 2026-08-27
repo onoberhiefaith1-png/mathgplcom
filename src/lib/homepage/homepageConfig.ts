@@ -138,6 +138,7 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUs
   useEffect(() => {
     let alive = true;
     void (async () => {
+      try {
       // A named account's own building: a student entering a school's or a
       // teacher's workspace sees that owner's building, never their own.
       if (ownerUserId) {
@@ -145,14 +146,12 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUs
         if (!alive) return;
         const remote = (data ?? null) as HomepageConfig | null;
         if (remote && typeof remote === "object") apply(remote);
-        setReady(true);
         return;
       }
       if (mode === "platform-free") {
         const remote = await fetchPlatformFreeBuilding();
         if (!alive) return;
         apply(remote);
-        setReady(true);
         return;
       }
       if (mode === "school-readonly") {
@@ -170,14 +169,12 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUs
         if (!alive) return;
         const remote = (data ?? null) as HomepageConfig | null;
         if (remote && typeof remote === "object") apply(remote);
-        setReady(true);
         return;
       }
       const local = readLocal();
       if (alive && Object.keys(local).length > 0) apply(local);
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
-        if (alive) setReady(true);
         return;
       }
       const { data } = await supabase
@@ -191,7 +188,11 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUs
         apply(remote);
         writeLocal(remote);
       }
-      setReady(true);
+      } catch (error) {
+        console.error("homepage configuration failed; using shipped defaults", error);
+      } finally {
+        if (alive) setReady(true);
+      }
     })();
     return () => {
       alive = false;
@@ -268,19 +269,13 @@ export async function ensurePlatformFreeSeeded(): Promise<HomepageConfig> {
   return seed;
 }
 
-// Signed URLs are cached per storage path for the page's lifetime. Without
-// this, every resolve minted a NEW url string, which churned scene state.
-const signedUrlCache = new Map<string, string>();
-
 /** Resolve a media ref to a displayable URL (signed for private storage). */
 export async function resolveMediaUrl(ref?: HomepageMediaRef | null): Promise<string | null> {
   if (!ref?.path) return null;
   if (ref.source === "url") return ref.path;
-  const cached = signedUrlCache.get(ref.path);
-  if (cached) return cached;
-  const url = await getSignedUrl(ref.path);
-  if (url) signedUrlCache.set(ref.path, url);
-  return url;
+  // getSignedUrl owns the TTL-aware cache. A second permanent cache here used
+  // to keep expired one-hour URLs alive for the whole tab session.
+  return getSignedUrl(ref.path);
 }
 
 /** Resolve every slot override to a texture URL usable by the 3D scene. */

@@ -229,20 +229,29 @@ const Showcase = ({
   useEffect(() => {
     let alive = true;
     const loader = new THREE.TextureLoader();
+    const loadTexture = (url: string) =>
+      new Promise<THREE.Texture | null>((resolve) => {
+        loader.load(url, resolve, undefined, () => resolve(null));
+      });
+    const fallbackByUrl = new Map<string, string>();
+    ringUrls.forEach((url, index) => fallbackByUrl.set(url, RING_SLOTS[index]?.defaultUrl ?? url));
+    coreUrls.forEach((url, index) => fallbackByUrl.set(url, CORE_SLOTS[index]?.defaultUrl ?? url));
     void Promise.all(
       uniqueUrls.map(
         (url) =>
           new Promise<[string, THREE.Texture | null]>((resolve) => {
-            loader.load(
-              url,
-              (t) => {
-                t.colorSpace = THREE.SRGBColorSpace;
-                t.anisotropy = 8;
-                resolve([url, t]);
-              },
-              undefined,
-              () => resolve([url, null]),
-            );
+            void (async () => {
+              let texture = await loadTexture(url);
+              if (!texture) texture = await loadTexture(url);
+              const fallbackUrl = fallbackByUrl.get(url);
+              if (!texture && fallbackUrl && fallbackUrl !== url) texture = await loadTexture(fallbackUrl);
+              if (!texture) console.error("homepage building texture failed", url);
+              if (texture) {
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.anisotropy = 8;
+              }
+              resolve([url, texture]);
+            })();
           }),
       ),
     ).then((entries) => {
@@ -272,6 +281,10 @@ const Showcase = ({
   useEffect(() => {
     if (artworkReady) onArtworkReady?.();
   }, [artworkReady, onArtworkReady]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => onArtworkReady?.(), 5_000);
+    return () => window.clearTimeout(timer);
+  }, [onArtworkReady, uniqueUrls]);
 
 
 
@@ -403,10 +416,14 @@ const customBlendStyle = (element: CanvasElement): CSSProperties => {
 const CustomBuilding = ({
   element,
   speed = 1,
+  onReady,
+  onError,
 }: {
   element: NonNullable<ReturnType<typeof useHomepageConfig>["config"]["customBuilding"]>;
   /** Video playback rate — 1 is the building's own natural speed. */
   speed?: number;
+  onReady: () => void;
+  onError: () => void;
 }) => {
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -453,6 +470,8 @@ const CustomBuilding = ({
             playbackRate={rate}
             fit="contain"
             className="h-auto w-full"
+            onLoad={onReady}
+            onError={onError}
           />
         ) : (
           <SignedMedia
@@ -461,6 +480,8 @@ const CustomBuilding = ({
             mediaType={element.mediaType}
             fit="contain"
             className="h-auto w-full"
+            onLoad={onReady}
+            onError={onError}
           />
         )}
       </div>
@@ -497,6 +518,8 @@ export const RotatingAdventureScene = ({
   const gpu = useWebglRecovery("homepage-building");
   const [painted, setPainted] = useState(false);
   const [artworkReady, setArtworkReady] = useState(false);
+  const [customReady, setCustomReady] = useState(false);
+  const [customFailed, setCustomFailed] = useState(false);
   const { config, ready } = useHomepageConfig({ mode: configMode, ...(ownerUserId ? { ownerUserId } : {}) });
 
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
@@ -529,20 +552,25 @@ export const RotatingAdventureScene = ({
   const customBuilding = usingCustom ? config.customBuilding : null;
   // Only reveal the canvas once it has painted AND the artwork has decoded, so
   // no untextured (white) geometry is ever on screen.
-  const visible = painted && artworkReady && gpu.alive;
+  const visible = painted && artworkReady;
   const handleArtworkReady = useCallback(() => setArtworkReady(true), []);
+  useEffect(() => {
+    setCustomReady(false);
+    setCustomFailed(false);
+  }, [customBuilding?.storagePath]);
+  useEffect(() => {
+    if (!customBuilding || customReady || customFailed) return;
+    const timer = window.setTimeout(() => setCustomFailed(true), 8_000);
+    return () => window.clearTimeout(timer);
+  }, [customBuilding, customFailed, customReady]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
       <HomepageBackground background={config.background} />
-      {customBuilding ? (
-        <CustomBuilding element={customBuilding} speed={clampBuildingSpeed(config.buildingSpeed)} />
-
-      ) : ready ? (
-        <div
-          className="absolute inset-0 transition-opacity duration-700"
-          style={{ opacity: visible ? 1 : 0 }}
-        >
+      <div
+        className="absolute inset-0 transition-opacity duration-700"
+        style={{ opacity: visible && (!customBuilding || !customReady || customFailed) ? 1 : 0 }}
+      >
           <Canvas
             key={gpu.resetKey}
             camera={{ position: [0, -0.2, 10.5], fov: 42, near: 0.1, far: 100 }}
@@ -572,6 +600,15 @@ export const RotatingAdventureScene = ({
               />
             </Suspense>
           </Canvas>
+      </div>
+      {customBuilding && !customFailed ? (
+        <div className="absolute inset-0 transition-opacity duration-500" style={{ opacity: customReady ? 1 : 0 }}>
+          <CustomBuilding
+            element={customBuilding}
+            speed={clampBuildingSpeed(config.buildingSpeed)}
+            onReady={() => setCustomReady(true)}
+            onError={() => setCustomFailed(true)}
+          />
         </div>
       ) : null}
       {showAds && currentAd ? (
