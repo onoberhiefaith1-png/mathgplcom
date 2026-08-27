@@ -122,8 +122,12 @@ export function detachIntoFrame(
   const host = editor.view.dom as HTMLElement;
   const avail = Math.max(200, (host.clientWidth || 720) - x - 8);
   const w = Math.round(Math.min(attrs.w ?? 520, avail));
-  const spacerId = attrs.reserveSpace ? randomId("sp") : null;
-  const reservedHeight = attrs.reserveSpace
+  // A solution is the partner of its question: it is wrapped IN PLACE so its
+  // document order — and therefore which Example it belongs to — never changes.
+  // Only diagrams are free objects that may travel through the document.
+  const inPlace = attrs.objectKind === "solution";
+  const spacerId = attrs.reserveSpace && !inPlace ? randomId("sp") : null;
+  const reservedHeight = spacerId
     ? Math.max(0, Math.round(measureRange(editor, from, to)))
     : 0;
 
@@ -134,12 +138,14 @@ export function detachIntoFrame(
       attrs: { h: reservedHeight, spacerId },
     }).run();
   }
-  const at = editor.state.doc.content.size;
+  const at = inPlace
+    ? Math.min(from, editor.state.doc.content.size)
+    : editor.state.doc.content.size;
   editor.chain().insertContentAt(at, {
     type: "canvasFrame",
     attrs: {
       x: Math.round(Math.max(0, x)),
-      y: Math.round(Math.max(0, y)),
+      y: inPlace ? 0 : Math.round(Math.max(0, y)),
       w,
       objectKind: attrs.objectKind,
       ownerQuestionId: attrs.ownerQuestionId ?? null,
@@ -153,6 +159,7 @@ export function detachIntoFrame(
   editor.view.dispatch(tr);
   return at;
 }
+
 
 /** Rendered height of a document range, used to seed the reserved space. */
 function measureRange(editor: Editor, from: number, to: number): number {
