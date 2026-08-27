@@ -170,6 +170,20 @@ const TeacherAssessmentViewerPage = () => {
       ]);
       if (!a) { navigate(returnTo, { replace: true }); return; }
       setAssessment(a as unknown as AssessmentLike);
+      // An assignment card is a SET of assessments (one per question). The
+      // student may be live on any of them, so keep the siblings to hand.
+      const notebookId = (a as { notebook_id?: string | null }).notebook_id ?? null;
+      if (notebookId) {
+        const { data: sibs } = await supabase
+          .from("assessments")
+          .select("id, created_at")
+          .eq("class_id", classId)
+          .eq("notebook_id", notebookId)
+          .is("unassigned_at", null)
+          .order("created_at", { ascending: true });
+        setSiblingIds(((sibs ?? []) as Array<{ id: string }>).map((s) => s.id));
+      }
+
       const m = ((mem ?? []) as any[]).find((x) => x.user_id === studentId);
       setStudentName(m?.display_name ?? "Student");
       setLoading(false);
