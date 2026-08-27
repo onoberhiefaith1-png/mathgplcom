@@ -4,7 +4,7 @@
 // — and expands the selected bucket into a per-student table with a
 // "View Student Work" action.
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, ChevronRight, Circle, CircleDashed, Radio, Eye, Timer } from "lucide-react";
 
 
@@ -113,8 +113,8 @@ export function AssessmentStatusPanel({
             </thead>
             <tbody>
               {visible.map((r) => (
-                <>
-                <tr key={r.studentId} className="border-t border-border">
+                <Fragment key={r.studentId}>
+                <tr className="border-t border-border">
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-2">
                       {canExpand && (
@@ -195,7 +195,7 @@ export function AssessmentStatusPanel({
                     </td>
                   </tr>
                 )}
-                </>
+                </Fragment>
               ))}
 
             </tbody>
