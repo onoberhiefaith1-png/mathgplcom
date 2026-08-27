@@ -9,6 +9,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { guestDisplayName, guestToken } from "@/lib/live/guest";
+import { BroadcastEntry, parseBroadcasts } from "@/lib/live/broadcast";
 
 const rpc = supabase.rpc.bind(supabase) as unknown as (
   fn: string,
@@ -24,6 +25,8 @@ export type EntryStatus = "approved" | "pending" | "declined" | "none" | "unavai
 
 export type PublicSession = {
   id: string;
+  class_id: string;
+  notebook_id: string | null;
   title: string;
   description: string | null;
   starts_at: string | null;
@@ -32,6 +35,11 @@ export type PublicSession = {
   status: string;
   ask_participant_name: boolean;
   allow_free_entry: boolean;
+  broadcasts: BroadcastEntry[];
+  schedule_days: number[];
+  schedule_time: string | null;
+  is_live: boolean;
+  live_started_at: string | null;
 };
 
 export type AudienceNote = {
@@ -56,7 +64,26 @@ const first = <T,>(data: unknown): T | null =>
 export async function fetchPublicSession(sessionId: string): Promise<PublicSession | null> {
   const { data, error } = await rpc("live_public_session", { _session_id: sessionId });
   if (error) return null;
-  return first<PublicSession>(data);
+  const row = first<Record<string, unknown>>(data);
+  if (!row) return null;
+  return {
+    ...(row as unknown as PublicSession),
+    broadcasts: parseBroadcasts(row.broadcasts),
+    schedule_days: Array.isArray(row.schedule_days) ? row.schedule_days.map(Number) : [],
+    schedule_time: typeof row.schedule_time === "string" ? row.schedule_time : null,
+    is_live: Boolean(row.is_live),
+    live_started_at: typeof row.live_started_at === "string" ? row.live_started_at : null,
+  };
+}
+
+/** Private meeting IDs/passwords are returned only after this guest is admitted. */
+export async function fetchAdmittedBroadcastCredentials(sessionId: string): Promise<BroadcastEntry[]> {
+  const { data, error } = await rpc("live_admitted_broadcast_credentials", {
+    _session_id: sessionId,
+    _guest_token: guestToken(),
+  });
+  if (error) return [];
+  return parseBroadcasts(data);
 }
 
 /** Ask to come in. Free entry admits immediately; otherwise this queues. */

@@ -25,6 +25,10 @@ import {
   fetchAllowFreeEntry,
   hydrateSession,
 } from "@/lib/live/sessions";
+import {
+  fetchAdmittedBroadcastCredentials,
+  fetchPublicSession,
+} from "@/lib/live/publicAudience";
 
 const HEARTBEAT_MS = 45_000;
 
@@ -56,9 +60,11 @@ export const useAudienceAccess = (sessionId: string | undefined): AudienceAccess
       const { data: userData } = await supabase.auth.getUser();
       const user = userData.user ?? null;
 
-      const data = await querySessions<Record<string, unknown>>((cols) =>
-        supabase.from("sessions").select(cols).eq("id", sessionId).maybeSingle() as never,
-      );
+      const data = user
+        ? await querySessions<Record<string, unknown>>((cols) =>
+            supabase.from("sessions").select(cols).eq("id", sessionId).maybeSingle() as never,
+          )
+        : await fetchPublicSession(sessionId);
 
       if (cancelled) return;
       if (!data) {
@@ -66,10 +72,19 @@ export const useAudienceAccess = (sessionId: string | undefined): AudienceAccess
         setLoading(false);
         return;
       }
-      const row = {
-        ...hydrateSession(data as unknown as Record<string, unknown>),
-        allow_free_entry: await fetchAllowFreeEntry(sessionId),
-      };
+      const row = user
+        ? {
+            ...hydrateSession(data as unknown as Record<string, unknown>),
+            allow_free_entry: await fetchAllowFreeEntry(sessionId),
+          }
+        : hydrateSession({
+            ...(data as unknown as Record<string, unknown>),
+            owner_id: "",
+            visibility: "public",
+            session_code: "",
+            created_at: "",
+            updated_at: "",
+          });
       if (cancelled) return;
       setSession(row);
       setSignedIn(Boolean(user));
@@ -117,6 +132,28 @@ export const useAudienceAccess = (sessionId: string | undefined): AudienceAccess
       void supabase.removeChannel(channel);
     };
   }, [member]);
+
+  // Public links are always visible. Merge meeting IDs/passwords only after
+  // this guest has passed the room's free-entry or approval gate.
+  useEffect(() => {
+    if (!sessionId || signedIn || !session || entryDecision({
+      allowFreeEntry: session.allow_free_entry,
+      status: member?.status ?? null,
+    }) !== "enter") return;
+
+    let cancelled = false;
+    void fetchAdmittedBroadcastCredentials(sessionId).then((credentials) => {
+      if (cancelled || credentials.length === 0) return;
+      setSession((current) => current ? {
+        ...current,
+        broadcasts: current.broadcasts.map((entry) => ({
+          ...entry,
+          ...credentials.find((privateEntry) => privateEntry.id === entry.id),
+        })),
+      } : current);
+    });
+    return () => { cancelled = true; };
+  }, [member?.status, session, sessionId, signedIn]);
 
   const saveName = useCallback(
     async (value: string) => {
