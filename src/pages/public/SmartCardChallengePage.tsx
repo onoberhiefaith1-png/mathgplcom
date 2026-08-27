@@ -3,17 +3,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "@/lib/router-compat";
-import { Loader2, Trophy, UserRound, LogIn } from "lucide-react";
+import { ArrowLeft, Loader2, Trophy, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  fetchPublicCard, forgetIdentity, formatDuration, loadRememberedIdentity, newParticipantKey,
+  fetchPublicCard, formatDuration, loadRememberedIdentity, newParticipantKey,
   pingPresence, rememberIdentity, reportProgress,
   type CardIdentity, type LeaderboardEntry, type PublicCardPayload,
 } from "@/lib/smartcards/smartCards";
+
 
 const SmartCardChallengePage = () => {
   const { slug } = useParams<{ slug: string }>();
