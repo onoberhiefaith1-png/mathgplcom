@@ -15,6 +15,11 @@ const rpc = supabase.rpc.bind(supabase) as unknown as (
   args?: Record<string, unknown>,
 ) => Promise<{ data: unknown; error: { message: string } | null }>;
 
+// `live_entry_requests` and the audience columns arrive with the staged
+// migration, so the generated types do not know them yet.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const table = (name: string): any => (supabase as any).from(name);
+
 export type EntryStatus = "approved" | "pending" | "declined" | "none" | "unavailable";
 
 export type PublicSession = {
@@ -117,13 +122,7 @@ export type EntryRequest = {
 };
 
 export async function fetchEntryRequests(sessionId: string): Promise<EntryRequest[]> {
-  const { data, error } = await (supabase.from("live_entry_requests") as unknown as {
-    select: (c: string) => {
-      eq: (c: string, v: string) => {
-        order: (c: string, o: { ascending: boolean }) => Promise<{ data: unknown; error: unknown }>;
-      };
-    };
-  })
+  const { data, error } = await table("live_entry_requests")
     .select("id, guest_token, display_name, status, created_at")
     .eq("session_id", sessionId)
     .order("created_at", { ascending: true });
@@ -132,27 +131,19 @@ export async function fetchEntryRequests(sessionId: string): Promise<EntryReques
 }
 
 export async function decideEntry(id: string, status: "approved" | "declined"): Promise<void> {
-  await (supabase.from("live_entry_requests") as unknown as {
-    update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
-  })
+  await table("live_entry_requests")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
 }
 
 export async function setFreeEntry(sessionId: string, allow: boolean): Promise<void> {
-  await (supabase.from("sessions") as unknown as {
-    update: (v: Record<string, unknown>) => { eq: (c: string, v: string) => Promise<unknown> };
-  })
+  await table("sessions")
     .update({ allow_free_entry: allow })
     .eq("id", sessionId);
 }
 
 export async function fetchFreeEntry(sessionId: string): Promise<boolean> {
-  const { data, error } = await (supabase.from("sessions") as unknown as {
-    select: (c: string) => {
-      eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data: unknown; error: unknown }> };
-    };
-  })
+  const { data, error } = await table("sessions")
     .select("allow_free_entry")
     .eq("id", sessionId)
     .maybeSingle();
