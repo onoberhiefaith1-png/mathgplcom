@@ -28,6 +28,7 @@ The teacher view will remain read-only with respect to marking and will not run 
 2. **Make evaluation reliable**
    - Deduplicate only successful evaluations, not requests that merely started.
    - Allow the same unchanged expression to retry after network/function failure.
+   - Correct the grading callback dependencies so persistence mode and participant identity cannot be captured from a stale render.
    - Guard async responses with assessment, question, line, and expression identity so a late result cannot mark or display under another question.
    - Keep already-awarded `questionId:lineId` slots permanent and prevent double scoring.
 
@@ -35,6 +36,7 @@ The teacher view will remain read-only with respect to marking and will not run 
    - Broadcast the result returned by the persisting student call, including question ID, line ID, verdict, marks, and updated aggregate progress.
    - Update the student's local progress from that same response.
    - Have the teacher panel refresh from the student result/realtime progress event while rejecting out-of-scope question payloads.
+   - Publish the student's active-question presence for every assessment-board entry path, not only links carrying assignment/adventure query parameters.
 
 4. **Preserve multi-question isolation**
    - Keep independent board state per assessment + student + question.
