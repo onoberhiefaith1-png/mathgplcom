@@ -153,7 +153,7 @@ export const useAudienceAccess = (sessionId: string | undefined): AudienceAccess
       } : current);
     });
     return () => { cancelled = true; };
-  }, [member?.status, session, sessionId, signedIn]);
+  }, [member?.status, session?.allow_free_entry, sessionId, signedIn]);
 
   const saveName = useCallback(
     async (value: string) => {
