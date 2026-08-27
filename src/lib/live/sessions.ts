@@ -1,5 +1,25 @@
 import { supabase } from "@/integrations/supabase/client";
 import { BroadcastEntry, normalizeBroadcasts, parseBroadcasts } from "@/lib/live/broadcast";
+import {
+  ScheduleEntry,
+  ScheduleTimes,
+  formatNextLesson as formatNextLessonOf,
+  formatSchedule,
+  hydrateScheduleTimes,
+  nextOccurrence,
+  scheduleEntries,
+} from "@/lib/live/schedule";
+
+export {
+  dayName,
+  formatClockTime,
+  formatSchedule,
+  nextOccurrence,
+  scheduleEntries,
+  WEEK_ORDER,
+} from "@/lib/live/schedule";
+export type { ScheduleEntry, ScheduleTimes } from "@/lib/live/schedule";
+
 
 export type SessionVisibility = "private" | "public";
 export type SessionStatus = "draft" | "published" | "live" | "ended";
