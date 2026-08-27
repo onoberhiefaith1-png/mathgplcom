@@ -258,50 +258,27 @@ const TeacherAssessmentViewerPage = () => {
       </div>
 
 
-      {/* Mode switch + question strip (review mode only). */}
-      <div className="pointer-events-none fixed left-1/2 top-4 z-[80] -translate-x-1/2">
-        <div className="pointer-events-auto flex max-w-[92vw] flex-col items-center gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-border bg-background/90 p-1 shadow-lg backdrop-blur">
-            <button
-              type="button"
-              onClick={() => { modeChosenRef.current = true; setMode("live"); }}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${mode === "live" ? "bg-primary/10 text-primary" : "hover:bg-accent"}`}
-              title="Follow the student's board in real time"
-            >
-              <Radio className={`h-3.5 w-3.5 ${mode === "live" && liveFeedFresh ? "animate-pulse text-emerald-500" : ""}`} />
-              Join Student Live
-            </button>
-            <button
-              type="button"
-              onClick={() => { modeChosenRef.current = true; setPickedQuestionId((p) => p ?? questionId); setMode("work"); }}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${mode === "work" ? "bg-primary/10 text-primary" : "hover:bg-accent"}`}
-              title="Read saved work, question by question"
-            >
-              <Eye className="h-3.5 w-3.5" /> View Student Work
-            </button>
-            <span className="ml-1 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] text-muted-foreground">
-              <span className={`h-2 w-2 rounded-full ${liveFeedFresh ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-              {liveFeedFresh ? "On the board" : "Offline"}
-            </span>
+      {/* Question strip — review mode only. The mode itself is chosen on the
+          dashboard (Join Live / View Student Work), so the board carries no
+          mode switch and no online indicator. */}
+      {mode === "work" && questions.length > 1 && (
+        <div className="pointer-events-none fixed left-1/2 top-4 z-[80] -translate-x-1/2">
+          <div className="pointer-events-auto flex max-w-[92vw] flex-wrap items-center justify-center gap-1 rounded-2xl border border-border bg-background/90 px-2 py-1.5 shadow-lg backdrop-blur">
+            {questions.map((q, i) => (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => setPickedQuestionId(q.id)}
+                className={`rounded-md px-2 py-1 text-xs tabular-nums ${q.id === questionId ? "bg-primary/10 font-semibold text-primary" : "hover:bg-accent"}`}
+                title={`Question ${i + 1}`}
+              >
+                Q{i + 1}
+              </button>
+            ))}
           </div>
-
-          {mode === "work" && questions.length > 1 && (
-            <div className="flex max-w-full flex-wrap items-center justify-center gap-1 rounded-2xl border border-border bg-background/90 px-2 py-1.5 shadow-lg backdrop-blur">
-              {questions.map((q, i) => (
-                <button
-                  key={q.id}
-                  type="button"
-                  onClick={() => setPickedQuestionId(q.id)}
-                  className={`rounded-md px-2 py-1 text-xs tabular-nums ${q.id === questionId ? "bg-primary/10 font-semibold text-primary" : "hover:bg-accent"}`}
-                  title={`Question ${i + 1}`}
-                >
-                  Q{i + 1}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
-      </div>
+      )}
+
 
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">
         <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-2 shadow-lg backdrop-blur">
