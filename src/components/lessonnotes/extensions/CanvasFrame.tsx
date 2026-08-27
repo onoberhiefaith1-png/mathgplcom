@@ -6,9 +6,9 @@
 // frames at that exact paper coordinate.
 //
 // It is a real ProseMirror node (not an overlay), so the caret, selection,
-// math nodes, history, autosave, AI context and DOCX export all keep working
-// with no new storage. Rendering is absolute, so a frame never pushes or
-// compresses the flowing content around it.
+// math nodes, history, autosave, AI context and DOCX export all keep working.
+// Only diagram frames may leave document flow. Legacy text/solution frames are
+// rendered in flow so they reserve their measured height and cannot overlap.
 
 import { Node, mergeAttributes } from "@tiptap/core";
 
@@ -65,6 +65,7 @@ export const CanvasFrame = Node.create({
     const owner = (node.attrs.ownerQuestionId as string | null) ?? null;
     const diagram = (node.attrs.ownerDiagramId as string | null) ?? null;
     const spacer = (node.attrs.spacerId as string | null) ?? null;
+    const canOverlap = kind === "diagram";
     return [
       "div",
       mergeAttributes(HTMLAttributes, {
@@ -79,7 +80,9 @@ export const CanvasFrame = Node.create({
         // An object frame carries NO chrome: a moved diagram or solution must
         // look exactly like normal content on the page.
         class: kind ? "lesson-canvas-frame lesson-canvas-frame--bare" : "lesson-canvas-frame",
-        style: `position:absolute;left:${x}px;top:${y}px;width:${w}px;`,
+        style: canOverlap
+          ? `position:absolute;left:${x}px;top:${y}px;width:${w}px;`
+          : `position:relative;margin-left:${Math.max(0, x)}px;width:min(${w}px,calc(100% - ${Math.max(0, x)}px));`,
       }),
       0,
     ];

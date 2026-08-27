@@ -1,8 +1,8 @@
 // Session layout guard — sessions never overlap other sessions.
 //
-// A session that the teacher moved lives in an absolutely positioned
-// `canvasFrame`, so the page flow cannot see how tall it is. Two measured (never
-// hard-coded) rules keep the page readable:
+// Legacy moved sessions can live in `canvasFrame`. Non-diagram frames now render
+// in normal flow; the guard keeps old spacer metadata harmless while diagrams
+// remain the sole absolute/overlap-capable object.
 //
 //  1. Reserved flow space: the invisible `sessionSpacer` left behind where the
 //     session came from is kept exactly as tall as the frame really is. Because
@@ -39,13 +39,14 @@ function collectSessionFrames(editor: Editor): FrameBox[] {
   const out: FrameBox[] = [];
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name !== "canvasFrame") return true;
-    // Diagrams are free objects — they never take part in session spacing.
+    // Diagrams are free objects — they never take part in text spacing. All
+    // other frames now reserve their own height through normal browser flow.
     if (node.attrs.objectKind === "diagram") return false;
     const dom = editor.view.nodeDOM(pos) as HTMLElement | null;
     const h = dom ? dom.getBoundingClientRect().height / (z || 1) : 0;
     out.push({
       pos,
-      y: Number(node.attrs.y) || 0,
+      y: dom ? dom.offsetTop : Number(node.attrs.y) || 0,
       h,
       spacerId: (node.attrs.spacerId as string | null) ?? null,
     });
