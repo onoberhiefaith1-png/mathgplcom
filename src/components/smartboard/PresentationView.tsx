@@ -342,6 +342,9 @@ const PresentationView = ({
   viewOnly = false,
   smartCardSlug = null,
   participantKey = null,
+  backTo = null,
+  backLabel = "Back",
+
   testMode = false,
   timerEnabled = false,
 }: {
