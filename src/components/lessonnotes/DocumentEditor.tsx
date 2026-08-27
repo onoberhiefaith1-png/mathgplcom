@@ -3037,12 +3037,35 @@ function DocumentEditorInner({
     let applied = false;
     if (inline && !structured) {
       const value = normalizeMathSource(clean);
-      const content = HAS_MATH(clean)
-        ? [{ type: "mathInline", attrs: { value } }]
-        : [{ type: "text", text: clean }];
+      let content: unknown[];
+      if (HAS_MATH(clean)) {
+        // Validate the proposal as a real mathematical structure BEFORE
+        // touching the document: parse it, and require the parse to be
+        // lossless. An unparseable/lossy proposal leaves the original intact.
+        let treeJson: string;
+        try {
+          const tree = latexToTree(value);
+          const norm = (s: string) => s.replace(/\s+/g, "");
+          if (norm(treeToLatex(tree)) !== norm(value)) throw new Error("lossy parse");
+          treeJson = JSON.stringify(tree);
+        } catch {
+          toast({
+            title: "Proposal not applied",
+            description: "The suggested mathematics could not be read as a valid structure.",
+            variant: "destructive",
+          });
+          return false;
+        }
+        // Commit value and tree together so the node never renders from a
+        // stale tree that disagrees with its LaTeX.
+        content = [{ type: "mathInline", attrs: { value, tree: treeJson } }];
+      } else {
+        content = [{ type: "text", text: clean }];
+      }
       applied = editor.chain().focus()
         .insertContentAt({ from: range.from, to: range.to }, content as any)
         .run();
+
     } else if (structured && inline) {
       const $from = editor.state.doc.resolve(range.from);
       const depth = $from.depth;
