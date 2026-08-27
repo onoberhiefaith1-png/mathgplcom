@@ -605,21 +605,80 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_timer_attempts: {
+        Row: {
+          assessment_id: string
+          attempt_lines: Json
+          attempt_no: number
+          completed_at: string | null
+          created_at: string
+          elapsed_ms: number
+          id: string
+          question_id: string
+          running: boolean
+          started_at: string | null
+          student_id: string
+          success: boolean
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          attempt_lines?: Json
+          attempt_no?: number
+          completed_at?: string | null
+          created_at?: string
+          elapsed_ms?: number
+          id?: string
+          question_id: string
+          running?: boolean
+          started_at?: string | null
+          student_id: string
+          success?: boolean
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          attempt_lines?: Json
+          attempt_no?: number
+          completed_at?: string | null
+          created_at?: string
+          elapsed_ms?: number
+          id?: string
+          question_id?: string
+          running?: boolean
+          started_at?: string | null
+          student_id?: string
+          success?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_timer_attempts_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessments: {
         Row: {
           assigned_at: string | null
           assignment_id: string | null
           class_id: string
+          closes_at: string | null
           created_at: string
           due_at: string | null
           id: string
           kind: string
           notebook_id: string | null
+          opens_at: string | null
           owner_id: string
           question_key: string | null
           questions: Json
           score_label: string
           section_id: string | null
+          timer_enabled: boolean
           title: string
           total_marks: number
           unassigned_at: string | null
@@ -629,16 +688,19 @@ export type Database = {
           assigned_at?: string | null
           assignment_id?: string | null
           class_id: string
+          closes_at?: string | null
           created_at?: string
           due_at?: string | null
           id?: string
           kind?: string
           notebook_id?: string | null
+          opens_at?: string | null
           owner_id: string
           question_key?: string | null
           questions?: Json
           score_label?: string
           section_id?: string | null
+          timer_enabled?: boolean
           title?: string
           total_marks?: number
           unassigned_at?: string | null
@@ -648,16 +710,19 @@ export type Database = {
           assigned_at?: string | null
           assignment_id?: string | null
           class_id?: string
+          closes_at?: string | null
           created_at?: string
           due_at?: string | null
           id?: string
           kind?: string
           notebook_id?: string | null
+          opens_at?: string | null
           owner_id?: string
           question_key?: string | null
           questions?: Json
           score_label?: string
           section_id?: string | null
+          timer_enabled?: boolean
           title?: string
           total_marks?: number
           unassigned_at?: string | null
