@@ -7225,6 +7225,10 @@ export type Database = {
       issue_account_id_for_email: { Args: { _email: string }; Returns: string }
       join_class_with_code: { Args: { code: string }; Returns: Json }
       join_org_with_invite: { Args: { _code: string }; Returns: string }
+      live_admitted_broadcast_credentials: {
+        Args: { _guest_token: string; _session_id: string }
+        Returns: Json
+      }
       live_entry_status: {
         Args: { _guest_token: string; _session_id: string }
         Returns: string
@@ -7273,9 +7277,15 @@ export type Database = {
           allow_free_entry: boolean
           ask_participant_name: boolean
           broadcasts: Json
+          class_id: string
           description: string
           duration_minutes: number
           id: string
+          is_live: boolean
+          live_started_at: string
+          notebook_id: string
+          schedule_days: number[]
+          schedule_time: string
           starts_at: string
           status: string
           time_zone: string
