@@ -1,15 +1,29 @@
 import { classRoot } from "@/lib/product/workspaceRoutes";
-// Teacher — read-only viewer of a specific student's Assessment SmartBoard.
+// Teacher — viewer of a specific student's Assessment SmartBoard.
+//
+// Two modes (see src/lib/assessments/viewerFollow.ts):
+//   • Join Student Live — the board follows the student in real time and
+//     switches question the moment the student does. The signal is the
+//     student's own board broadcast, not a database poll.
+//   • View Student Work — the teacher picks a question and reads saved work.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, Loader2, Eye, Pencil, Brain } from "lucide-react";
+import { ArrowLeft, Loader2, Eye, Pencil, Brain, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureRealtimeAuth } from "@/lib/realtime/auth";
+import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import PresentationView from "@/components/smartboard/PresentationView";
 import TeacherEvaluationPanel from "@/components/smartboard/TeacherEvaluationPanel";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
 import RecoveryBoundary from "@/components/common/RecoveryBoundary";
+import { usePolling } from "@/lib/stability/usePolling";
+import {
+  initialViewerMode,
+  resolveViewerQuestionId,
+  type ViewerMode,
+} from "@/lib/assessments/viewerFollow";
 
 import {
   buildAssessmentBoardSource,
@@ -21,16 +35,18 @@ const TeacherAssessmentViewerPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get("returnTo") || `${classRoot()}/${classId}`;
-  // Students write one board per question — mirror the same scope here.
-  // When the teacher arrives without an explicit ?q=, follow whichever question
-  // the student is actually working on; otherwise both sides would join
-  // different sessions and nothing would mirror.
   const explicitQuestionId = searchParams.get("q");
-  const [followedQuestionId, setFollowedQuestionId] = useState<string | null>(null);
-  const [assessmentFirstQid, setAssessmentFirstQid] = useState<string | null>(null);
-  // Students always run a per-question board, so never fall back to the legacy
-  // shared scope: follow the student's live question, else the first question.
-  const questionId = explicitQuestionId ?? followedQuestionId ?? assessmentFirstQid;
+  const requestedMode = searchParams.get("mode");
+
+  const [mode, setMode] = useState<ViewerMode>(() =>
+    initialViewerMode({ explicitQuestionId, requestedMode }),
+  );
+  const modeChosenRef = useRef<boolean>(!!explicitQuestionId || requestedMode === "live" || requestedMode === "work");
+  const [liveQuestionId, setLiveQuestionId] = useState<string | null>(null);
+  const [lastFrameAt, setLastFrameAt] = useState<number>(0);
+  const [pickedQuestionId, setPickedQuestionId] = useState<string | null>(null);
+  const [persistedQuestionId, setPersistedQuestionId] = useState<string | null>(null);
+  const [studentOnline, setStudentOnline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [assessment, setAssessment] = useState<AssessmentLike | null>(null);
   const [studentName, setStudentName] = useState<string>("");
@@ -38,27 +54,91 @@ const TeacherAssessmentViewerPage = () => {
   const [reasoningOpen, setReasoningOpen] = useState(false);
   const [reasoningFull, setReasoningFull] = useState(false);
 
-  // Poll the student's most recently touched question board and follow it.
-  useEffect(() => {
-    if (explicitQuestionId || !assessmentId || !studentId) return;
-    let cancelled = false;
-    const tick = async () => {
-      const { data } = await supabase
-        .from("assessment_question_board_state")
-        .select("question_id, updated_at")
-        .eq("assessment_id", assessmentId)
-        .eq("student_id", studentId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      if (cancelled) return;
-      const qid = (data?.[0] as { question_id?: string } | undefined)?.question_id ?? null;
-      if (qid) setFollowedQuestionId((prev) => (prev === qid ? prev : qid));
-    };
-    void tick();
-    const id = window.setInterval(tick, 3000);
-    return () => { cancelled = true; window.clearInterval(id); };
-  }, [explicitQuestionId, assessmentId, studentId]);
+  const questions = useMemo(() => assessment?.questions ?? [], [assessment]);
+  const questionId = resolveViewerQuestionId({
+    mode,
+    explicitQuestionId,
+    liveQuestionId,
+    pickedQuestionId,
+    lastPersistedQuestionId: persistedQuestionId,
+    firstQuestionId: questions[0]?.id ?? null,
+  });
 
+  // ── Instant follow signal. The student's Smartboard broadcasts a snapshot on
+  // every board change (~120ms) on a question-agnostic channel, and every
+  // frame carries the question the student is on. This is the ONLY fast,
+  // correct source: the persisted board row only appears after a debounced
+  // write, so a freshly opened question would never show up. ────────────────
+  useEffect(() => {
+    if (!assessmentId || !studentId) return;
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase
+        .channel(`assessment-live-${assessmentId}-${studentId}`, { config: { broadcast: { self: false } } })
+        .on("broadcast", { event: "board" }, (msg) => {
+          const p = (msg as { payload?: { questionId?: string | null } }).payload;
+          if (!p) return;
+          setLastFrameAt(Date.now());
+          const qid = p.questionId ?? null;
+          if (qid) setLiveQuestionId((prev) => (prev === qid ? prev : qid));
+        })
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+  }, [assessmentId, studentId]);
+
+  // ── Presence — is the student on the board right now? Drives the indicator
+  // and the default mode on first load. ────────────────────────────────────
+  useEffect(() => {
+    if (!classId || !assessmentId || !studentId) return;
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    const read = () => {
+      if (!ch) return;
+      const state = ch.presenceState() as Record<string, unknown[]>;
+      const online = Object.keys(state).includes(studentId);
+      if (!cancelled) setStudentOnline(online);
+      if (!cancelled && online && !modeChosenRef.current) {
+        modeChosenRef.current = true;
+        setMode("live");
+      }
+    };
+    void ensureRealtimeAuth().then(() => {
+      if (cancelled) return;
+      ch = supabase.channel(assessmentPresenceTopic(classId, assessmentId));
+      ch.on("presence", { event: "sync" }, read)
+        .on("presence", { event: "join" }, read)
+        .on("presence", { event: "leave" }, read)
+        .subscribe();
+    });
+    return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
+  }, [classId, assessmentId, studentId]);
+
+  // Broadcast frames also prove the student is live even when presence lags.
+  const liveFeedFresh = studentOnline || Date.now() - lastFrameAt < 8000;
+
+  // ── Slow fallback: the last question the student actually persisted. Only
+  // used when no live frame is available (student offline / session closed).
+  const loadPersisted = useCallback(async () => {
+    if (!assessmentId || !studentId) return;
+    const { data } = await supabase
+      .from("assessment_question_board_state")
+      .select("question_id, updated_at")
+      .eq("assessment_id", assessmentId)
+      .eq("student_id", studentId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    const qid = (data?.[0] as { question_id?: string } | undefined)?.question_id ?? null;
+    if (qid) setPersistedQuestionId((prev) => (prev === qid ? prev : qid));
+  }, [assessmentId, studentId]);
+
+  useEffect(() => { void loadPersisted(); }, [loadPersisted]);
+  usePolling("assessment-viewer-persisted-question", () => {
+    if (liveQuestionId) return;
+    return loadPersisted();
+  }, 8000, { immediate: false });
 
   useEffect(() => {
     (async () => {
@@ -74,7 +154,6 @@ const TeacherAssessmentViewerPage = () => {
       ]);
       if (!a) { navigate(returnTo, { replace: true }); return; }
       setAssessment(a as unknown as AssessmentLike);
-      setAssessmentFirstQid(((a as unknown as AssessmentLike).questions ?? [])[0]?.id ?? null);
       const m = ((mem ?? []) as any[]).find((x) => x.user_id === studentId);
       setStudentName(m?.display_name ?? "Student");
       setLoading(false);
@@ -89,6 +168,7 @@ const TeacherAssessmentViewerPage = () => {
     }
     return buildAssessmentBoardSource(assessment);
   }, [assessment, questionId]);
+
 
   if (loading || !source) {
     return (
