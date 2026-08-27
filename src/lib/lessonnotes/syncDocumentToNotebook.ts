@@ -381,13 +381,14 @@ export async function syncDocumentToNotebook(notebookId: string, doc: any): Prom
         let subId = claimed[j]?.id ?? null;
         if (subId) {
           const row = claimed[j] as ExistingSub;
-          if (row.order_index !== j || row.doc_key !== docKey) {
+          if (row.section_id !== sectionId || row.order_index !== j || row.doc_key !== docKey) {
             await supabase
               .from("notebook_subsections")
-              .update({ order_index: j, doc_key: docKey })
+              .update({ section_id: sectionId, order_index: j, doc_key: docKey })
               .eq("id", subId);
           }
         } else {
+
           const { data: subRow } = await supabase
             .from("notebook_subsections")
             .insert({
