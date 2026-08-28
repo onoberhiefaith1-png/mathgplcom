@@ -86,6 +86,10 @@ export interface ReservoirLine {
    *  correct equation is NEVER carried client-side in assessment mode; this id
    *  is sent to the server grader, which holds the hidden answer key. */
   lineId?: string;
+  /** Durable highlight identity — used by the Approve & Go Live editor to
+   *  write an edit back to the exact saved line it came from. */
+  groupId?: number;
+
   /** Marks awarded when this line is graded correct (assessment mode only). */
   marks?: number;
   /** This line has only notebook content and no highlighted floating math. */
