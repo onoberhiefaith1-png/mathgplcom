@@ -100,6 +100,25 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
   /** Used only when the browser refuses the Fullscreen API. */
   const [filling, setFilling] = useState(false);
 
+  // ── Controls: visible on any pointer or key activity, then they fade away so
+  // the mathematics on screen is never covered while the video is playing.
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideTimer = useRef<number | null>(null);
+  const revealControls = useCallback(() => {
+    setControlsVisible(true);
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setControlsVisible(false), 2600);
+  }, []);
+  useEffect(() => () => { if (hideTimer.current) window.clearTimeout(hideTimer.current); }, []);
+  /** While paused the controls always stay put. */
+  useEffect(() => {
+    if (!playing) {
+      if (hideTimer.current) window.clearTimeout(hideTimer.current);
+      setControlsVisible(true);
+    } else revealControls();
+  }, [playing, revealControls]);
+
+
   const sections = useMemo(() => sectionsFor(lines, config), [lines, config]);
   const active = useMemo(
     () => sections.find((s) => s.key === activeKey) ?? null,
@@ -389,15 +408,74 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     ? Math.min(1, Math.max(0, (playhead - active.start) / (active.end - active.start)))
     : 0;
 
+  // ── Scrubbing inside the current section ─────────────────────────────────
+  // The student can move freely within the section they are watching; the
+  // section boundaries stay authoritative, so scrubbing can never wander into
+  // another line's teaching.
+  const seekStart = active?.start ?? 0;
+  const seekEnd = bounded ? (active?.end ?? config.duration) : config.duration;
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  const seekToRatio = useCallback((r: number) => {
+    const v = videoRef.current;
+    if (!v || seekEnd <= seekStart) return;
+    const t = seekStart + Math.min(1, Math.max(0, r)) * (seekEnd - seekStart);
+    v.currentTime = t;
+    setPlayhead(t);
+  }, [seekStart, seekEnd]);
+
+  const scrubFromEvent = useCallback((clientX: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    seekToRatio((clientX - rect.left) / rect.width);
+  }, [seekToRatio]);
+
+  const nudge = useCallback((seconds: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    const t = Math.min(seekEnd, Math.max(seekStart, v.currentTime + seconds));
+    v.currentTime = t;
+    setPlayhead(t);
+  }, [seekStart, seekEnd]);
+
+  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Never steal typing from an input inside the player (the volume slider).
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    revealControls();
+    switch (e.key) {
+      case " ":
+      case "k": e.preventDefault(); toggle(); break;
+      case "ArrowRight": e.preventDefault(); nudge(5); break;
+      case "ArrowLeft": e.preventDefault(); nudge(-5); break;
+      case "j": e.preventDefault(); nudge(-10); break;
+      case "l": e.preventDefault(); nudge(10); break;
+      case "m": e.preventDefault(); setForcedMute(false); setMuted((m) => !m); break;
+      case "f": e.preventDefault(); void toggleFullscreen(); break;
+      case "Escape": if (filling) setFilling(false); break;
+      default: break;
+    }
+  }, [revealControls, toggle, nudge, toggleFullscreen, filling]);
+
   const expanded = fullscreen || filling;
+
+
 
   return (
     <div
       ref={rootRef}
+      tabIndex={0}
+      role="group"
+      aria-label="Teaching video player"
+      onKeyDown={onKeyDown}
+      onPointerMove={revealControls}
+      onPointerDown={revealControls}
       className={cn(
         // The player surround: a quiet, very dark neutral surface with a
         // barely-there gradient. No borders, no cards, no shadows.
-        "relative flex h-full min-h-0 w-full flex-col overflow-hidden",
+        "relative flex h-full min-h-0 w-full flex-col overflow-hidden outline-none",
         "bg-[linear-gradient(180deg,hsl(215_28%_9%),hsl(215_30%_6%))]",
         expanded ? "fixed inset-0 z-[80] h-[100dvh] w-screen rounded-none" : "rounded-xl",
         className,
@@ -417,7 +495,10 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
               ref={videoRef}
               src={url}
               playsInline
-              className="h-full w-full bg-black object-contain"
+              preload="auto"
+              className="h-full w-full cursor-pointer bg-black object-contain"
+              onClick={() => { revealControls(); toggle(); }}
+
               onLoadedMetadata={(e) => {
                 const w = e.currentTarget.videoWidth;
                 const h = e.currentTarget.videoHeight;
@@ -461,8 +542,14 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
 
 
         {/* Controls overlay the bottom of the stage, so entering or leaving
-            full screen never resizes the video or shifts the page. */}
-        <div className="absolute inset-x-0 bottom-0 space-y-2 bg-gradient-to-t from-black/75 via-black/45 to-transparent p-2 pt-8">
+            full screen never resizes the video or shifts the page. They fade
+            out while the video plays and return on any activity. */}
+        <div
+          className={cn(
+            "absolute inset-x-0 bottom-0 space-y-2 bg-gradient-to-t from-black/75 via-black/45 to-transparent p-2 pt-8 transition-opacity duration-300",
+            controlsVisible ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+        >
           <div className="flex items-center justify-between gap-2 text-[11px] text-white/75">
             <span className="min-w-0 truncate">{active ? active.label : "Teaching video"}</span>
             <span className="shrink-0 font-mono">
@@ -474,9 +561,31 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
               )}
             </span>
           </div>
-          <div className="h-1 overflow-hidden rounded-full bg-white/20">
-            <div className="h-full bg-white/85" style={{ width: `${progress * 100}%` }} />
+          {/* Seekable track — drag anywhere inside the current section. */}
+          <div
+            ref={trackRef}
+            role="slider"
+            tabIndex={0}
+            aria-label="Seek within this section"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress * 100)}
+            className="group -my-1 cursor-pointer py-2"
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              scrubFromEvent(e.clientX);
+            }}
+            onPointerMove={(e) => { if (e.buttons === 1) scrubFromEvent(e.clientX); }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") { e.preventDefault(); nudge(5); }
+              if (e.key === "ArrowLeft") { e.preventDefault(); nudge(-5); }
+            }}
+          >
+            <div className="h-1 overflow-hidden rounded-full bg-white/20 transition-all group-hover:h-1.5">
+              <div className="h-full bg-white/85" style={{ width: `${progress * 100}%` }} />
+            </div>
           </div>
+
           <div className="flex flex-wrap items-center gap-1">
             <Button
               size="icon"

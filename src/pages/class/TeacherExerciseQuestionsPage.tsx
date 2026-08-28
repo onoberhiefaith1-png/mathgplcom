@@ -14,7 +14,8 @@ import PresentationView from "@/components/smartboard/PresentationView";
 import TeacherEvaluationPanel from "@/components/smartboard/TeacherEvaluationPanel";
 import RecoveryBoundary from "@/components/common/RecoveryBoundary";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
-import ThreeViewFrame from "@/components/smartboard/ThreeViewFrame";
+import ThreeViewFrame, { useBoardVideoView } from "@/components/smartboard/ThreeViewFrame";
+import BoardViewSwitcher from "@/components/student/BoardViewSwitcher";
 import type { LineContext } from "@/components/smartboard/QuestionVideoPane";
 import QuestionVideoEditor from "@/components/coursebuilder/QuestionVideoEditor";
 import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
@@ -67,6 +68,7 @@ const TeacherExerciseQuestionsPage = () => {
     lastAwardedLineId: null,
   });
   const [uid, setUid] = useState<string | null>(null);
+  const [videoView, setVideoView] = useBoardVideoView();
   // The hidden test container for the open question — the existing Test
   // Smartboard needs an assessment + class to stay in test mode.
   const [testBoard, setTestBoard] = useState<ExerciseQuestionTestBoard | null>(null);
@@ -272,8 +274,10 @@ const TeacherExerciseQuestionsPage = () => {
                 config={activeVideo}
                 lines={activeLines}
                 lineContext={lineCtx}
+                view={videoView}
                 board={board}
               />
+
             ) : (
               board
             )}
@@ -296,7 +300,7 @@ const TeacherExerciseQuestionsPage = () => {
           )}
         </div>
 
-        <div className="pointer-events-none fixed left-3 top-3 z-[70] flex gap-2">
+        <div className="pointer-events-none fixed left-3 top-3 z-[70] flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -306,6 +310,14 @@ const TeacherExerciseQuestionsPage = () => {
             <MonitorPlay className="mr-1.5 h-4 w-4" />
             {videoReady(activeVideo) ? "Edit video" : "Add Video"}
           </Button>
+          {videoReady(activeVideo) && (
+            <BoardViewSwitcher
+              value={videoView}
+              onChange={setVideoView}
+              className="pointer-events-auto"
+            />
+          )}
+
         </div>
 
         <div className="pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2">

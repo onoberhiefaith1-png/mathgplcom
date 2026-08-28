@@ -6,7 +6,9 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PresentationView from "@/components/smartboard/PresentationView";
-import ThreeViewFrame from "@/components/smartboard/ThreeViewFrame";
+import ThreeViewFrame, { useBoardVideoView } from "@/components/smartboard/ThreeViewFrame";
+import BoardViewSwitcher from "@/components/student/BoardViewSwitcher";
+import StudentBoardHeader from "@/components/student/StudentBoardHeader";
 import type { LineContext } from "@/components/smartboard/QuestionVideoPane";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
 import { loadQuestionVideo } from "@/lib/courses/questionVideoStore";
@@ -41,6 +43,7 @@ const AssessmentBoardPage = () => {
   const [assessment, setAssessment] = useState<Meta | null>(null);
   const [status, setStatus] = useState<string>("in_progress");
   const [uid, setUid] = useState<string | null>(null);
+  const [videoView, setVideoView] = useBoardVideoView();
   const [timerSettings, setTimerSettings] = useState<TimerSettings>({
     timer_enabled: false, opens_at: null, closes_at: null,
   });
@@ -312,13 +315,50 @@ const AssessmentBoardPage = () => {
     />
   );
 
+  // The solving screen is a real viewport-height stage: a slim header row plus
+  // a flexible work area. Without a fixed height here the video pane collapsed
+  // to nothing while its audio kept playing.
+  const questionIndex = (assessment?.questions ?? []).findIndex((q) => q.id === questionId);
+  const questionTotal = (assessment?.questions ?? []).length;
+  const activeQuestion = (assessment?.questions ?? []).find((q) => q.id === questionId);
+  const totalMarks = (activeQuestion?.lines ?? []).reduce(
+    (sum, ln) => sum + (Number(ln.marks) || 0),
+    0,
+  );
+
+
   return (
     <>
-      {videoReady(video) && video ? (
-        <ThreeViewFrame config={video} lines={videoLines} lineContext={lineCtx} board={board} />
-      ) : (
-        board
-      )}
+      <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
+        <StudentBoardHeader
+          backTo={`/student/class/${classId ?? ""}`}
+          backLabel="Back to class"
+          title={assessment?.title ?? "Assignment"}
+          subtitle={readOnly ? "Viewing only" : null}
+          questionIndex={questionIndex >= 0 ? questionIndex + 1 : null}
+          questionTotal={questionTotal}
+          totalMarks={totalMarks}
+          actions={
+            videoReady(video) ? (
+              <BoardViewSwitcher value={videoView} onChange={setVideoView} />
+            ) : null
+          }
+        />
+        <div className="relative min-h-0 flex-1">
+          {videoReady(video) && video ? (
+            <ThreeViewFrame
+              config={video}
+              lines={videoLines}
+              lineContext={lineCtx}
+              view={videoView}
+              board={board}
+            />
+          ) : (
+            board
+          )}
+        </div>
+      </div>
+
 
 
 
