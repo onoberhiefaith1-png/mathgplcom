@@ -57,6 +57,29 @@ export const highlightsHaveUids = (highlights: IdentifiedHighlight[] | null | un
 
 /** Give every highlight a permanent uid, preserving any it already has.
  *  The synthetic leading-note row gets the fixed LEADING_NOTE_UID. */
+/** DETERMINISTIC LEGACY IDENTITY.
+ *  Rows saved before permanent identity existed must be given the SAME uid by
+ *  every page that reads them (highlighting, generating, preview, smartboard) —
+ *  otherwise each reader would mint its own and the join would break. So a
+ *  legacy uid is derived from the row's own durable content (its display order
+ *  number plus its payload), never from a random value. Newly created rows
+ *  still get a minted uid, which is then persisted. */
+const stableHash = (input: string): string => {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+};
+
+export const legacyUid = (h: IdentifiedHighlight, index: number): string => {
+  const order = typeof h?.groupId === "number" ? h.groupId : index + 1;
+  const payload = String(h?.payload ?? "");
+  const note = String(h?.precedingNotebook ?? "");
+  return `hl_legacy_${order}_${stableHash(`${payload}|${note}|${h?.notebookOnly === true ? "n" : "e"}`)}`;
+};
+
 export const ensureHighlightUids = <T extends IdentifiedHighlight>(
   highlights: T[] | null | undefined,
 ): T[] => {
@@ -69,7 +92,7 @@ export const ensureHighlightUids = <T extends IdentifiedHighlight>(
     }
     const isLeading = h?.notebookOnly === true && i === 0 && !leadingUsed;
     if (isLeading) leadingUsed = true;
-    return { ...h, uid: isLeading ? LEADING_NOTE_UID : mintLineUid() } as T;
+    return { ...h, uid: isLeading ? LEADING_NOTE_UID : legacyUid(h, i) } as T;
   });
 };
 
