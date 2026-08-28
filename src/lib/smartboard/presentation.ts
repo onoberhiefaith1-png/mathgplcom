@@ -558,7 +558,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // belongs to the highlight ABOVE it, so leading prose has no parent
       // and remains independent.
       const sourceLines = rawHighlights && rawHighlights.length > 0
-        ? rawHighlights.reduce<Array<{ equation: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
+        ? rawHighlights.reduce<Array<{ equation: string; groupId?: number; lineId?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
             // Diagrams attached to this entry's note (never floating content).
             const noteObjects = readNoteObjects((h as any).noteObjects);
             if (h.notebookOnly) {
