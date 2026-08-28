@@ -184,6 +184,59 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
           assessments: list,
         });
       },
+
+      // ── Guest heartbeat: "I am here, on this question" ──────────────────
+      // Written on the guest's behalf so the teacher's Live guests list can
+      // show who is working right now. No account, no student record.
+      POST: async ({ params, request }) => {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const admin = supabaseAdmin as never as { from: (t: string) => any };
+        const code = String(params.slug ?? "").trim();
+        if (!code) return json({ error: "not_found" }, 404);
+
+        let body: Record<string, unknown> = {};
+        try { body = (await request.json()) as Record<string, unknown>; } catch { /* empty body */ }
+        const token = String(body["token"] ?? "");
+        if (!/^[0-9a-f-]{36}$/i.test(token)) return json({ error: "bad_request" }, 400);
+
+        const { data: link } = await admin
+          .from("guest_links")
+          .select("id, enabled")
+          .eq("code", code)
+          .maybeSingle();
+        if (!link) return json({ error: "not_found" }, 404);
+        if (!link.enabled) return json({ error: "disabled" }, 403);
+
+        const name = typeof body["name"] === "string" ? String(body["name"]).slice(0, 40) : null;
+        const assessmentId = typeof body["assessmentId"] === "string" ? body["assessmentId"] : null;
+        const questionId = typeof body["questionId"] === "string" ? String(body["questionId"]).slice(0, 64) : null;
+
+        const { data: attempts } = await admin
+          .from("guest_attempts")
+          .select("score, total_marks")
+          .eq("link_id", link.id)
+          .eq("guest_token", token);
+        const score = (attempts ?? []).reduce((s: number, r: { score?: number }) => s + (Number(r.score) || 0), 0);
+        const totalMarks = (attempts ?? []).reduce((s: number, r: { total_marks?: number }) => s + (Number(r.total_marks) || 0), 0);
+
+        await admin
+          .from("guest_presence")
+          .upsert(
+            {
+              link_id: link.id,
+              guest_token: token,
+              guest_name: name,
+              assessment_id: assessmentId,
+              question_id: questionId,
+              score,
+              total_marks: totalMarks,
+              last_seen_at: new Date().toISOString(),
+            },
+            { onConflict: "link_id,guest_token" },
+          );
+        return json({ ok: true });
+      },
+
     },
   },
 });
