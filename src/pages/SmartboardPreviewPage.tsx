@@ -478,9 +478,8 @@ const SmartboardPreviewPage = () => {
               {res && res.lines.length > 0 && (
                 <div className="mt-4 space-y-4">
                   {res.lines.map((line: ReservoirLine, k: number) => {
-                    const eq = asDisplayString(line.equation).trim();
-                    const note = asDisplayString(line.notebook).trim();
                     const label = `Line ${k + 1}`;
+
                     // Universal rule — same for line 1 or line 1,000,000:
                     //   1. equation (highlighted) on top
                     //   2. floating numbers underneath (exact chips from the
