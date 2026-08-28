@@ -274,7 +274,15 @@ const coerceFloatingLine = (line: any): FloatingLine => ({
   explanation: typeof line?.explanation === "string" ? line.explanation : undefined,
   fillersSelected: Array.isArray(line?.fillersSelected) ? line.fillersSelected : undefined,
   containersSelected: Array.isArray(line?.containersSelected) ? line.containersSelected : undefined,
-});
+  // IDENTITY MUST SURVIVE: never drop the permanent link back to the line
+  // this floating row was generated from.
+  ...(line?.sourceUid ? { sourceUid: String(line.sourceUid) } : {}),
+  ...(line?.questionId ? { questionId: String(line.questionId) } : {}),
+  ...(typeof line?.groupId === "number" ? { groupId: line.groupId } : {}),
+  ...(typeof line?.marks === "number" ? { marks: line.marks } : {}),
+  ...(line?.table ? { table: line.table } : {}),
+  ...(Array.isArray(line?.noteObjects) ? { noteObjects: line.noteObjects } : {}),
+} as FloatingLine);
 
 /** Structure-aware tokenizer: a matrix, summation, integral, limit, fraction
  *  or root is ONE token, so it renders as one symbol instead of decaying
@@ -333,18 +341,31 @@ const FloatingPreparationPage = () => {
   const saveHighlightState = useCallback(async (source: Highlight[]) => {
     if (!subsectionId) return false;
     const ordered = orderedHighlights(source, linesRef.current, objectsRef.current);
-    const activePayloads = new Set(ordered.filter((h) => !h.notebookOnly).map((h) => String(h.payload ?? "")));
     const { data: ss } = await supabase
       .from("notebook_subsections")
-      .select("floating_lines")
+      .select("floating_lines, floating_highlights")
       .eq("id", subsectionId)
       .maybeSingle();
     const persistedLines = Array.isArray((ss as any)?.floating_lines)
-      ? ((ss as any).floating_lines as any[])
+      ? ((ss as any).floating_lines as any[]).map(coerceFloatingLine)
       : [];
-    const activeLines = persistedLines
-      .map(coerceFloatingLine)
-      .filter((line) => activePayloads.has(String(line.equation ?? "")));
+    const persistedHighlights = Array.isArray((ss as any)?.floating_highlights)
+      ? ((ss as any).floating_highlights as any[])
+      : [];
+    // Legacy rows carry no `sourceUid`: adopt their identity ONCE against the
+    // highlights they were generated from, then keep only the lines whose
+    // source line still exists. Never keep/drop by equation text or position.
+    const adopted = adoptLineIdentities(
+      persistedHighlights as any[],
+      persistedLines as any[],
+      subsectionId,
+    );
+    const liveUids = new Set(
+      ordered.filter((h) => !h.notebookOnly).map((h) => String(h.uid ?? "")),
+    );
+    const activeLines = (adopted.lines as unknown as FloatingLine[]).filter((line) =>
+      liveUids.has(String((line as any).sourceUid ?? "")),
+    );
     const { error } = await supabase
       .from("notebook_subsections")
       .update({
