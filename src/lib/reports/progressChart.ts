@@ -54,7 +54,7 @@ const pct = (score: number, target: number) => {
   return Math.max(0, Math.min(100, (score / target) * 100));
 };
 
-interface RawTask {
+export interface RawTask {
   id: string;
   mode: TaskMode;
   title: string;
@@ -66,18 +66,43 @@ interface RawTask {
   assessmentIds: string[];
   /** assignment: total marks. adventure: total required marks for the class. */
   target: number;
+  /** Curriculum topic (notebook subject) — display only. */
+  topic: string;
+  /** Curriculum subtopic (notebook subtopic) — display only. */
+  subtopic: string;
 }
 
 interface FrozenSnap { percent: number; at: string | null }
 
-interface TaskDataset {
+/** Per-question metadata used by the detailed Individual Student report. */
+export interface AssessmentMeta {
+  id: string;
+  title: string;
+  totalMarks: number;
+  kind: string;
+}
+
+export interface ProgressMeta {
+  status: string;
+  updatedAt: string | null;
+  /** Floating-number construction detail, when the engine recorded it. */
+  solvedCount: number;
+  slotCount: number;
+}
+
+export interface TaskDataset {
   tasks: RawTask[];
   members: ClassMember[];
   /** assessmentId -> studentId -> score */
   scores: Map<string, Map<string, number>>;
   /** taskId -> studentId -> frozen snapshot */
   frozen: Map<string, Map<string, FrozenSnap>>;
+  /** assessmentId -> question metadata */
+  assessmentMeta: Map<string, AssessmentMeta>;
+  /** assessmentId -> studentId -> progress metadata */
+  progressMeta: Map<string, Map<string, ProgressMeta>>;
 }
+
 
 
 async function loadDataset(classId: string): Promise<TaskDataset> {
@@ -98,12 +123,21 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
 
   const notebookIds = Array.from(new Set(taskRows.map((t) => t.notebook_id as string).filter(Boolean)));
   const nbTitles = new Map<string, string>();
+  const nbTopics = new Map<string, { topic: string; subtopic: string }>();
   if (notebookIds.length) {
-    const { data: nbs } = await supabase.from("notebooks").select("id, title, subtopic").in("id", notebookIds);
+    const { data: nbs } = await supabase
+      .from("notebooks")
+      .select("id, title, subject, subtopic")
+      .in("id", notebookIds);
     for (const n of (nbs ?? []) as any[]) {
       nbTitles.set(n.id as string, (n.title as string) || (n.subtopic as string) || "Task");
+      nbTopics.set(n.id as string, {
+        topic: ((n.subject as string) || "").trim(),
+        subtopic: ((n.subtopic as string) || "").trim(),
+      });
     }
   }
+
 
   const ids = taskRows.map((t) => t.id as string);
 
@@ -112,7 +146,7 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
     ids.length
       ? (supabase
           .from("assessments")
-          .select("id, assignment_id, notebook_id, total_marks, kind")
+          .select("id, assignment_id, notebook_id, total_marks, kind, title")
           .eq("class_id", classId) as never as Promise<{ data: any[] | null }>)
       : Promise.resolve({ data: [] as any[] }),
     ids.length
@@ -128,6 +162,18 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
   const marksByAssessment = new Map<string, number>(
     assessments.map((a) => [a.id as string, Number(a.total_marks ?? 0)]),
   );
+  const assessmentMeta = new Map<string, AssessmentMeta>(
+    assessments.map((a) => [
+      a.id as string,
+      {
+        id: a.id as string,
+        title: ((a.title as string) || "").trim() || "Question",
+        totalMarks: Number(a.total_marks ?? 0),
+        kind: (a.kind as string) || "assignment",
+      },
+    ]),
+  );
+
 
   const tasks: RawTask[] = taskRows.map((t) => {
     const mode: TaskMode = (t.mode as TaskMode) === "adventure" ? "adventure" : "assignment";
@@ -156,6 +202,7 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
       target = mine.reduce((s, a) => s + Number(a.total_marks ?? 0), 0);
     }
 
+    const nb = nbTopics.get(t.notebook_id as string);
     return {
       id: t.id as string,
       mode,
@@ -166,24 +213,39 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
       dueAt: (t.due_at as string | null) ?? null,
       assessmentIds,
       target,
+      topic: nb?.topic || title,
+      subtopic: nb?.subtopic || "",
     };
   });
 
   // Progress rows for every assessment referenced by any task.
   const allAssessmentIds = Array.from(new Set(tasks.flatMap((t) => t.assessmentIds)));
   const scores = new Map<string, Map<string, number>>();
+  const progressMeta = new Map<string, Map<string, ProgressMeta>>();
   if (allAssessmentIds.length) {
     const { data: progress } = await supabase
       .from("assessment_progress")
-      .select("assessment_id, student_id, score")
+      .select("assessment_id, student_id, score, status, updated_at, solved_lines, per_question")
       .in("assessment_id", allAssessmentIds);
     for (const p of (progress ?? []) as any[]) {
       const aid = p.assessment_id as string;
       const inner = scores.get(aid) ?? new Map<string, number>();
       inner.set(p.student_id as string, Number(p.score ?? 0));
       scores.set(aid, inner);
+
+      const solved = (p.solved_lines ?? {}) as Record<string, unknown>;
+      const perQuestion = (p.per_question ?? {}) as Record<string, unknown>;
+      const metaInner = progressMeta.get(aid) ?? new Map<string, ProgressMeta>();
+      metaInner.set(p.student_id as string, {
+        status: (p.status as string) || "not_started",
+        updatedAt: (p.updated_at as string | null) ?? null,
+        solvedCount: Object.keys(solved).length,
+        slotCount: Math.max(Object.keys(solved).length, Object.keys(perQuestion).length),
+      });
+      progressMeta.set(aid, metaInner);
     }
   }
+
 
   // Frozen historical results win over live maths (pass-mark changes must never
   // rewrite a finished task).
@@ -201,8 +263,12 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
     frozen.set(r.assignment_id as string, inner);
   }
 
-  return { tasks, members, scores, frozen };
+  return { tasks, members, scores, frozen, assessmentMeta, progressMeta };
 }
+
+/** Shared dataset for every report view — one round trip per class. */
+export const loadReportDataset = loadDataset;
+
 
 function studentScore(task: RawTask, dataset: TaskDataset, studentId: string): number {
   let total = 0;

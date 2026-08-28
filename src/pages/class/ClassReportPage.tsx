@@ -1,9 +1,10 @@
 import { classRoot } from "@/lib/product/workspaceRoutes";
-// Teacher Report — Class Report first, with a switch to any student's report.
+// Teacher Report — two lenses on the same recorded assessment data:
+// Individual Student (default, detailed) and Class Overview (simple).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, BarChart3, ChevronDown, Loader2, Settings2 } from "lucide-react";
+import { ArrowLeft, Loader2, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import ProgressBarChart from "@/components/reports/ProgressBarChart";
@@ -11,6 +12,9 @@ import ReportFilterBar from "@/components/reports/ReportFilterBar";
 import ReportSettingsSheet from "@/components/reports/ReportSettingsSheet";
 import TrendLineChart from "@/components/reports/TrendLineChart";
 import TrendRangeBar from "@/components/reports/TrendRangeBar";
+import ReportModeSwitch, { type ReportMode } from "@/components/reports/ReportModeSwitch";
+import IndividualStudentReport from "@/components/reports/IndividualStudentReport";
+import ClassOverviewReport from "@/components/reports/ClassOverviewReport";
 import { buildTrendSeries } from "@/lib/reports/trendChart";
 import {
   reportSurfaceClass,
@@ -18,6 +22,8 @@ import {
   type ReportFilter,
   type TrendGrouping,
 } from "@/components/reports/reportTheme";
+import { loadReportData, type ClassMember, type TaskBar } from "@/lib/reports/progressChart";
+import { loadStudentReport, type StudentAssessmentRow } from "@/lib/reports/studentReport";
 
 const TREND_SUBTITLE: Record<TrendGrouping, string> = {
   week: "Average performance per week (Sunday → Saturday).",
@@ -25,13 +31,7 @@ const TREND_SUBTITLE: Record<TrendGrouping, string> = {
   year: "Average performance per year.",
 };
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { loadReportData, type ClassMember, type TaskBar } from "@/lib/reports/progressChart";
+const MODE_KEY = "mathgpl.report.mode.v1";
 
 const ClassReportPage = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -40,18 +40,34 @@ const ClassReportPage = () => {
   const [className, setClassName] = useState("");
   const [members, setMembers] = useState<ClassMember[]>([]);
   const [classBars, setClassBars] = useState<TaskBar[]>([]);
-  const [barsByStudent, setBarsByStudent] = useState<Map<string, TaskBar[]>>(new Map());
-  const [selected, setSelected] = useState<string | "class">("class");
+  const [rowsByStudent, setRowsByStudent] = useState<Map<string, StudentAssessmentRow[]>>(new Map());
+  const [mode, setMode] = useState<ReportMode>("student");
+  const [studentId, setStudentId] = useState<string | null>(null);
   const [filter, setFilter] = useState<ReportFilter>("both");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { settings, update, updateTrendColor } = useReportSettings();
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(MODE_KEY);
+      if (saved === "class" || saved === "student") setMode(saved);
+    } catch { /* storage unavailable */ }
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem(MODE_KEY, mode); } catch { /* storage unavailable */ }
+  }, [mode]);
+
   const refresh = useCallback(async () => {
     if (!classId) return;
-    const { members: m, classBars: cb, barsByStudent: bs } = await loadReportData(classId);
+    const [{ members: m, classBars: cb }, detail] = await Promise.all([
+      loadReportData(classId),
+      loadStudentReport(classId),
+    ]);
     setMembers(m);
     setClassBars(cb);
-    setBarsByStudent(bs);
+    setRowsByStudent(detail.rowsByStudent);
+    setStudentId((cur) => cur ?? m[0]?.user_id ?? null);
   }, [classId]);
 
   useEffect(() => {
@@ -85,17 +101,14 @@ const ClassReportPage = () => {
     return () => { supabase.removeChannel(ch); };
   }, [classId, loading, refresh]);
 
-  const bars = useMemo(
-    () => (selected === "class" ? classBars : barsByStudent.get(selected) ?? []),
-    [selected, classBars, barsByStudent],
-  );
   const trendPoints = useMemo(
-    () => buildTrendSeries(bars, { grouping: settings.trendGrouping, filter }),
-    [bars, settings.trendGrouping, filter],
+    () => buildTrendSeries(classBars, { grouping: settings.trendGrouping, filter }),
+    [classBars, settings.trendGrouping, filter],
   );
-  const selectedStudent = selected === "class" ? null : members.find((m) => m.user_id === selected);
-  const selectedName = selectedStudent ? `${selectedStudent.display_name} — Student Report` : "Class Report";
-
+  const studentRows = useMemo(
+    () => (studentId ? rowsByStudent.get(studentId) ?? [] : []),
+    [studentId, rowsByStudent],
+  );
 
   if (loading) {
     return (
@@ -107,16 +120,22 @@ const ClassReportPage = () => {
 
   return (
     <div className={`${reportSurfaceClass(settings)} min-h-screen w-full bg-[hsl(var(--rp-bg))] text-[hsl(var(--rp-fg))]`}>
-      <header className="flex items-center justify-between gap-3 px-6 py-5">
-        <Link
-          to={`${classRoot()}/${classId}`}
-          className="inline-flex items-center gap-2 text-sm text-[hsl(var(--rp-muted))] transition hover:text-[hsl(var(--rp-fg))]"
-        >
-          <ArrowLeft className="h-4 w-4" /> {className || "Class"}
-        </Link>
-        <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <BarChart3 className="h-5 w-5" /> Report
-        </h1>
+      <header className="flex flex-wrap items-center justify-between gap-3 px-6 py-5">
+        <div className="flex items-center gap-3">
+          <Link
+            to={`${classRoot()}/${classId}`}
+            className="inline-flex items-center gap-2 text-sm text-[hsl(var(--rp-muted))] transition hover:text-[hsl(var(--rp-fg))]"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight">Reports</h1>
+            <p className="text-xs text-[hsl(var(--rp-muted))]">Student assessments and class performance.</p>
+          </div>
+        </div>
+
+        <ReportModeSwitch value={mode} onChange={setMode} />
+
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
@@ -128,75 +147,45 @@ const ClassReportPage = () => {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-6 pb-16">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setSelected("class")}
-            className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
-              selected === "class"
-                ? "border-transparent bg-[hsl(var(--rp-fg))] text-[hsl(var(--rp-panel))]"
-                : "border-[hsl(var(--rp-border))] text-[hsl(var(--rp-muted))] hover:text-[hsl(var(--rp-fg))]"
-            }`}
+        {mode === "student" ? (
+          <IndividualStudentReport
+            className={className}
+            members={members}
+            selectedStudentId={studentId}
+            onSelectStudent={setStudentId}
+            rows={studentRows}
+          />
+        ) : (
+          <ClassOverviewReport
+            className={className}
+            members={members}
+            rowsByStudent={rowsByStudent}
+            onOpenStudent={(id) => { setStudentId(id); setMode("student"); }}
           >
-            Class
-          </button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
-                  selectedStudent
-                    ? "border-transparent bg-[hsl(var(--rp-fg))] text-[hsl(var(--rp-panel))]"
-                    : "border-[hsl(var(--rp-border))] text-[hsl(var(--rp-muted))] hover:text-[hsl(var(--rp-fg))]"
-                }`}
-              >
-                {selectedStudent ? selectedStudent.display_name : "Student"}
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-80 w-56 overflow-y-auto">
-              {members.length === 0 ? (
-                <DropdownMenuItem disabled>No students enrolled</DropdownMenuItem>
-              ) : (
-                members.map((m) => (
-                  <DropdownMenuItem key={m.user_id} onSelect={() => setSelected(m.user_id)}>
-                    {m.display_name}
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <div className="ml-auto">
-            <ReportFilterBar value={filter} onChange={setFilter} />
-          </div>
-        </div>
-
-        <ProgressBarChart
-          bars={bars}
-          settings={settings}
-          filter={filter}
-          title={selectedName}
-          subtitle={
-            selected === "class"
-              ? `Average completion per task across ${members.length} student${members.length === 1 ? "" : "s"}.`
-              : "Completion per assigned task."
-          }
-        />
-
-        {settings.showTrend && (
-          <div className="mt-6 space-y-3">
-            <div className="flex justify-end">
-              <TrendRangeBar value={settings.trendGrouping} onChange={(v) => update("trendGrouping", v)} />
+            <div className="mb-4 flex justify-end">
+              <ReportFilterBar value={filter} onChange={setFilter} />
             </div>
-            <TrendLineChart
-              points={trendPoints}
+            <ProgressBarChart
+              bars={classBars}
               settings={settings}
-              title={selected === "class" ? "Class Trend" : `${selectedName} — Trend`}
-              subtitle={TREND_SUBTITLE[settings.trendGrouping]}
+              filter={filter}
+              title="Class Report"
+              subtitle={`Average completion per task across ${members.length} student${members.length === 1 ? "" : "s"}.`}
             />
-          </div>
+            {settings.showTrend && (
+              <div className="mt-6 space-y-3">
+                <div className="flex justify-end">
+                  <TrendRangeBar value={settings.trendGrouping} onChange={(v) => update("trendGrouping", v)} />
+                </div>
+                <TrendLineChart
+                  points={trendPoints}
+                  settings={settings}
+                  title="Class Trend"
+                  subtitle={TREND_SUBTITLE[settings.trendGrouping]}
+                />
+              </div>
+            )}
+          </ClassOverviewReport>
         )}
       </main>
 
@@ -207,7 +196,6 @@ const ClassReportPage = () => {
         update={update}
         updateTrendColor={updateTrendColor}
       />
-
     </div>
   );
 };
