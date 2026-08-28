@@ -104,18 +104,27 @@ export const sectionsFor = (
   cfg: QuestionVideoConfig | null | undefined,
 ): VideoSection[] => {
   const duration = Math.max(0, num(cfg?.duration) ?? 0);
-  const entries: { key: string; label: string; required: boolean; lineId: string | null }[] = [];
-  if (cfg?.introEnabled) entries.push({ key: INTRO_KEY, label: "Introduction", required: false, lineId: null });
+  const entries: {
+    key: string;
+    label: string;
+    required: boolean;
+    lineId: string | null;
+    preview: string | null;
+  }[] = [];
+  if (cfg?.introEnabled) {
+    entries.push({ key: INTRO_KEY, label: "Introduction", required: false, lineId: null, preview: null });
+  }
   lines.forEach((l, i) => {
     entries.push({
       key: lineKey(l.lineId),
       label: l.label || `Line ${i + 1}`,
       required: true,
       lineId: l.lineId,
+      preview: l.preview ?? null,
     });
   });
   if (cfg?.conclusionEnabled) {
-    entries.push({ key: CONCLUSION_KEY, label: "Conclusion", required: false, lineId: null });
+    entries.push({ key: CONCLUSION_KEY, label: "Conclusion", required: false, lineId: null, preview: null });
   }
   if (entries.length === 0) return [];
 
