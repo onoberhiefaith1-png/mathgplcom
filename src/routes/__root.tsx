@@ -183,23 +183,32 @@ function RootComponent() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <ImpersonationBanner />
-          <FullscreenToggle />
-          <GlobalSoundtrack />
-          <ConnectionIndicator />
-          <StabilityWatchdog />
+    <>
+      {/* This executes while streamed HTML is parsed, before the client bundle.
+          It prevents the bootstrap timer from mistaking healthy SSR for a failed mount. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: 'document.documentElement.dataset.mathgplMounted="true";',
+        }}
+      />
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <ImpersonationBanner />
+            <FullscreenToggle />
+            <GlobalSoundtrack />
+            <ConnectionIndicator />
+            <StabilityWatchdog />
 
 
-          <NavHistoryProvider>
-            <Outlet />
-          </NavHistoryProvider>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+            <NavHistoryProvider>
+              <Outlet />
+            </NavHistoryProvider>
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </>
 
   );
 }
