@@ -9,6 +9,7 @@
 // make as many separate selections as they want; each one becomes one
 // floating-number block, in the order they were made.
 //
+import { looksLikeMathOnly } from "@/lib/notebook/proseGuard";
 // Undo / Redo (buttons + ⌘Z / ⇧⌘Z) revert highlight actions.
 
 import { tokenizeMath } from "@/lib/notebook/mathTokens";
@@ -116,18 +117,11 @@ export const restorePersistedHighlights = (
  *   • before the first highlight → a notebook-only first row
  *   • between highlight A and B → notebook for highlight A
  *   • after the final highlight → notebook for the final highlight */
-/** NOTE-PURITY LAW: A note is prose. A line that carries math operators or
- *  is nearly all digits/punctuation is NOT prose and must never be saved as
- *  a note. This mirrors the read-side guard in PresentationView.notebookFor
- *  so a stray unhighlighted equation cannot leak into `precedingNotebook`.
- *  Universal — applies at line 1, line 12, line 1,000,000. */
-export const looksLikeMathLine = (line: string): boolean => {
-  const s = String(line ?? "").trim();
-  if (!s) return false;
-  if (/[=+\-−×÷/^]/.test(s)) return true;
-  if (/^[\d\s.,()πθ]+$/.test(s)) return true;
-  return false;
-};
+/** NOTE-PURITY LAW — see `@/lib/notebook/proseGuard`. Prose may quote
+ *  mathematics and must be kept verbatim; only word-free math is rejected. */
+export const looksLikeMathLine = (line: string): boolean => looksLikeMathOnly(line);
+
+
 
 const stripMathLines = (text: string): string =>
   String(text ?? "")

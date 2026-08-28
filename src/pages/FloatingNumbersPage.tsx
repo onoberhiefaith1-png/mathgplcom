@@ -19,6 +19,8 @@ import {
   totalMarks as computeTotalMarks,
   DEFAULT_SCORING,
   SCORE_LABELS,
+  repairShiftedFloatingLines,
+
 } from "@/lib/lessonnotes/floatingCompile";
 import { sanitizeFillers, detectStructures, STRUCTURE_MARKUP, expandTransitionLine, dropContextualLeadingPlus } from "@/lib/smartboard/floatingExtractor";
 import FloatingWorkspace from "@/components/lessonnotes/FloatingWorkspace";
@@ -661,8 +663,10 @@ const FloatingNumbersPage = () => {
           arr.push(p);
           byTable.set(p.table.objId, arr);
         }
+        // Repair any array that was previously saved one line out of step, so
+        // chips return to the equation they actually decompose.
+        const repairedList = repairShiftedFloatingLines(persistedList);
         const used = new Set<number>();
-        let textIdx = 0;
         const reconciled: FloatingLine[] = [];
         for (const e of seq) {
           if (e.kind === "table") {
@@ -673,15 +677,18 @@ const FloatingNumbersPage = () => {
             }
             continue;
           }
-          const hi = textIdx++;
           const payload = String(e.highlight.payload ?? "");
-          let idx = persistedList.findIndex(
-            (p, i) => !used.has(i) && (p.equation ?? "") === payload,
+          const groupId = e.highlight.groupId;
+          // PAIRING LAW: identity first (the highlight's own groupId), then the
+          // exact equation text. NEVER by array position — a positional
+          // fallback is what shifted every chip group onto the wrong line.
+          let idx = repairedList.findIndex(
+            (p, i) => !used.has(i) && typeof p.groupId === "number" && p.groupId === groupId,
           );
-          // (b) positional fallback — reuse the persisted row at the same index
-          // when it hasn't already been claimed by an exact match.
-          if (idx < 0 && hi < persistedList.length && !used.has(hi)) {
-            idx = hi;
+          if (idx < 0) {
+            idx = repairedList.findIndex(
+              (p, i) => !used.has(i) && (p.equation ?? "") === payload,
+            );
           }
           const noteObjs = noteObjByPayload.get(payload);
           if (idx >= 0) {
@@ -689,7 +696,8 @@ const FloatingNumbersPage = () => {
             // Lock the equation to the permanent highlight payload while keeping
             // the persisted fillers + selection state.
             reconciled.push(ensureAtomicMatrixFiller({
-              ...persistedList[idx],
+              ...repairedList[idx],
+              groupId,
               equation: payload,
               noteObjects: noteObjs,
             }, payload));
@@ -697,6 +705,7 @@ const FloatingNumbersPage = () => {
           }
           reconciled.push(ensureAtomicMatrixFiller({
             lineId: newId(),
+            groupId,
             equation: payload,
             fillers: [],
             containers: [],
@@ -705,6 +714,7 @@ const FloatingNumbersPage = () => {
           }, payload));
         }
         setLines(reconciled);
+
       } else {
         // SELECTION LAW: this page NEVER re-interprets the solution. With no
         // saved highlights there is nothing to generate — the teacher must go

@@ -6,6 +6,8 @@
 import type { SectionRow, SectionKind, BlockRow, SubsectionRow, NotebookRow } from "@/hooks/useNotebook";
 import type { ContainerKind } from "./floatingPlan";
 import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
+import { repairShiftedFloatingLines } from "@/lib/lessonnotes/floatingCompile";
+import { looksLikeMathOnly } from "@/lib/notebook/proseGuard";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { normEq } from "./rowAscii";
@@ -84,6 +86,10 @@ export interface ReservoirLine {
    *  correct equation is NEVER carried client-side in assessment mode; this id
    *  is sent to the server grader, which holds the hidden answer key. */
   lineId?: string;
+  /** Durable highlight identity — used by the Approve & Go Live editor to
+   *  write an edit back to the exact saved line it came from. */
+  groupId?: number;
+
   /** Marks awarded when this line is graded correct (assessment mode only). */
   marks?: number;
   /** This line has only notebook content and no highlighted floating math. */
@@ -173,11 +179,20 @@ const singleHighlightFallback = (payload: string): RawFloatingLine => ({
 export const findVerifiedFloatingLine = (
   payload: string,
   rawLines: RawFloatingLine[] | null | undefined,
+  groupId?: number,
 ): RawFloatingLine | undefined => {
+  if (!rawLines?.length) return undefined;
+  // IDENTITY FIRST: the highlight's own durable groupId. Text matching is the
+  // fallback; array position is never used.
+  if (typeof groupId === "number") {
+    const byId = rawLines.find((line) => (line as any)?.groupId === groupId);
+    if (byId) return byId;
+  }
   const key = lessonSourceKey(payload);
-  if (!key || !rawLines?.length) return undefined;
+  if (!key) return undefined;
   return rawLines.find((line) => lessonSourceKey(line?.equation ?? "") === key);
 };
+
 
 const splitSolutionLines = (solution: string | undefined | null): string[] =>
   String(solution ?? "")
@@ -200,9 +215,11 @@ const parseSolutionExplanations = (
   const looksLikeMath = (l: string) => {
     const u = toUnicodeMath(l);
     if (!u || isStillDirty(u)) return false;
-    // A line counts as math if it has an operator/equals or is mostly digits.
-    return /[=+\-−×÷/^]/.test(u) || /^[\d\s.,()πθ]+$/.test(u);
+    // NOTE-PURITY LAW: a line that carries ordinary words is prose, even when
+    // it quotes an equation ("Compare with ax² + bx + c = 0:").
+    return looksLikeMathOnly(u);
   };
+
   let leading: string[] = [];
   let leadingLine = 0;
   const LABEL_RE = /^(explanation|reason|note|check|reasoning)\s*[:：]?\s*$/i;
@@ -486,10 +503,10 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
         | { viewCombined?: string[]; viewRearranged?: string[]; fillers?: string[] }
         | null
         | undefined;
-      const rawLines = (sub as any).floating_lines as
-        | RawFloatingLine[]
-        | null
-        | undefined;
+      const rawLines = repairShiftedFloatingLines(
+        (((sub as any).floating_lines ?? []) as RawFloatingLine[]) as any,
+      ) as unknown as RawFloatingLine[] | null | undefined;
+
       // NOTE-ATTACHMENT CONSISTENCY LAW: a highlight owns ONLY its own
       // `precedingNotebook`. There is no equation-keyed fallback map — a
       // line has a note iff its own highlight authored one. Equation-match
@@ -541,7 +558,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // belongs to the highlight ABOVE it, so leading prose has no parent
       // and remains independent.
       const sourceLines = rawHighlights && rawHighlights.length > 0
-        ? rawHighlights.reduce<Array<{ equation: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
+        ? rawHighlights.reduce<Array<{ equation: string; groupId?: number; lineId?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
             // Diagrams attached to this entry's note (never floating content).
             const noteObjects = readNoteObjects((h as any).noteObjects);
             if (h.notebookOnly) {
@@ -577,12 +594,15 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             // floating line when that line's Lesson Note equation matches the
             // highlight payload. Never fall back by array index — that can pull
             // chips/notebook text from a different lesson line after edits.
-            const matched = findVerifiedFloatingLine(payload, rawLines)
+            const matched = findVerifiedFloatingLine(payload, rawLines, (h as any).groupId)
               ?? singleHighlightFallback(payload);
+
             const ownNotebook = String(h.precedingNotebook ?? "").trim();
             acc.push({
               ...matched,
+              groupId: (h as any).groupId,
               equation: payload,
+
               notebook: ownNotebook || undefined,
               notebookOnly: false,
               noteObjects,
@@ -605,7 +625,11 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
                     fillers: undefined as string[] | undefined,
                     containers: detectStructures(p.equation) as ContainerKind[],
                     explanation: p.explanation,
+                    // The prose that follows this equation IS its note, so the
+                    // board shows chips first and the note underneath.
+                    notebook: p.explanation,
                   }));
+
 
                 })()
               : notesOnlyRows(
@@ -664,6 +688,9 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             explanation: explanation || undefined,
             notebook,
             notebookOnly: isNotebookOnly,
+            lineId: (rl as any).lineId,
+            groupId: (rl as any).groupId,
+
             table: (rl as any).table,
             noteObjects: lineNoteObjects.length ? lineNoteObjects : undefined,
           });
