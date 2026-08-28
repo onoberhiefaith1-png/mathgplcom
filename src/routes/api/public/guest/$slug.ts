@@ -66,6 +66,31 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
           return json({ assessment });
         }
 
+        // ── The teaching video record for ONE exercise question ─────────────
+        // A reference only: the single original video path plus its line
+        // ranges. Nothing is duplicated for a guest.
+        if (action === "video") {
+          const blockId = url.searchParams.get("blockId") ?? "";
+          const questionId = url.searchParams.get("questionId") ?? "";
+          if (link.kind !== "course" || !blockId || !questionId) return json({ error: "bad_request" }, 400);
+          const { data: block } = await admin
+            .from("course_blocks")
+            .select("id, section_id, config")
+            .eq("id", blockId)
+            .maybeSingle();
+          if (!block) return json({ error: "not_found" }, 404);
+          const { data: section } = await admin
+            .from("course_sections")
+            .select("course_id")
+            .eq("id", block.section_id)
+            .maybeSingle();
+          if (section?.course_id !== link.resource_id) return json({ error: "not_found" }, 404);
+          const map = (block.config?.questionVideos ?? {}) as Record<string, unknown>;
+          return json({ video: map[questionId] ?? null });
+        }
+
+
+
         // ── Signed URL for an ORIGINAL course media object ───────────────────
         if (action === "media") {
           const path = url.searchParams.get("path") ?? "";
