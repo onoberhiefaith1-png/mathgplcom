@@ -240,11 +240,14 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     el.pause();
     try { el.currentTime = target.start; } catch { /* not seekable yet */ }
     if (!autoplay) return;
+    // Sound is asserted on EVERY jump, so one blocked clip can never leave the
+    // rest of the lesson silent.
+    setForcedMute(false);
     el.muted = muted;
     void el.play().catch(() => {
-      // Sound-on autoplay refused: keep teaching, ask for one gesture.
+      // Sound-on autoplay refused: keep teaching silently until any gesture.
       el.muted = true;
-      setNeedsSound(true);
+      setForcedMute(true);
       void el.play().catch(() => undefined);
     });
   }, [sections, muted]);
