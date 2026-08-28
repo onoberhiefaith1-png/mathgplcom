@@ -14,16 +14,23 @@ import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 const restartAfterTsconfigChange = () => ({
   name: "mathgpl-restart-after-tsconfig-change",
   apply: "serve" as const,
+  // Vite handles tsconfig invalidation before ordinary watcher listeners in
+  // some reload paths, so cover both the plugin hot-update hook and watcher.
+  handleHotUpdate(context: { file: string }) {
+    scheduleRestart(context.file);
+  },
   configureServer(server: { watcher: { on: (event: string, listener: (path: string) => void) => void } }) {
-    let restartScheduled = false;
-    server.watcher.on("change", (path) => {
-      if (restartScheduled || !/(^|[/\\])tsconfig(?:\.[^/\\]+)?\.json$/.test(path)) return;
-      restartScheduled = true;
-      console.warn("[stability] TypeScript configuration changed; restarting the dev server cleanly.");
-      setTimeout(() => process.exit(1), 150);
-    });
+    server.watcher.on("change", scheduleRestart);
   },
 });
+
+let restartScheduled = false;
+function scheduleRestart(path: string) {
+  if (restartScheduled || !/(^|[/\\])tsconfig(?:\.[^/\\]+)?\.json$/.test(path)) return;
+  restartScheduled = true;
+  console.warn("[stability] TypeScript configuration changed; restarting the dev server cleanly.");
+  setTimeout(() => process.exit(1), 150);
+}
 
 export default defineConfig({
   tanstackStart: {
