@@ -42,8 +42,12 @@ export const noteForLine = (line: NoteCarrier | undefined | null): string => {
   if (!text) return "";
   const rows = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (rows.length === 0) return "";
-  if (rows.some(looksLikeMath)) return "";
-  return text;
+  // Per-ROW purity: a bare equation tail is dropped, but the prose rows
+  // around it survive. One stray row can never delete a real teaching note.
+  const prose = rows.filter((r) => !looksLikeMath(r));
+  if (prose.length === 0) return "";
+  return prose.join("\n");
+
 };
 
 /** Notes-layer objects attached to a line's note. A diagram is note content by
