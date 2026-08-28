@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { BookOpen, Copy, Eye, Pencil, School, Trash2 } from "lucide-react";
+import { BookOpen, Copy, Pencil, School } from "lucide-react";
 import { useCourseMediaUrl } from "@/lib/courses/useCourseMediaUrl";
+import ShareMenu from "@/components/community/ShareMenu";
+import { findMyPublication } from "@/lib/community/community";
 import AssignToClassDialog from "./AssignToClassDialog";
 import type { CourseSummary } from "@/lib/courses/api";
 
@@ -19,6 +21,20 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
   const cover = useCourseMediaUrl(course.background_url);
   const published = course.status === "published";
   const [assigning, setAssigning] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  // A course already listed in Community carries a Shared badge on the card.
+  useEffect(() => {
+    let alive = true;
+    void findMyPublication("course", course.id)
+      .then((row) => {
+        if (alive) setShared(!!row && row.status === "published");
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [course.id]);
 
   return (
     <article className="overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-slate-200/70">
@@ -32,13 +48,18 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
             <BookOpen className="h-8 w-8" />
           </div>
         )}
-        <span
-          className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-            published ? "bg-emerald-600 text-white" : "bg-slate-900/80 text-white"
-          }`}
-        >
-          {published ? "Published" : "Draft"}
-        </span>
+        <div className="absolute right-3 top-3 flex items-center gap-2">
+          {shared && (
+            <span className="rounded-full bg-sky-600 px-2.5 py-1 text-[11px] font-semibold text-white">Shared</span>
+          )}
+          <span
+            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+              published ? "bg-emerald-600 text-white" : "bg-slate-900/80 text-white"
+            }`}
+          >
+            {published ? "Published" : "Draft"}
+          </span>
+        </div>
       </div>
 
       <div className="space-y-3 p-5">
@@ -57,12 +78,6 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
         </div>
 
         <div className="flex items-center gap-1 border-t border-slate-200 pt-3">
-          <Link
-            to={`/course-builder/${course.id}?view=student`}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
-          >
-            <Eye className="h-4 w-4" /> View
-          </Link>
           <Link
             to={`/course-builder/${course.id}`}
             className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
@@ -84,13 +99,28 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
             <Copy className="h-4 w-4" /> Duplicate
           </button>
 
-          <button
-            type="button"
-            onClick={() => onDelete(course)}
-            className="ml-auto inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-sm text-rose-600 transition hover:bg-rose-50"
-          >
-            <Trash2 className="h-4 w-4" /> Delete
-          </button>
+          <ShareMenu
+            className="ml-auto"
+            kind="course"
+            sourceId={course.id}
+            title={course.title}
+            description={course.description ?? undefined}
+            hashtags={[course.subject, course.topic, course.subtopic]
+              .filter(Boolean)
+              .map((t) => `#${String(t).replace(/\s+/g, "")}`)
+              .join(" ")}
+            payload={{
+              course_id: course.id,
+              subject: course.subject,
+              topic: course.topic,
+              subtopic: course.subtopic,
+              cover_path: course.background_url,
+              media_type: course.background_kind,
+            }}
+            onDelete={() => onDelete(course)}
+            onShareChange={setShared}
+            triggerClassName="border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+          />
         </div>
       </div>
       <AssignToClassDialog open={assigning} onOpenChange={setAssigning} courseId={course.id} />

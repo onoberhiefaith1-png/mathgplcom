@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BookOpen, Compass, Users } from "lucide-react";
+import { BookOpen, Compass, GraduationCap, Users } from "lucide-react";
 import CommunityHubPage from "@/pages/community/CommunityHubPage";
 import type { WorkspaceTile } from "@/components/workspace/WorkspaceCard";
 
@@ -26,6 +26,13 @@ const tiles: WorkspaceTile[] = [
     label: "Adventure",
     description: "Shared games and adventures. Copy one into your Adventure workspace.",
     icon: Compass,
+    theme: "adventure",
+  },
+  {
+    to: "/community/courses",
+    label: "Courses",
+    description: "Shared Skill Builder courses. Copy one into your own Skill Builder.",
+    icon: GraduationCap,
     theme: "adventure",
   },
 ];

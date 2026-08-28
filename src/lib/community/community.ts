@@ -233,6 +233,7 @@ export type DownloadResult =
   | { kind: "lesson_note"; notebookId: string }
   | { kind: "lesson_asset" }
   | { kind: "adventure"; gameId: string }
+  | { kind: "course"; courseId: string }
   | { kind: "gallery" }
   | { kind: "other" };
 
@@ -288,6 +289,17 @@ export const downloadResource = async (card: CommunityCard): Promise<DownloadRes
     if (error) throw error;
     await recordDownload(card.id, copy.id as string);
     return { kind: "adventure", gameId: copy.id as string };
+  }
+
+  // A shared course lands in the member's own Skill Builder as an independent
+  // draft: sections, blocks and linked exercise questions travel with it.
+  if (card.kind === "course") {
+    const sourceCourse = (card.payload?.course_id as string | undefined) ?? card.source_id;
+    if (!sourceCourse) throw new Error("This course is no longer available.");
+    const { copyCourseFromCommunity } = await import("@/lib/courses/api");
+    const copy = await copyCourseFromCommunity(sourceCourse, card.title);
+    await recordDownload(card.id, copy.id);
+    return { kind: "course", courseId: copy.id };
   }
 
   // A lesson-note asset is a saved editor object: it lands in the member's own

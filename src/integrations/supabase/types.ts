@@ -7232,6 +7232,49 @@ export type Database = {
       issue_account_id_for_email: { Args: { _email: string }; Returns: string }
       join_class_with_code: { Args: { code: string }; Returns: Json }
       join_org_with_invite: { Args: { _code: string }; Returns: string }
+      live_audience_me: {
+        Args: { _session: string; _token: string }
+        Returns: {
+          created_at: string
+          display_name: string | null
+          guest_token: string
+          id: string
+          last_seen_at: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "session_audience"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      live_audience_touch: {
+        Args: {
+          _claim_free_entry?: boolean
+          _name?: string
+          _session: string
+          _token: string
+        }
+        Returns: {
+          created_at: string
+          display_name: string | null
+          guest_token: string
+          id: string
+          last_seen_at: string
+          session_id: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "session_audience"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       live_entry_status: {
         Args: { _guest_token: string; _session_id: string }
         Returns: string
