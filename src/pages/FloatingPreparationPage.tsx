@@ -116,22 +116,10 @@ export const restorePersistedHighlights = (
  *   • before the first highlight → a notebook-only first row
  *   • between highlight A and B → notebook for highlight A
  *   • after the final highlight → notebook for the final highlight */
-/** NOTE-PURITY LAW (aligned with the read-side guard in
- *  `boardWriter/noteSource`): a note is PROSE. Prose may quote mathematics —
- *  "Compare with ax^{2} + bx + c = 0:", "Substitute x = 2" — and must be kept
- *  verbatim. A chunk is math-shaped, and therefore rejected, only when it
- *  carries NO words at all (a bare equation tail such as "= 0" or "3 + 4 = 7").
- *  Universal — applies at line 1, line 12, line 1,000,000. */
-export const looksLikeMathLine = (line: string): boolean => {
-  const s = String(line ?? "").trim();
-  if (!s) return false;
-  // Any alphabetic word (2+ letters, or a single letter followed by a space)
-  // means the teacher wrote prose. Single symbols like "x" stay math.
-  if (/[A-Za-z]{2,}/.test(s)) return false;
-  if (/[=+\-−×÷/^]/.test(s)) return true;
-  if (/^[\d\s.,()πθ]+$/.test(s)) return true;
-  return false;
-};
+/** NOTE-PURITY LAW — see `@/lib/notebook/proseGuard`. Prose may quote
+ *  mathematics and must be kept verbatim; only word-free math is rejected. */
+export const looksLikeMathLine = (line: string): boolean => looksLikeMathOnly(line);
+
 
 
 const stripMathLines = (text: string): string =>
