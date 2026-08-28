@@ -23,6 +23,13 @@ const TREND_SUBTITLE: Record<TrendGrouping, string> = {
   year: "Your average performance per year.",
 };
 import { loadStudentTaskBars, type TaskBar } from "@/lib/reports/progressChart";
+import StudentSummaryCards from "@/components/reports/StudentSummaryCards";
+import StudentAssessmentTable from "@/components/reports/StudentAssessmentTable";
+import {
+  loadOneStudentReport,
+  summarise,
+  type StudentAssessmentRow,
+} from "@/lib/reports/studentReport";
 
 const StudentReportPage = () => {
   const { classId } = useParams<{ classId: string }>();
@@ -30,10 +37,14 @@ const StudentReportPage = () => {
   const [loading, setLoading] = useState(true);
   const [className, setClassName] = useState("");
   const [bars, setBars] = useState<TaskBar[]>([]);
+  const [rows, setRows] = useState<StudentAssessmentRow[]>([]);
+  const [selectedRow, setSelectedRow] = useState<string | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [filter, setFilter] = useState<ReportFilter>("both");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { settings, update, updateTrendColor } = useReportSettings();
+
+  const summary = useMemo(() => summarise(rows), [rows]);
 
   const trendPoints = useMemo(
     () => buildTrendSeries(bars, { grouping: settings.trendGrouping, filter }),
@@ -42,8 +53,14 @@ const StudentReportPage = () => {
 
   const refresh = useCallback(async (uid: string) => {
     if (!classId) return;
-    setBars(await loadStudentTaskBars(classId, uid));
+    const [taskBars, detailRows] = await Promise.all([
+      loadStudentTaskBars(classId, uid),
+      loadOneStudentReport(classId, uid),
+    ]);
+    setBars(taskBars);
+    setRows(detailRows);
   }, [classId]);
+
 
   useEffect(() => {
     let cancelled = false;
