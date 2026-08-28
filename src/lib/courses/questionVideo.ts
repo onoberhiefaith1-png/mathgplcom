@@ -76,15 +76,18 @@ export const NEXT_START_GAP = 1;
 
 
 const num = (v: unknown): number | null => (Number.isFinite(Number(v)) ? Number(v) : null);
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /**
  * The ordered sections of the video: optional Introduction, every mathematical
  * line in order, then the optional Conclusion.
  *
- * Markers, never files. An explicit `segments` entry wins; otherwise the older
- * end-only `checkpoints` chain is used; otherwise the video is split evenly.
- * Every value is clamped inside the file and `end` never precedes `start`.
+ * Markers, never files, and NEVER chained: each section reports exactly the
+ * boundaries the teacher chose for its own key (`line:<lineId>`), so a gap or
+ * an overlap with its neighbour is preserved as written and editing one section
+ * can never move another. A missing boundary stays missing (`null`).
+ *
+ * Legacy end-only `checkpoints` records are adopted once, chained as they were
+ * originally written, so an already-saved video keeps playing.
  */
 export const sectionsFor = (
   lines: VideoLine[],
@@ -110,59 +113,85 @@ export const sectionsFor = (
   for (const m of cfg?.segments ?? []) {
     if (m && typeof m.key === "string") markers.set(m.key, m);
   }
+  const hasMarkers = markers.size > 0;
 
-  const slice = duration / entries.length;
-  const out: VideoSection[] = [];
-  let prev = 0;
-  entries.forEach((entry, i) => {
-    const isLast = i === entries.length - 1;
+  // Legacy adoption: the old records only stored each section's END, with the
+  // start implied by the section above. Rebuild that chain once so nothing that
+  // was already authored loses its ranges.
+  const legacy = new Map<string, { start: number; end: number }>();
+  if (!hasMarkers && cfg?.checkpoints && Object.keys(cfg.checkpoints).length > 0) {
+    let prev = 0;
+    entries.forEach((entry) => {
+      const end = num(cfg.checkpoints?.[entry.key]);
+      if (end === null) return;
+      legacy.set(entry.key, { start: prev, end: Math.max(prev, end) });
+      prev = Math.max(prev, end);
+    });
+  }
+
+  return entries.map((entry) => {
     const marker = markers.get(entry.key);
-    const mStart = num(marker?.start);
-    const mEnd = num(marker?.end);
-
-    if (mStart !== null || mEnd !== null) {
-      // A boundary the teacher wrote is kept as written, with one repair: a
-      // start that is not BEFORE its own end would make a section of no
-      // duration, so it falls back to the boundary above it. The running
-      // cursor always advances, so the next section chains from this end.
-      const writtenStart = mStart ?? prev;
-      const writtenEnd = mEnd ?? duration;
-      const collapsed = !(writtenStart < writtenEnd);
-      const start = clamp(collapsed ? prev : writtenStart, 0, duration || Infinity);
-      // A section with no usable end runs to the next written boundary, or to
-      // the end of the file for the last one.
-      const nextWritten = entries
-        .slice(i + 1)
-        .map((e) => num(markers.get(e.key)?.start) ?? num(markers.get(e.key)?.end))
-        .find((v): v is number => v !== null && v > start);
-      const fallbackEnd = nextWritten ?? duration;
-      const end = clamp(
-        writtenEnd > start ? writtenEnd : fallbackEnd,
-        start,
-        duration || Infinity,
-      );
-      out.push({ ...entry, start, end });
-      prev = end;
-      return;
-    }
-
-    const raw = num(cfg?.checkpoints?.[entry.key]);
-    let end = raw === null ? (isLast ? duration : slice * (i + 1)) : raw;
-    end = clamp(end, prev, duration);
-    if (isLast && raw === null) end = duration;
-    out.push({ ...entry, start: prev, end });
-    prev = end;
+    const fallback = legacy.get(entry.key);
+    const startAt = marker ? num(marker.start) : (fallback?.start ?? null);
+    const endAt = marker ? num(marker.end) : (fallback?.end ?? null);
+    const start = startAt ?? 0;
+    const end = endAt ?? (duration > 0 ? duration : 0);
+    return {
+      ...entry,
+      startAt,
+      endAt,
+      startSource: marker?.startSource === "auto" ? "auto" : "manual",
+      configured: startAt !== null && endAt !== null,
+      start,
+      end: Math.max(start, end),
+    } satisfies VideoSection;
   });
-  return out;
 };
 
-/** Sections that carry no playable duration — nothing to teach with. */
+/**
+ * Sections whose OWN boundaries run backwards — the only genuinely invalid
+ * state. Gaps and overlaps between neighbours are the teacher's choice.
+ */
 export const emptySectionsFor = (sections: VideoSection[]): string[] =>
-  sections.filter((s) => !(s.end - s.start > 0.05)).map((s) => s.key);
+  sections
+    .filter((s) => s.startAt !== null && s.endAt !== null && !(s.endAt - s.startAt > 0.05))
+    .map((s) => s.key);
 
 /** The explicit marker list for the sections currently shown to the teacher. */
 export const markersFor = (sections: VideoSection[]): VideoSegmentMarker[] =>
-  sections.map((s) => ({ key: s.key, start: s.start, end: s.end }));
+  sections.map((s) => ({ key: s.key, start: s.startAt, end: s.endAt, startSource: s.startSource }));
+
+/**
+ * Write one boundary of one section, by key, and prepare the NEXT section's
+ * start (end + 1s) when an end is confirmed and that next start is either unset
+ * or itself auto-prepared. Nothing else is ever touched: the previous section's
+ * end stays exactly where the teacher put it.
+ */
+export const writeBoundary = (
+  sections: VideoSection[],
+  key: string,
+  field: "start" | "end",
+  seconds: number | null,
+): VideoSegmentMarker[] => {
+  const markers = markersFor(sections);
+  const i = markers.findIndex((m) => m.key === key);
+  if (i < 0) return markers;
+  const value = seconds === null ? null : Math.max(0, seconds);
+  const target = markers[i]!;
+  markers[i] =
+    field === "start"
+      ? { ...target, start: value, startSource: "manual" }
+      : { ...target, end: value };
+
+  if (field === "end" && value !== null) {
+    const next = markers[i + 1];
+    if (next && (next.start === null || next.startSource === "auto")) {
+      markers[i + 1] = { ...next, start: value + NEXT_START_GAP, startSource: "auto" };
+    }
+  }
+  return markers;
+};
+
 
 /** The teaching section for one mathematical line, or null. */
 export const sectionForLine = (sections: VideoSection[], lineId: string | null): VideoSection | null => {
