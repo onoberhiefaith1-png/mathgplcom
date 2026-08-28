@@ -27,6 +27,11 @@ import { exportDocx } from "@/lib/lessonnotes/exportDocx";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
+import {
+  LEADING_NOTE_UID,
+  adoptLineIdentities,
+  mintLineUid,
+} from "@/lib/lessonnotes/lineIdentity";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { cn } from "@/lib/utils";
@@ -42,6 +47,10 @@ import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView"
 
 interface TokenRef { line: number; tok: number }
 interface Highlight {
+  /** PERMANENT line identity, minted once when the teacher makes the
+   *  selection. Every floating number generated from this line carries it as
+   *  `sourceUid`. Never recomputed, never positional. */
+  uid?: string;
   groupId: number;
   tokens: TokenRef[];
   payload: string;
@@ -74,6 +83,7 @@ export const restorePersistedHighlights = (
       const nb = String(p.precedingNotebook ?? "").trim();
       if (!nb) continue;
       restored.push({
+        uid: typeof p.uid === "string" && p.uid ? p.uid : LEADING_NOTE_UID,
         groupId: -1,
         tokens: [],
         payload: "",
@@ -88,6 +98,7 @@ export const restorePersistedHighlights = (
       // highlighted a diagram are dropped, never restored as floating rows.
       if (obj && isFloatableObject(obj)) {
         restored.push({
+          uid: typeof p.uid === "string" && p.uid ? p.uid : mintLineUid(),
           groupId: nextRealId++,
           tokens: [],
           payload: String(p.payload ?? `[${obj.label}]`),
@@ -100,6 +111,7 @@ export const restorePersistedHighlights = (
     }
     if (!Array.isArray(p?.tokens) || p.tokens.length === 0) continue;
     restored.push({
+      uid: typeof p.uid === "string" && p.uid ? p.uid : mintLineUid(),
       groupId: nextRealId++,
       tokens: p.tokens as TokenRef[],
       payload: String(p.payload ?? ""),
@@ -185,6 +197,7 @@ export const recomputeNotebooks = (source: Highlight[], lines: string[]): Highli
   const out = realSource.map((h) => ({ ...h, precedingNotebook: notebookByGroup.get(h.groupId) ?? "" }));
   if (leading) {
     out.unshift({
+      uid: LEADING_NOTE_UID,
       groupId: -1,
       tokens: [],
       payload: "",
@@ -227,6 +240,7 @@ const orderedHighlights = (
   });
   if (leading.length) {
     withObjects.unshift({
+      uid: LEADING_NOTE_UID,
       groupId: -1,
       tokens: [],
       payload: "",
@@ -236,6 +250,8 @@ const orderedHighlights = (
     });
   }
   return withObjects.map((h, i) => ({
+    // The uid is the identity; groupId is only a display/order number.
+    uid: h.uid ?? mintLineUid(),
     groupId: i + 1,
     tokens: h.tokens,
     payload: h.payload,
@@ -583,6 +599,7 @@ const FloatingPreparationPage = () => {
     setHighlights((prev) => [
       ...prev,
       {
+        uid: mintLineUid(),
         groupId: nextIdRef.current++,
         tokens: touched.map(({ line, tok }) => ({ line, tok })),
         payload,
