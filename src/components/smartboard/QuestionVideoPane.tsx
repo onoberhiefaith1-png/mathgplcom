@@ -301,7 +301,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     }
     setActiveKey(null);
     setPlayhead(0);
-    setNeedsSound(false);
+    setForcedMute(false);
     introDoneRef.current = false;
     handledLineRef.current = null;
     conclusionDoneRef.current = false;
@@ -367,7 +367,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
         try { el.currentTime = active.start; } catch { /* ignore */ }
       }
       // A press is a real gesture, so sound is allowed from here on.
-      setNeedsSound(false);
+      setForcedMute(false);
       el.muted = muted;
       void el.play().catch(() => undefined);
     } else {
@@ -452,7 +452,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
         {needsSound && (
           <button
             type="button"
-            onClick={() => { setNeedsSound(false); setMuted(false); }}
+            onClick={() => { setForcedMute(false); setMuted(false); }}
             className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur"
           >
             Tap for sound
@@ -526,7 +526,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
                 aria-label={muted ? "Unmute" : "Mute"}
                 title={muted ? "Unmute" : "Mute"}
                 onClick={() => {
-                  setNeedsSound(false);
+                  setForcedMute(false);
                   setMuted((m) => {
                     const next = !m;
                     if (!next && volume === 0) setVolume(0.7);
@@ -547,7 +547,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
                   const next = Number(e.target.value);
                   setVolume(next);
                   setMuted(next === 0);
-                  setNeedsSound(false);
+                  setForcedMute(false);
                 }}
                 className="ml-1 h-1 w-16 cursor-pointer accent-white sm:w-20"
               />
