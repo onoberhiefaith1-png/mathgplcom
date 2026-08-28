@@ -245,6 +245,7 @@ const EditableLine = ({
     setSaving(true);
     try {
       await savePreviewLineEdit(subsectionId, {
+        sourceUid: line.sourceUid,
         groupId: line.groupId,
         lineId: line.lineId,
         originalEquation: original,
