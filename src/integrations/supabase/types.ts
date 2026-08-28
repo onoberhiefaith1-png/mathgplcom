@@ -6999,6 +6999,10 @@ export type Database = {
         }
         Returns: number
       }
+      course_assigned_to_my_class: {
+        Args: { _course_id: string }
+        Returns: boolean
+      }
       credit_headroom: {
         Args: { _org_id?: string; _user_id: string }
         Returns: {
