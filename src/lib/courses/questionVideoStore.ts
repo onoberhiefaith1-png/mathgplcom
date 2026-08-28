@@ -8,7 +8,7 @@
 // its owner may write it and learners may read it, so no separate store is
 // needed and nothing here depends on a new table.
 import { supabase } from "@/integrations/supabase/client";
-import { emptyVideoConfig, type QuestionVideoConfig } from "./questionVideo";
+import { emptyVideoConfig, type QuestionVideoConfig, type VideoSegmentMarker } from "./questionVideo";
 
 type Db = { from: (t: string) => any };
 const db = supabase as unknown as Db;
@@ -21,7 +21,7 @@ type StoredVideo = {
   videoPath?: string | null;
   duration?: number | null;
   checkpoints?: Record<string, number> | null;
-  segments?: { key: string; start: number; end: number }[] | null;
+  segments?: VideoSegmentMarker[] | null;
   introEnabled?: boolean | null;
   conclusionEnabled?: boolean | null;
 };
