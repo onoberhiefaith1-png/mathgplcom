@@ -92,7 +92,7 @@ const StudentCoursesPage = () => {
           <ol className="mt-6 space-y-3">
             {pathway.map((row, i) => {
               const status = statusOf(row.course.id);
-              const open = unlocked[i];
+              const open = row.available && unlocked[i];
               const previous = pathway[i - 1]?.course.title;
               const card = (
                 <div
@@ -111,16 +111,18 @@ const StudentCoursesPage = () => {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-base font-semibold text-foreground">
-                      {row.course.title || "Untitled course"}
+                      {row.available ? row.course.title || "Untitled course" : `Course ${i + 1}`}
                     </div>
                     <div className="truncate text-xs text-muted-foreground">
-                      {status === "completed"
-                        ? "Completed"
-                        : open
-                          ? status === "in_progress"
-                            ? "In progress"
-                            : "Ready to start"
-                          : `Complete ${previous || "the previous course"} first`}
+                      {!row.available
+                        ? "This course isn't available yet — ask your teacher"
+                        : status === "completed"
+                          ? "Completed"
+                          : open
+                            ? status === "in_progress"
+                              ? "In progress"
+                              : "Ready to start"
+                            : `Complete ${previous || "the previous course"} first`}
                     </div>
                   </div>
                 </div>
@@ -139,6 +141,7 @@ const StudentCoursesPage = () => {
                 </li>
               );
             })}
+
           </ol>
         )}
       </div>
