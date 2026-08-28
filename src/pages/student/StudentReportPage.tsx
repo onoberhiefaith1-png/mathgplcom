@@ -135,9 +135,19 @@ const StudentReportPage = () => {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-6 pb-16">
-        <div className="mb-4 flex justify-end">
+        <StudentSummaryCards summary={summary} />
+
+        <div className="mt-5 rounded-2xl border border-[hsl(var(--rp-border))] bg-[hsl(var(--rp-panel))] p-4">
+          <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--rp-muted))]">
+            My assessments
+          </h2>
+          <StudentAssessmentTable rows={rows} selectedId={selectedRow} onSelect={setSelectedRow} />
+        </div>
+
+        <div className="mb-4 mt-6 flex justify-end">
           <ReportFilterBar value={filter} onChange={setFilter} />
         </div>
+
         <ProgressBarChart
           bars={bars}
           settings={settings}
