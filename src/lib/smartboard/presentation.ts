@@ -201,9 +201,11 @@ const parseSolutionExplanations = (
   const looksLikeMath = (l: string) => {
     const u = toUnicodeMath(l);
     if (!u || isStillDirty(u)) return false;
-    // A line counts as math if it has an operator/equals or is mostly digits.
-    return /[=+\-−×÷/^]/.test(u) || /^[\d\s.,()πθ]+$/.test(u);
+    // NOTE-PURITY LAW: a line that carries ordinary words is prose, even when
+    // it quotes an equation ("Compare with ax² + bx + c = 0:").
+    return looksLikeMathOnly(u);
   };
+
   let leading: string[] = [];
   let leadingLine = 0;
   const LABEL_RE = /^(explanation|reason|note|check|reasoning)\s*[:：]?\s*$/i;
