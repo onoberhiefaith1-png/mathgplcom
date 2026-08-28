@@ -14,9 +14,14 @@
 //   · gaps and overlaps are allowed and are never auto-corrected
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Trash2, Upload } from "lucide-react";
+import { Loader2, Maximize2, Minimize2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -33,7 +38,10 @@ import {
   type VideoLine,
   type VideoSection,
 } from "@/lib/courses/questionVideo";
-import { removeQuestionVideo, saveQuestionVideo } from "@/lib/courses/questionVideoStore";
+import {
+  removeQuestionVideo,
+  saveQuestionVideo,
+} from "@/lib/courses/questionVideoStore";
 
 interface Props {
   open: boolean;
@@ -60,17 +68,46 @@ const QuestionVideoEditor = ({
 }: Props) => {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [draft, setDraft] = useState<QuestionVideoConfig>(config ?? emptyVideoConfig());
+  const playerRef = useRef<HTMLDivElement>(null);
+  const [isFs, setIsFs] = useState(false);
+  const [draft, setDraft] = useState<QuestionVideoConfig>(
+    config ?? emptyVideoConfig(),
+  );
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [playhead, setPlayhead] = useState(0);
 
-  useEffect(() => { if (open) setDraft(config ?? emptyVideoConfig()); }, [open, config]);
+  useEffect(() => {
+    if (open) setDraft(config ?? emptyVideoConfig());
+  }, [open, config]);
+
+  useEffect(() => {
+    const el = playerRef.current;
+    if (!el) return;
+    const onChange = () => setIsFs(document.fullscreenElement === el);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const togglePlayerFs = async () => {
+    const el = playerRef.current;
+    if (!el) return;
+    try {
+      if (document.fullscreenElement === el) await document.exitFullscreen();
+      else await el.requestFullscreen();
+    } catch {
+      /* unsupported / user gesture */
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-    void courseMediaUrl(draft.videoPath).then((next) => { if (!cancelled) setUrl(next); });
-    return () => { cancelled = true; };
+    void courseMediaUrl(draft.videoPath).then((next) => {
+      if (!cancelled) setUrl(next);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [draft.videoPath]);
 
   const sections = useMemo(() => sectionsFor(lines, draft), [lines, draft]);
@@ -81,10 +118,22 @@ const QuestionVideoEditor = ({
     setBusy(true);
     try {
       const path = await uploadCourseMedia(courseId, file);
-      setDraft((d) => ({ ...d, videoPath: path, checkpoints: {}, segments: [] }));
-      toast({ title: "Video uploaded", description: "Now set each section's start and end." });
+      setDraft((d) => ({
+        ...d,
+        videoPath: path,
+        checkpoints: {},
+        segments: [],
+      }));
+      toast({
+        title: "Video uploaded",
+        description: "Now set each section's start and end.",
+      });
     } catch (e) {
-      toast({ title: "Upload failed", description: String((e as Error)?.message ?? e), variant: "destructive" });
+      toast({
+        title: "Upload failed",
+        description: String((e as Error)?.message ?? e),
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -94,10 +143,19 @@ const QuestionVideoEditor = ({
    * Markers only, written against the section's own key. Confirming an end also
    * prepares the next start; every other section is left untouched.
    */
-  const setBoundary = (key: string, field: "start" | "end", seconds: number | null) =>
+  const setBoundary = (
+    key: string,
+    field: "start" | "end",
+    seconds: number | null,
+  ) =>
     setDraft((d) => {
       const base = d ?? emptyVideoConfig();
-      const segments = writeBoundary(sectionsFor(lines, base), key, field, seconds);
+      const segments = writeBoundary(
+        sectionsFor(lines, base),
+        key,
+        field,
+        seconds,
+      );
       // The legacy end-only map is no longer authoritative once explicit
       // markers exist — clearing it stops old chained values reappearing.
       return { ...base, segments, checkpoints: {} };
@@ -105,7 +163,10 @@ const QuestionVideoEditor = ({
 
   const save = async () => {
     if (invalid.length > 0) {
-      const names = sections.filter((s) => invalid.includes(s.key)).map((s) => s.label).join(", ");
+      const names = sections
+        .filter((s) => invalid.includes(s.key))
+        .map((s) => s.label)
+        .join(", ");
       toast({
         title: "Some sections end before they start",
         description: `${names} would play for zero seconds. Move each end later than its own start.`,
@@ -120,7 +181,11 @@ const QuestionVideoEditor = ({
       onOpenChange(false);
       toast({ title: "Teaching video saved" });
     } catch (e) {
-      toast({ title: "Could not save", description: String((e as Error)?.message ?? e), variant: "destructive" });
+      toast({
+        title: "Could not save",
+        description: String((e as Error)?.message ?? e),
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -139,10 +204,13 @@ const QuestionVideoEditor = ({
 
   const boundaryField = (s: VideoSection, field: "start" | "end") => {
     const value = field === "start" ? s.startAt : s.endAt;
-    const prepared = field === "start" && s.startSource === "auto" && s.startAt !== null;
+    const prepared =
+      field === "start" && s.startSource === "auto" && s.startAt !== null;
     return (
       <div className="flex items-center gap-1.5">
-        <span className="w-9 text-xs text-muted-foreground">{field === "start" ? "start" : "end"}</span>
+        <span className="w-9 text-xs text-muted-foreground">
+          {field === "start" ? "start" : "end"}
+        </span>
         <Input
           className="h-8 w-24 font-mono text-xs"
           key={`${s.key}:${field}:${value ?? "unset"}`}
@@ -151,7 +219,10 @@ const QuestionVideoEditor = ({
           aria-label={`${s.label} ${field} time`}
           onBlur={(e) => {
             const raw = e.target.value.trim();
-            if (raw === "") { setBoundary(s.key, field, null); return; }
+            if (raw === "") {
+              setBoundary(s.key, field, null);
+              return;
+            }
             const parsed = parseClock(raw);
             if (parsed !== null) setBoundary(s.key, field, parsed);
           }}
@@ -169,7 +240,9 @@ const QuestionVideoEditor = ({
           Use {fmtClock(playhead)}
         </Button>
         {prepared && (
-          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">prepared</span>
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            prepared
+          </span>
         )}
       </div>
     );
@@ -185,19 +258,44 @@ const QuestionVideoEditor = ({
 
         {/* ── Fixed player region ──────────────────────────────────────── */}
         <div className="shrink-0 space-y-3 border-b border-border pb-3">
-          <div className="overflow-hidden rounded-lg bg-black">
+          <div
+            ref={playerRef}
+            className="group relative overflow-hidden rounded-lg bg-black"
+          >
+            <button
+              type="button"
+              onClick={togglePlayerFs}
+              disabled={!url}
+              aria-label={isFs ? "Exit full screen" : "Full screen"}
+              title={isFs ? "Exit full screen" : "Full screen"}
+              className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-md bg-black/50 text-white/90 opacity-70 transition-opacity hover:bg-black/70 hover:opacity-100 focus:opacity-100 disabled:pointer-events-none disabled:opacity-0"
+            >
+              {isFs ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
             {url ? (
               <video
                 ref={videoRef}
                 src={url}
                 controls
                 playsInline
-                className="max-h-[260px] w-full"
+                className={
+                  isFs ? "h-full w-full object-contain" : "max-h-[260px] w-full"
+                }
                 onLoadedMetadata={(e) => {
                   const next = Number(e.currentTarget?.duration);
                   setDraft((d) => {
                     const base = d ?? emptyVideoConfig();
-                    return { ...base, duration: Number.isFinite(next) && next > 0 ? next : base.duration };
+                    return {
+                      ...base,
+                      duration:
+                        Number.isFinite(next) && next > 0
+                          ? next
+                          : base.duration,
+                    };
                   });
                 }}
                 onTimeUpdate={(e) => setPlayhead(e.currentTarget.currentTime)}
@@ -223,30 +321,49 @@ const QuestionVideoEditor = ({
               />
               <Button asChild size="sm" variant="outline" disabled={busy}>
                 <span className="cursor-pointer">
-                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                  {busy ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="mr-2 h-4 w-4" />
+                  )}
                   {draft.videoPath ? "Replace video" : "Upload video"}
                 </span>
               </Button>
             </label>
             <span className="text-xs text-muted-foreground">
-              Playhead <span className="font-mono">{fmtClock(playhead)}</span> · length{" "}
+              Playhead <span className="font-mono">{fmtClock(playhead)}</span> ·
+              length{" "}
               <span className="font-mono">{fmtClock(draft.duration)}</span>
             </span>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex items-center justify-between gap-3 rounded-lg border border-border p-2">
-              <span className="text-sm">Introduction <span className="text-xs text-muted-foreground">(optional)</span></span>
+              <span className="text-sm">
+                Introduction{" "}
+                <span className="text-xs text-muted-foreground">
+                  (optional)
+                </span>
+              </span>
               <Switch
                 checked={draft.introEnabled}
-                onCheckedChange={(v) => setDraft((d) => ({ ...d, introEnabled: v }))}
+                onCheckedChange={(v) =>
+                  setDraft((d) => ({ ...d, introEnabled: v }))
+                }
               />
             </label>
             <label className="flex items-center justify-between gap-3 rounded-lg border border-border p-2">
-              <span className="text-sm">Conclusion <span className="text-xs text-muted-foreground">(optional)</span></span>
+              <span className="text-sm">
+                Conclusion{" "}
+                <span className="text-xs text-muted-foreground">
+                  (optional)
+                </span>
+              </span>
               <Switch
                 checked={draft.conclusionEnabled}
-                onCheckedChange={(v) => setDraft((d) => ({ ...d, conclusionEnabled: v }))}
+                onCheckedChange={(v) =>
+                  setDraft((d) => ({ ...d, conclusionEnabled: v }))
+                }
               />
             </label>
           </div>
@@ -258,7 +375,9 @@ const QuestionVideoEditor = ({
             {sections.map((s) => (
               <li key={s.key} className="space-y-2 p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="min-w-[110px] text-sm font-medium">{s.label}</span>
+                  <span className="min-w-[110px] text-sm font-medium">
+                    {s.label}
+                  </span>
                   <span
                     className={
                       s.required
@@ -269,17 +388,25 @@ const QuestionVideoEditor = ({
                     {s.required ? "required" : "optional"}
                   </span>
                   {s.configured ? (
-                    <span className="text-[11px] font-medium text-primary">✓ Line configured</span>
+                    <span className="text-[11px] font-medium text-primary">
+                      ✓ Line configured
+                    </span>
                   ) : (
                     <span className="text-[11px] text-muted-foreground">
-                      {s.startAt === null && s.endAt === null ? "Not set" : "End not set"}
+                      {s.startAt === null && s.endAt === null
+                        ? "Not set"
+                        : "End not set"}
                     </span>
                   )}
                   {invalid.includes(s.key) && (
-                    <span className="text-[10px] font-medium text-destructive">ends before it starts</span>
+                    <span className="text-[10px] font-medium text-destructive">
+                      ends before it starts
+                    </span>
                   )}
                   {overlapping.includes(s.key) && (
-                    <span className="text-[10px] text-muted-foreground">overlaps a neighbour (allowed)</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      overlaps a neighbour (allowed)
+                    </span>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -298,14 +425,27 @@ const QuestionVideoEditor = ({
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3">
           {config?.videoPath ? (
-            <Button variant="ghost" className="text-destructive" onClick={() => void removeAll()} disabled={busy}>
+            <Button
+              variant="ghost"
+              className="text-destructive"
+              onClick={() => void removeAll()}
+              disabled={busy}
+            >
               <Trash2 className="mr-2 h-4 w-4" /> Remove video
             </Button>
-          ) : <span />}
+          ) : (
+            <span />
+          )}
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={() => void save()} disabled={busy || !draft.videoPath}>
-              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save video
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void save()}
+              disabled={busy || !draft.videoPath}
+            >
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
+              video
             </Button>
           </div>
         </div>
