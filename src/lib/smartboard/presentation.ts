@@ -7,6 +7,7 @@ import type { SectionRow, SectionKind, BlockRow, SubsectionRow, NotebookRow } fr
 import type { ContainerKind } from "./floatingPlan";
 import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
 import { repairShiftedFloatingLines } from "@/lib/lessonnotes/floatingCompile";
+import { adoptLineIdentities, linesByUid } from "@/lib/lessonnotes/lineIdentity";
 import { looksLikeMathOnly } from "@/lib/notebook/proseGuard";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
@@ -570,7 +571,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // belongs to the highlight ABOVE it, so leading prose has no parent
       // and remains independent.
       const sourceLines = identifiedHighlights && identifiedHighlights.length > 0
-        ? identifiedHighlights.reduce<Array<{ equation: string; groupId?: number; lineId?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
+        ? identifiedHighlights.reduce<Array<{ equation: string; sourceUid?: string; groupId?: number; lineId?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
             // Diagrams attached to this entry's note (never floating content).
             const noteObjects = readNoteObjects((h as any).noteObjects);
             if (h.notebookOnly) {
