@@ -39,6 +39,7 @@ import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import { savePreviewLineEdit, chipsToText, textToChips } from "@/lib/smartboard/previewEdits";
 import { toast } from "@/hooks/use-toast";
 
 /* ─────────────── Chalk styling — mirrors PresentationView whiteboard ─────────────── */
