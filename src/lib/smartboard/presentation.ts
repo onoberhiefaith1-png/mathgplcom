@@ -174,11 +174,20 @@ const singleHighlightFallback = (payload: string): RawFloatingLine => ({
 export const findVerifiedFloatingLine = (
   payload: string,
   rawLines: RawFloatingLine[] | null | undefined,
+  groupId?: number,
 ): RawFloatingLine | undefined => {
+  if (!rawLines?.length) return undefined;
+  // IDENTITY FIRST: the highlight's own durable groupId. Text matching is the
+  // fallback; array position is never used.
+  if (typeof groupId === "number") {
+    const byId = rawLines.find((line) => (line as any)?.groupId === groupId);
+    if (byId) return byId;
+  }
   const key = lessonSourceKey(payload);
-  if (!key || !rawLines?.length) return undefined;
+  if (!key) return undefined;
   return rawLines.find((line) => lessonSourceKey(line?.equation ?? "") === key);
 };
+
 
 const splitSolutionLines = (solution: string | undefined | null): string[] =>
   String(solution ?? "")
