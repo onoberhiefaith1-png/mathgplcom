@@ -32,7 +32,9 @@ describe("line identity comes from the line id, never from floating numbers", ()
     expect(lines.map((l) => [l.lineId, l.label, l.preview])).toEqual([
       ["L1", "Line 1", null],
       ["L2", "Line 2", "5x  +  2x^{2}  =  0"],
-      ["L3", "Line 3", "2x^{2} + 5x − 3"],
+      // A standalone note is still its own numbered line, reported as NULL.
+      ["note-0", "Line 3", null],
+      ["L3", "Line 4", "2x^{2} + 5x − 3"],
     ]);
   });
 
@@ -71,6 +73,7 @@ describe("Introduction and Conclusion are optional events, not numbered lines", 
     expect(sections.map((s) => s.key)).toEqual([
       lineKey("L1"),
       lineKey("L2"),
+      lineKey("note-0"),
       lineKey("L3"),
     ]);
   });
