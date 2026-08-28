@@ -108,7 +108,7 @@ export const useAudienceAccess = (sessionId: string | undefined): AudienceAccess
   useEffect(() => {
     if (!member) return;
     const tick = async () => {
-      await touchAudience(member.id);
+      await touchAudience(member.session_id);
       if (!sessionId) return;
       const fresh = await fetchMyMembership(sessionId);
       if (fresh) setMember(fresh);
@@ -150,7 +150,7 @@ export const useAudienceAccess = (sessionId: string | undefined): AudienceAccess
       if (!clean) return;
       setGuestName(clean);
       setName(clean);
-      if (member) await setAudienceName(member.id, clean);
+      if (member) await setAudienceName(member.session_id, clean);
     },
     [member],
   );
