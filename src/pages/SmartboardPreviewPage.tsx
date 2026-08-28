@@ -209,7 +209,143 @@ const AiEditPopover = ({
   );
 };
 
+/* ─────────────── Editable line (equation → chips → note) ───────────────
+ *
+ * THE AUDIT SURFACE. For every line the teacher sees, in this fixed order:
+ *   1. the equation
+ *   2. its floating numbers directly underneath
+ *   3. its note directly underneath those
+ * and can rewrite any of the three. Saving writes back to the exact saved row
+ * this line came from, so the Smartboard, the Floating Numbers page and this
+ * page always agree. */
+
+const EditableLine = ({
+  line,
+  subsectionId,
+  hasFloatingData,
+  onSaved,
+}: {
+  line: ReservoirLine;
+  subsectionId: string;
+  hasFloatingData: boolean;
+  onSaved: () => void;
+}) => {
+  const original = asDisplayString(line.equation).trim();
+  const [editing, setEditing] = useState(false);
+  const [eq, setEq] = useState(original);
+  const [chips, setChips] = useState(chipsToText(line.fillers ?? []));
+  const [note, setNote] = useState(asDisplayString(line.notebook));
+  const [saving, setSaving] = useState(false);
+
+  const noteText = asDisplayString(line.notebook).trim();
+  const fillers = line.fillers ?? [];
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await savePreviewLineEdit(subsectionId, {
+        groupId: line.groupId,
+        lineId: line.lineId,
+        originalEquation: original,
+        equation: line.notebookOnly ? undefined : eq,
+        fillers: line.notebookOnly ? undefined : textToChips(chips),
+        note,
+      });
+      toast({ title: "Line updated", description: "The Smartboard will present this version." });
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      toast({
+        title: "Could not save",
+        description: e instanceof Error ? e.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="space-y-2">
+        {!line.notebookOnly && (
+          <>
+            <label className="block text-[10px] uppercase tracking-widest text-neutral-500">Equation</label>
+            <input
+              value={eq}
+              onChange={(e) => setEq(e.target.value)}
+              className="w-full rounded-md border px-2 py-1.5 font-serif text-base"
+              style={{ borderColor: "rgba(138,106,31,0.35)", color: INK }}
+            />
+            <label className="block text-[10px] uppercase tracking-widest text-neutral-500">
+              Floating numbers (space between terms)
+            </label>
+            <input
+              value={chips}
+              onChange={(e) => setChips(e.target.value)}
+              placeholder="2x^{2}  +5x  -3  =0"
+              className="w-full rounded-md border px-2 py-1.5 font-serif text-base"
+              style={{ borderColor: "rgba(59,130,246,0.35)", color: "#1e3a8a" }}
+            />
+          </>
+        )}
+        <label className="block text-[10px] uppercase tracking-widest text-neutral-500">Note</label>
+        <Textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="e.g. Compare with ax^{2} + bx + c = 0"
+          className="min-h-[70px] text-sm"
+        />
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setEditing(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save line"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group/line">
+      {!line.notebookOnly && original && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <HighlightBox>
+            <span className="text-xl">
+              <InlineMath ascii={original} />
+            </span>
+          </HighlightBox>
+        </div>
+      )}
+      {!line.notebookOnly && original && (
+        hasFloatingData && fillers.length > 0
+          ? <FloatingChips fillers={fillers} />
+          : <NotYetAvailable />
+      )}
+      {noteText && <NoteBlock text={noteText} />}
+      <div className="mt-2">
+        <button
+          type="button"
+          onClick={() => {
+            setEq(original);
+            setChips(chipsToText(fillers));
+            setNote(asDisplayString(line.notebook));
+            setEditing(true);
+          }}
+          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium text-neutral-600 hover:bg-neutral-100 transition"
+          style={{ borderColor: "rgba(0,0,0,0.15)" }}
+        >
+          <Pencil className="h-3 w-3" /> Edit line
+        </button>
+      </div>
+    </div>
+  );
+};
+
 /* ─────────────── Presentation block wrapper ─────────────── */
+
 
 const Block = ({
   id,
