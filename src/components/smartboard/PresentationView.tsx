@@ -3917,7 +3917,15 @@ const PresentationView = ({
           ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
           },
         });
-        if (error) return false;
+        if (error) {
+          // Never fail silently: a guest has no dashboard to check later.
+          toast({
+            title: "Marking failed",
+            description: String(error.message ?? "The marking engine could not be reached."),
+            variant: "destructive",
+          });
+          return false;
+        }
         const res = data as { score?: number; solvedLines?: Record<string, number> } | null;
         if (res?.solvedLines && typeof res.score === "number") {
           authoritativeProgress = { solvedLines: res.solvedLines, score: res.score };
@@ -3930,7 +3938,12 @@ const PresentationView = ({
           setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
           setAssessScore((prev) => prev + awarded);
         }
-      } catch {
+      } catch (e) {
+        toast({
+          title: "Marking failed",
+          description: String((e as Error)?.message ?? e),
+          variant: "destructive",
+        });
         return false;
       }
     }
