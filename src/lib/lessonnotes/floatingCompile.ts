@@ -57,7 +57,11 @@ export interface FloatingTableRef {
 
 export interface FloatingLine {
   lineId: string;
+  /** Durable identity of the highlight this line belongs to. Pairing is done
+   *  through this id (then the equation text) — NEVER by array position. */
+  groupId?: number;
   equation: string;
+
   /** Floating Terms in ASCII form with their operation signs preserved
    *  (e.g. "+2x²", "-4ac", "=", "±"). Leading "+" is dropped only at render. */
   fillers: string[];
