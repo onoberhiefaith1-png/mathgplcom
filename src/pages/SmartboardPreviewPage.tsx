@@ -263,7 +263,7 @@ const SmartboardPreviewPage = () => {
   const backTarget = searchParams.get("from") === "note" && notebookId
     ? { to: `/lesson-notes/${notebookId}`, label: "Lesson note" }
     : { to: "/smartboard", label: "Shelf" };
-  const { notebook, sections, loading } = useNotebook(notebookId);
+  const { notebook, sections, loading, reload } = useNotebook(notebookId);
 
   const reservoirs = useMemo(() => buildReservoirs(sections), [sections]);
   const reservoirByBeat = useMemo(() => {
