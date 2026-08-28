@@ -22,8 +22,7 @@ function readRecoveryAttempt(): ChunkRecoveryAttempt | undefined {
 export function recoverFromStaleChunk(error: unknown) {
   if (typeof window === "undefined") return false;
 
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  if (!/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(message)) {
+  if (!isRecoverableModuleError(error)) {
     return false;
   }
 
@@ -46,6 +45,13 @@ export function recoverFromStaleChunk(error: unknown) {
   url.searchParams.set(CHUNK_RETRY_PARAM, String(Date.now()));
   window.location.replace(url.toString());
   return true;
+}
+
+export function isRecoverableModuleError(error: unknown): boolean {
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error ?? "");
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS|Failed to load module script|Outdated Optimize Dep|504.*(?:\.vite\/deps|optimized dependenc)|(?:\.vite\/deps|optimized dependenc).*504/i.test(
+    message,
+  );
 }
 
 export function clearStaleChunkRecovery() {

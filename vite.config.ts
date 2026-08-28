@@ -7,6 +7,31 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 
+// Vite can clear its transform cache after a tsconfig change without
+// re-installing TanStack Start's HTML middleware. The process then looks
+// healthy while every document request returns an empty 404. Exiting lets the
+// platform supervisor perform the only safe recovery: a clean process start.
+const restartAfterTsconfigChange = () => ({
+  name: "mathgpl-restart-after-tsconfig-change",
+  apply: "serve" as const,
+  // Vite handles tsconfig invalidation before ordinary watcher listeners in
+  // some reload paths, so cover both the plugin hot-update hook and watcher.
+  handleHotUpdate(context: { file: string }) {
+    scheduleRestart(context.file);
+  },
+  configureServer(server: { watcher: { on: (event: string, listener: (path: string) => void) => void } }) {
+    server.watcher.on("change", scheduleRestart);
+  },
+});
+
+let restartScheduled = false;
+function scheduleRestart(path: string) {
+  if (restartScheduled || !/(^|[/\\])tsconfig(?:\.[^/\\]+)?\.json$/.test(path)) return;
+  restartScheduled = true;
+  console.warn("[stability] TypeScript configuration changed; restarting the dev server cleanly.");
+  setTimeout(() => process.exit(1), 150);
+}
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
@@ -15,7 +40,7 @@ export default defineConfig({
   },
   vite: {
     // Preserved from the pre-migration vite.config.ts: the project's MCP plugin.
-    plugins: [mcpPlugin()],
+    plugins: [restartAfterTsconfigChange(), mcpPlugin()],
     // TanStack Start loads Router internals from lazy route and SSR chunks. If
     // Vite discovers any of these entry points after startup, it replaces its
     // generated chunks while older browser requests are still in flight and
