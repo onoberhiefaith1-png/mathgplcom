@@ -6,6 +6,7 @@
 import type { SectionRow, SectionKind, BlockRow, SubsectionRow, NotebookRow } from "@/hooks/useNotebook";
 import type { ContainerKind } from "./floatingPlan";
 import type { FloatingTableRef } from "@/lib/lessonnotes/floatingCompile";
+import { looksLikeMathOnly } from "@/lib/notebook/proseGuard";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
 import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { normEq } from "./rowAscii";
