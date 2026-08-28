@@ -49,6 +49,8 @@ export interface VideoLine {
    * `lineId` remains the single source of truth.
    */
   preview?: string | null;
+  /** Display-only note text authored on this line, if any. Never a chip. */
+  note?: string | null;
 }
 
 export interface VideoSection {
