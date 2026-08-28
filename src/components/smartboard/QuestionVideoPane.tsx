@@ -216,7 +216,9 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
   const goTo = useCallback((key: string | null, autoplay: boolean) => {
     if (!key) return;
     const target = sections.find((s) => s.key === key);
-    if (!target) return;
+    // A section the teacher never gave a range to has no video of its own: the
+    // player stays exactly where it is rather than inventing a slice.
+    if (!target || !target.configured) return;
     setActiveKey(key);
     const el = videoRef.current;
     if (!el) return;
