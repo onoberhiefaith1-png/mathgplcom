@@ -129,3 +129,68 @@ export const loadGuestPerformance = async (linkId: string): Promise<GuestPerform
   }
   return Array.from(byGuest.values());
 };
+
+/* ─────────────── Live guests (the teacher's watch list) ─────────────── */
+
+export interface LiveGuestRow {
+  token: string;
+  guestName: string;
+  assessmentId: string | null;
+  questionId: string | null;
+  score: number;
+  totalMarks: number;
+  lastSeenAt: string;
+  /** Seen within the last 90 seconds — working right now. */
+  online: boolean;
+  startedAt: string;
+}
+
+/** Who is on this guest link right now, most recent first. */
+export const loadLiveGuests = async (linkId: string): Promise<LiveGuestRow[]> => {
+  const { data } = await db
+    .from("guest_presence")
+    .select("guest_token, guest_name, assessment_id, question_id, score, total_marks, last_seen_at, started_at")
+    .eq("link_id", linkId)
+    .order("last_seen_at", { ascending: false })
+    .limit(200);
+  const now = Date.now();
+  return ((data ?? []) as any[]).map((r) => ({
+    token: r.guest_token as string,
+    guestName: (r.guest_name as string | null)?.trim() || `Guest ${String(r.guest_token).slice(0, 4).toUpperCase()}`,
+    assessmentId: (r.assessment_id as string | null) ?? null,
+    questionId: (r.question_id as string | null) ?? null,
+    score: Number(r.score ?? 0),
+    totalMarks: Number(r.total_marks ?? 0),
+    lastSeenAt: r.last_seen_at as string,
+    startedAt: r.started_at as string,
+    online: now - new Date(r.last_seen_at as string).getTime() < 90_000,
+  }));
+};
+
+export interface GuestWorkRow {
+  assessmentId: string;
+  score: number;
+  totalMarks: number;
+  status: string;
+  /** Every line the marking engine has awarded, `questionId:lineId` → marks. */
+  solvedLines: Record<string, number>;
+  updatedAt: string;
+}
+
+/** One guest's marked work — read-only, straight from their own attempt. */
+export const loadGuestWork = async (linkId: string, token: string): Promise<GuestWorkRow[]> => {
+  const { data } = await db
+    .from("guest_attempts")
+    .select("assessment_id, score, total_marks, status, solved_lines, updated_at")
+    .eq("link_id", linkId)
+    .eq("guest_token", token)
+    .order("updated_at", { ascending: false });
+  return ((data ?? []) as any[]).map((r) => ({
+    assessmentId: r.assessment_id as string,
+    score: Number(r.score ?? 0),
+    totalMarks: Number(r.total_marks ?? 0),
+    status: String(r.status ?? "in_progress"),
+    solvedLines: (r.solved_lines ?? {}) as Record<string, number>,
+    updatedAt: r.updated_at as string,
+  }));
+};
