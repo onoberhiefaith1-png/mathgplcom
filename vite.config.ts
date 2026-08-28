@@ -16,12 +16,12 @@ export default defineConfig({
   vite: {
     // Preserved from the pre-migration vite.config.ts: the project's MCP plugin.
     plugins: [mcpPlugin()],
-    // TanStack Router loads this nested dependency from lazy route chunks. If Vite
-    // discovers it after startup, the optimizer changes its browser hash while
-    // older route chunks are still in flight and responds to them with 504s.
-    // Pre-bundle it during startup so the dependency graph stays stable.
+    // TanStack Start loads Router and Store from lazy route chunks. If Vite
+    // discovers either after startup, the optimizer changes its browser hash
+    // while older route chunks are still in flight and responds with 504s.
+    // Pre-bundle both during startup so the dependency graph stays stable.
     optimizeDeps: {
-      include: ["@tanstack/react-router > @tanstack/react-store"],
+      include: ["@tanstack/react-router", "@tanstack/react-store"],
     },
   },
 });
