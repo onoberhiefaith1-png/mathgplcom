@@ -79,10 +79,15 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
   const conclusionDoneRef = useRef(false);
 
   // ── Audio: ONE state for the whole session, shared by all three views ────
+  // `muted` is USER intent only. `forcedMute` is the temporary silence a
+  // browser imposes when it refuses sound-on autoplay; it is never saved and
+  // it clears on the first interaction anywhere in the app.
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
-  /** Set when the browser refused sound-on playback; cleared on first gesture. */
-  const [needsSound, setNeedsSound] = useState(false);
+  const [forcedMute, setForcedMute] = useState(false);
+  const mutedRef = useRef(false);
+  mutedRef.current = muted;
+
   
 
 
