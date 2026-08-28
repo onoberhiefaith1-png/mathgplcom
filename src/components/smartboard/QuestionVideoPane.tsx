@@ -423,7 +423,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
                 const h = e.currentTarget.videoHeight;
                 if (w > 0 && h > 0) setRatio(w / h);
                 e.currentTarget.volume = Math.min(1, Math.max(0, volume));
-                e.currentTarget.muted = muted;
+                e.currentTarget.muted = muted || forcedMute;
                 setMediaReady(true);
               }}
               onCanPlay={() => setMediaReady(true)}
