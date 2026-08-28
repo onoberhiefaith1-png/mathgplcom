@@ -39,6 +39,8 @@ import { PLACEHOLDER_COLOR } from "@/lib/smartboard/placeholderColor";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import { validateQuestionStructure, type IntegrityReport } from "@/lib/smartboard/previewIntegrity";
+import { ensureHighlightUids } from "@/lib/lessonnotes/lineIdentity";
 import { savePreviewLineEdit, chipsToText, textToChips } from "@/lib/smartboard/previewEdits";
 import { toast } from "@/hooks/use-toast";
 
@@ -470,6 +472,8 @@ const SmartboardPreviewPage = () => {
         subsectionId: string;
         /** Teacher has generated floating numbers on the Floating Number page. */
         hasFloatingData: boolean;
+        /** Structural validation of the question before it may be presented. */
+        integrity: IntegrityReport;
       };
 
   const items: Item[] = [];
@@ -508,6 +512,13 @@ const SmartboardPreviewPage = () => {
           hasFloatingData:
             Array.isArray((sub as any).floating_lines) &&
             ((sub as any).floating_lines as any[]).length > 0,
+          // MANDATORY STRUCTURAL VALIDATION: never silently reshuffle. If a
+          // set of floating numbers cannot be traced back to its own source
+          // line, the teacher is told instead of being shown a guess.
+          integrity: validateQuestionStructure(
+            ensureHighlightUids((sub as any).floating_highlights as any[]),
+            (reservoirByBeat.get(`${sub.id}-q`)?.lines ?? []) as any[],
+          ),
         });
       }
     }
@@ -612,6 +623,20 @@ const SmartboardPreviewPage = () => {
               <div className="text-[17px] leading-relaxed mb-4" style={{ color: INK }}>
                 <SmartboardLessonText placeholderColor={PLACEHOLDER_COLOR}>{it.problem}</SmartboardLessonText>
               </div>
+
+              {!it.integrity.ok && (
+                <div
+                  className="mb-4 rounded-md border px-3 py-2 text-[13px]"
+                  style={{ borderColor: "hsl(var(--destructive))", color: "hsl(var(--destructive))" }}
+                >
+                  <div className="font-semibold">{it.integrity.message}</div>
+                  <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                    {it.integrity.issues.slice(0, 6).map((iss, i) => (
+                      <li key={i}>{iss.detail}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {res && res.lines.length > 0 && (
                 <div className="mt-4 space-y-4">
