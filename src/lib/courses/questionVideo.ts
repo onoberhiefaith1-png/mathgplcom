@@ -243,14 +243,15 @@ export const videoLinesFromQuestion = (
 };
 
 /**
- * Keys whose ranges overlap the previous section or run backwards. Shown as a
- * quiet warning to the teacher — never silently corrected.
+ * Keys whose CONFIGURED ranges overlap the previous configured section. Purely
+ * informational: overlapping ranges are legal, because a range only says where
+ * playback starts and stops. Nothing is ever corrected from this.
  */
 export const overlapsFor = (sections: VideoSection[]): string[] => {
   const bad = new Set<string>();
-  sections.forEach((s, i) => {
-    if (s.end < s.start) bad.add(s.key);
-    const prev = sections[i - 1];
+  const done = sections.filter((s) => s.configured);
+  done.forEach((s, i) => {
+    const prev = done[i - 1];
     if (prev && s.start < prev.end) { bad.add(s.key); bad.add(prev.key); }
   });
   return [...bad];
