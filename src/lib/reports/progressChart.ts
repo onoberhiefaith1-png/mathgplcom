@@ -202,6 +202,7 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
       target = mine.reduce((s, a) => s + Number(a.total_marks ?? 0), 0);
     }
 
+    const nb = nbTopics.get(t.notebook_id as string);
     return {
       id: t.id as string,
       mode,
@@ -212,24 +213,39 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
       dueAt: (t.due_at as string | null) ?? null,
       assessmentIds,
       target,
+      topic: nb?.topic || title,
+      subtopic: nb?.subtopic || "",
     };
   });
 
   // Progress rows for every assessment referenced by any task.
   const allAssessmentIds = Array.from(new Set(tasks.flatMap((t) => t.assessmentIds)));
   const scores = new Map<string, Map<string, number>>();
+  const progressMeta = new Map<string, Map<string, ProgressMeta>>();
   if (allAssessmentIds.length) {
     const { data: progress } = await supabase
       .from("assessment_progress")
-      .select("assessment_id, student_id, score")
+      .select("assessment_id, student_id, score, status, updated_at, solved_lines, per_question")
       .in("assessment_id", allAssessmentIds);
     for (const p of (progress ?? []) as any[]) {
       const aid = p.assessment_id as string;
       const inner = scores.get(aid) ?? new Map<string, number>();
       inner.set(p.student_id as string, Number(p.score ?? 0));
       scores.set(aid, inner);
+
+      const solved = (p.solved_lines ?? {}) as Record<string, unknown>;
+      const perQuestion = (p.per_question ?? {}) as Record<string, unknown>;
+      const metaInner = progressMeta.get(aid) ?? new Map<string, ProgressMeta>();
+      metaInner.set(p.student_id as string, {
+        status: (p.status as string) || "not_started",
+        updatedAt: (p.updated_at as string | null) ?? null,
+        solvedCount: Object.keys(solved).length,
+        slotCount: Math.max(Object.keys(solved).length, Object.keys(perQuestion).length),
+      });
+      progressMeta.set(aid, metaInner);
     }
   }
+
 
   // Frozen historical results win over live maths (pass-mark changes must never
   // rewrite a finished task).
