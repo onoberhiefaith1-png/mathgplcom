@@ -249,11 +249,43 @@ const QuestionVideoEditor = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && isFs) {
+          setIsFs(false);
+          return;
+        }
+        onOpenChange(next);
+      }}
+    >
       {/* Fixed height + no scroll here: the player never leaves the viewport. */}
-      <DialogContent className="flex h-[88vh] max-w-3xl flex-col overflow-hidden">
+      <DialogContent
+        className={
+          isFs
+            ? "flex h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none p-4 sm:rounded-none"
+            : "flex h-[88vh] max-w-3xl flex-col overflow-hidden"
+        }
+      >
         <DialogHeader className="shrink-0">
-          <DialogTitle>Teaching video — {questionLabel}</DialogTitle>
+          <div className="flex items-center gap-2 pr-8">
+            <DialogTitle className="flex-1">
+              Teaching video — {questionLabel}
+            </DialogTitle>
+            <button
+              type="button"
+              onClick={() => setIsFs((v) => !v)}
+              aria-label={isFs ? "Exit full screen" : "Full screen"}
+              title={isFs ? "Exit full screen" : "Full screen"}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {isFs ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </DialogHeader>
 
         {/* ── Fixed player region ──────────────────────────────────────── */}
@@ -262,20 +294,6 @@ const QuestionVideoEditor = ({
             ref={playerRef}
             className="group relative overflow-hidden rounded-lg bg-black"
           >
-            <button
-              type="button"
-              onClick={togglePlayerFs}
-              disabled={!url}
-              aria-label={isFs ? "Exit full screen" : "Full screen"}
-              title={isFs ? "Exit full screen" : "Full screen"}
-              className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-md bg-black/50 text-white/90 opacity-70 transition-opacity hover:bg-black/70 hover:opacity-100 focus:opacity-100 disabled:pointer-events-none disabled:opacity-0"
-            >
-              {isFs ? (
-                <Minimize2 className="h-4 w-4" />
-              ) : (
-                <Maximize2 className="h-4 w-4" />
-              )}
-            </button>
             {url ? (
               <video
                 ref={videoRef}
@@ -283,8 +301,9 @@ const QuestionVideoEditor = ({
                 controls
                 playsInline
                 className={
-                  isFs ? "h-full w-full object-contain" : "max-h-[260px] w-full"
+                  isFs ? "max-h-[44vh] w-full" : "max-h-[260px] w-full"
                 }
+
                 onLoadedMetadata={(e) => {
                   const next = Number(e.currentTarget?.duration);
                   setDraft((d) => {
