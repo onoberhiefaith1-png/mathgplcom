@@ -1,11 +1,13 @@
 import { useMemo } from "react";
-import { CheckCircle2, FileText, Flag, Lock, Play } from "lucide-react";
-import { useCourseMediaUrl } from "@/lib/courses/useCourseMediaUrl";
+import { AlertTriangle, CheckCircle2, FileText, Flag, Loader2, Lock, Play } from "lucide-react";
+import { useCourseMedia, useCourseMediaUrl } from "@/lib/courses/useCourseMediaUrl";
 import { videoEmbedUrl } from "@/lib/courses/media";
 import type { CourseTree } from "@/lib/courses/types";
 
+/** Plays the ORIGINAL uploaded video by reference. A shared course carries the
+ *  same path as the teacher's, so nothing is ever duplicated per viewer. */
 const VideoBlockView = ({ url, title, mins }: { url?: string; title?: string; mins?: number }) => {
-  const resolved = useCourseMediaUrl(url ?? null);
+  const { url: resolved, state } = useCourseMedia(url ?? null);
   const src = resolved ? videoEmbedUrl(resolved) : null;
   return (
     <div className="overflow-hidden rounded-xl bg-slate-900">
@@ -14,6 +16,15 @@ const VideoBlockView = ({ url, title, mins }: { url?: string; title?: string; mi
           <iframe src={src} title={title || "Course video"} className="h-full w-full" allowFullScreen />
         ) : src ? (
           <video src={src} controls className="h-full w-full" />
+        ) : state === "loading" ? (
+          <div className="flex h-full items-center justify-center gap-2 text-sm text-slate-400">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading video…
+          </div>
+        ) : state === "unavailable" ? (
+          <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center text-sm text-slate-400">
+            <AlertTriangle className="h-4 w-4" />
+            This video is no longer available.
+          </div>
         ) : (
           <div className="flex h-full items-center justify-center gap-2 text-sm text-slate-400">
             <Play className="h-4 w-4" /> Video not set yet

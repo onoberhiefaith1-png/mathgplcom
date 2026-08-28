@@ -207,6 +207,12 @@ export const duplicateCourse = async (id: string): Promise<Course> => {
 /**
  * Copy a course shared with MathGPL Community into the signed-in member's own
  * workspace. The original is never touched; the copy is an independent draft.
+ *
+ * REFERENCE ONLY — never duplicate media. Background and teaching videos are
+ * carried over as their ORIGINAL `course-media` paths (inside `background_url`
+ * and each Exercise Card's `config.questionVideos[*].videoPath`). The copier
+ * streams the uploader's single stored file under the community read
+ * permission; no storage object is copied, whatever the file size.
  */
 export const copyCourseFromCommunity = async (sourceId: string, fallbackTitle?: string): Promise<Course> => {
   const tree = await loadCourseTree(sourceId);

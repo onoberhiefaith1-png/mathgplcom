@@ -6961,6 +6961,7 @@ export type Database = {
       }
       can_manage_gpl_assets: { Args: never; Returns: boolean }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
+      can_watch_course_media: { Args: { _path: string }; Returns: boolean }
       class_has_open_live_session: {
         Args: { _class_id: string }
         Returns: boolean
