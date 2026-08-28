@@ -246,17 +246,48 @@ export const videoReady = (cfg: QuestionVideoConfig | null | undefined): boolean
 
 export { fmtClock, parseClock } from "@/lib/games/timerVideo";
 
+/** This line's own floating-number echo, or null when it has none (NULL). */
+const previewFor = (l: {
+  chips?: unknown;
+  equationAscii?: unknown;
+  equation?: unknown;
+}): string | null => {
+  const chips = Array.isArray(l?.chips)
+    ? l.chips.map((c) => String(c ?? "").trim()).filter(Boolean)
+    : [];
+  if (chips.length > 0) return chips.join("  ");
+  const eq = String(l?.equationAscii ?? l?.equation ?? "").trim();
+  return eq.length > 0 ? eq : null;
+};
+
 /**
  * The mathematical lines of one compiled question, in board order, as video
  * sections. Standalone notes carry no line of their own, so they are skipped.
+ *
+ * LINE IDENTITY LAW: a line's number comes from its position in this
+ * mathematical sequence and its identity from `lineId`. A line with no
+ * floating numbers is still a line — it simply reports `preview: null`.
  */
 export const videoLinesFromQuestion = (
-  lines: { lineId?: string | null; noteOnly?: boolean }[] | null | undefined,
+  lines:
+    | {
+        lineId?: string | null;
+        noteOnly?: boolean;
+        chips?: unknown;
+        equationAscii?: unknown;
+        equation?: unknown;
+      }[]
+    | null
+    | undefined,
 ): VideoLine[] => {
   const out: VideoLine[] = [];
   for (const l of lines ?? []) {
     if (!l?.lineId || l.noteOnly) continue;
-    out.push({ lineId: l.lineId, label: `Line ${out.length + 1}` });
+    out.push({
+      lineId: l.lineId,
+      label: `Line ${out.length + 1}`,
+      preview: previewFor(l),
+    });
   }
   return out;
 };
