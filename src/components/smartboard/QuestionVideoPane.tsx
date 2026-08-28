@@ -308,7 +308,11 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
   // ── STAGE 3 · The Conclusion, on the MARKING of the final line ───────────
   // Reaching or watching the final line is not enough: the mark must actually
   // have been awarded. Once per session, then it runs to the end of the file.
-  const finalLineId = lines.length ? lines[lines.length - 1].lineId : null;
+  // The last line that can actually be MARKED: a trailing note-only line
+  // (preview NULL) never receives an award, so it cannot gate the Conclusion.
+  const finalLineId =
+    [...lines].reverse().find((l) => l.preview != null)?.lineId ??
+    (lines.length ? lines[lines.length - 1].lineId : null);
   useEffect(() => {
     if (!config.conclusionEnabled || conclusionDoneRef.current) return;
     if (!finalLineId || !lineContext.lastAwardedLineId) return;
