@@ -1,3 +1,4 @@
+import { looksLikeMathOnly } from "@/lib/notebook/proseGuard";
 // NOTE SOURCE — the single law for teaching notes.
 //
 // A line has a note if and only if its OWN saved highlight authored one
