@@ -204,6 +204,39 @@ export const duplicateCourse = async (id: string): Promise<Course> => {
   return { ...copy, title: `${tree.course.title} (copy)` };
 };
 
+/**
+ * Copy a course shared with MathGPL Community into the signed-in member's own
+ * workspace. The original is never touched; the copy is an independent draft.
+ */
+export const copyCourseFromCommunity = async (sourceId: string, fallbackTitle?: string): Promise<Course> => {
+  const tree = await loadCourseTree(sourceId);
+  const { id: _id, owner_id: _owner, ...rest } = tree.course;
+  const title = tree.course.title || fallbackTitle || "Copied course";
+  const copy = await createCourse(title);
+  await updateCourse(copy.id, { ...rest, title, status: "draft" });
+  for (const section of tree.sections) {
+    const newSection = await addSection(copy.id, section.position);
+    await updateSection(newSection.id, { title: section.title });
+    for (const block of tree.blocks.filter((b) => b.section_id === section.id)) {
+      const newBlock = await addBlock(newSection.id, block.kind, block.position);
+      await updateBlockConfig(newBlock.id, block.config ?? {});
+      for (const q of tree.questions.filter((x) => x.block_id === block.id)) {
+        await db.from("course_exercise_questions").insert({
+          block_id: newBlock.id,
+          position: q.position,
+          notebook_id: q.notebook_id,
+          subsection_id: q.subsection_id,
+          section_id: q.section_id,
+          question_key: q.question_key,
+          label: q.label,
+          total_marks: q.total_marks,
+        });
+      }
+    }
+  }
+  return { ...copy, title };
+};
+
 /** Link a lesson-note question block to an Exercise Card. Never duplicates
  *  the question itself — only the reference is stored. */
 export const linkQuestionToExercise = async (args: {

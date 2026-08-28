@@ -11,6 +11,7 @@ export type CommunityKind =
   | "lesson_asset"
   | "class"
   | "adventure"
+  | "course"
   | "background"
   | "building"
   | "asset"
@@ -24,6 +25,7 @@ export const COMMUNITY_KINDS: { kind: CommunityKind; label: string; plural: stri
   { kind: "lesson_asset", label: "Lesson Note Asset", plural: "Lesson Notes Assets" },
   { kind: "class", label: "Class", plural: "Classes" },
   { kind: "adventure", label: "Adventure", plural: "Adventures" },
+  { kind: "course", label: "Course", plural: "Courses" },
   { kind: "background", label: "Background", plural: "Backgrounds" },
   { kind: "building", label: "Building", plural: "Buildings" },
   { kind: "asset", label: "Asset", plural: "Assets" },

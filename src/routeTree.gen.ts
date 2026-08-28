@@ -95,6 +95,7 @@ import { Route as CommunityBackgroundsIndexRouteImport } from './routes/communit
 import { Route as CommunityBuildingIndexRouteImport } from './routes/community/building/index'
 import { Route as CommunityBuildingsIndexRouteImport } from './routes/community/buildings/index'
 import { Route as CommunityClassesIndexRouteImport } from './routes/community/classes/index'
+import { Route as CommunityCoursesIndexRouteImport } from './routes/community/courses/index'
 import { Route as CommunityDiscoverIndexRouteImport } from './routes/community/discover/index'
 import { Route as CommunityLessonNotesIndexRouteImport } from './routes/community/lesson-notes/index'
 import { Route as CommunityLiveIndexRouteImport } from './routes/community/live/index'
@@ -730,6 +731,11 @@ const CommunityBuildingsIndexRoute = CommunityBuildingsIndexRouteImport.update({
 const CommunityClassesIndexRoute = CommunityClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunityCoursesIndexRoute = CommunityCoursesIndexRouteImport.update({
+  id: '/courses/',
+  path: '/courses/',
   getParentRoute: () => CommunityRouteRoute,
 } as any)
 const CommunityDiscoverIndexRoute = CommunityDiscoverIndexRouteImport.update({
@@ -1981,6 +1987,7 @@ export interface FileRoutesByFullPath {
   '/community/building/': typeof CommunityBuildingIndexRoute
   '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
+  '/community/courses/': typeof CommunityCoursesIndexRoute
   '/community/discover/': typeof CommunityDiscoverIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
   '/community/live/': typeof CommunityLiveIndexRoute
@@ -2260,6 +2267,7 @@ export interface FileRoutesByTo {
   '/community/building': typeof CommunityBuildingIndexRoute
   '/community/buildings': typeof CommunityBuildingsIndexRoute
   '/community/classes': typeof CommunityClassesIndexRoute
+  '/community/courses': typeof CommunityCoursesIndexRoute
   '/community/discover': typeof CommunityDiscoverIndexRoute
   '/community/lesson-notes': typeof CommunityLessonNotesIndexRoute
   '/community/live': typeof CommunityLiveIndexRoute
@@ -2551,6 +2559,7 @@ export interface FileRoutesById {
   '/community/building/': typeof CommunityBuildingIndexRoute
   '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
+  '/community/courses/': typeof CommunityCoursesIndexRoute
   '/community/discover/': typeof CommunityDiscoverIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
   '/community/live/': typeof CommunityLiveIndexRoute
@@ -2843,6 +2852,7 @@ export interface FileRouteTypes {
     | '/community/building/'
     | '/community/buildings/'
     | '/community/classes/'
+    | '/community/courses/'
     | '/community/discover/'
     | '/community/lesson-notes/'
     | '/community/live/'
@@ -3122,6 +3132,7 @@ export interface FileRouteTypes {
     | '/community/building'
     | '/community/buildings'
     | '/community/classes'
+    | '/community/courses'
     | '/community/discover'
     | '/community/lesson-notes'
     | '/community/live'
@@ -3412,6 +3423,7 @@ export interface FileRouteTypes {
     | '/community/building/'
     | '/community/buildings/'
     | '/community/classes/'
+    | '/community/courses/'
     | '/community/discover/'
     | '/community/lesson-notes/'
     | '/community/live/'
@@ -4346,6 +4358,13 @@ declare module '@tanstack/react-router' {
       path: '/classes'
       fullPath: '/community/classes/'
       preLoaderRoute: typeof CommunityClassesIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/courses/': {
+      id: '/community/courses/'
+      path: '/courses'
+      fullPath: '/community/courses/'
+      preLoaderRoute: typeof CommunityCoursesIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
     '/community/discover/': {
@@ -5843,6 +5862,7 @@ interface CommunityRouteRouteChildren {
   CommunityBuildingIndexRoute: typeof CommunityBuildingIndexRoute
   CommunityBuildingsIndexRoute: typeof CommunityBuildingsIndexRoute
   CommunityClassesIndexRoute: typeof CommunityClassesIndexRoute
+  CommunityCoursesIndexRoute: typeof CommunityCoursesIndexRoute
   CommunityDiscoverIndexRoute: typeof CommunityDiscoverIndexRoute
   CommunityLessonNotesIndexRoute: typeof CommunityLessonNotesIndexRoute
   CommunityLiveIndexRoute: typeof CommunityLiveIndexRoute
@@ -5859,6 +5879,7 @@ const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
   CommunityBuildingIndexRoute: CommunityBuildingIndexRoute,
   CommunityBuildingsIndexRoute: CommunityBuildingsIndexRoute,
   CommunityClassesIndexRoute: CommunityClassesIndexRoute,
+  CommunityCoursesIndexRoute: CommunityCoursesIndexRoute,
   CommunityDiscoverIndexRoute: CommunityDiscoverIndexRoute,
   CommunityLessonNotesIndexRoute: CommunityLessonNotesIndexRoute,
   CommunityLiveIndexRoute: CommunityLiveIndexRoute,

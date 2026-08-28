@@ -35,6 +35,7 @@ export const TEACHING_SECTIONS: readonly CommunitySection[] = [
   { path: "/community/lesson-notes", label: "Lesson Notes" },
   { path: "/community/classes", label: "Classes" },
   { path: "/community/adventure", label: "Adventure" },
+  { path: "/community/courses", label: "Courses" },
 ] as const;
 
 /** Rotating Building → Settings → Building Workspace → … */
