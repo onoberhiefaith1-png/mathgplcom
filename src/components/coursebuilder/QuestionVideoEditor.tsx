@@ -14,7 +14,7 @@
 //   · gaps and overlaps are allowed and are never auto-corrected
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Trash2, Upload } from "lucide-react";
+import { Loader2, Maximize2, Minimize2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,8 @@ const QuestionVideoEditor = ({
 }: Props) => {
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
+  const [isFs, setIsFs] = useState(false);
   const [draft, setDraft] = useState<QuestionVideoConfig>(config ?? emptyVideoConfig());
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
