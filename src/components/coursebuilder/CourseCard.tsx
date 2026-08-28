@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { BookOpen, Copy, Pencil, School } from "lucide-react";
+import { BookOpen, Copy, Link2, Pencil, School } from "lucide-react";
+import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
+import { syncGuestExerciseAssessments } from "@/lib/courses/exerciseBoard";
 import { useCourseMediaUrl } from "@/lib/courses/useCourseMediaUrl";
 import ShareMenu from "@/components/community/ShareMenu";
 import { findMyPublication } from "@/lib/community/community";
@@ -22,6 +24,8 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
   const published = course.status === "published";
   const [assigning, setAssigning] = useState(false);
   const [shared, setShared] = useState(false);
+  // Guest Link — anyone can open this ORIGINAL course without an account.
+  const [guestOpen, setGuestOpen] = useState(false);
 
   // A course already listed in Community carries a Shared badge on the card.
   useEffect(() => {
@@ -98,6 +102,13 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
           >
             <Copy className="h-4 w-4" /> Duplicate
           </button>
+          <button
+            type="button"
+            onClick={() => setGuestOpen(true)}
+            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
+          >
+            <Link2 className="h-4 w-4" /> Guest link
+          </button>
 
           <ShareMenu
             className="ml-auto"
@@ -123,6 +134,14 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
           />
         </div>
       </div>
+      <GuestLinkDialog
+        open={guestOpen}
+        onOpenChange={setGuestOpen}
+        kind="course"
+        resourceId={course.id}
+        title={course.title}
+        onReady={() => syncGuestExerciseAssessments(course.id)}
+      />
       <AssignToClassDialog open={assigning} onOpenChange={setAssigning} courseId={course.id} />
     </article>
 

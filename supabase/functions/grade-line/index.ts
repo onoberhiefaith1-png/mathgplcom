@@ -34,6 +34,10 @@ const BodySchema = z.object({
   // Smart Card challenge (public, no account). When both are present the
   // caller is graded as an anonymous participant of a PUBLISHED Smart Card.
   smartCardSlug: z.string().min(3).max(64).optional(),
+  // Guest Link (public Course / Assignment Card, no account). Progress lives
+  // in `guest_attempts` and NEVER touches a registered student's records.
+  guestSlug: z.string().min(4).max(64).optional(),
+  guestName: z.string().max(40).nullish(),
   participantKey: z.string().uuid().optional(),
 });
 
@@ -61,7 +65,7 @@ Deno.serve(async (req) => {
     }
     const {
       assessmentId, questionId, lineId, studentAscii, mode, persist,
-      smartCardSlug, participantKey,
+      smartCardSlug, guestSlug, guestName, participantKey,
     } = parsed.data;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -70,6 +74,9 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
     const smartCardMode = !!smartCardSlug && !!participantKey;
+    const guestMode = !smartCardMode && !!guestSlug && !!participantKey;
+    // A Guest Link viewer is authorised by the link, never by class membership.
+    let guestLinkId: string | null = null;
 
     let uid: string;
     if (smartCardMode) {
@@ -83,6 +90,9 @@ Deno.serve(async (req) => {
       }
       // The participant key IS the board identity for a public challenge.
       uid = participantKey!;
+    } else if (guestMode) {
+      // The guest token IS the board identity for a Guest Link visitor.
+      uid = participantKey!;
     } else {
       if (!jwt) return json({ error: "missing_authorization" }, 401);
       const authClient = createClient(supabaseUrl, anonKey);
@@ -93,12 +103,41 @@ Deno.serve(async (req) => {
 
     const { data: assessment, error: aErr } = await admin
       .from("assessments")
-      .select("id, class_id, owner_id, questions, total_marks")
+      .select("id, class_id, owner_id, questions, total_marks, kind, notebook_id, question_key")
       .eq("id", assessmentId)
       .maybeSingle();
     if (aErr || !assessment) return json({ error: "assessment_not_found" }, 404);
 
-    if (!smartCardMode && assessment.owner_id !== uid) {
+    if (guestMode) {
+      const { data: link } = await admin
+        .from("guest_links")
+        .select("id, kind, resource_id, class_id, enabled")
+        .eq("code", guestSlug)
+        .maybeSingle();
+      if (!link || !link.enabled) return json({ error: "guest_link_unavailable" }, 404);
+      let allowed = false;
+      if (link.kind === "assignment") {
+        allowed = assessment.class_id === link.class_id && assessment.notebook_id === link.resource_id;
+      } else if (link.kind === "course" && assessment.kind === "course_exercise_guest") {
+        const { data: block } = await admin
+          .from("course_blocks")
+          .select("id, section_id")
+          .eq("id", assessment.question_key)
+          .maybeSingle();
+        if (block) {
+          const { data: section } = await admin
+            .from("course_sections")
+            .select("course_id")
+            .eq("id", block.section_id)
+            .maybeSingle();
+          allowed = section?.course_id === link.resource_id;
+        }
+      }
+      if (!allowed) return json({ error: "guest_link_mismatch" }, 403);
+      guestLinkId = link.id as string;
+    }
+
+    if (!smartCardMode && !guestMode && assessment.owner_id !== uid) {
       const { data: member } = await admin
         .from("class_members")
         .select("user_id")
@@ -175,12 +214,20 @@ Deno.serve(async (req) => {
       diagnosis = { code: "equivalent", label: "Equivalent", detail: "The line is mathematically equivalent to the expected step, even if the route differs." };
     }
 
-    const { data: existing } = await admin
-      .from("assessment_progress")
-      .select("id, solved_lines, score")
-      .eq("assessment_id", assessmentId)
-      .eq("student_id", uid)
-      .maybeSingle();
+    const { data: existing } = guestMode
+      ? await admin
+          .from("guest_attempts")
+          .select("id, solved_lines, score")
+          .eq("link_id", guestLinkId)
+          .eq("guest_token", uid)
+          .eq("assessment_id", assessmentId)
+          .maybeSingle()
+      : await admin
+          .from("assessment_progress")
+          .select("id, solved_lines, score")
+          .eq("assessment_id", assessmentId)
+          .eq("student_id", uid)
+          .maybeSingle();
 
     const solved: Record<string, number> = {
       ...((existing?.solved_lines as Record<string, number> | undefined) ?? {}),
@@ -205,6 +252,45 @@ Deno.serve(async (req) => {
         status: "dry_run",
         teacherAscii,
         dryRun: true,
+      });
+    }
+
+    // Guest Link: the whole sitting lives in `guest_attempts`. Nothing here
+    // ever writes a student's progress, class membership or course records.
+    if (guestMode) {
+      const { data: saved, error: saveErr } = existing?.id
+        ? await admin
+            .from("guest_attempts")
+            .update({ solved_lines: solved, score, total_marks: totalMarks, status })
+            .eq("id", existing.id)
+            .select("solved_lines, score, status")
+            .single()
+        : await admin
+            .from("guest_attempts")
+            .insert({
+              link_id: guestLinkId,
+              guest_token: uid,
+              guest_name: guestName ?? null,
+              assessment_id: assessmentId,
+              solved_lines: solved,
+              score,
+              total_marks: totalMarks,
+              status,
+            })
+            .select("solved_lines, score, status")
+            .single();
+      if (saveErr || !saved) return json({ error: "progress_save_failed" }, 500);
+      const g = saved as { solved_lines: Record<string, number>; score: number; status: string };
+      return json({
+        correct: isCorrect,
+        verdict,
+        diagnosis,
+        marks: isCorrect ? lineMarks : 0,
+        score: g.score,
+        totalMarks,
+        solvedLines: g.solved_lines,
+        status: g.status,
+        progress: g,
       });
     }
 

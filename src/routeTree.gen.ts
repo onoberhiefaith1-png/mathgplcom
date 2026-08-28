@@ -66,6 +66,7 @@ import { Route as SupportIndexRouteImport } from './routes/support/index'
 import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/index'
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as ASlugIndexRouteImport } from './routes/a/$slug/index'
 import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
 import { Route as AdminAdvertisementsIndexRouteImport } from './routes/admin/advertisements/index'
 import { Route as AdminAssetsIndexRouteImport } from './routes/admin/assets/index'
@@ -126,6 +127,7 @@ import { Route as HomepageBuildingFreeRouteImport } from './routes/homepage/buil
 import { Route as HomepageReplaceBuildingIndexRouteImport } from './routes/homepage/replace-building/index'
 import { Route as HomepageReplaceBuildingFreeRouteImport } from './routes/homepage/replace-building/free'
 import { Route as JoinCodeIndexRouteImport } from './routes/join/$code/index'
+import { Route as KSlugIndexRouteImport } from './routes/k/$slug/index'
 import { Route as LessonNotesIdIndexRouteImport } from './routes/lesson-notes/$id/index'
 import { Route as LevelsIdIndexRouteImport } from './routes/levels/$id/index'
 import { Route as LiveGalleryIndexRouteImport } from './routes/live/gallery/index'
@@ -149,6 +151,7 @@ import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-
 import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-hub/students/index'
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
 import { Route as AdventureGamesGameIdIndexRouteImport } from './routes/adventure/games/$gameId/index'
+import { Route as ApiPublicGuestSlugRouteImport } from './routes/api/public/guest/$slug'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicWebhooksStripeRouteImport } from './routes/api/public/webhooks/stripe'
 import { Route as AssetsCategorySubcategoryIndexRouteImport } from './routes/assets/$category/$subcategory/index'
@@ -585,6 +588,11 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ASlugIndexRoute = ASlugIndexRouteImport.update({
+  id: '/a/$slug/',
+  path: '/a/$slug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAccessCodesIndexRoute = AdminAccessCodesIndexRouteImport.update({
   id: '/access-codes/',
   path: '/access-codes/',
@@ -895,6 +903,11 @@ const JoinCodeIndexRoute = JoinCodeIndexRouteImport.update({
   path: '/join/$code/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KSlugIndexRoute = KSlugIndexRouteImport.update({
+  id: '/k/$slug/',
+  path: '/k/$slug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LessonNotesIdIndexRoute = LessonNotesIdIndexRouteImport.update({
   id: '/$id/',
   path: '/$id/',
@@ -1015,6 +1028,11 @@ const AdventureGamesGameIdIndexRoute =
     path: '/games/$gameId/',
     getParentRoute: () => AdventureRouteRoute,
   } as any)
+const ApiPublicGuestSlugRoute = ApiPublicGuestSlugRouteImport.update({
+  id: '/api/public/guest/$slug',
+  path: '/api/public/guest/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -1960,6 +1978,7 @@ export interface FileRoutesByFullPath {
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
+  '/a/$slug/': typeof ASlugIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
@@ -2015,6 +2034,7 @@ export interface FileRoutesByFullPath {
   '/homepage/building/': typeof HomepageBuildingIndexRoute
   '/homepage/replace-building/': typeof HomepageReplaceBuildingIndexRoute
   '/join/$code/': typeof JoinCodeIndexRoute
+  '/k/$slug/': typeof KSlugIndexRoute
   '/lesson-notes/$id/': typeof LessonNotesIdIndexRoute
   '/levels/$id/': typeof LevelsIdIndexRoute
   '/live/gallery/': typeof LiveGalleryIndexRoute
@@ -2037,6 +2057,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
+  '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/live/s/$sessionId/board': typeof LiveSSessionIdBoardRoute
@@ -2240,6 +2261,7 @@ export interface FileRoutesByTo {
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
+  '/a/$slug': typeof ASlugIndexRoute
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
   '/admin/assets': typeof AdminAssetsIndexRoute
@@ -2295,6 +2317,7 @@ export interface FileRoutesByTo {
   '/homepage/building': typeof HomepageBuildingIndexRoute
   '/homepage/replace-building': typeof HomepageReplaceBuildingIndexRoute
   '/join/$code': typeof JoinCodeIndexRoute
+  '/k/$slug': typeof KSlugIndexRoute
   '/lesson-notes/$id': typeof LessonNotesIdIndexRoute
   '/levels/$id': typeof LevelsIdIndexRoute
   '/live/gallery': typeof LiveGalleryIndexRoute
@@ -2317,6 +2340,7 @@ export interface FileRoutesByTo {
   '/teaching-hub/settings': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students': typeof TeachingHubStudentsIndexRoute
   '/year/$n': typeof YearNIndexRoute
+  '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/live/s/$sessionId/board': typeof LiveSSessionIdBoardRoute
@@ -2532,6 +2556,7 @@ export interface FileRoutesById {
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
+  '/a/$slug/': typeof ASlugIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
@@ -2587,6 +2612,7 @@ export interface FileRoutesById {
   '/homepage/building/': typeof HomepageBuildingIndexRoute
   '/homepage/replace-building/': typeof HomepageReplaceBuildingIndexRoute
   '/join/$code/': typeof JoinCodeIndexRoute
+  '/k/$slug/': typeof KSlugIndexRoute
   '/lesson-notes/$id/': typeof LessonNotesIdIndexRoute
   '/levels/$id/': typeof LevelsIdIndexRoute
   '/live/gallery/': typeof LiveGalleryIndexRoute
@@ -2609,6 +2635,7 @@ export interface FileRoutesById {
   '/teaching-hub/settings/': typeof TeachingHubSettingsIndexRoute
   '/teaching-hub/students/': typeof TeachingHubStudentsIndexRoute
   '/year/$n/': typeof YearNIndexRoute
+  '/api/public/guest/$slug': typeof ApiPublicGuestSlugRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/webhooks/stripe': typeof ApiPublicWebhooksStripeRoute
   '/live/s/$sessionId/board': typeof LiveSSessionIdBoardRoute
@@ -2825,6 +2852,7 @@ export interface FileRouteTypes {
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
+    | '/a/$slug/'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
@@ -2880,6 +2908,7 @@ export interface FileRouteTypes {
     | '/homepage/building/'
     | '/homepage/replace-building/'
     | '/join/$code/'
+    | '/k/$slug/'
     | '/lesson-notes/$id/'
     | '/levels/$id/'
     | '/live/gallery/'
@@ -2902,6 +2931,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/settings/'
     | '/teaching-hub/students/'
     | '/year/$n/'
+    | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
     | '/live/s/$sessionId/board'
@@ -3105,6 +3135,7 @@ export interface FileRouteTypes {
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
+    | '/a/$slug'
     | '/admin/access-codes'
     | '/admin/advertisements'
     | '/admin/assets'
@@ -3160,6 +3191,7 @@ export interface FileRouteTypes {
     | '/homepage/building'
     | '/homepage/replace-building'
     | '/join/$code'
+    | '/k/$slug'
     | '/lesson-notes/$id'
     | '/levels/$id'
     | '/live/gallery'
@@ -3182,6 +3214,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/settings'
     | '/teaching-hub/students'
     | '/year/$n'
+    | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
     | '/live/s/$sessionId/board'
@@ -3396,6 +3429,7 @@ export interface FileRouteTypes {
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
+    | '/a/$slug/'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
@@ -3451,6 +3485,7 @@ export interface FileRouteTypes {
     | '/homepage/building/'
     | '/homepage/replace-building/'
     | '/join/$code/'
+    | '/k/$slug/'
     | '/lesson-notes/$id/'
     | '/levels/$id/'
     | '/live/gallery/'
@@ -3473,6 +3508,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/settings/'
     | '/teaching-hub/students/'
     | '/year/$n/'
+    | '/api/public/guest/$slug'
     | '/api/public/payments/webhook'
     | '/api/public/webhooks/stripe'
     | '/live/s/$sessionId/board'
@@ -3676,6 +3712,7 @@ export interface RootRouteChildren {
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
   HomepageReplaceBuildingFreeRoute: typeof HomepageReplaceBuildingFreeRoute
+  ASlugIndexRoute: typeof ASlugIndexRoute
   AgeRangeIndexRoute: typeof AgeRangeIndexRoute
   AssetsCategoryIndexRoute: typeof AssetsCategoryIndexRoute
   CSlugIndexRoute: typeof CSlugIndexRoute
@@ -3702,10 +3739,12 @@ export interface RootRouteChildren {
   HomepageBuildingIndexRoute: typeof HomepageBuildingIndexRoute
   HomepageReplaceBuildingIndexRoute: typeof HomepageReplaceBuildingIndexRoute
   JoinCodeIndexRoute: typeof JoinCodeIndexRoute
+  KSlugIndexRoute: typeof KSlugIndexRoute
   LevelsIdIndexRoute: typeof LevelsIdIndexRoute
   NotebookScanCodeIndexRoute: typeof NotebookScanCodeIndexRoute
   SubjectsSubjectIndexRoute: typeof SubjectsSubjectIndexRoute
   YearNIndexRoute: typeof YearNIndexRoute
+  ApiPublicGuestSlugRoute: typeof ApiPublicGuestSlugRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicWebhooksStripeRoute: typeof ApiPublicWebhooksStripeRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -4157,6 +4196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/a/$slug/': {
+      id: '/a/$slug/'
+      path: '/a/$slug'
+      fullPath: '/a/$slug/'
+      preLoaderRoute: typeof ASlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/access-codes/': {
       id: '/admin/access-codes/'
       path: '/access-codes'
@@ -4577,6 +4623,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JoinCodeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/k/$slug/': {
+      id: '/k/$slug/'
+      path: '/k/$slug'
+      fullPath: '/k/$slug/'
+      preLoaderRoute: typeof KSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lesson-notes/$id/': {
       id: '/lesson-notes/$id/'
       path: '/$id'
@@ -4737,6 +4790,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/adventure/games/$gameId/'
       preLoaderRoute: typeof AdventureGamesGameIdIndexRouteImport
       parentRoute: typeof AdventureRouteRoute
+    }
+    '/api/public/guest/$slug': {
+      id: '/api/public/guest/$slug'
+      path: '/api/public/guest/$slug'
+      fullPath: '/api/public/guest/$slug'
+      preLoaderRoute: typeof ApiPublicGuestSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
@@ -6338,6 +6398,7 @@ const rootRouteChildren: RootRouteChildren = {
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
   HomepageReplaceBuildingFreeRoute: HomepageReplaceBuildingFreeRoute,
+  ASlugIndexRoute: ASlugIndexRoute,
   AgeRangeIndexRoute: AgeRangeIndexRoute,
   AssetsCategoryIndexRoute: AssetsCategoryIndexRoute,
   CSlugIndexRoute: CSlugIndexRoute,
@@ -6364,10 +6425,12 @@ const rootRouteChildren: RootRouteChildren = {
   HomepageBuildingIndexRoute: HomepageBuildingIndexRoute,
   HomepageReplaceBuildingIndexRoute: HomepageReplaceBuildingIndexRoute,
   JoinCodeIndexRoute: JoinCodeIndexRoute,
+  KSlugIndexRoute: KSlugIndexRoute,
   LevelsIdIndexRoute: LevelsIdIndexRoute,
   NotebookScanCodeIndexRoute: NotebookScanCodeIndexRoute,
   SubjectsSubjectIndexRoute: SubjectsSubjectIndexRoute,
   YearNIndexRoute: YearNIndexRoute,
+  ApiPublicGuestSlugRoute: ApiPublicGuestSlugRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicWebhooksStripeRoute: ApiPublicWebhooksStripeRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,

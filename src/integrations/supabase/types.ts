@@ -3803,6 +3803,101 @@ export type Database = {
           },
         ]
       }
+      guest_attempts: {
+        Row: {
+          assessment_id: string
+          block_id: string | null
+          created_at: string
+          guest_name: string | null
+          guest_token: string
+          id: string
+          link_id: string
+          score: number
+          solved_lines: Json
+          status: string
+          total_marks: number
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          block_id?: string | null
+          created_at?: string
+          guest_name?: string | null
+          guest_token: string
+          id?: string
+          link_id: string
+          score?: number
+          solved_lines?: Json
+          status?: string
+          total_marks?: number
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          block_id?: string | null
+          created_at?: string
+          guest_name?: string | null
+          guest_token?: string
+          id?: string
+          link_id?: string
+          score?: number
+          solved_lines?: Json
+          status?: string
+          total_marks?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_attempts_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "guest_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_links: {
+        Row: {
+          ask_name: boolean
+          class_id: string | null
+          code: string
+          created_at: string
+          enabled: boolean
+          id: string
+          kind: string
+          owner_id: string
+          resource_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          ask_name?: boolean
+          class_id?: string | null
+          code: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          kind: string
+          owner_id: string
+          resource_id: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ask_name?: boolean
+          class_id?: string | null
+          code?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          kind?: string
+          owner_id?: string
+          resource_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       integrity_audit_runs: {
         Row: {
           actor: string | null
