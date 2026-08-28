@@ -608,7 +608,11 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
                     fillers: undefined as string[] | undefined,
                     containers: detectStructures(p.equation) as ContainerKind[],
                     explanation: p.explanation,
+                    // The prose that follows this equation IS its note, so the
+                    // board shows chips first and the note underneath.
+                    notebook: p.explanation,
                   }));
+
 
                 })()
               : notesOnlyRows(
