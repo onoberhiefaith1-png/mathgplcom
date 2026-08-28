@@ -68,14 +68,8 @@ export const joinAudience = async (
   const existing = await fetchMyMembership(sessionId);
   if (existing) {
     if (existing.status === "removed") return existing;
-    const wanted: AudienceStatus = allowFreeEntry ? "approved" : existing.status;
-    await (table().update({
-      last_seen_at: new Date().toISOString(),
-      status: wanted,
-      ...(name ? { display_name: name } : {}),
-    }) as unknown as { eq: (c: string, v: string) => Promise<unknown> })
-      .eq("id", existing.id);
-    return { ...existing, status: wanted, display_name: name ?? existing.display_name };
+    const refreshed = await rpcTouch(sessionId, token, name, allowFreeEntry);
+    return refreshed ?? existing;
   }
 
   const insert = table().insert({
@@ -88,29 +82,50 @@ export const joinAudience = async (
   return (data as AudienceMember | null) ?? null;
 };
 
+/**
+ * A guest never reads or writes the audience table directly: the roll holds
+ * other visitors' private guest tokens. Both helpers below pass this browser's
+ * own token to a guarded database function, which only ever touches that row.
+ */
+const rpcTouch = async (
+  sessionId: string,
+  token: string,
+  name: string | null,
+  claimFreeEntry: boolean,
+): Promise<AudienceMember | null> => {
+  const { data } = await (supabase.rpc as never as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown }>)("live_audience_touch", {
+    _session: sessionId,
+    _token: token,
+    _name: name ?? null,
+    _claim_free_entry: claimFreeEntry,
+  });
+  return (data as AudienceMember | null) ?? null;
+};
+
 export const fetchMyMembership = async (sessionId: string): Promise<AudienceMember | null> => {
   const token = guestToken();
   if (!token) return null;
-  const query = table().select(AUDIENCE_COLUMNS) as unknown as {
-    eq: (c: string, v: string) => {
-      eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data: unknown }> };
-    };
-  };
-  const { data } = await query.eq("session_id", sessionId).eq("guest_token", token).maybeSingle();
+  const { data } = await (supabase.rpc as never as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown }>)("live_audience_me", { _session: sessionId, _token: token });
   return (data as AudienceMember | null) ?? null;
 };
 
 /** Keeps the teacher's audience list honest about who is still watching. */
-export const touchAudience = async (memberId: string): Promise<void> => {
-  await (table().update({ last_seen_at: new Date().toISOString() }) as unknown as {
-    eq: (c: string, v: string) => Promise<unknown>;
-  }).eq("id", memberId);
+export const touchAudience = async (sessionId: string): Promise<void> => {
+  const token = guestToken();
+  if (!token) return;
+  await rpcTouch(sessionId, token, null, false);
 };
 
-export const setAudienceName = async (memberId: string, name: string): Promise<void> => {
-  await (table().update({ display_name: name.trim().slice(0, 40) }) as unknown as {
-    eq: (c: string, v: string) => Promise<unknown>;
-  }).eq("id", memberId);
+export const setAudienceName = async (sessionId: string, name: string): Promise<void> => {
+  const token = guestToken();
+  if (!token) return;
+  await rpcTouch(sessionId, token, name.trim().slice(0, 40), false);
 };
 
 export const listAudience = async (sessionId: string): Promise<AudienceMember[]> => {
