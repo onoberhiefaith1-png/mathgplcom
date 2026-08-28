@@ -10,7 +10,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 
 export interface PreviewLineEdit {
-  /** Durable highlight identity of the line being edited. */
+  /** PERMANENT identity of the source line — the only key that is allowed to
+   *  decide which saved row an edit belongs to. */
+  sourceUid?: string;
+  /** Legacy durable identity (display order number). */
   groupId?: number;
   lineId?: string;
   /** Original equation as read, used as the last-resort match key. */
@@ -21,6 +24,8 @@ export interface PreviewLineEdit {
 }
 
 const sameRow = (row: any, edit: PreviewLineEdit): boolean => {
+  if (edit.sourceUid && row?.sourceUid) return String(row.sourceUid) === edit.sourceUid;
+  if (edit.sourceUid && row?.uid) return String(row.uid) === edit.sourceUid;
   if (typeof edit.groupId === "number" && typeof row?.groupId === "number") {
     return row.groupId === edit.groupId;
   }
@@ -54,6 +59,7 @@ export const savePreviewLineEdit = async (
   if (idx < 0 && (nextEquation !== undefined || edit.fillers)) {
     lines.push({
       lineId: edit.lineId ?? `line-${Date.now()}`,
+      sourceUid: edit.sourceUid,
       groupId: edit.groupId,
       equation: nextEquation ?? edit.originalEquation,
       fillers: edit.fillers ?? [],
@@ -72,6 +78,7 @@ export const savePreviewLineEdit = async (
       row.fillersSelected = row.fillers.map(() => true);
     }
     if (typeof edit.groupId === "number") row.groupId = edit.groupId;
+    if (edit.sourceUid) row.sourceUid = edit.sourceUid;
     lines[idx] = row;
   }
 

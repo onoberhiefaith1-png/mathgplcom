@@ -27,6 +27,11 @@ import { exportDocx } from "@/lib/lessonnotes/exportDocx";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { compileBucket, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
+import {
+  LEADING_NOTE_UID,
+  adoptLineIdentities,
+  mintLineUid,
+} from "@/lib/lessonnotes/lineIdentity";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { cn } from "@/lib/utils";
@@ -42,6 +47,10 @@ import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView"
 
 interface TokenRef { line: number; tok: number }
 interface Highlight {
+  /** PERMANENT line identity, minted once when the teacher makes the
+   *  selection. Every floating number generated from this line carries it as
+   *  `sourceUid`. Never recomputed, never positional. */
+  uid?: string;
   groupId: number;
   tokens: TokenRef[];
   payload: string;
@@ -74,6 +83,7 @@ export const restorePersistedHighlights = (
       const nb = String(p.precedingNotebook ?? "").trim();
       if (!nb) continue;
       restored.push({
+        uid: typeof p.uid === "string" && p.uid ? p.uid : LEADING_NOTE_UID,
         groupId: -1,
         tokens: [],
         payload: "",
@@ -88,6 +98,7 @@ export const restorePersistedHighlights = (
       // highlighted a diagram are dropped, never restored as floating rows.
       if (obj && isFloatableObject(obj)) {
         restored.push({
+          uid: typeof p.uid === "string" && p.uid ? p.uid : mintLineUid(),
           groupId: nextRealId++,
           tokens: [],
           payload: String(p.payload ?? `[${obj.label}]`),
@@ -100,6 +111,7 @@ export const restorePersistedHighlights = (
     }
     if (!Array.isArray(p?.tokens) || p.tokens.length === 0) continue;
     restored.push({
+      uid: typeof p.uid === "string" && p.uid ? p.uid : mintLineUid(),
       groupId: nextRealId++,
       tokens: p.tokens as TokenRef[],
       payload: String(p.payload ?? ""),
@@ -185,6 +197,7 @@ export const recomputeNotebooks = (source: Highlight[], lines: string[]): Highli
   const out = realSource.map((h) => ({ ...h, precedingNotebook: notebookByGroup.get(h.groupId) ?? "" }));
   if (leading) {
     out.unshift({
+      uid: LEADING_NOTE_UID,
       groupId: -1,
       tokens: [],
       payload: "",
@@ -227,6 +240,7 @@ const orderedHighlights = (
   });
   if (leading.length) {
     withObjects.unshift({
+      uid: LEADING_NOTE_UID,
       groupId: -1,
       tokens: [],
       payload: "",
@@ -236,6 +250,8 @@ const orderedHighlights = (
     });
   }
   return withObjects.map((h, i) => ({
+    // The uid is the identity; groupId is only a display/order number.
+    uid: h.uid ?? mintLineUid(),
     groupId: i + 1,
     tokens: h.tokens,
     payload: h.payload,
@@ -258,7 +274,15 @@ const coerceFloatingLine = (line: any): FloatingLine => ({
   explanation: typeof line?.explanation === "string" ? line.explanation : undefined,
   fillersSelected: Array.isArray(line?.fillersSelected) ? line.fillersSelected : undefined,
   containersSelected: Array.isArray(line?.containersSelected) ? line.containersSelected : undefined,
-});
+  // IDENTITY MUST SURVIVE: never drop the permanent link back to the line
+  // this floating row was generated from.
+  ...(line?.sourceUid ? { sourceUid: String(line.sourceUid) } : {}),
+  ...(line?.questionId ? { questionId: String(line.questionId) } : {}),
+  ...(typeof line?.groupId === "number" ? { groupId: line.groupId } : {}),
+  ...(typeof line?.marks === "number" ? { marks: line.marks } : {}),
+  ...(line?.table ? { table: line.table } : {}),
+  ...(Array.isArray(line?.noteObjects) ? { noteObjects: line.noteObjects } : {}),
+} as FloatingLine);
 
 /** Structure-aware tokenizer: a matrix, summation, integral, limit, fraction
  *  or root is ONE token, so it renders as one symbol instead of decaying
@@ -317,18 +341,31 @@ const FloatingPreparationPage = () => {
   const saveHighlightState = useCallback(async (source: Highlight[]) => {
     if (!subsectionId) return false;
     const ordered = orderedHighlights(source, linesRef.current, objectsRef.current);
-    const activePayloads = new Set(ordered.filter((h) => !h.notebookOnly).map((h) => String(h.payload ?? "")));
     const { data: ss } = await supabase
       .from("notebook_subsections")
-      .select("floating_lines")
+      .select("floating_lines, floating_highlights")
       .eq("id", subsectionId)
       .maybeSingle();
     const persistedLines = Array.isArray((ss as any)?.floating_lines)
-      ? ((ss as any).floating_lines as any[])
+      ? ((ss as any).floating_lines as any[]).map(coerceFloatingLine)
       : [];
-    const activeLines = persistedLines
-      .map(coerceFloatingLine)
-      .filter((line) => activePayloads.has(String(line.equation ?? "")));
+    const persistedHighlights = Array.isArray((ss as any)?.floating_highlights)
+      ? ((ss as any).floating_highlights as any[])
+      : [];
+    // Legacy rows carry no `sourceUid`: adopt their identity ONCE against the
+    // highlights they were generated from, then keep only the lines whose
+    // source line still exists. Never keep/drop by equation text or position.
+    const adopted = adoptLineIdentities(
+      persistedHighlights as any[],
+      persistedLines as any[],
+      subsectionId,
+    );
+    const liveUids = new Set(
+      ordered.filter((h) => !h.notebookOnly).map((h) => String(h.uid ?? "")),
+    );
+    const activeLines = (adopted.lines as unknown as FloatingLine[]).filter((line) =>
+      liveUids.has(String((line as any).sourceUid ?? "")),
+    );
     const { error } = await supabase
       .from("notebook_subsections")
       .update({
@@ -583,6 +620,7 @@ const FloatingPreparationPage = () => {
     setHighlights((prev) => [
       ...prev,
       {
+        uid: mintLineUid(),
         groupId: nextIdRef.current++,
         tokens: touched.map(({ line, tok }) => ({ line, tok })),
         payload,

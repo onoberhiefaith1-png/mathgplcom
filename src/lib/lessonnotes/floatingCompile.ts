@@ -57,6 +57,12 @@ export interface FloatingTableRef {
 
 export interface FloatingLine {
   lineId: string;
+  /** PERMANENT identity of the highlighted line this row was generated from
+   *  (`uid` on the saved highlight). This — and only this — is how notes and
+   *  floating numbers are joined downstream. Never position, never text. */
+  sourceUid?: string;
+  /** Owning question (subsection) id. */
+  questionId?: string;
   /** Durable identity of the highlight this line belongs to. Pairing is done
    *  through this id (then the equation text) — NEVER by array position. */
   groupId?: number;
