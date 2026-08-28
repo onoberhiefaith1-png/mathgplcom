@@ -99,82 +99,111 @@ const StudentExerciseQuestionsPage = () => {
     );
   };
 
+  const pct = tally.total > 0 ? Math.round((tally.earned / tally.total) * 100) : 0;
+
   return (
-    <div className="min-h-screen bg-background px-4 pb-24 pt-6 sm:px-6">
-      <div className="mx-auto w-full max-w-2xl">
-        <Link
-          to={`/student/class/${classId}/courses/${courseId}`}
-          className="inline-flex min-h-[44px] items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to course
-        </Link>
+    <div className="min-h-screen bg-background pb-24">
+      <div className="border-b border-border/60 bg-gradient-to-br from-primary/12 via-primary/5 to-transparent">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-6 pt-6 sm:px-6">
+          <Link
+            to={`/student/class/${classId}/courses/${courseId}`}
+            className="inline-flex min-h-[40px] items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground transition hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to course
+          </Link>
 
-        <h1 className="mt-3 inline-flex items-center gap-2 text-lg font-semibold">
-          <ClipboardList className="h-5 w-5" /> {meta.name}
-        </h1>
+          <h1 className="mt-3 inline-flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
+            <ClipboardList className="h-6 w-6 text-primary" /> {meta.name}
+          </h1>
 
+          {!loading && board && board.questions.length > 0 && (
+            <>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span>{board.questions.length} question{board.questions.length === 1 ? "" : "s"}</span>
+                <span className="tabular-nums">{tally.earned}/{tally.total} marks</span>
+                <span>pass {meta.passMark}%</span>
+                {tally.passed && (
+                  <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-semibold text-emerald-600">
+                    Passed
+                  </span>
+                )}
+              </div>
+              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
         {loading ? (
           <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading questions…
           </div>
         ) : !board || board.questions.length === 0 ? (
-          <p className="mt-8 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+          <p className="mt-8 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground shadow-sm">
             This exercise isn't ready yet. Your teacher still has to prepare its questions.
           </p>
         ) : (
-          <>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {board.questions.length} question{board.questions.length === 1 ? "" : "s"} • {tally.earned}/{tally.total} marks •
-              pass {meta.passMark}%
-              {tally.passed ? " • passed" : ""}
-            </p>
-
-            <ul className="mt-5 space-y-3">
-              {board.questions.map((q, i) => {
-                const score = earned[q.id];
-                const attempted = score !== undefined;
-                return (
-                  <li key={q.id}>
-                    <button
-                      type="button"
-                      onClick={() => open(q.id)}
-                      className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 text-left transition hover:border-primary/50"
-                    >
-                      <span className="flex min-w-0 items-center gap-3">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold">
-                          {i + 1}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-medium">Question {i + 1}</span>
-                          <span className="block text-xs text-muted-foreground">
-                            {q.marks} marks
-                            {withVideo.has(q.id) ? (
-                              <span className="ml-2 inline-flex items-center gap-1 text-primary">
-                                <MonitorPlay className="h-3 w-3" /> video
-                              </span>
-                            ) : null}
-                          </span>
+          <ul className="mt-6 space-y-3">
+            {board.questions.map((q, i) => {
+              const score = earned[q.id];
+              const attempted = score !== undefined;
+              const full = attempted && score >= q.marks;
+              return (
+                <li key={q.id}>
+                  <button
+                    type="button"
+                    onClick={() => open(q.id)}
+                    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md"
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span
+                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xs font-semibold ${
+                          full
+                            ? "bg-emerald-500/15 text-emerald-600"
+                            : attempted
+                              ? "bg-primary/15 text-primary"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {full ? <Check className="h-4 w-4" /> : i + 1}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-foreground">Question {i + 1}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {q.marks} marks
+                          {withVideo.has(q.id) ? (
+                            <span className="ml-2 inline-flex items-center gap-1 font-medium text-primary">
+                              <MonitorPlay className="h-3 w-3" /> teaching video
+                            </span>
+                          ) : null}
                         </span>
                       </span>
-                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                        {attempted ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-600">
-                            <Check className="h-3.5 w-3.5" /> {score}/{q.marks}
-                          </span>
-                        ) : (
-                          "Not started"
-                        )}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
+                    </span>
+                    <span className="shrink-0 text-xs font-semibold">
+                      {attempted ? (
+                        <span className={full ? "text-emerald-600" : "text-primary"}>
+                          {score}/{q.marks}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Start →</span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </div>
   );
+
 };
 
 export default StudentExerciseQuestionsPage;
