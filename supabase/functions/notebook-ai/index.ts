@@ -1876,7 +1876,7 @@ No markdown, no prose, just the JSON array.`;
         mode: "floating_highlights";
         problem?: string;
         subject?: string; subtopic?: string; sectionKind?: string;
-        highlights?: { groupId: number; payload: string }[];
+        highlights?: { uid?: string; groupId: number; payload: string }[];
       };
       const hs = Array.isArray(b.highlights) ? b.highlights : [];
       if (hs.length === 0) {
@@ -1889,12 +1889,15 @@ No markdown, no prose, just the JSON array.`;
         /[=+\-−×÷\^_√≤≥≠±]|\\frac|\\sqrt|\d/.test(s);
 
       const lines = hs.map((h) => {
+        // IDENTITY ECHO: the caller's permanent line uid is returned unchanged,
+        // so the client never has to re-match a generated row by position.
+        const uid = typeof h.uid === "string" ? h.uid : undefined;
         const payload = String(h.payload ?? "").trim();
-        if (!payload) return { equation: "", fillers: [] as string[], containers: [] as string[] };
+        if (!payload) return { uid, equation: "", fillers: [] as string[], containers: [] as string[] };
 
         if (!hasMath(payload)) {
           const words = payload.split(/\s+/).filter(Boolean);
-          return { equation: payload, fillers: words, containers: [] };
+          return { uid, equation: payload, fillers: words, containers: [] };
         }
 
         const equation = hardStripMath(payload.replace(/\$+/g, "").trim()) || payload;
@@ -1909,9 +1912,9 @@ No markdown, no prose, just the JSON array.`;
         }
         if (det.fillers.length === 0) {
           const toks = payload.split(/\s+/).filter(Boolean);
-          return { equation, fillers: toks, containers: det.containers };
+          return { uid, equation, fillers: toks, containers: det.containers };
         }
-        return { equation, fillers: det.fillers, containers: det.containers };
+        return { uid, equation, fillers: det.fillers, containers: det.containers };
       });
 
       console.log(`[floating_highlights] outcome=deterministic lines=${lines.length}`);
