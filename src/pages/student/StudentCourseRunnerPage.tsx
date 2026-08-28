@@ -72,27 +72,41 @@ const StudentCourseRunnerPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background px-4 pb-28 pt-6 sm:px-6">
-      <div className="mx-auto w-full max-w-3xl">
-        <Link
-          to={`/student/class/${classId}/courses`}
-          className="inline-flex min-h-[44px] items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> My Courses
-        </Link>
+    <div className="min-h-screen bg-background pb-28">
+      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <Link
+            to={`/student/class/${classId}/courses`}
+            className="inline-flex min-h-[40px] items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground transition hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> My Courses
+          </Link>
+          <div className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-foreground">
+            {tree?.course.title || (loading ? "" : "Course")}
+          </div>
+          {done ? (
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-600">
+              <Check className="h-3.5 w-3.5" /> Completed
+            </span>
+          ) : (
+            <span className="w-[92px] shrink-0" />
+          )}
+        </div>
+      </div>
 
+      <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
         {loading ? (
           <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading course…
           </div>
         ) : loadError || !tree ? (
-          <div className="mt-8 rounded-lg border border-border bg-card p-6 text-center">
+          <div className="mt-8 rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
             <p className="text-sm text-muted-foreground">This course could not be opened.</p>
             <Button className="mt-4" variant="outline" onClick={() => navigate(`/student/class/${classId}/courses`)}>Back to courses</Button>
           </div>
         ) : (
           <>
-            <div className="mt-4">
+            <div className="mt-5 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
               <StudentView
                 tree={tree}
                 onOpenExercise={(blockId) =>
@@ -118,6 +132,7 @@ const StudentCourseRunnerPage = () => {
       </div>
     </div>
   );
+
 };
 
 export default StudentCourseRunnerPage;
