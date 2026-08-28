@@ -9,6 +9,7 @@
 // make as many separate selections as they want; each one becomes one
 // floating-number block, in the order they were made.
 //
+import { looksLikeMathOnly } from "@/lib/notebook/proseGuard";
 // Undo / Redo (buttons + ⌘Z / ⇧⌘Z) revert highlight actions.
 
 import { tokenizeMath } from "@/lib/notebook/mathTokens";
