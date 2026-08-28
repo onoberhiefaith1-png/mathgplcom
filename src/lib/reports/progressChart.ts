@@ -162,6 +162,18 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
   const marksByAssessment = new Map<string, number>(
     assessments.map((a) => [a.id as string, Number(a.total_marks ?? 0)]),
   );
+  const assessmentMeta = new Map<string, AssessmentMeta>(
+    assessments.map((a) => [
+      a.id as string,
+      {
+        id: a.id as string,
+        title: ((a.title as string) || "").trim() || "Question",
+        totalMarks: Number(a.total_marks ?? 0),
+        kind: (a.kind as string) || "assignment",
+      },
+    ]),
+  );
+
 
   const tasks: RawTask[] = taskRows.map((t) => {
     const mode: TaskMode = (t.mode as TaskMode) === "adventure" ? "adventure" : "assignment";
