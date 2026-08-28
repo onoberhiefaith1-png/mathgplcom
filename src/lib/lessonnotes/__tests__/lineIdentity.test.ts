@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
+import type { IdentifiedHighlight } from "@/lib/lessonnotes/lineIdentity";
 import { adoptLineIdentities, ensureHighlightUids, linesByUid } from "@/lib/lessonnotes/lineIdentity";
 import { validateQuestionStructure } from "@/lib/smartboard/previewIntegrity";
 
-const highlights = [
+const highlights: IdentifiedHighlight[] = [
   { groupId: 1, payload: "", notebookOnly: true, precedingNotebook: "For" },
   { groupId: 2, payload: "2x^{2} + 5x - 3 = 0", precedingNotebook: "Compare with ax² + bx + c = 0:" },
   { groupId: 3, payload: "ax^{2} + bx + c = 0", precedingNotebook: "" },
