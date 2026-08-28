@@ -263,8 +263,12 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
     frozen.set(r.assignment_id as string, inner);
   }
 
-  return { tasks, members, scores, frozen };
+  return { tasks, members, scores, frozen, assessmentMeta, progressMeta };
 }
+
+/** Shared dataset for every report view — one round trip per class. */
+export const loadReportDataset = loadDataset;
+
 
 function studentScore(task: RawTask, dataset: TaskDataset, studentId: string): number {
   let total = 0;
