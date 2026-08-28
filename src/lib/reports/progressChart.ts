@@ -54,7 +54,7 @@ const pct = (score: number, target: number) => {
   return Math.max(0, Math.min(100, (score / target) * 100));
 };
 
-interface RawTask {
+export interface RawTask {
   id: string;
   mode: TaskMode;
   title: string;
@@ -66,18 +66,43 @@ interface RawTask {
   assessmentIds: string[];
   /** assignment: total marks. adventure: total required marks for the class. */
   target: number;
+  /** Curriculum topic (notebook subject) — display only. */
+  topic: string;
+  /** Curriculum subtopic (notebook subtopic) — display only. */
+  subtopic: string;
 }
 
 interface FrozenSnap { percent: number; at: string | null }
 
-interface TaskDataset {
+/** Per-question metadata used by the detailed Individual Student report. */
+export interface AssessmentMeta {
+  id: string;
+  title: string;
+  totalMarks: number;
+  kind: string;
+}
+
+export interface ProgressMeta {
+  status: string;
+  updatedAt: string | null;
+  /** Floating-number construction detail, when the engine recorded it. */
+  solvedCount: number;
+  slotCount: number;
+}
+
+export interface TaskDataset {
   tasks: RawTask[];
   members: ClassMember[];
   /** assessmentId -> studentId -> score */
   scores: Map<string, Map<string, number>>;
   /** taskId -> studentId -> frozen snapshot */
   frozen: Map<string, Map<string, FrozenSnap>>;
+  /** assessmentId -> question metadata */
+  assessmentMeta: Map<string, AssessmentMeta>;
+  /** assessmentId -> studentId -> progress metadata */
+  progressMeta: Map<string, Map<string, ProgressMeta>>;
 }
+
 
 
 async function loadDataset(classId: string): Promise<TaskDataset> {
