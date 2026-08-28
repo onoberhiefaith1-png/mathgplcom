@@ -686,6 +686,9 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             explanation: explanation || undefined,
             notebook,
             notebookOnly: isNotebookOnly,
+            lineId: (rl as any).lineId,
+            groupId: (rl as any).groupId,
+
             table: (rl as any).table,
             noteObjects: lineNoteObjects.length ? lineNoteObjects : undefined,
           });
