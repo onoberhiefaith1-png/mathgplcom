@@ -42,6 +42,13 @@ export interface QuestionVideoConfig {
 export interface VideoLine {
   lineId: string;
   label: string;
+  /**
+   * Display-only echo of this line's OWN floating-number content (chips, else
+   * the equation text). `null` means the line has no floating-number content —
+   * shown as NULL. It never affects numbering, ordering or video mapping:
+   * `lineId` remains the single source of truth.
+   */
+  preview?: string | null;
 }
 
 export interface VideoSection {
