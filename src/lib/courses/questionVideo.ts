@@ -13,11 +13,19 @@ export const CONCLUSION_KEY = "conclusion";
 
 export const lineKey = (lineId: string): string => `line:${lineId}`;
 
-/** An explicit playback marker pair inside the ONE uploaded video. */
+/**
+ * An explicit playback marker pair inside the ONE uploaded video.
+ *
+ * `null` means the teacher has NOT chosen that boundary yet — it is never the
+ * same thing as second 0. `startSource` records whether the start was prepared
+ * automatically from the section above (end + 1s) or typed by the teacher; a
+ * manual start is never overwritten.
+ */
 export interface VideoSegmentMarker {
   key: string;
-  start: number;
-  end: number;
+  start: number | null;
+  end: number | null;
+  startSource?: "auto" | "manual";
 }
 
 export interface QuestionVideoConfig {
@@ -39,8 +47,16 @@ export interface VideoLine {
 export interface VideoSection {
   key: string;
   label: string;
+  /** Playable start — the stored start, or 0 when nothing is stored. */
   start: number;
+  /** Playable end — the stored end, or the end of the file when unstored. */
   end: number;
+  /** Exactly what the teacher chose; null means "Not set". */
+  startAt: number | null;
+  endAt: number | null;
+  startSource: "auto" | "manual";
+  /** True only when BOTH boundaries were chosen. */
+  configured: boolean;
   /** Mathematical lines are mandatory; intro/conclusion are optional. */
   required: boolean;
   lineId: string | null;
@@ -54,6 +70,10 @@ export const emptyVideoConfig = (): QuestionVideoConfig => ({
   introEnabled: false,
   conclusionEnabled: false,
 });
+
+/** The gap the next section's prepared start leaves after an end point. */
+export const NEXT_START_GAP = 1;
+
 
 const num = (v: unknown): number | null => (Number.isFinite(Number(v)) ? Number(v) : null);
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
