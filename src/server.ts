@@ -23,12 +23,15 @@ async function getServerEntry(): Promise<ServerEntry> {
 async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
   if (response.status < 500) return response;
   const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) return response;
-
   const body = await response.clone().text();
-  if (!isH3SwallowedErrorBody(body)) return response;
+  const isEmptyFailure = body.trim().length === 0;
+  const isSwallowedFailure = contentType.includes("application/json") && isH3SwallowedErrorBody(body);
+  if (!isEmptyFailure && !isSwallowedFailure) return response;
 
-  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
+  console.error(
+    consumeLastCapturedError() ??
+      new Error(isEmptyFailure ? `Empty SSR failure response (${response.status})` : `h3 swallowed SSR error: ${body}`),
+  );
   return new Response(renderErrorPage(), {
     status: 500,
     headers: { "content-type": "text/html; charset=utf-8" },

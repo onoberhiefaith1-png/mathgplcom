@@ -30,12 +30,34 @@ import { registerRealtimeAuthSync } from "@/lib/realtime/auth";
 import { clearStaleChunkRecovery, recoverFromStaleChunk } from "@/lib/router/chunkRecovery";
 import NotFound from "@/pages/NotFound";
 
-// ported from App.tsx — keep the realtime socket authenticated so private
-// channels stay authorized. Client-only: the realtime socket doesn't exist
-// during SSR module evaluation.
-if (typeof window !== "undefined") {
-  registerRealtimeAuthSync();
-}
+const BOOTSTRAP_RECOVERY_SCRIPT = `(() => {
+  const KEY = "mathgpl:bootstrap-recovery";
+  const showFallback = () => {
+    if (document.documentElement.dataset.mathgplMounted === "true") return;
+    document.body.innerHTML = '<main style="min-height:100vh;display:grid;place-items:center;padding:24px;font:15px/1.5 system-ui;background:#fafafa;color:#111"><section style="max-width:448px;text-align:center"><h1 style="font-size:20px;margin:0 0 8px">This page didn\\'t load</h1><p style="color:#4b5563;margin:0 0 24px">Please try again. Your work remains saved.</p><button onclick="location.reload()" style="border:0;border-radius:6px;background:#111;color:#fff;padding:9px 16px;font:inherit;cursor:pointer">Try again</button> <a href="/" style="display:inline-block;border:1px solid #d1d5db;border-radius:6px;color:#111;padding:8px 16px;text-decoration:none">Go home</a></section></main>';
+  };
+  const recover = () => {
+    if (document.documentElement.dataset.mathgplMounted === "true") return;
+    const previous = Number(sessionStorage.getItem(KEY) || 0);
+    if (Date.now() - previous > 60000) {
+      sessionStorage.setItem(KEY, String(Date.now()));
+      const url = new URL(location.href);
+      url.searchParams.set("__bootstrap_retry", String(Date.now()));
+      location.replace(url.toString());
+      return;
+    }
+    showFallback();
+  };
+  addEventListener("error", (event) => {
+    const target = event.target;
+    if (target && (target.tagName === "SCRIPT" || target.tagName === "LINK")) recover();
+  }, true);
+  addEventListener("unhandledrejection", (event) => {
+    const text = String(event.reason?.message || event.reason || "");
+    if (/module|chunk|optimize dep|504/i.test(text)) recover();
+  });
+  setTimeout(recover, 12000);
+})();`;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -95,6 +117,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: BOOTSTRAP_RECOVERY_SCRIPT }} />
         <HeadContent />
       </head>
       {/* The AdSense script injects its own <ins> into the body, which would
@@ -121,6 +144,27 @@ function RootComponent() {
     // pointer capture, drag/selection and tool state all go with it.
     resetInteractionState("route-change");
   }, [pathname]);
+
+  useEffect(() => {
+    document.documentElement.dataset.mathgplMounted = "true";
+    window.sessionStorage.removeItem("mathgpl:bootstrap-recovery");
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.searchParams.has("__bootstrap_retry")) {
+      currentUrl.searchParams.delete("__bootstrap_retry");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+      );
+    }
+    // Keep realtime authorization out of module evaluation. If it fails, the
+    // application is already mounted and can report/recover instead of going blank.
+    try {
+      registerRealtimeAuthSync();
+    } catch (error) {
+      console.error("[realtime] auth sync initialization failed", error);
+    }
+  }, []);
 
   useEffect(() => {
     const onError = (event: ErrorEvent) => recoverFromStaleChunk(event.error ?? event.message);
