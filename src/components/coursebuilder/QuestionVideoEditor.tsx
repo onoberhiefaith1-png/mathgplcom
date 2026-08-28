@@ -405,19 +405,28 @@ const QuestionVideoEditor = ({
                   </div>
 
                   {/* Floating numbers — bounded box, scrolls inside itself */}
-                  <div className="min-w-0">
+                  <div className="min-w-0 space-y-1">
                     {s.required ? (
-                      <div className="max-w-full overflow-x-auto rounded-md border border-border bg-background px-2 py-1">
-                        {s.preview ? (
-                          <span className="block whitespace-nowrap font-mono text-xs text-foreground">
-                            {s.preview}
-                          </span>
-                        ) : (
-                          <span className="block whitespace-nowrap font-mono text-xs text-muted-foreground">
-                            NULL
-                          </span>
+                      <>
+                        <div className="max-w-full overflow-x-auto rounded-md border border-border bg-background px-2 py-1">
+                          {s.preview ? (
+                            <span className="block whitespace-nowrap font-mono text-xs text-foreground">
+                              {s.preview}
+                            </span>
+                          ) : (
+                            <span className="block whitespace-nowrap font-mono text-xs text-muted-foreground">
+                              NULL
+                            </span>
+                          )}
+                        </div>
+                        {!s.preview && s.note && (
+                          <div className="max-w-full overflow-x-auto">
+                            <span className="block whitespace-nowrap text-[11px] italic text-muted-foreground">
+                              {s.note}
+                            </span>
+                          </div>
                         )}
-                      </div>
+                      </>
                     ) : (
                       <span className="block text-xs text-muted-foreground">
                         Optional video event — not a numbered line

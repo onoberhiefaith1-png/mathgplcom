@@ -49,6 +49,8 @@ export interface VideoLine {
    * `lineId` remains the single source of truth.
    */
   preview?: string | null;
+  /** Display-only note text authored on this line, if any. Never a chip. */
+  note?: string | null;
 }
 
 export interface VideoSection {
@@ -69,6 +71,8 @@ export interface VideoSection {
   lineId: string | null;
   /** Display-only floating-number echo; null = NULL (no floating content). */
   preview: string | null;
+  /** Display-only note text authored on this line; null when there is none. */
+  note: string | null;
 }
 
 export const emptyVideoConfig = (): QuestionVideoConfig => ({
@@ -110,9 +114,10 @@ export const sectionsFor = (
     required: boolean;
     lineId: string | null;
     preview: string | null;
+    note: string | null;
   }[] = [];
   if (cfg?.introEnabled) {
-    entries.push({ key: INTRO_KEY, label: "Introduction", required: false, lineId: null, preview: null });
+    entries.push({ key: INTRO_KEY, label: "Introduction", required: false, lineId: null, preview: null, note: null });
   }
   lines.forEach((l, i) => {
     entries.push({
@@ -121,10 +126,11 @@ export const sectionsFor = (
       required: true,
       lineId: l.lineId,
       preview: l.preview ?? null,
+      note: l.note ?? null,
     });
   });
   if (cfg?.conclusionEnabled) {
-    entries.push({ key: CONCLUSION_KEY, label: "Conclusion", required: false, lineId: null, preview: null });
+    entries.push({ key: CONCLUSION_KEY, label: "Conclusion", required: false, lineId: null, preview: null, note: null });
   }
   if (entries.length === 0) return [];
 
@@ -261,18 +267,20 @@ const previewFor = (l: {
 };
 
 /**
- * The mathematical lines of one compiled question, in board order, as video
- * sections. Standalone notes carry no line of their own, so they are skipped.
+ * Every line of one compiled question, in board order, as video sections.
  *
- * LINE IDENTITY LAW: a line's number comes from its position in this
- * mathematical sequence and its identity from `lineId`. A line with no
- * floating numbers is still a line — it simply reports `preview: null`.
+ * STRICT ONE-TO-ONE LAW: no line is ever dropped or renumbered. A line that
+ * carries only a note, or whose highlights produced nothing, is still Line N —
+ * it simply reports `preview: null` (shown as NULL). Numbering therefore always
+ * equals the Smartboard preview's numbering, and identity is always `lineId`.
  */
 export const videoLinesFromQuestion = (
   lines:
     | {
         lineId?: string | null;
         noteOnly?: boolean;
+        note?: unknown;
+        notebook?: unknown;
         chips?: unknown;
         equationAscii?: unknown;
         equation?: unknown;
@@ -282,11 +290,13 @@ export const videoLinesFromQuestion = (
 ): VideoLine[] => {
   const out: VideoLine[] = [];
   for (const l of lines ?? []) {
-    if (!l?.lineId || l.noteOnly) continue;
+    if (!l?.lineId) continue;
+    const note = String(l.note ?? l.notebook ?? "").trim();
     out.push({
       lineId: l.lineId,
       label: `Line ${out.length + 1}`,
-      preview: previewFor(l),
+      preview: l.noteOnly ? null : previewFor(l),
+      note: note.length > 0 ? note : null,
     });
   }
   return out;
