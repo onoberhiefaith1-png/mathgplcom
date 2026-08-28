@@ -123,12 +123,21 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
 
   const notebookIds = Array.from(new Set(taskRows.map((t) => t.notebook_id as string).filter(Boolean)));
   const nbTitles = new Map<string, string>();
+  const nbTopics = new Map<string, { topic: string; subtopic: string }>();
   if (notebookIds.length) {
-    const { data: nbs } = await supabase.from("notebooks").select("id, title, subtopic").in("id", notebookIds);
+    const { data: nbs } = await supabase
+      .from("notebooks")
+      .select("id, title, subject, subtopic")
+      .in("id", notebookIds);
     for (const n of (nbs ?? []) as any[]) {
       nbTitles.set(n.id as string, (n.title as string) || (n.subtopic as string) || "Task");
+      nbTopics.set(n.id as string, {
+        topic: ((n.subject as string) || "").trim(),
+        subtopic: ((n.subtopic as string) || "").trim(),
+      });
     }
   }
+
 
   const ids = taskRows.map((t) => t.id as string);
 
