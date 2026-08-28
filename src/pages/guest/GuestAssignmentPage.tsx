@@ -5,9 +5,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "@/lib/router-compat";
-import { ArrowLeft, ClipboardList } from "lucide-react";
-import PresentationView from "@/components/smartboard/PresentationView";
-import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
+import { ClipboardList } from "lucide-react";
+import GuestBoard from "@/components/guests/GuestBoard";
 import { fetchGuestPayload, type GuestAssignmentPayload } from "@/lib/guests/guestApi";
 import { guestLinkDisplayName, guestLinkToken } from "@/lib/guests/guestSession";
 import { GuestLoading, GuestNameGate, GuestUnavailable } from "./GuestGate";
@@ -33,39 +32,20 @@ const GuestAssignmentPage = () => {
   }, [code]);
 
   const open = payload?.assessments.find((a) => a.id === openId) ?? null;
-  const boardSource = useMemo(
-    () => (open ? buildAssessmentBoardSource(open) : null),
-    [open],
-  );
-
   if (loading) return <GuestLoading label="Opening assignment…" />;
   if (!payload) {
     return <GuestUnavailable message="The teacher may have turned this guest link off." />;
   }
 
-  if (open && boardSource) {
+  if (open) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="flex flex-wrap items-center gap-3 border-b bg-card px-4 py-2 text-xs">
-          <button type="button" onClick={() => setOpenId(null)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium hover:bg-muted">
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to questions
-          </button>
-          <span className="font-semibold">{open.title}</span>
-          <span className="rounded-full bg-muted px-2 py-0.5">{guestLinkDisplayName()}</span>
-        </div>
-        <PresentationView
-          key={`${open.id}:${token}`}
-          role="student"
-          source={boardSource}
-          assessmentId={open.id}
-          classId={null}
-          workspace="assignment"
-          boardStudentId={token}
-          boardQuestionId={open.questions?.[0]?.id ?? null}
-          guestSlug={code}
-          participantKey={token}
-        />
-      </div>
+      <GuestBoard
+        code={code}
+        token={token}
+        assessment={open}
+        backLabel="Back to questions"
+        onBack={() => setOpenId(null)}
+      />
     );
   }
 

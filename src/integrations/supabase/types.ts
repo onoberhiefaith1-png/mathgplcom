@@ -3898,6 +3898,53 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_presence: {
+        Row: {
+          assessment_id: string | null
+          guest_name: string | null
+          guest_token: string
+          id: string
+          last_seen_at: string
+          link_id: string
+          question_id: string | null
+          score: number
+          started_at: string
+          total_marks: number
+        }
+        Insert: {
+          assessment_id?: string | null
+          guest_name?: string | null
+          guest_token: string
+          id?: string
+          last_seen_at?: string
+          link_id: string
+          question_id?: string | null
+          score?: number
+          started_at?: string
+          total_marks?: number
+        }
+        Update: {
+          assessment_id?: string | null
+          guest_name?: string | null
+          guest_token?: string
+          id?: string
+          last_seen_at?: string
+          link_id?: string
+          question_id?: string | null
+          score?: number
+          started_at?: string
+          total_marks?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_presence_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "guest_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrity_audit_runs: {
         Row: {
           actor: string | null

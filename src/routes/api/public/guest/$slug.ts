@@ -66,6 +66,31 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
           return json({ assessment });
         }
 
+        // ── The teaching video record for ONE exercise question ─────────────
+        // A reference only: the single original video path plus its line
+        // ranges. Nothing is duplicated for a guest.
+        if (action === "video") {
+          const blockId = url.searchParams.get("blockId") ?? "";
+          const questionId = url.searchParams.get("questionId") ?? "";
+          if (link.kind !== "course" || !blockId || !questionId) return json({ error: "bad_request" }, 400);
+          const { data: block } = await admin
+            .from("course_blocks")
+            .select("id, section_id, config")
+            .eq("id", blockId)
+            .maybeSingle();
+          if (!block) return json({ error: "not_found" }, 404);
+          const { data: section } = await admin
+            .from("course_sections")
+            .select("course_id")
+            .eq("id", block.section_id)
+            .maybeSingle();
+          if (section?.course_id !== link.resource_id) return json({ error: "not_found" }, 404);
+          const map = (block.config?.questionVideos ?? {}) as Record<string, unknown>;
+          return json({ video: map[questionId] ?? null });
+        }
+
+
+
         // ── Signed URL for an ORIGINAL course media object ───────────────────
         if (action === "media") {
           const path = url.searchParams.get("path") ?? "";
@@ -159,6 +184,59 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
           assessments: list,
         });
       },
+
+      // ── Guest heartbeat: "I am here, on this question" ──────────────────
+      // Written on the guest's behalf so the teacher's Live guests list can
+      // show who is working right now. No account, no student record.
+      POST: async ({ params, request }) => {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const admin = supabaseAdmin as never as { from: (t: string) => any };
+        const code = String(params.slug ?? "").trim();
+        if (!code) return json({ error: "not_found" }, 404);
+
+        let body: Record<string, unknown> = {};
+        try { body = (await request.json()) as Record<string, unknown>; } catch { /* empty body */ }
+        const token = String(body["token"] ?? "");
+        if (!/^[0-9a-f-]{36}$/i.test(token)) return json({ error: "bad_request" }, 400);
+
+        const { data: link } = await admin
+          .from("guest_links")
+          .select("id, enabled")
+          .eq("code", code)
+          .maybeSingle();
+        if (!link) return json({ error: "not_found" }, 404);
+        if (!link.enabled) return json({ error: "disabled" }, 403);
+
+        const name = typeof body["name"] === "string" ? String(body["name"]).slice(0, 40) : null;
+        const assessmentId = typeof body["assessmentId"] === "string" ? body["assessmentId"] : null;
+        const questionId = typeof body["questionId"] === "string" ? String(body["questionId"]).slice(0, 64) : null;
+
+        const { data: attempts } = await admin
+          .from("guest_attempts")
+          .select("score, total_marks")
+          .eq("link_id", link.id)
+          .eq("guest_token", token);
+        const score = (attempts ?? []).reduce((s: number, r: { score?: number }) => s + (Number(r.score) || 0), 0);
+        const totalMarks = (attempts ?? []).reduce((s: number, r: { total_marks?: number }) => s + (Number(r.total_marks) || 0), 0);
+
+        await admin
+          .from("guest_presence")
+          .upsert(
+            {
+              link_id: link.id,
+              guest_token: token,
+              guest_name: name,
+              assessment_id: assessmentId,
+              question_id: questionId,
+              score,
+              total_marks: totalMarks,
+              last_seen_at: new Date().toISOString(),
+            },
+            { onConflict: "link_id,guest_token" },
+          );
+        return json({ ok: true });
+      },
+
     },
   },
 });
