@@ -87,6 +87,9 @@ export interface ReservoirLine {
    *  correct equation is NEVER carried client-side in assessment mode; this id
    *  is sent to the server grader, which holds the hidden answer key. */
   lineId?: string;
+  /** PERMANENT identity of the highlighted line this row came from. The only
+   *  key the Preview and the Smartboard may use to join notes and chips. */
+  sourceUid?: string;
   /** Durable highlight identity — used by the Approve & Go Live editor to
    *  write an edit back to the exact saved line it came from. */
   groupId?: number;
