@@ -590,8 +590,9 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             // floating line when that line's Lesson Note equation matches the
             // highlight payload. Never fall back by array index — that can pull
             // chips/notebook text from a different lesson line after edits.
-            const matched = findVerifiedFloatingLine(payload, rawLines)
+            const matched = findVerifiedFloatingLine(payload, rawLines, (h as any).groupId)
               ?? singleHighlightFallback(payload);
+
             const ownNotebook = String(h.precedingNotebook ?? "").trim();
             acc.push({
               ...matched,
