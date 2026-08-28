@@ -6,16 +6,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "@/lib/router-compat";
-import { ArrowLeft } from "lucide-react";
 import StudentView from "@/components/coursebuilder/StudentView";
-import PresentationView from "@/components/smartboard/PresentationView";
-import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
+import GuestBoard from "@/components/guests/GuestBoard";
 import { setGuestMediaResolver } from "@/lib/courses/media";
 import { fetchGuestExercise, fetchGuestMediaUrl, fetchGuestPayload, type GuestCoursePayload } from "@/lib/guests/guestApi";
 import { guestLinkDisplayName, guestLinkToken } from "@/lib/guests/guestSession";
 import { GuestLoading, GuestNameGate, GuestUnavailable } from "./GuestGate";
 
-type OpenBoard = { assessmentId: string; title: string; questions: any[] } | null;
+type OpenBoard = { assessmentId: string; title: string; questions: any[]; blockId: string } | null;
 
 const GuestCoursePage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -58,40 +56,23 @@ const GuestCoursePage = () => {
       assessmentId: res.assessment.id,
       title: res.assessment.title,
       questions: res.assessment.questions ?? [],
+      blockId,
     });
   }, [code]);
-
-  const boardSource = useMemo(
-    () => (board ? buildAssessmentBoardSource({ id: board.assessmentId, title: board.title, questions: board.questions as never }) : null),
-    [board],
-  );
 
   if (loading) return <GuestLoading label="Opening course…" />;
   if (!payload) return <GuestUnavailable message={failure ?? "This course is not shared."} />;
 
-  if (board && boardSource) {
+  if (board) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="flex flex-wrap items-center gap-3 border-b bg-card px-4 py-2 text-xs">
-          <button type="button" onClick={() => setBoard(null)} className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium hover:bg-muted">
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to course
-          </button>
-          <span className="font-semibold">{board.title}</span>
-          <span className="rounded-full bg-muted px-2 py-0.5">{guestLinkDisplayName()}</span>
-        </div>
-        <PresentationView
-          key={`${board.assessmentId}:${token}`}
-          role="student"
-          source={boardSource}
-          assessmentId={board.assessmentId}
-          classId={null}
-          workspace="assignment"
-          boardStudentId={token}
-          boardQuestionId={board.questions[0]?.id ?? null}
-          guestSlug={code}
-          participantKey={token}
-        />
-      </div>
+      <GuestBoard
+        code={code}
+        token={token}
+        blockId={board.blockId}
+        assessment={{ id: board.assessmentId, title: board.title, questions: board.questions as never }}
+        backLabel="Back to course"
+        onBack={() => setBoard(null)}
+      />
     );
   }
 
