@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { audioUnlocked, unlockAudio } from "@/lib/games/audio";
 import { courseMediaUrl } from "@/lib/courses/media";
 import {
   CONCLUSION_KEY,
