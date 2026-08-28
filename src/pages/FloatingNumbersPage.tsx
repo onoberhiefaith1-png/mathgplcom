@@ -50,7 +50,7 @@ import { isEmptyMatrixLatex, splitMatrixChip } from "@/lib/floating/matrixChips"
 
 /** One item of the highlight stream: a text line, or a whole table workspace. */
 type Entry =
-  | { kind: "text"; highlight: { groupId: number; payload: string } }
+  | { kind: "text"; highlight: { uid: string; groupId: number; payload: string } }
   | { kind: "table"; objId: string; grid: TableGrid };
 
 
@@ -176,7 +176,7 @@ const FloatingNumbersPage = () => {
      manual line is currently collecting cell clicks. */
   const [retentionTable, setRetentionTable] = useState<string | null>(null);
   const [manualLineId, setManualLineId] = useState<string | null>(null);
-  const [highlightsData, setHighlightsData] = useState<{ groupId: number; payload: string }[]>([]);
+  const [highlightsData, setHighlightsData] = useState<{ uid: string; groupId: number; payload: string }[]>([]);
   const [scoring, setScoring] = useState<FloatingScoring>(DEFAULT_SCORING);
 
   /* ---------- Selected line (drives the AI Assistant context) ---------- */
@@ -583,7 +583,7 @@ const FloatingNumbersPage = () => {
       });
 
       const highlights = (ss as any).floating_highlights as
-        | { groupId: number; payload: string; notebookOnly?: boolean; object?: any; noteObjects?: any }[] | null;
+        | { uid?: string; groupId: number; payload: string; notebookOnly?: boolean; object?: any; noteObjects?: any }[] | null;
       const persisted = (ss as any).floating_lines as FloatingLine[] | null;
 
       const savedScoring = (ss as any).floating_scoring as FloatingScoring | null;
@@ -636,7 +636,10 @@ const FloatingNumbersPage = () => {
         }
         const payload = String(h.payload ?? "");
         if (!payload.trim()) continue;
-        seq.push({ kind: "text", highlight: { groupId: h.groupId, payload } });
+        seq.push({
+          kind: "text",
+          highlight: { uid: String((h as any).uid ?? ""), groupId: h.groupId, payload },
+        });
       }
       setEntries(seq);
 
@@ -663,9 +666,15 @@ const FloatingNumbersPage = () => {
           arr.push(p);
           byTable.set(p.table.objId, arr);
         }
-        // Repair any array that was previously saved one line out of step, so
-        // chips return to the equation they actually decompose.
-        const repairedList = repairShiftedFloatingLines(persistedList);
+        // LEGACY ADOPTION: rows saved before permanent identity existed carry
+        // only a positional groupId (and, historically, chips one line out of
+        // step). Adopt their identity ONCE here; from then on `sourceUid` is
+        // the only key used.
+        const repairedList = adoptLineIdentities(
+          allHighlights as any[],
+          persistedList as any[],
+          subsectionId,
+        ).lines as unknown as FloatingLine[];
         const used = new Set<number>();
         const reconciled: FloatingLine[] = [];
         for (const e of seq) {
@@ -679,17 +688,15 @@ const FloatingNumbersPage = () => {
           }
           const payload = String(e.highlight.payload ?? "");
           const groupId = e.highlight.groupId;
-          // PAIRING LAW: identity first (the highlight's own groupId), then the
-          // exact equation text. NEVER by array position — a positional
-          // fallback is what shifted every chip group onto the wrong line.
-          let idx = repairedList.findIndex(
-            (p, i) => !used.has(i) && typeof p.groupId === "number" && p.groupId === groupId,
-          );
-          if (idx < 0) {
-            idx = repairedList.findIndex(
-              (p, i) => !used.has(i) && (p.equation ?? "") === payload,
-            );
-          }
+          const uid = e.highlight.uid;
+          // PAIRING LAW: the highlight's PERMANENT uid, and nothing else. No
+          // equation-text guess, no array position — either this line's own
+          // floating row exists, or the line has no floating numbers yet.
+          const idx = uid
+            ? repairedList.findIndex(
+                (p, i) => !used.has(i) && String((p as any).sourceUid ?? "") === uid,
+              )
+            : -1;
           const noteObjs = noteObjByPayload.get(payload);
           if (idx >= 0) {
             used.add(idx);
@@ -697,6 +704,8 @@ const FloatingNumbersPage = () => {
             // the persisted fillers + selection state.
             reconciled.push(ensureAtomicMatrixFiller({
               ...repairedList[idx],
+              sourceUid: uid,
+              questionId: subsectionId,
               groupId,
               equation: payload,
               noteObjects: noteObjs,
@@ -705,6 +714,8 @@ const FloatingNumbersPage = () => {
           }
           reconciled.push(ensureAtomicMatrixFiller({
             lineId: newId(),
+            sourceUid: uid,
+            questionId: subsectionId,
             groupId,
             equation: payload,
             fillers: [],
@@ -793,6 +804,7 @@ const FloatingNumbersPage = () => {
             sectionKind: info.sectionKind,
             problem: info.problem,
             highlights: highlightsData.map((h) => ({
+              uid: h.uid,
               groupId: h.groupId,
               payload: h.payload,
             })),
@@ -812,7 +824,7 @@ const FloatingNumbersPage = () => {
       );
       if (error) throw error;
       const aiLines = (data as any)?.lines as
-        | { equation: string; fillers: string[]; containers: string[] }[]
+        | { uid?: string; equation: string; fillers: string[]; containers: string[] }[]
         | undefined;
       if (!aiLines || !Array.isArray(aiLines) || aiLines.length === 0) {
         toast({ title: "AI returned no floating pieces", variant: "destructive" });
@@ -822,7 +834,20 @@ const FloatingNumbersPage = () => {
       // Table-derived lines are owned by their table workspace — the AI pass
       // only rewrites the text-highlight lines, index-aligned with them.
       const existing = lines.filter((l) => !l.table);
+      const existingByUid = new Map(
+        existing
+          .filter((l) => l.sourceUid)
+          .map((l) => [String(l.sourceUid), l] as const),
+      );
       const next: FloatingLine[] = aiLines.map((a, i) => {
+        // IDENTITY: the generator echoes the source line's uid. Everything
+        // this row becomes is stamped with it, so it can never drift onto a
+        // neighbouring line later.
+        const sourceUid = String(a.uid ?? highlightsData[i]?.uid ?? "");
+        const owner = sourceUid ? existingByUid.get(sourceUid) : undefined;
+        const ownerPayload = sourceUid
+          ? highlightsData.find((h) => h.uid === sourceUid)?.payload
+          : undefined;
         const rawFillers = (a.fillers ?? []).map((s) => String(s)).filter(Boolean);
         // Strip structural macros (e.g. "+\frac{1}{2}", "-\sqrt{3}") out of
         // the fillers row — they belong in the symbols row as empty shells.
@@ -838,14 +863,16 @@ const FloatingNumbersPage = () => {
         // identity for this row. Do not let AI rewrite it, or later
         // highlight reconciliation/removal cannot match the row reliably.
         const equation = fromHighlights
-          ? (highlightsData[i]?.payload ?? existing[i]?.equation ?? a.equation ?? "")
-          : (a.equation || existing[i]?.equation || "");
+          ? (ownerPayload ?? owner?.equation ?? a.equation ?? "")
+          : (a.equation || owner?.equation || existing[i]?.equation || "");
         const matrixSplit = splitMatrixChip(equation);
         if (matrixSplit) {
           // STRUCTURE FIRST: empty matrix shell chip, then one chip per cell.
           const mFillers = [matrixSplit.shell, ...matrixSplit.values];
           return {
-            lineId: existing[i]?.lineId ?? newId(),
+            lineId: owner?.lineId ?? existing[i]?.lineId ?? newId(),
+            sourceUid: sourceUid || undefined,
+            questionId: info.subsectionId,
             equation,
             fillers: mFillers,
             containers: [],
@@ -864,7 +891,9 @@ const FloatingNumbersPage = () => {
 
         const normalised = dropContextualLeadingPlus(fillers);
         return {
-          lineId: existing[i]?.lineId ?? newId(),
+          lineId: owner?.lineId ?? existing[i]?.lineId ?? newId(),
+          sourceUid: sourceUid || undefined,
+          questionId: info.subsectionId,
           equation,
           fillers: normalised,
           containers,
