@@ -125,12 +125,13 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     return () => { cancelled = true; };
   }, [config.videoPath]);
 
-  /** Restore the session's audio choice (volume + mute) once. */
+  /** Restore the session's volume. Sound is ON by default every session. */
   useEffect(() => {
     try {
       const v = Number(window.localStorage.getItem(VOL_KEY));
-      if (Number.isFinite(v) && v >= 0 && v <= 1) setVolume(v);
-      setMuted(window.localStorage.getItem(MUTE_KEY) === "1");
+      if (Number.isFinite(v) && v > 0 && v <= 1) setVolume(v);
+      // An older build could save an involuntary mute; never honour it again.
+      window.localStorage.removeItem(MUTE_KEY);
     } catch { /* private mode */ }
   }, []);
 
@@ -139,33 +140,41 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     const el = videoRef.current;
     if (!el) return;
     el.volume = Math.min(1, Math.max(0, volume));
-    el.muted = muted;
+    el.muted = muted || forcedMute;
     try {
       window.localStorage.setItem(VOL_KEY, String(volume));
-      window.localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
     } catch { /* private mode */ }
-  }, [volume, muted, url]);
+  }, [volume, muted, forcedMute, url]);
 
   /**
-   * Autoplay with sound is blocked until the student interacts. When the
-   * browser refuses, the clip keeps playing muted and the first gesture
-   * anywhere turns the sound on for the rest of the lesson.
+   * Sound needs one user gesture somewhere in the app before a browser will
+   * allow it. The listener is mounted from the start — opening the board,
+   * pressing Present, tapping a floating chip all count — and shares the
+   * platform-wide latch, so in practice the very first clip already speaks.
+   * If a clip did start silent, it unmutes in place and keeps going.
    */
   useEffect(() => {
-    if (!needsSound) return;
+    if (audioUnlocked()) return;
     const enable = () => {
+      unlockAudio();
+      setForcedMute(false);
       const el = videoRef.current;
-      setNeedsSound(false);
-      setMuted(false);
-      if (el) { el.muted = false; void el.play().catch(() => undefined); }
+      if (el) {
+        el.muted = mutedRef.current;
+        if (el.paused) void el.play().catch(() => undefined);
+      }
     };
     window.addEventListener("pointerdown", enable, { once: true });
     window.addEventListener("keydown", enable, { once: true });
+    window.addEventListener("touchstart", enable, { once: true });
     return () => {
       window.removeEventListener("pointerdown", enable);
       window.removeEventListener("keydown", enable);
+      window.removeEventListener("touchstart", enable);
     };
-  }, [needsSound]);
+  }, []);
+
+
 
 
   /** The stage measures itself, so the same code fits any screen or panel. */
