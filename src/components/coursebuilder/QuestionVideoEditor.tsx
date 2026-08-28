@@ -204,7 +204,17 @@ const QuestionVideoEditor = ({
 
         {/* ── Fixed player region ──────────────────────────────────────── */}
         <div className="shrink-0 space-y-3 border-b border-border pb-3">
-          <div className="overflow-hidden rounded-lg bg-black">
+          <div ref={playerRef} className="relative overflow-hidden rounded-lg bg-black">
+            <button
+              type="button"
+              onClick={togglePlayerFs}
+              disabled={!url}
+              aria-label={isFs ? "Exit full screen" : "Full screen"}
+              title={isFs ? "Exit full screen" : "Full screen"}
+              className="absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-md bg-black/50 text-white/90 opacity-0 transition-opacity hover:bg-black/70 focus:opacity-100 disabled:pointer-events-none disabled:opacity-0 group-hover:opacity-100"
+            >
+              {isFs ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
             {url ? (
               <video
                 ref={videoRef}
