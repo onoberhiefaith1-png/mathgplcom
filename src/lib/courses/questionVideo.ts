@@ -67,6 +67,8 @@ export interface VideoSection {
   /** Mathematical lines are mandatory; intro/conclusion are optional. */
   required: boolean;
   lineId: string | null;
+  /** Display-only floating-number echo; null = NULL (no floating content). */
+  preview: string | null;
 }
 
 export const emptyVideoConfig = (): QuestionVideoConfig => ({
