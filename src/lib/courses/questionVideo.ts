@@ -71,6 +71,8 @@ export interface VideoSection {
   lineId: string | null;
   /** Display-only floating-number echo; null = NULL (no floating content). */
   preview: string | null;
+  /** Display-only note text authored on this line; null when there is none. */
+  note: string | null;
 }
 
 export const emptyVideoConfig = (): QuestionVideoConfig => ({
@@ -112,9 +114,10 @@ export const sectionsFor = (
     required: boolean;
     lineId: string | null;
     preview: string | null;
+    note: string | null;
   }[] = [];
   if (cfg?.introEnabled) {
-    entries.push({ key: INTRO_KEY, label: "Introduction", required: false, lineId: null, preview: null });
+    entries.push({ key: INTRO_KEY, label: "Introduction", required: false, lineId: null, preview: null, note: null });
   }
   lines.forEach((l, i) => {
     entries.push({
@@ -123,10 +126,11 @@ export const sectionsFor = (
       required: true,
       lineId: l.lineId,
       preview: l.preview ?? null,
+      note: l.note ?? null,
     });
   });
   if (cfg?.conclusionEnabled) {
-    entries.push({ key: CONCLUSION_KEY, label: "Conclusion", required: false, lineId: null, preview: null });
+    entries.push({ key: CONCLUSION_KEY, label: "Conclusion", required: false, lineId: null, preview: null, note: null });
   }
   if (entries.length === 0) return [];
 
