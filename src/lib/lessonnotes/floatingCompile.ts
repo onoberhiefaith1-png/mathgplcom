@@ -109,7 +109,82 @@ export const markForLine = (line: Pick<FloatingLine, "marks">): number => {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 };
 
+/* ── PAIRING INTEGRITY ────────────────────────────────────────────────────
+ * A floating line's chips must decompose ITS OWN equation. Historic saves
+ * were paired by array position, which shifted every chip group onto the
+ * neighbouring equation. These helpers detect that and repair it in place —
+ * no teacher work is deleted, the chips simply return to their own line. */
+
+const normForMatch = (s: string): string =>
+  String(s ?? "")
+    .replace(/\\left|\\right|\\!|\\,|\\;/g, "")
+    .replace(/[{}\s]/g, "")
+    .replace(/\\frac/g, "/")
+    .replace(/\\sqrt/g, "√")
+    .replace(/□/g, "");
+
+/** How much of this chip set is actually present in the equation (0..1). */
+export const fillerCoverage = (fillers: string[] | undefined, equation: string): number => {
+  const chips = (fillers ?? []).map(normForMatch).filter(Boolean);
+  if (chips.length === 0) return 1; // nothing to contradict
+  const eq = normForMatch(equation);
+  if (!eq) return 0;
+  const hit = chips.filter((c) => eq.includes(c)).length;
+  return hit / chips.length;
+};
+
+const MATCH_FLOOR = 0.6;
+
+/** True when this line's chips plainly belong to its own equation. */
+export const chipsBelongToLine = (line: Pick<FloatingLine, "fillers" | "equation">): boolean =>
+  fillerCoverage(line.fillers, line.equation) >= MATCH_FLOOR;
+
+/**
+ * Repair a chip array that was saved one line out of step. Returns the same
+ * array when nothing is wrong. Only a consistent whole-array shift is
+ * corrected — a single odd line is left untouched.
+ */
+export const repairShiftedFloatingLines = <T extends FloatingLine>(lines: T[]): T[] => {
+  const rows = lines.filter((l) => !l.table);
+  if (rows.length < 2) return lines;
+
+  const chipBearing = rows.filter((l) => (l.fillers?.length ?? 0) > 0);
+  if (chipBearing.length < 2) return lines;
+
+  let wrong = 0;
+  let fitsShift = 0;
+  rows.forEach((l, i) => {
+    if ((l.fillers?.length ?? 0) === 0) return;
+    if (chipsBelongToLine(l)) return;
+    wrong++;
+    const next = rows[i + 1];
+    if (next && fillerCoverage(l.fillers, next.equation) >= MATCH_FLOOR) fitsShift++;
+  });
+
+  if (wrong === 0 || fitsShift < Math.ceil(chipBearing.length / 2)) return lines;
+
+  // Chips are one line ahead of their equation: move each group down a line.
+  const payload = (l: T) => ({
+    fillers: l.fillers ?? [],
+    containers: l.containers ?? [],
+    arrangement: l.arrangement ?? [],
+    fillersSelected: l.fillersSelected,
+    containersSelected: l.containersSelected,
+  });
+  const empty = { fillers: [], containers: [], arrangement: [], fillersSelected: [], containersSelected: [] };
+
+  const byRow = new Map<T, ReturnType<typeof payload> | typeof empty>();
+  rows.forEach((l, i) => {
+    byRow.set(l, i === 0 ? empty : payload(rows[i - 1]));
+  });
+
+  // eslint-disable-next-line no-console
+  console.warn("[floating] repaired chip↔equation pairing that was saved one line out of step");
+  return lines.map((l) => (byRow.has(l) ? ({ ...l, ...byRow.get(l)! } as T) : l));
+};
+
 /** Sum the per-line marks into a Total Available. */
+
 export const totalMarks = (lines: Pick<FloatingLine, "marks">[]): number =>
   lines.reduce((sum, l) => sum + markForLine(l), 0);
 
