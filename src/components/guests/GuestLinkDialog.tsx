@@ -5,7 +5,7 @@
 // under Guest Performance, entirely apart from registered students.
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Link2, Loader2, Users } from "lucide-react";
+import { Check, Copy, Link2, Loader2, Radio, Users } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import {
   ensureGuestLink, guestLinkUrl, loadGuestPerformance, updateGuestLink,
   type GuestLink, type GuestLinkKind, type GuestPerformanceRow,
 } from "@/lib/guests/guestLinks";
+import LiveGuestsPanel from "./LiveGuestsPanel";
 
 const GuestLinkDialog = ({
   open,
@@ -39,6 +40,7 @@ const GuestLinkDialog = ({
   const [busy, setBusy] = useState(true);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [liveOpen, setLiveOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -128,6 +130,12 @@ const GuestLinkDialog = ({
               <Switch checked={!!link?.ask_name} onCheckedChange={(v) => void setFlag({ ask_name: v })} />
             </div>
 
+            {link && (
+              <Button type="button" variant="secondary" className="w-full" onClick={() => setLiveOpen(true)}>
+                <Radio className="mr-2 h-4 w-4" /> Live guests
+              </Button>
+            )}
+
             <div>
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
                 <Users className="h-4 w-4" /> Guest Performance
@@ -152,6 +160,7 @@ const GuestLinkDialog = ({
           </div>
         )}
       </DialogContent>
+      {link && <LiveGuestsPanel open={liveOpen} onOpenChange={setLiveOpen} linkId={link.id} />}
     </Dialog>
   );
 };
