@@ -248,16 +248,20 @@ export async function mySkillBuilders(): Promise<GlobalSkill[]> {
       }));
       const unlocked = unlockedFlags(pathway, rows, settings.learning_mode);
 
-      return pathway.map((entry, i) => ({
-        classId: cls.id,
-        className: cls.name,
-        courseId: entry.course.id,
-        title: entry.course.title || "Untitled course",
-        mode: settings.learning_mode,
-        unlocked: unlocked[i] ?? true,
-        status: rows.find((r) => r.course_id === entry.course.id)?.status ?? "not_started",
-        blockedBy: pathway[i - 1]?.course.title ?? null,
-      }));
+      return pathway
+        .map((entry, i) => ({
+          classId: cls.id,
+          className: cls.name,
+          courseId: entry.course.id,
+          title: entry.course.title || "Untitled course",
+          mode: settings.learning_mode,
+          unlocked: unlocked[i] ?? true,
+          status: rows.find((r) => r.course_id === entry.course.id)?.status ?? "not_started",
+          blockedBy: pathway[i - 1]?.course.title ?? null,
+          available: entry.available,
+        }))
+        .filter((entry) => entry.available);
+
     }),
   );
 
