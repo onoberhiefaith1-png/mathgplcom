@@ -37,7 +37,17 @@ import {
 } from "@/lib/courses/questionVideo";
 import { loadCardVideoFlags, loadQuestionVideo } from "@/lib/courses/questionVideoStore";
 
-type RawQuestion = { id: string; lines?: { lineId?: string | null; marks?: number; noteOnly?: boolean }[] };
+type RawQuestion = {
+  id: string;
+  lines?: {
+    lineId?: string | null;
+    marks?: number;
+    noteOnly?: boolean;
+    chips?: unknown;
+    equationAscii?: unknown;
+    equation?: unknown;
+  }[];
+};
 type Loaded = { id: string; title: string; questions: RawQuestion[] };
 
 const TeacherExerciseQuestionsPage = () => {

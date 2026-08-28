@@ -16,7 +16,7 @@ import {
 } from "@/lib/assessments/createAssessment";
 import type { CourseExerciseQuestion } from "./types";
 import { ensureTestClass } from "@/lib/floating/testBoard";
-import { videoLinesFromQuestion } from "./questionVideo";
+import { videoLinesFromQuestion, type VideoLine } from "./questionVideo";
 
 /** Marks this assessment as belonging to an Exercise Card, never an assignment. */
 export const COURSE_EXERCISE_KIND = "course_exercise";
@@ -24,7 +24,7 @@ export const COURSE_EXERCISE_KIND = "course_exercise";
 export interface ExerciseBoard {
   assessmentId: string;
   blockId: string;
-  questions: { id: string; label: string; marks: number; lines: { lineId: string; label: string }[] }[];
+  questions: { id: string; label: string; marks: number; lines: VideoLine[] }[];
   total: number;
 }
 
