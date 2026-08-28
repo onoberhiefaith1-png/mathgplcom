@@ -11,7 +11,7 @@ import StudentNav from "./StudentNav";
  * Full-bleed surfaces — the SmartBoard, games and adventure canvases — opt out
  * of the padding so they keep the whole viewport.
  */
-const FULL_BLEED = [/\/smartboard(\/|$)/, /\/games\/[^/]+\/play/, /\/game\/[^/]+/, /\/adventures?(\/|$)/];
+const FULL_BLEED = [/\/smartboard(\/|$)/, /\/assessment\/[^/]+/, /\/games\/[^/]+\/play/, /\/game\/[^/]+/, /\/adventures?(\/|$)/];
 
 const StudentShell = ({ children }: { children: ReactNode }) => {
   const bp = useBreakpoint();
