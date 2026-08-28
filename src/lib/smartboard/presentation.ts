@@ -489,10 +489,10 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
         | { viewCombined?: string[]; viewRearranged?: string[]; fillers?: string[] }
         | null
         | undefined;
-      const rawLines = (sub as any).floating_lines as
-        | RawFloatingLine[]
-        | null
-        | undefined;
+      const rawLines = repairShiftedFloatingLines(
+        (((sub as any).floating_lines ?? []) as RawFloatingLine[]) as any,
+      ) as unknown as RawFloatingLine[] | null | undefined;
+
       // NOTE-ATTACHMENT CONSISTENCY LAW: a highlight owns ONLY its own
       // `precedingNotebook`. There is no equation-keyed fallback map — a
       // line has a note iff its own highlight authored one. Equation-match
