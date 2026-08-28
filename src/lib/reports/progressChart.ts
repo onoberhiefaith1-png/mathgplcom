@@ -146,7 +146,7 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
     ids.length
       ? (supabase
           .from("assessments")
-          .select("id, assignment_id, notebook_id, total_marks, kind")
+          .select("id, assignment_id, notebook_id, total_marks, kind, title")
           .eq("class_id", classId) as never as Promise<{ data: any[] | null }>)
       : Promise.resolve({ data: [] as any[] }),
     ids.length
