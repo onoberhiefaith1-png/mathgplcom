@@ -506,27 +506,13 @@ const SmartboardPreviewPage = () => {
                             onSend={(n) => onAiEdit(`${it.caption} · ${label}`, n)}
                           />
                         </div>
-                        {!line.notebookOnly && eq && (
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <HighlightBox>
-                              <span className="text-xl">
-                                <InlineMath ascii={eq} />
-                              </span>
-                            </HighlightBox>
-                          </div>
-                        )}
-                        {!line.notebookOnly && eq && (
-                          it.hasFloatingData && line.fillers.length > 0 ? (
-                            <FloatingChips fillers={line.fillers} />
-                          ) : (
-                            <NotYetAvailable />
-                          )
-                        )}
-                        {note && <NoteBlock text={note} />}
-                        {/* line.explanation intentionally NOT rendered here:
-                            on the live board it only surfaces behind the "+"
-                            marker, and its text duplicates equations that
-                            already appear as their own display lines. */}
+                        <EditableLine
+                          line={line}
+                          subsectionId={it.subsectionId}
+                          hasFloatingData={it.hasFloatingData}
+                          onSaved={reload}
+                        />
+
                       </div>
                     );
                   })}
