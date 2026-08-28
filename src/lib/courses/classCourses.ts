@@ -138,21 +138,24 @@ export const markCourseProgress = async (args: {
   if (error) throw error;
 };
 
-/** Sequential mode: a course unlocks only when every earlier one is done. */
+/** Sequential mode: a course unlocks only when every earlier one is done.
+ *  A course that cannot be read never blocks the pathway. */
 export const unlockedFlags = (
-  pathway: { course: Course }[],
+  pathway: { course: Course; available?: boolean }[],
   progress: CourseProgressRow[],
   mode: LearningMode,
 ): boolean[] => {
   const done = new Set(progress.filter((p) => p.status === "completed").map((p) => p.course_id));
   if (mode === "free") return pathway.map(() => true);
   let blocked = false;
-  return pathway.map(({ course }) => {
+  return pathway.map(({ course, available }) => {
     if (blocked) return false;
+    if (available === false) return true;
     if (!done.has(course.id)) blocked = true;
     return true;
   });
 };
+
 
 /** Classes owned by the signed-in teacher — for "Assign to class". */
 export const listOwnedClasses = async (): Promise<{ id: string; name: string }[]> => {
