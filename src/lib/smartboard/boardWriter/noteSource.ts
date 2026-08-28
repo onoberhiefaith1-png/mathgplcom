@@ -18,22 +18,9 @@ export interface NoteCarrier {
   noteObjects?: unknown[];
 }
 
-/** NOTE-PURITY LAW: a note is prose. A row is treated as math-shaped
- *  only when it has NO alphabetic characters at all and is dominated by
- *  digits/operators (e.g. "3 + 4 = 7", "x = -2"). Rows that contain any
- *  letters are always considered prose — so notes like "Subtract 5 from
- *  both sides" or "Divide by 2" are kept, while phantom equation tails
- *  are still rejected. */
-const looksLikeMath = (l: string): boolean => {
-  const s = l.trim();
-  if (!s) return false;
-  if (/[A-Za-z]/.test(s)) return false; // any letter → prose
-  // No letters. If it has an operator or is entirely digits/punctuation,
-  // it's a math row masquerading as a note — reject it.
-  if (/[=+\-−×÷/^]/.test(s)) return true;
-  if (/^[\d\s.,()πθ]+$/.test(s)) return true;
-  return false;
-};
+/** NOTE-PURITY LAW — single implementation in `@/lib/notebook/proseGuard`. */
+const looksLikeMath = (l: string): boolean => looksLikeMathOnly(l);
+
 
 /** The ONLY way to read a line's teaching note.
  *  No saved note ⇒ empty string ⇒ no icon, nothing to write. Ever. */
