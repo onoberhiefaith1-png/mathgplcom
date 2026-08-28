@@ -221,7 +221,7 @@ const QuestionVideoEditor = ({
                 src={url}
                 controls
                 playsInline
-                className="max-h-[260px] w-full"
+                className={isFs ? "h-full w-full object-contain" : "max-h-[260px] w-full"}
                 onLoadedMetadata={(e) => {
                   const next = Number(e.currentTarget?.duration);
                   setDraft((d) => {
