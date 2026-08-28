@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { audioUnlocked, unlockAudio } from "@/lib/games/audio";
 import { courseMediaUrl } from "@/lib/courses/media";
 import {
   CONCLUSION_KEY,
@@ -79,10 +80,15 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
   const conclusionDoneRef = useRef(false);
 
   // ── Audio: ONE state for the whole session, shared by all three views ────
+  // `muted` is USER intent only. `forcedMute` is the temporary silence a
+  // browser imposes when it refuses sound-on autoplay; it is never saved and
+  // it clears on the first interaction anywhere in the app.
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
-  /** Set when the browser refused sound-on playback; cleared on first gesture. */
-  const [needsSound, setNeedsSound] = useState(false);
+  const [forcedMute, setForcedMute] = useState(false);
+  const mutedRef = useRef(false);
+  mutedRef.current = muted;
+
   
 
 
@@ -120,12 +126,13 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     return () => { cancelled = true; };
   }, [config.videoPath]);
 
-  /** Restore the session's audio choice (volume + mute) once. */
+  /** Restore the session's volume. Sound is ON by default every session. */
   useEffect(() => {
     try {
       const v = Number(window.localStorage.getItem(VOL_KEY));
-      if (Number.isFinite(v) && v >= 0 && v <= 1) setVolume(v);
-      setMuted(window.localStorage.getItem(MUTE_KEY) === "1");
+      if (Number.isFinite(v) && v > 0 && v <= 1) setVolume(v);
+      // An older build could save an involuntary mute; never honour it again.
+      window.localStorage.removeItem(MUTE_KEY);
     } catch { /* private mode */ }
   }, []);
 
@@ -134,33 +141,41 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     const el = videoRef.current;
     if (!el) return;
     el.volume = Math.min(1, Math.max(0, volume));
-    el.muted = muted;
+    el.muted = muted || forcedMute;
     try {
       window.localStorage.setItem(VOL_KEY, String(volume));
-      window.localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
     } catch { /* private mode */ }
-  }, [volume, muted, url]);
+  }, [volume, muted, forcedMute, url]);
 
   /**
-   * Autoplay with sound is blocked until the student interacts. When the
-   * browser refuses, the clip keeps playing muted and the first gesture
-   * anywhere turns the sound on for the rest of the lesson.
+   * Sound needs one user gesture somewhere in the app before a browser will
+   * allow it. The listener is mounted from the start — opening the board,
+   * pressing Present, tapping a floating chip all count — and shares the
+   * platform-wide latch, so in practice the very first clip already speaks.
+   * If a clip did start silent, it unmutes in place and keeps going.
    */
   useEffect(() => {
-    if (!needsSound) return;
+    if (audioUnlocked()) return;
     const enable = () => {
+      unlockAudio();
+      setForcedMute(false);
       const el = videoRef.current;
-      setNeedsSound(false);
-      setMuted(false);
-      if (el) { el.muted = false; void el.play().catch(() => undefined); }
+      if (el) {
+        el.muted = mutedRef.current;
+        if (el.paused) void el.play().catch(() => undefined);
+      }
     };
     window.addEventListener("pointerdown", enable, { once: true });
     window.addEventListener("keydown", enable, { once: true });
+    window.addEventListener("touchstart", enable, { once: true });
     return () => {
       window.removeEventListener("pointerdown", enable);
       window.removeEventListener("keydown", enable);
+      window.removeEventListener("touchstart", enable);
     };
-  }, [needsSound]);
+  }, []);
+
+
 
 
   /** The stage measures itself, so the same code fits any screen or panel. */
@@ -225,11 +240,14 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     el.pause();
     try { el.currentTime = target.start; } catch { /* not seekable yet */ }
     if (!autoplay) return;
+    // Sound is asserted on EVERY jump, so one blocked clip can never leave the
+    // rest of the lesson silent.
+    setForcedMute(false);
     el.muted = muted;
     void el.play().catch(() => {
-      // Sound-on autoplay refused: keep teaching, ask for one gesture.
+      // Sound-on autoplay refused: keep teaching silently until any gesture.
       el.muted = true;
-      setNeedsSound(true);
+      setForcedMute(true);
       void el.play().catch(() => undefined);
     });
   }, [sections, muted]);
@@ -283,7 +301,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     }
     setActiveKey(null);
     setPlayhead(0);
-    setNeedsSound(false);
+    setForcedMute(false);
     introDoneRef.current = false;
     handledLineRef.current = null;
     conclusionDoneRef.current = false;
@@ -349,7 +367,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
         try { el.currentTime = active.start; } catch { /* ignore */ }
       }
       // A press is a real gesture, so sound is allowed from here on.
-      setNeedsSound(false);
+      setForcedMute(false);
       el.muted = muted;
       void el.play().catch(() => undefined);
     } else {
@@ -405,7 +423,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
                 const h = e.currentTarget.videoHeight;
                 if (w > 0 && h > 0) setRatio(w / h);
                 e.currentTarget.volume = Math.min(1, Math.max(0, volume));
-                e.currentTarget.muted = muted;
+                e.currentTarget.muted = muted || forcedMute;
                 setMediaReady(true);
               }}
               onCanPlay={() => setMediaReady(true)}
@@ -431,13 +449,13 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
           </span>
         )}
 
-        {needsSound && (
+        {forcedMute && (
           <button
             type="button"
-            onClick={() => { setNeedsSound(false); setMuted(false); }}
+            onClick={() => { unlockAudio(); setForcedMute(false); setMuted(false); }}
             className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur"
           >
-            Tap for sound
+            Sound is off — tap to enable
           </button>
         )}
 
@@ -508,7 +526,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
                 aria-label={muted ? "Unmute" : "Mute"}
                 title={muted ? "Unmute" : "Mute"}
                 onClick={() => {
-                  setNeedsSound(false);
+                  setForcedMute(false);
                   setMuted((m) => {
                     const next = !m;
                     if (!next && volume === 0) setVolume(0.7);
@@ -529,7 +547,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
                   const next = Number(e.target.value);
                   setVolume(next);
                   setMuted(next === 0);
-                  setNeedsSound(false);
+                  setForcedMute(false);
                 }}
                 className="ml-1 h-1 w-16 cursor-pointer accent-white sm:w-20"
               />
