@@ -449,13 +449,13 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
           </span>
         )}
 
-        {needsSound && (
+        {forcedMute && (
           <button
             type="button"
-            onClick={() => { setForcedMute(false); setMuted(false); }}
+            onClick={() => { unlockAudio(); setForcedMute(false); setMuted(false); }}
             className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur"
           >
-            Tap for sound
+            Sound is off — tap to enable
           </button>
         )}
 
