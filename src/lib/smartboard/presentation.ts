@@ -503,9 +503,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
         | { viewCombined?: string[]; viewRearranged?: string[]; fillers?: string[] }
         | null
         | undefined;
-      const rawLines = repairShiftedFloatingLines(
-        (((sub as any).floating_lines ?? []) as RawFloatingLine[]) as any,
-      ) as unknown as RawFloatingLine[] | null | undefined;
+      const savedLines = (((sub as any).floating_lines ?? []) as RawFloatingLine[]);
 
       // NOTE-ATTACHMENT CONSISTENCY LAW: a highlight owns ONLY its own
       // `precedingNotebook`. There is no equation-keyed fallback map — a
@@ -534,6 +532,20 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           };
         });
 
+      // PERMANENT IDENTITY JOIN. Every floating row carries the `uid` of the
+      // highlighted line it was generated from. Rows saved before identity
+      // existed adopt one here (once, using the legacy repair heuristic), so
+      // from this point on the join is by uid alone — never by position, never
+      // by equation text.
+      const identified = adoptLineIdentities(
+        (rawHighlights ?? []) as any[],
+        (savedLines ?? []) as any[],
+        sub.id,
+      );
+      const identifiedHighlights = identified.highlights as unknown as typeof rawHighlights;
+      const rawLines = identified.lines as unknown as RawFloatingLine[] | null | undefined;
+      const linesByIdentity = linesByUid(identified.lines as any[]);
+
 
       // Per-line answer key — preferred path when the Lesson Note has been
       // saved with structured floating_lines. Each line contributes its
@@ -542,7 +554,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       const fragmentsFromLines: string[] = [];
       const solutionBlock = findBlock(sub.blocks, "solution");
       const hasTeacherFloating =
-        (rawHighlights && rawHighlights.length > 0) ||
+        (identifiedHighlights && identifiedHighlights.length > 0) ||
         (rawLines && rawLines.length > 0) ||
         (bucket?.fillers && bucket.fillers.length > 0) ||
         (bucket?.viewCombined && bucket.viewCombined.length > 0) ||
@@ -557,8 +569,8 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // is NOT folded into the following highlight — every notebook always
       // belongs to the highlight ABOVE it, so leading prose has no parent
       // and remains independent.
-      const sourceLines = rawHighlights && rawHighlights.length > 0
-        ? rawHighlights.reduce<Array<{ equation: string; groupId?: number; lineId?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
+      const sourceLines = identifiedHighlights && identifiedHighlights.length > 0
+        ? identifiedHighlights.reduce<Array<{ equation: string; groupId?: number; lineId?: string; fillers?: string[]; containers?: ContainerKind[]; explanation?: string; notebook?: string; notebookOnly?: boolean; table?: FloatingTableRef; noteObjects?: SolutionObject[] }>>((acc, h, hi) => {
             // Diagrams attached to this entry's note (never floating content).
             const noteObjects = readNoteObjects((h as any).noteObjects);
             if (h.notebookOnly) {
@@ -594,12 +606,20 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             // floating line when that line's Lesson Note equation matches the
             // highlight payload. Never fall back by array index — that can pull
             // chips/notebook text from a different lesson line after edits.
-            const matched = findVerifiedFloatingLine(payload, rawLines, (h as any).groupId)
-              ?? singleHighlightFallback(payload);
+            // IDENTITY FIRST AND ONLY: this highlight's own uid. The legacy
+            // text/groupId search survives purely as the adoption path for rows
+            // that were never stamped (empty map ⇒ nothing to claim).
+            const byIdentity = linesByIdentity.get(String((h as any).uid ?? ""));
+            const matched = byIdentity
+              ?? (linesByIdentity.size === 0
+                    ? (findVerifiedFloatingLine(payload, rawLines, (h as any).groupId)
+                        ?? singleHighlightFallback(payload))
+                    : { equation: payload, fillers: [], containers: [] as ContainerKind[] });
 
             const ownNotebook = String(h.precedingNotebook ?? "").trim();
             acc.push({
-              ...matched,
+              ...(matched as any),
+              sourceUid: (h as any).uid,
               groupId: (h as any).groupId,
               equation: payload,
 
@@ -690,6 +710,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             notebookOnly: isNotebookOnly,
             lineId: (rl as any).lineId,
             groupId: (rl as any).groupId,
+            sourceUid: (rl as any).sourceUid,
 
             table: (rl as any).table,
             noteObjects: lineNoteObjects.length ? lineNoteObjects : undefined,
