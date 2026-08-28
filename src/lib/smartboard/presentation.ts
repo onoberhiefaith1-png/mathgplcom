@@ -600,7 +600,9 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             const ownNotebook = String(h.precedingNotebook ?? "").trim();
             acc.push({
               ...matched,
+              groupId: (h as any).groupId,
               equation: payload,
+
               notebook: ownNotebook || undefined,
               notebookOnly: false,
               noteObjects,
