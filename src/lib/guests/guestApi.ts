@@ -6,7 +6,9 @@
  * is duplicated per guest.
  */
 import type { CourseTree } from "@/lib/courses/types";
+import type { QuestionVideoConfig } from "@/lib/courses/questionVideo";
 import type { AssessmentLike } from "@/lib/assessments/assessmentBoardSource";
+
 
 export interface GuestCoursePayload {
   kind: "course";
