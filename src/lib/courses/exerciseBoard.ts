@@ -552,3 +552,100 @@ export const findCourseExerciseAssessmentRaw = async (
     questions: (Array.isArray(row.questions) ? row.questions : []) as QuestionPayload[],
   };
 };
+
+/* ── Guest Link exercises ──────────────────────────────────────────────────
+   A Guest Link opens the ORIGINAL course. Its Exercise Cards still need a
+   container the existing marking engine can read, so one hidden per-teacher
+   record is prepared per card. Guest marks are written to `guest_attempts` —
+   never to a student's progress. */
+
+export const COURSE_EXERCISE_GUEST_KIND = "course_exercise_guest";
+
+/** Prepare (or refresh) the guest container for every Exercise Card of a
+ *  course. Owner-only; safe to call whenever the guest link is opened. */
+export const syncGuestExerciseAssessments = async (courseId: string): Promise<void> => {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return;
+
+  const { data: sectionRows } = await db
+    .from("course_sections")
+    .select("id")
+    .eq("course_id", courseId);
+  const sectionIds = ((sectionRows ?? []) as { id: string }[]).map((s) => s.id);
+  if (sectionIds.length === 0) return;
+
+  const { data: blockRows } = await db
+    .from("course_blocks")
+    .select("id, kind, config")
+    .in("section_id", sectionIds);
+  const exercises = ((blockRows ?? []) as { id: string; kind: string; config: any }[]).filter(
+    (b) => b.kind === "exercise",
+  );
+  if (exercises.length === 0) return;
+
+  const { data: linkRows } = await db
+    .from("course_exercise_questions")
+    .select("*")
+    .in("block_id", exercises.map((b) => b.id));
+  const links = (linkRows ?? []) as CourseExerciseQuestion[];
+  const classId = await ensureTestClass(uid);
+
+  for (const block of exercises) {
+    const own = links.filter((l) => l.block_id === block.id);
+    if (own.length === 0) continue;
+    const { questions, answerKey, total } = await compileExercise(own);
+    if (questions.length === 0) continue;
+
+    const title = `${String(block.config?.name ?? "Exercise")} — guest`;
+    const notebookId = own.find((l) => l.notebook_id)?.notebook_id ?? null;
+    const sectionId = own.find((l) => l.section_id)?.section_id ?? null;
+
+    const { data: existingRows } = await db
+      .from("assessments")
+      .select("id")
+      .eq("class_id", classId)
+      .eq("kind", COURSE_EXERCISE_GUEST_KIND)
+      .eq("question_key", block.id)
+      .order("created_at", { ascending: true });
+    const existing = (existingRows ?? []) as { id: string }[];
+    let assessmentId: string | null = existing[0]?.id ?? null;
+    if (existing.length > 1) {
+      await db.from("assessments").delete().in("id", existing.slice(1).map((r) => r.id));
+    }
+
+    if (assessmentId) {
+      await db
+        .from("assessments")
+        .update({
+          notebook_id: notebookId,
+          section_id: sectionId,
+          title,
+          total_marks: total,
+          questions: questions as never,
+          unassigned_at: new Date().toISOString(),
+        })
+        .eq("id", assessmentId);
+    } else {
+      const { data: created } = await db
+        .from("assessments")
+        .insert({
+          class_id: classId,
+          owner_id: uid,
+          notebook_id: notebookId,
+          section_id: sectionId,
+          question_key: block.id,
+          kind: COURSE_EXERCISE_GUEST_KIND,
+          title,
+          score_label: "Marks",
+          total_marks: total,
+          questions: questions as never,
+          unassigned_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      assessmentId = (created as { id?: string } | null)?.id ?? null;
+    }
+    if (assessmentId) await writeAnswerKey(assessmentId, answerKey);
+  }
+};

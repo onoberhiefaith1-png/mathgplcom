@@ -3,7 +3,8 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, ClipboardList, Loader2, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, ClipboardList, Link2, Loader2, LayoutDashboard } from "lucide-react";
+import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 
@@ -16,6 +17,8 @@ const ClassAssignmentsPage = () => {
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [notebooks, setNotebooks] = useState<Record<string, NotebookMeta>>({});
+  // Guest Link — public access to ONE assignment card, no account needed.
+  const [guestFor, setGuestFor] = useState<{ notebookId: string; label: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -131,7 +134,16 @@ const ClassAssignmentsPage = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex flex-wrap justify-end gap-2">
+                  {g.notebookId && (
+                    <button
+                      type="button"
+                      onClick={() => setGuestFor({ notebookId: g.notebookId as string, label: g.label })}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                    >
+                      <Link2 className="h-3.5 w-3.5" /> Guest Link
+                    </button>
+                  )}
                   {g.notebookId ? (
                     <Link
                       to={`${classRoot()}/${classId}/assignments/${g.notebookId}/dashboard`}
@@ -148,6 +160,17 @@ const ClassAssignmentsPage = () => {
           })
         )}
       </main>
+
+      {guestFor && classId && (
+        <GuestLinkDialog
+          open
+          onOpenChange={(v) => { if (!v) setGuestFor(null); }}
+          kind="assignment"
+          resourceId={guestFor.notebookId}
+          classId={classId}
+          title={guestFor.label}
+        />
+      )}
     </div>
   );
 };

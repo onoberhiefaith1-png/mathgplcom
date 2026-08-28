@@ -34,12 +34,25 @@ export interface CourseMediaResult {
   state: CourseMediaState;
 }
 
+/** A Guest Link page has no account, so it cannot sign a storage object
+ *  itself: it installs a resolver that asks its own public endpoint for a
+ *  signed link to the ORIGINAL object. Nothing is ever copied. */
+type GuestResolver = (path: string) => Promise<string | null>;
+let guestResolver: GuestResolver | null = null;
+export const setGuestMediaResolver = (fn: GuestResolver | null) => {
+  guestResolver = fn;
+};
+
 /** A displayable URL for a stored path, or the value itself when it is
  *  already an absolute link. The signed link streams the ORIGINAL object;
  *  authorisation is enforced by storage policy, not by copying. */
 export const resolveCourseMedia = async (value: string | null): Promise<CourseMediaResult> => {
   if (!value) return { url: null, state: "empty" };
   if (/^https?:\/\//i.test(value)) return { url: value, state: "ready" };
+  if (guestResolver) {
+    const url = await guestResolver(value);
+    return url ? { url, state: "ready" } : { url: null, state: "unavailable" };
+  }
   try {
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(value, 60 * 60 * 8);
     if (error || !data?.signedUrl) return { url: null, state: "unavailable" };

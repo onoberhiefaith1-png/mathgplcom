@@ -341,6 +341,8 @@ const PresentationView = ({
   gameId = null,
   viewOnly = false,
   smartCardSlug = null,
+  guestSlug = null,
+  guestName = null,
   participantKey = null,
   backTo = null,
   backLabel = "Back",
@@ -373,6 +375,10 @@ const PresentationView = ({
   timerEnabled?: boolean;
   /** Public Smart Card challenge — grading runs without an account. */
   smartCardSlug?: string | null;
+  /** Public Guest Link (Course / Assignment Card) — graded without an account
+   *  and recorded apart from every registered student. */
+  guestSlug?: string | null;
+  guestName?: string | null;
   participantKey?: string | null;
   /** Explicit Back target. Public Smart Cards return to their own card; every
    *  other caller omits this and keeps the nav-history behaviour. */
@@ -455,7 +461,7 @@ const PresentationView = ({
     assessmentId,
     studentId: boardStudentId,
     questionId: boardQuestionId,
-    enabled: assessmentMode && !!boardStudentId && !testMode,
+    enabled: assessmentMode && !!boardStudentId && !testMode && !guestSlug,
   });
   const applyingRemoteRef = useRef(false);
 
@@ -517,6 +523,8 @@ const PresentationView = ({
   // A test sitting always starts from zero and is never seeded or mirrored.
   useEffect(() => {
     if (testMode) { setSolvedSlots({}); setAssessScore(0); return; }
+    // A Guest Link sitting is seeded by its own page, never from student rows.
+    if (guestSlug) return;
     if (!assessmentMode || !assessmentId || !progressOwnerId) return;
     let cancelled = false;
     (async () => {
@@ -531,10 +539,10 @@ const PresentationView = ({
       setAssessScore(Number(prog?.score ?? 0));
     })();
     return () => { cancelled = true; };
-  }, [assessmentMode, assessmentId, progressOwnerId]);
+  }, [assessmentMode, assessmentId, progressOwnerId, guestSlug, testMode]);
 
   useEffect(() => {
-    if (testMode) return;
+    if (testMode || guestSlug) return;
     if (!assessmentMode || !assessmentId || !progressOwnerId) return;
     let cancelled = false;
     let ch: ReturnType<typeof supabase.channel> | null = null;
@@ -557,7 +565,7 @@ const PresentationView = ({
         .subscribe();
     });
     return () => { cancelled = true; if (ch) supabase.removeChannel(ch); };
-  }, [assessmentMode, assessmentId, progressOwnerId]);
+  }, [assessmentMode, assessmentId, progressOwnerId, guestSlug, testMode]);
 
 
 
@@ -3906,6 +3914,7 @@ const PresentationView = ({
             mode,
             persist: true,
             ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
+          ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
           },
         });
         if (error) return false;
@@ -3948,7 +3957,7 @@ const PresentationView = ({
     }
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableGroups, tableEntries, guidedLines, current, assessmentId, solvedSlots, testMode, smartCardSlug, participantKey, toast]);
+  }, [tableGroups, tableEntries, guidedLines, current, assessmentId, solvedSlots, testMode, smartCardSlug, guestSlug, participantKey, toast]);
 
   // The completion effect above is declared earlier in the component, so it
   // reaches the grader through this ref rather than the binding itself.
@@ -4020,6 +4029,7 @@ const PresentationView = ({
           // the score in memory only.
           persist: !testMode && !confirmOnly,
           ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
+          ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
         },
       });
       if (error) {
@@ -4163,7 +4173,7 @@ const PresentationView = ({
     resolveGradableLine, current, assessmentId, solvedSlots, activeLineIdx,
     tableGroups, gradeTableTrackThroughCells,
 
-    guidedLines.length, activeLayout, toast, testMode, smartCardSlug, participantKey,
+    guidedLines.length, activeLayout, toast, testMode, smartCardSlug, guestSlug, participantKey,
   ]);
 
   // CHECK IS AN END POINT. Pressing Check closes the active session exactly
@@ -5571,7 +5581,7 @@ const PresentationView = ({
           never goes to the general notification system. */}
       {/* Teacher test boards mount in student mode to reuse the solving
           engine — but only students ask teachers, so never show it there. */}
-      {role === "student" && !testMode && !smartCardSlug && !viewOnly && assessmentId && classIdProp && (
+      {role === "student" && !testMode && !smartCardSlug && !guestSlug && !viewOnly && assessmentId && classIdProp && (
         <AskAssessmentQuestion
           assessmentId={assessmentId}
           classId={classIdProp}
