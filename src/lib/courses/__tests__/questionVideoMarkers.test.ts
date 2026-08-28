@@ -1,3 +1,5 @@
+// The timeline law: gaps and overlaps are the teacher's choice, an unset
+// boundary is not 0:00, and a range never leaks to another line.
 import { describe, expect, it } from "vitest";
 import {
   emptyVideoConfig,
@@ -5,6 +7,7 @@ import {
   overlapsFor,
   sectionForLine,
   sectionsFor,
+  writeBoundary,
   type QuestionVideoConfig,
   type VideoLine,
 } from "@/lib/courses/questionVideo";
@@ -23,52 +26,52 @@ const cfg = (segments: QuestionVideoConfig["segments"]): QuestionVideoConfig => 
 });
 
 describe("teaching-video markers", () => {
-  it("keeps a boundary that precedes the previous section's end", () => {
+  it("allows a gap between two sections", () => {
     const sections = sectionsFor(
       lines,
       cfg([
-        { key: lineKey("a"), start: 10, end: 120 },
-        { key: lineKey("b"), start: 70, end: 100 },
+        { key: lineKey("a"), start: 0, end: 31 },
+        { key: lineKey("b"), start: 45, end: 80 },
       ]),
     );
-    const b = sections.find((s) => s.key === lineKey("b"))!;
-    expect(b.start).toBe(70);
-    expect(b.end).toBe(100);
+    expect(sections[0]!.endAt).toBe(31);
+    expect(sections[1]!.startAt).toBe(45);
   });
 
-  it("marking a later section does not move earlier ones", () => {
+  it("allows an overlap and only reports it as information", () => {
     const sections = sectionsFor(
       lines,
       cfg([
-        { key: lineKey("a"), start: 5, end: 40 },
-        { key: lineKey("c"), start: 200, end: 250 },
+        { key: lineKey("a"), start: 0, end: 60 },
+        { key: lineKey("b"), start: 50, end: 90 },
       ]),
     );
-    const a = sections.find((s) => s.key === lineKey("a"))!;
-    expect(a.start).toBe(5);
-    expect(a.end).toBe(40);
-  });
-
-  it("never lets end precede its own start", () => {
-    const [a] = sectionsFor(lines, cfg([{ key: lineKey("a"), start: 90, end: 30 }]));
-    expect(a!.end).toBeGreaterThanOrEqual(a!.start);
-  });
-
-  it("flags a backwards / overlapping pair", () => {
-    const sections = sectionsFor(
-      lines,
-      cfg([
-        { key: lineKey("a"), start: 0, end: 120 },
-        { key: lineKey("b"), start: 60, end: 130 },
-      ]),
-    );
+    expect(sections[1]!.startAt).toBe(50);
     expect(overlapsFor(sections)).toContain(lineKey("b"));
   });
 
-  it("falls back to even slices and still resolves a line's slice", () => {
-    const sections = sectionsFor(lines, cfg([]));
-    expect(sections).toHaveLength(3);
-    expect(sections[0]!.end).toBeCloseTo(100);
-    expect(sectionForLine(sections, "b")?.key).toBe(lineKey("b"));
+  it("never reports an overlap for unset sections", () => {
+    expect(overlapsFor(sectionsFor(lines, cfg([])))).toEqual([]);
+  });
+
+  it("marking a later section does not move earlier ones", () => {
+    const base = cfg([{ key: lineKey("a"), start: 5, end: 40 }]);
+    const next = { ...base, segments: writeBoundary(sectionsFor(lines, base), lineKey("c"), "end", 250) };
+    const sections = sectionsFor(lines, next);
+    expect([sections[0]!.startAt, sections[0]!.endAt]).toEqual([5, 40]);
+    expect(sections[2]!.endAt).toBe(250);
+  });
+
+  it("keeps every range attached to its own line", () => {
+    const sections = sectionsFor(
+      lines,
+      cfg([
+        { key: lineKey("c"), start: 200, end: 250 },
+        { key: lineKey("a"), start: 0, end: 20 },
+      ]),
+    );
+    expect(sectionForLine(sections, "b")?.startAt).toBeNull();
+    expect(sectionForLine(sections, "c")?.startAt).toBe(200);
+    expect(sectionForLine(sections, "a")?.endAt).toBe(20);
   });
 });
