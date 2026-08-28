@@ -75,7 +75,8 @@ export const emptyVideoConfig = (): QuestionVideoConfig => ({
 export const NEXT_START_GAP = 1;
 
 
-const num = (v: unknown): number | null => (Number.isFinite(Number(v)) ? Number(v) : null);
+const num = (v: unknown): number | null =>
+  v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v);
 
 /**
  * The ordered sections of the video: optional Introduction, every mathematical
