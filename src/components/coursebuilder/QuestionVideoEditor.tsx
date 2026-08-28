@@ -82,23 +82,10 @@ const QuestionVideoEditor = ({
   }, [open, config]);
 
   useEffect(() => {
-    const el = playerRef.current;
-    if (!el) return;
-    const onChange = () => setIsFs(document.fullscreenElement === el);
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
-  }, []);
+    if (!open) setIsFs(false);
+  }, [open]);
 
-  const togglePlayerFs = async () => {
-    const el = playerRef.current;
-    if (!el) return;
-    try {
-      if (document.fullscreenElement === el) await document.exitFullscreen();
-      else await el.requestFullscreen();
-    } catch {
-      /* unsupported / user gesture */
-    }
-  };
+
 
   useEffect(() => {
     let cancelled = false;
