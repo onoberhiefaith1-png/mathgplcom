@@ -213,7 +213,7 @@ const ClassCoursesPage = () => {
                   {[row.course.subject, row.course.topic, row.course.subtopic].filter(Boolean).join(" · ") ||
                     "No topic set"}
                   {" · "}
-                  {row.course.status === "published" ? "Published" : "Draft"}
+                  {row.course.status === "published" ? "Published" : "Draft — visible to this class"}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">

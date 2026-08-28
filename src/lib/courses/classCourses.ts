@@ -12,6 +12,9 @@ export interface ClassCourse {
   assignmentId: string;
   displayOrder: number;
   course: Course;
+  /** False when the course row itself could not be read (e.g. removed, or not
+   *  shared with this reader) — the pathway position is still kept. */
+  available: boolean;
 }
 
 export interface ClassCourseSettings {
@@ -28,7 +31,8 @@ export interface CourseProgressRow {
 }
 
 /** The ordered pathway for a class. Course rows come from the single source
- *  of truth (`courses`) — nothing is duplicated per class. */
+ *  of truth (`courses`) — nothing is duplicated per class. A row whose course
+ *  cannot be read is never dropped, so numbering never shifts. */
 export const listClassCourses = async (classId: string): Promise<ClassCourse[]> => {
   const { data, error } = await db
     .from("class_course_assignments")
@@ -36,10 +40,18 @@ export const listClassCourses = async (classId: string): Promise<ClassCourse[]> 
     .eq("class_id", classId)
     .order("display_order", { ascending: true });
   if (error) throw error;
-  return ((data ?? []) as { id: string; display_order: number; courses: Course | null }[])
-    .filter((r) => !!r.courses)
-    .map((r) => ({ assignmentId: r.id, displayOrder: r.display_order, course: r.courses as Course }));
+  return ((data ?? []) as { id: string; display_order: number; course_id: string; courses: Course | null }[]).map(
+    (r) => ({
+      assignmentId: r.id,
+      displayOrder: r.display_order,
+      available: !!r.courses,
+      course:
+        r.courses ??
+        ({ id: r.course_id, title: "", status: "draft" } as unknown as Course),
+    }),
+  );
 };
+
 
 export const assignCourseToClass = async (classId: string, courseId: string): Promise<void> => {
   const { count } = await db
@@ -126,21 +138,24 @@ export const markCourseProgress = async (args: {
   if (error) throw error;
 };
 
-/** Sequential mode: a course unlocks only when every earlier one is done. */
+/** Sequential mode: a course unlocks only when every earlier one is done.
+ *  A course that cannot be read never blocks the pathway. */
 export const unlockedFlags = (
-  pathway: { course: Course }[],
+  pathway: { course: Course; available?: boolean }[],
   progress: CourseProgressRow[],
   mode: LearningMode,
 ): boolean[] => {
   const done = new Set(progress.filter((p) => p.status === "completed").map((p) => p.course_id));
   if (mode === "free") return pathway.map(() => true);
   let blocked = false;
-  return pathway.map(({ course }) => {
+  return pathway.map(({ course, available }) => {
     if (blocked) return false;
+    if (available === false) return true;
     if (!done.has(course.id)) blocked = true;
     return true;
   });
 };
+
 
 /** Classes owned by the signed-in teacher — for "Assign to class". */
 export const listOwnedClasses = async (): Promise<{ id: string; name: string }[]> => {
