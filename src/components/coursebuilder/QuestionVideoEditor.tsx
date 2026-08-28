@@ -379,23 +379,57 @@ const QuestionVideoEditor = ({
         <div className="min-h-0 flex-1 overflow-y-auto">
           <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
             {sections.map((s) => (
-              <li key={s.key} className="space-y-2 p-3">
+              <li
+                key={s.key}
+                className={
+                  s.required
+                    ? "space-y-2 p-3"
+                    : "space-y-2 border-l-4 border-l-muted bg-muted/40 p-3"
+                }
+              >
+                <div className="grid gap-2 sm:grid-cols-[minmax(0,150px)_minmax(0,1fr)]">
+                  {/* Line identity — never derived from floating content */}
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="truncate text-sm font-medium">
+                      {s.label}
+                    </span>
+                    <span
+                      className={
+                        s.required
+                          ? "w-fit rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+                          : "w-fit rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                      }
+                    >
+                      {s.required ? "line" : "optional event"}
+                    </span>
+                  </div>
+
+                  {/* Floating numbers — bounded box, scrolls inside itself */}
+                  <div className="min-w-0">
+                    {s.required ? (
+                      <div className="max-w-full overflow-x-auto rounded-md border border-border bg-background px-2 py-1">
+                        {s.preview ? (
+                          <span className="block whitespace-nowrap font-mono text-xs text-foreground">
+                            {s.preview}
+                          </span>
+                        ) : (
+                          <span className="block whitespace-nowrap font-mono text-xs text-muted-foreground">
+                            NULL
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="block text-xs text-muted-foreground">
+                        Optional video event — not a numbered line
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="min-w-[110px] text-sm font-medium">
-                    {s.label}
-                  </span>
-                  <span
-                    className={
-                      s.required
-                        ? "rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
-                        : "rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                    }
-                  >
-                    {s.required ? "required" : "optional"}
-                  </span>
                   {s.configured ? (
                     <span className="text-[11px] font-medium text-primary">
-                      ✓ Line configured
+                      ✓ Configured
                     </span>
                   ) : (
                     <span className="text-[11px] text-muted-foreground">

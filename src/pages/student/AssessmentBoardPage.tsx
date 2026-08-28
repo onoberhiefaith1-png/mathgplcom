@@ -209,7 +209,7 @@ const AssessmentBoardPage = () => {
 
   const videoLines = useMemo(() => {
     const q = (assessment?.questions ?? []).find((x) => x.id === questionId);
-    return videoLinesFromQuestion(q?.lines as { lineId?: string | null; noteOnly?: boolean }[] | undefined);
+    return videoLinesFromQuestion(q?.lines as Parameters<typeof videoLinesFromQuestion>[0]);
   }, [assessment, questionId]);
 
 

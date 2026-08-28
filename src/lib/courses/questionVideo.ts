@@ -42,6 +42,13 @@ export interface QuestionVideoConfig {
 export interface VideoLine {
   lineId: string;
   label: string;
+  /**
+   * Display-only echo of this line's OWN floating-number content (chips, else
+   * the equation text). `null` means the line has no floating-number content —
+   * shown as NULL. It never affects numbering, ordering or video mapping:
+   * `lineId` remains the single source of truth.
+   */
+  preview?: string | null;
 }
 
 export interface VideoSection {
@@ -60,6 +67,8 @@ export interface VideoSection {
   /** Mathematical lines are mandatory; intro/conclusion are optional. */
   required: boolean;
   lineId: string | null;
+  /** Display-only floating-number echo; null = NULL (no floating content). */
+  preview: string | null;
 }
 
 export const emptyVideoConfig = (): QuestionVideoConfig => ({
@@ -95,18 +104,27 @@ export const sectionsFor = (
   cfg: QuestionVideoConfig | null | undefined,
 ): VideoSection[] => {
   const duration = Math.max(0, num(cfg?.duration) ?? 0);
-  const entries: { key: string; label: string; required: boolean; lineId: string | null }[] = [];
-  if (cfg?.introEnabled) entries.push({ key: INTRO_KEY, label: "Introduction", required: false, lineId: null });
+  const entries: {
+    key: string;
+    label: string;
+    required: boolean;
+    lineId: string | null;
+    preview: string | null;
+  }[] = [];
+  if (cfg?.introEnabled) {
+    entries.push({ key: INTRO_KEY, label: "Introduction", required: false, lineId: null, preview: null });
+  }
   lines.forEach((l, i) => {
     entries.push({
       key: lineKey(l.lineId),
       label: l.label || `Line ${i + 1}`,
       required: true,
       lineId: l.lineId,
+      preview: l.preview ?? null,
     });
   });
   if (cfg?.conclusionEnabled) {
-    entries.push({ key: CONCLUSION_KEY, label: "Conclusion", required: false, lineId: null });
+    entries.push({ key: CONCLUSION_KEY, label: "Conclusion", required: false, lineId: null, preview: null });
   }
   if (entries.length === 0) return [];
 
@@ -228,17 +246,48 @@ export const videoReady = (cfg: QuestionVideoConfig | null | undefined): boolean
 
 export { fmtClock, parseClock } from "@/lib/games/timerVideo";
 
+/** This line's own floating-number echo, or null when it has none (NULL). */
+const previewFor = (l: {
+  chips?: unknown;
+  equationAscii?: unknown;
+  equation?: unknown;
+}): string | null => {
+  const chips = Array.isArray(l?.chips)
+    ? l.chips.map((c) => String(c ?? "").trim()).filter(Boolean)
+    : [];
+  if (chips.length > 0) return chips.join("  ");
+  const eq = String(l?.equationAscii ?? l?.equation ?? "").trim();
+  return eq.length > 0 ? eq : null;
+};
+
 /**
  * The mathematical lines of one compiled question, in board order, as video
  * sections. Standalone notes carry no line of their own, so they are skipped.
+ *
+ * LINE IDENTITY LAW: a line's number comes from its position in this
+ * mathematical sequence and its identity from `lineId`. A line with no
+ * floating numbers is still a line — it simply reports `preview: null`.
  */
 export const videoLinesFromQuestion = (
-  lines: { lineId?: string | null; noteOnly?: boolean }[] | null | undefined,
+  lines:
+    | {
+        lineId?: string | null;
+        noteOnly?: boolean;
+        chips?: unknown;
+        equationAscii?: unknown;
+        equation?: unknown;
+      }[]
+    | null
+    | undefined,
 ): VideoLine[] => {
   const out: VideoLine[] = [];
   for (const l of lines ?? []) {
     if (!l?.lineId || l.noteOnly) continue;
-    out.push({ lineId: l.lineId, label: `Line ${out.length + 1}` });
+    out.push({
+      lineId: l.lineId,
+      label: `Line ${out.length + 1}`,
+      preview: previewFor(l),
+    });
   }
   return out;
 };
