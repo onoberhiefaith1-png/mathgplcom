@@ -22,6 +22,7 @@ import {
   repairShiftedFloatingLines,
 
 } from "@/lib/lessonnotes/floatingCompile";
+import { adoptLineIdentities } from "@/lib/lessonnotes/lineIdentity";
 import { sanitizeFillers, detectStructures, STRUCTURE_MARKUP, expandTransitionLine, dropContextualLeadingPlus } from "@/lib/smartboard/floatingExtractor";
 import FloatingWorkspace from "@/components/lessonnotes/FloatingWorkspace";
 import FloatingDisplayStrip from "@/components/lessonnotes/FloatingDisplayStrip";
