@@ -140,11 +140,16 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     triggerCleanupRef.current?.();
     triggerCleanupRef.current = null;
 
+    const cleanups: Array<() => void> = [];
+    let verified = false;
+    const onPlaying = () => { verified = true; };
+
+    // Press Play immediately. If the media is not ready yet, wait for
+    // readiness (canplay/seeked) and press Play again then.
     const attempt = () => {
-      if (!el.paused) return; // verified playing — done
+      if (verified || !el.paused) return; // verified playing — done
       if (el.readyState >= 2) { playWithSound(el); return; }
-      // Media not ready: wait for readiness, then press Play.
-      const onReady = () => { if (el.paused) playWithSound(el); };
+      const onReady = () => { if (!verified && el.paused) playWithSound(el); };
       el.addEventListener("canplay", onReady, { once: true });
       el.addEventListener("seeked", onReady, { once: true });
       cleanups.push(() => {
@@ -153,17 +158,11 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
       });
     };
 
-    const cleanups: Array<() => void> = [];
-    const onPlaying = () => { attempt = () => undefined; };
-    let attempts = 0;
-    // Unused-guard: attempt is reassigned by onPlaying above.
-    void attempts;
-
-    // Press Play immediately, then verify shortly after the seek settles and
-    // once more if the browser was still catching up.
+    // Verify shortly after the seek settles and a couple more times while the
+    // browser catches up — a video left paused is always pressed again.
     attempt();
     const timers = [150, 500, 1200].map((ms) =>
-      window.setTimeout(() => { if (!el.paused) return; playWithSound(el); }, ms),
+      window.setTimeout(attempt, ms),
     );
     el.addEventListener("playing", onPlaying, { once: true });
     cleanups.push(() => el.removeEventListener("playing", onPlaying));
