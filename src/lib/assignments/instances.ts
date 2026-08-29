@@ -160,7 +160,25 @@ export async function ensureAssignment(params: {
     }
     throw new Error(error?.message ?? "assignment_create_failed");
   }
-  return { assignment: asRow(data), created: true };
+  const created = asRow(data);
+
+  // The platform announces a brand-new assignment to the class roster.
+  try {
+    const { notifyClassEvent } = await import("@/lib/notifications/system.functions");
+    await notifyClassEvent({
+      data: {
+        event: "assignment_new",
+        classId: params.classId,
+        assignmentId: created.id,
+        assignmentTitle: params.title ?? null,
+        targetPath: "/student/assignments",
+      },
+    });
+  } catch {
+    /* never block assignment creation on a notification */
+  }
+
+  return { assignment: created, created: true };
 }
 
 /**

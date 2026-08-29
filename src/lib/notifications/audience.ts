@@ -16,12 +16,15 @@ export type AudienceKind =
   | "teachers"
   | "students"
   | "parents"
+  | "classes"
   | "individuals";
 
 export type AudienceRequest = {
   kind: AudienceKind;
   /** Selected schools (organization ids) used to narrow teachers/students/parents. */
   orgIds?: string[];
+  /** Selected classes, used by the classes preset. */
+  classIds?: string[];
   /** Region filter (profiles.country). Administrator only. */
   region?: string | null;
   /** People added on top of the resolved audience. */
@@ -36,6 +39,7 @@ export const AUDIENCE_LABEL: Record<AudienceKind, string> = {
   teachers: "Teachers",
   students: "Students",
   parents: "Parents",
+  classes: "Classes",
   individuals: "Selected people",
 };
 
@@ -46,21 +50,58 @@ export const AUDIENCE_LABEL: Record<AudienceKind, string> = {
 export const SENDER_AUDIENCES: Record<AppRole, AudienceKind[]> = {
   platform_owner: ["everyone", "schools", "teachers", "students", "parents", "individuals"],
   co_admin: ["everyone", "schools", "teachers", "students", "parents", "individuals"],
-  school: ["teachers", "students", "parents", "individuals"],
-  teacher: ["students", "individuals"],
+  school: ["teachers", "students", "classes", "parents", "individuals"],
+  teacher: ["students", "classes", "individuals"],
   parent: ["schools", "teachers", "individuals"],
   student: [],
 };
 
+/** Optional category, so a notification centre can be filtered and understood. */
+export const NOTIFICATION_CATEGORIES = [
+  "announcement",
+  "important",
+  "class",
+  "assignment",
+  "course",
+  "system",
+  "event",
+  "reminder",
+  "update",
+] as const;
+
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+
+export const CATEGORY_LABEL: Record<NotificationCategory, string> = {
+  announcement: "Announcement",
+  important: "Important",
+  class: "Class",
+  assignment: "Assignment",
+  course: "Course",
+  system: "System",
+  event: "Event",
+  reminder: "Reminder",
+  update: "Update",
+};
+
+export const isNotificationCategory = (value: unknown): value is NotificationCategory =>
+  typeof value === "string" && (NOTIFICATION_CATEGORIES as readonly string[]).includes(value);
+
 /** Only the administrator may filter the whole platform by region. */
 export const canFilterByRegion = (role: AppRole | null): boolean =>
   role === "platform_owner" || role === "co_admin";
+
+/** Only a school or a teacher targets classes; classes belong to their structure. */
+export const canTargetClasses = (role: AppRole | null): boolean =>
+  role === "school" || role === "teacher";
 
 export const canSendNotifications = (role: AppRole | null): boolean =>
   !!role && SENDER_AUDIENCES[role].length > 0;
 
 export const canUseAudience = (role: AppRole | null, kind: AudienceKind): boolean =>
   !!role && SENDER_AUDIENCES[role].includes(kind);
+
+/** A sender decides whether their notification accepts responses at all. */
+export const canAllowResponses = (role: AppRole | null): boolean => canSendNotifications(role);
 
 /** Everyone who receives a message may reply to it, students included. */
 export const canRespond = (): boolean => true;

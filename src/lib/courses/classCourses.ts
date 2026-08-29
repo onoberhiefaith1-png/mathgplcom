@@ -2,6 +2,7 @@
 // ordered list of references (the learning pathway) plus one learning mode.
 import { supabase } from "@/integrations/supabase/client";
 import type { Course } from "./types";
+import { notifyClassEvent } from "@/lib/notifications/system.functions";
 
 const db = supabase as unknown as { from: (t: string) => any };
 
@@ -62,6 +63,22 @@ export const assignCourseToClass = async (classId: string, courseId: string): Pr
     .from("class_course_assignments")
     .insert({ class_id: classId, course_id: courseId, display_order: count ?? 0 });
   if (error && !/duplicate key/i.test(error.message)) throw error;
+
+  // Students on the roster are told the course is available to them.
+  try {
+    const { data: course } = await db.from("courses").select("title").eq("id", courseId).maybeSingle();
+    await notifyClassEvent({
+      data: {
+        event: "course_access",
+        classId,
+        courseId,
+        courseName: (course as { title: string | null } | null)?.title ?? null,
+        targetPath: "/student/courses",
+      },
+    });
+  } catch {
+    /* a notification must never block the assignment itself */
+  }
 };
 
 export const removeClassCourse = async (assignmentId: string): Promise<void> => {

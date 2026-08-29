@@ -11,9 +11,10 @@ import {
   canUseAudience,
   canFilterByRegion,
   type AudienceRequest,
+  type NotificationCategory,
   type NotificationKind,
 } from "./audience";
-import type { AudiencePerson, NotificationContext } from "./types";
+import type { AudiencePerson, NotificationAttachment, NotificationContext } from "./types";
 
 /* The notification tables are newer than the generated database types, so the
    admin client is used untyped for them only. */
@@ -104,6 +105,50 @@ const studentsOfClasses = async (db: Db, classIds: string[]): Promise<string[]> 
   return ids(data, "user_id");
 };
 
+/** Classes inside the organizations a school owns, optionally narrowed. */
+const schoolClassIds = async (db: Db, orgIds: string[], requested: string[]): Promise<string[]> => {
+  if (orgIds.length === 0) return [];
+  const { data } = await db.from("classes").select("id").in("org_id", orgIds);
+  const owned = ids(data, "id");
+  return requested.length ? owned.filter((id) => requested.includes(id)) : owned;
+};
+
+/** Classes a teacher owns, optionally narrowed to the selected ones. */
+const teacherClassIds = async (db: Db, teacherId: string, requested: string[]): Promise<string[]> => {
+  const { data } = await db.from("classes").select("id").eq("owner_id", teacherId);
+  const owned = ids(data, "id");
+  return requested.length ? owned.filter((id) => requested.includes(id)) : owned;
+};
+
+/** Classes a sender may target, with roster sizes, for the composer. */
+export const audienceClasses = async (
+  role: AppRole,
+  userId: string,
+): Promise<{ id: string; name: string; members: number }[]> => {
+  const db = await adminDb();
+  let rows: { id: string; name: string | null }[] = [];
+  if (role === "teacher") {
+    const { data } = await db.from("classes").select("id, name").eq("owner_id", userId).order("name");
+    rows = (data ?? []) as { id: string; name: string | null }[];
+  } else if (role === "school") {
+    const orgs = await ownedOrgIds(userId);
+    if (orgs.length === 0) return [];
+    const { data } = await db.from("classes").select("id, name").in("org_id", orgs).order("name");
+    rows = (data ?? []) as { id: string; name: string | null }[];
+  } else {
+    return [];
+  }
+  const classIds = rows.map((r) => r.id);
+  const counts = new Map<string, number>();
+  if (classIds.length) {
+    const { data } = await db.from("class_members").select("class_id").in("class_id", classIds);
+    for (const m of (data ?? []) as { class_id: string }[]) {
+      counts.set(m.class_id, (counts.get(m.class_id) ?? 0) + 1);
+    }
+  }
+  return rows.map((r) => ({ id: r.id, name: r.name ?? "Class", members: counts.get(r.id) ?? 0 }));
+};
+
 /** Organizations a school account owns. */
 export const ownedOrgIds = async (userId: string): Promise<string[]> => {
   const db = await adminDb();
@@ -165,11 +210,16 @@ export const reachableAudience = async (
       ]);
     } else if (request.kind === "parents") {
       base = await connectedUsers(db, userId, ["parent_school"]);
+    } else if (request.kind === "classes") {
+      base = await studentsOfClasses(db, await schoolClassIds(db, scoped, request.classIds ?? []));
     } else {
       base = [];
     }
   } else if (role === "teacher") {
-    base = request.kind === "students" ? await studentsOfTeacher(db, userId) : [];
+    if (request.kind === "students") base = await studentsOfTeacher(db, userId);
+    else if (request.kind === "classes")
+      base = await studentsOfClasses(db, await teacherClassIds(db, userId, request.classIds ?? []));
+    else base = [];
   } else if (role === "parent") {
     if (request.kind === "schools") base = await connectedUsers(db, userId, ["parent_school"]);
     else if (request.kind === "teachers") base = await connectedUsers(db, userId, ["parent_teacher"]);
@@ -253,6 +303,10 @@ export type CreateNotification = {
   recipients: string[];
   threadRootId?: string | null;
   parentId?: string | null;
+  category?: NotificationCategory;
+  attachment?: NotificationAttachment | null;
+  allowResponses?: boolean;
+  audience?: unknown;
 };
 
 /** Insert one message and fan it out to its recipients. */
@@ -269,6 +323,11 @@ export const createNotification = async (input: CreateNotification): Promise<{ i
       body: input.body,
       context: input.context ?? {},
       target_path: input.targetPath ?? null,
+      category: input.category ?? (input.kind === "system" ? "system" : "announcement"),
+      attachment: input.attachment ?? null,
+      allow_responses: input.allowResponses ?? true,
+      audience: input.audience ?? null,
+      recipient_count: unique(input.recipients).length,
       thread_root_id: input.threadRootId ?? null,
       parent_id: input.parentId ?? null,
     })
@@ -412,4 +471,131 @@ export const isThreadParticipant = async (
     .eq("recipient_user_id", userId)
     .limit(1);
   return ((data ?? []) as unknown[]).length > 0;
+};
+
+/** Does this thread accept responses? Decided by its root notification. */
+export const threadAllowsResponses = async (rootId: string): Promise<boolean> => {
+  const db = await adminDb();
+  const { data } = await db
+    .from("notifications")
+    .select("allow_responses, kind")
+    .eq("id", rootId)
+    .maybeSingle();
+  const row = data as { allow_responses: boolean | null; kind: string } | null;
+  if (!row) return false;
+  return row.allow_responses !== false;
+};
+
+const AUDIENCE_TEXT: Record<string, string> = {
+  everyone: "Everyone",
+  schools: "Schools",
+  teachers: "Teachers",
+  students: "Students",
+  parents: "Parents",
+  classes: "Classes",
+  individuals: "Selected people",
+};
+
+const audienceLabel = (audience: unknown, kind: string): string => {
+  const a = (audience ?? {}) as { kind?: string; region?: string | null; classIds?: string[] };
+  if (kind === "system") return "System";
+  if (kind === "student_question") return "Teacher";
+  if (kind === "response") return "Response";
+  const base = AUDIENCE_TEXT[a.kind ?? ""] ?? "Selected people";
+  if (a.region) return `${base} · ${a.region}`;
+  if (a.classIds?.length) return `${base} · ${a.classIds.length} class${a.classIds.length === 1 ? "" : "es"}`;
+  return base;
+};
+
+/** History of notifications a sender has sent, with engagement. Admins see all. */
+export const sentNotifications = async (
+  role: AppRole,
+  userId: string,
+  limit = 100,
+): Promise<
+  {
+    id: string;
+    category: string;
+    subject: string | null;
+    body: string;
+    audienceLabel: string;
+    createdAt: string;
+    recipients: number;
+    read: number;
+    responded: number;
+  }[]
+> => {
+  const db = await adminDb();
+  const isAdmin = role === "platform_owner" || role === "co_admin";
+  let query = db
+    .from("notifications")
+    .select("id, kind, category, subject, body, audience, created_at, recipient_count")
+    .in("kind", ["broadcast", "system"])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (!isAdmin) query = query.eq("sender_user_id", userId);
+  const { data } = await query;
+  const rows = (data ?? []) as Record<string, any>[];
+  if (rows.length === 0) return [];
+
+  const { data: recipientRows } = await db
+    .from("notification_recipients")
+    .select("notification_id, read_at, responded_at")
+    .in("notification_id", rows.map((r) => r["id"]));
+  const tally = new Map<string, { total: number; read: number; responded: number }>();
+  for (const r of (recipientRows ?? []) as {
+    notification_id: string;
+    read_at: string | null;
+    responded_at: string | null;
+  }[]) {
+    const entry = tally.get(r.notification_id) ?? { total: 0, read: 0, responded: 0 };
+    entry.total += 1;
+    if (r.read_at) entry.read += 1;
+    if (r.responded_at) entry.responded += 1;
+    tally.set(r.notification_id, entry);
+  }
+
+  return rows.map((r) => {
+    const counts = tally.get(r["id"]) ?? { total: r["recipient_count"] ?? 0, read: 0, responded: 0 };
+    return {
+      id: r["id"],
+      category: r["category"] ?? "announcement",
+      subject: r["subject"] ?? null,
+      body: r["body"] ?? "",
+      audienceLabel: audienceLabel(r["audience"], r["kind"]),
+      createdAt: r["created_at"],
+      recipients: counts.total,
+      read: counts.read,
+      responded: counts.responded,
+    };
+  });
+};
+
+/** Overview totals for the sending dashboard. */
+export const sentStats = async (
+  role: AppRole,
+  userId: string,
+): Promise<{ sent: number; delivered: number; read: number; unread: number; responded: number }> => {
+  const history = await sentNotifications(role, userId, 500);
+  const delivered = history.reduce((sum, n) => sum + n.recipients, 0);
+  const read = history.reduce((sum, n) => sum + n.read, 0);
+  const responded = history.reduce((sum, n) => sum + n.responded, 0);
+  return { sent: history.length, delivered, read, unread: Math.max(delivered - read, 0), responded };
+};
+
+/** Engagement for one notification the caller sent. */
+export const engagementFor = async (
+  notificationId: string,
+): Promise<{ recipients: number; read: number; responded: number }> => {
+  const db = await adminDb();
+  const { data } = await db
+    .from("notification_recipients")
+    .select("read_at, responded_at")
+    .eq("notification_id", notificationId);
+  const rows = (data ?? []) as { read_at: string | null; responded_at: string | null }[];
+  return {
+    recipients: rows.length,
+    read: rows.filter((r) => !!r.read_at).length,
+    responded: rows.filter((r) => !!r.responded_at).length,
+  };
 };

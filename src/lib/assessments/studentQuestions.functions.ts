@@ -101,5 +101,18 @@ export const answerAssessmentQuestion = createServerFn({ method: "POST" })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
-    return toQuestion(row as Record<string, any>);
+    const answered = toQuestion(row as Record<string, any>);
+
+    // The platform tells the student their question has been answered.
+    const { notifySystemEvent } = await import("@/lib/notifications/system.server");
+    await notifySystemEvent({
+      event: "question_answered",
+      recipients: [answered.studentUserId],
+      context: {
+        classId: answered.classId,
+        boardQuestionId: answered.boardQuestionId,
+        source: "assessment",
+      },
+    });
+    return answered;
   });

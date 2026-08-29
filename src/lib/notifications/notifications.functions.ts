@@ -2,8 +2,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { AppRole } from "@/lib/accounts/roles";
-import { canAskQuestion, canSendNotifications } from "./audience";
-import type { NotificationItem, NotificationThread } from "./types";
+import {
+  NOTIFICATION_CATEGORIES,
+  canAskQuestion,
+  canSendNotifications,
+  isNotificationCategory,
+} from "./audience";
+import type {
+  NotificationAttachment,
+  NotificationItem,
+  NotificationStats,
+  NotificationThread,
+  SentNotification,
+} from "./types";
 
 const ROLE_PRIORITY: AppRole[] = ["platform_owner", "co_admin", "school", "teacher", "parent", "student"];
 
@@ -17,8 +28,9 @@ const roleOf = async (supabase: unknown, userId: string): Promise<AppRole | null
 };
 
 const audienceSchema = z.object({
-  kind: z.enum(["everyone", "schools", "teachers", "students", "parents", "individuals"]),
+  kind: z.enum(["everyone", "schools", "teachers", "students", "parents", "classes", "individuals"]),
   orgIds: z.array(z.string().uuid()).optional(),
+  classIds: z.array(z.string().uuid()).optional(),
   region: z.string().trim().max(80).nullable().optional(),
   includeUserIds: z.array(z.string().uuid()).optional(),
   excludeUserIds: z.array(z.string().uuid()).optional(),
@@ -45,17 +57,27 @@ const contextSchema = z
   })
   .partial();
 
+const attachmentSchema = z.object({
+  kind: z.enum(["image", "document", "link"]),
+  url: z.string().trim().url().max(1000),
+  name: z.string().trim().max(160).nullable().optional(),
+});
+
 const toItem = (
   row: Record<string, any>,
   names: Map<string, string>,
   viewerId: string,
   readAt?: string | null,
+  respondedAt?: string | null,
 ): NotificationItem => ({
   id: row["id"],
   kind: row["kind"],
+  category: isNotificationCategory(row["category"]) ? row["category"] : "announcement",
   subject: row["subject"] ?? null,
   body: row["body"] ?? "",
   context: (row["context"] ?? {}) as NotificationItem["context"],
+  attachment: (row["attachment"] ?? null) as NotificationAttachment | null,
+  allowResponses: row["allow_responses"] !== false,
   targetPath: row["target_path"] ?? null,
   threadRootId: row["thread_root_id"] ?? null,
   parentId: row["parent_id"] ?? null,
@@ -64,6 +86,7 @@ const toItem = (
   senderName: row["sender_user_id"] ? (names.get(row["sender_user_id"]) ?? "MathGPL") : "MathGPL",
   senderRole: row["sender_role"] ?? null,
   readAt: readAt ?? null,
+  respondedAt: respondedAt ?? null,
   mine: row["sender_user_id"] === viewerId,
 });
 
@@ -72,7 +95,10 @@ export const listNotifications = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z
-      .object({ tab: z.enum(["all", "unread", "questions", "announcements"]).default("all") })
+      .object({
+        tab: z.enum(["all", "unread", "questions", "announcements"]).default("all"),
+        category: z.enum(NOTIFICATION_CATEGORIES).nullable().optional(),
+      })
       .parse(data ?? {}),
   )
   .handler(async ({ context, data }) => {
@@ -96,7 +122,8 @@ export const listNotifications = createServerFn({ method: "GET" })
         if (data.tab === "questions") return kind === "student_question" || kind === "response";
         if (data.tab === "announcements") return kind === "broadcast" || kind === "system";
         return true;
-      });
+      })
+      .filter((r) => !data.category || (r.notification!["category"] ?? "announcement") === data.category);
 
     const names = await namesFor(list.map((r) => r.notification!["sender_user_id"]).filter(Boolean));
     const items = list.map((r) => toItem(r.notification!, names, context.userId, r.read_at));
@@ -117,7 +144,7 @@ export const fetchNotificationThread = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ context, data }): Promise<NotificationThread> => {
-    const { namesFor } = await import("./notifications.server");
+    const { namesFor, engagementFor } = await import("./notifications.server");
     const db = context.supabase as unknown as Db;
 
     const { data: message, error } = await db
@@ -138,15 +165,16 @@ export const fetchNotificationThread = createServerFn({ method: "POST" })
 
     const { data: readRows } = await db
       .from("notification_recipients")
-      .select("notification_id, read_at")
+      .select("notification_id, read_at, responded_at")
       .eq("recipient_user_id", context.userId)
       .in("notification_id", messages.map((m) => m["id"]));
-    const readBy = new Map(
-      ((readRows ?? []) as { notification_id: string; read_at: string | null }[]).map((r) => [
-        r.notification_id,
-        r.read_at,
-      ]),
-    );
+    const rows2 = (readRows ?? []) as {
+      notification_id: string;
+      read_at: string | null;
+      responded_at: string | null;
+    }[];
+    const readBy = new Map(rows2.map((r) => [r.notification_id, r.read_at]));
+    const respondedBy = new Map(rows2.map((r) => [r.notification_id, r.responded_at]));
 
     // Opening a thread marks the reader's own copies as read.
     const unread = [...readBy.entries()].filter(([, read]) => !read).map(([id]) => id);
@@ -159,9 +187,12 @@ export const fetchNotificationThread = createServerFn({ method: "POST" })
     }
 
     const names = await namesFor(messages.map((m) => m["sender_user_id"]).filter(Boolean));
-    const items = messages.map((m) => toItem(m, names, context.userId, readBy.get(m["id"]) ?? null));
+    const items = messages.map((m) =>
+      toItem(m, names, context.userId, readBy.get(m["id"]) ?? null, respondedBy.get(m["id"]) ?? null),
+    );
     const root = items.find((i) => i.id === rootId) ?? items[0]!;
-    return { root, replies: items.filter((i) => i.id !== root.id) };
+    const engagement = root.senderUserId === context.userId ? await engagementFor(root.id) : null;
+    return { root, replies: items.filter((i) => i.id !== root.id), engagement };
   });
 
 export const markNotificationsRead = createServerFn({ method: "POST" })
@@ -217,6 +248,9 @@ export const sendNotification = createServerFn({ method: "POST" })
         body: z.string().trim().min(1).max(4000),
         targetPath: z.string().max(300).nullable().optional(),
         context: contextSchema.optional(),
+        category: z.enum(NOTIFICATION_CATEGORIES).default("announcement"),
+        allowResponses: z.boolean().default(true),
+        attachment: attachmentSchema.nullable().optional(),
       })
       .parse(data),
   )
@@ -236,6 +270,10 @@ export const sendNotification = createServerFn({ method: "POST" })
       context: data.context ?? {},
       targetPath: data.targetPath ?? null,
       recipients,
+      category: data.category,
+      allowResponses: data.allowResponses,
+      attachment: data.attachment ?? null,
+      audience: data.audience,
     });
   });
 
@@ -296,6 +334,10 @@ export const respondToNotification = createServerFn({ method: "POST" })
     if (!(await isThreadParticipant(rootId, context.userId))) {
       throw new Error("This notification is not addressed to you.");
     }
+    const { threadAllowsResponses } = await import("./notifications.server");
+    if (!(await threadAllowsResponses(rootId))) {
+      throw new Error("This notification does not accept responses.");
+    }
     const recipients = await replyRecipients(data.messageId, context.userId);
     if (recipients.length === 0) throw new Error("This notification cannot be answered.");
 
@@ -319,4 +361,42 @@ export const respondToNotification = createServerFn({ method: "POST" })
       .eq("notification_id", data.messageId);
 
     return result;
+  });
+
+/** Classes a school or teacher may target. */
+export const listClassesForAudience = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const role = await roleOf(context.supabase, context.userId);
+    if (role !== "school" && role !== "teacher") return { classes: [] };
+    const { audienceClasses } = await import("./notifications.server");
+    return { classes: await audienceClasses(role, context.userId) };
+  });
+
+/** History of what this account has sent. Administrators see the platform. */
+export const listSentNotifications = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ items: SentNotification[] }> => {
+    const role = await roleOf(context.supabase, context.userId);
+    if (!canSendNotifications(role)) return { items: [] };
+    const { sentNotifications } = await import("./notifications.server");
+    const rows = await sentNotifications(role!, context.userId);
+    return {
+      items: rows.map((r) => ({
+        ...r,
+        category: isNotificationCategory(r.category) ? r.category : "announcement",
+      })),
+    };
+  });
+
+/** Overview totals for the sending dashboard. */
+export const notificationStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<NotificationStats> => {
+    const role = await roleOf(context.supabase, context.userId);
+    if (!canSendNotifications(role)) {
+      return { sent: 0, delivered: 0, read: 0, unread: 0, responded: 0 };
+    }
+    const { sentStats } = await import("./notifications.server");
+    return await sentStats(role!, context.userId);
   });
