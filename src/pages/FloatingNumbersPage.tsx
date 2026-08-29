@@ -928,10 +928,26 @@ const FloatingNumbersPage = () => {
           for (const c of next[i].containers) seenStructures.add(c);
         }
       }
+      // TEACHER AUTHORITY: a line the teacher edited by hand is never
+      // rewritten by Generate. Its saved version wins and is reported back.
+      let preserved = 0;
+      const keepTeacher = (candidate: FloatingLine, prev: FloatingLine[]): FloatingLine => {
+        const mine = prev.find(
+          (p) =>
+            !p.table &&
+            p.editedByTeacher &&
+            ((candidate.sourceUid && p.sourceUid === candidate.sourceUid) ||
+              (!candidate.sourceUid && p.lineId === candidate.lineId)),
+        );
+        if (!mine) return candidate;
+        preserved++;
+        return mine;
+      };
       // Merge back: table lines keep their slot, text lines take the new set.
       setLines((prev) => {
-        if (!prev.some((l) => l.table)) return next;
-        const queue = next.slice();
+        const guarded = next.map((n) => keepTeacher(n, prev));
+        if (!prev.some((l) => l.table)) return guarded;
+        const queue = guarded.slice();
         const merged: FloatingLine[] = [];
         for (const l of prev) {
           if (l.table) { merged.push(l); continue; }
@@ -942,7 +958,14 @@ const FloatingNumbersPage = () => {
         return merged;
       });
       dirtyRef.current = true;
-      toast({ title: "Floating numbers ready", description: `${next.length} lines prepared.` });
+      toast({
+        title: "Floating numbers ready",
+        description:
+          preserved > 0
+            ? `${next.length} lines prepared · ${preserved} of your edited line${preserved === 1 ? "" : "s"} kept unchanged.`
+            : `${next.length} lines prepared.`,
+      });
+
       endDiag("ok");
     } catch (e: any) {
       endDiag("fail", { error: String(e?.message ?? e) });
