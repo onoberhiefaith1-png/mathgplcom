@@ -5,7 +5,7 @@ import ClassPageShell from "@/components/class/ClassPageShell";
 import SectionCard from "@/components/ui/SectionCard";
 import { sectionCardStyle, type SectionThemeKey } from "@/lib/theme/sectionThemes";
 
-import { Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3, GraduationCap } from "lucide-react";
+import { Users, BookOpen, Presentation, Settings, Copy, Check, ClipboardList, Compass, Gamepad2, Image as ImageIcon, BarChart3, GraduationCap, CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useViewAs } from "@/lib/accounts/viewAs";
@@ -13,8 +13,12 @@ import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import JoinRequestsPanel from "@/components/class/JoinRequestsPanel";
 import InviteByMathGPLId from "@/components/class/InviteByMathGPLId";
 import ClassCommunityShare from "@/components/class/ClassCommunityShare";
+import ComingSoonPanel from "@/components/schedule/ComingSoonPanel";
+import { EMPTY_CLASS_MEETING, loadClassMeeting, type ClassMeeting } from "@/lib/classes/classMeeting";
+import { listPlanEntries, type SchedulePlanEntry } from "@/lib/schedule/plan";
 
 type ClassRow = { id: string; name: string; class_code: string; description: string | null; join_code: string };
+
 
 const ClassDashboardPage = () => {
   const { classId } = useParams();
