@@ -10,6 +10,11 @@ import { prefetchGame } from "@/lib/games/prefetch";
 import { getClassLevels } from "@/lib/classes/contentHierarchy";
 import GatewayGate from "@/components/gateway/GatewayGate";
 import { sectionCardStyle, type SectionThemeKey } from "@/lib/theme/sectionThemes";
+import ComingSoonPanel from "@/components/schedule/ComingSoonPanel";
+import SchedulePlanPanel from "@/components/schedule/SchedulePlanPanel";
+import { EMPTY_CLASS_MEETING, loadClassMeeting, type ClassMeeting } from "@/lib/classes/classMeeting";
+import { listPlanEntries, type SchedulePlanEntry } from "@/lib/schedule/plan";
+
 
 
 type ClassRow = { id: string; name: string; owner_id: string };
