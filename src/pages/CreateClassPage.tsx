@@ -6,11 +6,37 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import ScheduleEditor from "@/components/live/ScheduleEditor";
+import VenueEditor from "@/components/schedule/VenueEditor";
+import { newBroadcastEntry } from "@/lib/live/broadcast";
+import { EMPTY_CLASS_MEETING, meetingPayload, type ClassMeeting } from "@/lib/classes/classMeeting";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const generateJoinCode = () =>
   Array.from({ length: 6 }, () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join("");
 const generateClassCode = () => `CLS-${Math.floor(1000 + Math.random() * 9000)}`;
+
+const FIELD =
+  "bg-muted text-foreground border-border placeholder:text-muted-foreground focus-visible:ring-primary";
+
+const TIME_ZONES: string[] = (() => {
+  const local = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  return Array.from(
+    new Set([
+      local,
+      "UTC",
+      "Africa/Lagos",
+      "Europe/London",
+      "Europe/Berlin",
+      "America/New_York",
+      "America/Los_Angeles",
+      "Asia/Dubai",
+      "Asia/Kolkata",
+      "Asia/Singapore",
+      "Australia/Sydney",
+    ]),
+  );
+})();
 
 type Created = { id: string; class_code: string; join_code: string; invite_link: string };
 
@@ -20,9 +46,15 @@ const CreateClassPage = () => {
   const [name, setName] = useState("");
   const [school, setSchool] = useState("");
   const [description, setDescription] = useState("");
+  const [meeting, setMeeting] = useState<ClassMeeting>({
+    ...EMPTY_CLASS_MEETING,
+    timeZone: TIME_ZONES[0],
+    venue: { kind: "online", broadcasts: [newBroadcastEntry()], address: null, details: null },
+  });
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Created | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
