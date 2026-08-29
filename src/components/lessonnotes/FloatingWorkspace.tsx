@@ -36,7 +36,19 @@ interface Props {
   onAiEdit?: () => void;
   /** TAG override — a table row is `T{n}`, not a lesson line number. */
   tag?: string;
+  /* ── Line-level teacher controls (all optional) ── */
+  onDeleteLine?: () => void;
+  onDuplicateLine?: () => void;
+  onCopyLine?: () => void;
+  onPasteLine?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+  /** Clears the teacher-owned flag so AI Generate may rewrite this line. */
+  onRegenerateLine?: () => void;
 }
+
 
 const CONTAINER_KINDS: ContainerKind[] = [
   "fraction", "bracket", "radical", "power", "log",
