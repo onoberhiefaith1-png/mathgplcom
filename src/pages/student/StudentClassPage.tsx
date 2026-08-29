@@ -328,7 +328,10 @@ const StudentClassPage = () => {
       </header>
 
       <main className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 sm:py-6">
+        <ComingSoonPanel meeting={meeting} entries={planEntries} className="mb-4" />
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
 
           <Tile
             icon={<BookOpen className="h-3.5 w-3.5" />}
