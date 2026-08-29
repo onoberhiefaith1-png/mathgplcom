@@ -85,6 +85,8 @@ import { Route as AdminUsageRevenueIndexRouteImport } from './routes/admin/usage
 import { Route as AdminWebsiteIndexRouteImport } from './routes/admin/website/index'
 import { Route as AdventureGamesIndexRouteImport } from './routes/adventure/games/index'
 import { Route as AgeRangeIndexRouteImport } from './routes/age/$range/index'
+import { Route as ApiCourseEditSpeakRouteImport } from './routes/api/course-edit/speak'
+import { Route as ApiCourseEditTranscribeRouteImport } from './routes/api/course-edit/transcribe'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AssetsCategoryIndexRouteImport } from './routes/assets/$category/index'
 import { Route as CSlugIndexRouteImport } from './routes/c/$slug/index'
@@ -686,6 +688,16 @@ const AdventureGamesIndexRoute = AdventureGamesIndexRouteImport.update({
 const AgeRangeIndexRoute = AgeRangeIndexRouteImport.update({
   id: '/age/$range/',
   path: '/age/$range/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCourseEditSpeakRoute = ApiCourseEditSpeakRouteImport.update({
+  id: '/api/course-edit/speak',
+  path: '/api/course-edit/speak',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCourseEditTranscribeRoute = ApiCourseEditTranscribeRouteImport.update({
+  id: '/api/course-edit/transcribe',
+  path: '/api/course-edit/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
@@ -1995,6 +2007,8 @@ export interface FileRoutesByFullPath {
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
+  '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
+  '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
@@ -2281,6 +2295,8 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
+  '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
+  '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
@@ -2579,6 +2595,8 @@ export interface FileRoutesById {
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
+  '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
+  '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
@@ -2878,6 +2896,8 @@ export interface FileRouteTypes {
     | '/terms/'
     | '/.lovable/oauth/consent'
     | '/admin/integrity/$segment'
+    | '/api/course-edit/speak'
+    | '/api/course-edit/transcribe'
     | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
@@ -3164,6 +3184,8 @@ export interface FileRouteTypes {
     | '/terms'
     | '/.lovable/oauth/consent'
     | '/admin/integrity/$segment'
+    | '/api/course-edit/speak'
+    | '/api/course-edit/transcribe'
     | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
@@ -3461,6 +3483,8 @@ export interface FileRouteTypes {
     | '/terms/'
     | '/.lovable/oauth/consent'
     | '/admin/integrity/$segment'
+    | '/api/course-edit/speak'
+    | '/api/course-edit/transcribe'
     | '/api/public/health'
     | '/homepage/background/free'
     | '/homepage/building/free'
@@ -3747,6 +3771,8 @@ export interface RootRouteChildren {
   SupportIndexRoute: typeof SupportIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  ApiCourseEditSpeakRoute: typeof ApiCourseEditSpeakRoute
+  ApiCourseEditTranscribeRoute: typeof ApiCourseEditTranscribeRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
@@ -4366,6 +4392,20 @@ declare module '@tanstack/react-router' {
       path: '/age/$range'
       fullPath: '/age/$range/'
       preLoaderRoute: typeof AgeRangeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/course-edit/speak': {
+      id: '/api/course-edit/speak'
+      path: '/api/course-edit/speak'
+      fullPath: '/api/course-edit/speak'
+      preLoaderRoute: typeof ApiCourseEditSpeakRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/course-edit/transcribe': {
+      id: '/api/course-edit/transcribe'
+      path: '/api/course-edit/transcribe'
+      fullPath: '/api/course-edit/transcribe'
+      preLoaderRoute: typeof ApiCourseEditTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/health': {
@@ -6460,6 +6500,8 @@ const rootRouteChildren: RootRouteChildren = {
   SupportIndexRoute: SupportIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  ApiCourseEditSpeakRoute: ApiCourseEditSpeakRoute,
+  ApiCourseEditTranscribeRoute: ApiCourseEditTranscribeRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
