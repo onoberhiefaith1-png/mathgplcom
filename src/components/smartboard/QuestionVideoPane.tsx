@@ -416,9 +416,9 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
         try { el.currentTime = active.start; } catch { /* ignore */ }
       }
       // A press is a real gesture, so sound is allowed from here on.
-      setForcedMute(false);
-      el.muted = muted;
-      void el.play().catch(() => undefined);
+      soundProvenRef.current = true;
+      playWithSound(el);
+
     } else {
       el.pause();
     }
