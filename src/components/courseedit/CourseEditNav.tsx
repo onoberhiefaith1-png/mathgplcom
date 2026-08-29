@@ -3,12 +3,14 @@ import { ArrowLeft, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const LINKS = [
-  { to: "/course-edit", label: "Home" },
+  { to: "/course-builder", label: "Courses" },
+  { to: "/course-edit", label: "Studio" },
   { to: "/course-edit/engine", label: "Video Engine" },
   { to: "/course-edit/gallery", label: "Gallery" },
 ] as const;
 
 export function SiteNav() {
+
   const router = useRouter();
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
