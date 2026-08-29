@@ -168,6 +168,19 @@ function RootComponent() {
     }
   }, []);
 
+  // A visitor arriving with ?ref= is remembered here and attributed once they
+  // hold an account. Nothing is stored about them before they register.
+  useEffect(() => {
+    captureReferralFromUrl();
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) void claimStoredReferral();
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) void claimStoredReferral();
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
   useEffect(() => {
     const onError = (event: ErrorEvent) => recoverFromStaleChunk(event.error ?? event.message);
     const onRejection = (event: PromiseRejectionEvent) => recoverFromStaleChunk(event.reason);
