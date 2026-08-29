@@ -18,10 +18,13 @@ const BoardViewSwitcher = ({
   value,
   onChange,
   className,
+  /** Label for the main surface — "Smartboard" on a board, "Page" elsewhere. */
+  mainLabel,
 }: {
   value: BoardVideoView;
   onChange: (next: BoardVideoView) => void;
   className?: string;
+  mainLabel?: string;
 }) => (
   <div
     role="tablist"
@@ -31,7 +34,9 @@ const BoardViewSwitcher = ({
       className,
     )}
   >
-    {OPTIONS.map(({ id, label, Icon }) => (
+    {OPTIONS.map(({ id, label: baseLabel, Icon }) => {
+      const label = id === "board" && mainLabel ? mainLabel : baseLabel;
+      return (
       <button
         key={id}
         type="button"
@@ -49,7 +54,8 @@ const BoardViewSwitcher = ({
         <Icon className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">{label}</span>
       </button>
-    ))}
+      );
+    })}
   </div>
 );
 
