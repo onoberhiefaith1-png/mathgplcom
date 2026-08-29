@@ -222,8 +222,11 @@ function RootComponent() {
 
 
             <NavHistoryProvider>
-              <Outlet />
+              <PageGuideProvider>
+                <Outlet />
+              </PageGuideProvider>
             </NavHistoryProvider>
+
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>
