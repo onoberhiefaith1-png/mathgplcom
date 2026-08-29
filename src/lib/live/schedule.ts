@@ -107,3 +107,35 @@ export const formatNextLesson = (
   const next = nextOccurrence(days, times, now);
   return next ? `${dayName(next.day)} · ${formatClockTime(next.time)}` : "";
 };
+
+/* ------------------------------------------------------------------ *
+ * End times
+ *
+ * A teaching day can also say when it finishes. End times use exactly the same
+ * per-day shape as start times, so nothing else in the schedule logic changes.
+ * ------------------------------------------------------------------ */
+
+/** "4:00 PM – 5:30 PM", or just the start when no end time is set. */
+export const formatTimeWindow = (start: string | null, end: string | null): string => {
+  const from = formatClockTime(start);
+  const to = formatClockTime(end);
+  if (!from) return "";
+  return to ? `${from} – ${to}` : from;
+};
+
+/** "Monday 4:00 PM – 5:30 PM · Thursday 6:00 PM" for cards and headers. */
+export const formatScheduleWindow = (
+  days: number[],
+  times: ScheduleTimes,
+  endTimes: ScheduleTimes,
+): string => {
+  const entries = scheduleEntries(days, times);
+  if (entries.length === 0) return "Schedule not set";
+  return entries
+    .map(({ day, time }) => {
+      const window = formatTimeWindow(time, endTimes[String(day)] ?? null);
+      return window ? `${dayName(day)} ${window}` : dayName(day);
+    })
+    .join(" · ");
+};
+
