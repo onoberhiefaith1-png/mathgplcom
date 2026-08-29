@@ -54,12 +54,31 @@ export const sortPlanEntries = (entries: SchedulePlanEntry[]): SchedulePlanEntry
     return a.position - b.position;
   });
 
+/**
+ * The table lands with this feature, so the generated types do not know it yet;
+ * the reads and writes below are the only place that shape is used.
+ */
+type LooseTable = {
+  select: (cols: string) => {
+    eq: (col: string, value: string) => {
+      eq: (col: string, value: string) => PromiseLike<{ data: unknown }>;
+    };
+  };
+  insert: (row: Record<string, unknown>) => PromiseLike<{ error: unknown }>;
+  update: (row: Record<string, unknown>) => {
+    eq: (col: string, value: string) => PromiseLike<{ error: unknown }>;
+  };
+  delete: () => { eq: (col: string, value: string) => PromiseLike<{ error: unknown }> };
+};
+
+const planTable = (): LooseTable =>
+  (supabase as unknown as { from: (t: string) => LooseTable }).from("teaching_schedule_entries");
+
 export const listPlanEntries = async (
   scope: PlanScope,
   scopeId: string,
 ): Promise<SchedulePlanEntry[]> => {
-  const { data } = await supabase
-    .from("teaching_schedule_entries")
+  const { data } = await planTable()
     .select("id, scope, scope_id, entry_date, week_label, topic, description, position")
     .eq("scope", scope)
     .eq("scope_id", scopeId);
@@ -80,7 +99,7 @@ export const createPlanEntry = async (
   ownerId: string,
   input: PlanEntryInput,
 ) =>
-  supabase.from("teaching_schedule_entries").insert({
+  planTable().insert({
     scope,
     scope_id: scopeId,
     owner_id: ownerId,
@@ -92,8 +111,7 @@ export const createPlanEntry = async (
   });
 
 export const updatePlanEntry = async (id: string, input: PlanEntryInput) =>
-  supabase
-    .from("teaching_schedule_entries")
+  planTable()
     .update({
       entry_date: input.entryDate,
       week_label: input.weekLabel,
@@ -103,8 +121,8 @@ export const updatePlanEntry = async (id: string, input: PlanEntryInput) =>
     })
     .eq("id", id);
 
-export const deletePlanEntry = async (id: string) =>
-  supabase.from("teaching_schedule_entries").delete().eq("id", id);
+export const deletePlanEntry = async (id: string) => planTable().delete().eq("id", id);
+
 
 const startOfDay = (d: Date) => {
   const copy = new Date(d);
