@@ -38,7 +38,7 @@ export function SiteNav() {
               to={link.to}
               className="rounded-md px-3 py-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               activeProps={{ className: "rounded-md px-3 py-1.5 bg-secondary text-foreground" }}
-              activeOptions={{ exact: link.to === "/" }}
+              activeOptions={{ exact: link.to === "/course-edit" }}
             >
               {link.label}
             </Link>

@@ -12,7 +12,7 @@ import {
   Timer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SiteNav } from "./SiteNav";
+import { SiteNav } from "./CourseEditNav";
 import { listProjects, newProjectId, type ProjectMeta } from "@/lib/editor/storage";
 import { VOICE_CATALOG, VOICE_LANGUAGES } from "@/lib/editor/voice-catalog";
 import { formatTimecode } from "@/lib/editor/types";
