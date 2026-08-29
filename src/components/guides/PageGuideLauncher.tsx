@@ -25,7 +25,8 @@ const PageGuideLauncher = ({ inline = false }: { inline?: boolean }) => {
       )}
     >
       {open && hasVideo ? (
-        <BoardViewSwitcher value={view} onChange={setView} />
+        <BoardViewSwitcher value={view} onChange={setView} mainLabel="Page" />
+
       ) : (
         hasVideo && (
           <button
