@@ -76,11 +76,33 @@ const StudentClassPage = () => {
   const [assignments, setAssignments] = useState<AssignmentGroup[]>([]);
   const [games, setGames] = useState<ClassGameRow[]>([]);
   const [noteLevels, setNoteLevels] = useState<string[]>([]);
+  const [meeting, setMeeting] = useState<ClassMeeting>(EMPTY_CLASS_MEETING);
+  const [planEntries, setPlanEntries] = useState<SchedulePlanEntry[]>([]);
 
   useEffect(() => {
     if (!classId) return;
     void getClassLevels(classId).then(setNoteLevels);
   }, [classId]);
+
+  // When and where the class meets, and what is coming next — visible without
+  // waiting for the teacher to start anything.
+  useEffect(() => {
+    if (!classId) return;
+    let cancelled = false;
+    (async () => {
+      const [loaded, plan] = await Promise.all([
+        loadClassMeeting(classId),
+        listPlanEntries("class", classId),
+      ]);
+      if (cancelled) return;
+      setMeeting(loaded);
+      setPlanEntries(plan);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [classId]);
+
 
 
 
