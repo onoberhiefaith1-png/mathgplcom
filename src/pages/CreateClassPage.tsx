@@ -96,7 +96,9 @@ const CreateClassPage = () => {
           description: description.trim() || null,
           class_code,
           owner_id: userData.user.id,
-        })
+          ...meetingPayload(meeting),
+        } as never)
+
         .select("id, class_code")
         .single();
       if (!error && data) {
