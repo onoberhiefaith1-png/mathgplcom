@@ -267,14 +267,21 @@ export const FloatingWorkspace = ({
 
 
 
+  const hasLineControls =
+    !!onDeleteLine || !!onDuplicateLine || !!onCopyLine || !!onPasteLine ||
+    !!onMoveUp || !!onMoveDown;
+
+  const ctrlClass =
+    "inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md border border-foreground/15 text-foreground/60 hover:bg-foreground/5 disabled:opacity-35";
+
   return (
-    <div className="pl-6 pr-2 py-3 border-l-2 border-foreground/10 ml-2 my-2">
-      {/* Equation header */}
-      <div className="flex items-baseline gap-3 mb-2">
-        <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/45">
+    <div className="pl-6 pr-2 py-3 border-l-2 border-foreground/10 ml-2 my-2 min-w-0">
+      {/* Equation header — wraps inside the page, never a horizontal strip */}
+      <div className="flex items-baseline gap-3 mb-2 flex-wrap min-w-0">
+        <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/45 shrink-0">
           Line {lineNo}
         </span>
-        <div className="text-[17px]" style={{ color: "hsl(220 35% 18%)" }}>
+        <div className="text-[17px] min-w-0 break-words" style={{ color: "hsl(220 35% 18%)" }}>
           <EquationAtoms
             equation={line.equation}
             lineId={line.lineId}
@@ -284,11 +291,25 @@ export const FloatingWorkspace = ({
             onAtomHover={setHoveredAtomId}
           />
         </div>
-        <div className={`flex items-center gap-1.5 shrink-0 ${scoreLabel ? "ml-auto" : "ml-auto"}`}>
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {/* The Enter, AI Edit, and Reason & Verify buttons were removed in
               favour of the always-on Floating Number AI Assistant on the
               right. Highlighting + Enter keyboard shortcut still works
               (see commitHighlightAsChip / Enter listener above). */}
+
+          {line.editedByTeacher && (
+            <span
+              className="text-[9px] uppercase tracking-[0.18em] px-1.5 py-0.5 rounded-md"
+              style={{
+                background: "hsl(168 55% 38% / 0.12)",
+                border: "1px solid hsl(168 55% 38% / 0.4)",
+                color: "hsl(168 45% 28%)",
+              }}
+              title="You edited this line. AI Generate will not overwrite it."
+            >
+              your version
+            </span>
+          )}
 
           {scoreLabel && (
             <>
@@ -314,6 +335,58 @@ export const FloatingWorkspace = ({
           )}
         </div>
       </div>
+
+      {/* Teacher line controls */}
+      {hasLineControls && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+          {onCopyLine && (
+            <button type="button" onClick={onCopyLine} className={ctrlClass} title="Copy this line's floating numbers">
+              <ClipboardCopy className="h-3 w-3" /> Copy
+            </button>
+          )}
+          {onPasteLine && (
+            <button type="button" onClick={onPasteLine} className={ctrlClass} title="Paste corrected floating numbers into this line">
+              <ClipboardPaste className="h-3 w-3" /> Paste
+            </button>
+          )}
+          {onDuplicateLine && (
+            <button type="button" onClick={onDuplicateLine} className={ctrlClass} title="Duplicate this line">
+              <CopyPlus className="h-3 w-3" /> Duplicate
+            </button>
+          )}
+          {onMoveUp && (
+            <button type="button" onClick={onMoveUp} disabled={!canMoveUp} className={ctrlClass} title="Move line up">
+              <ArrowUp className="h-3 w-3" /> Up
+            </button>
+          )}
+          {onMoveDown && (
+            <button type="button" onClick={onMoveDown} disabled={!canMoveDown} className={ctrlClass} title="Move line down">
+              <ArrowDown className="h-3 w-3" /> Down
+            </button>
+          )}
+          {onDeleteLine && (
+            <button
+              type="button"
+              onClick={onDeleteLine}
+              className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-md border border-red-300/70 text-red-700/80 hover:bg-red-50"
+              title="Delete this line's floating numbers"
+            >
+              <Trash2 className="h-3 w-3" /> Delete
+            </button>
+          )}
+          {line.editedByTeacher && onRegenerateLine && (
+            <button
+              type="button"
+              onClick={onRegenerateLine}
+              className={`${ctrlClass} ml-auto`}
+              title="Let AI Generate rewrite this line again"
+            >
+              <RotateCcw className="h-3 w-3" /> Regenerate this line
+            </button>
+          )}
+        </div>
+      )}
+
 
 
 
