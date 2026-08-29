@@ -130,7 +130,11 @@ const ClassDashboardPage = () => {
         </div>
       </section>
 
+      <ComingSoonPanel meeting={meeting} entries={planEntries} className="mb-6" />
+
       <ClassCommunityShare classId={cls.id} className={cls.name} description={cls.description} />
+
+
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tiles.map(({ label, icon: Icon, to, theme, blurb }) => (
