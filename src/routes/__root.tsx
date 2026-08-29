@@ -15,6 +15,8 @@ import { resetInteractionState } from "@/lib/stability/interactionReset";
 
 import "../styles.css";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
+
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { FullscreenToggle } from "@/components/common/FullscreenToggle";
 import { RouterErrorBoundary } from "@/components/common/RouterErrorBoundary";
