@@ -1,0 +1,18 @@
+## Technical detail
+
+**Reuse, not a second split system.** The Courses three-position layout lives in `src/components/smartboard/ThreeViewFrame.tsx` with the docked switcher in `src/components/student/BoardViewSwitcher.tsx`. Its structural core — one height-constrained grid, two columns on wide / two rows on narrow, both panels mounted permanently so nothing remounts on switch — is extracted into a generic `SplitCompanionFrame` (`src/components/common/SplitCompanionFrame.tsx`) taking `main`, `companion` and `view`. `ThreeViewFrame` is refactored to render that frame with the question player as its companion, so the Courses behaviour is unchanged and there is exactly one split implementation.
+
+**Mount point.** `src/routes/__root.tsx` wraps `<Outlet />` in a `PageGuideProvider` whose main panel is the outlet itself. Because the outlet element is never unmounted or re-keyed when the guide opens, no page reloads and no local state, form input or editor buffer is lost. The launcher pill is rendered by the provider (fixed, top-right, small) so every current and future page gets it with no per-page code; a `usePageGuide()` hook is exported so any page that prefers the control inside its own header can render it there instead.
+
+**Keying.** The guide is resolved from the current route id via `useRouterState`, normalised by `src/lib/guides/pageKey.ts`: dynamic segments collapse (`/class/$id/notes` → `/class/:id/notes`) so one guide serves every instance of a page. The launcher is hidden entirely when no published guide resolves and the viewer lacks `platform_admin`.
+
+**Data (staged; applies when the draft is accepted).** New `public.page_guides`: `page_key text unique`, `title`, `description`, `video_path`, `status text` (`draft`/`published`), `uploaded_by`, `created_at`, `updated_at` with touch trigger. Grants to `authenticated`/`anon` for select, full to `service_role`. RLS: anyone may read rows where `status = 'published'`; only `public.has_capability(auth.uid(), 'platform_admin')` may insert, update or delete. Videos are stored once in a `page-guides` storage bucket with public read and admin-only write — created with the storage tool at accept time, not in SQL. Replacing uploads a new object and repoints `video_path`; delete clears the row and removes the object.
+
+**Client modules**
+- `src/lib/guides/pageGuides.ts` — load by page key (single cached query per key), list all for the admin overview, upload/replace/delete/publish helpers built on the existing storage-upload pattern in `src/lib/courses/media.ts`.
+- `src/components/guides/PageGuideLauncher.tsx` — the small pill plus the admin `Manage` affordance.
+- `src/components/guides/PageGuidePlayer.tsx` — plain `<video controls>` styled to the existing visual language: play/pause, progress, time, volume, fullscreen; no autoplay, plus a `× Close Guide` header. Playback state survives layout switches because the element stays mounted.
+- `src/components/guides/PageGuideManagerDialog.tsx` — status, title, description, `Preview · Replace · Delete · Publish/Unpublish`, or `Upload Guide Video`.
+- `src/routes/admin/guides/index.tsx` — one table of every known page key, guide title and status, for an overview; it reuses the same dialog.
+
+**Verification.** Typecheck; a unit test for page-key normalisation; and a browser pass over three pages — one without a guide (launcher absent, page normal), one with a guide (pill → split opens, page still clickable while playing, pause/resume works), and close (page returns full width, in-progress form input still present). Upload, replace and the admin-only writes can only be exercised after the draft is accepted, since the guide table and bucket do not exist here yet.
