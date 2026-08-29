@@ -957,7 +957,12 @@ const FloatingPreparationPage = () => {
               const li = item.index;
               const toks = rows[li] ?? [];
               return (
-                <div key={`line-${li}`} className="whitespace-nowrap overflow-x-auto">
+                // WORKSHEET LAW: a solution line wraps INSIDE the page. It is
+                // never one long horizontal string with its own sideways
+                // scrollbar — each math token stays whole (inline-block) and
+                // the line flows onto the next row when it runs out of width.
+                <div key={`line-${li}`} className="min-w-0 break-words">
+
                   {toks.map((src, ti) => {
                     const key = `${li}:${ti}`;
                     const selected = selectedSet.has(key);

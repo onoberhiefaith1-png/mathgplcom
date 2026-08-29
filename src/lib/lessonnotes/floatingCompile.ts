@@ -88,7 +88,23 @@ export interface FloatingLine {
   /** Notes-layer objects (diagrams) that belong to this line's NOTE. Never
    *  highlightable, never chips — lesson content that travels with the note. */
   noteObjects?: unknown[];
+  /** TEACHER AUTHORITY: set the moment the teacher edits this line by hand
+   *  (chip add/edit/remove, paste, delete, reorder, marks). A flagged line is
+   *  never rewritten by "Generate Floating Numbers" — the teacher's saved
+   *  version is what the Smartboard reads. Cleared only by the explicit
+   *  per-line "Regenerate this line" action. */
+  editedByTeacher?: boolean;
+  /** ISO timestamp of the last teacher edit. */
+  editedAt?: string;
 }
+
+/** Stamp a line as teacher-owned. Every manual mutation goes through this. */
+export const markTeacherEdited = (line: FloatingLine): FloatingLine => ({
+  ...line,
+  editedByTeacher: true,
+  editedAt: new Date().toISOString(),
+});
+
 
 
 export type ScoringMode = "equal" | "individual";
