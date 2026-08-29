@@ -343,7 +343,10 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     // Sound is asserted on EVERY jump, so one interrupted clip can never leave
     // the rest of the lesson silent.
     playWithSound(el);
-  }, [sections, playWithSound]);
+    // Reliability layer: verify the Play actually started; retry if the
+    // seek/load aborted it.
+    triggerFloatingVideoPlay();
+  }, [sections, playWithSound, triggerFloatingVideoPlay]);
 
 
   // ── STAGE 1 · The Introduction opens the lesson ─────────────────────────
