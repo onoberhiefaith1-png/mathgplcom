@@ -72,14 +72,16 @@ export const joinAudience = async (
     return refreshed ?? existing;
   }
 
-  const insert = table().insert({
+  // Guests may INSERT but not SELECT this table, so the insert must NOT ask for
+  // a returned representation — the row is read back through the guarded
+  // definer function instead.
+  await (table().insert({
     session_id: sessionId,
     guest_token: token,
     display_name: name ?? guestDisplayName(),
     status: allowFreeEntry ? "approved" : "waiting",
-  }) as unknown as { select: (c: string) => { maybeSingle: () => Promise<{ data: unknown }> } };
-  const { data } = await insert.select(AUDIENCE_COLUMNS).maybeSingle();
-  return (data as AudienceMember | null) ?? null;
+  }) as unknown as Promise<{ error: unknown }>);
+  return await fetchMyMembership(sessionId);
 };
 
 /**

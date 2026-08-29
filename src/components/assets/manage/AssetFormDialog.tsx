@@ -133,9 +133,17 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
           let assetType = type;
           if (removeBg && type === "image") {
             setStep(`Removing background ${index + 1} of ${files.length}…`);
-            const blob = await makeTransparent(raw);
-            file = new File([blob], `${baseName(raw)}.png`, { type: "image/png" });
-            assetType = "transparent";
+            try {
+              const blob = await makeTransparent(raw);
+              file = new File([blob], `${baseName(raw)}.png`, { type: "image/png" });
+              assetType = "transparent";
+            } catch (error) {
+              if ((error as Error).name === "AbortError") throw error;
+              toast({
+                title: "Background kept",
+                description: `${raw.name}: ${(error as Error).message} The original image was stored.`,
+              });
+            }
           } else if (removeBg && type === "video") {
             try {
               setStep(`Cutting background — 0%`);

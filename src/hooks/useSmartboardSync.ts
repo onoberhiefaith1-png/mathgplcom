@@ -79,7 +79,10 @@ export function useSmartboardSync(opts: {
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const seqRef = useRef(0);
-  const lastSeenSeqRef = useRef(0);
+  // Per-sender sequence watermark. A sender's counter restarts at 1 whenever
+  // its page remounts (teacher reload), so the guard must be scoped by author
+  // AND must accept a restarted counter instead of treating it as stale.
+  const lastSeenSeqRef = useRef<Map<string, number>>(new Map());
   const lastSentRef = useRef<BoardState | null>(null);
   const lastLocalRef = useRef<BoardState | null>(null);
   const remoteBaseRef = useRef<BoardState | null>(null);
@@ -106,7 +109,7 @@ export function useSmartboardSync(opts: {
 
     // Reset per-class transport state.
     seqRef.current = 0;
-    lastSeenSeqRef.current = 0;
+    lastSeenSeqRef.current = new Map();
     lastSentRef.current = null;
     remoteBaseRef.current = null;
 
@@ -139,8 +142,13 @@ export function useSmartboardSync(opts: {
   const applyDelta = useCallback((msg: BoardDelta | null) => {
     if (!msg || typeof msg.seq !== "number") return;
     if (msg.author && selfIdRef.current && msg.author === selfIdRef.current) return; // own echo
-    if (msg.seq <= lastSeenSeqRef.current) return; // stale / out-of-order frame
-    lastSeenSeqRef.current = msg.seq;
+    const who = msg.author || "anon";
+    const seen = lastSeenSeqRef.current.get(who) ?? 0;
+    // Only drop true duplicates/out-of-order frames from the SAME sender. A
+    // counter that jumped back to a low value means that sender remounted, so
+    // adopt it rather than discarding every later frame forever.
+    if (msg.seq === seen || (msg.seq < seen && msg.seq > 1)) return;
+    lastSeenSeqRef.current.set(who, msg.seq);
     const base = msg.full ? null : remoteBaseRef.current;
     const merged = { ...(base ?? {}), ...msg.patch } as BoardState;
     remoteBaseRef.current = merged;
