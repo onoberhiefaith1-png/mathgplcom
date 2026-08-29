@@ -7446,14 +7446,24 @@ const PresentationView = ({
                 >
                   {formatAttemptTime(timer.elapsedMs)}
                 </span>
-                <button
-                  onClick={() => setLeaderboardOpen((v) => !v)}
-                  className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-80 hover:bg-black/10 hover:opacity-100 focus:outline-none focus-visible:ring-2"
+                {/* Two statistics only — my own best, and the best by anyone
+                    (guests through public links included). No names, no
+                    positions, no leaderboard. */}
+                <span
+                  className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-90"
                   style={{ border: `1px solid ${palette.chromeBorder}` }}
-                  title="Best verified time — open the class ranking for this question"
+                  title="My Best Time — your own fastest solve of this question"
                 >
-                  Best {timer.bestMs == null ? "—" : formatAttemptTime(timer.bestMs)}
-                </button>
+                  ⏱ My Best {timer.bestMs == null ? "—" : formatAttemptTime(timer.bestMs)}
+                </span>
+                <span
+                  className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-90"
+                  style={{ border: `1px solid ${palette.chromeBorder}` }}
+                  title="Overall Best Time — fastest solve of this question by anyone"
+                >
+                  🏆 Overall Best {timer.overallBestMs == null ? "—" : formatAttemptTime(timer.overallBestMs)}
+                </span>
+
 
                 <button
                   onClick={() => { void resetAttempt(); }}
