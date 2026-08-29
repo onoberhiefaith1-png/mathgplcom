@@ -122,9 +122,55 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
       });
   }, []);
 
+  /**
+   * RELIABILITY LAYER — explicit PLAY on every floating-number change.
+   *
+   * The autoplay above works, but a seek can abort its single play()
+   * ("interrupted by pause/load") or the media can still be loading, leaving
+   * some lines paused forever. This trigger acts like the Play button being
+   * pressed automatically: it asserts Play, then VERIFIES playback started,
+   * and if the media was not ready it waits for canplay/seeked and presses
+   * Play again. Bounded to a few attempts so it can never loop. It forces
+   * playback only — the student's deliberate mute is never overridden.
+   */
+  const triggerCleanupRef = useRef<(() => void) | null>(null);
+  const triggerFloatingVideoPlay = useCallback(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    triggerCleanupRef.current?.();
+    triggerCleanupRef.current = null;
 
-  
+    const attempt = () => {
+      if (!el.paused) return; // verified playing — done
+      if (el.readyState >= 2) { playWithSound(el); return; }
+      // Media not ready: wait for readiness, then press Play.
+      const onReady = () => { if (el.paused) playWithSound(el); };
+      el.addEventListener("canplay", onReady, { once: true });
+      el.addEventListener("seeked", onReady, { once: true });
+      cleanups.push(() => {
+        el.removeEventListener("canplay", onReady);
+        el.removeEventListener("seeked", onReady);
+      });
+    };
 
+    const cleanups: Array<() => void> = [];
+    const onPlaying = () => { attempt = () => undefined; };
+    let attempts = 0;
+    // Unused-guard: attempt is reassigned by onPlaying above.
+    void attempts;
+
+    // Press Play immediately, then verify shortly after the seek settles and
+    // once more if the browser was still catching up.
+    attempt();
+    const timers = [150, 500, 1200].map((ms) =>
+      window.setTimeout(() => { if (!el.paused) return; playWithSound(el); }, ms),
+    );
+    el.addEventListener("playing", onPlaying, { once: true });
+    cleanups.push(() => el.removeEventListener("playing", onPlaying));
+    cleanups.push(() => timers.forEach((t) => window.clearTimeout(t)));
+    triggerCleanupRef.current = () => cleanups.forEach((fn) => fn());
+  }, [playWithSound]);
+  useEffect(() => () => triggerCleanupRef.current?.(), []);
 
 
   // ── Presentation state: measured stage + the file's own aspect ratio ─────
