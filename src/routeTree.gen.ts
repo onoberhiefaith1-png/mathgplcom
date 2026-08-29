@@ -81,6 +81,7 @@ import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost
 import { Route as AdminCostRevenueIndexRouteImport } from './routes/admin/cost-revenue/index'
 import { Route as AdminCreditsIndexRouteImport } from './routes/admin/credits/index'
 import { Route as AdminEmailIndexRouteImport } from './routes/admin/email/index'
+import { Route as AdminGuidesIndexRouteImport } from './routes/admin/guides/index'
 import { Route as AdminIntegrityIndexRouteImport } from './routes/admin/integrity/index'
 import { Route as AdminIntegritySegmentRouteImport } from './routes/admin/integrity/$segment'
 import { Route as AdminPlansIndexRouteImport } from './routes/admin/plans/index'
@@ -672,6 +673,11 @@ const AdminCreditsIndexRoute = AdminCreditsIndexRouteImport.update({
 const AdminEmailIndexRoute = AdminEmailIndexRouteImport.update({
   id: '/email/',
   path: '/email/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminGuidesIndexRoute = AdminGuidesIndexRouteImport.update({
+  id: '/guides/',
+  path: '/guides/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminIntegrityIndexRoute = AdminIntegrityIndexRouteImport.update({
@@ -2057,6 +2063,7 @@ export interface FileRoutesByFullPath {
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/credits/': typeof AdminCreditsIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/guides/': typeof AdminGuidesIndexRoute
   '/admin/integrity/': typeof AdminIntegrityIndexRoute
   '/admin/plans/': typeof AdminPlansIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
@@ -2349,6 +2356,7 @@ export interface FileRoutesByTo {
   '/admin/cost-revenue': typeof AdminCostRevenueIndexRoute
   '/admin/credits': typeof AdminCreditsIndexRoute
   '/admin/email': typeof AdminEmailIndexRoute
+  '/admin/guides': typeof AdminGuidesIndexRoute
   '/admin/integrity': typeof AdminIntegrityIndexRoute
   '/admin/plans': typeof AdminPlansIndexRoute
   '/admin/security': typeof AdminSecurityIndexRoute
@@ -2654,6 +2662,7 @@ export interface FileRoutesById {
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
   '/admin/credits/': typeof AdminCreditsIndexRoute
   '/admin/email/': typeof AdminEmailIndexRoute
+  '/admin/guides/': typeof AdminGuidesIndexRoute
   '/admin/integrity/': typeof AdminIntegrityIndexRoute
   '/admin/plans/': typeof AdminPlansIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
@@ -2960,6 +2969,7 @@ export interface FileRouteTypes {
     | '/admin/cost-revenue/'
     | '/admin/credits/'
     | '/admin/email/'
+    | '/admin/guides/'
     | '/admin/integrity/'
     | '/admin/plans/'
     | '/admin/security/'
@@ -3252,6 +3262,7 @@ export interface FileRouteTypes {
     | '/admin/cost-revenue'
     | '/admin/credits'
     | '/admin/email'
+    | '/admin/guides'
     | '/admin/integrity'
     | '/admin/plans'
     | '/admin/security'
@@ -3556,6 +3567,7 @@ export interface FileRouteTypes {
     | '/admin/cost-revenue/'
     | '/admin/credits/'
     | '/admin/email/'
+    | '/admin/guides/'
     | '/admin/integrity/'
     | '/admin/plans/'
     | '/admin/security/'
@@ -4424,6 +4436,13 @@ declare module '@tanstack/react-router' {
       path: '/email'
       fullPath: '/admin/email/'
       preLoaderRoute: typeof AdminEmailIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/guides/': {
+      id: '/admin/guides/'
+      path: '/guides'
+      fullPath: '/admin/guides/'
+      preLoaderRoute: typeof AdminGuidesIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/integrity/': {
@@ -6050,6 +6069,7 @@ interface AdminRouteRouteChildren {
   AdminCostRevenueIndexRoute: typeof AdminCostRevenueIndexRoute
   AdminCreditsIndexRoute: typeof AdminCreditsIndexRoute
   AdminEmailIndexRoute: typeof AdminEmailIndexRoute
+  AdminGuidesIndexRoute: typeof AdminGuidesIndexRoute
   AdminIntegrityIndexRoute: typeof AdminIntegrityIndexRoute
   AdminPlansIndexRoute: typeof AdminPlansIndexRoute
   AdminSecurityIndexRoute: typeof AdminSecurityIndexRoute
@@ -6069,6 +6089,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminCostRevenueIndexRoute: AdminCostRevenueIndexRoute,
   AdminCreditsIndexRoute: AdminCreditsIndexRoute,
   AdminEmailIndexRoute: AdminEmailIndexRoute,
+  AdminGuidesIndexRoute: AdminGuidesIndexRoute,
   AdminIntegrityIndexRoute: AdminIntegrityIndexRoute,
   AdminPlansIndexRoute: AdminPlansIndexRoute,
   AdminSecurityIndexRoute: AdminSecurityIndexRoute,
