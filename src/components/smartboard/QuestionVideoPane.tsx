@@ -88,6 +88,40 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
   const [forcedMute, setForcedMute] = useState(false);
   const mutedRef = useRef(false);
   mutedRef.current = muted;
+  /**
+   * True once sound has genuinely been allowed (a successful sound-on play, or
+   * the platform-wide gesture latch). From that moment the player may NEVER
+   * silence itself again — a later failed play is retried with sound on.
+   */
+  const soundProvenRef = useRef(false);
+
+  /**
+   * The single way playback ever starts. Only a real permission refusal
+   * (`NotAllowedError`) can silence the video, and only before sound has ever
+   * been proven. Every other rejection — above all the "interrupted by pause /
+   * new load request" abort that a fast line change causes — is ignored, so
+   * moving from line to line can never mute the teacher.
+   */
+  const playWithSound = useCallback((el: HTMLVideoElement) => {
+    setForcedMute(false);
+    el.muted = mutedRef.current;
+    void el.play()
+      .then(() => { soundProvenRef.current = true; })
+      .catch((err: unknown) => {
+        const name = (err as { name?: string } | null)?.name;
+        if (name === "NotAllowedError" && !soundProvenRef.current && !audioUnlocked()) {
+          // The browser has not yet allowed sound at all: keep teaching
+          // silently until the first gesture anywhere unlocks it.
+          el.muted = true;
+          setForcedMute(true);
+          void el.play().catch(() => undefined);
+          return;
+        }
+        // Interrupted / aborted / transient: retry once, still with sound.
+        if (el.paused) void el.play().catch(() => undefined);
+      });
+  }, []);
+
 
   
 
