@@ -28,6 +28,8 @@ import { AuthProvider } from "@/lib/auth/AuthProvider";
 
 import { registerRealtimeAuthSync } from "@/lib/realtime/auth";
 import { clearStaleChunkRecovery, recoverFromStaleChunk } from "@/lib/router/chunkRecovery";
+import { captureReferralFromUrl, claimStoredReferral } from "@/lib/referrals/capture";
+import { supabase } from "@/integrations/supabase/client";
 import NotFound from "@/pages/NotFound";
 
 const BOOTSTRAP_RECOVERY_SCRIPT = `(() => {
