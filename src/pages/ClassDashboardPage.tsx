@@ -27,6 +27,8 @@ const ClassDashboardPage = () => {
   // A school reviewing a shared workspace is not the owner but may look.
   const { viewOnly } = useViewAs();
   const [cls, setCls] = useState<ClassRow | null>(null);
+  const [meeting, setMeeting] = useState<ClassMeeting>(EMPTY_CLASS_MEETING);
+  const [planEntries, setPlanEntries] = useState<SchedulePlanEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -54,7 +56,12 @@ const ClassDashboardPage = () => {
       }
       const { data: code } = await supabase.rpc("get_class_join_code", { _class_id: classId! });
       setCls({ ...data, join_code: (code as string | null) ?? "" });
+      setMeeting(await loadClassMeeting(classId!));
+      setPlanEntries(await listPlanEntries("class", classId!));
       setLoading(false);
+    })();
+  }, [classId, navigate, toast, viewOnly]);
+
     })();
   }, [classId, navigate, toast, viewOnly]);
 
