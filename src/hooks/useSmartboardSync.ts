@@ -109,7 +109,7 @@ export function useSmartboardSync(opts: {
 
     // Reset per-class transport state.
     seqRef.current = 0;
-    lastSeenSeqRef.current = 0;
+    lastSeenSeqRef.current = new Map();
     lastSentRef.current = null;
     remoteBaseRef.current = null;
 
