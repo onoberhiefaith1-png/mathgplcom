@@ -4,7 +4,11 @@
 // selects in the equation becomes the chip(s) verbatim.
 
 import { useState } from "react";
-import { Shuffle, X } from "lucide-react";
+import {
+  ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, CopyPlus,
+  RotateCcw, Shuffle, Trash2, X,
+} from "lucide-react";
+
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,
