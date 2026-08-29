@@ -163,8 +163,8 @@ const AudiencePicker = ({
                     }`}
                   >
                     {klass.name}
-                    {typeof klass.studentCount === "number" && (
-                      <span className={chosen ? "opacity-80" : "text-muted-foreground"}> · {klass.studentCount}</span>
+                    {typeof klass.members === "number" && (
+                      <span className={chosen ? "opacity-80" : "text-muted-foreground"}> · {klass.members}</span>
                     )}
                   </button>
                 </li>
