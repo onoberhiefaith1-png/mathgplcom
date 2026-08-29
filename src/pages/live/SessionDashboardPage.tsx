@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import {
   ArrowLeft, Users, BookOpen, Presentation, ClipboardList, Compass, Gamepad2,
-  Image as ImageIcon, BarChart3, Copy, Check, Radio, DoorOpen, Lock, Square,
+  Image as ImageIcon, BarChart3, Copy, Check, Radio, DoorOpen, Lock, Square, CalendarClock,
 } from "lucide-react";
+
 import { setAllowFreeEntry } from "@/lib/live/audience";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
