@@ -82,6 +82,11 @@ const CourseBuilderLibrary = () => {
           <GraduationCap className="h-5 w-5 text-amber-300" /> Skill Builder
         </h1>
         <div className="ml-auto flex items-center gap-2">
+          <Button asChild variant="outline" className="min-h-[44px]">
+            <Link to="/course-edit">
+              <Clapperboard className="mr-1.5 h-4 w-4" /> Course Edit
+            </Link>
+          </Button>
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -93,6 +98,7 @@ const CourseBuilderLibrary = () => {
             New course
           </Button>
         </div>
+
       </header>
 
       <main className="mx-auto max-w-6xl px-6 pb-16">
