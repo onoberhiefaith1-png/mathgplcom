@@ -1,0 +1,1 @@
+revoke all on function public.page_guides_touch() from anon, authenticated;

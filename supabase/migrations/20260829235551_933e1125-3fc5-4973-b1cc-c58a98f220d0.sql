@@ -1,7 +1,3 @@
--- Universal Page Guide videos: one optional guide per page.
--- Store once, reference many: the video object lives once in the `page-guides`
--- bucket and every viewer streams that same original.
-
 create table if not exists public.page_guides (
   id uuid primary key default gen_random_uuid(),
   page_key text not null unique,
@@ -20,7 +16,6 @@ grant all on public.page_guides to service_role;
 
 alter table public.page_guides enable row level security;
 
--- Everyone may read a published guide; administrators also see unpublished ones.
 create policy "published guides are readable"
   on public.page_guides for select
   using (status = 'published' or public.has_capability('platform_admin'));
@@ -55,12 +50,7 @@ create trigger page_guides_touch
   before update on public.page_guides
   for each row execute function public.page_guides_touch();
 
--- Public-read bucket: guide videos are instructional, not student data.
-insert into storage.buckets (id, name, public)
-values ('page-guides', 'page-guides', true)
-on conflict (id) do update set public = true;
-
-create policy "guide videos are publicly readable"
+create policy "guide videos are readable"
   on storage.objects for select
   using (bucket_id = 'page-guides');
 

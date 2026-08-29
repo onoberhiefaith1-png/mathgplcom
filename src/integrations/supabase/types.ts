@@ -4917,6 +4917,42 @@ export type Database = {
           },
         ]
       }
+      page_guides: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          page_key: string
+          status: string
+          title: string | null
+          updated_at: string
+          uploaded_by: string | null
+          video_path: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          page_key: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          video_path?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          page_key?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          video_path?: string | null
+        }
+        Relationships: []
+      }
       parent_children: {
         Row: {
           child_user_id: string
