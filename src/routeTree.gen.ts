@@ -15,6 +15,7 @@ import { Route as AdventureRouteRouteImport } from './routes/adventure/route'
 import { Route as ClassRouteRouteImport } from './routes/class/route'
 import { Route as CommunityRouteRouteImport } from './routes/community/route'
 import { Route as CourseBuilderRouteRouteImport } from './routes/course-builder/route'
+import { Route as CourseEditRouteRouteImport } from './routes/course-edit/route'
 import { Route as FamilyRouteRouteImport } from './routes/family/route'
 import { Route as LessonNotesRouteRouteImport } from './routes/lesson-notes/route'
 import { Route as LiveRouteRouteImport } from './routes/live/route'
@@ -42,6 +43,9 @@ import { Route as AuthVerifiedRouteImport } from './routes/auth/verified'
 import { Route as BackgroundsIndexRouteImport } from './routes/backgrounds/index'
 import { Route as CommunityIndexRouteImport } from './routes/community/index'
 import { Route as CourseBuilderIndexRouteImport } from './routes/course-builder/index'
+import { Route as CourseEditIndexRouteImport } from './routes/course-edit/index'
+import { Route as CourseEditEngineRouteImport } from './routes/course-edit/engine'
+import { Route as CourseEditGalleryRouteImport } from './routes/course-edit/gallery'
 import { Route as FamilyIndexRouteImport } from './routes/family/index'
 import { Route as GHandleRouteImport } from './routes/g/$handle'
 import { Route as HelpConnectionRouteImport } from './routes/help/connection'
@@ -337,6 +341,11 @@ const CourseBuilderRouteRoute = CourseBuilderRouteRouteImport.update({
   path: '/course-builder',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CourseEditRouteRoute = CourseEditRouteRouteImport.update({
+  id: '/course-edit',
+  path: '/course-edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FamilyRouteRoute = FamilyRouteRouteImport.update({
   id: '/family',
   path: '/family',
@@ -471,6 +480,21 @@ const CourseBuilderIndexRoute = CourseBuilderIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => CourseBuilderRouteRoute,
+} as any)
+const CourseEditIndexRoute = CourseEditIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CourseEditRouteRoute,
+} as any)
+const CourseEditEngineRoute = CourseEditEngineRouteImport.update({
+  id: '/engine',
+  path: '/engine',
+  getParentRoute: () => CourseEditRouteRoute,
+} as any)
+const CourseEditGalleryRoute = CourseEditGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => CourseEditRouteRoute,
 } as any)
 const FamilyIndexRoute = FamilyIndexRouteImport.update({
   id: '/',
@@ -1954,6 +1978,7 @@ export interface FileRoutesByFullPath {
   '/class': typeof ClassRouteRouteWithChildren
   '/community': typeof CommunityRouteRouteWithChildren
   '/course-builder': typeof CourseBuilderRouteRouteWithChildren
+  '/course-edit': typeof CourseEditRouteRouteWithChildren
   '/family': typeof FamilyRouteRouteWithChildren
   '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
   '/live': typeof LiveRouteRouteWithChildren
@@ -1972,6 +1997,8 @@ export interface FileRoutesByFullPath {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/course-edit/engine': typeof CourseEditEngineRoute
+  '/course-edit/gallery': typeof CourseEditGalleryRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -1985,6 +2012,7 @@ export interface FileRoutesByFullPath {
   '/backgrounds/': typeof BackgroundsIndexRoute
   '/community/': typeof CommunityIndexRoute
   '/course-builder/': typeof CourseBuilderIndexRoute
+  '/course-edit/': typeof CourseEditIndexRoute
   '/family/': typeof FamilyIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
@@ -2260,6 +2288,8 @@ export interface FileRoutesByTo {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/course-edit/engine': typeof CourseEditEngineRoute
+  '/course-edit/gallery': typeof CourseEditGalleryRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -2273,6 +2303,7 @@ export interface FileRoutesByTo {
   '/backgrounds': typeof BackgroundsIndexRoute
   '/community': typeof CommunityIndexRoute
   '/course-builder': typeof CourseBuilderIndexRoute
+  '/course-edit': typeof CourseEditIndexRoute
   '/family': typeof FamilyIndexRoute
   '/home': typeof HomeIndexRoute
   '/join': typeof JoinIndexRoute
@@ -2542,6 +2573,7 @@ export interface FileRoutesById {
   '/class': typeof ClassRouteRouteWithChildren
   '/community': typeof CommunityRouteRouteWithChildren
   '/course-builder': typeof CourseBuilderRouteRouteWithChildren
+  '/course-edit': typeof CourseEditRouteRouteWithChildren
   '/family': typeof FamilyRouteRouteWithChildren
   '/lesson-notes': typeof LessonNotesRouteRouteWithChildren
   '/live': typeof LiveRouteRouteWithChildren
@@ -2560,6 +2592,8 @@ export interface FileRoutesById {
   '/auth/student': typeof AuthStudentRoute
   '/auth/teacher': typeof AuthTeacherRoute
   '/auth/verified': typeof AuthVerifiedRoute
+  '/course-edit/engine': typeof CourseEditEngineRoute
+  '/course-edit/gallery': typeof CourseEditGalleryRoute
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
@@ -2573,6 +2607,7 @@ export interface FileRoutesById {
   '/backgrounds/': typeof BackgroundsIndexRoute
   '/community/': typeof CommunityIndexRoute
   '/course-builder/': typeof CourseBuilderIndexRoute
+  '/course-edit/': typeof CourseEditIndexRoute
   '/family/': typeof FamilyIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
@@ -2843,6 +2878,7 @@ export interface FileRouteTypes {
     | '/class'
     | '/community'
     | '/course-builder'
+    | '/course-edit'
     | '/family'
     | '/lesson-notes'
     | '/live'
@@ -2861,6 +2897,8 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/course-edit/engine'
+    | '/course-edit/gallery'
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
@@ -2874,6 +2912,7 @@ export interface FileRouteTypes {
     | '/backgrounds/'
     | '/community/'
     | '/course-builder/'
+    | '/course-edit/'
     | '/family/'
     | '/home/'
     | '/join/'
@@ -3149,6 +3188,8 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/course-edit/engine'
+    | '/course-edit/gallery'
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
@@ -3162,6 +3203,7 @@ export interface FileRouteTypes {
     | '/backgrounds'
     | '/community'
     | '/course-builder'
+    | '/course-edit'
     | '/family'
     | '/home'
     | '/join'
@@ -3430,6 +3472,7 @@ export interface FileRouteTypes {
     | '/class'
     | '/community'
     | '/course-builder'
+    | '/course-edit'
     | '/family'
     | '/lesson-notes'
     | '/live'
@@ -3448,6 +3491,8 @@ export interface FileRouteTypes {
     | '/auth/student'
     | '/auth/teacher'
     | '/auth/verified'
+    | '/course-edit/engine'
+    | '/course-edit/gallery'
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
@@ -3461,6 +3506,7 @@ export interface FileRouteTypes {
     | '/backgrounds/'
     | '/community/'
     | '/course-builder/'
+    | '/course-edit/'
     | '/family/'
     | '/home/'
     | '/join/'
@@ -3730,6 +3776,7 @@ export interface RootRouteChildren {
   ClassRouteRoute: typeof ClassRouteRouteWithChildren
   CommunityRouteRoute: typeof CommunityRouteRouteWithChildren
   CourseBuilderRouteRoute: typeof CourseBuilderRouteRouteWithChildren
+  CourseEditRouteRoute: typeof CourseEditRouteRouteWithChildren
   FamilyRouteRoute: typeof FamilyRouteRouteWithChildren
   LessonNotesRouteRoute: typeof LessonNotesRouteRouteWithChildren
   LiveRouteRoute: typeof LiveRouteRouteWithChildren
@@ -3902,6 +3949,13 @@ declare module '@tanstack/react-router' {
       path: '/course-builder'
       fullPath: '/course-builder'
       preLoaderRoute: typeof CourseBuilderRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/course-edit': {
+      id: '/course-edit'
+      path: '/course-edit'
+      fullPath: '/course-edit'
+      preLoaderRoute: typeof CourseEditRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/family': {
@@ -4092,6 +4146,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/course-builder/'
       preLoaderRoute: typeof CourseBuilderIndexRouteImport
       parentRoute: typeof CourseBuilderRouteRoute
+    }
+    '/course-edit/': {
+      id: '/course-edit/'
+      path: '/'
+      fullPath: '/course-edit/'
+      preLoaderRoute: typeof CourseEditIndexRouteImport
+      parentRoute: typeof CourseEditRouteRoute
+    }
+    '/course-edit/engine': {
+      id: '/course-edit/engine'
+      path: '/engine'
+      fullPath: '/course-edit/engine'
+      preLoaderRoute: typeof CourseEditEngineRouteImport
+      parentRoute: typeof CourseEditRouteRoute
+    }
+    '/course-edit/gallery': {
+      id: '/course-edit/gallery'
+      path: '/gallery'
+      fullPath: '/course-edit/gallery'
+      preLoaderRoute: typeof CourseEditGalleryRouteImport
+      parentRoute: typeof CourseEditRouteRoute
     }
     '/family/': {
       id: '/family/'
@@ -6068,6 +6143,22 @@ const CourseBuilderRouteRouteChildren: CourseBuilderRouteRouteChildren = {
 const CourseBuilderRouteRouteWithChildren =
   CourseBuilderRouteRoute._addFileChildren(CourseBuilderRouteRouteChildren)
 
+interface CourseEditRouteRouteChildren {
+  CourseEditEngineRoute: typeof CourseEditEngineRoute
+  CourseEditGalleryRoute: typeof CourseEditGalleryRoute
+  CourseEditIndexRoute: typeof CourseEditIndexRoute
+}
+
+const CourseEditRouteRouteChildren: CourseEditRouteRouteChildren = {
+  CourseEditEngineRoute: CourseEditEngineRoute,
+  CourseEditGalleryRoute: CourseEditGalleryRoute,
+  CourseEditIndexRoute: CourseEditIndexRoute,
+}
+
+const CourseEditRouteRouteWithChildren = CourseEditRouteRoute._addFileChildren(
+  CourseEditRouteRouteChildren,
+)
+
 interface FamilyRouteRouteChildren {
   FamilyIndexRoute: typeof FamilyIndexRoute
   FamilyTeachersIndexRoute: typeof FamilyTeachersIndexRoute
@@ -6459,6 +6550,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClassRouteRoute: ClassRouteRouteWithChildren,
   CommunityRouteRoute: CommunityRouteRouteWithChildren,
   CourseBuilderRouteRoute: CourseBuilderRouteRouteWithChildren,
+  CourseEditRouteRoute: CourseEditRouteRouteWithChildren,
   FamilyRouteRoute: FamilyRouteRouteWithChildren,
   LessonNotesRouteRoute: LessonNotesRouteRouteWithChildren,
   LiveRouteRoute: LiveRouteRouteWithChildren,
