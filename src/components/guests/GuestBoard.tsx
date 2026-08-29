@@ -5,7 +5,7 @@
 // video appears only when the teacher attached one to that question; nothing is
 // duplicated for a guest — the original video is streamed by reference.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import PresentationView from "@/components/smartboard/PresentationView";
 import ThreeViewFrame, { useBoardVideoView } from "@/components/smartboard/ThreeViewFrame";
@@ -62,6 +62,14 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
     });
   }, [code, token, assessment.id]);
 
+  // Guest solving clock for the CURRENT question. It exists only to contribute
+  // a valid time to that question's Overall Best Time benchmark — it is never
+  // student progress and never leaves the guest layer.
+  const startedAtRef = useRef<number>(Date.now());
+  useEffect(() => { startedAtRef.current = Date.now(); }, [questionId, assessment.id]);
+
+  const completed = !!score && score.total > 0 && score.score >= score.total;
+
   // Heartbeat: lets the teacher see this guest working, live.
   useEffect(() => {
     let alive = true;
@@ -71,13 +79,16 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
         name: guestLinkName(),
         assessmentId: assessment.id,
         questionId,
+        elapsedMs: Math.max(0, Date.now() - startedAtRef.current),
+        completed,
       });
       void refreshScore();
     };
     beat();
     const id = window.setInterval(() => { if (alive) beat(); }, 15000);
     return () => { alive = false; window.clearInterval(id); };
-  }, [code, token, assessment.id, questionId, refreshScore]);
+  }, [code, token, assessment.id, questionId, completed, refreshScore]);
+
 
   const boardSource = useMemo(() => {
     const scoped = questionId ? questions.filter((q) => q.id === questionId) : questions;
