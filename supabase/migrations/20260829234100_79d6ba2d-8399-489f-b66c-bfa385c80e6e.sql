@@ -1,18 +1,10 @@
 -- Referral & Rewards engine.
---
--- The link identifies the referrer; the campaign holds the reward RULE (type,
--- currency, amount, trigger) so no reward value is ever hard-coded. Totals are
--- always derived from these rows, per currency.
-
--- ---------------------------------------------------------------- campaigns
 CREATE TABLE IF NOT EXISTS public.referral_campaigns (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_kind text NOT NULL CHECK (owner_kind IN ('platform', 'school', 'teacher')),
   owner_user_id uuid NOT NULL,
   org_id uuid,
   name text NOT NULL,
-  -- Text, not an enum: a future reward type is a new value, not a migration of
-  -- every existing campaign.
   reward_type text NOT NULL DEFAULT 'payment',
   reward_rule jsonb NOT NULL DEFAULT '{}'::jsonb,
   trigger_event text NOT NULL DEFAULT 'subscription'
@@ -26,7 +18,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.referral_campaigns TO authenticat
 GRANT ALL ON public.referral_campaigns TO service_role;
 ALTER TABLE public.referral_campaigns ENABLE ROW LEVEL SECURITY;
 
--- ------------------------------------------------------------------- links
 CREATE TABLE IF NOT EXISTS public.referral_links (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   campaign_id uuid NOT NULL REFERENCES public.referral_campaigns(id) ON DELETE CASCADE,
@@ -43,7 +34,6 @@ GRANT SELECT, INSERT, UPDATE ON public.referral_links TO authenticated;
 GRANT ALL ON public.referral_links TO service_role;
 ALTER TABLE public.referral_links ENABLE ROW LEVEL SECURITY;
 
--- ------------------------------------------------------------------ events
 CREATE TABLE IF NOT EXISTS public.referral_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code text NOT NULL,
@@ -57,7 +47,6 @@ GRANT SELECT ON public.referral_events TO authenticated;
 GRANT ALL ON public.referral_events TO service_role;
 ALTER TABLE public.referral_events ENABLE ROW LEVEL SECURITY;
 
--- ------------------------------------------------------------ attributions
 CREATE TABLE IF NOT EXISTS public.referral_attributions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   link_id uuid NOT NULL REFERENCES public.referral_links(id) ON DELETE CASCADE,
@@ -77,7 +66,6 @@ GRANT SELECT ON public.referral_attributions TO authenticated;
 GRANT ALL ON public.referral_attributions TO service_role;
 ALTER TABLE public.referral_attributions ENABLE ROW LEVEL SECURITY;
 
--- ----------------------------------------------------------------- rewards
 CREATE TABLE IF NOT EXISTS public.referral_rewards (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   attribution_id uuid NOT NULL UNIQUE
@@ -104,7 +92,6 @@ GRANT SELECT, UPDATE ON public.referral_rewards TO authenticated;
 GRANT ALL ON public.referral_rewards TO service_role;
 ALTER TABLE public.referral_rewards ENABLE ROW LEVEL SECURITY;
 
--- --------------------------------------------------------------- helpers
 CREATE OR REPLACE FUNCTION public.referral_is_admin()
 RETURNS boolean
 LANGUAGE sql
@@ -118,7 +105,6 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.referral_is_admin() TO authenticated, service_role;
 
--- --------------------------------------------------------------- policies
 DROP POLICY IF EXISTS "referral campaigns readable by owner, org owner, admin" ON public.referral_campaigns;
 CREATE POLICY "referral campaigns readable by owner, org owner, admin"
 ON public.referral_campaigns FOR SELECT TO authenticated
@@ -187,15 +173,12 @@ USING (
   OR (org_id IS NOT NULL AND public.is_org_owner(org_id))
 );
 
--- Only an administrator (platform, or the school that owns the campaign) may
--- record that a reward has been paid. MathGPL never moves the money itself.
 DROP POLICY IF EXISTS "referral rewards settled by admin or school owner" ON public.referral_rewards;
 CREATE POLICY "referral rewards settled by admin or school owner"
 ON public.referral_rewards FOR UPDATE TO authenticated
 USING (public.referral_is_admin() OR (org_id IS NOT NULL AND public.is_org_owner(org_id)))
 WITH CHECK (public.referral_is_admin() OR (org_id IS NOT NULL AND public.is_org_owner(org_id)));
 
--- ------------------------------------------- subscription → reward eligible
 CREATE OR REPLACE FUNCTION public.referral_settle_subscription()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -228,7 +211,6 @@ BEGIN
      WHERE l.id = _attribution.link_id;
   END IF;
 
-  -- Only a campaign whose trigger is the subscription becomes eligible here.
   UPDATE public.referral_rewards r
      SET status = 'eligible', qualified_at = COALESCE(r.qualified_at, now())
    WHERE r.attribution_id = _attribution.id
@@ -252,7 +234,6 @@ CREATE TRIGGER referral_settle_subscription_upd
 AFTER UPDATE OF status ON public.subscriptions
 FOR EACH ROW EXECUTE FUNCTION public.referral_settle_subscription();
 
--- ------------------------------------------------------- default campaign
 INSERT INTO public.referral_campaigns (owner_kind, owner_user_id, name, reward_type, reward_rule, trigger_event, is_active)
 SELECT 'platform', ur.user_id, 'MathGPL Referral Campaign', 'payment',
        jsonb_build_object('currency', 'GBP', 'amount', 5),

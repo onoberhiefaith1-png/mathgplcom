@@ -5791,6 +5791,230 @@ export type Database = {
           },
         ]
       }
+      referral_attributions: {
+        Row: {
+          campaign_id: string
+          id: string
+          link_id: string
+          org_id: string | null
+          referred_role: string | null
+          referred_user_id: string
+          referrer_user_id: string
+          registered_at: string
+          subscribed_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          id?: string
+          link_id: string
+          org_id?: string | null
+          referred_role?: string | null
+          referred_user_id: string
+          referrer_user_id: string
+          registered_at?: string
+          subscribed_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          id?: string
+          link_id?: string
+          org_id?: string | null
+          referred_role?: string | null
+          referred_user_id?: string
+          referrer_user_id?: string
+          registered_at?: string
+          subscribed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_attributions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "referral_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_attributions_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "referral_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_campaigns: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          org_id: string | null
+          owner_kind: string
+          owner_user_id: string
+          reward_rule: Json
+          reward_type: string
+          trigger_event: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          org_id?: string | null
+          owner_kind: string
+          owner_user_id: string
+          reward_rule?: Json
+          reward_type?: string
+          trigger_event?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          org_id?: string | null
+          owner_kind?: string
+          owner_user_id?: string
+          reward_rule?: Json
+          reward_type?: string
+          trigger_event?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      referral_events: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          kind: string
+          referred_user_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          kind: string
+          referred_user_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          referred_user_id?: string | null
+        }
+        Relationships: []
+      }
+      referral_links: {
+        Row: {
+          campaign_id: string
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          org_id: string | null
+          referrer_user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          org_id?: string | null
+          referrer_user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          org_id?: string | null
+          referrer_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_links_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "referral_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_rewards: {
+        Row: {
+          amount: number | null
+          attribution_id: string
+          campaign_id: string
+          created_at: string
+          currency: string | null
+          description: string | null
+          discount_kind: string | null
+          id: string
+          org_id: string | null
+          paid_at: string | null
+          paid_note: string | null
+          qualified_at: string | null
+          referrer_user_id: string
+          reward_type: string
+          status: string
+        }
+        Insert: {
+          amount?: number | null
+          attribution_id: string
+          campaign_id: string
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          discount_kind?: string | null
+          id?: string
+          org_id?: string | null
+          paid_at?: string | null
+          paid_note?: string | null
+          qualified_at?: string | null
+          referrer_user_id: string
+          reward_type: string
+          status?: string
+        }
+        Update: {
+          amount?: number | null
+          attribution_id?: string
+          campaign_id?: string
+          created_at?: string
+          currency?: string | null
+          description?: string | null
+          discount_kind?: string | null
+          id?: string
+          org_id?: string | null
+          paid_at?: string | null
+          paid_note?: string | null
+          qualified_at?: string | null
+          referrer_user_id?: string
+          reward_type?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_rewards_attribution_id_fkey"
+            columns: ["attribution_id"]
+            isOneToOne: true
+            referencedRelation: "referral_attributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_rewards_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "referral_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_task_results: {
         Row: {
           assignment_id: string
@@ -8017,6 +8241,7 @@ export type Database = {
       redeem_access_code: { Args: { _code: string }; Returns: string }
       redeem_promo_code: { Args: { _code: string }; Returns: string }
       redeem_staff_code: { Args: { _code: string }; Returns: string }
+      referral_is_admin: { Args: never; Returns: boolean }
       regenerate_my_share_code: { Args: never; Returns: string }
       regenerate_school_code: { Args: { _org_id: string }; Returns: string }
       release_expired_reservations: { Args: never; Returns: number }
