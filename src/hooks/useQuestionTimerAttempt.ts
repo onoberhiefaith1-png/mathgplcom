@@ -275,13 +275,17 @@ export function useQuestionTimerAttempt(opts: {
     setRunningSince(null);
     setCompleted(true);
     setBestMs((prev) => (prev == null || total < prev ? total : prev));
+    setOverallBestMs((prev) => (prev == null || total < prev ? total : prev));
     patch({
       elapsed_ms: total,
       running: false,
       success: true,
       completed_at: new Date().toISOString(),
     });
+    // Re-read the benchmark shortly after the write lands.
+    window.setTimeout(() => setBestStamp((s) => s + 1), 1200);
   }, [active, patch]);
+
 
   /** RESET = start a new attempt. It never touches permanent achievement. */
   const reset = useCallback(async () => {
