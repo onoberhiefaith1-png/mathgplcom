@@ -57,6 +57,7 @@ import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as MathboardIndexRouteImport } from './routes/mathboard/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as NotificationsNotificationIdRouteImport } from './routes/notifications/$notificationId'
+import { Route as NotificationsSentRouteImport } from './routes/notifications/sent'
 import { Route as PlansIndexRouteImport } from './routes/plans/index'
 import { Route as PlansGatewayRouteImport } from './routes/plans/gateway'
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
@@ -552,6 +553,11 @@ const NotificationsNotificationIdRoute =
     path: '/notifications/$notificationId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const NotificationsSentRoute = NotificationsSentRouteImport.update({
+  id: '/notifications/sent',
+  path: '/notifications/sent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlansIndexRoute = PlansIndexRouteImport.update({
   id: '/plans/',
   path: '/plans/',
@@ -2002,6 +2008,7 @@ export interface FileRoutesByFullPath {
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
+  '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -2293,6 +2300,7 @@ export interface FileRoutesByTo {
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
+  '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/access': typeof AccessIndexRoute
   '/account': typeof AccountIndexRoute
@@ -2597,6 +2605,7 @@ export interface FileRoutesById {
   '/g/$handle': typeof GHandleRoute
   '/help/connection': typeof HelpConnectionRoute
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
+  '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
@@ -2902,6 +2911,7 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
+    | '/notifications/sent'
     | '/plans/gateway'
     | '/access/'
     | '/account/'
@@ -3193,6 +3203,7 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
+    | '/notifications/sent'
     | '/plans/gateway'
     | '/access'
     | '/account'
@@ -3496,6 +3507,7 @@ export interface FileRouteTypes {
     | '/g/$handle'
     | '/help/connection'
     | '/notifications/$notificationId'
+    | '/notifications/sent'
     | '/plans/gateway'
     | '/access/'
     | '/account/'
@@ -3798,6 +3810,7 @@ export interface RootRouteChildren {
   GHandleRoute: typeof GHandleRoute
   HelpConnectionRoute: typeof HelpConnectionRoute
   NotificationsNotificationIdRoute: typeof NotificationsNotificationIdRoute
+  NotificationsSentRoute: typeof NotificationsSentRoute
   PlansGatewayRoute: typeof PlansGatewayRoute
   AccessIndexRoute: typeof AccessIndexRoute
   AccountIndexRoute: typeof AccountIndexRoute
@@ -4243,6 +4256,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications/$notificationId'
       fullPath: '/notifications/$notificationId'
       preLoaderRoute: typeof NotificationsNotificationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications/sent': {
+      id: '/notifications/sent'
+      path: '/notifications/sent'
+      fullPath: '/notifications/sent'
+      preLoaderRoute: typeof NotificationsSentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/plans/': {
@@ -6572,6 +6592,7 @@ const rootRouteChildren: RootRouteChildren = {
   GHandleRoute: GHandleRoute,
   HelpConnectionRoute: HelpConnectionRoute,
   NotificationsNotificationIdRoute: NotificationsNotificationIdRoute,
+  NotificationsSentRoute: NotificationsSentRoute,
   PlansGatewayRoute: PlansGatewayRoute,
   AccessIndexRoute: AccessIndexRoute,
   AccountIndexRoute: AccountIndexRoute,
