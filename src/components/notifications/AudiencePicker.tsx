@@ -128,6 +128,47 @@ const AudiencePicker = ({
         </div>
       )}
 
+      {value.kind === "classes" && (
+        <div className="rounded-lg border border-border bg-card p-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Classes</p>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {(classes.data?.classes ?? []).map((klass) => {
+              const chosen = (value.classIds ?? []).includes(klass.id);
+              return (
+                <li key={klass.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new Set(value.classIds ?? []);
+                      if (chosen) next.delete(klass.id);
+                      else next.add(klass.id);
+                      onChange({ ...value, classIds: [...next] });
+                    }}
+                    className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                      chosen
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background text-foreground hover:border-primary"
+                    }`}
+                  >
+                    {klass.name}
+                    {typeof klass.studentCount === "number" && (
+                      <span className={chosen ? "opacity-80" : "text-muted-foreground"}> · {klass.studentCount}</span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+            {(classes.data?.classes ?? []).length === 0 && (
+              <li className="text-sm text-muted-foreground">
+                {classes.isLoading ? "Loading classes…" : "No classes available yet."}
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
+
+
       <div className="rounded-lg border border-border bg-card p-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-card-foreground">
