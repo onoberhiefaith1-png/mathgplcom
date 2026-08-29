@@ -4768,6 +4768,7 @@ export type Database = {
           notification_id: string
           read_at: string | null
           recipient_user_id: string
+          responded_at: string | null
         }
         Insert: {
           created_at?: string
@@ -4775,6 +4776,7 @@ export type Database = {
           notification_id: string
           read_at?: string | null
           recipient_user_id: string
+          responded_at?: string | null
         }
         Update: {
           created_at?: string
@@ -4782,6 +4784,7 @@ export type Database = {
           notification_id?: string
           read_at?: string | null
           recipient_user_id?: string
+          responded_at?: string | null
         }
         Relationships: [
           {
@@ -4795,12 +4798,17 @@ export type Database = {
       }
       notifications: {
         Row: {
+          allow_responses: boolean
+          attachment: Json | null
+          audience: Json | null
           body: string
+          category: string
           context: Json
           created_at: string
           id: string
           kind: string
           parent_id: string | null
+          recipient_count: number
           sender_role: string | null
           sender_user_id: string | null
           subject: string | null
@@ -4808,12 +4816,17 @@ export type Database = {
           thread_root_id: string | null
         }
         Insert: {
+          allow_responses?: boolean
+          attachment?: Json | null
+          audience?: Json | null
           body: string
+          category?: string
           context?: Json
           created_at?: string
           id?: string
           kind: string
           parent_id?: string | null
+          recipient_count?: number
           sender_role?: string | null
           sender_user_id?: string | null
           subject?: string | null
@@ -4821,12 +4834,17 @@ export type Database = {
           thread_root_id?: string | null
         }
         Update: {
+          allow_responses?: boolean
+          attachment?: Json | null
+          audience?: Json | null
           body?: string
+          category?: string
           context?: Json
           created_at?: string
           id?: string
           kind?: string
           parent_id?: string | null
+          recipient_count?: number
           sender_role?: string | null
           sender_user_id?: string | null
           subject?: string | null
@@ -8076,6 +8094,14 @@ export type Database = {
       notebook_shared_to_member: {
         Args: { _notebook_id: string }
         Returns: boolean
+      }
+      notification_engagement: {
+        Args: { _notification_id: string }
+        Returns: {
+          read_count: number
+          recipients: number
+          responded_count: number
+        }[]
       }
       org_of: { Args: { _user_id: string }; Returns: string }
       owner_can_access_user: { Args: { _user_id: string }; Returns: boolean }
