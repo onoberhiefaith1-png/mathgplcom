@@ -122,9 +122,54 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
       });
   }, []);
 
+  /**
+   * RELIABILITY LAYER — explicit PLAY on every floating-number change.
+   *
+   * The autoplay above works, but a seek can abort its single play()
+   * ("interrupted by pause/load") or the media can still be loading, leaving
+   * some lines paused forever. This trigger acts like the Play button being
+   * pressed automatically: it asserts Play, then VERIFIES playback started,
+   * and if the media was not ready it waits for canplay/seeked and presses
+   * Play again. Bounded to a few attempts so it can never loop. It forces
+   * playback only — the student's deliberate mute is never overridden.
+   */
+  const triggerCleanupRef = useRef<(() => void) | null>(null);
+  const triggerFloatingVideoPlay = useCallback(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    triggerCleanupRef.current?.();
+    triggerCleanupRef.current = null;
 
-  
+    const cleanups: Array<() => void> = [];
+    let verified = false;
+    const onPlaying = () => { verified = true; };
 
+    // Press Play immediately. If the media is not ready yet, wait for
+    // readiness (canplay/seeked) and press Play again then.
+    const attempt = () => {
+      if (verified || !el.paused) return; // verified playing — done
+      if (el.readyState >= 2) { playWithSound(el); return; }
+      const onReady = () => { if (!verified && el.paused) playWithSound(el); };
+      el.addEventListener("canplay", onReady, { once: true });
+      el.addEventListener("seeked", onReady, { once: true });
+      cleanups.push(() => {
+        el.removeEventListener("canplay", onReady);
+        el.removeEventListener("seeked", onReady);
+      });
+    };
+
+    // Verify shortly after the seek settles and a couple more times while the
+    // browser catches up — a video left paused is always pressed again.
+    attempt();
+    const timers = [150, 500, 1200].map((ms) =>
+      window.setTimeout(attempt, ms),
+    );
+    el.addEventListener("playing", onPlaying, { once: true });
+    cleanups.push(() => el.removeEventListener("playing", onPlaying));
+    cleanups.push(() => timers.forEach((t) => window.clearTimeout(t)));
+    triggerCleanupRef.current = () => cleanups.forEach((fn) => fn());
+  }, [playWithSound]);
+  useEffect(() => () => triggerCleanupRef.current?.(), []);
 
 
   // ── Presentation state: measured stage + the file's own aspect ratio ─────
@@ -298,7 +343,10 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     // Sound is asserted on EVERY jump, so one interrupted clip can never leave
     // the rest of the lesson silent.
     playWithSound(el);
-  }, [sections, playWithSound]);
+    // Reliability layer: verify the Play actually started; retry if the
+    // seek/load aborted it.
+    triggerFloatingVideoPlay();
+  }, [sections, playWithSound, triggerFloatingVideoPlay]);
 
 
   // ── STAGE 1 · The Introduction opens the lesson ─────────────────────────
