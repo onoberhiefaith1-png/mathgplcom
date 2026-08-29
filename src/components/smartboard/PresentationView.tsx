@@ -54,7 +54,7 @@ import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard
 
 import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
-import QuestionLeaderboardPanel from "./QuestionLeaderboardPanel";
+
 
 import { getPhase, phaseCapabilities } from "@/lib/smartboard/lessonPhase";
 import { renderMathInline } from "@/lib/notebook/mathRender";
@@ -603,7 +603,7 @@ const PresentationView = ({
     return sanitizePlaceholderColorId(saved ?? DEFAULT_PLACEHOLDER_COLOR);
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  
 
   const [topOpen, setTopOpen] = useState(false);
   // Review Properties: the diagram already on this board plus its selection.
