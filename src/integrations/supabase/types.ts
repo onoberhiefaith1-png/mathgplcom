@@ -1519,6 +1519,7 @@ export type Database = {
       }
       classes: {
         Row: {
+          broadcasts: Json
           class_code: string
           community_shared: boolean
           created_at: string
@@ -1528,12 +1529,20 @@ export type Database = {
           name: string
           org_id: string | null
           owner_id: string
+          schedule_days: number[]
+          schedule_end_times: Json
+          schedule_times: Json
           school: string | null
           smartboard_visibility: string
+          time_zone: string | null
           updated_at: string
+          venue_address: string | null
+          venue_details: string | null
+          venue_kind: string
           workspace: string
         }
         Insert: {
+          broadcasts?: Json
           class_code: string
           community_shared?: boolean
           created_at?: string
@@ -1543,12 +1552,20 @@ export type Database = {
           name: string
           org_id?: string | null
           owner_id: string
+          schedule_days?: number[]
+          schedule_end_times?: Json
+          schedule_times?: Json
           school?: string | null
           smartboard_visibility?: string
+          time_zone?: string | null
           updated_at?: string
+          venue_address?: string | null
+          venue_details?: string | null
+          venue_kind?: string
           workspace?: string
         }
         Update: {
+          broadcasts?: Json
           class_code?: string
           community_shared?: boolean
           created_at?: string
@@ -1558,9 +1575,16 @@ export type Database = {
           name?: string
           org_id?: string | null
           owner_id?: string
+          schedule_days?: number[]
+          schedule_end_times?: Json
+          schedule_times?: Json
           school?: string | null
           smartboard_visibility?: string
+          time_zone?: string | null
           updated_at?: string
+          venue_address?: string | null
+          venue_details?: string | null
+          venue_kind?: string
           workspace?: string
         }
         Relationships: [
@@ -5966,6 +5990,7 @@ export type Database = {
           notebook_id: string | null
           owner_id: string
           schedule_days: number[]
+          schedule_end_times: Json
           schedule_time: string | null
           schedule_times: Json
           session_code: string
@@ -5990,6 +6015,7 @@ export type Database = {
           notebook_id?: string | null
           owner_id: string
           schedule_days?: number[]
+          schedule_end_times?: Json
           schedule_time?: string | null
           schedule_times?: Json
           session_code: string
@@ -6014,6 +6040,7 @@ export type Database = {
           notebook_id?: string | null
           owner_id?: string
           schedule_days?: number[]
+          schedule_end_times?: Json
           schedule_time?: string | null
           schedule_times?: Json
           session_code?: string
@@ -6892,6 +6919,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      teaching_schedule_entries: {
+        Row: {
+          created_at: string
+          description: string | null
+          entry_date: string | null
+          id: string
+          owner_id: string
+          position: number
+          scope: string
+          scope_id: string
+          topic: string
+          updated_at: string
+          week_label: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          entry_date?: string | null
+          id?: string
+          owner_id: string
+          position?: number
+          scope: string
+          scope_id: string
+          topic: string
+          updated_at?: string
+          week_label?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          entry_date?: string | null
+          id?: string
+          owner_id?: string
+          position?: number
+          scope?: string
+          scope_id?: string
+          topic?: string
+          updated_at?: string
+          week_label?: string | null
+        }
+        Relationships: []
       }
       usage_events: {
         Row: {
