@@ -196,6 +196,7 @@ import { Route as LiveSSessionIdGameRouteImport } from './routes/live/s/$session
 import { Route as LiveSSessionIdNotesRouteImport } from './routes/live/s/$sessionId/notes'
 import { Route as LiveSessionsSessionIdIndexRouteImport } from './routes/live/sessions/$sessionId/index'
 import { Route as LiveSessionsSessionIdAudienceRouteImport } from './routes/live/sessions/$sessionId/audience'
+import { Route as LiveSessionsSessionIdScheduleRouteImport } from './routes/live/sessions/$sessionId/schedule'
 import { Route as LiveSessionsSessionIdSettingsRouteImport } from './routes/live/sessions/$sessionId/settings'
 import { Route as LiveSessionsCreateIndexRouteImport } from './routes/live/sessions/create/index'
 import { Route as LiveSmartCardsCardIdIndexRouteImport } from './routes/live/smart-cards/$cardId/index'
@@ -274,6 +275,7 @@ import { Route as TeachingHubClassesClassIdGalleryIndexRouteImport } from './rou
 import { Route as TeachingHubClassesClassIdGamesIndexRouteImport } from './routes/teaching-hub/classes/$classId/games/index'
 import { Route as TeachingHubClassesClassIdLessonNotesIndexRouteImport } from './routes/teaching-hub/classes/$classId/lesson-notes/index'
 import { Route as TeachingHubClassesClassIdReportIndexRouteImport } from './routes/teaching-hub/classes/$classId/report/index'
+import { Route as TeachingHubClassesClassIdScheduleIndexRouteImport } from './routes/teaching-hub/classes/$classId/schedule/index'
 import { Route as TeachingHubClassesClassIdSmartboardIndexRouteImport } from './routes/teaching-hub/classes/$classId/smartboard/index'
 import { Route as TeachingHubClassesClassIdStudentsIndexRouteImport } from './routes/teaching-hub/classes/$classId/students/index'
 import { Route as TeachingHubStudentsUserIdAdventuresIndexRouteImport } from './routes/teaching-hub/students/$userId/adventures/index'
@@ -1279,6 +1281,12 @@ const LiveSessionsSessionIdAudienceRoute =
     path: '/sessions/$sessionId/audience',
     getParentRoute: () => LiveRouteRoute,
   } as any)
+const LiveSessionsSessionIdScheduleRoute =
+  LiveSessionsSessionIdScheduleRouteImport.update({
+    id: '/sessions/$sessionId/schedule',
+    path: '/sessions/$sessionId/schedule',
+    getParentRoute: () => LiveRouteRoute,
+  } as any)
 const LiveSessionsSessionIdSettingsRoute =
   LiveSessionsSessionIdSettingsRouteImport.update({
     id: '/sessions/$sessionId/settings',
@@ -1744,6 +1752,12 @@ const TeachingHubClassesClassIdReportIndexRoute =
     path: '/classes/$classId/report/',
     getParentRoute: () => TeachingHubRouteRoute,
   } as any)
+const TeachingHubClassesClassIdScheduleIndexRoute =
+  TeachingHubClassesClassIdScheduleIndexRouteImport.update({
+    id: '/classes/$classId/schedule/',
+    path: '/classes/$classId/schedule/',
+    getParentRoute: () => TeachingHubRouteRoute,
+  } as any)
 const TeachingHubClassesClassIdSmartboardIndexRoute =
   TeachingHubClassesClassIdSmartboardIndexRouteImport.update({
     id: '/classes/$classId/smartboard/',
@@ -2065,6 +2079,7 @@ export interface FileRoutesByFullPath {
   '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
   '/live/s/$sessionId/notes': typeof LiveSSessionIdNotesRoute
   '/live/sessions/$sessionId/audience': typeof LiveSessionsSessionIdAudienceRoute
+  '/live/sessions/$sessionId/schedule': typeof LiveSessionsSessionIdScheduleRoute
   '/live/sessions/$sessionId/settings': typeof LiveSessionsSessionIdSettingsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -2182,6 +2197,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/classes/$classId/games/': typeof TeachingHubClassesClassIdGamesIndexRoute
   '/teaching-hub/classes/$classId/lesson-notes/': typeof TeachingHubClassesClassIdLessonNotesIndexRoute
   '/teaching-hub/classes/$classId/report/': typeof TeachingHubClassesClassIdReportIndexRoute
+  '/teaching-hub/classes/$classId/schedule/': typeof TeachingHubClassesClassIdScheduleIndexRoute
   '/teaching-hub/classes/$classId/smartboard/': typeof TeachingHubClassesClassIdSmartboardIndexRoute
   '/teaching-hub/classes/$classId/students/': typeof TeachingHubClassesClassIdStudentsIndexRoute
   '/teaching-hub/students/$userId/adventures/': typeof TeachingHubStudentsUserIdAdventuresIndexRoute
@@ -2348,6 +2364,7 @@ export interface FileRoutesByTo {
   '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
   '/live/s/$sessionId/notes': typeof LiveSSessionIdNotesRoute
   '/live/sessions/$sessionId/audience': typeof LiveSessionsSessionIdAudienceRoute
+  '/live/sessions/$sessionId/schedule': typeof LiveSessionsSessionIdScheduleRoute
   '/live/sessions/$sessionId/settings': typeof LiveSessionsSessionIdSettingsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -2465,6 +2482,7 @@ export interface FileRoutesByTo {
   '/teaching-hub/classes/$classId/games': typeof TeachingHubClassesClassIdGamesIndexRoute
   '/teaching-hub/classes/$classId/lesson-notes': typeof TeachingHubClassesClassIdLessonNotesIndexRoute
   '/teaching-hub/classes/$classId/report': typeof TeachingHubClassesClassIdReportIndexRoute
+  '/teaching-hub/classes/$classId/schedule': typeof TeachingHubClassesClassIdScheduleIndexRoute
   '/teaching-hub/classes/$classId/smartboard': typeof TeachingHubClassesClassIdSmartboardIndexRoute
   '/teaching-hub/classes/$classId/students': typeof TeachingHubClassesClassIdStudentsIndexRoute
   '/teaching-hub/students/$userId/adventures': typeof TeachingHubStudentsUserIdAdventuresIndexRoute
@@ -2643,6 +2661,7 @@ export interface FileRoutesById {
   '/live/s/$sessionId/game': typeof LiveSSessionIdGameRoute
   '/live/s/$sessionId/notes': typeof LiveSSessionIdNotesRoute
   '/live/sessions/$sessionId/audience': typeof LiveSessionsSessionIdAudienceRoute
+  '/live/sessions/$sessionId/schedule': typeof LiveSessionsSessionIdScheduleRoute
   '/live/sessions/$sessionId/settings': typeof LiveSessionsSessionIdSettingsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -2760,6 +2779,7 @@ export interface FileRoutesById {
   '/teaching-hub/classes/$classId/games/': typeof TeachingHubClassesClassIdGamesIndexRoute
   '/teaching-hub/classes/$classId/lesson-notes/': typeof TeachingHubClassesClassIdLessonNotesIndexRoute
   '/teaching-hub/classes/$classId/report/': typeof TeachingHubClassesClassIdReportIndexRoute
+  '/teaching-hub/classes/$classId/schedule/': typeof TeachingHubClassesClassIdScheduleIndexRoute
   '/teaching-hub/classes/$classId/smartboard/': typeof TeachingHubClassesClassIdSmartboardIndexRoute
   '/teaching-hub/classes/$classId/students/': typeof TeachingHubClassesClassIdStudentsIndexRoute
   '/teaching-hub/students/$userId/adventures/': typeof TeachingHubStudentsUserIdAdventuresIndexRoute
@@ -2939,6 +2959,7 @@ export interface FileRouteTypes {
     | '/live/s/$sessionId/game'
     | '/live/s/$sessionId/notes'
     | '/live/sessions/$sessionId/audience'
+    | '/live/sessions/$sessionId/schedule'
     | '/live/sessions/$sessionId/settings'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -3056,6 +3077,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/$classId/games/'
     | '/teaching-hub/classes/$classId/lesson-notes/'
     | '/teaching-hub/classes/$classId/report/'
+    | '/teaching-hub/classes/$classId/schedule/'
     | '/teaching-hub/classes/$classId/smartboard/'
     | '/teaching-hub/classes/$classId/students/'
     | '/teaching-hub/students/$userId/adventures/'
@@ -3222,6 +3244,7 @@ export interface FileRouteTypes {
     | '/live/s/$sessionId/game'
     | '/live/s/$sessionId/notes'
     | '/live/sessions/$sessionId/audience'
+    | '/live/sessions/$sessionId/schedule'
     | '/live/sessions/$sessionId/settings'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -3339,6 +3362,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/$classId/games'
     | '/teaching-hub/classes/$classId/lesson-notes'
     | '/teaching-hub/classes/$classId/report'
+    | '/teaching-hub/classes/$classId/schedule'
     | '/teaching-hub/classes/$classId/smartboard'
     | '/teaching-hub/classes/$classId/students'
     | '/teaching-hub/students/$userId/adventures'
@@ -3516,6 +3540,7 @@ export interface FileRouteTypes {
     | '/live/s/$sessionId/game'
     | '/live/s/$sessionId/notes'
     | '/live/sessions/$sessionId/audience'
+    | '/live/sessions/$sessionId/schedule'
     | '/live/sessions/$sessionId/settings'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -3633,6 +3658,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/classes/$classId/games/'
     | '/teaching-hub/classes/$classId/lesson-notes/'
     | '/teaching-hub/classes/$classId/report/'
+    | '/teaching-hub/classes/$classId/schedule/'
     | '/teaching-hub/classes/$classId/smartboard/'
     | '/teaching-hub/classes/$classId/students/'
     | '/teaching-hub/students/$userId/adventures/'
@@ -5106,6 +5132,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LiveSessionsSessionIdAudienceRouteImport
       parentRoute: typeof LiveRouteRoute
     }
+    '/live/sessions/$sessionId/schedule': {
+      id: '/live/sessions/$sessionId/schedule'
+      path: '/sessions/$sessionId/schedule'
+      fullPath: '/live/sessions/$sessionId/schedule'
+      preLoaderRoute: typeof LiveSessionsSessionIdScheduleRouteImport
+      parentRoute: typeof LiveRouteRoute
+    }
     '/live/sessions/$sessionId/settings': {
       id: '/live/sessions/$sessionId/settings'
       path: '/sessions/$sessionId/settings'
@@ -5652,6 +5685,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeachingHubClassesClassIdReportIndexRouteImport
       parentRoute: typeof TeachingHubRouteRoute
     }
+    '/teaching-hub/classes/$classId/schedule/': {
+      id: '/teaching-hub/classes/$classId/schedule/'
+      path: '/classes/$classId/schedule'
+      fullPath: '/teaching-hub/classes/$classId/schedule/'
+      preLoaderRoute: typeof TeachingHubClassesClassIdScheduleIndexRouteImport
+      parentRoute: typeof TeachingHubRouteRoute
+    }
     '/teaching-hub/classes/$classId/smartboard/': {
       id: '/teaching-hub/classes/$classId/smartboard/'
       path: '/classes/$classId/smartboard'
@@ -6036,6 +6076,7 @@ interface LiveRouteRouteChildren {
   LiveSSessionIdGameRoute: typeof LiveSSessionIdGameRoute
   LiveSSessionIdNotesRoute: typeof LiveSSessionIdNotesRoute
   LiveSessionsSessionIdAudienceRoute: typeof LiveSessionsSessionIdAudienceRoute
+  LiveSessionsSessionIdScheduleRoute: typeof LiveSessionsSessionIdScheduleRoute
   LiveSessionsSessionIdSettingsRoute: typeof LiveSessionsSessionIdSettingsRoute
   LiveJoinCodeIndexRoute: typeof LiveJoinCodeIndexRoute
   LiveLessonNotesIdIndexRoute: typeof LiveLessonNotesIdIndexRoute
@@ -6073,6 +6114,7 @@ const LiveRouteRouteChildren: LiveRouteRouteChildren = {
   LiveSSessionIdGameRoute: LiveSSessionIdGameRoute,
   LiveSSessionIdNotesRoute: LiveSSessionIdNotesRoute,
   LiveSessionsSessionIdAudienceRoute: LiveSessionsSessionIdAudienceRoute,
+  LiveSessionsSessionIdScheduleRoute: LiveSessionsSessionIdScheduleRoute,
   LiveSessionsSessionIdSettingsRoute: LiveSessionsSessionIdSettingsRoute,
   LiveJoinCodeIndexRoute: LiveJoinCodeIndexRoute,
   LiveLessonNotesIdIndexRoute: LiveLessonNotesIdIndexRoute,
@@ -6275,6 +6317,7 @@ interface TeachingHubRouteRouteChildren {
   TeachingHubClassesClassIdGamesIndexRoute: typeof TeachingHubClassesClassIdGamesIndexRoute
   TeachingHubClassesClassIdLessonNotesIndexRoute: typeof TeachingHubClassesClassIdLessonNotesIndexRoute
   TeachingHubClassesClassIdReportIndexRoute: typeof TeachingHubClassesClassIdReportIndexRoute
+  TeachingHubClassesClassIdScheduleIndexRoute: typeof TeachingHubClassesClassIdScheduleIndexRoute
   TeachingHubClassesClassIdSmartboardIndexRoute: typeof TeachingHubClassesClassIdSmartboardIndexRoute
   TeachingHubClassesClassIdStudentsIndexRoute: typeof TeachingHubClassesClassIdStudentsIndexRoute
   TeachingHubStudentsUserIdAdventuresIndexRoute: typeof TeachingHubStudentsUserIdAdventuresIndexRoute
@@ -6316,6 +6359,8 @@ const TeachingHubRouteRouteChildren: TeachingHubRouteRouteChildren = {
     TeachingHubClassesClassIdLessonNotesIndexRoute,
   TeachingHubClassesClassIdReportIndexRoute:
     TeachingHubClassesClassIdReportIndexRoute,
+  TeachingHubClassesClassIdScheduleIndexRoute:
+    TeachingHubClassesClassIdScheduleIndexRoute,
   TeachingHubClassesClassIdSmartboardIndexRoute:
     TeachingHubClassesClassIdSmartboardIndexRoute,
   TeachingHubClassesClassIdStudentsIndexRoute:
