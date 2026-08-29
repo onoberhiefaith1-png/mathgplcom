@@ -208,9 +208,10 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
    * If a clip did start silent, it unmutes in place and keeps going.
    */
   useEffect(() => {
-    if (audioUnlocked()) return;
+    if (audioUnlocked()) { soundProvenRef.current = true; return; }
     const enable = () => {
       unlockAudio();
+      soundProvenRef.current = true;
       setForcedMute(false);
       const el = videoRef.current;
       if (el) {
@@ -218,6 +219,7 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
         if (el.paused) void el.play().catch(() => undefined);
       }
     };
+
     window.addEventListener("pointerdown", enable, { once: true });
     window.addEventListener("keydown", enable, { once: true });
     window.addEventListener("touchstart", enable, { once: true });
