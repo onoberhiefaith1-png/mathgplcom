@@ -84,7 +84,9 @@ const ClassDashboardPage = () => {
     { label: "Games", icon: Gamepad2, to: `${classRoot()}/${classId}/games`, theme: "games", blurb: "Live game challenges." },
     { label: "Gallery", icon: ImageIcon, to: `${classRoot()}/${classId}/gallery`, theme: "gallery", blurb: "Rewards and student work." },
     { label: "Report", icon: BarChart3, to: `${classRoot()}/${classId}/report`, theme: "reports", blurb: "Progress and trends." },
+    { label: "Schedule", icon: CalendarClock, to: `${classRoot()}/${classId}/schedule`, theme: "classes", blurb: "When, where and what you teach." },
     { label: "Settings", icon: Settings, to: `${classRoot()}/${classId}`, theme: "settings", blurb: "Class preferences." },
+
   ];
   if (loading || !cls) {
     return (
