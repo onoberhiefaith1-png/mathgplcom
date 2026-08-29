@@ -62,8 +62,7 @@ const ClassDashboardPage = () => {
     })();
   }, [classId, navigate, toast, viewOnly]);
 
-    })();
-  }, [classId, navigate, toast, viewOnly]);
+
 
   const inviteLink = cls ? `${window.location.origin}/join/${cls.join_code}` : "";
   const copy = async (label: string, value: string) => {
