@@ -4693,6 +4693,88 @@ export type Database = {
           },
         ]
       }
+      notification_recipients: {
+        Row: {
+          created_at: string
+          id: string
+          notification_id: string
+          read_at: string | null
+          recipient_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notification_id: string
+          read_at?: string | null
+          recipient_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notification_id?: string
+          read_at?: string | null
+          recipient_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_recipients_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string
+          context: Json
+          created_at: string
+          id: string
+          kind: string
+          parent_id: string | null
+          sender_role: string | null
+          sender_user_id: string | null
+          subject: string | null
+          target_path: string | null
+          thread_root_id: string | null
+        }
+        Insert: {
+          body: string
+          context?: Json
+          created_at?: string
+          id?: string
+          kind: string
+          parent_id?: string | null
+          sender_role?: string | null
+          sender_user_id?: string | null
+          subject?: string | null
+          target_path?: string | null
+          thread_root_id?: string | null
+        }
+        Update: {
+          body?: string
+          context?: Json
+          created_at?: string
+          id?: string
+          kind?: string
+          parent_id?: string | null
+          sender_role?: string | null
+          sender_user_id?: string | null
+          subject?: string | null
+          target_path?: string | null
+          thread_root_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           country: string | null
@@ -7363,6 +7445,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_notification_recipient: {
+        Args: { _notification_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_org_owner: { Args: { _org_id: string }; Returns: boolean }
       is_workspace_member: { Args: { _org_id: string }; Returns: boolean }
       issue_account_id: {
@@ -8001,6 +8087,7 @@ export type Database = {
         Args: { _org_id: string; _owner_id: string; _student_id: string }
         Returns: boolean
       }
+      unread_notification_count: { Args: never; Returns: number }
       username_is_valid: { Args: { _username: string }; Returns: boolean }
       workspace_students: {
         Args: { _org_id: string }
