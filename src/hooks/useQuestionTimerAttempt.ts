@@ -12,6 +12,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchQuestionBestTimes } from "@/lib/assessments/bestTimes";
+
 
 // `assessment_timer_attempts` ships with this change, so the generated types
 // do not know it yet.
@@ -157,6 +159,22 @@ export function useQuestionTimerAttempt(opts: {
 
     return () => { cancelled = true; };
   }, [active, assessmentId, studentId, questionId]);
+
+  // ── Best times for THIS question ─────────────────────────────────────────
+  // Two aggregates, no identities: my own fastest success, and the fastest
+  // success by anyone (guests through public links included). Recalculated
+  // whenever a new valid attempt lands (`bestStamp`).
+  useEffect(() => {
+    if (!active) { setOverallBestMs(null); return; }
+    let cancelled = false;
+    void fetchQuestionBestTimes(assessmentId!, questionId!).then((res) => {
+      if (cancelled) return;
+      setOverallBestMs(res.overallBestMs);
+      if (res.myBestMs != null) setBestMs((prev) => (prev == null || res.myBestMs! < prev ? res.myBestMs : prev));
+    });
+    return () => { cancelled = true; };
+  }, [active, assessmentId, questionId, bestStamp]);
+
 
   const patch = useCallback((fields: Record<string, unknown>) => {
     const id = rowIdRef.current;
