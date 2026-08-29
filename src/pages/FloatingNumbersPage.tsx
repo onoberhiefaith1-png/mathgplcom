@@ -931,8 +931,8 @@ const FloatingNumbersPage = () => {
       // TEACHER AUTHORITY: a line the teacher edited by hand is never
       // rewritten by Generate. Its saved version wins and is reported back.
       let preserved = 0;
-      const keepTeacher = (candidate: FloatingLine, prev: FloatingLine[]): FloatingLine => {
-        const mine = prev.find(
+      const guarded = next.map((candidate) => {
+        const mine = lines.find(
           (p) =>
             !p.table &&
             p.editedByTeacher &&
@@ -942,12 +942,12 @@ const FloatingNumbersPage = () => {
         if (!mine) return candidate;
         preserved++;
         return mine;
-      };
+      });
       // Merge back: table lines keep their slot, text lines take the new set.
       setLines((prev) => {
-        const guarded = next.map((n) => keepTeacher(n, prev));
         if (!prev.some((l) => l.table)) return guarded;
         const queue = guarded.slice();
+
         const merged: FloatingLine[] = [];
         for (const l of prev) {
           if (l.table) { merged.push(l); continue; }
