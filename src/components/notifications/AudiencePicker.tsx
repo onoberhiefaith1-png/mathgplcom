@@ -11,7 +11,11 @@ import {
   type AudienceKind,
   type AudienceRequest,
 } from "@/lib/notifications/audience";
-import { listSchoolsForAudience, previewAudience } from "@/lib/notifications/notifications.functions";
+import {
+  listClassesForAudience,
+  listSchoolsForAudience,
+  previewAudience,
+} from "@/lib/notifications/notifications.functions";
 
 /**
  * Efficient audience selection: pick a preset, narrow it by school or region,
@@ -29,12 +33,20 @@ const AudiencePicker = ({
   const [search, setSearch] = useState("");
   const preview = useServerFn(previewAudience);
   const loadSchools = useServerFn(listSchoolsForAudience);
+  const loadClasses = useServerFn(listClassesForAudience);
 
   const kinds = SENDER_AUDIENCES[role];
   const schools = useQuery({
     queryKey: ["notifications", "audience-schools"],
     queryFn: () => loadSchools(),
     enabled: canFilterByRegion(role),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const classes = useQuery({
+    queryKey: ["notifications", "audience-classes"],
+    queryFn: () => loadClasses(),
+    enabled: kinds.includes("classes"),
     staleTime: 5 * 60 * 1000,
   });
 
