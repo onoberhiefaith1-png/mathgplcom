@@ -4,7 +4,12 @@ import { Bell, CheckCheck, Megaphone, MessageSquare, PenSquare } from "lucide-re
 import { Button } from "@/components/ui/button";
 import ComposeNotification from "@/components/notifications/ComposeNotification";
 import { useAccount } from "@/lib/accounts/useAccount";
-import { canSendNotifications } from "@/lib/notifications/audience";
+import {
+  CATEGORY_LABEL,
+  NOTIFICATION_CATEGORIES,
+  canSendNotifications,
+  type NotificationCategory,
+} from "@/lib/notifications/audience";
 import {
   useMarkRead,
   useNotificationList,
@@ -42,8 +47,9 @@ const contextLine = (item: NotificationItem): string => {
 const NotificationsPage = () => {
   const [tab, setTab] = useState<NotificationTab>("all");
   const [composing, setComposing] = useState(false);
+  const [category, setCategory] = useState<NotificationCategory | null>(null);
   const { role } = useAccount();
-  const list = useNotificationList(tab);
+  const list = useNotificationList(tab, category);
   const markRead = useMarkRead();
 
   const items = list.data?.items ?? [];
@@ -62,6 +68,11 @@ const NotificationsPage = () => {
           <Button variant="ghost" size="sm" className="gap-2" onClick={() => markRead.mutate({ all: true })}>
             <CheckCheck className="h-4 w-4" aria-hidden="true" /> Mark all as read
           </Button>
+          {canSend && (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/notifications/sent">Sent</Link>
+            </Button>
+          )}
           {canSend && (
             <Button size="sm" className="gap-2" onClick={() => setComposing((v) => !v)}>
               <PenSquare className="h-4 w-4" aria-hidden="true" />
@@ -95,6 +106,34 @@ const NotificationsPage = () => {
         ))}
       </nav>
 
+      <nav className="mt-3 flex flex-wrap gap-2" aria-label="Notification categories">
+        <button
+          type="button"
+          onClick={() => setCategory(null)}
+          className={`rounded-full border px-2.5 py-1 text-xs transition ${
+            category === null
+              ? "border-primary bg-accent text-foreground"
+              : "border-border bg-background text-muted-foreground hover:border-primary"
+          }`}
+        >
+          All categories
+        </button>
+        {NOTIFICATION_CATEGORIES.map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setCategory(key)}
+            className={`rounded-full border px-2.5 py-1 text-xs transition ${
+              category === key
+                ? "border-primary bg-accent text-foreground"
+                : "border-border bg-background text-muted-foreground hover:border-primary"
+            }`}
+          >
+            {CATEGORY_LABEL[key]}
+          </button>
+        ))}
+      </nav>
+
       <ul className="mt-4 space-y-2">
         {items.map((item) => {
           const Icon = KIND_ICON[item.kind] ?? Bell;
@@ -113,7 +152,7 @@ const NotificationsPage = () => {
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2">
                     <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                      {KIND_LABEL[item.kind]}
+                      {KIND_LABEL[item.kind]} · {CATEGORY_LABEL[item.category]}
                     </span>
                     {unread && <span className="h-2 w-2 rounded-full bg-primary" aria-label="Unread" />}
                   </span>
