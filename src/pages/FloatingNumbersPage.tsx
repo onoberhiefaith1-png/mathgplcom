@@ -20,8 +20,15 @@ import {
   DEFAULT_SCORING,
   SCORE_LABELS,
   repairShiftedFloatingLines,
-
+  markTeacherEdited,
 } from "@/lib/lessonnotes/floatingCompile";
+import {
+  applyPayloadToLine,
+  lineToPayload,
+  readFloatingClipboard,
+  writeFloatingClipboard,
+} from "@/lib/lessonnotes/floatingClipboard";
+
 import { adoptLineIdentities } from "@/lib/lessonnotes/lineIdentity";
 import { sanitizeFillers, detectStructures, STRUCTURE_MARKUP, expandTransitionLine, dropContextualLeadingPlus } from "@/lib/smartboard/floatingExtractor";
 import FloatingWorkspace from "@/components/lessonnotes/FloatingWorkspace";
