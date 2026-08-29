@@ -5380,25 +5380,8 @@ const PresentationView = ({
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (
     <div className="absolute inset-0 flex overflow-hidden" style={{ background: palette.background }}>
-      {/* Per-question class ranking — opened from the Best Time chip. Overlays
-          the board without changing the question, the work, or the timer. */}
-      {leaderboardOpen && timer.active && assessmentId && (boardQuestionId ?? current?.id) && (
-        <QuestionLeaderboardPanel
-          assessmentId={assessmentId}
-          questionId={(boardQuestionId ?? current?.id) as string}
-          classId={classIdProp}
-          viewerId={progressOwnerId}
-          questionLabel={null}
-          onClose={() => setLeaderboardOpen(false)}
-          palette={{
-            chromeBg: palette.chromeBg,
-            chromeFg: palette.chromeFg,
-            chromeBorder: palette.chromeBorder,
-            hoverBg: palette.hoverBg,
-            accent: palette.accent,
-          }}
-        />
-      )}
+
+
 
       {/* Presenter Preview — 30% split pane (teacher only). Not an overlay:
           it lives as a flex sibling so the Smartboard container shrinks to
