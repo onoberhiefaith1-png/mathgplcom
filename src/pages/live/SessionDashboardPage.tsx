@@ -134,6 +134,8 @@ const SessionDashboardPage = () => {
 
   const tiles: { label: string; icon: typeof Users; to: string }[] = [
     { label: "Audience", icon: Users, to: `/live/sessions/${sessionId}/audience` },
+    { label: "Schedule", icon: CalendarClock, to: `/live/sessions/${sessionId}/schedule` },
+
     { label: "Lesson Notes", icon: BookOpen, to: `/live/workspace/${classId}/lesson-notes` },
     { label: "SmartBoard", icon: Presentation, to: `/live/workspace/${classId}/smartboard` },
     { label: "Challenges", icon: ClipboardList, to: `/live/workspace/${classId}/assignments` },
