@@ -56,6 +56,7 @@ import { Route as NotificationsNotificationIdRouteImport } from './routes/notifi
 import { Route as PlansIndexRouteImport } from './routes/plans/index'
 import { Route as PlansGatewayRouteImport } from './routes/plans/gateway'
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
+import { Route as ReferralIndexRouteImport } from './routes/referral/index'
 import { Route as RefundPolicyIndexRouteImport } from './routes/refund-policy/index'
 import { Route as RequestsIndexRouteImport } from './routes/requests/index'
 import { Route as SchoolIndexRouteImport } from './routes/school/index'
@@ -538,6 +539,11 @@ const PlansGatewayRoute = PlansGatewayRouteImport.update({
 const PrivacyIndexRoute = PrivacyIndexRouteImport.update({
   id: '/privacy/',
   path: '/privacy/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReferralIndexRoute = ReferralIndexRouteImport.update({
+  id: '/referral/',
+  path: '/referral/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RefundPolicyIndexRoute = RefundPolicyIndexRouteImport.update({
@@ -1977,6 +1983,7 @@ export interface FileRoutesByFullPath {
   '/notifications/': typeof NotificationsIndexRoute
   '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
+  '/referral/': typeof ReferralIndexRoute
   '/refund-policy/': typeof RefundPolicyIndexRoute
   '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
@@ -2262,6 +2269,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsIndexRoute
   '/plans': typeof PlansIndexRoute
   '/privacy': typeof PrivacyIndexRoute
+  '/referral': typeof ReferralIndexRoute
   '/refund-policy': typeof RefundPolicyIndexRoute
   '/requests': typeof RequestsIndexRoute
   '/school': typeof SchoolIndexRoute
@@ -2559,6 +2567,7 @@ export interface FileRoutesById {
   '/notifications/': typeof NotificationsIndexRoute
   '/plans/': typeof PlansIndexRoute
   '/privacy/': typeof PrivacyIndexRoute
+  '/referral/': typeof ReferralIndexRoute
   '/refund-policy/': typeof RefundPolicyIndexRoute
   '/requests/': typeof RequestsIndexRoute
   '/school/': typeof SchoolIndexRoute
@@ -2857,6 +2866,7 @@ export interface FileRouteTypes {
     | '/notifications/'
     | '/plans/'
     | '/privacy/'
+    | '/referral/'
     | '/refund-policy/'
     | '/requests/'
     | '/school/'
@@ -3142,6 +3152,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/plans'
     | '/privacy'
+    | '/referral'
     | '/refund-policy'
     | '/requests'
     | '/school'
@@ -3438,6 +3449,7 @@ export interface FileRouteTypes {
     | '/notifications/'
     | '/plans/'
     | '/privacy/'
+    | '/referral/'
     | '/refund-policy/'
     | '/requests/'
     | '/school/'
@@ -3728,6 +3740,7 @@ export interface RootRouteChildren {
   NotificationsIndexRoute: typeof NotificationsIndexRoute
   PlansIndexRoute: typeof PlansIndexRoute
   PrivacyIndexRoute: typeof PrivacyIndexRoute
+  ReferralIndexRoute: typeof ReferralIndexRoute
   RefundPolicyIndexRoute: typeof RefundPolicyIndexRoute
   RequestsIndexRoute: typeof RequestsIndexRoute
   SignupIndexRoute: typeof SignupIndexRoute
@@ -4150,6 +4163,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy/'
       preLoaderRoute: typeof PrivacyIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/referral/': {
+      id: '/referral/'
+      path: '/referral'
+      fullPath: '/referral/'
+      preLoaderRoute: typeof ReferralIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/refund-policy/': {
@@ -6433,6 +6453,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsIndexRoute: NotificationsIndexRoute,
   PlansIndexRoute: PlansIndexRoute,
   PrivacyIndexRoute: PrivacyIndexRoute,
+  ReferralIndexRoute: ReferralIndexRoute,
   RefundPolicyIndexRoute: RefundPolicyIndexRoute,
   RequestsIndexRoute: RequestsIndexRoute,
   SignupIndexRoute: SignupIndexRoute,
