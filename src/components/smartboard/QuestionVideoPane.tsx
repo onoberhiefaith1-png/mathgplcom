@@ -293,17 +293,11 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
     el.pause();
     try { el.currentTime = target.start; } catch { /* not seekable yet */ }
     if (!autoplay) return;
-    // Sound is asserted on EVERY jump, so one blocked clip can never leave the
-    // rest of the lesson silent.
-    setForcedMute(false);
-    el.muted = muted;
-    void el.play().catch(() => {
-      // Sound-on autoplay refused: keep teaching silently until any gesture.
-      el.muted = true;
-      setForcedMute(true);
-      void el.play().catch(() => undefined);
-    });
-  }, [sections, muted]);
+    // Sound is asserted on EVERY jump, so one interrupted clip can never leave
+    // the rest of the lesson silent.
+    playWithSound(el);
+  }, [sections, playWithSound]);
+
 
   // ── STAGE 1 · The Introduction opens the lesson ─────────────────────────
   // It starts by itself, with sound, the moment the board is ready — the
