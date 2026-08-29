@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, GraduationCap, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Clapperboard, GraduationCap, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
