@@ -212,6 +212,8 @@ function RootComponent() {
         <AuthProvider>
           <TooltipProvider>
             <Toaster />
+            <SonnerToaster />
+
             <ImpersonationBanner />
             <FullscreenToggle />
             <GlobalSoundtrack />
