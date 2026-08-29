@@ -3945,6 +3945,50 @@ export type Database = {
           },
         ]
       }
+      guest_question_times: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          elapsed_ms: number
+          guest_token: string
+          id: string
+          link_id: string
+          question_id: string
+          success: boolean
+          updated_at: string
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          elapsed_ms?: number
+          guest_token: string
+          id?: string
+          link_id: string
+          question_id: string
+          success?: boolean
+          updated_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          elapsed_ms?: number
+          guest_token?: string
+          id?: string
+          link_id?: string
+          question_id?: string
+          success?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_question_times_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "guest_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrity_audit_runs: {
         Row: {
           actor: string | null
@@ -7856,6 +7900,13 @@ export type Database = {
       }
       profit_percentage_at: { Args: { _at?: string }; Returns: number }
       publish_plan_version: { Args: { _plan_id: string }; Returns: string }
+      question_best_times: {
+        Args: { _assessment_id: string; _question_id: string }
+        Returns: {
+          my_best_ms: number
+          overall_best_ms: number
+        }[]
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
