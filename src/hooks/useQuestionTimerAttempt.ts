@@ -79,6 +79,9 @@ export function useQuestionTimerAttempt(opts: {
   const [confirmed, setConfirmed] = useState<Record<string, number>>({});
   const [bestMs, setBestMs] = useState<number | null>(null);
   const [overallBestMs, setOverallBestMs] = useState<number | null>(null);
+  /** Bumped whenever a valid attempt completes, so the benchmark re-reads. */
+  const [bestStamp, setBestStamp] = useState(0);
+
 
   const [completed, setCompleted] = useState(false);
   const [tick, setTick] = useState(0);
