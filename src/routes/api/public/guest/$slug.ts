@@ -234,8 +234,48 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
             },
             { onConflict: "link_id,guest_token" },
           );
+
+        // ── Guest solving time (benchmark only) ──────────────────────────
+        // A guest's valid time counts towards the question's Overall Best
+        // Time. It never becomes student progress and carries no identity
+        // into any class, dashboard or roster.
+        const elapsedMs = Math.max(0, Math.floor(Number(body["elapsedMs"]) || 0));
+        const completed = body["completed"] === true;
+        if (assessmentId && questionId && elapsedMs > 0) {
+          const { data: existing } = await admin
+            .from("guest_question_times")
+            .select("id, elapsed_ms, success")
+            .eq("link_id", link.id)
+            .eq("guest_token", token)
+            .eq("assessment_id", assessmentId)
+            .eq("question_id", questionId)
+            .maybeSingle();
+          if (!existing) {
+            await admin.from("guest_question_times").insert({
+              link_id: link.id,
+              guest_token: token,
+              assessment_id: assessmentId,
+              question_id: questionId,
+              elapsed_ms: elapsedMs,
+              success: completed,
+            });
+          } else {
+            // Keep the guest's FASTEST valid time; a slower one changes nothing.
+            const prev = Number(existing.elapsed_ms) || 0;
+            const keepFaster = existing.success && prev > 0 && prev <= elapsedMs;
+            await admin
+              .from("guest_question_times")
+              .update({
+                elapsed_ms: keepFaster ? prev : elapsedMs,
+                success: existing.success || completed,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existing.id);
+          }
+        }
         return json({ ok: true });
       },
+
 
     },
   },

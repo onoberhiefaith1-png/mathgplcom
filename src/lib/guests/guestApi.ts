@@ -93,11 +93,20 @@ export const fetchGuestVideo = async (
   };
 };
 
-/** "I am here, on this question." Lets the teacher watch live guests. */
+/** "I am here, on this question." Lets the teacher watch live guests, and
+ *  carries the guest's solving time towards the question's Overall Best Time. */
 export const sendGuestHeartbeat = async (
   code: string,
-  payload: { token: string; name?: string | null; assessmentId?: string | null; questionId?: string | null },
+  payload: {
+    token: string;
+    name?: string | null;
+    assessmentId?: string | null;
+    questionId?: string | null;
+    elapsedMs?: number;
+    completed?: boolean;
+  },
 ): Promise<void> => {
+
   try {
     await fetch(base(code), {
       method: "POST",
