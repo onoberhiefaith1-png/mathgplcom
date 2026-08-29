@@ -228,10 +228,15 @@ BEGIN
      WHERE l.id = _attribution.link_id;
   END IF;
 
+  -- Only a campaign whose trigger is the subscription becomes eligible here.
   UPDATE public.referral_rewards r
      SET status = 'eligible', qualified_at = COALESCE(r.qualified_at, now())
    WHERE r.attribution_id = _attribution.id
-     AND r.status = 'pending';
+     AND r.status = 'pending'
+     AND EXISTS (
+       SELECT 1 FROM public.referral_campaigns c
+        WHERE c.id = r.campaign_id AND c.trigger_event = 'subscription'
+     );
 
   RETURN NEW;
 END;
