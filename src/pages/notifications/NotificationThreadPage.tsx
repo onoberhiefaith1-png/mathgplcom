@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useParams } from "@/lib/router-compat";
-import { ArrowLeft, ExternalLink, Send } from "lucide-react";
+import { ArrowLeft, ExternalLink, Paperclip, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useNotificationThread, useRespond } from "@/lib/notifications/useNotifications";
+import { CATEGORY_LABEL } from "@/lib/notifications/audience";
 import type { NotificationItem } from "@/lib/notifications/types";
 
 const ContextCard = ({ item }: { item: NotificationItem }) => {
@@ -42,10 +43,26 @@ const Message = ({ item }: { item: NotificationItem }) => (
       </h2>
       <time className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</time>
     </header>
+    {item.kind !== "response" && (
+      <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">
+        {CATEGORY_LABEL[item.category]}
+      </p>
+    )}
     {item.subject && item.kind !== "response" && (
       <p className="mt-1 text-base font-medium text-foreground">{item.subject}</p>
     )}
     <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{item.body}</p>
+    {item.attachment && (
+      <a
+        href={item.attachment.url}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+      >
+        <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
+        {item.attachment.name ?? "Attachment"}
+      </a>
+    )}
   </article>
 );
 
@@ -86,6 +103,21 @@ const NotificationThreadPage = () => {
             <Message key={item.id} item={item} />
           ))}
 
+          {thread.data?.engagement && (
+            <p className="rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground">
+              {thread.data.engagement.recipients} recipient
+              {thread.data.engagement.recipients === 1 ? "" : "s"} · {thread.data.engagement.read} read ·{" "}
+              {thread.data.engagement.responded} responded
+            </p>
+          )}
+
+          {!root.allowResponses && (
+            <p className="rounded-xl border border-border bg-muted p-3 text-sm text-muted-foreground">
+              This notification does not accept responses.
+            </p>
+          )}
+
+          {root.allowResponses && (
           <form
             className="rounded-xl border border-border bg-card p-3"
             onSubmit={(event) => {
@@ -123,6 +155,7 @@ const NotificationThreadPage = () => {
               </Button>
             </div>
           </form>
+          )}
         </div>
       )}
     </main>
