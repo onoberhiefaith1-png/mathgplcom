@@ -142,8 +142,13 @@ export function useSmartboardSync(opts: {
   const applyDelta = useCallback((msg: BoardDelta | null) => {
     if (!msg || typeof msg.seq !== "number") return;
     if (msg.author && selfIdRef.current && msg.author === selfIdRef.current) return; // own echo
-    if (msg.seq <= lastSeenSeqRef.current) return; // stale / out-of-order frame
-    lastSeenSeqRef.current = msg.seq;
+    const who = msg.author || "anon";
+    const seen = lastSeenSeqRef.current.get(who) ?? 0;
+    // Only drop true duplicates/out-of-order frames from the SAME sender. A
+    // counter that jumped back to a low value means that sender remounted, so
+    // adopt it rather than discarding every later frame forever.
+    if (msg.seq === seen || (msg.seq < seen && msg.seq > 1)) return;
+    lastSeenSeqRef.current.set(who, msg.seq);
     const base = msg.full ? null : remoteBaseRef.current;
     const merged = { ...(base ?? {}), ...msg.patch } as BoardState;
     remoteBaseRef.current = merged;
