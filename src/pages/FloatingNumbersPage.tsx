@@ -987,6 +987,93 @@ const FloatingNumbersPage = () => {
     setLines((prev) => prev.map((l) => ({ ...l, arrangement: rearrangeIndices(l.fillers.length) })));
   }, []);
 
+  /* ---------- Teacher line controls (delete / copy / paste / order) ------- */
+  const mutate = useCallback((fn: (prev: FloatingLine[]) => FloatingLine[]) => {
+    dirtyRef.current = true;
+    setLines((prev) => fn(prev));
+  }, []);
+
+  const copyLine = useCallback(async (l: FloatingLine) => {
+    const ok = await writeFloatingClipboard(lineToPayload(l));
+    toast(
+      ok
+        ? { title: "Copied", description: "Floating objects copied — structure preserved." }
+        : { title: "Could not copy", description: "Your browser blocked clipboard access.", variant: "destructive" },
+    );
+  }, []);
+
+  const pasteIntoLine = useCallback(async (index: number) => {
+    const payload = await readFloatingClipboard();
+    if (!payload) {
+      toast({ title: "Nothing to paste", description: "No mathematical content found on the clipboard.", variant: "destructive" });
+      return;
+    }
+    mutate((prev) =>
+      prev.map((p, i) => (i === index ? markTeacherEdited(applyPayloadToLine(p, payload)) : p)),
+    );
+    toast({ title: "Pasted", description: `${payload.fillers.length} floating objects placed on this line.` });
+  }, [mutate]);
+
+  const deleteLineContent = useCallback((index: number) => {
+    mutate((prev) =>
+      prev.map((p, i) =>
+        i === index
+          ? markTeacherEdited({
+              ...p,
+              fillers: [],
+              containers: [],
+              arrangement: [],
+              fillersSelected: [],
+              containersSelected: [],
+            })
+          : p,
+      ),
+    );
+    toast({ title: "Line cleared", description: "You can now paste or build the correct objects." });
+  }, [mutate]);
+
+  const duplicateLine = useCallback((index: number) => {
+    mutate((prev) => {
+      const src = prev[index];
+      if (!src || src.table) return prev;
+      const copy = markTeacherEdited({
+        ...src,
+        lineId: newId(),
+        sourceUid: undefined,
+        fillers: src.fillers.slice(),
+        containers: src.containers.slice(),
+        arrangement: identityArrangement(src.fillers.length),
+        fillersSelected: src.fillers.map(() => false),
+        containersSelected: src.containers.map(() => false),
+      });
+      const out = prev.slice();
+      out.splice(index + 1, 0, copy);
+      return out;
+    });
+  }, [mutate]);
+
+  const moveLine = useCallback((index: number, dir: -1 | 1) => {
+    mutate((prev) => {
+      const to = index + dir;
+      if (to < 0 || to >= prev.length) return prev;
+      if (prev[index]?.table || prev[to]?.table) return prev;
+      const out = prev.slice();
+      [out[index], out[to]] = [out[to], out[index]];
+      return out;
+    });
+  }, [mutate]);
+
+  /** Release ONE line from teacher ownership so the next Generate rebuilds it. */
+  const allowRegenerate = useCallback((index: number) => {
+    mutate((prev) =>
+      prev.map((p, i) =>
+        i === index ? { ...p, editedByTeacher: false, editedAt: undefined } : p,
+      ),
+    );
+    toast({ title: "Line released", description: "Generate Floating Numbers will rebuild this line." });
+  }, [mutate]);
+
+
   const resetAll = useCallback(() => {
     dirtyRef.current = true;
     setLines((prev) => {
