@@ -273,7 +273,7 @@ export function EditorWorkspace({ projectId }: { projectId?: string | undefined 
     return (
       <div className="dark min-h-screen bg-background text-foreground">
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-          <Button variant="ghost" size="sm" onClick={() => void navigate({ to: "/" })}>
+          <Button variant="ghost" size="sm" onClick={() => void navigate({ to: "/course-edit" })}>
             <ArrowLeft className="mr-1.5 size-4" />
             Back
           </Button>
@@ -285,7 +285,7 @@ export function EditorWorkspace({ projectId }: { projectId?: string | undefined 
             variant="outline"
             size="sm"
             className="ml-auto"
-            onClick={() => void navigate({ to: "/gallery" })}
+            onClick={() => void navigate({ to: "/course-edit/gallery" })}
           >
             Gallery
           </Button>
@@ -317,7 +317,7 @@ export function EditorWorkspace({ projectId }: { projectId?: string | undefined 
           previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
           seek(0);
         }}
-        onBack={() => void navigate({ to: "/" })}
+        onBack={() => void navigate({ to: "/course-edit" })}
       />
 
       <WorkflowBar

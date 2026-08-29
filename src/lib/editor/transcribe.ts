@@ -6,7 +6,7 @@ import type { SpeechRun } from "./vad";
 async function transcribeChunk(blob: Blob): Promise<string> {
   const form = new FormData();
   form.append("file", new File([blob], "audio.wav", { type: "audio/wav" }));
-  const response = await fetch("/api/transcribe", { method: "POST", body: form });
+  const response = await fetch("/api/course-edit/transcribe", { method: "POST", body: form });
   const payload = (await response.json().catch(() => ({}))) as { text?: string; error?: string };
   if (!response.ok) throw new Error(payload.error ?? `Transcription failed (${response.status})`);
   return payload.text ?? "";

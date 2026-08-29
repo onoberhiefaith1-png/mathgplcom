@@ -3,9 +3,9 @@ import { ArrowLeft, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const LINKS = [
-  { to: "/", label: "Home" },
-  { to: "/engine", label: "Video Engine" },
-  { to: "/gallery", label: "Gallery" },
+  { to: "/course-edit", label: "Home" },
+  { to: "/course-edit/engine", label: "Video Engine" },
+  { to: "/course-edit/gallery", label: "Gallery" },
 ] as const;
 
 export function SiteNav() {
@@ -19,13 +19,13 @@ export function SiteNav() {
           className="shrink-0 px-2"
           onClick={() => {
             if (typeof window !== "undefined" && window.history.length > 1) router.history.back();
-            else void router.navigate({ to: "/" });
+            else void router.navigate({ to: "/course-edit" });
           }}
         >
           <ArrowLeft className="size-4 sm:mr-1.5" />
           <span className="hidden sm:inline">Back</span>
         </Button>
-        <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
+        <Link to="/course-edit" className="flex items-center gap-2 font-semibold tracking-tight">
           <Clapperboard className="size-5 text-primary" />
           Lesson Studio
         </Link>

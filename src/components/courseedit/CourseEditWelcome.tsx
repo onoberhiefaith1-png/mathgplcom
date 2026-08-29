@@ -58,13 +58,13 @@ export function WelcomePage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Button
               size="lg"
-              onClick={() => void navigate({ to: "/engine", search: { project: newProjectId() } })}
+              onClick={() => void navigate({ to: "/course-edit/engine", search: { project: newProjectId() } })}
             >
               Create a Video
               <ArrowRight className="ml-2 size-4" />
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link to="/gallery">Open Project</Link>
+              <Link to="/course-edit/gallery">Open Project</Link>
             </Button>
           </div>
 
@@ -102,7 +102,7 @@ export function WelcomePage() {
               </p>
             </div>
             <Button variant="ghost" asChild>
-              <Link to="/gallery">View gallery</Link>
+              <Link to="/course-edit/gallery">View gallery</Link>
             </Button>
           </div>
 
@@ -115,7 +115,7 @@ export function WelcomePage() {
               {recent.slice(0, 6).map((meta) => (
                 <Link
                   key={meta.key}
-                  to="/engine"
+                  to="/course-edit/engine"
                   search={{ project: meta.key }}
                   className="group overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary/60"
                 >

@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SiteNav } from "@/components/site/SiteNav";
+import { SiteNav } from "@/components/courseedit/CourseEditNav";
 import {
   deleteProject,
   duplicateProject,
@@ -155,7 +155,7 @@ export function GalleryPage() {
           <div className="mt-10 rounded-lg border border-dashed border-border p-12 text-center">
             <p className="text-sm text-muted-foreground">Nothing saved yet.</p>
             <Button className="mt-4" asChild>
-              <Link to="/engine">Start a new video</Link>
+              <Link to="/course-edit/engine">Start a new video</Link>
             </Button>
           </div>
         ) : (
@@ -194,7 +194,7 @@ export function GalleryPage() {
                     <Action
                       label="Edit"
                       onClick={() =>
-                        void navigate({ to: "/engine", search: { project: meta.key } })
+                        void navigate({ to: "/course-edit/engine", search: { project: meta.key } })
                       }
                     >
                       <Pencil className="size-3.5" />

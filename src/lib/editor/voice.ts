@@ -6,7 +6,7 @@ export async function speakSegment(
   voice: string,
   instructions: string,
 ): Promise<Blob> {
-  const response = await fetch("/api/speak", {
+  const response = await fetch("/api/course-edit/speak", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, voice, instructions }),
