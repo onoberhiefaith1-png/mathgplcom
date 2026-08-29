@@ -154,7 +154,47 @@ const CreateClassPage = () => {
               <Label htmlFor="description">Description (Optional)</Label>
               <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
             </div>
+
+            <ScheduleEditor
+              days={meeting.scheduleDays}
+              times={meeting.scheduleTimes}
+              endTimes={meeting.scheduleEndTimes}
+              onChange={(scheduleDays, scheduleTimes) =>
+                setMeeting((m) => ({ ...m, scheduleDays, scheduleTimes }))
+              }
+              onEndChange={(scheduleEndTimes) => setMeeting((m) => ({ ...m, scheduleEndTimes }))}
+            />
+
+            <div className="space-y-2">
+              <Label htmlFor="tz">Time Zone</Label>
+              <select
+                id="tz"
+                value={meeting.timeZone ?? TIME_ZONES[0]}
+                onChange={(e) => setMeeting((m) => ({ ...m, timeZone: e.target.value }))}
+                className={`h-10 w-full rounded-md border px-3 text-sm outline-hidden focus:border-primary ${FIELD}`}
+              >
+                {TIME_ZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}
+              </select>
+            </div>
+
+            <VenueEditor
+              kind={meeting.venue.kind}
+              broadcasts={meeting.venue.broadcasts}
+              address={meeting.venue.address ?? ""}
+              details={meeting.venue.details ?? ""}
+              onKindChange={(kind) => setMeeting((m) => ({ ...m, venue: { ...m.venue, kind } }))}
+              onBroadcastsChange={(broadcasts) => setMeeting((m) => ({ ...m, venue: { ...m.venue, broadcasts } }))}
+              onAddressChange={(address) => setMeeting((m) => ({ ...m, venue: { ...m.venue, address } }))}
+              onDetailsChange={(details) => setMeeting((m) => ({ ...m, venue: { ...m.venue, details } }))}
+            />
+
+            <p className="text-xs text-muted-foreground">
+              You can change any of this later, and plan what you will teach each week, in the class
+              Schedule.
+            </p>
+
             <button
+
               type="submit"
               disabled={submitting}
               className="w-full rounded-md bg-primary px-4 py-2.5 font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
