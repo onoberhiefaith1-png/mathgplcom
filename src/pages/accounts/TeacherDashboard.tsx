@@ -2,6 +2,7 @@ import { Building2, CalendarClock, ClipboardList, GraduationCap, Lock, Users } f
 
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
+import ReferEarnCard from "@/components/referrals/ReferEarnCard";
 import { ActivityList, EmptyNote, RailCard, StatCard } from "@/components/workspace/DashboardParts";
 import DashboardHero from "@/components/workspace/DashboardHero";
 import { useTeacherStats } from "@/lib/workspace/useWorkspaceStats";
@@ -166,6 +167,8 @@ const TeacherDashboard = () => {
           </ul>
         )}
       </section>
+
+      <ReferEarnCard />
 
       <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
         <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">Quick actions</h2>

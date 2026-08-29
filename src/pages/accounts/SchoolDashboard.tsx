@@ -2,6 +2,7 @@ import { Building2, GraduationCap, Inbox, Users } from "lucide-react";
 
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
+import ReferEarnCard from "@/components/referrals/ReferEarnCard";
 import DashboardHero from "@/components/workspace/DashboardHero";
 import { ActivityList, EmptyNote, RailCard, StatCard } from "@/components/workspace/DashboardParts";
 import { useSchoolStats } from "@/lib/workspace/useWorkspaceStats";
@@ -76,6 +77,8 @@ const SchoolDashboard = () => {
         <StatCard label="Classes" value={data?.classes ?? 0} icon={Building2} loading={isLoading} />
         <StatCard label="Pending requests" value={data?.pendingRequests ?? 0} icon={Inbox} loading={isLoading} to="/requests" />
       </div>
+
+      <ReferEarnCard />
 
       <section className="rounded-2xl border border-border/60 bg-card/60 p-5">
         <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">Quick actions</h2>
