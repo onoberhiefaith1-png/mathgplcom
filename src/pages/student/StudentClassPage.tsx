@@ -503,7 +503,20 @@ const StudentClassPage = () => {
             </Link>
           </Tile>
         </div>
+
+        {classId && (
+          <section className="mt-4 rounded-2xl border border-border bg-card/50 p-5 backdrop-blur">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Schedule
+            </div>
+            <p className="mt-1 mb-3 text-sm text-muted-foreground">
+              What your teacher will teach, and when.
+            </p>
+            <SchedulePlanPanel scope="class" scopeId={classId} canEdit={false} />
+          </section>
+        )}
       </main>
+
     </div>
   );
 
