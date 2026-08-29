@@ -614,11 +614,13 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             // text/groupId search survives purely as the adoption path for rows
             // that were never stamped (empty map ⇒ nothing to claim).
             const byIdentity = linesByIdentity.get(String((h as any).uid ?? ""));
+            // A line must never end up with NO chips: when identity adoption
+            // missed this highlight (legacy rows, renumbered groupIds, repeated
+            // payload text), fall back to the verified text/groupId search and
+            // finally to the single-highlight fallback so the line stays solvable.
             const matched = byIdentity
-              ?? (linesByIdentity.size === 0
-                    ? (findVerifiedFloatingLine(payload, rawLines, (h as any).groupId)
-                        ?? singleHighlightFallback(payload))
-                    : { equation: payload, fillers: [], containers: [] as ContainerKind[] });
+              ?? findVerifiedFloatingLine(payload, rawLines, (h as any).groupId)
+              ?? singleHighlightFallback(payload);
 
             const ownNotebook = String(h.precedingNotebook ?? "").trim();
             acc.push({
