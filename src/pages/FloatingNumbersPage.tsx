@@ -1623,9 +1623,22 @@ const FloatingNumbersPage = () => {
                         scoringMode={scoring.mode}
                         onChange={(next) => {
                           dirtyRef.current = true;
-                          setLines((prev) => prev.map((p, idx) => (idx === i ? next : p)));
+                          // Every workspace mutation is a TEACHER edit.
+                          setLines((prev) =>
+                            prev.map((p, idx) => (idx === i ? markTeacherEdited(next) : p)),
+                          );
                         }}
+                        onCopyLine={() => copyLine(l)}
+                        onPasteLine={() => pasteIntoLine(i)}
+                        onDeleteLine={() => deleteLineContent(i)}
+                        onDuplicateLine={l.table ? undefined : () => duplicateLine(i)}
+                        onMoveUp={l.table ? undefined : () => moveLine(i, -1)}
+                        onMoveDown={l.table ? undefined : () => moveLine(i, 1)}
+                        canMoveUp={i > 0 && !lines[i - 1]?.table}
+                        canMoveDown={i < lines.length - 1 && !lines[i + 1]?.table}
+                        onRegenerateLine={() => allowRegenerate(i)}
                       />
+
                       <NoteObjectCard
                         objects={((l.noteObjects ?? []) as SolutionObject[])}
                       />
