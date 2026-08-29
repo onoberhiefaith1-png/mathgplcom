@@ -76,6 +76,8 @@ export function useQuestionTimerAttempt(opts: {
   const [runningSince, setRunningSince] = useState<number | null>(null);
   const [confirmed, setConfirmed] = useState<Record<string, number>>({});
   const [bestMs, setBestMs] = useState<number | null>(null);
+  const [overallBestMs, setOverallBestMs] = useState<number | null>(null);
+
   const [completed, setCompleted] = useState(false);
   const [tick, setTick] = useState(0);
 
@@ -296,14 +298,16 @@ export function useQuestionTimerAttempt(opts: {
       elapsedMs,
       running: runningSince != null,
       bestMs,
+      overallBestMs,
       confirmed,
       markInput,
       confirmLine,
       complete,
       reset,
     }),
-    [active, ready, attemptNo, elapsedMs, runningSince, bestMs, confirmed, markInput, confirmLine, complete, reset],
+    [active, ready, attemptNo, elapsedMs, runningSince, bestMs, overallBestMs, confirmed, markInput, confirmLine, complete, reset],
   );
+
 }
 
 export default useQuestionTimerAttempt;
