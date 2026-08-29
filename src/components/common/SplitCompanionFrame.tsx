@@ -21,33 +21,60 @@ interface Props {
   companion: ReactNode;
   view: SplitView;
   className?: string;
-  /** Column ratio on a wide screen. Defaults to the Courses ratio. */
-  splitCols?: string;
+  /** Wide-screen column template for the split position. */
+  splitColumns?: string;
+  /** Extra classes for the main panel. */
+  mainClassName?: string;
+  /** Extra classes for the companion panel in the split / companion positions. */
+  companionClassName?: string;
 }
 
-const SplitCompanionFrame = ({ main, companion, view, className, splitCols = "1.4fr 1fr" }: Props) => (
+const SplitCompanionFrame = ({
+  main,
+  companion,
+  view,
+  className,
+  splitColumns = "lg:grid-cols-[1.4fr_1fr]",
+  mainClassName,
+  companionClassName,
+}: Props) => (
   <div
-    className={cn("grid h-full min-h-0 overflow-hidden", className)}
-    style={
+    className={cn(
+      "grid h-full min-h-0 overflow-hidden",
       view === "split"
-        ? ({ ["--split-cols" as string]: splitCols } as React.CSSProperties)
-        : undefined
-    }
+        ? cn(
+            "grid-cols-1 grid-rows-[minmax(0,1.15fr)_minmax(0,1fr)] gap-px bg-border lg:grid-rows-1",
+            splitColumns,
+          )
+        : "grid-cols-1 grid-rows-1",
+      className,
+    )}
   >
     <div
       className={cn(
-        "col-start-1 row-start-1 min-h-0 min-w-0",
-        view === "split" && "col-span-1",
+        "relative min-h-0 min-w-0 bg-background",
+        view === "video" && "hidden",
+        mainClassName,
       )}
-      style={
-        view === "split"
-          ? undefined
-          : undefined
-      }
+      aria-hidden={view === "video"}
+      // Keeps a parked work surface out of the tab order and out of the way of
+      // the companion's controls.
+      {...(view === "video" ? { inert: "" as unknown as boolean } : {})}
     >
       {main}
     </div>
-    {companion}
+
+    <div
+      className={cn(
+        "min-h-0 min-w-0",
+        view === "board"
+          ? "pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+          : cn("h-full bg-background p-2", companionClassName),
+      )}
+      aria-hidden={view === "board"}
+    >
+      {companion}
+    </div>
   </div>
 );
 
