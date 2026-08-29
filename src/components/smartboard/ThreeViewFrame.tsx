@@ -12,8 +12,8 @@
 // the caller in the screen header — never as an overlay on the work surface.
 
 import { useEffect, useState, type ReactNode } from "react";
-import { cn } from "@/lib/utils";
 import type { QuestionVideoConfig, VideoLine } from "@/lib/courses/questionVideo";
+import SplitCompanionFrame from "@/components/common/SplitCompanionFrame";
 import QuestionVideoPane, { type LineContext } from "./QuestionVideoPane";
 import type { BoardVideoView } from "@/components/student/BoardViewSwitcher";
 
@@ -49,42 +49,15 @@ interface Props {
   view: BoardVideoView;
 }
 
+/** The question player in the shared split frame — the board is the main
+ *  surface, the teaching video the companion. */
 const ThreeViewFrame = ({ config, lines, lineContext, board, view }: Props) => (
-  /*
-    One height-constrained grid for every view. On a wide screen the split is
-    two columns; on a narrow one it becomes two rows that divide the available
-    height, so the player never needs a fixed dvh size and nothing overflows.
-  */
-  <div
-    className={cn(
-      "grid h-full min-h-0 overflow-hidden",
-      view === "split"
-        ? "grid-cols-1 grid-rows-[minmax(0,1.15fr)_minmax(0,1fr)] gap-px bg-border lg:grid-cols-[1.4fr_1fr] lg:grid-rows-1"
-        : "grid-cols-1 grid-rows-1",
-    )}
-  >
-    <div
-      className={cn("relative min-h-0 min-w-0 bg-background", view === "video" && "hidden")}
-      aria-hidden={view === "video"}
-      // Keeps the parked board out of the tab order and out of the way of the
-      // player's controls.
-      {...(view === "video" ? { inert: "" as unknown as boolean } : {})}
-    >
-      {board}
-    </div>
-
-    <div
-      className={cn(
-        "min-h-0 min-w-0",
-        view === "board"
-          ? "pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
-          : "h-full bg-background p-2",
-      )}
-      aria-hidden={view === "board"}
-    >
-      <QuestionVideoPane config={config} lines={lines} lineContext={lineContext} />
-    </div>
-  </div>
+  <SplitCompanionFrame
+    view={view}
+    main={board}
+    companion={<QuestionVideoPane config={config} lines={lines} lineContext={lineContext} />}
+  />
 );
 
 export default ThreeViewFrame;
+
