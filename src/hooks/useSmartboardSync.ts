@@ -79,7 +79,10 @@ export function useSmartboardSync(opts: {
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const seqRef = useRef(0);
-  const lastSeenSeqRef = useRef(0);
+  // Per-sender sequence watermark. A sender's counter restarts at 1 whenever
+  // its page remounts (teacher reload), so the guard must be scoped by author
+  // AND must accept a restarted counter instead of treating it as stale.
+  const lastSeenSeqRef = useRef<Map<string, number>>(new Map());
   const lastSentRef = useRef<BoardState | null>(null);
   const lastLocalRef = useRef<BoardState | null>(null);
   const remoteBaseRef = useRef<BoardState | null>(null);
