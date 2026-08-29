@@ -39,6 +39,9 @@ export type QuestionTimerAttempt = {
   running: boolean;
   /** Shortest verified successful attempt for this question, in ms. */
   bestMs: number | null;
+  /** Fastest verified time for this question by ANYONE (guests included). */
+  overallBestMs: number | null;
+
   /** Lines confirmed correct in THIS attempt: slot → marks. */
   confirmed: Record<string, number>;
   markInput: () => void;
