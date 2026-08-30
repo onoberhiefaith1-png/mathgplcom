@@ -113,6 +113,9 @@ const ReferralDashboard = () => {
           rewardType: draft.rewardType,
           trigger: draft.trigger,
           isActive: draft.isActive,
+          audience: draft.audience,
+          status: draft.status,
+          targetUserId: draft.targetUserId,
           rewardRule: {
             currency: draft.rewardType === "other" ? undefined : draft.currency,
             amount: draft.rewardType === "other" || Number.isNaN(amount) ? undefined : amount,
@@ -210,7 +213,7 @@ const ReferralDashboard = () => {
           </div>
         ) : (
           <EmptyNote>
-            {isLoading ? "Preparing your link…" : "No active referral campaign yet, so no link can be issued."}
+            {isLoading ? "Preparing your link…" : "No referral programme is running for you yet, so no reward and no link can be shown."}
           </EmptyNote>
         )}
         {data?.campaign && (
@@ -345,8 +348,8 @@ const ReferralDashboard = () => {
                         {campaign.ownerKind}
                       </div>
                     </div>
-                    <Badge variant={campaign.isActive ? "default" : "outline"} className="ml-auto shrink-0">
-                      {campaign.isActive ? "Active" : "Paused"}
+                    <Badge variant={campaign.status === "live" ? "default" : "outline"} className="ml-auto shrink-0">
+                      {statusLabel(campaign.status)}
                     </Badge>
                   </div>
                   <div className="mt-3 flex gap-2">
