@@ -1269,7 +1269,11 @@ const HallwayScene = ({
           setPhase={setMachinePhase}
         />
 
-        {/* Root corridor (rooms always fit, whatever the stored walkway length) */}
+{/* Root corridor (rooms always fit, whatever the stored walkway length) */}
+        <mesh position={[0, 2, -6]}>
+          <boxGeometry args={[2, 2, 2]} />
+          <meshBasicMaterial color="#ff2200" />
+        </mesh>
         <SegmentCorridor
           start={[0, 0]}
           yaw={0}
