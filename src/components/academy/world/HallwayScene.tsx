@@ -32,7 +32,7 @@ const CameraRig = ({ focus }: { focus: number }) => {
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, target.current + 6.5, k);
     camera.position.y = 1.7;
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, lean, k);
-    camera.lookAt(lean * 0.3, 1.7, target.current - 2);
+    camera.lookAt(-lean * 0.9, 1.7, target.current - 2);
   });
   return null;
 };
