@@ -80,6 +80,7 @@ import { graphemes } from "@/lib/text/graphemes";
 
 import { StylesRail } from "./StylesRail";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
+import { useFloatingDisplayStyle } from "@/hooks/useFloatingDisplayStyle";
 
 import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
@@ -6527,6 +6528,7 @@ const PresentationView = ({
             return (
               <>
                 <FloatingNumberPanel
+                  displayStyle={floatingDisplayStyle}
                   chromeFg={palette.chromeFg}
                   reservoirs={reservoirs}
                   viewIdx={viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx)}
