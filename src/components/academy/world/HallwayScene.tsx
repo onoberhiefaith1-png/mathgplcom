@@ -94,7 +94,42 @@ const findSegment = (segs: Segment[], id: string): Segment | null => {
   return null;
 };
 
-// ── Imperative texture loading (avoids Suspense/conditional hooks) ────────
+// ── Shared texture loading ────────────────────────────────────────────────
+// The same image (e.g. a built-in sample) may appear on several segments and
+// surfaces. Decode once per URL, hand every subscriber its own clone so each
+// surface can fit/tile independently.
+
+const textureCache = new Map<string, THREE.Texture>();
+const textureWaiters = new Map<string, Set<(t: THREE.Texture | null) => void>>();
+
+const requestTexture = (url: string, cb: (t: THREE.Texture | null) => void): void => {
+  const hit = textureCache.get(url);
+  if (hit) {
+    cb(hit.clone());
+    return;
+  }
+  let waiters = textureWaiters.get(url);
+  if (waiters) {
+    waiters.add(cb);
+    return;
+  }
+  waiters = new Set([cb]);
+  textureWaiters.set(url, waiters);
+  new THREE.TextureLoader().load(
+    url,
+    (base) => {
+      base.anisotropy = 4;
+      textureCache.set(url, base);
+      textureWaiters.delete(url);
+      waiters!.forEach((w) => w(base.clone()));
+    },
+    undefined,
+    () => {
+      textureWaiters.delete(url);
+      waiters!.forEach((w) => w(null));
+    },
+  );
+};
 
 const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null => {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
@@ -103,21 +138,7 @@ const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null 
       setTex(null);
       return;
     }
-    let alive = true;
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      url,
-      (t) => {
-        if (!alive) return;
-        t.wrapS = t.wrapT = THREE.RepeatWrapping;
-        setTex(t);
-      },
-      undefined,
-      () => setTex(null),
-    );
-    return () => {
-      alive = false;
-    };
+    requestTexture(url, setTex);
   }, [url]);
   return tex;
 };
