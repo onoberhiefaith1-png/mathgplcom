@@ -79,7 +79,7 @@ const Doorway = ({
     const k = 1 - Math.exp(-8 * Math.min(delta, 0.05));
     glow.current.emissiveIntensity = THREE.MathUtils.lerp(
       glow.current.emissiveIntensity,
-      focused ? 0.9 : 0.28,
+      focused ? 0.42 : 0.1,
       k,
     );
   });
@@ -104,10 +104,11 @@ const Doorway = ({
         <planeGeometry args={[2.9, 3.2]} />
         <meshStandardMaterial
           ref={glow}
-          color="#0f1521"
+          color="#080d16"
           emissive={accent}
-          emissiveIntensity={0.28}
-          roughness={0.4}
+          emissiveIntensity={0.1}
+          roughness={0.9}
+          metalness={0}
         />
       </mesh>
       {/* frame */}
