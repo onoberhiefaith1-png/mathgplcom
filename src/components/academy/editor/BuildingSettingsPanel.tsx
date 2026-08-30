@@ -140,7 +140,7 @@ const SurfaceEditor = ({
     : SURFACE_PRESET_LIST.find((p) => p.value === design.preset)?.label ?? "Solid colour";
 
   return (
-    <div className="space-y-2 rounded-lg border border-border/50 p-2.5">
+<div data-surface={title.toLowerCase().replace(/\s+/g, "-")} className="space-y-2 rounded-lg border border-border/50 p-2.5">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
 
       {/* Current design — a preview of the panel fitted to the surface */}
@@ -159,15 +159,17 @@ const SurfaceEditor = ({
 
       {/* Choose Template / Upload Your Own / Remove */}
       <div className="flex flex-wrap gap-1.5">
-        <button
+<button
           type="button"
+          data-action="template"
           onClick={onChooseTemplate}
           className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
         >
           <LayoutGrid className="h-3.5 w-3.5" /> Choose template
         </button>
-        <button
+<button
           type="button"
+          data-action="upload"
           onClick={onUploadClick}
           className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
         >
