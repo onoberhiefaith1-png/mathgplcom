@@ -25,12 +25,14 @@ const accentOf = (room: AcademyRoom, index: number) =>
 const CameraRig = ({ focus }: { focus: number }) => {
   const target = useRef(0);
   target.current = focus * SPACING;
+  // Lean away from the focused doorway's wall so the sign is read face-on.
+  const lean = focus % 2 === 0 ? 1.1 : -1.1;
   useFrame(({ camera }, delta) => {
     const k = 1 - Math.exp(-6 * Math.min(delta, 0.05));
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, target.current + 6.5, k);
     camera.position.y = 1.7;
-    camera.position.x = 0;
-    camera.lookAt(0, 1.7, target.current - 2);
+    camera.position.x = THREE.MathUtils.lerp(camera.position.x, lean, k);
+    camera.lookAt(-lean * 0.9, 1.7, target.current - 2);
   });
   return null;
 };
@@ -77,7 +79,7 @@ const Doorway = ({
     const k = 1 - Math.exp(-8 * Math.min(delta, 0.05));
     glow.current.emissiveIntensity = THREE.MathUtils.lerp(
       glow.current.emissiveIntensity,
-      focused ? 1.9 : 0.75,
+      focused ? 0.2 : 0.07,
       k,
     );
   });
@@ -86,12 +88,12 @@ const Doorway = ({
     // Alcoves sit against the wall but are angled toward the walker, so a
     // doorway reads clearly instead of being seen edge-on.
     <group
-      position={[side * (HALL_WIDTH / 2 - 0.25), 0, z]}
+      position={[side * (HALL_WIDTH / 2 - 0.8), 0, z]}
       rotation-y={-side * (Math.PI / 2) + side * 0.75}
     >
       {/* door panel — the click target */}
       <mesh
-        position={[0, 1.6, 0.02]}
+        position={[0, 1.6, 0.09]}
         onClick={(e) => {
           e.stopPropagation();
           onEnter();
@@ -102,30 +104,31 @@ const Doorway = ({
         <planeGeometry args={[2.9, 3.2]} />
         <meshStandardMaterial
           ref={glow}
-          color="#0f1521"
+          color="#1a2542"
           emissive={accent}
-          emissiveIntensity={0.75}
-          roughness={0.4}
+          emissiveIntensity={0.07}
+          roughness={0.9}
+          metalness={0}
         />
       </mesh>
       {/* frame */}
-      <mesh position={[0, 1.6, 0.01]}>
+      <mesh position={[0, 1.6, 0.02]}>
         <planeGeometry args={[3.2, 3.5]} />
         <meshStandardMaterial color={accent} roughness={0.5} />
       </mesh>
       <Suspense fallback={null}>
         <Text
-          position={[0, 3.05, 0.06]}
+          position={[0, 2.6, 0.14]}
           fontSize={0.26}
           maxWidth={2.7}
           textAlign="center"
-          color="#0b1018"
+          color="#f4f8ff"
           anchorY="middle"
         >
           {room.name}
         </Text>
         <Text
-          position={[0, 1.5, 0.06]}
+          position={[0, 1.5, 0.14]}
           fontSize={0.17}
           maxWidth={2.5}
           textAlign="center"
@@ -134,7 +137,7 @@ const Doorway = ({
         >
           {room.description || "Open room"}
         </Text>
-        <Text position={[0, 0.55, 0.06]} fontSize={0.14} color={accent} anchorY="middle">
+        <Text position={[0, 0.55, 0.14]} fontSize={0.14} color={accent} anchorY="middle">
           {`${room.categories.filter((c) => c.is_visible).length} sections`}
         </Text>
       </Suspense>
@@ -180,10 +183,10 @@ const HallwayScene = ({ rooms, focus, onFocusChange, onEnterRoom }: HallwayScene
       <Canvas shadows camera={{ position: [0, 1.7, 6.5], fov: 62 }} dpr={[1, 2]}>
         <color attach="background" args={["#0b0f18"]} />
         <fog attach="fog" args={["#0b0f18", 14, 46]} />
-        <ambientLight intensity={0.9} />
+        <ambientLight intensity={0.6} />
         <directionalLight position={[3, 8, 4]} intensity={1.1} castShadow />
         {rooms.map((_, i) => (
-          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={26} distance={14} color="#cfe3ff" />
+          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={4.5} distance={16} color="#cfe3ff" />
         ))}
         <CameraRig focus={focus} />
         <Corridor length={length} />
