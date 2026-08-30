@@ -22,7 +22,7 @@ export const Route = createFileRoute("/community/classes/")({
       title="Community Classes"
       subtitle="Classes are never copied. Request access, and you join once the teacher accepts."
       workspacePath="/teaching-hub/classes"
-      backTo="/community/teaching-hub"
+      backTo="/community/network"
       backLabel="Community Teaching Hub"
       siblings={TEACHING_SECTIONS}
     />

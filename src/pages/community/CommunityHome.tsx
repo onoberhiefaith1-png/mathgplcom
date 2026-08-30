@@ -1,21 +1,31 @@
 import { Link } from "@/lib/router-compat";
-import { GraduationCap, Home, Radio, Settings2 } from "lucide-react";
+import { Compass, Home, LayoutDashboard } from "lucide-react";
 
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
 import { useCommunityIdentity } from "@/lib/community/useCommunity";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 
 /**
- * MathGPL Community home — the very same rotating building, used purely as a
- * navigation hub. No lesson notes, classes, assets or galleries are shown
- * here: each button opens its own dedicated community workspace.
+ * The Community entrance.
+ *
+ * The rotating building is the visual identity of MathGPL, so Community keeps
+ * it — but it is only a doorway. Behind it there are exactly two destinations:
+ * your own Community space, and the wider network. Nothing is built or
+ * configured here: Community has no building editor.
  */
-const COMMUNITY_HUB_ROUTE = "/community/teaching-hub";
-
-const ENTRIES = [
-  { to: "/community/teaching-hub", label: "Teaching Hub", Icon: GraduationCap },
-  { to: "/community/live", label: "MathGPL Live", Icon: Radio },
-  { to: "/community/building", label: "Settings", Icon: Settings2 },
+const DOORS = [
+  {
+    to: "/community/dashboard",
+    label: "My Dashboard",
+    note: "Your professional profile, shared material and activity",
+    Icon: LayoutDashboard,
+  },
+  {
+    to: "/community/network",
+    label: "Community",
+    note: "Discover teachers, schools, live lessons and shared resources",
+    Icon: Compass,
+  },
 ];
 
 const CommunityHome = () => {
@@ -26,9 +36,9 @@ const CommunityHome = () => {
 
   return (
     <>
-      {/* Every ring segment leads into the community Teaching Hub, never straight to content. */}
+      {/* Every ring segment leads into the network, never straight to content. */}
       <RotatingAdventureScene
-        routeFor={() => COMMUNITY_HUB_ROUTE}
+        routeFor={() => "/community/network"}
         configMode={building.configMode}
         showAds={building.adsEnabled}
       />
@@ -47,15 +57,18 @@ const CommunityHome = () => {
         </Link>
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-wrap justify-center gap-2 p-4">
-        {ENTRIES.map(({ to, label, Icon }) => (
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-wrap justify-center gap-3 p-4 sm:gap-4">
+        {DOORS.map(({ to, label, note, Icon }) => (
           <Link
             key={to}
             to={to}
-            className="pointer-events-auto inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-300/40 bg-background/70 px-4 py-2 text-sm font-medium text-sky-100 shadow-[0_0_20px_hsl(205_90%_60%/0.25)] backdrop-blur transition hover:bg-sky-500/20"
+            className="pointer-events-auto w-full max-w-xs rounded-2xl border border-sky-300/40 bg-background/75 px-5 py-4 text-left shadow-[0_0_28px_hsl(205_90%_60%/0.25)] backdrop-blur transition hover:border-sky-200/70 hover:bg-sky-500/15 sm:w-auto"
           >
-            <Icon className="h-4 w-4" />
-            {label}
+            <span className="flex items-center gap-2 text-base font-semibold text-sky-50">
+              <Icon className="h-5 w-5" />
+              {label}
+            </span>
+            <span className="mt-1 block text-xs text-sky-100/70">{note}</span>
           </Link>
         ))}
       </div>

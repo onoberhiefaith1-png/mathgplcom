@@ -35,7 +35,7 @@ export const Route = createFileRoute("/community/lesson-notes/")({
       title="Community Lesson Notes"
       subtitle="Shared notes and the assets that build them."
       workspacePath="/lesson-notes"
-      backTo="/community/teaching-hub"
+      backTo="/community/network"
       backLabel="Community Teaching Hub"
       siblings={TEACHING_SECTIONS}
     />
