@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { GraduationCap, Globe2, Image, LogOut, Package, ShieldCheck, Users } from "lucide-react";
+import { DoorOpen, GraduationCap, Globe2, Image, LogOut, Package, ShieldCheck, Users } from "lucide-react";
 
 import AcademyTopBar from "@/components/academy/AcademyTopBar";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
@@ -54,6 +54,15 @@ const Index = () => {
           configMode={building.configMode}
           showAds={building.adsEnabled}
         />
+        {/* Students step into the shared Academy world from the building itself. */}
+        <Link
+          to="/academy"
+          aria-label="Enter the Academy"
+          className="fixed bottom-26 left-1/2 z-50 inline-flex min-h-[48px] -translate-x-1/2 items-center gap-2 rounded-full border border-sky-300/60 bg-background/80 px-7 py-3 text-sm font-semibold text-sky-200 shadow-[0_0_28px_hsl(205_90%_60%/0.35)] backdrop-blur transition hover:bg-sky-500/25"
+        >
+          <DoorOpen className="h-5 w-5" />
+          Enter the Academy
+        </Link>
 
         {ready && user && (
           <button
@@ -83,7 +92,16 @@ const Index = () => {
   return (
     <>
       <AcademyTopBar />
-      <RotatingAdventureScene configMode={building.configMode} showAds={building.adsEnabled} />
+      {/*
+        The building stays exactly as it is — the artwork, rotation and slots are
+        untouched. Clicking a designated building area now walks the visitor into
+        the one shared Academy world instead of jumping straight to a subject.
+      */}
+      <RotatingAdventureScene
+        configMode={building.configMode}
+        showAds={building.adsEnabled}
+        routeFor={() => "/academy"}
+      />
       {building.canCustomize && <HomepageSettingsButton />}
       {isPlatformOwner && (
         <div className="fixed right-5 top-32 z-50 flex items-center gap-1 rounded-full border border-primary/40 bg-background/70 p-1 text-xs font-semibold backdrop-blur">
@@ -108,6 +126,15 @@ const Index = () => {
         </div>
       )}
       <LevelNavPanel />
+      {/* Same door for every account type — one shared Academy world. */}
+      <Link
+        to="/academy"
+        aria-label="Enter the Academy"
+        className="fixed bottom-10 left-1/2 z-50 inline-flex min-h-[48px] -translate-x-1/2 items-center gap-2 rounded-full border border-sky-300/60 bg-background/80 px-7 py-3 text-sm font-semibold text-sky-200 shadow-[0_0_28px_hsl(205_90%_60%/0.35)] backdrop-blur transition hover:bg-sky-500/25"
+      >
+        <DoorOpen className="h-5 w-5" />
+        Enter the Academy
+      </Link>
       <Link
         to="/backgrounds"
         aria-label="Open backgrounds"
