@@ -617,9 +617,16 @@ export async function summary(
   userId: string,
   scope: ReferralScope,
   orgId: string | null,
-): Promise<{ referred: number; registered: number; subscribed: number; earned: CurrencyTotal[] }> {
+): Promise<{
+  referred: number;
+  registered: number;
+  subscribed: number;
+  earned: CurrencyTotal[];
+  hasProgramme: boolean;
+}> {
   const view = await dashboard(client, userId, { scope, orgId });
   return {
+    hasProgramme: Boolean(view.campaign),
     referred: view.overview.referred,
     registered: view.overview.registered,
     subscribed: view.overview.subscribed,
