@@ -1594,6 +1594,16 @@ function DocumentEditorInner({
       info.reportStage?.("READY");
     }
 
+    // A model that writes "\frac" inside a JSON string loses the backslash to
+    // the string escape (\f = form feed), so "\frac{6}{2}" would reach the page
+    // as "rac62". Put the command back before anything is rendered, so the
+    // fraction is drawn stacked instead of leaking broken text.
+    content = content
+      .replace(/\f(rac|loor)/g, "\\f$1")
+      .replace(/\r(ight|ho)/g, "\\r$1")
+      .replace(/[\b](egin|inom|ar)/g, "\\b$1")
+      .replace(/\t(frac|imes|ext)/g, "\\t$1");
+
     // A Solution heading must never be duplicated, and the AI must never
     // re-emit the label as body text.
     if (isSolutionBlock) content = stripLeadingSolutionLabel(content);
