@@ -40,7 +40,7 @@ const Corridor = ({ length }: { length: number }) => (
     {/* floor */}
     <mesh rotation-x={-Math.PI / 2} receiveShadow>
       <planeGeometry args={[HALL_WIDTH, length + 40]} />
-      <meshStandardMaterial color="#1b2130" roughness={0.35} metalness={0.15} />
+      <meshStandardMaterial color="#232c3d" roughness={0.35} metalness={0.15} />
     </mesh>
     {/* ceiling */}
     <mesh rotation-x={Math.PI / 2} position={[0, HALL_HEIGHT, 0]}>
@@ -51,7 +51,7 @@ const Corridor = ({ length }: { length: number }) => (
     {[-1, 1].map((side) => (
       <mesh key={side} position={[(side * HALL_WIDTH) / 2, HALL_HEIGHT / 2, 0]} rotation-y={(-side * Math.PI) / 2}>
         <planeGeometry args={[length + 40, HALL_HEIGHT]} />
-        <meshStandardMaterial color="#232c3d" roughness={0.6} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#2e3950" roughness={0.6} side={THREE.DoubleSide} />
       </mesh>
     ))}
   </group>
@@ -77,13 +77,18 @@ const Doorway = ({
     const k = 1 - Math.exp(-8 * Math.min(delta, 0.05));
     glow.current.emissiveIntensity = THREE.MathUtils.lerp(
       glow.current.emissiveIntensity,
-      focused ? 1.5 : 0.35,
+      focused ? 1.9 : 0.75,
       k,
     );
   });
 
   return (
-    <group position={[(side * HALL_WIDTH) / 2 + side * 0.02, 0, z]} rotation-y={(-side * Math.PI) / 2}>
+    // Alcoves sit against the wall but are angled toward the walker, so a
+    // doorway reads clearly instead of being seen edge-on.
+    <group
+      position={[side * (HALL_WIDTH / 2 - 0.25), 0, z]}
+      rotation-y={-side * (Math.PI / 2) + side * 0.75}
+    >
       {/* door panel — the click target */}
       <mesh
         position={[0, 1.6, 0.02]}
@@ -99,7 +104,7 @@ const Doorway = ({
           ref={glow}
           color="#0f1521"
           emissive={accent}
-          emissiveIntensity={0.35}
+          emissiveIntensity={0.75}
           roughness={0.4}
         />
       </mesh>
@@ -175,10 +180,10 @@ const HallwayScene = ({ rooms, focus, onFocusChange, onEnterRoom }: HallwayScene
       <Canvas shadows camera={{ position: [0, 1.7, 6.5], fov: 62 }} dpr={[1, 2]}>
         <color attach="background" args={["#0b0f18"]} />
         <fog attach="fog" args={["#0b0f18", 14, 46]} />
-        <ambientLight intensity={0.55} />
+        <ambientLight intensity={0.9} />
         <directionalLight position={[3, 8, 4]} intensity={1.1} castShadow />
         {rooms.map((_, i) => (
-          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={9} distance={11} color="#cfe3ff" />
+          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={26} distance={14} color="#cfe3ff" />
         ))}
         <CameraRig focus={focus} />
         <Corridor length={length} />
