@@ -29,8 +29,8 @@ export const Route = createFileRoute("/community/courses/")({
       title="Community Courses"
       subtitle="Shared Skill Builder courses, ready to copy."
       workspacePath="/course-builder"
-      backTo="/community/teaching-hub"
-      backLabel="Community Teaching Hub"
+      backTo="/community/network"
+      backLabel="Community"
       siblings={TEACHING_SECTIONS}
     />
   ),

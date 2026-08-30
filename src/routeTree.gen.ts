@@ -116,7 +116,6 @@ import { Route as CommunitySearchIndexRouteImport } from './routes/community/sea
 import { Route as CommunityStudentsIndexRouteImport } from './routes/community/students/index'
 import { Route as CommunityTagTagRouteImport } from './routes/community/tag/$tag'
 import { Route as CommunityTeachersIndexRouteImport } from './routes/community/teachers/index'
-import { Route as CommunityTeachingHubIndexRouteImport } from './routes/community/teaching-hub/index'
 import { Route as CourseBuilderCourseIdIndexRouteImport } from './routes/course-builder/$courseId/index'
 import { Route as FamilyTeachersIndexRouteImport } from './routes/family/teachers/index'
 import { Route as GameSlugIndexRouteImport } from './routes/game/$slug/index'
@@ -861,12 +860,6 @@ const CommunityTeachersIndexRoute = CommunityTeachersIndexRouteImport.update({
   path: '/teachers/',
   getParentRoute: () => CommunityRouteRoute,
 } as any)
-const CommunityTeachingHubIndexRoute =
-  CommunityTeachingHubIndexRouteImport.update({
-    id: '/teaching-hub/',
-    path: '/teaching-hub/',
-    getParentRoute: () => CommunityRouteRoute,
-  } as any)
 const CourseBuilderCourseIdIndexRoute =
   CourseBuilderCourseIdIndexRouteImport.update({
     id: '/$courseId/',
@@ -2142,7 +2135,6 @@ export interface FileRoutesByFullPath {
   '/community/search/': typeof CommunitySearchIndexRoute
   '/community/students/': typeof CommunityStudentsIndexRoute
   '/community/teachers/': typeof CommunityTeachersIndexRoute
-  '/community/teaching-hub/': typeof CommunityTeachingHubIndexRoute
   '/course-builder/$courseId/': typeof CourseBuilderCourseIdIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
@@ -2443,7 +2435,6 @@ export interface FileRoutesByTo {
   '/community/search': typeof CommunitySearchIndexRoute
   '/community/students': typeof CommunityStudentsIndexRoute
   '/community/teachers': typeof CommunityTeachersIndexRoute
-  '/community/teaching-hub': typeof CommunityTeachingHubIndexRoute
   '/course-builder/$courseId': typeof CourseBuilderCourseIdIndexRoute
   '/family/teachers': typeof FamilyTeachersIndexRoute
   '/game/$slug': typeof GameSlugIndexRoute
@@ -2757,7 +2748,6 @@ export interface FileRoutesById {
   '/community/search/': typeof CommunitySearchIndexRoute
   '/community/students/': typeof CommunityStudentsIndexRoute
   '/community/teachers/': typeof CommunityTeachersIndexRoute
-  '/community/teaching-hub/': typeof CommunityTeachingHubIndexRoute
   '/course-builder/$courseId/': typeof CourseBuilderCourseIdIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
@@ -3072,7 +3062,6 @@ export interface FileRouteTypes {
     | '/community/search/'
     | '/community/students/'
     | '/community/teachers/'
-    | '/community/teaching-hub/'
     | '/course-builder/$courseId/'
     | '/family/teachers/'
     | '/game/$slug/'
@@ -3373,7 +3362,6 @@ export interface FileRouteTypes {
     | '/community/search'
     | '/community/students'
     | '/community/teachers'
-    | '/community/teaching-hub'
     | '/course-builder/$courseId'
     | '/family/teachers'
     | '/game/$slug'
@@ -3686,7 +3674,6 @@ export interface FileRouteTypes {
     | '/community/search/'
     | '/community/students/'
     | '/community/teachers/'
-    | '/community/teaching-hub/'
     | '/course-builder/$courseId/'
     | '/family/teachers/'
     | '/game/$slug/'
@@ -4778,13 +4765,6 @@ declare module '@tanstack/react-router' {
       path: '/teachers'
       fullPath: '/community/teachers/'
       preLoaderRoute: typeof CommunityTeachersIndexRouteImport
-      parentRoute: typeof CommunityRouteRoute
-    }
-    '/community/teaching-hub/': {
-      id: '/community/teaching-hub/'
-      path: '/teaching-hub'
-      fullPath: '/community/teaching-hub/'
-      preLoaderRoute: typeof CommunityTeachingHubIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
     '/course-builder/$courseId/': {
@@ -6301,7 +6281,6 @@ interface CommunityRouteRouteChildren {
   CommunitySearchIndexRoute: typeof CommunitySearchIndexRoute
   CommunityStudentsIndexRoute: typeof CommunityStudentsIndexRoute
   CommunityTeachersIndexRoute: typeof CommunityTeachersIndexRoute
-  CommunityTeachingHubIndexRoute: typeof CommunityTeachingHubIndexRoute
   CommunityAdventureIdIndexRoute: typeof CommunityAdventureIdIndexRoute
   CommunityCourseIdIndexRoute: typeof CommunityCourseIdIndexRoute
   CommunityNoteIdIndexRoute: typeof CommunityNoteIdIndexRoute
@@ -6325,7 +6304,6 @@ const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
   CommunitySearchIndexRoute: CommunitySearchIndexRoute,
   CommunityStudentsIndexRoute: CommunityStudentsIndexRoute,
   CommunityTeachersIndexRoute: CommunityTeachersIndexRoute,
-  CommunityTeachingHubIndexRoute: CommunityTeachingHubIndexRoute,
   CommunityAdventureIdIndexRoute: CommunityAdventureIdIndexRoute,
   CommunityCourseIdIndexRoute: CommunityCourseIdIndexRoute,
   CommunityNoteIdIndexRoute: CommunityNoteIdIndexRoute,
