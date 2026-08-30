@@ -1,11 +1,10 @@
 -- Community profile media (photo, cover, introduction video).
--- Files live in the private `community-media` bucket under `<uid>/…`.
--- Anyone may read (profiles are public in Community); only the owner writes.
-
+drop policy if exists "community media readable" on storage.objects;
 create policy "community media readable"
   on storage.objects for select
   using (bucket_id = 'community-media');
 
+drop policy if exists "community media owner insert" on storage.objects;
 create policy "community media owner insert"
   on storage.objects for insert
   to authenticated
@@ -14,6 +13,7 @@ create policy "community media owner insert"
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "community media owner update" on storage.objects;
 create policy "community media owner update"
   on storage.objects for update
   to authenticated
@@ -22,6 +22,7 @@ create policy "community media owner update"
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "community media owner delete" on storage.objects;
 create policy "community media owner delete"
   on storage.objects for delete
   to authenticated

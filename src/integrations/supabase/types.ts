@@ -1672,27 +1672,249 @@ export type Database = {
           },
         ]
       }
+      community_post_comments: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          moderation_state: string
+          post_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          moderation_state?: string
+          post_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          moderation_state?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_post_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_post_likes: {
+        Row: {
+          created_at: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_post_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_posts: {
+        Row: {
+          attached_resource_id: string | null
+          author_id: string
+          body: string
+          category: string
+          created_at: string
+          hashtags: string[]
+          id: string
+          is_promotion: boolean
+          media_kind: string
+          media_url: string | null
+          moderation_reason: string | null
+          moderation_state: string
+          promotion_url: string | null
+          status: string
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          attached_resource_id?: string | null
+          author_id: string
+          body: string
+          category?: string
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          is_promotion?: boolean
+          media_kind?: string
+          media_url?: string | null
+          moderation_reason?: string | null
+          moderation_state?: string
+          promotion_url?: string | null
+          status?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          attached_resource_id?: string | null
+          author_id?: string
+          body?: string
+          category?: string
+          created_at?: string
+          hashtags?: string[]
+          id?: string
+          is_promotion?: boolean
+          media_kind?: string
+          media_url?: string | null
+          moderation_reason?: string | null
+          moderation_state?: string
+          promotion_url?: string | null
+          status?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_posts_attached_resource_id_fkey"
+            columns: ["attached_resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resource_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_posts_attached_resource_id_fkey"
+            columns: ["attached_resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_profile_views: {
+        Row: {
+          created_at: string
+          id: string
+          profile_user_id: string
+          viewed_on: string
+          viewer_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_user_id: string
+          viewed_on?: string
+          viewer_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_user_id?: string
+          viewed_on?: string
+          viewer_key?: string
+        }
+        Relationships: []
+      }
       community_profiles: {
         Row: {
+          avatar_url: string | null
           bio: string | null
+          bio_long: string | null
+          country: string | null
+          cover_kind: string
+          cover_url: string | null
           created_at: string
+          display_name: string | null
+          headline: string | null
+          intro_video_url: string | null
+          is_listed: boolean
+          location: string | null
+          moderated_at: string | null
+          moderation_reason: string | null
+          moderation_state: string
+          professional: Json
+          role_kind: string | null
           updated_at: string
           user_id: string
           username: string
+          view_count: number
+          years_experience: number | null
         }
         Insert: {
+          avatar_url?: string | null
           bio?: string | null
+          bio_long?: string | null
+          country?: string | null
+          cover_kind?: string
+          cover_url?: string | null
           created_at?: string
+          display_name?: string | null
+          headline?: string | null
+          intro_video_url?: string | null
+          is_listed?: boolean
+          location?: string | null
+          moderated_at?: string | null
+          moderation_reason?: string | null
+          moderation_state?: string
+          professional?: Json
+          role_kind?: string | null
           updated_at?: string
           user_id: string
           username: string
+          view_count?: number
+          years_experience?: number | null
         }
         Update: {
+          avatar_url?: string | null
           bio?: string | null
+          bio_long?: string | null
+          country?: string | null
+          cover_kind?: string
+          cover_url?: string | null
           created_at?: string
+          display_name?: string | null
+          headline?: string | null
+          intro_video_url?: string | null
+          is_listed?: boolean
+          location?: string | null
+          moderated_at?: string | null
+          moderation_reason?: string | null
+          moderation_state?: string
+          professional?: Json
+          role_kind?: string | null
           updated_at?: string
           user_id?: string
           username?: string
+          view_count?: number
+          years_experience?: number | null
         }
         Relationships: []
       }
@@ -7502,6 +7724,45 @@ export type Database = {
       }
     }
     Views: {
+      community_post_cards: {
+        Row: {
+          attached_resource_id: string | null
+          author_id: string | null
+          avatar_url: string | null
+          body: string | null
+          category: string | null
+          comment_count: number | null
+          created_at: string | null
+          display_name: string | null
+          hashtags: string[] | null
+          headline: string | null
+          id: string | null
+          is_promotion: boolean | null
+          like_count: number | null
+          media_kind: string | null
+          media_url: string | null
+          promotion_url: string | null
+          status: string | null
+          username: string | null
+          view_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_posts_attached_resource_id_fkey"
+            columns: ["attached_resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resource_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_posts_attached_resource_id_fkey"
+            columns: ["attached_resource_id"]
+            isOneToOne: false
+            referencedRelation: "community_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       community_resource_cards: {
         Row: {
           active_downloads: number | null
@@ -7588,6 +7849,110 @@ export type Database = {
           id: string
           name: string
           org_id: string
+        }[]
+      }
+      community_directory: {
+        Args: { _limit?: number; _q?: string; _role?: string }
+        Returns: {
+          accepts_requests: boolean
+          avatar_url: string
+          bio: string
+          country: string
+          cover_kind: string
+          cover_url: string
+          display_name: string
+          headline: string
+          intro_video_url: string
+          location: string
+          professional: Json
+          role_kind: string
+          user_id: string
+          username: string
+          view_count: number
+          years_experience: number
+        }[]
+      }
+      community_directory_ranked: {
+        Args: { _limit?: number; _q?: string; _role?: string }
+        Returns: {
+          accepts_requests: boolean
+          avatar_url: string
+          bio: string
+          country: string
+          cover_kind: string
+          cover_url: string
+          display_name: string
+          headline: string
+          intro_video_url: string
+          like_count: number
+          live_count: number
+          location: string
+          post_count: number
+          professional: Json
+          prominence: number
+          role_kind: string
+          shared_count: number
+          student_count: number
+          user_id: string
+          username: string
+          view_count: number
+          years_experience: number
+        }[]
+      }
+      community_hashtag_counts: {
+        Args: { _limit?: number; _prefix?: string }
+        Returns: {
+          tag: string
+          uses: number
+        }[]
+      }
+      community_live_now: {
+        Args: { _limit?: number }
+        Returns: {
+          avatar_url: string
+          description: string
+          display_name: string
+          headline: string
+          owner_id: string
+          role_kind: string
+          session_id: string
+          started_at: string
+          title: string
+          username: string
+        }[]
+      }
+      community_member_stats: {
+        Args: { _username: string }
+        Returns: {
+          like_count: number
+          live_count: number
+          post_count: number
+          shared_count: number
+          student_count: number
+        }[]
+      }
+      community_post_viewed: { Args: { _post_id: string }; Returns: number }
+      community_profile_viewed: { Args: { _username: string }; Returns: number }
+      community_public_profile: {
+        Args: { _username: string }
+        Returns: {
+          accepts_requests: boolean
+          avatar_url: string
+          bio: string
+          bio_long: string
+          country: string
+          cover_kind: string
+          cover_url: string
+          display_name: string
+          headline: string
+          intro_video_url: string
+          location: string
+          professional: Json
+          role_kind: string
+          user_id: string
+          username: string
+          view_count: number
+          years_experience: number
         }[]
       }
       consume_cost_credits: {

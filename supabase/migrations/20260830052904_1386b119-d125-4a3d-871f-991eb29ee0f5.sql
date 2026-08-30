@@ -1,21 +1,9 @@
 -- Community network layer
---
--- Community becomes the professional network of MathGPL: richer public
--- profiles (cover media + introduction video), a real post feed with likes and
--- comments, dynamic hashtags, and a live-now rail fed by real sessions.
--- Everything here is additive.
-
-/* ------------------------------------------------------------ profile media */
-
 alter table public.community_profiles
   add column if not exists cover_url text,
   add column if not exists cover_kind text not null default 'image',
   add column if not exists intro_video_url text;
 
-/* -------------------------------------------- discovery functions (widened) */
-
--- The directory and public-profile readers gain the new media columns. The
--- return type changes, so the previous versions are dropped first.
 drop function if exists public.community_directory(text, text, integer);
 
 create function public.community_directory(
@@ -78,7 +66,6 @@ as $$
     b.role_kind,
     b.display_name,
     b.headline,
-    -- Students never expose where they live.
     case when b.role_kind = 'student' then null else b.location end,
     case when b.role_kind = 'student' then null else b.country end,
     b.avatar_url,
@@ -185,10 +172,6 @@ $$;
 
 grant execute on function public.community_public_profile(text) to anon, authenticated;
 
-/* --------------------------------------------------------------- live now */
-
--- Who is teaching right now. Only sessions the owner has made openly
--- available, and only listed Community profiles, ever appear.
 create or replace function public.community_live_now(_limit integer default 24)
 returns table (
   session_id uuid,
@@ -234,8 +217,6 @@ $$;
 
 grant execute on function public.community_live_now(integer) to anon, authenticated;
 
-/* ------------------------------------------------- discovery kinds widened */
-
 alter table public.community_resources
   drop constraint if exists community_resources_kind_check;
 
@@ -247,8 +228,6 @@ alter table public.community_resources
       'course', 'smart_card'
     ])
   );
-
-/* ------------------------------------------------------------------- posts */
 
 create table if not exists public.community_posts (
   id uuid primary key default gen_random_uuid(),
@@ -316,8 +295,6 @@ create index if not exists community_posts_recent_idx on public.community_posts 
 create index if not exists community_posts_author_idx on public.community_posts (author_id, created_at desc);
 create index if not exists community_posts_hashtags_idx on public.community_posts using gin (hashtags);
 
-/* ------------------------------------------------------------ post likes */
-
 create table if not exists public.community_post_likes (
   post_id uuid not null references public.community_posts(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -338,8 +315,6 @@ create policy "members like as themselves"
 
 create policy "members remove their own like"
   on public.community_post_likes for delete to authenticated using (auth.uid() = user_id);
-
-/* --------------------------------------------------------- post comments */
 
 create table if not exists public.community_post_comments (
   id uuid primary key default gen_random_uuid(),
@@ -383,10 +358,6 @@ create policy "administrators moderate comments"
 create index if not exists community_post_comments_post_idx
   on public.community_post_comments (post_id, created_at asc);
 
-/* ------------------------------------------------------------- post cards */
-
--- One read shape for the feed: post + author identity + live counts. RLS of
--- the underlying tables still applies to whoever selects from it.
 create or replace view public.community_post_cards
 with (security_invoker = on) as
 select
@@ -417,8 +388,6 @@ left join public.profiles p on p.user_id = cpst.author_id;
 grant select on public.community_post_cards to authenticated;
 grant all on public.community_post_cards to service_role;
 
-/* ------------------------------------------------------------ post views */
-
 create or replace function public.community_post_viewed(_post_id uuid)
 returns integer
 language plpgsql
@@ -440,10 +409,6 @@ $$;
 
 grant execute on function public.community_post_viewed(uuid) to authenticated;
 
-/* --------------------------------------------------------------- hashtags */
-
--- Hashtags are never a fixed list: suggestions are counted from what the
--- community has actually published, across posts and shared resources.
 create or replace function public.community_hashtag_counts(
   _prefix text default null,
   _limit integer default 12

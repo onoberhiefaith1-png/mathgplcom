@@ -1,8 +1,4 @@
 -- Community — public people directory (phase 1)
---
--- Community profiles become public, professional profiles. Everything is
--- additive: the existing username/bio columns keep working untouched.
-
 alter table public.community_profiles
   add column if not exists is_listed boolean not null default false,
   add column if not exists role_kind text,
@@ -22,16 +18,12 @@ alter table public.community_profiles
 create index if not exists community_profiles_listed_idx
   on public.community_profiles (is_listed, role_kind);
 
--- Owner must always be able to read their own row, listed or not, so the
--- workspace editor works before the profile is public.
 drop policy if exists "own community profile is readable" on public.community_profiles;
 create policy "own community profile is readable"
   on public.community_profiles
   for select
   to authenticated
   using (auth.uid() = user_id);
-
-/* -------------------------------------------------------------- page views */
 
 create table if not exists public.community_profile_views (
   id uuid primary key default gen_random_uuid(),
@@ -47,6 +39,7 @@ grant all on public.community_profile_views to service_role;
 
 alter table public.community_profile_views enable row level security;
 
+drop policy if exists "profile owner reads own view log" on public.community_profile_views;
 create policy "profile owner reads own view log"
   on public.community_profile_views
   for select
@@ -56,10 +49,6 @@ create policy "profile owner reads own view log"
 create index if not exists community_profile_views_profile_idx
   on public.community_profile_views (profile_user_id, viewed_on desc);
 
-/* -------------------------------------------------------------- directory */
-
--- Anonymous and signed-in discovery both go through these functions, never
--- straight at the table, so only listed rows and a safe projection escape.
 create or replace function public.community_directory(
   _role text default null,
   _q text default null,
@@ -114,7 +103,6 @@ as $$
     b.role_kind,
     b.display_name,
     b.headline,
-    -- Students never expose where they live.
     case when b.role_kind = 'student' then null else b.location end,
     case when b.role_kind = 'student' then null else b.country end,
     b.avatar_url,
@@ -171,14 +159,8 @@ as $$
     ) as role_kind,
     coalesce(nullif(cp.display_name, ''), p.full_name, p.display_name, cp.username),
     cp.headline,
-    case
-      when coalesce(cp.role_kind, '') = 'student' then null
-      else cp.location
-    end,
-    case
-      when coalesce(cp.role_kind, '') = 'student' then null
-      else cp.country
-    end,
+    case when coalesce(cp.role_kind, '') = 'student' then null else cp.location end,
+    case when coalesce(cp.role_kind, '') = 'student' then null else cp.country end,
     coalesce(nullif(cp.avatar_url, ''), p.avatar_url),
     cp.bio,
     cp.bio_long,
@@ -196,7 +178,6 @@ $$;
 
 grant execute on function public.community_public_profile(text) to anon, authenticated;
 
--- One counted view per viewer per profile per day.
 create or replace function public.community_profile_viewed(_username text)
 returns integer
 language plpgsql

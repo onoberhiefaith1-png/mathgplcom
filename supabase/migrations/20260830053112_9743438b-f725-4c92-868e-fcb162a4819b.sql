@@ -1,12 +1,4 @@
 -- Community discovery ranking
---
--- People in Community are never listed alphabetically: the most active and
--- most engaged-with members surface first. The score is computed server side
--- from real ownership data (shared listings, students taught, likes,
--- downloads, posts, views, live teaching) with each input capped so no single
--- number can dominate the ordering. Additive: the existing
--- `community_directory` keeps working untouched.
-
 create or replace function public.community_directory_ranked(
   _role text default null,
   _q text default null,
@@ -83,19 +75,16 @@ as $$
   metrics as (
     select
       f.user_id,
-      -- Publicly shared listings owned by this member.
       (
         select count(*) from public.community_resources cr
         where cr.owner_id = f.user_id and cr.status = 'published'
       ) as shared_count,
-      -- Students taught, counted across the member's own classes.
       (
         select count(distinct cm.user_id)
         from public.classes c
         join public.class_members cm on cm.class_id = c.id
         where c.owner_id = f.user_id
       ) as student_count,
-      -- Appreciation received on shared material, plus copies taken of it.
       (
         select count(*)
         from public.community_likes cl
@@ -108,7 +97,6 @@ as $$
         join public.community_resources cr2 on cr2.id = cd.resource_id
         where cr2.owner_id = f.user_id
       ) as like_count,
-      -- Interaction: posts written plus likes those posts received.
       (
         select count(*) from public.community_posts cpo
         where cpo.author_id = f.user_id and cpo.status = 'published'
@@ -119,7 +107,6 @@ as $$
         join public.community_posts cpo2 on cpo2.id = cpl.post_id
         where cpo2.author_id = f.user_id
       ) as post_count,
-      -- Live teaching rooms this member runs.
       (
         select count(*) from public.sessions s where s.owner_id = f.user_id
       ) as live_count
@@ -131,7 +118,6 @@ as $$
     f.role_kind,
     f.display_name,
     f.headline,
-    -- Students never expose where they live.
     case when f.role_kind = 'student' then null else f.location end,
     case when f.role_kind = 'student' then null else f.country end,
     f.avatar_url,
@@ -148,7 +134,6 @@ as $$
     m.like_count::integer,
     m.post_count::integer,
     m.live_count::integer,
-    -- Each input is capped, so a single large number cannot own the ranking.
     (
       least(m.student_count, 500) * 0.5
       + least(m.shared_count, 100) * 3.0
@@ -166,7 +151,6 @@ $$;
 
 grant execute on function public.community_directory_ranked(text, text, integer) to anon, authenticated;
 
--- Public counts for one member's space, used by the public dashboard header.
 create or replace function public.community_member_stats(_username text)
 returns table (
   shared_count integer,
