@@ -93,6 +93,35 @@ export const listCommunity = async (filter: FeedFilter = {}): Promise<CommunityC
     .map((x) => x.card);
 };
 
+/** One page of the Main Community stream. Community keeps scrolling, so the
+ *  feed is read a page at a time rather than as one capped list. */
+export const listCommunityPage = async (
+  filter: FeedFilter & { kinds?: CommunityKind[] } = {},
+  page = 0,
+  size = 12,
+): Promise<CommunityCard[]> => {
+  const from = page * size;
+  let query = supabase
+    .from("community_resource_cards")
+    .select("*")
+    .order("published_at", { ascending: false })
+    .range(from, from + size - 1);
+  if (filter.kind) query = query.eq("kind", filter.kind);
+  if (filter.kinds?.length) query = query.in("kind", filter.kinds);
+  if (filter.ownerId) query = query.eq("owner_id", filter.ownerId);
+  if (!filter.includeUnpublished) query = query.eq("status", "published");
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return ((data ?? []) as unknown as CommunityCard[]).map((r) => ({
+    ...r,
+    hashtags: r.hashtags ?? [],
+    like_count: Number(r.like_count ?? 0),
+    active_downloads: Number(r.active_downloads ?? 0),
+  }));
+};
+
+
 export const listMyLikes = async (): Promise<Set<string>> => {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
