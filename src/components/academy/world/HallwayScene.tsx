@@ -237,9 +237,8 @@ const SegmentCorridor = ({
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
     <group position={[0, 0, -length / 2]}>
       {/* floor */}
-      <Surface
+<Surface
         rotation-x={-Math.PI / 2}
-        receiveShadow
         url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
         presetKey={env.floor.preset}
         color={env.floor.color}
@@ -1270,10 +1269,6 @@ const HallwayScene = ({
         />
 
 {/* Root corridor (rooms always fit, whatever the stored walkway length) */}
-        <mesh position={[0, 2, -6]}>
-          <boxGeometry args={[2, 2, 2]} />
-          <meshBasicMaterial color="#ff2200" />
-        </mesh>
         <SegmentCorridor
           start={[0, 0]}
           yaw={0}
