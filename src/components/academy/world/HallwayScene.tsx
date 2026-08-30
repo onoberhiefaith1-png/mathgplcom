@@ -217,7 +217,7 @@ const SegmentCorridor = ({
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
     <group position={[0, 0, -length / 2]}>
       {/* floor */}
-      <Surface
+<Surface
         rotation-x={-Math.PI / 2}
         receiveShadow
         url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
@@ -227,11 +227,14 @@ const SegmentCorridor = ({
         offsetX={env.floor.offsetX}
         offsetY={env.floor.offsetY}
         repeat={env.floor.repeat}
+        fit={env.floor.fit}
+        planeW={HALL_WIDTH}
+        planeH={length + 6}
       >
         <planeGeometry args={[HALL_WIDTH, length + 6]} />
       </Surface>
       {/* roof / ceiling */}
-      <Surface
+<Surface
         rotation-x={Math.PI / 2}
         position={[0, HALL_HEIGHT, 0]}
         url={env.roof.texture ? textures[env.roof.texture.path] : undefined}
@@ -241,6 +244,9 @@ const SegmentCorridor = ({
         offsetX={env.roof.offsetX}
         offsetY={env.roof.offsetY}
         repeat={env.roof.repeat}
+        fit={env.roof.fit}
+        planeW={HALL_WIDTH}
+        planeH={length + 6}
       >
         <planeGeometry args={[HALL_WIDTH, length + 6]} />
       </Surface>
@@ -248,7 +254,7 @@ const SegmentCorridor = ({
       {([-1, 1] as const).map((side) => {
         const wall = side === -1 ? env.leftWall : env.rightWall;
         return (
-          <Surface
+<Surface
             key={side}
             position={[(side * HALL_WIDTH) / 2, HALL_HEIGHT / 2, 0]}
             rotation-y={(-side * Math.PI) / 2}
@@ -259,6 +265,9 @@ const SegmentCorridor = ({
             offsetX={wall.offsetX}
             offsetY={wall.offsetY}
             repeat={wall.repeat}
+            fit={wall.fit}
+            planeW={length + 6}
+            planeH={HALL_HEIGHT}
           >
             <planeGeometry args={[length + 6, HALL_HEIGHT]} />
           </Surface>
