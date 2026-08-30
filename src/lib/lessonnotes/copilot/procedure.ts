@@ -68,6 +68,12 @@ export interface CoPilotAnalysis {
 
 export interface BuildItem {
   key: string;
+  /**
+   * PERMANENT identity of this item — `example_001`, `classwork_002`, …
+   * Assigned once, never renumbered when items are added, deleted or reordered.
+   * The question and its solution are linked by this id for the life of the note.
+   */
+  id: string;
   kind: SectionKind;
   /** "Example 2" style label for the teacher. */
   label: string;
@@ -78,6 +84,14 @@ export interface BuildItem {
   note?: string;
   /** The planned content of this item — shown in the blueprint, editable. */
   plan?: string;
+  /** The ACTUAL question, generated at draft stage and editable by the teacher. */
+  question?: string;
+  /** The question text as it was committed to the note, so a later change is detectable. */
+  committedQuestion?: string;
+  /** True when the question changed after its solution was written. */
+  solutionStale?: boolean;
+  /** Note reference the built pair lives at, so one item can be revised alone. */
+  ref?: string;
   /** The Co-Pilot's own decision: does this item need a 2D diagram? */
   needsDiagram?: boolean;
   /** Named existing 3D asset to place, when the item is a 3D one. */
@@ -86,6 +100,44 @@ export interface BuildItem {
   edited?: boolean;
   state: "pending" | "running" | "done" | "failed" | "skipped";
   detail?: string;
+}
+
+/** Kinds whose items carry an actual question the teacher can read and edit. */
+export const QUESTION_KINDS = SOLUTION_SECTION_KINDS;
+
+/** Does this item carry a question (rather than prose)? */
+export const carriesQuestion = (kind: SectionKind) => QUESTION_KINDS.has(kind);
+
+const pad = (n: number) => String(n).padStart(3, "0");
+
+/** `example_001` — the permanent identity form the teacher sees quoted back. */
+export const makeItemId = (kind: SectionKind, n: number) => `${kind}_${pad(n)}`;
+
+/**
+ * Next free id for a kind. Ids continue past the highest one ever used in this
+ * queue, so a deleted item never has its identity reused by a new one.
+ */
+export function nextItemId(kind: SectionKind, existing: BuildItem[]): string {
+  let max = 0;
+  for (const it of existing) {
+    if (it.kind !== kind) continue;
+    const m = /_(\d+)$/.exec(it.id ?? "");
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return makeItemId(kind, max + 1);
+}
+
+/** Re-label items of one kind after an add/delete, WITHOUT touching their ids. */
+export function relabelQueue(queue: BuildItem[]): BuildItem[] {
+  const totals = new Map<SectionKind, number>();
+  for (const it of queue) totals.set(it.kind, (totals.get(it.kind) ?? 0) + 1);
+  const seen = new Map<SectionKind, number>();
+  return queue.map((it) => {
+    const i = (seen.get(it.kind) ?? 0) + 1;
+    seen.set(it.kind, i);
+    const total = totals.get(it.kind) ?? 1;
+    return { ...it, index: i, total, label: total > 1 ? `${rowLabel(it.kind)} ${i}` : rowLabel(it.kind) };
+  });
 }
 
 /** The narrated planning steps — the panel rotates through these while planning. */
@@ -110,6 +162,7 @@ export function buildQueue(counts: StructureCounts): BuildItem[] {
     for (let i = 1; i <= total; i++) {
       out.push({
         key: `${kind}-${i}`,
+        id: makeItemId(kind, i),
         kind,
         label: total > 1 ? `${rowLabel(kind)} ${i}` : rowLabel(kind),
         index: i,
@@ -134,29 +187,44 @@ export function itemInstruction(
 ): string {
   const done = queue.filter((q) => q.state === "done").map((q) => q.label);
   const lines: string[] = [];
+  const approved = (item.question ?? "").trim();
 
-  lines.push(`Write the ${item.label} for this subtopic.`);
+  // QUESTION LOCK — the teacher already approved this exact question at the
+  // draft stage. It is committed verbatim; nothing is invented in its place.
+  if (approved) {
+    lines.push(
+      `Write the ${item.label} using EXACTLY this approved question, reproduced verbatim — `
+      + `do not change any number, sign, variable, exponent or wording, and do not substitute a different question:`,
+      approved,
+    );
+  } else {
+    lines.push(`Write the ${item.label} for this subtopic.`);
+  }
 
   // The approved blueprint line is the leading instruction for this item.
   if (item.plan) lines.push(`This item was planned and approved by the teacher as: ${item.plan}`);
   if (item.needsDiagram) lines.push("This item needs a proper 2D mathematical diagram: build it with the geometry construction engine, accurate and fully labelled.");
   if (item.asset3d) lines.push(`Do not draw a 3D picture: state that the existing MathGPL 3D asset "${item.asset3d}" belongs here.`);
 
-  if (item.kind === "example" && item.total > 1) {
-    lines.push(
-      item.index === 1
-        ? "This is the first worked example: keep the method visible and straightforward so the students see the procedure clearly."
-        : item.index === item.total
-          ? "This is the last example: the student must recognise which structure/method applies rather than being told."
-          : "Increase the difficulty a step from the previous example without leaving the method being taught.",
-    );
-  }
-  if (item.kind === "classwork" || item.kind === "exercise" || item.kind === "homework") {
-    lines.push("Only use methods that have already been demonstrated in the examples above.");
-    if (item.total > 1) lines.push(`This is item ${item.index} of ${item.total}; keep a rising difficulty across them.`);
-  }
-  if (item.kind === "explanation" && item.total > 1) {
-    lines.push(`Explanation ${item.index} of ${item.total} — cover a distinct idea, do not repeat the previous one.`);
+  // Difficulty / progression guidance only applies when the question is still
+  // being written here. A locked question must not be "improved".
+  if (!approved) {
+    if (item.kind === "example" && item.total > 1) {
+      lines.push(
+        item.index === 1
+          ? "This is the first worked example: keep the method visible and straightforward so the students see the procedure clearly."
+          : item.index === item.total
+            ? "This is the last example: the student must recognise which structure/method applies rather than being told."
+            : "Increase the difficulty a step from the previous example without leaving the method being taught.",
+      );
+    }
+    if (item.kind === "classwork" || item.kind === "exercise" || item.kind === "homework") {
+      lines.push("Only use methods that have already been demonstrated in the examples above.");
+      if (item.total > 1) lines.push(`This is item ${item.index} of ${item.total}; keep a rising difficulty across them.`);
+    }
+    if (item.kind === "explanation" && item.total > 1) {
+      lines.push(`Explanation ${item.index} of ${item.total} — cover a distinct idea, do not repeat the previous one.`);
+    }
   }
 
   if (done.length) lines.push(`Already built in this lesson: ${done.join(", ")}. Continue from it, do not repeat it.`);
@@ -167,8 +235,10 @@ export function itemInstruction(
   if (analysis?.method) lines.push(`Method being practised: ${analysis.method}.`);
 
   lines.push(
-    "Mathematical check before you commit: the question must be valid, solvable by the intended method, "
-    + "test the same concept, and be structurally different from the reference — changing numbers alone is not a new question.",
+    approved
+      ? "Mathematical check before you commit: the approved question above must appear exactly as written, and the section must be complete and correctly rendered."
+      : "Mathematical check before you commit: the question must be valid, solvable by the intended method, "
+        + "test the same concept, and be structurally different from the reference — changing numbers alone is not a new question.",
   );
 
   return lines.join(" ");

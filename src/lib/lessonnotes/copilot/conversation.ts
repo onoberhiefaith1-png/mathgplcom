@@ -19,10 +19,12 @@ import {
 } from "./actions";
 
 import {
-  DEFAULT_STRUCTURE, PLANNING_STEPS, buildQueue, emptyMaterial, isProceedIntent, itemInstruction,
+  DEFAULT_STRUCTURE, PLANNING_STEPS, buildQueue, carriesQuestion, emptyMaterial, isProceedIntent,
+  itemInstruction, nextItemId, relabelQueue, rowLabel,
   type BuildItem, type CoPilotAnalysis, type CoPilotMaterial,
   type CoPilotStage, type StructureCounts,
 } from "./procedure";
+import type { SectionKind } from "@/lib/lessonnotes/sectionKinds";
 
 import {
   appendMessage, loadMessages, loadOrCreateSession, patchSession, resumeSummary,
@@ -314,7 +316,7 @@ export function useCoPilotConversation(
     };
 
     for (const item of queueRef.current) {
-      if (item.state === "done") continue;
+      if (item.state === "done" || item.state === "skipped") continue;
       if (pauseRef.current || cancelledRef.current) {
         pauseRef.current = false;
         if (cancelledRef.current) {
@@ -331,9 +333,12 @@ export function useCoPilotConversation(
       mark(item.key, { state: "running" });
       if (item.note) say(item.note);
       try {
-        const ref = bridge.insertSectionRef
-          ? await bridge.insertSectionRef(item.kind)
-          : (await bridge.insertSection(item.kind), bridge.snapshot()?.focusedRef ?? null);
+        // Rebuilding one item reuses the section it already owns, so the pair
+        // keeps its place and identity in the note.
+        const ref = item.ref
+          ?? (bridge.insertSectionRef
+            ? await bridge.insertSectionRef(item.kind)
+            : (await bridge.insertSection(item.kind), bridge.snapshot()?.focusedRef ?? null));
         if (!ref) throw new Error("I could not place that section in the note.");
         await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false, runController.signal);
         if (item.withSolution && !cancelledRef.current) {
@@ -344,7 +349,14 @@ export function useCoPilotConversation(
             runController.signal,
           );
         }
-        mark(item.key, { state: "done" });
+        // The committed question is the linked pair's anchor: a later edit to it
+        // is what marks the solution stale.
+        mark(item.key, {
+          state: "done",
+          ref,
+          committedQuestion: (item.question ?? "").trim(),
+          solutionStale: false,
+        });
       } catch (e) {
         if (isAbort(e)) {
           mark(item.key, { state: "pending" });
@@ -404,20 +416,27 @@ export function useCoPilotConversation(
       setAnalysis(parsed);
       analysisRef.current = parsed;
 
+      // The draft carries the ACTUAL questions. Rows are matched on the stable
+      // id first, and only then on the queue key, so a re-ordered reply still
+      // lands on the right item.
       const plans: Record<string, Partial<BuildItem>> = {};
+      const byId: Record<string, Partial<BuildItem>> = {};
       if (Array.isArray(data.blueprint)) {
         for (const b of data.blueprint) {
-          if (!b || typeof b.key !== "string") continue;
-          plans[b.key] = {
+          if (!b) continue;
+          const row: Partial<BuildItem> = {
             plan: typeof b.plan === "string" ? b.plan.trim() : "",
+            question: typeof b.question === "string" ? b.question.trim() : "",
             needsDiagram: b.needsDiagram === true,
             asset3d: typeof b.asset3d === "string" && b.asset3d.trim() ? b.asset3d.trim() : undefined,
             note: typeof b.note === "string" ? b.note.trim() : undefined,
           };
+          if (typeof b.id === "string" && b.id.trim()) byId[b.id.trim()] = row;
+          if (typeof b.key === "string" && b.key.trim()) plans[b.key.trim()] = row;
         }
       }
       setQueue((prev) => {
-        const out = prev.map((q) => ({ ...q, ...(plans[q.key] ?? {}) }));
+        const out = prev.map((q) => ({ ...q, ...(byId[q.id] ?? plans[q.key] ?? {}) }));
         queueRef.current = out;
         return out;
       });
@@ -445,6 +464,70 @@ export function useCoPilotConversation(
     });
   }, []);
 
+  /**
+   * The teacher edits the ACTUAL question of one draft item. When that item was
+   * already built, its solution is marked stale so it is regenerated from the
+   * new question — the pair never drifts apart.
+   */
+  const editItemQuestion = useCallback((key: string, question: string) => {
+    setQueue((prev) => {
+      const out = prev.map((q) => {
+        if (q.key !== key) return q;
+        const next = question.trim();
+        const stale = !!q.committedQuestion && next !== q.committedQuestion;
+        return { ...q, question: next, edited: true, solutionStale: stale };
+      });
+      queueRef.current = out;
+      return out;
+    });
+  }, []);
+
+  /** Remove one draft item. Remaining ids are kept; only labels renumber. */
+  const deleteItem = useCallback((key: string) => {
+    setQueue((prev) => {
+      const out = relabelQueue(prev.filter((q) => q.key !== key));
+      queueRef.current = out;
+      return out;
+    });
+  }, []);
+
+  /** Add another item of a kind, with a fresh permanent id. */
+  const addItem = useCallback((kind: SectionKind, afterKey?: string) => {
+    setQueue((prev) => {
+      const id = nextItemId(kind, prev);
+      const item: BuildItem = {
+        key: `${id}-${Date.now().toString(36)}`,
+        id,
+        kind,
+        label: rowLabel(kind),
+        index: 1,
+        total: 1,
+        withSolution: carriesQuestion(kind),
+        state: "pending",
+      };
+      const at = afterKey ? prev.findIndex((q) => q.key === afterKey) : -1;
+      const next = at >= 0 ? [...prev.slice(0, at + 1), item, ...prev.slice(at + 1)] : [...prev, item];
+      const out = relabelQueue(next);
+      queueRef.current = out;
+      return out;
+    });
+  }, []);
+
+  /** Move one item up or down within the draft. */
+  const moveItem = useCallback((key: string, dir: -1 | 1) => {
+    setQueue((prev) => {
+      const i = prev.findIndex((q) => q.key === key);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      const out = relabelQueue(next);
+      queueRef.current = out;
+      return out;
+    });
+  }, []);
+
+
   /** "make Example 2 harder" — revise ONLY that line, leave the rest alone. */
   const reviseBlueprintItem = useCallback(async (key: string, instruction: string) => {
     const item = queueRef.current.find((q) => q.key === key);
@@ -459,16 +542,29 @@ export function useCoPilotConversation(
         stage: "reviseItem",
         structure: counts,
         analysis: analysisRef.current,
-        item: { key: item.key, label: item.label, kind: item.kind, plan: item.plan ?? "" },
-        queue: queueRef.current.map((q) => ({ key: q.key, label: q.label, kind: q.kind, plan: q.plan ?? "" })),
+        item: { key: item.key, id: item.id, label: item.label, kind: item.kind, plan: item.plan ?? "", question: item.question ?? "" },
+        queue: queueRef.current.map((q) => ({
+          key: q.key, id: q.id, label: q.label, kind: q.kind, plan: q.plan ?? "", question: q.question ?? "",
+        })),
         message: instruction,
       });
       const plan = String(data.plan ?? "").trim();
-      if (plan) {
+      const question = String(data.question ?? "").trim();
+      if (plan || question) {
         setQueue((prev) => {
-          const out = prev.map((q) => (q.key === key
-            ? { ...q, plan, edited: true, needsDiagram: data.needsDiagram === true ? true : q.needsDiagram }
-            : q));
+          const out = prev.map((q) => {
+            if (q.key !== key) return q;
+            const nextQ = question || q.question;
+            return {
+              ...q,
+              plan: plan || q.plan,
+              question: nextQ,
+              // A revised question invalidates a solution already written for it.
+              solutionStale: !!q.committedQuestion && (nextQ ?? "") !== q.committedQuestion,
+              edited: true,
+              needsDiagram: data.needsDiagram === true ? true : q.needsDiagram,
+            };
+          });
           queueRef.current = out;
           return out;
         });
@@ -485,6 +581,30 @@ export function useCoPilotConversation(
       markBusy(false);
     }
   }, [ask, counts, markBusy, say]);
+
+  /**
+   * Rebuild ONE item after its question changed: the item goes back to pending
+   * and the build re-runs into the section it already owns, so its solution is
+   * regenerated from the current question and nothing else is touched.
+   */
+  const rebuildItem = useCallback(async (key: string) => {
+    setQueue((prev) => {
+      const out = prev.map((q) => (q.key === key ? { ...q, state: "pending" as const } : q));
+      queueRef.current = out;
+      return out;
+    });
+    const others = queueRef.current.filter((q) => q.key !== key && q.state === "pending");
+    // Only the requested item should run: park the rest as done-for-now.
+    if (others.length) {
+      setQueue((prev) => {
+        const out = prev.map((q) => (q.key !== key && q.state === "pending" ? { ...q, state: "skipped" as const } : q));
+        queueRef.current = out;
+        return out;
+      });
+    }
+    await runBuild();
+  }, [runBuild]);
+
 
   // ── Stage 2 → 3 ─────────────────────────────────────────────────────
   const confirmStructure = useCallback(async () => {
@@ -694,5 +814,6 @@ export function useCoPilotConversation(
     queue, resumeBuild, analysis,
     progressLabel, retry,
     editBlueprintItem, reviseBlueprintItem, approveBlueprint, startNextCycle,
+    editItemQuestion, deleteItem, addItem, moveItem, rebuildItem,
   };
 }

@@ -1042,7 +1042,7 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
       const b = body as {
         mode: "copilot";
         stage?: "greet" | "structureConfirmed" | "analyse" | "blueprint" | "reviseItem" | "chat";
-        item?: { key: string; label: string; kind: string; plan?: string };
+        item?: { key: string; id?: string; label: string; kind: string; plan?: string; question?: string };
         message?: string;
         history?: { role: string; text: string }[];
         snapshot?: any;
@@ -1050,7 +1050,7 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
         analysis?: any;
         progress?: { label: string; state: string }[];
         material?: { text?: string; files?: { name: string; mime: string; dataUrl: string }[] };
-        queue?: { key: string; label: string; kind: string; plan?: string }[];
+        queue?: { key: string; id?: string; label: string; kind: string; plan?: string; question?: string }[];
       };
       const stage = b.stage ?? "chat";
       const message = String(b.message ?? "").trim();
@@ -1147,16 +1147,21 @@ ${COPILOT_TRAINING_STANDARD}`;
         const it = b.item ?? { key: "", label: "item", kind: "example", plan: "" };
         const others = (Array.isArray(b.queue) ? b.queue : [])
           .filter((q) => q.key !== it.key)
-          .map((q) => `- ${q.label}: ${q.plan || "(planned)"}`).join("\n");
-        const shape = `{ "reply": "one or two sentences", "plan": "the revised plan for this item only", "needsDiagram": false }`;
+          .map((q) => `- ${q.label}: ${q.question || q.plan || "(planned)"}`).join("\n");
+        const carriesQuestion = ["example", "classwork", "exercise", "homework"].includes(String(it.kind));
+        const shape = `{ "reply": "one or two sentences", "plan": "the revised plan for this item only", "question": "the revised ACTUAL question for this item only, or \\"\\" when this kind has none", "needsDiagram": false }`;
         const raw = await callAI([
-          { role: "system", content: `${systemKnowledge}\n\n${contextBlock}\n\n${jsonOnly(shape)}` },
+          { role: "system", content: `${systemKnowledge}\n\n${contextBlock}\n\n${PEDAGOGY_REFERENCE}\n\n${jsonOnly(shape)}` },
           { role: "user", content: [
-            `Revise the plan for ${it.label} (${it.kind}) only. Leave every other item alone.`,
+            `Revise ${it.label} (${it.kind}) only. Leave every other item alone.`,
             `Current plan: ${it.plan || "(none yet)"}`,
+            carriesQuestion ? `Current question: ${it.question || "(none yet)"}` : "",
             others ? `The rest of the lesson (for context, do not change):\n${others}` : "",
             `The teacher's instruction: ${message || "improve it"}`,
-            `Keep it a PLAN, not the finished mathematics. Decide yourself whether this item needs a 2D diagram.`,
+            carriesQuestion
+              ? `Return the revised ACTUAL question in "question" — real, complete, solvable mathematics in MathGPL math markup, not a description of it. Its worked solution is generated later and stays linked to it.`
+              : `This item carries no question: leave "question" empty and revise the plan only.`,
+            `Decide yourself whether this item needs a 2D diagram.`,
           ].filter(Boolean).join("\n\n") },
         ]);
         const cleaned = stripFences(String(raw)).trim();
@@ -1168,6 +1173,7 @@ ${COPILOT_TRAINING_STANDARD}`;
         return new Response(JSON.stringify({
           reply: sanitizePresentation(String(parsedR?.reply ?? "")).trim(),
           plan: sanitizePresentation(String(parsedR?.plan ?? "")).trim(),
+          question: sanitizePresentation(String(parsedR?.question ?? "")).trim(),
           needsDiagram: parsedR?.needsDiagram === true,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -1184,10 +1190,12 @@ ${COPILOT_TRAINING_STANDARD}`;
               ? `The teacher's direction: ${b.material.text}`
               : `The teacher gave no additional information and told you to proceed: use your own teaching knowledge of this topic and the note's subtopic.`,
             queue.length
-              ? `The lesson to plan, in order:\n${queue.map((q) => `- ${q.key}: ${q.label} (${q.kind})`).join("\n")}`
+              ? `The lesson to plan, in order:\n${queue.map((q) => `- ${q.key} (id ${q.id ?? q.key}): ${q.label} (${q.kind})`).join("\n")}`
               : "",
             `For EVERY item give one short teacher-readable line saying exactly what will be built: for an example, the actual question type and the numbers/shape it will use; for an explanation, the idea it covers; for classwork/exercise/homework, the question type and its difficulty relative to the examples. Rising difficulty across items, no repetition, and only methods already demonstrated in the examples for practice items.`,
-            `Decide professionally, without asking: whether the item needs an accurate 2D mathematical diagram (needsDiagram), or whether an existing MathGPL 3D asset should be placed instead (asset3d, naming the shape). Every mathematics question will get a full worked solution at build time — do not ask about that.`,
+            `THE QUESTIONS THEMSELVES ARE REQUIRED NOW. For every item whose kind is example, classwork, exercise or homework, write the ACTUAL question in "question" — the real mathematics the student will see, complete and solvable, in MathGPL math markup. Never write a promise such as "a quadratic question will go here". Leave "question" empty ONLY for introduction, explanation and summary items, which carry no question.`,
+            `Every item must be returned with the exact "key" and "id" given above, once each, in the same order. Return ALL ${queue.length || "the"} items — never truncate the list, never merge items, never add items.`,
+            `Decide professionally, without asking: whether the item needs an accurate 2D mathematical diagram (needsDiagram), or whether an existing MathGPL 3D asset should be placed instead (asset3d, naming the shape). Every question you write here will get its full worked solution at build time, kept permanently linked to it — do not write the solution now.`,
           ].filter(Boolean).join("\n\n"),
         }];
         for (const f of files) {
@@ -1197,12 +1205,12 @@ ${COPILOT_TRAINING_STANDARD}`;
           else blocks.push({ type: "file", file: { filename: f.name || "material", file_data: url } });
         }
         const shape = `{
-  "reply": "two or three sentences: what you are planning and that they can edit any line before you build",
+  "reply": "two or three sentences: what you are planning and that they can edit any question before you build",
   "analysis": { "level": "", "style": "", "method": "", "progression": "", "terminology": "", "brief": "one paragraph handed to every generator" },
-  "blueprint": [{ "key": "example-1", "plan": "what will be built here", "needsDiagram": false, "asset3d": null, "note": "short reason" }]
+  "blueprint": [{ "key": "example-1", "id": "example_001", "plan": "what will be built here", "question": "the actual question, or \\"\\" when this kind has none", "needsDiagram": false, "asset3d": null, "note": "short reason" }]
 }`;
         const raw = await callAI([
-          { role: "system", content: `${systemKnowledge}\n\n${contextBlock}\n\n${jsonOnly(shape)}` },
+          { role: "system", content: `${systemKnowledge}\n\n${contextBlock}\n\n${PEDAGOGY_REFERENCE}\n\n${jsonOnly(shape)}` },
           { role: "user", content: blocks },
         ]);
         const cleaned = stripFences(String(raw)).trim();
@@ -1214,7 +1222,9 @@ ${COPILOT_TRAINING_STANDARD}`;
         const blueprint = Array.isArray(parsedB?.blueprint)
           ? parsedB.blueprint.map((r: any) => ({
               key: String(r?.key ?? ""),
+              id: r?.id ? String(r.id) : "",
               plan: sanitizePresentation(String(r?.plan ?? "")).trim(),
+              question: sanitizePresentation(String(r?.question ?? "")).trim(),
               needsDiagram: r?.needsDiagram === true,
               asset3d: r?.asset3d ? String(r.asset3d) : null,
               note: r?.note ? sanitizePresentation(String(r.note)).trim() : "",
