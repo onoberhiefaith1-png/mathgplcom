@@ -35,6 +35,18 @@ const GuestLinkDialog = ({
   /** Chance to prepare the guest containers (course exercises) once. */
   onReady?: () => Promise<void> | void;
 }) => {
+  const friendlyError = (e: unknown): string => {
+    const raw = String((e as Error)?.message ?? e ?? "");
+    if (/duplicate key value|23505/i.test(raw)) {
+      return "This card already has a guest link. Close this window and open it again to see it.";
+    }
+    if (/signed in/i.test(raw)) return raw;
+    if (/permission|denied|row-level/i.test(raw)) {
+      return "You do not have permission to manage the guest link for this card.";
+    }
+    return "The guest link could not be prepared. Please try again.";
+  };
+
   const [link, setLink] = useState<GuestLink | null>(null);
   const [rows, setRows] = useState<GuestPerformanceRow[]>([]);
   const [busy, setBusy] = useState(true);
