@@ -21,6 +21,7 @@ import {
 import { clampRowSpacing, clampTextScale } from "@/lib/smartboard/grid";
 import { WritingSurface } from "./WritingSurface";
 import { WritingLab } from "./WritingLab";
+import { FloatingDisplayGallery } from "./FloatingDisplayGallery";
 
 type Surface = "whiteboard" | "blackboard";
 
