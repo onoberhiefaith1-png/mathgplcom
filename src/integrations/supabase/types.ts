@@ -1672,27 +1672,93 @@ export type Database = {
           },
         ]
       }
+      community_profile_views: {
+        Row: {
+          created_at: string
+          id: string
+          profile_user_id: string
+          viewed_on: string
+          viewer_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_user_id: string
+          viewed_on?: string
+          viewer_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_user_id?: string
+          viewed_on?: string
+          viewer_key?: string
+        }
+        Relationships: []
+      }
       community_profiles: {
         Row: {
+          avatar_url: string | null
           bio: string | null
+          bio_long: string | null
+          country: string | null
           created_at: string
+          display_name: string | null
+          headline: string | null
+          is_listed: boolean
+          location: string | null
+          moderated_at: string | null
+          moderation_reason: string | null
+          moderation_state: string
+          professional: Json
+          role_kind: string | null
           updated_at: string
           user_id: string
           username: string
+          view_count: number
+          years_experience: number | null
         }
         Insert: {
+          avatar_url?: string | null
           bio?: string | null
+          bio_long?: string | null
+          country?: string | null
           created_at?: string
+          display_name?: string | null
+          headline?: string | null
+          is_listed?: boolean
+          location?: string | null
+          moderated_at?: string | null
+          moderation_reason?: string | null
+          moderation_state?: string
+          professional?: Json
+          role_kind?: string | null
           updated_at?: string
           user_id: string
           username: string
+          view_count?: number
+          years_experience?: number | null
         }
         Update: {
+          avatar_url?: string | null
           bio?: string | null
+          bio_long?: string | null
+          country?: string | null
           created_at?: string
+          display_name?: string | null
+          headline?: string | null
+          is_listed?: boolean
+          location?: string | null
+          moderated_at?: string | null
+          moderation_reason?: string | null
+          moderation_state?: string
+          professional?: Json
+          role_kind?: string | null
           updated_at?: string
           user_id?: string
           username?: string
+          view_count?: number
+          years_experience?: number | null
         }
         Relationships: []
       }
@@ -7588,6 +7654,44 @@ export type Database = {
           id: string
           name: string
           org_id: string
+        }[]
+      }
+      community_directory: {
+        Args: { _limit?: number; _q?: string; _role?: string }
+        Returns: {
+          accepts_requests: boolean
+          avatar_url: string
+          bio: string
+          country: string
+          display_name: string
+          headline: string
+          location: string
+          professional: Json
+          role_kind: string
+          user_id: string
+          username: string
+          view_count: number
+          years_experience: number
+        }[]
+      }
+      community_profile_viewed: { Args: { _username: string }; Returns: number }
+      community_public_profile: {
+        Args: { _username: string }
+        Returns: {
+          accepts_requests: boolean
+          avatar_url: string
+          bio: string
+          bio_long: string
+          country: string
+          display_name: string
+          headline: string
+          location: string
+          professional: Json
+          role_kind: string
+          user_id: string
+          username: string
+          view_count: number
+          years_experience: number
         }[]
       }
       consume_cost_credits: {
