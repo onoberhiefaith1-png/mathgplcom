@@ -122,7 +122,7 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
     stage, counts, setCounts, confirmStructure,
     provideMaterial, skipMaterial, queue, resumeBuild,
     progressLabel, retry, editBlueprintItem, reviseBlueprintItem, approveBlueprint, startNextCycle,
-    editItemQuestion, deleteItem, addItem, moveItem,
+    editItemQuestion, deleteItem, addItem, moveItem, rebuildItem,
   } = useCoPilotConversation(bridgeRef, notebookId);
 
   const [text, setText] = useState("");
