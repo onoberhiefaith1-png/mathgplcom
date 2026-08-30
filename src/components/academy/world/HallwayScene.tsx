@@ -180,10 +180,30 @@ const Surface = ({
   const tex = useLoadedTexture(url);
   const mat = presetMaterial(presetKey, color);
   const map = tex ?? null;
-  if (map && tex) {
-    tex.repeat.set(repeat ? Math.max(0.1, scale) : 1, repeat ? Math.max(0.1, scale) : 1);
-    tex.offset.set(offsetX, offsetY);
-  }
+// Fit the texture to the plane. Runs when the texture or its placement
+  // changes — never during render.
+  useEffect(() => {
+    if (!tex) return;
+    const img = tex.image as { width?: number; height?: number } | undefined;
+    const iw = img?.width ?? planeW;
+    const ih = img?.height ?? planeH;
+    if (repeat) {
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      const s = Math.max(0.1, scale);
+      tex.repeat.set(s, s);
+      tex.offset.set(offsetX, offsetY);
+      return;
+    }
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    if (fit === "stretch") {
+      tex.repeat.set(1, 1);
+      tex.offset.set(0, 0);
+      return;
+    }
+    const fitted = coverFit(planeW, planeH, iw, ih, scale, offsetX, offsetY);
+    tex.repeat.set(fitted.repeat[0], fitted.repeat[1]);
+    tex.offset.set(fitted.offset[0], fitted.offset[1]);
+  }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH]);
   return (
     <mesh position={position} rotation-x={rotationX} rotation-y={rotationY} receiveShadow={receiveShadow}>
       <meshStandardMaterial
