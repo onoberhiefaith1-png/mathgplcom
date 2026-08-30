@@ -12,6 +12,8 @@ import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 import { visiblePlaceholderColor } from "@/lib/smartboard/placeholderColor";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
 import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
+import { FloatingDisplayFrame } from "./floatingDisplays";
+import { sanitizeFloatingStyle, type FloatingDisplayStyleId } from "@/lib/smartboard/floatingDisplayStyles";
 
 /** Background of the floating chip bar — placeholders must stay visible on it. */
 const CHIP_SURFACE = "#ffffff";
@@ -253,6 +255,9 @@ interface Props {
   tableChip?: { objId: string; label: string; placed: boolean; isMatrix?: boolean } | null;
   /** Places (or re-places) the table on the board at the teacher's cursor. */
   onPlaceTable?: (objId: string) => void;
+  /** Selected presentation design. Presentation only — the mathematics,
+   *  conveyor and navigation behaviour are identical for every design. */
+  displayStyle?: FloatingDisplayStyleId;
 
 }
 
@@ -273,6 +278,7 @@ export const FloatingNumberPanel = ({
   notebookPending = false,
   placeholderColor,
   tableChip = null,
+  displayStyle,
   onPlaceTable,
 
 }: Props) => {
