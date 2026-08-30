@@ -3061,6 +3061,27 @@ export type Database = {
         }
         Relationships: []
       }
+      floating_display_settings: {
+        Row: {
+          created_at: string
+          id: boolean
+          style: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: boolean
+          style?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: boolean
+          style?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       floating_example_analyses: {
         Row: {
           block_id: string | null
@@ -7589,6 +7610,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_display_preferences: {
+        Row: {
+          created_at: string
+          floating_display_style: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          floating_display_style?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          floating_display_style?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
