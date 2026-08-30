@@ -327,9 +327,15 @@ export const SettingsSheet = ({
           )}
 
 
+          {/* ── Floating Number Display ─────────────────────── */}
+          <section>
+            <p className="text-[10px] uppercase tracking-[0.25em] opacity-60 mb-2">
+              Floating Number Display
+            </p>
+            <FloatingDisplayGallery chromeFg={chromeFg} chromeBorder={chromeBorder} />
+          </section>
 
 
-          {/* ── Writing Lab ───────────────────────────────── */}
           <section>
             <p className="text-[10px] uppercase tracking-[0.25em] opacity-60 mb-2">
               Writing Lab
