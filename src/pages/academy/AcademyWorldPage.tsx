@@ -5,12 +5,16 @@
  * showroom shelves are all read from the database, so what a teacher builds in
  * /academy/edit is exactly what a student walks through here. The building
  * shell (walkway graph, surfaces, lighting, doors) is read the same way.
+ *
+ * The world page also subscribes to realtime changes on the academy hierarchy
+ * and building tables, so a doorway's section count refreshes live as rooms
+ * and courses are added or moved in the editor. Room doorways navigate to the
+ * deep-linkable /academy/room/:roomId leaf.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ChevronLeft, ChevronRight, Loader2, Pencil, Star } from "lucide-react";
 import HallwayScene from "@/components/academy/world/HallwayScene";
-import ShowroomPanel from "@/components/academy/world/ShowroomPanel";
 import { ensureAcademy, loadAcademyTree, loadProductCatalogue } from "@/lib/academy/api";
 import { productRoute, type AcademyProduct, type AcademyTree } from "@/lib/academy/types";
 import {
@@ -23,7 +27,19 @@ import {
 import type { Building, BuildingData, BuildingDoor } from "@/lib/building/types";
 import { resolveEnvironmentTextures } from "@/lib/building/textures";
 import { useAccount } from "@/lib/accounts/useAccount";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+
+/** Tables whose changes should refresh the world live. */
+const LIVE_TABLES = [
+  "academy_rooms",
+  "academy_categories",
+  "academy_topics",
+  "academy_subtopics",
+  "academy_placements",
+  "building_walkways",
+  "building_doors",
+];
 
 const AcademyWorldPage = () => {
   const { orgId, isLoading: accountLoading } = useAccount();
@@ -33,14 +49,12 @@ const AcademyWorldPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [focus, setFocus] = useState(0);
-  const [roomId, setRoomId] = useState<string | null>(null);
-  const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [topicId, setTopicId] = useState<string | null>(null);
-  const [subtopicId, setSubtopicId] = useState<string | null>(null);
   const [buildingData, setBuildingData] = useState<BuildingData | null>(null);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [textures, setTextures] = useState<Record<string, string>>({});
   const [walking, setWalking] = useState(false);
+  const buildingRef = useRef<BuildingData | null>(null);
+  buildingRef.current = buildingData;
 
   useEffect(() => {
     if (accountLoading) return;
@@ -53,14 +67,17 @@ const AcademyWorldPage = () => {
           if (!cancelled) setError("Sign in to enter the Academy.");
           return;
         }
-        const [loaded, products] = await Promise.all([loadAcademyTree(academy), loadProductCatalogue()]);
+        const [loaded, products] = await Promise.all([
+          loadAcademyTree(academy),
+          loadProductCatalogue(),
+        ]);
         if (cancelled) return;
         setTree(loaded);
         setCatalogue(products);
 
         // The building shell: view the workspace's active building; only an
         // editor creates one when none exists yet.
-let list = await listBuildings(orgId ?? null);
+        let list = await listBuildings(orgId ?? null);
         let building: Building | null = list.find((b) => b.is_active) ?? list[0] ?? null;
         if (!building && loaded.canEdit) {
           building = await ensureBuilding(orgId ?? null);
@@ -81,6 +98,46 @@ let list = await listBuildings(orgId ?? null);
       cancelled = true;
     };
   }, [orgId, accountLoading]);
+
+  // Live refresh: debounce realtime changes on the hierarchy + building tables
+  // so doorway section counts and the walkway graph stay in sync while the
+  // editor is open in another tab.
+  const academyId = tree?.academy.id ?? null;
+  useEffect(() => {
+    if (!academyId) return;
+    let timer: number | undefined;
+    let disposed = false;
+    const reload = async () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        if (disposed || !tree) return;
+        try {
+          const [loaded, products] = await Promise.all([
+            loadAcademyTree(tree.academy),
+            loadProductCatalogue(),
+          ]);
+          if (disposed) return;
+          setTree(loaded);
+          setCatalogue(products);
+          const b = buildingRef.current;
+          if (b) setBuildingData(await loadBuildingData(b.building));
+        } catch {
+          // transient realtime blip — keep showing the last good state
+        }
+      }, 500);
+    };
+    const channel = supabase.channel(`academy-live-${academyId}`);
+    for (const table of LIVE_TABLES) {
+      channel.on("postgres_changes", { event: "*", schema: "public", table }, reload);
+    }
+    channel.subscribe();
+    return () => {
+      disposed = true;
+      if (timer) window.clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [academyId]);
 
   // Resolve uploaded textures whenever the environment changes.
   const textureEnv = buildingData?.building.environment ?? null;
@@ -104,10 +161,20 @@ let list = await listBuildings(orgId ?? null);
     () => (tree?.rooms ?? []).filter((r) => r.is_visible || tree?.canEdit),
     [tree],
   );
-  const room = rooms.find((r) => r.id === roomId) ?? null;
-  const category = room?.categories.find((c) => c.id === categoryId) ?? null;
-  const topic = category?.topics.find((t) => t.id === topicId) ?? null;
-  const subtopic = topic?.subtopics.find((s) => s.id === subtopicId) ?? null;
+
+  /** Live section counts per room, shown on the room doorways. */
+  const roomCounts = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const r of rooms) {
+      const cats = r.categories.filter((c) => c.is_visible).length;
+      const topics = r.categories.reduce(
+        (n, c) => n + c.topics.filter((t) => t.is_visible).length,
+        0,
+      );
+      out[r.id] = `${cats} section${cats === 1 ? "" : "s"} · ${topics} topic${topics === 1 ? "" : "s"}`;
+    }
+    return out;
+  }, [rooms]);
 
   /** Featured shelf: every placement a teacher marked as featured, anywhere. */
   const featured = useMemo(
@@ -116,7 +183,9 @@ let list = await listBuildings(orgId ?? null);
         r.categories.flatMap((c) =>
           c.topics.flatMap((t) =>
             t.subtopics.flatMap((s) =>
-              s.placements.filter((p) => p.is_featured && p.is_visible).map((p) => ({ placement: p, path: `${r.name} · ${t.name}` })),
+              s.placements
+                .filter((p) => p.is_featured && p.is_visible)
+                .map((p) => ({ placement: p, path: `${r.name} · ${t.name}` })),
             ),
           ),
         ),
@@ -124,12 +193,13 @@ let list = await listBuildings(orgId ?? null);
     [rooms],
   );
 
-  const enterRoom = useCallback((id: string) => {
-    setRoomId(id);
-    setCategoryId(null);
-    setTopicId(null);
-    setSubtopicId(null);
-  }, []);
+  /** Entering a room navigates to its deep-linkable leaf route. */
+  const enterRoom = useCallback(
+    (id: string) => {
+      navigate(`/academy/room/${id}` as never);
+    },
+    [navigate],
+  );
 
   /** A door either opens an existing product, or is class-context only. */
   const handleOpenDoor = useCallback(
@@ -186,6 +256,7 @@ let list = await listBuildings(orgId ?? null);
           building={buildingData}
           catalogue={catalogue}
           textures={textures}
+          roomCounts={roomCounts}
           focus={focus}
           onFocusChange={setFocus}
           onEnterRoom={enterRoom}
@@ -250,8 +321,8 @@ let list = await listBuildings(orgId ?? null);
         )}
       </div>
 
-      {/* Corridor controls + featured shelf, hidden while inside a room or walking */}
-      {!room && !walking && rooms.length > 0 && (
+      {/* Corridor controls + featured shelf, hidden while walking */}
+      {!walking && rooms.length > 0 && (
         <>
           <div className="absolute inset-x-0 bottom-6 z-20 flex flex-col items-center gap-3 px-4">
             {featured.length > 0 && (
@@ -260,7 +331,9 @@ let list = await listBuildings(orgId ?? null);
                   const route = productRoute(placement.product_kind, placement.product_id);
                   const label =
                     placement.title_override ||
-                    catalogue.find((c) => c.kind === placement.product_kind && c.id === placement.product_id)?.title ||
+                    catalogue.find(
+                      (c) => c.kind === placement.product_kind && c.id === placement.product_id,
+                    )?.title ||
                     "Product";
                   const body = (
                     <>
@@ -317,25 +390,6 @@ let list = await listBuildings(orgId ?? null);
             </div>
           </div>
         </>
-      )}
-
-      {room && (
-        <div className="pointer-events-none absolute inset-0 z-30">
-          <ShowroomPanel
-            room={room}
-            category={category}
-            topic={topic}
-            subtopic={subtopic}
-            catalogue={catalogue}
-            onSelectCategory={setCategoryId}
-            onSelectTopic={setTopicId}
-            onSelectSubtopic={setSubtopicId}
-            onLeaveRoom={() => {
-              setRoomId(null);
-              navigate("/academy", { replace: true });
-            }}
-          />
-        </div>
       )}
     </div>
   );

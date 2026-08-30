@@ -4,9 +4,14 @@
  * The corridor is generated from the academy rooms (add a room in the editor
  * and a new doorway appears, in its stored order) AND from the building's
  * walkway graph: the owner can extend the walkway forward, branch left/right,
- * and place content doors along any segment. Navigation is a smooth glide:
- * browse mode walks doorway to doorway; at the end of the walkway the player
- * can turn into branches (smooth camera re-orientation) or continue forward.
+ * and place content doors along any segment.
+ *
+ * NAVIGATION (path-based): movement is a small state machine — WALKING along a
+ * segment, TURNING into a branch (smooth 90° corner sweep), RETRACING back to
+ * the previous junction (180° turnaround + reverse glide + re-align), ZOOMING
+ * onto a doorway before it opens, and IDLE at a junction. Every turn is
+ * graph-valid: you can only turn where a walkway branch exists, and invalid
+ * inputs surface a cue instead of rotating the camera. There is no free-fly.
  *
  * Walls, floor, roof, doors, lighting and effects all come from the building's
  * environment settings — never hard-coded. The player stops at walls and
@@ -17,17 +22,24 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Sparkles, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { AcademyRoom, AcademyProduct } from "@/lib/academy/types";
-import { DOOR_KIND_LABEL, DEFAULT_ENVIRONMENT, DIRECTION_LABEL } from "@/lib/building/types";
+import { DEFAULT_ENVIRONMENT, DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
 import type {
   BuildingData,
   BuildingDoor,
   BuildingWalkway,
   EnvironmentSettings,
-  WalkwayDirection,
 } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
 import { presetMaterial } from "@/lib/building/presets";
 import { coverFit } from "@/lib/building/imageFit";
+import {
+  easeInOut,
+  forwardFromYaw,
+  NavigationHistory,
+  reverseHeading,
+  segYaw,
+  turnHeading,
+} from "@/lib/building/navigation";
 
 const SPACING = 7.5; // distance between room doorways along the corridor
 const HALL_WIDTH = 7;
@@ -36,8 +48,6 @@ const WALK_SPEED = 4; // units per second while holding forward
 
 const accentOf = (room: AcademyRoom, index: number) =>
   room.accent || ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4", "#c4b5fd", "#fdba74"][index % 6];
-
-const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
 // ── Walkway graph geometry ────────────────────────────────────────────────
 
@@ -49,18 +59,6 @@ interface Segment {
   depth: number;
   children: Segment[];
 }
-
-/** World yaw (rotation about Y) that faces a heading. forward=(0,-1) → 0. */
-const segYaw = (h: [number, number]) => Math.atan2(-h[0], -h[1]);
-const forwardFromYaw = (yaw: number): [number, number] => [-Math.sin(yaw), -Math.cos(yaw)];
-
-const turnHeading = (h: [number, number], dir: WalkwayDirection): [number, number] => {
-  if (dir === "forward") return h;
-  const theta = dir === "left" ? Math.PI / 2 : -Math.PI / 2;
-  const c = Math.cos(theta);
-  const s = Math.sin(theta);
-  return [h[0] * c + h[1] * s, -h[0] * s + h[1] * c];
-};
 
 const computeSegments = (walkways: BuildingWalkway[]): Segment[] => {
   const segs: Segment[] = [];
@@ -181,7 +179,7 @@ const Surface = ({
   const tex = useLoadedTexture(url);
   const mat = presetMaterial(presetKey, color);
   const map = tex ?? null;
-// Fit the texture to the plane. Runs when the texture or its placement
+  // Fit the texture to the plane. Runs when the texture or its placement
   // changes — never during render.
   useEffect(() => {
     if (!tex) return;
@@ -205,8 +203,9 @@ const Surface = ({
     tex.repeat.set(fitted.repeat[0], fitted.repeat[1]);
     tex.offset.set(fitted.offset[0], fitted.offset[1]);
   }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH]);
-  return (
+return (
     <mesh position={position} rotation-x={rotationX} rotation-y={rotationY} receiveShadow={receiveShadow}>
+      {children}
       <meshStandardMaterial
         color={map ? "#ffffff" : mat.color}
         map={map}
@@ -238,7 +237,7 @@ const SegmentCorridor = ({
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
     <group position={[0, 0, -length / 2]}>
       {/* floor */}
-<Surface
+      <Surface
         rotation-x={-Math.PI / 2}
         receiveShadow
         url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
@@ -255,7 +254,7 @@ const SegmentCorridor = ({
         <planeGeometry args={[HALL_WIDTH, length + 6]} />
       </Surface>
       {/* roof / ceiling */}
-<Surface
+      <Surface
         rotation-x={Math.PI / 2}
         position={[0, HALL_HEIGHT, 0]}
         url={env.roof.texture ? textures[env.roof.texture.path] : undefined}
@@ -275,7 +274,7 @@ const SegmentCorridor = ({
       {([-1, 1] as const).map((side) => {
         const wall = side === -1 ? env.leftWall : env.rightWall;
         return (
-<Surface
+          <Surface
             key={side}
             position={[(side * HALL_WIDTH) / 2, HALL_HEIGHT / 2, 0]}
             rotation-y={(-side * Math.PI) / 2}
@@ -298,7 +297,7 @@ const SegmentCorridor = ({
   </group>
 );
 
-/** A clickable doorway with a glowing panel, frame and sign. */
+/** A clickable doorway with a glowing panel, frame and sign. Hovers light up. */
 const DoorMesh = ({
   side,
   z,
@@ -319,14 +318,18 @@ const DoorMesh = ({
   onEnter: () => void;
 }) => {
   const glow = useRef<THREE.MeshStandardMaterial>(null);
+  const frame = useRef<THREE.MeshStandardMaterial>(null);
+  const [hovered, setHovered] = useState(false);
   useFrame((_, delta) => {
-    if (!glow.current) return;
     const k = 1 - Math.exp(-8 * Math.min(delta, 0.05));
-    glow.current.emissiveIntensity = THREE.MathUtils.lerp(
-      glow.current.emissiveIntensity,
-      emissiveIntensity,
-      k,
-    );
+    const target = hovered ? Math.max(0.4, emissiveIntensity * 5) : emissiveIntensity;
+    if (glow.current) {
+      glow.current.emissiveIntensity = THREE.MathUtils.lerp(glow.current.emissiveIntensity, target, k);
+    }
+    if (frame.current) {
+      const ft = hovered ? Math.min(1.6, (frame.current.emissiveIntensity ?? 0) + 0.8) : 0;
+      frame.current.emissiveIntensity = THREE.MathUtils.lerp(frame.current.emissiveIntensity ?? 0, ft, k);
+    }
   });
 
   return (
@@ -337,8 +340,14 @@ const DoorMesh = ({
           e.stopPropagation();
           onEnter();
         }}
-        onPointerOver={() => (document.body.style.cursor = "pointer")}
-        onPointerOut={() => (document.body.style.cursor = "auto")}
+        onPointerOver={() => {
+          document.body.style.cursor = "pointer";
+          setHovered(true);
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = "auto";
+          setHovered(false);
+        }}
       >
         <planeGeometry args={[2.9, 3.2]} />
         <meshStandardMaterial
@@ -352,7 +361,7 @@ const DoorMesh = ({
       </mesh>
       <mesh position={[0, 1.6, 0.02]}>
         <planeGeometry args={[3.2, 3.5]} />
-        <meshStandardMaterial color={accent} roughness={0.5} />
+        <meshStandardMaterial ref={frame} color={accent} roughness={0.5} />
       </mesh>
       <Suspense fallback={null}>
         <Text
@@ -438,6 +447,41 @@ const BranchArch = ({
   );
 };
 
+// ── Navigation machine ────────────────────────────────────────────────────
+
+export type NavPhase = "browse" | "walking" | "turning" | "retracing" | "zooming" | "idle";
+
+interface TurnSpec {
+  pivot: [number, number];
+  fromYaw: number;
+  toYaw: number;
+  radius: number;
+  duration: number;
+  elapsed: number;
+  onDone: () => void;
+}
+
+interface ZoomSpec {
+  from: [number, number, number];
+  to: [number, number, number];
+  look: [number, number, number];
+  duration: number;
+  elapsed: number;
+  started: boolean;
+  restorePhase: NavPhase;
+  onDone: () => void;
+}
+
+interface Machine {
+  phase: NavPhase;
+  seg: Segment;
+  dist: number;
+  moving: boolean;
+  yaw: number;
+  turn: TurnSpec | null;
+  zoom: ZoomSpec | null;
+}
+
 // ── Camera rig ────────────────────────────────────────────────────────────
 
 interface NavState {
@@ -448,49 +492,120 @@ interface NavState {
 const CameraRig = ({
   focus,
   rooms,
-  nav,
-  distRef,
-  movingRef,
+  m,
   rootLen,
+  onWalkEnd,
+  onRetraceEnd,
+  setPhase,
 }: {
   focus: number;
   rooms: AcademyRoom[];
-  nav: NavState;
-  distRef: React.MutableRefObject<number>;
-  movingRef: React.MutableRefObject<boolean>;
+  m: React.RefObject<Machine>;
   rootLen: number;
+  onWalkEnd: () => void;
+  onRetraceEnd: () => void;
+  setPhase: (p: NavPhase) => void;
 }) => {
-  const yawRef = useRef(0);
-  useFrame(({ camera }, delta) => {
-    const k = 1 - Math.exp(-6 * Math.min(delta, 0.05));
+  useFrame(({ camera }, rawDelta) => {
+    const st = m.current;
+    if (!st) return;
+    const dt = Math.min(rawDelta, 0.05);
+    const k = 1 - Math.exp(-6 * dt);
 
-    if (nav.mode === "walk") {
-      const seg = nav.seg;
-      if (movingRef.current) {
-        distRef.current = Math.min(seg.length, distRef.current + delta * WALK_SPEED);
-      }
-      const d = distRef.current;
-      const px = seg.start[0] + seg.heading[0] * d;
-      const pz = seg.start[1] + seg.heading[1] * d;
-      const ty = segYaw(seg.heading);
-      yawRef.current = THREE.MathUtils.lerp(yawRef.current, ty, k);
-      camera.position.x = THREE.MathUtils.lerp(camera.position.x, px, k);
+    if (st.phase === "browse") {
+      const targetZ = -focus * SPACING;
+      const side = focus % 2 === 0 ? -1 : 1;
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ + 8.5, k);
       camera.position.y = 1.75;
-      camera.position.z = THREE.MathUtils.lerp(camera.position.z, pz, k);
-      const dir = forwardFromYaw(yawRef.current);
-      camera.lookAt(camera.position.x + dir[0] * 6, 1.75, camera.position.z + dir[1] * 6);
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, -side * 1.9, k);
+      camera.lookAt(side * 4.2, 1.7, targetZ);
+      void rootLen;
       return;
     }
 
-    // Browse mode: doorway-to-doorway glide (existing behaviour).
-    const targetZ = -focus * SPACING;
-    const side = focus % 2 === 0 ? -1 : 1;
-    camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ + 8.5, k);
-    camera.position.y = 1.75;
-    camera.position.x = THREE.MathUtils.lerp(camera.position.x, -side * 1.9, k);
-    camera.lookAt(side * 4.2, 1.7, targetZ);
-    // Keep the walk distance in sync so switching modes is seamless.
-    void rootLen;
+if (st.phase === "walking" || st.phase === "idle") {
+      const seg = st.seg;
+      if (st.phase === "walking" && st.moving) {
+        st.dist = Math.min(seg.length, st.dist + dt * WALK_SPEED);
+      }
+      const d = st.dist;
+      const px = seg.start[0] + seg.heading[0] * d;
+      const pz = seg.start[1] + seg.heading[1] * d;
+      st.yaw = THREE.MathUtils.lerp(st.yaw, segYaw(seg.heading), k);
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, px, k);
+      camera.position.y = 1.75;
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, pz, k);
+      const dir = forwardFromYaw(st.yaw);
+      camera.lookAt(camera.position.x + dir[0] * 6, 1.75, camera.position.z + dir[1] * 6);
+      if (st.phase === "walking" && d >= seg.length - 0.05) onWalkEnd();
+      return;
+    }
+
+    if (st.phase === "turning") {
+      const t = st.turn;
+      if (!t) {
+        setPhase("walking");
+        st.phase = "walking";
+        return;
+      }
+      t.elapsed += dt;
+      const p = Math.min(1, t.elapsed / t.duration);
+      const eased = easeInOut(p);
+      const yaw = t.fromYaw + (t.toYaw - t.fromYaw) * eased;
+      st.yaw = yaw;
+      const f = forwardFromYaw(yaw);
+      const cx = t.pivot[0] + f[0] * t.radius;
+      const cz = t.pivot[1] + f[1] * t.radius;
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, cx, k);
+      camera.position.y = 1.75;
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, cz, k);
+      camera.lookAt(camera.position.x + f[0] * 6, 1.75, camera.position.z + f[1] * 6);
+      if (p >= 1) {
+        st.turn = null;
+        t.onDone();
+      }
+      return;
+    }
+
+    if (st.phase === "retracing") {
+      const seg = st.seg;
+      st.dist = Math.max(0, st.dist - dt * WALK_SPEED);
+      const d = st.dist;
+      const px = seg.start[0] + seg.heading[0] * d;
+      const pz = seg.start[1] + seg.heading[1] * d;
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, px, k);
+      camera.position.y = 1.75;
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, pz, k);
+      const dir = forwardFromYaw(st.yaw); // kept at the reverse heading
+      camera.lookAt(camera.position.x + dir[0] * 6, 1.75, camera.position.z + dir[1] * 6);
+      if (d <= 0) onRetraceEnd();
+      return;
+    }
+
+    if (st.phase === "zooming") {
+      const z = st.zoom;
+      if (!z) {
+        setPhase(st.moving ? "walking" : "idle");
+        st.phase = st.moving ? "walking" : "idle";
+        return;
+      }
+      if (!z.started) {
+        z.from = [camera.position.x, camera.position.y, camera.position.z];
+        z.started = true;
+      }
+      z.elapsed += dt;
+      const p = Math.min(1, z.elapsed / z.duration);
+      const eased = easeInOut(p);
+      camera.position.x = THREE.MathUtils.lerp(z.from[0], z.to[0], eased);
+      camera.position.y = THREE.MathUtils.lerp(z.from[1], z.to[1], eased);
+      camera.position.z = THREE.MathUtils.lerp(z.from[2], z.to[2], eased);
+      camera.lookAt(z.look[0], z.look[1], z.look[2]);
+      if (p >= 1) {
+        st.zoom = null;
+        z.onDone();
+      }
+      return;
+    }
   });
   void rooms;
   return null;
@@ -589,6 +704,101 @@ const WalkControls = ({
   </div>
 );
 
+// ── Mini-map ──────────────────────────────────────────────────────────────
+
+const MiniMap = ({
+  segments,
+  m,
+  doors,
+  show,
+  onClose,
+}: {
+  segments: Segment[];
+  m: React.RefObject<Machine>;
+  doors: BuildingDoor[];
+  show: boolean;
+  onClose: () => void;
+}) => {
+  const svg = useMemo(() => {
+    const pts: number[] = [];
+    const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    const walk = (s: Segment) => {
+      const ex = s.start[0] + s.heading[0] * s.length;
+      const ez = s.start[1] + s.heading[1] * s.length;
+      lines.push({ x1: s.start[0], y1: s.start[1], x2: ex, y2: ez });
+      pts.push(s.start[0], s.start[1], ex, ez);
+      s.children.forEach(walk);
+    };
+    segments.forEach(walk);
+    if (pts.length === 0) pts.push(0, 0, 0, -10);
+    const xs = pts.filter((_, i) => i % 2 === 0);
+    const zs = pts.filter((_, i) => i % 2 === 1);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minZ = Math.min(...zs);
+    const maxZ = Math.max(...zs);
+    const W = 220;
+    const H = 170;
+    const sc = Math.min((W - 24) / Math.max(1, maxX - minX), (H - 24) / Math.max(1, maxZ - minZ));
+    const px = (x: number) => (x - minX) * sc + 12;
+    const py = (z: number) => (maxZ - z) * sc + 12; // forward (−z) renders up
+    const doorDots = doors
+      .map((d) => {
+        const seg = findSegment(segments, d.walkway_id);
+        if (!seg) return null;
+        const along = d.position_along * seg.length;
+        return [seg.start[0] + seg.heading[0] * along, seg.start[1] + seg.heading[1] * along] as const;
+      })
+      .filter((v): v is readonly [number, number] => v !== null);
+    return { W, H, px, py, lines, doorDots, nodes: segments.map((s) => s.start) };
+  }, [segments, doors]);
+
+  if (!show) return null;
+  const st = m.current;
+  const you: [number, number] = st
+    ? [st.seg.start[0] + st.seg.heading[0] * st.dist, st.seg.start[1] + st.seg.heading[1] * st.dist]
+    : [0, 0];
+
+  return (
+    <div className="absolute bottom-24 right-3 z-20 rounded-xl border border-border/60 bg-background/85 p-2 shadow-xl backdrop-blur">
+      <div className="mb-1 flex items-center justify-between gap-6">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          Walkway map
+        </span>
+        <button
+          type="button"
+          aria-label="Close map"
+          onClick={onClose}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+        >
+          ✕
+        </button>
+      </div>
+      <svg width={220} height={170} viewBox={`0 0 ${svg.W} ${svg.H}`} className="rounded-lg bg-black/30">
+        {svg.lines.map((l, i) => (
+          <line
+            key={i}
+            x1={svg.px(l.x1)}
+            y1={svg.py(l.y1)}
+            x2={svg.px(l.x2)}
+            y2={svg.py(l.y2)}
+            stroke="#64748b"
+            strokeWidth={4}
+            strokeLinecap="round"
+          />
+        ))}
+        {svg.nodes.map((n, i) => (
+          <circle key={i} cx={svg.px(n[0])} cy={svg.py(n[1])} r={3} fill="#94a3b8" />
+        ))}
+        {svg.doorDots.map((d, i) => (
+          <rect key={i} x={svg.px(d[0]) - 3} y={svg.py(d[1]) - 3} width={6} height={6} rx={1} fill="#fbbf24" />
+        ))}
+        <circle cx={svg.px(you[0])} cy={svg.py(you[1])} r={5} fill="#7dd3fc" stroke="#0b0f18" strokeWidth={1.5} />
+      </svg>
+    </div>
+  );
+};
+
 // ── Scene ─────────────────────────────────────────────────────────────────
 
 export interface HallwaySceneProps {
@@ -596,6 +806,8 @@ export interface HallwaySceneProps {
   building: BuildingData | null;
   catalogue: AcademyProduct[];
   textures?: Record<string, string>;
+  /** Live section counts per room id (from the database). */
+  roomCounts?: Record<string, string>;
   focus: number;
   onFocusChange: (index: number) => void;
   onEnterRoom: (roomId: string) => void;
@@ -608,6 +820,7 @@ const HallwayScene = ({
   building,
   catalogue,
   textures = {},
+  roomCounts = {},
   focus,
   onFocusChange,
   onEnterRoom,
@@ -637,13 +850,46 @@ const HallwayScene = ({
     [rootSeg, rootLen],
   );
 
+  const [phase, setPhase] = useState<NavPhase>("browse");
   const [nav, setNav] = useState<NavState>({ seg: rootEffective, mode: "browse" });
   const [moving, setMoving] = useState(false);
   const [endReached, setEndReached] = useState(false);
-  const distRef = useRef(0);
-  const movingRef = useRef(false);
-  const navRef = useRef(nav);
-  navRef.current = nav;
+  const [breadcrumb, setBreadcrumb] = useState<string[]>(["Entrance"]);
+  const [cue, setCue] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const machineRef = useRef<Machine>({
+    phase: "browse",
+    seg: rootEffective,
+    dist: 0,
+    moving: false,
+    yaw: 0,
+    turn: null,
+    zoom: null,
+  });
+  const historyRef = useRef(new NavigationHistory());
+  const cueTimer = useRef<number | null>(null);
+
+  const setMachinePhase = useCallback((p: NavPhase) => {
+    machineRef.current.phase = p;
+    setPhase(p);
+  }, []);
+
+  const showCue = useCallback((msg: string) => {
+    setCue(msg);
+    if (cueTimer.current) window.clearTimeout(cueTimer.current);
+    cueTimer.current = window.setTimeout(() => setCue(null), 1600);
+  }, []);
+  useEffect(() => () => {
+    if (cueTimer.current) window.clearTimeout(cueTimer.current);
+  }, []);
+
+  // Keep the machine's segment aligned with a rebuilt graph (editor adds a
+  // walkway while the world is open and the live refresh reloads the building).
+  useEffect(() => {
+    if (machineRef.current.phase === "browse") {
+      machineRef.current.seg = rootEffective;
+    }
+  }, [rootEffective]);
 
   const titles = useMemo(() => {
     const out: Record<string, string> = {};
@@ -651,120 +897,260 @@ const HallwayScene = ({
     return out;
   }, [catalogue]);
 
-  // Track end-of-walkway so the junction overlay appears.
-  useEffect(() => {
-    if (nav.mode !== "walk") {
-      setEndReached(false);
-      return;
-    }
-    setEndReached(distRef.current >= nav.seg.length - 0.05);
-  }, [nav, endReached, distRef.current]); // eslint-disable-line react-hooks/exhaustive-deps
+  const notifyMode = useCallback((m: "browse" | "walk") => onModeChange?.(m), [onModeChange]);
 
-  const notifyMode = useCallback(
-    (m: "browse" | "walk") => onModeChange?.(m),
-    [onModeChange],
-  );
+  const syncBreadcrumb = useCallback(() => {
+    const path = historyRef.current.path;
+    const labels = ["Entrance"];
+    const counts: Record<string, number> = {};
+    for (const id of path.slice(1)) {
+      const seg = findSegment(segments, id);
+      const base = seg?.walkway?.direction ? DIRECTION_LABEL[seg.walkway.direction] : "Walkway";
+      counts[base] = (counts[base] ?? 0) + 1;
+      labels.push(counts[base] > 1 ? `${base} ${counts[base]}` : base);
+    }
+    setBreadcrumb(labels);
+  }, [segments]);
+
+  const backToBrowse = useCallback(() => {
+    const st = machineRef.current;
+    st.phase = "browse";
+    st.seg = rootEffective;
+    st.dist = 0;
+    st.moving = false;
+    st.yaw = 0;
+    st.turn = null;
+    st.zoom = null;
+    historyRef.current.clear();
+    setMoving(false);
+    setEndReached(false);
+    setNav({ seg: rootEffective, mode: "browse" });
+    setPhase("browse");
+    notifyMode("browse");
+    syncBreadcrumb();
+  }, [rootEffective, notifyMode, syncBreadcrumb]);
 
   const enterWalk = useCallback(
     (seg: Segment) => {
-      distRef.current = 0;
-      setNav({ seg, mode: "walk" });
+      const st = machineRef.current;
+      st.seg = seg;
+      st.dist = 0;
+      st.moving = true;
+      st.yaw = segYaw(seg.heading);
+      historyRef.current.clear();
+      historyRef.current.push(seg.walkway?.id ?? "entrance");
       setMoving(true);
-      movingRef.current = true;
       setEndReached(false);
+      setNav({ seg, mode: "walk" });
+      setMachinePhase("walking");
       notifyMode("walk");
+      syncBreadcrumb();
     },
-    [notifyMode],
+    [setMachinePhase, notifyMode, syncBreadcrumb],
   );
 
-  const backToBrowse = useCallback(() => {
-    setNav({ seg: rootEffective, mode: "browse" });
-    movingRef.current = false;
-    setMoving(false);
-    setEndReached(false);
-    notifyMode("browse");
-  }, [rootEffective, notifyMode]);
-
+  /** Smooth 90° corner sweep into a branch at the current junction. */
   const pickBranch = useCallback(
     (child: Segment) => {
-      distRef.current = 0;
-      setNav({ seg: child, mode: "walk" });
-      setMoving(true);
-      movingRef.current = true;
-      setEndReached(false);
-    },
-    [],
-  );
-
-  const goBack = useCallback(() => {
-    const cur = navRef.current.seg;
-    if (navRef.current.mode !== "walk") return;
-    if (cur.walkway?.parent_id) {
-      const parent = findSegment(segments, cur.walkway.parent_id);
-      if (parent) {
-        distRef.current = Math.max(0, parent.length - 3);
-        setNav({ seg: parent, mode: "walk" });
-        setEndReached(false);
+      const st = machineRef.current;
+      if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
+      if (st.dist < st.seg.length - 0.5) {
+        showCue("Turn at the end of the walkway");
         return;
       }
-    }
-    backToBrowse();
-  }, [segments, backToBrowse]);
+      st.moving = false;
+      setMoving(false);
+      st.turn = {
+        pivot: [st.seg.start[0], st.seg.start[1]],
+        fromYaw: st.yaw,
+        toYaw: segYaw(child.heading),
+        radius: 0.6,
+        duration: 0.7,
+        elapsed: 0,
+        onDone: () => {
+          st.seg = child;
+          st.dist = 0;
+          st.moving = true;
+          setMoving(true);
+          historyRef.current.push(child.walkway?.id ?? child.heading.join(","));
+          setNav({ seg: child, mode: "walk" });
+          setEndReached(false);
+          setMachinePhase("walking");
+          syncBreadcrumb();
+        },
+      };
+      setMachinePhase("turning");
+    },
+    [setMachinePhase, showCue, syncBreadcrumb],
+  );
 
-  // Keyboard: arrows + WASD.
+  /** Paused camera zoom onto a doorway, then navigate. */
+  const startDoorZoom = useCallback(
+    (world: [number, number], front: [number, number], onDone: () => void) => {
+      const st = machineRef.current;
+      if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
+      const restore = st.phase;
+      st.moving = false;
+      setMoving(false);
+      st.zoom = {
+        from: [0, 0, 0],
+        to: [world[0] + front[0] * 2.2, 1.7, world[1] + front[1] * 2.2],
+        look: [world[0], 1.6, world[1]],
+        duration: 0.8,
+        elapsed: 0,
+        started: false,
+        restorePhase: restore,
+        onDone: () => {
+          const st2 = machineRef.current;
+          setMachinePhase(st2.phase === "zooming" ? restore : st2.phase);
+          onDone();
+        },
+      };
+      setMachinePhase("zooming");
+    },
+    [setMachinePhase],
+  );
+
+  /** Back = 180° turnaround, glide back to the junction, re-align into parent. */
+  const goBack = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
+    if (st.phase === "browse") return;
+    st.moving = false;
+    setMoving(false);
+    const seg = st.seg;
+    const pos: [number, number] = [
+      seg.start[0] + seg.heading[0] * st.dist,
+      seg.start[1] + seg.heading[1] * st.dist,
+    ];
+    if (!seg.walkway?.parent_id && st.dist < 1.5) {
+      backToBrowse();
+      return;
+    }
+    st.turn = {
+      pivot: pos,
+      fromYaw: st.yaw,
+      toYaw: st.yaw + Math.PI,
+      radius: 0.25,
+      duration: 0.5,
+      elapsed: 0,
+      onDone: () => setMachinePhase("retracing"),
+    };
+    setMachinePhase("turning");
+  }, [backToBrowse, setMachinePhase]);
+
+  /** Reached the end of a segment while walking → show the junction. */
+  const handleWalkEnd = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase !== "walking") return;
+    setEndReached(true);
+    if (!st.moving) {
+      setMachinePhase("idle");
+    }
+  }, [setMachinePhase]);
+
+  /** Retrace reached the junction → re-align to face back down the parent. */
+  const finishRetrace = useCallback(() => {
+    const st = machineRef.current;
+    const seg = st.seg;
+    const parent = seg.walkway?.parent_id ? findSegment(segments, seg.walkway.parent_id) : null;
+    if (!parent) {
+      backToBrowse();
+      return;
+    }
+    st.turn = {
+      pivot: [seg.start[0], seg.start[1]],
+      fromYaw: st.yaw,
+      toYaw: segYaw(reverseHeading(parent.heading)),
+      radius: 0.3,
+      duration: 0.5,
+      elapsed: 0,
+      onDone: () => {
+        st.seg = parent;
+        st.dist = parent.length;
+        st.moving = false;
+        historyRef.current.pop();
+        setMoving(false);
+        setNav({ seg: parent, mode: "walk" });
+        setEndReached(true);
+        setMachinePhase("idle");
+        syncBreadcrumb();
+      },
+    };
+    setMachinePhase("turning");
+  }, [segments, backToBrowse, setMachinePhase, syncBreadcrumb]);
+
+  // Keyboard: arrows + WASD, routed through the graph (no free-fly).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const cur = navRef.current;
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
-        e.preventDefault();
-      }
-      if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
-        if (cur.mode === "browse") {
+      const st = machineRef.current;
+      const key = e.key;
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
+      if (key === "ArrowUp" || key === "w" || key === "W") {
+        if (st.phase === "browse") {
           if (focus < rooms.length - 1) onFocusChange(focus + 1);
           else enterWalk(rootEffective);
-        } else {
-          movingRef.current = true;
-          setMoving(true);
+        } else if (st.phase === "walking" || st.phase === "idle") {
+          if (endReached) {
+            const fwd = st.seg.children.find((c) => c.walkway?.direction === "forward");
+            if (fwd) pickBranch(fwd);
+            else if (st.seg.children.length === 0) showCue("End of walkway");
+          } else {
+            st.moving = true;
+            setMoving(true);
+          }
         }
         return;
       }
-      if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
-        if (cur.mode === "walk") {
-          movingRef.current = false;
-          setMoving(false);
-          if (distRef.current < 2) goBack();
-          else distRef.current = 0;
-        } else onFocusChange(Math.max(0, focus - 1));
+      if (key === "ArrowDown" || key === "s" || key === "S") {
+        if (st.phase === "browse") onFocusChange(Math.max(0, focus - 1));
+        else if (st.phase === "walking" || st.phase === "idle") goBack();
         return;
       }
-      if (cur.mode !== "walk") {
-        if (e.key === "ArrowRight" || e.key === "d" || e.key === "D")
-          onFocusChange(Math.min(rooms.length - 1, focus + 1));
-        if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A")
+      if (key === "ArrowLeft" || key === "a" || key === "A") {
+        if (st.phase === "browse") {
           onFocusChange(Math.max(0, focus - 1));
-      } else if (endReached) {
-        const seg = cur.seg;
-        const left = seg.children.find((c) => c.walkway?.direction === "left");
-        const right = seg.children.find((c) => c.walkway?.direction === "right");
-        const fwd = seg.children.find((c) => c.walkway?.direction === "forward");
-        if ((e.key === "ArrowLeft" || e.key === "a" || e.key === "A") && left) pickBranch(left);
-        if ((e.key === "ArrowRight" || e.key === "d" || e.key === "D") && right) pickBranch(right);
-        if ((e.key === "ArrowUp" || e.key === "w" || e.key === "W") && fwd) pickBranch(fwd);
+          return;
+        }
+        if (st.phase !== "walking" && st.phase !== "idle") return;
+        const left = st.seg.children.find((c) => c.walkway?.direction === "left");
+        if (left) pickBranch(left);
+        else showCue("No walkway to the left");
+        return;
+      }
+      if (key === "ArrowRight" || key === "d" || key === "D") {
+        if (st.phase === "browse") {
+          onFocusChange(Math.min(rooms.length - 1, focus + 1));
+          return;
+        }
+        if (st.phase !== "walking" && st.phase !== "idle") return;
+        const right = st.seg.children.find((c) => c.walkway?.direction === "right");
+        if (right) pickBranch(right);
+        else showCue("No walkway to the right");
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focus, rooms.length, onFocusChange, enterWalk, rootEffective, goBack, endReached, pickBranch]);
+  }, [
+    focus,
+    rooms.length,
+    onFocusChange,
+    enterWalk,
+    rootEffective,
+    goBack,
+    endReached,
+    pickBranch,
+    showCue,
+  ]);
 
   const dragStart = useRef<number | null>(null);
 
-  const inWalk = nav.mode === "walk";
+  const inWalk = phase !== "browse";
   const atJunction =
-    inWalk && endReached && nav.seg.children.length > 0;
+    (phase === "walking" || phase === "idle") && endReached && nav.seg.children.length > 0;
   const hasForwardChild =
     atJunction && nav.seg.children.some((c) => c.walkway?.direction === "forward");
-  const canBack = inWalk;
-  const doorsOnRoot = doors.filter((d) => d.walkway_id === (rootSeg.walkway?.id ?? ""));
+  const canBack = phase === "walking" || phase === "idle";
   const rootDoorsById = useMemo(() => {
     const map = new Map<string, BuildingDoor[]>();
     for (const d of doors) {
@@ -788,29 +1174,57 @@ const HallwayScene = ({
       const sublabel = d.content_kind
         ? `${DOOR_KIND_LABEL[d.content_kind]}${d.content_kind === "adventure" || d.content_kind === "assessment" ? " · runs in class" : ""}`
         : "Add content in the editor";
-return (
-        <group key={d.id} position={[0, 0, -(d.position_along * seg.length)]}>
+      const yaw = segYaw(seg.heading);
+      const cy = Math.cos(yaw);
+      const sy = Math.sin(yaw);
+      const side = i % 2 === 0 ? -1 : 1;
+      const along = d.position_along * seg.length;
+      const bx = seg.start[0] + seg.heading[0] * along + side * (HALL_WIDTH / 2 - 0.2) * cy;
+      const bz = seg.start[1] + seg.heading[1] * along - side * (HALL_WIDTH / 2 - 0.2) * sy;
+      const front: [number, number] = turnHeading(seg.heading, side === -1 ? "right" : "left");
+      return (
+        <group key={d.id} position={[0, 0, -along]}>
           <DoorMesh
-            side={i % 2 === 0 ? -1 : 1}
+            side={side}
             z={0}
             label={title}
             sublabel={sublabel}
             accent={accent}
             color={env.door.color}
             emissiveIntensity={env.door.brightness * 0.12}
-            onEnter={() => onOpenDoor(d)}
+            onEnter={() => startDoorZoom([bx, bz], front, () => onOpenDoor(d))}
           />
-</group>
+        </group>
       );
     });
   };
+
+  const dirPill = atJunction ? (
+    <div className="pointer-events-none absolute top-16 z-10 flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-[11px] font-medium text-foreground/90 backdrop-blur">
+      {nav.seg.children
+        .filter((c) => c.walkway?.direction === "left")
+        .map((c) => (
+          <span key={c.walkway!.id} className="text-sky-300">
+            ← Left branch
+          </span>
+        ))}
+      {hasForwardChild && <span className="text-emerald-300">Forward ▶</span>}
+      {nav.seg.children
+        .filter((c) => c.walkway?.direction === "right")
+        .map((c) => (
+          <span key={c.walkway!.id} className="text-sky-300">
+            Right branch →
+          </span>
+        ))}
+    </div>
+  ) : null;
 
   return (
     <div
       className="absolute inset-0"
       onPointerDown={(e) => (dragStart.current = e.clientX)}
       onPointerUp={(e) => {
-        if (inWalk || dragStart.current === null) return;
+        if (phase !== "browse" || dragStart.current === null) return;
         const dx = e.clientX - dragStart.current;
         dragStart.current = null;
         if (Math.abs(dx) < 60) return;
@@ -820,7 +1234,7 @@ return (
       }}
     >
       <Canvas shadows camera={{ position: [0, 1.7, 6.5], fov: 62 }} dpr={[1, 2]}>
-<color attach="background" args={["#131a2b"]} />
+        <color attach="background" args={["#131a2b"]} />
         <fog attach="fog" args={["#131a2b", 16, env.lighting.atmosphere ? 56 : 50]} />
         <ambientLight intensity={env.lighting.ambient * env.lighting.brightness} />
         <hemisphereLight args={["#cfe3ff", "#2a3042", 0.85 * env.lighting.brightness]} />
@@ -848,10 +1262,11 @@ return (
         <CameraRig
           focus={focus}
           rooms={rooms}
-          nav={nav}
-          distRef={distRef}
-          movingRef={movingRef}
+          m={machineRef}
           rootLen={rootLen}
+          onWalkEnd={handleWalkEnd}
+          onRetraceEnd={finishRetrace}
+          setPhase={setMachinePhase}
         />
 
         {/* Root corridor (rooms always fit, whatever the stored walkway length) */}
@@ -876,19 +1291,24 @@ return (
         ))}
 
         {/* Room doorways (existing academy rooms) */}
-        {rooms.map((room, index) => (
-          <DoorMesh
-            key={room.id}
-            side={index % 2 === 0 ? -1 : 1}
-            z={-index * SPACING}
-            label={room.name}
-            sublabel={room.description || "Open room"}
-            accent={accentOf(room, index)}
-            color={env.door.color}
-            emissiveIntensity={0.12}
-            onEnter={() => onEnterRoom(room.id)}
-          />
-        ))}
+        {rooms.map((room, index) => {
+          const side = index % 2 === 0 ? -1 : 1;
+          const wx = side * (HALL_WIDTH / 2 - 0.2);
+          const wz = -index * SPACING;
+          return (
+            <DoorMesh
+              key={room.id}
+              side={side}
+              z={wz}
+              label={room.name}
+              sublabel={roomCounts[room.id] ?? (room.description || "Open room")}
+              accent={accentOf(room, index)}
+              color={env.door.color}
+              emissiveIntensity={0.12}
+              onEnter={() => startDoorZoom([wx, wz], [-side, 0], () => onEnterRoom(room.id))}
+            />
+          );
+        })}
 
         {/* Walkway content doors */}
         {segments.map((seg) => (
@@ -912,6 +1332,26 @@ return (
         )}
       </Canvas>
 
+      {/* Navigation HUD */}
+      {inWalk && (
+        <>
+          <div className="pointer-events-none absolute left-3 top-16 z-10 flex max-w-[60vw] items-center gap-1.5 overflow-hidden rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-[11px] text-muted-foreground backdrop-blur">
+            {breadcrumb.map((b, i) => (
+              <span key={`${b}-${i}`} className="flex items-center gap-1.5 whitespace-nowrap">
+                {i > 0 && <span className="text-muted-foreground/50">/</span>}
+                <span className={i === breadcrumb.length - 1 ? "font-semibold text-foreground" : ""}>{b}</span>
+              </span>
+            ))}
+          </div>
+          {dirPill}
+          {cue && (
+            <div className="pointer-events-none absolute left-1/2 top-1/4 z-20 -translate-x-1/2 rounded-full border border-amber-400/40 bg-amber-500/15 px-4 py-2 text-xs font-medium text-amber-200 backdrop-blur">
+              {cue}
+            </div>
+          )}
+        </>
+      )}
+
       {canBack && (
         <WalkControls
           atJunction={atJunction}
@@ -921,17 +1361,31 @@ return (
           moving={moving}
           ended={endReached}
           onForwardDown={() => {
-            movingRef.current = true;
+            machineRef.current.moving = true;
             setMoving(true);
           }}
           onForwardUp={() => {
-            movingRef.current = false;
+            machineRef.current.moving = false;
             setMoving(false);
+            if (endReached) setMachinePhase("idle");
           }}
           onTurn={pickBranch}
           onBack={goBack}
         />
       )}
+
+      {/* Mini-map toggle */}
+      {inWalk && (
+        <button
+          type="button"
+          aria-label="Toggle walkway map"
+          onClick={() => setShowMap((s) => !s)}
+          className="absolute bottom-24 right-3 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-background/80 text-muted-foreground backdrop-blur hover:text-foreground"
+        >
+          <span className="text-sm">🗺</span>
+        </button>
+      )}
+      <MiniMap segments={segments} m={machineRef} doors={doors} show={showMap} onClose={() => setShowMap(false)} />
     </div>
   );
 };
