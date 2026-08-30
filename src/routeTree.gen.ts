@@ -73,6 +73,7 @@ import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/inde
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ASlugIndexRouteImport } from './routes/a/$slug/index'
+import { Route as AccountCommunityProfileIndexRouteImport } from './routes/account/community-profile/index'
 import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
 import { Route as AdminAdvertisementsIndexRouteImport } from './routes/admin/advertisements/index'
 import { Route as AdminAssetsIndexRouteImport } from './routes/admin/assets/index'
@@ -100,16 +101,21 @@ import { Route as CardSlugIndexRouteImport } from './routes/card/$slug/index'
 import { Route as ChallengeSlugIndexRouteImport } from './routes/challenge/$slug/index'
 import { Route as ClassCodeIndexRouteImport } from './routes/class/$code/index'
 import { Route as CommunityAdventureIndexRouteImport } from './routes/community/adventure/index'
-import { Route as CommunityAssetsIndexRouteImport } from './routes/community/assets/index'
-import { Route as CommunityBackgroundsIndexRouteImport } from './routes/community/backgrounds/index'
-import { Route as CommunityBuildingIndexRouteImport } from './routes/community/building/index'
-import { Route as CommunityBuildingsIndexRouteImport } from './routes/community/buildings/index'
 import { Route as CommunityClassesIndexRouteImport } from './routes/community/classes/index'
 import { Route as CommunityCoursesIndexRouteImport } from './routes/community/courses/index'
+import { Route as CommunityDashboardIndexRouteImport } from './routes/community/dashboard/index'
 import { Route as CommunityDiscoverIndexRouteImport } from './routes/community/discover/index'
+import { Route as CommunityFeedIndexRouteImport } from './routes/community/feed/index'
 import { Route as CommunityLessonNotesIndexRouteImport } from './routes/community/lesson-notes/index'
 import { Route as CommunityLiveIndexRouteImport } from './routes/community/live/index'
-import { Route as CommunityTeachingHubIndexRouteImport } from './routes/community/teaching-hub/index'
+import { Route as CommunityNetworkIndexRouteImport } from './routes/community/network/index'
+import { Route as CommunityParentsIndexRouteImport } from './routes/community/parents/index'
+import { Route as CommunityPeopleUsernameRouteImport } from './routes/community/people/$username'
+import { Route as CommunitySchoolsIndexRouteImport } from './routes/community/schools/index'
+import { Route as CommunitySearchIndexRouteImport } from './routes/community/search/index'
+import { Route as CommunityStudentsIndexRouteImport } from './routes/community/students/index'
+import { Route as CommunityTagTagRouteImport } from './routes/community/tag/$tag'
+import { Route as CommunityTeachersIndexRouteImport } from './routes/community/teachers/index'
 import { Route as CourseBuilderCourseIdIndexRouteImport } from './routes/course-builder/$courseId/index'
 import { Route as FamilyTeachersIndexRouteImport } from './routes/family/teachers/index'
 import { Route as GameSlugIndexRouteImport } from './routes/game/$slug/index'
@@ -172,6 +178,7 @@ import { Route as CardSlugSolveIndexRouteImport } from './routes/card/$slug/solv
 import { Route as ChallengeSlugGameIndexRouteImport } from './routes/challenge/$slug/game/index'
 import { Route as ChallengeSlugSolveIndexRouteImport } from './routes/challenge/$slug/solve/index'
 import { Route as CommunityAdventureIdIndexRouteImport } from './routes/community/adventure/$id/index'
+import { Route as CommunityCourseIdIndexRouteImport } from './routes/community/course/$id/index'
 import { Route as CommunityNoteIdIndexRouteImport } from './routes/community/note/$id/index'
 import { Route as FamilyChildrenChildIdIndexRouteImport } from './routes/family/children/$childId/index'
 import { Route as GamesAbacusModeIndexRouteImport } from './routes/games/abacus/$mode/index'
@@ -634,6 +641,12 @@ const ASlugIndexRoute = ASlugIndexRouteImport.update({
   path: '/a/$slug/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountCommunityProfileIndexRoute =
+  AccountCommunityProfileIndexRouteImport.update({
+    id: '/account/community-profile/',
+    path: '/account/community-profile/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminAccessCodesIndexRoute = AdminAccessCodesIndexRouteImport.update({
   id: '/access-codes/',
   path: '/access-codes/',
@@ -771,27 +784,6 @@ const CommunityAdventureIndexRoute = CommunityAdventureIndexRouteImport.update({
   path: '/adventure/',
   getParentRoute: () => CommunityRouteRoute,
 } as any)
-const CommunityAssetsIndexRoute = CommunityAssetsIndexRouteImport.update({
-  id: '/assets/',
-  path: '/assets/',
-  getParentRoute: () => CommunityRouteRoute,
-} as any)
-const CommunityBackgroundsIndexRoute =
-  CommunityBackgroundsIndexRouteImport.update({
-    id: '/backgrounds/',
-    path: '/backgrounds/',
-    getParentRoute: () => CommunityRouteRoute,
-  } as any)
-const CommunityBuildingIndexRoute = CommunityBuildingIndexRouteImport.update({
-  id: '/building/',
-  path: '/building/',
-  getParentRoute: () => CommunityRouteRoute,
-} as any)
-const CommunityBuildingsIndexRoute = CommunityBuildingsIndexRouteImport.update({
-  id: '/buildings/',
-  path: '/buildings/',
-  getParentRoute: () => CommunityRouteRoute,
-} as any)
 const CommunityClassesIndexRoute = CommunityClassesIndexRouteImport.update({
   id: '/classes/',
   path: '/classes/',
@@ -802,9 +794,19 @@ const CommunityCoursesIndexRoute = CommunityCoursesIndexRouteImport.update({
   path: '/courses/',
   getParentRoute: () => CommunityRouteRoute,
 } as any)
+const CommunityDashboardIndexRoute = CommunityDashboardIndexRouteImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
 const CommunityDiscoverIndexRoute = CommunityDiscoverIndexRouteImport.update({
   id: '/discover/',
   path: '/discover/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunityFeedIndexRoute = CommunityFeedIndexRouteImport.update({
+  id: '/feed/',
+  path: '/feed/',
   getParentRoute: () => CommunityRouteRoute,
 } as any)
 const CommunityLessonNotesIndexRoute =
@@ -818,12 +820,46 @@ const CommunityLiveIndexRoute = CommunityLiveIndexRouteImport.update({
   path: '/live/',
   getParentRoute: () => CommunityRouteRoute,
 } as any)
-const CommunityTeachingHubIndexRoute =
-  CommunityTeachingHubIndexRouteImport.update({
-    id: '/teaching-hub/',
-    path: '/teaching-hub/',
-    getParentRoute: () => CommunityRouteRoute,
-  } as any)
+const CommunityNetworkIndexRoute = CommunityNetworkIndexRouteImport.update({
+  id: '/network/',
+  path: '/network/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunityParentsIndexRoute = CommunityParentsIndexRouteImport.update({
+  id: '/parents/',
+  path: '/parents/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunityPeopleUsernameRoute = CommunityPeopleUsernameRouteImport.update({
+  id: '/people/$username',
+  path: '/people/$username',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunitySchoolsIndexRoute = CommunitySchoolsIndexRouteImport.update({
+  id: '/schools/',
+  path: '/schools/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunitySearchIndexRoute = CommunitySearchIndexRouteImport.update({
+  id: '/search/',
+  path: '/search/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunityStudentsIndexRoute = CommunityStudentsIndexRouteImport.update({
+  id: '/students/',
+  path: '/students/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunityTagTagRoute = CommunityTagTagRouteImport.update({
+  id: '/tag/$tag',
+  path: '/tag/$tag',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
+const CommunityTeachersIndexRoute = CommunityTeachersIndexRouteImport.update({
+  id: '/teachers/',
+  path: '/teachers/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
 const CourseBuilderCourseIdIndexRoute =
   CourseBuilderCourseIdIndexRouteImport.update({
     id: '/$courseId/',
@@ -1148,6 +1184,11 @@ const CommunityAdventureIdIndexRoute =
     path: '/adventure/$id/',
     getParentRoute: () => CommunityRouteRoute,
   } as any)
+const CommunityCourseIdIndexRoute = CommunityCourseIdIndexRouteImport.update({
+  id: '/course/$id/',
+  path: '/course/$id/',
+  getParentRoute: () => CommunityRouteRoute,
+} as any)
 const CommunityNoteIdIndexRoute = CommunityNoteIdIndexRouteImport.update({
   id: '/note/$id/',
   path: '/note/$id/',
@@ -2051,10 +2092,13 @@ export interface FileRoutesByFullPath {
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/community/people/$username': typeof CommunityPeopleUsernameRoute
+  '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/a/$slug/': typeof ASlugIndexRoute
+  '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
@@ -2078,16 +2122,19 @@ export interface FileRoutesByFullPath {
   '/challenge/$slug/': typeof ChallengeSlugIndexRoute
   '/class/$code/': typeof ClassCodeIndexRoute
   '/community/adventure/': typeof CommunityAdventureIndexRoute
-  '/community/assets/': typeof CommunityAssetsIndexRoute
-  '/community/backgrounds/': typeof CommunityBackgroundsIndexRoute
-  '/community/building/': typeof CommunityBuildingIndexRoute
-  '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
   '/community/courses/': typeof CommunityCoursesIndexRoute
+  '/community/dashboard/': typeof CommunityDashboardIndexRoute
   '/community/discover/': typeof CommunityDiscoverIndexRoute
+  '/community/feed/': typeof CommunityFeedIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
   '/community/live/': typeof CommunityLiveIndexRoute
-  '/community/teaching-hub/': typeof CommunityTeachingHubIndexRoute
+  '/community/network/': typeof CommunityNetworkIndexRoute
+  '/community/parents/': typeof CommunityParentsIndexRoute
+  '/community/schools/': typeof CommunitySchoolsIndexRoute
+  '/community/search/': typeof CommunitySearchIndexRoute
+  '/community/students/': typeof CommunityStudentsIndexRoute
+  '/community/teachers/': typeof CommunityTeachersIndexRoute
   '/course-builder/$courseId/': typeof CourseBuilderCourseIdIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
@@ -2159,6 +2206,7 @@ export interface FileRoutesByFullPath {
   '/challenge/$slug/game/': typeof ChallengeSlugGameIndexRoute
   '/challenge/$slug/solve/': typeof ChallengeSlugSolveIndexRoute
   '/community/adventure/$id/': typeof CommunityAdventureIdIndexRoute
+  '/community/course/$id/': typeof CommunityCourseIdIndexRoute
   '/community/note/$id/': typeof CommunityNoteIdIndexRoute
   '/family/children/$childId/': typeof FamilyChildrenChildIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
@@ -2344,10 +2392,13 @@ export interface FileRoutesByTo {
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/community/people/$username': typeof CommunityPeopleUsernameRoute
+  '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/a/$slug': typeof ASlugIndexRoute
+  '/account/community-profile': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
   '/admin/assets': typeof AdminAssetsIndexRoute
@@ -2371,16 +2422,19 @@ export interface FileRoutesByTo {
   '/challenge/$slug': typeof ChallengeSlugIndexRoute
   '/class/$code': typeof ClassCodeIndexRoute
   '/community/adventure': typeof CommunityAdventureIndexRoute
-  '/community/assets': typeof CommunityAssetsIndexRoute
-  '/community/backgrounds': typeof CommunityBackgroundsIndexRoute
-  '/community/building': typeof CommunityBuildingIndexRoute
-  '/community/buildings': typeof CommunityBuildingsIndexRoute
   '/community/classes': typeof CommunityClassesIndexRoute
   '/community/courses': typeof CommunityCoursesIndexRoute
+  '/community/dashboard': typeof CommunityDashboardIndexRoute
   '/community/discover': typeof CommunityDiscoverIndexRoute
+  '/community/feed': typeof CommunityFeedIndexRoute
   '/community/lesson-notes': typeof CommunityLessonNotesIndexRoute
   '/community/live': typeof CommunityLiveIndexRoute
-  '/community/teaching-hub': typeof CommunityTeachingHubIndexRoute
+  '/community/network': typeof CommunityNetworkIndexRoute
+  '/community/parents': typeof CommunityParentsIndexRoute
+  '/community/schools': typeof CommunitySchoolsIndexRoute
+  '/community/search': typeof CommunitySearchIndexRoute
+  '/community/students': typeof CommunityStudentsIndexRoute
+  '/community/teachers': typeof CommunityTeachersIndexRoute
   '/course-builder/$courseId': typeof CourseBuilderCourseIdIndexRoute
   '/family/teachers': typeof FamilyTeachersIndexRoute
   '/game/$slug': typeof GameSlugIndexRoute
@@ -2452,6 +2506,7 @@ export interface FileRoutesByTo {
   '/challenge/$slug/game': typeof ChallengeSlugGameIndexRoute
   '/challenge/$slug/solve': typeof ChallengeSlugSolveIndexRoute
   '/community/adventure/$id': typeof CommunityAdventureIdIndexRoute
+  '/community/course/$id': typeof CommunityCourseIdIndexRoute
   '/community/note/$id': typeof CommunityNoteIdIndexRoute
   '/family/children/$childId': typeof FamilyChildrenChildIdIndexRoute
   '/games/abacus/$mode': typeof GamesAbacusModeIndexRoute
@@ -2650,10 +2705,13 @@ export interface FileRoutesById {
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/community/people/$username': typeof CommunityPeopleUsernameRoute
+  '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
   '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/a/$slug/': typeof ASlugIndexRoute
+  '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
@@ -2677,16 +2735,19 @@ export interface FileRoutesById {
   '/challenge/$slug/': typeof ChallengeSlugIndexRoute
   '/class/$code/': typeof ClassCodeIndexRoute
   '/community/adventure/': typeof CommunityAdventureIndexRoute
-  '/community/assets/': typeof CommunityAssetsIndexRoute
-  '/community/backgrounds/': typeof CommunityBackgroundsIndexRoute
-  '/community/building/': typeof CommunityBuildingIndexRoute
-  '/community/buildings/': typeof CommunityBuildingsIndexRoute
   '/community/classes/': typeof CommunityClassesIndexRoute
   '/community/courses/': typeof CommunityCoursesIndexRoute
+  '/community/dashboard/': typeof CommunityDashboardIndexRoute
   '/community/discover/': typeof CommunityDiscoverIndexRoute
+  '/community/feed/': typeof CommunityFeedIndexRoute
   '/community/lesson-notes/': typeof CommunityLessonNotesIndexRoute
   '/community/live/': typeof CommunityLiveIndexRoute
-  '/community/teaching-hub/': typeof CommunityTeachingHubIndexRoute
+  '/community/network/': typeof CommunityNetworkIndexRoute
+  '/community/parents/': typeof CommunityParentsIndexRoute
+  '/community/schools/': typeof CommunitySchoolsIndexRoute
+  '/community/search/': typeof CommunitySearchIndexRoute
+  '/community/students/': typeof CommunityStudentsIndexRoute
+  '/community/teachers/': typeof CommunityTeachersIndexRoute
   '/course-builder/$courseId/': typeof CourseBuilderCourseIdIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
@@ -2758,6 +2819,7 @@ export interface FileRoutesById {
   '/challenge/$slug/game/': typeof ChallengeSlugGameIndexRoute
   '/challenge/$slug/solve/': typeof ChallengeSlugSolveIndexRoute
   '/community/adventure/$id/': typeof CommunityAdventureIdIndexRoute
+  '/community/course/$id/': typeof CommunityCourseIdIndexRoute
   '/community/note/$id/': typeof CommunityNoteIdIndexRoute
   '/family/children/$childId/': typeof FamilyChildrenChildIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
@@ -2957,10 +3019,13 @@ export interface FileRouteTypes {
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
     | '/api/public/health'
+    | '/community/people/$username'
+    | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
     | '/a/$slug/'
+    | '/account/community-profile/'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
@@ -2984,16 +3049,19 @@ export interface FileRouteTypes {
     | '/challenge/$slug/'
     | '/class/$code/'
     | '/community/adventure/'
-    | '/community/assets/'
-    | '/community/backgrounds/'
-    | '/community/building/'
-    | '/community/buildings/'
     | '/community/classes/'
     | '/community/courses/'
+    | '/community/dashboard/'
     | '/community/discover/'
+    | '/community/feed/'
     | '/community/lesson-notes/'
     | '/community/live/'
-    | '/community/teaching-hub/'
+    | '/community/network/'
+    | '/community/parents/'
+    | '/community/schools/'
+    | '/community/search/'
+    | '/community/students/'
+    | '/community/teachers/'
     | '/course-builder/$courseId/'
     | '/family/teachers/'
     | '/game/$slug/'
@@ -3065,6 +3133,7 @@ export interface FileRouteTypes {
     | '/challenge/$slug/game/'
     | '/challenge/$slug/solve/'
     | '/community/adventure/$id/'
+    | '/community/course/$id/'
     | '/community/note/$id/'
     | '/family/children/$childId/'
     | '/games/abacus/$mode/'
@@ -3250,10 +3319,13 @@ export interface FileRouteTypes {
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
     | '/api/public/health'
+    | '/community/people/$username'
+    | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
     | '/a/$slug'
+    | '/account/community-profile'
     | '/admin/access-codes'
     | '/admin/advertisements'
     | '/admin/assets'
@@ -3277,16 +3349,19 @@ export interface FileRouteTypes {
     | '/challenge/$slug'
     | '/class/$code'
     | '/community/adventure'
-    | '/community/assets'
-    | '/community/backgrounds'
-    | '/community/building'
-    | '/community/buildings'
     | '/community/classes'
     | '/community/courses'
+    | '/community/dashboard'
     | '/community/discover'
+    | '/community/feed'
     | '/community/lesson-notes'
     | '/community/live'
-    | '/community/teaching-hub'
+    | '/community/network'
+    | '/community/parents'
+    | '/community/schools'
+    | '/community/search'
+    | '/community/students'
+    | '/community/teachers'
     | '/course-builder/$courseId'
     | '/family/teachers'
     | '/game/$slug'
@@ -3358,6 +3433,7 @@ export interface FileRouteTypes {
     | '/challenge/$slug/game'
     | '/challenge/$slug/solve'
     | '/community/adventure/$id'
+    | '/community/course/$id'
     | '/community/note/$id'
     | '/family/children/$childId'
     | '/games/abacus/$mode'
@@ -3555,10 +3631,13 @@ export interface FileRouteTypes {
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
     | '/api/public/health'
+    | '/community/people/$username'
+    | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
     | '/homepage/replace-building/free'
     | '/a/$slug/'
+    | '/account/community-profile/'
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
@@ -3582,16 +3661,19 @@ export interface FileRouteTypes {
     | '/challenge/$slug/'
     | '/class/$code/'
     | '/community/adventure/'
-    | '/community/assets/'
-    | '/community/backgrounds/'
-    | '/community/building/'
-    | '/community/buildings/'
     | '/community/classes/'
     | '/community/courses/'
+    | '/community/dashboard/'
     | '/community/discover/'
+    | '/community/feed/'
     | '/community/lesson-notes/'
     | '/community/live/'
-    | '/community/teaching-hub/'
+    | '/community/network/'
+    | '/community/parents/'
+    | '/community/schools/'
+    | '/community/search/'
+    | '/community/students/'
+    | '/community/teachers/'
     | '/course-builder/$courseId/'
     | '/family/teachers/'
     | '/game/$slug/'
@@ -3663,6 +3745,7 @@ export interface FileRouteTypes {
     | '/challenge/$slug/game/'
     | '/challenge/$slug/solve/'
     | '/community/adventure/$id/'
+    | '/community/course/$id/'
     | '/community/note/$id/'
     | '/family/children/$childId/'
     | '/games/abacus/$mode/'
@@ -3850,6 +3933,7 @@ export interface RootRouteChildren {
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
   HomepageReplaceBuildingFreeRoute: typeof HomepageReplaceBuildingFreeRoute
   ASlugIndexRoute: typeof ASlugIndexRoute
+  AccountCommunityProfileIndexRoute: typeof AccountCommunityProfileIndexRoute
   AgeRangeIndexRoute: typeof AgeRangeIndexRoute
   AssetsCategoryIndexRoute: typeof AssetsCategoryIndexRoute
   CSlugIndexRoute: typeof CSlugIndexRoute
@@ -4382,6 +4466,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ASlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account/community-profile/': {
+      id: '/account/community-profile/'
+      path: '/account/community-profile'
+      fullPath: '/account/community-profile/'
+      preLoaderRoute: typeof AccountCommunityProfileIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/access-codes/': {
       id: '/admin/access-codes/'
       path: '/access-codes'
@@ -4571,34 +4662,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityAdventureIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
-    '/community/assets/': {
-      id: '/community/assets/'
-      path: '/assets'
-      fullPath: '/community/assets/'
-      preLoaderRoute: typeof CommunityAssetsIndexRouteImport
-      parentRoute: typeof CommunityRouteRoute
-    }
-    '/community/backgrounds/': {
-      id: '/community/backgrounds/'
-      path: '/backgrounds'
-      fullPath: '/community/backgrounds/'
-      preLoaderRoute: typeof CommunityBackgroundsIndexRouteImport
-      parentRoute: typeof CommunityRouteRoute
-    }
-    '/community/building/': {
-      id: '/community/building/'
-      path: '/building'
-      fullPath: '/community/building/'
-      preLoaderRoute: typeof CommunityBuildingIndexRouteImport
-      parentRoute: typeof CommunityRouteRoute
-    }
-    '/community/buildings/': {
-      id: '/community/buildings/'
-      path: '/buildings'
-      fullPath: '/community/buildings/'
-      preLoaderRoute: typeof CommunityBuildingsIndexRouteImport
-      parentRoute: typeof CommunityRouteRoute
-    }
     '/community/classes/': {
       id: '/community/classes/'
       path: '/classes'
@@ -4613,11 +4676,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityCoursesIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
+    '/community/dashboard/': {
+      id: '/community/dashboard/'
+      path: '/dashboard'
+      fullPath: '/community/dashboard/'
+      preLoaderRoute: typeof CommunityDashboardIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
     '/community/discover/': {
       id: '/community/discover/'
       path: '/discover'
       fullPath: '/community/discover/'
       preLoaderRoute: typeof CommunityDiscoverIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/feed/': {
+      id: '/community/feed/'
+      path: '/feed'
+      fullPath: '/community/feed/'
+      preLoaderRoute: typeof CommunityFeedIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
     '/community/lesson-notes/': {
@@ -4634,11 +4711,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityLiveIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
-    '/community/teaching-hub/': {
-      id: '/community/teaching-hub/'
-      path: '/teaching-hub'
-      fullPath: '/community/teaching-hub/'
-      preLoaderRoute: typeof CommunityTeachingHubIndexRouteImport
+    '/community/network/': {
+      id: '/community/network/'
+      path: '/network'
+      fullPath: '/community/network/'
+      preLoaderRoute: typeof CommunityNetworkIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/parents/': {
+      id: '/community/parents/'
+      path: '/parents'
+      fullPath: '/community/parents/'
+      preLoaderRoute: typeof CommunityParentsIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/people/$username': {
+      id: '/community/people/$username'
+      path: '/people/$username'
+      fullPath: '/community/people/$username'
+      preLoaderRoute: typeof CommunityPeopleUsernameRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/schools/': {
+      id: '/community/schools/'
+      path: '/schools'
+      fullPath: '/community/schools/'
+      preLoaderRoute: typeof CommunitySchoolsIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/search/': {
+      id: '/community/search/'
+      path: '/search'
+      fullPath: '/community/search/'
+      preLoaderRoute: typeof CommunitySearchIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/students/': {
+      id: '/community/students/'
+      path: '/students'
+      fullPath: '/community/students/'
+      preLoaderRoute: typeof CommunityStudentsIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/tag/$tag': {
+      id: '/community/tag/$tag'
+      path: '/tag/$tag'
+      fullPath: '/community/tag/$tag'
+      preLoaderRoute: typeof CommunityTagTagRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/teachers/': {
+      id: '/community/teachers/'
+      path: '/teachers'
+      fullPath: '/community/teachers/'
+      preLoaderRoute: typeof CommunityTeachersIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
     '/course-builder/$courseId/': {
@@ -5073,6 +5199,13 @@ declare module '@tanstack/react-router' {
       path: '/adventure/$id'
       fullPath: '/community/adventure/$id/'
       preLoaderRoute: typeof CommunityAdventureIdIndexRouteImport
+      parentRoute: typeof CommunityRouteRoute
+    }
+    '/community/course/$id/': {
+      id: '/community/course/$id/'
+      path: '/course/$id'
+      fullPath: '/community/course/$id/'
+      preLoaderRoute: typeof CommunityCourseIdIndexRouteImport
       parentRoute: typeof CommunityRouteRoute
     }
     '/community/note/$id/': {
@@ -6132,35 +6265,47 @@ const ClassRouteRouteWithChildren = ClassRouteRoute._addFileChildren(
 
 interface CommunityRouteRouteChildren {
   CommunityIndexRoute: typeof CommunityIndexRoute
+  CommunityPeopleUsernameRoute: typeof CommunityPeopleUsernameRoute
+  CommunityTagTagRoute: typeof CommunityTagTagRoute
   CommunityAdventureIndexRoute: typeof CommunityAdventureIndexRoute
-  CommunityAssetsIndexRoute: typeof CommunityAssetsIndexRoute
-  CommunityBackgroundsIndexRoute: typeof CommunityBackgroundsIndexRoute
-  CommunityBuildingIndexRoute: typeof CommunityBuildingIndexRoute
-  CommunityBuildingsIndexRoute: typeof CommunityBuildingsIndexRoute
   CommunityClassesIndexRoute: typeof CommunityClassesIndexRoute
   CommunityCoursesIndexRoute: typeof CommunityCoursesIndexRoute
+  CommunityDashboardIndexRoute: typeof CommunityDashboardIndexRoute
   CommunityDiscoverIndexRoute: typeof CommunityDiscoverIndexRoute
+  CommunityFeedIndexRoute: typeof CommunityFeedIndexRoute
   CommunityLessonNotesIndexRoute: typeof CommunityLessonNotesIndexRoute
   CommunityLiveIndexRoute: typeof CommunityLiveIndexRoute
-  CommunityTeachingHubIndexRoute: typeof CommunityTeachingHubIndexRoute
+  CommunityNetworkIndexRoute: typeof CommunityNetworkIndexRoute
+  CommunityParentsIndexRoute: typeof CommunityParentsIndexRoute
+  CommunitySchoolsIndexRoute: typeof CommunitySchoolsIndexRoute
+  CommunitySearchIndexRoute: typeof CommunitySearchIndexRoute
+  CommunityStudentsIndexRoute: typeof CommunityStudentsIndexRoute
+  CommunityTeachersIndexRoute: typeof CommunityTeachersIndexRoute
   CommunityAdventureIdIndexRoute: typeof CommunityAdventureIdIndexRoute
+  CommunityCourseIdIndexRoute: typeof CommunityCourseIdIndexRoute
   CommunityNoteIdIndexRoute: typeof CommunityNoteIdIndexRoute
 }
 
 const CommunityRouteRouteChildren: CommunityRouteRouteChildren = {
   CommunityIndexRoute: CommunityIndexRoute,
+  CommunityPeopleUsernameRoute: CommunityPeopleUsernameRoute,
+  CommunityTagTagRoute: CommunityTagTagRoute,
   CommunityAdventureIndexRoute: CommunityAdventureIndexRoute,
-  CommunityAssetsIndexRoute: CommunityAssetsIndexRoute,
-  CommunityBackgroundsIndexRoute: CommunityBackgroundsIndexRoute,
-  CommunityBuildingIndexRoute: CommunityBuildingIndexRoute,
-  CommunityBuildingsIndexRoute: CommunityBuildingsIndexRoute,
   CommunityClassesIndexRoute: CommunityClassesIndexRoute,
   CommunityCoursesIndexRoute: CommunityCoursesIndexRoute,
+  CommunityDashboardIndexRoute: CommunityDashboardIndexRoute,
   CommunityDiscoverIndexRoute: CommunityDiscoverIndexRoute,
+  CommunityFeedIndexRoute: CommunityFeedIndexRoute,
   CommunityLessonNotesIndexRoute: CommunityLessonNotesIndexRoute,
   CommunityLiveIndexRoute: CommunityLiveIndexRoute,
-  CommunityTeachingHubIndexRoute: CommunityTeachingHubIndexRoute,
+  CommunityNetworkIndexRoute: CommunityNetworkIndexRoute,
+  CommunityParentsIndexRoute: CommunityParentsIndexRoute,
+  CommunitySchoolsIndexRoute: CommunitySchoolsIndexRoute,
+  CommunitySearchIndexRoute: CommunitySearchIndexRoute,
+  CommunityStudentsIndexRoute: CommunityStudentsIndexRoute,
+  CommunityTeachersIndexRoute: CommunityTeachersIndexRoute,
   CommunityAdventureIdIndexRoute: CommunityAdventureIdIndexRoute,
+  CommunityCourseIdIndexRoute: CommunityCourseIdIndexRoute,
   CommunityNoteIdIndexRoute: CommunityNoteIdIndexRoute,
 }
 
@@ -6641,6 +6786,7 @@ const rootRouteChildren: RootRouteChildren = {
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
   HomepageReplaceBuildingFreeRoute: HomepageReplaceBuildingFreeRoute,
   ASlugIndexRoute: ASlugIndexRoute,
+  AccountCommunityProfileIndexRoute: AccountCommunityProfileIndexRoute,
   AgeRangeIndexRoute: AgeRangeIndexRoute,
   AssetsCategoryIndexRoute: AssetsCategoryIndexRoute,
   CSlugIndexRoute: CSlugIndexRoute,

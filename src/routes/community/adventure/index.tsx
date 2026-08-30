@@ -22,7 +22,7 @@ export const Route = createFileRoute("/community/adventure/")({
       title="Community Adventures"
       subtitle="Copy an adventure and it becomes yours — every scene, question and reward included."
       workspacePath="/adventure"
-      backTo="/community/teaching-hub"
+      backTo="/community/network"
       backLabel="Community Teaching Hub"
       siblings={TEACHING_SECTIONS}
     />
