@@ -355,7 +355,15 @@ export function useCoPilotConversation(
           setLifecycle("validating");
           const solve = () => bridge.generateSolution(
             ref,
-            "Write the full step-by-step classroom solution for this question, one micro-step per line.",
+            [
+              // The lock guard requires the first line to restate the question
+              // exactly, so it is named here rather than left to be inferred.
+              approved
+                ? `The question is exactly: ${approved}\nBegin the solution by restating that question verbatim on its own line, then work it out.`
+                : "",
+              "Write the full step-by-step classroom solution for this question, one micro-step per line.",
+              "Write plain classroom mathematics — no LaTeX commands such as \\frac, \\right or \\left.",
+            ].filter(Boolean).join(" "),
             runController.signal,
           );
           try {
