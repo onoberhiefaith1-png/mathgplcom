@@ -27,6 +27,7 @@ import type {
 } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
 import { presetMaterial } from "@/lib/building/presets";
+import { coverFit } from "@/lib/building/imageFit";
 
 const SPACING = 7.5; // distance between room doorways along the corridor
 const HALL_WIDTH = 7;
@@ -819,9 +820,10 @@ return (
       }}
     >
       <Canvas shadows camera={{ position: [0, 1.7, 6.5], fov: 62 }} dpr={[1, 2]}>
-        <color attach="background" args={["#0b0f18"]} />
-        <fog attach="fog" args={["#0b0f18", 14, env.lighting.atmosphere ? 52 : 46]} />
+<color attach="background" args={["#131a2b"]} />
+        <fog attach="fog" args={["#131a2b", 16, env.lighting.atmosphere ? 56 : 50]} />
         <ambientLight intensity={env.lighting.ambient * env.lighting.brightness} />
+        <hemisphereLight args={["#cfe3ff", "#2a3042", 0.85 * env.lighting.brightness]} />
         <directionalLight
           position={[3, 8, 4]}
           intensity={env.lighting.intensity * env.lighting.brightness}
