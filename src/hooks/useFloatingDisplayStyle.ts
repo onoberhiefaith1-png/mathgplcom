@@ -28,8 +28,6 @@ export interface FloatingDisplayStyleApi {
   saving: boolean;
   chooseForMe: (style: FloatingDisplayStyleId) => Promise<void>;
   setPlatformDefault: (style: FloatingDisplayStyleId) => Promise<void>;
-  /** Fall back to whatever the administrator has set. */
-  useePlatformDefault: () => Promise<void>;
 }
 
 /** Resolves userChoice ?? platformDefault ?? "original", with an instant
@@ -80,13 +78,6 @@ export const useFloatingDisplayStyle = (): FloatingDisplayStyleApi => {
     finally { setState((s) => ({ ...s, saving: false })); }
   }, []);
 
-  const useePlatformDefault = useCallback(async () => {
-    setState((s) => ({ ...s, saving: true, userChoice: null }));
-    try { window.localStorage.removeItem(CACHE_KEY); } catch { /* noop */ }
-    try { await setMyFloatingDisplayStyle({ data: { style: "" } }); }
-    finally { setState((s) => ({ ...s, saving: false })); }
-  }, []);
-
   return {
     style: state.userChoice ?? state.platformDefault ?? DEFAULT_FLOATING_STYLE,
     platformDefault: state.platformDefault,
@@ -95,7 +86,6 @@ export const useFloatingDisplayStyle = (): FloatingDisplayStyleApi => {
     saving: state.saving,
     chooseForMe,
     setPlatformDefault,
-    useePlatformDefault,
   };
 };
 
