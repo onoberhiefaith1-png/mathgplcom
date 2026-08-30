@@ -123,7 +123,7 @@ const Doorway = ({
         <Text
           renderOrder={10}
           material-depthTest={false}
-          position={[0, 2.55, 0.4]}
+          position={[0, 2.55, 0.12]}
           fontSize={0.21}
           maxWidth={2.1}
           textAlign="center"
@@ -136,7 +136,7 @@ const Doorway = ({
         <Text
           renderOrder={10}
           material-depthTest={false}
-          position={[0, 1.6, 0.4]}
+          position={[0, 1.6, 0.12]}
           fontSize={0.15}
           maxWidth={2.0}
           textAlign="center"
@@ -149,7 +149,7 @@ const Doorway = ({
         <Text
           renderOrder={10}
           material-depthTest={false}
-          position={[0, 0.6, 0.4]}
+          position={[0, 0.6, 0.12]}
           fontSize={0.14}
           textAlign="center"
           anchorX="center"
