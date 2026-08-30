@@ -340,22 +340,47 @@ export function useCoPilotConversation(
             ? await bridge.insertSectionRef(item.kind)
             : (await bridge.insertSection(item.kind), bridge.snapshot()?.focusedRef ?? null));
         if (!ref) throw new Error("I could not place that section in the note.");
-        await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false, runController.signal);
+        const approved = (item.question ?? "").trim();
+        // An approved question is committed verbatim — writing it directly keeps
+        // it identical to the draft the teacher signed off, and stops the model
+        // from restating it a second time inside the same block (which used to
+        // break the question lock and leave the Solution empty).
+        if (approved && bridge.writeQuestion) {
+          await bridge.writeQuestion(ref, approved, runController.signal);
+        } else {
+          await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false, runController.signal);
+        }
+        let solutionMissing = false;
         if (item.withSolution && !cancelledRef.current) {
           setLifecycle("validating");
-          await bridge.generateSolution(
+          const solve = () => bridge.generateSolution(
             ref,
             "Write the full step-by-step classroom solution for this question, one micro-step per line.",
             runController.signal,
           );
+          try {
+            await solve();
+          } catch (solutionError) {
+            if (isAbort(solutionError)) throw solutionError;
+            // One retry, then keep the question and flag the pair so the teacher
+            // can rebuild just the solution — the lesson is never left silently
+            // question-only while claiming to be complete.
+            try {
+              await solve();
+            } catch (again) {
+              if (isAbort(again)) throw again;
+              solutionMissing = true;
+            }
+          }
         }
         // The committed question is the linked pair's anchor: a later edit to it
         // is what marks the solution stale.
         mark(item.key, {
           state: "done",
           ref,
-          committedQuestion: (item.question ?? "").trim(),
-          solutionStale: false,
+          committedQuestion: approved,
+          solutionStale: solutionMissing,
+          detail: solutionMissing ? "The solution did not come through — rebuild it." : undefined,
         });
       } catch (e) {
         if (isAbort(e)) {

@@ -1399,6 +1399,7 @@ function DocumentEditorInner({
       ? typedMaterial
       : mergeMaterial(documentMaterial, info.images ?? [], info.files ?? []);
     const wantsPipeline =
+      !((info.presetContent ?? "").trim()) &&
       isQuestionSectionKind(info.kind) &&
       info.action !== "clear" &&
       (hasMaterial(material) || hasTeacherContext(teacherContext));
@@ -1490,10 +1491,13 @@ function DocumentEditorInner({
         ? "solution"
         : undefined;
 
-    let content: string;
+    // A question the teacher already approved is committed verbatim: no AI call,
+    // so it can never be reworded, restated twice, or drift from the draft.
+    const preset = (info.presetContent ?? "").trim();
+    let content: string = preset;
     // The verified figure the Math Engine constructed for THIS question, if any.
     let engineScene: unknown = null;
-    try {
+    if (!preset) try {
       content = (await aiGenerate({
         kind: generationKind,
         teacherPrompt: promptForAi,
@@ -1515,6 +1519,9 @@ function DocumentEditorInner({
 
     } catch (err: any) {
       const msg = String(err?.message ?? err);
+      // The Co-Pilot builds unattended: it must see the real failure, otherwise
+      // an item is marked built while its block was left empty.
+      if (info.throwOnFailure) throw err instanceof Error ? err : new Error(msg);
       if (msg.includes("question_lock_mismatch") || msg.includes("missing_inherited_question")) {
         toast({
           title: "Couldn't match this solution to the question",
@@ -1554,7 +1561,11 @@ function DocumentEditorInner({
 
       return;
     }
-    if (!content) { toast({ title: "No content returned" }); return; }
+    if (!content) {
+      if (info.throwOnFailure) throw new Error("The AI returned nothing for this block.");
+      toast({ title: "No content returned" });
+      return;
+    }
     if (!editorAlive(editor)) return;
 
     // ── PIPELINE STAGE 6 — validation gate ──────────────────────────────────
@@ -2846,7 +2857,38 @@ function DocumentEditorInner({
     return hit;
   };
 
-  const copilotSectionAi = async (ref: string, instruction: string, action: SectionAction, signal?: AbortSignal) => {
+  /**
+   * The Solution heading that belongs to this question section. A solution is
+   * ALWAYS written under it — never appended into the question block, which is
+   * what used to restate the question a second time and leave Solution empty.
+   */
+  const copilotSolutionHeading = (
+    questionHeadingPos: number,
+  ): { pos: number; text: string } | null => {
+    if (!editorAlive(editor)) return null;
+    const doc = editor.state.doc;
+    const end = Math.min(sectionEndWithin(doc, questionHeadingPos), doc.content.size);
+    const hits: Array<{ pos: number; text: string }> = [];
+    doc.nodesBetween(questionHeadingPos, end, (n, p) => {
+      if (hits.length) return false;
+      if (p <= questionHeadingPos) return true;
+      if (n.type.name === "heading" && isSolutionLabel(n.textContent)) {
+        hits.push({ pos: p, text: n.textContent });
+        return false;
+      }
+      return true;
+    });
+    return hits[0] ?? null;
+  };
+
+
+  const copilotSectionAi = async (
+    ref: string,
+    instruction: string,
+    action: SectionAction,
+    signal?: AbortSignal,
+    presetContent?: string,
+  ) => {
     if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
     const hit = copilotResolve(ref);
     const doc = editor.state.doc;
@@ -2863,8 +2905,48 @@ function DocumentEditorInner({
       action,
       images: [],
       signal,
+      presetContent,
+      // The Co-Pilot runs unattended — a silent toast would let it report an
+      // item as built when the block was left empty.
+      throwOnFailure: true,
     });
   };
+
+  /** Write the worked solution UNDER this question's own Solution heading. */
+  const copilotSolutionAi = async (ref: string, instruction: string, signal?: AbortSignal) => {
+    if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
+    const hit = copilotResolve(ref);
+    let sol = copilotSolutionHeading(hit.headingPos);
+    if (!sol) {
+      // The question kept its own Solution area in every normal flow; if it is
+      // missing, create it here rather than appending the working into the
+      // question block (which is what used to restate the question twice).
+      const at = Math.min(
+        sectionEndWithin(editor.state.doc, hit.headingPos),
+        editor.state.doc.content.size,
+      );
+      editor.chain().focus().insertContentAt(at, solutionPlaceholderNodes()).run();
+      sol = copilotSolutionHeading(hit.headingPos);
+      if (!sol) throw new Error("That section has no Solution area to write into.");
+    }
+    const doc = editor.state.doc;
+    const end = sectionEndWithin(doc, sol.pos);
+    const bodyStart = sol.pos + (doc.nodeAt(sol.pos)?.nodeSize ?? 0);
+    let sectionText = "";
+    try { sectionText = serializeRangeAsMath(bodyStart, Math.max(bodyStart, end)); } catch { sectionText = ""; }
+    await handleSectionAi(instruction, {
+      kind: "solution" as SectionKind,
+      headingPos: sol.pos,
+      sectionEndPos: end,
+      headingText: sol.text,
+      sectionText,
+      action: "generate",
+      images: [],
+      signal,
+      throwOnFailure: true,
+    });
+  };
+
 
   useEffect(() => {
     const ref = copilotBridgeRef;
@@ -2911,11 +2993,13 @@ function DocumentEditorInner({
 
       generateQuestion: async (ref2, instruction, replace, signal) =>
         copilotSectionAi(ref2, instruction || "Generate this section.", replace ? "regenerate" : "generate", signal),
+      /** Commit an already-approved question verbatim — no AI, no rewording. */
+      writeQuestion: async (ref2, text, signal) =>
+        copilotSectionAi(ref2, "Commit the approved question.", "regenerate", signal, text),
       generateSolution: async (ref2, instruction, signal) =>
-        copilotSectionAi(
+        copilotSolutionAi(
           ref2,
           [instruction, "Write the full step-by-step solution for this question."].filter(Boolean).join(" "),
-          "extend",
           signal,
         ),
       buildGeometryMap: async (ref2) => {

@@ -58,6 +58,17 @@ export interface SectionAiCallContext {
   reportStage?: (stage: StageId) => void;
   /** Allows the Co-Pilot to stop a long generation without blocking the note. */
   signal?: AbortSignal;
+  /**
+   * Content the caller already owns — written into the section as-is, with no
+   * AI call at all. The Co-Pilot uses this to commit a question the teacher
+   * approved at the draft stage, so it can never be reworded or duplicated.
+   */
+  presetContent?: string;
+  /**
+   * Fail loudly instead of only showing a toast. The Co-Pilot needs the real
+   * failure so it never marks an item built when nothing was written.
+   */
+  throwOnFailure?: boolean;
 }
 
 interface SectionHeadingOptions {
