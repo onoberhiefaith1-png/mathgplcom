@@ -1,6 +1,6 @@
 // Stage 5 — what the Copilot is building, item by item.
 
-import { Check, CircleDot, Loader2, X } from "lucide-react";
+import { Check, CircleDot, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { BuildItem } from "@/lib/lessonnotes/copilot/procedure";
 
@@ -8,6 +8,9 @@ interface Props {
   queue: BuildItem[];
   onResume?: () => void;
   showResume?: boolean;
+  /** Rebuild ONE item after its question changed, so its solution matches again. */
+  onRebuildItem?: (key: string) => void;
+  busy?: boolean;
 }
 
 const Icon = ({ state }: { state: BuildItem["state"] }) =>
@@ -16,7 +19,7 @@ const Icon = ({ state }: { state: BuildItem["state"] }) =>
     : state === "failed" ? <X className="h-3 w-3 mt-0.5 text-red-400" />
     : <CircleDot className="h-3 w-3 mt-0.5 text-foreground/25" />;
 
-const BuildProgress = ({ queue, onResume, showResume }: Props) => {
+const BuildProgress = ({ queue, onResume, showResume, onRebuildItem, busy }: Props) => {
   if (!queue.length) return null;
   const done = queue.filter((q) => q.state === "done").length;
   return (
@@ -31,6 +34,16 @@ const BuildProgress = ({ queue, onResume, showResume }: Props) => {
             <span className={q.state === "pending" ? "text-foreground/40" : "text-foreground/80"}>
               {q.label}{q.detail ? ` — ${q.detail}` : ""}
             </span>
+            {q.solutionStale && onRebuildItem && (
+              <Button
+                size="sm" variant="ghost" disabled={busy}
+                className="ml-auto h-5 gap-1 px-1.5 text-[10.5px] text-amber-300 hover:text-amber-200"
+                onClick={() => onRebuildItem(q.key)}
+                aria-label={`Rewrite the solution for ${q.label}`}
+              >
+                <RefreshCw className="h-2.5 w-2.5" /> solution
+              </Button>
+            )}
           </li>
         ))}
       </ul>
