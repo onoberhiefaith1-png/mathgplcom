@@ -44,13 +44,17 @@ const CommunityResourceCard = ({
   const isLessonAsset = card.kind === "lesson_asset";
   const isNote = card.kind === "lesson_note";
   const isAdventure = card.kind === "adventure";
-  // A shared note or adventure is viewable before it is copied — the creator's
-  // own cover artwork travels with the listing.
+  const isCourse = card.kind === "course";
+  // A shared note, adventure or course is viewable before it is copied — the
+  // creator's own cover artwork travels with the listing, and a course opens
+  // the teacher's original course with its original videos.
   const viewPath = isNote
     ? `/community/note/${card.id}`
     : isAdventure
       ? `/community/adventure/${card.id}`
-      : null;
+      : isCourse
+        ? `/community/course/${card.id}`
+        : null;
 
   const act = async () => {
     setBusy(true);
