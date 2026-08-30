@@ -1171,6 +1171,162 @@ export type Database = {
         }
         Relationships: []
       }
+      building_doors: {
+        Row: {
+          building_id: string
+          content_id: string | null
+          content_kind: string | null
+          created_at: string
+          created_by: string | null
+          design: Json
+          id: string
+          position_along: number
+          title_override: string | null
+          updated_at: string
+          walkway_id: string
+        }
+        Insert: {
+          building_id: string
+          content_id?: string | null
+          content_kind?: string | null
+          created_at?: string
+          created_by?: string | null
+          design?: Json
+          id?: string
+          position_along?: number
+          title_override?: string | null
+          updated_at?: string
+          walkway_id: string
+        }
+        Update: {
+          building_id?: string
+          content_id?: string | null
+          content_kind?: string | null
+          created_at?: string
+          created_by?: string | null
+          design?: Json
+          id?: string
+          position_along?: number
+          title_override?: string | null
+          updated_at?: string
+          walkway_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_doors_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_doors_walkway_id_fkey"
+            columns: ["walkway_id"]
+            isOneToOne: false
+            referencedRelation: "building_walkways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      building_walkways: {
+        Row: {
+          building_id: string
+          created_at: string
+          direction: string
+          id: string
+          length: number
+          parent_id: string | null
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          building_id: string
+          created_at?: string
+          direction?: string
+          id?: string
+          length?: number
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          building_id?: string
+          created_at?: string
+          direction?: string
+          id?: string
+          length?: number
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_walkways_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_walkways_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "building_walkways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      buildings: {
+        Row: {
+          created_at: string
+          environment: Json
+          id: string
+          is_active: boolean
+          name: string
+          org_id: string | null
+          owner_id: string
+          source_building_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          environment?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          org_id?: string | null
+          owner_id: string
+          source_building_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          environment?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          org_id?: string | null
+          owner_id?: string
+          source_building_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buildings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buildings_source_building_id_fkey"
+            columns: ["source_building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_adventure_notes: {
         Row: {
           assigned_by: string
@@ -8197,14 +8353,18 @@ export type Database = {
         Args: { _amount: number; _cost_unit_id: string }
         Returns: number
       }
+      building_of_door: { Args: { _door_id: string }; Returns: string }
+      building_of_walkway: { Args: { _walkway_id: string }; Returns: string }
       can_access_realtime_topic: { Args: { _topic: string }; Returns: boolean }
       can_afford_usage: {
         Args: { _estimated?: number; _org_id: string; _user_id: string }
         Returns: boolean
       }
       can_edit_academy: { Args: { _academy_id: string }; Returns: boolean }
+      can_edit_building: { Args: { _building_id: string }; Returns: boolean }
       can_manage_gpl_assets: { Args: never; Returns: boolean }
       can_view_academy: { Args: { _academy_id: string }; Returns: boolean }
+      can_view_building: { Args: { _building_id: string }; Returns: boolean }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
       can_watch_course_media: { Args: { _path: string }; Returns: boolean }
       class_has_open_live_session: {

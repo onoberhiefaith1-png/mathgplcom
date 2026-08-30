@@ -3,7 +3,8 @@
  *
  * Entered from the rotating building on the homepage. The corridor, rooms and
  * showroom shelves are all read from the database, so what a teacher builds in
- * /academy/edit is exactly what a student walks through here.
+ * /academy/edit is exactly what a student walks through here. The building
+ * shell (walkway graph, surfaces, lighting, doors) is read the same way.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
@@ -12,7 +13,17 @@ import HallwayScene from "@/components/academy/world/HallwayScene";
 import ShowroomPanel from "@/components/academy/world/ShowroomPanel";
 import { ensureAcademy, loadAcademyTree, loadProductCatalogue } from "@/lib/academy/api";
 import { productRoute, type AcademyProduct, type AcademyTree } from "@/lib/academy/types";
+import {
+  activateBuilding,
+  doorRoute,
+  ensureBuilding,
+  listBuildings,
+  loadBuildingData,
+} from "@/lib/building/api";
+import type { Building, BuildingData, BuildingDoor } from "@/lib/building/types";
+import { resolveEnvironmentTextures } from "@/lib/building/textures";
 import { useAccount } from "@/lib/accounts/useAccount";
+import { toast } from "@/hooks/use-toast";
 
 const AcademyWorldPage = () => {
   const { orgId, isLoading: accountLoading } = useAccount();
@@ -26,6 +37,10 @@ const AcademyWorldPage = () => {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
   const [subtopicId, setSubtopicId] = useState<string | null>(null);
+  const [buildingData, setBuildingData] = useState<BuildingData | null>(null);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [textures, setTextures] = useState<Record<string, string>>({});
+  const [walking, setWalking] = useState(false);
 
   useEffect(() => {
     if (accountLoading) return;
@@ -42,6 +57,20 @@ const AcademyWorldPage = () => {
         if (cancelled) return;
         setTree(loaded);
         setCatalogue(products);
+
+        // The building shell: view the workspace's active building; only an
+        // editor creates one when none exists yet.
+let list = await listBuildings(orgId ?? null);
+        let building: Building | null = list.find((b) => b.is_active) ?? list[0] ?? null;
+        if (!building && loaded.canEdit) {
+          building = await ensureBuilding(orgId ?? null);
+        }
+        if (building && !list.some((b) => b.id === building?.id)) {
+          list = await listBuildings(orgId ?? null);
+        }
+        if (cancelled) return;
+        setBuildings(list);
+        setBuildingData(building ? await loadBuildingData(building) : null);
       } catch (e: unknown) {
         if (!cancelled) setError(String((e as Error)?.message ?? e));
       } finally {
@@ -52,6 +81,24 @@ const AcademyWorldPage = () => {
       cancelled = true;
     };
   }, [orgId, accountLoading]);
+
+  // Resolve uploaded textures whenever the environment changes.
+  const textureEnv = buildingData?.building.environment ?? null;
+  const textureEnvKey = JSON.stringify(textureEnv);
+  useEffect(() => {
+    let cancelled = false;
+    if (!textureEnv) {
+      setTextures({});
+      return;
+    }
+    resolveEnvironmentTextures(textureEnv).then((t) => {
+      if (!cancelled) setTextures(t);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textureEnvKey]);
 
   const rooms = useMemo(
     () => (tree?.rooms ?? []).filter((r) => r.is_visible || tree?.canEdit),
@@ -84,6 +131,34 @@ const AcademyWorldPage = () => {
     setSubtopicId(null);
   }, []);
 
+  /** A door either opens an existing product, or is class-context only. */
+  const handleOpenDoor = useCallback(
+    (door: BuildingDoor) => {
+      const route = doorRoute(door);
+      if (route) {
+        navigate(route as never);
+        return;
+      }
+      toast({
+        title: "Runs in class",
+        description:
+          "Adventures and assessments are played in class — open this product from your class dashboard.",
+      });
+    },
+    [navigate],
+  );
+
+  const switchBuilding = useCallback(
+    async (id: string) => {
+      await activateBuilding(id, orgId ?? null);
+      const list = await listBuildings(orgId ?? null);
+      const next = list.find((b) => b.id === id) ?? null;
+      setBuildings(list);
+      setBuildingData(next ? await loadBuildingData(next) : null);
+    },
+    [orgId],
+  );
+
   if (loading || accountLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
@@ -106,7 +181,17 @@ const AcademyWorldPage = () => {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0b0f18]">
       {rooms.length > 0 ? (
-        <HallwayScene rooms={rooms} focus={focus} onFocusChange={setFocus} onEnterRoom={enterRoom} />
+        <HallwayScene
+          rooms={rooms}
+          building={buildingData}
+          catalogue={catalogue}
+          textures={textures}
+          focus={focus}
+          onFocusChange={setFocus}
+          onEnterRoom={enterRoom}
+          onOpenDoor={handleOpenDoor}
+          onModeChange={(m) => setWalking(m === "walk")}
+        />
       ) : (
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
           <h1 className="text-xl font-semibold text-foreground">The Academy hallway is empty</h1>
@@ -133,8 +218,25 @@ const AcademyWorldPage = () => {
         >
           <ChevronLeft className="h-4 w-4" /> Building
         </Link>
-        <span className="pointer-events-none truncate text-sm font-semibold uppercase tracking-[0.2em] text-slate-200">
-          {tree?.academy.name || "Academy"}
+        <span className="pointer-events-none flex min-w-0 flex-col items-center gap-1">
+          <span className="truncate text-sm font-semibold uppercase tracking-[0.2em] text-slate-200">
+            {tree?.academy.name || "Academy"}
+          </span>
+          {buildings.length > 1 && (
+            <select
+              aria-label="Switch building"
+              value={buildingData?.building.id ?? ""}
+              onChange={(e) => e.target.value && switchBuilding(e.target.value)}
+              className="pointer-events-auto h-8 max-w-[220px] rounded-full border border-border/60 bg-background/80 px-3 text-[11px] text-foreground backdrop-blur"
+            >
+              {buildings.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                  {b.is_active ? " · active" : ""}
+                </option>
+              ))}
+            </select>
+          )}
         </span>
         {tree?.canEdit ? (
           <Link
@@ -148,8 +250,8 @@ const AcademyWorldPage = () => {
         )}
       </div>
 
-      {/* Corridor controls + featured shelf, hidden while inside a room */}
-      {!room && rooms.length > 0 && (
+      {/* Corridor controls + featured shelf, hidden while inside a room or walking */}
+      {!room && !walking && rooms.length > 0 && (
         <>
           <div className="absolute inset-x-0 bottom-6 z-20 flex flex-col items-center gap-3 px-4">
             {featured.length > 0 && (
