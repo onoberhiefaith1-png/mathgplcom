@@ -67,6 +67,7 @@ import type {
   BuildingData,
   DoorContentKind,
   EnvironmentSettings,
+  SurfaceKey,
   WalkwayDirection,
 } from "@/lib/building/types";
 import { resolveEnvironmentTextures } from "@/lib/building/textures";
@@ -297,10 +298,21 @@ let list = await listBuildings(org);
     await refreshBuilding();
   }, [buildingData, orgId, refreshBuilding]);
 
-  const handleTextureUpload = useCallback(
-    async (surface: string, file: File): Promise<string> => {
+const handleTextureUpload = useCallback(
+    async (
+      surface: SurfaceKey | "door",
+      blob: Blob,
+      contentType: string,
+      previousPath: string | null,
+    ): Promise<string> => {
       if (!buildingData) throw new Error("No building loaded yet.");
-      const { path } = await uploadBuildingTexture(buildingData.building.id, surface, file);
+      const { path } = await uploadBuildingTexture(
+        buildingData.building.id,
+        surface,
+        blob,
+        contentType,
+        previousPath,
+      );
       return path;
     },
     [buildingData],
@@ -725,7 +737,7 @@ let list = await listBuildings(org);
                   </button>
                   {buildingOpen.env && (
                     <div className="border-t border-border/60 p-3">
-                      <BuildingSettingsPanel
+<BuildingSettingsPanel
                         key={buildingData.building.id}
                         buildingId={buildingData.building.id}
                         environment={buildingData.building.environment}
@@ -736,6 +748,7 @@ let list = await listBuildings(org);
                           await refreshBuilding();
                         }}
                         onUpload={handleTextureUpload}
+                        getTextureUrl={(p) => textures[p]}
                       />
                     </div>
                   )}

@@ -25,6 +25,12 @@ export interface SurfaceDesign {
   offsetX: number;
   offsetY: number;
   repeat: boolean;
+  /**
+   * How an image is fitted to the surface, like a physical panel:
+   * "cover" crops the excess and never distorts (default), "stretch" fills
+   * the plane 1:1 (legacy behaviour).
+   */
+  fit: "cover" | "stretch";
 }
 
 export interface DoorDesign {
@@ -106,12 +112,12 @@ export interface BuildingData {
 }
 
 export const DEFAULT_ENVIRONMENT: EnvironmentSettings = {
-  leftWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false },
-  rightWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false },
-  floor: { preset: "classroom", color: "#232c3d", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false },
-  roof: { preset: "neutral", color: "#141a26", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false },
+  leftWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
+  rightWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
+  floor: { preset: "classroom", color: "#3b4658", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
+  roof: { preset: "neutral", color: "#2c3448", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
   door: { preset: "modern", color: "#1a2542", texture: null, brightness: 1 },
-  lighting: { brightness: 1, ambient: 0.6, intensity: 1.1, atmosphere: false },
+  lighting: { brightness: 1, ambient: 0.8, intensity: 1.35, atmosphere: false },
   effects: { enabled: false, effect: null },
 };
 

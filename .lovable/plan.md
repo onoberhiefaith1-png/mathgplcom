@@ -1,74 +1,143 @@
-# 3D Building Surface & Background Asset System
+# Path-Based 3D Building Navigation System (Phase 1)
 
-## Goal
-
-Upgrade the visual surfaces of the existing 3D building into a proper "surface design system": four independent editable surfaces (Left Wall, Right Wall, Floor, Roof/Ceiling), each with its own design; uploaded images fitted like a physical plasterboard panel (cover/crop, never stretched or distorted); a built-in sample background gallery (8 styles); an upload flow with preview and adjustment (Zoom / Move / Reset / Fit / Apply / Remove); per-building persistence; duplication that copies the visual configuration into an independent copy; and texture performance safeguards.
-
-The building, hallway, movement, doors, products, editing/view modes and workspace system are NOT rebuilt — only the surface rendering and its editing UI improve.
+Upgrade the existing 3D Building/Academy walkway experience with a professional,
+path-aware navigation system. The existing building, scene, surfaces, walkway
+graph and editor are preserved — nothing is rebuilt. The navigation foundation
+is built first; visual controls (mini-map, breadcrumbs, indicators) sit on top.
 
 ## Current state (verified)
 
-- The data model already has four independent surfaces: `EnvironmentSettings.leftWall / rightWall / floor / roof`, each a `SurfaceDesign { preset, color, texture(path), scale, offsetX, offsetY, repeat }`, stored per-building in `buildings.environment` (JSONB) with RLS scoping. Left/right walls are already separate.
-- `BuildingSettingsPanel` already renders per-surface editors: preset chips, colour picker, upload/remove texture, scale / offset X/Y / repeat sliders, with a live 3D preview and Save Changes persistence.
-- Textures upload to the game-assets bucket (`uploadBuildingTexture`); the renderer receives signed URLs via `resolveEnvironmentTextures` and `HallwayScene.Surface` maps them onto the corridor geometry (floor/roof/left/right wall per segment).
-- Duplicate building already copies the whole environment (visual configuration) plus the walkway graph; the copy is independent.
-- Gap: when a texture is used with `repeat=false`, `Surface` maps it 1:1 onto the plane, which stretches/distorts images whose aspect differs from the wall. There is no cover/crop fit, no zoom/pan semantics beyond raw UV offsets, no sample gallery, and no upload preview/adjust flow (upload applies immediately).
-- Gap: the corridor reads too dark in walk mode (visibility floor) — surface presentation work should fix this while making textures look "installed", not pasted.
-- No schema change is needed: `environment` is JSONB; a new `fit` field persists without a migration.
+- `src/components/academy/world/HallwayScene.tsx` already renders the walkway
+  environment from `building.walkways` and compiles a recursive graph
+  (`computeSegments`: parent walkway + forward/left/right children with
+  world-space headings and positions).
+- Movement is a smooth glide in browse mode: camera lerps to each doorway,
+  turns re-orient the camera heading, movement stops at the walkway end
+  ("End of walkway" state), and keyboard/touch walk controls exist.
+- `BuildingWalkway` rows (id, parent_id, direction forward/left/right, length,
+  position) come from `src/lib/building/api.ts` (`addWalkway`, `updateWalkway`,
+  `deleteWalkway`) — the graph is already dynamic: new walkways appear when
+  saved, no hard-coding.
+- `building_doors` rows associate a door with a walkway and a product
+  destination; the world page routes course/game doors to their product pages.
+- Owner/viewer split exists: editors reach `/academy/edit`, viewers see the
+  world at `/academy` and cannot edit.
+- The four-surface background asset system (templates, uploads, cover-fit,
+  per-surface settings) is implemented and its E2E verification is being
+  completed in parallel; this plan does not change it.
 
-## Steps
+## What we build
 
-### 1. Fit engine — cover/crop, no distortion (core)
+### 1. Navigation core — `src/lib/building/navigation.ts` (pure, testable)
 
-- Add `fit: "cover" | "stretch"` to `SurfaceDesign` (default `"cover"`; `"stretch"` preserves today's behaviour).
-- In `HallwayScene.Surface`, once the texture's image dimensions are known, compute UV repeat/offset so the image covers the plane while preserving aspect ratio (a `background-size: cover` equivalent in UV space), using the plane's dimensions, the texture's aspect, `scale` as zoom and `offsetX/offsetY` as pan (focal position). Apply via `useEffect`, never during render.
-- The result: a portrait image on a wide wall is cropped top/bottom (or sides) with the important centre kept; nothing is squeezed.
+A typed navigation graph compiled from the walkway rows, independent of the
+3D scene so future editors and the mini-map share it:
 
-### 2. Built-in sample background gallery
+- `NavNode` per walkway segment: id, name, world position, heading, depth.
+- `NavEdge` per connection: previous, forward, left, right, door.
+- `availableDirections(node)` — forward/left/right/back with validity flags.
+- `turnGeometry(fromHeading, toHeading)` — 90-degree and 180-degree turn
+  arcs (position + yaw keyframes) for smooth rotation around the junction.
+- `NavigationHistory` — a stack of visited nodes with current node, previous
+  node, back availability (Back disabled at the start node).
 
-- Generate 8 professional sample backgrounds (square JPGs, bundled as app assets): Modern Academy, Mathematics, Premium Dark, Bright Classroom, Science, Minimal, Futuristic, School Branding (clean surface with a logo zone).
-- Introduce a `builtin:<key>` texture path convention: `resolveEnvironmentTextures` returns the bundled asset URL directly for `builtin:` paths (no signed URL); storage paths keep the current flow. The renderer is unchanged.
-- New "Choose Template" gallery dialog per surface: thumbnail grid of the 8 samples; picking one applies it to that surface only.
+Unit tests for the pure functions (graph build, availability, turn geometry,
+history push/pop).
 
-### 3. Teacher upload flow with preview + adjust
+### 2. Movement state machine — `useNavigation` (inside the scene)
 
-- New "Upload Image" flow per surface: pick a file -> client-side optimisation (resize long edge to max 2048 px, WebP/JPEG ~0.85, strip metadata) -> upload to the bucket -> show a 2D fitted preview of the surface with the image cover-fitted.
-- Adjustment controls in the flow: Zoom (scale), Move Left/Right (offsetX), Move Up/Down (offsetY), Reset, Fit (re-auto-fit), Apply (sets the texture + fit on that surface; the live 3D preview updates immediately), Remove (clears the texture).
-- Final persistence stays with the existing Save Changes button; the teacher never touches UVs or materials.
-- On replace, delete the previous texture object from the bucket to avoid bloat.
+Replace the heading-lerp glide with a node-following state machine:
 
-### 4. Per-surface settings panel + visibility floor
+- `WALKING` — move forward along the current node toward the next doorway;
+  camera follows smoothly (lerp on position and yaw, no snapping).
+- `TURNING` — at a junction, rotate player/camera around the junction along
+  the turn arc, align with the new node, then resume `WALKING` automatically
+  (Temple Run-style: turn → align → forward).
+- `RETRACING` — Back walks the player along the previous node back to the
+  previous node (or a smooth 180-degree turnaround when returning along the
+  same walkway), updating history.
+- `IDLE` — at a dead end or junction with nothing ahead; Back remains
+  available; forward resumes when a path exists.
 
-- Rebuild each surface section: current design preview thumbnail, Choose Template, Upload Image, Adjust controls (when a texture is set), Remove. Keep the existing colour-design preset chips.
-- Raise the corridor visibility floor so panels read as installed surfaces: add a hemisphere/rim light, raise the default ambient/floor/roof brightness, and lighten the default floor/roof colours. This fixes the dark walk-mode view that made earlier testing hard.
+Input rules (unchanged keys, now graph-routed):
 
-### 5. Persistence & duplication
+- W / Up / swipe up → forward if a forward path exists, else ignored with a
+  subtle "no path" cue (faint edge pulse, no camera movement).
+- A / Left / swipe left → turn left only if a left node exists; wall on the
+  left → input ignored, no rotation, no clipping.
+- D / Right / swipe right → same for right.
+- S / Down / swipe down / Back button → retrace history.
+- All controls obey the graph; collision stays a secondary safety layer.
 
-- Verify per-building save/load of surface designs (existing `updateEnvironment` + JSONB; nothing global).
-- Verify duplication: the copy inherits wall/floor/roof designs, uploaded textures, positioning and door/environment settings, and that changing the copy's surfaces never changes the original (it writes its own `environment`; texture paths are immutable shared objects until replaced).
+### 3. Door interaction (folds in the queued hallway work)
 
-### 6. Performance
+- Doors show a hover highlight matched to the hallway lighting tone
+  (emissive ramp, no geometry clipping) and a proximity/click interaction
+  state with the door's destination name.
+- Clicking/activating a door: pause movement, smooth camera zoom to the
+  doorway, then navigate to the destination:
+  - Course/game doors → existing product routes (unchanged).
+  - Room doors → new `/academy/room/$roomId` leaf route rendering the
+    room's sections via the existing showroom panel.
+- Door section counts refresh live from the database (realtime subscription
+  on the room hierarchy / placements, falling back to poll) so counts stay in
+  sync as rooms and courses are added or moved.
 
-- Client-side resize keeps uploaded textures small; bundled samples are CDN-served and loaded on demand.
-- Add a module-level texture cache in `HallwayScene` keyed by URL so the same sample applied to several segments/surfaces loads once (today each `Surface` loads its own copy).
-- Enable anisotropy and keep mipmaps; no repeated large images in memory.
+### 4. HUD overlays (on top of the navigation core)
 
-### 7. Verification
+- Breadcrumb: `Main Hall / JSS1 / Algebra` from the history stack.
+- Direction indicator: `← Main Hall | JSS1 →` style labels from the current
+  node's connections.
+- Back button: disabled at the start node.
+- Mini-map: small expandable button; opens a 2D top-down graph of nodes,
+  junctions, doors and destinations with the current position and facing
+  drawn from the same `navigation.ts` graph. Uses a lightweight SVG render
+  (no second WebGL context).
 
-- Build/typecheck clean.
-- Authenticated browser E2E: apply a sample to the left wall, upload a portrait image to the right wall (confirm no distortion — cropped, not squeezed), template the floor, upload a roof design; reload and confirm persistence; duplicate the building and confirm the copy keeps all four surface designs and that edits to the copy don't touch the original; view as a student and confirm textures render with lighting/perspective (not flat); confirm the corridor is clearly visible in walk mode; no page/console errors.
+### 5. Editor integration
 
-## Technical details
+- `WalkwayManager` stays the editor surface; the navigation graph is
+  recomputed automatically from saved rows (already true via
+  `computeSegments`). Verify a newly added walkway immediately appears in
+  the world + mini-map, and new doors resolve their destinations.
+- No editor changes to navigation data shape.
 
-- `SurfaceDesign` gains `fit: "cover" | "stretch"` persisted in `buildings.environment` JSONB — no migration, existing rows fall back to `"cover"` at render.
-- Cover UV math (plane aspect `p`, image aspect `a`, zoom `z`, pan `px,py`): `rx = max(1, a/p)`, `ry = max(p/a, 1)`; `repeat = (rx*z, ry*z)`; `offset = (0.5 - 0.5*rx*z + px, 0.5 - 0.5*ry*z + py)`.
-- New files: `src/lib/building/gallery.ts` (sample keys, thumbnails, `builtin:` URL map), `src/lib/building/imageFit.ts` (cover math + `optimizeImageForTexture` canvas util), `SurfaceGalleryDialog.tsx`, `SurfaceUploadDialog.tsx` (under `src/components/academy/editor/`), 8 generated sample JPGs under `src/assets/surfaces/` (ES6 imports; Mathematics and Science at premium quality for crisp symbols, the rest standard).
-- Edited: `src/lib/building/types.ts`, `src/lib/building/textures.ts` (builtin resolution), `src/lib/building/api.ts` (optimised upload + old-texture cleanup), `src/components/academy/world/HallwayScene.tsx` (fit engine, texture cache, hemisphere light, brighter defaults), `src/components/academy/editor/BuildingSettingsPanel.tsx` (surface sections + dialogs), `src/pages/academy/AcademyEditorPage.tsx` (wiring).
-- Following this plan, the previously approved hallway interaction plan (click-to-enter zoom, `/academy/room/$roomId` page, live section counts, doorway hover, E2E) remains queued and will be implemented next.
+## Verification (test cases 1–16)
 
-## Out of scope
+Playwright E2E against `http://localhost:8080` (authenticated owner and
+viewer sessions):
 
-- Rebuilding the building, hallway geometry or movement/navigation.
-- Door designs beyond the existing brightness/colour/texture controls.
-- New lighting presets or environment effects beyond the visibility-floor fix.
-- The hallway interaction items (already approved separately; queued after this plan).
+1. Straight hallway — forward works.
+2–3. Wall on left/right — A/D do nothing (assert camera unchanged).
+4–7. Left/right walkway exists — smooth turn into it, auto-realign forward.
+8–10. Back returns along previous walkway; dead-end Back stays available;
+      junction branches all work.
+11. Invalid branch — no wall clipping (camera stays inside corridor bounds).
+12. Teacher adds walkway — world + mini-map recognise it after save.
+13. Teacher adds door — door shows correct destination and opens it.
+14. Viewer navigates but cannot edit (no editor controls in world).
+15. Owner edits and previews.
+16. Larger building (6+ segments) — frame rate and movement stay smooth.
+
+Unit tests cover the pure navigation functions; typecheck via `tsgo`; the
+16-case E2E script lives under `/tmp/browser/navigation/`.
+
+## Out of scope (Phase 1)
+
+- Free-fly / FPS camera — deliberately excluded (path-only).
+- New physics/collision engine — collision remains a secondary safety layer
+  over graph-determined movement.
+- New room interiors, courses, or content engines.
+- Multiple hallway templates (deferred to the existing Phase 2 track).
+
+## Technical notes
+
+- Keep all movement frame-rate independent: `delta`-based lerps with
+  `THREE.MathUtils.lerp` and clamped delta; smooth-turn keyframes computed
+  once per turn.
+- Mini-map is DOM/SVG, not a second WebGL scene, to hold the performance
+  budget.
+- The navigation core is a pure module with no three.js imports so unit
+  tests run fast and the editor's preview can reuse it.
+- Verify the pending surface-system E2E (template + upload + persistence)
+  finishes green alongside this work; it touches the same editor page.

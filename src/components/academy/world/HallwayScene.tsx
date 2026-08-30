@@ -27,6 +27,7 @@ import type {
 } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
 import { presetMaterial } from "@/lib/building/presets";
+import { coverFit } from "@/lib/building/imageFit";
 
 const SPACING = 7.5; // distance between room doorways along the corridor
 const HALL_WIDTH = 7;
@@ -94,7 +95,42 @@ const findSegment = (segs: Segment[], id: string): Segment | null => {
   return null;
 };
 
-// ── Imperative texture loading (avoids Suspense/conditional hooks) ────────
+// ── Shared texture loading ────────────────────────────────────────────────
+// The same image (e.g. a built-in sample) may appear on several segments and
+// surfaces. Decode once per URL, hand every subscriber its own clone so each
+// surface can fit/tile independently.
+
+const textureCache = new Map<string, THREE.Texture>();
+const textureWaiters = new Map<string, Set<(t: THREE.Texture | null) => void>>();
+
+const requestTexture = (url: string, cb: (t: THREE.Texture | null) => void): void => {
+  const hit = textureCache.get(url);
+  if (hit) {
+    cb(hit.clone());
+    return;
+  }
+  let waiters = textureWaiters.get(url);
+  if (waiters) {
+    waiters.add(cb);
+    return;
+  }
+  waiters = new Set([cb]);
+  textureWaiters.set(url, waiters);
+  new THREE.TextureLoader().load(
+    url,
+    (base) => {
+      base.anisotropy = 4;
+      textureCache.set(url, base);
+      textureWaiters.delete(url);
+      waiters!.forEach((w) => w(base.clone()));
+    },
+    undefined,
+    () => {
+      textureWaiters.delete(url);
+      waiters!.forEach((w) => w(null));
+    },
+  );
+};
 
 const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null => {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
@@ -103,21 +139,7 @@ const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null 
       setTex(null);
       return;
     }
-    let alive = true;
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      url,
-      (t) => {
-        if (!alive) return;
-        t.wrapS = t.wrapT = THREE.RepeatWrapping;
-        setTex(t);
-      },
-      undefined,
-      () => setTex(null),
-    );
-    return () => {
-      alive = false;
-    };
+    requestTexture(url, setTex);
   }, [url]);
   return tex;
 };
@@ -130,7 +152,10 @@ const Surface = ({
   scale,
   offsetX,
   offsetY,
-repeat,
+  repeat,
+  fit,
+  planeW,
+  planeH,
   position,
   "rotation-x": rotationX,
   "rotation-y": rotationY,
@@ -144,6 +169,9 @@ repeat,
   offsetX: number;
   offsetY: number;
   repeat: boolean;
+  fit: "cover" | "stretch";
+  planeW: number;
+  planeH: number;
   position?: [number, number, number];
   "rotation-x"?: number;
   "rotation-y"?: number;
@@ -153,10 +181,30 @@ repeat,
   const tex = useLoadedTexture(url);
   const mat = presetMaterial(presetKey, color);
   const map = tex ?? null;
-  if (map && tex) {
-    tex.repeat.set(repeat ? Math.max(0.1, scale) : 1, repeat ? Math.max(0.1, scale) : 1);
-    tex.offset.set(offsetX, offsetY);
-  }
+// Fit the texture to the plane. Runs when the texture or its placement
+  // changes — never during render.
+  useEffect(() => {
+    if (!tex) return;
+    const img = tex.image as { width?: number; height?: number } | undefined;
+    const iw = img?.width ?? planeW;
+    const ih = img?.height ?? planeH;
+    if (repeat) {
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      const s = Math.max(0.1, scale);
+      tex.repeat.set(s, s);
+      tex.offset.set(offsetX, offsetY);
+      return;
+    }
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    if (fit === "stretch") {
+      tex.repeat.set(1, 1);
+      tex.offset.set(0, 0);
+      return;
+    }
+    const fitted = coverFit(planeW, planeH, iw, ih, scale, offsetX, offsetY);
+    tex.repeat.set(fitted.repeat[0], fitted.repeat[1]);
+    tex.offset.set(fitted.offset[0], fitted.offset[1]);
+  }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH]);
   return (
     <mesh position={position} rotation-x={rotationX} rotation-y={rotationY} receiveShadow={receiveShadow}>
       <meshStandardMaterial
@@ -190,7 +238,7 @@ const SegmentCorridor = ({
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
     <group position={[0, 0, -length / 2]}>
       {/* floor */}
-      <Surface
+<Surface
         rotation-x={-Math.PI / 2}
         receiveShadow
         url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
@@ -200,11 +248,14 @@ const SegmentCorridor = ({
         offsetX={env.floor.offsetX}
         offsetY={env.floor.offsetY}
         repeat={env.floor.repeat}
+        fit={env.floor.fit}
+        planeW={HALL_WIDTH}
+        planeH={length + 6}
       >
         <planeGeometry args={[HALL_WIDTH, length + 6]} />
       </Surface>
       {/* roof / ceiling */}
-      <Surface
+<Surface
         rotation-x={Math.PI / 2}
         position={[0, HALL_HEIGHT, 0]}
         url={env.roof.texture ? textures[env.roof.texture.path] : undefined}
@@ -214,6 +265,9 @@ const SegmentCorridor = ({
         offsetX={env.roof.offsetX}
         offsetY={env.roof.offsetY}
         repeat={env.roof.repeat}
+        fit={env.roof.fit}
+        planeW={HALL_WIDTH}
+        planeH={length + 6}
       >
         <planeGeometry args={[HALL_WIDTH, length + 6]} />
       </Surface>
@@ -221,7 +275,7 @@ const SegmentCorridor = ({
       {([-1, 1] as const).map((side) => {
         const wall = side === -1 ? env.leftWall : env.rightWall;
         return (
-          <Surface
+<Surface
             key={side}
             position={[(side * HALL_WIDTH) / 2, HALL_HEIGHT / 2, 0]}
             rotation-y={(-side * Math.PI) / 2}
@@ -232,6 +286,9 @@ const SegmentCorridor = ({
             offsetX={wall.offsetX}
             offsetY={wall.offsetY}
             repeat={wall.repeat}
+            fit={wall.fit}
+            planeW={length + 6}
+            planeH={HALL_HEIGHT}
           >
             <planeGeometry args={[length + 6, HALL_HEIGHT]} />
           </Surface>
@@ -763,9 +820,10 @@ return (
       }}
     >
       <Canvas shadows camera={{ position: [0, 1.7, 6.5], fov: 62 }} dpr={[1, 2]}>
-        <color attach="background" args={["#0b0f18"]} />
-        <fog attach="fog" args={["#0b0f18", 14, env.lighting.atmosphere ? 52 : 46]} />
+<color attach="background" args={["#131a2b"]} />
+        <fog attach="fog" args={["#131a2b", 16, env.lighting.atmosphere ? 56 : 50]} />
         <ambientLight intensity={env.lighting.ambient * env.lighting.brightness} />
+        <hemisphereLight args={["#cfe3ff", "#2a3042", 0.85 * env.lighting.brightness]} />
         <directionalLight
           position={[3, 8, 4]}
           intensity={env.lighting.intensity * env.lighting.brightness}

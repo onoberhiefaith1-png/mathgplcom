@@ -1,15 +1,16 @@
 /**
  * BUILDING SETTINGS — the owner's environment panel.
  *
- * Each surface (left wall, right wall, floor, roof) supports a preset design,
- * a solid colour, or an uploaded texture with scale/offset/repeat controls.
- * The door has its own design; lighting and effects are separate sections.
- *
- * Edits update a local draft that flows straight into the live 3D preview;
- * "Save Changes" persists the draft to the database.
+ * Each surface (left wall, right wall, floor, roof) behaves like a physical
+ * panel fitted to the building: the teacher picks a built-in template from the
+ * gallery or uploads their own image, and the system fits it with a cover crop
+ * (never stretching it). Zoom / move / reset / fit / remove controls adjust
+ * the placement; everything flows into the live 3D preview as a draft and is
+ * persisted per building with "Save Changes". The door, lighting and effects
+ * sections complete the environment.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Loader2, Save, Upload } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, LayoutGrid, Loader2, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import {
   DEFAULT_ENVIRONMENT,
   EFFECT_OPTIONS,
@@ -18,6 +19,21 @@ import {
   type SurfaceKey,
 } from "@/lib/building/types";
 import { SURFACE_PRESET_LIST } from "@/lib/building/presets";
+import {
+  builtinTextureLabel,
+  builtinTexturePath,
+  builtinTextureUrl,
+} from "@/lib/building/gallery";
+import { optimizeImageForTexture } from "@/lib/building/imageFit";
+import SurfaceGalleryDialog from "./SurfaceGalleryDialog";
+import SurfaceUploadDialog from "./SurfaceUploadDialog";
+
+const SURFACE_TITLES: Record<SurfaceKey, string> = {
+  leftWall: "Left wall",
+  rightWall: "Right wall",
+  floor: "Floor",
+  roof: "Roof / ceiling",
+};
 
 const Section = ({
   title,
@@ -100,83 +116,113 @@ const ToggleField = ({
   </label>
 );
 
-/** One surface editor: presets + colour + uploaded texture + placement. */
+/** One surface: current-design preview + template/upload + placement. */
 const SurfaceEditor = ({
   title,
   design,
+  previewUrl,
   onChange,
-  onUpload,
+  onChooseTemplate,
+  onUploadClick,
 }: {
   title: string;
   design: SurfaceDesign;
+  previewUrl?: string;
   onChange: (d: SurfaceDesign) => void;
-  onUpload: (file: File) => void;
+  onChooseTemplate: () => void;
+  onUploadClick: () => void;
 }) => {
-  const fileRef = useRef<HTMLInputElement>(null);
+  const hasTexture = Boolean(design.texture);
+  const label = design.texture
+    ? builtinTextureLabel(design.texture.path)
+      ? `${builtinTextureLabel(design.texture.path)} (template)`
+      : "Your image"
+    : SURFACE_PRESET_LIST.find((p) => p.value === design.preset)?.label ?? "Solid colour";
+
   return (
-    <div className="space-y-2 rounded-lg border border-border/50 p-2.5">
+<div data-surface={title.toLowerCase().replace(/\s+/g, "-")} className="space-y-2 rounded-lg border border-border/50 p-2.5">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-      <div className="flex flex-wrap gap-1">
-        {SURFACE_PRESET_LIST.map((p) => (
-          <button
-            key={p.value}
-            type="button"
-            onClick={() => onChange({ ...design, preset: p.value })}
-            className={`min-h-[30px] rounded-full px-2.5 text-[11px] font-semibold ${
-              design.preset === p.value
-                ? "bg-primary text-primary-foreground"
-                : "border border-border text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
+
+      {/* Current design — a preview of the panel fitted to the surface */}
+      <div
+        className="relative aspect-[4/1] w-full overflow-hidden rounded-md border border-border"
+        style={{
+          background: previewUrl
+            ? `url(${previewUrl}) center / cover no-repeat`
+            : design.color,
+        }}
+      >
+        <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white">
+          {label}
+        </span>
       </div>
-      <div className="flex items-center gap-2">
-        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          Colour
-          <input
-            type="color"
-            value={design.color}
-            onChange={(e) => onChange({ ...design, color: e.target.value })}
-            className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent"
-          />
-        </label>
-        <button
+
+      {/* Choose Template / Upload Your Own / Remove */}
+      <div className="flex flex-wrap gap-1.5">
+<button
           type="button"
-          onClick={() => fileRef.current?.click()}
+          data-action="template"
+          onClick={onChooseTemplate}
           className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
         >
-          <Upload className="h-3.5 w-3.5" />
-          {design.texture ? "Replace texture" : "Upload texture"}
+          <LayoutGrid className="h-3.5 w-3.5" /> Choose template
         </button>
-        {design.texture && (
+<button
+          type="button"
+          data-action="upload"
+          onClick={onUploadClick}
+          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+        >
+          <Upload className="h-3.5 w-3.5" /> {hasTexture ? "Replace image" : "Upload your own"}
+        </button>
+        {hasTexture && (
           <button
             type="button"
             onClick={() => onChange({ ...design, texture: null })}
-            className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:text-destructive"
+            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:border-destructive hover:text-destructive"
           >
-            Remove
+            <Trash2 className="h-3.5 w-3.5" /> Remove
           </button>
         )}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) onUpload(f);
-            e.target.value = "";
-          }}
-        />
       </div>
-      <SliderField label="Scale" value={design.scale} min={0.2} max={4} step={0.1} onChange={(v) => onChange({ ...design, scale: v })} />
-      <div className="grid grid-cols-2 gap-2">
-        <SliderField label="Offset X" value={design.offsetX} min={-2} max={2} step={0.05} onChange={(v) => onChange({ ...design, offsetX: v })} />
-        <SliderField label="Offset Y" value={design.offsetY} min={-2} max={2} step={0.05} onChange={(v) => onChange({ ...design, offsetY: v })} />
-      </div>
-      <ToggleField label="Repeat / tile the texture" checked={design.repeat} onChange={(v) => onChange({ ...design, repeat: v })} />
+
+      {/* Placement adjustments — only meaningful with an image */}
+      {hasTexture && (
+        <div className="space-y-2 rounded-md border border-border/40 bg-background/40 p-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-medium text-muted-foreground">Fit</span>
+            <div className="flex gap-1">
+              {(["cover", "stretch"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => onChange({ ...design, fit: f })}
+                  className={`min-h-[30px] rounded-full px-2.5 text-[11px] font-semibold ${
+                    design.fit === f
+                      ? "bg-primary text-primary-foreground"
+                      : "border border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f === "cover" ? "Cover (no distortion)" : "Stretch"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <SliderField label="Zoom" value={design.scale} min={0.2} max={4} step={0.05} onChange={(v) => onChange({ ...design, scale: v })} />
+          <div className="grid grid-cols-2 gap-2">
+            <SliderField label="Move left / right" value={design.offsetX} min={-2} max={2} step={0.05} onChange={(v) => onChange({ ...design, offsetX: v })} />
+            <SliderField label="Move up / down" value={design.offsetY} min={-2} max={2} step={0.05} onChange={(v) => onChange({ ...design, offsetY: v })} />
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange({ ...design, scale: 1, offsetX: 0, offsetY: 0 })}
+            className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Reset placement
+          </button>
+          <ToggleField label="Tile the image" checked={design.repeat} onChange={(v) => onChange({ ...design, repeat: v })} />
+        </div>
+      )}
     </div>
   );
 };
@@ -186,7 +232,15 @@ export interface BuildingSettingsPanelProps {
   environment: EnvironmentSettings;
   onPreviewChange: (env: EnvironmentSettings) => void;
   onSave: (env: EnvironmentSettings) => Promise<void>;
-onUpload: (surface: string, file: File) => Promise<string>;
+  /** Optimised upload (blob + mime). Returns the stored texture path. */
+  onUpload: (
+    surface: SurfaceKey | "door",
+    blob: Blob,
+    contentType: string,
+    previousPath: string | null,
+  ) => Promise<string>;
+  /** Resolve a texture path (built-in or stored) to a previewable URL. */
+  getTextureUrl: (path: string) => string | undefined;
 }
 
 const BuildingSettingsPanel = ({
@@ -195,6 +249,7 @@ const BuildingSettingsPanel = ({
   onPreviewChange,
   onSave,
   onUpload,
+  getTextureUrl,
 }: BuildingSettingsPanelProps) => {
   const [draft, setDraft] = useState<EnvironmentSettings>(environment);
   const [dirty, setDirty] = useState(false);
@@ -207,6 +262,8 @@ const BuildingSettingsPanel = ({
     lighting: false,
     effects: false,
   });
+  const [galleryFor, setGalleryFor] = useState<SurfaceKey | null>(null);
+  const [uploadFor, setUploadFor] = useState<SurfaceKey | null>(null);
 
   // Re-sync the draft when the building changes (switcher / reload).
   const envKey = JSON.stringify(environment);
@@ -227,13 +284,47 @@ const BuildingSettingsPanel = ({
 
   const toggle = (key: string) => setOpen((o) => ({ ...o, [key]: !o[key] }));
 
-const upload = async (key: SurfaceKey | "door", file: File) => {
+  /** Preview URL for a texture path: built-in sample or stored upload. */
+  const urlOf = (path: string | null | undefined): string | undefined => {
+    if (!path) return undefined;
+    return builtinTextureUrl(path) ?? getTextureUrl(path);
+  };
+
+  const applyTemplate = (key: SurfaceKey, sampleKey: string) =>
+    apply({
+      ...draft,
+      [key]: {
+        ...surface(key),
+        texture: { path: builtinTexturePath(sampleKey) },
+        fit: "cover",
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+        repeat: false,
+      },
+    });
+
+  const upload = async (key: SurfaceKey | "door", file: File, zoom: number, panX: number, panY: number) => {
     try {
-      const path = await onUpload(key, file);
+      const blob = await optimizeImageForTexture(file);
+      const current = key === "door" ? draft.door : surface(key);
+      const prev = current.texture?.path ?? null;
+      const path = await onUpload(key, blob, blob.type, prev);
       if (key === "door") {
         apply({ ...draft, door: { ...draft.door, texture: { path } } });
       } else {
-        apply({ ...draft, [key]: { ...draft[key], texture: { path } } });
+        apply({
+          ...draft,
+          [key]: {
+            ...surface(key),
+            texture: { path },
+            fit: "cover",
+            scale: zoom,
+            offsetX: panX,
+            offsetY: panY,
+            repeat: false,
+          },
+        });
       }
     } catch (e: unknown) {
       alert(String((e as Error)?.message ?? e));
@@ -250,14 +341,18 @@ const upload = async (key: SurfaceKey | "door", file: File) => {
             <SurfaceEditor
               title="Left wall"
               design={surface("leftWall")}
+              previewUrl={urlOf(surface("leftWall").texture?.path)}
               onChange={(d) => setSurface("leftWall", d)}
-              onUpload={(f) => upload("leftWall", f)}
+              onChooseTemplate={() => setGalleryFor("leftWall")}
+              onUploadClick={() => setUploadFor("leftWall")}
             />
             <SurfaceEditor
               title="Right wall"
               design={surface("rightWall")}
+              previewUrl={urlOf(surface("rightWall").texture?.path)}
               onChange={(d) => setSurface("rightWall", d)}
-              onUpload={(f) => upload("rightWall", f)}
+              onChooseTemplate={() => setGalleryFor("rightWall")}
+              onUploadClick={() => setUploadFor("rightWall")}
             />
           </div>
         ),
@@ -269,8 +364,10 @@ const upload = async (key: SurfaceKey | "door", file: File) => {
           <SurfaceEditor
             title="Floor"
             design={surface("floor")}
+            previewUrl={urlOf(surface("floor").texture?.path)}
             onChange={(d) => setSurface("floor", d)}
-            onUpload={(f) => upload("floor", f)}
+            onChooseTemplate={() => setGalleryFor("floor")}
+            onUploadClick={() => setUploadFor("floor")}
           />
         ),
       },
@@ -281,8 +378,10 @@ const upload = async (key: SurfaceKey | "door", file: File) => {
           <SurfaceEditor
             title="Roof / ceiling"
             design={surface("roof")}
+            previewUrl={urlOf(surface("roof").texture?.path)}
             onChange={(d) => setSurface("roof", d)}
-            onUpload={(f) => upload("roof", f)}
+            onChooseTemplate={() => setGalleryFor("roof")}
+            onUploadClick={() => setUploadFor("roof")}
           />
         ),
       },
@@ -317,7 +416,22 @@ const upload = async (key: SurfaceKey | "door", file: File) => {
                   className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent"
                 />
               </label>
-<UploadButton label={draft.door.texture ? "Replace texture" : "Upload texture"} onPick={(f) => upload("door", f)} />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = "image/*";
+                  input.onchange = () => {
+                    const f = input.files?.[0];
+                    if (f) void upload("door", f, 1, 0, 0);
+                  };
+                  input.click();
+                }}
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+              >
+                <Upload className="h-3.5 w-3.5" /> {draft.door.texture ? "Replace image" : "Upload your own"}
+              </button>
               {draft.door.texture && (
                 <button
                   type="button"
@@ -390,6 +504,30 @@ const upload = async (key: SurfaceKey | "door", file: File) => {
           {s.body}
         </Section>
       ))}
+
+      <SurfaceGalleryDialog
+        open={galleryFor !== null}
+        title={galleryFor ? SURFACE_TITLES[galleryFor] : ""}
+        onOpenChange={(o) => {
+          if (!o) setGalleryFor(null);
+        }}
+        onChoose={(sampleKey) => {
+          if (galleryFor) applyTemplate(galleryFor, sampleKey);
+          setGalleryFor(null);
+        }}
+      />
+      <SurfaceUploadDialog
+        open={uploadFor !== null}
+        title={uploadFor ? SURFACE_TITLES[uploadFor] : ""}
+        onOpenChange={(o) => {
+          if (!o) setUploadFor(null);
+        }}
+        onApply={(file, zoom, panX, panY) => {
+          if (uploadFor) void upload(uploadFor, file, zoom, panX, panY);
+          setUploadFor(null);
+        }}
+      />
+
       <button
         type="button"
         disabled={!dirty || saving}
@@ -410,32 +548,6 @@ const upload = async (key: SurfaceKey | "door", file: File) => {
         {dirty ? "Save Changes" : "Saved"}
       </button>
     </div>
-  );
-};
-
-const UploadButton = ({ label, onPick }: { label: string; onPick: (f: File) => void }) => {
-  const fileRef = useRef<HTMLInputElement>(null);
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-      >
-        <Upload className="h-3.5 w-3.5" /> {label}
-      </button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onPick(f);
-          e.target.value = "";
-        }}
-      />
-    </>
   );
 };
 
