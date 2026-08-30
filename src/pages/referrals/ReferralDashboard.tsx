@@ -21,6 +21,7 @@ import {
   formatMoney,
   referralMessage,
   rewardRuleLabel,
+  statusLabel,
   type ActivityFilter,
   type Campaign,
   type CurrencyTotal,
