@@ -130,10 +130,10 @@ const Surface = ({
   scale,
   offsetX,
   offsetY,
-  repeat,
+repeat,
   position,
-  rotationX,
-  rotationY,
+  "rotation-x": rotationX,
+  "rotation-y": rotationY,
   receiveShadow,
   children,
 }: {
@@ -145,8 +145,8 @@ const Surface = ({
   offsetY: number;
   repeat: boolean;
   position?: [number, number, number];
-  rotationX?: number;
-  rotationY?: number;
+  "rotation-x"?: number;
+  "rotation-y"?: number;
   receiveShadow?: boolean;
   children?: React.ReactNode;
 }) => {
