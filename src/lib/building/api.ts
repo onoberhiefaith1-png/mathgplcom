@@ -23,6 +23,7 @@ import type {
   WalkwayDirection,
 } from "./types";
 import { productRoute } from "@/lib/academy/types";
+import { isBuiltinTexturePath } from "./gallery";
 
 const fail = (error: { message: string } | null) => {
   if (error) throw new Error(error.message);
