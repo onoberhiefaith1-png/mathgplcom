@@ -151,7 +151,10 @@ const Surface = ({
   scale,
   offsetX,
   offsetY,
-repeat,
+  repeat,
+  fit,
+  planeW,
+  planeH,
   position,
   "rotation-x": rotationX,
   "rotation-y": rotationY,
@@ -165,6 +168,9 @@ repeat,
   offsetX: number;
   offsetY: number;
   repeat: boolean;
+  fit: "cover" | "stretch";
+  planeW: number;
+  planeH: number;
   position?: [number, number, number];
   "rotation-x"?: number;
   "rotation-y"?: number;
