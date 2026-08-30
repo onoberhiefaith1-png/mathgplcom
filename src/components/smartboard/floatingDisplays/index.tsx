@@ -203,9 +203,9 @@ export const FloatingDisplayFrame = ({
       <>
         <div style={{ flexShrink: 0, color: chromeFg }}>{badge}</div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 4, minWidth: 0 }}>
-          <Tri dir="up" spec={up} color={theme.navColor} size={22} block shell={navShell(theme, { minHeight: 40, borderRadius: 6 })} />
+          <Tri dir="up" spec={up} color={theme.navColor} size={22} block shell={navShell(theme, { minHeight: 56, borderRadius: 6 })} />
           {wrap(bar())}
-          <Tri dir="down" spec={down} color={theme.navColor} size={22} block shell={navShell(theme, { minHeight: 40, borderRadius: 6 })} />
+          <Tri dir="down" spec={down} color={theme.navColor} size={22} block shell={navShell(theme, { minHeight: 56, borderRadius: 6 })} />
         </div>
         {extras}
       </>
@@ -221,9 +221,9 @@ export const FloatingDisplayFrame = ({
             {badge}
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 0, minWidth: 0 }}>
-            <Tri dir="up" spec={up} color={theme.navColor} size={20} block shell={navShell(theme, { minHeight: 40, borderRadius: "0 8px 0 0" })} />
+            <Tri dir="up" spec={up} color={theme.navColor} size={20} block shell={navShell(theme, { minHeight: 56, borderRadius: "0 8px 0 0" })} />
             {wrap(bar({ borderRadius: 0, boxShadow: "none" }))}
-            <Tri dir="down" spec={down} color={theme.navColor} size={20} block shell={navShell(theme, { minHeight: 40, borderRadius: "0 0 8px 0" })} />
+            <Tri dir="down" spec={down} color={theme.navColor} size={20} block shell={navShell(theme, { minHeight: 56, borderRadius: "0 0 8px 0" })} />
           </div>
         </div>
         {extras}
@@ -257,9 +257,9 @@ export const FloatingDisplayFrame = ({
     return (
       <>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 3, minWidth: 0 }}>
-          <Tri dir="up" spec={up} color={theme.navColor} size={20} block shell={navShell(theme, { minHeight: 38, borderRadius: "8px 8px 2px 2px" })} />
+          <Tri dir="up" spec={up} color={theme.navColor} size={20} block shell={navShell(theme, { minHeight: 56, borderRadius: "8px 8px 2px 2px" })} />
           {wrap(bar())}
-          <Tri dir="down" spec={down} color={theme.navColor} size={20} block shell={navShell(theme, { minHeight: 38, borderRadius: "2px 2px 8px 8px" })} />
+          <Tri dir="down" spec={down} color={theme.navColor} size={20} block shell={navShell(theme, { minHeight: 56, borderRadius: "2px 2px 8px 8px" })} />
         </div>
         <div style={{ flexShrink: 0 }}>{badge}</div>
         {extras}
