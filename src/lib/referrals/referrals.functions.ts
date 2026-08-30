@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { ActivityFilter, ReferralScope } from "./types";
+import type { ActivityFilter, AdminCampaign, CampaignStatus, ReferralScope, ReferralTarget } from "./types";
 import type { CampaignInput } from "./referrals.server";
 
 export const getReferralDashboard = createServerFn({ method: "POST" })
@@ -42,6 +42,37 @@ export const markReferralRewardPaid = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { markRewardPaid } = await import("./referrals.server");
     return markRewardPaid(context.supabase, data.id, data.note ?? null);
+  });
+
+export const listAdminReferralCampaigns = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ rows: AdminCampaign[] }> => {
+    const { adminCampaigns } = await import("./referrals.server");
+    return { rows: await adminCampaigns(context.supabase, context.userId) };
+  });
+
+export const setReferralCampaignStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string; status: CampaignStatus }) => input)
+  .handler(async ({ data, context }) => {
+    const { setCampaignStatus } = await import("./referrals.server");
+    return setCampaignStatus(context.supabase, context.userId, data.id, data.status);
+  });
+
+export const deleteReferralCampaign = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { deleteCampaign } = await import("./referrals.server");
+    return deleteCampaign(context.supabase, context.userId, data.id);
+  });
+
+export const listReferralTargets = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { search?: string }) => input)
+  .handler(async ({ data, context }): Promise<{ rows: ReferralTarget[] }> => {
+    const { referralTargets } = await import("./referrals.server");
+    return referralTargets(context.supabase, context.userId, data.search ?? "");
   });
 
 export const claimReferral = createServerFn({ method: "POST" })

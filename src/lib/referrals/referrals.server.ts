@@ -96,12 +96,6 @@ export async function assertAdmin(client: Client, userId: string) {
   if (!data || data.length === 0) throw new Error("Administrator access is required.");
 }
 
-/** The single role a person is treated as when an audience is matched. */
-async function roleOf(client: Client, userId: string): Promise<string | null> {
-  const { data } = await loose(client).from("user_roles").select("role").eq("user_id", userId).limit(1);
-  return ((data as { role: string }[] | null) ?? [])[0]?.role ?? null;
-}
-
 const isLive = (row: CampaignRow): boolean => (row.status ?? "draft") === "live" && row.is_active;
 
 /**
