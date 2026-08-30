@@ -292,18 +292,29 @@ for (const d of (doorRows ?? []) as unknown as BuildingDoor[]) {
 
 // ── Textures ──────────────────────────────────────────────────────────────
 
-/** Upload a surface/door texture into the building's private storage. */
+/**
+ * Upload a surface/door texture into the building's private storage.
+ * Accepts an optimised blob (see optimizeImageForTexture) and, when the
+ * surface already has a stored texture, removes the old object after the new
+ * one is in place so the bucket does not accumulate replaced panels.
+ */
 export async function uploadBuildingTexture(
   buildingId: string,
   surfaceKey: string,
-  file: File,
+  blob: Blob,
+  contentType?: string,
+  previousPath?: string | null,
 ): Promise<{ path: string }> {
-  const ext = (file.name.split(".").pop() ?? "png").toLowerCase();
+  const mime = contentType || blob.type || "image/png";
+  const ext = (mime.split("/")[1] ?? "png").replace("jpeg", "jpg");
   const path = `building-textures/${buildingId}/${surfaceKey}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage
     .from(GAME_ASSETS_BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type || undefined });
+    .upload(path, blob, { upsert: true, contentType: mime });
   if (error) throw error;
+  if (previousPath && !isBuiltinTexturePath(previousPath) && previousPath !== path) {
+    await supabase.storage.from(GAME_ASSETS_BUCKET).remove([previousPath]);
+  }
   return { path };
 }
 
