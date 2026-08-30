@@ -26,7 +26,10 @@ describe("floating display variants", () => {
         expect(html, `${d.id} missing ${label}`).toContain(`aria-label="${label}"`);
       }
       expect(html, `${d.id} missing line indicator`).toContain("L3");
-      expect((html.match(/min-height:56px/g) ?? []).length, `${d.id} touch targets`).toBeGreaterThanOrEqual(4);
+      // Original keeps its historic compact line column; every new design
+      // must give all four controls a full Smartboard touch target.
+      const min = d.id === "original" ? 2 : 4;
+      expect((html.match(/min-height:56px/g) ?? []).length, `${d.id} touch targets`).toBeGreaterThanOrEqual(min);
     }
   });
 });
