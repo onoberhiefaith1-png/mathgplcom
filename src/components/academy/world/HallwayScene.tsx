@@ -12,7 +12,7 @@
  * environment settings — never hard-coded. The player stops at walls and
  * walkway ends (collision); branches are the only way to change direction.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Sparkles, Text } from "@react-three/drei";
 import * as THREE from "three";
@@ -131,7 +131,11 @@ const Surface = ({
   offsetX,
   offsetY,
   repeat,
-  ...meshProps
+  position,
+  rotationX,
+  rotationY,
+  receiveShadow,
+  children,
 }: {
   url?: string | null;
   presetKey: string;
@@ -140,7 +144,12 @@ const Surface = ({
   offsetX: number;
   offsetY: number;
   repeat: boolean;
-} & JSX.IntrinsicElements["mesh"]) => {
+  position?: [number, number, number];
+  rotationX?: number;
+  rotationY?: number;
+  receiveShadow?: boolean;
+  children?: React.ReactNode;
+}) => {
   const tex = useLoadedTexture(url);
   const mat = presetMaterial(presetKey, color);
   const map = tex ?? null;
@@ -149,7 +158,7 @@ const Surface = ({
     tex.offset.set(offsetX, offsetY);
   }
   return (
-    <mesh {...meshProps}>
+    <mesh position={position} rotation-x={rotationX} rotation-y={rotationY} receiveShadow={receiveShadow}>
       <meshStandardMaterial
         color={map ? "#ffffff" : mat.color}
         map={map}
@@ -722,8 +731,8 @@ const HallwayScene = ({
       const sublabel = d.content_kind
         ? `${DOOR_KIND_LABEL[d.content_kind]}${d.content_kind === "adventure" || d.content_kind === "assessment" ? " · runs in class" : ""}`
         : "Add content in the editor";
-      return (
-        <g key={d.id} position={[0, 0, -(d.position_along * seg.length)]}>
+return (
+        <group key={d.id} position={[0, 0, -(d.position_along * seg.length)]}>
           <DoorMesh
             side={i % 2 === 0 ? -1 : 1}
             z={0}
@@ -734,7 +743,7 @@ const HallwayScene = ({
             emissiveIntensity={env.door.brightness * 0.12}
             onEnter={() => onOpenDoor(d)}
           />
-        </g>
+</group>
       );
     });
   };
