@@ -104,7 +104,7 @@ const Doorway = ({
         <planeGeometry args={[2.9, 3.2]} />
         <meshStandardMaterial
           ref={glow}
-          color="#080d16"
+          color="#00ff00"
           emissive={accent}
           emissiveIntensity={0.1}
           roughness={0.9}
