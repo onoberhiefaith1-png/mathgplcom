@@ -242,6 +242,16 @@ const CommunityResourceCard = ({
           </div>
         )}
 
+        {isCourse && (
+          <p className="text-xs text-dash-surface-muted">
+            {[card.payload?.subject, card.payload?.topic, card.payload?.subtopic]
+              .filter((v) => typeof v === "string" && v)
+              .join(" • ") || "Course"}
+            {typeof card.payload?.section_count === "number" && ` · ${card.payload.section_count} sections`}
+          </p>
+        )}
+
+
         {isClass && (
           <p className="text-xs text-dash-surface-muted">
             {(card.payload?.subject as string) ?? "Mathematics"}
