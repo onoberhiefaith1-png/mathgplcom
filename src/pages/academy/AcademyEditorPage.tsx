@@ -211,8 +211,8 @@ const AcademyEditorPage = () => {
   const doorPosTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadEditorBuilding = useCallback(async (org: string | null) => {
-    let list = await listBuildings(org);
-    let building = list.find((b) => b.is_active) ?? list[0] ?? null;
+let list = await listBuildings(org);
+    let building: Building | null = list.find((b) => b.is_active) ?? list[0] ?? null;
     if (!building) building = await ensureBuilding(org);
     list = await listBuildings(org); // fresh after possible creation
     const data: BuildingData | null = building ? await loadBuildingData(building) : null;
