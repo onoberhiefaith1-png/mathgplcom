@@ -7872,6 +7872,33 @@ export type Database = {
           years_experience: number
         }[]
       }
+      community_directory_ranked: {
+        Args: { _limit?: number; _q?: string; _role?: string }
+        Returns: {
+          accepts_requests: boolean
+          avatar_url: string
+          bio: string
+          country: string
+          cover_kind: string
+          cover_url: string
+          display_name: string
+          headline: string
+          intro_video_url: string
+          like_count: number
+          live_count: number
+          location: string
+          post_count: number
+          professional: Json
+          prominence: number
+          role_kind: string
+          shared_count: number
+          student_count: number
+          user_id: string
+          username: string
+          view_count: number
+          years_experience: number
+        }[]
+      }
       community_hashtag_counts: {
         Args: { _limit?: number; _prefix?: string }
         Returns: {
@@ -7892,6 +7919,16 @@ export type Database = {
           started_at: string
           title: string
           username: string
+        }[]
+      }
+      community_member_stats: {
+        Args: { _username: string }
+        Returns: {
+          like_count: number
+          live_count: number
+          post_count: number
+          shared_count: number
+          student_count: number
         }[]
       }
       community_post_viewed: { Args: { _post_id: string }; Returns: number }
