@@ -14,6 +14,318 @@ export type Database = {
   }
   public: {
     Tables: {
+      academies: {
+        Row: {
+          created_at: string
+          featured_title: string
+          id: string
+          name: string
+          org_id: string | null
+          owner_id: string
+          template: string
+          updated_at: string
+          welcome_message: string
+        }
+        Insert: {
+          created_at?: string
+          featured_title?: string
+          id?: string
+          name?: string
+          org_id?: string | null
+          owner_id: string
+          template?: string
+          updated_at?: string
+          welcome_message?: string
+        }
+        Update: {
+          created_at?: string
+          featured_title?: string
+          id?: string
+          name?: string
+          org_id?: string | null
+          owner_id?: string
+          template?: string
+          updated_at?: string
+          welcome_message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academies_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_categories: {
+        Row: {
+          accent: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          icon_url: string | null
+          id: string
+          image_url: string | null
+          is_visible: boolean
+          name: string
+          position: number
+          room_id: string
+          updated_at: string
+        }
+        Insert: {
+          accent?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string
+          position?: number
+          room_id: string
+          updated_at?: string
+        }
+        Update: {
+          accent?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string
+          position?: number
+          room_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_categories_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "academy_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_placements: {
+        Row: {
+          badge: string | null
+          created_at: string
+          created_by: string | null
+          description_override: string | null
+          id: string
+          image_url: string | null
+          is_featured: boolean
+          is_visible: boolean
+          position: number
+          product_id: string
+          product_kind: string
+          subtopic_id: string
+          title_override: string | null
+          updated_at: string
+        }
+        Insert: {
+          badge?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_override?: string | null
+          id?: string
+          image_url?: string | null
+          is_featured?: boolean
+          is_visible?: boolean
+          position?: number
+          product_id: string
+          product_kind: string
+          subtopic_id: string
+          title_override?: string | null
+          updated_at?: string
+        }
+        Update: {
+          badge?: string | null
+          created_at?: string
+          created_by?: string | null
+          description_override?: string | null
+          id?: string
+          image_url?: string | null
+          is_featured?: boolean
+          is_visible?: boolean
+          position?: number
+          product_id?: string
+          product_kind?: string
+          subtopic_id?: string
+          title_override?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_placements_subtopic_id_fkey"
+            columns: ["subtopic_id"]
+            isOneToOne: false
+            referencedRelation: "academy_subtopics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_rooms: {
+        Row: {
+          academy_id: string
+          accent: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          icon_url: string | null
+          id: string
+          image_url: string | null
+          is_visible: boolean
+          name: string
+          position: number
+          room_type: string
+          updated_at: string
+        }
+        Insert: {
+          academy_id: string
+          accent?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string
+          position?: number
+          room_type?: string
+          updated_at?: string
+        }
+        Update: {
+          academy_id?: string
+          accent?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string
+          position?: number
+          room_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_rooms_academy_id_fkey"
+            columns: ["academy_id"]
+            isOneToOne: false
+            referencedRelation: "academies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_subtopics: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          icon_url: string | null
+          id: string
+          image_url: string | null
+          is_visible: boolean
+          name: string
+          position: number
+          topic_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string
+          position?: number
+          topic_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string
+          position?: number
+          topic_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_subtopics_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "academy_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_topics: {
+        Row: {
+          category_id: string
+          created_at: string
+          created_by: string | null
+          description: string
+          icon_url: string | null
+          id: string
+          image_url: string | null
+          is_visible: boolean
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          is_visible?: boolean
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_topics_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "academy_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       account_ids: {
         Row: {
           acronym: string | null
@@ -7836,6 +8148,10 @@ export type Database = {
       }
     }
     Functions: {
+      academy_of_category: { Args: { _category_id: string }; Returns: string }
+      academy_of_room: { Args: { _room_id: string }; Returns: string }
+      academy_of_subtopic: { Args: { _subtopic_id: string }; Returns: string }
+      academy_of_topic: { Args: { _topic_id: string }; Returns: string }
       accept_class_invitation: {
         Args: { _invitation_id: string }
         Returns: string
@@ -7886,7 +8202,9 @@ export type Database = {
         Args: { _estimated?: number; _org_id: string; _user_id: string }
         Returns: boolean
       }
+      can_edit_academy: { Args: { _academy_id: string }; Returns: boolean }
       can_manage_gpl_assets: { Args: never; Returns: boolean }
+      can_view_academy: { Args: { _academy_id: string }; Returns: boolean }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
       can_watch_course_media: { Args: { _path: string }; Returns: boolean }
       class_has_open_live_session: {

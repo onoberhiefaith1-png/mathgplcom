@@ -25,6 +25,8 @@ import { Route as StatusRouteImport } from './routes/status'
 import { Route as StudentRouteRouteImport } from './routes/student/route'
 import { Route as TeachingHubRouteRouteImport } from './routes/teaching-hub/route'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as AcademyIndexRouteImport } from './routes/academy/index'
+import { Route as AcademyEditRouteImport } from './routes/academy/edit'
 import { Route as AccessIndexRouteImport } from './routes/access/index'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -166,6 +168,7 @@ import { Route as TeachingHubPricingIndexRouteImport } from './routes/teaching-h
 import { Route as TeachingHubSettingsIndexRouteImport } from './routes/teaching-hub/settings/index'
 import { Route as TeachingHubStudentsIndexRouteImport } from './routes/teaching-hub/students/index'
 import { Route as YearNIndexRouteImport } from './routes/year/$n/index'
+import { Route as AcademyCourseCourseIdIndexRouteImport } from './routes/academy/course/$courseId/index'
 import { Route as AdventureGamesGameIdIndexRouteImport } from './routes/adventure/games/$gameId/index'
 import { Route as ApiPublicGuestSlugRouteImport } from './routes/api/public/guest/$slug'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
@@ -399,6 +402,16 @@ const TeachingHubRouteRoute = TeachingHubRouteRouteImport.update({
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcademyIndexRoute = AcademyIndexRouteImport.update({
+  id: '/academy/',
+  path: '/academy/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcademyEditRoute = AcademyEditRouteImport.update({
+  id: '/academy/edit',
+  path: '/academy/edit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccessIndexRoute = AccessIndexRouteImport.update({
@@ -1120,6 +1133,12 @@ const YearNIndexRoute = YearNIndexRouteImport.update({
   path: '/year/$n/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcademyCourseCourseIdIndexRoute =
+  AcademyCourseCourseIdIndexRouteImport.update({
+    id: '/academy/course/$courseId/',
+    path: '/academy/course/$courseId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdventureGamesGameIdIndexRoute =
   AdventureGamesGameIdIndexRouteImport.update({
     id: '/games/$gameId/',
@@ -2047,6 +2066,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
+  '/academy/edit': typeof AcademyEditRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2063,6 +2083,7 @@ export interface FileRoutesByFullPath {
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
+  '/academy/': typeof AcademyIndexRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
@@ -2203,6 +2224,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
+  '/academy/course/$courseId/': typeof AcademyCourseCourseIdIndexRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2348,6 +2370,7 @@ export interface FileRoutesByTo {
   '/class': typeof ClassRouteRouteWithChildren
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
+  '/academy/edit': typeof AcademyEditRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2364,6 +2387,7 @@ export interface FileRoutesByTo {
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
+  '/academy': typeof AcademyIndexRoute
   '/access': typeof AccessIndexRoute
   '/account': typeof AccountIndexRoute
   '/admin': typeof AdminIndexRoute
@@ -2504,6 +2528,7 @@ export interface FileRoutesByTo {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
+  '/academy/course/$courseId': typeof AcademyCourseCourseIdIndexRoute
   '/adventure/games/$gameId': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2662,6 +2687,7 @@ export interface FileRoutesById {
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
+  '/academy/edit': typeof AcademyEditRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2678,6 +2704,7 @@ export interface FileRoutesById {
   '/notifications/$notificationId': typeof NotificationsNotificationIdRoute
   '/notifications/sent': typeof NotificationsSentRoute
   '/plans/gateway': typeof PlansGatewayRoute
+  '/academy/': typeof AcademyIndexRoute
   '/access/': typeof AccessIndexRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
@@ -2818,6 +2845,7 @@ export interface FileRoutesById {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/school/teachers/$userId/adventure': typeof SchoolTeachersUserIdAdventureRoute
   '/school/teachers/$userId/skill-builder': typeof SchoolTeachersUserIdSkillBuilderRoute
+  '/academy/course/$courseId/': typeof AcademyCourseCourseIdIndexRoute
   '/adventure/games/$gameId/': typeof AdventureGamesGameIdIndexRoute
   '/assets/$category/$subcategory/': typeof AssetsCategorySubcategoryIndexRoute
   '/assets/interactive/question-progress/': typeof AssetsInteractiveQuestionProgressIndexRoute
@@ -2977,6 +3005,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/status'
     | '/welcome'
+    | '/academy/edit'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -2993,6 +3022,7 @@ export interface FileRouteTypes {
     | '/notifications/$notificationId'
     | '/notifications/sent'
     | '/plans/gateway'
+    | '/academy/'
     | '/access/'
     | '/account/'
     | '/admin/'
@@ -3133,6 +3163,7 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
+    | '/academy/course/$courseId/'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -3278,6 +3309,7 @@ export interface FileRouteTypes {
     | '/class'
     | '/status'
     | '/welcome'
+    | '/academy/edit'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3294,6 +3326,7 @@ export interface FileRouteTypes {
     | '/notifications/$notificationId'
     | '/notifications/sent'
     | '/plans/gateway'
+    | '/academy'
     | '/access'
     | '/account'
     | '/admin'
@@ -3434,6 +3467,7 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
+    | '/academy/course/$courseId'
     | '/adventure/games/$gameId'
     | '/assets/$category/$subcategory'
     | '/assets/interactive/question-progress'
@@ -3591,6 +3625,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/status'
     | '/welcome'
+    | '/academy/edit'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3607,6 +3642,7 @@ export interface FileRouteTypes {
     | '/notifications/$notificationId'
     | '/notifications/sent'
     | '/plans/gateway'
+    | '/academy/'
     | '/access/'
     | '/account/'
     | '/admin/'
@@ -3747,6 +3783,7 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/school/teachers/$userId/adventure'
     | '/school/teachers/$userId/skill-builder'
+    | '/academy/course/$courseId/'
     | '/adventure/games/$gameId/'
     | '/assets/$category/$subcategory/'
     | '/assets/interactive/question-progress/'
@@ -3905,6 +3942,7 @@ export interface RootRouteChildren {
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
   StatusRoute: typeof StatusRoute
   WelcomeRoute: typeof WelcomeRoute
+  AcademyEditRoute: typeof AcademyEditRoute
   ApiCourseBackgroundRoute: typeof ApiCourseBackgroundRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthAdminRoute: typeof AuthAdminRoute
@@ -3919,6 +3957,7 @@ export interface RootRouteChildren {
   NotificationsNotificationIdRoute: typeof NotificationsNotificationIdRoute
   NotificationsSentRoute: typeof NotificationsSentRoute
   PlansGatewayRoute: typeof PlansGatewayRoute
+  AcademyIndexRoute: typeof AcademyIndexRoute
   AccessIndexRoute: typeof AccessIndexRoute
   AccountIndexRoute: typeof AccountIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
@@ -3983,6 +4022,7 @@ export interface RootRouteChildren {
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
+  AcademyCourseCourseIdIndexRoute: typeof AcademyCourseCourseIdIndexRoute
   AssetsCategorySubcategoryIndexRoute: typeof AssetsCategorySubcategoryIndexRoute
   AssetsInteractiveQuestionProgressIndexRoute: typeof AssetsInteractiveQuestionProgressIndexRoute
   CSlugGameIndexRoute: typeof CSlugGameIndexRoute
@@ -4140,6 +4180,20 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/academy/': {
+      id: '/academy/'
+      path: '/academy'
+      fullPath: '/academy/'
+      preLoaderRoute: typeof AcademyIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/academy/edit': {
+      id: '/academy/edit'
+      path: '/academy/edit'
+      fullPath: '/academy/edit'
+      preLoaderRoute: typeof AcademyEditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/access/': {
@@ -5127,6 +5181,13 @@ declare module '@tanstack/react-router' {
       path: '/year/$n'
       fullPath: '/year/$n/'
       preLoaderRoute: typeof YearNIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/academy/course/$courseId/': {
+      id: '/academy/course/$courseId/'
+      path: '/academy/course/$courseId'
+      fullPath: '/academy/course/$courseId/'
+      preLoaderRoute: typeof AcademyCourseCourseIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/adventure/games/$gameId/': {
@@ -6767,6 +6828,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
   StatusRoute: StatusRoute,
   WelcomeRoute: WelcomeRoute,
+  AcademyEditRoute: AcademyEditRoute,
   ApiCourseBackgroundRoute: ApiCourseBackgroundRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthAdminRoute: AuthAdminRoute,
@@ -6781,6 +6843,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsNotificationIdRoute: NotificationsNotificationIdRoute,
   NotificationsSentRoute: NotificationsSentRoute,
   PlansGatewayRoute: PlansGatewayRoute,
+  AcademyIndexRoute: AcademyIndexRoute,
   AccessIndexRoute: AccessIndexRoute,
   AccountIndexRoute: AccountIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
@@ -6845,6 +6908,7 @@ const rootRouteChildren: RootRouteChildren = {
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
+  AcademyCourseCourseIdIndexRoute: AcademyCourseCourseIdIndexRoute,
   AssetsCategorySubcategoryIndexRoute: AssetsCategorySubcategoryIndexRoute,
   AssetsInteractiveQuestionProgressIndexRoute:
     AssetsInteractiveQuestionProgressIndexRoute,
