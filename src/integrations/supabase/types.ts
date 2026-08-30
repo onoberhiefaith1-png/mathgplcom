@@ -6120,6 +6120,7 @@ export type Database = {
       }
       referral_campaigns: {
         Row: {
+          audience: string[]
           created_at: string
           id: string
           is_active: boolean
@@ -6129,10 +6130,13 @@ export type Database = {
           owner_user_id: string
           reward_rule: Json
           reward_type: string
+          status: string
+          target_user_id: string | null
           trigger_event: string
           updated_at: string
         }
         Insert: {
+          audience?: string[]
           created_at?: string
           id?: string
           is_active?: boolean
@@ -6142,10 +6146,13 @@ export type Database = {
           owner_user_id: string
           reward_rule?: Json
           reward_type?: string
+          status?: string
+          target_user_id?: string | null
           trigger_event?: string
           updated_at?: string
         }
         Update: {
+          audience?: string[]
           created_at?: string
           id?: string
           is_active?: boolean
@@ -6155,6 +6162,8 @@ export type Database = {
           owner_user_id?: string
           reward_rule?: Json
           reward_type?: string
+          status?: string
+          target_user_id?: string | null
           trigger_event?: string
           updated_at?: string
         }
@@ -8668,6 +8677,10 @@ export type Database = {
       redeem_access_code: { Args: { _code: string }; Returns: string }
       redeem_promo_code: { Args: { _code: string }; Returns: string }
       redeem_staff_code: { Args: { _code: string }; Returns: string }
+      referral_campaign_visible: {
+        Args: { _audience: string[]; _target: string }
+        Returns: boolean
+      }
       referral_is_admin: { Args: never; Returns: boolean }
       regenerate_my_share_code: { Args: never; Returns: string }
       regenerate_school_code: { Args: { _org_id: string }; Returns: string }

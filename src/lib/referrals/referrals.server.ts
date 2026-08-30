@@ -12,7 +12,10 @@ import {
   addTotal,
   rewardRuleLabel,
   type ActivityFilter,
+  type AdminCampaign,
+  type AudienceRole,
   type Campaign,
+  type CampaignStatus,
   type CurrencyTotal,
   type ReferralDashboard,
   type ReferralOverview,
@@ -49,6 +52,9 @@ type CampaignRow = {
   reward_rule: RewardRule | null;
   trigger_event: TriggerEvent;
   is_active: boolean;
+  audience: string[] | null;
+  status: CampaignStatus | null;
+  target_user_id: string | null;
 };
 
 const toCampaign = (row: CampaignRow): Campaign => ({
@@ -61,10 +67,15 @@ const toCampaign = (row: CampaignRow): Campaign => ({
   rewardRule: row.reward_rule ?? {},
   trigger: row.trigger_event,
   isActive: row.is_active,
+  audience: ((row.audience ?? []) as AudienceRole[]).filter((role) =>
+    ["school", "teacher", "parent", "student"].includes(role),
+  ),
+  status: row.status ?? "draft",
+  targetUserId: row.target_user_id,
 });
 
 const CAMPAIGN_COLUMNS =
-  "id, owner_kind, owner_user_id, org_id, name, reward_type, reward_rule, trigger_event, is_active";
+  "id, owner_kind, owner_user_id, org_id, name, reward_type, reward_rule, trigger_event, is_active, audience, status, target_user_id";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -85,7 +96,14 @@ export async function assertAdmin(client: Client, userId: string) {
   if (!data || data.length === 0) throw new Error("Administrator access is required.");
 }
 
-/** The campaign a person refers under: their own active one, else the platform's. */
+const isLive = (row: CampaignRow): boolean => (row.status ?? "draft") === "live" && row.is_active;
+
+/**
+ * The campaign a person refers under: their own live one, else the platform
+ * offer whose audience the administrator assigned them to. When the
+ * administrator has set nothing, this is deliberately null — no offer exists,
+ * so no amount and no link may be shown.
+ */
 async function campaignFor(
   client: Client,
   userId: string,
@@ -94,22 +112,29 @@ async function campaignFor(
 ): Promise<Campaign | null> {
   const db = loose(client);
   if (scope !== "platform") {
-    let own = db.from("referral_campaigns").select(CAMPAIGN_COLUMNS).eq("is_active", true).limit(1);
+    let own = db.from("referral_campaigns").select(CAMPAIGN_COLUMNS).eq("status", "live").eq("is_active", true).limit(1);
     own = scope === "school" && orgId ? own.eq("org_id", orgId) : own.eq("owner_user_id", userId);
     const mine = await own;
     const row = (mine.data as CampaignRow[] | null)?.[0];
     if (row) return toCampaign(row);
   }
+
   const platform = await (await admin())
     .from("referral_campaigns")
     .select(CAMPAIGN_COLUMNS)
     .eq("owner_kind", "platform")
+    .eq("status", "live")
     .eq("is_active", true)
-    .order("created_at", { ascending: true })
-    .limit(1);
-  const row = (platform.data as CampaignRow[] | null)?.[0];
-  return row ? toCampaign(row) : null;
+    .order("created_at", { ascending: true });
+  const rows = ((platform.data as CampaignRow[] | null) ?? []).filter(isLive);
+  if (scope === "platform") return rows[0] ? toCampaign(rows[0]) : null;
+  const role = scope;
+  const targeted = rows.find((row) => row.target_user_id === userId);
+  if (targeted) return toCampaign(targeted);
+  const forRole = rows.find((row) => (row.audience ?? []).includes(role) && !row.target_user_id);
+  return forRole ? toCampaign(forRole) : null;
 }
+
 
 /** Creates the caller's link for their campaign on first visit; never duplicates. */
 export async function ensureLink(
@@ -425,11 +450,21 @@ export type CampaignInput = {
   rewardRule: RewardRule;
   trigger: TriggerEvent;
   isActive: boolean;
+  audience?: AudienceRole[];
+  status?: CampaignStatus;
+  targetUserId?: string | null;
 };
 
 export async function saveCampaign(client: Client, userId: string, input: CampaignInput) {
   if (input.ownerKind === "platform") await assertAdmin(client, userId);
   const db = loose(client);
+  const status: CampaignStatus = input.status ?? "draft";
+  const audience = (input.audience ?? []).filter((role) =>
+    ["school", "teacher", "parent", "student"].includes(role),
+  );
+  if (status === "live" && audience.length === 0 && !input.targetUserId) {
+    throw new Error("Assign at least one audience before making this offer live.");
+  }
   const payload = {
     owner_kind: input.ownerKind,
     owner_user_id: userId,
@@ -438,7 +473,10 @@ export async function saveCampaign(client: Client, userId: string, input: Campai
     reward_type: input.rewardType,
     reward_rule: input.rewardRule,
     trigger_event: input.trigger,
-    is_active: input.isActive,
+    is_active: input.isActive && status === "live",
+    audience,
+    status,
+    target_user_id: input.ownerKind === "platform" ? input.targetUserId ?? null : null,
     updated_at: new Date().toISOString(),
   };
 
@@ -455,11 +493,113 @@ export async function saveCampaign(client: Client, userId: string, input: Campai
 export async function setCampaignActive(client: Client, id: string, isActive: boolean) {
   const { error } = await loose(client)
     .from("referral_campaigns")
-    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .update({
+      is_active: isActive,
+      status: isActive ? "live" : "paused",
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
+/** Draft, live, paused or retired — the administrator decides, nothing else does. */
+export async function setCampaignStatus(client: Client, userId: string, id: string, status: CampaignStatus) {
+  const db = loose(client);
+  if (status === "live") {
+    const check = await db.from("referral_campaigns").select("audience, target_user_id").eq("id", id).limit(1);
+    const row = ((check.data as { audience: string[] | null; target_user_id: string | null }[] | null) ?? [])[0];
+    if (row && (row.audience ?? []).length === 0 && !row.target_user_id) {
+      throw new Error("Assign at least one audience before making this offer live.");
+    }
+  }
+  const { error } = await db
+    .from("referral_campaigns")
+    .update({ status, is_active: status === "live", updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/** Only an offer that has never been referred under can be deleted outright. */
+export async function deleteCampaign(client: Client, userId: string, id: string) {
+  await assertAdmin(client, userId);
+  const db = loose(client);
+  const used = await db.from("referral_attributions").select("id").eq("campaign_id", id).limit(1);
+  if (((used.data as { id: string }[] | null) ?? []).length > 0) {
+    throw new Error("This offer already has referrals. Retire it instead of deleting it.");
+  }
+  const { error } = await db.from("referral_campaigns").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/** Every offer on the platform, with the counts each one has produced. */
+export async function adminCampaigns(client: Client, userId: string): Promise<AdminCampaign[]> {
+  await assertAdmin(client, userId);
+  const db = loose(client);
+  const [campaignList, attributions, rewards] = await Promise.all([
+    db.from("referral_campaigns").select(CAMPAIGN_COLUMNS).order("created_at", { ascending: false }),
+    db.from("referral_attributions").select("id, campaign_id, subscribed_at"),
+    db.from("referral_rewards").select("id, campaign_id, status"),
+  ]);
+
+  const campaigns = ((campaignList.data as CampaignRow[] | null) ?? []).map(toCampaign);
+  const attributionRows =
+    (attributions.data as { id: string; campaign_id: string; subscribed_at: string | null }[] | null) ?? [];
+  const rewardRows = (rewards.data as { id: string; campaign_id: string; status: RewardStatus }[] | null) ?? [];
+
+  const ids = [
+    ...new Set(campaigns.flatMap((c) => [c.ownerUserId, c.targetUserId].filter(Boolean) as string[])),
+  ];
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    const profiles = await db.from("profiles").select("id, display_name").in("id", ids);
+    ((profiles.data as { id: string; display_name: string | null }[] | null) ?? []).forEach((p) => {
+      if (p.display_name) names.set(p.id, p.display_name);
+    });
+  }
+
+  return campaigns.map((campaign) => {
+    const own = attributionRows.filter((a) => a.campaign_id === campaign.id);
+    const ownRewards = rewardRows.filter((r) => r.campaign_id === campaign.id);
+    return {
+      ...campaign,
+      ownerLabel:
+        campaign.ownerKind === "platform" ? "Platform" : names.get(campaign.ownerUserId) ?? "Workspace owner",
+      targetLabel: campaign.targetUserId ? names.get(campaign.targetUserId) ?? "Selected account" : null,
+      referred: own.length,
+      subscribed: own.filter((a) => a.subscribed_at).length,
+      pendingRewards: ownRewards.filter((r) => r.status !== "paid").length,
+      settledRewards: ownRewards.filter((r) => r.status === "paid").length,
+    };
+  });
+}
+
+/** The accounts an offer can be assigned to directly. */
+export async function referralTargets(client: Client, userId: string, search: string) {
+  await assertAdmin(client, userId);
+  const db = loose(client);
+  let query = db.from("profiles").select("id, display_name").limit(30);
+  const term = search.trim();
+  if (term) query = query.ilike("display_name", `%${term}%`);
+  const { data } = await query;
+  const rows = ((data as { id: string; display_name: string | null }[] | null) ?? []).map((row) => ({
+    id: row.id,
+    label: row.display_name || "Account",
+    role: null as string | null,
+  }));
+  if (rows.length === 0) return { rows };
+  const roles = await db
+    .from("user_roles")
+    .select("user_id, role")
+    .in("user_id", rows.map((r) => r.id));
+  const roleBy = new Map(
+    ((roles.data as { user_id: string; role: string }[] | null) ?? []).map((r) => [r.user_id, r.role]),
+  );
+  return { rows: rows.map((row) => ({ ...row, role: roleBy.get(row.id) ?? null })) };
+}
+
 
 /** MathGPL never moves the money — an administrator records that it moved. */
 export async function markRewardPaid(client: Client, id: string, note: string | null) {
@@ -477,9 +617,16 @@ export async function summary(
   userId: string,
   scope: ReferralScope,
   orgId: string | null,
-): Promise<{ referred: number; registered: number; subscribed: number; earned: CurrencyTotal[] }> {
+): Promise<{
+  referred: number;
+  registered: number;
+  subscribed: number;
+  earned: CurrencyTotal[];
+  hasProgramme: boolean;
+}> {
   const view = await dashboard(client, userId, { scope, orgId });
   return {
+    hasProgramme: Boolean(view.campaign),
     referred: view.overview.referred,
     registered: view.overview.registered,
     subscribed: view.overview.subscribed,

@@ -66,6 +66,34 @@ export type RewardRule = {
   description?: string;
 };
 
+/** Who an offer is assigned to. An empty audience reaches nobody. */
+export type AudienceRole = "school" | "teacher" | "parent" | "student";
+
+export const AUDIENCE_OPTIONS: { value: AudienceRole; label: string; blurb: string }[] = [
+  { value: "teacher", label: "Teachers", blurb: "Every teacher account." },
+  { value: "school", label: "Schools", blurb: "School administrators." },
+  { value: "parent", label: "Parents", blurb: "Parent accounts." },
+  { value: "student", label: "Students", blurb: "Student accounts." },
+];
+
+/** Nothing is offered to anyone until the offer is Live. */
+export type CampaignStatus = "draft" | "live" | "paused" | "retired";
+
+export const CAMPAIGN_STATUSES: { value: CampaignStatus; label: string; blurb: string }[] = [
+  { value: "draft", label: "Draft", blurb: "Only you can see it. Nobody is offered anything." },
+  { value: "live", label: "Live", blurb: "Visible to the assigned audience, and links are issued." },
+  { value: "paused", label: "Paused", blurb: "Hidden again. Rewards already earned are untouched." },
+  { value: "retired", label: "Retired", blurb: "Closed for good; kept for its history." },
+];
+
+export const statusLabel = (status: CampaignStatus): string =>
+  CAMPAIGN_STATUSES.find((s) => s.value === status)?.label ?? status;
+
+export const audienceLabel = (audience: AudienceRole[]): string =>
+  audience.length === 0
+    ? "No audience assigned"
+    : audience.map((role) => AUDIENCE_OPTIONS.find((a) => a.value === role)?.label ?? role).join(", ");
+
 export type Campaign = {
   id: string;
   ownerKind: ReferralScope;
@@ -76,7 +104,23 @@ export type Campaign = {
   rewardRule: RewardRule;
   trigger: TriggerEvent;
   isActive: boolean;
+  audience: AudienceRole[];
+  status: CampaignStatus;
+  targetUserId: string | null;
 };
+
+/** One offer as the administrator console shows it, with its own counts. */
+export type AdminCampaign = Campaign & {
+  ownerLabel: string;
+  targetLabel: string | null;
+  referred: number;
+  subscribed: number;
+  pendingRewards: number;
+  settledRewards: number;
+};
+
+export type ReferralTarget = { id: string; label: string; role: string | null };
+
 
 /** One line of the reward rule, in plain words. */
 export const rewardRuleLabel = (campaign: Pick<Campaign, "rewardType" | "rewardRule">): string => {

@@ -5,15 +5,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  AUDIENCE_OPTIONS,
+  CAMPAIGN_STATUSES,
   CURRENCIES,
   REWARD_TYPES,
   TRIGGERS,
+  type AudienceRole,
   type Campaign,
+  type CampaignStatus,
   type DiscountKind,
   type ReferralScope,
+  type ReferralTarget,
   type RewardType,
   type TriggerEvent,
 } from "@/lib/referrals/types";
@@ -28,6 +34,9 @@ export type CampaignDraft = {
   description: string;
   trigger: TriggerEvent;
   isActive: boolean;
+  audience: AudienceRole[];
+  status: CampaignStatus;
+  targetUserId: string | null;
 };
 
 const draftFrom = (campaign?: Campaign | null): CampaignDraft => ({
@@ -35,11 +44,14 @@ const draftFrom = (campaign?: Campaign | null): CampaignDraft => ({
   name: campaign?.name ?? "Referral campaign",
   rewardType: campaign?.rewardType ?? "payment",
   currency: campaign?.rewardRule?.currency ?? "GBP",
-  amount: campaign?.rewardRule?.amount != null ? String(campaign.rewardRule.amount) : "5",
+  amount: campaign?.rewardRule?.amount != null ? String(campaign.rewardRule.amount) : "",
   discountKind: campaign?.rewardRule?.discountKind ?? "percentage",
   description: campaign?.rewardRule?.description ?? "",
   trigger: campaign?.trigger ?? "subscription",
   isActive: campaign?.isActive ?? true,
+  audience: campaign?.audience ?? [],
+  status: campaign?.status ?? "draft",
+  targetUserId: campaign?.targetUserId ?? null,
 });
 
 /**
@@ -53,6 +65,7 @@ const CampaignDialog = ({
   scope,
   saving,
   onSave,
+  targets,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,6 +73,8 @@ const CampaignDialog = ({
   scope: ReferralScope;
   saving?: boolean;
   onSave: (draft: CampaignDraft) => void;
+  /** Administrator only: the accounts an offer may be assigned to directly. */
+  targets?: ReferralTarget[];
 }) => {
   const [draft, setDraft] = useState<CampaignDraft>(() => draftFrom(campaign));
   useEffect(() => {
@@ -190,9 +205,84 @@ const CampaignDialog = ({
             </p>
           </div>
 
+          {scope === "platform" && (
+            <div className="space-y-2 rounded-xl border border-border/60 p-3">
+              <Label>Who receives this offer</Label>
+              <p className="text-xs text-muted-foreground">
+                Only the audiences you tick are offered this reward and given a referral link.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {AUDIENCE_OPTIONS.map((option) => {
+                  const checked = draft.audience.includes(option.value);
+                  return (
+                    <label
+                      key={option.value}
+                      className="flex cursor-pointer items-start gap-2 rounded-lg border border-border/50 p-2 text-sm"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value) =>
+                          patch({
+                            audience: value
+                              ? [...draft.audience, option.value]
+                              : draft.audience.filter((role) => role !== option.value),
+                          })
+                        }
+                      />
+                      <span>
+                        <span className="font-medium">{option.label}</span>
+                        <span className="block text-xs text-muted-foreground">{option.blurb}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <Label>Or assign it to one account only</Label>
+                <Select
+                  value={draft.targetUserId ?? "none"}
+                  onValueChange={(value) => patch({ targetUserId: value === "none" ? null : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="No single account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No single account</SelectItem>
+                    {(targets ?? []).map((target) => (
+                      <SelectItem key={target.id} value={target.id}>
+                        {target.label}
+                        {target.role ? ` — ${target.role}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <Select value={draft.status} onValueChange={(value) => patch({ status: value as CampaignStatus })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CAMPAIGN_STATUSES.map((status) => (
+                  <SelectItem key={status.value} value={status.value}>
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {CAMPAIGN_STATUSES.find((s) => s.value === draft.status)?.blurb}
+            </p>
+          </div>
+
           <div className="flex items-center justify-between rounded-xl border border-border/60 p-3">
             <div>
-              <div className="text-sm font-medium">Campaign active</div>
+              <div className="text-sm font-medium">Offer enabled</div>
               <p className="text-xs text-muted-foreground">
                 {scope === "platform"
                   ? "Used for every referrer without their own campaign."

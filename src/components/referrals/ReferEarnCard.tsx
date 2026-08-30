@@ -14,6 +14,8 @@ const ReferEarnCard = () => {
   if (!scope) return null;
 
   const earned = data?.earned ?? [];
+  // No offer, no amount: the administrator decides whether a reward exists.
+  const hasProgramme = data?.hasProgramme ?? false;
 
   return (
     <Link
@@ -41,7 +43,11 @@ const ReferEarnCard = () => {
         ))}
       </div>
       <div className="mt-3 border-t border-border/50 pt-2 text-xs text-muted-foreground">
-        {earned.length === 0
+        {!hasProgramme
+          ? isLoading
+            ? "Checking your referral programme…"
+            : "No referral programme is running for you yet"
+          : earned.length === 0
           ? "No reward earned yet"
           : `Earned ${earned.map((total) => formatMoney(total.amount, total.currency)).join(" · ")}`}
       </div>
