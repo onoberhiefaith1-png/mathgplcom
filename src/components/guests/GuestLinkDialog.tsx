@@ -112,7 +112,12 @@ const GuestLinkDialog = ({
             <Loader2 className="h-4 w-4 animate-spin" /> Preparing the link…
           </div>
         ) : error ? (
-          <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+          <div className="space-y-3">
+            <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+            <Button type="button" variant="secondary" onClick={() => setReloadKey((n) => n + 1)}>
+              Try again
+            </Button>
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
