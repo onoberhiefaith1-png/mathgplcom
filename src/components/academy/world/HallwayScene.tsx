@@ -88,7 +88,7 @@ const Doorway = ({
     // Alcoves sit against the wall but are angled toward the walker, so a
     // doorway reads clearly instead of being seen edge-on.
     <group
-      position={[side * (HALL_WIDTH / 2 - 0.25), 0, z]}
+      position={[side * (HALL_WIDTH / 2 - 0.8), 0, z]}
       rotation-y={-side * (Math.PI / 2) + side * 0.75}
     >
       {/* door panel — the click target */}
