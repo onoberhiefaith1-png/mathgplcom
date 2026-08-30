@@ -60,9 +60,11 @@ const AcademyWorldPage = () => {
 
         // The building shell: view the workspace's active building; only an
         // editor creates one when none exists yet.
-        let list = await listBuildings(orgId ?? null);
-        let building = list.find((b) => b.is_active) ?? list[0] ?? null;
-        if (!building && loaded.canEdit) building = await ensureBuilding(orgId ?? null);
+let list = await listBuildings(orgId ?? null);
+        let building: Building | null = list.find((b) => b.is_active) ?? list[0] ?? null;
+        if (!building && loaded.canEdit) {
+          building = await ensureBuilding(orgId ?? null);
+        }
         if (building && !list.some((b) => b.id === building?.id)) {
           list = await listBuildings(orgId ?? null);
         }
