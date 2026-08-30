@@ -18,7 +18,6 @@ import {
   type SurfaceKey,
 } from "@/lib/building/types";
 import { SURFACE_PRESET_LIST } from "@/lib/building/presets";
-import { SURFACE_KEYS, SURFACE_LABEL } from "@/lib/building/textures";
 
 const Section = ({
   title,
