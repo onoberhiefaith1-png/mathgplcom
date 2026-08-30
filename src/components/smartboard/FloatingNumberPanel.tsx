@@ -5,13 +5,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSmartboardRoot } from "./SmartboardRoot";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Table as TableIcon } from "lucide-react";
+import { Table as TableIcon } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 import { visiblePlaceholderColor } from "@/lib/smartboard/placeholderColor";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
 import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
+import { FloatingDisplayFrame } from "./floatingDisplays";
+import { sanitizeFloatingStyle, type FloatingDisplayStyleId } from "@/lib/smartboard/floatingDisplayStyles";
 
 /** Background of the floating chip bar — placeholders must stay visible on it. */
 const CHIP_SURFACE = "#ffffff";
@@ -253,6 +255,9 @@ interface Props {
   tableChip?: { objId: string; label: string; placed: boolean; isMatrix?: boolean } | null;
   /** Places (or re-places) the table on the board at the teacher's cursor. */
   onPlaceTable?: (objId: string) => void;
+  /** Selected presentation design. Presentation only — the mathematics,
+   *  conveyor and navigation behaviour are identical for every design. */
+  displayStyle?: FloatingDisplayStyleId;
 
 }
 
@@ -273,6 +278,7 @@ export const FloatingNumberPanel = ({
   notebookPending = false,
   placeholderColor,
   tableChip = null,
+  displayStyle,
   onPlaceTable,
 
 }: Props) => {
@@ -555,6 +561,173 @@ export const FloatingNumberPanel = ({
 
   if (!visible || reservoirs.length === 0) return null;
 
+  // ── Presentation-agnostic pieces ────────────────────────────────────────
+  // The engine builds them; the selected design only arranges them.
+  const notebookNode = (() => {
+    // Notebook checkpoint icon — renders IFF the line's own saved
+    // note (notebookText, from the single note source) is non-empty.
+    // NO fallback: a line without a real note never shows an icon
+    // and can never write solution text onto the board.
+    const prose = (notebookText ?? "").trim();
+    // DIAGRAM LAW: a diagram is note content. The icon shows for prose
+    // OR for an attached diagram — a diagram-only note is still a note.
+    if (!prose && noteObjectCount === 0) return null;
+    const pulse = notebookPending;
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (prose) onWriteNotebookToBoard?.(prose);
+          if (noteObjectCount > 0) onShowNoteObjects?.();
+          onNotebookRead?.();
+          onPing();
+        }}
+        title="Teaching note — tap to place on board"
+        aria-label="Teaching note — tap to place on board"
+        style={{
+          background: pulse ? "#fef3c7" : "rgba(255,255,255,0.6)",
+          border: pulse ? "1.5px solid #f59e0b" : "1px solid rgba(0,0,0,0.12)",
+          borderRadius: 10,
+          padding: 5,
+          marginTop: 4,
+          lineHeight: 0,
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: pulse
+            ? "0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45)"
+            : "0 1px 2px rgba(0,0,0,0.08)",
+          // Continuous pulse while the gate is blocked — a single
+          // brief pulse was too easy to miss. It keeps glowing until
+          // the teacher taps the note onto the board.
+          animation: pulse ? "fnp-notebook-pulse 1.2s ease-in-out infinite" : "none",
+          transition: "box-shadow 240ms ease, background 240ms ease, border-color 240ms ease",
+        }}
+      >
+        <style>{`@keyframes fnp-notebook-pulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45); }
+          50% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(245,158,11,0.5), 0 0 22px 8px rgba(245,158,11,0.65); }
+          100% { transform: scale(1); box-shadow: 0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45); }
+        }`}</style>
+        {/* Fancy notebook: hard cover + binder rings + ruled lines +
+            red bookmark ribbon. Clearly reads as "Read lesson note". */}
+        <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden>
+          {/* back cover shadow */}
+          <rect x="6.5" y="3.5" width="21" height="25" rx="2.5"
+            fill={pulse ? "#fde68a" : "#e7e3d6"} stroke={pulse ? "#b45309" : "#7a6a3a"} strokeWidth="1.2"/>
+          {/* front page */}
+          <rect x="9" y="5" width="18" height="22" rx="1.8"
+            fill={pulse ? "#fffbeb" : "#fdfcf5"} stroke={pulse ? "#b45309" : "#7a6a3a"} strokeWidth="1.1"/>
+          {/* ruled lines */}
+          <g stroke={pulse ? "#b45309" : "#9b8b5a"} strokeWidth="0.9" strokeLinecap="round">
+            <line x1="12" y1="10" x2="24" y2="10" />
+            <line x1="12" y1="13.5" x2="24" y2="13.5" />
+            <line x1="12" y1="17" x2="22" y2="17" />
+            <line x1="12" y1="20.5" x2="24" y2="20.5" />
+            <line x1="12" y1="24" x2="20" y2="24" />
+          </g>
+          {/* binder rings */}
+          <g fill="none" stroke={pulse ? "#92400e" : "#5a4a25"} strokeWidth="1.3">
+            <circle cx="9" cy="9" r="1.1" />
+            <circle cx="9" cy="16" r="1.1" />
+            <circle cx="9" cy="23" r="1.1" />
+          </g>
+          {/* bookmark ribbon */}
+          <path d="M21 5 V13 L23 11 L25 13 V5 Z"
+            fill={pulse ? "#dc2626" : "#b91c1c"} stroke="#7a1010" strokeWidth="0.6" strokeLinejoin="round"/>
+        </svg>
+      </button>
+    );
+  })();
+
+  const chipsNode = tableChip ? (
+    /* This lesson line IS a Smart Table / Matrix. It shows one chip —
+       instead of equation fragments. Tapping it places the object on
+       the board at the teacher's cursor. The object is
+       permanent: removing it from the board never removes this chip. */
+    <button
+      onClick={(e) => { e.stopPropagation(); onPlaceTable?.(tableChip.objId); onPing(); }}
+      className="transition-transform hover:scale-110 active:scale-95"
+      title={tableChip.placed
+        ? `${tableChip.label} — on board. Tap to place it again at the cursor.`
+        : `${tableChip.label} — tap to place it on the board at your cursor`}
+      aria-label={`${tableChip.label} — tap to place on board`}
+      style={{
+        background: tableChip.placed ? "#d1fae5" : "transparent",
+        border: tableChip.placed ? "1px solid #6ee7b7" : "1px solid rgba(0,0,0,0.12)",
+        borderRadius: 8,
+        padding: "2px 8px",
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        color: tableChip.placed ? "#065f46" : "#111827",
+        fontFamily: "ui-sans-serif, system-ui",
+        fontSize: 15,
+      }}
+    >
+      {tableChip.isMatrix ? <span style={{ fontWeight: 800, fontSize: 17 }}>[ ]</span> : <TableIcon size={20} />}
+      <span style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {tableChip.label}
+      </span>
+    </button>
+  ) : windowSlots.length === 0 ? (
+    <span style={{ opacity: 0.5, fontSize: 13, color: "#374151" }}>
+      no floating numbers
+    </span>
+  ) : (
+    <>
+      {windowSlots.map(({ token, absIdx, used }, i) => {
+        const label = slotLabel(token);
+        if (label == null) return null;
+        const lineNo = lineNoOf(absIdx);
+        const ink = used ? "#065f46" : "#111827";
+        return (
+          <button
+            key={`fn-${viewIdx}-${absIdx}-${i}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (used) handleUsedTap(absIdx);
+              else handleActiveTap(label, absIdx);
+            }}
+            className="transition-transform hover:scale-110 active:scale-95 relative"
+            style={{
+              background: used ? "#d1fae5" : "transparent",
+              border: used ? "1px solid #6ee7b7" : "1px solid transparent",
+              borderRadius: 8,
+              color: ink,
+              padding: "0 4px",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+            }}
+            title={used ? "Already used — tap to return it" : "Tap to use"}
+          >
+            <ChipLabel label={label} color={ink} placeholderColor={placeholderColor} />
+            {lineNo != null && (
+              <span
+                aria-hidden
+                style={{
+                  position: "absolute", right: -2, bottom: -6,
+                  fontSize: 10, lineHeight: 1, opacity: used ? 0.5 : 0.4,
+                  color: ink, fontWeight: 700,
+                  pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
+                }}
+              >
+                {lineNo}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </>
+  );
+
+  const canUp = Boolean(lineNumber && lineNumber > 1);
+  const canDown = Boolean(lineNumber && lineCount && lineNumber < lineCount);
+  const showLine = lineNumber != null && lineCount != null && lineCount > 0;
+
   const panel = (
     <div
       data-sb-chrome
@@ -576,294 +749,24 @@ export const FloatingNumberPanel = ({
         touchAction: "manipulation",
       }}
     >
-      {/* Leading column: ▲ line-up · drag grip · line badge · ▼ line-down */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 2,
-          flexShrink: 0,
-          color: chromeFg,
-        }}
-      >
-        <button
-          onClick={(e) => { e.stopPropagation(); if (lineNumber && lineNumber > 1) { onPrevLine?.(); onPing(); } }}
-          disabled={!lineNumber || lineNumber <= 1}
-          title="Previous line"
-          aria-label="Previous line"
-          style={{
-            background: "transparent", border: 0, color: chromeFg,
-            padding: 0, opacity: lineNumber && lineNumber > 1 ? 1 : 0.25,
-            cursor: lineNumber && lineNumber > 1 ? "pointer" : "default",
-            display: "inline-flex", alignItems: "center",
-          }}
-        >
-          <ChevronUp size={16} />
-        </button>
-        <div
-          title="Floating numbers stay fixed at the bottom-left"
-          style={{
-            width: 14, height: 28, borderRadius: 4,
-            background: `color-mix(in oklab, ${chromeFg} 35%, transparent)`,
-            cursor: "default", touchAction: "manipulation",
-          }}
-        />
-        {lineNumber != null && lineCount != null && lineCount > 0 && (
-          <div
-            style={{
-              minWidth: 18,
-              padding: "0 4px",
-              fontSize: 11,
-              lineHeight: 1.4,
-              fontWeight: 700,
-              fontVariantNumeric: "tabular-nums",
-              textAlign: "center",
-              opacity: 0.8,
-            }}
-            title={lineLabel ? `${lineLabel} of ${lineCount}` : `Line ${lineNumber} of ${lineCount}`}
-          >
-            {lineLabel ?? lineNumber}
-          </div>
-        )}
-        <button
-          onClick={(e) => { e.stopPropagation(); if (lineNumber && lineCount && lineNumber < lineCount) { onNextLine?.(); onPing(); } }}
-          disabled={!lineNumber || !lineCount || lineNumber >= lineCount}
-          title="Next line"
-          aria-label="Next line"
-          style={{
-            background: "transparent", border: 0, color: chromeFg,
-            padding: 0,
-            opacity: lineNumber && lineCount && lineNumber < lineCount ? 1 : 0.25,
-            cursor: lineNumber && lineCount && lineNumber < lineCount ? "pointer" : "default",
-            display: "inline-flex", alignItems: "center",
-          }}
-        >
-          <ChevronDown size={16} />
-        </button>
-        {(() => {
-          // Notebook checkpoint icon — renders IFF the line's own saved
-          // note (notebookText, from the single note source) is non-empty.
-          // NO fallback: a line without a real note never shows an icon
-          // and can never write solution text onto the board.
-          const prose = (notebookText ?? "").trim();
-          // DIAGRAM LAW: a diagram is note content. The icon shows for prose
-          // OR for an attached diagram — a diagram-only note is still a note.
-          if (!prose && noteObjectCount === 0) return null;
-          const pulse = notebookPending;
-          return (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (prose) onWriteNotebookToBoard?.(prose);
-                if (noteObjectCount > 0) onShowNoteObjects?.();
-                onNotebookRead?.();
-                onPing();
-              }}
-              title="Teaching note — tap to place on board"
-              aria-label="Teaching note — tap to place on board"
-              style={{
-                background: pulse ? "#fef3c7" : "rgba(255,255,255,0.6)",
-                border: pulse ? "1.5px solid #f59e0b" : "1px solid rgba(0,0,0,0.12)",
-                borderRadius: 10,
-                padding: 5,
-                marginTop: 4,
-                lineHeight: 0,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: pulse
-                  ? "0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45)"
-                  : "0 1px 2px rgba(0,0,0,0.08)",
-                // Continuous pulse while the gate is blocked — a single
-                // brief pulse was too easy to miss. It keeps glowing until
-                // the teacher taps the note onto the board.
-                animation: pulse ? "fnp-notebook-pulse 1.2s ease-in-out infinite" : "none",
-                transition: "box-shadow 240ms ease, background 240ms ease, border-color 240ms ease",
-              }}
-            >
-              <style>{`@keyframes fnp-notebook-pulse {
-                0% { transform: scale(1); box-shadow: 0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45); }
-                50% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(245,158,11,0.5), 0 0 22px 8px rgba(245,158,11,0.65); }
-                100% { transform: scale(1); box-shadow: 0 0 0 3px rgba(245,158,11,0.35), 0 0 14px 4px rgba(245,158,11,0.45); }
-              }`}</style>
-              {/* Fancy notebook: hard cover + binder rings + ruled lines +
-                  red bookmark ribbon. Clearly reads as "Read lesson note". */}
-              <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden>
-                {/* back cover shadow */}
-                <rect x="6.5" y="3.5" width="21" height="25" rx="2.5"
-                  fill={pulse ? "#fde68a" : "#e7e3d6"} stroke={pulse ? "#b45309" : "#7a6a3a"} strokeWidth="1.2"/>
-                {/* front page */}
-                <rect x="9" y="5" width="18" height="22" rx="1.8"
-                  fill={pulse ? "#fffbeb" : "#fdfcf5"} stroke={pulse ? "#b45309" : "#7a6a3a"} strokeWidth="1.1"/>
-                {/* ruled lines */}
-                <g stroke={pulse ? "#b45309" : "#9b8b5a"} strokeWidth="0.9" strokeLinecap="round">
-                  <line x1="12" y1="10" x2="24" y2="10" />
-                  <line x1="12" y1="13.5" x2="24" y2="13.5" />
-                  <line x1="12" y1="17" x2="22" y2="17" />
-                  <line x1="12" y1="20.5" x2="24" y2="20.5" />
-                  <line x1="12" y1="24" x2="20" y2="24" />
-                </g>
-                {/* binder rings */}
-                <g fill="none" stroke={pulse ? "#92400e" : "#5a4a25"} strokeWidth="1.3">
-                  <circle cx="9" cy="9" r="1.1" />
-                  <circle cx="9" cy="16" r="1.1" />
-                  <circle cx="9" cy="23" r="1.1" />
-                </g>
-                {/* bookmark ribbon */}
-                <path d="M21 5 V13 L23 11 L25 13 V5 Z"
-                  fill={pulse ? "#dc2626" : "#b91c1c"} stroke="#7a1010" strokeWidth="0.6" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          );
-        })()}
-      </div>
-      {/* Side-note tooltip removed — prose is now written onto the board
-          via onWriteNotebookToBoard. */}
-      {(
-      <div
-        className="flex items-center select-none"
-        style={{
-          color: chromeFg,
-          fontSize: 22,
-          gap: 8,
-          fontFamily: "ui-serif, Georgia, serif",
-        }}
-      >
-        {/* ── ONE strip: ◀ Backward · 5 numbers · Forward ▶ ──
-            Numbers outside this window are hidden. Used numbers only appear
-            (green) when revealed via Backward; tapping one returns it. */}
-        <div
-          className="flex items-center"
-          style={{
-            gap: 6,
-            padding: "2px 6px",
-            borderRadius: 10,
-            background: "#ffffff",
-            border: frozen ? "1px solid #f59e0b" : "1px solid #d1d5db",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
-            opacity: frozen ? 0.5 : 1,
-            filter: frozen ? "grayscale(0.4)" : "none",
-            pointerEvents: frozen ? "none" : "auto",
-            transition: "opacity 160ms ease, filter 160ms ease",
-          }}
-          title={frozen ? "Notebook checkpoint — tap the notebook to continue" : "Floating numbers — tap to use"}
-        >
-          <button
-            onClick={(e) => { e.stopPropagation(); if (canPrev) { goBackward(); onPing(); } }}
-            disabled={!canPrev}
-            title="Backward"
-            aria-label="Backward"
-            style={{
-              background: "transparent", border: 0, color: "#374151",
-              padding: 0, opacity: canPrev ? 1 : 0.25,
-              cursor: canPrev ? "pointer" : "default",
-              display: "inline-flex", alignItems: "center",
-            }}
-          >
-            <ChevronLeft size={22} />
-          </button>
-          {tableChip ? (
-            /* This lesson line IS a Smart Table / Matrix. It shows one chip —
-               instead of equation fragments. Tapping it places the object on
-               the board at the teacher's cursor. The object is
-               permanent: removing it from the board never removes this chip. */
-            <button
-              onClick={(e) => { e.stopPropagation(); onPlaceTable?.(tableChip.objId); onPing(); }}
-              className="transition-transform hover:scale-110 active:scale-95"
-              title={tableChip.placed
-                ? `${tableChip.label} — on board. Tap to place it again at the cursor.`
-                : `${tableChip.label} — tap to place it on the board at your cursor`}
-              aria-label={`${tableChip.label} — tap to place on board`}
-              style={{
-                background: tableChip.placed ? "#d1fae5" : "transparent",
-                border: tableChip.placed ? "1px solid #6ee7b7" : "1px solid rgba(0,0,0,0.12)",
-                borderRadius: 8,
-                padding: "2px 8px",
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                color: tableChip.placed ? "#065f46" : "#111827",
-                fontFamily: "ui-sans-serif, system-ui",
-                fontSize: 15,
-              }}
-            >
-              {tableChip.isMatrix ? <span style={{ fontWeight: 800, fontSize: 17 }}>[ ]</span> : <TableIcon size={20} />}
-              <span style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {tableChip.label}
-              </span>
-            </button>
-          ) : windowSlots.length === 0 ? (
-
-            <span style={{ opacity: 0.5, fontSize: 13, color: "#374151" }}>
-              no floating numbers
-            </span>
-          ) : windowSlots.map(({ token, absIdx, used }, i) => {
-            const label = slotLabel(token);
-            if (label == null) return null;
-            const lineNo = lineNoOf(absIdx);
-            const ink = used ? "#065f46" : "#111827";
-            return (
-              <button
-                key={`fn-${viewIdx}-${absIdx}-${i}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (used) handleUsedTap(absIdx);
-                  else handleActiveTap(label, absIdx);
-                }}
-                className="transition-transform hover:scale-110 active:scale-95 relative"
-                style={{
-                  background: used ? "#d1fae5" : "transparent",
-                  border: used ? "1px solid #6ee7b7" : "1px solid transparent",
-                  borderRadius: 8,
-                  color: ink,
-                  padding: "0 4px",
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                }}
-                title={used ? "Already used — tap to return it" : "Tap to use"}
-              >
-                <ChipLabel label={label} color={ink} placeholderColor={placeholderColor} />
-                {lineNo != null && (
-                  <span
-                    aria-hidden
-                    style={{
-                      position: "absolute", right: -2, bottom: -6,
-                      fontSize: 10, lineHeight: 1, opacity: used ? 0.5 : 0.4,
-                      color: ink, fontWeight: 700,
-                      pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
-                    }}
-                  >
-                    {lineNo}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-          <button
-            onClick={(e) => { e.stopPropagation(); if (canNext) { goForward(); onPing(); } }}
-            disabled={!canNext}
-            title="Forward"
-            aria-label="Forward"
-            style={{
-              background: "transparent", border: 0, color: "#374151",
-              padding: 0, opacity: canNext ? 1 : 0.25,
-              cursor: canNext ? "pointer" : "default",
-              display: "inline-flex", alignItems: "center",
-            }}
-          >
-            <ChevronRight size={22} />
-          </button>
-        </div>
-      </div>
-      )}
-
+      <FloatingDisplayFrame
+        style={sanitizeFloatingStyle(displayStyle)}
+        chromeFg={chromeFg}
+        frozen={frozen}
+        frozenTitle={frozen ? "Notebook checkpoint — tap the notebook to continue" : "Floating numbers — tap to use"}
+        chips={chipsNode}
+        extras={notebookNode}
+        left={{ enabled: canPrev, label: "Backward", onTap: () => { goBackward(); onPing(); } }}
+        right={{ enabled: canNext, label: "Forward", onTap: () => { goForward(); onPing(); } }}
+        up={{ enabled: canUp, label: "Previous line", onTap: () => { onPrevLine?.(); onPing(); } }}
+        down={{ enabled: canDown, label: "Next line", onTap: () => { onNextLine?.(); onPing(); } }}
+        lineText={showLine ? String(lineLabel ?? lineNumber) : null}
+        lineTitle={lineLabel ? `${lineLabel} of ${lineCount}` : `Line ${lineNumber} of ${lineCount}`}
+      />
     </div>
   );
   return typeof document === "undefined" ? panel : createPortal(panel, sbRoot ?? document.body);
+
 };
 
 export default FloatingNumberPanel;

@@ -80,6 +80,7 @@ import { graphemes } from "@/lib/text/graphemes";
 
 import { StylesRail } from "./StylesRail";
 import { FloatingNumberPanel } from "./FloatingNumberPanel";
+import { useFloatingDisplayStyle } from "@/hooks/useFloatingDisplayStyle";
 
 import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
@@ -594,6 +595,10 @@ const PresentationView = ({
       ? (saved as WritingProfileId)
       : DEFAULT_PROFILE_ID;
   });
+  /** Selected Floating Number Display design (personal choice, else the
+   *  administrator's platform default). Presentation only. */
+  const { style: floatingDisplayStyle } = useFloatingDisplayStyle();
+
   const [inkColorId, setInkColorId] = useState<InkColorId>(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(INK_COLOR_STORAGE_KEY) : null;
     return (saved as InkColorId) || DEFAULT_INK_COLOR;
@@ -6527,6 +6532,7 @@ const PresentationView = ({
             return (
               <>
                 <FloatingNumberPanel
+                  displayStyle={floatingDisplayStyle}
                   chromeFg={palette.chromeFg}
                   reservoirs={reservoirs}
                   viewIdx={viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx)}
