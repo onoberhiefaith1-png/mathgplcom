@@ -114,7 +114,7 @@ const Doorway = ({
       {/* frame */}
       <mesh position={[0, 1.6, 0.02]}>
         <planeGeometry args={[3.2, 3.5]} />
-        <meshStandardMaterial color={accent} roughness={0.5} />
+        <meshStandardMaterial color="#ff0000" roughness={0.5} />
       </mesh>
       <Suspense fallback={null}>
         <Text
