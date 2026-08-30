@@ -35,7 +35,14 @@ const TABLE_MESSAGES = "notebook_copilot_messages";
 const asCounts = (v: unknown): StructureCounts =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as StructureCounts) : {};
 
-const asQueue = (v: unknown): BuildItem[] => (Array.isArray(v) ? (v as BuildItem[]) : []);
+/**
+ * Restore the draft queue. Sessions saved before items had a permanent id keep
+ * working: the item's key becomes its id, so its question/solution link holds.
+ */
+const asQueue = (v: unknown): BuildItem[] =>
+  Array.isArray(v)
+    ? (v as BuildItem[]).map((q) => ({ ...q, id: q?.id || q?.key || "" }))
+    : [];
 
 /** Load the note's conversation, creating it the first time only. */
 export async function loadOrCreateSession(notebookId: string): Promise<CoPilotSessionState | null> {
