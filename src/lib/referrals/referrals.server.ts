@@ -12,7 +12,10 @@ import {
   addTotal,
   rewardRuleLabel,
   type ActivityFilter,
+  type AdminCampaign,
+  type AudienceRole,
   type Campaign,
+  type CampaignStatus,
   type CurrencyTotal,
   type ReferralDashboard,
   type ReferralOverview,
@@ -122,7 +125,6 @@ async function campaignFor(
     if (row) return toCampaign(row);
   }
 
-  const role = scope === "platform" ? "platform_owner" : scope;
   const platform = await (await admin())
     .from("referral_campaigns")
     .select(CAMPAIGN_COLUMNS)
@@ -131,6 +133,8 @@ async function campaignFor(
     .eq("is_active", true)
     .order("created_at", { ascending: true });
   const rows = ((platform.data as CampaignRow[] | null) ?? []).filter(isLive);
+  if (scope === "platform") return rows[0] ? toCampaign(rows[0]) : null;
+  const role = scope;
   const targeted = rows.find((row) => row.target_user_id === userId);
   if (targeted) return toCampaign(targeted);
   const forRole = rows.find((row) => (row.audience ?? []).includes(role) && !row.target_user_id);
