@@ -157,8 +157,7 @@ const Surface = ({
   position,
   "rotation-x": rotationX,
   "rotation-y": rotationY,
-  receiveShadow,
-  children,
+children,
 }: {
   url?: string | null;
   presetKey: string;
@@ -173,8 +172,7 @@ const Surface = ({
   position?: [number, number, number];
   "rotation-x"?: number;
   "rotation-y"?: number;
-  receiveShadow?: boolean;
-  children?: React.ReactNode;
+children?: React.ReactNode;
 }) => {
   const tex = useLoadedTexture(url);
   const mat = presetMaterial(presetKey, color);
