@@ -186,7 +186,7 @@ export interface BuildingSettingsPanelProps {
   environment: EnvironmentSettings;
   onPreviewChange: (env: EnvironmentSettings) => void;
   onSave: (env: EnvironmentSettings) => Promise<void>;
-  onUpload: (surface: string, file: File) => Promise<void>;
+onUpload: (surface: string, file: File) => Promise<string>;
 }
 
 const BuildingSettingsPanel = ({
@@ -227,10 +227,14 @@ const BuildingSettingsPanel = ({
 
   const toggle = (key: string) => setOpen((o) => ({ ...o, [key]: !o[key] }));
 
-  const upload = async (key: string, file: File) => {
+const upload = async (key: SurfaceKey | "door", file: File) => {
     try {
-      await onUpload(key, file);
-      // The parent re-resolves textures and calls back with the new path.
+      const path = await onUpload(key, file);
+      if (key === "door") {
+        apply({ ...draft, door: { ...draft.door, texture: { path } } });
+      } else {
+        apply({ ...draft, [key]: { ...draft[key], texture: { path } } });
+      }
     } catch (e: unknown) {
       alert(String((e as Error)?.message ?? e));
     }
@@ -313,12 +317,7 @@ const BuildingSettingsPanel = ({
                   className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent"
                 />
               </label>
-              <button
-                type="button"
-                onClick={() => upload("door", new File([new Blob()], "placeholder"))}
-                className="hidden"
-              />
-              <UploadButton label={draft.door.texture ? "Replace texture" : "Upload texture"} onPick={(f) => upload("door", f)} />
+<UploadButton label={draft.door.texture ? "Replace texture" : "Upload texture"} onPick={(f) => upload("door", f)} />
               {draft.door.texture && (
                 <button
                   type="button"
