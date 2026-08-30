@@ -49,6 +49,9 @@ type CampaignRow = {
   reward_rule: RewardRule | null;
   trigger_event: TriggerEvent;
   is_active: boolean;
+  audience: string[] | null;
+  status: CampaignStatus | null;
+  target_user_id: string | null;
 };
 
 const toCampaign = (row: CampaignRow): Campaign => ({
@@ -61,10 +64,15 @@ const toCampaign = (row: CampaignRow): Campaign => ({
   rewardRule: row.reward_rule ?? {},
   trigger: row.trigger_event,
   isActive: row.is_active,
+  audience: ((row.audience ?? []) as AudienceRole[]).filter((role) =>
+    ["school", "teacher", "parent", "student"].includes(role),
+  ),
+  status: row.status ?? "draft",
+  targetUserId: row.target_user_id,
 });
 
 const CAMPAIGN_COLUMNS =
-  "id, owner_kind, owner_user_id, org_id, name, reward_type, reward_rule, trigger_event, is_active";
+  "id, owner_kind, owner_user_id, org_id, name, reward_type, reward_rule, trigger_event, is_active, audience, status, target_user_id";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -85,7 +93,20 @@ export async function assertAdmin(client: Client, userId: string) {
   if (!data || data.length === 0) throw new Error("Administrator access is required.");
 }
 
-/** The campaign a person refers under: their own active one, else the platform's. */
+/** The single role a person is treated as when an audience is matched. */
+async function roleOf(client: Client, userId: string): Promise<string | null> {
+  const { data } = await loose(client).from("user_roles").select("role").eq("user_id", userId).limit(1);
+  return ((data as { role: string }[] | null) ?? [])[0]?.role ?? null;
+}
+
+const isLive = (row: CampaignRow): boolean => (row.status ?? "draft") === "live" && row.is_active;
+
+/**
+ * The campaign a person refers under: their own live one, else the platform
+ * offer whose audience the administrator assigned them to. When the
+ * administrator has set nothing, this is deliberately null — no offer exists,
+ * so no amount and no link may be shown.
+ */
 async function campaignFor(
   client: Client,
   userId: string,
@@ -94,22 +115,28 @@ async function campaignFor(
 ): Promise<Campaign | null> {
   const db = loose(client);
   if (scope !== "platform") {
-    let own = db.from("referral_campaigns").select(CAMPAIGN_COLUMNS).eq("is_active", true).limit(1);
+    let own = db.from("referral_campaigns").select(CAMPAIGN_COLUMNS).eq("status", "live").eq("is_active", true).limit(1);
     own = scope === "school" && orgId ? own.eq("org_id", orgId) : own.eq("owner_user_id", userId);
     const mine = await own;
     const row = (mine.data as CampaignRow[] | null)?.[0];
     if (row) return toCampaign(row);
   }
+
+  const role = scope === "platform" ? "platform_owner" : scope;
   const platform = await (await admin())
     .from("referral_campaigns")
     .select(CAMPAIGN_COLUMNS)
     .eq("owner_kind", "platform")
+    .eq("status", "live")
     .eq("is_active", true)
-    .order("created_at", { ascending: true })
-    .limit(1);
-  const row = (platform.data as CampaignRow[] | null)?.[0];
-  return row ? toCampaign(row) : null;
+    .order("created_at", { ascending: true });
+  const rows = ((platform.data as CampaignRow[] | null) ?? []).filter(isLive);
+  const targeted = rows.find((row) => row.target_user_id === userId);
+  if (targeted) return toCampaign(targeted);
+  const forRole = rows.find((row) => (row.audience ?? []).includes(role) && !row.target_user_id);
+  return forRole ? toCampaign(forRole) : null;
 }
+
 
 /** Creates the caller's link for their campaign on first visit; never duplicates. */
 export async function ensureLink(
