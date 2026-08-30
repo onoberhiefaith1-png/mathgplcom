@@ -33,7 +33,7 @@ const CameraRig = ({ focus }: { focus: number }) => {
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ.current + 8.5, k);
     camera.position.y = 1.75;
     camera.position.x = THREE.MathUtils.lerp(camera.position.x, -side * 1.9, k);
-    camera.lookAt(side * 3.1, 1.7, targetZ.current);
+    camera.lookAt(side * 4.2, 1.7, targetZ.current);
   });
   return null;
 };
@@ -121,6 +121,8 @@ const Doorway = ({
       </mesh>
       <Suspense fallback={null}>
         <Text
+          renderOrder={10}
+          material-depthTest={false}
           position={[0, 2.55, 0.4]}
           fontSize={0.26}
           maxWidth={2.6}
@@ -132,6 +134,8 @@ const Doorway = ({
           {room.name}
         </Text>
         <Text
+          renderOrder={10}
+          material-depthTest={false}
           position={[0, 1.6, 0.4]}
           fontSize={0.17}
           maxWidth={2.4}
@@ -143,6 +147,8 @@ const Doorway = ({
           {room.description || "Open room"}
         </Text>
         <Text
+          renderOrder={10}
+          material-depthTest={false}
           position={[0, 0.6, 0.4]}
           fontSize={0.14}
           textAlign="center"
