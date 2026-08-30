@@ -26,7 +26,7 @@ const CameraRig = ({ focus }: { focus: number }) => {
   const target = useRef(0);
   target.current = focus * SPACING;
   // Lean away from the focused doorway's wall so the sign is read face-on.
-  const lean = focus % 2 === 0 ? 1.5 : -1.5;
+  const lean = focus % 2 === 0 ? 1.1 : -1.1;
   useFrame(({ camera }, delta) => {
     const k = 1 - Math.exp(-6 * Math.min(delta, 0.05));
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, target.current + 6.5, k);
@@ -104,7 +104,7 @@ const Doorway = ({
         <planeGeometry args={[2.9, 3.2]} />
         <meshStandardMaterial
           ref={glow}
-          color="#111a2b"
+          color="#1a2542"
           emissive={accent}
           emissiveIntensity={0.07}
           roughness={0.9}
@@ -118,7 +118,7 @@ const Doorway = ({
       </mesh>
       <Suspense fallback={null}>
         <Text
-          position={[0, 3.05, 0.14]}
+          position={[0, 2.6, 0.14]}
           fontSize={0.26}
           maxWidth={2.7}
           textAlign="center"
@@ -186,7 +186,7 @@ const HallwayScene = ({ rooms, focus, onFocusChange, onEnterRoom }: HallwayScene
         <ambientLight intensity={0.6} />
         <directionalLight position={[3, 8, 4]} intensity={1.1} castShadow />
         {rooms.map((_, i) => (
-          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={13} distance={13} color="#cfe3ff" />
+          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={4.5} distance={16} color="#cfe3ff" />
         ))}
         <CameraRig focus={focus} />
         <Corridor length={length} />
