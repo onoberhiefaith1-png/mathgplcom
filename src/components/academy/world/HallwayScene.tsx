@@ -25,12 +25,14 @@ const accentOf = (room: AcademyRoom, index: number) =>
 const CameraRig = ({ focus }: { focus: number }) => {
   const target = useRef(0);
   target.current = focus * SPACING;
+  // Lean away from the focused doorway's wall so the sign is read face-on.
+  const lean = focus % 2 === 0 ? 1.5 : -1.5;
   useFrame(({ camera }, delta) => {
     const k = 1 - Math.exp(-6 * Math.min(delta, 0.05));
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, target.current + 6.5, k);
     camera.position.y = 1.7;
-    camera.position.x = 0;
-    camera.lookAt(0, 1.7, target.current - 2);
+    camera.position.x = THREE.MathUtils.lerp(camera.position.x, lean, k);
+    camera.lookAt(lean * 0.3, 1.7, target.current - 2);
   });
   return null;
 };
@@ -91,7 +93,7 @@ const Doorway = ({
     >
       {/* door panel — the click target */}
       <mesh
-        position={[0, 1.6, 0.02]}
+        position={[0, 1.6, 0.09]}
         onClick={(e) => {
           e.stopPropagation();
           onEnter();
@@ -109,13 +111,13 @@ const Doorway = ({
         />
       </mesh>
       {/* frame */}
-      <mesh position={[0, 1.6, 0.01]}>
+      <mesh position={[0, 1.6, 0.02]}>
         <planeGeometry args={[3.2, 3.5]} />
         <meshStandardMaterial color={accent} roughness={0.5} />
       </mesh>
       <Suspense fallback={null}>
         <Text
-          position={[0, 3.05, 0.06]}
+          position={[0, 3.05, 0.14]}
           fontSize={0.26}
           maxWidth={2.7}
           textAlign="center"
@@ -125,7 +127,7 @@ const Doorway = ({
           {room.name}
         </Text>
         <Text
-          position={[0, 1.5, 0.06]}
+          position={[0, 1.5, 0.14]}
           fontSize={0.17}
           maxWidth={2.5}
           textAlign="center"
@@ -134,7 +136,7 @@ const Doorway = ({
         >
           {room.description || "Open room"}
         </Text>
-        <Text position={[0, 0.55, 0.06]} fontSize={0.14} color={accent} anchorY="middle">
+        <Text position={[0, 0.55, 0.14]} fontSize={0.14} color={accent} anchorY="middle">
           {`${room.categories.filter((c) => c.is_visible).length} sections`}
         </Text>
       </Suspense>
