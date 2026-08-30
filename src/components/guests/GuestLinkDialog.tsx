@@ -41,6 +41,7 @@ const GuestLinkDialog = ({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [liveOpen, setLiveOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -56,14 +57,14 @@ const GuestLinkDialog = ({
         const perf = await loadGuestPerformance(created.id);
         if (alive) setRows(perf);
       } catch (e) {
-        if (alive) setError(String((e as Error)?.message ?? e));
+        if (alive) setError(friendlyError(e));
       } finally {
         if (alive) setBusy(false);
       }
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, kind, resourceId, classId]);
+  }, [open, kind, resourceId, classId, reloadKey]);
 
   const url = link ? guestLinkUrl(link) : "";
 
