@@ -35,12 +35,25 @@ const GuestLinkDialog = ({
   /** Chance to prepare the guest containers (course exercises) once. */
   onReady?: () => Promise<void> | void;
 }) => {
+  const friendlyError = (e: unknown): string => {
+    const raw = String((e as Error)?.message ?? e ?? "");
+    if (/duplicate key value|23505/i.test(raw)) {
+      return "This card already has a guest link. Close this window and open it again to see it.";
+    }
+    if (/signed in/i.test(raw)) return raw;
+    if (/permission|denied|row-level/i.test(raw)) {
+      return "You do not have permission to manage the guest link for this card.";
+    }
+    return "The guest link could not be prepared. Please try again.";
+  };
+
   const [link, setLink] = useState<GuestLink | null>(null);
   const [rows, setRows] = useState<GuestPerformanceRow[]>([]);
   const [busy, setBusy] = useState(true);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [liveOpen, setLiveOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -56,14 +69,14 @@ const GuestLinkDialog = ({
         const perf = await loadGuestPerformance(created.id);
         if (alive) setRows(perf);
       } catch (e) {
-        if (alive) setError(String((e as Error)?.message ?? e));
+        if (alive) setError(friendlyError(e));
       } finally {
         if (alive) setBusy(false);
       }
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, kind, resourceId, classId]);
+  }, [open, kind, resourceId, classId, reloadKey]);
 
   const url = link ? guestLinkUrl(link) : "";
 
@@ -99,7 +112,12 @@ const GuestLinkDialog = ({
             <Loader2 className="h-4 w-4 animate-spin" /> Preparing the link…
           </div>
         ) : error ? (
-          <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+          <div className="space-y-3">
+            <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+            <Button type="button" variant="secondary" onClick={() => setReloadKey((n) => n + 1)}>
+              Try again
+            </Button>
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-center gap-2">

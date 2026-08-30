@@ -47,6 +47,59 @@ export const findGuestLink = async (
 };
 
 /** Create the link once and reuse it forever (never a new link per guest). */
+/** Postgres unique-violation. */
+const isDuplicate = (error: { code?: string; message?: string } | null | undefined) =>
+  error?.code === "23505" || /duplicate key value|already exists/i.test(error?.message ?? "");
+
+const isCodeClash = (error: { message?: string } | null | undefined) =>
+  /guest_links_code_key/i.test(error?.message ?? "");
+
+/** One shared promise per card, so two simultaneous opens never race. */
+const inFlight = new Map<string, Promise<GuestLink>>();
+
+const createGuestLink = async (input: {
+  kind: GuestLinkKind;
+  resourceId: string;
+  classId: string | null;
+  title?: string | null;
+}): Promise<GuestLink> => {
+  const existing = await findGuestLink(input.kind, input.resourceId, input.classId);
+  if (existing) return existing;
+
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) throw new Error("You need to be signed in to create a guest link.");
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await db
+      .from("guest_links")
+      .insert({
+        owner_id: uid,
+        kind: input.kind,
+        resource_id: input.resourceId,
+        class_id: input.classId,
+        code: newCode(input.kind === "course" ? "K" : "A"),
+        title: input.title ?? null,
+      })
+      .select("*")
+      .single();
+    if (data) return data as GuestLink;
+
+    if (isDuplicate(error)) {
+      // A short-code clash: simply try another code.
+      if (isCodeClash(error)) continue;
+      // The link for this card already exists — reuse it.
+      const found = await findGuestLink(input.kind, input.resourceId, input.classId);
+      if (found) return found;
+      throw new Error(
+        "A guest link for this card already exists and belongs to another teacher, so it cannot be shown here.",
+      );
+    }
+    throw new Error(error?.message ?? "Could not create the guest link");
+  }
+  throw new Error("Could not create the guest link. Please try again.");
+};
+
 export const ensureGuestLink = async (input: {
   kind: GuestLinkKind;
   resourceId: string;
@@ -54,27 +107,15 @@ export const ensureGuestLink = async (input: {
   title?: string | null;
 }): Promise<GuestLink> => {
   const classId = input.classId ?? null;
-  const existing = await findGuestLink(input.kind, input.resourceId, classId);
-  if (existing) return existing;
+  const key = `${input.kind}:${input.resourceId}:${classId ?? "-"}`;
+  const running = inFlight.get(key);
+  if (running) return running;
 
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id;
-  if (!uid) throw new Error("You need to be signed in to create a guest link.");
-
-  const { data, error } = await db
-    .from("guest_links")
-    .insert({
-      owner_id: uid,
-      kind: input.kind,
-      resource_id: input.resourceId,
-      class_id: classId,
-      code: newCode(input.kind === "course" ? "K" : "A"),
-      title: input.title ?? null,
-    })
-    .select("*")
-    .single();
-  if (error || !data) throw new Error(error?.message ?? "Could not create the guest link");
-  return data as GuestLink;
+  const task = createGuestLink({ ...input, classId }).finally(() => {
+    inFlight.delete(key);
+  });
+  inFlight.set(key, task);
+  return task;
 };
 
 export const updateGuestLink = async (
