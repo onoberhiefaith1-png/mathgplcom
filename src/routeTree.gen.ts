@@ -75,6 +75,7 @@ import { Route as TeachingHubIndexRouteImport } from './routes/teaching-hub/inde
 import { Route as TermsIndexRouteImport } from './routes/terms/index'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ASlugIndexRouteImport } from './routes/a/$slug/index'
+import { Route as AcademyRoomRoomIdRouteImport } from './routes/academy/room.$roomId'
 import { Route as AccountCommunityProfileIndexRouteImport } from './routes/account/community-profile/index'
 import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
 import { Route as AdminAdvertisementsIndexRouteImport } from './routes/admin/advertisements/index'
@@ -653,6 +654,11 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
 const ASlugIndexRoute = ASlugIndexRouteImport.update({
   id: '/a/$slug/',
   path: '/a/$slug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcademyRoomRoomIdRoute = AcademyRoomRoomIdRouteImport.update({
+  id: '/academy/room/$roomId',
+  path: '/academy/room/$roomId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountCommunityProfileIndexRoute =
@@ -2115,6 +2121,7 @@ export interface FileRoutesByFullPath {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
@@ -2419,6 +2426,7 @@ export interface FileRoutesByTo {
   '/teaching-hub': typeof TeachingHubIndexRoute
   '/terms': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
@@ -2736,6 +2744,7 @@ export interface FileRoutesById {
   '/teaching-hub/': typeof TeachingHubIndexRoute
   '/terms/': typeof TermsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/academy/room/$roomId': typeof AcademyRoomRoomIdRoute
   '/admin/integrity/$segment': typeof AdminIntegritySegmentRoute
   '/api/course-edit/speak': typeof ApiCourseEditSpeakRoute
   '/api/course-edit/transcribe': typeof ApiCourseEditTranscribeRoute
@@ -3054,6 +3063,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
@@ -3358,6 +3368,7 @@ export interface FileRouteTypes {
     | '/teaching-hub'
     | '/terms'
     | '/.lovable/oauth/consent'
+    | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
@@ -3674,6 +3685,7 @@ export interface FileRouteTypes {
     | '/teaching-hub/'
     | '/terms/'
     | '/.lovable/oauth/consent'
+    | '/academy/room/$roomId'
     | '/admin/integrity/$segment'
     | '/api/course-edit/speak'
     | '/api/course-edit/transcribe'
@@ -3977,6 +3989,7 @@ export interface RootRouteChildren {
   SupportIndexRoute: typeof SupportIndexRoute
   TermsIndexRoute: typeof TermsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  AcademyRoomRoomIdRoute: typeof AcademyRoomRoomIdRoute
   ApiCourseEditSpeakRoute: typeof ApiCourseEditSpeakRoute
   ApiCourseEditTranscribeRoute: typeof ApiCourseEditTranscribeRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
@@ -4530,6 +4543,13 @@ declare module '@tanstack/react-router' {
       path: '/a/$slug'
       fullPath: '/a/$slug/'
       preLoaderRoute: typeof ASlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/academy/room/$roomId': {
+      id: '/academy/room/$roomId'
+      path: '/academy/room/$roomId'
+      fullPath: '/academy/room/$roomId'
+      preLoaderRoute: typeof AcademyRoomRoomIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account/community-profile/': {
@@ -6863,6 +6883,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupportIndexRoute: SupportIndexRoute,
   TermsIndexRoute: TermsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  AcademyRoomRoomIdRoute: AcademyRoomRoomIdRoute,
   ApiCourseEditSpeakRoute: ApiCourseEditSpeakRoute,
   ApiCourseEditTranscribeRoute: ApiCourseEditTranscribeRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
