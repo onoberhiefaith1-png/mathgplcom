@@ -77,7 +77,7 @@ const Doorway = ({
     const k = 1 - Math.exp(-8 * Math.min(delta, 0.05));
     glow.current.emissiveIntensity = THREE.MathUtils.lerp(
       glow.current.emissiveIntensity,
-      focused ? 1.9 : 0.75,
+      focused ? 0.9 : 0.28,
       k,
     );
   });
@@ -104,7 +104,7 @@ const Doorway = ({
           ref={glow}
           color="#0f1521"
           emissive={accent}
-          emissiveIntensity={0.75}
+          emissiveIntensity={0.28}
           roughness={0.4}
         />
       </mesh>
@@ -119,7 +119,7 @@ const Doorway = ({
           fontSize={0.26}
           maxWidth={2.7}
           textAlign="center"
-          color="#0b1018"
+          color="#f4f8ff"
           anchorY="middle"
         >
           {room.name}
@@ -180,10 +180,10 @@ const HallwayScene = ({ rooms, focus, onFocusChange, onEnterRoom }: HallwayScene
       <Canvas shadows camera={{ position: [0, 1.7, 6.5], fov: 62 }} dpr={[1, 2]}>
         <color attach="background" args={["#0b0f18"]} />
         <fog attach="fog" args={["#0b0f18", 14, 46]} />
-        <ambientLight intensity={0.9} />
+        <ambientLight intensity={0.6} />
         <directionalLight position={[3, 8, 4]} intensity={1.1} castShadow />
         {rooms.map((_, i) => (
-          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={26} distance={14} color="#cfe3ff" />
+          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={13} distance={13} color="#cfe3ff" />
         ))}
         <CameraRig focus={focus} />
         <Corridor length={length} />
