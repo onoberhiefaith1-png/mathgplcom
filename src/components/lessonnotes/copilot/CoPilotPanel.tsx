@@ -203,6 +203,10 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
             onEdit={editBlueprintItem}
             onRevise={(k, i) => void reviseBlueprintItem(k, i)}
             onApprove={approveBlueprint}
+            onEditQuestion={editItemQuestion}
+            onDeleteItem={deleteItem}
+            onAddItem={addItem}
+            onMoveItem={moveItem}
           />
         )}
 
