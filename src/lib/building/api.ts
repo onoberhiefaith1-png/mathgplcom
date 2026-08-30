@@ -48,9 +48,9 @@ export async function listBuildings(orgId: string | null): Promise<Building[]> {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return [];
-  const { data, error } = await ownedQuery(orgId);
+const { data, error } = await ownedQuery(orgId);
   fail(error);
-  return (data ?? []) as Building[];
+  return (data ?? []) as unknown as Building[];
 }
 
 /**
@@ -70,8 +70,8 @@ export async function ensureBuilding(orgId: string | null): Promise<Building | n
     .from("buildings")
     .insert({ org_id: orgId, owner_id: uid, name: "My Building", is_active: true })
     .select("*")
-    .maybeSingle();
-  if (data) return data as Building;
+.maybeSingle();
+  if (data) return data as unknown as Building;
   fail(error);
 
   // A teammate may have created it in the same moment — read it back.
@@ -91,12 +91,12 @@ export async function loadBuildingData(building: Building): Promise<BuildingData
     supabase.from("building_doors").select("*").eq("building_id", building.id).order("position_along"),
     canEditBuilding(building.id),
   ]);
-  fail(walkRes.error);
+fail(walkRes.error);
   fail(doorRes.error);
   return {
     building,
-    walkways: (walkRes.data ?? []) as BuildingWalkway[],
-    doors: (doorRes.data ?? []) as BuildingDoor[],
+    walkways: (walkRes.data ?? []) as unknown as BuildingWalkway[],
+    doors: (doorRes.data ?? []) as unknown as BuildingDoor[],
     canEdit,
   };
 }
@@ -230,10 +230,10 @@ export async function duplicateBuilding(
     .select("*")
     .single();
   if (error || !inserted) {
-    fail(error);
+fail(error);
     return null;
   }
-  const copy = inserted as Building;
+  const copy = inserted as unknown as Building;
 
   // Copy the walkway graph in tree order (roots first, then children).
   const { data: walkRows } = await supabase
@@ -273,7 +273,7 @@ export async function duplicateBuilding(
     .from("building_doors")
     .select("*")
     .eq("building_id", source.id);
-  for (const d of (doorRows ?? []) as BuildingDoor[]) {
+for (const d of (doorRows ?? []) as unknown as BuildingDoor[]) {
     const walkId = idMap.get(d.walkway_id);
     if (!walkId) continue;
     await supabase.from("building_doors").insert({
