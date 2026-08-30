@@ -214,7 +214,9 @@ export function CoPilotPanel({ bridgeRef, notebookId, onClose }: Props) {
           <BuildProgress
             queue={queue}
             onResume={resumeBuild}
-            showResume={stage === "idle" && queue.some((q) => q.state !== "done")}
+            showResume={stage === "idle" && queue.some((q) => q.state !== "done" && q.state !== "skipped")}
+            onRebuildItem={(k) => void rebuildItem(k)}
+            busy={busy}
           />
         )}
 
