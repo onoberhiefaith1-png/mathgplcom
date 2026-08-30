@@ -204,7 +204,7 @@ const Surface = ({
     tex.offset.set(fitted.offset[0], fitted.offset[1]);
   }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH]);
 return (
-    <mesh position={position} rotation-x={rotationX} rotation-y={rotationY} receiveShadow={receiveShadow}>
+    <mesh position={position} rotation-x={rotationX} rotation-y={rotationY}>
       {children}
       <meshStandardMaterial
         color={map ? "#ffffff" : mat.color}
