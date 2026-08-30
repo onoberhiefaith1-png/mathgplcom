@@ -23,19 +23,21 @@ const accentOf = (room: AcademyRoom, index: number) =>
 
 /** Camera glides to the focused doorway; nothing else moves the view. */
 const CameraRig = ({ focus }: { focus: number }) => {
-  const target = useRef(0);
-  target.current = focus * SPACING;
-  // Lean away from the focused doorway's wall so the sign is read face-on.
-  const lean = focus % 2 === 0 ? 1.1 : -1.1;
+  const targetZ = useRef(0);
+  targetZ.current = -focus * SPACING;
+  // The doorway alternates walls, so stand against the opposite wall and look
+  // across the corridor: the whole door and its sign stay inside the frame.
+  const side = focus % 2 === 0 ? -1 : 1;
   useFrame(({ camera }, delta) => {
     const k = 1 - Math.exp(-6 * Math.min(delta, 0.05));
-    camera.position.z = THREE.MathUtils.lerp(camera.position.z, target.current + 6.5, k);
-    camera.position.y = 1.7;
-    camera.position.x = THREE.MathUtils.lerp(camera.position.x, lean, k);
-    camera.lookAt(-lean * 0.9, 1.7, target.current - 2);
+    camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ.current + 8.5, k);
+    camera.position.y = 1.75;
+    camera.position.x = THREE.MathUtils.lerp(camera.position.x, -side * 1.9, k);
+    camera.lookAt(side * 3.1, 1.7, targetZ.current);
   });
   return null;
 };
+
 
 const Corridor = ({ length }: { length: number }) => (
   <group position={[0, 0, -length / 2 + SPACING]}>
@@ -53,7 +55,7 @@ const Corridor = ({ length }: { length: number }) => (
     {[-1, 1].map((side) => (
       <mesh key={side} position={[(side * HALL_WIDTH) / 2, HALL_HEIGHT / 2, 0]} rotation-y={(-side * Math.PI) / 2}>
         <planeGeometry args={[length + 40, HALL_HEIGHT]} />
-        <meshStandardMaterial color="#2e3950" roughness={0.6} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#3a4763" roughness={0.6} side={THREE.DoubleSide} />
       </mesh>
     ))}
   </group>
@@ -88,9 +90,10 @@ const Doorway = ({
     // Alcoves sit against the wall but are angled toward the walker, so a
     // doorway reads clearly instead of being seen edge-on.
     <group
-      position={[side * (HALL_WIDTH / 2 - 0.8), 0, z]}
-      rotation-y={-side * (Math.PI / 2) + side * 0.75}
+      position={[side * (HALL_WIDTH / 2 - 0.2), 0, z]}
+      rotation-y={-side * 0.55}
     >
+
       {/* door panel — the click target */}
       <mesh
         position={[0, 1.6, 0.09]}
@@ -118,29 +121,39 @@ const Doorway = ({
       </mesh>
       <Suspense fallback={null}>
         <Text
-          position={[0, 2.6, 0.14]}
+          position={[0, 2.55, 0.4]}
           fontSize={0.26}
-          maxWidth={2.7}
+          maxWidth={2.6}
           textAlign="center"
-          color="#f4f8ff"
+          anchorX="center"
           anchorY="middle"
+          color="#f4f8ff"
         >
           {room.name}
         </Text>
         <Text
-          position={[0, 1.5, 0.14]}
+          position={[0, 1.6, 0.4]}
           fontSize={0.17}
-          maxWidth={2.5}
+          maxWidth={2.4}
           textAlign="center"
-          color="#e6edf7"
+          anchorX="center"
           anchorY="middle"
+          color="#e6edf7"
         >
           {room.description || "Open room"}
         </Text>
-        <Text position={[0, 0.55, 0.14]} fontSize={0.14} color={accent} anchorY="middle">
+        <Text
+          position={[0, 0.6, 0.4]}
+          fontSize={0.14}
+          textAlign="center"
+          anchorX="center"
+          anchorY="middle"
+          color={accent}
+        >
           {`${room.categories.filter((c) => c.is_visible).length} sections`}
         </Text>
       </Suspense>
+
     </group>
   );
 };
