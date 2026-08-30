@@ -1,75 +1,74 @@
-# Academy Hallway: Click-to-Enter Zoom, Live Section Counts, Doorway Hover
+# 3D Building Surface & Background Asset System
 
 ## Goal
 
-Polish the existing 3D Academy hallway (built inside the preserved building) so that:
+Upgrade the visual surfaces of the existing 3D building into a proper "surface design system": four independent editable surfaces (Left Wall, Right Wall, Floor, Roof/Ceiling), each with its own design; uploaded images fitted like a physical plasterboard panel (cover/crop, never stretched or distorted); a built-in sample background gallery (8 styles); an upload flow with preview and adjustment (Zoom / Move / Reset / Fit / Apply / Remove); per-building persistence; duplication that copies the visual configuration into an independent copy; and texture performance safeguards.
 
-1. Clicking a room doorway pauses any movement, smoothly zooms the camera into that door, then navigates into a real room page.
-2. Every room doorway shows its section count (number of sections/categories) and the count — and the doorway order — stays in sync with the database as rooms, sections and products are added or moved, without a manual refresh.
-3. Every doorway highlights on hover, in a tone that matches the hallway lighting, with no clipping or z-fighting with the door frame or its label text.
-4. A full signed-in end-to-end flow verifies: create a room, add category/topic/subtopic, refresh, and confirm hallway doorway and editor state agree.
+The building, hallway, movement, doors, products, editing/view modes and workspace system are NOT rebuilt — only the surface rendering and its editing UI improve.
 
 ## Current state (verified)
 
-- `src/components/academy/world/HallwayScene.tsx` renders the corridor: `SegmentCorridor` surfaces (floor/roof/walls), room `DoorMesh` doorways, branch arches, and a `CameraRig` with `browse` (doorway-to-doorway glide) and `walk` (free glide with arrow keys/WASD) modes. Doorway click calls `onEnterRoom` immediately.
-- `AcademyWorldPage` (`/academy`) loads the academy tree once on mount and shows a `ShowroomPanel` overlay when a room is entered. Room doorway sublabel is `room.description || "Open room"` — no section count. The bottom "Enter <room>" button also enters the room.
-- `AcademyRoom` has `categories` (each with `topics` → `subtopics`), so a room's section count is `categories.length` (the editor's "Add section" creates categories).
-- **Known defect found during testing:** in walk mode the corridor surfaces are not visible — the view goes blank dark while the room doorways still render. This must be fixed first, otherwise zoom/hover polish has nothing to light.
-- Routes today: `/academy`, `/academy/edit`, `/academy/course/$courseId`. No room page exists.
-
-## What stays untouched
-
-- The homepage rotating building and its geometry/artwork.
-- The Academy hierarchy tables, editor CRUD, product engines and their routes (`/academy/course/...`, games, adventures, assessments).
-- Walkway/building data model and `building_*` tables.
+- The data model already has four independent surfaces: `EnvironmentSettings.leftWall / rightWall / floor / roof`, each a `SurfaceDesign { preset, color, texture(path), scale, offsetX, offsetY, repeat }`, stored per-building in `buildings.environment` (JSONB) with RLS scoping. Left/right walls are already separate.
+- `BuildingSettingsPanel` already renders per-surface editors: preset chips, colour picker, upload/remove texture, scale / offset X/Y / repeat sliders, with a live 3D preview and Save Changes persistence.
+- Textures upload to the game-assets bucket (`uploadBuildingTexture`); the renderer receives signed URLs via `resolveEnvironmentTextures` and `HallwayScene.Surface` maps them onto the corridor geometry (floor/roof/left/right wall per segment).
+- Duplicate building already copies the whole environment (visual configuration) plus the walkway graph; the copy is independent.
+- Gap: when a texture is used with `repeat=false`, `Surface` maps it 1:1 onto the plane, which stretches/distorts images whose aspect differs from the wall. There is no cover/crop fit, no zoom/pan semantics beyond raw UV offsets, no sample gallery, and no upload preview/adjust flow (upload applies immediately).
+- Gap: the corridor reads too dark in walk mode (visibility floor) — surface presentation work should fix this while making textures look "installed", not pasted.
+- No schema change is needed: `environment` is JSONB; a new `fit` field persists without a migration.
 
 ## Steps
 
-### 1. Make the corridor visibly lit (prerequisite)
+### 1. Fit engine — cover/crop, no distortion (core)
 
-- Reproduce in both the world page and the editor preview; inspect whether the `SegmentCorridor` meshes render (temporary scene-graph probe: mesh count, bounding boxes, material colors) and whether this is a lighting/mood issue or a render bug.
-- Fix accordingly: raise the visibility floor (brighter floor/wall materials and/or a hemisphere/rim light, lighter fog near value), keeping the tone consistent with the hallway lighting settings. Verify with screenshots in walk mode and browse mode.
+- Add `fit: "cover" | "stretch"` to `SurfaceDesign` (default `"cover"`; `"stretch"` preserves today's behaviour).
+- In `HallwayScene.Surface`, once the texture's image dimensions are known, compute UV repeat/offset so the image covers the plane while preserving aspect ratio (a `background-size: cover` equivalent in UV space), using the plane's dimensions, the texture's aspect, `scale` as zoom and `offsetX/offsetY` as pan (focal position). Apply via `useEffect`, never during render.
+- The result: a portrait image on a wide wall is cropped top/bottom (or sides) with the important centre kept; nothing is squeezed.
 
-### 2. Click-to-zoom transition into the room
+### 2. Built-in sample background gallery
 
-- Add a third camera mode to `CameraRig`, e.g. `zoom`: pausing any walk movement (`movingRef`/`moving` off), then easing the camera from its current position toward the selected door's world position (same math the `DoorMesh` uses: `side * (HALL_WIDTH/2 - 0.2)`, facing the door), over roughly 0.8 s with frame-rate-independent damping.
-- When the zoom completes, call `onEnterRoom(roomId)`, which now navigates to the room page (step 3).
-- Block pointer drags and arrow keys during the zoom so the transition is not interrupted; if the user clicks a different door mid-zoom, retarget smoothly.
-- Route the bottom "Enter <room>" button through the same zoom by lifting a `pendingEnter` signal into `HallwayScene` (it runs the zoom for the currently focused door, then enters).
+- Generate 8 professional sample backgrounds (square JPGs, bundled as app assets): Modern Academy, Mathematics, Premium Dark, Bright Classroom, Science, Minimal, Futuristic, School Branding (clean surface with a logo zone).
+- Introduce a `builtin:<key>` texture path convention: `resolveEnvironmentTextures` returns the bundled asset URL directly for `builtin:` paths (no signed URL); storage paths keep the current flow. The renderer is unchanged.
+- New "Choose Template" gallery dialog per surface: thumbnail grid of the 8 samples; picking one applies it to that surface only.
 
-### 3. Real room page: `/academy/room/$roomId`
+### 3. Teacher upload flow with preview + adjust
 
-- New route `src/routes/academy.room.$roomId.tsx` that loads the academy tree, finds the room, and renders the existing `ShowroomPanel` full-page with the same drill-down (category → topic → subtopic → products) as local state.
-- The world page stops rendering the room overlay; entering a room (via doorway click or button) navigates to the route. `onLeaveRoom` / breadcrumb back navigates to `/academy`.
-- This makes rooms deep-linkable and shareable instead of overlay-only state.
+- New "Upload Image" flow per surface: pick a file -> client-side optimisation (resize long edge to max 2048 px, WebP/JPEG ~0.85, strip metadata) -> upload to the bucket -> show a 2D fitted preview of the surface with the image cover-fitted.
+- Adjustment controls in the flow: Zoom (scale), Move Left/Right (offsetX), Move Up/Down (offsetY), Reset, Fit (re-auto-fit), Apply (sets the texture + fit on that surface; the live 3D preview updates immediately), Remove (clears the texture).
+- Final persistence stays with the existing Save Changes button; the teacher never touches UVs or materials.
+- On replace, delete the previous texture object from the bucket to avoid bloat.
 
-### 4. Live section counts on doorways
+### 4. Per-surface settings panel + visibility floor
 
-- `DoorMesh` sublabel shows the room's section count derived from the loaded tree: `"N sections"` (pluralised) when `categories.length > 0`, else `"Open room"`.
-- Add a lightweight realtime subscription in `AcademyWorldPage` (`supabase.channel` with `postgres_changes` on `academy_rooms`, `academy_categories`, `academy_topics`, `academy_subtopics`, `academy_placements` filtered by the academy id) that debounce-refetches `loadAcademyTree`, so doorway counts, doorway order (room position changes) and the featured shelf update without a manual refresh. Clean up the channel on unmount.
+- Rebuild each surface section: current design preview thumbnail, Choose Template, Upload Image, Adjust controls (when a texture is set), Remove. Keep the existing colour-design preset chips.
+- Raise the corridor visibility floor so panels read as installed surfaces: add a hemisphere/rim light, raise the default ambient/floor/roof brightness, and lighten the default floor/roof colours. This fixes the dark walk-mode view that made earlier testing hard.
 
-### 5. Doorway hover highlight
+### 5. Persistence & duplication
 
-- Give each `DoorMesh` a hovered state (pointer enter/leave). Animate the glow panel's `emissiveIntensity` up on hover (and back down on leave) via the existing `useFrame` lerp, scaled by `env.door.brightness` so the highlight matches the hallway lighting tone and the door's accent colour.
-- Keep the highlight on the glow panel plane (scaling in-plane only, or a subtle whole-door group scale) so it never intersects the frame or the depth-tested-off label text — no clipping or z-fighting.
-- Preserve the pointer cursor behaviour already present.
+- Verify per-building save/load of surface designs (existing `updateEnvironment` + JSONB; nothing global).
+- Verify duplication: the copy inherits wall/floor/roof designs, uploaded textures, positioning and door/environment settings, and that changing the copy's surfaces never changes the original (it writes its own `environment`; texture paths are immutable shared objects until replaced).
 
-### 6. End-to-end verification (signed-in, authenticated)
+### 6. Performance
 
-- Playwright flow: open `/academy/edit`, create a room, add a category ("Add section"), a topic and a subtopic; save; hard-refresh the editor and confirm the room/section state persists.
-- Open `/academy` and confirm the new room's doorway appears (in stored order) with the live section count, and that a second tab's editor change reaches the world without a refresh (realtime).
-- Click the doorway: confirm movement pauses, the camera zooms into the door, and the app lands on `/academy/room/<id>` with the correct drill-down content.
-- Confirm hover highlight appears on the doorway (screenshot) and that no console/page errors occur.
-- Also verify the corridor surfaces are clearly visible in the walk mode screenshot (step 1).
+- Client-side resize keeps uploaded textures small; bundled samples are CDN-served and loaded on demand.
+- Add a module-level texture cache in `HallwayScene` keyed by URL so the same sample applied to several segments/surfaces loads once (today each `Surface` loads its own copy).
+- Enable anisotropy and keep mipmaps; no repeated large images in memory.
+
+### 7. Verification
+
+- Build/typecheck clean.
+- Authenticated browser E2E: apply a sample to the left wall, upload a portrait image to the right wall (confirm no distortion — cropped, not squeezed), template the floor, upload a roof design; reload and confirm persistence; duplicate the building and confirm the copy keeps all four surface designs and that edits to the copy don't touch the original; view as a student and confirm textures render with lighting/perspective (not flat); confirm the corridor is clearly visible in walk mode; no page/console errors.
 
 ## Technical details
 
-- `HallwayScene.tsx`: extend `NavState` with a `zoom` mode carrying the target door world position and a progress value; `CameraRif`/`CameraRig` handles the ease; expose a callback or lifted `pendingEnter` index prop for the DOM Enter button. Door world position reuses the `DoorMesh` placement formula so the zoom lands exactly on the door.
-- New route follows the existing `AcademyCoursePage` pattern (`ensureAcademy` + `loadAcademyTree`), with `head()` metadata (title/description/og) for the room.
-- Realtime refetch is debounced (~300 ms) and guarded against out-of-order responses so an older tree never overwrites a newer one; the channel is scoped to the academy id.
-- Section count uses `room.categories.length` (editor terminology: sections = categories). No schema change needed.
+- `SurfaceDesign` gains `fit: "cover" | "stretch"` persisted in `buildings.environment` JSONB — no migration, existing rows fall back to `"cover"` at render.
+- Cover UV math (plane aspect `p`, image aspect `a`, zoom `z`, pan `px,py`): `rx = max(1, a/p)`, `ry = max(p/a, 1)`; `repeat = (rx*z, ry*z)`; `offset = (0.5 - 0.5*rx*z + px, 0.5 - 0.5*ry*z + py)`.
+- New files: `src/lib/building/gallery.ts` (sample keys, thumbnails, `builtin:` URL map), `src/lib/building/imageFit.ts` (cover math + `optimizeImageForTexture` canvas util), `SurfaceGalleryDialog.tsx`, `SurfaceUploadDialog.tsx` (under `src/components/academy/editor/`), 8 generated sample JPGs under `src/assets/surfaces/` (ES6 imports; Mathematics and Science at premium quality for crisp symbols, the rest standard).
+- Edited: `src/lib/building/types.ts`, `src/lib/building/textures.ts` (builtin resolution), `src/lib/building/api.ts` (optimised upload + old-texture cleanup), `src/components/academy/world/HallwayScene.tsx` (fit engine, texture cache, hemisphere light, brighter defaults), `src/components/academy/editor/BuildingSettingsPanel.tsx` (surface sections + dialogs), `src/pages/academy/AcademyEditorPage.tsx` (wiring).
+- Following this plan, the previously approved hallway interaction plan (click-to-enter zoom, `/academy/room/$roomId` page, live section counts, doorway hover, E2E) remains queued and will be implemented next.
 
 ## Out of scope
 
-- Changing the homepage building, the walkway/building editor, or product engines.
-- Multiple hallway templates and advanced environment controls (Phase 2).
+- Rebuilding the building, hallway geometry or movement/navigation.
+- Door designs beyond the existing brightness/colour/texture controls.
+- New lighting presets or environment effects beyond the visibility-floor fix.
+- The hallway interaction items (already approved separately; queued after this plan).
