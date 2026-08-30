@@ -52,7 +52,7 @@ const ReferralAdminPage = () => {
   const refresh = useCallback(async () => {
     setBusy(true);
     try {
-      setRows((await load({ data: {} })).rows);
+      setRows((await load()).rows);
     } catch (error) {
       toast({
         title: "Could not load referral offers",
