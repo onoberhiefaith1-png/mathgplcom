@@ -1235,10 +1235,15 @@ const HallwayScene = ({
     return map;
   }, [doors]);
 
+  // The root corridor only has to be long enough for the doors that actually
+  // sit ON it — counting every door in the building stretched it out of scale
+  // and squashed the rest of the maze on the map.
+  const rootWalkwayId = walkways.find((w) => !w.parent_id)?.id ?? null;
   const rootLen = Math.max(
     walkways.find((w) => !w.parent_id)?.length ?? 12,
-    doors.length * SPACING + 12,
+    (rootWalkwayId ? (doorsByWalkway.get(rootWalkwayId)?.length ?? 0) : doors.length) * SPACING + 12,
   );
+
 
   const { segments, layouts } = useMemo(
     () =>
