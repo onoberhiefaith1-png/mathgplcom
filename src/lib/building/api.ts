@@ -194,7 +194,9 @@ export async function addDoor(
 
 export async function updateDoor(
   id: string,
-  fields: Partial<Pick<BuildingDoor, "position_along" | "content_kind" | "content_id" | "title_override">>,
+  fields: Partial<
+    Pick<BuildingDoor, "position_along" | "content_kind" | "content_id" | "title_override" | "design">
+  >,
 ): Promise<void> {
   const { error } = await supabase.from("building_doors").update(fields as never).eq("id", id);
   fail(error);
