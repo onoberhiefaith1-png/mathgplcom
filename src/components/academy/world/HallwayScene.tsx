@@ -1896,25 +1896,30 @@ const HallwayScene = ({
           setPhase={setMachinePhase}
         />
 
-{/* Enclosed hallways — each finite, named, walled at its far end */}
-        {segments.map((seg) => (
-          <SegmentCorridor
-            key={seg.walkway?.id ?? "root"}
-            start={seg.start}
-            yaw={segYaw(seg.heading)}
-            length={seg.length}
-            env={env}
-            textures={textures}
-            capEnd={!seg.children.some((c) => c.walkway?.direction === "forward")}
-            capStart={seg.depth === 0}
-            name={seg.walkway?.name}
-            endName={
-              seg.children.some((c) => c.walkway?.direction === "forward")
-                ? undefined
-                : (seg.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME)
-            }
-          />
-        ))}
+{/* Enclosed hallways — each finite, named, walled at its far end. Only the
+    connected hallways are signposted, so far-away names never read through walls. */}
+        {segments.map((seg) => {
+          const near = nearbyIds.has(seg.walkway?.id ?? "root");
+          return (
+            <SegmentCorridor
+              key={seg.walkway?.id ?? "root"}
+              start={seg.start}
+              yaw={segYaw(seg.heading)}
+              length={seg.length}
+              env={env}
+              textures={textures}
+              capEnd={!seg.children.some((c) => c.walkway?.direction === "forward")}
+              capStart={seg.depth === 0}
+              name={near ? seg.walkway?.name : undefined}
+              endName={
+                !near || seg.children.some((c) => c.walkway?.direction === "forward")
+                  ? undefined
+                  : (seg.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME)
+              }
+            />
+          );
+        })}
+
 
         {/* Doors and sub-hallway openings — only for the hallway you are in and
             the ones it connects to, so distant labels never ghost through walls */}
