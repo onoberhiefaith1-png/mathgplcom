@@ -35,6 +35,15 @@ const BANDS: Record<EdgeSoftness, [number, number]> = {
   soft: [0.1, 0.3],
 };
 
+/**
+ * White, grey and black keys carry almost no chroma, so the band has to be a
+ * little wider for the luma fallback to catch the whole backdrop.
+ */
+const bandFor = (softness: EdgeSoftness, key: KeyColor): [number, number] => {
+  const [a, b] = BANDS[softness];
+  return isLowSaturation(key) ? [a * 1.35, b * 1.35] : [a, b];
+};
+
 const VERT = `
 attribute vec2 aPos;
 varying vec2 vUv;
