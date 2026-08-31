@@ -1647,7 +1647,9 @@ const HallwayScene = ({
     seg: rootEffective,
     dist: 0,
     moving: false,
+    holding: false,
     speed: 0,
+
     stops: [],
 
     yaw: 0,
