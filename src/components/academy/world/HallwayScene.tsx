@@ -998,7 +998,7 @@ const HallwayScene = ({
   const [endReached, setEndReached] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState<string[]>(["Entrance"]);
   const [cue, setCue] = useState<string | null>(null);
-  const [showMap, setShowMap] = useState(false);
+  const [showMap] = useState(true);
   const machineRef = useRef<Machine>({
     phase: "browse",
     seg: rootEffective,
