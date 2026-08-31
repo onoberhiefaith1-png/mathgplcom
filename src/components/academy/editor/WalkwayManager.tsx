@@ -91,7 +91,10 @@ const WalkwayManager = ({
 
   // Add Hallway form state
   const [hallParent, setHallParent] = useState<string>("");
-  const [hallDir, setHallDir] = useState<WalkwayDirection>("forward");
+  const [hallDir, setHallDir] = useState<WalkwayDirection>("left");
+  /** Where along the parent road the new junction opens, as a percentage. */
+  const [hallJunction, setHallJunction] = useState(50);
+
   const [hallName, setHallName] = useState("");
 
   // Add Door form state
