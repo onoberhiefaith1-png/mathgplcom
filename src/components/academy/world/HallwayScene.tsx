@@ -1900,6 +1900,59 @@ const HallwayScene = ({
     [walkways, doorsByWalkway, productTitles, rootLen, links],
   );
 
+  /**
+   * THE CROSSINGS — every place two corridor volumes share plan area. Each
+   * crossing gets a deterministic upper corridor (shallower road wins, ties
+   * broken by id) that carries its slab straight through; the other corridor's
+   * deck is CUT there, so the two are never coplanar and never flicker. Every
+   * corridor also gets its own tiny slab depth, so even a crossing this solver
+   * did not see cannot end up sharing a plane.
+   */
+  const decks = useMemo(() => {
+    const key = (s: Segment) => s.walkway?.id ?? "root";
+    const rank = (s: Segment) => `${String(s.depth).padStart(3, "0")}:${key(s)}`;
+    const holes = new Map<string, { along: number; width: number }[]>();
+    const frontPads = new Map<string, number>();
+    const lifts = new Map<string, number>();
+
+    const ordered = [...segments].sort((a, b) => rank(a).localeCompare(rank(b)));
+    ordered.forEach((s, i) => lifts.set(key(s), (i % 6) * 0.004));
+
+    const addHole = (id: string, range: [number, number]) => {
+      const arr = holes.get(id) ?? [];
+      arr.push({ along: (range[0] + range[1]) / 2, width: range[1] - range[0] });
+      holes.set(id, arr);
+    };
+
+    for (let i = 0; i < segments.length; i += 1) {
+      for (let j = i + 1; j < segments.length; j += 1) {
+        const A = segments[i];
+        const B = segments[j];
+        const hit = corridorCrossing(
+          { start: A.start, heading: A.heading, length: A.length },
+          { start: B.start, heading: B.heading, length: B.length },
+          HALL_WIDTH,
+        );
+        if (!hit) continue;
+        // The upper corridor keeps its slab; the lower one loses that stretch.
+        const upperIsA = rank(A).localeCompare(rank(B)) < 0;
+        const lower = upperIsA ? B : A;
+        addHole(key(lower), upperIsA ? hit.b : hit.a);
+        // A deck must not run its pad on past a road it crosses either.
+        const clamp = (s: Segment, range: [number, number]) => {
+          if (range[0] <= s.length) return;
+          const room = Math.max(0, range[0] - s.length);
+          frontPads.set(key(s), Math.min(frontPads.get(key(s)) ?? 3, room));
+        };
+        clamp(A, hit.a);
+        clamp(B, hit.b);
+      }
+    }
+    return { holes, frontPads, lifts };
+  }, [segments]);
+
+
+
   const rootSeg: Segment = useMemo(
     () =>
       segments.find((s) => s.depth === 0) ?? {
