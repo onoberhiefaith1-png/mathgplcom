@@ -66,6 +66,12 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
   const [removeBg, setRemoveBg] = useState(false);
   const [softness, setSoftness] = useState<EdgeSoftness>("normal");
   const [keySwatch, setKeySwatch] = useState<string | null>(null);
+  const [detectState, setDetectState] =
+    useState<"idle" | "checking" | "detected" | "not-flat">("idle");
+  const [detectNote, setDetectNote] = useState("");
+  const [manualKey, setManualKey] = useState<{ r: number; g: number; b: number } | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const frameRef = useRef<{ data: Uint8ClampedArray | number[]; w: number; h: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
   const abortRef = useRef<AbortController | null>(null);
@@ -73,31 +79,78 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
   const hasVideo = files.some((f) => isVideoFile(f));
 
   // Show the detected background colour of the first video, so the teacher can
-  // see what is about to be cut before pressing save.
+  // see what is about to be cut before pressing save. Detection now has three
+  // honest outcomes, so "checking…" no longer doubles as the failure state.
   useEffect(() => {
-    if (!removeBg) {
-      setKeySwatch(null);
-      return;
-    }
-    const video = files.find((f) => isVideoFile(f));
+    const video = removeBg ? files.find((f) => isVideoFile(f)) : undefined;
     if (!video) {
+      setDetectState("idle");
       setKeySwatch(null);
+      setDetectNote("");
+      setManualKey(null);
+      setPreviewUrl(null);
+      frameRef.current = null;
       return;
     }
     let cancelled = false;
+    setDetectState("checking");
+    setKeySwatch(null);
+    setDetectNote("");
+    setManualKey(null);
     const url = URL.createObjectURL(video);
     void import("@/lib/games/removeBackground")
-      .then(({ detectMediaBackground }) => detectMediaBackground(url, "video"))
-      .then(({ color, keyable }) => {
-        if (cancelled) return;
-        setKeySwatch(keyable ? `rgb(${color.r}, ${color.g}, ${color.b})` : null);
+      .then(async ({ detectMediaBackground, grabPreviewFrame }) => {
+        const preview = await grabPreviewFrame(url, "video");
+        if (!cancelled && preview) {
+          frameRef.current = preview.frame;
+          setPreviewUrl(preview.dataUrl);
+        }
+        return detectMediaBackground(url, "video");
       })
-      .catch(() => !cancelled && setKeySwatch(null));
+      .then((detection) => {
+        if (cancelled) return;
+        const { color, keyable, coverage, reason } = detection;
+        setKeySwatch(`rgb(${color.r}, ${color.g}, ${color.b})`);
+        setDetectState(keyable ? "detected" : "not-flat");
+        setDetectNote(
+          keyable ? `${reason} (${Math.round(coverage * 100)}% of the frame edge)` : reason,
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDetectState("not-flat");
+        setKeySwatch(null);
+        setDetectNote("This file could not be read for background detection.");
+      });
     return () => {
       cancelled = true;
       URL.revokeObjectURL(url);
     };
   }, [removeBg, files]);
+
+  /** Reads the clicked pixel of the preview still as the background colour. */
+  const pickFromPreview = (event: React.MouseEvent<HTMLImageElement>) => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.min(
+      frame.w - 1,
+      Math.max(0, Math.round(((event.clientX - rect.left) / rect.width) * frame.w)),
+    );
+    const y = Math.min(
+      frame.h - 1,
+      Math.max(0, Math.round(((event.clientY - rect.top) / rect.height) * frame.h)),
+    );
+    const i = (y * frame.w + x) * 4;
+    const color = {
+      r: frame.data[i] ?? 255,
+      g: frame.data[i + 1] ?? 255,
+      b: frame.data[i + 2] ?? 255,
+    };
+    setManualKey(color);
+    setKeySwatch(`rgb(${color.r}, ${color.g}, ${color.b})`);
+    setDetectNote("Background colour chosen by hand from the preview frame.");
+  };
 
   useEffect(() => {
     if (!open) return;
