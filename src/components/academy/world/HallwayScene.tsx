@@ -1424,7 +1424,7 @@ const MiniMap = ({
   /** Hallways actually travelled, in order — the route highlight. */
   routeIds?: string[];
 }) => {
-  const [size, setSize] = useState<MapSize>("M");
+  const [zoom, setZoom] = useState(1);
   useMapFrames(show);
 
   const svg = useMemo(() => {
