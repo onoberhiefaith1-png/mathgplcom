@@ -63,6 +63,7 @@ const mergeDoor = (raw: unknown, base: DoorDesign): DoorDesign => {
           ? { path: tex.path }
           : base.texture,
     brightness: num(d.brightness, base.brightness),
+    style: str(d.style, base.style),
   };
 };
 

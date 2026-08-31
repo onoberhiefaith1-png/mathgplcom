@@ -17,6 +17,7 @@ import type {
 import { DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
 import { DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
+import { DOOR_STYLES } from "@/lib/building/doors";
 import type { AcademyProduct, AcademyProductKind } from "@/lib/academy/types";
 import { PRODUCT_KINDS } from "@/lib/academy/types";
 
@@ -36,6 +37,8 @@ export interface WalkwayManagerProps {
     fields: { position_along: number; content_kind: DoorContentKind; content_id: string },
   ) => Promise<void>;
   onUpdateDoor: (id: string, position_along: number) => Promise<void>;
+  /** Per-door design override; empty string clears back to the building default. */
+  onSetDoorStyle?: (id: string, style: string) => Promise<void>;
   onDeleteDoor: (id: string) => Promise<void>;
 }
 
@@ -51,6 +54,7 @@ const WalkwayManager = ({
   onDeleteWalkway,
   onAddDoor,
   onUpdateDoor,
+  onSetDoorStyle,
   onDeleteDoor,
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
@@ -193,6 +197,19 @@ const WalkwayManager = ({
                   }}
                   className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-1 text-sm text-foreground"
                 />
+                <select
+                  aria-label="Door design"
+                  value={(d.design as { style?: string } | null)?.style ?? ""}
+                  onChange={(e) => void onSetDoorStyle?.(d.id, e.target.value)}
+                  className="min-h-[32px] max-w-[7.5rem] rounded border border-border bg-background px-1 text-[11px] text-foreground"
+                >
+                  <option value="">Building default</option>
+                  {DOOR_STYLES.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
                 <input
                   aria-label="Door position"
                   type="range"

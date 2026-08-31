@@ -791,6 +791,14 @@ const handleTextureUpload = useCallback(
                         }}
                         onAddDoor={handleAddDoor}
                         onUpdateDoor={handleDoorPosition}
+                        onSetDoorStyle={async (id, style) => {
+                          const door = buildingData?.doors.find((d) => d.id === id);
+                          const design = { ...(door?.design ?? {}) } as Record<string, unknown>;
+                          if (style) design.style = style;
+                          else delete design.style;
+                          await updateDoor(id, { design: design as never });
+                          await refreshBuilding();
+                        }}
                         onDeleteDoor={async (id) => {
                           await deleteDoor(id);
                           await refreshBuilding();

@@ -31,6 +31,7 @@ import type {
   EnvironmentSettings,
 } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
+import { doorStyle } from "@/lib/building/doors";
 import { presetMaterial } from "@/lib/building/presets";
 import { coverFit } from "@/lib/building/imageFit";
 import {
@@ -408,7 +409,17 @@ const SegmentCorridor = ({
   </group>
 );
 
-/** A clickable doorway with a glowing panel, frame and sign. Hovers light up. */
+/**
+ * A real door asset fitted into the wall: reveal (jambs + lintel + threshold),
+ * then the door leaf itself — a transparent-cutout door image on a plane that
+ * is always PARALLEL to the wall it belongs to, so it can never look slanted or
+ * detached. The cutout stays transparent, so the hallway wall shows around it.
+ *
+ * Clicking behaves exactly as before (the caller runs the door zoom and then
+ * opens the existing product/room page).
+ */
+const DOOR_HEIGHT = 3.4;
+
 const DoorMesh = ({
   side,
   z,
@@ -417,6 +428,9 @@ const DoorMesh = ({
   accent,
   color,
   emissiveIntensity,
+  styleKey,
+  textureUrl,
+  aspect,
   onEnter,
 }: {
   side: number;
@@ -426,27 +440,69 @@ const DoorMesh = ({
   accent: string;
   color: string;
   emissiveIntensity: number;
+  styleKey?: string;
+  /** custom uploaded door image; falls back to the built-in style asset */
+  textureUrl?: string;
+  aspect?: number;
   onEnter: () => void;
 }) => {
-  const glow = useRef<THREE.MeshStandardMaterial>(null);
+  const style = doorStyle(styleKey);
+  const url = textureUrl || style.url;
+  const tex = useLoadedTexture(url);
+  const ratio = aspect ?? style.aspect;
+  const leafH = DOOR_HEIGHT;
+  const leafW = Math.min(3.0, leafH * ratio);
+
+  const leaf = useRef<THREE.MeshStandardMaterial>(null);
   const frame = useRef<THREE.MeshStandardMaterial>(null);
   const [hovered, setHovered] = useState(false);
   useFrame((_, delta) => {
     const k = 1 - Math.exp(-8 * Math.min(delta, 0.05));
-    const target = hovered ? Math.max(0.4, emissiveIntensity * 5) : emissiveIntensity;
-    if (glow.current) {
-      glow.current.emissiveIntensity = THREE.MathUtils.lerp(glow.current.emissiveIntensity, target, k);
+    const target = hovered ? Math.max(0.35, emissiveIntensity * 4) : emissiveIntensity * 0.5;
+    if (leaf.current) {
+      leaf.current.emissiveIntensity = THREE.MathUtils.lerp(leaf.current.emissiveIntensity, target, k);
     }
     if (frame.current) {
-      const ft = hovered ? Math.min(1.6, (frame.current.emissiveIntensity ?? 0) + 0.8) : 0;
+      const ft = hovered ? 0.9 : 0;
       frame.current.emissiveIntensity = THREE.MathUtils.lerp(frame.current.emissiveIntensity ?? 0, ft, k);
     }
   });
 
+  const jambW = 0.16;
+  const openW = leafW + jambW * 2;
+  const openH = leafH + jambW;
+
   return (
-    <group position={[side * (HALL_WIDTH / 2 - 0.2), 0, z]} rotation-y={-side * 0.55}>
+    // Flush against the wall plane and rotated to the wall's own orientation:
+    // the door face is parallel to the wall and looks into the corridor.
+    <group position={[side * (HALL_WIDTH / 2 - 0.06), 0, z]} rotation-y={-side * (Math.PI / 2)}>
+      {/* Reveal / frame — jambs, lintel and threshold read as one structure */}
+      <group>
+        {[-1, 1].map((s) => (
+          <mesh key={s} position={[s * (openW / 2 - jambW / 2), openH / 2, 0.09]} castShadow>
+            <boxGeometry args={[jambW, openH, 0.18]} />
+            <meshStandardMaterial ref={s === -1 ? frame : undefined} color={accent} emissive={accent} emissiveIntensity={0} roughness={0.55} metalness={0.15} />
+          </mesh>
+        ))}
+        <mesh position={[0, openH - jambW / 2, 0.09]} castShadow>
+          <boxGeometry args={[openW, jambW, 0.18]} />
+          <meshStandardMaterial color={accent} roughness={0.55} metalness={0.15} />
+        </mesh>
+        <mesh position={[0, 0.03, 0.09]}>
+          <boxGeometry args={[openW, 0.06, 0.18]} />
+          <meshStandardMaterial color={accent} roughness={0.7} metalness={0.1} />
+        </mesh>
+        {/* Recess behind the leaf so the doorway reads as depth, not a sticker */}
+        <mesh position={[0, openH / 2, -0.04]}>
+          <planeGeometry args={[openW, openH]} />
+          <meshStandardMaterial color={color} roughness={0.95} metalness={0} />
+        </mesh>
+      </group>
+
+      {/* The door leaf: uploaded/built-in transparent door artwork */}
       <mesh
-        position={[0, 1.6, 0.09]}
+        position={[0, leafH / 2 + 0.03, 0.07]}
+        castShadow
         onClick={(e) => {
           e.stopPropagation();
           onEnter();
@@ -460,27 +516,31 @@ const DoorMesh = ({
           setHovered(false);
         }}
       >
-        <planeGeometry args={[2.9, 3.2]} />
+        <planeGeometry args={[leafW, leafH]} />
         <meshStandardMaterial
-          ref={glow}
-          color={color}
+          ref={leaf}
+          map={tex ?? null}
+          alphaMap={tex ?? null}
+          transparent
+          alphaTest={0.35}
+          depthWrite
+          color={tex ? "#ffffff" : color}
           emissive={accent}
-          emissiveIntensity={0.07}
-          roughness={0.9}
-          metalness={0}
+          emissiveIntensity={emissiveIntensity * 0.5}
+          roughness={0.7}
+          metalness={0.05}
+          side={THREE.FrontSide}
         />
       </mesh>
-      <mesh position={[0, 1.6, 0.02]}>
-        <planeGeometry args={[3.2, 3.5]} />
-        <meshStandardMaterial ref={frame} color={accent} roughness={0.5} />
-      </mesh>
+
+      {/* Signage stays off the artwork: name on the lintel, detail beside it */}
       <Suspense fallback={null}>
         <Text
           renderOrder={10}
           material-depthTest={false}
-          position={[0, 2.55, 0.12]}
-          fontSize={0.21}
-          maxWidth={2.1}
+          position={[0, openH + 0.3, 0.12]}
+          fontSize={0.2}
+          maxWidth={openW + 0.8}
           textAlign="center"
           anchorX="center"
           anchorY="middle"
@@ -491,13 +551,13 @@ const DoorMesh = ({
         <Text
           renderOrder={10}
           material-depthTest={false}
-          position={[0, 1.6, 0.12]}
-          fontSize={0.15}
-          maxWidth={2.0}
+          position={[0, openH + 0.06, 0.12]}
+          fontSize={0.13}
+          maxWidth={openW + 0.8}
           textAlign="center"
           anchorX="center"
           anchorY="middle"
-          color="#e6edf7"
+          color="#c9d6e8"
         >
           {sublabel}
         </Text>
@@ -1448,6 +1508,8 @@ const HallwayScene = ({
               accent={accentOf(entry.room, entry.index)}
               color={env.door.color}
               emissiveIntensity={env.door.brightness * 0.12}
+              styleKey={env.door.style}
+              textureUrl={env.door.texture ? textures[env.door.texture.path] : undefined}
               onEnter={() => startDoorZoom([wx, wz], front, () => onEnterRoom(entry.room.id))}
             />
           </group>
@@ -1456,6 +1518,7 @@ const HallwayScene = ({
 
       const d = doorsById.get(o.id);
       if (!d) return null;
+      const design = d.design as Partial<typeof env.door> | null;
       const sublabel = d.content_kind
         ? `${DOOR_KIND_LABEL[d.content_kind]}${d.content_kind === "adventure" || d.content_kind === "assessment" ? " · runs in class" : ""}`
         : "Add content in the editor";
@@ -1467,8 +1530,16 @@ const HallwayScene = ({
             label={o.name}
             sublabel={sublabel}
             accent={d.content_kind ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4] : "#64748b"}
-            color={env.door.color}
-            emissiveIntensity={env.door.brightness * 0.12}
+            color={design?.color || env.door.color}
+            emissiveIntensity={(design?.brightness ?? env.door.brightness) * 0.12}
+            styleKey={design?.style || env.door.style}
+            textureUrl={
+              design?.texture?.path
+                ? textures[design.texture.path]
+                : env.door.texture
+                  ? textures[env.door.texture.path]
+                  : undefined
+            }
             onEnter={() => startDoorZoom([wx, wz], front, () => onOpenDoor(d))}
           />
         </group>
