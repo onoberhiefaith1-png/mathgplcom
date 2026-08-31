@@ -683,6 +683,7 @@ const DoorMesh = ({
   styleKey,
   textureUrl,
   aspect,
+  atStart = false,
   onEnter,
 }: {
   side: number;
@@ -696,8 +697,14 @@ const DoorMesh = ({
   /** custom uploaded door image; falls back to the built-in style asset */
   textureUrl?: string;
   aspect?: number;
+  /**
+   * ENTRANCE mode: the door sits in the wall that CAPS the start of the
+   * hallway, facing back down the corridor, instead of in a side wall.
+   */
+  atStart?: boolean;
   onEnter: () => void;
 }) => {
+
   const style = doorStyle(styleKey);
   const url = textureUrl || style.url;
   const tex = useLoadedTexture(url);
