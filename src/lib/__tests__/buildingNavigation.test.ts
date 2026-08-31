@@ -374,7 +374,8 @@ describe("connector corridor intersections", () => {
     expect(meet).not.toBeNull();
     if (!meet) return;
     const approach = meet.crossingDistance - meet.length;
-    expect(approach).toBeCloseTo((3.5 + WALL_THICKNESS / 2) / Math.sin(angle));
+    const sinBetweenRoads = Math.abs(targetHeading[1]);
+    expect(approach).toBeCloseTo((3.5 + WALL_THICKNESS / 2) / sinBetweenRoads);
     expect(meet.length).toBeLessThan(meet.crossingDistance - 3.5);
   });
 
