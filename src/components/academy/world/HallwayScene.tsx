@@ -1153,7 +1153,8 @@ const WalkControls = ({
   hasForward,
   canBack,
   moving,
-  onToggleWalk,
+  onHoldStart,
+  onHoldEnd,
 
   onTurn,
   onBack,
@@ -1164,13 +1165,15 @@ const WalkControls = ({
   hasForward: boolean;
   canBack: boolean;
   moving: boolean;
-  /** Pause / resume the continuous forward walk. */
-  onToggleWalk: () => void;
+  /** Press-and-hold Forward: movement lasts exactly as long as the hold. */
+  onHoldStart: () => void;
+  onHoldEnd: () => void;
 
   onTurn: (seg: Segment) => void;
   onBack: () => void;
   ended: boolean;
 }) => (
+
   <div className="absolute inset-x-0 bottom-4 z-20 flex flex-col items-center gap-2 px-4">
     {atJunction && (
       <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 p-1.5 backdrop-blur">
