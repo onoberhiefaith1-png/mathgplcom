@@ -2018,8 +2018,19 @@ const HallwayScene = ({
         else showCue("No walkway to the right");
       }
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      const key = e.key;
+      if (key === "ArrowUp" || key === "w" || key === "W") endHold();
+    };
+    const onBlur = () => endHold();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
   }, [
     focus,
     rooms.length,
@@ -2030,7 +2041,10 @@ const HallwayScene = ({
     endReached,
     pickBranch,
     showCue,
+    startHold,
+    endHold,
   ]);
+
 
   const dragStart = useRef<number | null>(null);
 
