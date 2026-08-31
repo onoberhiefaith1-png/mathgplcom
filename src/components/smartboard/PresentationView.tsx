@@ -7383,7 +7383,13 @@ const PresentationView = ({
             // Row 1 of the board chrome. The video view switcher measures this
             // element and stacks itself underneath, so the two never overlap.
             data-board-chrome="top"
-            className="absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
+            className={
+              mobileStudent
+                // MOBILE STUDENT MODE — same controls, reflowed into a compact
+                // panel so the question number line always stays visible.
+                ? "absolute left-2 right-2 top-2 z-[60] flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border px-2 py-1.5 shadow-lg backdrop-blur"
+                : "absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
+            }
             style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
           >
             {backTo ? (
