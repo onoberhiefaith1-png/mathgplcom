@@ -142,6 +142,83 @@ export function turnaround(fromHeading: [number, number], at: [number, number]):
   };
 }
 
+// ── Hallway object layout (single source of truth) ─────────────────────────
+
+export type HallwayObjectKind = "door" | "opening";
+
+/** One navigable object attached to a hallway: a door, or a sub-hallway opening. */
+export interface HallwayObject {
+  kind: HallwayObjectKind;
+  /** door id, or child walkway id for an opening */
+  id: string;
+  name: string;
+  /** -1 = left wall, +1 = right wall */
+  side: -1 | 1;
+  /** distance from the hallway start, in world units */
+  along: number;
+  /** for openings only: which wall the branch leaves through */
+  direction?: WalkwayDirection;
+}
+
+export interface LayoutInput {
+  length: number;
+  doors: { id: string; name: string; order: number }[];
+  /** child walkways; "forward" children are continuations, not objects */
+  openings: { id: string; name: string; direction: WalkwayDirection; order: number }[];
+  /** minimum distance between two objects along the corridor */
+  minGap?: number;
+  /** clearance kept at the start and end of the corridor */
+  pad?: number;
+}
+
+/**
+ * Place doors and sub-hallway openings along one hallway.
+ *
+ * Rules enforced here (and only here — the 3D scene and the minimap both read
+ * this function, so they can never disagree):
+ *  - forward children are the hallway continuing, never an object;
+ *  - openings sit on the wall their branch leaves through;
+ *  - doors alternate to the opposite wall from the previous object;
+ *  - every object gets its own distance along the corridor, at least `minGap`
+ *    apart, so two clickable objects are never directly opposite each other.
+ */
+export function layoutHallwayObjects({
+  length,
+  doors,
+  openings,
+  minGap = 4,
+  pad = 3,
+}: LayoutInput): HallwayObject[] {
+  const seq = [
+    ...doors.map((d) => ({ kind: "door" as const, id: d.id, name: d.name, order: d.order })),
+    ...openings
+      .filter((o) => o.direction !== "forward")
+      .map((o) => ({
+        kind: "opening" as const,
+        id: o.id,
+        name: o.name,
+        order: o.order,
+        direction: o.direction,
+      })),
+  ].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+
+  if (seq.length === 0) return [];
+
+  const usable = Math.max(minGap, length - pad * 2);
+  const gap = Math.max(minGap, usable / seq.length);
+  let lastSide: -1 | 1 = 1; // so the first object lands on the left wall
+
+  return seq.map((item, i) => {
+    const side: -1 | 1 =
+      item.kind === "opening" ? (item.direction === "left" ? -1 : 1) : (-lastSide as -1 | 1);
+    lastSide = side;
+    const along = Math.min(length - 0.5, pad + gap * (i + 0.5));
+    return item.kind === "opening"
+      ? { kind: item.kind, id: item.id, name: item.name, side, along, direction: item.direction }
+      : { kind: item.kind, id: item.id, name: item.name, side, along };
+  });
+}
+
 /**
  * Navigation history — a stack of visited node ids (root first). Branch turns
  * push, retracing pops, so the stack is always the path from the entrance.

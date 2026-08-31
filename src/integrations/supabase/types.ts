@@ -1235,6 +1235,7 @@ export type Database = {
           direction: string
           id: string
           length: number
+          name: string
           parent_id: string | null
           position: number
           updated_at: string
@@ -1245,6 +1246,7 @@ export type Database = {
           direction?: string
           id?: string
           length?: number
+          name?: string
           parent_id?: string | null
           position?: number
           updated_at?: string
@@ -1255,6 +1257,7 @@ export type Database = {
           direction?: string
           id?: string
           length?: number
+          name?: string
           parent_id?: string | null
           position?: number
           updated_at?: string

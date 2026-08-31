@@ -82,6 +82,8 @@ export interface BuildingWalkway {
   id: string;
   building_id: string;
   parent_id: string | null;
+  /** Editable hallway name ("Main Hallway", "Algebra Hallway"). */
+  name: string;
   direction: WalkwayDirection;
   length: number;
   position: number;

@@ -136,10 +136,13 @@ export async function addWalkway(
   buildingId: string,
   parentId: string | null,
   direction: WalkwayDirection,
+  name?: string,
 ): Promise<string> {
+  const hallwayName =
+    name?.trim() || (parentId === null ? "Main Hallway" : direction === "left" ? "Left Hallway" : "New Hallway");
   const { data, error } = await supabase
     .from("building_walkways")
-    .insert({ building_id: buildingId, parent_id: parentId, direction })
+    .insert({ building_id: buildingId, parent_id: parentId, direction, name: hallwayName } as never)
     .select("id")
     .maybeSingle();
   fail(error);
@@ -148,7 +151,7 @@ export async function addWalkway(
 
 export async function updateWalkway(
   id: string,
-  fields: Partial<Pick<BuildingWalkway, "length" | "position">>,
+  fields: Partial<Pick<BuildingWalkway, "length" | "position" | "name">>,
 ): Promise<void> {
   const { error } = await supabase.from("building_walkways").update(fields as never).eq("id", id);
   fail(error);
