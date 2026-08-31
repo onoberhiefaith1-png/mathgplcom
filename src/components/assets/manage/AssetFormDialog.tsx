@@ -15,6 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { makeTransparent, isVideoFile } from "@/lib/games/removeBackground";
+import { cutFrame, DEFAULT_TOLERANCE } from "@/lib/games/flatCut";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import {
   cutVideoBackground, NotKeyableError, type EdgeSoftness,
 } from "@/lib/games/videoChromaCut";
@@ -72,17 +75,24 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
   const [manualKey, setManualKey] = useState<{ r: number; g: number; b: number } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const frameRef = useRef<{ data: Uint8ClampedArray | number[]; w: number; h: number } | null>(null);
+  const [tolerance, setTolerance] = useState(DEFAULT_TOLERANCE);
+  const [protectInterior, setProtectInterior] = useState(true);
+  const [cutPreviewUrl, setCutPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
   const hasVideo = files.some((f) => isVideoFile(f));
+  /** The first file whose background we can preview and cut. */
+  const cutTarget = removeBg ? files[0] ?? null : null;
 
   // Show the detected background colour of the first video, so the teacher can
   // see what is about to be cut before pressing save. Detection now has three
   // honest outcomes, so "checking…" no longer doubles as the failure state.
   useEffect(() => {
-    const video = removeBg ? files.find((f) => isVideoFile(f)) : undefined;
+    const video = cutTarget && /^(image|video)\//.test(cutTarget.type || (isVideoFile(cutTarget) ? "video/" : "image/"))
+      ? cutTarget
+      : undefined;
     if (!video) {
       setDetectState("idle");
       setKeySwatch(null);
@@ -90,8 +100,10 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
       setManualKey(null);
       setPreviewUrl(null);
       frameRef.current = null;
+      setCutPreviewUrl(null);
       return;
     }
+    const media = isVideoFile(video) ? ("video" as const) : ("image" as const);
     let cancelled = false;
     setDetectState("checking");
     setKeySwatch(null);
@@ -100,12 +112,12 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
     const url = URL.createObjectURL(video);
     void import("@/lib/games/removeBackground")
       .then(async ({ detectMediaBackground, grabPreviewFrame }) => {
-        const preview = await grabPreviewFrame(url, "video");
+        const preview = await grabPreviewFrame(url, media);
         if (!cancelled && preview) {
           frameRef.current = preview.frame;
           setPreviewUrl(preview.dataUrl);
         }
-        return detectMediaBackground(url, "video");
+        return detectMediaBackground(url, media);
       })
       .then((detection) => {
         if (cancelled) return;
@@ -126,7 +138,30 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
       cancelled = true;
       URL.revokeObjectURL(url);
     };
-  }, [removeBg, files]);
+  }, [removeBg, files, cutTarget]);
+
+  // Live checkerboard preview of the cut, so the teacher sees exactly what will
+  // be removed — and what is kept — before anything is stored.
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || !keySwatch) {
+      setCutPreviewUrl(null);
+      return;
+    }
+    const match = /rgb\((\d+), (\d+), (\d+)\)/.exec(keySwatch);
+    if (!match) return;
+    const key = { r: +match[1], g: +match[2], b: +match[3] };
+    const canvas = document.createElement("canvas");
+    canvas.width = frame.w;
+    canvas.height = frame.h;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+    const image = ctx.createImageData(frame.w, frame.h);
+    image.data.set(frame.data as Uint8ClampedArray);
+    cutFrame(image.data, frame.w, frame.h, key, { tolerance, protectInterior });
+    ctx.putImageData(image, 0, 0);
+    setCutPreviewUrl(canvas.toDataURL("image/png"));
+  }, [keySwatch, tolerance, protectInterior, previewUrl]);
 
   /** Reads the clicked pixel of the preview still as the background colour. */
   const pickFromPreview = (event: React.MouseEvent<HTMLImageElement>) => {
@@ -167,6 +202,9 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
     setDetectNote("");
     setManualKey(null);
     setPreviewUrl(null);
+    setCutPreviewUrl(null);
+    setTolerance(DEFAULT_TOLERANCE);
+    setProtectInterior(true);
     setStep("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -191,7 +229,11 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
           if (removeBg && type === "image") {
             setStep(`Removing background ${index + 1} of ${files.length}…`);
             try {
-              const blob = await makeTransparent(raw);
+              const blob = await makeTransparent(raw, {
+                tolerance,
+                protectInterior,
+                ...(manualKey ? { keyColor: manualKey } : {}),
+              });
               file = new File([blob], `${baseName(raw)}.png`, { type: "image/png" });
               assetType = "transparent";
             } catch (error) {
@@ -206,6 +248,8 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
               setStep(`Cutting background — 0%`);
               const cut = await cutVideoBackground(raw, {
                 softness,
+                tolerance,
+                protectInterior,
                 signal: controller.signal,
                 // A hand-picked colour overrides detection, so a clip detection
                 // called busy can still be cut when the teacher knows better.
@@ -328,7 +372,7 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
                 Remove background before storing (images and solid-colour videos)
               </label>
 
-              {removeBg && hasVideo && (
+              {removeBg && !!cutTarget && (
                 <div className="mt-3 space-y-2 rounded-md border border-border/60 p-3">
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-muted-foreground">Background:</span>
@@ -362,12 +406,65 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
                       </p>
                       <img
                         src={previewUrl}
-                        alt="First frame of the clip"
+                        alt={hasVideo ? "First frame of the clip" : "The uploaded picture"}
                         onClick={pickFromPreview}
                         className="mt-1 max-h-40 w-full cursor-crosshair rounded border border-border object-contain"
                       />
                     </div>
                   )}
+
+                  {cutPreviewUrl && (
+                    <div>
+                      <Label className="text-xs">Result preview</Label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        The chequerboard shows what becomes transparent. Colours inside the
+                        subject — white signs, glass, highlights — stay untouched.
+                      </p>
+                      <div
+                        className="mt-1 rounded border border-border"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(-45deg, hsl(var(--muted)) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(var(--muted)) 75%), linear-gradient(-45deg, transparent 75%, hsl(var(--muted)) 75%)",
+                          backgroundSize: "16px 16px",
+                          backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
+                        }}
+                      >
+                        <img
+                          src={cutPreviewUrl}
+                          alt="Preview of the cut-out"
+                          className="max-h-40 w-full object-contain"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label className="text-xs">
+                      Tolerance — {Math.round(tolerance * 100)}%
+                    </Label>
+                    <Slider
+                      className="mt-2"
+                      min={10}
+                      max={80}
+                      step={2}
+                      value={[Math.round(tolerance * 100)]}
+                      onValueChange={([v]) => setTolerance((v ?? 42) / 100)}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Lower keeps more of the picture; higher reaches further into shaded
+                      backdrops.
+                    </p>
+                  </div>
+
+                  <label className="flex items-center justify-between gap-3 text-xs">
+                    <span>
+                      Protect colours inside the subject
+                      <span className="block text-muted-foreground">
+                        Only the backdrop connected to the edge of the frame is removed.
+                      </span>
+                    </span>
+                    <Switch checked={protectInterior} onCheckedChange={setProtectInterior} />
+                  </label>
 
                   <div>
                     <Label className="text-xs">Edge softness</Label>
