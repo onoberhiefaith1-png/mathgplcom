@@ -1903,21 +1903,24 @@ const HallwayScene = ({
           />
         ))}
 
-        {/* Doors and sub-hallway openings along each hallway */}
-        {segments.map((seg) => (
-          <group
-            key={`objs-${seg.walkway?.id ?? "root"}`}
-            position={[seg.start[0], 0, seg.start[1]]}
-            rotation-y={segYaw(seg.heading)}
-          >
-            {renderObjects(seg)}
-          </group>
-        ))}
+        {/* Doors and sub-hallway openings — only for the hallway you are in and
+            the ones it connects to, so distant labels never ghost through walls */}
+        {segments
+          .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
+          .map((seg) => (
+            <group
+              key={`objs-${seg.walkway?.id ?? "root"}`}
+              position={[seg.start[0], 0, seg.start[1]]}
+              rotation-y={segYaw(seg.heading)}
+            >
+              {renderObjects(seg)}
+            </group>
+          ))}
 
         {/* The hallway you came from stays connected and selectable */}
-        {segments
-          .filter((s) => s.walkway?.parent_id)
-          .map((seg) => {
+        {nav.seg.walkway?.parent_id &&
+          (() => {
+            const seg = nav.seg;
             const parent = findSegment(segments, seg.walkway!.parent_id!);
             if (!parent) return null;
             const a = parentConnectionAnchor(seg.start, seg.heading, 2.2);
@@ -1933,7 +1936,8 @@ const HallwayScene = ({
                 />
               </group>
             );
-          })}
+          })()}
+
 
       </Canvas>
 
