@@ -207,6 +207,9 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
               const cut = await cutVideoBackground(raw, {
                 softness,
                 signal: controller.signal,
+                // A hand-picked colour overrides detection, so a clip detection
+                // called busy can still be cut when the teacher knows better.
+                ...(manualKey ? { keyColor: manualKey } : {}),
                 onProgress: (f) =>
                   setStep(`Cutting background — ${Math.round(f * 100)}%`),
               });
