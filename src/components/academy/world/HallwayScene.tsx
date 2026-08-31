@@ -1481,6 +1481,34 @@ const HallwayScene = ({
     }
   }, [rootEffective]);
 
+  // Junction stops of the hallway currently being walked.
+  useEffect(() => {
+    machineRef.current.stops = stopsOf(machineRef.current.seg);
+  }, [nav.seg, stopsOf]);
+
+  // Which junction openings are within reach right now, so Left/Right only
+  // appear where the road actually branches.
+  useEffect(() => {
+    if (phase === "browse") {
+      setNearOpenings((prev) => (prev.length ? [] : prev));
+      return;
+    }
+    let raf = 0;
+    const loop = () => {
+      const st = machineRef.current;
+      const objs = layouts.get(st.seg.walkway?.id ?? "") ?? [];
+      const ids = objs
+        .filter((o) => o.kind === "opening" && Math.abs(o.along - st.dist) < 5)
+        .map((o) => o.id);
+      setNearOpenings((prev) => (prev.join("|") === ids.join("|") ? prev : ids));
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [phase, layouts, nav.seg]);
+
+
+
 
   const notifyMode = useCallback((m: "browse" | "walk") => onModeChange?.(m), [onModeChange]);
 
