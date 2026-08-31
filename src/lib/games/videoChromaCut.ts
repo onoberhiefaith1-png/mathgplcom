@@ -9,7 +9,7 @@
 // caller gets a NotKeyableError and should store the original video untouched.
 
 import { detectMediaBackground, isLowSaturation, type KeyColor } from "./removeBackground";
-import { buildBackgroundMask, markBoundary, DEFAULT_TOLERANCE } from "./flatCut";
+import { buildBackgroundMask, markBoundary } from "./flatCut";
 
 export type EdgeSoftness = "tight" | "normal" | "soft";
 
@@ -268,7 +268,6 @@ export const cutVideoBackground = async (
       gl.activeTexture(gl.TEXTURE0);
       gl.uniform1f(useMaskLoc, 1);
     };
-    void DEFAULT_TOLERANCE;
 
     const fps = 30;
     const stream = canvas.captureStream(fps);
@@ -319,9 +318,14 @@ export const cutVideoBackground = async (
     const onAbort = () => stopAll();
     signal?.addEventListener("abort", onAbort);
 
+    let tick = 0;
     const drawLoop = () => {
       if (stopped) return;
       try {
+        // The subject moves, so the region mask is refreshed as the clip plays.
+        if (tick % 6 === 0 && video.readyState >= 2) refreshMask(video);
+        tick++;
+        gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
         gl.clearColor(0, 0, 0, 0);
