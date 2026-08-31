@@ -724,6 +724,173 @@ const SegmentCorridor = ({
   );
 };
 
+// ── Architectural signage ─────────────────────────────────────────────────
+
+/**
+ * THE NAMEPLATE — the building's one signage object. A navy plaque with real
+ * thickness, rounded corners and a lighter bevel edge, carrying white uppercase
+ * text. It is a plain mesh group, so it inherits the transform of whatever it
+ * is mounted on (a door frame, a wall) and can never drift, face the screen or
+ * lose its depth. Every sign in the building is this component; only the text
+ * and the mounting differ.
+ */
+const PLATE_FACE = "#16213e";
+const PLATE_EDGE = "#3a5786";
+const PLATE_TEXT = "#f7fafe";
+const PLATE_CAPTION = "#a9bcdd";
+
+const platePath = (w: number, h: number, r: number) => {
+  const s = new THREE.Shape();
+  const x = -w / 2;
+  const y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+};
+
+/** Split a name into at most `maxLines` lines of at most `maxChars` each. */
+const wrapLabel = (text: string, maxChars: number, maxLines: number): string[] => {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of words) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (next.length <= maxChars || !cur) {
+      cur = next;
+    } else {
+      lines.push(cur);
+      cur = word;
+    }
+    if (lines.length === maxLines) break;
+  }
+  if (cur && lines.length < maxLines) lines.push(cur);
+  if (!lines.length) return [text.slice(0, maxChars)];
+  // Anything that still does not fit is trimmed on the last line, so text can
+  // never spill outside the plaque.
+  return lines.slice(0, maxLines).map((l) => (l.length > maxChars + 2 ? `${l.slice(0, maxChars)}…` : l));
+};
+
+const Nameplate = ({
+  text,
+  caption,
+  position,
+  rotationY = 0,
+  fontSize = 0.2,
+  maxWidth = 4.4,
+  maxLines = 2,
+}: {
+  text: string;
+  caption?: string;
+  position: [number, number, number];
+  rotationY?: number;
+  fontSize?: number;
+  maxWidth?: number;
+  maxLines?: number;
+}) => {
+  const label = (text || "").trim().toUpperCase();
+  const cap = (caption || "").trim().toUpperCase();
+  const padX = fontSize * 1.4;
+  const padY = fontSize * 0.75;
+  const lineH = fontSize * 1.35;
+  const capH = cap ? fontSize * 0.9 : 0;
+  const per = fontSize * 0.62;
+
+  const lines = useMemo(
+    () => wrapLabel(label, Math.max(6, Math.floor((maxWidth - padX * 2) / per)), maxLines),
+    [label, maxWidth, padX, per, maxLines],
+  );
+
+  const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
+  const w = Math.min(maxWidth, Math.max(fontSize * 5, longest * per + padX * 2));
+  const h = lines.length * lineH + capH + padY * 2;
+  const depth = Math.max(0.05, fontSize * 0.3);
+
+  const geo = useMemo(() => {
+    const g = new THREE.ExtrudeGeometry(platePath(w, h, Math.min(0.09, h * 0.22)), {
+      depth,
+      bevelEnabled: true,
+      bevelThickness: 0.012,
+      bevelSize: 0.012,
+      bevelSegments: 2,
+      curveSegments: 6,
+    });
+    return g;
+  }, [w, h, depth]);
+  useEffect(() => () => geo.dispose(), [geo]);
+
+  // Text baseline: the name block sits above the caption inside the plaque.
+  const textTop = h / 2 - padY - lineH / 2;
+
+  return (
+    <group position={position} rotation-y={rotationY}>
+      {/* Bevel edge, a hair larger and lighter, so the plaque catches the light */}
+      <mesh position={[0, 0, depth * 0.2]} castShadow receiveShadow>
+        <boxGeometry args={[w + 0.045, h + 0.045, depth * 0.6]} />
+        <meshStandardMaterial color={PLATE_EDGE} roughness={0.45} metalness={0.3} />
+      </mesh>
+      <mesh geometry={geo} castShadow receiveShadow>
+        <meshStandardMaterial color={PLATE_FACE} roughness={0.5} metalness={0.15} />
+      </mesh>
+      <Suspense fallback={null}>
+        {lines.map((line, i) => (
+          <Text
+            key={`${line}-${i}`}
+            renderOrder={10}
+            material-depthTest={true}
+            position={[0, textTop - i * lineH, depth + 0.012]}
+            fontSize={fontSize}
+            fontWeight={700}
+            letterSpacing={0.04}
+            anchorX="center"
+            anchorY="middle"
+            color={PLATE_TEXT}
+          >
+            {line}
+          </Text>
+        ))}
+        {cap && (
+          <Text
+            renderOrder={10}
+            material-depthTest={true}
+            position={[0, -h / 2 + padY + capH * 0.35, depth + 0.012]}
+            fontSize={fontSize * 0.5}
+            letterSpacing={0.09}
+            maxWidth={w - padX}
+            anchorX="center"
+            anchorY="middle"
+            color={PLATE_CAPTION}
+          >
+            {cap}
+          </Text>
+        )}
+      </Suspense>
+    </group>
+  );
+};
+
+/**
+ * A hallway's own name, mounted flat on a wall as a real sign board — never
+ * floating, never on the ceiling. The caller supplies the wall position and the
+ * facing, so placement always comes from that hallway's own geometry.
+ */
+const HallwayNameFrame = ({
+  name,
+  position,
+  rotationY = 0,
+}: {
+  name: string;
+  position: [number, number, number];
+  rotationY?: number;
+}) => <Nameplate text={name} position={position} rotationY={rotationY} fontSize={0.3} maxWidth={5} />;
+
+
 /**
  * A real door asset fitted into the wall: reveal (jambs + lintel + threshold),
  * then the door leaf itself — a transparent-cutout door image on a plane that
