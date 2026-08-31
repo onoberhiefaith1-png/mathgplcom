@@ -183,6 +183,30 @@ function isMostlyMath(line: string): boolean {
   return prose.length === 0;
 }
 
+/** A template macro with its arguments (`\sqrt{2}`, `\frac{1}{2}`, `\sqrt[3]{x}`). */
+const MACRO_FRAGMENT = /\\[A-Za-z]+(?:\[[^\]]*\])?(?:\s*\{[^{}]*\})*/g;
+
+/** Prose must never show source code. Any leftover backslash command inside a
+ *  text run is rendered as a real math object instead of literal characters,
+ *  so "the conjugate is \sqrt{2}" shows a radical, never the command. */
+function pushProseRun(content: TipTapNode[], raw: string): void {
+  if (!raw) return;
+  if (!/\\[A-Za-z]+/.test(raw)) { content.push({ type: "text", text: raw }); return; }
+  let last = 0;
+  MACRO_FRAGMENT.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = MACRO_FRAGMENT.exec(raw))) {
+    if (m.index > last) content.push({ type: "text", text: raw.slice(last, m.index) });
+    const v = normalizeMathSource(m[0]);
+    if (v) content.push({ type: "mathInline", attrs: { value: v } });
+    last = m.index + m[0].length;
+  }
+  if (last < raw.length) {
+    const tail = raw.slice(last);
+    if (tail) content.push({ type: "text", text: tail });
+  }
+}
+
 /** Prose stays real text (the sensor walks it character by character);
  *  each complete expression becomes ONE math object drawn by the same
  *  `renderMathInline` call AI Edit uses. */
@@ -199,10 +223,11 @@ function inlineMixedParagraph(line: string): TipTapNode {
       if (trail) content.push({ type: "text", text: " " });
       continue;
     }
-    if (run.value) content.push({ type: "text", text: run.value });
+    pushProseRun(content, run.value);
   }
   return content.length ? { type: "paragraph", content } : { type: "paragraph" };
 }
+
 
 /** Split one AI line into the micro-steps a classroom board would show:
  *   • prose that introduces mathematics with a colon → own line
