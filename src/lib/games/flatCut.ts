@@ -181,10 +181,7 @@ export const applyMaskToPixels = (
     if (m !== 2) continue;
     // Boundary: half-transparent, and de-spilled so no key-coloured fringe
     // survives on a dark backdrop.
-    const alpha = 110;
-    data[i + 3] = alpha;
-    const k = alpha / 255;
-    data[i] = Math.round((data[i] ?? 0) * (1 - k) + ((data[i] ?? 0) - (key.r - (data[i] ?? 0)) * 0) * k);
+    data[i + 3] = 110;
     data[i] = Math.max(0, Math.min(255, Math.round((data[i] ?? 0) - (key.r - 128) * 0.12)));
     data[i + 1] = Math.max(0, Math.min(255, Math.round((data[i + 1] ?? 0) - (key.g - 128) * 0.12)));
     data[i + 2] = Math.max(0, Math.min(255, Math.round((data[i + 2] ?? 0) - (key.b - 128) * 0.12)));
