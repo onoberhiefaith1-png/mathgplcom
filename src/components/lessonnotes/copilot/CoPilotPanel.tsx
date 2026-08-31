@@ -40,16 +40,19 @@ const STAGE_TEXT: Record<string, string> = {
 };
 
 const StepRow = ({ label, state, detail }: { label: string; state: string; detail?: string }) => (
-  <li className="flex items-start gap-2 text-[11.5px]">
-    {state === "done" ? <Check className="h-3 w-3 mt-0.5 text-emerald-600" />
-      : state === "running" ? <Loader2 className="h-3 w-3 mt-0.5 animate-spin text-amber-600" />
-      : state === "failed" ? <X className="h-3 w-3 mt-0.5 text-red-600" />
-      : <CircleDot className="h-3 w-3 mt-0.5 text-slate-300" />}
-    <span className={state === "pending" ? "text-slate-400" : "text-slate-700"}>
+  <li className="flex items-start gap-2 text-xs">
+    {state === "done" ? <Check className="h-3.5 w-3.5 mt-0.5 text-emerald-600" />
+      : state === "running" ? <Loader2 className="h-3.5 w-3.5 mt-0.5 animate-spin text-amber-600" />
+      : state === "failed" ? <X className="h-3.5 w-3.5 mt-0.5 text-destructive" />
+      : <CircleDot className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />}
+    {/* Status is carried by the icon — the label itself is always full-contrast
+        ink so the section inventory stays readable. */}
+    <span className="font-medium text-foreground">
       {label}{detail ? ` — ${detail}` : ""}
     </span>
   </li>
 );
+
 
 function MessageBubble({
   m, onApprove, onReject,

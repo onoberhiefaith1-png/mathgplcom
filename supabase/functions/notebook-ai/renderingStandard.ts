@@ -21,12 +21,19 @@ ABSOLUTELY FORBIDDEN IN OUTPUT (these are bugs, not styles):
   • Markdown:  ** for bold, _ for italics, # for headings, \`\`\` fences
   • Hidden rendering instructions of any kind
 
-ALLOWED TEMPLATE FORMS (the notebook renderer converts these to real
-stacked math — they are templates, not source code visible to the user):
+TEMPLATE FORMS — MATHEMATICS LINES ONLY (the notebook renderer converts these
+to real stacked math; they are NEVER acceptable inside a sentence):
   • Fractions:  \\frac{numerator}{denominator}      (renders stacked)
   • Roots:      \\sqrt{...}   \\sqrt[n]{...}
   • Powers:     x^{2}, (a+b)^{3}                    (renders as superscript)
   • Subscripts: log_{2} 4,  x_{1}                   (renders as subscript)
+
+A line that contains sentence words is PROSE. Prose must carry finished
+classroom symbols only — √2, x², x₁, π, ×, ÷, ≤, ∞ — never a backslash command.
+Writing "the conjugate is 3 + \\sqrt{2}" is a BUG: write "the conjugate is 3 + √2".
+If a value cannot be written with finished symbols inside a sentence, put the
+mathematics on its own line and keep the sentence plain.
+
 
 DISPLAY REQUIREMENTS (Phase 4):
   • Fractions must appear as proper stacked fractions, never as "a/b".

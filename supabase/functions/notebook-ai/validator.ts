@@ -156,6 +156,26 @@ function stage4Rendering(text: string, kind: ValidationKind): Violation[] {
       /\\sqrt(?:\[[^\]]*\])?\s*\{\s*\}/.test(text)) {
     v.push({ phase: 4, rule: "empty-template-slot", detail: "empty {} inside \\frac/\\sqrt" });
   }
+  // Template macros inside a SENTENCE. A prose line must carry finished
+  // classroom symbols (√2, x², π, ×) — a backslash command there is what
+  // reaches the page as literal "\sqrt{2}" beside the words.
+  const proseMacro: string[] = [];
+  for (const line of text.split("\n")) {
+    if (!/\\[A-Za-z]+/.test(line)) continue;
+    const bare = line.replace(/\\[A-Za-z]+/g, " ");
+    const words = (bare.match(/[A-Za-z]{4,}/g) ?? []).filter(
+      (w) => !["frac", "sqrt", "left", "right", "text", "quad"].includes(w.toLowerCase()),
+    );
+    if (words.length >= 2) proseMacro.push(line.trim().slice(0, 60));
+  }
+  if (proseMacro.length) {
+    v.push({
+      phase: 4,
+      rule: "no-templates-inside-prose",
+      detail: `sentence carries raw syntax instead of finished symbols: ${proseMacro.slice(0, 3).join(" | ")}`,
+    });
+  }
+
   const leftover = masked.match(/\\[A-Za-z]+/g) || [];
   const leaks = leftover.filter((cmd) => !ALLOWED_MACROS.has(cmd.slice(1)));
   if (leaks.length) {
