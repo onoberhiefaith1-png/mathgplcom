@@ -10,7 +10,12 @@
  * The database is the source of truth; the 3D renderer is only a view of it.
  */
 
-export type SurfaceKey = "leftWall" | "rightWall" | "floor" | "roof";
+/**
+ * The five surfaces of a hallway. "endWall" is the terminal wall at the far end
+ * of a hallway that does not continue forward — it is edited exactly like the
+ * other surfaces, so a hallway is never an undefined dark void.
+ */
+export type SurfaceKey = "leftWall" | "rightWall" | "floor" | "roof" | "endWall";
 
 export interface SurfaceTextureRef {
   /** storage object path inside the game-assets bucket */
