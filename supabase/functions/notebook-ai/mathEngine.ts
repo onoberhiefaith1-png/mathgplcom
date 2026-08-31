@@ -253,27 +253,33 @@ function sliceObject(s: string): string | null {
 
 /** Close an unterminated string / arrays / objects left by a truncated reply. */
 function repairTail(s: string): string {
-  let out = s, inStr = false, esc = false;
-  const stack: string[] = [];
-  for (const c of out) {
-    if (inStr) {
-      if (esc) esc = false;
-      else if (c === "\\") esc = true;
-      else if (c === '"') inStr = false;
-      continue;
+  let out = s;
+  // First close an open string, then drop any half-written tail member: a reply
+  // cut mid-member leaves a key with no value, or half a number.
+  const scan = (text: string) => {
+    let inStr = false, esc = false;
+    const stack: string[] = [];
+    for (const c of text) {
+      if (inStr) {
+        if (esc) esc = false;
+        else if (c === "\\") esc = true;
+        else if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') inStr = true;
+      else if (c === "{" || c === "[") stack.push(c);
+      else if (c === "}" || c === "]") stack.pop();
     }
-    if (c === '"') inStr = true;
-    else if (c === "{" || c === "[") stack.push(c);
-    else if (c === "}" || c === "]") stack.pop();
-  }
-  if (esc) out = out.slice(0, -1);
-  if (inStr) out += '"';
-  // A reply cut mid-member leaves a key with no value, or half a number.
-  // Closing the brackets over that fragment still fails, so drop the fragment.
+    return { inStr, esc, stack };
+  };
+
+  const first = scan(out);
+  if (first.esc) out = out.slice(0, -1);
+  if (first.inStr) out += '"';
+
   for (let i = 0; i < 4; i++) {
     const before = out;
     out = out.replace(/[,:]\s*$/, "");
-    
     out = out.replace(/(?:[,{[]\s*)?"(?:[^"\\]|\\.)*"\s*:\s*$/, "");
     out = out.replace(/([,[{]\s*)[-+]?[\d.]+[eE][-+]?$/, "$1");
     out = out.replace(/([,[{]\s*)[-+.]$/, "$1");
@@ -281,10 +287,15 @@ function repairTail(s: string): string {
     if (out === before) break;
   }
   out = out.replace(/,\s*$/, "");
+
+  // The brackets still open are counted AFTER trimming, so a dropped fragment
+  // never leaves one closing brace too many.
+  const { stack } = scan(out);
   while (stack.length) out += stack.pop() === "{" ? "}" : "]";
 
   return out;
 }
+
 
 // A construction value sometimes arrives as arithmetic the model did not work
 // out, e.g. "angle": 180 + 105. JSON has no expressions, so compute the value.

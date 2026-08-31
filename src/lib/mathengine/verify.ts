@@ -293,10 +293,22 @@ export function verifyQuestion(q: EngineQuestion, opts: { method?: string } = {}
   add("Final answer present", Boolean(q.finalAnswer && q.finalAnswer.trim()), "No final answer was produced.");
   add("Board-ready notation", !RAW_SYNTAX.test(`${q.text}\n${(q.solutionSteps ?? []).join("\n")}`),
     "Raw syntax (slash fraction, sqrt(), ** or LaTeX command) reached the output.");
+  // Transport can strip a macro's backslash, leaving the bare word on the board
+  // ("= frac∠APB2"). A step carrying one is not classroom output.
+  add("No stray macro words",
+    !/(?:^|[^A-Za-z\\])(frac|sqrt|binom|dfrac|tfrac|overline|vec)(?=[^A-Za-z]|$)/.test(
+      `${q.text}\n${(q.solutionSteps ?? []).join("\n")}`),
+    "A macro word (frac, sqrt, …) is printed as text — write the stacked fraction or root itself.");
   add("Question and solution agree", !SELF_CONTRADICTION.test((q.solutionSteps ?? []).join("\n")),
     "The solution argues with its own question — the question's data is inconsistent.");
   add("Solution walks one method", !DELIBERATION.test((q.solutionSteps ?? []).join("\n")),
     "The solution deliberates instead of teaching — choose the method first, then write only the steps of that method.");
+  // Typesetting placeholders such as SCRIPT, SUBSCRIPT or TEXT are printed
+  // literally on the board, so a step carrying one is not classroom output.
+  add("No typesetting placeholders",
+    !/\b(SCRIPT|SUBSCRIPT|SUPERSCRIPT|DISPLAYSTYLE|SCRIPTSTYLE|PLACEHOLDER|TEXT\d)\b/.test((q.solutionSteps ?? []).join("\n")),
+    "A typesetting placeholder (SCRIPT, SUBSCRIPT, …) is printed inside a step — write the plain board notation instead.");
+
 
 
 
