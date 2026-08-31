@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft, Check, RotateCcw, Scissors, Upload } from "lucide-react";
+import { ArrowLeft, Check, Gauge, RotateCcw, Scissors, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
 import { makeTransparent } from "@/lib/games/removeBackground";
 import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
 import { slotsForVersion, type BuildingSlot } from "@/lib/homepage/buildingSlots";
 import {
+  clampBuildingSpeed,
   resolveMediaUrl,
+  sliderToSpeed,
+  speedToSlider,
   useHomepageConfig,
   type HomepageMediaRef,
 } from "@/lib/homepage/homepageConfig";
@@ -17,6 +21,7 @@ import {
 /**
  * Edit MathGPL Building — the original building only.
  * Each slot supports Replace Image and Remove Background. Geometry is preserved.
+ * Rotation speed lives here too: one slider, saved with the artwork.
  */
 const HomepageBuildingPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
@@ -25,29 +30,37 @@ const HomepageBuildingPage = () => {
   const slots = slotsForVersion(version);
   // Draft artwork. Nothing reaches the building until Save is pressed.
   const [draft, setDraft] = useState<Record<string, HomepageMediaRef>>({});
+  const [speed, setSpeed] = useState(1);
   const [dirty, setDirty] = useState(false);
   const overrides = draft;
 
   useEffect(() => {
     if (!ready) return;
     setDraft(config.slotOverrides ?? {});
+    setSpeed(clampBuildingSpeed(config.buildingSpeed));
     setDirty(false);
-  }, [ready, configMode, config.slotOverrides]);
+  }, [ready, configMode, config.slotOverrides, config.buildingSpeed]);
 
   const stage = (next: Record<string, HomepageMediaRef>) => {
     setDraft(next);
     setDirty(true);
   };
 
+  const stageSpeed = (next: number) => {
+    setSpeed(clampBuildingSpeed(next));
+    setDirty(true);
+  };
+
   const saveNow = async () => {
     try {
-      await save({ slotOverrides: draft });
+      await save({ slotOverrides: draft, buildingSpeed: clampBuildingSpeed(speed) });
       setDirty(false);
       toast.success(version === "free" ? "Free building saved" : "Pro building saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
     }
   };
+
   const [busySlot, setBusySlot] = useState<string | null>(null);
   const [cutoutSlot, setCutoutSlot] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
