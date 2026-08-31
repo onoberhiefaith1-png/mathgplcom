@@ -6,7 +6,8 @@
 // duplicated for a guest — the original video is streamed by reference.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Maximize2, Minimize2 } from "lucide-react";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 import PresentationView from "@/components/smartboard/PresentationView";
 import ThreeViewFrame, { useBoardVideoView } from "@/components/smartboard/ThreeViewFrame";
 import BoardViewSwitcher from "@/components/student/BoardViewSwitcher";
@@ -31,6 +32,11 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
   const [questionId, setQuestionId] = useState<string | null>(questions[0]?.id ?? null);
   const [video, setVideo] = useState<QuestionVideoConfig | null>(null);
   const [videoView, setVideoView] = useBoardVideoView();
+  // Phone/tablet guest session: compact header + in-app immersive mode (iOS
+  // Safari does not grant real element fullscreen).
+  const bp = useBreakpoint();
+  const mobile = bp === "phone" || bp === "tablet";
+  const [immersive, setImmersive] = useState(false);
   const [score, setScore] = useState<{ score: number; total: number } | null>(null);
   const [lineCtx, setLineCtx] = useState<LineContext>({
     questionId: null, lineId: null, index: 0, total: 0, completed: false,
