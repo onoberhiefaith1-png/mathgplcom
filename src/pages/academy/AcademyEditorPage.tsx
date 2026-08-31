@@ -322,10 +322,15 @@ const handleTextureUpload = useCallback(
   );
 
   const handleAddWalkway = useCallback(
-    async (parentId: string | null, direction: WalkwayDirection) => {
+    async (parentId: string | null, direction: WalkwayDirection, name?: string) => {
       if (!buildingData) return;
-      await addWalkway(buildingData.building.id, parentId, direction);
+      const id = await addWalkway(buildingData.building.id, parentId, direction, name);
       await refreshBuilding();
+      // Stand the walker in the hallway that was just created.
+      if (id) {
+        setNavigateTo(null);
+        setTimeout(() => setNavigateTo(id), 0);
+      }
     },
     [buildingData, refreshBuilding],
   );
@@ -333,11 +338,22 @@ const handleTextureUpload = useCallback(
   const handleAddDoor = useCallback(
     async (
       walkwayId: string,
-      fields: { position_along: number; content_kind: DoorContentKind; content_id: string },
+      fields: {
+        position_along: number;
+        content_kind: DoorContentKind;
+        content_id: string;
+        title_override?: string | null;
+        style?: string | null;
+      },
     ) => {
       if (!buildingData) return;
-      await addDoor(buildingData.building.id, walkwayId, fields);
+      const { style, ...rest } = fields;
+      const id = await addDoor(buildingData.building.id, walkwayId, rest);
+      if (id && style) {
+        await updateDoor(id, { design: { ...buildingData.building.environment.door, style } as never });
+      }
       await refreshBuilding();
+      if (id) setSelectedDoorId(id);
     },
     [buildingData, refreshBuilding],
   );
