@@ -426,6 +426,8 @@ const CustomBuilding = ({
   onError: () => void;
 }) => {
   const hostRef = useRef<HTMLDivElement>(null);
+  const fadeRef = useRef<HTMLDivElement>(null);
+  const loopFade = element.loopFade ?? 0;
 
   // Any video inside this building plays at the authored speed.
   useEffect(() => {
@@ -445,6 +447,27 @@ const CustomBuilding = ({
     const t = window.setInterval(apply, 800);
     return () => window.clearInterval(t);
   }, [speed, element.storagePath]);
+
+  // Loop-seam smoothing for a plain (non-keyed) video building: the last and
+  // first frame of a revolution are faded into each other so the restart never
+  // flashes. ChromaVideo does the same thing on its own canvas.
+  useEffect(() => {
+    const host = hostRef.current;
+    const wrap = fadeRef.current;
+    if (!host || !wrap || loopFade <= 0) return;
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const video = host.querySelector("video");
+      if (!video) return;
+      wrap.style.opacity = String(seamAlpha(video.currentTime, video.duration, loopFade));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (wrap) wrap.style.opacity = "";
+    };
+  }, [loopFade, element.storagePath]);
 
   const rate = clampBuildingSpeed(speed);
 
