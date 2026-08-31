@@ -450,6 +450,12 @@ const PresentationView = ({
   // viewer is a teacher — including while reviewing a student's assessment.
   const isTeacher = role === "teacher";
 
+  // MOBILE STUDENT MODE — phone/tablet student session. The board keeps its
+  // full size; the device becomes a viewport that pans across it. Desktop and
+  // every teacher surface are untouched because all branches read this flag.
+  const mobileBoard = useMobileStudentBoard(role);
+  const mobileStudent = mobileBoard.active;
+
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
   const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
 
