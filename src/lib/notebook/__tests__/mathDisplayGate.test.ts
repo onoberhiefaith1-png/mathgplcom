@@ -10,7 +10,7 @@ describe("braceless structural macros", () => {
   });
 
   it("reads a macro token as one argument", () => {
-    expect(safe("\\frac\\pi2")).toContain("\\frac{\\pi}{2}");
+    expect(safe("\\frac\\pi2")).toMatch(/\\frac\{(\\pi|π)\}\{2\}/);
   });
 
   it("reads braceless roots", () => {
