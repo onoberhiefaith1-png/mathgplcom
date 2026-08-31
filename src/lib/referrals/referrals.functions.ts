@@ -90,3 +90,29 @@ export const recordReferralOpen = createServerFn({ method: "POST" })
     const { recordOpen } = await import("./referrals.server");
     return recordOpen(data.code.trim().toUpperCase());
   });
+
+/** Administrator only: issue a referral link for one referrer. */
+export const issueReferralLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { campaignId: string; referrerUserId: string; orgId?: string | null }) => input)
+  .handler(async ({ data, context }) => {
+    const { issueLink } = await import("./referrals.server");
+    return issueLink(context.supabase, context.userId, data);
+  });
+
+/** Administrator only: every issued referral link and what it produced. */
+export const listReferralLinks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { adminLinks } = await import("./referrals.server");
+    return adminLinks(context.supabase, context.userId);
+  });
+
+/** Administrator only: switch an issued referral link on or off. */
+export const setReferralLinkActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string; isActive: boolean }) => input)
+  .handler(async ({ data, context }) => {
+    const { setLinkActive } = await import("./referrals.server");
+    return setLinkActive(context.supabase, context.userId, data.id, data.isActive);
+  });

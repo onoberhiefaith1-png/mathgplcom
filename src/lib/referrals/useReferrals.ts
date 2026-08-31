@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 
 import { useAccount } from "@/lib/accounts/useAccount";
 import type { AppRole } from "@/lib/accounts/roles";
+import { referralUrl } from "@/lib/links/publicUrl";
 import { getReferralDashboard, getReferralSummary } from "./referrals.functions";
 import type { ActivityFilter, ReferralDashboard, ReferralScope } from "./types";
 
@@ -38,11 +39,11 @@ export function useReferralDashboard(filter: ActivityFilter = "all") {
     enabled: Boolean(scope),
     queryFn: () => fetch({ data: { scope: scope!, orgId, filter } }),
   });
-  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  // Always the public MathGPL address — never the preview or workspace host.
   const data = query.data
     ? {
         ...query.data,
-        link: query.data.link ? { ...query.data.link, url: `${origin}/?ref=${query.data.link.code}` } : null,
+        link: query.data.link ? { ...query.data.link, url: referralUrl(query.data.link.code) } : null,
       }
     : undefined;
   return { ...query, data };

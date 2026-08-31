@@ -216,3 +216,18 @@ export const addTotal = (list: CurrencyTotal[], currency: string | null, amount:
   else list.push({ currency, amount });
   return list;
 };
+
+/** One administrator-issued referral link, with what it has produced. */
+export type AdminReferralLink = {
+  id: string;
+  code: string;
+  campaignId: string;
+  campaignName: string;
+  referrerUserId: string;
+  referrerLabel: string;
+  referrerKind: string | null;
+  isActive: boolean;
+  createdAt: string;
+  referred: number;
+};
+

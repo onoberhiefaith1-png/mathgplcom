@@ -72,7 +72,8 @@ const ReferralDashboard = () => {
 
   const overview = data?.overview;
   const link = data?.link;
-  const canConfigure = scope === "platform" || scope === "school" || scope === "teacher";
+  // Referral offers and links are created by the administrator only.
+  const canConfigure = scope === "platform";
   const canSettle = scope === "platform" || scope === "school";
 
   const copyLink = async () => {
@@ -214,7 +215,9 @@ const ReferralDashboard = () => {
           </div>
         ) : (
           <EmptyNote>
-            {isLoading ? "Preparing your link…" : "No referral programme is running for you yet, so no reward and no link can be shown."}
+            {isLoading
+              ? "Checking your referral link…"
+              : "The administrator has not issued a referral link for you yet, so no link and no reward can be shown."}
           </EmptyNote>
         )}
         {data?.campaign && (

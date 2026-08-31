@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import CampaignDialog, { type CampaignDraft } from "@/pages/referrals/CampaignDialog";
+import ReferralLinkManager from "@/components/referrals/ReferralLinkManager";
 import {
   deleteReferralCampaign,
   listAdminReferralCampaigns,
@@ -268,9 +269,11 @@ const ReferralAdminPage = () => {
         </ul>
       )}
 
+      <ReferralLinkManager campaigns={rows} targets={targets} />
+
       <p className="mt-6 max-w-2xl text-xs text-muted-foreground">
-        Schools and teachers see the offer you assign to their role, and can also create their own offer so people can
-        be referred to them. Their offer never replaces yours — both links work side by side.
+        Schools and teachers cannot create referral links. They only see and share the link you issue for them, and a
+        referral records who brought a person to MathGPL — never which school they belong to.
       </p>
 
       <CampaignDialog
