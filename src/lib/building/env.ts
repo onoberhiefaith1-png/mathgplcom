@@ -93,6 +93,9 @@ export function mergeEnvironment(raw: Loose | EnvironmentSettings): EnvironmentS
     rightWall: mergeSurface(e.rightWall, DEFAULT_ENVIRONMENT.rightWall),
     floor: mergeSurface(e.floor, DEFAULT_ENVIRONMENT.floor),
     roof: mergeSurface(e.roof, DEFAULT_ENVIRONMENT.roof),
+    // A building saved before the End Wall existed inherits the left wall, so an
+    // existing corridor never terminates in an undefined dark plane.
+    endWall: mergeSurface(e.endWall, mergeSurface(e.leftWall, DEFAULT_ENVIRONMENT.endWall)),
     door: mergeDoor(e.door, DEFAULT_ENVIRONMENT.door),
     lighting: mergeLighting(e.lighting, DEFAULT_ENVIRONMENT.lighting),
     effects: mergeEffects(e.effects, DEFAULT_ENVIRONMENT.effects),

@@ -9,13 +9,14 @@ import { getSignedUrls } from "@/lib/games/urls";
 import { builtinTextureUrl, isBuiltinTexturePath } from "./gallery";
 import type { EnvironmentSettings, SurfaceKey } from "./types";
 
-export const SURFACE_KEYS: SurfaceKey[] = ["leftWall", "rightWall", "floor", "roof"];
+export const SURFACE_KEYS: SurfaceKey[] = ["leftWall", "rightWall", "floor", "roof", "endWall"];
 
 export const SURFACE_LABEL: Record<SurfaceKey, string> = {
   leftWall: "Left wall",
   rightWall: "Right wall",
   floor: "Floor",
-  roof: "Roof / ceiling",
+  roof: "Ceiling",
+  endWall: "End wall",
 };
 
 /** Collect every STORAGE texture path the environment references (built-ins excluded). */

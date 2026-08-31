@@ -132,6 +132,7 @@ export const DEFAULT_ENVIRONMENT: EnvironmentSettings = {
   rightWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
   floor: { preset: "classroom", color: "#3b4658", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
   roof: { preset: "neutral", color: "#2c3448", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
+  endWall: { preset: "academic", color: "#38445f", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
   door: { preset: "modern", color: "#1a2542", texture: null, brightness: 1, style: "navy-vision" },
   lighting: { brightness: 1, ambient: 0.8, intensity: 1.35, atmosphere: false },
   effects: { enabled: false, effect: null },

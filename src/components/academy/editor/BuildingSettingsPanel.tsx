@@ -33,7 +33,8 @@ const SURFACE_TITLES: Record<SurfaceKey, string> = {
   leftWall: "Left wall",
   rightWall: "Right wall",
   floor: "Floor",
-  roof: "Roof / ceiling",
+  roof: "Ceiling",
+  endWall: "End wall",
 };
 
 const Section = ({
