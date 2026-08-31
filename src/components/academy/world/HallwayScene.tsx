@@ -1005,8 +1005,10 @@ const BranchOpening = ({
   return (
     <group position={[0, 0, -along]}>
       {/* Continuous floor and ceiling through the intersection throat */}
-      <PlanTriangle pts={[near, far, corner]} y={0.012} color={floorColor} roughness={0.85} />
-      <PlanTriangle pts={[near, far, corner]} y={HALL_HEIGHT - 0.012} color={roofColor} up={false} />
+      {/* Throat floor/ceiling sit clear of every corridor slab depth, so the
+          cut deck edges meet them flush instead of fighting for the plane. */}
+      <PlanTriangle pts={[near, far, corner]} y={0.032} color={floorColor} roughness={0.85} />
+      <PlanTriangle pts={[near, far, corner]} y={HALL_HEIGHT - 0.032} color={roofColor} up={false} />
 
       {/* The branch's upstream wall returning out into the branch — the piece
           that makes the intersection read as walls meeting, not panels. */}
