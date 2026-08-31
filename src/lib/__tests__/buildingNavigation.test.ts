@@ -12,6 +12,8 @@ import {
   turnaround,
   availableDirections,
   parentConnectionAnchor,
+  lengthForObjects,
+  freeBranchDirections,
 } from "../building/navigation";
 
 import type { BuildingWalkway } from "../building/types";
@@ -23,6 +25,8 @@ const walkway = (id: string, over: Partial<BuildingWalkway> = {}): BuildingWalkw
   name: "Main Hallway",
   end_label: null,
   direction: "forward",
+  junction_at: 0.5,
+
   length: 10,
   position: 0,
   created_at: "",
@@ -116,13 +120,15 @@ describe("compileNavGraph", () => {
     expect(kids.map((k) => k.direction)).toEqual(["left", "right"]);
   });
 
-  it("starts children at the parent's end and turns the heading", () => {
+  it("starts a branch at its junction on the parent and turns the heading", () => {
     const g = compileNavGraph([
       walkway("root", { length: 5 }),
       walkway("l", { parent_id: "root", direction: "left" }),
     ]);
 const l = g.byId.get("l");
-    expect(l?.start).toEqual([0, -5]);
+    // junction_at 0.5 of a 5-unit road → halfway along, not at the far end
+    expect(l?.start).toEqual([0, -2.5]);
+
     // facing forward (0,-1), "left" is the player's left → (-1,0)
     const turned = turnHeading([0, -1], "left");
     expect(turned[0]).toBeCloseTo(-1);
@@ -233,5 +239,28 @@ describe("parentConnectionAnchor", () => {
     expect(a.position[1]).toBeCloseTo(-10);
     // the sign faces back along the hallway, i.e. the reverse heading
     expect(a.yaw).toBeCloseTo(segYaw(reverseHeading(heading)));
+  });
+});
+
+describe("hallway roads and junctions", () => {
+  it("grows a hallway automatically as objects are added", () => {
+    expect(lengthForObjects(1)).toBeLessThan(lengthForObjects(4));
+    expect(lengthForObjects(6)).toBeLessThan(lengthForObjects(10));
+  });
+
+  it("places a branch at its junction along the parent, not at the far end", () => {
+    const root = walkway("a", { parent_id: null, direction: "forward", length: 40 });
+    const left = walkway("b", { parent_id: "a", direction: "left", junction_at: 0.25 });
+    const g = compileNavGraph([root, left]);
+    const node = g.byId.get("b")!;
+    // root runs down -z from the origin; a quarter along 40 units is z = -10
+    expect(node.start[1]).toBeCloseTo(-10, 5);
+  });
+
+  it("only offers left and right as free branch directions", () => {
+    const root = walkway("a", { parent_id: null, direction: "forward" });
+    expect(freeBranchDirections([root], "a")).toEqual(["left", "right"]);
+    const left = walkway("b", { parent_id: "a", direction: "left" });
+    expect(freeBranchDirections([root, left], "a")).toEqual(["right"]);
   });
 });

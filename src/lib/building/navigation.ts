@@ -51,11 +51,32 @@ export const turnHeading = (h: [number, number], dir: WalkwayDirection): [number
 export const easeInOut = (t: number): number =>
   t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
+/**
+ * How long a hallway has to be to carry `count` objects (doors + junction
+ * openings) comfortably. A hallway is a road: it grows by itself as things are
+ * added to it, so there is never an "extend hallway" control.
+ */
+export function lengthForObjects(count: number, gap = 7.5, pad = 3): number {
+  return Math.max(gap * 2, pad * 2 + Math.max(1, count) * gap);
+}
+
+/**
+ * Where along its parent a branch leaves. A junction is perpendicular and sits
+ * ON the parent road, not at its far end, so `junction_at` (0–1) is honoured.
+ */
+export const junctionDistance = (parentLength: number, junctionAt: number): number =>
+  Math.min(parentLength - 0.5, Math.max(0.5, parentLength * Math.min(1, Math.max(0, junctionAt))));
+
 /** Recursively compile the walkway tree into a navigable graph. */
-export function compileNavGraph(walkways: BuildingWalkway[]): NavGraph {
+export function compileNavGraph(
+  walkways: BuildingWalkway[],
+  /** Optional derived length per hallway id (auto-grown from its objects). */
+  lengthOf?: (w: BuildingWalkway) => number,
+): NavGraph {
   const nodes: NavNode[] = [];
   const byId = new Map<string, NavNode>();
   const childrenByParent = new Map<string | null, NavNode[]>();
+  const len = (w: BuildingWalkway) => lengthOf?.(w) ?? w.length;
 
   const walk = (
     w: BuildingWalkway,
@@ -65,6 +86,7 @@ export function compileNavGraph(walkways: BuildingWalkway[]): NavGraph {
     parentId: string | null,
     direction: WalkwayDirection | null,
   ): NavNode => {
+    const length = len(w);
     const node: NavNode = {
       id: w.id,
       walkwayId: w.id,
@@ -72,16 +94,25 @@ export function compileNavGraph(walkways: BuildingWalkway[]): NavGraph {
       direction,
       start,
       heading,
-      length: w.length,
+      length,
       depth,
     };
     nodes.push(node);
     byId.set(w.id, node);
-    const end: [number, number] = [start[0] + heading[0] * w.length, start[1] + heading[1] * w.length];
     const kids = walkways
       .filter((x) => x.parent_id === w.id)
       .sort((a, b) => a.position - b.position);
-    childrenByParent.set(w.id, kids.map((k) => walk(k, end, turnHeading(heading, k.direction), depth + 1, w.id, k.direction)));
+    childrenByParent.set(
+      w.id,
+      kids.map((k) => {
+        // A forward continuation carries on from the far end; a left/right
+        // hallway leaves perpendicular from a junction along this road.
+        const along =
+          k.direction === "forward" ? length : junctionDistance(length, k.junction_at ?? 0.5);
+        const at: [number, number] = [start[0] + heading[0] * along, start[1] + heading[1] * along];
+        return walk(k, at, turnHeading(heading, k.direction), depth + 1, w.id, k.direction);
+      }),
+    );
     return node;
   };
 
@@ -92,6 +123,19 @@ export function compileNavGraph(walkways: BuildingWalkway[]): NavGraph {
   );
   return { nodes, byId, rootId: roots[0]?.id ?? null, childrenByParent };
 }
+
+/**
+ * Branch directions still free on a hallway. A hallway is a road, so it takes
+ * at most one left and one right branch (and no user-chosen "extend").
+ */
+export function freeBranchDirections(
+  walkways: BuildingWalkway[],
+  parentId: string,
+): WalkwayDirection[] {
+  const taken = walkways.filter((w) => w.parent_id === parentId).map((w) => w.direction);
+  return (["left", "right"] as WalkwayDirection[]).filter((d) => !taken.includes(d));
+}
+
 
 export interface DirectionAvailability {
   forward: boolean;

@@ -99,6 +99,12 @@ export interface BuildingWalkway {
    */
   end_label: string | null;
   direction: WalkwayDirection;
+  /**
+   * Where along the PARENT hallway this branch leaves (0–1). A hallway is a
+   * road and a branch is a perpendicular junction on it, not an extension.
+   */
+  junction_at: number;
+
   length: number;
   position: number;
   created_at: string;

@@ -323,9 +323,14 @@ const handleTextureUpload = useCallback(
   );
 
   const handleAddWalkway = useCallback(
-    async (parentId: string | null, direction: WalkwayDirection, name?: string) => {
+    async (
+      parentId: string | null,
+      direction: WalkwayDirection,
+      name?: string,
+      junctionAt?: number,
+    ) => {
       if (!buildingData) return;
-      const id = await addWalkway(buildingData.building.id, parentId, direction, name);
+      const id = await addWalkway(buildingData.building.id, parentId, direction, name, junctionAt ?? 0.5);
       await refreshBuilding();
       // Stand the walker in the hallway that was just created.
       if (id) {
@@ -523,8 +528,8 @@ const handleTextureUpload = useCallback(
                           await createSampleMaze(buildingData.building.id, buildingData.walkways[0]?.id ?? null);
                           await refreshBuilding();
                         }}
-                        onUpdateWalkway={async (id, length) => {
-                          await updateWalkway(id, { length });
+                        onSetJunction={async (id, junctionAt) => {
+                          await updateWalkway(id, { junction_at: junctionAt });
                           await refreshBuilding();
                         }}
                         onRenameWalkway={async (id, name) => {

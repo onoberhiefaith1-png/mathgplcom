@@ -38,6 +38,7 @@ import {
   easeInOut,
   forwardFromYaw,
   layoutHallwayObjects,
+  lengthForObjects,
   NavigationHistory,
   parentConnectionAnchor,
 
@@ -45,6 +46,7 @@ import {
   segYaw,
   turnHeading,
 } from "@/lib/building/navigation";
+
 import type { HallwayObject } from "@/lib/building/navigation";
 
 const SPACING = 7.5; // minimum distance between objects along a hallway
@@ -87,13 +89,27 @@ const buildHallways = (
   const segments: Segment[] = [];
   const layouts = new Map<string, HallwayObject[]>();
 
+  /**
+   * A hallway is a road: its physical length is DERIVED from what sits on it
+   * (doors + perpendicular junctions), so adding a door lengthens the road and
+   * there is never an "extend hallway" control.
+   */
+  const derivedLength = (w: BuildingWalkway): number => {
+    const objects =
+      (w.parent_id ? 0 : rootRoomObjects.length) +
+      doorObjects(w.id).length +
+      walkways.filter((x) => x.parent_id === w.id && x.direction !== "forward").length;
+    const auto = lengthForObjects(objects, SPACING);
+    return w.parent_id ? auto : Math.max(auto, rootLen);
+  };
+
   const walk = (
     w: BuildingWalkway,
     start: [number, number],
     heading: [number, number],
     depth: number,
   ): Segment => {
-    const length = w.parent_id ? w.length : Math.max(w.length, rootLen);
+    const length = derivedLength(w);
     const seg: Segment = { walkway: w, start, heading, length, depth, children: [] };
     segments.push(seg);
 
@@ -101,11 +117,13 @@ const buildHallways = (
     const objs = layoutHallwayObjects({
       length,
       doors: [...(w.parent_id ? [] : rootRoomObjects), ...doorObjects(w.id)],
-      openings: kids.map((k, i) => ({
+      openings: kids.map((k) => ({
         id: k.id,
         name: k.name,
         direction: k.direction,
-        order: 15 + i * 30,
+        // Junctions and doors interleave along the road by their stored
+        // position, so a teacher can slide a branch further down the hallway.
+        order: 5 + (k.junction_at ?? 0.5) * 100,
       })),
       minGap: SPACING,
     });
@@ -138,6 +156,7 @@ const buildHallways = (
 
   return { segments, layouts };
 };
+
 
 const findSegment = (segs: Segment[], id: string): Segment | null => {
   for (const s of segs) {
@@ -781,6 +800,12 @@ interface Machine {
   moving: boolean;
   /** current walking speed, ramped so the walk never starts or stops dead */
   speed: number;
+  /**
+   * Distances along the current hallway where a perpendicular junction opens.
+   * The walk eases to a hover at each one so left/right can be chosen there,
+   * then continues down the road.
+   */
+  stops: number[];
 
   yaw: number;
   turn: TurnSpec | null;
@@ -800,6 +825,7 @@ const CameraRig = ({
   m,
   rootLen,
   onWalkEnd,
+  onJunctionReach,
   onRetraceEnd,
   setPhase,
 }: {
@@ -808,6 +834,8 @@ const CameraRig = ({
   m: React.RefObject<Machine>;
   rootLen: number;
   onWalkEnd: () => void;
+  /** Arrived alongside a junction opening mid-hallway. */
+  onJunctionReach: () => void;
   onRetraceEnd: () => void;
   setPhase: (p: NavPhase) => void;
 }) => {
@@ -831,17 +859,19 @@ const CameraRig = ({
 
 if (st.phase === "walking" || st.phase === "idle") {
       const seg = st.seg;
-      // Continuous forward travel: the hallway comes toward the camera. Speed
-      // ramps up on entry and eases down as the far end / junction approaches,
-      // so the walk never starts or stops dead.
-      const remaining = Math.max(0, seg.length - st.dist);
+      // Continuous forward travel: the hallway comes toward the camera. It eases
+      // to a hover at the next junction (or the terminal wall), so a turn can be
+      // taken there, and the walk never starts or stops dead.
+      const nextStop = st.stops.find((s) => s > st.dist + 0.6);
+      const target = Math.min(seg.length, nextStop ?? seg.length);
+      const remaining = Math.max(0, target - st.dist);
       const wanted =
         st.phase === "walking" && st.moving
           ? WALK_SPEED * THREE.MathUtils.clamp(remaining / 4, 0.12, 1)
           : 0;
       st.speed = THREE.MathUtils.lerp(st.speed, wanted, 1 - Math.exp(-4 * dt));
       if (st.phase === "walking" && st.moving) {
-        st.dist = Math.min(seg.length, st.dist + dt * st.speed);
+        st.dist = Math.min(target, st.dist + dt * st.speed);
       }
 
       const d = st.dist;
@@ -853,9 +883,13 @@ if (st.phase === "walking" || st.phase === "idle") {
       camera.position.z = THREE.MathUtils.lerp(camera.position.z, pz, k);
       const dir = forwardFromYaw(st.yaw);
       camera.lookAt(camera.position.x + dir[0] * 6, 1.75, camera.position.z + dir[1] * 6);
-      if (st.phase === "walking" && d >= seg.length - 0.05) onWalkEnd();
+      if (st.phase === "walking" && d >= target - 0.05) {
+        if (target < seg.length - 0.05) onJunctionReach();
+        else onWalkEnd();
+      }
       return;
     }
+
 
     if (st.phase === "turning") {
       const t = st.turn;
@@ -1104,7 +1138,10 @@ const MiniMap = ({
     const offX = (W - spanX * sc) / 2 + ((spanX - (maxX - minX)) / 2) * sc;
     const offY = (H - spanZ * sc) / 2 + ((spanZ - (maxZ - minZ)) / 2) * sc;
     const px = (x: number) => (x - minX) * sc + offX;
-    const py = (z: number) => (maxZ - z) * sc + offY; // forward (−z) renders up: north is always up
+    // The entrance sits at the BOTTOM of the plan and travel reads upward, like
+    // a floor plan on a wall. The map never rotates with the walker.
+    const py = (z: number) => (z - minZ) * sc + offY;
+
     return { W, H, px, py, lines, doorDots, ends, parentOf };
   }, [segments, layouts]);
 
@@ -1394,6 +1431,8 @@ const HallwayScene = ({
   const [nav, setNav] = useState<NavState>({ seg: rootEffective, mode: "browse" });
   const [moving, setMoving] = useState(false);
   const [endReached, setEndReached] = useState(false);
+  /** Junction openings the walker is currently standing alongside. */
+  const [nearOpenings, setNearOpenings] = useState<string[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<string[]>(["Entrance"]);
   const [cue, setCue] = useState<string | null>(null);
   const [showMap] = useState(true);
@@ -1403,6 +1442,7 @@ const HallwayScene = ({
     dist: 0,
     moving: false,
     speed: 0,
+    stops: [],
 
     yaw: 0,
     turn: null,
@@ -1410,6 +1450,17 @@ const HallwayScene = ({
   });
   const historyRef = useRef(new NavigationHistory());
   const cueTimer = useRef<number | null>(null);
+
+  /** Junction stops of one hallway, from the shared object layout. */
+  const stopsOf = useCallback(
+    (seg: Segment): number[] =>
+      (layouts.get(seg.walkway?.id ?? "") ?? [])
+        .filter((o) => o.kind === "opening")
+        .map((o) => o.along)
+        .sort((a, b) => a - b),
+    [layouts],
+  );
+
 
   const setMachinePhase = useCallback((p: NavPhase) => {
     machineRef.current.phase = p;
@@ -1432,6 +1483,34 @@ const HallwayScene = ({
       machineRef.current.seg = rootEffective;
     }
   }, [rootEffective]);
+
+  // Junction stops of the hallway currently being walked.
+  useEffect(() => {
+    machineRef.current.stops = stopsOf(machineRef.current.seg);
+  }, [nav.seg, stopsOf]);
+
+  // Which junction openings are within reach right now, so Left/Right only
+  // appear where the road actually branches.
+  useEffect(() => {
+    if (phase === "browse") {
+      setNearOpenings((prev) => (prev.length ? [] : prev));
+      return;
+    }
+    let raf = 0;
+    const loop = () => {
+      const st = machineRef.current;
+      const objs = layouts.get(st.seg.walkway?.id ?? "") ?? [];
+      const ids = objs
+        .filter((o) => o.kind === "opening" && Math.abs(o.along - st.dist) < 5)
+        .map((o) => o.id);
+      setNearOpenings((prev) => (prev.join("|") === ids.join("|") ? prev : ids));
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [phase, layouts, nav.seg]);
+
+
 
 
   const notifyMode = useCallback((m: "browse" | "walk") => onModeChange?.(m), [onModeChange]);
@@ -1609,6 +1688,18 @@ const HallwayScene = ({
     setMachinePhase("idle");
   }, [setMachinePhase]);
 
+  /** Arrived alongside a mid-hallway junction → hover so a turn can be taken. */
+  const handleJunctionReach = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase !== "walking") return;
+    st.moving = false;
+    st.speed = 0;
+    setMoving(false);
+    setMachinePhase("idle");
+  }, [setMachinePhase]);
+
+
+
 
   /**
    * The building is hallways + doors, so there is no room carousel to browse:
@@ -1731,11 +1822,23 @@ const HallwayScene = ({
   const dragStart = useRef<number | null>(null);
 
   const inWalk = phase !== "browse";
+  /**
+   * The choices actually available where the walker is standing: a perpendicular
+   * junction only counts when its opening is alongside, and a forward
+   * continuation only at the far end of the road.
+   */
+  const junctionChildren = useMemo(
+    () =>
+      nav.seg.children.filter((c) =>
+        c.walkway?.direction === "forward" ? endReached : nearOpenings.includes(c.walkway?.id ?? ""),
+      ),
+    [nav.seg, endReached, nearOpenings],
+  );
   const atJunction =
-    (phase === "walking" || phase === "idle") && endReached && nav.seg.children.length > 0;
-  const hasForwardChild =
-    atJunction && nav.seg.children.some((c) => c.walkway?.direction === "forward");
+    (phase === "walking" || phase === "idle") && junctionChildren.length > 0;
+  const hasForwardChild = junctionChildren.some((c) => c.walkway?.direction === "forward");
   const canBack = phase === "walking" || phase === "idle";
+
 
   const doorsById = useMemo(() => {
     const map = new Map<string, BuildingDoor>();
@@ -1892,6 +1995,7 @@ const HallwayScene = ({
           m={machineRef}
           rootLen={rootLen}
           onWalkEnd={handleWalkEnd}
+          onJunctionReach={handleJunctionReach}
           onRetraceEnd={finishRetrace}
           setPhase={setMachinePhase}
         />
@@ -1982,7 +2086,7 @@ const HallwayScene = ({
       {canBack && (
         <WalkControls
           atJunction={atJunction}
-          children={nav.seg.children}
+          children={junctionChildren}
           hasForward={hasForwardChild}
           canBack={canBack}
           moving={moving}
