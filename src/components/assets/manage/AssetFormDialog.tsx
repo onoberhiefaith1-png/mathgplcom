@@ -163,6 +163,10 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
     setRemoveBg(false);
     setSoftness("normal");
     setKeySwatch(null);
+    setDetectState("idle");
+    setDetectNote("");
+    setManualKey(null);
+    setPreviewUrl(null);
     setStep("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
