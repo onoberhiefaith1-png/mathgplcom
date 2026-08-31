@@ -979,12 +979,16 @@ interface Machine {
   seg: Segment;
   dist: number;
   moving: boolean;
+  /**
+   * TRUE only while the user is actively holding Forward. The camera never
+   * travels on its own: movement is the direct result of this input intent.
+   */
+  holding: boolean;
   /** current walking speed, ramped so the walk never starts or stops dead */
   speed: number;
   /**
    * Distances along the current hallway where a perpendicular junction opens.
-   * The walk eases to a hover at each one so left/right can be chosen there,
-   * then continues down the road.
+   * Kept for the map / turn availability — they no longer brake the walk.
    */
   stops: number[];
 
@@ -992,6 +996,7 @@ interface Machine {
   turn: TurnSpec | null;
   zoom: ZoomSpec | null;
 }
+
 
 // ── Camera rig ────────────────────────────────────────────────────────────
 
