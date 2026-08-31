@@ -315,12 +315,24 @@ const SegmentCorridor = ({
   endName?: string;
 }) => (
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
-    {/* enclosing end walls — the hallway is finite, never an open void */}
+    {/* END WALL — the hallway's fifth surface, edited like the others. A
+        hallway is finite, so it always terminates in a designed wall. */}
     {capEnd && (
-      <mesh position={[0, HALL_HEIGHT / 2, -length]}>
+      <Surface
+        position={[0, HALL_HEIGHT / 2, -length]}
+        url={env.endWall.texture ? textures[env.endWall.texture.path] : undefined}
+        presetKey={env.endWall.preset}
+        color={env.endWall.color}
+        scale={env.endWall.scale}
+        offsetX={env.endWall.offsetX}
+        offsetY={env.endWall.offsetY}
+        repeat={env.endWall.repeat}
+        fit={env.endWall.fit}
+        planeW={HALL_WIDTH}
+        planeH={HALL_HEIGHT}
+      >
         <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
-        <meshStandardMaterial color={env.leftWall.color} roughness={0.95} side={THREE.DoubleSide} />
-      </mesh>
+      </Surface>
     )}
     {capEnd && endName && (
       <Suspense fallback={null}>
