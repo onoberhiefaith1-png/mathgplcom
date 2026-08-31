@@ -2070,7 +2070,7 @@ const HallwayScene = ({
       }
       setMachinePhase("walking");
     },
-    [setMachinePhase],
+    [ensureWalking, setMachinePhase],
   );
 
   const endHold = useCallback(() => {
