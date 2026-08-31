@@ -1718,6 +1718,11 @@ export interface HallwaySceneProps {
   onModeChange?: (mode: "browse" | "walk") => void;
   /** Walk to this hallway id (used by the editor after creating one). */
   navigateTo?: string | null;
+  /**
+   * Leave the building entirely — used by the ENTRANCE DOOR at the start of the
+   * main hallway. Falls back to the in-scene browse view when not supplied.
+   */
+  onExitBuilding?: () => void;
 }
 
 const HallwayScene = ({
@@ -1731,6 +1736,7 @@ const HallwayScene = ({
   onEnterRoom,
   onOpenDoor,
   onModeChange,
+  onExitBuilding,
   navigateTo = null,
 }: HallwaySceneProps) => {
   // Saved configuration is the source of truth: merge it field-by-field over
