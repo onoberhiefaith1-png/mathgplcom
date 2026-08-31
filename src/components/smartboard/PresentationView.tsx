@@ -6768,6 +6768,35 @@ const PresentationView = ({
         </WritingSurface>
       </main>
 
+      {/* MOBILE STUDENT MODE — edge arrows step the viewport one screen across
+          the full-size board. Two fingers pan; one finger still writes. */}
+      {mobileStudent && (
+        <>
+          {([-1, 1] as const).map((dir) => (
+            <button
+              key={dir}
+              data-sb-chrome
+              aria-label={dir < 0 ? "Pan board left" : "Pan board right"}
+              onClick={() => {
+                const host = boardScrollRef.current;
+                if (!host) return;
+                host.scrollBy({ left: dir * host.clientWidth * 0.8, behavior: "smooth" });
+              }}
+              className="absolute top-1/2 z-[55] grid h-10 w-8 -translate-y-1/2 place-items-center rounded-full border shadow-lg backdrop-blur"
+              style={{
+                [dir < 0 ? "left" : "right"]: 4,
+                background: palette.chromeBg,
+                color: palette.chromeFg,
+                borderColor: palette.chromeBorder,
+                opacity: 0.9,
+              }}
+            >
+              {dir < 0 ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            </button>
+          ))}
+        </>
+      )}
+
 
 
       {/* Invisible keyboard capture. Omitted in view-only mirror mode. */}
