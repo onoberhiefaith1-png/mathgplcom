@@ -436,44 +436,15 @@ const WalkwayManager = ({
                   ))}
                 </select>
               </label>
-              <div className="mt-2 text-[11px] text-muted-foreground">
-                Direction
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {DIRECTIONS.map((d) => {
-                    const disabled = hallTaken.includes(d);
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => setHallDir(d)}
-                        className={`min-h-[34px] rounded-full px-3 text-[11px] font-semibold ${
-                          hallDir === d
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground"
-                        } disabled:opacity-35`}
-                      >
-                        {d === "left" ? "Left" : "Right"}
-                        {disabled ? " · taken" : ""}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <label className="mt-2 block text-[11px] text-muted-foreground">
-                Junction position along {flat.find((f) => f.w.id === hallParent)?.w.name ?? "hallway"} ·{" "}
-                {hallJunction}%
-                <input
-                  aria-label="Junction position along parent"
-                  type="range"
-                  min={5}
-                  max={95}
-                  step={5}
-                  value={hallJunction}
-                  onChange={(e) => setHallJunction(Number(e.target.value))}
-                  className="mt-1 w-full"
-                />
-              </label>
+              <p className="mt-2 rounded-lg border border-border bg-muted/40 p-2 text-[11px] text-muted-foreground">
+                The new hallway leaves{" "}
+                <strong className="text-foreground">
+                  {flat.find((f) => f.w.id === hallParent)?.w.name ?? "this hallway"}
+                </strong>{" "}
+                on the <strong className="text-foreground">{autoSide}</strong> through a cut in its
+                wall, after everything already on that road. Sides alternate right, left, right —
+                you never have to choose.
+              </p>
             </>
           )}
           <label className="mt-2 block text-[11px] text-muted-foreground">
