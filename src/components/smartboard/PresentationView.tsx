@@ -459,6 +459,16 @@ const PresentationView = ({
   // Two-finger viewport pan (mobile student mode only). One finger keeps
   // writing exactly as before.
   const panRef = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
+  // Measured height of the mobile chrome panel so the board content always
+  // starts below it, however many rows the number line wraps onto.
+  const [mobileChromeH, setMobileChromeH] = useState(0);
+  const chromeMeasureRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const apply = () => setMobileChromeH(node.getBoundingClientRect().height);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(node);
+  }, []);
 
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
   const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
@@ -5898,7 +5908,7 @@ const PresentationView = ({
         }`}
         style={{
           // Room for the compact mobile chrome panel (number line + marks).
-          paddingTop: mobileStudent ? 108 : 24,
+          paddingTop: mobileStudent ? mobileChromeH + 24 : 24,
           // No bottom panel or tab; the canvas fills to the edge.
           paddingBottom: mobileStudent ? 8 : 24,
           paddingRight: 0,
@@ -7413,6 +7423,7 @@ const PresentationView = ({
             // Row 1 of the board chrome. The video view switcher measures this
             // element and stacks itself underneath, so the two never overlap.
             data-board-chrome="top"
+            ref={mobileStudent ? chromeMeasureRef : undefined}
             className={
               mobileStudent
                 // MOBILE STUDENT MODE — same controls, reflowed into a compact
