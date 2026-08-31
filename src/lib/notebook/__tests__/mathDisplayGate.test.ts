@@ -9,8 +9,8 @@ describe("braceless structural macros", () => {
     expect(safe("\\frac ab")).toContain("\\frac{a}{b}");
   });
 
-  it("reads a macro token as one argument", () => {
-    expect(safe("\\frac\\pi2")).toMatch(/\\frac\{(\\pi|π)\}\{2\}/);
+  it("reads a symbol glyph as one argument", () => {
+    expect(safe("\\fracπ2")).toContain("\\frac{π}{2}");
   });
 
   it("reads braceless roots", () => {

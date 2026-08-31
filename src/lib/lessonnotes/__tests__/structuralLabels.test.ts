@@ -27,7 +27,8 @@ describe("structural label lines", () => {
 
   it("keeps the label out of the solution-row explanation column", () => {
     const rows = aiTextToSolutionRows("Solution 2\nx = 4");
-    const packed = JSON.stringify(rows);
-    expect(packed).not.toContain("Solution 2");
+    const inRow = (rows as any[]).filter((n) => n?.type === "solutionRow");
+    expect(JSON.stringify(inRow)).not.toContain("Solution 2");
+    expect(JSON.stringify(rows)).toContain("Solution 2");
   });
 });
