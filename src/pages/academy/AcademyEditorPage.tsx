@@ -28,6 +28,7 @@ import {
 import HallwayScene from "@/components/academy/world/HallwayScene";
 import BuildingSettingsPanel from "@/components/academy/editor/BuildingSettingsPanel";
 import WalkwayManager from "@/components/academy/editor/WalkwayManager";
+import { createSampleMaze } from "@/lib/building/sampleMaze";
 import { toast } from "@/hooks/use-toast";
 import {
   createNode,
@@ -518,6 +519,10 @@ const handleTextureUpload = useCallback(
                         catalogue={catalogue}
                         selectedDoorId={selectedDoorId}
                         onAddWalkway={handleAddWalkway}
+                        onBuildSampleMaze={async () => {
+                          await createSampleMaze(buildingData.building.id, buildingData.walkways[0]?.id ?? null);
+                          await refreshBuilding();
+                        }}
                         onUpdateWalkway={async (id, length) => {
                           await updateWalkway(id, { length });
                           await refreshBuilding();

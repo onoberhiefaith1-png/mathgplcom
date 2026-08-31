@@ -10,7 +10,7 @@
  * the destination that opens an existing product (never duplicated).
  */
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, DoorOpen, Plus, Route, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, DoorOpen, Plus, Route, Trash2, Wand2 } from "lucide-react";
 import type {
   BuildingDoor,
   BuildingWalkway,
@@ -50,6 +50,8 @@ export interface WalkwayManagerProps {
   /** Per-door design override; empty string clears back to the building default. */
   onSetDoorStyle?: (id: string, style: string) => Promise<void>;
   onDeleteDoor: (id: string) => Promise<void>;
+  /** Create a ready-made branching maze with multiple doors. */
+  onBuildSampleMaze?: () => Promise<void>;
   /** A door clicked in the live world — highlighted and revealed here. */
   selectedDoorId?: string | null;
 }
@@ -70,6 +72,7 @@ const WalkwayManager = ({
   onUpdateDoor,
   onSetDoorStyle,
   onDeleteDoor,
+  onBuildSampleMaze,
   selectedDoorId = null,
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
@@ -328,7 +331,25 @@ const WalkwayManager = ({
         >
           <Plus className="h-3.5 w-3.5" /> Add Door
         </button>
+        {onBuildSampleMaze && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onBuildSampleMaze();
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground disabled:opacity-40"
+          >
+            <Wand2 className="h-3.5 w-3.5" /> Build sample maze
+          </button>
+        )}
       </div>
+
 
       {form === "hallway" && (
         <div className="rounded-xl border border-border bg-card p-3">
