@@ -1973,6 +1973,19 @@ const HallwayScene = ({
   }, [rootEffective, notifyMode, syncBreadcrumb]);
 
   /**
+   * ENTRANCE / EXIT. Clicking the entrance door at the start of the main
+   * hallway leaves the building, exactly like the Building button in the top
+   * bar. Without a handler it simply returns to the browse view.
+   */
+  const exitBuilding = useCallback(() => {
+    machineRef.current.hold = 0;
+    machineRef.current.moving = false;
+    setMoving(false);
+    if (onExitBuilding) onExitBuilding();
+    else backToBrowse();
+  }, [backToBrowse, onExitBuilding]);
+
+  /**
    * Press-and-hold to walk. `sign` is the user's intent: 1 = Forward,
    * -1 = Backward. Backward performs a real about-face first (the camera turns
    * 180° in place) and then keeps walking that way for as long as it is held.
