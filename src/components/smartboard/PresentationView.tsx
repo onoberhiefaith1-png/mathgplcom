@@ -7410,15 +7410,19 @@ const PresentationView = ({
               </BackButton>
             )}
 
-            <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
+            {!mobileBoard.phone && (
+              <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
+            )}
 
             {beats.length > 1 && (
-              <div className="flex items-center gap-1">
+              <div className={mobileStudent ? "flex w-full flex-wrap items-center gap-1" : "flex items-center gap-1"}>
                 {beats.map((b, i) => (
                   <button
                     key={b.id}
                     onClick={() => setBeatCursor(i)}
-                    className="grid h-6 min-w-6 place-items-center rounded-full border px-2 text-[11px] font-medium transition"
+                    className={`grid place-items-center rounded-full border font-medium transition ${
+                      mobileStudent ? "h-8 min-w-8 px-2 text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
+                    }`}
                     style={i === beatCursor
                       ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
                       : { borderColor: palette.chromeBorder }}
