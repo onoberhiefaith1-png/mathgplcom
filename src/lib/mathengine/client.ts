@@ -96,10 +96,16 @@ export async function runEngine(req: EngineRequest): Promise<EngineResult> {
     const built = await sceneFromResponse(last, questionText);
 
     if (!OPERATIONS_RETURNING_QUESTIONS.includes(req.operation)) {
+      // A figure operation that came back with no construction at all is a
+      // failure, not a quiet success — ask again with that said plainly.
+      if (req.operation === "generateGeometry" && !built.scene && !built.problems.length) {
+        built.problems.push("No construction program was returned, so no figure could be drawn.");
+      }
       if (built.problems.length && !built.scene && attempts < MAX_ATTEMPTS) {
         problems = built.problems;
         continue;
       }
+
       return {
         operation: req.operation,
         narration: String(last.narration ?? "").trim(),

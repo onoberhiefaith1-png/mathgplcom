@@ -102,7 +102,15 @@ export interface CoPilotBridge {
   writeQuestion?: (ref: string, text: string, signal?: AbortSignal) => Promise<void>;
   generateSolution: (ref: string, instruction: string, signal?: AbortSignal) => Promise<void>;
   buildGeometryMap: (ref: string) => Promise<void>;
+  /**
+   * Construct, verify and place the ONE figure this question needs. Returns
+   * true when a figure is now on the page (already owned, or freshly drawn),
+   * false when the question needs none. Throws when a needed figure could not
+   * be constructed — a promised figure is never silently skipped.
+   */
+  ensureDiagram?: (ref: string, instruction?: string, signal?: AbortSignal) => Promise<boolean>;
   openGeometry2D: (ref: string | null) => Promise<void>;
+
   openSmartTable: () => Promise<void>;
   openSlideCanvas: () => Promise<void>;
   openAssetLibrary: () => Promise<void>;
