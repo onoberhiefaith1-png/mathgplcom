@@ -42,6 +42,8 @@ const WalkwayManager = ({
   catalogue,
   onAddWalkway,
   onUpdateWalkway,
+  onRenameWalkway,
+  onRenameDoor,
   onDeleteWalkway,
   onAddDoor,
   onUpdateDoor,
