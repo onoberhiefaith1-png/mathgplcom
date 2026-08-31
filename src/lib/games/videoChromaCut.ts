@@ -27,6 +27,10 @@ export interface CutOptions {
   onProgress?: (fraction: number) => void;
   /** Skip detection and use this colour instead. */
   keyColor?: KeyColor;
+  /** 0..1 — how far a pixel may drift from the key colour and still be backdrop. */
+  tolerance?: number;
+  /** When false, every matching pixel is keyed, wherever it sits. */
+  protectInterior?: boolean;
 }
 
 /** Soft-edge band (in normalised chroma distance) per softness setting. */
@@ -149,7 +153,7 @@ const baseName = (name: string) =>
  */
 export const cutVideoBackground = async (
   file: File,
-  { softness = "normal", signal, onProgress, keyColor }: CutOptions = {},
+  { softness = "normal", signal, onProgress, keyColor, tolerance, protectInterior }: CutOptions = {},
 ): Promise<File> => {
   const url = URL.createObjectURL(file);
   try {
@@ -247,7 +251,7 @@ export const cutVideoBackground = async (
       const result = buildBackgroundMask(
         { data: frame.data, w: maskW, h: maskH },
         detection.color,
-        { tolerance: 0.5 },
+        { tolerance: tolerance ?? 0.5, protectInterior },
       );
       // Grow the keyable region a couple of pixels so the soft edge of the
       // subject still gets its graded alpha from the shader.
