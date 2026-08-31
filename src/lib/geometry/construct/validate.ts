@@ -64,7 +64,8 @@ export function verifyScene(scene: GeometryScene | null, question = ""): Diagram
     const centre = pointById(scene, c.center);
     if (!centre) continue;
     for (const p of points) {
-      if (p.id === c.center) continue;
+      // Only a point the reader can see can look "nearly on" the circle.
+      if (p.id === c.center || !(p as any).label || (p as any).hidden) continue;
       const d = Math.hypot(p.x - centre.x, p.y - centre.y);
       if (Math.abs(d - c.r) < 6 && Math.abs(d - c.r) > 0.9) offCircle = p.label ?? p.id;
     }

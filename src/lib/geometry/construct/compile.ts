@@ -42,7 +42,7 @@ function repairSteps(steps: any[]): any[] {
   const known = new Set<string>();
   const out: any[] = [];
   const isNorthish = (id: string) => /^(n|north)[_\-]?[a-z0-9']*$/i.test(id);
-  const isHorizontal = (id: string) => /(horiz|_line|^h[_\-]?\d*$)/i.test(id);
+  const isHorizontal = (id: string) => /(horiz|_line|_right$|^h[_\-]?\d*$)/i.test(id);
 
   for (const raw of steps) {
     const s = { ...(raw as any) };
