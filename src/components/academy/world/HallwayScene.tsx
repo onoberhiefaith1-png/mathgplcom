@@ -2236,7 +2236,7 @@ const HallwayScene = ({
   const goBack = useCallback(() => {
     const st = machineRef.current;
     if (st.phase === "turning" || st.phase === "zooming") return;
-    if (st.phase === "browse") return;
+    if (!ensureWalking()) return;
     if (!st.seg.walkway?.parent_id && st.dist < 1.5 && st.dir === -1) {
       backToBrowse();
       return;
