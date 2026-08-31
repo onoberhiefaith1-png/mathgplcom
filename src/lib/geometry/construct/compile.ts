@@ -585,7 +585,12 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
     ? mul([...pts.values()].reduce((acc, v) => add(acc, fit(v.p)), { x: 0, y: 0 }), 1 / pts.size)
     : { x: 0, y: 0 };
 
-  const hide = new Set([...(program.hide ?? []).map(String), ...hidden]);
+  // A single capital letter is a point the question talks about, so it stays
+  // lettered even when the program lists it among the helpers to hide.
+  const hide = new Set(
+    [...(program.hide ?? []).map(String), ...hidden].filter((id) => !/^[A-Z]'?\d?$/.test(id)),
+  );
+
   const fitted = new Map<string, Vec>([...pts.entries()].map(([id, v]) => [id, fit(v.p)]));
 
   /** Unit directions of the drawn edges meeting a point (fitted space). */
@@ -678,13 +683,22 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
     return best;
   };
 
+  // A board figure letters its points. An internal name like "lineABC" or
+  // "north_helper" is scaffolding the engine gave itself, never a letter a
+  // teacher writes, so it is drawn without a label.
+  // A board label is a mathematical identifier: A, O, P', O₁. Construction
+  // helpers such as L1, north or lineABC carry no meaning for a student, so
+  // their names are never printed beside a point.
+  const BOARD_LABEL = /^[A-Z]['′]?[₀-₉]?$/;
+
   const pointObjects: GeoPoint[] = [...pts.entries()].map(([id, v]) => {
     const p = fitted.get(id)!;
-    const lettered = !hide.has(id);
+    const text = v.label ?? id;
+    const lettered = !hide.has(id) && BOARD_LABEL.test(String(text).trim());
     const off = lettered ? labelOffsetFor(id) : { x: 0, y: -16 };
     return {
       id, type: "point", x: p.x, y: p.y,
-      ...(lettered ? { label: v.label ?? id } : {}),
+      ...(lettered ? { label: text } : {}),
       labelOffset: { dx: Math.round(off.x), dy: Math.round(off.y) },
       labelFontSize: 14,
       color: "#0f172a",
@@ -693,13 +707,27 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
 
 
 
+
+
   // circles/arcs carry a radius in the old space — scale it too
-  const scaled = draws.map((o) =>
-    o.type === "circle" || o.type === "arc"
-      ? { ...o, r: Math.round(o.r * scale * 100) / 100 }
-      : o.type === "label"
-        ? { ...o, ...fit({ x: o.x, y: o.y }) }
-        : o);
+  const scaled = draws.map((o) => {
+    if (o.type === "circle" || o.type === "arc") {
+      return { ...o, r: Math.round(o.r * scale * 100) / 100 };
+    }
+    if (o.type === "label") {
+      // A measurement or angle value that lands outside the frame is cut off by
+      // the viewBox, so pull it back inside, allowing for the text's own width.
+      const p = fit({ x: o.x, y: o.y });
+      const half = 3.4 * String((o as any).text ?? "").length + 4;
+      return {
+        ...o,
+        x: Math.min(Math.max(p.x, half), TARGET.width - half),
+        y: Math.min(Math.max(p.y, 12), TARGET.height - 6),
+      };
+    }
+    return o;
+  });
+
 
   const scene: GeometryScene = {
     bounds: { width: TARGET.width, height: TARGET.height },

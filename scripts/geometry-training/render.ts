@@ -17,6 +17,14 @@ export function sceneToSvg(scene: GeometryScene): string {
 
   const out: string[] = [];
   const w = scene.bounds.width, h = scene.bounds.height;
+  // A measurement or angle value that lands outside the frame is cut off, so
+  // pull it back inside allowing for the text's own width.
+  const inX = (x: number, text: string) => {
+    const half = 3.4 * String(text).length + 4;
+    return Math.min(Math.max(x, half), w - half);
+  };
+  const inY = (y: number) => Math.min(Math.max(y, 12), h - 4);
+
 
   // regions first (under the lines)
   for (const o of scene.objects) {
@@ -68,7 +76,7 @@ export function sceneToSvg(scene: GeometryScene): string {
       if (text) {
         const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1;
         const nx = -dy / l, ny = dx / l;
-        out.push(`<text x="${mid.x + nx * 13}" y="${mid.y + ny * 13 + 4}" font-size="12" fill="${ACCENT}" text-anchor="middle" font-family="system-ui">${esc(text)}</text>`);
+        out.push(`<text x="${inX(mid.x + nx * 13, String(text))}" y="${inY(mid.y + ny * 13 + 4)}" font-size="12" fill="${ACCENT}" text-anchor="middle" font-family="system-ui">${esc(text)}</text>`);
       }
     }
     if (o.type === "angle") {
@@ -95,11 +103,11 @@ export function sceneToSvg(scene: GeometryScene): string {
       }
       if (o.value) {
         const mid = (a0 + a1) / 2 + (large ? Math.PI : 0);
-        out.push(`<text x="${v.x + (r + 14) * Math.cos(mid)}" y="${v.y - (r + 14) * Math.sin(mid) + 4}" font-size="12" fill="${ACCENT}" text-anchor="middle" font-family="system-ui">${esc(o.value)}</text>`);
+        out.push(`<text x="${inX(v.x + (r + 14) * Math.cos(mid), String(o.value))}" y="${inY(v.y - (r + 14) * Math.sin(mid) + 4)}" font-size="12" fill="${ACCENT}" text-anchor="middle" font-family="system-ui">${esc(o.value)}</text>`);
       }
     }
     if (o.type === "label") {
-      out.push(`<text x="${o.x}" y="${o.y}" font-size="${(o as any).fontSize ?? 13}" fill="${INK}" text-anchor="middle" font-family="system-ui">${esc(o.text)}</text>`);
+      out.push(`<text x="${inX(o.x, String(o.text))}" y="${inY(o.y)}" font-size="${(o as any).fontSize ?? 13}" fill="${INK}" text-anchor="middle" font-family="system-ui">${esc(o.text)}</text>`);
     }
   }
 

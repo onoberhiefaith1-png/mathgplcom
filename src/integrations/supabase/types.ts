@@ -1228,6 +1228,64 @@ export type Database = {
           },
         ]
       }
+      building_walkway_links: {
+        Row: {
+          building_id: string
+          created_at: string
+          created_by: string | null
+          from_position: number
+          from_walkway_id: string
+          id: string
+          to_position: number
+          to_walkway_id: string
+          updated_at: string
+        }
+        Insert: {
+          building_id: string
+          created_at?: string
+          created_by?: string | null
+          from_position?: number
+          from_walkway_id: string
+          id?: string
+          to_position?: number
+          to_walkway_id: string
+          updated_at?: string
+        }
+        Update: {
+          building_id?: string
+          created_at?: string
+          created_by?: string | null
+          from_position?: number
+          from_walkway_id?: string
+          id?: string
+          to_position?: number
+          to_walkway_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_walkway_links_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_walkway_links_from_walkway_id_fkey"
+            columns: ["from_walkway_id"]
+            isOneToOne: false
+            referencedRelation: "building_walkways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_walkway_links_to_walkway_id_fkey"
+            columns: ["to_walkway_id"]
+            isOneToOne: false
+            referencedRelation: "building_walkways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       building_walkways: {
         Row: {
           building_id: string

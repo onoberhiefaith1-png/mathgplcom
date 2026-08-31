@@ -723,8 +723,14 @@ function renderObject(
       const baseLx = cx + Math.cos(labelAngle) * (r + 12);
       const baseLy = cy - Math.sin(labelAngle) * (r + 12);
       const vOff = (o as any).valueOffset as { dx: number; dy: number } | undefined;
-      const lx = vOff ? baseLx + vOff.dx : baseLx;
-      const ly = vOff ? baseLy + vOff.dy : baseLy;
+      // An angle value that lands outside the frame is cut off by the viewBox,
+      // so keep it inside, allowing for the text's own width.
+      const vHalf = 3.4 * String(o.value ?? "").length + 4;
+      const rawLx = vOff ? baseLx + vOff.dx : baseLx;
+      const rawLy = vOff ? baseLy + vOff.dy : baseLy;
+      const lx = Math.min(Math.max(rawLx, vHalf), scene.bounds.width + 2 * pad - vHalf);
+      const ly = Math.min(Math.max(rawLy, 10), scene.bounds.height + 2 * pad - 6);
+
       return (
         <g key={o.id}>
           <path
