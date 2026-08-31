@@ -144,7 +144,10 @@ export interface GeneratedVideoMeta {
   /** captions burned into the picture */
   burnedSubtitles?: boolean;
   subtitleLanguage?: string;
+  /** warnings the user accepted with "Proceed anyway" when this file was produced */
+  overrides?: string[];
 }
+
 
 export interface StageMeta {
   status: StageStatus;
@@ -191,6 +194,13 @@ export interface WorkflowState {
   activeBranch: string;
   /** stored state of the branches that are not currently open */
   snapshots: Record<string, BranchSnapshot>;
+  /**
+   * Warnings the user accepted with "Proceed anyway": "stage:code" → the
+   * content fingerprint that was accepted. Changing the content behind a
+   * warning changes the fingerprint, which brings the warning back.
+   */
+  overrides: Record<string, string>;
+
 }
 
 export function createWorkflow(): WorkflowState {
@@ -223,6 +233,8 @@ export function createWorkflow(): WorkflowState {
     branches: [],
     activeBranch: ORIGINAL_BRANCH,
     snapshots: {},
+    overrides: {},
+
   };
 }
 

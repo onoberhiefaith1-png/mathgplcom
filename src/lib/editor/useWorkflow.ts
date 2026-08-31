@@ -46,6 +46,10 @@ import {
   type SavedVersion,
   type GeneratedVideoMeta,
 } from "./workflow";
+import { blockerKey, computeBlockers, type StageBlocker } from "./blockers";
+
+export type { StageBlocker };
+
 
 export interface GeneratedVideoAsset {
   blob: Blob;
@@ -176,6 +180,17 @@ export interface WorkflowApi {
   versionTracks: Record<string, Blob>;
   downloadVersion: (id: string) => void;
   publish: (note: string) => void;
+
+  /* stated errors + "Proceed anyway" */
+  /** every stated problem right now, including ones already accepted */
+  blockers: StageBlocker[];
+  /** unresolved problems for one stage — what the stage panel states */
+  blockersFor: (stage: StageId) => StageBlocker[];
+  /** true when this exact problem was accepted with "Proceed anyway" */
+  isOverridden: (stage: StageId, code: string) => boolean;
+  /** accept every non-fatal problem on this stage and carry on */
+  proceedAnyway: (stage: StageId) => void;
+
 }
 
 export interface TimingFit {
@@ -1179,6 +1194,101 @@ export function useWorkflow({ file, clips, onDirty }: Options): WorkflowApi {
     [onDirty],
   );
 
+  /* ---------------- Stated errors + "Proceed anyway" ---------------- */
+
+  const blockers = useMemo(
+    () =>
+      computeBlockers({
+        state,
+        hasFile: Boolean(file),
+        clipCount: clips.length,
+        hasAudio: Boolean(state.audio),
+        audioStale,
+        transcriptStale,
+        staleParaphraseIds,
+        translating,
+        untranslatedIds,
+        missingVoiceIds,
+        voiceMismatchIds,
+        pendingVoiceIds,
+        fits,
+        cueCount: cues.length,
+        subtitlePendingIds,
+        hasTrack: Boolean(generatedTrack),
+        hasVideo: Boolean(generatedVideo),
+      }),
+    [
+      audioStale,
+      clips.length,
+      cues.length,
+      file,
+      fits,
+      generatedTrack,
+      generatedVideo,
+      missingVoiceIds,
+      pendingVoiceIds,
+      staleParaphraseIds,
+      state,
+      subtitlePendingIds,
+      transcriptStale,
+      translating,
+      untranslatedIds,
+      voiceMismatchIds,
+    ],
+  );
+
+  const overrides = state.overrides ?? {};
+
+  /** A problem counts as accepted only while the content behind it is unchanged. */
+  const accepted = useCallback(
+    (blocker: StageBlocker) => overrides[blockerKey(blocker)] === blocker.signature,
+    [overrides],
+  );
+
+  const blockersFor = useCallback(
+    (stage: StageId) => blockers.filter((b) => b.stage === stage && !accepted(b)),
+    [accepted, blockers],
+  );
+
+  const isOverridden = useCallback(
+    (stage: StageId, code: string) => {
+      const blocker = blockers.find((b) => b.stage === stage && b.code === code);
+      return blocker ? accepted(blocker) : false;
+    },
+    [accepted, blockers],
+  );
+
+  const proceedAnyway = useCallback(
+    (stage: StageId) => {
+      const codes = new Set(
+        blockers.filter((b) => b.stage === stage && !b.fatal).map((b) => b.code),
+      );
+      // Accepting a problem accepts it wherever it is stated: the same overflow
+      // is reported by the timing stage and the final preview.
+      const open = blockers.filter((b) => !b.fatal && codes.has(b.code) && !accepted(b));
+      if (open.length === 0) return;
+      setState((s) => {
+        const next = { ...(s.overrides ?? {}) };
+        for (const b of open) next[blockerKey(b)] = b.signature;
+        return { ...s, overrides: next };
+      });
+      onDirty();
+      toast.success(
+        open.length === 1
+          ? "Accepted — continuing with that warning"
+          : `Accepted ${open.length} warnings — continuing`,
+      );
+    },
+    [accepted, blockers, onDirty],
+  );
+
+  /** Names of the accepted warnings, for labelling rendered files. */
+  const acceptedLabels = useCallback(
+    () => blockers.filter(accepted).map((b) => `${b.stage}:${b.code}`),
+    [accepted, blockers],
+  );
+
+
   const exportSubtitles = useCallback(
     (format: "srt" | "vtt") => {
       if (cues.length === 0) {
@@ -1244,7 +1354,9 @@ export function useWorkflow({ file, clips, onDirty }: Options): WorkflowApi {
         at: Date.now(),
         burnedSubtitles: Boolean(rendered.burnedSubtitles),
         ...(rendered.burnedSubtitles ? { subtitleLanguage } : {}),
+        ...(acceptedLabels().length > 0 ? { overrides: acceptedLabels() } : {}),
       };
+
       const asset: GeneratedVideoAsset = {
         blob: rendered.blob,
         url: URL.createObjectURL(rendered.blob),
@@ -1271,6 +1383,7 @@ export function useWorkflow({ file, clips, onDirty }: Options): WorkflowApi {
     }
     },
     [
+      acceptedLabels,
       cues,
       file,
       generatedTrack,
@@ -1280,6 +1393,7 @@ export function useWorkflow({ file, clips, onDirty }: Options): WorkflowApi {
       subtitleLanguage,
     ],
   );
+
 
   const downloadVideo = useCallback(() => {
     if (!generatedVideo) {
@@ -1323,37 +1437,44 @@ export function useWorkflow({ file, clips, onDirty }: Options): WorkflowApi {
     }
     setBusy(9);
     try {
-      // VOICE LOCK: never assemble a track that would switch voice mid-lesson.
-      if (voiceMismatchIds.length > 0) {
-        toast.error(
-          `${voiceMismatchIds.length} segment(s) were generated with a different voice — regenerate them with your default voice in Stage 6 first`,
-        );
+      // Everything that would stop the mix is stated on the stage. Only the
+      // warnings that have NOT been accepted with "Proceed anyway" stop it here.
+      const open = blockersFor(9).filter((b) => b.code !== "track-missing");
+      if (open.length > 0) {
+        toast.error(`${open[0]!.message} — see the stage for details, or Proceed anyway`);
         setBusy(null);
         return;
       }
-      const blocked = fits.filter((fit) => fit.status === "over" || fit.status === "manual");
-      if (blocked.length > 0) {
-        toast.error(
-          `${blocked.length} segment${blocked.length === 1 ? "" : "s"} still overflow their original clip — fix them in Stage 7 first`,
-        );
-        setBusy(null);
-        return;
-      }
+      // Overflow accepted → the speech keeps its full length and is allowed to
+      // run past the end of its clip instead of being clamped to it.
+      const overflowAccepted = isOverridden(9, "overflow");
+      const overflowIds = new Set(
+        fits.filter((f) => f.status === "over" || f.status === "manual").map((f) => f.id),
+      );
       const placed = [];
+      let latest = 0;
       for (let i = 0; i < ready.length; i++) {
         const segment = ready[i]!;
         setProgress(`Mixing generated audio — ${i + 1} of ${ready.length}…`);
         const samples = await decodeToMono(voiceClips[segment.id]!);
         const start = Math.max(0, segment.start + (state.offsets[segment.id] ?? 0));
+        const scaled = applySpeed(samples, state.timing[segment.id] ?? 1);
+        const runOver = overflowAccepted && overflowIds.has(segment.id);
+        latest = Math.max(latest, start + scaled.length / TARGET_RATE);
         placed.push({
           start,
           // The container is fixed: speech first, silence after, never spilling
-          // into the next clip.
-          containerEnd: segment.end,
-          samples: applySpeed(samples, state.timing[segment.id] ?? 1),
+          // into the next clip — unless the user accepted the overflow.
+          ...(runOver ? {} : { containerEnd: segment.end }),
+          samples: scaled,
         });
       }
-      const total = Math.max(state.audio?.duration ?? 0, ...ready.map((segment) => segment.end));
+
+      const total = Math.max(
+        state.audio?.duration ?? 0,
+        latest,
+        ...ready.map((segment) => segment.end),
+      );
       let bed: Float32Array | null = null;
       if (state.mix.keepOriginal && audio) {
         setProgress("Mixing the original audio underneath…");
@@ -1381,7 +1502,12 @@ export function useWorkflow({ file, clips, onDirty }: Options): WorkflowApi {
         return null;
       });
       onDirty();
-      toast.success("Generated audio track assembled against the original timing");
+      toast.success(
+        overflowAccepted
+          ? "Generated audio track assembled — accepted segments run over their clip"
+          : "Generated audio track assembled against the original timing",
+      );
+
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not build the generated track");
     } finally {
@@ -1390,7 +1516,9 @@ export function useWorkflow({ file, clips, onDirty }: Options): WorkflowApi {
     }
   }, [
     audio,
+    blockersFor,
     fits,
+    isOverridden,
     onDirty,
     state.audio,
     state.mix,
@@ -1398,8 +1526,8 @@ export function useWorkflow({ file, clips, onDirty }: Options): WorkflowApi {
     state.timing,
     state.transcript,
     voiceClips,
-    voiceMismatchIds,
   ]);
+
 
   const exportAudio = useCallback(() => {
     if (!generatedTrack) {
@@ -1772,6 +1900,11 @@ export function useWorkflow({ file, clips, onDirty }: Options): WorkflowApi {
     deleteBranch,
     branchClips,
     branchTracks,
+    blockers,
+    blockersFor,
+    isOverridden,
+    proceedAnyway,
+
   };
 }
 
