@@ -350,7 +350,33 @@ export function useCoPilotConversation(
         } else {
           await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false, runController.signal);
         }
+        // THE PROMISED FIGURE. An item whose mathematics needs a diagram gets
+        // one constructed and placed here — the blueprint's promise is binding,
+        // so the note can never ship a figure-referring question with no figure.
+        let figureMissing = false;
+        if (!cancelledRef.current && bridge.ensureDiagram) {
+          const { figureNeeded } = await import("@/lib/lessonnotes/figureNeed");
+          const text = approved || bridge.snapshot()?.entries.find((e) => e.ref === ref)?.questionText || "";
+          if (figureNeeded(text, item.needsDiagram)) {
+            setLifecycle("validating");
+            const draw = () => bridge.ensureDiagram!(
+              ref,
+              "This item needs an accurate, fully labelled 2D figure.",
+              runController.signal,
+            );
+            try {
+              await draw();
+            } catch (figureError) {
+              if (isAbort(figureError)) throw figureError;
+              try { await draw(); } catch (again) {
+                if (isAbort(again)) throw again;
+                figureMissing = true;
+              }
+            }
+          }
+        }
         let solutionMissing = false;
+
         if (item.withSolution && !cancelledRef.current) {
           setLifecycle("validating");
           const solve = () => bridge.generateSolution(
@@ -383,13 +409,18 @@ export function useCoPilotConversation(
         }
         // The committed question is the linked pair's anchor: a later edit to it
         // is what marks the solution stale.
+        const { FIGURE_FAILED_DETAIL } = await import("@/lib/lessonnotes/figureNeed");
         mark(item.key, {
           state: "done",
           ref,
           committedQuestion: approved,
           solutionStale: solutionMissing,
-          detail: solutionMissing ? "The solution did not come through — rebuild it." : undefined,
+          detail: solutionMissing
+            ? "The solution did not come through — rebuild it."
+            : figureMissing ? FIGURE_FAILED_DETAIL : undefined,
         });
+        if (figureMissing) say(`${item.label}: ${FIGURE_FAILED_DETAIL}`);
+
       } catch (e) {
         if (isAbort(e)) {
           mark(item.key, { state: "pending" });

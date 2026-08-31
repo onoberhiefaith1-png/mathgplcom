@@ -155,6 +155,17 @@ export function buildEnginePrompt(input: EnginePromptInput): string {
        "generateAssignment", "generateLessonSection"].includes(input.operation)) {
     lines.push("", CONSTRUCTION_STANDARD);
   }
+  if (input.operation === "generateGeometry") {
+    lines.push(
+      "",
+      "FIGURE IS MANDATORY: \"construction\" must NOT be null. The question above",
+      "refers to a figure, so return a construction program that contains every",
+      "point, line, circle, angle and mark the question names, each lettered",
+      "exactly as the question letters them. Never return prose instead of a",
+      "construction, and never invent raw coordinates.",
+    );
+  }
+
   lines.push("", SHAPE);
   return lines.join("\n");
 }

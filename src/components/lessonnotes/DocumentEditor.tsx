@@ -2957,6 +2957,64 @@ function DocumentEditorInner({
     });
   };
 
+  /**
+   * THE PROMISED FIGURE. When a question's mathematics only makes sense with a
+   * figure, the figure is CONSTRUCTED by the Math Engine, solved into exact
+   * coordinates and verified before it is placed — never painted, never faked.
+   * It lands at the end of the question body, above the Solution heading, and
+   * is owned by that question forever. Returns false when no figure is needed.
+   */
+  const copilotEnsureDiagram = async (
+    ref: string,
+    instruction?: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> => {
+    if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
+    const hit = copilotResolve(ref);
+    const questionText = hit.entry.questionText.trim();
+    const { figureNeeded } = await import("@/lib/lessonnotes/figureNeed");
+    if (!figureNeeded(questionText, Boolean(instruction && /diagram|figure/i.test(instruction)))) {
+      return false;
+    }
+    // One question owns one diagram: an existing figure is reused, never doubled.
+    if (hit.entry.hasDiagram) return true;
+
+    const ctx = contextAt(hit.headingPos);
+    const { generateGeometry } = await import("@/lib/mathengine/client");
+    const res = await generateGeometry({
+      question: questionText,
+      instruction: [
+        "Construct the figure this question refers to, exactly as the question describes it.",
+        "Every point, line, angle and mark the question names must be present and lettered.",
+        instruction ?? "",
+      ].filter(Boolean).join(" "),
+      topic: ctx?.topic ?? "",
+      subtopic: ctx?.subtopic ?? "",
+      sectionKind: "geometry",
+      signal,
+    });
+    if (!res.scene) throw new Error("The figure for this question could not be constructed and verified.");
+
+    if (!editorAlive(editor)) throw new Error("The lesson note is not ready.");
+    const fresh = copilotResolve(ref);
+    const sol = copilotSolutionHeading(fresh.headingPos);
+    const at = Math.min(
+      sol ? sol.pos : sectionEndWithin(editor.state.doc, fresh.headingPos),
+      editor.state.doc.content.size,
+    );
+    editor.chain().focus().insertContentAt(at, {
+      type: "geometryDiagram",
+      attrs: {
+        scene: res.scene,
+        topic: ctx?.subtopic ?? ctx?.topic ?? null,
+        diagramId: newDiagramId(),
+        ownerQuestionId: ensureOwnerQuestionId(editor, fresh.headingPos),
+      },
+    }).run();
+    return true;
+  };
+
+
 
   useEffect(() => {
     const ref = copilotBridgeRef;
@@ -3019,6 +3077,8 @@ function DocumentEditorInner({
         const end = sectionEndWithin(doc, hit.headingPos);
         offerGeometryMap({ from: hit.headingPos + hit.node.nodeSize, to: end });
       },
+      ensureDiagram: async (ref2, instruction, signal) => copilotEnsureDiagram(ref2, instruction, signal),
+
       openGeometry2D: async (ref2) => {
         if (ref2 && editorAlive(editor)) {
           try {
