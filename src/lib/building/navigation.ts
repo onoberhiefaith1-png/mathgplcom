@@ -38,14 +38,107 @@ export const forwardFromYaw = (yaw: number): [number, number] => [-Math.sin(yaw)
 /** Heading pointing back the way a segment came. */
 export const reverseHeading = (h: [number, number]): [number, number] => [-h[0], -h[1]];
 
-/** Rotate a heading left/right by 90° (or keep it). */
-export const turnHeading = (h: [number, number], dir: WalkwayDirection): [number, number] => {
-  if (dir === "forward") return h;
-  const theta = dir === "left" ? Math.PI / 2 : -Math.PI / 2;
+/** Rotate a heading by an arbitrary angle (positive = to the player's left). */
+export const rotateHeading = (h: [number, number], theta: number): [number, number] => {
   const c = Math.cos(theta);
   const s = Math.sin(theta);
   return [h[0] * c + h[1] * s, -h[0] * s + h[1] * c];
 };
+
+/** Rotate a heading left/right by 90° (or keep it). */
+export const turnHeading = (h: [number, number], dir: WalkwayDirection): [number, number] => {
+  if (dir === "forward") return h;
+  return rotateHeading(h, dir === "left" ? Math.PI / 2 : -Math.PI / 2);
+};
+
+/**
+ * A branch hallway leaves its parent at an OPEN DIAGONAL, not a right angle, so
+ * from one standing position you see the hallway you are in and the connected
+ * hallway through the same opening. 60° is the reference geometry.
+ */
+export const BRANCH_ANGLE = (60 * Math.PI) / 180;
+
+/** Heading of a hallway branching off `h` on the given side. */
+export const branchHeading = (h: [number, number], dir: WalkwayDirection): [number, number] => {
+  if (dir === "forward") return h;
+  return rotateHeading(h, dir === "left" ? BRANCH_ANGLE : -BRANCH_ANGLE);
+};
+
+/**
+ * Which side the NEXT hallway added to a road takes. The teacher never chooses:
+ * branches alternate right → left → right → left along the road, so a hallway
+ * opening and a door can never end up directly opposite each other.
+ */
+export function nextBranchDirection(
+  walkways: BuildingWalkway[],
+  parentId: string,
+): WalkwayDirection {
+  const branches = walkways.filter((w) => w.parent_id === parentId && w.direction !== "forward");
+  return branches.length % 2 === 0 ? "right" : "left";
+}
+
+/**
+ * Where the next object goes along a road (0–1): after everything already on it,
+ * so hallways and doors interleave in the order they were added.
+ */
+export function nextObjectOffset(existing: number[]): number {
+  const last = existing.length ? Math.max(...existing) : 0;
+  return Math.min(0.94, Math.max(0.12, last + 0.16));
+}
+
+/** Physical size of a hallway-to-hallway cut-through in a wall. */
+export interface OpeningFootprint {
+  /** width of the gap measured along the parent wall */
+  width: number;
+  /** depth of the reveal returning into the branch (wall thickness) */
+  jambDepth: number;
+  /** wall thickness shown at the edges of the cut */
+  jambWidth: number;
+  /** height of the soffit beam spanning over the cut */
+  soffit: number;
+  /** angle the reveal is splayed to, matching the branch corridor */
+  splay: number;
+}
+
+/**
+ * One source of truth for the cut geometry, so the 3D opening, the solid wall
+ * runs either side of it and the map junction can never disagree.
+ */
+export function openingFootprint(hallWidth: number): OpeningFootprint {
+  return {
+    width: Math.max(4.5, hallWidth * 1.15),
+    jambDepth: 0.85,
+    jambWidth: 0.34,
+    soffit: 0.55,
+    splay: BRANCH_ANGLE,
+  };
+}
+
+/**
+ * The solid runs of one hallway wall once its cut-throughs are removed. The
+ * wall genuinely STOPS at an opening — it is never a hole punched through a
+ * single continuous plane.
+ */
+export function wallRuns(
+  from: number,
+  to: number,
+  gaps: { along: number; width: number }[],
+): [number, number][] {
+  const holes = gaps
+    .map((g) => [g.along - g.width / 2, g.along + g.width / 2] as [number, number])
+    .sort((a, b) => a[0] - b[0]);
+  const runs: [number, number][] = [];
+  let cursor = from;
+  for (const [a, b] of holes) {
+    if (b <= cursor) continue;
+    if (a > cursor) runs.push([cursor, Math.min(a, to)]);
+    cursor = Math.max(cursor, b);
+    if (cursor >= to) break;
+  }
+  if (cursor < to) runs.push([cursor, to]);
+  return runs.filter(([a, b]) => b - a > 0.05);
+}
+
 
 /** Smoothstep easing for turns and door zooms. */
 export const easeInOut = (t: number): number =>
@@ -110,7 +203,7 @@ export function compileNavGraph(
         const along =
           k.direction === "forward" ? length : junctionDistance(length, k.junction_at ?? 0.5);
         const at: [number, number] = [start[0] + heading[0] * along, start[1] + heading[1] * along];
-        return walk(k, at, turnHeading(heading, k.direction), depth + 1, w.id, k.direction);
+        return walk(k, at, branchHeading(heading, k.direction), depth + 1, w.id, k.direction);
       }),
     );
     return node;

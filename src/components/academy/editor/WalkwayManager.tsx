@@ -19,6 +19,7 @@ import type {
 } from "@/lib/building/types";
 import { DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
+import { nextBranchDirection, nextObjectOffset } from "@/lib/building/navigation";
 import { DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
 import { DOOR_STYLES } from "@/lib/building/doors";
 import type { AcademyProduct, AcademyProductKind } from "@/lib/academy/types";
@@ -63,11 +64,12 @@ export interface WalkwayManagerProps {
 }
 
 /**
- * A hallway is a road. Adding a hallway means adding a PERPENDICULAR road at a
- * junction, so the only choices are Left and Right — a road is never "extended"
- * by hand; it grows automatically as doors and junctions are added to it.
+ * A hallway is a road. Adding a hallway adds another road connected to it
+ * through a real cut in its wall — the teacher never picks a side or a
+ * position: branches alternate right → left → right → left along the road and
+ * fall in after everything already on it, so a hallway opening and a door can
+ * never end up directly opposite each other.
  */
-const DIRECTIONS: WalkwayDirection[] = ["left", "right"];
 
 const WalkwayManager = ({
   walkways,
@@ -91,10 +93,6 @@ const WalkwayManager = ({
 
   // Add Hallway form state
   const [hallParent, setHallParent] = useState<string>("");
-  const [hallDir, setHallDir] = useState<WalkwayDirection>("left");
-  /** Where along the parent road the new junction opens, as a percentage. */
-  const [hallJunction, setHallJunction] = useState(50);
-
   const [hallName, setHallName] = useState("");
 
   // Add Door form state
@@ -142,16 +140,24 @@ const WalkwayManager = ({
     return out;
   }, [walkways]);
 
-  /** Directions already used at a junction — one child per direction keeps the tree. */
-  const takenAt = (parentId: string): WalkwayDirection[] =>
-    walkways.filter((w) => w.parent_id === parentId).map((w) => w.direction);
+  /**
+   * The side and the position of a new junction are decided by the road itself:
+   * branches alternate right → left, and the junction lands after everything
+   * already on that hallway, so a hallway and a door are never opposite.
+   */
+  const autoDirection = (parentId: string): WalkwayDirection =>
+    parentId ? nextBranchDirection(walkways, parentId) : "forward";
+  const autoJunction = (parentId: string): number =>
+    nextObjectOffset([
+      ...doors.filter((d) => d.walkway_id === parentId).map((d) => d.position_along),
+      ...walkways
+        .filter((w) => w.parent_id === parentId && w.direction !== "forward")
+        .map((w) => w.junction_at ?? 0.5),
+    ]);
 
   const openHallwayForm = (parentId?: string) => {
     const parent = parentId || hallParent || roots[0]?.id || "";
     setHallParent(parent);
-    const taken = parent ? takenAt(parent) : [];
-    setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "left");
-    setHallJunction(50);
     setHallName("");
     setFormError("");
     setForm("hallway");
@@ -173,9 +179,9 @@ const WalkwayManager = ({
     try {
       await onAddWalkway(
         roots.length === 0 ? null : hallParent,
-        roots.length === 0 ? "forward" : hallDir,
+        roots.length === 0 ? "forward" : autoDirection(hallParent),
         hallName,
-        hallJunction / 100,
+        roots.length === 0 ? 0.5 : autoJunction(hallParent),
       );
       setForm(null);
     } catch (e: unknown) {
@@ -205,7 +211,8 @@ const WalkwayManager = ({
     }
   };
 
-  const hallTaken = hallParent ? takenAt(hallParent) : [];
+  /** Which wall the next hallway will cut through — shown, never chosen. */
+  const autoSide = hallParent ? (autoDirection(hallParent) === "left" ? "left" : "right") : "right";
 
   const WalkwayRow = ({ w, depth }: { w: BuildingWalkway; depth: number }) => {
     const kids = childrenOf(w.id);
@@ -420,11 +427,7 @@ const WalkwayManager = ({
                 <select
                   aria-label="Connect to hallway"
                   value={hallParent}
-                  onChange={(e) => {
-                    setHallParent(e.target.value);
-                    const taken = takenAt(e.target.value);
-                    setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "left");
-                  }}
+                  onChange={(e) => setHallParent(e.target.value)}
                   className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
                 >
                   {flat.map(({ w, depth }) => (
@@ -435,44 +438,15 @@ const WalkwayManager = ({
                   ))}
                 </select>
               </label>
-              <div className="mt-2 text-[11px] text-muted-foreground">
-                Direction
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {DIRECTIONS.map((d) => {
-                    const disabled = hallTaken.includes(d);
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => setHallDir(d)}
-                        className={`min-h-[34px] rounded-full px-3 text-[11px] font-semibold ${
-                          hallDir === d
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border text-muted-foreground"
-                        } disabled:opacity-35`}
-                      >
-                        {d === "left" ? "Left" : "Right"}
-                        {disabled ? " · taken" : ""}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <label className="mt-2 block text-[11px] text-muted-foreground">
-                Junction position along {flat.find((f) => f.w.id === hallParent)?.w.name ?? "hallway"} ·{" "}
-                {hallJunction}%
-                <input
-                  aria-label="Junction position along parent"
-                  type="range"
-                  min={5}
-                  max={95}
-                  step={5}
-                  value={hallJunction}
-                  onChange={(e) => setHallJunction(Number(e.target.value))}
-                  className="mt-1 w-full"
-                />
-              </label>
+              <p className="mt-2 rounded-lg border border-border bg-muted/40 p-2 text-[11px] text-muted-foreground">
+                The new hallway leaves{" "}
+                <strong className="text-foreground">
+                  {flat.find((f) => f.w.id === hallParent)?.w.name ?? "this hallway"}
+                </strong>{" "}
+                on the <strong className="text-foreground">{autoSide}</strong> through a cut in its
+                wall, after everything already on that road. Sides alternate right, left, right —
+                you never have to choose.
+              </p>
             </>
           )}
           <label className="mt-2 block text-[11px] text-muted-foreground">
@@ -494,7 +468,7 @@ const WalkwayManager = ({
             <button
               type="button"
               onClick={submitHallway}
-              disabled={busy || (roots.length > 0 && (!hallParent || hallTaken.includes(hallDir)))}
+              disabled={busy || (roots.length > 0 && !hallParent)}
               className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
             >
               {busy ? "Creating…" : "Create Hallway"}
@@ -506,11 +480,6 @@ const WalkwayManager = ({
             >
               Cancel
             </button>
-            {roots.length > 0 && hallTaken.includes(hallDir) && (
-              <span className="text-[11px] text-muted-foreground">
-                That side of this hallway already has a branch — pick the other one.
-              </span>
-            )}
           </div>
         </div>
       )}
