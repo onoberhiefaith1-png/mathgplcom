@@ -8,7 +8,7 @@
 // Only flat backgrounds are cut. When detection says the background is busy the
 // caller gets a NotKeyableError and should store the original video untouched.
 
-import { detectMediaBackground, type KeyColor } from "./removeBackground";
+import { detectMediaBackground, isLowSaturation, type KeyColor } from "./removeBackground";
 
 export type EdgeSoftness = "tight" | "normal" | "soft";
 
