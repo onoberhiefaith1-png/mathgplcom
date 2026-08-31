@@ -627,6 +627,42 @@ export function connectorMeeting(
 }
 
 /**
+ * WALKWAYS CAN NEVER CROSS THROUGH ONE ANOTHER.
+ *
+ * A road that grows towards a road that already exists must STOP at the wall it
+ * reaches and merge into a junction there. This solves one road against every
+ * other road in the plan and returns the first one it would enter, together with
+ * the trimmed length and the exact mouth position on the road it met.
+ *
+ * `exclude` carries the ids a road is allowed to touch: its own parent (whose
+ * mouth it begins in) and its own children (which begin in its walls).
+ */
+export interface RoadMeeting extends ConnectorMeeting {
+  /** the road that stops this one */
+  targetId: string;
+}
+
+export function firstRoadMeeting(
+  road: { id: string; start: [number, number]; heading: [number, number]; length: number },
+  others: (RoadLine & { id: string })[],
+  hallWidth: number,
+  exclude: Set<string> = new Set(),
+): RoadMeeting | null {
+  const hits: RoadMeeting[] = [];
+  for (const other of others) {
+    if (other.id === road.id || exclude.has(other.id)) continue;
+    const meet = connectorMeeting({ start: road.start, heading: road.heading }, other, hallWidth);
+    if (!meet) continue;
+    // Only a road it would actually run INTO is a merge. A meeting further away
+    // than this road reaches is simply two roads that never touch.
+    if (meet.crossingDistance > road.length) continue;
+    hits.push({ ...meet, targetId: other.id });
+  }
+  hits.sort((a, b) => a.length - b.length);
+  return hits[0] ?? null;
+}
+
+/**
  * Insert a mouth whose position comes from GEOMETRY (a connector arriving from
  * another hallway) into a hallway's object layout, pushing any door that would
  * otherwise sit at the junction edge one slot further down the road.
