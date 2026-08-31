@@ -38,6 +38,7 @@ import {
   easeInOut,
   forwardFromYaw,
   layoutHallwayObjects,
+  lengthForObjects,
   NavigationHistory,
   parentConnectionAnchor,
 
@@ -45,6 +46,7 @@ import {
   segYaw,
   turnHeading,
 } from "@/lib/building/navigation";
+
 import type { HallwayObject } from "@/lib/building/navigation";
 
 const SPACING = 7.5; // minimum distance between objects along a hallway
