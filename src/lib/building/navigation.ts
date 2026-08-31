@@ -504,6 +504,85 @@ export function hallwayLength(
   return Math.max(pad + spacing, last + Math.max(pad, spacing * 0.8));
 }
 
+// ── Connector corridors (Connect Hallway) ─────────────────────────────────
+
+/** A road in plan form: where it starts, which way it runs and how long it is. */
+export interface RoadLine {
+  start: [number, number];
+  heading: [number, number];
+  length: number;
+}
+
+/**
+ * Where a CONNECTOR corridor meets an existing hallway.
+ *
+ * A connector is a real road: it leaves one hallway through a junction mouth and
+ * runs until it reaches the hallway it connects to, where it STOPS — it never
+ * passes through it. This solves the two centre lines, so the corridor's length
+ * is trimmed at the target's near wall and the target gains a mouth at the exact
+ * meeting point.
+ */
+export interface ConnectorMeeting {
+  /** trimmed corridor length: it stops at the target hallway's near wall */
+  length: number;
+  /** distance along the TARGET hallway where the mouth opens */
+  alongTarget: number;
+  /** which of the target's walls the corridor arrives at (-1 left, +1 right) */
+  targetSide: -1 | 1;
+}
+
+export function connectorMeeting(
+  corridor: { start: [number, number]; heading: [number, number] },
+  target: RoadLine,
+  hallWidth: number,
+): ConnectorMeeting | null {
+  const [cx, cz] = corridor.start;
+  const [chx, chz] = corridor.heading;
+  const [tx, tz] = target.start;
+  const [thx, thz] = target.heading;
+  const det = chx * -thz - chz * -thx;
+  if (Math.abs(det) < 1e-6) return null; // parallel roads never meet
+  const rx = tx - cx;
+  const rz = tz - cz;
+  // Solve  corridor.start + t*ch = target.start + s*th
+  const t = (rx * -thz - rz * -thx) / det;
+  const s = (chx * rz - chz * rx) / det;
+  const half = hallWidth / 2;
+  const trimmed = t - half;
+  if (trimmed < half) return null; // the hallways already touch
+  if (s < half || s > target.length - half) return null; // meets past the road's end
+  // Which side of the target the corridor comes from: sign of the cross product
+  // of the target's heading with the corridor's approach.
+  const cross = thx * -chz - thz * -chx;
+  return {
+    length: trimmed,
+    alongTarget: s,
+    targetSide: cross >= 0 ? 1 : -1,
+  };
+}
+
+/**
+ * Insert a mouth whose position comes from GEOMETRY (a connector arriving from
+ * another hallway) into a hallway's object layout, pushing any door that would
+ * otherwise sit at the junction edge one slot further down the road.
+ */
+export function insertGeometricMouth(
+  objects: HallwayObject[],
+  mouth: HallwayObject,
+  spacing = OBJECT_SPACING,
+): HallwayObject[] {
+  const clear = spacing * 0.9;
+  const shifted = objects.map((o) => {
+    if (o.kind !== "door") return o;
+    let along = o.along;
+    let guard = 0;
+    while (Math.abs(along - mouth.along) < clear && guard++ < 8) along += spacing;
+    return along === o.along ? o : { ...o, along };
+  });
+  return [...shifted, mouth].sort((a, b) => a.along - b.along);
+}
+
+
 /**
  * Navigation history — a stack of visited node ids (root first). Branch turns
  * push, retracing pops, so the stack is always the path from the entrance.
