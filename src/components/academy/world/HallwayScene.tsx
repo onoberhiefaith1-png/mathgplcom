@@ -1984,12 +1984,13 @@ const HallwayScene = ({
             if (fwd) pickBranch(fwd);
             else if (st.seg.children.length === 0) showCue("End of walkway");
           } else {
-            st.moving = true;
-            setMoving(true);
+            // Held key = held Forward button: movement lasts only while down.
+            startHold();
           }
         }
         return;
       }
+
       if (key === "ArrowDown" || key === "s" || key === "S") {
         if (st.phase === "browse") onFocusChange(Math.max(0, focus - 1));
         else if (st.phase === "walking" || st.phase === "idle") goBack();
