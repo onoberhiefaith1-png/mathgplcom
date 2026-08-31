@@ -338,7 +338,7 @@ const SegmentCorridor = ({
       <Suspense fallback={null}>
         <Text
           renderOrder={11}
-          material-depthTest={false}
+          material-depthTest={true}
           position={[0, HALL_HEIGHT / 2 + 0.2, -length + 0.06]}
           fontSize={0.34}
           maxWidth={HALL_WIDTH - 1}
@@ -360,7 +360,7 @@ const SegmentCorridor = ({
       <Suspense fallback={null}>
         <Text
           renderOrder={10}
-          material-depthTest={false}
+          material-depthTest={true}
           position={[0, HALL_HEIGHT - 0.55, -1.5]}
           fontSize={0.3}
           anchorX="center"
@@ -584,7 +584,7 @@ const DoorMesh = ({
       <Suspense fallback={null}>
         <Text
           renderOrder={10}
-          material-depthTest={false}
+          material-depthTest={true}
           position={[0, openH + 0.3, 0.12]}
           fontSize={0.2}
           maxWidth={openW + 0.8}
@@ -597,7 +597,7 @@ const DoorMesh = ({
         </Text>
         <Text
           renderOrder={10}
-          material-depthTest={false}
+          material-depthTest={true}
           position={[0, openH + 0.06, 0.12]}
           fontSize={0.13}
           maxWidth={openW + 0.8}
@@ -681,7 +681,7 @@ const BranchOpening = ({
       <Suspense fallback={null}>
         <Text
           renderOrder={10}
-          material-depthTest={false}
+          material-depthTest={true}
           position={[side === -1 ? -(OPENING_W / 2 + 1.9) : OPENING_W / 2 + 1.9, 2.6, 0.07]}
           fontSize={0.26}
           maxWidth={3.2}
@@ -733,7 +733,7 @@ const ParentConnection = ({
       <Suspense fallback={null}>
         <Text
           renderOrder={12}
-          material-depthTest={false}
+          material-depthTest={true}
           position={[0, 2.4, 0.03]}
           fontSize={0.24}
           maxWidth={3.2}
