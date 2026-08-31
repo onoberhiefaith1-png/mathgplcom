@@ -122,47 +122,82 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
 
   return (
     <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
-      <div className="flex flex-wrap items-center gap-2 border-b bg-card px-3 py-2 text-xs">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-md px-2 font-medium hover:bg-muted"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> {backLabel}
-        </button>
-        <span className="font-semibold">{assessment.title}</span>
+      {/* MOBILE SESSION HEADER — one slim row on a phone/tablet, and hidden
+          entirely in immersive mode so the board gets the whole screen. */}
+      {!(mobile && immersive) && (
+      <div
+        className={
+          mobile
+            ? "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b bg-card px-2 py-1.5 text-xs"
+            : "flex flex-wrap items-center gap-2 border-b bg-card px-3 py-2 text-xs"
+        }
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-md px-2 font-medium hover:bg-muted"
+            aria-label={backLabel}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> {mobile ? "" : backLabel}
+          </button>
+          <span className="truncate font-semibold">{assessment.title}</span>
 
-        {questions.length > 1 && (
-          <span className="flex flex-wrap items-center gap-1">
-            {questions.map((q, i) => (
-              <button
-                key={q.id}
-                type="button"
-                onClick={() => setQuestionId(q.id)}
-                className={`min-h-[32px] rounded-full px-2.5 text-[11px] font-semibold transition ${
-                  q.id === questionId
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Q{i + 1}
-              </button>
-            ))}
-          </span>
-        )}
-
-        <span className="ml-auto flex items-center gap-2">
-          {score && (
-            <span className="tabular-nums text-muted-foreground">
-              {score.score}/{score.total} marks
+          {!mobile && questions.length > 1 && (
+            <span className="flex flex-wrap items-center gap-1">
+              {questions.map((q, i) => (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => setQuestionId(q.id)}
+                  className={`min-h-[32px] rounded-full px-2.5 text-[11px] font-semibold transition ${
+                    q.id === questionId
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Q{i + 1}
+                </button>
+              ))}
             </span>
           )}
-          <span className="rounded-full bg-muted px-2 py-0.5">{guestLinkDisplayName()}</span>
+        </div>
+
+        <span className={`flex shrink-0 items-center gap-2 ${mobile ? "" : "ml-auto"}`}>
+          {score && (
+            <span className="tabular-nums text-muted-foreground">
+              {score.score}/{score.total}{mobile ? "" : " marks"}
+            </span>
+          )}
+          {!mobile && (
+            <span className="rounded-full bg-muted px-2 py-0.5">{guestLinkDisplayName()}</span>
+          )}
           {videoReady(video) && <BoardViewSwitcher value={videoView} onChange={setVideoView} />}
+          {mobile && (
+            <button
+              type="button"
+              onClick={() => setImmersive(true)}
+              aria-label="Full screen board"
+              className="grid h-8 w-8 place-items-center rounded-md hover:bg-muted"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          )}
         </span>
       </div>
+      )}
 
       <div className="relative min-h-0 flex-1">
+        {mobile && immersive && (
+          <button
+            type="button"
+            onClick={() => setImmersive(false)}
+            aria-label="Exit full screen board"
+            className="absolute bottom-3 left-3 z-[70] grid h-9 w-9 place-items-center rounded-full border bg-card/90 shadow-lg backdrop-blur"
+          >
+            <Minimize2 className="h-4 w-4" />
+          </button>
+        )}
         {videoReady(video) && video ? (
           <ThreeViewFrame
             config={video}
