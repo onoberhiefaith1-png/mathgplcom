@@ -19,6 +19,8 @@ export interface FlatCutOptions {
 }
 
 export const DEFAULT_TOLERANCE = 0.42;
+/** Band width, in pixels, over which the cut edge fades out. */
+export const DEFAULT_FEATHER = 3;
 
 const LUMA = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
 
