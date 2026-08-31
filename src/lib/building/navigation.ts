@@ -624,3 +624,82 @@ export class NavigationHistory {
     this.stack = [];
   }
 }
+// ── Junction reachability ─────────────────────────────────────────────────
+/**
+ * WHAT CAN I ENTER FROM HERE?
+ *
+ * The maze is a connected graph of roads, so the answer depends only on where
+ * the walker stands and which way they travel — never on where they have
+ * already been. A junction may be entered any number of times, from either
+ * side, so turning around never makes a junction inaccessible.
+ */
+export interface JunctionCandidateInput {
+  /** openings and links attached to the hallway being walked (doors ignored) */
+  objects: { kind: HallwayObjectKind; id: string; name: string; side: -1 | 1; along: number }[];
+  /** physical length of the hallway being walked */
+  length: number;
+  /** the walker's distance along that hallway */
+  dist: number;
+  /** 1 = travelling with the hallway heading, -1 = travelling back down it */
+  dir: 1 | -1;
+  /** the hallway (or connector target) this road continues into at its far end */
+  forward?: { id: string; name: string } | null;
+  /** the junction this hallway left from, sitting at distance 0 */
+  parent?: { id: string; name: string } | null;
+  /** how close a junction must be to be enterable (default ENTER_RANGE) */
+  range?: number;
+}
+
+export interface JunctionCandidate {
+  key: string;
+  kind: "branch" | "link" | "forward" | "parent";
+  label: string;
+  side: -1 | 0 | 1;
+  targetId: string;
+  /** metres ahead of the walker */
+  distance: number;
+}
+
+export const JUNCTION_ENTER_RANGE = 6;
+
+/** Everything enterable AHEAD of the walker, nearest first. */
+export function resolveJunctionCandidates(input: JunctionCandidateInput): JunctionCandidate[] {
+  const range = input.range ?? JUNCTION_ENTER_RANGE;
+  const raw: JunctionCandidate[] = [];
+
+  for (const o of input.objects) {
+    if (o.kind === "door") continue;
+    raw.push({
+      key: `${o.kind}:${o.id}`,
+      kind: o.kind === "link" ? "link" : "branch",
+      label: o.name,
+      side: o.side,
+      targetId: o.id,
+      distance: (o.along - input.dist) * input.dir,
+    });
+  }
+  if (input.forward) {
+    raw.push({
+      key: `forward:${input.forward.id}`,
+      kind: "forward",
+      label: input.forward.name,
+      side: 0,
+      targetId: input.forward.id,
+      distance: (input.length - input.dist) * input.dir,
+    });
+  }
+  if (input.parent) {
+    raw.push({
+      key: `parent:${input.parent.id}`,
+      kind: "parent",
+      label: input.parent.name,
+      side: 0,
+      targetId: input.parent.id,
+      distance: (0 - input.dist) * input.dir,
+    });
+  }
+
+  return raw
+    .filter((c) => c.distance > -0.5 && c.distance <= range)
+    .sort((a, b) => a.distance - b.distance);
+}

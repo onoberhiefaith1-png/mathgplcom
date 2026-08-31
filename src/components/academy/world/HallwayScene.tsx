@@ -52,6 +52,7 @@ import {
   WALL_THICKNESS,
   parentConnectionAnchor,
 
+  resolveJunctionCandidates,
   reverseHeading,
   segYaw,
   turnHeading,
@@ -64,6 +65,27 @@ const SPACING = OBJECT_SPACING; // fixed distance between objects along a hallwa
 const HALL_WIDTH = 7;
 const HALL_HEIGHT = 5.4;
 const WALK_SPEED = 4; // units per second while holding forward
+/** How close (metres) a junction must be, AHEAD of the walker, to be enterable. */
+const ENTER_RANGE = 6;
+
+/**
+ * A junction the walker is currently approaching. Resolved every frame from the
+ * connected hallway graph and the direction of travel — never from a
+ * visited/unvisited rule, so any junction can be entered any number of times.
+ */
+interface JunctionAction {
+  key: string;
+  kind: "branch" | "link" | "forward" | "parent";
+  label: string;
+  /** -1 = opening on the left wall, 1 = right wall, 0 = straight ahead */
+  side: -1 | 0 | 1;
+  /** child walkway id (branch), link id (link), else "" */
+  targetId: string;
+  targetWalkwayId?: string;
+  /** metres ahead of the walker */
+  distance: number;
+}
+
 
 
 // ── Hallway geometry ──────────────────────────────────────────────────────
@@ -1268,91 +1290,63 @@ if (st.phase === "walking" || st.phase === "idle") {
 
 // ── Walk controls overlay ─────────────────────────────────────────────────
 
+/**
+ * TWO PERMANENT CONTROLS.
+ *
+ * Right = MOVE FORWARD, always. Hold to walk in the direction currently faced,
+ * release to stop. Its meaning never changes.
+ * Left = TURN AROUND, unless a junction is close enough AHEAD, in which case it
+ * temporarily becomes ENTER <hallway>. Nothing ever moves on its own.
+ */
 const WalkControls = ({
-  atJunction,
-  children,
-  hasForward,
-  canBack,
+  action,
   moving,
-  facing,
   onForwardStart,
   onForwardEnd,
   onTurnAround,
-
-  onTurn,
+  onJunction,
   ended,
 }: {
-  atJunction: boolean;
-  children: Segment[];
-  hasForward: boolean;
-  canBack: boolean;
+  action: JunctionAction | null;
   moving: boolean;
-  facing: 1 | -1;
   onForwardStart: () => void;
   onForwardEnd: () => void;
   onTurnAround: () => void;
-
-  onTurn: (seg: Segment) => void;
+  onJunction: (a: JunctionAction) => void;
   ended: boolean;
 }) => (
 
   <div className="absolute inset-x-0 bottom-4 z-20 flex flex-col items-center gap-2 px-4">
-    {atJunction && (
-      <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 p-1.5 backdrop-blur">
-        {children
-          .filter((c) => c.walkway?.direction === "left")
-          .map((c) => (
-            <button
-              key={c.walkway!.id}
-              type="button"
-              onClick={() => onTurn(c)}
-              className="min-h-[52px] rounded-full bg-sky-500/20 px-4 text-sm font-semibold text-sky-200"
-            >
-              ◀ Left branch
-            </button>
-          ))}
-        {hasForward && (
-          <button
-            type="button"
-            onClick={() => onTurn(children.find((c) => c.walkway?.direction === "forward")!)}
-            className="min-h-[52px] rounded-full bg-emerald-500/25 px-4 text-sm font-semibold text-emerald-200"
-          >
-            Forward ▶
-          </button>
-        )}
-        {children
-          .filter((c) => c.walkway?.direction === "right")
-          .map((c) => (
-            <button
-              key={c.walkway!.id}
-              type="button"
-              onClick={() => onTurn(c)}
-              className="min-h-[52px] rounded-full bg-sky-500/20 px-4 text-sm font-semibold text-sky-200"
-            >
-              Right branch ▶
-            </button>
-          ))}
-      </div>
-    )}
-    {!atJunction && ended && (
+    {ended && !action && (
       <p className="rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
-        End of the hallway — tap ▼ to turn round, then hold the travel arrow
+        End of the hallway — tap Turn around, then hold Move forward
       </p>
     )}
-    <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 p-1.5 backdrop-blur">
-      {canBack && (
+    <div className="flex items-center gap-3 rounded-full border border-border/60 bg-background/80 p-1.5 backdrop-blur">
+      {action ? (
         <button
           type="button"
-          aria-label={facing === 1 ? "Turn around" : "Turn toward the hallway end"}
-          onClick={onTurnAround}
-          className="inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full text-foreground hover:bg-muted"
+          aria-label={`Enter ${action.label}`}
+          onClick={() => onJunction(action)}
+          className="min-h-[56px] select-none rounded-full bg-sky-500/25 px-5 text-sm font-semibold text-sky-100"
         >
-          {facing === 1 ? "▼" : "▲"}
+          {action.side === -1 ? "◀ " : ""}
+          Enter {action.label}
+          {action.side === 1 ? " ▶" : ""}
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label="Turn around"
+          onClick={onTurnAround}
+          className="min-h-[56px] select-none rounded-full px-5 text-sm font-semibold text-foreground hover:bg-muted"
+        >
+          ↻ Turn around
         </button>
       )}
       <button
         type="button"
-        aria-label={facing === 1 ? "Hold to walk forward" : "Hold to retrace your path"}
+        aria-label="Hold to move forward"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture?.(e.pointerId);
           onForwardStart();
@@ -1363,13 +1357,14 @@ const WalkControls = ({
         onContextMenu={(e) => e.preventDefault()}
         className={`inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full text-lg ${moving ? "bg-primary text-primary-foreground scale-105" : "bg-primary/80 text-primary-foreground"}`}
       >
-        {facing === 1 ? "▲" : "▼"}
+        ▲
       </button>
 
 
     </div>
   </div>
 );
+
 
 // ── Live navigation minimap (fixed top-right HUD) ─────────────────────────
 
@@ -1404,6 +1399,7 @@ const MiniMap = ({
   m,
   show,
   ended = false,
+  routeIds = [],
 }: {
   segments: Segment[];
   layouts: Map<string, HallwayObject[]>;
@@ -1412,6 +1408,8 @@ const MiniMap = ({
   show: boolean;
   /** True when the walker is standing at the end of the current hallway. */
   ended?: boolean;
+  /** Hallways actually travelled, in order — the route highlight. */
+  routeIds?: string[];
 }) => {
   const [size, setSize] = useState<MapSize>("M");
   useMapFrames(show);
@@ -1500,9 +1498,13 @@ const MiniMap = ({
   const reachedId = atEnd ? currentId : null;
   const reachedName = reachedId ? (svg.ends.find((e) => e.id === reachedId)?.name ?? null) : null;
 
-  // Active route = the chain of hallways from the entrance to the current one.
-  const route = new Set<string>();
-  for (let id: string | null | undefined = currentId; id; id = svg.parentOf.get(id) ?? null) route.add(id);
+  // Active route = the hallways actually walked (loops included). Falls back to
+  // the parent chain before the first hand-off is recorded.
+  const route = new Set<string>(routeIds);
+  route.add(currentId);
+  if (routeIds.length === 0) {
+    for (let id: string | null | undefined = currentId; id; id = svg.parentOf.get(id) ?? null) route.add(id);
+  }
 
   const ax = marker.current.x;
   const ay = marker.current.y;
@@ -1796,9 +1798,11 @@ const HallwayScene = ({
   const [moving, setMoving] = useState(false);
   const [facing, setFacing] = useState<1 | -1>(1);
   const [endReached, setEndReached] = useState(false);
-  /** Junction openings the walker is currently standing alongside. */
-  const [nearOpenings, setNearOpenings] = useState<string[]>([]);
+  /** Everything enterable ahead of the walker, nearest first. */
+  const [candidates, setCandidates] = useState<JunctionAction[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<string[]>(["Entrance"]);
+  /** Hallways the walker has actually travelled, for the map's route highlight. */
+  const [routeIds, setRouteIds] = useState<string[]>([]);
   const [cue, setCue] = useState<string | null>(null);
   const [showMap] = useState(true);
   const machineRef = useRef<Machine>({
@@ -1857,26 +1861,56 @@ const HallwayScene = ({
     machineRef.current.stops = stopsOf(machineRef.current.seg);
   }, [nav.seg, stopsOf]);
 
-  // Which junction openings are within reach right now, so Left/Right only
-  // appear where the road actually branches.
+  // WHAT IS AHEAD OF ME? Resolved every frame from the connected graph and the
+  // direction of travel, so previously visited junctions stay enterable.
   useEffect(() => {
     if (phase === "browse") {
-      setNearOpenings((prev) => (prev.length ? [] : prev));
+      setCandidates((prev) => (prev.length ? [] : prev));
       return;
     }
     let raf = 0;
     const loop = () => {
       const st = machineRef.current;
-      const objs = layouts.get(st.seg.walkway?.id ?? "") ?? [];
-      const ids = objs
-        .filter((o) => o.kind !== "door" && Math.abs(o.along - st.dist) < 5)
-        .map((o) => o.id);
-      setNearOpenings((prev) => (prev.join("|") === ids.join("|") ? prev : ids));
+      const seg = st.seg;
+      const id = seg.walkway?.id ?? "";
+      const fwdChild = seg.children.find((c) => c.walkway?.direction === "forward");
+      const connector = id ? connectors.get(id) : undefined;
+      const connectorTarget = connector ? findSegment(segments, connector.targetWalkwayId) : null;
+      const parentSeg = seg.walkway?.parent_id
+        ? findSegment(segments, seg.walkway.parent_id)
+        : null;
+      const forward = fwdChild?.walkway
+        ? { id: fwdChild.walkway.id, name: fwdChild.walkway.name || "the next hallway" }
+        : connectorTarget?.walkway
+          ? { id: connectorTarget.walkway.id, name: connectorTarget.walkway.name || "the next hallway" }
+          : null;
+      const parent = parentSeg?.walkway
+        ? { id: parentSeg.walkway.id, name: parentSeg.walkway.name || "the main hallway" }
+        : null;
+      const found = resolveJunctionCandidates({
+        objects: layouts.get(id) ?? [],
+        length: seg.length,
+        dist: st.dist,
+        dir: st.dir,
+        forward,
+        parent,
+        range: ENTER_RANGE,
+      }).map((c) => ({
+        ...c,
+        targetWalkwayId:
+          c.kind === "link"
+            ? (layouts.get(id) ?? []).find((o) => o.id === c.targetId)?.targetWalkwayId
+            : undefined,
+      })) as JunctionAction[];
+      setCandidates((prev) =>
+        prev.map((p) => p.key).join("|") === found.map((p) => p.key).join("|") ? prev : found,
+      );
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [phase, layouts, nav.seg]);
+  }, [phase, layouts, connectors, segments, nav.seg]);
+
 
 
 
@@ -1894,6 +1928,9 @@ const HallwayScene = ({
       );
     }
     setBreadcrumb(labels.length ? labels : ["Entrance"]);
+    // The map highlights the route actually walked, so a loop reads correctly
+    // instead of following the parent chain.
+    setRouteIds([...path]);
   }, [segments]);
 
   const backToBrowse = useCallback(() => {
@@ -2033,7 +2070,7 @@ const HallwayScene = ({
       };
 
       if (child.walkway?.direction === "forward") {
-        if (st.dist < st.seg.length - 0.6) {
+        if (st.dist < st.seg.length - ENTER_RANGE) {
           showCue("Keep walking to the end of the hallway");
           return;
         }
@@ -2135,6 +2172,9 @@ const HallwayScene = ({
       backToBrowse();
       return;
     }
+    // Turning around only changes the facing: the walker stands still until
+    // MOVE FORWARD is held again.
+    st.hold = 0;
     st.moving = false;
     st.speed = 0;
     setMoving(false);
@@ -2222,6 +2262,40 @@ const HallwayScene = ({
     [backToBrowse, connectors, layouts, rootEffective, segments, syncBreadcrumb],
   );
 
+  /**
+   * The LEFT button's junction action. A junction is entered because it is
+   * connected to this hallway and lies ahead — never because it has not been
+   * visited, so the same junction can be entered again and again.
+   */
+  const runJunctionAction = useCallback(
+    (a: JunctionAction) => {
+      const st = machineRef.current;
+      if (st.phase === "turning" || st.phase === "zooming") return;
+      if (a.kind === "branch") {
+        const child = st.seg.children.find((c) => c.walkway?.id === a.targetId);
+        if (child) pickBranch(child);
+        return;
+      }
+      if (a.kind === "link") {
+        if (a.targetWalkwayId) crossLink(a.targetId, a.targetWalkwayId);
+        return;
+      }
+      // A collinear continuation (forward road / connector arrival) or the
+      // junction this hallway left from: walk on through the handoff.
+      const sign: 1 | -1 = a.kind === "forward" ? 1 : -1;
+      if (st.dir !== sign) {
+        st.dir = sign;
+        setFacing(sign);
+        st.yaw = segYaw(sign === 1 ? st.seg.heading : reverseHeading(st.seg.heading));
+      }
+      st.dist = sign === 1 ? st.seg.length : 0;
+      if (!handleBoundary(sign)) return;
+      setEndReached(false);
+      setMachinePhase("walking");
+    },
+    [crossLink, handleBoundary, pickBranch, setMachinePhase],
+  );
+
   /** Reached the terminal wall of a hallway → stop and offer the next direction. */
   const handleWalkEnd = useCallback(() => {
     const st = machineRef.current;
@@ -2305,10 +2379,8 @@ const HallwayScene = ({
           return;
         }
         if (st.phase !== "walking" && st.phase !== "idle") return;
-        const left = st.seg.children.find(
-          (c) => c.walkway?.direction === "left" && nearOpenings.includes(c.walkway?.id ?? ""),
-        );
-        if (left) pickBranch(left);
+        const left = candidates.find((c) => c.side === -1);
+        if (left) runJunctionAction(left);
         else showCue("No walkway to the left");
         return;
       }
@@ -2318,10 +2390,8 @@ const HallwayScene = ({
           return;
         }
         if (st.phase !== "walking" && st.phase !== "idle") return;
-        const right = st.seg.children.find(
-          (c) => c.walkway?.direction === "right" && nearOpenings.includes(c.walkway?.id ?? ""),
-        );
-        if (right) pickBranch(right);
+        const right = candidates.find((c) => c.side === 1);
+        if (right) runJunctionAction(right);
         else showCue("No walkway to the right");
       }
     };
@@ -2358,28 +2428,17 @@ const HallwayScene = ({
     showCue,
     startHold,
     endHold,
-    nearOpenings,
+    candidates,
+    runJunctionAction,
   ]);
 
 
   const dragStart = useRef<number | null>(null);
 
   const inWalk = phase !== "browse";
-  /**
-   * The choices actually available where the walker is standing: a perpendicular
-   * junction only counts when its opening is alongside, and a forward
-   * continuation only at the far end of the road.
-   */
-  const junctionChildren = useMemo(
-    () =>
-      nav.seg.children.filter((c) =>
-        c.walkway?.direction === "forward" ? endReached : nearOpenings.includes(c.walkway?.id ?? ""),
-      ),
-    [nav.seg, endReached, nearOpenings],
-  );
-  const atJunction =
-    (phase === "walking" || phase === "idle") && junctionChildren.length > 0;
-  const hasForwardChild = junctionChildren.some((c) => c.walkway?.direction === "forward");
+  /** The junction the walker is approaching, if any — the LEFT button's action. */
+  const junctionAction = (phase === "walking" || phase === "idle") ? (candidates[0] ?? null) : null;
+  const atJunction = junctionAction !== null;
   const canBack = phase === "walking" || phase === "idle";
 
 
@@ -2678,19 +2737,13 @@ const HallwayScene = ({
 
       {canBack && (
         <WalkControls
-          atJunction={atJunction}
-          children={junctionChildren}
-          hasForward={hasForwardChild}
-          canBack={canBack}
+          action={junctionAction}
           moving={moving}
-          facing={facing}
           ended={endReached}
           onForwardStart={startPointerHold}
           onForwardEnd={endPointerHold}
           onTurnAround={goBack}
-
-
-          onTurn={pickBranch}
+          onJunction={runJunctionAction}
         />
       )}
 
@@ -2702,6 +2755,7 @@ const HallwayScene = ({
         m={machineRef}
         show={showMap}
         ended={endReached}
+        routeIds={routeIds}
       />
     </div>
   );
