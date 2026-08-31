@@ -516,6 +516,7 @@ const handleTextureUpload = useCallback(
                         walkways={buildingData.walkways}
                         doors={buildingData.doors}
                         catalogue={catalogue}
+                        selectedDoorId={selectedDoorId}
                         onAddWalkway={handleAddWalkway}
                         onUpdateWalkway={async (id, length) => {
                           await updateWalkway(id, { length });
