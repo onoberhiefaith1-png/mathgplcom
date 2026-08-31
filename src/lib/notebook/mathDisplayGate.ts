@@ -32,6 +32,31 @@ function readBraced(src: string, start: number): { inner: string; end: number } 
 }
 
 /**
+ * Read ONE argument of a structural macro: a braced group, or — as classroom
+ * TeX allows — a single bare token (`\frac12`, `\frac ab`, `\sqrt2`,
+ * `\frac\pi2`). Without this, `\frac12` was treated as an unbalanced fraction
+ * and its operands leaked into the sentence as the text "12" beside an empty
+ * fraction shell.
+ */
+function readArg(src: string, start: number): { inner: string; end: number } | null {
+  let p = start;
+  while (src[p] === " ") p++;
+  const braced = readBraced(src, p);
+  if (braced) return braced;
+  const ch = src[p];
+  if (ch === undefined) return null;
+  if (ch === "\\") {
+    const m = /^\\[A-Za-z]+/.exec(src.slice(p));
+    if (m) return { inner: m[0], end: p + m[0].length };
+    return null;
+  }
+  // A single digit or letter is one argument; `{`/`}` and operators are not.
+  if (/[0-9A-Za-z]/.test(ch)) return { inner: ch, end: p + 1 };
+  return null;
+}
+
+
+/**
  * Walk `\frac` / `\dfrac` / `\tfrac` / `\sqrt` occurrences. When the braces
  * don't balance, replace the broken segment with a safe placeholder
  * (`\frac{\sl{}}{\sl{}}` or `\sqrt{\sl{}}`) so the renderer shows an empty
@@ -45,15 +70,10 @@ function repairTemplates(src: string, reasons: string[]): string {
                   : src.startsWith("\\tfrac", i) ? "\\tfrac"
                   : src.startsWith("\\frac", i) ? "\\frac" : "";
     if (fracCmd) {
-      let p = i + fracCmd.length;
-      while (src[p] === " ") p++;
-      const a = readBraced(src, p);
-      let b: ReturnType<typeof readBraced> = null;
-      if (a) {
-        let q = a.end;
-        while (src[q] === " ") q++;
-        b = readBraced(src, q);
-      }
+      const p = i + fracCmd.length;
+      const a = readArg(src, p);
+      let b: ReturnType<typeof readArg> = null;
+      if (a) b = readArg(src, a.end);
       if (a && b) {
         const innerA = repairTemplates(a.inner, reasons);
         const innerB = repairTemplates(b.inner, reasons);
@@ -63,8 +83,9 @@ function repairTemplates(src: string, reasons: string[]): string {
       }
       reasons.push(`unbalanced ${fracCmd} → replaced with empty slot`);
       out += "\\frac{\\sl{}}{\\sl{}}";
-      // Skip past the broken command; advance one char so we don't loop.
-      i = i + fracCmd.length;
+      // Consume whatever partial argument we did manage to read, so an
+      // operand can never leak into the sentence beside the empty shell.
+      i = a ? a.end : i + fracCmd.length;
       continue;
     }
     if (src.startsWith("\\sqrt", i)) {
@@ -81,8 +102,7 @@ function repairTemplates(src: string, reasons: string[]): string {
         indexStr = src.slice(p, close + 1);
         p = close + 1;
       }
-      while (src[p] === " ") p++;
-      const a = readBraced(src, p);
+      const a = readArg(src, p);
       if (!a) {
         reasons.push(`unbalanced \\sqrt → replaced with empty slot`);
         out += `\\sqrt${indexStr}{\\sl{}}`;
@@ -94,6 +114,7 @@ function repairTemplates(src: string, reasons: string[]): string {
       i = a.end;
       continue;
     }
+
     out += src[i];
     i++;
   }

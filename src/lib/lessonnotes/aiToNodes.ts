@@ -16,6 +16,7 @@ import { HAS_MATH } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { stripDuplicateHeading } from "@/lib/lessonnotes/problemDetect";
+import { SECTION_LABELS } from "@/lib/lessonnotes/sectionKinds";
 
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { hasDirectives, splitDirectives } from "@/lib/lessonnotes/ai/materializeDirectives";
@@ -327,6 +328,36 @@ function matrixLineToParagraph(line: string): TipTapNode | null {
 }
 
 
+/* ------------------------- structural label lines -------------------------
+ *
+ * "Solution", "Solution 2", "Example 3", "Classwork 1:" are STRUCTURE, not
+ * content. They must arrive as a heading whose text is byte-identical to the
+ * label — never a math run, never packed into the explanation column of a
+ * solution row (which is how a label came to look broken/displaced). */
+
+const LABEL_LINE_RE = new RegExp(
+  `^\\s*(${Object.values(SECTION_LABELS).map((l) => l.replace(/ /g, "\\s+")).join("|")})` +
+    `\\s*(\\d{1,3})?\\s*[:.)]?\\s*$`,
+  "i",
+);
+
+/** The canonical label text for a structural line, or null when the line is
+ *  ordinary content. Casing and numbering are preserved exactly. */
+export function structuralLabelLine(line: string): string | null {
+  const m = LABEL_LINE_RE.exec(line || "");
+  if (!m) return null;
+  const canonical = Object.values(SECTION_LABELS).find(
+    (l) => l.toLowerCase() === m[1].replace(/\s+/g, " ").toLowerCase(),
+  );
+  if (!canonical) return null;
+  return m[2] ? `${canonical} ${m[2]}` : canonical;
+}
+
+/** Heading node carrying an intact section label. */
+function labelHeading(text: string): TipTapNode {
+  return { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text }] };
+}
+
 function plainAiTextToNodes(text: string): TipTapNode[] {
   if (!text) return [{ type: "paragraph" }];
   // Presentation hygiene FIRST — markdown, JSON, HTML, escape residue and AI
@@ -344,6 +375,8 @@ function plainAiTextToNodes(text: string): TipTapNode[] {
   for (const raw of lines) {
     const line = raw.replace(/\s+$/, "");
     if (!line.trim()) { out.push({ type: "paragraph" }); continue; }
+    const label = structuralLabelLine(line);
+    if (label) { out.push(labelHeading(label)); continue; }
     if (isAsciiArtLine(line)) {
       // Drop ASCII pseudo-diagrams entirely. A real GeometryDiagram node
       // will be inserted by the editor's geometry pass.
