@@ -151,7 +151,7 @@ export async function addWalkway(
 
 export async function updateWalkway(
   id: string,
-  fields: Partial<Pick<BuildingWalkway, "length" | "position" | "name">>,
+  fields: Partial<Pick<BuildingWalkway, "length" | "position" | "name" | "end_label">>,
 ): Promise<void> {
   const { error } = await supabase.from("building_walkways").update(fields as never).eq("id", id);
   fail(error);

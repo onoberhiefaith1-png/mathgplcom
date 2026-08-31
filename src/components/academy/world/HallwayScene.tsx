@@ -22,6 +22,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Sparkles, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { AcademyRoom, AcademyProduct } from "@/lib/academy/types";
+import { mergeEnvironment, lightBudget, DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
 import { DEFAULT_ENVIRONMENT, DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
 import type {
   BuildingData,
@@ -146,42 +147,10 @@ const findSegment = (segs: Segment[], id: string): Segment | null => {
   return null;
 };
 
-// ── Shared texture loading ────────────────────────────────────────────────
-// The same image (e.g. a built-in sample) may appear on several segments and
-// surfaces. Decode once per URL, hand every subscriber its own clone so each
-// surface can fit/tile independently.
-
-const textureCache = new Map<string, THREE.Texture>();
-const textureWaiters = new Map<string, Set<(t: THREE.Texture | null) => void>>();
-
-const requestTexture = (url: string, cb: (t: THREE.Texture | null) => void): void => {
-  const hit = textureCache.get(url);
-  if (hit) {
-    cb(hit.clone());
-    return;
-  }
-  let waiters = textureWaiters.get(url);
-  if (waiters) {
-    waiters.add(cb);
-    return;
-  }
-  waiters = new Set([cb]);
-  textureWaiters.set(url, waiters);
-  new THREE.TextureLoader().load(
-    url,
-    (base) => {
-      base.anisotropy = 4;
-      textureCache.set(url, base);
-      textureWaiters.delete(url);
-      waiters!.forEach((w) => w(base.clone()));
-    },
-    undefined,
-    () => {
-      textureWaiters.delete(url);
-      waiters!.forEach((w) => w(null));
-    },
-  );
-};
+// ── Surface texture loading ───────────────────────────────────────────────
+// Each surface owns its own texture instance so it can fit/tile independently
+// without disturbing another surface that shows the same image. Decoded images
+// are cached by the browser, so loading the same URL twice is cheap.
 
 const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null => {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
@@ -190,9 +159,46 @@ const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null 
       setTex(null);
       return;
     }
-    requestTexture(url, setTex);
+    let live = true;
+    let loaded: THREE.Texture | null = null;
+    new THREE.TextureLoader().load(
+      url,
+      (t) => {
+        t.anisotropy = 4;
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.needsUpdate = true;
+        if (!live) {
+          t.dispose();
+          return;
+        }
+        loaded = t;
+        setTex(t);
+      },
+      undefined,
+      () => {
+        if (live) setTex(null);
+      },
+    );
+    return () => {
+      live = false;
+      loaded?.dispose();
+    };
   }, [url]);
   return tex;
+};
+
+/**
+ * Tint applied to a textured surface. The image keeps its own colours (a hard
+ * white tint would be faithful but ignores the chosen colour, a full tint would
+ * stain the image) so the surface colour is applied as a light wash.
+ */
+const textureTint = (color?: string): string => {
+  if (!color) return "#ffffff";
+  try {
+    return `#${new THREE.Color(color).lerp(new THREE.Color("#ffffff"), 0.72).getHexString()}`;
+  } catch {
+    return "#ffffff";
+  }
 };
 
 /** One surface (wall / floor / roof) of a corridor segment. */
@@ -258,7 +264,7 @@ return (
     <mesh position={position} rotation-x={rotationX} rotation-y={rotationY}>
       {children}
       <meshStandardMaterial
-        color={map ? "#ffffff" : mat.color}
+        color={map ? textureTint(mat.color) : mat.color}
         map={map}
         roughness={mat.roughness}
         metalness={mat.metalness}
@@ -281,6 +287,7 @@ const SegmentCorridor = ({
   capEnd = true,
   capStart = false,
   name,
+  endName,
 }: {
   start: [number, number];
   yaw: number;
@@ -292,6 +299,8 @@ const SegmentCorridor = ({
   /** Solid wall behind the entrance. */
   capStart?: boolean;
   name?: string;
+  /** Name of this hallway's ENDPOINT, shown on the capped far wall. */
+  endName?: string;
 }) => (
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
     {/* enclosing end walls — the hallway is finite, never an open void */}
@@ -300,6 +309,22 @@ const SegmentCorridor = ({
         <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
         <meshStandardMaterial color={env.leftWall.color} roughness={0.95} side={THREE.DoubleSide} />
       </mesh>
+    )}
+    {capEnd && endName && (
+      <Suspense fallback={null}>
+        <Text
+          renderOrder={11}
+          material-depthTest={false}
+          position={[0, HALL_HEIGHT / 2 + 0.2, -length + 0.06]}
+          fontSize={0.34}
+          maxWidth={HALL_WIDTH - 1}
+          anchorX="center"
+          anchorY="middle"
+          color="#fde68a"
+        >
+          {endName}
+        </Text>
+      </Suspense>
     )}
     {capStart && (
       <mesh position={[0, HALL_HEIGHT / 2, 1.6]}>
@@ -817,17 +842,22 @@ const MiniMap = ({
   layouts,
   m,
   show,
+  ended = false,
 }: {
   segments: Segment[];
   layouts: Map<string, HallwayObject[]>;
   m: React.RefObject<Machine>;
   show: boolean;
+  /** True when the walker is standing at the end of the current hallway. */
+  ended?: boolean;
 }) => {
   useMapTick(show);
   const svg = useMemo(() => {
     const pts: number[] = [];
     const lines: { x1: number; y1: number; x2: number; y2: number; name: string }[] = [];
     const doorDots: { x: number; z: number }[] = [];
+    /** Terminal navigation nodes — the editable ENDPOINT of each route. */
+    const ends: { id: string; x: number; z: number; name: string }[] = [];
     const walk = (s: Segment) => {
       const ex = s.start[0] + s.heading[0] * s.length;
       const ez = s.start[1] + s.heading[1] * s.length;
@@ -838,6 +868,14 @@ const MiniMap = ({
         doorDots.push({
           x: s.start[0] + s.heading[0] * o.along + o.side * 1.2 * -s.heading[1],
           z: s.start[1] + s.heading[1] * o.along + o.side * 1.2 * s.heading[0],
+        });
+      }
+      if (!s.children.some((c) => c.walkway?.direction === "forward")) {
+        ends.push({
+          id: s.walkway?.id ?? "root",
+          x: ex,
+          z: ez,
+          name: s.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME,
         });
       }
       s.children.forEach(walk);
@@ -852,10 +890,18 @@ const MiniMap = ({
     const maxZ = Math.max(...zs);
     const W = 210;
     const H = 170;
-    const sc = Math.min((W - 34) / Math.max(1, maxX - minX), (H - 34) / Math.max(1, maxZ - minZ));
-    const px = (x: number) => (x - minX) * sc + 17;
-    const py = (z: number) => (maxZ - z) * sc + 17; // forward (−z) renders up: north is always up
-    return { W, H, px, py, lines, doorDots };
+    const PAD = 20;
+    // A single short hallway must not stretch edge to edge, so the layout is
+    // measured against a minimum span before it is scaled.
+    const spanX = Math.max(10, maxX - minX);
+    const spanZ = Math.max(10, maxZ - minZ);
+    const sc = Math.min((W - PAD * 2) / spanX, (H - PAD * 2) / spanZ);
+    // Centre the drawing inside the panel: balanced padding on all four sides.
+    const offX = (W - spanX * sc) / 2 + ((spanX - (maxX - minX)) / 2) * sc;
+    const offY = (H - spanZ * sc) / 2 + ((spanZ - (maxZ - minZ)) / 2) * sc;
+    const px = (x: number) => (x - minX) * sc + offX;
+    const py = (z: number) => (maxZ - z) * sc + offY; // forward (−z) renders up: north is always up
+    return { W, H, px, py, lines, doorDots, ends };
   }, [segments, layouts]);
 
   if (!show) return null;
@@ -864,13 +910,19 @@ const MiniMap = ({
     ? [st.seg.start[0] + st.seg.heading[0] * st.dist, st.seg.start[1] + st.seg.heading[1] * st.dist]
     : [0, 0];
   const heading = st?.seg.heading ?? [0, -1];
+  // The endpoint is a terminal node: reached only when the walker is at the end
+  // of a hallway that does not continue forward.
+  const atEnd =
+    ended && !(st?.seg.children ?? []).some((c) => c.walkway?.direction === "forward");
+  const reachedId = atEnd ? (st?.seg.walkway?.id ?? "root") : null;
+  const reachedName = reachedId ? (svg.ends.find((e) => e.id === reachedId)?.name ?? null) : null;
   const ax = svg.px(you[0]);
   const ay = svg.py(you[1]);
   // map-space direction: x follows world x, y is inverted (−z is up)
   const arrow = `${ax + heading[0] * 7},${ay - heading[1] * 7} ${ax - heading[0] * 4 - heading[1] * 4},${ay + heading[1] * 4 - heading[0] * 4} ${ax - heading[0] * 4 + heading[1] * 4},${ay + heading[1] * 4 + heading[0] * 4}`;
 
   return (
-    <div className="pointer-events-none absolute right-3 top-3 z-30 rounded-xl border border-border/60 bg-background/85 p-2 shadow-xl backdrop-blur">
+    <div className="pointer-events-none absolute right-3 top-16 z-10 rounded-xl border border-border/60 bg-background/85 p-2 shadow-xl backdrop-blur">
       <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
         Building map
       </span>
@@ -900,9 +952,39 @@ const MiniMap = ({
         {svg.doorDots.map((d, i) => (
           <rect key={i} x={svg.px(d.x) - 3} y={svg.py(d.z) - 3} width={6} height={6} rx={1} fill="#fbbf24" />
         ))}
+        {/* ENDPOINT markers — highlighted once the walker reaches that end */}
+        {svg.ends.map((e) => {
+          const here = reachedId === e.id;
+          return (
+            <g key={`end-${e.id}`}>
+              <circle
+                cx={svg.px(e.x)}
+                cy={svg.py(e.z)}
+                r={here ? 6 : 4.5}
+                fill={here ? "#f87171" : "#0b0f18"}
+                stroke={here ? "#fecaca" : "#f87171"}
+                strokeWidth={1.5}
+              />
+              <text
+                x={svg.px(e.x)}
+                y={svg.py(e.z) - 9}
+                textAnchor="middle"
+                fontSize={7.5}
+                fill={here ? "#fecaca" : "#fca5a5"}
+              >
+                {e.name}
+              </text>
+            </g>
+          );
+        })}
         <circle cx={svg.px(0)} cy={svg.py(0)} r={4} fill="#34d399" />
         <polygon points={arrow} fill="#7dd3fc" stroke="#0b0f18" strokeWidth={1} />
       </svg>
+      {reachedName && (
+        <span className="mt-1 block text-center text-[10px] font-semibold text-red-300">
+          Route end reached · {reachedName}
+        </span>
+      )}
     </div>
   );
 };
@@ -935,7 +1017,13 @@ const HallwayScene = ({
   onOpenDoor,
   onModeChange,
 }: HallwaySceneProps) => {
-  const env = building?.building.environment ?? DEFAULT_ENVIRONMENT;
+  // Saved configuration is the source of truth: merge it field-by-field over
+  // the defaults so a partial/legacy record never loses its custom materials.
+  const env = useMemo(
+    () => mergeEnvironment(building?.building.environment ?? null),
+    [building],
+  );
+  const lights = useMemo(() => lightBudget(env.lighting), [env.lighting]);
   const walkways = building?.walkways ?? [];
   const doors = building?.doors ?? [];
 
@@ -1404,6 +1492,13 @@ const HallwayScene = ({
     </div>
   ) : null;
 
+  // The endpoint is the final node of the walked route.
+  const endpointName =
+    endReached && !nav.seg.children.some((c) => c.walkway?.direction === "forward")
+      ? (nav.seg.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME)
+      : null;
+  const trail = endpointName ? [...breadcrumb, endpointName] : breadcrumb;
+
   return (
     <div
       className="absolute inset-0"
@@ -1418,18 +1513,23 @@ const HallwayScene = ({
         );
       }}
     >
-      <Canvas shadows camera={{ position: [0, 1.7, 6.5], fov: 62 }} dpr={[1, 2]}>
+      <Canvas
+        shadows
+        camera={{ position: [0, 1.7, 6.5], fov: 62 }}
+        dpr={[1, 2]}
+        gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1 }}
+      >
         <color attach="background" args={["#131a2b"]} />
         <fog attach="fog" args={["#131a2b", 16, env.lighting.atmosphere ? 56 : 50]} />
-        <ambientLight intensity={env.lighting.ambient * env.lighting.brightness} />
-        <hemisphereLight args={["#cfe3ff", "#2a3042", 0.85 * env.lighting.brightness]} />
+        <ambientLight intensity={lights.ambient} />
+        <hemisphereLight args={["#cfe3ff", "#2a3042", lights.hemisphere]} />
         <directionalLight
           position={[3, 8, 4]}
-          intensity={env.lighting.intensity * env.lighting.brightness}
+          intensity={lights.directional}
           castShadow
         />
         {env.lighting.atmosphere && (
-          <pointLight position={[0, HALL_HEIGHT - 1, -rootLen / 2]} intensity={6} distance={22} color="#cfe3ff" />
+          <pointLight position={[0, HALL_HEIGHT - 1, -rootLen / 2]} intensity={lights.point * 1.4} distance={22} color="#cfe3ff" />
         )}
         {env.effects.enabled && env.effects.effect === "soft-particles" && (
           <Sparkles count={70} scale={[HALL_WIDTH, HALL_HEIGHT, rootLen + 10]} size={2.2} speed={0.35} color="#7dd3fc" />
@@ -1437,11 +1537,11 @@ const HallwayScene = ({
         {env.effects.enabled && env.effects.effect === "sun-beams" && (
           <group>
             <Sparkles count={40} scale={[HALL_WIDTH, HALL_HEIGHT, rootLen + 10]} size={3.5} speed={0.15} color="#fde68a" />
-            <pointLight position={[0, HALL_HEIGHT, -rootLen / 2]} intensity={5} distance={26} color="#fde68a" />
+            <pointLight position={[0, HALL_HEIGHT, -rootLen / 2]} intensity={lights.point * 1.2} distance={26} color="#fde68a" />
           </group>
         )}
         {rooms.map((_, i) => (
-          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={4.5} distance={16} color="#cfe3ff" />
+          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={lights.point} distance={11} color="#cfe3ff" />
         ))}
 
         <CameraRig
@@ -1466,6 +1566,11 @@ const HallwayScene = ({
             capEnd={!seg.children.some((c) => c.walkway?.direction === "forward")}
             capStart={seg.depth === 0}
             name={seg.walkway?.name}
+            endName={
+              seg.children.some((c) => c.walkway?.direction === "forward")
+                ? undefined
+                : (seg.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME)
+            }
           />
         ))}
 
@@ -1485,10 +1590,10 @@ const HallwayScene = ({
       {inWalk && (
         <>
           <div className="pointer-events-none absolute left-3 top-16 z-10 flex max-w-[60vw] items-center gap-1.5 overflow-hidden rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-[11px] text-muted-foreground backdrop-blur">
-            {breadcrumb.map((b, i) => (
+            {trail.map((b, i) => (
               <span key={`${b}-${i}`} className="flex items-center gap-1.5 whitespace-nowrap">
                 {i > 0 && <span className="text-muted-foreground/50">/</span>}
-                <span className={i === breadcrumb.length - 1 ? "font-semibold text-foreground" : ""}>{b}</span>
+                <span className={i === trail.length - 1 ? "font-semibold text-foreground" : ""}>{b}</span>
               </span>
             ))}
           </div>
@@ -1524,7 +1629,13 @@ const HallwayScene = ({
       )}
 
       {/* Fixed structural map — always on, top-right, like a racing minimap */}
-      <MiniMap segments={segments} layouts={layouts} m={machineRef} show={showMap} />
+      <MiniMap
+        segments={segments}
+        layouts={layouts}
+        m={machineRef}
+        show={showMap}
+        ended={endReached}
+      />
     </div>
   );
 };

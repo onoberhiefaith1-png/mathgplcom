@@ -777,6 +777,10 @@ const handleTextureUpload = useCallback(
                           await updateWalkway(id, { name });
                           await refreshBuilding();
                         }}
+                        onRenameEndpoint={async (id, end_label) => {
+                          await updateWalkway(id, { end_label });
+                          await refreshBuilding();
+                        }}
                         onRenameDoor={async (id, title) => {
                           await updateDoor(id, { title_override: title });
                           await refreshBuilding();

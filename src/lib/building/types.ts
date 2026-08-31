@@ -84,6 +84,11 @@ export interface BuildingWalkway {
   parent_id: string | null;
   /** Editable hallway name ("Main Hallway", "Algebra Hallway"). */
   name: string;
+  /**
+   * Editable name of this hallway's ENDPOINT — the terminal navigation node at
+   * its far end ("Building Exit" by default). Null means "use the default".
+   */
+  end_label: string | null;
   direction: WalkwayDirection;
   length: number;
   position: number;

@@ -19,6 +19,7 @@ const walkway = (id: string, over: Partial<BuildingWalkway> = {}): BuildingWalkw
   building_id: "b1",
   parent_id: null,
   name: "Main Hallway",
+  end_label: null,
   direction: "forward",
   length: 10,
   position: 0,

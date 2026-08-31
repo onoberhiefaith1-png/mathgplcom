@@ -1,0 +1,1 @@
+ALTER TABLE public.building_walkways ADD COLUMN IF NOT EXISTS end_label TEXT;

@@ -282,7 +282,8 @@ const AcademyWorldPage = () => {
       )}
 
       {/* Top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4">
+      {/* Top bar sits above the building map so Settings/Edit is always clickable */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-center justify-between gap-3 p-4">
         <Link
           to="/"
           className="pointer-events-auto inline-flex min-h-[44px] items-center gap-2 rounded-full border border-border/60 bg-background/70 px-4 text-sm font-medium text-foreground backdrop-blur"
