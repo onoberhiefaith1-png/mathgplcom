@@ -30,9 +30,11 @@ export const INSERT_SECTION_OPTIONS: SectionKind[] = [
   "exercise", "classwork", "homework", "summary",
 ];
 
-/** Sections that come with a Solution area. */
+/** Sections that come with a Solution area.
+ *  RULE: every question that requires a solution is solved — assessment
+ *  questions are solved for the teacher exactly like examples and homework. */
 export const SOLUTION_SECTION_KINDS: ReadonlySet<SectionKind> = new Set([
-  "example", "exercise", "classwork", "homework",
+  "example", "exercise", "classwork", "homework", "assessment",
 ]);
 
 /** Order used by the "Whole lesson" global AI flow. */
