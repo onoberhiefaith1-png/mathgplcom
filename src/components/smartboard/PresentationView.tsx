@@ -6775,7 +6775,7 @@ const PresentationView = ({
       <textarea
         ref={hiddenInputRef}
         aria-hidden
-        inputMode="text"
+        inputMode={mobileStudent ? "none" : "text"}
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}
