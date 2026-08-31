@@ -143,8 +143,6 @@ import { Route as HomepageBackgroundIndexRouteImport } from './routes/homepage/b
 import { Route as HomepageBackgroundFreeRouteImport } from './routes/homepage/background/free'
 import { Route as HomepageBuildingIndexRouteImport } from './routes/homepage/building/index'
 import { Route as HomepageBuildingFreeRouteImport } from './routes/homepage/building/free'
-import { Route as HomepageReplaceBuildingIndexRouteImport } from './routes/homepage/replace-building/index'
-import { Route as HomepageReplaceBuildingFreeRouteImport } from './routes/homepage/replace-building/free'
 import { Route as JoinCodeIndexRouteImport } from './routes/join/$code/index'
 import { Route as KSlugIndexRouteImport } from './routes/k/$slug/index'
 import { Route as LessonNotesIdIndexRouteImport } from './routes/lesson-notes/$id/index'
@@ -1006,18 +1004,6 @@ const HomepageBuildingFreeRoute = HomepageBuildingFreeRouteImport.update({
   path: '/homepage/building/free',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HomepageReplaceBuildingIndexRoute =
-  HomepageReplaceBuildingIndexRouteImport.update({
-    id: '/homepage/replace-building/',
-    path: '/homepage/replace-building/',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const HomepageReplaceBuildingFreeRoute =
-  HomepageReplaceBuildingFreeRouteImport.update({
-    id: '/homepage/replace-building/free',
-    path: '/homepage/replace-building/free',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const JoinCodeIndexRoute = JoinCodeIndexRouteImport.update({
   id: '/join/$code/',
   path: '/join/$code/',
@@ -2151,7 +2137,6 @@ export interface FileRoutesByFullPath {
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
-  '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/a/$slug/': typeof ASlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
@@ -2212,7 +2197,6 @@ export interface FileRoutesByFullPath {
   '/homepage/advertisements/': typeof HomepageAdvertisementsIndexRoute
   '/homepage/background/': typeof HomepageBackgroundIndexRoute
   '/homepage/building/': typeof HomepageBuildingIndexRoute
-  '/homepage/replace-building/': typeof HomepageReplaceBuildingIndexRoute
   '/join/$code/': typeof JoinCodeIndexRoute
   '/k/$slug/': typeof KSlugIndexRoute
   '/lesson-notes/$id/': typeof LessonNotesIdIndexRoute
@@ -2459,7 +2443,6 @@ export interface FileRoutesByTo {
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
-  '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/a/$slug': typeof ASlugIndexRoute
   '/account/community-profile': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
@@ -2520,7 +2503,6 @@ export interface FileRoutesByTo {
   '/homepage/advertisements': typeof HomepageAdvertisementsIndexRoute
   '/homepage/background': typeof HomepageBackgroundIndexRoute
   '/homepage/building': typeof HomepageBuildingIndexRoute
-  '/homepage/replace-building': typeof HomepageReplaceBuildingIndexRoute
   '/join/$code': typeof JoinCodeIndexRoute
   '/k/$slug': typeof KSlugIndexRoute
   '/lesson-notes/$id': typeof LessonNotesIdIndexRoute
@@ -2780,7 +2762,6 @@ export interface FileRoutesById {
   '/community/tag/$tag': typeof CommunityTagTagRoute
   '/homepage/background/free': typeof HomepageBackgroundFreeRoute
   '/homepage/building/free': typeof HomepageBuildingFreeRoute
-  '/homepage/replace-building/free': typeof HomepageReplaceBuildingFreeRoute
   '/a/$slug/': typeof ASlugIndexRoute
   '/account/community-profile/': typeof AccountCommunityProfileIndexRoute
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
@@ -2841,7 +2822,6 @@ export interface FileRoutesById {
   '/homepage/advertisements/': typeof HomepageAdvertisementsIndexRoute
   '/homepage/background/': typeof HomepageBackgroundIndexRoute
   '/homepage/building/': typeof HomepageBuildingIndexRoute
-  '/homepage/replace-building/': typeof HomepageReplaceBuildingIndexRoute
   '/join/$code/': typeof JoinCodeIndexRoute
   '/k/$slug/': typeof KSlugIndexRoute
   '/lesson-notes/$id/': typeof LessonNotesIdIndexRoute
@@ -3102,7 +3082,6 @@ export interface FileRouteTypes {
     | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
-    | '/homepage/replace-building/free'
     | '/a/$slug/'
     | '/account/community-profile/'
     | '/admin/access-codes/'
@@ -3163,7 +3142,6 @@ export interface FileRouteTypes {
     | '/homepage/advertisements/'
     | '/homepage/background/'
     | '/homepage/building/'
-    | '/homepage/replace-building/'
     | '/join/$code/'
     | '/k/$slug/'
     | '/lesson-notes/$id/'
@@ -3410,7 +3388,6 @@ export interface FileRouteTypes {
     | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
-    | '/homepage/replace-building/free'
     | '/a/$slug'
     | '/account/community-profile'
     | '/admin/access-codes'
@@ -3471,7 +3448,6 @@ export interface FileRouteTypes {
     | '/homepage/advertisements'
     | '/homepage/background'
     | '/homepage/building'
-    | '/homepage/replace-building'
     | '/join/$code'
     | '/k/$slug'
     | '/lesson-notes/$id'
@@ -3730,7 +3706,6 @@ export interface FileRouteTypes {
     | '/community/tag/$tag'
     | '/homepage/background/free'
     | '/homepage/building/free'
-    | '/homepage/replace-building/free'
     | '/a/$slug/'
     | '/account/community-profile/'
     | '/admin/access-codes/'
@@ -3791,7 +3766,6 @@ export interface FileRouteTypes {
     | '/homepage/advertisements/'
     | '/homepage/background/'
     | '/homepage/building/'
-    | '/homepage/replace-building/'
     | '/join/$code/'
     | '/k/$slug/'
     | '/lesson-notes/$id/'
@@ -4034,7 +4008,6 @@ export interface RootRouteChildren {
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   HomepageBackgroundFreeRoute: typeof HomepageBackgroundFreeRoute
   HomepageBuildingFreeRoute: typeof HomepageBuildingFreeRoute
-  HomepageReplaceBuildingFreeRoute: typeof HomepageReplaceBuildingFreeRoute
   ASlugIndexRoute: typeof ASlugIndexRoute
   AccountCommunityProfileIndexRoute: typeof AccountCommunityProfileIndexRoute
   AgeRangeIndexRoute: typeof AgeRangeIndexRoute
@@ -4061,7 +4034,6 @@ export interface RootRouteChildren {
   HomepageAdvertisementsIndexRoute: typeof HomepageAdvertisementsIndexRoute
   HomepageBackgroundIndexRoute: typeof HomepageBackgroundIndexRoute
   HomepageBuildingIndexRoute: typeof HomepageBuildingIndexRoute
-  HomepageReplaceBuildingIndexRoute: typeof HomepageReplaceBuildingIndexRoute
   JoinCodeIndexRoute: typeof JoinCodeIndexRoute
   KSlugIndexRoute: typeof KSlugIndexRoute
   LevelsIdIndexRoute: typeof LevelsIdIndexRoute
@@ -5058,20 +5030,6 @@ declare module '@tanstack/react-router' {
       path: '/homepage/building/free'
       fullPath: '/homepage/building/free'
       preLoaderRoute: typeof HomepageBuildingFreeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/homepage/replace-building/': {
-      id: '/homepage/replace-building/'
-      path: '/homepage/replace-building'
-      fullPath: '/homepage/replace-building/'
-      preLoaderRoute: typeof HomepageReplaceBuildingIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/homepage/replace-building/free': {
-      id: '/homepage/replace-building/free'
-      path: '/homepage/replace-building/free'
-      fullPath: '/homepage/replace-building/free'
-      preLoaderRoute: typeof HomepageReplaceBuildingFreeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/join/$code/': {
@@ -6958,7 +6916,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   HomepageBackgroundFreeRoute: HomepageBackgroundFreeRoute,
   HomepageBuildingFreeRoute: HomepageBuildingFreeRoute,
-  HomepageReplaceBuildingFreeRoute: HomepageReplaceBuildingFreeRoute,
   ASlugIndexRoute: ASlugIndexRoute,
   AccountCommunityProfileIndexRoute: AccountCommunityProfileIndexRoute,
   AgeRangeIndexRoute: AgeRangeIndexRoute,
@@ -6985,7 +6942,6 @@ const rootRouteChildren: RootRouteChildren = {
   HomepageAdvertisementsIndexRoute: HomepageAdvertisementsIndexRoute,
   HomepageBackgroundIndexRoute: HomepageBackgroundIndexRoute,
   HomepageBuildingIndexRoute: HomepageBuildingIndexRoute,
-  HomepageReplaceBuildingIndexRoute: HomepageReplaceBuildingIndexRoute,
   JoinCodeIndexRoute: JoinCodeIndexRoute,
   KSlugIndexRoute: KSlugIndexRoute,
   LevelsIdIndexRoute: LevelsIdIndexRoute,
