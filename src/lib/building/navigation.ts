@@ -90,6 +90,9 @@ export function nextObjectOffset(existing: number[]): number {
 /** Conceptual blockwork thickness of every hallway wall (metres). */
 export const WALL_THICKNESS = 0.24;
 
+/** Plan width of a hallway — the shared figure for geometry and merge solving. */
+export const HALL_WIDTH = 7;
+
 /** Physical size of a hallway-to-hallway cut-through in a wall. */
 export interface OpeningFootprint {
   /** width of the gap measured along the parent wall */

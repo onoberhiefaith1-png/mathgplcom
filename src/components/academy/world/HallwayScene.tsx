@@ -44,6 +44,7 @@ import {
   forwardFromYaw,
   layoutHallwayObjects,
   hallwayLength,
+  HALL_WIDTH,
   HALLWAY_ENTRY_RUN,
   HALLWAY_PAD,
   OBJECT_SPACING,
@@ -64,7 +65,7 @@ import {
 import type { HallwayObject } from "@/lib/building/navigation";
 
 const SPACING = OBJECT_SPACING; // fixed distance between objects along a hallway
-const HALL_WIDTH = 7;
+
 const HALL_HEIGHT = 5.4;
 const WALK_SPEED = 4; // units per second while holding forward
 /** How close (metres) a junction must be, AHEAD of the walker, to be enterable. */
