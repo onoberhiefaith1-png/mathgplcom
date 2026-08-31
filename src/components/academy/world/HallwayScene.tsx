@@ -1473,17 +1473,17 @@ const MiniMap = ({
     const maxZ = Math.max(...zs);
     const W = 210;
     const H = 170;
-    // CONSTANT SCALE. The map is a GPS view, not a diagram that shrinks: one
-    // metre of building is always the same number of pixels, however large the
-    // maze grows, and the viewport follows the walker instead of rescaling.
-    const sc = MAP_METRE;
+    // GPS SCALE. The map never shrinks to fit the building: metres-per-pixel is
+    // set by the ZOOM level only, and the viewport follows the walker. Zooming
+    // out reveals more of the maze inside the same fixed panel.
+    const sc = MAP_METRE * zoom;
     const px = (x: number) => (x - minX) * sc;
     // The entrance sits at the BOTTOM of the plan and travel reads upward, like
     // a floor plan on a wall. The map never rotates with the walker.
     const py = (z: number) => (z - minZ) * sc;
 
     return { W, H, px, py, lines, linkLines, doorDots, ends, parentOf };
-  }, [segments, layouts, connectors]);
+  }, [segments, layouts, connectors, zoom]);
 
   // ── live player position: eased toward the walker's real coordinates ──
   const marker = useRef({ x: 0, y: 0, dx: 0, dy: -1, ready: false });
