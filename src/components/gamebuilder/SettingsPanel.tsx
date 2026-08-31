@@ -388,8 +388,55 @@ const SettingsPanel = ({
                     <Row label={`Tolerance (${Math.round((element.keyTolerance ?? 0.12) * 100)}%)`}>
                       <Slider min={2} max={60} step={1} value={[(element.keyTolerance ?? 0.12) * 100]} onValueChange={([v]) => onChange({ keyTolerance: v / 100 })} />
                     </Row>
+                    <Row label={`Edge softness (${(element.keyFeather ?? 0).toFixed(1)}px)`}>
+                      <Slider min={0} max={6} step={0.5} value={[element.keyFeather ?? 0]} onValueChange={([v]) => onChange({ keyFeather: v })} />
+                    </Row>
+                    <Row label={`Loop fade (${((element.loopFade ?? 0) * 1000).toFixed(0)}ms)`}>
+                      <Slider min={0} max={600} step={20} value={[(element.loopFade ?? 0) * 1000]} onValueChange={([v]) => onChange({ loopFade: v / 1000 })} />
+                    </Row>
                     <Button size="sm" variant="secondary" className="w-full" onClick={rescanBackground}>Re-scan background</Button>
                   </>
+                )}
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={touching}
+                  onClick={() => void runFinalTouch()}
+                >
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                  {touching ? "Watching one revolution…" : "Final Touch"}
+                </Button>
+                <p className="text-[10px] text-muted-foreground/70">
+                  Watches the clip through one full turn and tunes these settings until the
+                  edges, flicker, leftover backdrop and loop restart look clean.
+                </p>
+                {touchResult && (
+                  <div className="space-y-1 rounded-md border border-border/40 bg-background/50 p-2">
+                    <p className="text-[11px] font-medium">{touchResult.summary}</p>
+                    {touchResult.issues.map((issue) => (
+                      <div key={issue.id} className="flex items-start justify-between gap-2 text-[10px]">
+                        <span className="text-muted-foreground">{issue.label}</span>
+                        <span
+                          className={cn(
+                            "shrink-0 font-medium",
+                            issue.verdict === "fixed" && "text-emerald-500",
+                            issue.verdict === "reduced" && "text-amber-500",
+                            issue.verdict === "not-fixable" && "text-destructive",
+                            issue.verdict === "not-applicable" && "text-muted-foreground/70",
+                          )}
+                          title={issue.detail}
+                        >
+                          {issue.verdict === "fixed"
+                            ? "Fixed"
+                            : issue.verdict === "reduced"
+                              ? "Reduced"
+                              : issue.verdict === "not-fixable"
+                                ? "Needs a cleaner clip"
+                                : "None found"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
