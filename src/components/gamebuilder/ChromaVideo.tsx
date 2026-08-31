@@ -111,6 +111,9 @@ const ChromaVideo = ({
         }
       }
       ctx.putImageData(frame, 0, 0);
+      if (loopFade > 0) {
+        canvas.style.opacity = String(seamAlpha(video.currentTime, video.duration, loopFade));
+      }
       if (!reportedReady) {
         reportedReady = true;
         onLoad?.();
