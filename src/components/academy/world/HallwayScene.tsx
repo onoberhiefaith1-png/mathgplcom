@@ -2004,10 +2004,36 @@ const HallwayScene = ({
    * 180° in place) and then keeps walking that way for as long as it is held.
    * Nothing ever moves without a held control.
    */
+  /**
+   * The walk controls are ALWAYS live. Standing in the entrance lobby counts as
+   * being in the building, so the first press simply starts walking instead of
+   * being ignored — no button ever appears inert.
+   */
+  const ensureWalking = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase !== "browse") return st.phase !== "zooming";
+    const seg = st.seg ?? rootEffective;
+    st.seg = seg;
+    st.dist = 0;
+    st.dir = 1;
+    st.speed = 0;
+    st.turn = null;
+    st.yaw = segYaw(seg.heading);
+    setFacing(1);
+    historyRef.current.clear();
+    historyRef.current.push(seg.walkway?.id ?? "entrance");
+    setEndReached(false);
+    setNav({ seg, mode: "walk" });
+    setMachinePhase("walking");
+    notifyMode("walk");
+    syncBreadcrumb();
+    return true;
+  }, [rootEffective, setMachinePhase, notifyMode, syncBreadcrumb]);
+
   const startHold = useCallback(
     (sign: 1 | -1) => {
       const st = machineRef.current;
-      if (st.phase === "zooming") return;
+      if (!ensureWalking()) return;
       if (st.phase !== "walking" && st.phase !== "idle" && st.phase !== "turning") return;
       st.hold = sign;
       st.moving = true;
