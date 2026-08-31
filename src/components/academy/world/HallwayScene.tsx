@@ -578,12 +578,30 @@ const SegmentCorridor = ({
         maxWidth={HALL_WIDTH - 1.2}
       />
     )}
+    {/* START POINT — the entrance wall behind you, a designed structural
+        component of its own (never the left wall's colour, never the terminal
+        wall's design). It faces back down the corridor so it is what you see
+        when you turn around at the entrance. */}
     {capStart && (
-      <mesh position={[0, HALL_HEIGHT / 2, 1.6]}>
+      <Surface
+        position={[0, HALL_HEIGHT / 2, 1.6]}
+        rotation={[0, Math.PI, 0]}
+        url={env.startWall.texture ? textures[env.startWall.texture.path] : undefined}
+        presetKey={env.startWall.preset}
+        color={env.startWall.color}
+        scale={env.startWall.scale}
+        offsetX={env.startWall.offsetX}
+        offsetY={env.startWall.offsetY}
+        repeat={env.startWall.repeat}
+        fit={env.startWall.fit}
+        brightness={env.startWall.brightness}
+        planeW={HALL_WIDTH}
+        planeH={HALL_HEIGHT}
+      >
         <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
-        <meshStandardMaterial color={env.leftWall.color} roughness={0.95} side={THREE.DoubleSide} />
-      </mesh>
+      </Surface>
     )}
+
     {/* Recessed ceiling light panels + floor light pools, as in the reference */}
     {Array.from({ length: Math.max(1, Math.round(length / 6)) }, (_, i) => {
       const z = -(3 + i * 6);
