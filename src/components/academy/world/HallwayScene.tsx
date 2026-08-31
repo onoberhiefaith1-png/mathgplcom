@@ -330,6 +330,12 @@ const loadTexture = (url: string): Promise<THREE.Texture | null> => {
   return p;
 };
 
+/**
+ * Every surface gets its OWN texture instance (a clone sharing the decoded
+ * image). Two walls showing the same image therefore cannot fight over one
+ * object's fit / zoom / position, which is what made an edit appear to land on
+ * the wrong wall or not at all until the scene re-rendered.
+ */
 const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null => {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
   useEffect(() => {
@@ -339,27 +345,22 @@ const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null 
     }
     let live = true;
     loadTexture(url).then((t) => {
-      if (live) setTex(t);
+      if (!live) return;
+      if (!t) {
+        setTex(null);
+        return;
+      }
+      const own = t.clone();
+      own.colorSpace = THREE.SRGBColorSpace;
+      own.anisotropy = 4;
+      own.needsUpdate = true;
+      setTex(own);
     });
     return () => {
       live = false;
     };
   }, [url]);
   return tex;
-};
-
-/**
- * Tint applied to a textured surface. The image keeps its own colours (a hard
- * white tint would be faithful but ignores the chosen colour, a full tint would
- * stain the image) so the surface colour is applied as a light wash.
- */
-const textureTint = (color?: string): string => {
-  if (!color) return "#ffffff";
-  try {
-    return `#${new THREE.Color(color).lerp(new THREE.Color("#ffffff"), 0.72).getHexString()}`;
-  } catch {
-    return "#ffffff";
-  }
 };
 
 /** One surface (wall / floor / roof) of a corridor segment. */
