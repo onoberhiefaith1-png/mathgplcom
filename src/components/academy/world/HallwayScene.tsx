@@ -819,8 +819,16 @@ const Nameplate = ({
         <boxGeometry args={[w + 0.045, h + 0.045, depth * 0.6]} />
         <meshStandardMaterial color={PLATE_EDGE} roughness={0.45} metalness={0.3} />
       </mesh>
+      {/* The face carries a little of its own light, so the sign stays readable
+          in a corridor whose lighting the teacher may have dimmed. */}
       <mesh geometry={geo} castShadow receiveShadow>
-        <meshStandardMaterial color={PLATE_FACE} roughness={0.5} metalness={0.15} />
+        <meshStandardMaterial
+          color={PLATE_FACE}
+          emissive={PLATE_FACE}
+          emissiveIntensity={0.55}
+          roughness={0.5}
+          metalness={0.15}
+        />
       </mesh>
       <Suspense fallback={null}>
         {lines.map((line, i) => (
