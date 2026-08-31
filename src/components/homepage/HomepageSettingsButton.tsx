@@ -24,15 +24,10 @@ const OPTIONS = [
     to: "/homepage/building",
     icon: Building2,
     title: "Edit MathGPL Building",
-    body: "Replace individual artwork inside the original MathGPL building. Position, curve, perspective and size stay exactly as designed.",
-  },
-  {
-    to: "/homepage/replace-building",
-    icon: Replace,
-    title: "Replace Building",
-    body: "Upload a whole new building, position and preview it in the visual editor, then apply it to your homepage.",
+    body: "Change the pictures inside the original MathGPL building and set how fast it rotates. Position, curve, perspective and size stay exactly as designed.",
   },
 ];
+
 
 /** Gear on the Homepage opening the three independent customization workflows. */
 const HomepageSettingsButton = () => {
