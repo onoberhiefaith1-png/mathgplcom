@@ -29,8 +29,14 @@ export interface WalkwayManagerProps {
   doors: BuildingDoor[];
   catalogue: AcademyProduct[];
   /** Create a connected hallway. Returns nothing; the parent refreshes the world. */
-  onAddWalkway: (parentId: string | null, direction: WalkwayDirection, name?: string) => Promise<void>;
-  onUpdateWalkway: (id: string, length: number) => Promise<void>;
+  onAddWalkway: (
+    parentId: string | null,
+    direction: WalkwayDirection,
+    name?: string,
+    junctionAt?: number,
+  ) => Promise<void>;
+  /** Slide an existing junction further along its parent road (0–1). */
+  onSetJunction: (id: string, junctionAt: number) => Promise<void>;
   onRenameWalkway?: (id: string, name: string) => Promise<void>;
   /** Rename this hallway's ENDPOINT (the terminal node at its far end). */
   onRenameEndpoint?: (id: string, endLabel: string) => Promise<void>;
@@ -56,14 +62,19 @@ export interface WalkwayManagerProps {
   selectedDoorId?: string | null;
 }
 
-const DIRECTIONS: WalkwayDirection[] = ["forward", "left", "right"];
+/**
+ * A hallway is a road. Adding a hallway means adding a PERPENDICULAR road at a
+ * junction, so the only choices are Left and Right — a road is never "extended"
+ * by hand; it grows automatically as doors and junctions are added to it.
+ */
+const DIRECTIONS: WalkwayDirection[] = ["left", "right"];
 
 const WalkwayManager = ({
   walkways,
   doors,
   catalogue,
   onAddWalkway,
-  onUpdateWalkway,
+  onSetJunction,
   onRenameWalkway,
   onRenameEndpoint,
   onRenameDoor,
@@ -132,7 +143,8 @@ const WalkwayManager = ({
     const parent = parentId ?? hallParent ?? roots[0]?.id ?? "";
     setHallParent(parent);
     const taken = parent ? takenAt(parent) : [];
-    setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "forward");
+    setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "left");
+    setHallJunction(50);
     setHallName("");
     setForm("hallway");
   };
@@ -148,7 +160,12 @@ const WalkwayManager = ({
     if (busy) return;
     setBusy(true);
     try {
-      await onAddWalkway(roots.length === 0 ? null : hallParent, roots.length === 0 ? "forward" : hallDir, hallName);
+      await onAddWalkway(
+        roots.length === 0 ? null : hallParent,
+        roots.length === 0 ? "forward" : hallDir,
+        hallName,
+        hallJunction / 100,
+      );
       setForm(null);
     } finally {
       setBusy(false);
@@ -186,22 +203,27 @@ const WalkwayManager = ({
             }}
             className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-1 text-sm text-foreground"
           />
-          <input
-            aria-label="Hallway length"
-            type="number"
-            min={6}
-            max={120}
-            defaultValue={w.length}
-            onBlur={(e) => {
-              const v = Number(e.target.value);
-              if (Number.isFinite(v) && v >= 6 && v <= 120 && v !== w.length) {
-                void onUpdateWalkway(w.id, v);
-              } else {
-                e.target.value = String(w.length);
-              }
-            }}
-            className="w-14 rounded border border-border bg-background px-1 py-1 text-right text-[11px]"
-          />
+          {w.parent_id && (
+            <input
+              aria-label="Junction position"
+              title="How far along the parent hallway this junction sits (%)"
+              type="number"
+              min={5}
+              max={95}
+              step={5}
+              defaultValue={Math.round((w.junction_at ?? 0.5) * 100)}
+              onBlur={(e) => {
+                const v = Number(e.target.value);
+                const current = Math.round((w.junction_at ?? 0.5) * 100);
+                if (Number.isFinite(v) && v >= 5 && v <= 95 && v !== current) {
+                  void onSetJunction(w.id, v / 100);
+                } else {
+                  e.target.value = String(current);
+                }
+              }}
+              className="w-14 rounded border border-border bg-background px-1 py-1 text-right text-[11px]"
+            />
+          )}
           <button
             type="button"
             aria-label="Delete hallway"
@@ -221,9 +243,9 @@ const WalkwayManager = ({
                 Only meaningful while the hallway does not continue forward. */}
             {!kids.some((k) => k.direction === "forward") && (
               <label className="flex items-center gap-2 py-1 text-[11px] text-muted-foreground">
-                End wall name
+                Terminal Wall name
                 <input
-                  aria-label="End wall name"
+                  aria-label="Terminal Wall name"
                   defaultValue={w.end_label ?? ""}
                   placeholder={DEFAULT_ENDPOINT_NAME}
                   onBlur={(e) => {
@@ -368,7 +390,7 @@ const WalkwayManager = ({
                   onChange={(e) => {
                     setHallParent(e.target.value);
                     const taken = takenAt(e.target.value);
-                    setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "forward");
+                    setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "left");
                   }}
                   className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
                 >
@@ -397,13 +419,27 @@ const WalkwayManager = ({
                             : "border border-border text-muted-foreground"
                         } disabled:opacity-35`}
                       >
-                        {d === "forward" ? "Forward" : d === "left" ? "Left" : "Right"}
+                        {d === "left" ? "Left" : "Right"}
                         {disabled ? " · taken" : ""}
                       </button>
                     );
                   })}
                 </div>
               </div>
+              <label className="mt-2 block text-[11px] text-muted-foreground">
+                Junction position along {flat.find((f) => f.w.id === hallParent)?.w.name ?? "hallway"} ·{" "}
+                {hallJunction}%
+                <input
+                  aria-label="Junction position along parent"
+                  type="range"
+                  min={5}
+                  max={95}
+                  step={5}
+                  value={hallJunction}
+                  onChange={(e) => setHallJunction(Number(e.target.value))}
+                  className="mt-1 w-full"
+                />
+              </label>
             </>
           )}
           <label className="mt-2 block text-[11px] text-muted-foreground">
