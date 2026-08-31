@@ -456,6 +456,9 @@ const PresentationView = ({
   // every teacher surface are untouched because all branches read this flag.
   const mobileBoard = useMobileStudentBoard(role);
   const mobileStudent = mobileBoard.active;
+  // Two-finger viewport pan (mobile student mode only). One finger keeps
+  // writing exactly as before.
+  const panRef = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
 
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
   const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
