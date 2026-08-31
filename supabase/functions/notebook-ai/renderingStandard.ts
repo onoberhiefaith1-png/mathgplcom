@@ -54,7 +54,41 @@ UNICODE OPERATOR MAPPING (use the RIGHT column always):
   \\to  →  →     \\infty →  ∞
   \\pi  →  π     \\theta →  θ    \\alpha →  α    \\beta →  β   \\sigma → σ
 
+COMPOSITE POWERS AND SUBSCRIPTS — USE UNICODE, NOT ^{...}
+  A power or subscript whose contents contain +, −, ×, ÷ or = must be written
+  with Unicode superscript/subscript characters, never with ^{...} or _{...}:
+      x²⁻¹      2ˣ⁺²      aⁿ⁺¹      xₙ₊₁
+  Writing x^{2−1} or 2^{x+2} is a BUG. Simple single powers may still use
+  x², x³, xⁿ or the x^{2} template.
+
+RADICALS WITH SEVERAL TERMS MUST BE BRACED
+  √ followed by an expression containing + or − must be written \\sqrt{...} so
+  the radical sign covers the whole radicand:
+      \\sqrt{b² − 4ac}      not      √b² − 4ac
+
+NEVER SKIP THE DIVISION STEP
+  Going from ax = b straight to x = b/a is a missing step. Always write the
+  division line first:
+      5x = 20
+      Divide both sides by 5:
+      x = 4
+
+
+LINE BREAKS — NEVER USE \\\\ OR \\newline IN TEACHER-FACING TEXT
+  \\\\ is a MATRIX ROW SEPARATOR ONLY. It must never appear in a question, an
+  instruction, a solution step, or any sentence. Start a real new line instead.
+  A multi-part question puts EVERY part on its OWN line:
+      Given two sets A and B within a universal set U, shade the region:
+      a) A'
+      b) (A ∪ B)'
+      c) A ∩ B'
+  Writing "shade the region: \\\\ a) A' \\\\ b) (A ∪ B)'" is a BUG — the marks
+  reach the page as visible text and the parts can no longer be solved
+  separately. Every lettered or numbered part is a SEPARATE question and needs
+  its own complete solution.
+
 CLASSROOM SHAPE (Phase 7):
+
   • One statement per line. No bullets, no markdown headings.
   • No "Solution:", "Answer:", "Problem:" prefixes.
   • Output reads like a real classroom whiteboard or student notebook.

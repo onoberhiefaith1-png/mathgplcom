@@ -156,17 +156,25 @@ function stage4Rendering(text: string, kind: ValidationKind): Violation[] {
       /\\sqrt(?:\[[^\]]*\])?\s*\{\s*\}/.test(text)) {
     v.push({ phase: 4, rule: "empty-template-slot", detail: "empty {} inside \\frac/\\sqrt" });
   }
-  // Template macros inside a SENTENCE. A prose line must carry finished
-  // classroom symbols (√2, x², π, ×) — a backslash command there is what
-  // reaches the page as literal "\sqrt{2}" beside the words.
+  // Template macros inside a SENTENCE. A well-formed, renderable template
+  // (\frac{a}{b}, \sqrt{2}) is converted into real stacked mathematics by the
+  // notebook renderer even inside a sentence, so it is safe. What is NOT safe
+  // is a macro the renderer cannot convert — that one reaches the page as
+  // literal source text beside the words.
+  const RENDERABLE = new Set([
+    "frac", "dfrac", "tfrac", "sqrt", "binom", "sum", "prod", "int", "oint",
+    "lim", "log", "ln", "lg", "left", "right", "text", "begin", "end",
+    "vec", "hat", "bar", "tilde", "dot", "ddot", "abs", "norm", "floor", "ceil",
+  ]);
   const proseMacro: string[] = [];
   for (const line of text.split("\n")) {
-    if (!/\\[A-Za-z]+/.test(line)) continue;
+    const macros = line.match(/\\[A-Za-z]+/g);
+    if (!macros) continue;
+    const unrenderable = macros.filter((m) => !RENDERABLE.has(m.slice(1)));
+    if (!unrenderable.length) continue;
     const bare = line.replace(/\\[A-Za-z]+/g, " ");
-    const words = (bare.match(/[A-Za-z]{4,}/g) ?? []).filter(
-      (w) => !["frac", "sqrt", "left", "right", "text", "quad"].includes(w.toLowerCase()),
-    );
-    if (words.length >= 2) proseMacro.push(line.trim().slice(0, 60));
+    const words = (bare.match(/[A-Za-z]{4,}/g) ?? []).length;
+    if (words >= 2) proseMacro.push(line.trim().slice(0, 60));
   }
   if (proseMacro.length) {
     v.push({
@@ -175,6 +183,24 @@ function stage4Rendering(text: string, kind: ValidationKind): Violation[] {
       detail: `sentence carries raw syntax instead of finished symbols: ${proseMacro.slice(0, 3).join(" | ")}`,
     });
   }
+
+
+  // `\\` outside a matrix environment. It is a matrix row separator only; in
+  // ordinary text it reaches the page as visible marks and welds a multi-part
+  // question into one blob that can no longer be sectioned or solved per part.
+  const withoutMatrices = text.replace(
+    /\\begin\{(bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix)\}[\s\S]*?\\end\{\1\}/g,
+    " ",
+  );
+  if (/\\{2,}/.test(withoutMatrices) || /\\newline/.test(withoutMatrices)) {
+    v.push({
+      phase: 4,
+      rule: "no-row-separator-in-text",
+      detail: "\\\\ / \\newline used as a line break outside a matrix — start a real new line and put each part on its own line",
+    });
+  }
+
+
 
   const leftover = masked.match(/\\[A-Za-z]+/g) || [];
   const leaks = leftover.filter((cmd) => !ALLOWED_MACROS.has(cmd.slice(1)));

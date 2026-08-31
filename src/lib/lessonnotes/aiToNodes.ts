@@ -16,6 +16,7 @@ import { HAS_MATH } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { stripDuplicateHeading } from "@/lib/lessonnotes/problemDetect";
+import { breakRowSeparators } from "@/lib/lessonnotes/rowSeparators";
 import { SECTION_LABELS } from "@/lib/lessonnotes/sectionKinds";
 
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
@@ -68,7 +69,6 @@ function joinMatrixLines(text: string): string {
   return text.replace(new RegExp(MATRIX_ENV_RE.source, "g"), (m) =>
     m.replace(/\s*\n\s*/g, " "));
 }
-
 
 export function hasStructuredAiContent(text: string): boolean {
   return hasDirectives(text) || new RegExp(MATRIX_ENV_RE.source).test(text || "");
@@ -306,7 +306,7 @@ export function aiTextToNodes(
     if (!chunk.trim()) continue;
     // Matrix lines are handled LINE BY LINE so `A =` and its matrix stay in
     // one paragraph (one expression), never two blocks.
-    const lines = joinMatrixLines(chunk.replace(/\r\n/g, "\n")).split("\n");
+    const lines = breakRowSeparators(joinMatrixLines(chunk.replace(/\r\n/g, "\n"))).split("\n");
     let buffer: string[] = [];
     const flush = () => {
       if (!buffer.length) return;
