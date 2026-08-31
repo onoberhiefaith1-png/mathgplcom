@@ -566,42 +566,23 @@ const SegmentCorridor = ({
         <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
       </Surface>
     )}
-    {capEnd && endName && (
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={11}
-          material-depthTest={true}
-          position={[0, HALL_HEIGHT / 2 + 0.2, -length + 0.06]}
-          fontSize={0.34}
-          maxWidth={HALL_WIDTH - 1}
-          anchorX="center"
-          anchorY="middle"
-          color="#fde68a"
-        >
-          {endName}
-        </Text>
-      </Suspense>
+    {/* THE END-WALL SIGN — this hallway's own identity, mounted flat on the wall
+        that caps it, at eye level and centred on the wall. Never on the ceiling,
+        never floating in the corridor. */}
+    {capEnd && (name || endName) && (
+      <Nameplate
+        text={name || endName || ""}
+        caption={name && endName ? endName : undefined}
+        position={[0, 2.15, -length + 0.09]}
+        fontSize={0.3}
+        maxWidth={HALL_WIDTH - 1.2}
+      />
     )}
     {capStart && (
       <mesh position={[0, HALL_HEIGHT / 2, 1.6]}>
         <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
         <meshStandardMaterial color={env.leftWall.color} roughness={0.95} side={THREE.DoubleSide} />
       </mesh>
-    )}
-    {name && (
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={10}
-          material-depthTest={true}
-          position={[0, HALL_HEIGHT - 0.55, -1.5]}
-          fontSize={0.3}
-          anchorX="center"
-          anchorY="middle"
-          color="#dbeafe"
-        >
-          {name}
-        </Text>
-      </Suspense>
     )}
     {/* Recessed ceiling light panels + floor light pools, as in the reference */}
     {Array.from({ length: Math.max(1, Math.round(length / 6)) }, (_, i) => {
@@ -723,6 +704,184 @@ const SegmentCorridor = ({
   </group>
   );
 };
+
+// ── Architectural signage ─────────────────────────────────────────────────
+
+/**
+ * THE NAMEPLATE — the building's one signage object. A navy plaque with real
+ * thickness, rounded corners and a lighter bevel edge, carrying white uppercase
+ * text. It is a plain mesh group, so it inherits the transform of whatever it
+ * is mounted on (a door frame, a wall) and can never drift, face the screen or
+ * lose its depth. Every sign in the building is this component; only the text
+ * and the mounting differ.
+ */
+const PLATE_FACE = "#1d2c55";
+const PLATE_EDGE = "#4d72ad";
+const PLATE_TEXT = "#f7fafe";
+const PLATE_CAPTION = "#a9bcdd";
+
+const platePath = (w: number, h: number, r: number) => {
+  const s = new THREE.Shape();
+  const x = -w / 2;
+  const y = -h / 2;
+  s.moveTo(x + r, y);
+  s.lineTo(x + w - r, y);
+  s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h);
+  s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r);
+  s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+};
+
+/** Split a name into at most `maxLines` lines of at most `maxChars` each. */
+const wrapLabel = (text: string, maxChars: number, maxLines: number): string[] => {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of words) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (next.length <= maxChars || !cur) {
+      cur = next;
+    } else {
+      lines.push(cur);
+      cur = word;
+    }
+    if (lines.length === maxLines) break;
+  }
+  if (cur && lines.length < maxLines) lines.push(cur);
+  if (!lines.length) return [text.slice(0, maxChars)];
+  // Anything that still does not fit is trimmed on the last line, so text can
+  // never spill outside the plaque.
+  return lines.slice(0, maxLines).map((l) => (l.length > maxChars + 2 ? `${l.slice(0, maxChars)}…` : l));
+};
+
+const Nameplate = ({
+  text,
+  caption,
+  position,
+  rotationY = 0,
+  fontSize = 0.2,
+  minWidth = 0,
+  maxWidth = 4.4,
+  maxLines = 2,
+}: {
+  text: string;
+  caption?: string;
+  position: [number, number, number];
+  rotationY?: number;
+  fontSize?: number;
+  /** Floor on the plaque width, so short names still read as a real sign. */
+  minWidth?: number;
+  maxWidth?: number;
+  maxLines?: number;
+}) => {
+  const label = (text || "").trim().toUpperCase();
+  const cap = (caption || "").trim().toUpperCase();
+  const padX = fontSize * 1.4;
+  const padY = fontSize * 0.75;
+  const lineH = fontSize * 1.35;
+  const capH = cap ? fontSize * 0.9 : 0;
+  const per = fontSize * 0.62;
+
+  const lines = useMemo(
+    () => wrapLabel(label, Math.max(6, Math.floor((maxWidth - padX * 2) / per)), maxLines),
+    [label, maxWidth, padX, per, maxLines],
+  );
+
+  const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
+  const w = Math.min(maxWidth, Math.max(minWidth, fontSize * 5, longest * per + padX * 2));
+  const h = lines.length * lineH + capH + padY * 2;
+  const depth = Math.max(0.05, fontSize * 0.3);
+
+  const geo = useMemo(() => {
+    const g = new THREE.ExtrudeGeometry(platePath(w, h, Math.min(0.09, h * 0.22)), {
+      depth,
+      bevelEnabled: true,
+      bevelThickness: 0.012,
+      bevelSize: 0.012,
+      bevelSegments: 2,
+      curveSegments: 6,
+    });
+    return g;
+  }, [w, h, depth]);
+  useEffect(() => () => geo.dispose(), [geo]);
+
+  // Text baseline: the name block sits above the caption inside the plaque.
+  const textTop = h / 2 - padY - lineH / 2;
+
+  return (
+    <group position={position} rotation-y={rotationY}>
+      {/* Bevel edge, a hair larger and lighter, so the plaque catches the light */}
+      <mesh position={[0, 0, depth * 0.2]} castShadow receiveShadow>
+        <boxGeometry args={[w + 0.045, h + 0.045, depth * 0.6]} />
+        <meshStandardMaterial color={PLATE_EDGE} roughness={0.45} metalness={0.3} />
+      </mesh>
+      {/* The face carries a little of its own light, so the sign stays readable
+          in a corridor whose lighting the teacher may have dimmed. */}
+      <mesh geometry={geo} castShadow receiveShadow>
+        <meshStandardMaterial
+          color={PLATE_FACE}
+          emissive={PLATE_FACE}
+          emissiveIntensity={0.85}
+          roughness={0.5}
+          metalness={0.15}
+        />
+      </mesh>
+      <Suspense fallback={null}>
+        {lines.map((line, i) => (
+          <Text
+            key={`${line}-${i}`}
+            renderOrder={10}
+            material-depthTest={true}
+            position={[0, textTop - i * lineH, depth + 0.012]}
+            fontSize={fontSize}
+            fontWeight={700}
+            letterSpacing={0.04}
+            anchorX="center"
+            anchorY="middle"
+            color={PLATE_TEXT}
+          >
+            {line}
+          </Text>
+        ))}
+        {cap && (
+          <Text
+            renderOrder={10}
+            material-depthTest={true}
+            position={[0, -h / 2 + padY + capH * 0.35, depth + 0.012]}
+            fontSize={fontSize * 0.5}
+            letterSpacing={0.09}
+            maxWidth={w - padX}
+            anchorX="center"
+            anchorY="middle"
+            color={PLATE_CAPTION}
+          >
+            {cap}
+          </Text>
+        )}
+      </Suspense>
+    </group>
+  );
+};
+
+/**
+ * A hallway's own name, mounted flat on a wall as a real sign board — never
+ * floating, never on the ceiling. The caller supplies the wall position and the
+ * facing, so placement always comes from that hallway's own geometry.
+ */
+const HallwayNameFrame = ({
+  name,
+  position,
+  rotationY = 0,
+}: {
+  name: string;
+  position: [number, number, number];
+  rotationY?: number;
+}) => <Nameplate text={name} position={position} rotationY={rotationY} fontSize={0.3} maxWidth={5} />;
+
 
 /**
  * A real door asset fitted into the wall: reveal (jambs + lintel + threshold),
@@ -859,35 +1018,18 @@ const DoorMesh = ({
         />
       </mesh>
 
-      {/* Signage stays off the artwork: name on the lintel, detail beside it */}
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={10}
-          material-depthTest={true}
-          position={[0, openH + 0.3, 0.12]}
-          fontSize={0.2}
-          maxWidth={openW + 0.8}
-          textAlign="center"
-          anchorX="center"
-          anchorY="middle"
-          color="#f4f8ff"
-        >
-          {label}
-        </Text>
-        <Text
-          renderOrder={10}
-          material-depthTest={true}
-          position={[0, openH + 0.06, 0.12]}
-          fontSize={0.13}
-          maxWidth={openW + 0.8}
-          textAlign="center"
-          anchorX="center"
-          anchorY="middle"
-          color="#c9d6e8"
-        >
-          {sublabel}
-        </Text>
-      </Suspense>
+      {/* The door's nameplate: a real navy plaque mounted on the wall just above
+          the lintel. It is a CHILD of the door group, so it keeps its position
+          and perspective whatever the door or camera does. Clearance to the
+          ceiling is guaranteed by clamping its centre height. */}
+      <Nameplate
+        text={label}
+        caption={sublabel}
+        position={[0, Math.min(openH + 0.46, HALL_HEIGHT - 0.6), 0.13]}
+        fontSize={0.24}
+        minWidth={openW * 0.85}
+        maxWidth={openW + 1.2}
+      />
     </group>
   );
 };
@@ -1076,22 +1218,15 @@ const BranchOpening = ({
         />
       </mesh>
 
-      {/* Wall sign: hallway name + direction arrow, beside the mouth */}
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={10}
-          material-depthTest={true}
-          position={[wallX - side * 0.06, HALL_HEIGHT - 0.9, far[1] - 1.6]}
-          rotation-y={(-side * Math.PI) / 2}
-          fontSize={0.28}
-          maxWidth={3.4}
-          anchorX="center"
-          anchorY="middle"
-          color={hovered ? "#ffffff" : "#eef4ff"}
-        >
-          {`${name}  →`}
-        </Text>
-      </Suspense>
+      {/* THE HALLWAY NAME FRAME — mounted on the wall directly ACROSS from this
+          mouth, facing it, so walking up to the junction you read the name of
+          the hallway you are about to enter. Derived entirely from this mouth's
+          own geometry (side + position along the corridor), never a fixed spot. */}
+      <HallwayNameFrame
+        name={name}
+        position={[-side * (HALL_WIDTH / 2 - 0.1), 2.15, mouthMid]}
+        rotationY={(side * Math.PI) / 2}
+      />
     </group>
   );
 };
@@ -1131,20 +1266,8 @@ const ParentConnection = ({
         <planeGeometry args={[3.4, 0.72]} />
         <meshBasicMaterial transparent opacity={hovered ? 0.16 : 0.06} color="#bae6fd" depthWrite={false} />
       </mesh>
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={12}
-          material-depthTest={true}
-          position={[0, 2.4, 0.03]}
-          fontSize={0.24}
-          maxWidth={3.2}
-          anchorX="center"
-          anchorY="middle"
-          color={hovered ? "#ffffff" : "#bae6fd"}
-        >
-          {`← ${name}`}
-        </Text>
-      </Suspense>
+      {/* The way back reads as the same kind of sign, mounted on the return wall */}
+      <Nameplate text={name} caption="Back this way" position={[0, 2.4, 0.05]} fontSize={0.24} maxWidth={4} />
     </group>
   );
 };
