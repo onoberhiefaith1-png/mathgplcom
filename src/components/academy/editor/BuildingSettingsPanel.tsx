@@ -33,7 +33,8 @@ const SURFACE_TITLES: Record<SurfaceKey, string> = {
   leftWall: "Left wall",
   rightWall: "Right wall",
   floor: "Floor",
-  roof: "Roof / ceiling",
+  roof: "Ceiling",
+  endWall: "End wall",
 };
 
 const Section = ({
@@ -373,11 +374,30 @@ const BuildingSettingsPanel = ({
         ),
       },
       {
+        key: "endWall",
+        title: "End wall",
+        body: (
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              The wall at the end of a hallway that does not continue forward.
+            </p>
+            <SurfaceEditor
+              title="End wall"
+              design={surface("endWall")}
+              previewUrl={urlOf(surface("endWall").texture?.path)}
+              onChange={(d) => setSurface("endWall", d)}
+              onChooseTemplate={() => setGalleryFor("endWall")}
+              onUploadClick={() => setUploadFor("endWall")}
+            />
+          </div>
+        ),
+      },
+      {
         key: "roof",
-        title: "Roof / ceiling",
+        title: "Ceiling",
         body: (
           <SurfaceEditor
-            title="Roof / ceiling"
+            title="Ceiling"
             design={surface("roof")}
             previewUrl={urlOf(surface("roof").texture?.path)}
             onChange={(d) => setSurface("roof", d)}

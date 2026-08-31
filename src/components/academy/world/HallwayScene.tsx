@@ -315,12 +315,24 @@ const SegmentCorridor = ({
   endName?: string;
 }) => (
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
-    {/* enclosing end walls — the hallway is finite, never an open void */}
+    {/* END WALL — the hallway's fifth surface, edited like the others. A
+        hallway is finite, so it always terminates in a designed wall. */}
     {capEnd && (
-      <mesh position={[0, HALL_HEIGHT / 2, -length]}>
+      <Surface
+        position={[0, HALL_HEIGHT / 2, -length]}
+        url={env.endWall.texture ? textures[env.endWall.texture.path] : undefined}
+        presetKey={env.endWall.preset}
+        color={env.endWall.color}
+        scale={env.endWall.scale}
+        offsetX={env.endWall.offsetX}
+        offsetY={env.endWall.offsetY}
+        repeat={env.endWall.repeat}
+        fit={env.endWall.fit}
+        planeW={HALL_WIDTH}
+        planeH={HALL_HEIGHT}
+      >
         <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
-        <meshStandardMaterial color={env.leftWall.color} roughness={0.95} side={THREE.DoubleSide} />
-      </mesh>
+      </Surface>
     )}
     {capEnd && endName && (
       <Suspense fallback={null}>
@@ -896,17 +908,25 @@ const WalkControls = ({
   </div>
 );
 
-// ── Fixed structural map (top-right HUD) ──────────────────────────────────
+// ── Live navigation minimap (fixed top-right HUD) ─────────────────────────
 
-/** Re-render at ~12fps so the player marker tracks the walk smoothly. */
-const useMapTick = (active: boolean) => {
+/** Animation frame tick, so the player marker travels smoothly, never jumps. */
+const useMapFrames = (active: boolean) => {
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!active) return;
-    const id = window.setInterval(() => setTick((t) => t + 1), 80);
-    return () => window.clearInterval(id);
+    let raf = 0;
+    const loop = () => {
+      setTick((t) => (t + 1) % 100000);
+      raf = window.requestAnimationFrame(loop);
+    };
+    raf = window.requestAnimationFrame(loop);
+    return () => window.cancelAnimationFrame(raf);
   }, [active]);
 };
+
+const MAP_SIZES = { S: 0.72, M: 1, L: 1.4 } as const;
+type MapSize = keyof typeof MAP_SIZES;
 
 const MiniMap = ({
   segments,
@@ -922,17 +942,23 @@ const MiniMap = ({
   /** True when the walker is standing at the end of the current hallway. */
   ended?: boolean;
 }) => {
-  useMapTick(show);
+  const [size, setSize] = useState<MapSize>("M");
+  useMapFrames(show);
+
   const svg = useMemo(() => {
     const pts: number[] = [];
-    const lines: { x1: number; y1: number; x2: number; y2: number; name: string }[] = [];
+    const lines: { id: string; x1: number; y1: number; x2: number; y2: number; name: string }[] = [];
     const doorDots: { x: number; z: number }[] = [];
     /** Terminal navigation nodes — the editable ENDPOINT of each route. */
     const ends: { id: string; x: number; z: number; name: string }[] = [];
-    const walk = (s: Segment) => {
+    /** hallway id → its parent hallway id, so the active route can be traced. */
+    const parentOf = new Map<string, string | null>();
+    const walk = (s: Segment, parentId: string | null) => {
+      const id = s.walkway?.id ?? "root";
+      parentOf.set(id, parentId);
       const ex = s.start[0] + s.heading[0] * s.length;
       const ez = s.start[1] + s.heading[1] * s.length;
-      lines.push({ x1: s.start[0], y1: s.start[1], x2: ex, y2: ez, name: s.walkway?.name ?? "Hallway" });
+      lines.push({ id, x1: s.start[0], y1: s.start[1], x2: ex, y2: ez, name: s.walkway?.name ?? "Hallway" });
       pts.push(s.start[0], s.start[1], ex, ez);
       for (const o of layouts.get(s.walkway?.id ?? "") ?? []) {
         if (o.kind !== "door") continue;
@@ -942,16 +968,11 @@ const MiniMap = ({
         });
       }
       if (!s.children.some((c) => c.walkway?.direction === "forward")) {
-        ends.push({
-          id: s.walkway?.id ?? "root",
-          x: ex,
-          z: ez,
-          name: s.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME,
-        });
+        ends.push({ id, x: ex, z: ez, name: s.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME });
       }
-      s.children.forEach(walk);
+      s.children.forEach((c) => walk(c, id));
     };
-    segments.filter((s) => s.depth === 0).forEach(walk);
+    segments.filter((s) => s.depth === 0).forEach((s) => walk(s, null));
     if (pts.length === 0) pts.push(0, 0, 0, -10);
     const xs = pts.filter((_, i) => i % 2 === 0);
     const zs = pts.filter((_, i) => i % 2 === 1);
@@ -961,7 +982,7 @@ const MiniMap = ({
     const maxZ = Math.max(...zs);
     const W = 210;
     const H = 170;
-    const PAD = 20;
+    const PAD = 22;
     // A single short hallway must not stretch edge to edge, so the layout is
     // measured against a minimum span before it is scaled.
     const spanX = Math.max(10, maxX - minX);
@@ -972,90 +993,187 @@ const MiniMap = ({
     const offY = (H - spanZ * sc) / 2 + ((spanZ - (maxZ - minZ)) / 2) * sc;
     const px = (x: number) => (x - minX) * sc + offX;
     const py = (z: number) => (maxZ - z) * sc + offY; // forward (−z) renders up: north is always up
-    return { W, H, px, py, lines, doorDots, ends };
+    return { W, H, px, py, lines, doorDots, ends, parentOf };
   }, [segments, layouts]);
 
-  if (!show) return null;
+  // ── live player position: eased toward the walker's real coordinates ──
+  const marker = useRef({ x: 0, y: 0, dx: 0, dy: -1, ready: false });
   const st = m.current;
-  const you: [number, number] = st
+  const target: [number, number] = st
     ? [st.seg.start[0] + st.seg.heading[0] * st.dist, st.seg.start[1] + st.seg.heading[1] * st.dist]
     : [0, 0];
-  const heading = st?.seg.heading ?? [0, -1];
+  const tx = svg.px(target[0]);
+  const ty = svg.py(target[1]);
+  const face = st ? forwardFromYaw(st.yaw) : ([0, -1] as [number, number]);
+  {
+    const k = marker.current.ready ? 0.18 : 1;
+    marker.current.x += (tx - marker.current.x) * k;
+    marker.current.y += (ty - marker.current.y) * k;
+    marker.current.dx += (face[0] - marker.current.dx) * (marker.current.ready ? 0.2 : 1);
+    marker.current.dy += (face[1] - marker.current.dy) * (marker.current.ready ? 0.2 : 1);
+    marker.current.ready = true;
+  }
+  if (!show) return null;
+
   // The endpoint is a terminal node: reached only when the walker is at the end
   // of a hallway that does not continue forward.
-  const atEnd =
-    ended && !(st?.seg.children ?? []).some((c) => c.walkway?.direction === "forward");
-  const reachedId = atEnd ? (st?.seg.walkway?.id ?? "root") : null;
+  const atEnd = ended && !(st?.seg.children ?? []).some((c) => c.walkway?.direction === "forward");
+  const currentId = st?.seg.walkway?.id ?? "root";
+  const reachedId = atEnd ? currentId : null;
   const reachedName = reachedId ? (svg.ends.find((e) => e.id === reachedId)?.name ?? null) : null;
-  const ax = svg.px(you[0]);
-  const ay = svg.py(you[1]);
-  // map-space direction: x follows world x, y is inverted (−z is up)
-  const arrow = `${ax + heading[0] * 7},${ay - heading[1] * 7} ${ax - heading[0] * 4 - heading[1] * 4},${ay + heading[1] * 4 - heading[0] * 4} ${ax - heading[0] * 4 + heading[1] * 4},${ay + heading[1] * 4 + heading[0] * 4}`;
+
+  // Active route = the chain of hallways from the entrance to the current one.
+  const route = new Set<string>();
+  for (let id: string | null | undefined = currentId; id; id = svg.parentOf.get(id) ?? null) route.add(id);
+
+  const ax = marker.current.x;
+  const ay = marker.current.y;
+  const hx = marker.current.dx;
+  const hy = marker.current.dy;
+  const len = Math.hypot(hx, hy) || 1;
+  const ux = hx / len;
+  const uy = -hy / len; // map-space y is inverted (−z renders up)
+  const chevron = `${ax + ux * 8},${ay + uy * 8} ${ax - ux * 5 - uy * 5},${ay - uy * 5 + ux * 5} ${ax - ux * 2},${ay - uy * 2} ${ax - ux * 5 + uy * 5},${ay - uy * 5 - ux * 5}`;
+  const scale = MAP_SIZES[size];
 
   return (
-    <div className="pointer-events-none absolute right-3 top-16 z-10 rounded-xl border border-border/60 bg-background/85 p-2 shadow-xl backdrop-blur">
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-        Building map
-      </span>
-      <svg width={svg.W} height={svg.H} viewBox={`0 0 ${svg.W} ${svg.H}`} className="rounded-lg bg-black/40">
-        {svg.lines.map((l, i) => (
-          <g key={i}>
-            <line
-              x1={svg.px(l.x1)}
-              y1={svg.py(l.y1)}
-              x2={svg.px(l.x2)}
-              y2={svg.py(l.y2)}
-              stroke="#64748b"
-              strokeWidth={7}
-              strokeLinecap="square"
-            />
-            <text
-              x={(svg.px(l.x1) + svg.px(l.x2)) / 2}
-              y={(svg.py(l.y1) + svg.py(l.y2)) / 2 - 6}
-              textAnchor="middle"
-              fontSize={8}
-              fill="#cbd5e1"
-            >
-              {l.name}
-            </text>
-          </g>
-        ))}
-        {svg.doorDots.map((d, i) => (
-          <rect key={i} x={svg.px(d.x) - 3} y={svg.py(d.z) - 3} width={6} height={6} rx={1} fill="#fbbf24" />
-        ))}
-        {/* ENDPOINT markers — highlighted once the walker reaches that end */}
-        {svg.ends.map((e) => {
-          const here = reachedId === e.id;
-          return (
-            <g key={`end-${e.id}`}>
-              <circle
-                cx={svg.px(e.x)}
-                cy={svg.py(e.z)}
-                r={here ? 6 : 4.5}
-                fill={here ? "#f87171" : "#0b0f18"}
-                stroke={here ? "#fecaca" : "#f87171"}
-                strokeWidth={1.5}
-              />
-              <text
-                x={svg.px(e.x)}
-                y={svg.py(e.z) - 9}
-                textAnchor="middle"
-                fontSize={7.5}
-                fill={here ? "#fecaca" : "#fca5a5"}
+    <div className="pointer-events-none absolute right-6 top-20 z-10 select-none">
+      <div
+        className="rounded-2xl border border-sky-400/25 bg-[#070d1b]/90 p-2 shadow-[0_10px_40px_rgba(2,8,23,0.65)] backdrop-blur"
+        style={{ width: svg.W * scale + 16 }}
+      >
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-sky-300/80">
+            Building map
+          </span>
+          <div className="pointer-events-auto flex items-center gap-0.5">
+            {(Object.keys(MAP_SIZES) as MapSize[]).map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-label={`Map size ${s}`}
+                onClick={() => setSize(s)}
+                className={`h-5 w-5 rounded-md text-[9px] font-bold transition ${
+                  size === s
+                    ? "bg-sky-400/25 text-sky-200 ring-1 ring-sky-400/50"
+                    : "text-sky-300/50 hover:text-sky-200"
+                }`}
               >
-                {e.name}
-              </text>
-            </g>
-          );
-        })}
-        <circle cx={svg.px(0)} cy={svg.py(0)} r={4} fill="#34d399" />
-        <polygon points={arrow} fill="#7dd3fc" stroke="#0b0f18" strokeWidth={1} />
-      </svg>
-      {reachedName && (
-        <span className="mt-1 block text-center text-[10px] font-semibold text-red-300">
-          Route end reached · {reachedName}
-        </span>
-      )}
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+        <svg
+          width={svg.W * scale}
+          height={svg.H * scale}
+          viewBox={`0 0 ${svg.W} ${svg.H}`}
+          className="rounded-xl bg-gradient-to-b from-[#0b1428] to-[#060b17]"
+        >
+          <defs>
+            <filter id="mapGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2.4" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          {/* hallways: dark blue elsewhere, medium blue on the active route,
+              bright blue for the hallway the student is standing in */}
+          {svg.lines.map((l) => {
+            const here = l.id === currentId;
+            const onRoute = route.has(l.id);
+            return (
+              <g key={l.id}>
+                {here && (
+                  <line
+                    x1={svg.px(l.x1)}
+                    y1={svg.py(l.y1)}
+                    x2={svg.px(l.x2)}
+                    y2={svg.py(l.y2)}
+                    stroke="#38bdf8"
+                    strokeWidth={13}
+                    strokeLinecap="round"
+                    opacity={0.22}
+                  />
+                )}
+                <line
+                  x1={svg.px(l.x1)}
+                  y1={svg.py(l.y1)}
+                  x2={svg.px(l.x2)}
+                  y2={svg.py(l.y2)}
+                  stroke={here ? "#38bdf8" : onRoute ? "#3b82f6" : "#243755"}
+                  strokeWidth={here ? 7.5 : 6.5}
+                  strokeLinecap="round"
+                />
+                {(here || onRoute) && (
+                  <text
+                    x={(svg.px(l.x1) + svg.px(l.x2)) / 2}
+                    y={(svg.py(l.y1) + svg.py(l.y2)) / 2 - 7}
+                    textAnchor="middle"
+                    fontSize={7.5}
+                    fill={here ? "#bae6fd" : "#93c5fd"}
+                  >
+                    {l.name}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+          {/* doors — destinations along the hallway walls */}
+          {svg.doorDots.map((d, i) => (
+            <rect
+              key={i}
+              x={svg.px(d.x) - 3}
+              y={svg.py(d.z) - 3}
+              width={6}
+              height={6}
+              rx={1.5}
+              fill="#e0f2fe"
+              stroke="#0ea5e9"
+              strokeWidth={1}
+            />
+          ))}
+          {/* end walls — where a route terminates */}
+          {svg.ends.map((e) => {
+            const here = reachedId === e.id;
+            return (
+              <g key={`end-${e.id}`}>
+                <circle
+                  cx={svg.px(e.x)}
+                  cy={svg.py(e.z)}
+                  r={here ? 5 : 3.5}
+                  fill={here ? "#38bdf8" : "#0b1428"}
+                  stroke="#38bdf8"
+                  strokeWidth={1.4}
+                />
+                {here && (
+                  <text
+                    x={svg.px(e.x)}
+                    y={svg.py(e.z) - 9}
+                    textAnchor="middle"
+                    fontSize={7}
+                    fill="#bae6fd"
+                  >
+                    {e.name}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+          {/* the student: a glowing blue directional marker that moves live */}
+          <circle cx={ax} cy={ay} r={7} fill="#38bdf8" opacity={0.18} filter="url(#mapGlow)">
+            <animate attributeName="r" values="6;10;6" dur="1.8s" repeatCount="indefinite" />
+          </circle>
+          <polygon points={chevron} fill="#7dd3fc" stroke="#0b1428" strokeWidth={0.8} filter="url(#mapGlow)" />
+        </svg>
+        {reachedName && (
+          <span className="mt-1 block text-center text-[10px] font-semibold text-sky-300">
+            {reachedName}
+          </span>
+        )}
+      </div>
     </div>
   );
 };
