@@ -505,6 +505,19 @@ const SegmentCorridor = ({
   /** Distance from this hallway's start where its own shell may begin — a
       branch begins at the mouth in its parent's wall, never inside it. */
   startTrim?: number;
+  /**
+   * Where this corridor's floor/ceiling are CUT because another corridor's
+   * slab passes through the crossing there. Only the portion inside the
+   * crossing is removed; the runs before and after stay continuous.
+   */
+  deckHoles?: { along: number; width: number }[];
+  /**
+   * Real structural offset of this corridor's slabs, so no two corridors ever
+   * share a plane at exactly the same depth.
+   */
+  deckLift?: number;
+  /** How far this corridor's deck may run past its own far end. */
+  frontPad?: number;
   /** Solid wall at the far end (no forward continuation). */
   capEnd?: boolean;
   /** Solid wall behind the entrance. */
@@ -519,14 +532,13 @@ const SegmentCorridor = ({
   // otherwise the branch reads as a dark void behind the opening instead of a
   // corridor you can see down.
   const backPad = capStart ? 3 : -startTrim;
-  const frontPad = 3;
   const span = length + frontPad + backPad;
   /** Local z of the wall runs' centre inside the group offset by -length / 2. */
   const shellZ = length / 2 - (length + frontPad - backPad) / 2;
   /** Floor/ceiling reach back past the mouth so the throat is continuous. */
   const deckBack = capStart ? 3 : startTrim + 1.5;
-  const deckSpan = length + frontPad + deckBack;
-  const deckZ = length / 2 - (length + frontPad - deckBack) / 2;
+  /** The deck, minus every crossing another corridor's slab carries through. */
+  const deckSpans = wallRuns(-deckBack, length + frontPad, deckHoles);
 
   return (
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
