@@ -6096,7 +6096,10 @@ const PresentationView = ({
                 ? layouts[layouts.length - 1].startLine + layouts[layouts.length - 1].totalLines
                 : 10) + 10,
             )}px`,
-            width: "100%",
+             width: "100%",
+             // MOBILE STUDENT MODE — the board keeps a readable width and the
+             // device pans across it instead of shrinking the mathematics.
+             ...(mobileStudent ? { minWidth: `${mobileBoard.boardWidth * zoom}px` } : null),
           }}
         >
           {/* All revealed beats — cover, intro, problems, summary — render
