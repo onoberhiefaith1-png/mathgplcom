@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 
-const safe = (s: string) => assertDisplaySafe(s).latex ?? assertDisplaySafe(s).value ?? "";
+const safe = (s: string) => assertDisplaySafe(s).cleaned;
 
 describe("braceless structural macros", () => {
   it("reads single-token fraction arguments", () => {
