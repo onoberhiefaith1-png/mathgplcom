@@ -52,6 +52,8 @@ import {
   activateBuilding,
   addDoor,
   addWalkway,
+  addWalkwayLink,
+  deleteWalkwayLink,
   deleteDoor,
   deleteWalkway,
   duplicateBuilding,
@@ -354,6 +356,47 @@ const handleTextureUpload = useCallback(
     [buildingData, refreshBuilding],
   );
 
+  /**
+   * Connect two hallways that already exist. Each end takes the next free slot
+   * on its own road, so a connection never lands on top of a door.
+   */
+  const handleAddLink = useCallback(
+    async (fromWalkwayId: string, toWalkwayId: string) => {
+      if (!buildingData) throw new Error("The building is still loading — try again in a moment.");
+      const slot = (walkwayId: string) =>
+        nextObjectOffset([
+          ...buildingData.doors.filter((d) => d.walkway_id === walkwayId).map((d) => d.position_along),
+          ...buildingData.walkways
+            .filter((w) => w.parent_id === walkwayId && w.direction !== "forward")
+            .map((w) => w.junction_at ?? 0.5),
+          ...buildingData.links
+            .filter((l) => l.from_walkway_id === walkwayId || l.to_walkway_id === walkwayId)
+            .map((l) => (l.from_walkway_id === walkwayId ? l.from_position : l.to_position)),
+        ]);
+      try {
+        await addWalkwayLink(buildingData.building.id, fromWalkwayId, toWalkwayId, {
+          from: slot(fromWalkwayId),
+          to: slot(toWalkwayId),
+        });
+        await refreshBuilding();
+      } catch (e: unknown) {
+        const reason = String((e as Error)?.message ?? e);
+        console.error("[building] create connection failed", e);
+        toast({ title: "Could not connect the hallways", description: reason, variant: "destructive" });
+        throw e;
+      }
+    },
+    [buildingData, refreshBuilding],
+  );
+
+  const handleDeleteLink = useCallback(
+    async (id: string) => {
+      await deleteWalkwayLink(id);
+      await refreshBuilding();
+    },
+    [refreshBuilding],
+  );
+
   const handleAddDoor = useCallback(
     async (
       walkwayId: string,
@@ -544,6 +587,9 @@ const handleTextureUpload = useCallback(
                         catalogue={catalogue}
                         selectedDoorId={selectedDoorId}
                         onAddWalkway={handleAddWalkway}
+                        links={buildingData.links}
+                        onAddLink={handleAddLink}
+                        onDeleteLink={handleDeleteLink}
                         onBuildSampleMaze={async () => {
                           await createSampleMaze(buildingData.building.id, buildingData.walkways[0]?.id ?? null);
                           await refreshBuilding();
