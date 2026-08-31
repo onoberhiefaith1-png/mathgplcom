@@ -979,12 +979,16 @@ interface Machine {
   seg: Segment;
   dist: number;
   moving: boolean;
+  /**
+   * TRUE only while the user is actively holding Forward. The camera never
+   * travels on its own: movement is the direct result of this input intent.
+   */
+  holding: boolean;
   /** current walking speed, ramped so the walk never starts or stops dead */
   speed: number;
   /**
    * Distances along the current hallway where a perpendicular junction opens.
-   * The walk eases to a hover at each one so left/right can be chosen there,
-   * then continues down the road.
+   * Kept for the map / turn availability — they no longer brake the walk.
    */
   stops: number[];
 
@@ -992,6 +996,7 @@ interface Machine {
   turn: TurnSpec | null;
   zoom: ZoomSpec | null;
 }
+
 
 // ── Camera rig ────────────────────────────────────────────────────────────
 
@@ -1040,19 +1045,15 @@ const CameraRig = ({
 
 if (st.phase === "walking" || st.phase === "idle") {
       const seg = st.seg;
-      // Continuous forward travel: the hallway comes toward the camera. It eases
-      // to a hover at the next junction (or the terminal wall), so a turn can be
-      // taken there, and the walk never starts or stops dead.
-      const nextStop = st.stops.find((s) => s > st.dist + 0.6);
-      const target = Math.min(seg.length, nextStop ?? seg.length);
-      const remaining = Math.max(0, target - st.dist);
-      const wanted =
-        st.phase === "walking" && st.moving
-          ? WALK_SPEED * THREE.MathUtils.clamp(remaining / 4, 0.12, 1)
-          : 0;
-      st.speed = THREE.MathUtils.lerp(st.speed, wanted, 1 - Math.exp(-4 * dt));
-      if (st.phase === "walking" && st.moving) {
-        st.dist = Math.min(target, st.dist + dt * st.speed);
+      // FIRST-PERSON HOLD-TO-WALK: the camera travels only while Forward is
+      // held. Speed ramps up and down with frame-rate-independent damping, so
+      // starting and stopping is smooth, and the position is never reset —
+      // releasing and holding again continues from exactly where it stopped.
+      const limit = seg.length;
+      const wanted = st.holding ? WALK_SPEED : 0;
+      st.speed = THREE.MathUtils.lerp(st.speed, wanted, 1 - Math.exp(-9 * dt));
+      if (st.speed > 0.001) {
+        st.dist = THREE.MathUtils.clamp(st.dist + dt * st.speed, 0, limit);
       }
 
       const d = st.dist;
@@ -1064,11 +1065,13 @@ if (st.phase === "walking" || st.phase === "idle") {
       camera.position.z = THREE.MathUtils.lerp(camera.position.z, pz, k);
       const dir = forwardFromYaw(st.yaw);
       camera.lookAt(camera.position.x + dir[0] * 6, 1.75, camera.position.z + dir[1] * 6);
-      if (st.phase === "walking" && d >= target - 0.05) {
-        if (target < seg.length - 0.05) onJunctionReach();
-        else onWalkEnd();
-      }
+      // Junction proximity only decides which turns are offered; it no longer
+      // brakes the walk. The terminal wall still stops the walker.
+      const atOpening = st.stops.some((s) => Math.abs(s - d) < 2.5);
+      if (atOpening) onJunctionReach();
+      if (d >= limit - 0.05) onWalkEnd();
       return;
+
     }
 
 
@@ -1150,7 +1153,8 @@ const WalkControls = ({
   hasForward,
   canBack,
   moving,
-  onToggleWalk,
+  onHoldStart,
+  onHoldEnd,
 
   onTurn,
   onBack,
@@ -1161,13 +1165,15 @@ const WalkControls = ({
   hasForward: boolean;
   canBack: boolean;
   moving: boolean;
-  /** Pause / resume the continuous forward walk. */
-  onToggleWalk: () => void;
+  /** Press-and-hold Forward: movement lasts exactly as long as the hold. */
+  onHoldStart: () => void;
+  onHoldEnd: () => void;
 
   onTurn: (seg: Segment) => void;
   onBack: () => void;
   ended: boolean;
 }) => (
+
   <div className="absolute inset-x-0 bottom-4 z-20 flex flex-col items-center gap-2 px-4">
     {atJunction && (
       <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 p-1.5 backdrop-blur">
@@ -1224,12 +1230,21 @@ const WalkControls = ({
       )}
       <button
         type="button"
-        aria-label={moving ? "Pause walking" : "Resume walking"}
-        onClick={onToggleWalk}
-        className={`inline-flex h-14 w-14 items-center justify-center rounded-full text-lg ${moving ? "bg-primary text-primary-foreground" : "bg-primary/80 text-primary-foreground"}`}
+        aria-label="Hold to walk forward"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+          onHoldStart();
+        }}
+        onPointerUp={onHoldEnd}
+        onPointerCancel={onHoldEnd}
+        onPointerLeave={onHoldEnd}
+        onLostPointerCapture={onHoldEnd}
+        onContextMenu={(e) => e.preventDefault()}
+        className={`inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full text-lg ${moving ? "bg-primary text-primary-foreground scale-105" : "bg-primary/80 text-primary-foreground"}`}
       >
-        {moving ? "❙❙" : "▲"}
+        ▲
       </button>
+
 
     </div>
   </div>
@@ -1632,7 +1647,9 @@ const HallwayScene = ({
     seg: rootEffective,
     dist: 0,
     moving: false,
+    holding: false,
     speed: 0,
+
     stops: [],
 
     yaw: 0,
@@ -1725,6 +1742,8 @@ const HallwayScene = ({
     st.seg = rootEffective;
     st.dist = 0;
     st.moving = false;
+    st.holding = false;
+    st.speed = 0;
     st.yaw = 0;
     st.turn = null;
     st.zoom = null;
@@ -1737,16 +1756,36 @@ const HallwayScene = ({
     syncBreadcrumb();
   }, [rootEffective, notifyMode, syncBreadcrumb]);
 
+  /** Press-and-hold Forward. Nothing moves until the hold begins. */
+  const startHold = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase !== "walking" && st.phase !== "idle") return;
+    if (st.dist >= st.seg.length - 0.05) return; // at the terminal wall
+    st.holding = true;
+    st.moving = true;
+    setMoving(true);
+    setMachinePhase("walking");
+  }, [setMachinePhase]);
+
+  const endHold = useCallback(() => {
+    const st = machineRef.current;
+    st.holding = false;
+    st.moving = false;
+    setMoving(false);
+  }, []);
+
   const enterWalk = useCallback(
     (seg: Segment) => {
       const st = machineRef.current;
       st.seg = seg;
       st.dist = 0;
-      st.moving = true;
+      st.moving = false;
+      st.holding = false;
+      st.speed = 0;
       st.yaw = segYaw(seg.heading);
       historyRef.current.clear();
       historyRef.current.push(seg.walkway?.id ?? "entrance");
-      setMoving(true);
+      setMoving(false);
       setEndReached(false);
       setNav({ seg, mode: "walk" });
       setMachinePhase("walking");
@@ -1756,24 +1795,23 @@ const HallwayScene = ({
     [setMachinePhase, notifyMode, syncBreadcrumb],
   );
 
+
   /**
-   * Enter a connected hallway. Forward continuations simply carry on. Side
-   * hallways are entered by gliding into the opening and resuming down the new
-   * hallway — the camera never performs a visible 90° rotation, so the turn is
-   * only ever explicit on the map.
+   * Enter a connected hallway. Forward continuations simply carry on. A side
+   * hallway is entered from where the walker actually stands: its distance is
+   * seeded at the junction throat (`branchTrim`), so the camera glides through
+   * the opening instead of teleporting to the branch's start point.
    */
   const pickBranch = useCallback(
     (child: Segment) => {
       const st = machineRef.current;
       if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
 
-      const resume = () => {
+      const resume = (startDist: number) => {
         st.seg = child;
-        st.dist = 0;
+        st.dist = THREE.MathUtils.clamp(startDist, 0, child.length);
         st.yaw = segYaw(child.heading);
-        st.moving = true;
         historyRef.current.push(child.walkway?.id ?? child.heading.join(","));
-        setMoving(true);
         setNav({ seg: child, mode: "walk" });
         setEndReached(false);
         setMachinePhase("walking");
@@ -1785,29 +1823,16 @@ const HallwayScene = ({
           showCue("Keep walking to the end of the hallway");
           return;
         }
-        resume();
+        resume(0);
         return;
       }
 
-      // glide into the opening, then continue inside the side hallway
-      st.moving = false;
-      setMoving(false);
-      st.zoom = {
-        from: [0, 0, 0],
-        to: [child.start[0], 1.75, child.start[1]],
-        look: [
-          child.start[0] + child.heading[0] * 6,
-          1.7,
-          child.start[1] + child.heading[1] * 6,
-        ],
-        duration: 0.55,
-        elapsed: 0,
-        started: false,
-        restorePhase: "walking",
-        onDone: resume,
-      };
-      setMachinePhase("zooming");
+      // Step into the angled opening: the yaw eases to the branch heading and
+      // the position eases along the branch axis, so movement stays continuous
+      // and the hold state (walking or standing) is preserved.
+      resume(junctionGeometry(HALL_WIDTH).branchTrim);
     },
+
     [setMachinePhase, showCue, syncBreadcrumb],
   );
 
@@ -1866,28 +1891,24 @@ const HallwayScene = ({
     setMachinePhase("turning");
   }, [backToBrowse, setMachinePhase]);
 
-  /** Reached the end of a segment while walking → show the junction. */
+  /** Reached the terminal wall of a hallway → stop and offer the next direction. */
   const handleWalkEnd = useCallback(() => {
     const st = machineRef.current;
     if (st.phase !== "walking") return;
     setEndReached(true);
-    // Arriving at a junction / end wall eases the walk to a hover so the next
-    // direction can be chosen; forward, left, right and back stay available.
+    st.holding = false;
     st.moving = false;
     st.speed = 0;
     setMoving(false);
     setMachinePhase("idle");
   }, [setMachinePhase]);
 
-  /** Arrived alongside a mid-hallway junction → hover so a turn can be taken. */
-  const handleJunctionReach = useCallback(() => {
-    const st = machineRef.current;
-    if (st.phase !== "walking") return;
-    st.moving = false;
-    st.speed = 0;
-    setMoving(false);
-    setMachinePhase("idle");
-  }, [setMachinePhase]);
+  /**
+   * Standing alongside a mid-hallway junction. The walk is NOT interrupted —
+   * this only makes the left/right turn buttons available while passing.
+   */
+  const handleJunctionReach = useCallback(() => {}, []);
+
 
 
 
@@ -1963,12 +1984,13 @@ const HallwayScene = ({
             if (fwd) pickBranch(fwd);
             else if (st.seg.children.length === 0) showCue("End of walkway");
           } else {
-            st.moving = true;
-            setMoving(true);
+            // Held key = held Forward button: movement lasts only while down.
+            startHold();
           }
         }
         return;
       }
+
       if (key === "ArrowDown" || key === "s" || key === "S") {
         if (st.phase === "browse") onFocusChange(Math.max(0, focus - 1));
         else if (st.phase === "walking" || st.phase === "idle") goBack();
@@ -1996,8 +2018,19 @@ const HallwayScene = ({
         else showCue("No walkway to the right");
       }
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      const key = e.key;
+      if (key === "ArrowUp" || key === "w" || key === "W") endHold();
+    };
+    const onBlur = () => endHold();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
   }, [
     focus,
     rooms.length,
@@ -2008,7 +2041,10 @@ const HallwayScene = ({
     endReached,
     pickBranch,
     showCue,
+    startHold,
+    endHold,
   ]);
+
 
   const dragStart = useRef<number | null>(null);
 
@@ -2311,14 +2347,9 @@ const HallwayScene = ({
           canBack={canBack}
           moving={moving}
           ended={endReached}
-          onToggleWalk={() => {
-            const st = machineRef.current;
-            const next = !st.moving;
-            st.moving = next;
-            setMoving(next);
-            if (next) setMachinePhase("walking");
-            else if (endReached) setMachinePhase("idle");
-          }}
+          onHoldStart={startHold}
+          onHoldEnd={endHold}
+
 
           onTurn={pickBranch}
           onBack={goBack}
