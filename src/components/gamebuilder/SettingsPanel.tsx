@@ -151,6 +151,9 @@ const SettingsPanel = ({
   onOpenQuestions,
 }: SettingsPanelProps) => {
   const [effects, setEffects] = useState<GameAssetRow[]>([]);
+  // Final Touch — one-revolution glitch scan.
+  const [touching, setTouching] = useState(false);
+  const [touchResult, setTouchResult] = useState<FinalTouchResult | null>(null);
   // Free-entry Timer duration, kept in sync with the selected element.
   const timerSeconds = element?.progress?.timeDurationSeconds ?? 0;
   const [timeText, setTimeText] = useState(() => fmtClock(timerSeconds));
