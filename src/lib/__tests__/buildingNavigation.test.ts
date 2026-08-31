@@ -120,13 +120,15 @@ describe("compileNavGraph", () => {
     expect(kids.map((k) => k.direction)).toEqual(["left", "right"]);
   });
 
-  it("starts children at the parent's end and turns the heading", () => {
+  it("starts a branch at its junction on the parent and turns the heading", () => {
     const g = compileNavGraph([
       walkway("root", { length: 5 }),
       walkway("l", { parent_id: "root", direction: "left" }),
     ]);
 const l = g.byId.get("l");
-    expect(l?.start).toEqual([0, -5]);
+    // junction_at 0.5 of a 5-unit road → halfway along, not at the far end
+    expect(l?.start).toEqual([0, -2.5]);
+
     // facing forward (0,-1), "left" is the player's left → (-1,0)
     const turned = turnHeading([0, -1], "left");
     expect(turned[0]).toBeCloseTo(-1);
