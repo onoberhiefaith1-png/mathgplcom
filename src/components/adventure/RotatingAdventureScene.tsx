@@ -574,28 +574,17 @@ export const RotatingAdventureScene = ({
     [slotUrls],
   );
 
-  const usingCustom = config.buildingMode === "custom" && !!config.customBuilding;
-  const customBuilding = usingCustom ? config.customBuilding : null;
   // Only reveal the canvas once it has painted AND the artwork has decoded, so
   // no untextured (white) geometry is ever on screen.
   const visible = painted && artworkReady;
   const handleArtworkReady = useCallback(() => setArtworkReady(true), []);
-  useEffect(() => {
-    setCustomReady(false);
-    setCustomFailed(false);
-  }, [customBuilding?.storagePath]);
-  useEffect(() => {
-    if (!customBuilding || customReady || customFailed) return;
-    const timer = window.setTimeout(() => setCustomFailed(true), 8_000);
-    return () => window.clearTimeout(timer);
-  }, [customBuilding, customFailed, customReady]);
 
   return (
     <main className="relative h-screen w-screen overflow-hidden animate-fade-in bg-background">
       <HomepageBackground background={config.background} />
       <div
         className="absolute inset-0 transition-opacity duration-700"
-        style={{ opacity: visible && (!customBuilding || !customReady || customFailed) ? 1 : 0 }}
+        style={{ opacity: visible ? 1 : 0 }}
       >
           <Canvas
             key={gpu.resetKey}
