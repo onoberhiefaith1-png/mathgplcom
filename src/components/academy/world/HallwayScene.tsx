@@ -1797,23 +1797,21 @@ const HallwayScene = ({
 
 
   /**
-   * Enter a connected hallway. Forward continuations simply carry on. Side
-   * hallways are entered by gliding into the opening and resuming down the new
-   * hallway — the camera never performs a visible 90° rotation, so the turn is
-   * only ever explicit on the map.
+   * Enter a connected hallway. Forward continuations simply carry on. A side
+   * hallway is entered from where the walker actually stands: its distance is
+   * seeded at the junction throat (`branchTrim`), so the camera glides through
+   * the opening instead of teleporting to the branch's start point.
    */
   const pickBranch = useCallback(
     (child: Segment) => {
       const st = machineRef.current;
       if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
 
-      const resume = () => {
+      const resume = (startDist: number) => {
         st.seg = child;
-        st.dist = 0;
+        st.dist = THREE.MathUtils.clamp(startDist, 0, child.length);
         st.yaw = segYaw(child.heading);
-        st.moving = true;
         historyRef.current.push(child.walkway?.id ?? child.heading.join(","));
-        setMoving(true);
         setNav({ seg: child, mode: "walk" });
         setEndReached(false);
         setMachinePhase("walking");
@@ -1825,29 +1823,16 @@ const HallwayScene = ({
           showCue("Keep walking to the end of the hallway");
           return;
         }
-        resume();
+        resume(0);
         return;
       }
 
-      // glide into the opening, then continue inside the side hallway
-      st.moving = false;
-      setMoving(false);
-      st.zoom = {
-        from: [0, 0, 0],
-        to: [child.start[0], 1.75, child.start[1]],
-        look: [
-          child.start[0] + child.heading[0] * 6,
-          1.7,
-          child.start[1] + child.heading[1] * 6,
-        ],
-        duration: 0.55,
-        elapsed: 0,
-        started: false,
-        restorePhase: "walking",
-        onDone: resume,
-      };
-      setMachinePhase("zooming");
+      // Step into the angled opening: the yaw eases to the branch heading and
+      // the position eases along the branch axis, so movement stays continuous
+      // and the hold state (walking or standing) is preserved.
+      resume(junctionGeometry(HALL_WIDTH).branchTrim);
     },
+
     [setMachinePhase, showCue, syncBreadcrumb],
   );
 
