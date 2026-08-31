@@ -54,11 +54,13 @@ export function WorkflowStages({
           progress,
           onNavigate: navigate,
           onApprove: () => wf.approve(stage.id),
+          blockers: wf.blockersFor(stage.id),
+          onProceedAnyway: () => wf.proceedAnyway(stage.id),
         };
 
         if (stage.id === 1) {
           return (
-            <StagePanel key={stage.id} {...common} canApprove={clipCount > 0}>
+            <StagePanel key={stage.id} {...common}>
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">
                   Editing is optional. Approve straight away to work from the uploaded video exactly
@@ -75,25 +77,21 @@ export function WorkflowStages({
         }
         if (stage.id === 2) {
           return (
-            <StagePanel key={stage.id} {...common} canApprove={Boolean(wf.state.audio)}>
+            <StagePanel key={stage.id} {...common}>
               <AudioStage wf={wf} />
             </StagePanel>
           );
         }
         if (stage.id === 3) {
           return (
-            <StagePanel key={stage.id} {...common} canApprove={wf.state.transcript.length > 0}>
+            <StagePanel key={stage.id} {...common}>
               <TranscriptStage wf={wf} tlTime={tlTime} onSeek={onSeek} />
             </StagePanel>
           );
         }
         if (stage.id === 4) {
           return (
-            <StagePanel
-              key={stage.id}
-              {...common}
-              canApprove={wf.state.paraphrase.length > 0 && wf.staleParaphraseIds.length === 0}
-            >
+            <StagePanel key={stage.id} {...common}>
               <ParaphraseStage wf={wf} />
             </StagePanel>
           );
@@ -101,43 +99,35 @@ export function WorkflowStages({
 
         if (stage.id === 5) {
           return (
-            <StagePanel key={stage.id} {...common} canApprove={wf.state.transcript.length > 0}>
+            <StagePanel key={stage.id} {...common}>
               <LanguageStage wf={wf} />
             </StagePanel>
           );
         }
         if (stage.id === 6) {
           return (
-            <StagePanel
-              key={stage.id}
-              {...common}
-              canApprove={Object.keys(wf.state.voice).length > 0 && wf.pendingVoiceIds.length === 0}
-            >
+            <StagePanel key={stage.id} {...common}>
               <VoiceStage wf={wf} />
             </StagePanel>
           );
         }
         if (stage.id === 7) {
           return (
-            <StagePanel
-              key={stage.id}
-              {...common}
-              canApprove={wf.fits.some((fit) => fit.rawDuration > 0)}
-            >
+            <StagePanel key={stage.id} {...common}>
               <TimingStage wf={wf} onSeek={onSeek} />
             </StagePanel>
           );
         }
         if (stage.id === 8) {
           return (
-            <StagePanel key={stage.id} {...common} canApprove={wf.cues.length > 0}>
+            <StagePanel key={stage.id} {...common}>
               <SubtitlesStage wf={wf} onSeek={onSeek} />
             </StagePanel>
           );
         }
         if (stage.id === 9) {
           return (
-            <StagePanel key={stage.id} {...common} canApprove={Boolean(wf.generatedTrack)}>
+            <StagePanel key={stage.id} {...common}>
               <FinalPreviewStage
                 wf={wf}
                 videoSrc={videoSrc}
@@ -148,16 +138,12 @@ export function WorkflowStages({
           );
         }
         return (
-          <StagePanel
-            key={stage.id}
-            {...common}
-            canApprove
-            approveLabel="Finish"
-          >
+          <StagePanel key={stage.id} {...common} approveLabel="Finish">
             <PublishStage wf={wf} onSave={onSave} />
           </StagePanel>
         );
       })}
+
     </div>
   );
 }
