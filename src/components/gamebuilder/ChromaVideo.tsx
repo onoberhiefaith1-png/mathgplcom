@@ -164,7 +164,7 @@ const ChromaVideo = ({
       video.load();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [url, keyColor?.r, keyColor?.g, keyColor?.b, tolerance, featherPx, playbackRate, failed, onError, onLoad]);
+  }, [url, keyColor?.r, keyColor?.g, keyColor?.b, tolerance, featherPx, loopFade, playbackRate, failed, onError, onLoad]);
 
   if (failed || !keyColor) {
     return (
