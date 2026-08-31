@@ -23,6 +23,7 @@ import {
   junctionGeometry,
   WALL_THICKNESS,
   wallRuns,
+  connectorMeeting,
 } from "../building/navigation";
 
 import type { BuildingWalkway } from "../building/types";
@@ -346,5 +347,44 @@ describe("hallway junctions are automatic and physical", () => {
     const h = branchHeading([0, -1], "right");
     expect(h[0]).toBeCloseTo(Math.sin(BRANCH_ANGLE));
     expect(h[1]).toBeCloseTo(-Math.cos(BRANCH_ANGLE));
+  });
+});
+
+describe("connector corridor intersections", () => {
+  it("clips a 90 degree connector at the target wall", () => {
+    const meet = connectorMeeting(
+      { start: [0, 0], heading: [1, 0] },
+      { start: [20, -10], heading: [0, 1], length: 20 },
+      7,
+    );
+    expect(meet).not.toBeNull();
+    expect(meet?.crossingDistance).toBeCloseTo(20);
+    expect(meet?.length).toBeCloseTo(20 - 3.5 - WALL_THICKNESS / 2);
+    expect(meet?.alongTarget).toBeCloseTo(10);
+  });
+
+  it("clips a 60 degree connector before the target instead of crossing it", () => {
+    const angle = Math.PI / 3;
+    const targetHeading: [number, number] = [Math.sin(angle), Math.cos(angle)];
+    const meet = connectorMeeting(
+      { start: [0, 0], heading: [1, 0] },
+      { start: [20, -10], heading: targetHeading, length: 30 },
+      7,
+    );
+    expect(meet).not.toBeNull();
+    if (!meet) return;
+    const approach = meet.crossingDistance - meet.length;
+    expect(approach).toBeCloseTo((3.5 + WALL_THICKNESS / 2) / Math.sin(angle));
+    expect(meet.length).toBeLessThan(meet.crossingDistance - 3.5);
+  });
+
+  it("rejects a crossing outside the finite target hallway", () => {
+    expect(
+      connectorMeeting(
+        { start: [0, 0], heading: [1, 0] },
+        { start: [20, 30], heading: [0, 1], length: 10 },
+        7,
+      ),
+    ).toBeNull();
   });
 });

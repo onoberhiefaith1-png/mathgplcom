@@ -102,6 +102,7 @@ export interface ConnectorInfo {
   targetWalkwayId: string;
   /** distance along the target hallway where the corridor arrives */
   alongTarget: number;
+  targetSide: -1 | 1;
 }
 
 const buildHallways = (
@@ -196,14 +197,33 @@ const buildHallways = (
   for (const l of links) {
     if (!l.corridor_walkway_id) continue;
     const corridor = findSegment(segments, l.corridor_walkway_id);
-    const target = findSegment(segments, l.to_walkway_id);
-    if (!corridor || !target || !corridor.walkway) continue;
-    const meet = connectorMeeting(
-      { start: corridor.start, heading: corridor.heading },
-      { start: target.start, heading: target.heading, length: target.length },
-      HALL_WIDTH,
-    );
-    if (!meet) continue;
+    if (!corridor || !corridor.walkway) continue;
+    // A road must stop at the FIRST road it reaches. Checking only the declared
+    // target allows it to pass through an intervening hallway on both the map
+    // and in 3D. The parent is excluded because the corridor begins in its mouth.
+    const hits = segments
+      .filter(
+        (candidate) =>
+          candidate !== corridor &&
+          candidate.walkway?.id !== corridor.walkway?.parent_id,
+      )
+      .map((candidate) => ({
+        candidate,
+        meet: connectorMeeting(
+          { start: corridor.start, heading: corridor.heading },
+          { start: candidate.start, heading: candidate.heading, length: candidate.length },
+          HALL_WIDTH,
+        ),
+      }))
+      .filter(
+        (hit): hit is { candidate: Segment; meet: NonNullable<typeof hit.meet> } =>
+          Boolean(hit.meet),
+      )
+      .sort((a, b) => a.meet.length - b.meet.length);
+    const hit = hits[0];
+    if (!hit) continue;
+    const target = hit.candidate;
+    const meet = hit.meet;
     corridor.length = meet.length;
     // Anything that would have sat beyond the trimmed end is dropped, so no
     // door hangs outside the corridor or at the junction it opens into.
@@ -231,6 +251,7 @@ const buildHallways = (
       linkId: l.id,
       targetWalkwayId: targetId,
       alongTarget: meet.alongTarget,
+      targetSide: meet.targetSide,
     });
   }
 
@@ -1322,7 +1343,6 @@ const WalkControls = ({
           }}
           onPointerUp={onHoldEnd}
           onPointerCancel={onHoldEnd}
-          onPointerLeave={onHoldEnd}
           onLostPointerCapture={onHoldEnd}
           onContextMenu={(e) => e.preventDefault()}
           className="inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full text-foreground hover:bg-muted"
@@ -1339,7 +1359,6 @@ const WalkControls = ({
         }}
         onPointerUp={onHoldEnd}
         onPointerCancel={onHoldEnd}
-        onPointerLeave={onHoldEnd}
         onLostPointerCapture={onHoldEnd}
         onContextMenu={(e) => e.preventDefault()}
         className={`inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full text-lg ${moving ? "bg-primary text-primary-foreground scale-105" : "bg-primary/80 text-primary-foreground"}`}
@@ -1907,6 +1926,9 @@ const HallwayScene = ({
       st.moving = true;
       setMoving(true);
       setEndReached(false);
+      // Key-repeat and a second pointer event must never cancel an in-progress
+      // turn. The held intent is retained and applied when the turn completes.
+      if (st.phase === "turning") return;
       if (st.dir !== sign && st.phase !== "turning") {
         // About-face: turn on the spot, then carry on in the new direction.
         const seg = st.seg;
@@ -1998,10 +2020,23 @@ const HallwayScene = ({
         return;
       }
 
-      // Step into the angled opening: the yaw eases to the branch heading and
-      // the position eases along the branch axis, so movement stays continuous
-      // and the hold state (walking or standing) is preserved.
-      resume(junctionGeometry(HALL_WIDTH).branchTrim);
+      // Turn at the opening before changing road. Keeping the pivot fixed avoids
+      // cutting through the corner wall, while held movement resumes afterward.
+      const pos: [number, number] = [
+        st.seg.start[0] + st.seg.heading[0] * st.dist,
+        st.seg.start[1] + st.seg.heading[1] * st.dist,
+      ];
+      st.speed = 0;
+      st.turn = {
+        pivot: pos,
+        fromYaw: st.yaw,
+        toYaw: segYaw(child.heading),
+        radius: 0.05,
+        duration: 0.38,
+        elapsed: 0,
+        onDone: () => resume(junctionGeometry(HALL_WIDTH).branchTrim),
+      };
+      setMachinePhase("turning");
     },
 
     [setMachinePhase, showCue, syncBreadcrumb],
@@ -2021,18 +2056,21 @@ const HallwayScene = ({
       if (!target) return;
       const mouth = (layouts.get(targetWalkwayId) ?? []).find((o) => o.id === linkId);
       st.seg = target;
-      st.dist = THREE.MathUtils.clamp(mouth?.along ?? 0, 0, target.length);
-      st.dir = 1;
+      const reverseConnector = connectors.get(targetWalkwayId);
+      st.dist = reverseConnector
+        ? target.length
+        : THREE.MathUtils.clamp(mouth?.along ?? 0, 0, target.length);
+      st.dir = reverseConnector ? -1 : 1;
       st.hold = 0;
       st.speed = 0;
-      st.yaw = segYaw(target.heading);
+      st.yaw = segYaw(reverseConnector ? reverseHeading(target.heading) : target.heading);
       historyRef.current.push(targetWalkwayId);
       setNav({ seg: target, mode: "walk" });
       setEndReached(false);
       setMachinePhase("walking");
       syncBreadcrumb();
     },
-    [layouts, segments, setMachinePhase, syncBreadcrumb],
+    [connectors, layouts, segments, setMachinePhase, syncBreadcrumb],
   );
 
   /** Paused camera zoom onto a doorway, then navigate. */
@@ -2137,11 +2175,15 @@ const HallwayScene = ({
       const parent = seg.walkway?.parent_id ? findSegment(segments, seg.walkway.parent_id) : null;
       if (!parent) return false;
       const junction = (layouts.get(parent.walkway?.id ?? "") ?? []).find(
-        (o) => o.kind === "opening" && o.targetWalkwayId === seg.walkway?.id,
+        (o) => o.kind === "opening" && o.id === seg.walkway?.id,
       );
+      if (!junction) return false;
       st.seg = parent;
-      st.dist = THREE.MathUtils.clamp(junction?.along ?? parent.length, 0, parent.length);
-      st.dir = 1;
+      st.dist = THREE.MathUtils.clamp(junction.along, 0, parent.length);
+      // Preserve reverse travel across the handoff. Resetting this to +1 made a
+      // held Back control immediately send the walker forwards again.
+      st.dir = -1;
+      st.yaw = segYaw(reverseHeading(parent.heading));
       historyRef.current.pop();
       setNav({ seg: parent, mode: "walk" });
       syncBreadcrumb();
@@ -2198,7 +2240,7 @@ const HallwayScene = ({
 
   // Keyboard: arrows + WASD, routed through the graph (no free-fly).
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+      const onKey = (e: KeyboardEvent) => {
       const st = machineRef.current;
       const key = e.key;
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
@@ -2231,7 +2273,9 @@ const HallwayScene = ({
           return;
         }
         if (st.phase !== "walking" && st.phase !== "idle") return;
-        const left = st.seg.children.find((c) => c.walkway?.direction === "left");
+        const left = st.seg.children.find(
+          (c) => c.walkway?.direction === "left" && nearOpenings.includes(c.walkway?.id ?? ""),
+        );
         if (left) pickBranch(left);
         else showCue("No walkway to the left");
         return;
@@ -2242,7 +2286,9 @@ const HallwayScene = ({
           return;
         }
         if (st.phase !== "walking" && st.phase !== "idle") return;
-        const right = st.seg.children.find((c) => c.walkway?.direction === "right");
+        const right = st.seg.children.find(
+          (c) => c.walkway?.direction === "right" && nearOpenings.includes(c.walkway?.id ?? ""),
+        );
         if (right) pickBranch(right);
         else showCue("No walkway to the right");
       }
@@ -2273,6 +2319,7 @@ const HallwayScene = ({
     showCue,
     startHold,
     endHold,
+    nearOpenings,
   ]);
 
 

@@ -529,6 +529,8 @@ export interface ConnectorMeeting {
   alongTarget: number;
   /** which of the target's walls the corridor arrives at (-1 left, +1 right) */
   targetSide: -1 | 1;
+  /** centre-line distance to the geometric crossing, before near-wall clipping */
+  crossingDistance: number;
 }
 
 export function connectorMeeting(
@@ -548,7 +550,14 @@ export function connectorMeeting(
   const t = (rx * -thz - rz * -thx) / det;
   const s = (chx * rz - chz * rx) / det;
   const half = hallWidth / 2;
-  const trimmed = t - half;
+  // The distance from the centre-line crossing to the near wall depends on the
+  // angle between the roads. `half` only works at 90° and lets a 60° corridor
+  // run visibly through the target. Include the target wall's outside face so
+  // the approaching shell ends flush against real blockwork.
+  const sinAngle = Math.abs(chx * thz - chz * thx);
+  if (sinAngle < 1e-6) return null;
+  const nearWallRun = (half + WALL_THICKNESS / 2) / sinAngle;
+  const trimmed = t - nearWallRun;
   if (trimmed < half) return null; // the hallways already touch
   if (s < half || s > target.length - half) return null; // meets past the road's end
   // Which side of the target the corridor comes from: sign of the cross product
@@ -558,6 +567,7 @@ export function connectorMeeting(
     length: trimmed,
     alongTarget: s,
     targetSide: cross >= 0 ? 1 : -1,
+    crossingDistance: t,
   };
 }
 
