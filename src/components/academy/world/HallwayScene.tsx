@@ -1891,28 +1891,24 @@ const HallwayScene = ({
     setMachinePhase("turning");
   }, [backToBrowse, setMachinePhase]);
 
-  /** Reached the end of a segment while walking → show the junction. */
+  /** Reached the terminal wall of a hallway → stop and offer the next direction. */
   const handleWalkEnd = useCallback(() => {
     const st = machineRef.current;
     if (st.phase !== "walking") return;
     setEndReached(true);
-    // Arriving at a junction / end wall eases the walk to a hover so the next
-    // direction can be chosen; forward, left, right and back stay available.
+    st.holding = false;
     st.moving = false;
     st.speed = 0;
     setMoving(false);
     setMachinePhase("idle");
   }, [setMachinePhase]);
 
-  /** Arrived alongside a mid-hallway junction → hover so a turn can be taken. */
-  const handleJunctionReach = useCallback(() => {
-    const st = machineRef.current;
-    if (st.phase !== "walking") return;
-    st.moving = false;
-    st.speed = 0;
-    setMoving(false);
-    setMachinePhase("idle");
-  }, [setMachinePhase]);
+  /**
+   * Standing alongside a mid-hallway junction. The walk is NOT interrupted —
+   * this only makes the left/right turn buttons available while passing.
+   */
+  const handleJunctionReach = useCallback(() => {}, []);
+
 
 
 
