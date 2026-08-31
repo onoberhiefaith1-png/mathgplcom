@@ -1,6 +1,7 @@
 import { removeBackground } from "@imgly/background-removal";
 import type { MediaType } from "./types";
 import { cutFrame, type FlatCutOptions } from "./flatCut";
+import { analyseFrames, type KeyColor } from "./bgAnalysis";
 
 export const isVideoFile = (file: File) =>
   /^video\//.test(file.type) || /\.(mp4|webm|mov|m4v|ogg)$/i.test(file.name);
@@ -38,7 +39,10 @@ const canvasToPng = (canvas: HTMLCanvasElement): Promise<Blob> =>
  * connected to the edge of the frame, so white signage or glass inside the
  * building is never removed, and opaque pixels are left untouched.
  */
-const flatCutImage = async (file: File, opts: FlatCutOptions): Promise<Blob | null> => {
+const flatCutImage = async (
+  file: File,
+  opts: MakeTransparentOptions,
+): Promise<Blob | null> => {
   const bitmap = await createImageBitmap(file);
   try {
     const canvas = document.createElement("canvas");
@@ -104,7 +108,7 @@ export const makeTransparent = async (
 export type { KeyColor, BgDetection } from "./bgAnalysis";
 export { isLowSaturation } from "./bgAnalysis";
 
-import { analyseFrames, type BgDetection, type RawFrame } from "./bgAnalysis";
+import { analyseFrames as _analyse, type BgDetection, type RawFrame } from "./bgAnalysis";
 
 /** Longest we wait for a single decode or seek before moving on. */
 const FRAME_TIMEOUT = 4000;
@@ -257,7 +261,7 @@ export const detectMediaBackground = async (
 ): Promise<BgDetection> => {
   try {
     const frames = await grabAnalysisFrames(url, mediaType);
-    return analyseFrames(frames);
+    return _analyse(frames);
   } catch (err) {
     console.warn("background detection failed", err);
     return {
