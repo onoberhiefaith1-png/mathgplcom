@@ -190,8 +190,34 @@ function evalArithmetic(raw: string): number {
 // A backslash that does not begin a valid JSON escape sequence.
 const BAD_ESCAPE = /\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g;
 
+// A backslash that starts a LaTeX command (\frac, \begin, \sqrt, \text …).
+// JSON-wise \f, \b, \n, \r, \t are *valid* escapes, so JSON.parse silently
+// mangles "\frac" into a form-feed. Double these before parsing.
+const LATEX_ESCAPE = /\\(?=[a-zA-Z])/g;
+
 const stripFences = (s: string) =>
   s.replace(/```[a-zA-Z]*\s*/g, "").replace(/```/g, "").trim();
+
+/** Escape raw control characters (real newlines/tabs) that appear inside strings. */
+function escapeRawControls(s: string): string {
+  let out = "", inStr = false, esc = false;
+  for (const c of s) {
+    if (inStr) {
+      if (esc) { esc = false; out += c; continue; }
+      if (c === "\\") { esc = true; out += c; continue; }
+      if (c === '"') { inStr = false; out += c; continue; }
+      if (c === "\n") { out += "\\n"; continue; }
+      if (c === "\r") { out += "\\r"; continue; }
+      if (c === "\t") { out += "\\t"; continue; }
+      out += c;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    out += c;
+  }
+  return out;
+}
+
 
 /** Slice the first balanced {...} block, ignoring braces inside strings. */
 function sliceObject(s: string): string | null {
