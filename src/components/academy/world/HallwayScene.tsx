@@ -1255,21 +1255,21 @@ const MiniMap = ({
                   y1={svg.py(l.y1)}
                   x2={svg.px(l.x2)}
                   y2={svg.py(l.y2)}
-                  stroke={here ? "#38bdf8" : onRoute ? "#3b82f6" : "#243755"}
+                  stroke={here ? "#38bdf8" : onRoute ? "#3b82f6" : "#38598f"}
                   strokeWidth={here ? 7.5 : 6.5}
                   strokeLinecap="round"
                 />
-                {(here || onRoute) && (
-                  <text
-                    x={(svg.px(l.x1) + svg.px(l.x2)) / 2}
-                    y={(svg.py(l.y1) + svg.py(l.y2)) / 2 - 7}
-                    textAnchor="middle"
-                    fontSize={7.5}
-                    fill={here ? "#bae6fd" : "#93c5fd"}
-                  >
-                    {l.name}
-                  </text>
-                )}
+                {/* Every hallway is labelled — the map is the blueprint, so a new
+                    branch must be readable the moment it is created. */}
+                <text
+                  x={(svg.px(l.x1) + svg.px(l.x2)) / 2}
+                  y={(svg.py(l.y1) + svg.py(l.y2)) / 2 - 7}
+                  textAnchor="middle"
+                  fontSize={7.5}
+                  fill={here ? "#bae6fd" : onRoute ? "#93c5fd" : "#7f9cc9"}
+                >
+                  {l.name}
+                </text>
               </g>
             );
           })}
