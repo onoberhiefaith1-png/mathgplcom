@@ -87,6 +87,31 @@ LINE BREAKS — NEVER USE \\\\ OR \\newline IN TEACHER-FACING TEXT
   separately. Every lettered or numbered part is a SEPARATE question and needs
   its own complete solution.
 
+OBJECT EMISSION CONTRACT — MATRICES, TABLES, FIGURES
+  The application owns real, editable objects for these. You are never obliged
+  to use one, but if the mathematics needs one it MUST be emitted in the exact
+  form below, so the teacher can edit it afterwards.
+
+  MATRIX — only ever inside a matrix environment, one row per \\\\, cells
+  separated by &:
+      \\begin{pmatrix}1 & 2\\\\3 & 4\\end{pmatrix}
+  A matrix written as a tuple list ("A = (1, 2; 3, 4)"), as stacked plain lines,
+  or with hand-drawn brackets is a BUG.
+
+  TABLE (frequency tables, standard-deviation working, grouped data) — one row
+  per line, cells separated by a single pipe, header row first, nothing else on
+  the line:
+      x | f | fx | x − x̄ | (x − x̄)²
+      10 | 3 | 30 | −4 | 16
+  ASCII art with +---+ borders, tab-aligned columns, or a paragraph listing the
+  cells is a BUG. Keep every computed column in the table, not in prose.
+
+  FIGURE / DIAGRAM (geometry) — never draw with characters. Describe the figure
+  in plain classroom words on their own lines (points, lines, circle, centre,
+  radii, the labelled angles and the given values) and the application builds
+  the real diagram from it. ASCII pictures, slashes and dashes forming shapes,
+  or "see figure below" with nothing to build are BUGS.
+
 CLASSROOM SHAPE (Phase 7):
 
   • One statement per line. No bullets, no markdown headings.

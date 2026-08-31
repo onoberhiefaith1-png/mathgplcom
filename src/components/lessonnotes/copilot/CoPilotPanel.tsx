@@ -44,10 +44,10 @@ const StepRow = ({ label, state, detail }: { label: string; state: string; detai
     {state === "done" ? <Check className="h-3.5 w-3.5 mt-0.5 text-emerald-600" />
       : state === "running" ? <Loader2 className="h-3.5 w-3.5 mt-0.5 animate-spin text-amber-600" />
       : state === "failed" ? <X className="h-3.5 w-3.5 mt-0.5 text-destructive" />
-      : <CircleDot className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />}
+      : <CircleDot className="h-3.5 w-3.5 mt-0.5 text-slate-400" />}
     {/* Status is carried by the icon — the label itself is always full-contrast
         ink so the section inventory stays readable. */}
-    <span className="font-medium text-foreground">
+    <span className="font-medium text-slate-900">
       {label}{detail ? ` — ${detail}` : ""}
     </span>
   </li>

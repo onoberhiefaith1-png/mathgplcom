@@ -5,6 +5,9 @@
 // Renderer-safe math templates (\frac{}{}, \sqrt{}, x^{n}, x_{n}, \sl{}) are
 // deliberately preserved — they become real stacked math downstream.
 
+import { repairMangledMacros } from "@/lib/lessonnotes/macroRepair";
+
+
 const unwrapJson = (s: string): string => {
   const t = s.trim();
   if (!t || (t[0] !== "{" && t[0] !== "[")) return s;
@@ -82,6 +85,9 @@ const stripTagsAndPlaceholders = (s: string): string => {
 export function sanitizePresentation(input: string): string {
   if (!input) return "";
   let out = unwrapJson(input);
+  // JSON transport can eat the backslash of a macro (`\frac` → FORM FEED +
+  // "rac"). Restore it before anything else reads the text.
+  out = repairMangledMacros(out);
   out = decodeEscapes(out);
   out = stripMarkdown(out);
   out = stripTagsAndPlaceholders(out);

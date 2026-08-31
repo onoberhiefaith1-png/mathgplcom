@@ -186,6 +186,17 @@ function isMostlyMath(line: string): boolean {
 /** A template macro with its arguments (`\sqrt{2}`, `\frac{1}{2}`, `\sqrt[3]{x}`). */
 const MACRO_FRAGMENT = /\\[A-Za-z]+(?:\[[^\]]*\])?(?:\s*\{[^{}]*\})*/g;
 
+/** A math value that carries nothing but empty slots would draw an empty
+ *  fraction bar / radical on the page — generated content must drop it. */
+export const isEmptyMathValue = (v: string): boolean => {
+  if (!v) return true;
+  const stripped = v
+    .replace(/\\sl\{\}/g, "")
+    .replace(/\\(?:frac|dfrac|tfrac|sqrt|binom)/g, "")
+    .replace(/[{}\[\]\s]/g, "");
+  return stripped === "";
+};
+
 /** Prose must never show source code. Any leftover backslash command inside a
  *  text run is rendered as a real math object instead of literal characters,
  *  so "the conjugate is \sqrt{2}" shows a radical, never the command. */
@@ -198,7 +209,7 @@ function pushProseRun(content: TipTapNode[], raw: string): void {
   while ((m = MACRO_FRAGMENT.exec(raw))) {
     if (m.index > last) content.push({ type: "text", text: raw.slice(last, m.index) });
     const v = normalizeMathSource(m[0]);
-    if (v) content.push({ type: "mathInline", attrs: { value: v } });
+    if (v && !isEmptyMathValue(v)) content.push({ type: "mathInline", attrs: { value: v } });
     last = m.index + m[0].length;
   }
   if (last < raw.length) {
@@ -217,7 +228,7 @@ function inlineMixedParagraph(line: string): TipTapNode {
   for (const run of tokenizeMathLine(cleaned)) {
     if (run.kind === "math") {
       const v = normalizeMathSource(run.value.trim());
-      if (v) content.push({ type: "mathInline", attrs: { value: v } });
+      if (v && !isEmptyMathValue(v)) content.push({ type: "mathInline", attrs: { value: v } });
       // Keep the spacing that surrounded the expression as prose.
       const trail = run.value.match(/\s+$/)?.[0];
       if (trail) content.push({ type: "text", text: " " });
@@ -395,7 +406,7 @@ function plainAiTextToNodes(text: string): TipTapNode[] {
   const hygienic = sanitizePresentation(text);
   if (!hygienic) return [{ type: "paragraph" }];
   // Display gate — last line of defence before AI text reaches the editor.
-  const gated = assertDisplaySafe(hygienic);
+  const gated = assertDisplaySafe(hygienic, "generated");
   if (!gated.safe) {
     // eslint-disable-next-line no-console
     console.warn("[aiTextToNodes] display gate flagged AI output:", gated.reasons);
@@ -414,7 +425,10 @@ function plainAiTextToNodes(text: string): TipTapNode[] {
     }
     for (const step of splitLineIntoSteps(line)) {
       if (isMostlyMath(step)) {
-        out.push({ type: "mathBlock", attrs: { value: normalizeMathSource(stripDollars(step.trim())) } });
+        const value = normalizeMathSource(stripDollars(step.trim()));
+        // Never leave an empty fraction bar / radical standing on its own line.
+        if (isEmptyMathValue(value)) continue;
+        out.push({ type: "mathBlock", attrs: { value } });
       } else if (HAS_MATH(step)) {
         out.push(inlineMixedParagraph(step));
       } else {

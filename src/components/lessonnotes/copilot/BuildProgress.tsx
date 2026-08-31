@@ -17,14 +17,14 @@ const Icon = ({ state }: { state: BuildItem["state"] }) =>
   state === "done" ? <Check className="h-3.5 w-3.5 mt-0.5 text-emerald-600" />
     : state === "running" ? <Loader2 className="h-3.5 w-3.5 mt-0.5 animate-spin text-amber-500" />
     : state === "failed" ? <X className="h-3.5 w-3.5 mt-0.5 text-destructive" />
-    : <CircleDot className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />;
+    : <CircleDot className="h-3.5 w-3.5 mt-0.5 text-slate-400" />;
 
 const BuildProgress = ({ queue, onResume, showResume, onRebuildItem, busy }: Props) => {
   if (!queue.length) return null;
   const done = queue.filter((q) => q.state === "done").length;
   return (
-    <div className="rounded-xl border border-foreground/12 bg-foreground/[0.04] p-3 space-y-2">
-      <p className="text-[9px] uppercase tracking-[0.28em] text-muted-foreground">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+      <p className="text-[9px] uppercase tracking-[0.28em] text-slate-500">
         Lesson build · {done}/{queue.length}
       </p>
       <ul className="space-y-1">
@@ -32,7 +32,9 @@ const BuildProgress = ({ queue, onResume, showResume, onRebuildItem, busy }: Pro
           <li key={q.key} className="flex items-start gap-2 text-xs">
             <Icon state={q.state} />
             {/* Full-contrast ink for every state — the icon carries progress. */}
-            <span className="font-medium text-foreground">
+            {/* The panel is a fixed light surface, so the ink is fixed dark —
+                theme ink turned near-white here and the inventory looked blurred. */}
+            <span className="font-medium text-slate-900">
               {q.label}{q.detail ? ` — ${q.detail}` : ""}
             </span>
 

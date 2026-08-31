@@ -200,6 +200,22 @@ function stage4Rendering(text: string, kind: ValidationKind): Violation[] {
     });
   }
 
+  // Tables must be emitted as pipe rows, matrices as matrix environments.
+  // Anything else cannot be turned into an editable object.
+  if (/[+|][-=]{3,}[+|]/.test(text) || /^\s*[-=]{6,}\s*$/m.test(text)) {
+    v.push({
+      phase: 4,
+      rule: "no-ascii-table",
+      detail: "table drawn with ASCII borders — emit one row per line with cells separated by |",
+    });
+  }
+  if (/(?:matrix|determinant)[^\n]{0,40}=\s*[\(\[][^\n\)\]]*;[^\n\)\]]*[\)\]]/i.test(withoutMatrices)) {
+    v.push({
+      phase: 4,
+      rule: "no-tuple-matrix",
+      detail: "matrix flattened into a tuple list — use \\begin{pmatrix}…\\end{pmatrix}",
+    });
+  }
 
 
   const leftover = masked.match(/\\[A-Za-z]+/g) || [];
