@@ -35,6 +35,10 @@ export const SURFACE_SAMPLES: SurfaceSample[] = [
   { key: "minimal", label: "Minimal", style: "F", url: surfaceMinimal },
   { key: "futuristic", label: "Futuristic", style: "G", url: surfaceFuturistic },
   { key: "school-branding", label: "School Branding", style: "H", url: surfaceSchoolBranding },
+  { key: "panel-reception", label: "Reception Panel", style: "I", url: panelReception.url },
+  { key: "panel-cream-blue", label: "Cream & Blue Panel", style: "J", url: panelCreamBlue.url },
+  { key: "panel-slatted-warm", label: "Warm Slatted Panel", style: "K", url: panelSlattedWarm.url },
+  { key: "panel-walnut-slat", label: "Walnut Slat Panel", style: "L", url: panelWalnutSlat.url },
 ];
 
 export const BUILTIN_PREFIX = "builtin:";
