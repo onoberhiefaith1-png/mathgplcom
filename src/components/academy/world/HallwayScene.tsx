@@ -38,6 +38,7 @@ import { coverFit } from "@/lib/building/imageFit";
 import {
   branchHeading,
   connectorMeeting,
+  firstRoadMeeting,
   insertGeometricMouth,
   easeInOut,
   forwardFromYaw,
