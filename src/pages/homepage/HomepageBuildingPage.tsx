@@ -184,7 +184,7 @@ const HomepageBuildingPage = () => {
                     onClick={() => void removeBg(slot)}
                   >
                     <Scissors className="mr-1 h-3 w-3" />
-                    {cutoutSlot === slot.id ? "Removing…" : "Remove background"}
+                    {cutoutSlot === slot.id ? "Re-cutting…" : "Re-cut background"}
                   </Button>
                 </div>
               </div>
