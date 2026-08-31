@@ -3,6 +3,7 @@ import {
   compileNavGraph,
   easeInOut,
   forwardFromYaw,
+  layoutHallwayObjects,
   NavigationHistory,
   reverseHeading,
   segYaw,
@@ -17,12 +18,80 @@ const walkway = (id: string, over: Partial<BuildingWalkway> = {}): BuildingWalkw
   id,
   building_id: "b1",
   parent_id: null,
+  name: "Main Hallway",
   direction: "forward",
   length: 10,
   position: 0,
   created_at: "",
   updated_at: "",
   ...over,
+});
+
+describe("layoutHallwayObjects", () => {
+  const doors = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ id: `d${i}`, name: `Door ${i}`, order: i }));
+
+  it("returns nothing for an empty hallway", () => {
+    expect(layoutHallwayObjects({ length: 40, doors: [], openings: [] })).toEqual([]);
+  });
+
+  it("alternates doors between the two walls", () => {
+    const out = layoutHallwayObjects({ length: 40, doors: doors(4), openings: [] });
+    expect(out.map((o) => o.side)).toEqual([-1, 1, -1, 1]);
+  });
+
+  it("keeps every object at its own distance, at least minGap apart", () => {
+    const out = layoutHallwayObjects({ length: 60, doors: doors(5), openings: [], minGap: 4 });
+    for (let i = 1; i < out.length; i++) {
+      expect(out[i].along - out[i - 1].along).toBeGreaterThanOrEqual(4 - 1e-9);
+    }
+    expect(new Set(out.map((o) => o.along)).size).toBe(out.length);
+  });
+
+  it("puts openings on the wall their branch leaves through", () => {
+    const out = layoutHallwayObjects({
+      length: 40,
+      doors: [],
+      openings: [
+        { id: "l", name: "Algebra Hallway", direction: "left", order: 0 },
+        { id: "r", name: "Geometry Hallway", direction: "right", order: 1 },
+      ],
+    });
+    expect(out.map((o) => [o.id, o.side])).toEqual([
+      ["l", -1],
+      ["r", 1],
+    ]);
+  });
+
+  it("ignores forward children (the hallway continuing)", () => {
+    const out = layoutHallwayObjects({
+      length: 40,
+      doors: [],
+      openings: [{ id: "f", name: "More", direction: "forward", order: 0 }],
+    });
+    expect(out).toEqual([]);
+  });
+
+  it("never places two objects directly opposite each other", () => {
+    const out = layoutHallwayObjects({
+      length: 50,
+      doors: doors(3),
+      openings: [{ id: "l", name: "Left", direction: "left", order: 1 }],
+    });
+    const seen = new Map<number, number>();
+    for (const o of out) {
+      expect(seen.get(o.along)).toBeUndefined();
+      seen.set(o.along, o.side);
+    }
+  });
+
+  it("stays inside the corridor", () => {
+    const out = layoutHallwayObjects({ length: 20, doors: doors(6), openings: [] });
+    for (const o of out) {
+      expect(o.along).toBeGreaterThan(0);
+      expect(o.along).toBeLessThanOrEqual(20);
+    }
+  });
 });
 
 describe("compileNavGraph", () => {
