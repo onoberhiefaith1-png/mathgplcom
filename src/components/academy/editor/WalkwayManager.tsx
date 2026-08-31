@@ -182,9 +182,9 @@ const WalkwayManager = ({
     try {
       await onAddWalkway(
         roots.length === 0 ? null : hallParent,
-        roots.length === 0 ? "forward" : hallDir,
+        roots.length === 0 ? "forward" : autoDirection(hallParent),
         hallName,
-        hallJunction / 100,
+        roots.length === 0 ? 0.5 : autoJunction(hallParent),
       );
       setForm(null);
     } catch (e: unknown) {
