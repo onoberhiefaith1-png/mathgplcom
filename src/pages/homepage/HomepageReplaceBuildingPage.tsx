@@ -242,7 +242,7 @@ const HomepageReplaceBuildingPage = () => {
                   : "Cut the backdrop out of this building"
               }
             >
-              <Eraser className="mr-2 h-4 w-4" /> {cutting ? "Removing…" : "Remove background"}
+              <Eraser className="mr-2 h-4 w-4" /> {cutting ? "Cutting…" : "Remove / re-cut background"}
             </Button>
           </div>
         </div>
