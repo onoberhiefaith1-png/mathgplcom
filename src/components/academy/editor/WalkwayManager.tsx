@@ -214,7 +214,8 @@ const WalkwayManager = ({
     }
   };
 
-  const hallTaken = hallParent ? takenAt(hallParent) : [];
+  /** Which wall the next hallway will cut through — shown, never chosen. */
+  const autoSide = hallParent ? (autoDirection(hallParent) === "left" ? "left" : "right") : "right";
 
   const WalkwayRow = ({ w, depth }: { w: BuildingWalkway; depth: number }) => {
     const kids = childrenOf(w.id);
