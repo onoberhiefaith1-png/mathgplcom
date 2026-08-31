@@ -28,6 +28,7 @@ import type {
   BuildingData,
   BuildingDoor,
   BuildingWalkway,
+  BuildingWalkwayLink,
   EnvironmentSettings,
 } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
@@ -39,7 +40,10 @@ import {
   easeInOut,
   forwardFromYaw,
   layoutHallwayObjects,
-  lengthForObjects,
+  hallwayLength,
+  HALLWAY_ENTRY_RUN,
+  HALLWAY_PAD,
+  OBJECT_SPACING,
   NavigationHistory,
   openingFootprint,
   junctionGeometry,
@@ -54,7 +58,7 @@ import {
 
 import type { HallwayObject } from "@/lib/building/navigation";
 
-const SPACING = 7.5; // minimum distance between objects along a hallway
+const SPACING = OBJECT_SPACING; // fixed distance between objects along a hallway
 const HALL_WIDTH = 7;
 const HALL_HEIGHT = 5.4;
 const WALK_SPEED = 4; // units per second while holding forward
@@ -90,23 +94,26 @@ const buildHallways = (
   doorObjects: (walkwayId: string) => DoorObjectInput[],
   rootRoomObjects: DoorObjectInput[],
   rootLen: number,
+  links: BuildingWalkwayLink[] = [],
 ): HallwayLayout => {
   const segments: Segment[] = [];
   const layouts = new Map<string, HallwayObject[]>();
+  const nameOf = (id: string) => walkways.find((w) => w.id === id)?.name ?? "Hallway";
 
-  /**
-   * A hallway is a road: its physical length is DERIVED from what sits on it
-   * (doors + perpendicular junctions), so adding a door lengthens the road and
-   * there is never an "extend hallway" control.
-   */
-  const derivedLength = (w: BuildingWalkway): number => {
-    const objects =
-      (w.parent_id ? 0 : rootRoomObjects.length) +
-      doorObjects(w.id).length +
-      walkways.filter((x) => x.parent_id === w.id && x.direction !== "forward").length;
-    const auto = lengthForObjects(objects, SPACING);
-    return w.parent_id ? auto : Math.max(auto, rootLen);
-  };
+  /** Connections that surface on this hallway, from either end of the link. */
+  const linkObjects = (walkwayId: string) =>
+    links
+      .filter((l) => l.from_walkway_id === walkwayId || l.to_walkway_id === walkwayId)
+      .map((l) => {
+        const outgoing = l.from_walkway_id === walkwayId;
+        const target = outgoing ? l.to_walkway_id : l.from_walkway_id;
+        return {
+          id: l.id,
+          name: nameOf(target),
+          targetWalkwayId: target,
+          order: 5 + (outgoing ? l.from_position : l.to_position) * 100,
+        };
+      });
 
   const walk = (
     w: BuildingWalkway,
@@ -114,25 +121,31 @@ const buildHallways = (
     heading: [number, number],
     depth: number,
   ): Segment => {
-    const length = derivedLength(w);
-    const seg: Segment = { walkway: w, start, heading, length, depth, children: [] };
-    segments.push(seg);
-
     const kids = walkways.filter((x) => x.parent_id === w.id).sort((a, b) => a.position - b.position);
+    // A hallway is a road with FIXED slots: the layout decides where every
+    // object sits, and the road's physical length is derived from those slots,
+    // so adding a door or a hallway extends the road automatically.
     const objs = layoutHallwayObjects({
-      length,
       doors: [...(w.parent_id ? [] : rootRoomObjects), ...doorObjects(w.id)],
       openings: kids.map((k) => ({
         id: k.id,
         name: k.name,
         direction: k.direction,
-        // Junctions and doors interleave along the road by their stored
-        // position, so a teacher can slide a branch further down the hallway.
+        // Junctions and doors interleave along the road by their stored order.
         order: 5 + (k.junction_at ?? 0.5) * 100,
       })),
-      minGap: SPACING,
+      links: linkObjects(w.id),
+      spacing: SPACING,
+      // A hallway you walk INTO keeps an entry run, so its first door cannot be
+      // seen from the hallway you came from.
+      pad: w.parent_id ? HALLWAY_ENTRY_RUN : HALLWAY_PAD,
     });
     layouts.set(w.id, objs);
+
+    const auto = hallwayLength(objs, w.parent_id ? HALLWAY_ENTRY_RUN : HALLWAY_PAD, SPACING);
+    const length = w.parent_id ? auto : Math.max(auto, rootLen);
+    const seg: Segment = { walkway: w, start, heading, length, depth, children: [] };
+    segments.push(seg);
 
     const end: [number, number] = [start[0] + heading[0] * length, start[1] + heading[1] * length];
     for (const k of kids) {
@@ -1295,6 +1308,8 @@ const MiniMap = ({
     const ends: { id: string; x: number; z: number; name: string }[] = [];
     /** hallway id → its parent hallway id, so the active route can be traced. */
     const parentOf = new Map<string, string | null>();
+    /** Both ends of every connection, so loops are drawn on the plan. */
+    const linkEnds = new Map<string, { x: number; z: number }[]>();
     const walk = (s: Segment, parentId: string | null) => {
       const id = s.walkway?.id ?? "root";
       parentOf.set(id, parentId);
@@ -1303,11 +1318,12 @@ const MiniMap = ({
       lines.push({ id, x1: s.start[0], y1: s.start[1], x2: ex, y2: ez, name: s.walkway?.name ?? "Hallway" });
       pts.push(s.start[0], s.start[1], ex, ez);
       for (const o of layouts.get(s.walkway?.id ?? "") ?? []) {
-        if (o.kind !== "door") continue;
-        doorDots.push({
+        const at = {
           x: s.start[0] + s.heading[0] * o.along + o.side * 1.2 * -s.heading[1],
           z: s.start[1] + s.heading[1] * o.along + o.side * 1.2 * s.heading[0],
-        });
+        };
+        if (o.kind === "door") doorDots.push(at);
+        else if (o.kind === "link") linkEnds.set(o.id, [...(linkEnds.get(o.id) ?? []), at]);
       }
       if (!s.children.some((c) => c.walkway?.direction === "forward")) {
         ends.push({ id, x: ex, z: ez, name: s.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME });
@@ -1315,6 +1331,9 @@ const MiniMap = ({
       s.children.forEach((c) => walk(c, id));
     };
     segments.filter((s) => s.depth === 0).forEach((s) => walk(s, null));
+    const linkLines = [...linkEnds.entries()]
+      .filter(([, ends2]) => ends2.length === 2)
+      .map(([id, [a, b]]) => ({ id, x1: a.x, y1: a.z, x2: b.x, y2: b.z }));
     if (pts.length === 0) pts.push(0, 0, 0, -10);
     const xs = pts.filter((_, i) => i % 2 === 0);
     const zs = pts.filter((_, i) => i % 2 === 1);
@@ -1338,7 +1357,7 @@ const MiniMap = ({
     // a floor plan on a wall. The map never rotates with the walker.
     const py = (z: number) => (z - minZ) * sc + offY;
 
-    return { W, H, px, py, lines, doorDots, ends, parentOf };
+    return { W, H, px, py, lines, linkLines, doorDots, ends, parentOf };
   }, [segments, layouts]);
 
   // ── live player position: eased toward the walker's real coordinates ──
@@ -1476,6 +1495,20 @@ const MiniMap = ({
               </g>
             );
           })}
+          {/* connections — hallway-to-hallway links that close the maze */}
+          {svg.linkLines.map((l) => (
+            <line
+              key={l.id}
+              x1={svg.px(l.x1)}
+              y1={svg.py(l.y1)}
+              x2={svg.px(l.x2)}
+              y2={svg.py(l.y2)}
+              stroke="#67e8f9"
+              strokeWidth={1.6}
+              strokeDasharray="4 3"
+              strokeLinecap="round"
+            />
+          ))}
           {/* doors — destinations along the hallway walls */}
           {svg.doorDots.map((d, i) => (
             <rect
@@ -1574,6 +1607,8 @@ const HallwayScene = ({
   const lights = useMemo(() => lightBudget(env.lighting), [env.lighting]);
   const walkways = building?.walkways ?? [];
   const doors = building?.doors ?? [];
+  /** Hallway-to-hallway connections, so the building can loop back on itself. */
+  const links = building?.links ?? [];
 
   const productTitles = useMemo(() => {
     const out: Record<string, string> = {};
@@ -1614,9 +1649,10 @@ const HallwayScene = ({
           })),
         [],
         rootLen,
+        links,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [walkways, doorsByWalkway, productTitles, rootLen],
+    [walkways, doorsByWalkway, productTitles, rootLen, links],
   );
 
   const rootSeg: Segment = useMemo(
@@ -1663,7 +1699,7 @@ const HallwayScene = ({
   const stopsOf = useCallback(
     (seg: Segment): number[] =>
       (layouts.get(seg.walkway?.id ?? "") ?? [])
-        .filter((o) => o.kind === "opening")
+        .filter((o) => o.kind !== "door")
         .map((o) => o.along)
         .sort((a, b) => a - b),
     [layouts],
@@ -1709,7 +1745,7 @@ const HallwayScene = ({
       const st = machineRef.current;
       const objs = layouts.get(st.seg.walkway?.id ?? "") ?? [];
       const ids = objs
-        .filter((o) => o.kind === "opening" && Math.abs(o.along - st.dist) < 5)
+        .filter((o) => o.kind !== "door" && Math.abs(o.along - st.dist) < 5)
         .map((o) => o.id);
       setNearOpenings((prev) => (prev.join("|") === ids.join("|") ? prev : ids));
       raf = requestAnimationFrame(loop);
@@ -1834,6 +1870,31 @@ const HallwayScene = ({
     },
 
     [setMachinePhase, showCue, syncBreadcrumb],
+  );
+
+  /**
+   * Step through a CONNECTION into a hallway that already exists elsewhere in
+   * the building. This is what closes the tree into a maze: the walker arrives
+   * inside the target hallway at the connection's own slot, facing along it, so
+   * they can keep walking or turn around and come back.
+   */
+  const crossLink = useCallback(
+    (linkId: string, targetWalkwayId: string) => {
+      const st = machineRef.current;
+      if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
+      const target = findSegment(segments, targetWalkwayId);
+      if (!target) return;
+      const mouth = (layouts.get(targetWalkwayId) ?? []).find((o) => o.id === linkId);
+      st.seg = target;
+      st.dist = THREE.MathUtils.clamp(mouth?.along ?? 0, 0, target.length);
+      st.yaw = segYaw(target.heading);
+      historyRef.current.push(targetWalkwayId);
+      setNav({ seg: target, mode: "walk" });
+      setEndReached(false);
+      setMachinePhase("walking");
+      syncBreadcrumb();
+    },
+    [layouts, segments, setMachinePhase, syncBreadcrumb],
   );
 
   /** Paused camera zoom onto a doorway, then navigate. */
@@ -2112,6 +2173,24 @@ const HallwayScene = ({
         );
       }
 
+      // A connection to a hallway elsewhere in the building: it looks and works
+      // exactly like a junction mouth, so the maze reads as one road network.
+      if (o.kind === "link") {
+        if (!o.targetWalkwayId) return null;
+        return (
+          <BranchOpening
+            key={o.id}
+            side={o.side}
+            along={o.along}
+            name={o.name}
+            accent={o.side === -1 ? env.leftWall.color : env.rightWall.color}
+            floorColor={env.floor.color}
+            roofColor={env.roof.color}
+            onEnter={() => crossLink(o.id, o.targetWalkwayId!)}
+          />
+        );
+      }
+
       const wx = seg.start[0] + seg.heading[0] * o.along + o.side * (HALL_WIDTH / 2 - 0.2) * cy;
       const wz = seg.start[1] + seg.heading[1] * o.along - o.side * (HALL_WIDTH / 2 - 0.2) * sy;
       const front: [number, number] = turnHeading(seg.heading, o.side === -1 ? "right" : "left");
@@ -2252,7 +2331,7 @@ const HallwayScene = ({
           // Every junction on this hallway removes a run of its wall, so the
           // connected hallway is seen through a real cut, not a flat plane.
           const gaps = (layouts.get(seg.walkway?.id ?? "") ?? [])
-            .filter((o) => o.kind === "opening")
+            .filter((o) => o.kind !== "door")
             .map((o) => ({ side: o.side, along: o.along }));
           return (
             <SegmentCorridor

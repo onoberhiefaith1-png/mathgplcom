@@ -10,10 +10,11 @@
  * the destination that opens an existing product (never duplicated).
  */
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronRight, DoorOpen, Plus, Route, Trash2, Wand2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, DoorOpen, Link2, Plus, Route, Trash2, Wand2 } from "lucide-react";
 import type {
   BuildingDoor,
   BuildingWalkway,
+  BuildingWalkwayLink,
   DoorContentKind,
   WalkwayDirection,
 } from "@/lib/building/types";
@@ -57,6 +58,11 @@ export interface WalkwayManagerProps {
   /** Per-door design override; empty string clears back to the building default. */
   onSetDoorStyle?: (id: string, style: string) => Promise<void>;
   onDeleteDoor: (id: string) => Promise<void>;
+  /** Existing hallway-to-hallway connections (the loops in the maze). */
+  links?: BuildingWalkwayLink[];
+  /** Connect two hallways that already exist, closing the maze into a loop. */
+  onAddLink?: (fromWalkwayId: string, toWalkwayId: string) => Promise<void>;
+  onDeleteLink?: (id: string) => Promise<void>;
   /** Create a ready-made branching maze with multiple doors. */
   onBuildSampleMaze?: () => Promise<void>;
   /** A door clicked in the live world — highlighted and revealed here. */
@@ -85,11 +91,18 @@ const WalkwayManager = ({
   onUpdateDoor,
   onSetDoorStyle,
   onDeleteDoor,
+  links = [],
+  onAddLink,
+  onDeleteLink,
   onBuildSampleMaze,
   selectedDoorId = null,
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
-  const [form, setForm] = useState<"hallway" | "door" | null>(null);
+  const [form, setForm] = useState<"hallway" | "door" | "link" | null>(null);
+
+  // Connect Hallways form state
+  const [linkFrom, setLinkFrom] = useState("");
+  const [linkTo, setLinkTo] = useState("");
 
   // Add Hallway form state
   const [hallParent, setHallParent] = useState<string>("");
@@ -183,6 +196,20 @@ const WalkwayManager = ({
         hallName,
         roots.length === 0 ? 0.5 : autoJunction(hallParent),
       );
+      setForm(null);
+    } catch (e: unknown) {
+      setFormError(String((e as Error)?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitLink = async () => {
+    if (busy || !onAddLink || !linkFrom || !linkTo || linkFrom === linkTo) return;
+    setBusy(true);
+    setFormError("");
+    try {
+      await onAddLink(linkFrom, linkTo);
       setForm(null);
     } catch (e: unknown) {
       setFormError(String((e as Error)?.message ?? e));
@@ -393,6 +420,22 @@ const WalkwayManager = ({
         >
           <Plus className="h-3.5 w-3.5" /> Add Door
         </button>
+        {onAddLink && (
+          <button
+            type="button"
+            onClick={() => {
+              if (form === "link") return setForm(null);
+              setLinkFrom(roots[0]?.id ?? "");
+              setLinkTo(flat.find((f) => f.w.id !== (roots[0]?.id ?? ""))?.w.id ?? "");
+              setFormError("");
+              setForm("link");
+            }}
+            disabled={walkways.length < 2}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-cyan-500/40 px-3 text-xs font-semibold text-cyan-400 disabled:opacity-40"
+          >
+            <Link2 className="h-3.5 w-3.5" /> Connect Hallways
+          </button>
+        )}
         {onBuildSampleMaze && (
           <button
             type="button"
@@ -481,6 +524,88 @@ const WalkwayManager = ({
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {form === "link" && onAddLink && (
+        <div className="rounded-xl border border-border bg-card p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Connect hallways
+          </p>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            A connection joins two roads that already exist, so learners can walk round a loop
+            instead of always coming back the way they came.
+          </p>
+          {(["from", "to"] as const).map((end) => (
+            <label key={end} className="mt-2 block text-[11px] text-muted-foreground">
+              {end === "from" ? "From hallway" : "To hallway"}
+              <select
+                aria-label={end === "from" ? "Connect from hallway" : "Connect to hallway"}
+                value={end === "from" ? linkFrom : linkTo}
+                onChange={(e) => (end === "from" ? setLinkFrom(e.target.value) : setLinkTo(e.target.value))}
+                className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
+              >
+                {flat.map(({ w, depth }) => (
+                  <option key={w.id} value={w.id}>
+                    {"— ".repeat(depth)}
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+          {linkFrom === linkTo && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Choose two different hallways.
+            </p>
+          )}
+          {formError && (
+            <p className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
+              {formError}
+            </p>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={submitLink}
+              disabled={busy || !linkFrom || !linkTo || linkFrom === linkTo}
+              className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+            >
+              {busy ? "Connecting…" : "Create Connection"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm(null)}
+              className="min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+          {links.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {links.map((l) => (
+                <li
+                  key={l.id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground"
+                >
+                  <span className="truncate">
+                    {walkways.find((w) => w.id === l.from_walkway_id)?.name ?? "Hallway"} ↔{" "}
+                    {walkways.find((w) => w.id === l.to_walkway_id)?.name ?? "Hallway"}
+                  </span>
+                  {onDeleteLink && (
+                    <button
+                      type="button"
+                      aria-label="Remove connection"
+                      onClick={() => onDeleteLink(l.id)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

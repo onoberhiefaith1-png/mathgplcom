@@ -126,10 +126,29 @@ export interface BuildingDoor {
   updated_at: string;
 }
 
+/**
+ * A CONNECTION between two hallways that already exist. Branches form a tree;
+ * links close it into a maze, so a walker can come back round to a hallway they
+ * have already visited. Positions are order keys along each hallway (0–1), the
+ * same convention as doors and junctions.
+ */
+export interface BuildingWalkwayLink {
+  id: string;
+  building_id: string;
+  from_walkway_id: string;
+  to_walkway_id: string;
+  from_position: number;
+  to_position: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BuildingData {
   building: Building;
   walkways: BuildingWalkway[];
   doors: BuildingDoor[];
+  /** hallway-to-hallway connections (loops) */
+  links: BuildingWalkwayLink[];
   canEdit: boolean;
 }
 

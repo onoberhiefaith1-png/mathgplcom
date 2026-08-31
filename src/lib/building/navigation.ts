@@ -78,12 +78,13 @@ export function nextBranchDirection(
 }
 
 /**
- * Where the next object goes along a road (0–1): after everything already on it,
- * so hallways and doors interleave in the order they were added.
+ * The ORDER KEY of the next object on a road (0–1). Physical distance is not
+ * stored: slots are fixed and derived by `layoutHallwayObjects`, so this value
+ * only has to sort a new object after everything already on that hallway.
  */
 export function nextObjectOffset(existing: number[]): number {
   const last = existing.length ? Math.max(...existing) : 0;
-  return Math.min(0.94, Math.max(0.12, last + 0.16));
+  return Math.min(0.999, Math.max(0.02, last + 0.02));
 }
 
 /** Conceptual blockwork thickness of every hallway wall (metres). */
@@ -284,15 +285,15 @@ export function compileNavGraph(
 }
 
 /**
- * Branch directions still free on a hallway. A hallway is a road, so it takes
- * at most one left and one right branch (and no user-chosen "extend").
+ * Branch directions available on a hallway. A road can carry as many junctions
+ * as it has slots, so both sides always stay available — the side of the next
+ * one is chosen automatically (see `nextBranchDirection`).
  */
 export function freeBranchDirections(
-  walkways: BuildingWalkway[],
-  parentId: string,
+  _walkways: BuildingWalkway[],
+  _parentId: string,
 ): WalkwayDirection[] {
-  const taken = walkways.filter((w) => w.parent_id === parentId).map((w) => w.direction);
-  return (["left", "right"] as WalkwayDirection[]).filter((d) => !taken.includes(d));
+  return ["left", "right"];
 }
 
 
@@ -373,12 +374,12 @@ export function parentConnectionAnchor(
 
 // ── Hallway object layout (single source of truth) ─────────────────────────
 
-export type HallwayObjectKind = "door" | "opening";
+export type HallwayObjectKind = "door" | "opening" | "link";
 
-/** One navigable object attached to a hallway: a door, or a sub-hallway opening. */
+/** One navigable object attached to a hallway: a door, a branch or a link. */
 export interface HallwayObject {
   kind: HallwayObjectKind;
-  /** door id, or child walkway id for an opening */
+  /** door id, child walkway id for an opening, link id for a link */
   id: string;
   name: string;
   /** -1 = left wall, +1 = right wall */
@@ -387,36 +388,52 @@ export interface HallwayObject {
   along: number;
   /** for openings only: which wall the branch leaves through */
   direction?: WalkwayDirection;
+  /** for links only: the hallway on the other side of the connection */
+  targetWalkwayId?: string;
 }
 
 export interface LayoutInput {
-  length: number;
   doors: { id: string; name: string; order: number }[];
   /** child walkways; "forward" children are continuations, not objects */
   openings: { id: string; name: string; direction: WalkwayDirection; order: number }[];
-  /** minimum distance between two objects along the corridor */
-  minGap?: number;
-  /** clearance kept at the start and end of the corridor */
+  /** connections to hallways that already exist elsewhere (loops) */
+  links?: { id: string; name: string; targetWalkwayId: string; order: number }[];
+  /** fixed distance between two consecutive object slots */
+  spacing?: number;
+  /** clearance kept before the first slot (an entry run for a branch) */
   pad?: number;
 }
 
+/** Standard distance between any two objects along any hallway. */
+export const OBJECT_SPACING = 7.5;
+/** Clearance before the first object of the entrance hallway. */
+export const HALLWAY_PAD = 4;
 /**
- * Place doors and sub-hallway openings along one hallway.
+ * Clearance before the first object of a hallway you walk INTO. A branch keeps
+ * a longer entry run so its first door cannot be seen from the parent hallway —
+ * you have to walk in to find it.
+ */
+export const HALLWAY_ENTRY_RUN = 12;
+
+/**
+ * Place doors, branch openings and links along one hallway.
  *
- * Rules enforced here (and only here — the 3D scene and the minimap both read
- * this function, so they can never disagree):
+ * A hallway is a road with FIXED slots: slot n sits at `pad + n * spacing`, so
+ * the distance between two objects never changes as the building grows, and the
+ * road simply gets longer (see `hallwayLength`). Rules enforced here — and only
+ * here, so the 3D scene and the map can never disagree:
  *  - forward children are the hallway continuing, never an object;
- *  - openings sit on the wall their branch leaves through;
+ *  - a branch opening sits on the wall its hallway leaves through;
  *  - doors alternate to the opposite wall from the previous object;
- *  - every object gets its own distance along the corridor, at least `minGap`
- *    apart, so two clickable objects are never directly opposite each other.
+ *  - a door and an opening never take neighbouring slots: an empty slot is kept
+ *    between them, so no door sits at a junction mouth.
  */
 export function layoutHallwayObjects({
-  length,
   doors,
   openings,
-  minGap = 4,
-  pad = 3,
+  links = [],
+  spacing = OBJECT_SPACING,
+  pad = HALLWAY_PAD,
 }: LayoutInput): HallwayObject[] {
   const seq = [
     ...doors.map((d) => ({ kind: "door" as const, id: d.id, name: d.name, order: d.order })),
@@ -429,23 +446,62 @@ export function layoutHallwayObjects({
         order: o.order,
         direction: o.direction,
       })),
+    ...links.map((l) => ({
+      kind: "link" as const,
+      id: l.id,
+      name: l.name,
+      order: l.order,
+      targetWalkwayId: l.targetWalkwayId,
+    })),
   ].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 
   if (seq.length === 0) return [];
 
-  const usable = Math.max(minGap, length - pad * 2);
-  const gap = Math.max(minGap, usable / seq.length);
+  const isMouth = (k: HallwayObjectKind) => k !== "door";
+  let slot = 0;
   let lastSide: -1 | 1 = 1; // so the first object lands on the left wall
+  let linkCount = 0;
 
   return seq.map((item, i) => {
-    const side: -1 | 1 =
-      item.kind === "opening" ? (item.direction === "left" ? -1 : 1) : (-lastSide as -1 | 1);
+    // Keep an empty slot whenever the kind changes between a door and a mouth,
+    // so a clickable door is never adjacent to a hallway opening.
+    if (i > 0 && isMouth(item.kind) !== isMouth(seq[i - 1].kind)) slot += 1;
+    const along = pad + slot * spacing;
+    slot += 1;
+
+    let side: -1 | 1;
+    if (item.kind === "opening") side = item.direction === "left" ? -1 : 1;
+    else if (item.kind === "link") side = (linkCount++ % 2 === 0 ? 1 : -1) as -1 | 1;
+    else side = -lastSide as -1 | 1;
     lastSide = side;
-    const along = Math.min(length - 0.5, pad + gap * (i + 0.5));
-    return item.kind === "opening"
-      ? { kind: item.kind, id: item.id, name: item.name, side, along, direction: item.direction }
-      : { kind: item.kind, id: item.id, name: item.name, side, along };
+
+    if (item.kind === "opening")
+      return { kind: item.kind, id: item.id, name: item.name, side, along, direction: item.direction };
+    if (item.kind === "link")
+      return {
+        kind: item.kind,
+        id: item.id,
+        name: item.name,
+        side,
+        along,
+        targetWalkwayId: item.targetWalkwayId,
+      };
+    return { kind: item.kind, id: item.id, name: item.name, side, along };
   });
+}
+
+/**
+ * How long a road has to be to carry its objects. The road is derived from what
+ * sits on it, so adding a door or a hallway extends it automatically and there
+ * is never an "extend hallway" control.
+ */
+export function hallwayLength(
+  objects: HallwayObject[],
+  pad = HALLWAY_PAD,
+  spacing = OBJECT_SPACING,
+): number {
+  const last = objects.length ? Math.max(...objects.map((o) => o.along)) : 0;
+  return Math.max(pad + spacing, last + Math.max(pad, spacing * 0.8));
 }
 
 /**
