@@ -1254,20 +1254,8 @@ const ParentConnection = ({
         <planeGeometry args={[3.4, 0.72]} />
         <meshBasicMaterial transparent opacity={hovered ? 0.16 : 0.06} color="#bae6fd" depthWrite={false} />
       </mesh>
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={12}
-          material-depthTest={true}
-          position={[0, 2.4, 0.03]}
-          fontSize={0.24}
-          maxWidth={3.2}
-          anchorX="center"
-          anchorY="middle"
-          color={hovered ? "#ffffff" : "#bae6fd"}
-        >
-          {`← ${name}`}
-        </Text>
-      </Suspense>
+      {/* The way back reads as the same kind of sign, mounted on the return wall */}
+      <Nameplate text={name} caption="Back this way" position={[0, 2.4, 0.05]} fontSize={0.24} maxWidth={4} />
     </group>
   );
 };
