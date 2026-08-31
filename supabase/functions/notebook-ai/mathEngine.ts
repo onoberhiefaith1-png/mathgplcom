@@ -268,11 +268,11 @@ export function parseEngineJson(raw: string): any {
   const shapes: string[] = [];
   for (const candidate of [base, sliceObject(base) ?? ""]) {
     if (!candidate) continue;
-    for (const fixed of [
-      candidate,
-      candidate.replace(BAD_ESCAPE, "\\\\"),
-      candidate.replace(LATEX_ESCAPE, "\\\\").replace(BAD_ESCAPE, "\\\\"),
-    ]) {
+    // Strict shape first, then progressively repaired shapes. LaTeX repair is
+    // only reached when the strict parse fails, so correctly escaped input is
+    // never mangled.
+    const latex = candidate.replace(LATEX_ESCAPE, "\\\\");
+    for (const fixed of [candidate, latex, latex.replace(BAD_ESCAPE, "\\\\"), candidate.replace(BAD_ESCAPE, "\\\\")]) {
       shapes.push(fixed, escapeRawControls(fixed));
     }
   }
@@ -282,6 +282,7 @@ export function parseEngineJson(raw: string): any {
   }
   return null;
 }
+
 
 
 
