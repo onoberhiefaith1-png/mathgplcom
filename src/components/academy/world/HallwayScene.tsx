@@ -1532,43 +1532,48 @@ const MiniMap = ({
   const cx0 = 105;
   const cy0 = 85;
   const chevron = `${cx0 + ux * 8},${cy0 + uy * 8} ${cx0 - ux * 5 - uy * 5},${cy0 - uy * 5 + ux * 5} ${cx0 - ux * 2},${cy0 - uy * 2} ${cx0 - ux * 5 + uy * 5},${cy0 - uy * 5 - ux * 5}`;
-  const scale = MAP_SIZES[size];
   // GPS-style follow: the drawing slides under a fixed-size window so the
   // walker stays in the middle of the panel at all times.
   const viewX = svg.W / 2 - ax;
   const viewY = svg.H / 2 - ay;
+  const zoomBy = (k: number) =>
+    setZoom((z) => Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, z * k)));
 
   return (
     <div className="pointer-events-none absolute right-6 top-20 z-10 select-none">
+      {/* ONE fixed panel size. Coverage changes with zoom, never the container. */}
       <div
         className="rounded-2xl border border-sky-400/25 bg-[#070d1b]/90 p-2 shadow-[0_10px_40px_rgba(2,8,23,0.65)] backdrop-blur"
-        style={{ width: svg.W * scale + 16 }}
+        style={{ width: svg.W + 16 }}
       >
         <div className="mb-1 flex items-center justify-between gap-2">
           <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-sky-300/80">
             Building map
           </span>
-          <div className="pointer-events-auto flex items-center gap-0.5">
-            {(Object.keys(MAP_SIZES) as MapSize[]).map((s) => (
-              <button
-                key={s}
-                type="button"
-                aria-label={`Map size ${s}`}
-                onClick={() => setSize(s)}
-                className={`h-5 w-5 rounded-md text-[9px] font-bold transition ${
-                  size === s
-                    ? "bg-sky-400/25 text-sky-200 ring-1 ring-sky-400/50"
-                    : "text-sky-300/50 hover:text-sky-200"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+          <div className="pointer-events-auto flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Zoom out"
+              onClick={() => zoomBy(1 / MAP_ZOOM_STEP)}
+              disabled={zoom <= MAP_ZOOM_MIN + 1e-6}
+              className="h-5 w-5 rounded-md text-[11px] font-bold leading-none text-sky-200 ring-1 ring-sky-400/40 transition hover:bg-sky-400/20 disabled:opacity-30"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              onClick={() => zoomBy(MAP_ZOOM_STEP)}
+              disabled={zoom >= MAP_ZOOM_MAX - 1e-6}
+              className="h-5 w-5 rounded-md text-[11px] font-bold leading-none text-sky-200 ring-1 ring-sky-400/40 transition hover:bg-sky-400/20 disabled:opacity-30"
+            >
+              +
+            </button>
           </div>
         </div>
         <svg
-          width={svg.W * scale}
-          height={svg.H * scale}
+          width={svg.W}
+          height={svg.H}
           viewBox={`0 0 ${svg.W} ${svg.H}`}
           className="rounded-xl bg-gradient-to-b from-[#0b1428] to-[#060b17]"
         >
