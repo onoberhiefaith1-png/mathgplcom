@@ -330,6 +330,12 @@ const loadTexture = (url: string): Promise<THREE.Texture | null> => {
   return p;
 };
 
+/**
+ * Every surface gets its OWN texture instance (a clone sharing the decoded
+ * image). Two walls showing the same image therefore cannot fight over one
+ * object's fit / zoom / position, which is what made an edit appear to land on
+ * the wrong wall or not at all until the scene re-rendered.
+ */
 const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null => {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
   useEffect(() => {
@@ -339,7 +345,16 @@ const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null 
     }
     let live = true;
     loadTexture(url).then((t) => {
-      if (live) setTex(t);
+      if (!live) return;
+      if (!t) {
+        setTex(null);
+        return;
+      }
+      const own = t.clone();
+      own.colorSpace = THREE.SRGBColorSpace;
+      own.anisotropy = 4;
+      own.needsUpdate = true;
+      setTex(own);
     });
     return () => {
       live = false;
@@ -348,18 +363,11 @@ const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null 
   return tex;
 };
 
-/**
- * Tint applied to a textured surface. The image keeps its own colours (a hard
- * white tint would be faithful but ignores the chosen colour, a full tint would
- * stain the image) so the surface colour is applied as a light wash.
- */
-const textureTint = (color?: string): string => {
-  if (!color) return "#ffffff";
-  try {
-    return `#${new THREE.Color(color).lerp(new THREE.Color("#ffffff"), 0.72).getHexString()}`;
-  } catch {
-    return "#ffffff";
-  }
+/** Grey value for a faithful (unlit) textured surface: 1 = exactly as imported. */
+const brightnessColor = (brightness: number): string => {
+  const v = Math.min(2, Math.max(0.2, Number.isFinite(brightness) ? brightness : 1));
+  const c = new THREE.Color(1, 1, 1).multiplyScalar(Math.min(1, v));
+  return `#${c.getHexString()}`;
 };
 
 /** One surface (wall / floor / roof) of a corridor segment. */
@@ -372,6 +380,7 @@ const Surface = ({
   offsetY,
   repeat,
   fit,
+  brightness = 1,
   planeW,
   planeH,
   position,
@@ -389,6 +398,8 @@ children,
   offsetY: number;
   repeat: boolean;
   fit: "cover" | "stretch";
+  /** 0.2 – 2, 1 = exactly as imported. Only affects textured surfaces. */
+  brightness?: number;
   planeW: number;
   planeH: number;
   position?: [number, number, number];
@@ -402,7 +413,10 @@ children?: React.ReactNode;
   const mat = presetMaterial(presetKey, color);
   const map = tex ?? null;
   // Fit the texture to the plane. Runs when the texture or its placement
-  // changes — never during render.
+  // changes — never during render. The material is flagged so the new
+  // placement is visible immediately, without waiting for anything else to
+  // change in the scene.
+  const matRef = useRef<THREE.Material | null>(null);
   useEffect(() => {
     if (!tex) return;
     const img = tex.image as { width?: number; height?: number } | undefined;
@@ -413,18 +427,20 @@ children?: React.ReactNode;
       const s = Math.max(0.1, scale);
       tex.repeat.set(s, s);
       tex.offset.set(offsetX, offsetY);
-      return;
+    } else {
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+      if (fit === "stretch") {
+        tex.repeat.set(1, 1);
+        tex.offset.set(0, 0);
+      } else {
+        const fitted = coverFit(planeW, planeH, iw, ih, scale, offsetX, offsetY);
+        tex.repeat.set(fitted.repeat[0], fitted.repeat[1]);
+        tex.offset.set(fitted.offset[0], fitted.offset[1]);
+      }
     }
-    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-    if (fit === "stretch") {
-      tex.repeat.set(1, 1);
-      tex.offset.set(0, 0);
-      return;
-    }
-    const fitted = coverFit(planeW, planeH, iw, ih, scale, offsetX, offsetY);
-    tex.repeat.set(fitted.repeat[0], fitted.repeat[1]);
-    tex.offset.set(fitted.offset[0], fitted.offset[1]);
-  }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH]);
+    tex.needsUpdate = true;
+    if (matRef.current) matRef.current.needsUpdate = true;
+  }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH, brightness]);
 return (
     <mesh
       position={position}
@@ -435,14 +451,31 @@ return (
     >
       {children}
       <meshStandardMaterial
-        color={map ? textureTint(mat.color) : mat.color}
-        map={map}
+        color={mat.color}
         roughness={mat.roughness}
         metalness={mat.metalness}
         emissive={mat.emissive ?? "#000000"}
         emissiveIntensity={mat.emissiveIntensity ?? 0}
         side={THREE.DoubleSide}
       />
+      {map && (
+        // An imported image is artwork fitted ON the surface, not plaster: it
+        // sits just in front of the painted plane, is rendered unlit and
+        // outside tone mapping, so it looks exactly like the source file in
+        // every hallway whatever the corridor lighting is doing. Transparent
+        // areas of the image simply reveal the surface colour behind it.
+        <mesh position={[0, 0, 0.012]}>
+          {children}
+          <meshBasicMaterial
+            ref={matRef as never}
+            color={brightnessColor(brightness)}
+            map={map}
+            transparent
+            toneMapped={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
     </mesh>
   );
 };
@@ -510,6 +543,7 @@ const SegmentCorridor = ({
         offsetY={env.endWall.offsetY}
         repeat={env.endWall.repeat}
         fit={env.endWall.fit}
+        brightness={env.endWall.brightness}
         planeW={HALL_WIDTH}
         planeH={HALL_HEIGHT}
       >
@@ -590,6 +624,7 @@ const SegmentCorridor = ({
         offsetY={env.floor.offsetY}
         repeat={env.floor.repeat}
         fit={env.floor.fit}
+        brightness={env.floor.brightness}
         planeW={HALL_WIDTH}
         planeH={deckSpan}
       >
@@ -607,6 +642,7 @@ const SegmentCorridor = ({
         offsetY={env.roof.offsetY}
         repeat={env.roof.repeat}
         fit={env.roof.fit}
+        brightness={env.roof.brightness}
         planeW={HALL_WIDTH}
         planeH={deckSpan}
       >
@@ -645,6 +681,7 @@ const SegmentCorridor = ({
               offsetY={wall.offsetY}
               repeat={wall.repeat}
               fit={wall.fit}
+              brightness={wall.brightness}
               planeW={runLen}
               planeH={HALL_HEIGHT}
               castShadow

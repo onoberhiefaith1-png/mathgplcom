@@ -17,9 +17,12 @@ export interface CoverFit {
  * Cover-fit UV repeat/offset for a plane of `planeW x planeH` units and an
  * image of `imgW x imgH` pixels.
  *
- * rx = max(1, a/p), ry = max(p/a, 1) with image aspect a and plane aspect p,
- * so the image always fills the plane and the excess is cropped; zoom scales
- * both axes about the centre; pan shifts the visible region.
+ * The visible window is a sub-rectangle OF THE IMAGE with the plane's aspect
+ * ratio, so both repeat values are <= 1: the image always fills the surface
+ * and the excess is cropped, never letterboxed. (An earlier version scaled the
+ * UVs past 1, which sampled clamped edge pixels — on an image with a
+ * transparent or dark border that read as a black wall.) Zoom crops further
+ * about the centre, and pan slides the window while staying inside the image.
  */
 export const coverFit = (
   planeW: number,
@@ -35,13 +38,18 @@ export const coverFit = (
   }
   const a = imgW / imgH;
   const p = planeW / planeH;
-  const rx = Math.max(1, a / p);
-  const ry = Math.max(p / a, 1);
-  const z = Math.max(0.1, zoom);
-  return {
-    repeat: [rx * z, ry * z],
-    offset: [0.5 - 0.5 * rx * z + panX, 0.5 - 0.5 * ry * z + panY],
-  };
+  // Window inside the image with the plane's aspect ratio.
+  const baseX = a > p ? p / a : 1;
+  const baseY = a > p ? 1 : a / p;
+  const z = Math.min(4, Math.max(0.2, zoom));
+  const rx = Math.min(1, baseX / z);
+  const ry = Math.min(1, baseY / z);
+  // Pan is a fraction of the crop slack, so the window can never leave the
+  // image and expose clamped border pixels.
+  const clamp = (v: number) => Math.min(1, Math.max(-1, v));
+  const ox = (1 - rx) * (0.5 + 0.5 * clamp(panX));
+  const oy = (1 - ry) * (0.5 + 0.5 * clamp(panY));
+  return { repeat: [rx, ry], offset: [ox, oy] };
 };
 
 const loadImage = (url: string): Promise<HTMLImageElement> =>

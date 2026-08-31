@@ -270,7 +270,9 @@ let list = await listBuildings(org);
       return;
     }
     resolveEnvironmentTextures(textureEnv).then((t) => {
-      if (!cancelled) setTextures(t);
+      // Merge, never replace: a freshly chosen image must not blank the walls
+      // that are already showing while its URL resolves.
+      if (!cancelled) setTextures((prev) => ({ ...prev, ...t }));
     });
     return () => {
       cancelled = true;
