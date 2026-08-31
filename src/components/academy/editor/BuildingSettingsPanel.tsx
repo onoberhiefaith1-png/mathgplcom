@@ -35,6 +35,7 @@ const SURFACE_TITLES: Record<SurfaceKey, string> = {
   floor: "Floor",
   roof: "Ceiling",
   endWall: "Terminal Wall",
+  startWall: "Start Point",
 };
 
 const Section = ({

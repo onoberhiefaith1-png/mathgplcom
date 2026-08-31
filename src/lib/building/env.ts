@@ -97,6 +97,13 @@ export function mergeEnvironment(raw: Loose | EnvironmentSettings): EnvironmentS
     // A building saved before the End Wall existed inherits the left wall, so an
     // existing corridor never terminates in an undefined dark plane.
     endWall: mergeSurface(e.endWall, mergeSurface(e.leftWall, DEFAULT_ENVIRONMENT.endWall)),
+    // The Start Point arrived after the terminal wall, so a building saved
+    // earlier inherits endWall, then leftWall, before the default: an existing
+    // entrance never changes appearance until its owner designs it.
+    startWall: mergeSurface(
+      e.startWall,
+      mergeSurface(e.endWall, mergeSurface(e.leftWall, DEFAULT_ENVIRONMENT.startWall)),
+    ),
     door: mergeDoor(e.door, DEFAULT_ENVIRONMENT.door),
     lighting: mergeLighting(e.lighting, DEFAULT_ENVIRONMENT.lighting),
     effects: mergeEffects(e.effects, DEFAULT_ENVIRONMENT.effects),
