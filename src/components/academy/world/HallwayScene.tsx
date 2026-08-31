@@ -1230,12 +1230,21 @@ const WalkControls = ({
       )}
       <button
         type="button"
-        aria-label={moving ? "Pause walking" : "Resume walking"}
-        onClick={onToggleWalk}
-        className={`inline-flex h-14 w-14 items-center justify-center rounded-full text-lg ${moving ? "bg-primary text-primary-foreground" : "bg-primary/80 text-primary-foreground"}`}
+        aria-label="Hold to walk forward"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+          onHoldStart();
+        }}
+        onPointerUp={onHoldEnd}
+        onPointerCancel={onHoldEnd}
+        onPointerLeave={onHoldEnd}
+        onLostPointerCapture={onHoldEnd}
+        onContextMenu={(e) => e.preventDefault()}
+        className={`inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full text-lg ${moving ? "bg-primary text-primary-foreground scale-105" : "bg-primary/80 text-primary-foreground"}`}
       >
-        {moving ? "❙❙" : "▲"}
+        ▲
       </button>
+
 
     </div>
   </div>
