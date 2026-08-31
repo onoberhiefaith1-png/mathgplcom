@@ -1548,13 +1548,29 @@ const MiniMap = ({
   // the facing chevron must not invert it — inverting made the arrow point back
   // down the plan while the walker travelled up it.
   const uy = hy / len;
-  const cx0 = 105;
-  const cy0 = 85;
+  // GPS-style follow, PINNED TO THE BOX. The plan reads south → north from the
+  // BOTTOM edge of the panel: the window follows the walker, but never scrolls
+  // past the building's own extent, so no empty space appears below the
+  // entrance (or beyond the outer walls) at any zoom level.
+  const PAD = 12;
+  const clampAxis = (follow: number, span: number, size: number) => {
+    const lo = size - PAD - span; // drawing's far edge pinned to the panel end
+    const hi = PAD; // drawing's near edge pinned to the panel start
+    if (span + PAD * 2 >= size) return Math.min(hi, Math.max(lo, follow));
+    return (size - span) / 2;
+  };
+  const viewX =
+    svg.spanW + PAD * 2 >= svg.W
+      ? clampAxis(svg.W / 2 - ax, svg.spanW, svg.W)
+      : (svg.W - svg.spanW) / 2;
+  // Vertical: when the whole building fits, pin its START to the bottom edge.
+  const viewY =
+    svg.spanH + PAD * 2 >= svg.H
+      ? clampAxis(svg.H / 2 - ay, svg.spanH, svg.H)
+      : svg.H - PAD - svg.spanH;
+  const cx0 = ax + viewX;
+  const cy0 = ay + viewY;
   const chevron = `${cx0 + ux * 8},${cy0 + uy * 8} ${cx0 - ux * 5 - uy * 5},${cy0 - uy * 5 + ux * 5} ${cx0 - ux * 2},${cy0 - uy * 2} ${cx0 - ux * 5 + uy * 5},${cy0 - uy * 5 - ux * 5}`;
-  // GPS-style follow: the drawing slides under a fixed-size window so the
-  // walker stays in the middle of the panel at all times.
-  const viewX = svg.W / 2 - ax;
-  const viewY = svg.H / 2 - ay;
   const zoomBy = (k: number) =>
     setZoom((z) => Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, z * k)));
 
