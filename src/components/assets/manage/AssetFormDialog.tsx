@@ -331,17 +331,44 @@ const AssetFormDialog = ({ open, onClose, title, initial, onSave }: Props) => {
               {removeBg && hasVideo && (
                 <div className="mt-3 space-y-2 rounded-md border border-border/60 p-3">
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="text-muted-foreground">Background detected:</span>
-                    {keySwatch ? (
+                    <span className="text-muted-foreground">Background:</span>
+                    {detectState === "checking" && (
+                      <span className="text-muted-foreground">checking…</span>
+                    )}
+                    {detectState !== "checking" && keySwatch && (
                       <span
                         className="inline-block h-4 w-8 rounded border border-border"
                         style={{ backgroundColor: keySwatch }}
                         aria-label="Detected background colour"
                       />
-                    ) : (
-                      <span className="text-muted-foreground">checking…</span>
                     )}
+                    {detectState === "detected" && (
+                      <span className="text-muted-foreground">flat colour found</span>
+                    )}
+                    {detectState === "not-flat" && !manualKey && (
+                      <span className="text-destructive">not a flat colour</span>
+                    )}
+                    {manualKey && <span className="text-muted-foreground">chosen by hand</span>}
                   </div>
+                  {detectNote && (
+                    <p className="text-xs text-muted-foreground">{detectNote}</p>
+                  )}
+                  {previewUrl && (
+                    <div>
+                      <Label className="text-xs">Pick the background colour</Label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Click anywhere on the still below to use that exact colour as the
+                        background.
+                      </p>
+                      <img
+                        src={previewUrl}
+                        alt="First frame of the clip"
+                        onClick={pickFromPreview}
+                        className="mt-1 max-h-40 w-full cursor-crosshair rounded border border-border object-contain"
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <Label className="text-xs">Edge softness</Label>
                     <div className="mt-1 flex gap-1">
