@@ -49,6 +49,7 @@ import {
   NavigationHistory,
   openingFootprint,
   junctionGeometry,
+  corridorCrossing,
   WALL_THICKNESS,
   parentConnectionAnchor,
 
