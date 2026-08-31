@@ -32,7 +32,32 @@ function scheduleRestart(path: string) {
   setTimeout(() => process.exit(1), 150);
 }
 
+// The dev source-tagger injects a `data-tsd-source` prop into every JSX
+// element. React DOM ignores unknown props, but react-three-fiber treats a
+// dashed prop as a nested path (`data.tsd.source`) and throws
+// `Cannot set "data-tsd-source"`, blanking any 3D route. Strip the prop from
+// modules that render three.js elements; DOM files keep their tags.
+const stripSourceTagsFromR3F = () => ({
+  name: "mathgpl-strip-tsd-source-in-r3f",
+  apply: "serve" as const,
+  enforce: "post" as const,
+  transform(code: string, id: string) {
+    if (!code.includes("data-tsd-source")) return null;
+    // Any module that touches three.js may render scene elements.
+    if (!/@react-three\/|["']three["']/.test(code) && !/\/geometry3d\/|\/academy\/world\//.test(id)) {
+      return null;
+    }
+    // Keep exactly one separating comma when the prop sat between two others.
+    const stripped = code.replace(
+      /,?\s*"data-tsd-source":\s*"[^"]*"\s*,?/g,
+      (m) => (m.startsWith(",") && m.trimEnd().endsWith(",") ? "," : ""),
+    );
+    return { code: stripped, map: null };
+  },
+});
+
 export default defineConfig({
+
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
@@ -40,7 +65,7 @@ export default defineConfig({
   },
   vite: {
     // Preserved from the pre-migration vite.config.ts: the project's MCP plugin.
-    plugins: [restartAfterTsconfigChange(), mcpPlugin()],
+    plugins: [restartAfterTsconfigChange(), mcpPlugin(), stripSourceTagsFromR3F()],
     // TanStack Start loads Router internals from lazy route and SSR chunks. If
     // Vite discovers any of these entry points after startup, it replaces its
     // generated chunks while older browser requests are still in flight and
