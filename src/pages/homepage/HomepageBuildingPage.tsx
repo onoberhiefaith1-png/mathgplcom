@@ -159,11 +159,42 @@ const HomepageBuildingPage = () => {
           The original MathGPL building is made of 16 artwork slots. The only action is
           Replace Image — position, curve, perspective, size and rotation are kept automatically.
         </p>
+
+        <section className="rounded-2xl border border-border bg-card/50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-primary" />
+              <p className="text-sm font-semibold">Building Speed</p>
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+                {speed}x
+              </span>
+            </div>
+            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => stageSpeed(1)}>
+              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Reset to normal
+            </Button>
+          </div>
+          <Slider
+            className="mt-4"
+            value={[speedToSlider(speed)]}
+            min={0}
+            max={1}
+            step={0.01}
+            onValueChange={([pos]) => stageSpeed(sliderToSpeed(pos ?? 0.5))}
+            aria-label="Building rotation speed"
+          />
+          <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+            <span>Very slow</span>
+            <span>Normal</span>
+            <span>Very fast</span>
+          </div>
+        </section>
+
         {dirty && (
           <p className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
-            Unsaved artwork changes — press Save building to apply them to the homepage.
+            Unsaved changes — press Save building to apply them to the homepage.
           </p>
         )}
+
 
         <input
           ref={inputRef}
