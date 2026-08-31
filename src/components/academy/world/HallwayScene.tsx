@@ -585,7 +585,7 @@ const SegmentCorridor = ({
     {capStart && (
       <Surface
         position={[0, HALL_HEIGHT / 2, 1.6]}
-        rotation={[0, Math.PI, 0]}
+        rotation-y={Math.PI}
         url={env.startWall.texture ? textures[env.startWall.texture.path] : undefined}
         presetKey={env.startWall.preset}
         color={env.startWall.color}
