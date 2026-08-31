@@ -471,7 +471,7 @@ const WalkwayManager = ({
             <button
               type="button"
               onClick={submitHallway}
-              disabled={busy || (roots.length > 0 && (!hallParent || hallTaken.includes(hallDir)))}
+              disabled={busy || (roots.length > 0 && !hallParent)}
               className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
             >
               {busy ? "Creating…" : "Create Hallway"}
@@ -483,11 +483,6 @@ const WalkwayManager = ({
             >
               Cancel
             </button>
-            {roots.length > 0 && hallTaken.includes(hallDir) && (
-              <span className="text-[11px] text-muted-foreground">
-                That side of this hallway already has a branch — pick the other one.
-              </span>
-            )}
           </div>
         </div>
       )}
