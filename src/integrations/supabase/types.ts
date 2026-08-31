@@ -1233,6 +1233,7 @@ export type Database = {
           building_id: string
           created_at: string
           direction: string
+          end_label: string | null
           id: string
           length: number
           name: string
@@ -1244,6 +1245,7 @@ export type Database = {
           building_id: string
           created_at?: string
           direction?: string
+          end_label?: string | null
           id?: string
           length?: number
           name?: string
@@ -1255,6 +1257,7 @@ export type Database = {
           building_id?: string
           created_at?: string
           direction?: string
+          end_label?: string | null
           id?: string
           length?: number
           name?: string

@@ -16,6 +16,7 @@ import type {
 } from "@/lib/building/types";
 import { DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
+import { DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
 import type { AcademyProduct, AcademyProductKind } from "@/lib/academy/types";
 import { PRODUCT_KINDS } from "@/lib/academy/types";
 
@@ -26,6 +27,8 @@ export interface WalkwayManagerProps {
   onAddWalkway: (parentId: string | null, direction: WalkwayDirection) => Promise<void>;
   onUpdateWalkway: (id: string, length: number) => Promise<void>;
   onRenameWalkway?: (id: string, name: string) => Promise<void>;
+  /** Rename this hallway's ENDPOINT (the terminal node at its far end). */
+  onRenameEndpoint?: (id: string, endLabel: string) => Promise<void>;
   onRenameDoor?: (id: string, title: string) => Promise<void>;
   onDeleteWalkway: (id: string) => Promise<void>;
   onAddDoor: (
@@ -43,6 +46,7 @@ const WalkwayManager = ({
   onAddWalkway,
   onUpdateWalkway,
   onRenameWalkway,
+  onRenameEndpoint,
   onRenameDoor,
   onDeleteWalkway,
   onAddDoor,
@@ -132,6 +136,24 @@ const WalkwayManager = ({
         </div>
         {open && (
           <div style={{ paddingLeft: depth * 14 + 10 }}>
+            {/* ENDPOINT — the terminal node at the far end of this hallway.
+                Only meaningful while the hallway does not continue forward. */}
+            {!kids.some((k) => k.direction === "forward") && (
+              <label className="flex items-center gap-2 py-1 text-[11px] text-muted-foreground">
+                Endpoint name
+                <input
+                  aria-label="Endpoint name"
+                  defaultValue={w.end_label ?? ""}
+                  placeholder={DEFAULT_ENDPOINT_NAME}
+                  onBlur={(e) => {
+                    const next = e.target.value.trim();
+                    if (next && next !== (w.end_label ?? "")) void onRenameEndpoint?.(w.id, next);
+                    else e.target.value = w.end_label ?? "";
+                  }}
+                  className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-1 text-sm text-foreground"
+                />
+              </label>
+            )}
             <div className="flex flex-wrap gap-1 py-1">
               <button
                 type="button"
