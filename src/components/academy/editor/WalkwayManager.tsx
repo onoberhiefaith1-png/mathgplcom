@@ -19,6 +19,7 @@ import type {
 } from "@/lib/building/types";
 import { DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
+import { nextBranchDirection, nextObjectOffset } from "@/lib/building/navigation";
 import { DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
 import { DOOR_STYLES } from "@/lib/building/doors";
 import type { AcademyProduct, AcademyProductKind } from "@/lib/academy/types";
