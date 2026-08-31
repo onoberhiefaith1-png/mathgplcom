@@ -31,6 +31,7 @@ const ChromaVideo = ({
   keyColor,
   tolerance = 0.12,
   feather: featherPx,
+  loopFade = 0,
   playbackRate = 1,
   className,
   fit = "contain",
