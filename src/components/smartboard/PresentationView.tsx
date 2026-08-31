@@ -1294,7 +1294,7 @@ const PresentationView = ({
 
   // Keep the hidden textarea focused so keystrokes flow into the board.
   useEffect(() => {
-    const t = window.setTimeout(() => hiddenInputRef.current?.focus({ preventScroll: true }), 0);
+    const t = window.setTimeout(() => focusCapture(), 0);
     return () => window.clearTimeout(t);
   }, [sensor.line]);
 
@@ -1475,7 +1475,7 @@ const PresentationView = ({
       else next[writeLine] = res.root;
       return next;
     });
-    hiddenInputRef.current?.focus({ preventScroll: true });
+    focusCapture();
   };
 
   // LIVE DISPATCH: `editActive` and `insertIntoActiveBox` are re-created on
@@ -2358,7 +2358,7 @@ const PresentationView = ({
         const next = dir < 0 ? treeMoveUp(rowInk, c) : treeMoveDown(rowInk, c);
         if (next) {
           setLiveCursor(next);
-          hiddenInputRef.current?.focus({ preventScroll: true });
+          focusCapture();
           return;
         }
       }
@@ -2437,7 +2437,7 @@ const PresentationView = ({
       // any board-layout guard — it is the only way out of a nested slot
       // such as a radical's radicand.
       setLiveCursor((c) => (dir > 0 ? treeMoveRight(rowInk, c) : treeMoveLeft(rowInk, c)));
-      hiddenInputRef.current?.focus({ preventScroll: true });
+      focusCapture();
       return;
     }
     if (!activeLayout || activeLayout.bandLines <= 0) return;
@@ -6066,7 +6066,7 @@ const PresentationView = ({
           }
           setSensor({ line: targetLine, x: 0 });
           setLiveCursor({ path: [], index: row.length });
-          hiddenInputRef.current?.focus({ preventScroll: true });
+          focusCapture();
 
 
         }}
@@ -6263,7 +6263,7 @@ const PresentationView = ({
               }
               if (line !== sensor.line) setSensor((s) => ({ ...s, line }));
               setLiveCursor(c);
-              hiddenInputRef.current?.focus({ preventScroll: true });
+              focusCapture();
             }}
           />
 
