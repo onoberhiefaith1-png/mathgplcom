@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import SignedMedia, { useSignedUrl } from "./SignedMedia";
 import type { MediaSource } from "@/lib/games/types";
+import { seamAlpha } from "@/lib/games/loopFade";
 import { cn } from "@/lib/utils";
 
 interface ChromaVideoProps {
