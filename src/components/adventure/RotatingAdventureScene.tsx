@@ -1,11 +1,9 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { useNavigate } from "@/lib/router-compat";
 import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
-import ChromaVideo from "@/components/gamebuilder/ChromaVideo";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
-import { seamAlpha } from "@/lib/games/loopFade";
 import { CORE_SLOTS, RING_SLOTS, defaultUrlFor } from "@/lib/homepage/buildingSlots";
 import {
   clampBuildingSpeed,
