@@ -17,7 +17,7 @@ import BuildingBillboard from "@/components/adventure/BuildingBillboard";
 import { useSceneCursor } from "@/lib/stability/useSceneCursor";
 import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
 import { setScopedCursor } from "@/lib/stability/interactionReset";
-import type { BlendMode, CanvasElement } from "@/lib/games/types";
+
 
 // ONE continuous floating mathematical world: eight curved segments tiled
 // edge-to-edge around a single cylinder so the academies read as one connected
