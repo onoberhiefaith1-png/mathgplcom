@@ -1138,7 +1138,10 @@ const MiniMap = ({
     const offX = (W - spanX * sc) / 2 + ((spanX - (maxX - minX)) / 2) * sc;
     const offY = (H - spanZ * sc) / 2 + ((spanZ - (maxZ - minZ)) / 2) * sc;
     const px = (x: number) => (x - minX) * sc + offX;
-    const py = (z: number) => (maxZ - z) * sc + offY; // forward (−z) renders up: north is always up
+    // The entrance sits at the BOTTOM of the plan and travel reads upward, like
+    // a floor plan on a wall. The map never rotates with the walker.
+    const py = (z: number) => (z - minZ) * sc + offY;
+
     return { W, H, px, py, lines, doorDots, ends, parentOf };
   }, [segments, layouts]);
 
