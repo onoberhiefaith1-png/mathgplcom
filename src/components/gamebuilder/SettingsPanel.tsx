@@ -247,15 +247,52 @@ const SettingsPanel = ({
     patchProgress({ slotEffects });
   };
 
+  const mediaUrl = async () => {
+    if (!element) return null;
+    return element.source === "url"
+      ? element.storagePath
+      : await getSignedUrl(element.storagePath);
+  };
+
   const rescanBackground = async () => {
-    if (!element) return;
-    const url =
-      element.source === "url"
-        ? element.storagePath
-        : await getSignedUrl(element.storagePath);
+    const url = await mediaUrl();
     if (!url) return;
     const det = await detectMediaBackground(url, "video");
     onChange({ keyColor: det.color });
+  };
+
+  /**
+   * Final Touch — watch one whole revolution, measure the halo, flicker,
+   * leftover backdrop and loop seam, then set the existing controls to values
+   * that hold for every frame. Nothing is re-uploaded.
+   */
+  const runFinalTouch = async () => {
+    if (!element) return;
+    setTouching(true);
+    setTouchResult(null);
+    try {
+      const url = await mediaUrl();
+      if (!url) throw new Error("This building could not be loaded");
+      const frames = await grabLoopFrames(url, element.mediaType ?? "video");
+      const result = tuneFromLoop(frames, element);
+      setTouchResult(result);
+      if (result.patch) {
+        onChange({
+          ...result.patch,
+          finalTouch: { at: new Date().toISOString(), frames: result.frames },
+        });
+      }
+    } catch (err) {
+      setTouchResult({
+        ok: false,
+        frames: 0,
+        patch: null,
+        issues: [],
+        summary: err instanceof Error ? err.message : "Final Touch could not read this building",
+      });
+    } finally {
+      setTouching(false);
+    }
   };
 
   return (
