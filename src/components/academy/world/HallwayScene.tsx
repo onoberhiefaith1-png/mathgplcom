@@ -1274,8 +1274,10 @@ const WalkControls = ({
   hasForward,
   canBack,
   moving,
-  onHoldStart,
-  onHoldEnd,
+  facing,
+  onForwardStart,
+  onForwardEnd,
+  onTurnAround,
 
   onTurn,
   ended,
@@ -1285,12 +1287,10 @@ const WalkControls = ({
   hasForward: boolean;
   canBack: boolean;
   moving: boolean;
-  /**
-   * Press-and-hold to walk: movement lasts exactly as long as the hold.
-   * 1 = Forward, -1 = Backward (the camera turns around and retraces the road).
-   */
-  onHoldStart: (sign: 1 | -1) => void;
-  onHoldEnd: () => void;
+  facing: 1 | -1;
+  onForwardStart: () => void;
+  onForwardEnd: () => void;
+  onTurnAround: () => void;
 
   onTurn: (seg: Segment) => void;
   ended: boolean;
@@ -1343,34 +1343,27 @@ const WalkControls = ({
       {canBack && (
         <button
           type="button"
-          aria-label="Hold to walk back"
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture?.(e.pointerId);
-            onHoldStart(-1);
-          }}
-          onPointerUp={onHoldEnd}
-          onPointerCancel={onHoldEnd}
-          onLostPointerCapture={onHoldEnd}
-          onContextMenu={(e) => e.preventDefault()}
+          aria-label={facing === 1 ? "Turn around" : "Turn toward the hallway end"}
+          onClick={onTurnAround}
           className="inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full text-foreground hover:bg-muted"
         >
-          ▼
+          {facing === 1 ? "▼" : "▲"}
         </button>
       )}
       <button
         type="button"
-        aria-label="Hold to walk forward"
+        aria-label={facing === 1 ? "Hold to walk forward" : "Hold to retrace your path"}
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture?.(e.pointerId);
-          onHoldStart(1);
+          onForwardStart();
         }}
-        onPointerUp={onHoldEnd}
-        onPointerCancel={onHoldEnd}
-        onLostPointerCapture={onHoldEnd}
+        onPointerUp={onForwardEnd}
+        onPointerCancel={onForwardEnd}
+        onLostPointerCapture={onForwardEnd}
         onContextMenu={(e) => e.preventDefault()}
         className={`inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full text-lg ${moving ? "bg-primary text-primary-foreground scale-105" : "bg-primary/80 text-primary-foreground"}`}
       >
-        ▲
+        {facing === 1 ? "▲" : "▼"}
       </button>
 
 
@@ -1801,6 +1794,7 @@ const HallwayScene = ({
   const [phase, setPhase] = useState<NavPhase>("browse");
   const [nav, setNav] = useState<NavState>({ seg: rootEffective, mode: "browse" });
   const [moving, setMoving] = useState(false);
+  const [facing, setFacing] = useState<1 | -1>(1);
   const [endReached, setEndReached] = useState(false);
   /** Junction openings the walker is currently standing alongside. */
   const [nearOpenings, setNearOpenings] = useState<string[]>([]);
@@ -1910,6 +1904,7 @@ const HallwayScene = ({
     st.moving = false;
     st.hold = 0;
     st.dir = 1;
+    setFacing(1);
     st.speed = 0;
     st.yaw = 0;
     st.turn = null;
@@ -1959,6 +1954,7 @@ const HallwayScene = ({
           onDone: () => {
             const s2 = machineRef.current;
             s2.dir = sign;
+            setFacing(sign);
             s2.phase = "walking";
             setMachinePhase("walking");
           },
@@ -1978,23 +1974,15 @@ const HallwayScene = ({
     setMoving(false);
   }, []);
 
-  const pointerIntent = useRef<-1 | 0 | 1>(0);
+  const pointerIntent = useRef(false);
   const heldMoveKeys = useRef(new Set<1 | -1>());
-  const startPointerHold = useCallback(
-    (sign: 1 | -1) => {
-      pointerIntent.current = sign;
-      startHold(sign);
-    },
-    [startHold],
-  );
+  const startPointerHold = useCallback(() => {
+    pointerIntent.current = true;
+    startHold(machineRef.current.dir);
+  }, [startHold]);
   const endPointerHold = useCallback(() => {
-    pointerIntent.current = 0;
-    const keyboardIntent = heldMoveKeys.current.has(1)
-      ? 1
-      : heldMoveKeys.current.has(-1)
-        ? -1
-        : 0;
-    if (keyboardIntent) startHold(keyboardIntent);
+    pointerIntent.current = false;
+    if (heldMoveKeys.current.has(1)) startHold(machineRef.current.dir);
     else endHold();
   }, [endHold, startHold]);
 
@@ -2006,6 +1994,7 @@ const HallwayScene = ({
       st.moving = false;
       st.hold = 0;
       st.dir = 1;
+      setFacing(1);
       st.speed = 0;
       st.yaw = segYaw(seg.heading);
       historyRef.current.clear();
@@ -2093,6 +2082,7 @@ const HallwayScene = ({
         ? target.length
         : THREE.MathUtils.clamp(mouth?.along ?? 0, 0, target.length);
       st.dir = reverseConnector ? -1 : 1;
+      setFacing(st.dir);
       st.hold = 0;
       st.speed = 0;
       st.yaw = segYaw(reverseConnector ? reverseHeading(target.heading) : target.heading);
@@ -2160,6 +2150,7 @@ const HallwayScene = ({
       onDone: () => {
         const s2 = machineRef.current;
         s2.dir = next;
+        setFacing(next);
         s2.phase = "walking";
         setMachinePhase("walking");
         setEndReached(false);
@@ -2205,7 +2196,13 @@ const HallwayScene = ({
       // Walking back out of a hallway returns to the parent road at the exact
       // junction it left from, still facing the way the walker is travelling.
       const parent = seg.walkway?.parent_id ? findSegment(segments, seg.walkway.parent_id) : null;
-      if (!parent) return false;
+      if (!parent) {
+        if (seg === rootEffective || seg.walkway?.id === rootEffective.walkway?.id) {
+          backToBrowse();
+          return true;
+        }
+        return false;
+      }
       const junction = (layouts.get(parent.walkway?.id ?? "") ?? []).find(
         (o) => o.kind === "opening" && o.id === seg.walkway?.id,
       );
@@ -2215,13 +2212,14 @@ const HallwayScene = ({
       // Preserve reverse travel across the handoff. Resetting this to +1 made a
       // held Back control immediately send the walker forwards again.
       st.dir = -1;
+      setFacing(-1);
       st.yaw = segYaw(reverseHeading(parent.heading));
       historyRef.current.pop();
       setNav({ seg: parent, mode: "walk" });
       syncBreadcrumb();
       return true;
     },
-    [connectors, layouts, segments, syncBreadcrumb],
+    [backToBrowse, connectors, layouts, rootEffective, segments, syncBreadcrumb],
   );
 
   /** Reached the terminal wall of a hallway → stop and offer the next direction. */
@@ -2289,7 +2287,7 @@ const HallwayScene = ({
             else if (st.seg.children.length === 0) showCue("End of walkway");
           } else {
             // Held key = held Forward button: movement lasts only while down.
-            startHold(1);
+            startHold(st.dir);
           }
         }
         return;
@@ -2297,10 +2295,8 @@ const HallwayScene = ({
 
       if (key === "ArrowDown" || key === "s" || key === "S") {
         if (e.repeat) return;
-        heldMoveKeys.current.add(-1);
         if (st.phase === "browse") onFocusChange(Math.max(0, focus - 1));
-        else if (st.phase === "walking" || st.phase === "idle" || st.phase === "turning")
-          startHold(-1);
+        else if (st.phase === "walking" || st.phase === "idle") goBack();
         return;
       }
       if (key === "ArrowLeft" || key === "a" || key === "A") {
@@ -2332,16 +2328,13 @@ const HallwayScene = ({
     const onKeyUp = (e: KeyboardEvent) => {
       const key = e.key;
       if (["ArrowUp", "w", "W"].includes(key)) heldMoveKeys.current.delete(1);
-      else if (["ArrowDown", "s", "S"].includes(key)) heldMoveKeys.current.delete(-1);
       else return;
-      if (pointerIntent.current) startHold(pointerIntent.current);
-      else if (heldMoveKeys.current.has(1)) startHold(1);
-      else if (heldMoveKeys.current.has(-1)) startHold(-1);
+      if (pointerIntent.current || heldMoveKeys.current.has(1)) startHold(machineRef.current.dir);
       else endHold();
     };
     const onBlur = () => {
       heldMoveKeys.current.clear();
-      pointerIntent.current = 0;
+      pointerIntent.current = false;
       endHold();
     };
     window.addEventListener("keydown", onKey);
@@ -2690,9 +2683,11 @@ const HallwayScene = ({
           hasForward={hasForwardChild}
           canBack={canBack}
           moving={moving}
+          facing={facing}
           ended={endReached}
-          onHoldStart={startPointerHold}
-          onHoldEnd={endPointerHold}
+          onForwardStart={startPointerHold}
+          onForwardEnd={endPointerHold}
+          onTurnAround={goBack}
 
 
           onTurn={pickBranch}
