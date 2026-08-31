@@ -429,11 +429,7 @@ const WalkwayManager = ({
                 <select
                   aria-label="Connect to hallway"
                   value={hallParent}
-                  onChange={(e) => {
-                    setHallParent(e.target.value);
-                    const taken = takenAt(e.target.value);
-                    setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "left");
-                  }}
+                  onChange={(e) => setHallParent(e.target.value)}
                   className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
                 >
                   {flat.map(({ w, depth }) => (
