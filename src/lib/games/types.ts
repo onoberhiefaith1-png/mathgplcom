@@ -240,6 +240,12 @@ export interface CanvasElement {
   // Chroma-key settings (used when bgRemoval === "chroma", videos only).
   keyColor?: { r: number; g: number; b: number };
   keyTolerance?: number;
+  /** Edge softness in pixels, measured by Final Touch to hide a halo. */
+  keyFeather?: number;
+  /** Crossfade, in seconds, over the loop restart so the seam does not flash. */
+  loopFade?: number;
+  /** Bookkeeping for the last Final Touch scan. */
+  finalTouch?: { at: string; frames: number };
   // Directional color grade so a flat asset blends into the scene lighting.
   tint?: TintSettings;
   // Lean/skew so a flat asset matches the background's perspective (base fixed).

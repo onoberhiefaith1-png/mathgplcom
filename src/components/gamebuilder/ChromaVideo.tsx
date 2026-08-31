@@ -8,6 +8,12 @@ interface ChromaVideoProps {
   source?: MediaSource;
   keyColor?: { r: number; g: number; b: number };
   tolerance?: number;
+  /**
+   * Edge softness in pixels, as measured by Final Touch. It widens the graded
+   * alpha band so a halo left by the backdrop fades out instead of outlining
+   * the subject.
+   */
+  feather?: number;
   playbackRate?: number;
   className?: string;
   fit?: "cover" | "contain";
@@ -22,6 +28,7 @@ const ChromaVideo = ({
   source = "storage",
   keyColor,
   tolerance = 0.12,
+  feather: featherPx,
   playbackRate = 1,
   className,
   fit = "contain",
@@ -49,7 +56,10 @@ const ChromaVideo = ({
     video.preload = "auto";
 
     const thr = tolerance * MAX_DIST;
-    const feather = thr * 0.5;
+    // Final Touch measures the halo and expresses it in pixels; each pixel of
+    // measured fringe widens the graded band, so the edge fades out instead of
+    // ending in a hard outline. With no measurement the old band is kept.
+    const feather = featherPx ? thr * 0.5 * (1 + featherPx * 0.35) : thr * 0.5;
     let raf = 0;
 
     let reportedReady = false;

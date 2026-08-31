@@ -214,6 +214,37 @@ export const grabAnalysisFrames = async (
 };
 
 /**
+ * Every frame Final Touch needs: evenly spaced samples across the WHOLE clip,
+ * in playback order, so the first and last frame can be compared for the loop
+ * seam. A still image yields its single frame.
+ */
+export const grabLoopFrames = async (
+  url: string,
+  mediaType: MediaType,
+  count = 18,
+): Promise<RawFrame[]> => {
+  if (mediaType !== "video") {
+    const img = await loadImage(url);
+    const frame = drawTo(img, img.naturalWidth, img.naturalHeight);
+    return frame ? [frame] : [];
+  }
+  const video = await loadVideo(url);
+  const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+  const n = Math.max(2, Math.min(count, duration ? Math.round(duration * 6) : 2));
+  const frames: RawFrame[] = [];
+  for (let i = 0; i < n; i++) {
+    const time = duration ? (duration * i) / (n - 1) : 0;
+    await seekTo(video, Math.min(time, Math.max(0, duration - 0.03)));
+    if (video.readyState < 2) continue;
+    const frame = drawTo(video, video.videoWidth, video.videoHeight);
+    if (frame) frames.push(frame);
+  }
+  video.removeAttribute("src");
+  video.load();
+  return frames;
+};
+
+/**
  * A still of the media the teacher can click to pick the background colour by
  * hand when automatic detection is unsure.
  */
