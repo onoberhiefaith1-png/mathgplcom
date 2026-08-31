@@ -14,6 +14,10 @@ import surfaceScience from "@/assets/surfaces/surface-science.jpg";
 import surfaceMinimal from "@/assets/surfaces/surface-minimal.jpg";
 import surfaceFuturistic from "@/assets/surfaces/surface-futuristic.jpg";
 import surfaceSchoolBranding from "@/assets/surfaces/surface-school-branding.jpg";
+import panelReception from "@/assets/surfaces/panel-reception.png.asset.json";
+import panelCreamBlue from "@/assets/surfaces/panel-cream-blue.png.asset.json";
+import panelSlattedWarm from "@/assets/surfaces/panel-slatted-warm.png.asset.json";
+import panelWalnutSlat from "@/assets/surfaces/panel-walnut-slat.png.asset.json";
 
 export interface SurfaceSample {
   key: string;
