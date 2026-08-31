@@ -93,7 +93,7 @@ const WalkwayManager = ({
           <button
             type="button"
             onClick={() => setOpenWalkway(open ? null : w.id)}
-            aria-label="Walkway details"
+            aria-label="Hallway details"
             className="p-1 text-muted-foreground"
           >
             {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -110,7 +110,7 @@ const WalkwayManager = ({
             className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-1 text-sm text-foreground"
           />
           <input
-            aria-label="Walkway length"
+            aria-label="Hallway length"
             type="number"
             min={6}
             max={120}
@@ -127,9 +127,9 @@ const WalkwayManager = ({
           />
           <button
             type="button"
-            aria-label="Delete walkway"
+            aria-label="Delete hallway"
             onClick={async () => {
-              if (window.confirm("Delete this walkway and its branches?")) {
+              if (window.confirm("Delete this hallway and everything connected beyond it?")) {
                 await onDeleteWalkway(w.id);
               }
             }}
@@ -144,9 +144,9 @@ const WalkwayManager = ({
                 Only meaningful while the hallway does not continue forward. */}
             {!kids.some((k) => k.direction === "forward") && (
               <label className="flex items-center gap-2 py-1 text-[11px] text-muted-foreground">
-                Endpoint name
+                End wall name
                 <input
-                  aria-label="Endpoint name"
+                  aria-label="End wall name"
                   defaultValue={w.end_label ?? ""}
                   placeholder={DEFAULT_ENDPOINT_NAME}
                   onBlur={(e) => {
@@ -164,21 +164,21 @@ const WalkwayManager = ({
                 onClick={() => onAddWalkway(w.id, "forward")}
                 className="min-h-[32px] rounded-full border border-emerald-500/40 px-2.5 text-[11px] font-semibold text-emerald-400"
               >
-                + Forward
+                + Add Hallway (Forward)
               </button>
               <button
                 type="button"
                 onClick={() => onAddWalkway(w.id, "left")}
                 className="min-h-[32px] rounded-full border border-sky-500/40 px-2.5 text-[11px] font-semibold text-sky-400"
               >
-                + Left branch
+                + Add Hallway (Left)
               </button>
               <button
                 type="button"
                 onClick={() => onAddWalkway(w.id, "right")}
                 className="min-h-[32px] rounded-full border border-sky-500/40 px-2.5 text-[11px] font-semibold text-sky-400"
               >
-                + Right branch
+                + Add Hallway (Right)
               </button>
             </div>
 
@@ -279,7 +279,7 @@ const WalkwayManager = ({
                 onClick={() => setPickerFor(pickerFor === w.id ? null : w.id)}
                 className="ml-1 mt-1 inline-flex min-h-[34px] items-center gap-1 rounded-full border border-dashed border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
               >
-                <Plus className="h-3 w-3" /> Add door
+                <Plus className="h-3 w-3" /> Add Door
               </button>
             )}
           </div>
@@ -295,14 +295,14 @@ const WalkwayManager = ({
     return (
       <div className="space-y-2">
         <p className="rounded-xl border border-dashed border-border p-3 text-sm text-muted-foreground">
-          The building has no walkway yet. Start one — it becomes the corridor learners walk down.
+          This building has no hallway yet. Add the main hallway — it becomes the corridor learners walk down.
         </p>
         <button
           type="button"
           onClick={() => onAddWalkway(null, "forward")}
           className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-dashed border-border px-4 text-xs font-semibold text-muted-foreground hover:text-foreground"
         >
-          <Plus className="h-3.5 w-3.5" /> Add first walkway
+          <Plus className="h-3.5 w-3.5" /> Add Hallway
         </button>
       </div>
     );
@@ -314,7 +314,7 @@ const WalkwayManager = ({
         <WalkwayRow key={w.id} w={w} depth={0} />
       ))}
       <p className="pt-1 text-[11px] text-muted-foreground">
-        Walkways extend forward and branch left/right. Doors open existing courses and games.
+        A hallway continues forward or turns left/right into another hallway, so the building grows into a connected maze. A door is an endpoint: it opens an existing course or game.
       </p>
     </div>
   );

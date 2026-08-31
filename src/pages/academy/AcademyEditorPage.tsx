@@ -702,7 +702,7 @@ const handleTextureUpload = useCallback(
 
           <div className="mt-2">
             <AddButton
-              label="Add room"
+              label="Add hallway"
               onAdd={async () => {
                 if (!tree) return;
                 const id = await createNode("academy_rooms", tree.academy.id, {});
@@ -718,7 +718,7 @@ const handleTextureUpload = useCallback(
               The Building
             </h2>
             <p className="px-1 pb-2 text-[11px] text-muted-foreground">
-              The shell learners walk through: surfaces, lighting, walkways and doors.
+              The shell learners walk through: surfaces, lighting, hallways and doors.
             </p>
             {!buildingData ? (
               <p className="rounded-xl border border-dashed border-border p-3 text-sm text-muted-foreground">
@@ -759,7 +759,7 @@ const handleTextureUpload = useCallback(
                     onClick={() => setBuildingOpen((o) => ({ ...o, walk: !o.walk }))}
                     className="flex min-h-[44px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
                   >
-                    Walkways &amp; doors
+                    Hallways &amp; doors
                     {buildingOpen.walk ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   </button>
                   {buildingOpen.walk && (
