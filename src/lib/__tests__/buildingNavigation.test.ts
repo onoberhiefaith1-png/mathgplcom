@@ -12,6 +12,8 @@ import {
   turnaround,
   availableDirections,
   parentConnectionAnchor,
+  lengthForObjects,
+  freeBranchDirections,
 } from "../building/navigation";
 
 import type { BuildingWalkway } from "../building/types";
@@ -245,8 +247,8 @@ describe("hallway roads and junctions", () => {
   });
 
   it("places a branch at its junction along the parent, not at the far end", () => {
-    const root = walkway({ id: "a", parent_id: null, direction: "forward", length: 40 });
-    const left = walkway({ id: "b", parent_id: "a", direction: "left", junction_at: 0.25 });
+    const root = walkway("a", { parent_id: null, direction: "forward", length: 40 });
+    const left = walkway("b", { parent_id: "a", direction: "left", junction_at: 0.25 });
     const g = compileNavGraph([root, left]);
     const node = g.byId.get("b")!;
     // root runs down -z from the origin; a quarter along 40 units is z = -10
@@ -254,9 +256,9 @@ describe("hallway roads and junctions", () => {
   });
 
   it("only offers left and right as free branch directions", () => {
-    const root = walkway({ id: "a", parent_id: null, direction: "forward" });
+    const root = walkway("a", { parent_id: null, direction: "forward" });
     expect(freeBranchDirections([root], "a")).toEqual(["left", "right"]);
-    const left = walkway({ id: "b", parent_id: "a", direction: "left" });
+    const left = walkway("b", { parent_id: "a", direction: "left" });
     expect(freeBranchDirections([root, left], "a")).toEqual(["right"]);
   });
 });
