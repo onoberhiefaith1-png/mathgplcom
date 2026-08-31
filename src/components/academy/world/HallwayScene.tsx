@@ -1482,7 +1482,20 @@ const MiniMap = ({
     // a floor plan on a wall. The map never rotates with the walker.
     const py = (z: number) => (z - minZ) * sc;
 
-    return { W, H, px, py, lines, linkLines, doorDots, ends, parentOf };
+    return {
+      W,
+      H,
+      px,
+      py,
+      lines,
+      linkLines,
+      doorDots,
+      ends,
+      parentOf,
+      /** drawing extent in map pixels, used to pin the plan to the box edges */
+      spanW: (maxX - minX) * sc,
+      spanH: (maxZ - minZ) * sc,
+    };
   }, [segments, layouts, connectors, zoom]);
 
   // ── live player position: eased toward the walker's real coordinates ──
