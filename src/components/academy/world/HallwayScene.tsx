@@ -683,6 +683,7 @@ const DoorMesh = ({
   styleKey,
   textureUrl,
   aspect,
+  atStart = false,
   onEnter,
 }: {
   side: number;
@@ -696,8 +697,14 @@ const DoorMesh = ({
   /** custom uploaded door image; falls back to the built-in style asset */
   textureUrl?: string;
   aspect?: number;
+  /**
+   * ENTRANCE mode: the door sits in the wall that CAPS the start of the
+   * hallway, facing back down the corridor, instead of in a side wall.
+   */
+  atStart?: boolean;
   onEnter: () => void;
 }) => {
+
   const style = doorStyle(styleKey);
   const url = textureUrl || style.url;
   const tex = useLoadedTexture(url);
@@ -727,7 +734,11 @@ const DoorMesh = ({
   return (
     // Flush against the wall plane and rotated to the wall's own orientation:
     // the door face is parallel to the wall and looks into the corridor.
-    <group position={[side * (HALL_WIDTH / 2 - 0.06), 0, z]} rotation-y={-side * (Math.PI / 2)}>
+    <group
+      position={atStart ? [0, 0, z - 0.06] : [side * (HALL_WIDTH / 2 - 0.06), 0, z]}
+      rotation-y={atStart ? Math.PI : -side * (Math.PI / 2)}
+    >
+
       {/* Reveal / frame — jambs, lintel and threshold read as one structure */}
       <group>
         {[-1, 1].map((s) => (
@@ -1383,14 +1394,16 @@ const useMapFrames = (active: boolean) => {
   }, [active]);
 };
 
-const MAP_SIZES = { S: 0.72, M: 1, L: 1.4 } as const;
-type MapSize = keyof typeof MAP_SIZES;
-
 /**
- * Pixels per metre on the map. Fixed, so the plan never rescales as the
- * building grows — the window follows the walker instead.
+ * Pixels per metre on the map at 1x zoom. The plan never rescales itself as the
+ * building grows — the window follows the walker, and the user zooms instead.
  */
 const MAP_METRE = 2.6;
+
+/** Google-Maps style zoom range, in exponential steps. The PANEL never resizes. */
+const MAP_ZOOM_MIN = 0.35;
+const MAP_ZOOM_MAX = 3;
+const MAP_ZOOM_STEP = 1.35;
 
 const MiniMap = ({
   segments,
@@ -1411,7 +1424,7 @@ const MiniMap = ({
   /** Hallways actually travelled, in order — the route highlight. */
   routeIds?: string[];
 }) => {
-  const [size, setSize] = useState<MapSize>("M");
+  const [zoom, setZoom] = useState(1);
   useMapFrames(show);
 
   const svg = useMemo(() => {
@@ -1460,17 +1473,17 @@ const MiniMap = ({
     const maxZ = Math.max(...zs);
     const W = 210;
     const H = 170;
-    // CONSTANT SCALE. The map is a GPS view, not a diagram that shrinks: one
-    // metre of building is always the same number of pixels, however large the
-    // maze grows, and the viewport follows the walker instead of rescaling.
-    const sc = MAP_METRE;
+    // GPS SCALE. The map never shrinks to fit the building: metres-per-pixel is
+    // set by the ZOOM level only, and the viewport follows the walker. Zooming
+    // out reveals more of the maze inside the same fixed panel.
+    const sc = MAP_METRE * zoom;
     const px = (x: number) => (x - minX) * sc;
     // The entrance sits at the BOTTOM of the plan and travel reads upward, like
     // a floor plan on a wall. The map never rotates with the walker.
     const py = (z: number) => (z - minZ) * sc;
 
     return { W, H, px, py, lines, linkLines, doorDots, ends, parentOf };
-  }, [segments, layouts, connectors]);
+  }, [segments, layouts, connectors, zoom]);
 
   // ── live player position: eased toward the walker's real coordinates ──
   const marker = useRef({ x: 0, y: 0, dx: 0, dy: -1, ready: false });
@@ -1481,6 +1494,12 @@ const MiniMap = ({
   const tx = svg.px(target[0]);
   const ty = svg.py(target[1]);
   const face = st ? forwardFromYaw(st.yaw) : ([0, -1] as [number, number]);
+  // Changing zoom changes map-space coordinates, so snap instead of gliding.
+  const lastZoom = useRef(zoom);
+  if (lastZoom.current !== zoom) {
+    lastZoom.current = zoom;
+    marker.current.ready = false;
+  }
   {
     const k = marker.current.ready ? 0.18 : 1;
     marker.current.x += (tx - marker.current.x) * k;
@@ -1519,43 +1538,48 @@ const MiniMap = ({
   const cx0 = 105;
   const cy0 = 85;
   const chevron = `${cx0 + ux * 8},${cy0 + uy * 8} ${cx0 - ux * 5 - uy * 5},${cy0 - uy * 5 + ux * 5} ${cx0 - ux * 2},${cy0 - uy * 2} ${cx0 - ux * 5 + uy * 5},${cy0 - uy * 5 - ux * 5}`;
-  const scale = MAP_SIZES[size];
   // GPS-style follow: the drawing slides under a fixed-size window so the
   // walker stays in the middle of the panel at all times.
   const viewX = svg.W / 2 - ax;
   const viewY = svg.H / 2 - ay;
+  const zoomBy = (k: number) =>
+    setZoom((z) => Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, z * k)));
 
   return (
     <div className="pointer-events-none absolute right-6 top-20 z-10 select-none">
+      {/* ONE fixed panel size. Coverage changes with zoom, never the container. */}
       <div
         className="rounded-2xl border border-sky-400/25 bg-[#070d1b]/90 p-2 shadow-[0_10px_40px_rgba(2,8,23,0.65)] backdrop-blur"
-        style={{ width: svg.W * scale + 16 }}
+        style={{ width: svg.W + 16 }}
       >
         <div className="mb-1 flex items-center justify-between gap-2">
           <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-sky-300/80">
             Building map
           </span>
-          <div className="pointer-events-auto flex items-center gap-0.5">
-            {(Object.keys(MAP_SIZES) as MapSize[]).map((s) => (
-              <button
-                key={s}
-                type="button"
-                aria-label={`Map size ${s}`}
-                onClick={() => setSize(s)}
-                className={`h-5 w-5 rounded-md text-[9px] font-bold transition ${
-                  size === s
-                    ? "bg-sky-400/25 text-sky-200 ring-1 ring-sky-400/50"
-                    : "text-sky-300/50 hover:text-sky-200"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+          <div className="pointer-events-auto flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Zoom out"
+              onClick={() => zoomBy(1 / MAP_ZOOM_STEP)}
+              disabled={zoom <= MAP_ZOOM_MIN + 1e-6}
+              className="h-5 w-5 rounded-md text-[11px] font-bold leading-none text-sky-200 ring-1 ring-sky-400/40 transition hover:bg-sky-400/20 disabled:opacity-30"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              onClick={() => zoomBy(MAP_ZOOM_STEP)}
+              disabled={zoom >= MAP_ZOOM_MAX - 1e-6}
+              className="h-5 w-5 rounded-md text-[11px] font-bold leading-none text-sky-200 ring-1 ring-sky-400/40 transition hover:bg-sky-400/20 disabled:opacity-30"
+            >
+              +
+            </button>
           </div>
         </div>
         <svg
-          width={svg.W * scale}
-          height={svg.H * scale}
+          width={svg.W}
+          height={svg.H}
           viewBox={`0 0 ${svg.W} ${svg.H}`}
           className="rounded-xl bg-gradient-to-b from-[#0b1428] to-[#060b17]"
         >
@@ -1707,6 +1731,11 @@ export interface HallwaySceneProps {
   onModeChange?: (mode: "browse" | "walk") => void;
   /** Walk to this hallway id (used by the editor after creating one). */
   navigateTo?: string | null;
+  /**
+   * Leave the building entirely — used by the ENTRANCE DOOR at the start of the
+   * main hallway. Falls back to the in-scene browse view when not supplied.
+   */
+  onExitBuilding?: () => void;
 }
 
 const HallwayScene = ({
@@ -1720,6 +1749,7 @@ const HallwayScene = ({
   onEnterRoom,
   onOpenDoor,
   onModeChange,
+  onExitBuilding,
   navigateTo = null,
 }: HallwaySceneProps) => {
   // Saved configuration is the source of truth: merge it field-by-field over
@@ -1956,15 +1986,54 @@ const HallwayScene = ({
   }, [rootEffective, notifyMode, syncBreadcrumb]);
 
   /**
+   * ENTRANCE / EXIT. Clicking the entrance door at the start of the main
+   * hallway leaves the building, exactly like the Building button in the top
+   * bar. Without a handler it simply returns to the browse view.
+   */
+  const exitBuilding = useCallback(() => {
+    machineRef.current.hold = 0;
+    machineRef.current.moving = false;
+    setMoving(false);
+    if (onExitBuilding) onExitBuilding();
+    else backToBrowse();
+  }, [backToBrowse, onExitBuilding]);
+
+  /**
    * Press-and-hold to walk. `sign` is the user's intent: 1 = Forward,
    * -1 = Backward. Backward performs a real about-face first (the camera turns
    * 180° in place) and then keeps walking that way for as long as it is held.
    * Nothing ever moves without a held control.
    */
+  /**
+   * The walk controls are ALWAYS live. Standing in the entrance lobby counts as
+   * being in the building, so the first press simply starts walking instead of
+   * being ignored — no button ever appears inert.
+   */
+  const ensureWalking = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase !== "browse") return st.phase !== "zooming";
+    const seg = st.seg ?? rootEffective;
+    st.seg = seg;
+    st.dist = 0;
+    st.dir = 1;
+    st.speed = 0;
+    st.turn = null;
+    st.yaw = segYaw(seg.heading);
+    setFacing(1);
+    historyRef.current.clear();
+    historyRef.current.push(seg.walkway?.id ?? "entrance");
+    setEndReached(false);
+    setNav({ seg, mode: "walk" });
+    setMachinePhase("walking");
+    notifyMode("walk");
+    syncBreadcrumb();
+    return true;
+  }, [rootEffective, setMachinePhase, notifyMode, syncBreadcrumb]);
+
   const startHold = useCallback(
     (sign: 1 | -1) => {
       const st = machineRef.current;
-      if (st.phase === "zooming") return;
+      if (!ensureWalking()) return;
       if (st.phase !== "walking" && st.phase !== "idle" && st.phase !== "turning") return;
       st.hold = sign;
       st.moving = true;
@@ -2001,7 +2070,7 @@ const HallwayScene = ({
       }
       setMachinePhase("walking");
     },
-    [setMachinePhase],
+    [ensureWalking, setMachinePhase],
   );
 
   const endHold = useCallback(() => {
@@ -2167,7 +2236,7 @@ const HallwayScene = ({
   const goBack = useCallback(() => {
     const st = machineRef.current;
     if (st.phase === "turning" || st.phase === "zooming") return;
-    if (st.phase === "browse") return;
+    if (!ensureWalking()) return;
     if (!st.seg.walkway?.parent_id && st.dist < 1.5 && st.dir === -1) {
       backToBrowse();
       return;
@@ -2197,7 +2266,7 @@ const HallwayScene = ({
       },
     };
     setMachinePhase("turning");
-  }, [backToBrowse, setMachinePhase]);
+  }, [backToBrowse, ensureWalking, setMachinePhase]);
 
   /**
    * Walked off an end of the current hallway. Hallways are CONTINUOUS ROADS: if
@@ -2439,7 +2508,9 @@ const HallwayScene = ({
   /** The junction the walker is approaching, if any — the LEFT button's action. */
   const junctionAction = (phase === "walking" || phase === "idle") ? (candidates[0] ?? null) : null;
   const atJunction = junctionAction !== null;
-  const canBack = phase === "walking" || phase === "idle";
+  // The two walk controls are permanent: they are never gated on a phase, so
+  // they work the instant the building loads and never vanish at a door.
+
 
 
   const doorsById = useMemo(() => {
@@ -2691,6 +2762,29 @@ const HallwayScene = ({
             </group>
           ))}
 
+        {/* THE ENTRANCE DOOR — one fixture derived from the main hallway (never
+            a stored door, so editing the building cannot duplicate it). It caps
+            the start of the corridor, so turning around and walking back always
+            ends at a real door instead of a blank wall. Clicking it leaves. */}
+        <group
+          position={[rootEffective.start[0], 0, rootEffective.start[1]]}
+          rotation-y={segYaw(rootEffective.heading)}
+        >
+          <DoorMesh
+            atStart
+            side={1}
+            z={0}
+            label="Building entrance"
+            sublabel="Exit the building"
+            accent="#7dd3fc"
+            color={env.door.color}
+            emissiveIntensity={env.door.brightness * 0.12}
+            styleKey={env.door.style}
+            textureUrl={env.door.texture ? textures[env.door.texture.path] : undefined}
+            onEnter={exitBuilding}
+          />
+        </group>
+
         {/* The hallway you came from stays connected and selectable */}
         {nav.seg.walkway?.parent_id &&
           (() => {
@@ -2735,17 +2829,16 @@ const HallwayScene = ({
         </>
       )}
 
-      {canBack && (
-        <WalkControls
-          action={junctionAction}
-          moving={moving}
-          ended={endReached}
-          onForwardStart={startPointerHold}
-          onForwardEnd={endPointerHold}
-          onTurnAround={goBack}
-          onJunction={runJunctionAction}
-        />
-      )}
+      <WalkControls
+        action={junctionAction}
+        moving={moving}
+        ended={endReached}
+        onForwardStart={startPointerHold}
+        onForwardEnd={endPointerHold}
+        onTurnAround={goBack}
+        onJunction={runJunctionAction}
+      />
+
 
       {/* Fixed structural map — always on, top-right, like a racing minimap */}
       <MiniMap

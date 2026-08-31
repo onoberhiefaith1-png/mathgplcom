@@ -262,6 +262,8 @@ const AcademyWorldPage = () => {
           onEnterRoom={enterRoom}
           onOpenDoor={handleOpenDoor}
           onModeChange={(m) => setWalking(m === "walk")}
+          onExitBuilding={() => navigate("/")}
+
         />
       ) : (
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
