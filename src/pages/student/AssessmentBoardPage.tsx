@@ -318,6 +318,7 @@ const AssessmentBoardPage = () => {
   // The solving screen is a real viewport-height stage: a slim header row plus
   // a flexible work area. Without a fixed height here the video pane collapsed
   // to nothing while its audio kept playing.
+  const mobile = bpAssess === "phone" || bpAssess === "tablet";
   const questionIndex = (assessment?.questions ?? []).findIndex((q) => q.id === questionId);
   const questionTotal = (assessment?.questions ?? []).length;
   const activeQuestion = (assessment?.questions ?? []).find((q) => q.id === questionId);
@@ -330,7 +331,9 @@ const AssessmentBoardPage = () => {
   return (
     <>
       <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
+        {!(mobile && immersive) && (
         <StudentBoardHeader
+          onImmersive={() => setImmersive(true)}
           backTo={`/student/class/${classId ?? ""}`}
           backLabel="Back to class"
           title={assessment?.title ?? "Assignment"}
@@ -344,7 +347,18 @@ const AssessmentBoardPage = () => {
             ) : null
           }
         />
+        )}
         <div className="relative min-h-0 flex-1">
+          {mobile && immersive && (
+            <button
+              type="button"
+              onClick={() => setImmersive(false)}
+              aria-label="Exit full screen board"
+              className="absolute bottom-3 left-3 z-[70] grid h-9 w-9 place-items-center rounded-full border bg-card/90 shadow-lg backdrop-blur"
+            >
+              <Minimize2 className="h-4 w-4" />
+            </button>
+          )}
           {videoReady(video) && video ? (
             <ThreeViewFrame
               config={video}
