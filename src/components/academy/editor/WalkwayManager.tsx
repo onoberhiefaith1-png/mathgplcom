@@ -581,41 +581,56 @@ const WalkwayManager = ({
                 You have no {kind}s yet. The door only references existing products — it never duplicates them.
               </p>
             ) : (
-              products.map((p) => (
-                <button
-                  key={`${p.kind}-${p.id}`}
-                  type="button"
-                  disabled={busy || !doorWalkway}
-                  onClick={async () => {
-                    setBusy(true);
-                    try {
-                      await onAddDoor(doorWalkway, {
-                        position_along: 0.5,
-                        content_kind: p.kind as DoorContentKind,
-                        content_id: p.id,
-                        title: doorName.trim() || undefined,
-                        style: doorStyle || undefined,
-                      });
-                      setForm(null);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                  className="flex min-h-[40px] w-full items-center justify-between gap-2 rounded-lg px-2 text-left text-sm hover:bg-muted disabled:opacity-40"
-                >
-                  <span className="truncate">{p.title}</span>
-                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              ))
+              products.map((p) => {
+                const picked = doorProduct?.kind === p.kind && doorProduct?.id === p.id;
+                return (
+                  <button
+                    key={`${p.kind}-${p.id}`}
+                    type="button"
+                    aria-pressed={picked}
+                    onClick={() => setDoorProduct(picked ? null : p)}
+                    className={`flex min-h-[40px] w-full items-center justify-between gap-2 rounded-lg px-2 text-left text-sm ${
+                      picked ? "bg-primary/15 ring-1 ring-primary/50 text-foreground" : "hover:bg-muted"
+                    }`}
+                  >
+                    <span className="truncate">{p.title}</span>
+                    {picked ? (
+                      <Check className="h-3.5 w-3.5 text-primary" />
+                    ) : (
+                      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => setForm(null)}
-            className="mt-2 min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
-          >
-            Cancel
-          </button>
+          {formError && (
+            <p className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
+              {formError}
+            </p>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={submitDoor}
+              disabled={busy || !doorWalkway || !doorProduct}
+              className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+            >
+              {busy ? "Creating…" : "Create Door"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm(null)}
+              className="min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
+            >
+              Cancel
+            </button>
+            {!doorProduct && (
+              <span className="text-[11px] text-muted-foreground">
+                Pick what this door opens above.
+              </span>
+            )}
+          </div>
         </div>
       )}
 
