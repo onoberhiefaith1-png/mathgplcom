@@ -63,11 +63,12 @@ export interface WalkwayManagerProps {
 }
 
 /**
- * A hallway is a road. Adding a hallway means adding a PERPENDICULAR road at a
- * junction, so the only choices are Left and Right — a road is never "extended"
- * by hand; it grows automatically as doors and junctions are added to it.
+ * A hallway is a road. Adding a hallway adds another road connected to it
+ * through a real cut in its wall — the teacher never picks a side or a
+ * position: branches alternate right → left → right → left along the road and
+ * fall in after everything already on it, so a hallway opening and a door can
+ * never end up directly opposite each other.
  */
-const DIRECTIONS: WalkwayDirection[] = ["left", "right"];
 
 const WalkwayManager = ({
   walkways,
