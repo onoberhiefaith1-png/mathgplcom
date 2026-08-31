@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PUBLIC_SITE, joinUrl } from "./publicUrl";
+import { PUBLIC_SITE, joinUrl, referralUrl } from "./publicUrl";
 
 describe("joinUrl", () => {
   it("builds a public join link from a code", () => {
