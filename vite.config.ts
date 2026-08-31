@@ -60,7 +60,7 @@ export default defineConfig({
   },
   vite: {
     // Preserved from the pre-migration vite.config.ts: the project's MCP plugin.
-    plugins: [restartAfterTsconfigChange(), mcpPlugin()],
+    plugins: [restartAfterTsconfigChange(), mcpPlugin(), stripSourceTagsFromR3F()],
     // TanStack Start loads Router internals from lazy route and SSR chunks. If
     // Vite discovers any of these entry points after startup, it replaces its
     // generated chunks while older browser requests are still in flight and
