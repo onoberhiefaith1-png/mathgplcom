@@ -627,16 +627,6 @@ export const RotatingAdventureScene = ({
             </Suspense>
           </Canvas>
       </div>
-      {customBuilding && !customFailed ? (
-        <div className="absolute inset-0 transition-opacity duration-500" style={{ opacity: customReady ? 1 : 0 }}>
-          <CustomBuilding
-            element={customBuilding}
-            speed={clampBuildingSpeed(config.buildingSpeed)}
-            onReady={() => setCustomReady(true)}
-            onError={() => setCustomFailed(true)}
-          />
-        </div>
-      ) : null}
       {showAds && currentAd ? (
         <BuildingBillboard creative={currentAd} onVideoEnded={onVideoEnded} />
       ) : null}
