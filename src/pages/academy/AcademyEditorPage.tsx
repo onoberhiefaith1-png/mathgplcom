@@ -65,6 +65,7 @@ import {
   updateWalkway,
   uploadBuildingTexture,
 } from "@/lib/building/api";
+import { nextObjectOffset } from "@/lib/building/navigation";
 import type {
   Building,
   BuildingData,
