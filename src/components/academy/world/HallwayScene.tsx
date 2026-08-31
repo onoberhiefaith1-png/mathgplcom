@@ -1269,8 +1269,8 @@ const MiniMap = ({
                 {/* Every hallway is labelled — the map is the blueprint, so a new
                     branch must be readable the moment it is created. */}
                 <text
-                  x={(svg.px(l.x1) + svg.px(l.x2)) / 2}
-                  y={(svg.py(l.y1) + svg.py(l.y2)) / 2 - 7}
+                  x={labelX}
+                  y={labelY}
                   textAnchor="middle"
                   fontSize={7.5}
                   fill={here ? "#bae6fd" : onRoute ? "#93c5fd" : "#7f9cc9"}
