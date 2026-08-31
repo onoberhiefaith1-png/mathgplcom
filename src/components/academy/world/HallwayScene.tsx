@@ -2266,7 +2266,7 @@ const HallwayScene = ({
       },
     };
     setMachinePhase("turning");
-  }, [backToBrowse, setMachinePhase]);
+  }, [backToBrowse, ensureWalking, setMachinePhase]);
 
   /**
    * Walked off an end of the current hallway. Hallways are CONTINUOUS ROADS: if
