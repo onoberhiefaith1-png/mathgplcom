@@ -43,7 +43,10 @@ const stripSourceTagsFromR3F = () => ({
   enforce: "post" as const,
   transform(code: string, id: string) {
     if (!code.includes("data-tsd-source")) return null;
-    if (!/@react-three\/(fiber|drei)/.test(code)) return null;
+    // Any module that touches three.js may render scene elements.
+    if (!/@react-three\/|["']three["']/.test(code) && !/\/geometry3d\/|\/academy\/world\//.test(id)) {
+      return null;
+    }
     // Keep exactly one separating comma when the prop sat between two others.
     const stripped = code.replace(
       /,?\s*"data-tsd-source":\s*"[^"]*"\s*,?/g,
