@@ -539,6 +539,7 @@ const SegmentCorridor = ({
         offsetY={env.endWall.offsetY}
         repeat={env.endWall.repeat}
         fit={env.endWall.fit}
+        brightness={env.endWall.brightness}
         planeW={HALL_WIDTH}
         planeH={HALL_HEIGHT}
       >
@@ -619,6 +620,7 @@ const SegmentCorridor = ({
         offsetY={env.floor.offsetY}
         repeat={env.floor.repeat}
         fit={env.floor.fit}
+        brightness={env.floor.brightness}
         planeW={HALL_WIDTH}
         planeH={deckSpan}
       >
@@ -636,6 +638,7 @@ const SegmentCorridor = ({
         offsetY={env.roof.offsetY}
         repeat={env.roof.repeat}
         fit={env.roof.fit}
+        brightness={env.roof.brightness}
         planeW={HALL_WIDTH}
         planeH={deckSpan}
       >
@@ -674,6 +677,7 @@ const SegmentCorridor = ({
               offsetY={wall.offsetY}
               repeat={wall.repeat}
               fit={wall.fit}
+              brightness={wall.brightness}
               planeW={runLen}
               planeH={HALL_HEIGHT}
               castShadow
