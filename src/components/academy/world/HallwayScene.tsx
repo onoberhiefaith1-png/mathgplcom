@@ -734,7 +734,11 @@ const DoorMesh = ({
   return (
     // Flush against the wall plane and rotated to the wall's own orientation:
     // the door face is parallel to the wall and looks into the corridor.
-    <group position={[side * (HALL_WIDTH / 2 - 0.06), 0, z]} rotation-y={-side * (Math.PI / 2)}>
+    <group
+      position={atStart ? [0, 0, z - 0.06] : [side * (HALL_WIDTH / 2 - 0.06), 0, z]}
+      rotation-y={atStart ? Math.PI : -side * (Math.PI / 2)}
+    >
+
       {/* Reveal / frame — jambs, lintel and threshold read as one structure */}
       <group>
         {[-1, 1].map((s) => (
