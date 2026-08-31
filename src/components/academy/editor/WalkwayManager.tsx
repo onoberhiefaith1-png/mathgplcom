@@ -102,7 +102,11 @@ const WalkwayManager = ({
   const [doorName, setDoorName] = useState("");
   const [doorStyle, setDoorStyle] = useState("");
   const [kind, setKind] = useState<AcademyProductKind>("course");
+  /** The product this door will open — chosen first, created on Create Door. */
+  const [doorProduct, setDoorProduct] = useState<AcademyProduct | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Why the last create failed, shown inline so a failure is never silent. */
+  const [formError, setFormError] = useState("");
 
   const titles = useMemo(() => {
     const out: Record<string, string> = {};
