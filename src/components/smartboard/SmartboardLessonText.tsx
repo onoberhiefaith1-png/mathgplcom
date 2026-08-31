@@ -36,7 +36,7 @@ export const containsForbiddenResidue = (s: string): string | null => {
 export const safeLessonText = (raw: string): string | null => {
   const src = (raw ?? "").toString();
   if (!src.trim()) return "";
-  const gated = assertDisplaySafe(src);
+  const gated = assertDisplaySafe(src, "generated");
   const hit = containsForbiddenResidue(gated.cleaned);
   if (hit) {
     // eslint-disable-next-line no-console

@@ -60,11 +60,14 @@ function readArg(src: string, start: number): { inner: string; end: number } | n
 
 /**
  * Walk `\frac` / `\dfrac` / `\tfrac` / `\sqrt` occurrences. When the braces
- * don't balance, replace the broken segment with a safe placeholder
- * (`\frac{\sl{}}{\sl{}}` or `\sqrt{\sl{}}`) so the renderer shows an empty
- * editable slot — never the raw LaTeX.
+ * don't balance:
+ *   • `editing` mode leaves an empty editable slot (`\frac{\sl{}}{\sl{}}`) so a
+ *     teacher who is mid-typing keeps a target to fill;
+ *   • `generated` mode drops the broken structure entirely — AI output must
+ *     never put an empty fraction bar on the page.
+ * Either way the raw LaTeX never reaches the DOM.
  */
-function repairTemplates(src: string, reasons: string[]): string {
+function repairTemplates(src: string, reasons: string[], generated: boolean): string {
   let out = "";
   let i = 0;
   while (i < src.length) {
@@ -77,14 +80,16 @@ function repairTemplates(src: string, reasons: string[]): string {
       let b: ReturnType<typeof readArg> = null;
       if (a) b = readArg(src, a.end);
       if (a && b) {
-        const innerA = repairTemplates(a.inner, reasons);
-        const innerB = repairTemplates(b.inner, reasons);
+        const innerA = repairTemplates(a.inner, reasons, generated);
+        const innerB = repairTemplates(b.inner, reasons, generated);
         out += `\\frac{${innerA}}{${innerB}}`;
         i = b.end;
         continue;
       }
-      reasons.push(`unbalanced ${fracCmd} → replaced with empty slot`);
-      out += "\\frac{\\sl{}}{\\sl{}}";
+      reasons.push(
+        `unbalanced ${fracCmd} → ${generated ? "removed" : "replaced with empty slot"}`,
+      );
+      if (!generated) out += "\\frac{\\sl{}}{\\sl{}}";
       // Consume whatever partial argument we did manage to read, so an
       // operand can never leak into the sentence beside the empty shell.
       i = a ? a.end : i + fracCmd.length;
@@ -96,8 +101,8 @@ function repairTemplates(src: string, reasons: string[]): string {
       if (src[p] === "[") {
         const close = src.indexOf("]", p + 1);
         if (close < 0) {
-          reasons.push(`unbalanced \\sqrt[ → replaced with empty slot`);
-          out += "\\sqrt{\\sl{}}";
+          reasons.push(`unbalanced \\sqrt[ → ${generated ? "removed" : "empty slot"}`);
+          if (!generated) out += "\\sqrt{\\sl{}}";
           i = i + 5;
           continue;
         }
@@ -106,12 +111,12 @@ function repairTemplates(src: string, reasons: string[]): string {
       }
       const a = readArg(src, p);
       if (!a) {
-        reasons.push(`unbalanced \\sqrt → replaced with empty slot`);
-        out += `\\sqrt${indexStr}{\\sl{}}`;
+        reasons.push(`unbalanced \\sqrt → ${generated ? "removed" : "empty slot"}`);
+        if (!generated) out += `\\sqrt${indexStr}{\\sl{}}`;
         i = i + 5 + indexStr.length;
         continue;
       }
-      const inner = repairTemplates(a.inner, reasons);
+      const inner = repairTemplates(a.inner, reasons, generated);
       out += `\\sqrt${indexStr}{${inner}}`;
       i = a.end;
       continue;
@@ -160,7 +165,12 @@ export interface DisplayGateResult {
   reasons: string[];
 }
 
-export function assertDisplaySafe(input: string): DisplayGateResult {
+/** `editing` keeps an empty editable slot for a broken structure (a teacher is
+ *  typing); `generated` removes it, because AI output must never show an empty
+ *  fraction bar. */
+export type DisplayGateMode = "editing" | "generated";
+
+export function assertDisplaySafe(input: string, mode: DisplayGateMode = "editing"): DisplayGateResult {
   const reasons: string[] = [];
   if (!input) return { safe: true, cleaned: "", reasons };
 
@@ -170,7 +180,7 @@ export function assertDisplaySafe(input: string): DisplayGateResult {
   // Convert slash fractions before template repair (so they become \frac).
   s = rewriteSlashFractions(s);
   // Repair / mask broken \frac and \sqrt structures.
-  s = repairTemplates(s, reasons);
+  s = repairTemplates(s, reasons, mode === "generated");
 
   // After repair, no `\letters` outside the allowed-macro set should remain.
   const leftover = (s.match(/\\[A-Za-z]+/g) || []).filter((cmd) => !ALLOWED_MACROS.has(cmd.slice(1)));
