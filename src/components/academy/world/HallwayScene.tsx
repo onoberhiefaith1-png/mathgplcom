@@ -1014,9 +1014,10 @@ const DoorMesh = ({
       <Nameplate
         text={label}
         caption={sublabel}
-        position={[0, Math.min(openH + 0.42, HALL_HEIGHT - 0.55), 0.13]}
-        fontSize={0.185}
-        maxWidth={Math.max(2.6, openW + 1.1)}
+        position={[0, Math.min(openH + 0.46, HALL_HEIGHT - 0.6), 0.13]}
+        fontSize={0.24}
+        minWidth={openW * 0.85}
+        maxWidth={openW + 1.2}
       />
     </group>
   );
