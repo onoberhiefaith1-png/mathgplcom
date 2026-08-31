@@ -44,9 +44,11 @@ const stripSourceTagsFromR3F = () => ({
   transform(code: string, id: string) {
     if (!code.includes("data-tsd-source")) return null;
     if (!/@react-three\/(fiber|drei)/.test(code)) return null;
-    const stripped = code
-      .replace(/"data-tsd-source":\s*"[^"]*"\s*,?/g, "")
-      .replace(/,(\s*[}\]])/g, "$1");
+    // Keep exactly one separating comma when the prop sat between two others.
+    const stripped = code.replace(
+      /,?\s*"data-tsd-source":\s*"[^"]*"\s*,?/g,
+      (m) => (m.startsWith(",") && m.trimEnd().endsWith(",") ? "," : ""),
+    );
     return { code: stripped, map: null };
   },
 });
