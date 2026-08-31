@@ -483,13 +483,15 @@ const CustomBuilding = ({
         opacity: element.opacity,
       }}
     >
-      <div className="relative" style={customBlendStyle(element)}>
+      <div ref={fadeRef} className="relative" style={customBlendStyle(element)}>
         {element.mediaType === "video" && element.bgRemoval === "chroma" ? (
           <ChromaVideo
             path={element.storagePath}
             source={element.source}
             keyColor={element.keyColor}
             tolerance={element.keyTolerance}
+            feather={element.keyFeather}
+            loopFade={loopFade}
             playbackRate={rate}
             fit="contain"
             className="h-auto w-full"
