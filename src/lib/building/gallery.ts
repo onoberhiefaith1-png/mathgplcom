@@ -18,6 +18,10 @@ import panelReception from "@/assets/surfaces/panel-reception.png.asset.json";
 import panelCreamBlue from "@/assets/surfaces/panel-cream-blue.png.asset.json";
 import panelSlattedWarm from "@/assets/surfaces/panel-slatted-warm.png.asset.json";
 import panelWalnutSlat from "@/assets/surfaces/panel-walnut-slat.png.asset.json";
+import floorScifiBlue from "@/assets/surfaces/floor-scifi-blue-lighting.png.asset.json";
+import floorScifiGrid from "@/assets/surfaces/floor-scifi-grid.png.asset.json";
+import floorMetalPanel from "@/assets/surfaces/floor-metal-panel.png.asset.json";
+import floorNavyBrass from "@/assets/surfaces/floor-navy-brass.png.asset.json";
 
 export interface SurfaceSample {
   key: string;
@@ -39,6 +43,11 @@ export const SURFACE_SAMPLES: SurfaceSample[] = [
   { key: "panel-cream-blue", label: "Cream & Blue Panel", style: "J", url: panelCreamBlue.url },
   { key: "panel-slatted-warm", label: "Warm Slatted Panel", style: "K", url: panelSlattedWarm.url },
   { key: "panel-walnut-slat", label: "Walnut Slat Panel", style: "L", url: panelWalnutSlat.url },
+  // Sci-fi floor plating — designed for the Floor surface, but usable anywhere.
+  { key: "floor-scifi-blue", label: "Sci-Fi Blue Lighting", style: "M", url: floorScifiBlue.url },
+  { key: "floor-scifi-grid", label: "Sci-Fi Floor Grid", style: "N", url: floorScifiGrid.url },
+  { key: "floor-metal-panel", label: "Futuristic Metal Plate", style: "O", url: floorMetalPanel.url },
+  { key: "floor-navy-brass", label: "Navy & Brass Plating", style: "P", url: floorNavyBrass.url },
 ];
 
 export const BUILTIN_PREFIX = "builtin:";
