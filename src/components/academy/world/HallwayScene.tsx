@@ -1236,6 +1236,13 @@ const MiniMap = ({
           {svg.lines.map((l) => {
             const here = l.id === currentId;
             const onRoute = route.has(l.id);
+            // Labels sit clear of the road: alongside a vertical hallway, and
+            // beneath a perpendicular branch, so a new branch never collides
+            // with its parent's name.
+            const horizontal =
+              Math.abs(svg.px(l.x2) - svg.px(l.x1)) > Math.abs(svg.py(l.y2) - svg.py(l.y1));
+            const labelX = (svg.px(l.x1) + svg.px(l.x2)) / 2;
+            const labelY = (svg.py(l.y1) + svg.py(l.y2)) / 2 + (horizontal ? 14 : -7);
             return (
               <g key={l.id}>
                 {here && (
