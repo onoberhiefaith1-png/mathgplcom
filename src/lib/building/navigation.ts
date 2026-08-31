@@ -663,6 +663,53 @@ export function firstRoadMeeting(
 }
 
 /**
+ * How long each hallway is ALLOWED to be before it runs into another hallway.
+ *
+ * A road that merges into another road is finite: it cannot keep growing as
+ * objects are added, because past the junction there is another hallway. The
+ * editor uses this to refuse growth instead of letting a walkway tunnel through.
+ */
+export interface MergeLimit {
+  /** trimmed length of the arriving hallway */
+  limit: number;
+  /** the hallway it merges into */
+  targetId: string;
+}
+
+export function mergeLimits(
+  walkways: BuildingWalkway[],
+  hallWidth: number,
+  lengthOf?: (w: BuildingWalkway) => number,
+): Map<string, MergeLimit> {
+  const graph = compileNavGraph(walkways, lengthOf);
+  const roads = graph.nodes.map((n) => ({
+    id: n.id,
+    start: n.start,
+    heading: n.heading,
+    length: n.length,
+  }));
+  const descendants = (id: string): string[] => {
+    const kids = graph.childrenByParent.get(id) ?? [];
+    return kids.flatMap((k) => [k.id, ...descendants(k.id)]);
+  };
+  const out = new Map<string, MergeLimit>();
+  for (const n of [...graph.nodes].sort((a, b) => a.depth - b.depth)) {
+    const own = new Set<string>([n.id, ...descendants(n.id)]);
+    if (n.parentId) own.add(n.parentId);
+    const meet = firstRoadMeeting(
+      { id: n.id, start: n.start, heading: n.heading, length: n.length },
+      roads,
+      hallWidth,
+      own,
+    );
+    if (meet && meet.length < n.length - 0.05) {
+      out.set(n.id, { limit: meet.length, targetId: meet.targetId });
+    }
+  }
+  return out;
+}
+
+/**
  * Insert a mouth whose position comes from GEOMETRY (a connector arriving from
  * another hallway) into a hallway's object layout, pushing any door that would
  * otherwise sit at the junction edge one slot further down the road.
