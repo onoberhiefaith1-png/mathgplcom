@@ -544,8 +544,6 @@ export const RotatingAdventureScene = ({
   const gpu = useWebglRecovery("homepage-building");
   const [painted, setPainted] = useState(false);
   const [artworkReady, setArtworkReady] = useState(false);
-  const [customReady, setCustomReady] = useState(false);
-  const [customFailed, setCustomFailed] = useState(false);
   const { config, ready } = useHomepageConfig({ mode: configMode, ...(ownerUserId ? { ownerUserId } : {}) });
 
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
