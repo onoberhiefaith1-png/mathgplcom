@@ -2347,14 +2347,9 @@ const HallwayScene = ({
           canBack={canBack}
           moving={moving}
           ended={endReached}
-          onToggleWalk={() => {
-            const st = machineRef.current;
-            const next = !st.moving;
-            st.moving = next;
-            setMoving(next);
-            if (next) setMachinePhase("walking");
-            else if (endReached) setMachinePhase("idle");
-          }}
+          onHoldStart={startHold}
+          onHoldEnd={endHold}
+
 
           onTurn={pickBranch}
           onBack={goBack}
