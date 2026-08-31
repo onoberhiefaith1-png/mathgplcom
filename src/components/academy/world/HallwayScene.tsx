@@ -450,27 +450,31 @@ return (
       receiveShadow={receiveShadow}
     >
       {children}
-      {map ? (
-        // An imported image is artwork, not plaster: it is rendered unlit and
-        // outside tone mapping so it looks exactly like the source file, the
-        // same in every hallway, whatever the corridor lighting is doing.
-        <meshBasicMaterial
-          ref={matRef as never}
-          color={brightnessColor(brightness)}
-          map={map}
-          toneMapped={false}
-          side={THREE.DoubleSide}
-        />
-      ) : (
-        <meshStandardMaterial
-          ref={matRef as never}
-          color={mat.color}
-          roughness={mat.roughness}
-          metalness={mat.metalness}
-          emissive={mat.emissive ?? "#000000"}
-          emissiveIntensity={mat.emissiveIntensity ?? 0}
-          side={THREE.DoubleSide}
-        />
+      <meshStandardMaterial
+        color={mat.color}
+        roughness={mat.roughness}
+        metalness={mat.metalness}
+        emissive={mat.emissive ?? "#000000"}
+        emissiveIntensity={mat.emissiveIntensity ?? 0}
+        side={THREE.DoubleSide}
+      />
+      {map && (
+        // An imported image is artwork fitted ON the surface, not plaster: it
+        // sits just in front of the painted plane, is rendered unlit and
+        // outside tone mapping, so it looks exactly like the source file in
+        // every hallway whatever the corridor lighting is doing. Transparent
+        // areas of the image simply reveal the surface colour behind it.
+        <mesh position={[0, 0, 0.012]}>
+          {children}
+          <meshBasicMaterial
+            ref={matRef as never}
+            color={brightnessColor(brightness)}
+            map={map}
+            transparent
+            toneMapped={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
       )}
     </mesh>
   );
