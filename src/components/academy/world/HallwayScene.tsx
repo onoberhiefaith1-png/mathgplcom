@@ -715,8 +715,8 @@ const SegmentCorridor = ({
  * lose its depth. Every sign in the building is this component; only the text
  * and the mounting differ.
  */
-const PLATE_FACE = "#16213e";
-const PLATE_EDGE = "#3a5786";
+const PLATE_FACE = "#1d2c55";
+const PLATE_EDGE = "#4d72ad";
 const PLATE_TEXT = "#f7fafe";
 const PLATE_CAPTION = "#a9bcdd";
 
@@ -825,7 +825,7 @@ const Nameplate = ({
         <meshStandardMaterial
           color={PLATE_FACE}
           emissive={PLATE_FACE}
-          emissiveIntensity={0.55}
+          emissiveIntensity={0.85}
           roughness={0.5}
           metalness={0.15}
         />
