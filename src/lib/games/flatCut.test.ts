@@ -112,3 +112,45 @@ describe("region-aware flat cut", () => {
     expect(result.mask[13 * 30 + 13]).toBe(1);
   });
 });
+
+describe("graded edge", () => {
+  it("fades alpha across the whole feather band instead of one hard step", () => {
+    const frame = makeFrame(60, 60, [255, 255, 255], {
+      x: 20,
+      y: 20,
+      w: 20,
+      h: 20,
+      rgb: [40, 40, 60],
+    });
+    cutFrame(frame.data, 60, 60, WHITE, { feather: 3 });
+    // Walking inwards along a row towards the subject, the band alpha rises.
+    const outer = alphaAt(frame.data, 60, 16, 30);
+    const mid = alphaAt(frame.data, 60, 18, 30);
+    const inner = alphaAt(frame.data, 60, 19, 30);
+    expect(outer).toBeLessThan(mid);
+    expect(mid).toBeLessThan(inner);
+    expect(inner).toBeLessThan(255);
+    // Deep background is fully gone, subject interior fully opaque.
+    expect(alphaAt(frame.data, 60, 2, 2)).toBe(0);
+    expect(alphaAt(frame.data, 60, 30, 30)).toBe(255);
+  });
+
+  it("keeps a white patch inside the subject byte-identical", () => {
+    const frame = makeFrame(
+      60,
+      60,
+      [255, 255, 255],
+      { x: 15, y: 15, w: 30, h: 30, rgb: [40, 40, 60] },
+      { x: 26, y: 26, w: 8, h: 8, rgb: [255, 255, 255] },
+    );
+    const before = frame.data.slice();
+    cutFrame(frame.data, 60, 60, WHITE, { feather: 3 });
+    for (let y = 26; y < 34; y++) {
+      for (let x = 26; x < 34; x++) {
+        const i = (y * 60 + x) * 4;
+        expect(frame.data[i]).toBe(before[i]);
+        expect(frame.data[i + 3]).toBe(255);
+      }
+    }
+  });
+});
