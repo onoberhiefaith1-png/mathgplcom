@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/select";
 import SignedMedia from "./SignedMedia";
 import { listGameAssets, renderPathOf } from "@/lib/games/assets";
-import { detectMediaBackground } from "@/lib/games/removeBackground";
+import { detectMediaBackground, grabLoopFrames } from "@/lib/games/removeBackground";
+import { tuneFromLoop, type FinalTouchResult } from "@/lib/games/finalTouch";
 import { getSignedUrl } from "@/lib/games/urls";
 import { PROGRESS_PRESETS } from "@/lib/games/progressPresets";
 import { LIQUID_STYLES, DEFAULT_LIQUID_STYLE } from "@/lib/games/liquidStyles";
