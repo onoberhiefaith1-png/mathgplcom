@@ -1494,6 +1494,12 @@ const MiniMap = ({
   const tx = svg.px(target[0]);
   const ty = svg.py(target[1]);
   const face = st ? forwardFromYaw(st.yaw) : ([0, -1] as [number, number]);
+  // Changing zoom changes map-space coordinates, so snap instead of gliding.
+  const lastZoom = useRef(zoom);
+  if (lastZoom.current !== zoom) {
+    lastZoom.current = zoom;
+    marker.current.ready = false;
+  }
   {
     const k = marker.current.ready ? 0.18 : 1;
     marker.current.x += (tx - marker.current.x) * k;
