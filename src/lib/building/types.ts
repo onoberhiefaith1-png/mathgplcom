@@ -15,7 +15,7 @@
  * of a hallway that does not continue forward — it is edited exactly like the
  * other surfaces, so a hallway is never an undefined dark void.
  */
-export type SurfaceKey = "leftWall" | "rightWall" | "floor" | "roof" | "endWall";
+export type SurfaceKey = "leftWall" | "rightWall" | "floor" | "roof" | "endWall" | "startWall";
 
 export interface SurfaceTextureRef {
   /** storage object path inside the game-assets bucket */
@@ -73,6 +73,12 @@ export interface EnvironmentSettings {
   roof: SurfaceDesign;
   /** Terminal wall at the far end of a hallway that does not continue. */
   endWall: SurfaceDesign;
+  /**
+   * START POINT — the wall that caps the building entrance behind you. It is a
+   * structural component of its own, designed independently of the terminal
+   * walls, and is what you see when you turn around and look back.
+   */
+  startWall: SurfaceDesign;
   door: DoorDesign;
   lighting: LightingSettings;
   effects: EffectsSettings;
@@ -168,6 +174,7 @@ export const DEFAULT_ENVIRONMENT: EnvironmentSettings = {
   rightWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
   floor: { preset: "classroom", color: "#3b4658", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
   roof: { preset: "neutral", color: "#2c3448", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
+  startWall: { preset: "academic", color: "#33405c", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
   endWall: { preset: "academic", color: "#38445f", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
   door: { preset: "modern", color: "#1a2542", texture: null, brightness: 1, style: "navy-vision" },
   lighting: { brightness: 1, ambient: 0.8, intensity: 1.35, atmosphere: false },

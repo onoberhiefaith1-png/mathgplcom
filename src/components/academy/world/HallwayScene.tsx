@@ -38,11 +38,13 @@ import { coverFit } from "@/lib/building/imageFit";
 import {
   branchHeading,
   connectorMeeting,
+  firstRoadMeeting,
   insertGeometricMouth,
   easeInOut,
   forwardFromYaw,
   layoutHallwayObjects,
   hallwayLength,
+  HALL_WIDTH,
   HALLWAY_ENTRY_RUN,
   HALLWAY_PAD,
   OBJECT_SPACING,
@@ -63,7 +65,7 @@ import {
 import type { HallwayObject } from "@/lib/building/navigation";
 
 const SPACING = OBJECT_SPACING; // fixed distance between objects along a hallway
-const HALL_WIDTH = 7;
+
 const HALL_HEIGHT = 5.4;
 const WALK_SPEED = 4; // units per second while holding forward
 /** How close (metres) a junction must be, AHEAD of the walker, to be enterable. */
@@ -285,7 +287,92 @@ const buildHallways = (
     });
   }
 
+  // ── NO TUNNELLING. Every OTHER road (branches and forward continuations, not
+  // just Connect-Hallway corridors) is solved against every road already in the
+  // plan. When a road would run into one, it stops at that road's wall and a real
+  // junction mouth opens there, so two walkways can never occupy each other.
+  const subtreeIds = (seg: Segment): string[] => [
+    seg.walkway?.id ?? "",
+    ...seg.children.flatMap(subtreeIds),
+  ];
+  const shiftSubtree = (seg: Segment, dx: number, dz: number) => {
+    seg.start = [seg.start[0] + dx, seg.start[1] + dz];
+    for (const c of seg.children) shiftSubtree(c, dx, dz);
+  };
+
+  // Shallow roads win: a hallway nearer the entrance is the established one, and
+  // the newer road arriving at it is the one that stops.
+  for (const seg of [...segments].sort((a, b) => a.depth - b.depth)) {
+    const w = seg.walkway;
+    if (!w) continue;
+    if (connectors.has(w.id)) continue; // already merged as a connector corridor
+    const own = new Set(subtreeIds(seg));
+    if (w.parent_id) own.add(w.parent_id);
+    const meet = firstRoadMeeting(
+      { id: w.id, start: seg.start, heading: seg.heading, length: seg.length },
+      segments
+        .filter((s) => s.walkway)
+        .map((s) => ({
+          id: s.walkway!.id,
+          start: s.start,
+          heading: s.heading,
+          length: s.length,
+        })),
+      HALL_WIDTH,
+      own,
+    );
+    if (!meet || meet.length >= seg.length - 0.05) continue;
+
+    const target = findSegment(segments, meet.targetId);
+    if (!target?.walkway) continue;
+
+    seg.length = meet.length;
+    // Objects that would now sit outside the road, or right in the junction it
+    // opens into, are dropped rather than left hanging past the merge boundary.
+    layouts.set(
+      w.id,
+      (layouts.get(w.id) ?? []).filter((o) => o.along < meet.length - SPACING * 0.6),
+    );
+    // Any branch anchored past the new end is pulled back inside the road, so a
+    // trimmed hallway never leaves a child hanging in open space.
+    const limit = Math.max(HALLWAY_ENTRY_RUN, meet.length - SPACING * 0.6);
+    for (const child of seg.children) {
+      const along =
+        (child.start[0] - seg.start[0]) * seg.heading[0] +
+        (child.start[1] - seg.start[1]) * seg.heading[1];
+      if (along <= limit) continue;
+      const back = along - limit;
+      shiftSubtree(child, -seg.heading[0] * back, -seg.heading[1] * back);
+    }
+
+    const targetId = target.walkway.id;
+    layouts.set(
+      targetId,
+      insertGeometricMouth(
+        layouts.get(targetId) ?? [],
+        {
+          kind: "link",
+          id: `merge:${w.id}`,
+          name: w.name,
+          side: meet.targetSide,
+          along: meet.alongTarget,
+          targetWalkwayId: w.id,
+        },
+        SPACING,
+      ),
+    );
+    // The merge is a two-way junction: the arriving road continues into the road
+    // it met, and that road can be walked back into this one through the mouth.
+    connectors.set(w.id, {
+      linkId: `merge:${w.id}`,
+      targetWalkwayId: targetId,
+      alongTarget: meet.alongTarget,
+      targetSide: meet.targetSide,
+    });
+  }
+
   return { segments, layouts, connectors };
+
 };
 
 
@@ -578,12 +665,30 @@ const SegmentCorridor = ({
         maxWidth={HALL_WIDTH - 1.2}
       />
     )}
+    {/* START POINT — the entrance wall behind you, a designed structural
+        component of its own (never the left wall's colour, never the terminal
+        wall's design). It faces back down the corridor so it is what you see
+        when you turn around at the entrance. */}
     {capStart && (
-      <mesh position={[0, HALL_HEIGHT / 2, 1.6]}>
+      <Surface
+        position={[0, HALL_HEIGHT / 2, 1.6]}
+        rotation-y={Math.PI}
+        url={env.startWall.texture ? textures[env.startWall.texture.path] : undefined}
+        presetKey={env.startWall.preset}
+        color={env.startWall.color}
+        scale={env.startWall.scale}
+        offsetX={env.startWall.offsetX}
+        offsetY={env.startWall.offsetY}
+        repeat={env.startWall.repeat}
+        fit={env.startWall.fit}
+        brightness={env.startWall.brightness}
+        planeW={HALL_WIDTH}
+        planeH={HALL_HEIGHT}
+      >
         <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
-        <meshStandardMaterial color={env.leftWall.color} roughness={0.95} side={THREE.DoubleSide} />
-      </mesh>
+      </Surface>
     )}
+
     {/* Recessed ceiling light panels + floor light pools, as in the reference */}
     {Array.from({ length: Math.max(1, Math.round(length / 6)) }, (_, i) => {
       const z = -(3 + i * 6);
@@ -836,7 +941,9 @@ const Nameplate = ({
             key={`${line}-${i}`}
             renderOrder={10}
             material-depthTest={true}
-            position={[0, textTop - i * lineH, depth + 0.012]}
+            material-depthWrite={false}
+            material-toneMapped={false}
+            position={[0, textTop - i * lineH, depth + 0.035]}
             fontSize={fontSize}
             fontWeight={700}
             letterSpacing={0.04}
@@ -851,7 +958,9 @@ const Nameplate = ({
           <Text
             renderOrder={10}
             material-depthTest={true}
-            position={[0, -h / 2 + padY + capH * 0.35, depth + 0.012]}
+            material-depthWrite={false}
+            material-toneMapped={false}
+            position={[0, -h / 2 + padY + capH * 0.35, depth + 0.035]}
             fontSize={fontSize * 0.5}
             letterSpacing={0.09}
             maxWidth={w - padX}

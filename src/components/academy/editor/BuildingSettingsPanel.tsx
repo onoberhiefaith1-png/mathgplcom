@@ -35,6 +35,7 @@ const SURFACE_TITLES: Record<SurfaceKey, string> = {
   floor: "Floor",
   roof: "Ceiling",
   endWall: "Terminal Wall",
+  startWall: "Start Point",
 };
 
 const Section = ({
@@ -382,6 +383,27 @@ const BuildingSettingsPanel = ({
         ),
       },
       {
+        key: "startWall",
+        title: "Start Point",
+        body: (
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              The wall behind you at the building entrance — what you see when you turn
+              around and look back. Designed independently of the terminal walls.
+            </p>
+            <SurfaceEditor
+              title="Start Point"
+              design={surface("startWall")}
+              previewUrl={urlOf(surface("startWall").texture?.path)}
+              onChange={(d) => setSurface("startWall", d)}
+              onChooseTemplate={() => setGalleryFor("startWall")}
+              onUploadClick={() => setUploadFor("startWall")}
+            />
+          </div>
+        ),
+      },
+      {
+
         key: "endWall",
         title: "Terminal Wall",
         body: (
