@@ -22,6 +22,10 @@ import floorScifiBlue from "@/assets/surfaces/floor-scifi-blue-lighting.png.asse
 import floorScifiGrid from "@/assets/surfaces/floor-scifi-grid.png.asset.json";
 import floorMetalPanel from "@/assets/surfaces/floor-metal-panel.png.asset.json";
 import floorNavyBrass from "@/assets/surfaces/floor-navy-brass.png.asset.json";
+import ceilingWhiteGold from "@/assets/surfaces/ceiling-white-gold.png.asset.json";
+import ceilingSpaceshipWhite from "@/assets/surfaces/ceiling-spaceship-white.png.asset.json";
+import ceilingDarkAmberGrid from "@/assets/surfaces/ceiling-dark-amber-grid.png.asset.json";
+import ceilingDarkBlueGrid from "@/assets/surfaces/ceiling-dark-blue-grid.png.asset.json";
 
 export interface SurfaceSample {
   key: string;
