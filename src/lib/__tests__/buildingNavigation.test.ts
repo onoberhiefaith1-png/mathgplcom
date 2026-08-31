@@ -129,11 +129,13 @@ const l = g.byId.get("l");
     // junction_at 0.5 of a 5-unit road → halfway along, not at the far end
     expect(l?.start).toEqual([0, -2.5]);
 
-    // facing forward (0,-1), "left" is the player's left → (-1,0)
-    const turned = turnHeading([0, -1], "left");
-    expect(turned[0]).toBeCloseTo(-1);
-    expect(turned[1]).toBeCloseTo(0);
-    expect(l?.heading).toEqual(turned);
+    // A hallway leaves its parent at 60°, not square on, so both roads are
+    // visible from the junction at once.
+    const turned = branchHeading([0, -1], "left");
+    expect(turned[0]).toBeCloseTo(-Math.sin(BRANCH_ANGLE));
+    expect(turned[1]).toBeCloseTo(-Math.cos(BRANCH_ANGLE));
+    expect(l?.heading[0]).toBeCloseTo(turned[0]);
+    expect(l?.heading[1]).toBeCloseTo(turned[1]);
   });
 
   it("handles nested branches (depth increases)", () => {
