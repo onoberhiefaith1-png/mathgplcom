@@ -1026,35 +1026,17 @@ const DoorMesh = ({
         />
       </mesh>
 
-      {/* Signage stays off the artwork: name on the lintel, detail beside it */}
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={10}
-          material-depthTest={true}
-          position={[0, openH + 0.3, 0.12]}
-          fontSize={0.2}
-          maxWidth={openW + 0.8}
-          textAlign="center"
-          anchorX="center"
-          anchorY="middle"
-          color="#f4f8ff"
-        >
-          {label}
-        </Text>
-        <Text
-          renderOrder={10}
-          material-depthTest={true}
-          position={[0, openH + 0.06, 0.12]}
-          fontSize={0.13}
-          maxWidth={openW + 0.8}
-          textAlign="center"
-          anchorX="center"
-          anchorY="middle"
-          color="#c9d6e8"
-        >
-          {sublabel}
-        </Text>
-      </Suspense>
+      {/* The door's nameplate: a real navy plaque mounted on the wall just above
+          the lintel. It is a CHILD of the door group, so it keeps its position
+          and perspective whatever the door or camera does. Clearance to the
+          ceiling is guaranteed by clamping its centre height. */}
+      <Nameplate
+        text={label}
+        caption={sublabel}
+        position={[0, Math.min(openH + 0.42, HALL_HEIGHT - 0.55), 0.13]}
+        fontSize={0.185}
+        maxWidth={Math.max(2.6, openW + 1.1)}
+      />
     </group>
   );
 };
