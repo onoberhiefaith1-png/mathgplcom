@@ -1336,7 +1336,7 @@ const WalkControls = ({
     )}
     {!atJunction && ended && (
       <p className="rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
-        End of the hallway — hold ▼ to turn round and walk back
+        End of the hallway — tap ▼ to turn round, then hold the travel arrow
       </p>
     )}
     <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 p-1.5 backdrop-blur">
