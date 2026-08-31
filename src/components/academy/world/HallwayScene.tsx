@@ -1819,11 +1819,23 @@ const HallwayScene = ({
   const dragStart = useRef<number | null>(null);
 
   const inWalk = phase !== "browse";
+  /**
+   * The choices actually available where the walker is standing: a perpendicular
+   * junction only counts when its opening is alongside, and a forward
+   * continuation only at the far end of the road.
+   */
+  const junctionChildren = useMemo(
+    () =>
+      nav.seg.children.filter((c) =>
+        c.walkway?.direction === "forward" ? endReached : nearOpenings.includes(c.walkway?.id ?? ""),
+      ),
+    [nav.seg, endReached, nearOpenings],
+  );
   const atJunction =
-    (phase === "walking" || phase === "idle") && endReached && nav.seg.children.length > 0;
-  const hasForwardChild =
-    atJunction && nav.seg.children.some((c) => c.walkway?.direction === "forward");
+    (phase === "walking" || phase === "idle") && junctionChildren.length > 0;
+  const hasForwardChild = junctionChildren.some((c) => c.walkway?.direction === "forward");
   const canBack = phase === "walking" || phase === "idle";
+
 
   const doorsById = useMemo(() => {
     const map = new Map<string, BuildingDoor>();
