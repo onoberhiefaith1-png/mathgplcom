@@ -14,6 +14,8 @@ interface ChromaVideoProps {
    * the subject.
    */
   feather?: number;
+  /** Seconds of fade over the loop restart, so the seam does not flash. */
+  loopFade?: number;
   playbackRate?: number;
   className?: string;
   fit?: "cover" | "contain";
