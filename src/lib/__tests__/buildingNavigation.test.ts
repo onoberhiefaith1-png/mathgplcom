@@ -272,3 +272,39 @@ describe("hallway roads and junctions", () => {
     expect(freeBranchDirections([root, left], "a")).toEqual(["right"]);
   });
 });
+
+describe("hallway junctions are automatic and physical", () => {
+  it("alternates the side of each new branch: right, left, right", () => {
+    const ws: BuildingWalkway[] = [walkway("root")];
+    expect(nextBranchDirection(ws, "root")).toBe("right");
+    ws.push(walkway("a", { parent_id: "root", direction: "right" }));
+    expect(nextBranchDirection(ws, "root")).toBe("left");
+    ws.push(walkway("b", { parent_id: "root", direction: "left" }));
+    expect(nextBranchDirection(ws, "root")).toBe("right");
+  });
+
+  it("places each new object after everything already on the road", () => {
+    expect(nextObjectOffset([])).toBeCloseTo(0.16);
+    expect(nextObjectOffset([0.16, 0.32])).toBeCloseTo(0.48);
+    expect(nextObjectOffset([0.99])).toBeCloseTo(0.94);
+  });
+
+  it("breaks the wall into runs either side of a cut-through", () => {
+    const foot = openingFootprint(10);
+    expect(foot.width).toBeGreaterThan(3);
+    const runs = wallRuns(0, 40, [{ along: 20, width: foot.width }]);
+    expect(runs.length).toBe(2);
+    expect(runs[0][1]).toBeCloseTo(20 - foot.width / 2);
+    expect(runs[1][0]).toBeCloseTo(20 + foot.width / 2);
+  });
+
+  it("keeps a solid wall when the hallway has no junctions", () => {
+    expect(wallRuns(0, 30, [])).toEqual([[0, 30]]);
+  });
+
+  it("branches right at -60 degrees from the road", () => {
+    const h = branchHeading([0, -1], "right");
+    expect(h[0]).toBeCloseTo(Math.sin(BRANCH_ANGLE));
+    expect(h[1]).toBeCloseTo(-Math.cos(BRANCH_ANGLE));
+  });
+});
