@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { Loader2 } from "lucide-react";
+import { Loader2, Minimize2 } from "lucide-react";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PresentationView from "@/components/smartboard/PresentationView";
@@ -40,6 +41,10 @@ const AssessmentBoardPage = () => {
   const openedFrom = searchParams.get("source");
   const gameId = searchParams.get("game");
   const [loading, setLoading] = useState(true);
+  // Phone/tablet immersive mode — hides the session header so the board fills
+  // the screen (iOS Safari ignores element fullscreen).
+  const bpAssess = useBreakpoint();
+  const [immersive, setImmersive] = useState(false);
   const [assessment, setAssessment] = useState<Meta | null>(null);
   const [status, setStatus] = useState<string>("in_progress");
   const [uid, setUid] = useState<string | null>(null);
