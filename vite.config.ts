@@ -44,10 +44,10 @@ const stripSourceTagsFromR3F = () => ({
   transform(code: string, id: string) {
     if (!code.includes("data-tsd-source")) return null;
     if (!/@react-three\/(fiber|drei)/.test(code)) return null;
-    return {
-      code: code.replace(/,?\s*"data-tsd-source":\s*"[^"]*"/g, ""),
-      map: null,
-    };
+    const stripped = code
+      .replace(/"data-tsd-source":\s*"[^"]*"\s*,?/g, "")
+      .replace(/,(\s*[}\]])/g, "$1");
+    return { code: stripped, map: null };
   },
 });
 
