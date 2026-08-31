@@ -14,6 +14,12 @@ import {
   parentConnectionAnchor,
   lengthForObjects,
   freeBranchDirections,
+  branchHeading,
+  BRANCH_ANGLE,
+  nextBranchDirection,
+  nextObjectOffset,
+  openingFootprint,
+  wallRuns,
 } from "../building/navigation";
 
 import type { BuildingWalkway } from "../building/types";
