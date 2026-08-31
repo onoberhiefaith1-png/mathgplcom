@@ -32,7 +32,27 @@ function scheduleRestart(path: string) {
   setTimeout(() => process.exit(1), 150);
 }
 
+// The dev source-tagger injects a `data-tsd-source` prop into every JSX
+// element. React DOM ignores unknown props, but react-three-fiber treats a
+// dashed prop as a nested path (`data.tsd.source`) and throws
+// `Cannot set "data-tsd-source"`, blanking any 3D route. Strip the prop from
+// modules that render three.js elements; DOM files keep their tags.
+const stripSourceTagsFromR3F = () => ({
+  name: "mathgpl-strip-tsd-source-in-r3f",
+  apply: "serve" as const,
+  enforce: "post" as const,
+  transform(code: string, id: string) {
+    if (!code.includes("data-tsd-source")) return null;
+    if (!/@react-three\/(fiber|drei)/.test(code)) return null;
+    return {
+      code: code.replace(/,?\s*"data-tsd-source":\s*"[^"]*"/g, ""),
+      map: null,
+    };
+  },
+});
+
 export default defineConfig({
+
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
