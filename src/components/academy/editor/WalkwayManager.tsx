@@ -90,9 +90,17 @@ const WalkwayManager = ({
           >
             {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </button>
-          <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-            {DIRECTION_LABEL[w.direction]}
-          </span>
+          <input
+            aria-label="Hallway name"
+            defaultValue={w.name}
+            placeholder={DIRECTION_LABEL[w.direction]}
+            onBlur={(e) => {
+              const next = e.target.value.trim();
+              if (next && next !== w.name) void onRenameWalkway?.(w.id, next);
+              else e.target.value = w.name;
+            }}
+            className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-1 text-sm text-foreground"
+          />
           <input
             aria-label="Walkway length"
             type="number"
