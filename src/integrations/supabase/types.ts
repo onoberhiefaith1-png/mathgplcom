@@ -1235,6 +1235,7 @@ export type Database = {
           direction: string
           end_label: string | null
           id: string
+          junction_at: number
           length: number
           name: string
           parent_id: string | null
@@ -1247,6 +1248,7 @@ export type Database = {
           direction?: string
           end_label?: string | null
           id?: string
+          junction_at?: number
           length?: number
           name?: string
           parent_id?: string | null
@@ -1259,6 +1261,7 @@ export type Database = {
           direction?: string
           end_label?: string | null
           id?: string
+          junction_at?: number
           length?: number
           name?: string
           parent_id?: string | null

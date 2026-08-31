@@ -87,13 +87,27 @@ const buildHallways = (
   const segments: Segment[] = [];
   const layouts = new Map<string, HallwayObject[]>();
 
+  /**
+   * A hallway is a road: its physical length is DERIVED from what sits on it
+   * (doors + perpendicular junctions), so adding a door lengthens the road and
+   * there is never an "extend hallway" control.
+   */
+  const derivedLength = (w: BuildingWalkway): number => {
+    const objects =
+      (w.parent_id ? 0 : rootRoomObjects.length) +
+      doorObjects(w.id).length +
+      walkways.filter((x) => x.parent_id === w.id && x.direction !== "forward").length;
+    const auto = lengthForObjects(objects, SPACING);
+    return w.parent_id ? auto : Math.max(auto, rootLen);
+  };
+
   const walk = (
     w: BuildingWalkway,
     start: [number, number],
     heading: [number, number],
     depth: number,
   ): Segment => {
-    const length = w.parent_id ? w.length : Math.max(w.length, rootLen);
+    const length = derivedLength(w);
     const seg: Segment = { walkway: w, start, heading, length, depth, children: [] };
     segments.push(seg);
 
@@ -101,11 +115,13 @@ const buildHallways = (
     const objs = layoutHallwayObjects({
       length,
       doors: [...(w.parent_id ? [] : rootRoomObjects), ...doorObjects(w.id)],
-      openings: kids.map((k, i) => ({
+      openings: kids.map((k) => ({
         id: k.id,
         name: k.name,
         direction: k.direction,
-        order: 15 + i * 30,
+        // Junctions and doors interleave along the road by their stored
+        // position, so a teacher can slide a branch further down the hallway.
+        order: 5 + (k.junction_at ?? 0.5) * 100,
       })),
       minGap: SPACING,
     });
@@ -138,6 +154,7 @@ const buildHallways = (
 
   return { segments, layouts };
 };
+
 
 const findSegment = (segs: Segment[], id: string): Segment | null => {
   for (const s of segs) {
