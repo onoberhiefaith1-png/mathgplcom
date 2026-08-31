@@ -143,16 +143,24 @@ const WalkwayManager = ({
     return out;
   }, [walkways]);
 
-  /** Directions already used at a junction — one child per direction keeps the tree. */
-  const takenAt = (parentId: string): WalkwayDirection[] =>
-    walkways.filter((w) => w.parent_id === parentId).map((w) => w.direction);
+  /**
+   * The side and the position of a new junction are decided by the road itself:
+   * branches alternate right → left, and the junction lands after everything
+   * already on that hallway, so a hallway and a door are never opposite.
+   */
+  const autoDirection = (parentId: string): WalkwayDirection =>
+    parentId ? nextBranchDirection(walkways, parentId) : "forward";
+  const autoJunction = (parentId: string): number =>
+    nextObjectOffset([
+      ...doors.filter((d) => d.walkway_id === parentId).map((d) => d.position_along),
+      ...walkways
+        .filter((w) => w.parent_id === parentId && w.direction !== "forward")
+        .map((w) => w.junction_at ?? 0.5),
+    ]);
 
   const openHallwayForm = (parentId?: string) => {
     const parent = parentId || hallParent || roots[0]?.id || "";
     setHallParent(parent);
-    const taken = parent ? takenAt(parent) : [];
-    setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "left");
-    setHallJunction(50);
     setHallName("");
     setFormError("");
     setForm("hallway");
