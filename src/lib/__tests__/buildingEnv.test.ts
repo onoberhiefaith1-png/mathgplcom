@@ -39,6 +39,18 @@ describe("mergeEnvironment", () => {
   });
 });
 
+describe("surface brightness", () => {
+  it("defaults an older saved surface to 1 (exactly as imported)", () => {
+    const env = mergeEnvironment({ leftWall: { color: "#123456", texture: { path: "x.png" } } });
+    expect(env.leftWall.brightness).toBe(1);
+  });
+
+  it("keeps a saved brightness", () => {
+    const env = mergeEnvironment({ leftWall: { brightness: 1.4 } });
+    expect(env.leftWall.brightness).toBe(1.4);
+  });
+});
+
 describe("lightBudget", () => {
   it("clamps an extreme saved brightness so surfaces are never washed out", () => {
     const b = lightBudget({ brightness: 2, ambient: 1.5, intensity: 2.35, atmosphere: true });
