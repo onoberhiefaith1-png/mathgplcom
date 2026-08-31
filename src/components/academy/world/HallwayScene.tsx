@@ -1394,14 +1394,16 @@ const useMapFrames = (active: boolean) => {
   }, [active]);
 };
 
-const MAP_SIZES = { S: 0.72, M: 1, L: 1.4 } as const;
-type MapSize = keyof typeof MAP_SIZES;
-
 /**
- * Pixels per metre on the map. Fixed, so the plan never rescales as the
- * building grows — the window follows the walker instead.
+ * Pixels per metre on the map at 1x zoom. The plan never rescales itself as the
+ * building grows — the window follows the walker, and the user zooms instead.
  */
 const MAP_METRE = 2.6;
+
+/** Google-Maps style zoom range, in exponential steps. The PANEL never resizes. */
+const MAP_ZOOM_MIN = 0.35;
+const MAP_ZOOM_MAX = 3;
+const MAP_ZOOM_STEP = 1.35;
 
 const MiniMap = ({
   segments,
