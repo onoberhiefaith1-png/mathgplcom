@@ -800,6 +800,12 @@ interface Machine {
   moving: boolean;
   /** current walking speed, ramped so the walk never starts or stops dead */
   speed: number;
+  /**
+   * Distances along the current hallway where a perpendicular junction opens.
+   * The walk eases to a hover at each one so left/right can be chosen there,
+   * then continues down the road.
+   */
+  stops: number[];
 
   yaw: number;
   turn: TurnSpec | null;
@@ -819,6 +825,7 @@ const CameraRig = ({
   m,
   rootLen,
   onWalkEnd,
+  onJunctionReach,
   onRetraceEnd,
   setPhase,
 }: {
@@ -827,6 +834,8 @@ const CameraRig = ({
   m: React.RefObject<Machine>;
   rootLen: number;
   onWalkEnd: () => void;
+  /** Arrived alongside a junction opening mid-hallway. */
+  onJunctionReach: () => void;
   onRetraceEnd: () => void;
   setPhase: (p: NavPhase) => void;
 }) => {
@@ -850,17 +859,19 @@ const CameraRig = ({
 
 if (st.phase === "walking" || st.phase === "idle") {
       const seg = st.seg;
-      // Continuous forward travel: the hallway comes toward the camera. Speed
-      // ramps up on entry and eases down as the far end / junction approaches,
-      // so the walk never starts or stops dead.
-      const remaining = Math.max(0, seg.length - st.dist);
+      // Continuous forward travel: the hallway comes toward the camera. It eases
+      // to a hover at the next junction (or the terminal wall), so a turn can be
+      // taken there, and the walk never starts or stops dead.
+      const nextStop = st.stops.find((s) => s > st.dist + 0.6);
+      const target = Math.min(seg.length, nextStop ?? seg.length);
+      const remaining = Math.max(0, target - st.dist);
       const wanted =
         st.phase === "walking" && st.moving
           ? WALK_SPEED * THREE.MathUtils.clamp(remaining / 4, 0.12, 1)
           : 0;
       st.speed = THREE.MathUtils.lerp(st.speed, wanted, 1 - Math.exp(-4 * dt));
       if (st.phase === "walking" && st.moving) {
-        st.dist = Math.min(seg.length, st.dist + dt * st.speed);
+        st.dist = Math.min(target, st.dist + dt * st.speed);
       }
 
       const d = st.dist;
@@ -872,9 +883,13 @@ if (st.phase === "walking" || st.phase === "idle") {
       camera.position.z = THREE.MathUtils.lerp(camera.position.z, pz, k);
       const dir = forwardFromYaw(st.yaw);
       camera.lookAt(camera.position.x + dir[0] * 6, 1.75, camera.position.z + dir[1] * 6);
-      if (st.phase === "walking" && d >= seg.length - 0.05) onWalkEnd();
+      if (st.phase === "walking" && d >= target - 0.05) {
+        if (target < seg.length - 0.05) onJunctionReach();
+        else onWalkEnd();
+      }
       return;
     }
+
 
     if (st.phase === "turning") {
       const t = st.turn;
