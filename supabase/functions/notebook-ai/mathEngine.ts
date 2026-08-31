@@ -264,15 +264,25 @@ function repairTail(s: string): string {
 // deno-lint-ignore no-explicit-any
 export function parseEngineJson(raw: string): any {
   const base = stripFences(String(raw ?? ""));
-  const candidates = [base, sliceObject(base) ?? ""].filter(Boolean);
-  for (const candidate of candidates) {
-    for (const text of [candidate, candidate.replace(BAD_ESCAPE, "\\\\")]) {
-      try { return JSON.parse(text); } catch { /* try next shape */ }
-      try { return JSON.parse(repairTail(text)); } catch { /* try next shape */ }
+  if (!base) return null;
+  const shapes: string[] = [];
+  for (const candidate of [base, sliceObject(base) ?? ""]) {
+    if (!candidate) continue;
+    for (const fixed of [
+      candidate,
+      candidate.replace(BAD_ESCAPE, "\\\\"),
+      candidate.replace(LATEX_ESCAPE, "\\\\").replace(BAD_ESCAPE, "\\\\"),
+    ]) {
+      shapes.push(fixed, escapeRawControls(fixed));
     }
+  }
+  for (const text of shapes) {
+    try { return JSON.parse(text); } catch { /* try next shape */ }
+    try { return JSON.parse(repairTail(text)); } catch { /* try next shape */ }
   }
   return null;
 }
+
 
 
 
