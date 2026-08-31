@@ -1728,7 +1728,7 @@ const MiniMap = ({
           })}
           </g>
           {/* the student: a glowing blue directional marker that moves live */}
-          <circle cx={svg.W / 2} cy={svg.H / 2} r={7} fill="#38bdf8" opacity={0.18} filter="url(#mapGlow)">
+          <circle cx={cx0} cy={cy0} r={7} fill="#38bdf8" opacity={0.18} filter="url(#mapGlow)">
             <animate attributeName="r" values="6;10;6" dur="1.8s" repeatCount="indefinite" />
           </circle>
           <polygon points={chevron} fill="#7dd3fc" stroke="#0b1428" strokeWidth={0.8} filter="url(#mapGlow)" />
