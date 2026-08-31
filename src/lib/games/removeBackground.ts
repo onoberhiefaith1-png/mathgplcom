@@ -80,35 +80,147 @@ export interface MakeTransparentOptions extends FlatCutOptions {
   keyColor?: KeyColor;
 }
 
+/**
+ * Shrinks the "not reachable from the frame edge" region by a few pixels, so the
+ * guard only ever protects deep interior pixels and can never resurrect backdrop
+ * that sits right against the subject's outline.
+ */
+const erodeInterior = (mask: Uint8Array, w: number, h: number, passes: number) => {
+  let current = mask;
+  for (let n = 0; n < passes; n++) {
+    const next = new Uint8Array(current.length);
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const p = y * w + x;
+        if (current[p] !== 0) continue;
+        if (
+          current[p - 1] === 0 &&
+          current[p + 1] === 0 &&
+          current[p - w] === 0 &&
+          current[p + w] === 0
+        ) {
+          next[p] = 0;
+        } else {
+          next[p] = 1;
+        }
+      }
+    }
+    // Border rows/columns are never interior.
+    current = next;
+  }
+  return current;
+};
+
+/**
+ * The standard cut: the AI subject model produces the soft, graded matte, and the
+ * flat-background region map is used only as a guard — deep interior pixels the
+ * model punched out are restored, and edge-connected backdrop the model left
+ * behind is removed.
+ */
+const modelCutWithGuard = async (
+  file: File,
+  opts: MakeTransparentOptions,
+): Promise<Blob> => {
+  const matte = await removeBackground(file, {
+    output: { format: "image/png", quality: 1 },
+  });
+
+  let guarded: Blob | null = null;
+  try {
+    guarded = await applyRegionGuard(file, matte, opts);
+  } catch (err) {
+    console.warn("interior guard unavailable, using the model matte as is", err);
+  }
+  const result = guarded ?? matte;
+  if (!(await blobHasTransparency(result))) {
+    throw new Error("Background removal did not create a transparent cutout");
+  }
+  return result;
+};
+
+const applyRegionGuard = async (
+  file: File,
+  matte: Blob,
+  opts: MakeTransparentOptions,
+): Promise<Blob | null> => {
+  const [source, cut] = await Promise.all([
+    createImageBitmap(file),
+    createImageBitmap(matte),
+  ]);
+  try {
+    const w = cut.width;
+    const h = cut.height;
+    if (!w || !h || source.width !== w || source.height !== h) return null;
+
+    const srcCanvas = document.createElement("canvas");
+    srcCanvas.width = w;
+    srcCanvas.height = h;
+    const srcCtx = srcCanvas.getContext("2d", { willReadFrequently: true });
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = w;
+    outCanvas.height = h;
+    const outCtx = outCanvas.getContext("2d", { willReadFrequently: true });
+    if (!srcCtx || !outCtx) return null;
+    srcCtx.drawImage(source, 0, 0);
+    outCtx.drawImage(cut, 0, 0);
+    const src = srcCtx.getImageData(0, 0, w, h);
+    const out = outCtx.getImageData(0, 0, w, h);
+
+    const detection = analyseFrames([{ data: src.data, w, h }]);
+    const key = opts.keyColor ?? detection.color;
+    if (!opts.keyColor && !detection.keyable) return null;
+
+    const { mask } = buildBackgroundMask({ data: src.data, w, h }, key, opts);
+    const interior = erodeInterior(mask, w, h, 3);
+    const total = w * h;
+    for (let p = 0; p < total; p++) {
+      const i = p * 4;
+      if (mask[p] === 1) {
+        // Edge-connected backdrop: always gone, even if the model kept it.
+        out.data[i + 3] = 0;
+        continue;
+      }
+      if (interior[p] === 0 && (out.data[i + 3] ?? 0) < 255) {
+        // Deep inside the subject: white signage, glass and highlights survive.
+        out.data[i + 3] = 255;
+        out.data[i] = src.data[i] ?? 0;
+        out.data[i + 1] = src.data[i + 1] ?? 0;
+        out.data[i + 2] = src.data[i + 2] ?? 0;
+      }
+    }
+    outCtx.putImageData(out, 0, 0);
+    return await canvasToPng(outCanvas);
+  } finally {
+    source.close();
+    cut.close();
+  }
+};
+
 export const makeTransparent = async (
   file: File,
   opts: MakeTransparentOptions = {},
 ): Promise<Blob> => {
-  // Flat backdrops (studio white, green screen, flat art) are cut by region —
-  // that preserves the subject's own colours and its full resolution.
+  // The AI subject model is the standard: it is the only path that produces a
+  // soft, graded edge, which is what keeps a building from showing a white rim
+  // or shimmering once it rotates on the homepage.
+  try {
+    return await modelCutWithGuard(file, opts);
+  } catch (err) {
+    console.warn("subject model unavailable, falling back to the flat cut", err);
+  }
+
+  // Fallback only: a flat backdrop cut by region, now with a graded edge.
   try {
     const cut = await flatCutImage(file, opts);
     if (cut && (await blobHasTransparency(cut))) return cut;
-  } catch (err) {
-    console.warn("flat background cut unavailable, using the model", err);
-  }
-
-  // Photographic or busy backdrops still go through the model.
-  try {
-    const blob = await removeBackground(file, {
-      output: { format: "image/png", quality: 1 },
-    });
-    const hasTransparency = await blobHasTransparency(blob);
-    if (!hasTransparency) {
-      throw new Error("Background removal did not create a transparent cutout");
-    }
-    return blob;
+    throw new Error("Background removal did not create a transparent cutout");
   } catch (err) {
     console.error("background removal failed", err);
     if (err instanceof Error) throw err;
     throw new Error("Background removal failed");
   }
 };
+
 
 export type { KeyColor, BgDetection } from "./bgAnalysis";
 export { isLowSaturation } from "./bgAnalysis";
