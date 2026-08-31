@@ -11,7 +11,9 @@ import {
   turnHeading,
   turnaround,
   availableDirections,
+  parentConnectionAnchor,
 } from "../building/navigation";
+
 import type { BuildingWalkway } from "../building/types";
 
 const walkway = (id: string, over: Partial<BuildingWalkway> = {}): BuildingWalkway => ({
@@ -215,5 +217,21 @@ describe("NavigationHistory", () => {
     expect(h.path).toEqual(["root", "left"]);
     h.clear();
     expect(h.length).toBe(0);
+  });
+});
+describe("parentConnectionAnchor", () => {
+  it("marks the way back a short inset into the hallway, facing back", () => {
+    const a = parentConnectionAnchor([0, 0], [0, -1], 2);
+    expect(a.position).toEqual([0, -2]);
+    expect(a.yaw).toBeCloseTo(Math.PI);
+  });
+
+  it("works for a hallway that turned right", () => {
+    const heading = turnHeading([0, -1], "right");
+    const a = parentConnectionAnchor([0, -10], heading, 3);
+    expect(a.position[0]).toBeCloseTo(3);
+    expect(a.position[1]).toBeCloseTo(-10);
+    // the sign faces back along the hallway, i.e. the reverse heading
+    expect(a.yaw).toBeCloseTo(segYaw(reverseHeading(heading)));
   });
 });

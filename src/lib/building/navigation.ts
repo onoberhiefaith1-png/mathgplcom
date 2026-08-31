@@ -142,6 +142,32 @@ export function turnaround(fromHeading: [number, number], at: [number, number]):
   };
 }
 
+/**
+ * Where the "way back" marker sits inside a hallway you have just entered.
+ *
+ * Entering a side hallway never unloads the one you came from: the mouth you
+ * walked through stays just behind you, so the parent hallway is marked with a
+ * named connection sign a short inset from the child's start, facing back the
+ * way you came.
+ */
+export interface ConnectionAnchor {
+  position: [number, number];
+  /** yaw of a sign whose face looks back toward the parent hallway */
+  yaw: number;
+}
+
+export function parentConnectionAnchor(
+  start: [number, number],
+  heading: [number, number],
+  inset = 1.2,
+): ConnectionAnchor {
+  return {
+    position: [start[0] + heading[0] * inset, start[1] + heading[1] * inset],
+    yaw: segYaw(reverseHeading(heading)),
+  };
+}
+
+
 // ── Hallway object layout (single source of truth) ─────────────────────────
 
 export type HallwayObjectKind = "door" | "opening";
