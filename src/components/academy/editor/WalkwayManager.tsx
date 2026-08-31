@@ -147,25 +147,29 @@ const WalkwayManager = ({
     walkways.filter((w) => w.parent_id === parentId).map((w) => w.direction);
 
   const openHallwayForm = (parentId?: string) => {
-    const parent = parentId ?? hallParent ?? roots[0]?.id ?? "";
+    const parent = parentId || hallParent || roots[0]?.id || "";
     setHallParent(parent);
     const taken = parent ? takenAt(parent) : [];
     setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "left");
     setHallJunction(50);
     setHallName("");
+    setFormError("");
     setForm("hallway");
   };
 
   const openDoorForm = (walkwayId?: string) => {
-    setDoorWalkway(walkwayId ?? doorWalkway ?? roots[0]?.id ?? "");
+    setDoorWalkway(walkwayId || doorWalkway || roots[0]?.id || "");
     setDoorName("");
     setDoorStyle("");
+    setDoorProduct(null);
+    setFormError("");
     setForm("door");
   };
 
   const submitHallway = async () => {
     if (busy) return;
     setBusy(true);
+    setFormError("");
     try {
       await onAddWalkway(
         roots.length === 0 ? null : hallParent,
@@ -174,6 +178,28 @@ const WalkwayManager = ({
         hallJunction / 100,
       );
       setForm(null);
+    } catch (e: unknown) {
+      setFormError(String((e as Error)?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitDoor = async () => {
+    if (busy || !doorWalkway || !doorProduct) return;
+    setBusy(true);
+    setFormError("");
+    try {
+      await onAddDoor(doorWalkway, {
+        position_along: 0.5,
+        content_kind: doorProduct.kind as DoorContentKind,
+        content_id: doorProduct.id,
+        title_override: doorName.trim() || null,
+        style: doorStyle || null,
+      });
+      setForm(null);
+    } catch (e: unknown) {
+      setFormError(String((e as Error)?.message ?? e));
     } finally {
       setBusy(false);
     }
