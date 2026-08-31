@@ -1428,6 +1428,8 @@ const HallwayScene = ({
   const [nav, setNav] = useState<NavState>({ seg: rootEffective, mode: "browse" });
   const [moving, setMoving] = useState(false);
   const [endReached, setEndReached] = useState(false);
+  /** Junction openings the walker is currently standing alongside. */
+  const [nearOpenings, setNearOpenings] = useState<string[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<string[]>(["Entrance"]);
   const [cue, setCue] = useState<string | null>(null);
   const [showMap] = useState(true);
@@ -1437,6 +1439,7 @@ const HallwayScene = ({
     dist: 0,
     moving: false,
     speed: 0,
+    stops: [],
 
     yaw: 0,
     turn: null,
@@ -1444,6 +1447,17 @@ const HallwayScene = ({
   });
   const historyRef = useRef(new NavigationHistory());
   const cueTimer = useRef<number | null>(null);
+
+  /** Junction stops of one hallway, from the shared object layout. */
+  const stopsOf = useCallback(
+    (seg: Segment): number[] =>
+      (layouts.get(seg.walkway?.id ?? "") ?? [])
+        .filter((o) => o.kind === "opening")
+        .map((o) => o.along)
+        .sort((a, b) => a - b),
+    [layouts],
+  );
+
 
   const setMachinePhase = useCallback((p: NavPhase) => {
     machineRef.current.phase = p;
