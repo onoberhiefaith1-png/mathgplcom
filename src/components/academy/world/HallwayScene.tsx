@@ -1992,6 +1992,7 @@ const HallwayScene = ({
           m={machineRef}
           rootLen={rootLen}
           onWalkEnd={handleWalkEnd}
+          onJunctionReach={handleJunctionReach}
           onRetraceEnd={finishRetrace}
           setPhase={setMachinePhase}
         />
@@ -2082,7 +2083,7 @@ const HallwayScene = ({
       {canBack && (
         <WalkControls
           atJunction={atJunction}
-          children={nav.seg.children}
+          children={junctionChildren}
           hasForward={hasForwardChild}
           canBack={canBack}
           moving={moving}
