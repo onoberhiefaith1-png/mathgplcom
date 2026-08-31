@@ -50,8 +50,10 @@ function readArg(src: string, start: number): { inner: string; end: number } | n
     if (m) return { inner: m[0], end: p + m[0].length };
     return null;
   }
-  // A single digit or letter is one argument; `{`/`}` and operators are not.
-  if (/[0-9A-Za-z]/.test(ch)) return { inner: ch, end: p + 1 };
+  // A single digit, letter or symbol glyph (π, θ, ∞ — operator macros are
+  // already unicode by this point) is one argument; braces, grouping and
+  // operators are not.
+  if (/[0-9A-Za-z\u0370-\u03ff\u2190-\u22ff]/.test(ch)) return { inner: ch, end: p + 1 };
   return null;
 }
 
