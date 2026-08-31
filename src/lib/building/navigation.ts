@@ -182,6 +182,61 @@ export function openingFootprint(hallWidth: number): OpeningFootprint {
 
 
 /**
+ * A corridor as a plan RECTANGLE: a centreline from `start` running `length`
+ * along `heading`, with the hallway's width across it.
+ */
+export interface CorridorSpan {
+  start: [number, number];
+  heading: [number, number];
+  length: number;
+}
+
+/**
+ * Where two corridors physically CROSS, expressed as the interval each one
+ * loses to the other along its own centreline. This is the one solver for the
+ * over-under intersection: a crossing is a real footprint shared by two
+ * corridor volumes, never two coplanar planes stacked at the same depth.
+ *
+ * `a` / `b` are distances measured from each corridor's own start. The interval
+ * is the full plan overlap of the two rectangles projected on that centreline,
+ * so cutting it out of one deck leaves exactly the other deck's slab showing.
+ */
+export interface CorridorCrossing {
+  a: [number, number];
+  b: [number, number];
+}
+
+export function corridorCrossing(
+  a: CorridorSpan,
+  b: CorridorSpan,
+  hallWidth: number,
+  /** how far past each end a deck is still considered present */
+  pad = 3.2,
+): CorridorCrossing | null {
+  const [ux, uz] = a.heading;
+  const [vx, vz] = b.heading;
+  const det = vx * uz - ux * vz; // = sin of the angle between them
+  if (Math.abs(det) < 1e-3) return null; // parallel roads never cross
+  const dx = b.start[0] - a.start[0];
+  const dz = b.start[1] - a.start[1];
+  const t = (-dx * vz + vx * dz) / det;
+  const s = (ux * dz - uz * dx) / det;
+
+  const sin = Math.abs(det);
+  const cos = Math.abs(ux * vx + uz * vz);
+  // The two side walls of one corridor cut the other's axis at different
+  // distances, so the shared footprint is wider than the corridor itself.
+  const half = ((hallWidth / 2) * (1 + cos)) / sin;
+
+  const aRange: [number, number] = [t - half, t + half];
+  const bRange: [number, number] = [s - half, s + half];
+  const touches = (r: [number, number], len: number) => r[1] > -pad && r[0] < len + pad;
+  if (!touches(aRange, a.length) || !touches(bRange, b.length)) return null;
+  return { a: aRange, b: bRange };
+}
+
+
+/**
  * The solid runs of one hallway wall once its cut-throughs are removed. The
  * wall genuinely STOPS at an opening — it is never a hole punched through a
  * single continuous plane.

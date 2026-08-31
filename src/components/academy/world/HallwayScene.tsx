@@ -49,6 +49,7 @@ import {
   NavigationHistory,
   openingFootprint,
   junctionGeometry,
+  corridorCrossing,
   WALL_THICKNESS,
   parentConnectionAnchor,
 
@@ -490,6 +491,9 @@ const SegmentCorridor = ({
   textures,
   gaps = [],
   startTrim = 0,
+  deckHoles = [],
+  deckLift = 0,
+  frontPad = 3,
   capEnd = true,
   capStart = false,
   name,
@@ -505,6 +509,19 @@ const SegmentCorridor = ({
   /** Distance from this hallway's start where its own shell may begin — a
       branch begins at the mouth in its parent's wall, never inside it. */
   startTrim?: number;
+  /**
+   * Where this corridor's floor/ceiling are CUT because another corridor's
+   * slab passes through the crossing there. Only the portion inside the
+   * crossing is removed; the runs before and after stay continuous.
+   */
+  deckHoles?: { along: number; width: number }[];
+  /**
+   * Real structural offset of this corridor's slabs, so no two corridors ever
+   * share a plane at exactly the same depth.
+   */
+  deckLift?: number;
+  /** How far this corridor's deck may run past its own far end. */
+  frontPad?: number;
   /** Solid wall at the far end (no forward continuation). */
   capEnd?: boolean;
   /** Solid wall behind the entrance. */
@@ -519,14 +536,13 @@ const SegmentCorridor = ({
   // otherwise the branch reads as a dark void behind the opening instead of a
   // corridor you can see down.
   const backPad = capStart ? 3 : -startTrim;
-  const frontPad = 3;
   const span = length + frontPad + backPad;
   /** Local z of the wall runs' centre inside the group offset by -length / 2. */
   const shellZ = length / 2 - (length + frontPad - backPad) / 2;
   /** Floor/ceiling reach back past the mouth so the throat is continuous. */
   const deckBack = capStart ? 3 : startTrim + 1.5;
-  const deckSpan = length + frontPad + deckBack;
-  const deckZ = length / 2 - (length + frontPad - deckBack) / 2;
+  /** The deck, minus every crossing another corridor's slab carries through. */
+  const deckSpans = wallRuns(-deckBack, length + frontPad, deckHoles);
 
   return (
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
@@ -612,42 +628,52 @@ const SegmentCorridor = ({
     })}
     <group position={[0, 0, -length / 2]}>
 
-      {/* floor — one continuous surface that runs through every cut */}
-<Surface
-        rotation-x={-Math.PI / 2}
-        position={[0, 0, deckZ]}
-        url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
-        presetKey={env.floor.preset}
-        color={env.floor.color}
-        scale={env.floor.scale}
-        offsetX={env.floor.offsetX}
-        offsetY={env.floor.offsetY}
-        repeat={env.floor.repeat}
-        fit={env.floor.fit}
-        brightness={env.floor.brightness}
-        planeW={HALL_WIDTH}
-        planeH={deckSpan}
-      >
-        <planeGeometry args={[HALL_WIDTH, deckSpan]} />
-      </Surface>
-      {/* roof / ceiling */}
-      <Surface
-        rotation-x={Math.PI / 2}
-        position={[0, HALL_HEIGHT, deckZ]}
-        url={env.roof.texture ? textures[env.roof.texture.path] : undefined}
-        presetKey={env.roof.preset}
-        color={env.roof.color}
-        scale={env.roof.scale}
-        offsetX={env.roof.offsetX}
-        offsetY={env.roof.offsetY}
-        repeat={env.roof.repeat}
-        fit={env.roof.fit}
-        brightness={env.roof.brightness}
-        planeW={HALL_WIDTH}
-        planeH={deckSpan}
-      >
-        <planeGeometry args={[HALL_WIDTH, deckSpan]} />
-      </Surface>
+      {/* FLOOR & CEILING — segmented decks. Each run is its own slab, cut where
+          another corridor's slab carries the crossing, so two decks never share
+          a plane at the same depth. `deckLift` gives this corridor its own real
+          slab depth, which is what removes the z-fighting for good. */}
+      {deckSpans.map(([a, b], i) => {
+        const runLen = b - a;
+        const zc = length / 2 - (a + b) / 2;
+        return (
+          <group key={`deck-${i}`}>
+            <Surface
+              rotation-x={-Math.PI / 2}
+              position={[0, deckLift, zc]}
+              url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
+              presetKey={env.floor.preset}
+              color={env.floor.color}
+              scale={env.floor.scale}
+              offsetX={env.floor.offsetX}
+              offsetY={env.floor.offsetY}
+              repeat={env.floor.repeat}
+              fit={env.floor.fit}
+              brightness={env.floor.brightness}
+              planeW={HALL_WIDTH}
+              planeH={runLen}
+            >
+              <planeGeometry args={[HALL_WIDTH, runLen]} />
+            </Surface>
+            <Surface
+              rotation-x={Math.PI / 2}
+              position={[0, HALL_HEIGHT - deckLift, zc]}
+              url={env.roof.texture ? textures[env.roof.texture.path] : undefined}
+              presetKey={env.roof.preset}
+              color={env.roof.color}
+              scale={env.roof.scale}
+              offsetX={env.roof.offsetX}
+              offsetY={env.roof.offsetY}
+              repeat={env.roof.repeat}
+              fit={env.roof.fit}
+              brightness={env.roof.brightness}
+              planeW={HALL_WIDTH}
+              planeH={runLen}
+            >
+              <planeGeometry args={[HALL_WIDTH, runLen]} />
+            </Surface>
+          </group>
+        );
+      })}
       {/* LEFT / RIGHT WALLS — solid RUNS of real blockwork, broken by this
           hallway's cut-throughs. Each run is a BOX of wall thickness, so every
           cut edge shows depth, catches light and casts a shadow instead of
@@ -979,8 +1005,10 @@ const BranchOpening = ({
   return (
     <group position={[0, 0, -along]}>
       {/* Continuous floor and ceiling through the intersection throat */}
-      <PlanTriangle pts={[near, far, corner]} y={0.012} color={floorColor} roughness={0.85} />
-      <PlanTriangle pts={[near, far, corner]} y={HALL_HEIGHT - 0.012} color={roofColor} up={false} />
+      {/* Throat floor/ceiling sit clear of every corridor slab depth, so the
+          cut deck edges meet them flush instead of fighting for the plane. */}
+      <PlanTriangle pts={[near, far, corner]} y={0.032} color={floorColor} roughness={0.85} />
+      <PlanTriangle pts={[near, far, corner]} y={HALL_HEIGHT - 0.032} color={roofColor} up={false} />
 
       {/* The branch's upstream wall returning out into the branch — the piece
           that makes the intersection read as walls meeting, not panels. */}
@@ -1874,6 +1902,59 @@ const HallwayScene = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [walkways, doorsByWalkway, productTitles, rootLen, links],
   );
+
+  /**
+   * THE CROSSINGS — every place two corridor volumes share plan area. Each
+   * crossing gets a deterministic upper corridor (shallower road wins, ties
+   * broken by id) that carries its slab straight through; the other corridor's
+   * deck is CUT there, so the two are never coplanar and never flicker. Every
+   * corridor also gets its own tiny slab depth, so even a crossing this solver
+   * did not see cannot end up sharing a plane.
+   */
+  const decks = useMemo(() => {
+    const key = (s: Segment) => s.walkway?.id ?? "root";
+    const rank = (s: Segment) => `${String(s.depth).padStart(3, "0")}:${key(s)}`;
+    const holes = new Map<string, { along: number; width: number }[]>();
+    const frontPads = new Map<string, number>();
+    const lifts = new Map<string, number>();
+
+    const ordered = [...segments].sort((a, b) => rank(a).localeCompare(rank(b)));
+    ordered.forEach((s, i) => lifts.set(key(s), (i % 6) * 0.004));
+
+    const addHole = (id: string, range: [number, number]) => {
+      const arr = holes.get(id) ?? [];
+      arr.push({ along: (range[0] + range[1]) / 2, width: range[1] - range[0] });
+      holes.set(id, arr);
+    };
+
+    for (let i = 0; i < segments.length; i += 1) {
+      for (let j = i + 1; j < segments.length; j += 1) {
+        const A = segments[i];
+        const B = segments[j];
+        const hit = corridorCrossing(
+          { start: A.start, heading: A.heading, length: A.length },
+          { start: B.start, heading: B.heading, length: B.length },
+          HALL_WIDTH,
+        );
+        if (!hit) continue;
+        // The upper corridor keeps its slab; the lower one loses that stretch.
+        const upperIsA = rank(A).localeCompare(rank(B)) < 0;
+        const lower = upperIsA ? B : A;
+        addHole(key(lower), upperIsA ? hit.b : hit.a);
+        // A deck must not run its pad on past a road it crosses either.
+        const clamp = (s: Segment, range: [number, number]) => {
+          if (range[0] <= s.length) return;
+          const room = Math.max(0, range[0] - s.length);
+          frontPads.set(key(s), Math.min(frontPads.get(key(s)) ?? 3, room));
+        };
+        clamp(A, hit.a);
+        clamp(B, hit.b);
+      }
+    }
+    return { holes, frontPads, lifts };
+  }, [segments]);
+
+
 
   const rootSeg: Segment = useMemo(
     () =>
@@ -2798,6 +2879,9 @@ const HallwayScene = ({
                   ? junctionGeometry(HALL_WIDTH).branchTrim
                   : 0
               }
+              deckHoles={decks.holes.get(seg.walkway?.id ?? "root") ?? []}
+              deckLift={decks.lifts.get(seg.walkway?.id ?? "root") ?? 0}
+              frontPad={decks.frontPads.get(seg.walkway?.id ?? "root") ?? 3}
               capEnd={
                 !seg.children.some((c) => c.walkway?.direction === "forward") &&
                 !(seg.walkway ? connectors.has(seg.walkway.id) : false)
