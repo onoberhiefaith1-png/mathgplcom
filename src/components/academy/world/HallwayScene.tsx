@@ -627,42 +627,52 @@ const SegmentCorridor = ({
     })}
     <group position={[0, 0, -length / 2]}>
 
-      {/* floor — one continuous surface that runs through every cut */}
-<Surface
-        rotation-x={-Math.PI / 2}
-        position={[0, 0, deckZ]}
-        url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
-        presetKey={env.floor.preset}
-        color={env.floor.color}
-        scale={env.floor.scale}
-        offsetX={env.floor.offsetX}
-        offsetY={env.floor.offsetY}
-        repeat={env.floor.repeat}
-        fit={env.floor.fit}
-        brightness={env.floor.brightness}
-        planeW={HALL_WIDTH}
-        planeH={deckSpan}
-      >
-        <planeGeometry args={[HALL_WIDTH, deckSpan]} />
-      </Surface>
-      {/* roof / ceiling */}
-      <Surface
-        rotation-x={Math.PI / 2}
-        position={[0, HALL_HEIGHT, deckZ]}
-        url={env.roof.texture ? textures[env.roof.texture.path] : undefined}
-        presetKey={env.roof.preset}
-        color={env.roof.color}
-        scale={env.roof.scale}
-        offsetX={env.roof.offsetX}
-        offsetY={env.roof.offsetY}
-        repeat={env.roof.repeat}
-        fit={env.roof.fit}
-        brightness={env.roof.brightness}
-        planeW={HALL_WIDTH}
-        planeH={deckSpan}
-      >
-        <planeGeometry args={[HALL_WIDTH, deckSpan]} />
-      </Surface>
+      {/* FLOOR & CEILING — segmented decks. Each run is its own slab, cut where
+          another corridor's slab carries the crossing, so two decks never share
+          a plane at the same depth. `deckLift` gives this corridor its own real
+          slab depth, which is what removes the z-fighting for good. */}
+      {deckSpans.map(([a, b], i) => {
+        const runLen = b - a;
+        const zc = length / 2 - (a + b) / 2;
+        return (
+          <group key={`deck-${i}`}>
+            <Surface
+              rotation-x={-Math.PI / 2}
+              position={[0, deckLift, zc]}
+              url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
+              presetKey={env.floor.preset}
+              color={env.floor.color}
+              scale={env.floor.scale}
+              offsetX={env.floor.offsetX}
+              offsetY={env.floor.offsetY}
+              repeat={env.floor.repeat}
+              fit={env.floor.fit}
+              brightness={env.floor.brightness}
+              planeW={HALL_WIDTH}
+              planeH={runLen}
+            >
+              <planeGeometry args={[HALL_WIDTH, runLen]} />
+            </Surface>
+            <Surface
+              rotation-x={Math.PI / 2}
+              position={[0, HALL_HEIGHT - deckLift, zc]}
+              url={env.roof.texture ? textures[env.roof.texture.path] : undefined}
+              presetKey={env.roof.preset}
+              color={env.roof.color}
+              scale={env.roof.scale}
+              offsetX={env.roof.offsetX}
+              offsetY={env.roof.offsetY}
+              repeat={env.roof.repeat}
+              fit={env.roof.fit}
+              brightness={env.roof.brightness}
+              planeW={HALL_WIDTH}
+              planeH={runLen}
+            >
+              <planeGeometry args={[HALL_WIDTH, runLen]} />
+            </Surface>
+          </group>
+        );
+      })}
       {/* LEFT / RIGHT WALLS — solid RUNS of real blockwork, broken by this
           hallway's cut-throughs. Each run is a BOX of wall thickness, so every
           cut edge shows depth, catches light and casts a shadow instead of
