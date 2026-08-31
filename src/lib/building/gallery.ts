@@ -52,6 +52,11 @@ export const SURFACE_SAMPLES: SurfaceSample[] = [
   { key: "floor-scifi-grid", label: "Sci-Fi Floor Grid", style: "N", url: floorScifiGrid.url },
   { key: "floor-metal-panel", label: "Futuristic Metal Plate", style: "O", url: floorMetalPanel.url },
   { key: "floor-navy-brass", label: "Navy & Brass Plating", style: "P", url: floorNavyBrass.url },
+  // Ceiling panels — designed for the Roof surface, but usable anywhere.
+  { key: "ceiling-white-gold", label: "White & Gold Ceiling", style: "Q", url: ceilingWhiteGold.url },
+  { key: "ceiling-spaceship-white", label: "Spaceship Ceiling", style: "R", url: ceilingSpaceshipWhite.url },
+  { key: "ceiling-dark-amber-grid", label: "Dark Amber Ceiling Grid", style: "S", url: ceilingDarkAmberGrid.url },
+  { key: "ceiling-dark-blue-grid", label: "Dark Blue Ceiling Grid", style: "T", url: ceilingDarkBlueGrid.url },
 ];
 
 export const BUILTIN_PREFIX = "builtin:";
