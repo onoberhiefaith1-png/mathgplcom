@@ -9,3 +9,9 @@ describe("joinUrl", () => {
     expect(joinUrl("  ab12 ")).toBe(`${PUBLIC_SITE}/live/join/AB12`);
   });
 });
+
+describe("referralUrl", () => {
+  it("always points at the public MathGPL address with the token behind it", () => {
+    expect(referralUrl("ab12cd")).toBe(`${PUBLIC_SITE}/?ref=AB12CD`);
+  });
+});
