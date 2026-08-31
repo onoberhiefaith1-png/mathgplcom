@@ -5882,18 +5882,46 @@ const PresentationView = ({
           places the writing sensor on the nearest invisible baseline. */}
       <main
         ref={boardScrollRef}
-        className="relative z-10 h-full w-full overflow-x-hidden overflow-y-auto overscroll-contain"
+        className={`relative z-10 h-full w-full overflow-y-auto overscroll-contain ${
+          mobileStudent ? "overflow-x-auto" : "overflow-x-hidden"
+        }`}
         style={{
-          paddingTop: 24,
+          paddingTop: mobileStudent ? 8 : 24,
           // No bottom panel or tab; the canvas fills to the edge.
-          paddingBottom: 24,
+          paddingBottom: mobileStudent ? 8 : 24,
           paddingRight: 0,
           cursor: eraseMode ? "cell" : undefined,
           // Touch devices: a finger on the board writes/erases instead of
-          // triggering browser pan-zoom gestures.
-          touchAction: eraseMode ? "none" : "pan-y",
+          // triggering browser pan-zoom gestures. On a mobile student session
+          // pinch-zoom stays available and TWO fingers pan the viewport.
+          touchAction: eraseMode ? "none" : mobileStudent ? "pan-y pinch-zoom" : "pan-y",
           WebkitTapHighlightColor: "transparent",
         }}
+        onTouchStart={(e) => {
+          if (!mobileStudent || e.touches.length !== 2) return;
+          const host = boardScrollRef.current;
+          if (!host) return;
+          const [a, b] = [e.touches[0], e.touches[1]];
+          panRef.current = {
+            x: (a.clientX + b.clientX) / 2,
+            y: (a.clientY + b.clientY) / 2,
+            sl: host.scrollLeft,
+            st: host.scrollTop,
+          };
+        }}
+        onTouchMove={(e) => {
+          const start = panRef.current;
+          const host = boardScrollRef.current;
+          if (!start || !host || e.touches.length !== 2) return;
+          const [a, b] = [e.touches[0], e.touches[1]];
+          const cx = (a.clientX + b.clientX) / 2;
+          const cy = (a.clientY + b.clientY) / 2;
+          host.scrollLeft = start.sl - (cx - start.x);
+          host.scrollTop = start.st - (cy - start.y);
+        }}
+        onTouchEnd={() => { panRef.current = null; }}
+        onTouchCancel={() => { panRef.current = null; }}
+
 
         onPointerDown={(e) => {
           // WORKSPACE SWITCH — the cursor alone decides which floating
