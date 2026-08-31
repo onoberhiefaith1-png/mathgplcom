@@ -267,7 +267,12 @@ export function aiTextToNodes(
   if (!textIn) return [{ type: "paragraph" }];
   // The application owns the section heading. A duplicated "Example 3" /
   // "Classwork 2:" from the model is stripped, never treated as a failure.
-  const text = stripDuplicateHeading(textIn, opts?.existingHeading);
+  // Only strip when the caller names the heading it already renders. With no
+  // existing heading there is nothing to duplicate, and removing the label
+  // would silently delete a genuine "Example 2" / "Solution 2" section marker.
+  const text = opts?.existingHeading
+    ? stripDuplicateHeading(textIn, opts.existingHeading)
+    : textIn;
   if (!text.trim()) return [{ type: "paragraph" }];
   const out: TipTapNode[] = [];
   for (const part of splitDirectives(text, opts)) {
