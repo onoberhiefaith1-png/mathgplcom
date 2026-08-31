@@ -10,7 +10,7 @@
  * the destination that opens an existing product (never duplicated).
  */
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, DoorOpen, Plus, Route, Trash2, Wand2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, DoorOpen, Plus, Route, Trash2, Wand2 } from "lucide-react";
 import type {
   BuildingDoor,
   BuildingWalkway,
