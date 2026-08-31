@@ -18,6 +18,10 @@ import panelReception from "@/assets/surfaces/panel-reception.png.asset.json";
 import panelCreamBlue from "@/assets/surfaces/panel-cream-blue.png.asset.json";
 import panelSlattedWarm from "@/assets/surfaces/panel-slatted-warm.png.asset.json";
 import panelWalnutSlat from "@/assets/surfaces/panel-walnut-slat.png.asset.json";
+import floorScifiBlue from "@/assets/surfaces/floor-scifi-blue-lighting.png.asset.json";
+import floorScifiGrid from "@/assets/surfaces/floor-scifi-grid.png.asset.json";
+import floorMetalPanel from "@/assets/surfaces/floor-metal-panel.png.asset.json";
+import floorNavyBrass from "@/assets/surfaces/floor-navy-brass.png.asset.json";
 
 export interface SurfaceSample {
   key: string;
