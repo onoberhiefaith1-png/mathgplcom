@@ -48,8 +48,8 @@ export interface WalkwayManagerProps {
       position_along: number;
       content_kind: DoorContentKind;
       content_id: string;
-      title?: string;
-      style?: string;
+      title_override?: string | null;
+      style?: string | null;
     },
   ) => Promise<void>;
   onUpdateDoor: (id: string, position_along: number) => Promise<void>;
