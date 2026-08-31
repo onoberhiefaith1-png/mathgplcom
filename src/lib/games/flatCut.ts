@@ -132,45 +132,54 @@ const closePinholes = (mask: Uint8Array, w: number, h: number) => {
   for (const p of fill) mask[p] = 1;
 };
 
-/** Marks background pixels that touch the subject as the boundary band (2). */
-export const markBoundary = ({ mask, w, h }: MaskResult, radius = 1) => {
-  for (let r = 0; r < Math.max(1, radius); r++) {
+/**
+ * Marks background pixels that touch the subject as the boundary band (2) and
+ * reports how deep into the background each band pixel sits: depth 1 is the
+ * pixel touching the subject, depth `radius` is the outermost band pixel. That
+ * depth is what turns a hard cut into a graded, anti-aliased edge.
+ */
+export const markBoundary = ({ mask, w, h }: MaskResult, radius = 1): Uint8Array => {
+  const depth = new Uint8Array(w * h);
+  const rings = Math.max(1, Math.round(radius));
+  for (let r = 1; r <= rings; r++) {
     const band: number[] = [];
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const p = y * w + x;
         if (mask[p] !== 1) continue;
         const near =
-          (x > 0 && mask[p - 1] === 0) ||
-          (x < w - 1 && mask[p + 1] === 0) ||
-          (y > 0 && mask[p - w] === 0) ||
-          (y < h - 1 && mask[p + w] === 0) ||
-          (x > 0 && mask[p - 1] === 2) ||
-          (x < w - 1 && mask[p + 1] === 2) ||
-          (y > 0 && mask[p - w] === 2) ||
-          (y < h - 1 && mask[p + w] === 2);
+          (x > 0 && mask[p - 1] !== 1) ||
+          (x < w - 1 && mask[p + 1] !== 1) ||
+          (y > 0 && mask[p - w] !== 1) ||
+          (y < h - 1 && mask[p + w] !== 1);
         if (near) band.push(p);
       }
     }
     if (!band.length) break;
-    for (const p of band) mask[p] = 2;
+    for (const p of band) {
+      mask[p] = 2;
+      depth[p] = r;
+    }
   }
+  return depth;
 };
 
 /**
  * Applies the mask to the pixel buffer in place: background goes transparent,
- * the boundary band gets a graded alpha with the key hue pulled out of it, and
- * every other pixel is left exactly as it came in.
+ * the boundary band fades out across its full width with the key hue pulled out
+ * of it, and every other pixel is left exactly as it came in.
  */
 export const applyMaskToPixels = (
   data: Uint8ClampedArray,
   result: MaskResult,
   key: KeyColor,
-  feather = 1,
+  feather = DEFAULT_FEATHER,
 ) => {
-  markBoundary(result, Math.max(1, Math.round(feather)));
+  const rings = Math.max(1, Math.round(feather));
+  const depth = markBoundary(result, rings);
   const { mask, w, h } = result;
   const total = w * h;
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
   for (let p = 0; p < total; p++) {
     const i = p * 4;
     const m = mask[p];
@@ -179,12 +188,18 @@ export const applyMaskToPixels = (
       continue;
     }
     if (m !== 2) continue;
-    // Boundary: half-transparent, and de-spilled so no key-coloured fringe
-    // survives on a dark backdrop.
-    data[i + 3] = 110;
-    data[i] = Math.max(0, Math.min(255, Math.round((data[i] ?? 0) - (key.r - 128) * 0.12)));
-    data[i + 1] = Math.max(0, Math.min(255, Math.round((data[i + 1] ?? 0) - (key.g - 128) * 0.12)));
-    data[i + 2] = Math.max(0, Math.min(255, Math.round((data[i + 2] ?? 0) - (key.b - 128) * 0.12)));
+    // Graded alpha: opaque next to the subject, fading to nothing at the outer
+    // edge of the band, so the cut has a soft anti-aliased edge instead of a
+    // single hard step.
+    const d = depth[p] || 1;
+    const t = 1 - d / (rings + 1); // 0 < t <= rings/(rings+1)
+    data[i + 3] = clamp((data[i + 3] ?? 255) * t);
+    // De-spill scaled by the same weight: only genuinely mixed pixels get the
+    // key hue removed, so nothing solid is tinted.
+    const spill = 0.35 * (1 - t);
+    data[i] = clamp((data[i] ?? 0) - (key.r - 128) * spill);
+    data[i + 1] = clamp((data[i + 1] ?? 0) - (key.g - 128) * spill);
+    data[i + 2] = clamp((data[i + 2] ?? 0) - (key.b - 128) * spill);
   }
 };
 
@@ -205,6 +220,7 @@ export const cutFrame = (
 ): number => {
   const result = buildBackgroundMask({ data, w, h }, key, opts);
   const coverage = maskCoverage(result);
-  applyMaskToPixels(data, result, key, opts.feather ?? 1);
+  applyMaskToPixels(data, result, key, opts.feather ?? DEFAULT_FEATHER);
   return coverage;
 };
+
