@@ -3,9 +3,9 @@
 Empty fraction bar
 - New repair step ahead of conversion (used by `aiTextToNodes` in
   `src/lib/lessonnotes/aiToNodes.ts` and by `analyzeProblem`): map stray control
-  characters back to their macro names (`\f`→`\frac`, `\b`→`\binom`/`\bar`,
-  `\v`→`\vec`, `\t`→`\tfrac` only when followed by the matching残 letters, e.g.
-  `\x0crac` → `\frac`), so `\frac{140}{2}` survives JSON transport.
+  characters back to their macro names, only when the following letters complete a
+  known macro (form feed + `rac` → `\frac`, backspace + `inom` → `\binom`,
+  vertical tab + `ec` → `\vec`), so `\frac{140}{2}` survives transport.
 - `src/lib/notebook/mathDisplayGate.ts`: `assertDisplaySafe` gains a
   `mode: "generated" | "editing"`. In `generated` mode an unbalanced `\frac` /
   `\sqrt` is dropped (with its consumed operands) instead of emitting
