@@ -2829,17 +2829,16 @@ const HallwayScene = ({
         </>
       )}
 
-      {canBack && (
-        <WalkControls
-          action={junctionAction}
-          moving={moving}
-          ended={endReached}
-          onForwardStart={startPointerHold}
-          onForwardEnd={endPointerHold}
-          onTurnAround={goBack}
-          onJunction={runJunctionAction}
-        />
-      )}
+      <WalkControls
+        action={junctionAction}
+        moving={moving}
+        ended={endReached}
+        onForwardStart={startPointerHold}
+        onForwardEnd={endPointerHold}
+        onTurnAround={goBack}
+        onJunction={runJunctionAction}
+      />
+
 
       {/* Fixed structural map — always on, top-right, like a racing minimap */}
       <MiniMap
