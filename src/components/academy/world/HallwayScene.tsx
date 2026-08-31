@@ -153,6 +153,34 @@ const findSegment = (segs: Segment[], id: string): Segment | null => {
 // without disturbing another surface that shows the same image. Decoded images
 // are cached by the browser, so loading the same URL twice is cheap.
 
+/**
+ * Textures are cached per URL for the lifetime of the page and never disposed
+ * while the scene is alive: a component unmount (or React's double-invoked
+ * effects) must not pull the image out from under another surface or door that
+ * shows the same design.
+ */
+const textureCache = new Map<string, Promise<THREE.Texture | null>>();
+
+const loadTexture = (url: string): Promise<THREE.Texture | null> => {
+  const hit = textureCache.get(url);
+  if (hit) return hit;
+  const p = new Promise<THREE.Texture | null>((resolve) => {
+    new THREE.TextureLoader().load(
+      url,
+      (t) => {
+        t.anisotropy = 4;
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.needsUpdate = true;
+        resolve(t);
+      },
+      undefined,
+      () => resolve(null),
+    );
+  });
+  textureCache.set(url, p);
+  return p;
+};
+
 const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null => {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
   useEffect(() => {
@@ -161,28 +189,11 @@ const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null 
       return;
     }
     let live = true;
-    let loaded: THREE.Texture | null = null;
-    new THREE.TextureLoader().load(
-      url,
-      (t) => {
-        t.anisotropy = 4;
-        t.colorSpace = THREE.SRGBColorSpace;
-        t.needsUpdate = true;
-        if (!live) {
-          t.dispose();
-          return;
-        }
-        loaded = t;
-        setTex(t);
-      },
-      undefined,
-      () => {
-        if (live) setTex(null);
-      },
-    );
+    loadTexture(url).then((t) => {
+      if (live) setTex(t);
+    });
     return () => {
       live = false;
-      loaded?.dispose();
     };
   }, [url]);
   return tex;
