@@ -363,6 +363,13 @@ const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null 
   return tex;
 };
 
+/** Grey value for a faithful (unlit) textured surface: 1 = exactly as imported. */
+const brightnessColor = (brightness: number): string => {
+  const v = Math.min(2, Math.max(0.2, Number.isFinite(brightness) ? brightness : 1));
+  const c = new THREE.Color(1, 1, 1).multiplyScalar(Math.min(1, v));
+  return `#${c.getHexString()}`;
+};
+
 /** One surface (wall / floor / roof) of a corridor segment. */
 const Surface = ({
   url,
@@ -373,6 +380,7 @@ const Surface = ({
   offsetY,
   repeat,
   fit,
+  brightness = 1,
   planeW,
   planeH,
   position,
@@ -390,6 +398,8 @@ children,
   offsetY: number;
   repeat: boolean;
   fit: "cover" | "stretch";
+  /** 0.2 – 2, 1 = exactly as imported. Only affects textured surfaces. */
+  brightness?: number;
   planeW: number;
   planeH: number;
   position?: [number, number, number];
@@ -403,7 +413,10 @@ children?: React.ReactNode;
   const mat = presetMaterial(presetKey, color);
   const map = tex ?? null;
   // Fit the texture to the plane. Runs when the texture or its placement
-  // changes — never during render.
+  // changes — never during render. The material is flagged so the new
+  // placement is visible immediately, without waiting for anything else to
+  // change in the scene.
+  const matRef = useRef<THREE.Material | null>(null);
   useEffect(() => {
     if (!tex) return;
     const img = tex.image as { width?: number; height?: number } | undefined;
@@ -414,18 +427,20 @@ children?: React.ReactNode;
       const s = Math.max(0.1, scale);
       tex.repeat.set(s, s);
       tex.offset.set(offsetX, offsetY);
-      return;
+    } else {
+      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+      if (fit === "stretch") {
+        tex.repeat.set(1, 1);
+        tex.offset.set(0, 0);
+      } else {
+        const fitted = coverFit(planeW, planeH, iw, ih, scale, offsetX, offsetY);
+        tex.repeat.set(fitted.repeat[0], fitted.repeat[1]);
+        tex.offset.set(fitted.offset[0], fitted.offset[1]);
+      }
     }
-    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-    if (fit === "stretch") {
-      tex.repeat.set(1, 1);
-      tex.offset.set(0, 0);
-      return;
-    }
-    const fitted = coverFit(planeW, planeH, iw, ih, scale, offsetX, offsetY);
-    tex.repeat.set(fitted.repeat[0], fitted.repeat[1]);
-    tex.offset.set(fitted.offset[0], fitted.offset[1]);
-  }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH]);
+    tex.needsUpdate = true;
+    if (matRef.current) matRef.current.needsUpdate = true;
+  }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH, brightness]);
 return (
     <mesh
       position={position}
@@ -435,15 +450,28 @@ return (
       receiveShadow={receiveShadow}
     >
       {children}
-      <meshStandardMaterial
-        color={map ? textureTint(mat.color) : mat.color}
-        map={map}
-        roughness={mat.roughness}
-        metalness={mat.metalness}
-        emissive={mat.emissive ?? "#000000"}
-        emissiveIntensity={mat.emissiveIntensity ?? 0}
-        side={THREE.DoubleSide}
-      />
+      {map ? (
+        // An imported image is artwork, not plaster: it is rendered unlit and
+        // outside tone mapping so it looks exactly like the source file, the
+        // same in every hallway, whatever the corridor lighting is doing.
+        <meshBasicMaterial
+          ref={matRef as never}
+          color={brightnessColor(brightness)}
+          map={map}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
+      ) : (
+        <meshStandardMaterial
+          ref={matRef as never}
+          color={mat.color}
+          roughness={mat.roughness}
+          metalness={mat.metalness}
+          emissive={mat.emissive ?? "#000000"}
+          emissiveIntensity={mat.emissiveIntensity ?? 0}
+          side={THREE.DoubleSide}
+        />
+      )}
     </mesh>
   );
 };
