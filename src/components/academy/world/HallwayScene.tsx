@@ -2721,6 +2721,29 @@ const HallwayScene = ({
             </group>
           ))}
 
+        {/* THE ENTRANCE DOOR — one fixture derived from the main hallway (never
+            a stored door, so editing the building cannot duplicate it). It caps
+            the start of the corridor, so turning around and walking back always
+            ends at a real door instead of a blank wall. Clicking it leaves. */}
+        <group
+          position={[rootEffective.start[0], 0, rootEffective.start[1]]}
+          rotation-y={segYaw(rootEffective.heading)}
+        >
+          <DoorMesh
+            atStart
+            side={1}
+            z={0}
+            label="Building entrance"
+            sublabel="Exit the building"
+            accent="#7dd3fc"
+            color={env.door.color}
+            emissiveIntensity={env.door.brightness * 0.12}
+            styleKey={env.door.style}
+            textureUrl={env.door.texture ? textures[env.door.texture.path] : undefined}
+            onEnter={exitBuilding}
+          />
+        </group>
+
         {/* The hallway you came from stays connected and selectable */}
         {nav.seg.walkway?.parent_id &&
           (() => {
