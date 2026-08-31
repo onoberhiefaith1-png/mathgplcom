@@ -14,26 +14,28 @@ interface Props {
 }
 
 const Icon = ({ state }: { state: BuildItem["state"] }) =>
-  state === "done" ? <Check className="h-3 w-3 mt-0.5 text-emerald-400" />
-    : state === "running" ? <Loader2 className="h-3 w-3 mt-0.5 animate-spin text-amber-300" />
-    : state === "failed" ? <X className="h-3 w-3 mt-0.5 text-red-400" />
-    : <CircleDot className="h-3 w-3 mt-0.5 text-foreground/25" />;
+  state === "done" ? <Check className="h-3.5 w-3.5 mt-0.5 text-emerald-600" />
+    : state === "running" ? <Loader2 className="h-3.5 w-3.5 mt-0.5 animate-spin text-amber-500" />
+    : state === "failed" ? <X className="h-3.5 w-3.5 mt-0.5 text-destructive" />
+    : <CircleDot className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />;
 
 const BuildProgress = ({ queue, onResume, showResume, onRebuildItem, busy }: Props) => {
   if (!queue.length) return null;
   const done = queue.filter((q) => q.state === "done").length;
   return (
     <div className="rounded-xl border border-foreground/12 bg-foreground/[0.04] p-3 space-y-2">
-      <p className="text-[9px] uppercase tracking-[0.28em] text-foreground/40">
+      <p className="text-[9px] uppercase tracking-[0.28em] text-muted-foreground">
         Lesson build · {done}/{queue.length}
       </p>
       <ul className="space-y-1">
         {queue.map((q) => (
-          <li key={q.key} className="flex items-start gap-2 text-[11.5px]">
+          <li key={q.key} className="flex items-start gap-2 text-xs">
             <Icon state={q.state} />
-            <span className={q.state === "pending" ? "text-foreground/40" : "text-foreground/80"}>
+            {/* Full-contrast ink for every state — the icon carries progress. */}
+            <span className="font-medium text-foreground">
               {q.label}{q.detail ? ` — ${q.detail}` : ""}
             </span>
+
             {q.solutionStale && onRebuildItem && (
               <Button
                 size="sm" variant="ghost" disabled={busy}
