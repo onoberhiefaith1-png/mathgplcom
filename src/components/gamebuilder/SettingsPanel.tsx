@@ -8,6 +8,7 @@ import {
   ListChecks,
   RotateCcw,
   SkipForward,
+  Sparkles,
   Trash2,
   Upload,
 } from "lucide-react";
