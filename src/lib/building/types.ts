@@ -66,6 +66,8 @@ export interface EnvironmentSettings {
   rightWall: SurfaceDesign;
   floor: SurfaceDesign;
   roof: SurfaceDesign;
+  /** Terminal wall at the far end of a hallway that does not continue. */
+  endWall: SurfaceDesign;
   door: DoorDesign;
   lighting: LightingSettings;
   effects: EffectsSettings;
