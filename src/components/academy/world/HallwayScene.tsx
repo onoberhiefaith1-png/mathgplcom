@@ -1743,6 +1743,19 @@ const HallwayScene = ({
     return map;
   }, [doors]);
 
+  /** The hallway you are in, plus the ones directly connected to it. */
+  const nearbyIds = useMemo(() => {
+    const ids = new Set<string>();
+    const add = (s: Segment | null | undefined) => {
+      if (s) ids.add(s.walkway?.id ?? "root");
+    };
+    add(nav.seg);
+    nav.seg.children.forEach(add);
+    if (nav.seg.walkway?.parent_id) add(findSegment(segments, nav.seg.walkway.parent_id));
+    return ids;
+  }, [nav.seg, segments]);
+
+
   /** Doors and sub-hallway openings of one hallway, from the shared layout. */
   const renderObjects = (seg: Segment) => {
     if (!seg.walkway) return null;
