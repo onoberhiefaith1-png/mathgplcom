@@ -139,6 +139,12 @@ export interface BuildingWalkwayLink {
   to_walkway_id: string;
   from_position: number;
   to_position: number;
+  /**
+   * The real CORRIDOR hallway built for this connection. A connection is a
+   * physical road with floor, walls, ceiling and object slots — never a line —
+   * so it owns a walkway of its own that stops at `to_walkway_id`.
+   */
+  corridor_walkway_id: string | null;
   created_at: string;
   updated_at: string;
 }

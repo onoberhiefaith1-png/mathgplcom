@@ -121,6 +121,7 @@ export async function addWalkwayLink(
   fromWalkwayId: string,
   toWalkwayId: string,
   positions: { from: number; to: number },
+  corridorWalkwayId: string | null = null,
 ): Promise<string> {
   const { data: userData } = await supabase.auth.getUser();
   const { data, error } = await supabase
@@ -131,6 +132,7 @@ export async function addWalkwayLink(
       to_walkway_id: toWalkwayId,
       from_position: positions.from,
       to_position: positions.to,
+      corridor_walkway_id: corridorWalkwayId,
       created_by: userData.user?.id ?? null,
     } as never)
     .select("*")
@@ -144,9 +146,55 @@ export async function addWalkwayLink(
   return (data as unknown as BuildingWalkwayLink).id;
 }
 
+/**
+ * CONNECT HALLWAY — build a real corridor between two hallways that exist.
+ *
+ * The corridor is a genuine hallway branching off `fromWalkwayId` (so it has
+ * floor, both walls, ceiling, lighting and object slots like every other road);
+ * the link row records which hallway it must stop at, and the renderer trims it
+ * at that hallway and opens a junction there.
+ */
+export async function connectHallways(
+  buildingId: string,
+  fromWalkwayId: string,
+  toWalkwayId: string,
+  positions: { from: number; to: number },
+  direction: WalkwayDirection,
+  name: string,
+): Promise<{ linkId: string; corridorWalkwayId: string }> {
+  const corridorWalkwayId = await addWalkway(
+    buildingId,
+    fromWalkwayId,
+    direction === "forward" ? "right" : direction,
+    name,
+    positions.from,
+  );
+  try {
+    const linkId = await addWalkwayLink(
+      buildingId,
+      fromWalkwayId,
+      toWalkwayId,
+      positions,
+      corridorWalkwayId,
+    );
+    return { linkId, corridorWalkwayId };
+  } catch (err) {
+    // Never leave a stray corridor behind if the connection record fails.
+    await supabase.from("building_walkways").delete().eq("id", corridorWalkwayId);
+    throw err;
+  }
+}
+
 export async function deleteWalkwayLink(id: string): Promise<void> {
+  const { data } = await supabase
+    .from("building_walkway_links")
+    .select("corridor_walkway_id")
+    .eq("id", id)
+    .maybeSingle();
   const { error } = await supabase.from("building_walkway_links").delete().eq("id", id);
   fail(error);
+  const corridorId = (data as { corridor_walkway_id: string | null } | null)?.corridor_walkway_id;
+  if (corridorId) await supabase.from("building_walkways").delete().eq("id", corridorId);
 }
 
 export async function updateEnvironment(

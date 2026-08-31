@@ -37,6 +37,8 @@ import { presetMaterial } from "@/lib/building/presets";
 import { coverFit } from "@/lib/building/imageFit";
 import {
   branchHeading,
+  connectorMeeting,
+  insertGeometricMouth,
   easeInOut,
   forwardFromYaw,
   layoutHallwayObjects,
@@ -87,6 +89,19 @@ interface DoorObjectInput {
 interface HallwayLayout {
   segments: Segment[];
   layouts: Map<string, HallwayObject[]>;
+  /**
+   * Corridor hallways built by Connect Hallway, keyed by the corridor's own
+   * walkway id: each one STOPS at `targetWalkwayId`, where an open junction is
+   * created, so the walker can carry on into that hallway.
+   */
+  connectors: Map<string, ConnectorInfo>;
+}
+
+export interface ConnectorInfo {
+  linkId: string;
+  targetWalkwayId: string;
+  /** distance along the target hallway where the corridor arrives */
+  alongTarget: number;
 }
 
 const buildHallways = (
@@ -98,11 +113,15 @@ const buildHallways = (
 ): HallwayLayout => {
   const segments: Segment[] = [];
   const layouts = new Map<string, HallwayObject[]>();
+  const connectors = new Map<string, ConnectorInfo>();
+  // A connection with a corridor is a real road (already a child hallway); only
+  // legacy connections without one are still drawn as a plain mouth pair.
+  const lineLinks = links.filter((l) => !l.corridor_walkway_id);
   const nameOf = (id: string) => walkways.find((w) => w.id === id)?.name ?? "Hallway";
 
   /** Connections that surface on this hallway, from either end of the link. */
   const linkObjects = (walkwayId: string) =>
-    links
+    lineLinks
       .filter((l) => l.from_walkway_id === walkwayId || l.to_walkway_id === walkwayId)
       .map((l) => {
         const outgoing = l.from_walkway_id === walkwayId;
@@ -172,7 +191,50 @@ const buildHallways = (
     .sort((a, b) => a.position - b.position)
     .forEach((w) => walk(w, [0, 0], [0, -1], 0));
 
-  return { segments, layouts };
+  // ── Connector corridors: trim each one at the hallway it connects to, and
+  // open a real junction there. A corridor never passes through a hallway.
+  for (const l of links) {
+    if (!l.corridor_walkway_id) continue;
+    const corridor = findSegment(segments, l.corridor_walkway_id);
+    const target = findSegment(segments, l.to_walkway_id);
+    if (!corridor || !target || !corridor.walkway) continue;
+    const meet = connectorMeeting(
+      { start: corridor.start, heading: corridor.heading },
+      { start: target.start, heading: target.heading, length: target.length },
+      HALL_WIDTH,
+    );
+    if (!meet) continue;
+    corridor.length = meet.length;
+    // Anything that would have sat beyond the trimmed end is dropped, so no
+    // door hangs outside the corridor or at the junction it opens into.
+    layouts.set(
+      corridor.walkway.id,
+      (layouts.get(corridor.walkway.id) ?? []).filter((o) => o.along < meet.length - SPACING * 0.6),
+    );
+    const targetId = target.walkway?.id ?? "";
+    layouts.set(
+      targetId,
+      insertGeometricMouth(
+        layouts.get(targetId) ?? [],
+        {
+          kind: "link",
+          id: l.id,
+          name: corridor.walkway.name,
+          side: meet.targetSide,
+          along: meet.alongTarget,
+          targetWalkwayId: corridor.walkway.id,
+        },
+        SPACING,
+      ),
+    );
+    connectors.set(corridor.walkway.id, {
+      linkId: l.id,
+      targetWalkwayId: targetId,
+      alongTarget: meet.alongTarget,
+    });
+  }
+
+  return { segments, layouts, connectors };
 };
 
 
@@ -964,7 +1026,18 @@ const ParentConnection = ({
 
 // ── Navigation machine ────────────────────────────────────────────────────
 
-export type NavPhase = "browse" | "walking" | "turning" | "retracing" | "zooming" | "idle";
+/**
+ * Ease a yaw toward a target by the SHORT way round, so a heading change at a
+ * junction never spins the camera the long way through the walls.
+ */
+const shortestYaw = (current: number, target: number, k: number): number => {
+  let delta = (target - current) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  if (delta < -Math.PI) delta += Math.PI * 2;
+  return current + delta * k;
+};
+
+export type NavPhase = "browse" | "walking" | "turning" | "zooming" | "idle";
 
 interface TurnSpec {
   pivot: [number, number];
@@ -993,10 +1066,17 @@ interface Machine {
   dist: number;
   moving: boolean;
   /**
-   * TRUE only while the user is actively holding Forward. The camera never
-   * travels on its own: movement is the direct result of this input intent.
+   * The user's INPUT INTENT: 0 = nothing held, 1 = Forward held, -1 = Backward
+   * held. The camera never travels on its own — movement is the direct result
+   * of this value, and it returns to 0 the instant the control is released.
    */
-  holding: boolean;
+  hold: -1 | 0 | 1;
+  /**
+   * Which way the walker faces along the hallway: 1 = along the road's heading,
+   * -1 = back the way they came. Pressing Backward turns the camera around
+   * (a real about-face) and then walks in that direction.
+   */
+  dir: 1 | -1;
   /** current walking speed, ramped so the walk never starts or stops dead */
   speed: number;
   /**
@@ -1025,7 +1105,7 @@ const CameraRig = ({
   rootLen,
   onWalkEnd,
   onJunctionReach,
-  onRetraceEnd,
+  onBoundary,
   setPhase,
 }: {
   focus: number;
@@ -1035,7 +1115,12 @@ const CameraRig = ({
   onWalkEnd: () => void;
   /** Arrived alongside a junction opening mid-hallway. */
   onJunctionReach: () => void;
-  onRetraceEnd: () => void;
+  /**
+   * Walked off one end of the current hallway. Returns TRUE when the walker was
+   * handed over to a connected hallway (movement continues), FALSE when this end
+   * is a real boundary and the walk must stop there.
+   */
+  onBoundary: (sign: 1 | -1) => boolean;
   setPhase: (p: NavPhase) => void;
 }) => {
   useFrame(({ camera }, rawDelta) => {
@@ -1057,22 +1142,32 @@ const CameraRig = ({
     }
 
 if (st.phase === "walking" || st.phase === "idle") {
-      const seg = st.seg;
-      // FIRST-PERSON HOLD-TO-WALK: the camera travels only while Forward is
-      // held. Speed ramps up and down with frame-rate-independent damping, so
-      // starting and stopping is smooth, and the position is never reset —
-      // releasing and holding again continues from exactly where it stopped.
-      const limit = seg.length;
-      const wanted = st.holding ? WALK_SPEED : 0;
+      let seg = st.seg;
+      // FIRST-PERSON HOLD-TO-WALK: the camera travels only while Forward or
+      // Backward is held. Speed ramps up and down with frame-rate-independent
+      // damping, so starting and stopping is smooth, and the position is never
+      // reset — releasing and holding again continues from exactly where it
+      // stopped. Reaching the end of a hallway that CONTINUES hands the walker
+      // over to the connected hallway without stopping or teleporting.
+      const wanted = st.hold !== 0 ? WALK_SPEED : 0;
       st.speed = THREE.MathUtils.lerp(st.speed, wanted, 1 - Math.exp(-9 * dt));
       if (st.speed > 0.001) {
-        st.dist = THREE.MathUtils.clamp(st.dist + dt * st.speed, 0, limit);
+        st.dist += dt * st.speed * st.dir;
+        if (st.dist > seg.length) {
+          if (onBoundary(1)) seg = st.seg;
+          else st.dist = seg.length;
+        } else if (st.dist < 0) {
+          if (onBoundary(-1)) seg = st.seg;
+          else st.dist = 0;
+        }
       }
-
+      seg = st.seg;
+      const limit = seg.length;
       const d = st.dist;
       const px = seg.start[0] + seg.heading[0] * d;
       const pz = seg.start[1] + seg.heading[1] * d;
-      st.yaw = THREE.MathUtils.lerp(st.yaw, segYaw(seg.heading), k);
+      const facing = st.dir === 1 ? seg.heading : reverseHeading(seg.heading);
+      st.yaw = shortestYaw(st.yaw, segYaw(facing), k);
       camera.position.x = THREE.MathUtils.lerp(camera.position.x, px, k);
       camera.position.y = 1.75;
       camera.position.z = THREE.MathUtils.lerp(camera.position.z, pz, k);
@@ -1082,7 +1177,7 @@ if (st.phase === "walking" || st.phase === "idle") {
       // brakes the walk. The terminal wall still stops the walker.
       const atOpening = st.stops.some((s) => Math.abs(s - d) < 2.5);
       if (atOpening) onJunctionReach();
-      if (d >= limit - 0.05) onWalkEnd();
+      if (st.dir === 1 && d >= limit - 0.05) onWalkEnd();
       return;
 
     }
@@ -1111,21 +1206,6 @@ if (st.phase === "walking" || st.phase === "idle") {
         st.turn = null;
         t.onDone();
       }
-      return;
-    }
-
-    if (st.phase === "retracing") {
-      const seg = st.seg;
-      st.dist = Math.max(0, st.dist - dt * WALK_SPEED);
-      const d = st.dist;
-      const px = seg.start[0] + seg.heading[0] * d;
-      const pz = seg.start[1] + seg.heading[1] * d;
-      camera.position.x = THREE.MathUtils.lerp(camera.position.x, px, k);
-      camera.position.y = 1.75;
-      camera.position.z = THREE.MathUtils.lerp(camera.position.z, pz, k);
-      const dir = forwardFromYaw(st.yaw); // kept at the reverse heading
-      camera.lookAt(camera.position.x + dir[0] * 6, 1.75, camera.position.z + dir[1] * 6);
-      if (d <= 0) onRetraceEnd();
       return;
     }
 
@@ -1170,7 +1250,6 @@ const WalkControls = ({
   onHoldEnd,
 
   onTurn,
-  onBack,
   ended,
 }: {
   atJunction: boolean;
@@ -1178,12 +1257,14 @@ const WalkControls = ({
   hasForward: boolean;
   canBack: boolean;
   moving: boolean;
-  /** Press-and-hold Forward: movement lasts exactly as long as the hold. */
-  onHoldStart: () => void;
+  /**
+   * Press-and-hold to walk: movement lasts exactly as long as the hold.
+   * 1 = Forward, -1 = Backward (the camera turns around and retraces the road).
+   */
+  onHoldStart: (sign: 1 | -1) => void;
   onHoldEnd: () => void;
 
   onTurn: (seg: Segment) => void;
-  onBack: () => void;
   ended: boolean;
 }) => (
 
@@ -1227,16 +1308,24 @@ const WalkControls = ({
     )}
     {!atJunction && ended && (
       <p className="rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
-        End of walkway — add branches or extend it in the editor
+        End of the hallway — hold ▼ to turn round and walk back
       </p>
     )}
     <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 p-1.5 backdrop-blur">
       {canBack && (
         <button
           type="button"
-          aria-label="Walk back"
-          onClick={onBack}
-          className="inline-flex h-14 w-14 items-center justify-center rounded-full text-foreground hover:bg-muted"
+          aria-label="Hold to walk back"
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture?.(e.pointerId);
+            onHoldStart(-1);
+          }}
+          onPointerUp={onHoldEnd}
+          onPointerCancel={onHoldEnd}
+          onPointerLeave={onHoldEnd}
+          onLostPointerCapture={onHoldEnd}
+          onContextMenu={(e) => e.preventDefault()}
+          className="inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full text-foreground hover:bg-muted"
         >
           ▼
         </button>
@@ -1246,7 +1335,7 @@ const WalkControls = ({
         aria-label="Hold to walk forward"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture?.(e.pointerId);
-          onHoldStart();
+          onHoldStart(1);
         }}
         onPointerUp={onHoldEnd}
         onPointerCancel={onHoldEnd}
@@ -1282,6 +1371,12 @@ const useMapFrames = (active: boolean) => {
 
 const MAP_SIZES = { S: 0.72, M: 1, L: 1.4 } as const;
 type MapSize = keyof typeof MAP_SIZES;
+
+/**
+ * Pixels per metre on the map. Fixed, so the plan never rescales as the
+ * building grows — the window follows the walker instead.
+ */
+const MAP_METRE = 2.6;
 
 const MiniMap = ({
   segments,
@@ -1343,19 +1438,14 @@ const MiniMap = ({
     const maxZ = Math.max(...zs);
     const W = 210;
     const H = 170;
-    const PAD = 22;
-    // A single short hallway must not stretch edge to edge, so the layout is
-    // measured against a minimum span before it is scaled.
-    const spanX = Math.max(10, maxX - minX);
-    const spanZ = Math.max(10, maxZ - minZ);
-    const sc = Math.min((W - PAD * 2) / spanX, (H - PAD * 2) / spanZ);
-    // Centre the drawing inside the panel: balanced padding on all four sides.
-    const offX = (W - spanX * sc) / 2 + ((spanX - (maxX - minX)) / 2) * sc;
-    const offY = (H - spanZ * sc) / 2 + ((spanZ - (maxZ - minZ)) / 2) * sc;
-    const px = (x: number) => (x - minX) * sc + offX;
+    // CONSTANT SCALE. The map is a GPS view, not a diagram that shrinks: one
+    // metre of building is always the same number of pixels, however large the
+    // maze grows, and the viewport follows the walker instead of rescaling.
+    const sc = MAP_METRE;
+    const px = (x: number) => (x - minX) * sc;
     // The entrance sits at the BOTTOM of the plan and travel reads upward, like
     // a floor plan on a wall. The map never rotates with the walker.
-    const py = (z: number) => (z - minZ) * sc + offY;
+    const py = (z: number) => (z - minZ) * sc;
 
     return { W, H, px, py, lines, linkLines, doorDots, ends, parentOf };
   }, [segments, layouts]);
@@ -1400,8 +1490,14 @@ const MiniMap = ({
   // the facing chevron must not invert it — inverting made the arrow point back
   // down the plan while the walker travelled up it.
   const uy = hy / len;
-  const chevron = `${ax + ux * 8},${ay + uy * 8} ${ax - ux * 5 - uy * 5},${ay - uy * 5 + ux * 5} ${ax - ux * 2},${ay - uy * 2} ${ax - ux * 5 + uy * 5},${ay - uy * 5 - ux * 5}`;
+  const cx0 = 105;
+  const cy0 = 85;
+  const chevron = `${cx0 + ux * 8},${cy0 + uy * 8} ${cx0 - ux * 5 - uy * 5},${cy0 - uy * 5 + ux * 5} ${cx0 - ux * 2},${cy0 - uy * 2} ${cx0 - ux * 5 + uy * 5},${cy0 - uy * 5 - ux * 5}`;
   const scale = MAP_SIZES[size];
+  // GPS-style follow: the drawing slides under a fixed-size window so the
+  // walker stays in the middle of the panel at all times.
+  const viewX = svg.W / 2 - ax;
+  const viewY = svg.H / 2 - ay;
 
   return (
     <div className="pointer-events-none absolute right-6 top-20 z-10 select-none">
@@ -1446,6 +1542,7 @@ const MiniMap = ({
               </feMerge>
             </filter>
           </defs>
+          <g transform={`translate(${viewX} ${viewY})`}>
           {/* hallways: dark blue elsewhere, medium blue on the active route,
               bright blue for the hallway the student is standing in */}
           {svg.lines.map((l) => {
@@ -1550,8 +1647,9 @@ const MiniMap = ({
               </g>
             );
           })}
+          </g>
           {/* the student: a glowing blue directional marker that moves live */}
-          <circle cx={ax} cy={ay} r={7} fill="#38bdf8" opacity={0.18} filter="url(#mapGlow)">
+          <circle cx={svg.W / 2} cy={svg.H / 2} r={7} fill="#38bdf8" opacity={0.18} filter="url(#mapGlow)">
             <animate attributeName="r" values="6;10;6" dur="1.8s" repeatCount="indefinite" />
           </circle>
           <polygon points={chevron} fill="#7dd3fc" stroke="#0b1428" strokeWidth={0.8} filter="url(#mapGlow)" />
@@ -1637,7 +1735,7 @@ const HallwayScene = ({
   );
 
 
-  const { segments, layouts } = useMemo(
+  const { segments, layouts, connectors } = useMemo(
     () =>
       buildHallways(
         walkways,
@@ -1683,7 +1781,8 @@ const HallwayScene = ({
     seg: rootEffective,
     dist: 0,
     moving: false,
-    holding: false,
+    hold: 0,
+    dir: 1,
     speed: 0,
 
     stops: [],
@@ -1778,7 +1877,8 @@ const HallwayScene = ({
     st.seg = rootEffective;
     st.dist = 0;
     st.moving = false;
-    st.holding = false;
+    st.hold = 0;
+    st.dir = 1;
     st.speed = 0;
     st.yaw = 0;
     st.turn = null;
@@ -1792,20 +1892,54 @@ const HallwayScene = ({
     syncBreadcrumb();
   }, [rootEffective, notifyMode, syncBreadcrumb]);
 
-  /** Press-and-hold Forward. Nothing moves until the hold begins. */
-  const startHold = useCallback(() => {
-    const st = machineRef.current;
-    if (st.phase !== "walking" && st.phase !== "idle") return;
-    if (st.dist >= st.seg.length - 0.05) return; // at the terminal wall
-    st.holding = true;
-    st.moving = true;
-    setMoving(true);
-    setMachinePhase("walking");
-  }, [setMachinePhase]);
+  /**
+   * Press-and-hold to walk. `sign` is the user's intent: 1 = Forward,
+   * -1 = Backward. Backward performs a real about-face first (the camera turns
+   * 180° in place) and then keeps walking that way for as long as it is held.
+   * Nothing ever moves without a held control.
+   */
+  const startHold = useCallback(
+    (sign: 1 | -1) => {
+      const st = machineRef.current;
+      if (st.phase === "zooming") return;
+      if (st.phase !== "walking" && st.phase !== "idle" && st.phase !== "turning") return;
+      st.hold = sign;
+      st.moving = true;
+      setMoving(true);
+      setEndReached(false);
+      if (st.dir !== sign && st.phase !== "turning") {
+        // About-face: turn on the spot, then carry on in the new direction.
+        const seg = st.seg;
+        const pos: [number, number] = [
+          seg.start[0] + seg.heading[0] * st.dist,
+          seg.start[1] + seg.heading[1] * st.dist,
+        ];
+        st.speed = 0;
+        st.turn = {
+          pivot: pos,
+          fromYaw: st.yaw,
+          toYaw: st.yaw + Math.PI,
+          radius: 0.05,
+          duration: 0.45,
+          elapsed: 0,
+          onDone: () => {
+            const s2 = machineRef.current;
+            s2.dir = sign;
+            s2.phase = "walking";
+            setMachinePhase("walking");
+          },
+        };
+        setMachinePhase("turning");
+        return;
+      }
+      setMachinePhase("walking");
+    },
+    [setMachinePhase],
+  );
 
   const endHold = useCallback(() => {
     const st = machineRef.current;
-    st.holding = false;
+    st.hold = 0;
     st.moving = false;
     setMoving(false);
   }, []);
@@ -1816,7 +1950,8 @@ const HallwayScene = ({
       st.seg = seg;
       st.dist = 0;
       st.moving = false;
-      st.holding = false;
+      st.hold = 0;
+      st.dir = 1;
       st.speed = 0;
       st.yaw = segYaw(seg.heading);
       historyRef.current.clear();
@@ -1841,7 +1976,7 @@ const HallwayScene = ({
   const pickBranch = useCallback(
     (child: Segment) => {
       const st = machineRef.current;
-      if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
+      if (st.phase === "turning" || st.phase === "zooming") return;
 
       const resume = (startDist: number) => {
         st.seg = child;
@@ -1881,12 +2016,15 @@ const HallwayScene = ({
   const crossLink = useCallback(
     (linkId: string, targetWalkwayId: string) => {
       const st = machineRef.current;
-      if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
+      if (st.phase === "turning" || st.phase === "zooming") return;
       const target = findSegment(segments, targetWalkwayId);
       if (!target) return;
       const mouth = (layouts.get(targetWalkwayId) ?? []).find((o) => o.id === linkId);
       st.seg = target;
       st.dist = THREE.MathUtils.clamp(mouth?.along ?? 0, 0, target.length);
+      st.dir = 1;
+      st.hold = 0;
+      st.speed = 0;
       st.yaw = segYaw(target.heading);
       historyRef.current.push(targetWalkwayId);
       setNav({ seg: target, mode: "walk" });
@@ -1901,7 +2039,7 @@ const HallwayScene = ({
   const startDoorZoom = useCallback(
     (world: [number, number], front: [number, number], onDone: () => void) => {
       const st = machineRef.current;
-      if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
+      if (st.phase === "turning" || st.phase === "zooming") return;
       const restore = st.phase;
       st.moving = false;
       setMoving(false);
@@ -1924,40 +2062,100 @@ const HallwayScene = ({
     [setMachinePhase],
   );
 
-  /** Back = 180° turnaround, glide back to the junction, re-align into parent. */
+  /**
+   * Turn round on the spot. The walker keeps their exact position on the road —
+   * only the facing flips — so they can then hold Forward (or ▼) to retrace the
+   * way they came, hallway after hallway, with no scripted animation.
+   */
   const goBack = useCallback(() => {
     const st = machineRef.current;
-    if (st.phase === "turning" || st.phase === "retracing" || st.phase === "zooming") return;
+    if (st.phase === "turning" || st.phase === "zooming") return;
     if (st.phase === "browse") return;
-    st.moving = false;
-    setMoving(false);
-    const seg = st.seg;
-    const pos: [number, number] = [
-      seg.start[0] + seg.heading[0] * st.dist,
-      seg.start[1] + seg.heading[1] * st.dist,
-    ];
-    if (!seg.walkway?.parent_id && st.dist < 1.5) {
+    if (!st.seg.walkway?.parent_id && st.dist < 1.5 && st.dir === -1) {
       backToBrowse();
       return;
     }
+    st.moving = false;
+    st.speed = 0;
+    setMoving(false);
+    const seg = st.seg;
+    const next: 1 | -1 = st.dir === 1 ? -1 : 1;
     st.turn = {
-      pivot: pos,
+      pivot: [seg.start[0] + seg.heading[0] * st.dist, seg.start[1] + seg.heading[1] * st.dist],
       fromYaw: st.yaw,
       toYaw: st.yaw + Math.PI,
-      radius: 0.25,
-      duration: 0.5,
+      radius: 0.05,
+      duration: 0.45,
       elapsed: 0,
-      onDone: () => setMachinePhase("retracing"),
+      onDone: () => {
+        const s2 = machineRef.current;
+        s2.dir = next;
+        s2.phase = "walking";
+        setMachinePhase("walking");
+        setEndReached(false);
+      },
     };
     setMachinePhase("turning");
   }, [backToBrowse, setMachinePhase]);
+
+  /**
+   * Walked off an end of the current hallway. Hallways are CONTINUOUS ROADS: if
+   * something connects at that end the walker is handed straight over to it and
+   * keeps moving; only a true dead end stops them.
+   */
+  const handleBoundary = useCallback(
+    (sign: 1 | -1): boolean => {
+      const st = machineRef.current;
+      const seg = st.seg;
+      if (sign === 1) {
+        const fwd = seg.children.find((c) => c.walkway?.direction === "forward");
+        if (fwd) {
+          st.seg = fwd;
+          st.dist = 0;
+          st.dir = 1;
+          historyRef.current.push(fwd.walkway?.id ?? "");
+          setNav({ seg: fwd, mode: "walk" });
+          syncBreadcrumb();
+          return true;
+        }
+        // A connector corridor ends AT the hallway it connects to: step into it.
+        const info = seg.walkway ? connectors.get(seg.walkway.id) : undefined;
+        const target = info ? findSegment(segments, info.targetWalkwayId) : null;
+        if (info && target) {
+          st.seg = target;
+          st.dist = THREE.MathUtils.clamp(info.alongTarget, 0, target.length);
+          st.dir = 1;
+          historyRef.current.push(target.walkway?.id ?? "");
+          setNav({ seg: target, mode: "walk" });
+          syncBreadcrumb();
+          return true;
+        }
+        return false;
+      }
+      // Walking back out of a hallway returns to the parent road at the exact
+      // junction it left from, still facing the way the walker is travelling.
+      const parent = seg.walkway?.parent_id ? findSegment(segments, seg.walkway.parent_id) : null;
+      if (!parent) return false;
+      const junction = (layouts.get(parent.walkway?.id ?? "") ?? []).find(
+        (o) => o.kind === "opening" && o.targetWalkwayId === seg.walkway?.id,
+      );
+      st.seg = parent;
+      st.dist = THREE.MathUtils.clamp(junction?.along ?? parent.length, 0, parent.length);
+      st.dir = 1;
+      historyRef.current.pop();
+      setNav({ seg: parent, mode: "walk" });
+      syncBreadcrumb();
+      return true;
+    },
+    [connectors, layouts, segments, syncBreadcrumb],
+  );
 
   /** Reached the terminal wall of a hallway → stop and offer the next direction. */
   const handleWalkEnd = useCallback(() => {
     const st = machineRef.current;
     if (st.phase !== "walking") return;
     setEndReached(true);
-    st.holding = false;
+    st.hold = 0;
     st.moving = false;
     st.speed = 0;
     setMoving(false);
@@ -1998,37 +2196,6 @@ const HallwayScene = ({
 
 
 
-  /** Retrace reached the junction → re-align to face back down the parent. */
-  const finishRetrace = useCallback(() => {
-    const st = machineRef.current;
-    const seg = st.seg;
-    const parent = seg.walkway?.parent_id ? findSegment(segments, seg.walkway.parent_id) : null;
-    if (!parent) {
-      backToBrowse();
-      return;
-    }
-    st.turn = {
-      pivot: [seg.start[0], seg.start[1]],
-      fromYaw: st.yaw,
-      toYaw: segYaw(reverseHeading(parent.heading)),
-      radius: 0.3,
-      duration: 0.5,
-      elapsed: 0,
-      onDone: () => {
-        st.seg = parent;
-        st.dist = parent.length;
-        st.moving = false;
-        historyRef.current.pop();
-        setMoving(false);
-        setNav({ seg: parent, mode: "walk" });
-        setEndReached(true);
-        setMachinePhase("idle");
-        syncBreadcrumb();
-      },
-    };
-    setMachinePhase("turning");
-  }, [segments, backToBrowse, setMachinePhase, syncBreadcrumb]);
-
   // Keyboard: arrows + WASD, routed through the graph (no free-fly).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -2046,7 +2213,7 @@ const HallwayScene = ({
             else if (st.seg.children.length === 0) showCue("End of walkway");
           } else {
             // Held key = held Forward button: movement lasts only while down.
-            startHold();
+            startHold(1);
           }
         }
         return;
@@ -2054,7 +2221,8 @@ const HallwayScene = ({
 
       if (key === "ArrowDown" || key === "s" || key === "S") {
         if (st.phase === "browse") onFocusChange(Math.max(0, focus - 1));
-        else if (st.phase === "walking" || st.phase === "idle") goBack();
+        else if (st.phase === "walking" || st.phase === "idle" || st.phase === "turning")
+          startHold(-1);
         return;
       }
       if (key === "ArrowLeft" || key === "a" || key === "A") {
@@ -2081,7 +2249,7 @@ const HallwayScene = ({
     };
     const onKeyUp = (e: KeyboardEvent) => {
       const key = e.key;
-      if (key === "ArrowUp" || key === "w" || key === "W") endHold();
+      if (["ArrowUp", "w", "W", "ArrowDown", "s", "S"].includes(key)) endHold();
     };
     const onBlur = () => endHold();
     window.addEventListener("keydown", onKey);
@@ -2099,6 +2267,7 @@ const HallwayScene = ({
     enterWalk,
     rootEffective,
     goBack,
+    handleBoundary,
     endReached,
     pickBranch,
     showCue,
@@ -2320,7 +2489,7 @@ const HallwayScene = ({
           rootLen={rootLen}
           onWalkEnd={handleWalkEnd}
           onJunctionReach={handleJunctionReach}
-          onRetraceEnd={finishRetrace}
+          onBoundary={handleBoundary}
           setPhase={setMachinePhase}
         />
 
@@ -2347,7 +2516,10 @@ const HallwayScene = ({
                   ? junctionGeometry(HALL_WIDTH).branchTrim
                   : 0
               }
-              capEnd={!seg.children.some((c) => c.walkway?.direction === "forward")}
+              capEnd={
+                !seg.children.some((c) => c.walkway?.direction === "forward") &&
+                !(seg.walkway ? connectors.has(seg.walkway.id) : false)
+              }
               capStart={seg.depth === 0}
               name={near ? seg.walkway?.name : undefined}
               endName={
@@ -2431,7 +2603,6 @@ const HallwayScene = ({
 
 
           onTurn={pickBranch}
-          onBack={goBack}
         />
       )}
 

@@ -1231,6 +1231,7 @@ export type Database = {
       building_walkway_links: {
         Row: {
           building_id: string
+          corridor_walkway_id: string | null
           created_at: string
           created_by: string | null
           from_position: number
@@ -1242,6 +1243,7 @@ export type Database = {
         }
         Insert: {
           building_id: string
+          corridor_walkway_id?: string | null
           created_at?: string
           created_by?: string | null
           from_position?: number
@@ -1253,6 +1255,7 @@ export type Database = {
         }
         Update: {
           building_id?: string
+          corridor_walkway_id?: string | null
           created_at?: string
           created_by?: string | null
           from_position?: number
@@ -1268,6 +1271,13 @@ export type Database = {
             columns: ["building_id"]
             isOneToOne: false
             referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_walkway_links_corridor_walkway_id_fkey"
+            columns: ["corridor_walkway_id"]
+            isOneToOne: false
+            referencedRelation: "building_walkways"
             referencedColumns: ["id"]
           },
           {

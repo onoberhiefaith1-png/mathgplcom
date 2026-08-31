@@ -57,6 +57,7 @@ import {
   deleteDoor,
   deleteWalkway,
   duplicateBuilding,
+  connectHallways,
   ensureBuilding,
   listBuildings,
   loadBuildingData,
@@ -65,7 +66,7 @@ import {
   updateWalkway,
   uploadBuildingTexture,
 } from "@/lib/building/api";
-import { nextObjectOffset } from "@/lib/building/navigation";
+import { nextBranchDirection, nextObjectOffset } from "@/lib/building/navigation";
 import type {
   Building,
   BuildingData,
@@ -375,10 +376,18 @@ const handleTextureUpload = useCallback(
             .map((l) => (l.from_walkway_id === walkwayId ? l.from_position : l.to_position)),
         ]);
       try {
-        await addWalkwayLink(buildingData.building.id, fromWalkwayId, toWalkwayId, {
-          from: slot(fromWalkwayId),
-          to: slot(toWalkwayId),
-        });
+        // A connection is a REAL corridor: it branches off the first hallway and
+        // stops at the second one, where an open junction is created.
+        const from = buildingData.walkways.find((w) => w.id === fromWalkwayId);
+        const to = buildingData.walkways.find((w) => w.id === toWalkwayId);
+        await connectHallways(
+          buildingData.building.id,
+          fromWalkwayId,
+          toWalkwayId,
+          { from: slot(fromWalkwayId), to: slot(toWalkwayId) },
+          nextBranchDirection(buildingData.walkways, fromWalkwayId),
+          `${from?.name ?? "Hallway"} → ${to?.name ?? "Hallway"}`,
+        );
         await refreshBuilding();
       } catch (e: unknown) {
         const reason = String((e as Error)?.message ?? e);
