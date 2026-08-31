@@ -10,7 +10,7 @@
  * the destination that opens an existing product (never duplicated).
  */
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, DoorOpen, Plus, Route, Trash2, Wand2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, DoorOpen, Plus, Route, Trash2, Wand2 } from "lucide-react";
 import type {
   BuildingDoor,
   BuildingWalkway,
@@ -48,8 +48,8 @@ export interface WalkwayManagerProps {
       position_along: number;
       content_kind: DoorContentKind;
       content_id: string;
-      title?: string;
-      style?: string;
+      title_override?: string | null;
+      style?: string | null;
     },
   ) => Promise<void>;
   onUpdateDoor: (id: string, position_along: number) => Promise<void>;
@@ -102,7 +102,11 @@ const WalkwayManager = ({
   const [doorName, setDoorName] = useState("");
   const [doorStyle, setDoorStyle] = useState("");
   const [kind, setKind] = useState<AcademyProductKind>("course");
+  /** The product this door will open — chosen first, created on Create Door. */
+  const [doorProduct, setDoorProduct] = useState<AcademyProduct | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Why the last create failed, shown inline so a failure is never silent. */
+  const [formError, setFormError] = useState("");
 
   const titles = useMemo(() => {
     const out: Record<string, string> = {};
@@ -143,25 +147,29 @@ const WalkwayManager = ({
     walkways.filter((w) => w.parent_id === parentId).map((w) => w.direction);
 
   const openHallwayForm = (parentId?: string) => {
-    const parent = parentId ?? hallParent ?? roots[0]?.id ?? "";
+    const parent = parentId || hallParent || roots[0]?.id || "";
     setHallParent(parent);
     const taken = parent ? takenAt(parent) : [];
     setHallDir(DIRECTIONS.find((d) => !taken.includes(d)) ?? "left");
     setHallJunction(50);
     setHallName("");
+    setFormError("");
     setForm("hallway");
   };
 
   const openDoorForm = (walkwayId?: string) => {
-    setDoorWalkway(walkwayId ?? doorWalkway ?? roots[0]?.id ?? "");
+    setDoorWalkway(walkwayId || doorWalkway || roots[0]?.id || "");
     setDoorName("");
     setDoorStyle("");
+    setDoorProduct(null);
+    setFormError("");
     setForm("door");
   };
 
   const submitHallway = async () => {
     if (busy) return;
     setBusy(true);
+    setFormError("");
     try {
       await onAddWalkway(
         roots.length === 0 ? null : hallParent,
@@ -170,6 +178,28 @@ const WalkwayManager = ({
         hallJunction / 100,
       );
       setForm(null);
+    } catch (e: unknown) {
+      setFormError(String((e as Error)?.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitDoor = async () => {
+    if (busy || !doorWalkway || !doorProduct) return;
+    setBusy(true);
+    setFormError("");
+    try {
+      await onAddDoor(doorWalkway, {
+        position_along: 0.5,
+        content_kind: doorProduct.kind as DoorContentKind,
+        content_id: doorProduct.id,
+        title_override: doorName.trim() || null,
+        style: doorStyle || null,
+      });
+      setForm(null);
+    } catch (e: unknown) {
+      setFormError(String((e as Error)?.message ?? e));
     } finally {
       setBusy(false);
     }
@@ -455,14 +485,19 @@ const WalkwayManager = ({
               className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
             />
           </label>
-          <div className="mt-3 flex gap-2">
+          {formError && (
+            <p className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
+              {formError}
+            </p>
+          )}
+          <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
               onClick={submitHallway}
               disabled={busy || (roots.length > 0 && (!hallParent || hallTaken.includes(hallDir)))}
               className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
             >
-              Create Hallway
+              {busy ? "Creating…" : "Create Hallway"}
             </button>
             <button
               type="button"
@@ -471,6 +506,11 @@ const WalkwayManager = ({
             >
               Cancel
             </button>
+            {roots.length > 0 && hallTaken.includes(hallDir) && (
+              <span className="text-[11px] text-muted-foreground">
+                That side of this hallway already has a branch — pick the other one.
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -541,41 +581,56 @@ const WalkwayManager = ({
                 You have no {kind}s yet. The door only references existing products — it never duplicates them.
               </p>
             ) : (
-              products.map((p) => (
-                <button
-                  key={`${p.kind}-${p.id}`}
-                  type="button"
-                  disabled={busy || !doorWalkway}
-                  onClick={async () => {
-                    setBusy(true);
-                    try {
-                      await onAddDoor(doorWalkway, {
-                        position_along: 0.5,
-                        content_kind: p.kind as DoorContentKind,
-                        content_id: p.id,
-                        title: doorName.trim() || undefined,
-                        style: doorStyle || undefined,
-                      });
-                      setForm(null);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                  className="flex min-h-[40px] w-full items-center justify-between gap-2 rounded-lg px-2 text-left text-sm hover:bg-muted disabled:opacity-40"
-                >
-                  <span className="truncate">{p.title}</span>
-                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              ))
+              products.map((p) => {
+                const picked = doorProduct?.kind === p.kind && doorProduct?.id === p.id;
+                return (
+                  <button
+                    key={`${p.kind}-${p.id}`}
+                    type="button"
+                    aria-pressed={picked}
+                    onClick={() => setDoorProduct(picked ? null : p)}
+                    className={`flex min-h-[40px] w-full items-center justify-between gap-2 rounded-lg px-2 text-left text-sm ${
+                      picked ? "bg-primary/15 ring-1 ring-primary/50 text-foreground" : "hover:bg-muted"
+                    }`}
+                  >
+                    <span className="truncate">{p.title}</span>
+                    {picked ? (
+                      <Check className="h-3.5 w-3.5 text-primary" />
+                    ) : (
+                      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => setForm(null)}
-            className="mt-2 min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
-          >
-            Cancel
-          </button>
+          {formError && (
+            <p className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
+              {formError}
+            </p>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={submitDoor}
+              disabled={busy || !doorWalkway || !doorProduct}
+              className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+            >
+              {busy ? "Creating…" : "Create Door"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm(null)}
+              className="min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
+            >
+              Cancel
+            </button>
+            {!doorProduct && (
+              <span className="text-[11px] text-muted-foreground">
+                Pick what this door opens above.
+              </span>
+            )}
+          </div>
         </div>
       )}
 

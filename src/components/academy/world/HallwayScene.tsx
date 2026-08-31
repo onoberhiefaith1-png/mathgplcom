@@ -1181,7 +1181,10 @@ const MiniMap = ({
   const hy = marker.current.dy;
   const len = Math.hypot(hx, hy) || 1;
   const ux = hx / len;
-  const uy = -hy / len; // map-space y is inverted (−z renders up)
+  // Map-space y uses the SAME mapping as the hallway lines (py grows with z), so
+  // the facing chevron must not invert it — inverting made the arrow point back
+  // down the plan while the walker travelled up it.
+  const uy = hy / len;
   const chevron = `${ax + ux * 8},${ay + uy * 8} ${ax - ux * 5 - uy * 5},${ay - uy * 5 + ux * 5} ${ax - ux * 2},${ay - uy * 2} ${ax - ux * 5 + uy * 5},${ay - uy * 5 - ux * 5}`;
   const scale = MAP_SIZES[size];
 

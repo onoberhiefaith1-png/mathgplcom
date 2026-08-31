@@ -329,13 +329,26 @@ const handleTextureUpload = useCallback(
       name?: string,
       junctionAt?: number,
     ) => {
-      if (!buildingData) return;
-      const id = await addWalkway(buildingData.building.id, parentId, direction, name, junctionAt ?? 0.5);
-      await refreshBuilding();
-      // Stand the walker in the hallway that was just created.
-      if (id) {
-        setNavigateTo(null);
-        setTimeout(() => setNavigateTo(id), 0);
+      if (!buildingData) throw new Error("The building is still loading — try again in a moment.");
+      try {
+        const id = await addWalkway(
+          buildingData.building.id,
+          parentId,
+          direction,
+          name,
+          junctionAt ?? 0.5,
+        );
+        await refreshBuilding();
+        // Stand the walker in the hallway that was just created.
+        if (id) {
+          setNavigateTo(null);
+          setTimeout(() => setNavigateTo(id), 0);
+        }
+      } catch (e: unknown) {
+        const reason = String((e as Error)?.message ?? e);
+        console.error("[building] create hallway failed", e);
+        toast({ title: "Could not create hallway", description: reason, variant: "destructive" });
+        throw e;
       }
     },
     [buildingData, refreshBuilding],
@@ -352,14 +365,21 @@ const handleTextureUpload = useCallback(
         style?: string | null;
       },
     ) => {
-      if (!buildingData) return;
-      const { style, ...rest } = fields;
-      const id = await addDoor(buildingData.building.id, walkwayId, rest);
-      if (id && style) {
-        await updateDoor(id, { design: { ...buildingData.building.environment.door, style } as never });
+      if (!buildingData) throw new Error("The building is still loading — try again in a moment.");
+      try {
+        const { style, ...rest } = fields;
+        const id = await addDoor(buildingData.building.id, walkwayId, rest);
+        if (id && style) {
+          await updateDoor(id, { design: { ...buildingData.building.environment.door, style } as never });
+        }
+        await refreshBuilding();
+        if (id) setSelectedDoorId(id);
+      } catch (e: unknown) {
+        const reason = String((e as Error)?.message ?? e);
+        console.error("[building] create door failed", e);
+        toast({ title: "Could not create door", description: reason, variant: "destructive" });
+        throw e;
       }
-      await refreshBuilding();
-      if (id) setSelectedDoorId(id);
     },
     [buildingData, refreshBuilding],
   );

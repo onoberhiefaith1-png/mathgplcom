@@ -150,10 +150,17 @@ export async function addWalkway(
       name: hallwayName,
       junction_at: junctionAt,
     } as never)
-    .select("id")
+    .select("*")
     .maybeSingle();
   fail(error);
-  return (data as { id: string } | null)?.id ?? "";
+  // A silent "nothing written" is impossible to debug from the UI, so it is an
+  // explicit failure: the insert either returns its row or throws.
+  if (!data) {
+    throw new Error(
+      "The hallway was not created — your account may not have permission to edit this building.",
+    );
+  }
+  return (data as unknown as BuildingWalkway).id;
 }
 
 export async function updateWalkway(
@@ -196,10 +203,15 @@ export async function addDoor(
       title_override: fields.title_override ?? null,
       created_by: userData.user?.id ?? null,
     })
-    .select("id")
+    .select("*")
     .maybeSingle();
   fail(error);
-  return (data as { id: string } | null)?.id ?? "";
+  if (!data) {
+    throw new Error(
+      "The door was not created — your account may not have permission to edit this building.",
+    );
+  }
+  return (data as unknown as BuildingDoor).id;
 }
 
 export async function updateDoor(
