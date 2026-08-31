@@ -9,6 +9,7 @@
 // caller gets a NotKeyableError and should store the original video untouched.
 
 import { detectMediaBackground, isLowSaturation, type KeyColor } from "./removeBackground";
+import { buildBackgroundMask, markBoundary, DEFAULT_TOLERANCE } from "./flatCut";
 
 export type EdgeSoftness = "tight" | "normal" | "soft";
 
@@ -41,7 +42,9 @@ const BANDS: Record<EdgeSoftness, [number, number]> = {
  */
 const bandFor = (softness: EdgeSoftness, key: KeyColor): [number, number] => {
   const [a, b] = BANDS[softness];
-  return isLowSaturation(key) ? [a * 1.35, b * 1.35] : [a, b];
+  // Connectivity (the region mask) now does the work the wide band used to do,
+  // so neutral keys only need a little extra room.
+  return isLowSaturation(key) ? [a * 1.1, b * 1.1] : [a, b];
 };
 
 const VERT = `
@@ -59,6 +62,8 @@ uniform sampler2D uTex;
 uniform vec3 uKey;
 uniform float uEdge0;
 uniform float uEdge1;
+uniform sampler2D uMask;
+uniform float uUseMask;
 
 vec2 chroma(vec3 c) {
   float y = dot(c, vec3(0.299, 0.587, 0.114));
@@ -81,6 +86,13 @@ void main() {
   }
 
   float alpha = smoothstep(uEdge0, uEdge1, d);
+
+  // Region gate: only pixels the backdrop actually reaches from the edge of the
+  // frame may be cut. A white sign inside the subject keeps its full opacity.
+  if (uUseMask > 0.5) {
+    float region = texture2D(uMask, vUv).r;
+    alpha = max(alpha, 1.0 - region);
+  }
 
   // Spill suppression: pull the key hue out of semi-transparent edge pixels.
   vec3 rgb = src.rgb;
