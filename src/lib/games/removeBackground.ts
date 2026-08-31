@@ -1,6 +1,6 @@
 import { removeBackground } from "@imgly/background-removal";
 import type { MediaType } from "./types";
-import { cutFrame, type FlatCutOptions } from "./flatCut";
+import { buildBackgroundMask, cutFrame, type FlatCutOptions } from "./flatCut";
 import {
   analyseFrames,
   type BgDetection,
