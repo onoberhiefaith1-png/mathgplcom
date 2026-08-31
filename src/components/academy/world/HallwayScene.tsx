@@ -764,6 +764,7 @@ const Nameplate = ({
   position,
   rotationY = 0,
   fontSize = 0.2,
+  minWidth = 0,
   maxWidth = 4.4,
   maxLines = 2,
 }: {
@@ -772,6 +773,8 @@ const Nameplate = ({
   position: [number, number, number];
   rotationY?: number;
   fontSize?: number;
+  /** Floor on the plaque width, so short names still read as a real sign. */
+  minWidth?: number;
   maxWidth?: number;
   maxLines?: number;
 }) => {
@@ -789,7 +792,7 @@ const Nameplate = ({
   );
 
   const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
-  const w = Math.min(maxWidth, Math.max(fontSize * 5, longest * per + padX * 2));
+  const w = Math.min(maxWidth, Math.max(minWidth, fontSize * 5, longest * per + padX * 2));
   const h = lines.length * lineH + capH + padY * 2;
   const depth = Math.max(0.05, fontSize * 0.3);
 
