@@ -18,6 +18,7 @@ import type {
   BuildingData,
   BuildingDoor,
   BuildingWalkway,
+  BuildingWalkwayLink,
   DoorContentKind,
   EnvironmentSettings,
   WalkwayDirection,
@@ -85,21 +86,67 @@ export async function canEditBuilding(buildingId: string): Promise<boolean> {
   return Boolean(data);
 }
 
-/** The whole structure of one building: walkway graph + doors. */
+/** The whole structure of one building: walkway graph + doors + connections. */
 export async function loadBuildingData(building: Building): Promise<BuildingData> {
-  const [walkRes, doorRes, canEdit] = await Promise.all([
+  const [walkRes, doorRes, linkRes, canEdit] = await Promise.all([
     supabase.from("building_walkways").select("*").eq("building_id", building.id).order("position"),
     supabase.from("building_doors").select("*").eq("building_id", building.id).order("position_along"),
+    supabase
+      .from("building_walkway_links")
+      .select("*")
+      .eq("building_id", building.id)
+      .order("created_at"),
     canEditBuilding(building.id),
   ]);
 fail(walkRes.error);
   fail(doorRes.error);
+  fail(linkRes.error);
   return {
     building,
     walkways: (walkRes.data ?? []) as unknown as BuildingWalkway[],
     doors: (doorRes.data ?? []) as unknown as BuildingDoor[],
+    links: (linkRes.data ?? []) as unknown as BuildingWalkwayLink[],
     canEdit,
   };
+}
+
+// ── Hallway-to-hallway connections (maze loops) ───────────────────────────
+
+/**
+ * Connect two hallways that already exist. The opening takes the next free slot
+ * on BOTH roads, so neither connection lands on top of a door.
+ */
+export async function addWalkwayLink(
+  buildingId: string,
+  fromWalkwayId: string,
+  toWalkwayId: string,
+  positions: { from: number; to: number },
+): Promise<string> {
+  const { data: userData } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("building_walkway_links")
+    .insert({
+      building_id: buildingId,
+      from_walkway_id: fromWalkwayId,
+      to_walkway_id: toWalkwayId,
+      from_position: positions.from,
+      to_position: positions.to,
+      created_by: userData.user?.id ?? null,
+    } as never)
+    .select("*")
+    .maybeSingle();
+  fail(error);
+  if (!data) {
+    throw new Error(
+      "The connection was not created — your account may not have permission to edit this building.",
+    );
+  }
+  return (data as unknown as BuildingWalkwayLink).id;
+}
+
+export async function deleteWalkwayLink(id: string): Promise<void> {
+  const { error } = await supabase.from("building_walkway_links").delete().eq("id", id);
+  fail(error);
 }
 
 export async function updateEnvironment(
