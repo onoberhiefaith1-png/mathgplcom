@@ -156,7 +156,7 @@ async function callEngine(args: {
 /** A figure is CONSTRUCTED, solved exactly and verified — never painted. */
 async function drawFigure(question: string, labels: string[]): Promise<{ svg?: string; problems: string[] }> {
   let problems: string[] = [];
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
     let payload: any;
     try {
       payload = await callEngine({
@@ -233,7 +233,7 @@ interface Built {
 
 async function buildItem(item: Item): Promise<Built> {
   let problems: string[] = [];
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
     let payload: any;
     try {
       payload = await callEngine({

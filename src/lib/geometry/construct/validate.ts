@@ -96,6 +96,29 @@ export function verifyScene(scene: GeometryScene | null, question = ""): Diagram
     const off = (p as any).labelOffset ?? { dx: 0, dy: -14 };
     return { id: (p as any).label as string, x: p.x + (off.dx ?? 0), y: p.y + (off.dy ?? 0) };
   });
+  const pointLabelCount = labelPos.length;
+  // An angle's printed value is drawn text too — "64°" landing on the label "P"
+  // reads as one smudge, so it joins the collision set.
+  for (const o of scene.objects) {
+    if (o.type !== "angle" || !(o as any).value) continue;
+    const v = pointById(scene, (o as any).vertex);
+    const a = pointById(scene, (o as any).a);
+    const b = pointById(scene, (o as any).b);
+    if (!v || !a || !b) continue;
+    const ang = (p: { x: number; y: number }) => Math.atan2(-(p.y - v.y), p.x - v.x);
+    let a0 = ang(a), a1 = ang(b);
+    let diff = ((((a1 - a0) * 180) / Math.PI) % 360 + 360) % 360;
+    if (diff > 180) { const t = a0; a0 = a1; a1 = t; }
+    let sweep = a1 - a0;
+    while (sweep < 0) sweep += 2 * Math.PI;
+    const mid = a0 + sweep / 2;
+    labelPos.push({
+      id: String((o as any).value),
+      x: v.x + 36 * Math.cos(mid),
+      y: v.y - 36 * Math.sin(mid),
+    });
+  }
+
   let labelClash: string | null = null;
   for (let i = 0; i < labelPos.length && !labelClash; i++) {
     for (let j = i + 1; j < labelPos.length; j++) {
@@ -116,7 +139,7 @@ export function verifyScene(scene: GeometryScene | null, question = ""): Diagram
     const abx = b.x - a.x, aby = b.y - a.y;
     const l2 = abx * abx + aby * aby;
     if (l2 === 0) continue;
-    for (const lp of labelPos) {
+    for (const lp of labelPos.slice(0, pointLabelCount)) {
       const t = ((lp.x - a.x) * abx + (lp.y - a.y) * aby) / l2;
       if (t < 0.02 || t > 0.98) continue;
       const px = a.x + abx * t, py = a.y + aby * t;
@@ -127,7 +150,7 @@ export function verifyScene(scene: GeometryScene | null, question = ""): Diagram
     onLine ? `Label ${onLine} is printed on top of a line instead of beside it.` : undefined);
 
   // every label sits inside the frame too
-  const clipped = labelPos.find((lp) =>
+  const clipped = labelPos.slice(0, pointLabelCount).find((lp) =>
     lp.x < 6 || lp.y < 6 || lp.x > scene.bounds.width - 6 || lp.y > scene.bounds.height - 6);
   add("labels inside the frame", !clipped,
     clipped ? `Label ${clipped.id} falls outside the diagram frame.` : undefined);
@@ -149,6 +172,46 @@ export function verifyScene(scene: GeometryScene | null, question = ""): Diagram
   add("labels match the question", labelsOk,
     labelsOk ? undefined : `The question names ${wanted.join(", ")} but the diagram does not label ${wanted.length > 1 ? "them" : "it"}.`);
 
+  // "a tangent to the circle at A" means the tangent line actually touches the
+  // circle at A: the point must lie on a drawn line, not float beside it.
+  const tangentPts = [...String(question).matchAll(/tangent[^.]{0,60}?\bat\s+(?:the\s+)?(?:point\s+)?([A-Z])\b/g)]
+    .map((m) => m[1]!);
+  let looseTangent: string | null = null;
+  for (const name of [...new Set(tangentPts)]) {
+    const p = points.find((q) => (q.label ?? "").trim() === name);
+    if (!p) continue;
+    const touches = scene.objects.some((o) => {
+      if (o.type !== "segment" && o.type !== "line") return false;
+      const a = pointById(scene, (o as any).a), b = pointById(scene, (o as any).b);
+      if (!a || !b) return false;
+      if ((o as any).a === p.id || (o as any).b === p.id) return true;
+      const abx = b.x - a.x, aby = b.y - a.y;
+      const l2 = abx * abx + aby * aby;
+      if (l2 === 0) return false;
+      const t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / l2;
+      if (t < -0.05 || t > 1.05) return false;
+      return Math.hypot(p.x - (a.x + abx * t), p.y - (a.y + aby * t)) < 3;
+    });
+    if (!touches) { looseTangent = name; break; }
+  }
+  // "tangent AB at point C" also means A, B and C lie on one straight line.
+  let brokenRun: string | null = null;
+  for (const m of String(question).matchAll(/tangent\s+([A-Z])([A-Z])[^.]{0,60}?\bat\s+(?:the\s+)?(?:point\s+)?([A-Z])\b/g)) {
+    const [a, b, c] = [m[1]!, m[2]!, m[3]!].map((n) =>
+      points.find((q) => (q.label ?? "").trim() === n));
+    if (!a || !b || !c) continue;
+    const abx = b.x - a.x, aby = b.y - a.y;
+    const l2 = abx * abx + aby * aby;
+    if (l2 === 0) continue;
+    const t = ((c.x - a.x) * abx + (c.y - a.y) * aby) / l2;
+    const d = Math.hypot(c.x - (a.x + abx * t), c.y - (a.y + aby * t));
+    if (d > 4) { brokenRun = `${m[1]}${m[2]} through ${m[3]}`; break; }
+  }
+  add("tangent runs through its points", !brokenRun,
+    brokenRun ? `The tangent ${brokenRun} is not one straight line — the named points must lie on the tangent itself.` : undefined);
+
+  add("tangent touches its point", !looseTangent,
+    looseTangent ? `The tangent must be drawn through ${looseTangent}, but no line passes through that point.` : undefined);
 
 
   return { ok: problems.length === 0, problems, checks };

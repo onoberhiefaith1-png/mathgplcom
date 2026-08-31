@@ -105,7 +105,11 @@ export function sceneToSvg(scene: GeometryScene): string {
         out.push(`<path d="M${x0} ${y0} A${r} ${r} 0 0 0 ${x1} ${y1}" fill="none" stroke="${ACCENT}" stroke-width="1.3"/>`);
       }
       if (o.value) {
-        const mid = (s0 + s1) / 2;
+        // Averaging the two arm angles points the wrong way when the pair
+        // straddles ±180°, so the bisector is walked from s0 by half the sweep.
+        let sweep = s1 - s0;
+        while (sweep < 0) sweep += 2 * Math.PI;
+        const mid = s0 + sweep / 2;
         out.push(`<text x="${inX(v.x + (r + 14) * Math.cos(mid), String(o.value))}" y="${inY(v.y - (r + 14) * Math.sin(mid) + 4)}" font-size="12" fill="${ACCENT}" text-anchor="middle" font-family="system-ui">${esc(o.value)}</text>`);
       }
 

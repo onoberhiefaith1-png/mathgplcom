@@ -636,12 +636,30 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
   };
 
   const placed: Vec[] = [];
+  // An angle's printed value ("70°") is drawn 36px out along the bisector, so a
+  // point letter must keep clear of that spot or the two texts merge.
+  const valueSpots: Vec[] = [];
+  for (const o of draws as any[]) {
+    if (o.type !== "angle" || !o.value) continue;
+    const v = fitted.get(o.vertex), a = fitted.get(o.a), b = fitted.get(o.b);
+    if (!v || !a || !b) continue;
+    const ang = (p: Vec) => Math.atan2(-(p.y - v.y), p.x - v.x);
+    let a0 = ang(a), a1 = ang(b);
+    let diff = ((((a1 - a0) * 180) / Math.PI) % 360 + 360) % 360;
+    if (diff > 180) { const t = a0; a0 = a1; a1 = t; }
+    let sweep = a1 - a0;
+    while (sweep < 0) sweep += 2 * Math.PI;
+    const mid = a0 + sweep / 2;
+    valueSpots.push({ x: v.x + 36 * Math.cos(mid), y: v.y - 36 * Math.sin(mid) });
+  }
+
   const labelOffsetFor = (id: string): Vec => {
     const p = fitted.get(id)!;
     const away = sub(p, centroid);
     const outward = len(away) > 1 ? mul(away, 1 / len(away)) : { x: 0, y: 1 };
     let best = mul(outward, 16);
     let bestScore = -Infinity;
+
 
     for (const radius of [15, 20, 26, 32]) {
       for (let k = 0; k < 24; k++) {
@@ -669,6 +687,11 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
         for (const q2 of placed) {
           const d = len(sub(q, q2));
           if (d < 16) score -= (16 - d) * 5;
+        }
+        // clear of every printed angle value
+        for (const q2 of valueSpots) {
+          const d = len(sub(q, q2));
+          if (d < 20) score -= (20 - d) * 6;
         }
         // inside the frame, then close in, then textbook-outward
         if (q.x < 10 || q.y < 10 || q.x > TARGET.width - 10 || q.y > TARGET.height - 10) score -= 200;
@@ -729,9 +752,14 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
   });
 
 
+  // A figure carries measurements, not prose. A label of three or more words is
+  // a sentence the engine tried to write on the board, so it is dropped.
+  const printable = scaled.filter((o) =>
+    o.type !== "label" || String((o as any).text ?? "").trim().split(/\s+/).length < 3);
+
   const scene: GeometryScene = {
     bounds: { width: TARGET.width, height: TARGET.height },
-    objects: [...scaled, ...pointObjects],
+    objects: [...printable, ...pointObjects],
     meta: { caption: program.figure ? String(program.figure) : undefined, constructed: true },
   };
 
