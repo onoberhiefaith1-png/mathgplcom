@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { Building2, Image as ImageIcon, Megaphone, Replace, Settings2 } from "lucide-react";
+import { Building2, Image as ImageIcon, Megaphone, Settings2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
