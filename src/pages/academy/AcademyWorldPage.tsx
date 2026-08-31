@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
-import { ChevronLeft, ChevronRight, Loader2, Pencil, Star } from "lucide-react";
+import { ChevronLeft, Loader2, Pencil, Star } from "lucide-react";
 import HallwayScene from "@/components/academy/world/HallwayScene";
 import { ensureAcademy, loadAcademyTree, loadProductCatalogue } from "@/lib/academy/api";
 import { productRoute, type AcademyProduct, type AcademyTree } from "@/lib/academy/types";
