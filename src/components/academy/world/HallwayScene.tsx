@@ -842,10 +842,11 @@ const BranchOpening = ({
       {/* Light in the throat, so the thickness and depth are legible */}
       <pointLight
         position={[centroid[0], HALL_HEIGHT - 0.9, centroid[1]]}
-        intensity={hovered ? 1.5 : 1.1}
-        distance={13}
+        intensity={hovered ? 2.4 : 1.9}
+        distance={20}
         color="#dbeafe"
       />
+
 
       {/* Pick target filling the mouth: click to enter that hallway */}
       <mesh
