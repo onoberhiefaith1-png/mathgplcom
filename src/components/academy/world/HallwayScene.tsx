@@ -1929,7 +1929,7 @@ const HallwayScene = ({
       // Key-repeat and a second pointer event must never cancel an in-progress
       // turn. The held intent is retained and applied when the turn completes.
       if (st.phase === "turning") return;
-      if (st.dir !== sign && st.phase !== "turning") {
+      if (st.dir !== sign) {
         // About-face: turn on the spot, then carry on in the new direction.
         const seg = st.seg;
         const pos: [number, number] = [
