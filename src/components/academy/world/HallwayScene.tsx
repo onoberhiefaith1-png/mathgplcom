@@ -486,7 +486,7 @@ const DoorMesh = ({
   return (
     // Flush against the wall plane and rotated to the wall's own orientation:
     // the door face is parallel to the wall and looks into the corridor.
-    <group position={[side * (HALL_WIDTH / 2 - 0.06), 0, z]} rotation-y={-side * (Math.PI / 2)}>
+    <group position={[side * (HALL_WIDTH / 2 - 0.06), 0, z]} rotation-y={side * (Math.PI / 2)}>
       {/* Reveal / frame — jambs, lintel and threshold read as one structure */}
       <group>
         {[-1, 1].map((s) => (
@@ -529,6 +529,7 @@ const DoorMesh = ({
       >
         <planeGeometry args={[leafW, leafH]} />
         <meshStandardMaterial
+          key={tex ? url : "flat"}
           ref={leaf}
           map={tex ?? null}
           transparent
