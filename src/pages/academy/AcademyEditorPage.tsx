@@ -407,7 +407,7 @@ const handleTextureUpload = useCallback(
         throw e;
       }
     },
-    [buildingData, refreshBuilding],
+    [buildingData, mergeBlock, refreshBuilding],
   );
 
   /**
@@ -493,7 +493,7 @@ const handleTextureUpload = useCallback(
         throw e;
       }
     },
-    [buildingData, refreshBuilding],
+    [buildingData, mergeBlock, refreshBuilding],
   );
 
   const handleDoorPosition = useCallback(
