@@ -85,11 +85,14 @@ export function sceneToSvg(scene: GeometryScene): string {
       const ang = (p: GeoPoint) => Math.atan2(-(p.y - v.y), p.x - v.x);
       const a0 = ang(a), a1 = ang(b);
       const r = 22;
-      const x0 = v.x + r * Math.cos(a0), y0 = v.y - r * Math.sin(a0);
-      const x1 = v.x + r * Math.cos(a1), y1 = v.y - r * Math.sin(a1);
       let diff = ((a1 - a0) * 180) / Math.PI;
       diff = ((diff % 360) + 360) % 360;
-      const large = diff > 180 ? 1 : 0;
+      // The mark always shows the angle BETWEEN the two arms — the minor arc.
+      // Sweeping the long way round drew an almost complete circle at the
+      // vertex, which reads as a circle in the figure instead of an angle.
+      const [s0, s1] = diff > 180 ? [a1, a0] : [a0, a1];
+      const x0 = v.x + r * Math.cos(s0), y0 = v.y - r * Math.sin(s0);
+      const x1 = v.x + r * Math.cos(s1), y1 = v.y - r * Math.sin(s1);
       if (o.marker === "right") {
         const u = (p: GeoPoint) => {
           const d = { x: p.x - v.x, y: p.y - v.y };
@@ -99,12 +102,13 @@ export function sceneToSvg(scene: GeometryScene): string {
         const ua = u(a), ub = u(b), s = 13;
         out.push(`<path d="M${v.x + ua.x * s} ${v.y + ua.y * s} L${v.x + (ua.x + ub.x) * s} ${v.y + (ua.y + ub.y) * s} L${v.x + ub.x * s} ${v.y + ub.y * s}" fill="none" stroke="${INK}" stroke-width="1.3"/>`);
       } else {
-        out.push(`<path d="M${x0} ${y0} A${r} ${r} 0 ${large} 0 ${x1} ${y1}" fill="none" stroke="${ACCENT}" stroke-width="1.3"/>`);
+        out.push(`<path d="M${x0} ${y0} A${r} ${r} 0 0 0 ${x1} ${y1}" fill="none" stroke="${ACCENT}" stroke-width="1.3"/>`);
       }
       if (o.value) {
-        const mid = (a0 + a1) / 2 + (large ? Math.PI : 0);
+        const mid = (s0 + s1) / 2;
         out.push(`<text x="${inX(v.x + (r + 14) * Math.cos(mid), String(o.value))}" y="${inY(v.y - (r + 14) * Math.sin(mid) + 4)}" font-size="12" fill="${ACCENT}" text-anchor="middle" font-family="system-ui">${esc(o.value)}</text>`);
       }
+
     }
     if (o.type === "label") {
       out.push(`<text x="${inX(o.x, String(o.text))}" y="${inY(o.y)}" font-size="${(o as any).fontSize ?? 13}" fill="${INK}" text-anchor="middle" font-family="system-ui">${esc(o.text)}</text>`);
