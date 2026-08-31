@@ -222,6 +222,14 @@ const SurfaceEditor = ({
           >
             <RotateCcw className="h-3.5 w-3.5" /> Reset placement
           </button>
+          <SliderField
+            label="Brightness (1 = as imported)"
+            value={design.brightness ?? 1}
+            min={0.2}
+            max={2}
+            step={0.05}
+            onChange={(v) => onChange({ ...design, brightness: v })}
+          />
           <ToggleField label="Tile the image" checked={design.repeat} onChange={(v) => onChange({ ...design, repeat: v })} />
         </div>
       )}
