@@ -5897,7 +5897,8 @@ const PresentationView = ({
           mobileStudent ? "overflow-x-auto" : "overflow-x-hidden"
         }`}
         style={{
-          paddingTop: mobileStudent ? 8 : 24,
+          // Room for the compact mobile chrome panel (number line + marks).
+          paddingTop: mobileStudent ? 108 : 24,
           // No bottom panel or tab; the canvas fills to the edge.
           paddingBottom: mobileStudent ? 8 : 24,
           paddingRight: 0,
@@ -7468,7 +7469,7 @@ const PresentationView = ({
                 Bottom row = CURRENT ATTEMPT (timer only, cleared by Reset) */}
             {hasGuidedLines && (
               <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1" title="Mastered">
+                <div className={`flex items-center gap-1 ${mobileStudent ? "flex-wrap" : ""}`} title="Mastered">
                   {guidedLines.map((ln, k) => {
                     const slot = slotFor(k);
                     const solved = !!slot && slot in solvedSlots;
@@ -7487,7 +7488,7 @@ const PresentationView = ({
                   })}
                 </div>
                 {timer.active && (
-                  <div className="flex items-center gap-1" title="This attempt">
+                  <div className={`flex items-center gap-1 ${mobileStudent ? "flex-wrap" : ""}`} title="This attempt">
                     {guidedLines.map((ln, k) => {
                       const slot = slotFor(k);
                       const done = !!slot && slot in timer.confirmed;
