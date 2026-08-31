@@ -1,5 +1,6 @@
 import { removeBackground } from "@imgly/background-removal";
 import type { MediaType } from "./types";
+import { cutFrame, type FlatCutOptions } from "./flatCut";
 
 export const isVideoFile = (file: File) =>
   /^video\//.test(file.type) || /\.(mp4|webm|mov|m4v|ogg)$/i.test(file.name);
@@ -26,10 +27,67 @@ export const blobHasTransparency = async (blob: Blob): Promise<boolean> => {
   }
 };
 
-export const makeTransparent = async (file: File): Promise<Blob> => {
+const canvasToPng = (canvas: HTMLCanvasElement): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    // No quality argument: PNG is lossless, so the subject keeps every pixel.
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Encoding the cutout failed"))), "image/png");
+  });
+
+/**
+ * Region-aware cut for a flat-backdrop image: the backdrop is only what is
+ * connected to the edge of the frame, so white signage or glass inside the
+ * building is never removed, and opaque pixels are left untouched.
+ */
+const flatCutImage = async (file: File, opts: FlatCutOptions): Promise<Blob | null> => {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(bitmap, 0, 0);
+    const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    const detection = analyseFrames([
+      { data: frame.data, w: canvas.width, h: canvas.height },
+    ]);
+    const key = opts.keyColor ?? detection.color;
+    if (!opts.keyColor && !detection.keyable) return null;
+
+    const coverage = cutFrame(frame.data, canvas.width, canvas.height, key, opts);
+    // A cut that eats nearly everything means the key colour was wrong — better
+    // to hand over to the model than to hand back a ghost.
+    if (coverage < 0.02 || coverage > 0.97) return null;
+    ctx.putImageData(frame, 0, 0);
+    return await canvasToPng(canvas);
+  } finally {
+    bitmap.close();
+  }
+};
+
+export interface MakeTransparentOptions extends FlatCutOptions {
+  /** Skip detection and cut this colour instead. */
+  keyColor?: KeyColor;
+}
+
+export const makeTransparent = async (
+  file: File,
+  opts: MakeTransparentOptions = {},
+): Promise<Blob> => {
+  // Flat backdrops (studio white, green screen, flat art) are cut by region —
+  // that preserves the subject's own colours and its full resolution.
+  try {
+    const cut = await flatCutImage(file, opts);
+    if (cut && (await blobHasTransparency(cut))) return cut;
+  } catch (err) {
+    console.warn("flat background cut unavailable, using the model", err);
+  }
+
+  // Photographic or busy backdrops still go through the model.
   try {
     const blob = await removeBackground(file, {
-      output: { format: "image/png", quality: 0.9 },
+      output: { format: "image/png", quality: 1 },
     });
     const hasTransparency = await blobHasTransparency(blob);
     if (!hasTransparency) {
