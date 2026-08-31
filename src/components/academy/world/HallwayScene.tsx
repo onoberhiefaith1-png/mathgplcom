@@ -221,7 +221,14 @@ const buildHallways = (
       )
       .sort((a, b) => a.meet.length - b.meet.length);
     const hit = hits[0];
-    if (!hit) continue;
+    if (!hit) {
+      // An unreachable connection must never inherit an arbitrary object-based
+      // length and slice across the plan. Leave a short, capped corridor that
+      // clearly stops instead of fabricating a crossing with no wall opening.
+      corridor.length = Math.max(HALL_WIDTH, junctionGeometry(HALL_WIDTH).branchTrim + 0.5);
+      layouts.set(corridor.walkway.id, []);
+      continue;
+    }
     const target = hit.candidate;
     const meet = hit.meet;
     corridor.length = meet.length;
@@ -1400,12 +1407,14 @@ const MAP_METRE = 2.6;
 const MiniMap = ({
   segments,
   layouts,
+  connectors,
   m,
   show,
   ended = false,
 }: {
   segments: Segment[];
   layouts: Map<string, HallwayObject[]>;
+  connectors: Map<string, ConnectorInfo>;
   m: React.RefObject<Machine>;
   show: boolean;
   /** True when the walker is standing at the end of the current hallway. */
@@ -1439,7 +1448,10 @@ const MiniMap = ({
         if (o.kind === "door") doorDots.push(at);
         else if (o.kind === "link") linkEnds.set(o.id, [...(linkEnds.get(o.id) ?? []), at]);
       }
-      if (!s.children.some((c) => c.walkway?.direction === "forward")) {
+      if (
+        !s.children.some((c) => c.walkway?.direction === "forward") &&
+        !connectors.has(id)
+      ) {
         ends.push({ id, x: ex, z: ez, name: s.walkway?.end_label ?? DEFAULT_ENDPOINT_NAME });
       }
       s.children.forEach((c) => walk(c, id));
@@ -1467,7 +1479,7 @@ const MiniMap = ({
     const py = (z: number) => (z - minZ) * sc;
 
     return { W, H, px, py, lines, linkLines, doorDots, ends, parentOf };
-  }, [segments, layouts]);
+  }, [segments, layouts, connectors]);
 
   // ── live player position: eased toward the walker's real coordinates ──
   const marker = useRef({ x: 0, y: 0, dx: 0, dy: -1, ready: false });
@@ -1966,6 +1978,26 @@ const HallwayScene = ({
     setMoving(false);
   }, []);
 
+  const pointerIntent = useRef<-1 | 0 | 1>(0);
+  const heldMoveKeys = useRef(new Set<1 | -1>());
+  const startPointerHold = useCallback(
+    (sign: 1 | -1) => {
+      pointerIntent.current = sign;
+      startHold(sign);
+    },
+    [startHold],
+  );
+  const endPointerHold = useCallback(() => {
+    pointerIntent.current = 0;
+    const keyboardIntent = heldMoveKeys.current.has(1)
+      ? 1
+      : heldMoveKeys.current.has(-1)
+        ? -1
+        : 0;
+    if (keyboardIntent) startHold(keyboardIntent);
+    else endHold();
+  }, [endHold, startHold]);
+
   const enterWalk = useCallback(
     (seg: Segment) => {
       const st = machineRef.current;
@@ -2245,6 +2277,8 @@ const HallwayScene = ({
       const key = e.key;
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
       if (key === "ArrowUp" || key === "w" || key === "W") {
+        if (e.repeat) return;
+        heldMoveKeys.current.add(1);
         if (st.phase === "browse") {
           if (focus < rooms.length - 1) onFocusChange(focus + 1);
           else enterWalk(rootEffective);
@@ -2262,6 +2296,8 @@ const HallwayScene = ({
       }
 
       if (key === "ArrowDown" || key === "s" || key === "S") {
+        if (e.repeat) return;
+        heldMoveKeys.current.add(-1);
         if (st.phase === "browse") onFocusChange(Math.max(0, focus - 1));
         else if (st.phase === "walking" || st.phase === "idle" || st.phase === "turning")
           startHold(-1);
@@ -2295,9 +2331,19 @@ const HallwayScene = ({
     };
     const onKeyUp = (e: KeyboardEvent) => {
       const key = e.key;
-      if (["ArrowUp", "w", "W", "ArrowDown", "s", "S"].includes(key)) endHold();
+      if (["ArrowUp", "w", "W"].includes(key)) heldMoveKeys.current.delete(1);
+      else if (["ArrowDown", "s", "S"].includes(key)) heldMoveKeys.current.delete(-1);
+      else return;
+      if (pointerIntent.current) startHold(pointerIntent.current);
+      else if (heldMoveKeys.current.has(1)) startHold(1);
+      else if (heldMoveKeys.current.has(-1)) startHold(-1);
+      else endHold();
     };
-    const onBlur = () => endHold();
+    const onBlur = () => {
+      heldMoveKeys.current.clear();
+      pointerIntent.current = 0;
+      endHold();
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
@@ -2645,8 +2691,8 @@ const HallwayScene = ({
           canBack={canBack}
           moving={moving}
           ended={endReached}
-          onHoldStart={startHold}
-          onHoldEnd={endHold}
+          onHoldStart={startPointerHold}
+          onHoldEnd={endPointerHold}
 
 
           onTurn={pickBranch}
@@ -2657,6 +2703,7 @@ const HallwayScene = ({
       <MiniMap
         segments={segments}
         layouts={layouts}
+        connectors={connectors}
         m={machineRef}
         show={showMap}
         ended={endReached}
