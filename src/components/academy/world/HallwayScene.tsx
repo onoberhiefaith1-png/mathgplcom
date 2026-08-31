@@ -1033,11 +1033,6 @@ const HallwayScene = ({
     }
   }, [rootEffective]);
 
-  const titles = useMemo(() => {
-    const out: Record<string, string> = {};
-    for (const p of catalogue) out[`${p.kind}:${p.id}`] = p.title;
-    return out;
-  }, [catalogue]);
 
   const notifyMode = useCallback((m: "browse" | "walk") => onModeChange?.(m), [onModeChange]);
 
