@@ -192,7 +192,7 @@ export const cutVideoBackground = async (
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
 
-    const [edge0, edge1] = BANDS[softness];
+    const [edge0, edge1] = bandFor(softness, detection.color);
     gl.uniform3f(
       gl.getUniformLocation(program, "uKey"),
       detection.color.r / 255,
