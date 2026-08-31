@@ -1685,6 +1685,18 @@ const HallwayScene = ({
     setMachinePhase("idle");
   }, [setMachinePhase]);
 
+  /** Arrived alongside a mid-hallway junction → hover so a turn can be taken. */
+  const handleJunctionReach = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase !== "walking") return;
+    st.moving = false;
+    st.speed = 0;
+    setMoving(false);
+    setMachinePhase("idle");
+  }, [setMachinePhase]);
+
+
+
 
   /**
    * The building is hallways + doors, so there is no room carousel to browse:
