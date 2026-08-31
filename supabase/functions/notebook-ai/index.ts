@@ -986,8 +986,20 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
           }
         }
 
-        const out = await callAI([{ role: "user", content }]);
-        return parseEngineJson(out);
+        // Ask for a generous budget so the reply is not truncated mid-JSON,
+        // and retry once when the model stops on length.
+        let out = "";
+        for (let tokens = 8000; tokens <= 16000; tokens *= 2) {
+          const rich = await callAIRich([{ role: "user", content }], { maxTokens: tokens });
+          out = rich.content;
+          if (rich.finishReason !== "length" || !out) break;
+          console.warn(`[mathengine] reply truncated at ${tokens} tokens — retrying`);
+        }
+        const parsed = parseEngineJson(out);
+        if (!parsed || typeof parsed !== "object") {
+          console.error("[mathengine] unparseable reply:", out.slice(0, 1200));
+        }
+        return parsed;
 
       };
 
@@ -999,6 +1011,7 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
           problems = ["The mathematics came back unreadable."];
           continue;
         }
+
         // Board-ready notation on every produced line.
         if (Array.isArray(payload.questions)) {
           payload.questions = payload.questions.map((q: any) => ({

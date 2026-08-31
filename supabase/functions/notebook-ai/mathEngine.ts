@@ -190,8 +190,34 @@ function evalArithmetic(raw: string): number {
 // A backslash that does not begin a valid JSON escape sequence.
 const BAD_ESCAPE = /\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g;
 
+// A backslash that starts a LaTeX command (\frac, \begin, \sqrt, \text …).
+// JSON-wise \f, \b, \n, \r, \t are *valid* escapes, so JSON.parse silently
+// mangles "\frac" into a form-feed. Double these before parsing.
+const LATEX_ESCAPE = /\\(?=[a-zA-Z])/g;
+
 const stripFences = (s: string) =>
   s.replace(/```[a-zA-Z]*\s*/g, "").replace(/```/g, "").trim();
+
+/** Escape raw control characters (real newlines/tabs) that appear inside strings. */
+function escapeRawControls(s: string): string {
+  let out = "", inStr = false, esc = false;
+  for (const c of s) {
+    if (inStr) {
+      if (esc) { esc = false; out += c; continue; }
+      if (c === "\\") { esc = true; out += c; continue; }
+      if (c === '"') { inStr = false; out += c; continue; }
+      if (c === "\n") { out += "\\n"; continue; }
+      if (c === "\r") { out += "\\r"; continue; }
+      if (c === "\t") { out += "\\t"; continue; }
+      out += c;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    out += c;
+  }
+  return out;
+}
+
 
 /** Slice the first balanced {...} block, ignoring braces inside strings. */
 function sliceObject(s: string): string | null {
@@ -238,15 +264,26 @@ function repairTail(s: string): string {
 // deno-lint-ignore no-explicit-any
 export function parseEngineJson(raw: string): any {
   const base = stripFences(String(raw ?? ""));
-  const candidates = [base, sliceObject(base) ?? ""].filter(Boolean);
-  for (const candidate of candidates) {
-    for (const text of [candidate, candidate.replace(BAD_ESCAPE, "\\\\")]) {
-      try { return JSON.parse(text); } catch { /* try next shape */ }
-      try { return JSON.parse(repairTail(text)); } catch { /* try next shape */ }
+  if (!base) return null;
+  const shapes: string[] = [];
+  for (const candidate of [base, sliceObject(base) ?? ""]) {
+    if (!candidate) continue;
+    // Strict shape first, then progressively repaired shapes. LaTeX repair is
+    // only reached when the strict parse fails, so correctly escaped input is
+    // never mangled.
+    const latex = candidate.replace(LATEX_ESCAPE, "\\\\");
+    for (const fixed of [candidate, latex, latex.replace(BAD_ESCAPE, "\\\\"), candidate.replace(BAD_ESCAPE, "\\\\")]) {
+      shapes.push(fixed, escapeRawControls(fixed));
     }
+  }
+  for (const text of shapes) {
+    try { return JSON.parse(text); } catch { /* try next shape */ }
+    try { return JSON.parse(repairTail(text)); } catch { /* try next shape */ }
   }
   return null;
 }
+
+
 
 
 
