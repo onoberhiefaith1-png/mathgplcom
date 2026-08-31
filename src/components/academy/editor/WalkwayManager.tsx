@@ -25,6 +25,8 @@ export interface WalkwayManagerProps {
   catalogue: AcademyProduct[];
   onAddWalkway: (parentId: string | null, direction: WalkwayDirection) => Promise<void>;
   onUpdateWalkway: (id: string, length: number) => Promise<void>;
+  onRenameWalkway?: (id: string, name: string) => Promise<void>;
+  onRenameDoor?: (id: string, title: string) => Promise<void>;
   onDeleteWalkway: (id: string) => Promise<void>;
   onAddDoor: (
     walkwayId: string,
