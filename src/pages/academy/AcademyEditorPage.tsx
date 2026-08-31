@@ -208,7 +208,10 @@ const AcademyEditorPage = () => {
   const [buildingData, setBuildingData] = useState<BuildingData | null>(null);
   const [previewEnv, setPreviewEnv] = useState<EnvironmentSettings | null>(null);
   const [textures, setTextures] = useState<Record<string, string>>({});
-  const [buildingOpen, setBuildingOpen] = useState<Record<string, boolean>>({ env: true, walk: false });
+  const [buildingOpen, setBuildingOpen] = useState<Record<string, boolean>>({ env: true, walk: true });
+  const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
+  /** Hallway the live preview should walk into (set after creating one). */
+  const [navigateTo, setNavigateTo] = useState<string | null>(null);
   const doorPosTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadEditorBuilding = useCallback(async (org: string | null) => {
@@ -402,8 +405,10 @@ const handleTextureUpload = useCallback(
       <div className="flex w-full flex-col border-b border-border/60 lg:w-[440px] lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
           <div className="min-w-0">
-            <h1 className="text-sm font-semibold text-foreground">Academy structure</h1>
-            <p className="text-[11px] text-muted-foreground">Drag to reorder or move between parents.</p>
+            <h1 className="text-sm font-semibold text-foreground">Building structure</h1>
+            <p className="text-[11px] text-muted-foreground">
+              Hallways are the paths, doors are the destinations. Build it here, walk it on the right.
+            </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {buildings.length > 1 && (
@@ -438,279 +443,6 @@ const handleTextureUpload = useCallback(
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
-          {rooms.length === 0 && (
-            <p className="mb-2 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-              This building has no hallway sections yet. Add the first one — it appears in the corridor instantly.
-            </p>
-          )}
-
-          {rooms.map((room) => (
-            <div key={room.id}>
-              <Row
-                table="academy_rooms"
-                id={room.id}
-                name={room.name}
-                visible={room.is_visible}
-                depth={0}
-                open={open[room.id]}
-                hasChildren
-                onToggleOpen={() => setOpen((o) => ({ ...o, [room.id]: !o[room.id] }))}
-                onRefresh={refresh}
-                onDragStart={() => setDrag({ table: "academy_rooms", id: room.id, parentId: room.academy_id })}
-                onDrop={() => handleDrop("academy_rooms", room.academy_id, rooms, room.id)}
-                extra={
-                  <>
-                    <select
-                      aria-label="Room type"
-                      value={room.room_type}
-                      onChange={async (e) => {
-                        await updateNode("academy_rooms", room.id, { room_type: e.target.value });
-                        refresh();
-                      }}
-                      className="rounded border border-border bg-background px-1 py-1 text-[11px]"
-                    >
-                      {ROOM_TYPES.map((t) => (
-                        <option key={t.value} value={t.value}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      aria-label="Duplicate room"
-                      onClick={async () => {
-                        await duplicateRoom(room);
-                        refresh();
-                      }}
-                      className="rounded p-2 text-muted-foreground hover:text-foreground"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </button>
-                  </>
-                }
-              />
-
-              {open[room.id] && (
-                <div>
-                  {room.categories.map((category) => (
-                    <div key={category.id}>
-                      <Row
-                        table="academy_categories"
-                        id={category.id}
-                        name={category.name}
-                        visible={category.is_visible}
-                        depth={1}
-                        open={open[category.id]}
-                        hasChildren
-                        onToggleOpen={() => setOpen((o) => ({ ...o, [category.id]: !o[category.id] }))}
-                        onRefresh={refresh}
-                        onDragStart={() => setDrag({ table: "academy_categories", id: category.id, parentId: room.id })}
-                        onDrop={() => handleDrop("academy_categories", room.id, room.categories, category.id)}
-                      />
-                      {open[category.id] && (
-                        <div>
-                          {category.topics.map((topic) => (
-                            <div key={topic.id}>
-                              <Row
-                                table="academy_topics"
-                                id={topic.id}
-                                name={topic.name}
-                                visible={topic.is_visible}
-                                depth={2}
-                                open={open[topic.id]}
-                                hasChildren
-                                onToggleOpen={() => setOpen((o) => ({ ...o, [topic.id]: !o[topic.id] }))}
-                                onRefresh={refresh}
-                                onDragStart={() => setDrag({ table: "academy_topics", id: topic.id, parentId: category.id })}
-                                onDrop={() => handleDrop("academy_topics", category.id, category.topics, topic.id)}
-                              />
-                              {open[topic.id] && (
-                                <div>
-                                  {topic.subtopics.map((sub) => (
-                                    <div key={sub.id}>
-                                      <Row
-                                        table="academy_subtopics"
-                                        id={sub.id}
-                                        name={sub.name}
-                                        visible={sub.is_visible}
-                                        depth={3}
-                                        open={open[sub.id]}
-                                        hasChildren
-                                        onToggleOpen={() => setOpen((o) => ({ ...o, [sub.id]: !o[sub.id] }))}
-                                        onRefresh={refresh}
-                                        onDragStart={() => setDrag({ table: "academy_subtopics", id: sub.id, parentId: topic.id })}
-                                        onDrop={() => handleDrop("academy_subtopics", topic.id, topic.subtopics, sub.id)}
-                                      />
-                                      {open[sub.id] && (
-                                        <div>
-                                          {sub.placements.map((placement) => {
-                                            const product = catalogue.find(
-                                              (c) => c.kind === placement.product_kind && c.id === placement.product_id,
-                                            );
-                                            return (
-                                              <div
-                                                key={placement.id}
-                                                className="flex min-h-[44px] items-center gap-1 rounded-lg px-1 hover:bg-muted/60"
-                                                style={{ paddingLeft: 4 * 14 + 4 }}
-                                              >
-                                                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                                                  {placement.product_kind}
-                                                </span>
-                                                <span
-                                                  className={`min-w-0 flex-1 truncate text-sm ${placement.is_visible ? "text-foreground" : "text-muted-foreground line-through"}`}
-                                                >
-                                                  {placement.title_override || product?.title || "Missing product"}
-                                                </span>
-                                                <button
-                                                  type="button"
-                                                  aria-label="Feature"
-                                                  onClick={async () => {
-                                                    await updateNode("academy_placements", placement.id, {
-                                                      is_featured: !placement.is_featured,
-                                                    });
-                                                    refresh();
-                                                  }}
-                                                  className={`rounded p-2 ${placement.is_featured ? "text-amber-500" : "text-muted-foreground"}`}
-                                                >
-                                                  <Star className="h-3.5 w-3.5" />
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  aria-label={placement.is_visible ? "Hide" : "Show"}
-                                                  onClick={async () => {
-                                                    await updateNode("academy_placements", placement.id, {
-                                                      is_visible: !placement.is_visible,
-                                                    });
-                                                    refresh();
-                                                  }}
-                                                  className="rounded p-2 text-muted-foreground hover:text-foreground"
-                                                >
-                                                  {placement.is_visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                                                </button>
-                                                <button
-                                                  type="button"
-                                                  aria-label="Remove from shelf"
-                                                  onClick={async () => {
-                                                    await deleteNode("academy_placements", placement.id);
-                                                    refresh();
-                                                  }}
-                                                  className="rounded p-2 text-muted-foreground hover:text-destructive"
-                                                >
-                                                  <Trash2 className="h-3.5 w-3.5" />
-                                                </button>
-                                              </div>
-                                            );
-                                          })}
-                                          <div style={{ paddingLeft: 4 * 14 + 4 }}>
-                                            <AddButton
-                                              label="Place a product"
-                                              onAdd={() => setPlaceInto(placeInto === sub.id ? null : sub.id)}
-                                            />
-                                          </div>
-                                          {placeInto === sub.id && (
-                                            <div
-                                              className="mt-2 rounded-xl border border-border bg-card p-3"
-                                              style={{ marginLeft: 4 * 14 + 4 }}
-                                            >
-                                              <div className="flex flex-wrap gap-1">
-                                                {PRODUCT_KINDS.map((k) => (
-                                                  <button
-                                                    key={k.value}
-                                                    type="button"
-                                                    onClick={() => setKind(k.value)}
-                                                    className={`min-h-[36px] rounded-full px-3 text-xs font-semibold ${kind === k.value ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"}`}
-                                                  >
-                                                    {k.label}
-                                                  </button>
-                                                ))}
-                                              </div>
-                                              <div className="mt-2 max-h-56 overflow-y-auto">
-                                                {products.length === 0 ? (
-                                                  <p className="p-2 text-xs text-muted-foreground">
-                                                    You have no {kind}s yet. Create one first — the Academy only
-                                                    displays existing products, it never duplicates them.
-                                                  </p>
-                                                ) : (
-                                                  products.map((p) => (
-                                                    <button
-                                                      key={`${p.kind}-${p.id}`}
-                                                      type="button"
-                                                      onClick={async () => {
-                                                        await createNode("academy_placements", sub.id, {
-                                                          product_kind: p.kind,
-                                                          product_id: p.id,
-                                                        });
-                                                        setPlaceInto(null);
-                                                        refresh();
-                                                      }}
-                                                      className="flex min-h-[40px] w-full items-center justify-between gap-2 rounded-lg px-2 text-left text-sm hover:bg-muted"
-                                                    >
-                                                      <span className="truncate">{p.title}</span>
-                                                      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                                                    </button>
-                                                  ))
-                                                )}
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                  <div style={{ paddingLeft: 3 * 14 + 4 }}>
-                                    <AddButton
-                                      label="Add subtopic"
-                                      onAdd={async () => {
-                                        const id = await createNode("academy_subtopics", topic.id, {});
-                                        setOpen((o) => ({ ...o, [topic.id]: true, [id]: true }));
-                                        refresh();
-                                      }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                          <div style={{ paddingLeft: 2 * 14 + 4 }}>
-                            <AddButton
-                              label="Add topic"
-                              onAdd={async () => {
-                                const id = await createNode("academy_topics", category.id, {});
-                                setOpen((o) => ({ ...o, [category.id]: true, [id]: true }));
-                                refresh();
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  <div style={{ paddingLeft: 1 * 14 + 4 }}>
-                    <AddButton
-                      label="Add section"
-                      onAdd={async () => {
-                        const id = await createNode("academy_categories", room.id, {});
-                        setOpen((o) => ({ ...o, [room.id]: true, [id]: true }));
-                        refresh();
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-
-          <div className="mt-2">
-            <AddButton
-              label="Add hallway section"
-              onAdd={async () => {
-                if (!tree) return;
-                const id = await createNode("academy_rooms", tree.academy.id, {});
-                setOpen((o) => ({ ...o, [id]: true }));
-                refresh();
-              }}
-            />
-          </div>
 
           {/* The Building — environment + walkways + doors */}
           <div className="mt-6 border-t border-border/70 pt-4">
@@ -813,31 +545,28 @@ const handleTextureUpload = useCallback(
         </div>
       </div>
 
-      {/* Live world */}
+      {/* Live navigable world — the same walk navigation as View world */}
       <div className="relative min-h-[60vh] flex-1 bg-[#0b0f18]">
-        {rooms.length > 0 ? (
+        {(buildingData?.walkways.length ?? 0) > 0 ? (
           <HallwayScene
-            rooms={rooms}
             building={previewData}
             catalogue={catalogue}
             textures={textures}
-            focus={Math.min(focus, rooms.length - 1)}
+            focus={focus}
             onFocusChange={setFocus}
-            onEnterRoom={(id) => setOpen((o) => ({ ...o, [id]: true }))}
-            onOpenDoor={() =>
-              toast({
-                title: "View mode",
-                description: "Doors open in the world — this preview shows the environment.",
-              })
-            }
+            navigateTo={navigateTo}
+            onOpenDoor={(door) => {
+              setSelectedDoorId(door.id);
+              setBuildingOpen((o) => ({ ...o, walk: true }));
+            }}
           />
         ) : (
           <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-300">
-            Add a hallway section and the corridor builds itself here.
+            Add a hallway and the corridor builds itself here — then walk into it.
           </div>
         )}
         <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] uppercase tracking-[0.18em] text-slate-400">
-          Live preview · arrow keys or drag to glide
+          Live world · arrows or WASD to walk, left/right at a junction
         </p>
       </div>
     </div>

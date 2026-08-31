@@ -50,8 +50,6 @@ const HALL_WIDTH = 7;
 const HALL_HEIGHT = 5.4;
 const WALK_SPEED = 4; // units per second while holding forward
 
-const accentOf = (room: AcademyRoom, index: number) =>
-  room.accent || ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4", "#c4b5fd", "#fdba74"][index % 6];
 
 // ── Hallway geometry ──────────────────────────────────────────────────────
 // One hallway is a finite, enclosed corridor with a name. Doors and
@@ -1181,7 +1179,8 @@ const MiniMap = ({
 // ── Scene ─────────────────────────────────────────────────────────────────
 
 export interface HallwaySceneProps {
-  rooms: AcademyRoom[];
+  /** Legacy academy rooms. The building is hallways + doors, so this is optional. */
+  rooms?: AcademyRoom[];
   building: BuildingData | null;
   catalogue: AcademyProduct[];
   textures?: Record<string, string>;
@@ -1189,13 +1188,15 @@ export interface HallwaySceneProps {
   roomCounts?: Record<string, string>;
   focus: number;
   onFocusChange: (index: number) => void;
-  onEnterRoom: (roomId: string) => void;
+  onEnterRoom?: (roomId: string) => void;
   onOpenDoor: (door: BuildingDoor) => void;
   onModeChange?: (mode: "browse" | "walk") => void;
+  /** Walk to this hallway id (used by the editor after creating one). */
+  navigateTo?: string | null;
 }
 
 const HallwayScene = ({
-  rooms,
+  rooms = [],
   building,
   catalogue,
   textures = {},
@@ -1205,6 +1206,7 @@ const HallwayScene = ({
   onEnterRoom,
   onOpenDoor,
   onModeChange,
+  navigateTo = null,
 }: HallwaySceneProps) => {
   // Saved configuration is the source of truth: merge it field-by-field over
   // the defaults so a partial/legacy record never loses its custom materials.
@@ -1235,7 +1237,7 @@ const HallwayScene = ({
 
   const rootLen = Math.max(
     walkways.find((w) => !w.parent_id)?.length ?? 12,
-    (rooms.length + doors.length) * SPACING + 12,
+    doors.length * SPACING + 12,
   );
 
   const { segments, layouts } = useMemo(
@@ -1248,11 +1250,11 @@ const HallwayScene = ({
             name: doorTitle(d, productTitles),
             order: 5 + d.position_along * 100,
           })),
-        rooms.map((r, i) => ({ id: `room:${r.id}`, name: r.name, order: i * 10 })),
+        [],
         rootLen,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [walkways, doorsByWalkway, productTitles, rooms, rootLen],
+    [walkways, doorsByWalkway, productTitles, rootLen],
   );
 
   const rootSeg: Segment = useMemo(
@@ -1483,6 +1485,35 @@ const HallwayScene = ({
     }
   }, [setMachinePhase]);
 
+  /**
+   * The building is hallways + doors, so there is no room carousel to browse:
+   * stand in the corridor ready to walk as soon as a hallway exists.
+   */
+  useEffect(() => {
+    if (rooms.length > 0) return;
+    if (machineRef.current.phase !== "browse") return;
+    if (!rootEffective.walkway) return;
+    enterWalk(rootEffective);
+    machineRef.current.moving = false;
+    setMoving(false);
+    setMachinePhase("idle");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms.length, rootEffective, enterWalk, setMachinePhase]);
+
+  /** The editor asks the walker to stand in a freshly created hallway. */
+  useEffect(() => {
+    if (!navigateTo) return;
+    const seg = findSegment(segments, navigateTo);
+    if (!seg) return;
+    enterWalk(seg);
+    machineRef.current.moving = false;
+    setMoving(false);
+    setMachinePhase("idle");
+    setEndReached(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigateTo, segments]);
+
+
   /** Retrace reached the junction → re-align to face back down the parent. */
   const finishRetrace = useCallback(() => {
     const st = machineRef.current;
@@ -1585,11 +1616,6 @@ const HallwayScene = ({
   const hasForwardChild =
     atJunction && nav.seg.children.some((c) => c.walkway?.direction === "forward");
   const canBack = phase === "walking" || phase === "idle";
-  const roomsById = useMemo(() => {
-    const map = new Map<string, { room: AcademyRoom; index: number }>();
-    rooms.forEach((room, index) => map.set(room.id, { room, index }));
-    return map;
-  }, [rooms]);
 
   const doorsById = useMemo(() => {
     const map = new Map<string, BuildingDoor>();
@@ -1624,26 +1650,6 @@ const HallwayScene = ({
       const wz = seg.start[1] + seg.heading[1] * o.along - o.side * (HALL_WIDTH / 2 - 0.2) * sy;
       const front: [number, number] = turnHeading(seg.heading, o.side === -1 ? "right" : "left");
 
-      if (o.id.startsWith("room:")) {
-        const entry = roomsById.get(o.id.slice(5));
-        if (!entry) return null;
-        return (
-          <group key={o.id} position={[0, 0, -o.along]}>
-            <DoorMesh
-              side={o.side}
-              z={0}
-              label={entry.room.name}
-              sublabel={roomCounts[entry.room.id] ?? (entry.room.description || "Open room")}
-              accent={accentOf(entry.room, entry.index)}
-              color={env.door.color}
-              emissiveIntensity={env.door.brightness * 0.12}
-              styleKey={env.door.style}
-              textureUrl={env.door.texture ? textures[env.door.texture.path] : undefined}
-              onEnter={() => startDoorZoom([wx, wz], front, () => onEnterRoom(entry.room.id))}
-            />
-          </group>
-        );
-      }
 
       const d = doorsById.get(o.id);
       if (!d) return null;
@@ -1740,7 +1746,8 @@ const HallwayScene = ({
             <pointLight position={[0, HALL_HEIGHT, -rootLen / 2]} intensity={lights.point * 1.2} distance={26} color="#fde68a" />
           </group>
         )}
-        {rooms.map((_, i) => (
+        {/* Ceiling lights evenly along the main corridor */}
+        {Array.from({ length: Math.max(1, Math.ceil(rootLen / SPACING)) }, (_, i) => (
           <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={lights.point} distance={11} color="#cfe3ff" />
         ))}
 
