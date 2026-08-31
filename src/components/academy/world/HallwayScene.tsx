@@ -1086,15 +1086,26 @@ const MiniMap = ({
             const onRoute = route.has(l.id);
             return (
               <g key={l.id}>
+                {here && (
+                  <line
+                    x1={svg.px(l.x1)}
+                    y1={svg.py(l.y1)}
+                    x2={svg.px(l.x2)}
+                    y2={svg.py(l.y2)}
+                    stroke="#38bdf8"
+                    strokeWidth={13}
+                    strokeLinecap="round"
+                    opacity={0.22}
+                  />
+                )}
                 <line
                   x1={svg.px(l.x1)}
                   y1={svg.py(l.y1)}
                   x2={svg.px(l.x2)}
                   y2={svg.py(l.y2)}
-                  stroke={here ? "#38bdf8" : onRoute ? "#2563eb" : "#1e293b"}
-                  strokeWidth={here ? 8 : 7}
+                  stroke={here ? "#38bdf8" : onRoute ? "#3b82f6" : "#243755"}
+                  strokeWidth={here ? 7.5 : 6.5}
                   strokeLinecap="round"
-                  filter={here ? "url(#mapGlow)" : undefined}
                 />
                 {(here || onRoute) && (
                   <text
