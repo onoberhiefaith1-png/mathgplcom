@@ -566,42 +566,23 @@ const SegmentCorridor = ({
         <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
       </Surface>
     )}
-    {capEnd && endName && (
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={11}
-          material-depthTest={true}
-          position={[0, HALL_HEIGHT / 2 + 0.2, -length + 0.06]}
-          fontSize={0.34}
-          maxWidth={HALL_WIDTH - 1}
-          anchorX="center"
-          anchorY="middle"
-          color="#fde68a"
-        >
-          {endName}
-        </Text>
-      </Suspense>
+    {/* THE END-WALL SIGN — this hallway's own identity, mounted flat on the wall
+        that caps it, at eye level and centred on the wall. Never on the ceiling,
+        never floating in the corridor. */}
+    {capEnd && (name || endName) && (
+      <Nameplate
+        text={name || endName || ""}
+        caption={name && endName ? endName : undefined}
+        position={[0, 2.15, -length + 0.09]}
+        fontSize={0.3}
+        maxWidth={HALL_WIDTH - 1.2}
+      />
     )}
     {capStart && (
       <mesh position={[0, HALL_HEIGHT / 2, 1.6]}>
         <planeGeometry args={[HALL_WIDTH, HALL_HEIGHT]} />
         <meshStandardMaterial color={env.leftWall.color} roughness={0.95} side={THREE.DoubleSide} />
       </mesh>
-    )}
-    {name && (
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={10}
-          material-depthTest={true}
-          position={[0, HALL_HEIGHT - 0.55, -1.5]}
-          fontSize={0.3}
-          anchorX="center"
-          anchorY="middle"
-          color="#dbeafe"
-        >
-          {name}
-        </Text>
-      </Suspense>
     )}
     {/* Recessed ceiling light panels + floor light pools, as in the reference */}
     {Array.from({ length: Math.max(1, Math.round(length / 6)) }, (_, i) => {
