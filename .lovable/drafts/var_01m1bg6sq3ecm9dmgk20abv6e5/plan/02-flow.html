@@ -1,0 +1,54 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .s { font-size: 12px; fill: hsl(var(--muted-foreground)); font-weight: 400; }
+    .b { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .q { fill: hsl(var(--muted)); stroke: none; }
+    .r { stroke: hsl(var(--border)); stroke-width: 1; fill: none; }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { stroke: hsl(var(--accent)); stroke-width: 1; fill: none; }
+    .accf { fill: hsl(var(--accent)); }
+    .accfg { fill: hsl(var(--accent-foreground)); font-size: 11px; }
+  </style>
+  <defs>
+    <marker id="cv" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text x="0" y="14" class="s">today — colour only</text>
+  <rect x="0" y="26" width="180" height="110" class="r"/>
+  <rect x="24" y="52" width="60" height="70" class="q"/>
+  <rect x="40" y="66" width="28" height="12" class="b"/>
+  <text x="96" y="74" class="s">white sign</text>
+  <text x="96" y="90" class="s">matches key</text>
+  <text x="0" y="156" class="s">every matching pixel deleted →</text>
+  <text x="0" y="172" class="s">holes in the building, soft edges</text>
+
+  <line x1="212" y1="80" x2="252" y2="80" class="w" marker-end="url(#cv)"/>
+
+  <text x="272" y="14" class="s">new — region aware</text>
+  <rect x="272" y="26" width="180" height="110" class="r"/>
+  <rect x="296" y="52" width="60" height="70" class="q"/>
+  <rect x="312" y="66" width="28" height="12" class="b"/>
+  <rect x="274" y="28" width="176" height="106" class="acc" stroke-dasharray="4 3"/>
+  <text x="368" y="74" class="s">unreachable</text>
+  <text x="368" y="90" class="s">from the edge</text>
+  <text x="272" y="156" class="s">flood fill from the border stops at</text>
+  <text x="272" y="172" class="s">the building — inside colours kept</text>
+
+  <line x1="472" y1="80" x2="512" y2="80" class="w" marker-end="url(#cv)"/>
+  <rect x="524" y="46" width="112" height="72" class="b" rx="8"/>
+  <text x="540" y="76">feather + spill</text>
+  <text x="540" y="96" class="s">boundary ring only</text>
+
+  <circle cx="10" cy="222" r="9" class="accf"/>
+  <text x="6.5" y="226" class="accfg">1</text>
+  <text x="28" y="226" class="s">Mask built at full source resolution; only alpha is written — building pixels untouched.</text>
+  <circle cx="10" cy="252" r="9" class="accf"/>
+  <text x="6.5" y="256" class="accfg">2</text>
+  <text x="28" y="256" class="s">Video keys inside the same region mask, refreshed as the clip plays.</text>
+  <circle cx="10" cy="282" r="9" class="accf"/>
+  <text x="6.5" y="286" class="accfg">3</text>
+  <text x="28" y="286" class="s">Checkerboard preview, Tolerance slider, Protect-inside-colours toggle before storing.</text>
+</svg>
