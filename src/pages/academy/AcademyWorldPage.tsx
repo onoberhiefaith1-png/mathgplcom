@@ -364,31 +364,6 @@ const AcademyWorldPage = () => {
                 })}
               </div>
             )}
-            <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/75 p-1 backdrop-blur">
-              <button
-                type="button"
-                aria-label="Previous room"
-                onClick={() => setFocus((f) => Math.max(0, f - 1))}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-muted"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => rooms[focus] && enterRoom(rooms[focus].id)}
-                className="min-h-[44px] rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground"
-              >
-                Enter {rooms[focus]?.name ?? "room"}
-              </button>
-              <button
-                type="button"
-                aria-label="Next room"
-                onClick={() => setFocus((f) => Math.min(rooms.length - 1, f + 1))}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-muted"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
           </div>
         </>
       )}
