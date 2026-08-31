@@ -214,7 +214,61 @@ export const cutVideoBackground = async (
     gl.uniform1f(gl.getUniformLocation(program, "uEdge0"), edge0);
     gl.uniform1f(gl.getUniformLocation(program, "uEdge1"), edge1);
     gl.uniform1i(gl.getUniformLocation(program, "uTex"), 0);
+    gl.uniform1i(gl.getUniformLocation(program, "uMask"), 1);
+    const useMaskLoc = gl.getUniformLocation(program, "uUseMask");
+    gl.uniform1f(useMaskLoc, 0);
     gl.viewport(0, 0, width, height);
+
+    // ---- Region mask -------------------------------------------------------
+    // A small offscreen copy of the frame is flood filled from its border, so we
+    // know which pixels the backdrop actually reaches. Only those may be keyed;
+    // anything enclosed by the subject keeps full opacity.
+    const maskW = Math.max(32, Math.min(256, width));
+    const maskH = Math.max(18, Math.round((height / width) * maskW));
+    const maskCanvas = document.createElement("canvas");
+    maskCanvas.width = maskW;
+    maskCanvas.height = maskH;
+    const maskCtx = maskCanvas.getContext("2d", { willReadFrequently: true });
+    const maskTex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, maskTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.activeTexture(gl.TEXTURE0);
+
+    const maskPixels = new Uint8Array(maskW * maskH * 4);
+    /** Re-reads the region mask from the current frame and uploads it. */
+    const refreshMask = (source: HTMLVideoElement) => {
+      if (!maskCtx) return;
+      maskCtx.drawImage(source, 0, 0, maskW, maskH);
+      const frame = maskCtx.getImageData(0, 0, maskW, maskH);
+      const result = buildBackgroundMask(
+        { data: frame.data, w: maskW, h: maskH },
+        detection.color,
+        { tolerance: 0.5 },
+      );
+      // Grow the keyable region a couple of pixels so the soft edge of the
+      // subject still gets its graded alpha from the shader.
+      markBoundary(result, 2);
+      for (let p = 0; p < maskW * maskH; p++) {
+        const on = result.mask[p] ? 255 : 0;
+        const i = p * 4;
+        maskPixels[i] = on;
+        maskPixels[i + 1] = on;
+        maskPixels[i + 2] = on;
+        maskPixels[i + 3] = 255;
+      }
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, maskTex);
+      gl.texImage2D(
+        gl.TEXTURE_2D, 0, gl.RGBA, maskW, maskH, 0, gl.RGBA, gl.UNSIGNED_BYTE, maskPixels,
+      );
+      gl.activeTexture(gl.TEXTURE0);
+      gl.uniform1f(useMaskLoc, 1);
+    };
+    void DEFAULT_TOLERANCE;
 
     const fps = 30;
     const stream = canvas.captureStream(fps);
