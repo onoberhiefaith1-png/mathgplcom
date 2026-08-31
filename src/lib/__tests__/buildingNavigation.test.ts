@@ -19,6 +19,8 @@ import {
   nextBranchDirection,
   nextObjectOffset,
   openingFootprint,
+  junctionGeometry,
+  WALL_THICKNESS,
   wallRuns,
 } from "../building/navigation";
 
@@ -300,6 +302,37 @@ describe("hallway junctions are automatic and physical", () => {
 
   it("keeps a solid wall when the hallway has no junctions", () => {
     expect(wallRuns(0, 30, [])).toEqual([[0, 30]]);
+  });
+
+  it("solves a 60 degree junction as two corridor volumes meeting", () => {
+    const w = 7;
+    const geo = junctionGeometry(w);
+    // A diagonal corridor crosses the wall over width / sin(theta)
+    expect(geo.mouthSpan).toBeCloseTo(w / Math.sin(BRANCH_ANGLE));
+    expect(geo.mouthSpan).toBeGreaterThan(w);
+    // ...and the mouth centre sits forward of the junction point
+    expect(geo.mouthCenterOffset).toBeCloseTo((w / 2) * (Math.cos(BRANCH_ANGLE) / Math.sin(BRANCH_ANGLE)));
+    // The branch shell begins clear of the parent corridor
+    const clearance = geo.branchTrim * Math.sin(BRANCH_ANGLE) - (w / 2) * Math.cos(BRANCH_ANGLE);
+    expect(clearance).toBeGreaterThanOrEqual(w / 2 - 1e-9);
+    // Mouth edges lie on the parent wall plane; the throat corner is beyond it
+    expect(geo.mouthNear[0]).toBeCloseTo(w / 2);
+    expect(geo.mouthFar[0]).toBeCloseTo(w / 2);
+    expect(geo.throatCorner[0]).toBeGreaterThan(w / 2);
+    expect(geo.wallThickness).toBe(WALL_THICKNESS);
+  });
+
+  it("stops the parent wall either side of the diagonal mouth", () => {
+    const geo = junctionGeometry(7);
+    const center = 20 + geo.mouthCenterOffset;
+    const runs = wallRuns(0, 60, [{ along: center, width: geo.mouthSpan }]);
+    expect(runs.length).toBe(2);
+    expect(runs[0][1]).toBeCloseTo(center - geo.mouthSpan / 2);
+    expect(runs[1][0]).toBeCloseTo(center + geo.mouthSpan / 2);
+    // no run overlaps the mouth
+    for (const [a, b] of runs) {
+      expect(b <= center - geo.mouthSpan / 2 + 1e-6 || a >= center + geo.mouthSpan / 2 - 1e-6).toBe(true);
+    }
   });
 
   it("branches right at -60 degrees from the road", () => {

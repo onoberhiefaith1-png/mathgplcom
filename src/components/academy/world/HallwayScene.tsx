@@ -42,6 +42,8 @@ import {
   lengthForObjects,
   NavigationHistory,
   openingFootprint,
+  junctionGeometry,
+  WALL_THICKNESS,
   parentConnectionAnchor,
 
   reverseHeading,
@@ -250,6 +252,8 @@ const Surface = ({
   position,
   "rotation-x": rotationX,
   "rotation-y": rotationY,
+  castShadow,
+  receiveShadow,
 children,
 }: {
   url?: string | null;
@@ -265,6 +269,8 @@ children,
   position?: [number, number, number];
   "rotation-x"?: number;
   "rotation-y"?: number;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
 children?: React.ReactNode;
 }) => {
   const tex = useLoadedTexture(url);
@@ -295,7 +301,13 @@ children?: React.ReactNode;
     tex.offset.set(fitted.offset[0], fitted.offset[1]);
   }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH]);
 return (
-    <mesh position={position} rotation-x={rotationX} rotation-y={rotationY}>
+    <mesh
+      position={position}
+      rotation-x={rotationX}
+      rotation-y={rotationY}
+      castShadow={castShadow}
+      receiveShadow={receiveShadow}
+    >
       {children}
       <meshStandardMaterial
         color={map ? textureTint(mat.color) : mat.color}
@@ -319,6 +331,7 @@ const SegmentCorridor = ({
   env,
   textures,
   gaps = [],
+  startTrim = 0,
   capEnd = true,
   capStart = false,
   name,
@@ -331,6 +344,9 @@ const SegmentCorridor = ({
   textures: Record<string, string>;
   /** Cut-throughs in this hallway's walls, where connected hallways leave. */
   gaps?: { side: -1 | 1; along: number }[];
+  /** Distance from this hallway's start where its own shell may begin — a
+      branch begins at the mouth in its parent's wall, never inside it. */
+  startTrim?: number;
   /** Solid wall at the far end (no forward continuation). */
   capEnd?: boolean;
   /** Solid wall behind the entrance. */
@@ -339,14 +355,21 @@ const SegmentCorridor = ({
   /** Name of this hallway's ENDPOINT, shown on the capped far wall. */
   endName?: string;
 }) => {
-  // A branch hallway starts AT the cut in its parent's wall, so its own shell
-  // must not run backwards past that cut and cover the opening. Only the
-  // entrance hallway gets material behind its start.
-  const backPad = capStart ? 3 : 0;
+  // A branch hallway starts AT the cut in its parent's wall, so its WALLS must
+  // not run backwards past that cut and cover the opening. Its floor and
+  // ceiling, however, must run all the way back into the junction throat —
+  // otherwise the branch reads as a dark void behind the opening instead of a
+  // corridor you can see down.
+  const backPad = capStart ? 3 : -startTrim;
   const frontPad = 3;
   const span = length + frontPad + backPad;
-  /** Local z of the shell's centre inside the group offset by -length / 2. */
+  /** Local z of the wall runs' centre inside the group offset by -length / 2. */
   const shellZ = length / 2 - (length + frontPad - backPad) / 2;
+  /** Floor/ceiling reach back past the mouth so the throat is continuous. */
+  const deckBack = capStart ? 3 : startTrim + 1.5;
+  const deckSpan = length + frontPad + deckBack;
+  const deckZ = length / 2 - (length + frontPad - deckBack) / 2;
+
   return (
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
     {/* END WALL — the hallway's fifth surface, edited like the others. A
@@ -433,7 +456,7 @@ const SegmentCorridor = ({
       {/* floor — one continuous surface that runs through every cut */}
 <Surface
         rotation-x={-Math.PI / 2}
-        position={[0, 0, shellZ]}
+        position={[0, 0, deckZ]}
         url={env.floor.texture ? textures[env.floor.texture.path] : undefined}
         presetKey={env.floor.preset}
         color={env.floor.color}
@@ -443,14 +466,14 @@ const SegmentCorridor = ({
         repeat={env.floor.repeat}
         fit={env.floor.fit}
         planeW={HALL_WIDTH}
-        planeH={span}
+        planeH={deckSpan}
       >
-        <planeGeometry args={[HALL_WIDTH, span]} />
+        <planeGeometry args={[HALL_WIDTH, deckSpan]} />
       </Surface>
       {/* roof / ceiling */}
       <Surface
         rotation-x={Math.PI / 2}
-        position={[0, HALL_HEIGHT, shellZ]}
+        position={[0, HALL_HEIGHT, deckZ]}
         url={env.roof.texture ? textures[env.roof.texture.path] : undefined}
         presetKey={env.roof.preset}
         color={env.roof.color}
@@ -460,26 +483,34 @@ const SegmentCorridor = ({
         repeat={env.roof.repeat}
         fit={env.roof.fit}
         planeW={HALL_WIDTH}
-        planeH={span}
+        planeH={deckSpan}
       >
-        <planeGeometry args={[HALL_WIDTH, span]} />
+        <planeGeometry args={[HALL_WIDTH, deckSpan]} />
       </Surface>
-      {/* LEFT / RIGHT WALLS — generated as solid RUNS broken by the hallway's
-          cut-throughs. The wall genuinely stops at a junction, so the connected
-          hallway is visible through the gap instead of behind a flat plane. */}
+      {/* LEFT / RIGHT WALLS — solid RUNS of real blockwork, broken by this
+          hallway's cut-throughs. Each run is a BOX of wall thickness, so every
+          cut edge shows depth, catches light and casts a shadow instead of
+          reading as a paper-thin plane. The wall genuinely stops at a junction,
+          so the connected hallway is seen through the gap. */}
       {([-1, 1] as const).map((side) => {
         const wall = side === -1 ? env.leftWall : env.rightWall;
-        const foot = openingFootprint(HALL_WIDTH);
+        const geo = junctionGeometry(HALL_WIDTH);
+        // A diagonal branch's mouth is wider than the corridor and sits forward
+        // of the junction point — the solver says exactly where.
         const holes = gaps
           .filter((g) => g.side === side)
-          .map((g) => ({ along: g.along, width: foot.width }));
+          .map((g) => ({ along: g.along + geo.mouthCenterOffset, width: geo.mouthSpan }));
         return wallRuns(-backPad, length + frontPad, holes).map(([a, b], i) => {
           const runLen = b - a;
           const center = (a + b) / 2;
           return (
             <Surface
               key={`${side}-${i}`}
-              position={[(side * HALL_WIDTH) / 2, HALL_HEIGHT / 2, length / 2 - center]}
+              position={[
+                side * (HALL_WIDTH / 2 + WALL_THICKNESS / 2),
+                HALL_HEIGHT / 2,
+                length / 2 - center,
+              ]}
               rotation-y={(-side * Math.PI) / 2}
               url={wall.texture ? textures[wall.texture.path] : undefined}
               presetKey={wall.preset}
@@ -491,12 +522,15 @@ const SegmentCorridor = ({
               fit={wall.fit}
               planeW={runLen}
               planeH={HALL_HEIGHT}
+              castShadow
+              receiveShadow
             >
-              <planeGeometry args={[runLen, HALL_HEIGHT]} />
+              <boxGeometry args={[runLen, HALL_HEIGHT, WALL_THICKNESS]} />
             </Surface>
           );
         });
       })}
+
     </group>
   </group>
   );
@@ -659,16 +693,82 @@ const DoorMesh = ({
   );
 };
 
+/** A flat triangle at height `y`, from plan points in the corridor's own frame. */
+const PlanTriangle = ({
+  pts,
+  y,
+  color,
+  up = true,
+  roughness = 0.9,
+}: {
+  pts: [number, number][];
+  y: number;
+  color: string;
+  up?: boolean;
+  roughness?: number;
+}) => {
+  const geom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    const order = up ? [0, 1, 2] : [2, 1, 0];
+    const verts = new Float32Array(
+      order.flatMap((i) => [pts[i][0], y, pts[i][1]]),
+    );
+    g.setAttribute("position", new THREE.BufferAttribute(verts, 3));
+    g.computeVertexNormals();
+    return g;
+  }, [pts, y, up]);
+  return (
+    <mesh geometry={geom} receiveShadow>
+      <meshStandardMaterial color={color} roughness={roughness} side={THREE.DoubleSide} />
+    </mesh>
+  );
+};
+
+/** A blockwork wall run between two plan points, with real thickness. */
+const PlanWall = ({
+  a,
+  b,
+  height,
+  color,
+  thickness = WALL_THICKNESS,
+  y = 0,
+}: {
+  a: [number, number];
+  b: [number, number];
+  height: number;
+  color: string;
+  thickness?: number;
+  y?: number;
+}) => {
+  const dx = b[0] - a[0];
+  const dz = b[1] - a[1];
+  const len = Math.hypot(dx, dz);
+  if (len < 0.01) return null;
+  return (
+    <mesh
+      position={[(a[0] + b[0]) / 2, y + height / 2, (a[1] + b[1]) / 2]}
+      rotation-y={Math.atan2(-dz, dx)}
+      castShadow
+      receiveShadow
+    >
+      <boxGeometry args={[len, height, thickness]} />
+      <meshStandardMaterial color={color} roughness={0.92} metalness={0.04} />
+    </mesh>
+  );
+};
+
 /**
- * THE HALLWAY JUNCTION — a real architectural cut-through in the wall of the
- * hallway you are standing in, leading into a connected hallway.
+ * THE HALLWAY JUNCTION — where two real corridor VOLUMES meet at 60°.
  *
- * It is never a door and never a hole punched in a flat plane: the wall runs
- * either side genuinely stop (see wallRuns), the wall THICKNESS shows as splayed
- * reveal returns, a soffit beam carries the ceiling over the gap and the floor
- * runs continuously through it. The branch leaves at 60°, so the reveal is
- * splayed by the complement (30°) and both hallways are visible at once.
- * Clicking the opening enters that hallway.
+ * Nothing here is a hole punched through a plane. The parent's wall runs stop
+ * either side of the mouth (see wallRuns), jamb blocks show the blockwork
+ * thickness at each cut edge, a soffit beam carries the ceiling across, the
+ * branch's own upstream wall returns out into the branch, and the throat
+ * between the wall plane and the branch's shell is floored and ceiled so the
+ * two corridors genuinely intersect. Because the branch leaves diagonally its
+ * mouth is wider than the corridor and offset forward of the junction point —
+ * that is what lets you see the main hallway ahead AND deep into the branch
+ * from one standing position. Clicking the mouth enters that hallway.
  */
 const BranchOpening = ({
   side,
@@ -688,64 +788,70 @@ const BranchOpening = ({
   onEnter: () => void;
 }) => {
   const [hovered, setHovered] = useState(false);
-  const foot = openingFootprint(HALL_WIDTH);
-  const openW = foot.width;
-  const soffitH = foot.soffit;
-  const openH = HALL_HEIGHT - soffitH;
-  const jambD = foot.jambDepth;
-  // The branch leaves the road at 60°, so its reveal is splayed by the
-  // complement, angled the way the corridor actually goes.
-  const tilt = side * (Math.PI / 2 - foot.splay);
-  const revealD = jambD * 2.6;
+  const geo = junctionGeometry(HALL_WIDTH);
+  const openH = HALL_HEIGHT - geo.soffit;
+  // Plan points in this corridor's frame: x across (mirrored by side), z back
+  // down the corridor (forward is -z), measured from the junction point.
+  const P = (p: [number, number]): [number, number] => [side * p[0], -p[1]];
+  const near = P(geo.mouthNear);
+  const far = P(geo.mouthFar);
+  const corner = P(geo.throatCorner);
+  const mouthMid = -geo.mouthCenterOffset;
+  const wallX = side * (HALL_WIDTH / 2);
+  const centroid: [number, number] = [
+    (near[0] + far[0] + corner[0]) / 3,
+    (near[1] + far[1] + corner[1]) / 3,
+  ];
 
   return (
-    <group position={[side * (HALL_WIDTH / 2), 0, -along]} rotation-y={(-side * Math.PI) / 2}>
-      {/* Soffit beam over the opening — the ceiling continuing across the gap */}
-      <mesh position={[0, openH + soffitH / 2, -jambD / 2]} castShadow receiveShadow>
-        <boxGeometry args={[openW + foot.jambWidth * 2, soffitH, jambD]} />
-        <meshStandardMaterial color={roofColor} roughness={0.92} metalness={0.04} />
-      </mesh>
-      {/* Wall thickness shown at both edges of the cut, facing the corridor */}
-      {[-1, 1].map((s) => (
+    <group position={[0, 0, -along]}>
+      {/* Continuous floor and ceiling through the intersection throat */}
+      <PlanTriangle pts={[near, far, corner]} y={0.012} color={floorColor} roughness={0.85} />
+      <PlanTriangle pts={[near, far, corner]} y={HALL_HEIGHT - 0.012} color={roofColor} up={false} />
+
+      {/* The branch's upstream wall returning out into the branch — the piece
+          that makes the intersection read as walls meeting, not panels. */}
+      <PlanWall a={near} b={corner} height={HALL_HEIGHT} color={accent} />
+
+      {/* Jamb blocks: the blockwork thickness shown at both cut edges */}
+      {[
+        { z: near[1] + geo.jambWidth / 2 },
+        { z: far[1] - geo.jambWidth / 2 },
+      ].map((j, i) => (
         <mesh
-          key={`edge-${s}`}
-          position={[s * (openW / 2 + foot.jambWidth / 2), openH / 2, -jambD / 2]}
+          key={`jamb-${i}`}
+          position={[wallX + (side * WALL_THICKNESS) / 2, openH / 2, j.z]}
           castShadow
           receiveShadow
         >
-          <boxGeometry args={[foot.jambWidth, openH, jambD]} />
+          <boxGeometry args={[WALL_THICKNESS * 1.02, openH, geo.jambWidth]} />
           <meshStandardMaterial color={accent} roughness={0.9} metalness={0.05} />
         </mesh>
       ))}
 
-      {/* The splayed reveal: wall returns, ceiling and floor running into the
-          branch at its own angle, so the diagonal corridor reads as real. */}
-      <group rotation-y={tilt}>
-        {[-1, 1].map((s) => (
-          <mesh
-            key={`reveal-${s}`}
-            position={[s * (openW / 2), openH / 2, -revealD / 2]}
-            rotation-y={Math.PI / 2}
-            castShadow
-            receiveShadow
-          >
-            <planeGeometry args={[revealD, openH]} />
-            <meshStandardMaterial color={accent} roughness={0.92} metalness={0.04} side={THREE.DoubleSide} />
-          </mesh>
-        ))}
-        <mesh position={[0, 0.02, -revealD / 2]} rotation-x={-Math.PI / 2} receiveShadow>
-          <planeGeometry args={[openW, revealD]} />
-          <meshStandardMaterial color={floorColor} roughness={0.85} />
-        </mesh>
-        <mesh position={[0, HALL_HEIGHT - 0.02, -revealD / 2]} rotation-x={Math.PI / 2}>
-          <planeGeometry args={[openW, revealD]} />
-          <meshStandardMaterial color={roofColor} roughness={0.92} />
-        </mesh>
-      </group>
-
-      {/* Pick target filling the gap: click to enter that hallway */}
+      {/* Soffit beam carrying the ceiling over the mouth, full wall thickness */}
       <mesh
-        position={[0, openH / 2, -0.02]}
+        position={[wallX + (side * WALL_THICKNESS) / 2, openH + geo.soffit / 2, mouthMid]}
+        castShadow
+        receiveShadow
+      >
+        <boxGeometry args={[WALL_THICKNESS * 1.02, geo.soffit, geo.mouthSpan]} />
+        <meshStandardMaterial color={roofColor} roughness={0.92} metalness={0.04} />
+      </mesh>
+
+      {/* Light in the throat, so the thickness and depth are legible */}
+      <pointLight
+        position={[centroid[0], HALL_HEIGHT - 0.9, centroid[1]]}
+        intensity={hovered ? 2.4 : 1.9}
+        distance={20}
+        color="#dbeafe"
+      />
+
+
+      {/* Pick target filling the mouth: click to enter that hallway */}
+      <mesh
+        position={[wallX, openH / 2, mouthMid]}
+        rotation-y={(-side * Math.PI) / 2}
         onClick={(e) => {
           e.stopPropagation();
           onEnter();
@@ -759,17 +865,25 @@ const BranchOpening = ({
           setHovered(false);
         }}
       >
-        <planeGeometry args={[openW, openH]} />
-        <meshBasicMaterial transparent opacity={hovered ? 0.07 : 0} color="#e0f2fe" depthWrite={false} />
+        <planeGeometry args={[geo.mouthSpan, openH]} />
+        <meshBasicMaterial
+          transparent
+          opacity={hovered ? 0.07 : 0}
+          color="#e0f2fe"
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
       </mesh>
-      {/* Wall sign, in the reference's style: hallway name + direction arrow */}
+
+      {/* Wall sign: hallway name + direction arrow, beside the mouth */}
       <Suspense fallback={null}>
         <Text
           renderOrder={10}
           material-depthTest={true}
-          position={[side === -1 ? -(openW / 2 + 1.9) : openW / 2 + 1.9, 2.6, 0.07]}
-          fontSize={0.26}
-          maxWidth={3.2}
+          position={[wallX - side * 0.06, HALL_HEIGHT - 0.9, far[1] - 1.6]}
+          rotation-y={(-side * Math.PI) / 2}
+          fontSize={0.28}
+          maxWidth={3.4}
           anchorX="center"
           anchorY="middle"
           color={hovered ? "#ffffff" : "#eef4ff"}
@@ -780,6 +894,7 @@ const BranchOpening = ({
     </group>
   );
 };
+
 
 /**
  * The way back. Inside a hallway you entered from another one, the mouth you
@@ -2061,10 +2176,27 @@ const HallwayScene = ({
             <pointLight position={[0, HALL_HEIGHT, -rootLen / 2]} intensity={lights.point * 1.2} distance={26} color="#fde68a" />
           </group>
         )}
-        {/* Ceiling lights evenly along the main corridor */}
-        {Array.from({ length: Math.max(1, Math.ceil(rootLen / SPACING)) }, (_, i) => (
-          <pointLight key={i} position={[0, HALL_HEIGHT - 0.6, -i * SPACING]} intensity={lights.point} distance={11} color="#cfe3ff" />
-        ))}
+        {/* Ceiling lights evenly along EVERY corridor — a branch you can see
+            into through a junction must be lit, or the second hallway reads as
+            a black void instead of a corridor. */}
+        {segments.filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root")).flatMap((seg) => {
+          const yaw = segYaw(seg.heading);
+          const fx = -Math.sin(yaw);
+          const fz = -Math.cos(yaw);
+          const count = Math.max(1, Math.ceil(seg.length / SPACING));
+          return Array.from({ length: count + 1 }, (_, i) => {
+            const d = Math.min(seg.length, i * SPACING);
+            return (
+              <pointLight
+                key={`cl-${seg.walkway?.id ?? "root"}-${i}`}
+                position={[seg.start[0] + fx * d, HALL_HEIGHT - 0.6, seg.start[1] + fz * d]}
+                intensity={lights.point}
+                distance={13}
+                color="#cfe3ff"
+              />
+            );
+          });
+        })}
 
         <CameraRig
           focus={focus}
@@ -2095,6 +2227,11 @@ const HallwayScene = ({
               env={env}
               textures={textures}
               gaps={gaps}
+              startTrim={
+                seg.depth > 0 && seg.walkway?.direction !== "forward"
+                  ? junctionGeometry(HALL_WIDTH).branchTrim
+                  : 0
+              }
               capEnd={!seg.children.some((c) => c.walkway?.direction === "forward")}
               capStart={seg.depth === 0}
               name={near ? seg.walkway?.name : undefined}

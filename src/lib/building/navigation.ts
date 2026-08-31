@@ -86,6 +86,9 @@ export function nextObjectOffset(existing: number[]): number {
   return Math.min(0.94, Math.max(0.12, last + 0.16));
 }
 
+/** Conceptual blockwork thickness of every hallway wall (metres). */
+export const WALL_THICKNESS = 0.24;
+
 /** Physical size of a hallway-to-hallway cut-through in a wall. */
 export interface OpeningFootprint {
   /** width of the gap measured along the parent wall */
@@ -101,18 +104,81 @@ export interface OpeningFootprint {
 }
 
 /**
- * One source of truth for the cut geometry, so the 3D opening, the solid wall
- * runs either side of it and the map junction can never disagree.
+ * THE JUNCTION SOLVER — one source of truth for a hallway-to-hallway
+ * intersection, solved as two real corridor VOLUMES meeting at `angle`.
+ *
+ * Everything is expressed in the parent hallway's own plan coordinates:
+ * `lateral` runs across the parent (positive towards the branch side) and
+ * `along` runs forward down the parent from the junction point. The renderer
+ * mirrors `lateral` by the branch side, so left and right junctions are the
+ * same solved geometry.
+ *
+ * The branch corridor's two side walls cross the parent's wall plane at two
+ * different distances, so the mouth is WIDER than the corridor (width / sinθ)
+ * and its centre sits FORWARD of the junction point — a diagonal intersection
+ * is never symmetric about the junction, which is why a perpendicular-style
+ * hole never reads correctly.
  */
-export function openingFootprint(hallWidth: number): OpeningFootprint {
+export interface JunctionGeometry {
+  angle: number;
+  wallThickness: number;
+  /** span of the opening measured along the parent wall */
+  mouthSpan: number;
+  /** how far forward of the junction point the mouth's centre sits */
+  mouthCenterOffset: number;
+  /** distance along the branch axis where the branch's own shell may begin */
+  branchTrim: number;
+  /** upstream edge of the mouth, on the parent wall plane */
+  mouthNear: [number, number];
+  /** downstream edge of the mouth, on the parent wall plane */
+  mouthFar: [number, number];
+  /** where the branch's upstream wall begins, out in the branch */
+  throatCorner: [number, number];
+  /** height of the soffit beam carried over the mouth */
+  soffit: number;
+  /** breadth of the jamb block shown at each edge of the cut */
+  jambWidth: number;
+}
+
+export function junctionGeometry(hallWidth: number, angle = BRANCH_ANGLE): JunctionGeometry {
+  const half = hallWidth / 2;
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+  // Branch axis u = (sin, cos); its wall lines are u·s ± half·p, p = (cos, -sin).
+  const sNear = (half * (1 - cos)) / sin;
+  const sFar = (half * (1 + cos)) / sin;
+  const mouthNear: [number, number] = [half, sNear * cos - half * sin];
+  const mouthFar: [number, number] = [half, sFar * cos + half * sin];
+  const throatCorner: [number, number] = [sFar * sin + half * cos, sFar * cos - half * sin];
   return {
-    width: Math.max(4.5, hallWidth * 1.15),
-    jambDepth: 0.85,
-    jambWidth: 0.34,
+    angle,
+    wallThickness: WALL_THICKNESS,
+    mouthSpan: mouthFar[1] - mouthNear[1],
+    mouthCenterOffset: (mouthFar[1] + mouthNear[1]) / 2,
+    branchTrim: sFar,
+    mouthNear,
+    mouthFar,
+    throatCorner,
     soffit: 0.55,
-    splay: BRANCH_ANGLE,
+    jambWidth: 0.34,
   };
 }
+
+/**
+ * Legacy footprint view of the solved junction, kept so callers that only need
+ * the wall gap can stay simple.
+ */
+export function openingFootprint(hallWidth: number): OpeningFootprint {
+  const geo = junctionGeometry(hallWidth);
+  return {
+    width: geo.mouthSpan,
+    jambDepth: geo.wallThickness,
+    jambWidth: geo.jambWidth,
+    soffit: geo.soffit,
+    splay: geo.angle,
+  };
+}
+
 
 /**
  * The solid runs of one hallway wall once its cut-throughs are removed. The
