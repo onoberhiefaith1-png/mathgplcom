@@ -28,7 +28,50 @@ export interface CompileResult {
   problems: ConstructionProblem[];
 }
 
+/**
+ * The Engine occasionally reaches for a helper point it never constructed — the
+ * tip of a north arrow, or the far end of a horizontal through a point. Both
+ * have exactly one mathematical meaning, so we construct them rather than
+ * rejecting an otherwise correct figure. Anything else is still an error.
+ */
+function repairSteps(steps: any[]): any[] {
+  const CREATES = new Set([
+    "point", "onCircle", "onSegment", "midpoint", "extend", "foot", "intersect",
+    "polar", "parallel", "perpendicular", "bisect", "tangentAt", "plot",
+  ]);
+  const known = new Set<string>();
+  const out: any[] = [];
+  const isNorthish = (id: string) => /^(n|north)[_\-]?[a-z0-9']*$/i.test(id);
+  const isHorizontal = (id: string) => /(horiz|_line|^h[_\-]?\d*$)/i.test(id);
+
+  for (const raw of steps) {
+    const s = { ...(raw as any) };
+    const op = String(s?.op ?? "");
+    if (op === "segment" || op === "vector" || op === "line" || op === "ray") {
+      const a = String(s.a ?? ""), b = String(s.b ?? "");
+      const missing = !known.has(a) ? a : !known.has(b) ? b : "";
+      const anchor = missing === a ? b : a;
+      if (missing && known.has(anchor)) {
+        if (isNorthish(missing)) { out.push({ op: "north", at: anchor }); known.add(missing); continue; }
+        if (isHorizontal(missing)) {
+          out.push({ op: "polar", id: missing, from: anchor, angle: 0, distance: 220 });
+          known.add(missing);
+        }
+      }
+    }
+    // Register everything this step brings into existence.
+    if (CREATES.has(op) && s.id) known.add(String(s.id));
+    if (op === "tangentFrom" && Array.isArray(s.ids)) s.ids.forEach((x: unknown) => known.add(String(x)));
+    if (Array.isArray(s.ids)) s.ids.forEach((x: unknown) => known.add(String(x)));
+    if (op === "circle" && s.id) known.add(String(s.id));
+    if (op === "numberLine" && Array.isArray(s.marks)) s.marks.forEach((m: any) => m?.id && known.add(String(m.id)));
+    out.push(s);
+  }
+  return out;
+}
+
 export function compileConstruction(program: ConstructionProgram): CompileResult {
+
   const problems: ConstructionProblem[] = [];
   const pts = new Map<string, { p: Vec; label?: string; hidden?: boolean }>();
   const circles = new Map<string, { center: string; r: number }>();
@@ -48,15 +91,35 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
     }
     return found.p;
   };
+  /** Circle lookup that tolerates the id arriving wrapped in an object. */
+  const circOf = (v: unknown) => {
+    const direct = circles.get(String((v as any)?.id ?? v ?? ""));
+    if (direct) return direct;
+    // The Engine sometimes hands back the circle object itself, or names the
+    // circle by its centre. With only one circle in the figure there is no
+    // ambiguity either way.
+    const byCentre = [...circles.values()].find((c) => c.center === String((v as any)?.center ?? v ?? ""));
+    if (byCentre) return byCentre;
+    return circles.size === 1 ? [...circles.values()][0] : undefined;
+  };
+  /** Only a bare letter is a point label; "A(2, 3)" is text, not a label. */
+  const letterOnly = (v: unknown): string | undefined => {
+    const t = String(v ?? "").trim();
+    return /^[A-Z][’'₁₂]?\d?$/.test(t) ? t : undefined;
+  };
   const put = (id: unknown, p: Vec, label?: string) => {
     const key = String(id ?? "");
     if (!key) return;
     pts.set(key, { p, label: label ?? (/^[A-Z]'?\d?$/.test(key) ? key : undefined) });
   };
 
-  const steps = Array.isArray(program?.steps) ? program.steps : [];
+  const steps = repairSteps(Array.isArray(program?.steps) ? (program.steps as any[]) : []) as ConstructionStep[];
   steps.forEach((raw, i) => {
-    const s = raw as ConstructionStep;
+
+    // Friendly aliases for steps the Engine reaches for by another name.
+    const rawOp = String((raw as any)?.op ?? "");
+    const opName = rawOp === "rotate" ? "polar" : rawOp === "tangentsFrom" ? "tangentFrom" : rawOp;
+    const s = { ...(raw as any), op: opName } as ConstructionStep;
     switch (s?.op) {
       case "point":
         put(s.id, { x: num(s.x, 0), y: num(s.y, 0) }, s.label);
@@ -80,8 +143,10 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
             break;
           }
         } else {
-          problems.push({ step: i, message: "a triangle needs either its three angles or its three sides" });
-          break;
+          // No measurements given: draw a clean, clearly scalene triangle
+          // rather than refusing to draw at all.
+          const k = 220;
+          a = k * Math.sin(64 * D2R); b = k * Math.sin(58 * D2R); c = k * Math.sin(58 * D2R);
         }
         const cosA = (b * b + c * c - a * a) / (2 * b * c);
         const angA = Math.acos(Math.max(-1, Math.min(1, cosA)));
@@ -134,7 +199,7 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
       }
 
       case "onCircle": {
-        const circ = circles.get(String(s.circle));
+        const circ = circOf(s.circle);
         if (!circ) { problems.push({ step: i, message: `circle "${s.circle}" does not exist yet` }); break; }
         const c = need(i, circ.center);
         if (!c) break;
@@ -223,7 +288,7 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
       }
 
       case "arc": {
-        const circ = circles.get(String(s.circle));
+        const circ = circOf(s.circle);
         if (!circ) { problems.push({ step: i, message: `circle "${s.circle}" does not exist yet` }); break; }
         const c = need(i, circ.center), from = need(i, s.from), to = need(i, s.to);
         if (!c || !from || !to) break;
@@ -282,7 +347,7 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
       }
 
       case "tangentAt": {
-        const circ = circles.get(String(s.circle));
+        const circ = circOf(s.circle);
         if (!circ) { problems.push({ step: i, message: `circle "${s.circle}" does not exist yet` }); break; }
         const c = need(i, circ.center), at = need(i, s.at);
         if (!c || !at) break;
@@ -304,7 +369,7 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
       }
 
       case "sector": {
-        const circ = circles.get(String(s.circle));
+        const circ = circOf(s.circle);
         if (!circ) { problems.push({ step: i, message: `circle "${s.circle}" does not exist yet` }); break; }
         const c = need(i, circ.center), from = need(i, s.from), to = need(i, s.to);
         if (!c || !from || !to) break;
@@ -388,7 +453,103 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
 
       case "plot": {
         if (!axes) { problems.push({ step: i, message: "a plotted point needs an \"axes\" step first" }); break; }
-        put(s.id, { x: num(s.x, 0) * axes.unit, y: -num(s.y, 0) * axes.unit }, s.label);
+        const p = { x: num(s.x, 0) * axes.unit, y: -num(s.y, 0) * axes.unit };
+        // A plotted point that lands on an existing point (typically the
+        // origin) becomes that point instead of a second dot on top of it.
+        const same = [...pts.entries()].find(([, v]) => Math.hypot(v.p.x - p.x, v.p.y - p.y) < 1e-6);
+        const letter = letterOnly(s.label) ?? letterOnly(s.id);
+        if (same) {
+          pts.set(same[0], { ...same[1], label: letter ?? same[1].label });
+          if (letter) hidden.delete(same[0]);
+        } else {
+          put(s.id, p, letter);
+        }
+        // The coordinate pair belongs beside the point as text, never as its letter.
+        const pair = String(s.label ?? "").includes("(") ? String(s.label) : `(${num(s.x, 0)}, ${num(s.y, 0)})`;
+        draws.push({
+          id: `plot-txt-${i}`, type: "label", x: p.x + 4, y: p.y + 22,
+          text: pair, fontSize: 12, color: "#0369a1",
+        } as GeoLabel);
+        break;
+      }
+
+      /* ── bearings, tangents from a point, bisectors, full lines ──── */
+
+      case "polar": {
+        const from = need(i, (s as any).from ?? (s as any).about);
+        if (!from) break;
+        const d = num((s as any).distance, 200);
+        const hasBearing = typeof (s as any).bearing === "number";
+        const t = hasBearing
+          ? (90 - num((s as any).bearing, 0)) * D2R   // clockwise from north
+          : num((s as any).angle, 0) * D2R;           // anticlockwise from +x
+        put((s as any).id, { x: from.x + d * Math.cos(t), y: from.y - d * Math.sin(t) }, (s as any).label);
+        break;
+      }
+
+      case "tangentFrom": {
+        const circ = circOf((s as any).circle);
+        if (!circ) { problems.push({ step: i, message: `circle "${(s as any).circle}" does not exist yet` }); break; }
+        const c = need(i, circ.center), from = need(i, (s as any).from);
+        if (!c || !from) break;
+        const d = sub(from, c);
+        const dist = len(d);
+        if (dist <= circ.r * 1.02) {
+          problems.push({ step: i, message: "the tangents' external point lies inside the circle" });
+          break;
+        }
+        const base = Math.atan2(-d.y, d.x);
+        const spread = Math.acos(circ.r / dist);
+        const [i1, i2] = Array.isArray((s as any).ids) ? (s as any).ids : [];
+        const [l1, l2] = Array.isArray((s as any).labels) ? (s as any).labels : [];
+        [[i1, base + spread, l1], [i2, base - spread, l2]].forEach(([id, ang, lab]) => {
+          if (!id) return;
+          put(id, { x: c.x + circ.r * Math.cos(ang as number), y: c.y - circ.r * Math.sin(ang as number) }, lab as string | undefined);
+        });
+        break;
+      }
+
+      case "bisect": {
+        const v = need(i, (s as any).vertex), a = need(i, (s as any).a), b = need(i, (s as any).b);
+        if (!v || !a || !b) break;
+        const ua = sub(a, v), ub = sub(b, v);
+        const la = len(ua) || 1, lb = len(ub) || 1;
+        const dir = { x: ua.x / la + ub.x / lb, y: ua.y / la + ub.y / lb };
+        const l = len(dir);
+        if (l < 1e-9) { problems.push({ step: i, message: "the angle to bisect is a straight line" }); break; }
+        const reach = Math.min(la, lb) * Math.max(0.2, num((s as any).by, 0.95));
+        put((s as any).id, add(v, mul({ x: dir.x / l, y: dir.y / l }, reach)), (s as any).label);
+        break;
+      }
+
+      case "line":
+      case "ray": {
+        const isLine = s.op === "line";
+        const a = need(i, (s as any).a), b = need(i, (s as any).b);
+        if (!a || !b) break;
+        // Drawn as a segment stretched beyond its two points, so it stays
+        // editable and always exactly collinear.
+        const d = sub(b, a);
+        const startId = `ln${i}-a`, endId = `ln${i}-b`;
+        pts.set(startId, { p: isLine ? add(a, mul(d, -0.35)) : a });
+        pts.set(endId, { p: add(b, mul(d, 0.35)) });
+        hidden.add(startId); hidden.add(endId);
+        draws.push({
+          id: String((s as any).id ?? `ln-${i}`), type: "segment", a: startId, b: endId,
+          ...((s as any).dashed ? { dashed: true } : {}),
+        } as GeoSegment);
+        break;
+      }
+
+      case "north": {
+        const at = need(i, (s as any).at);
+        if (!at) break;
+        const l = num((s as any).length, 90);
+        const tipId = `n${i}-tip`;
+        pts.set(tipId, { p: { x: at.x, y: at.y - l } });
+        hidden.add(tipId);
+        draws.push({ id: `north-${i}`, type: "segment", a: String((s as any).at), b: tipId, arrow: "end", dashed: true } as GeoSegment);
+        draws.push({ id: `north-lab-${i}`, type: "label", x: at.x, y: at.y - l - 10, text: "N", fontSize: 13, color: "#0f172a" } as GeoLabel);
         break;
       }
 
@@ -445,56 +606,91 @@ export function compileConstruction(program: ConstructionProgram): CompileResult
     return out;
   };
 
-  /**
-   * Textbook label placement: the letter goes into the widest gap around its
-   * point — clear of every edge meeting it and clear of nearby points. For a
-   * collinear figure (A — P — B) that puts each letter off the line instead of
-   * on it, which is exactly what the centroid rule used to get wrong.
-   */
-  const labelDirection = (id: string): Vec => {
+  /* Textbook label placement.
+   *
+   * A letter must never be printed on a line, on a circle, on another point or
+   * on another letter — the same conditions the verifier checks. So instead of
+   * guessing a direction, every candidate offset (24 directions × 4 distances)
+   * is scored against the finished figure, and the first clear one wins. */
+  const drawnEdges = draws.flatMap((o) => {
+    if (o.type !== "segment") return [];
+    const a = fitted.get(o.a), b = fitted.get(o.b);
+    return a && b ? [{ a, b }] : [];
+  });
+  const drawnCircles = [...circles.values()].flatMap((c) => {
+    const p = fitted.get(c.center);
+    return p ? [{ c: p, r: c.r * scale }] : [];
+  });
+
+  const distToEdge = (q: Vec, e: { a: Vec; b: Vec }) => {
+    const ab = sub(e.b, e.a);
+    const l2 = ab.x * ab.x + ab.y * ab.y;
+    if (l2 === 0) return len(sub(q, e.a));
+    const t = Math.max(0, Math.min(1, ((q.x - e.a.x) * ab.x + (q.y - e.a.y) * ab.y) / l2));
+    return len(sub(q, add(e.a, mul(ab, t))));
+  };
+
+  const placed: Vec[] = [];
+  const labelOffsetFor = (id: string): Vec => {
     const p = fitted.get(id)!;
-    const edges = incident(id);
-    const neighbours = [...fitted.entries()]
-      .filter(([k]) => k !== id)
-      .map(([, q]) => {
-        const d = sub(q, p);
-        const l = len(d) || 1;
-        return { u: mul(d, 1 / l), l };
-      });
     const away = sub(p, centroid);
     const outward = len(away) > 1 ? mul(away, 1 / len(away)) : { x: 0, y: 1 };
-
-    let best = outward;
+    let best = mul(outward, 16);
     let bestScore = -Infinity;
-    for (let k = 0; k < 24; k++) {
-      const t = (k / 24) * Math.PI * 2;
-      const u = { x: Math.cos(t), y: Math.sin(t) };
-      let score = 0;
-      // never along an edge
-      for (const e of edges) score += 1.6 * (1 - Math.abs(e.x * u.x + e.y * u.y));
-      // never towards a close neighbour
-      for (const n of neighbours) {
-        const align = n.u.x * u.x + n.u.y * u.y;
-        if (align > 0) score -= align * align * (70 / Math.max(35, n.l));
+
+    for (const radius of [15, 20, 26, 32]) {
+      for (let k = 0; k < 24; k++) {
+        const t = (k / 24) * Math.PI * 2;
+        const u = { x: Math.cos(t), y: Math.sin(t) };
+        const q = add(p, mul(u, radius));
+        let score = 0;
+
+        // clear of every drawn line
+        for (const e of drawnEdges) {
+          const d = distToEdge(q, e);
+          if (d < 10) score -= (10 - d) * 6;
+        }
+        // clear of every circle rim
+        for (const c of drawnCircles) {
+          const d = Math.abs(len(sub(q, c.c)) - c.r);
+          if (d < 10) score -= (10 - d) * 5;
+        }
+        // clear of every other point and every letter already placed
+        for (const [k2, q2] of fitted) {
+          if (k2 === id) continue;
+          const d = len(sub(q, q2));
+          if (d < 14) score -= (14 - d) * 5;
+        }
+        for (const q2 of placed) {
+          const d = len(sub(q, q2));
+          if (d < 16) score -= (16 - d) * 5;
+        }
+        // inside the frame, then close in, then textbook-outward
+        if (q.x < 10 || q.y < 10 || q.x > TARGET.width - 10 || q.y > TARGET.height - 10) score -= 200;
+        score -= radius * 0.35;
+        score += 4 * (outward.x * u.x + outward.y * u.y);
+        score += 1.2 * u.y;
+
+        if (score > bestScore) { bestScore = score; best = mul(u, radius); }
       }
-      score += 0.6 * (outward.x * u.x + outward.y * u.y);
-      score += 0.25 * u.y; // gentle textbook preference for below the figure
-      if (score > bestScore) { bestScore = score; best = u; }
     }
+    placed.push(add(p, best));
     return best;
   };
 
   const pointObjects: GeoPoint[] = [...pts.entries()].map(([id, v]) => {
     const p = fitted.get(id)!;
-    const u = labelDirection(id);
+    const lettered = !hide.has(id);
+    const off = lettered ? labelOffsetFor(id) : { x: 0, y: -16 };
     return {
       id, type: "point", x: p.x, y: p.y,
-      ...(hide.has(id) ? {} : { label: v.label ?? id }),
-      labelOffset: { dx: Math.round(u.x * 16), dy: Math.round(u.y * 16) },
+      ...(lettered ? { label: v.label ?? id } : {}),
+      labelOffset: { dx: Math.round(off.x), dy: Math.round(off.y) },
       labelFontSize: 14,
       color: "#0f172a",
     };
   });
+
 
 
   // circles/arcs carry a radius in the old space — scale it too

@@ -42,12 +42,15 @@ export function verifyScene(scene: GeometryScene | null, question = ""): Diagram
   add("references resolve", missing.length === 0,
     missing.length ? `The diagram refers to points that do not exist (${[...new Set(missing)].join(", ")}).` : undefined);
 
-  // points must be distinguishable
+  // Points the reader can actually see must be distinguishable. Hidden helper
+  // points (the ends of a drawn line, axis tips, tick marks) legitimately sit
+  // on top of a lettered point and are never drawn, so they are not a clash.
+  const visible = points.filter((p) => (p as any).label && !(p as any).hidden);
   let collision: string | null = null;
-  for (let i = 0; i < points.length && !collision; i++) {
-    for (let j = i + 1; j < points.length; j++) {
-      if (Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y) < MIN_SEPARATION) {
-        collision = `${points[i].label ?? points[i].id} and ${points[j].label ?? points[j].id}`;
+  for (let i = 0; i < visible.length && !collision; i++) {
+    for (let j = i + 1; j < visible.length; j++) {
+      if (Math.hypot(visible[i].x - visible[j].x, visible[i].y - visible[j].y) < MIN_SEPARATION) {
+        collision = `${visible[i].label ?? visible[i].id} and ${visible[j].label ?? visible[j].id}`;
         break;
       }
     }

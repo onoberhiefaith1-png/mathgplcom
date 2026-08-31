@@ -52,6 +52,23 @@ export type ConstructionStep =
   | { op: "perpendicular"; id: string; through: string; a: string; b: string; by?: number; label?: string }
   /** A point making `at`→id the tangent to `circle` at the point `at`. */
   | { op: "tangentAt"; id: string; circle: string; at: string; by?: number; label?: string }
+  /** Both points of tangency of the tangents drawn from an EXTERNAL point. */
+  | { op: "tangentFrom"; ids: [string, string]; circle: string; from: string; labels?: [string, string] }
+  /**
+   * A point at a distance and direction from another point — the bearings
+   * primitive. `bearing` is measured clockwise from north (0° = north);
+   * `angle` is measured anticlockwise from the positive x-direction.
+   */
+  | { op: "polar"; id: string; from: string; distance: number; bearing?: number; angle?: number; label?: string }
+  /** A point on the bisector of angle a–vertex–b. */
+  | { op: "bisect"; id: string; vertex: string; a: string; b: string; by?: number; label?: string }
+  /** An infinite line through two constructed points. */
+  | { op: "line"; a: string; b: string; id?: string; dashed?: boolean }
+  /** A ray from a through b. */
+  | { op: "ray"; a: string; b: string; id?: string; dashed?: boolean }
+  /** A north arrow drawn at a point (bearings figures). */
+  | { op: "north"; at: string; length?: number }
+
   /** Arrowed segment (a vector). */
   | { op: "vector"; a: string; b: string; label?: string; dashed?: boolean }
   /** Sector of a circle between two of its points. */
