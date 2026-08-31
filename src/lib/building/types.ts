@@ -36,6 +36,11 @@ export interface SurfaceDesign {
    * the plane 1:1 (legacy behaviour).
    */
   fit: "cover" | "stretch";
+  /**
+   * Display brightness of an imported image, 0.2 – 2. 1 = exactly as
+   * imported; the image is rendered faithfully and this is only a nudge.
+   */
+  brightness: number;
 }
 
 export interface DoorDesign {
@@ -159,11 +164,11 @@ export interface BuildingData {
 }
 
 export const DEFAULT_ENVIRONMENT: EnvironmentSettings = {
-  leftWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
-  rightWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
-  floor: { preset: "classroom", color: "#3b4658", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
-  roof: { preset: "neutral", color: "#2c3448", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
-  endWall: { preset: "academic", color: "#38445f", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover" },
+  leftWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
+  rightWall: { preset: "academic", color: "#3a4763", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
+  floor: { preset: "classroom", color: "#3b4658", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
+  roof: { preset: "neutral", color: "#2c3448", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
+  endWall: { preset: "academic", color: "#38445f", texture: null, scale: 1, offsetX: 0, offsetY: 0, repeat: false, fit: "cover", brightness: 1 },
   door: { preset: "modern", color: "#1a2542", texture: null, brightness: 1, style: "navy-vision" },
   lighting: { brightness: 1, ambient: 0.8, intensity: 1.35, atmosphere: false },
   effects: { enabled: false, effect: null },
