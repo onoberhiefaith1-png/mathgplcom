@@ -38,8 +38,9 @@ TOPIC-SPECIFIC SOLVING PATTERNS (copy this pacing exactly)
 ▸ DIFFERENTIATION — show power-rule mechanics
   du/dx = d/dx(2x² − 3x)
   du/dx = d/dx(2x²) − d/dx(3x)
-  du/dx = 2 × 2x^{2−1} − 3 × x^{1−1}
-  du/dx = 2 × 2x^{1} − 3 × x^{0}
+  du/dx = 2 × 2x²⁻¹ − 3 × x¹⁻¹
+  du/dx = 2 × 2x¹ − 3 × x⁰
+
   du/dx = 4x − 3(1)
   du/dx = 4x − 3
 
@@ -86,7 +87,7 @@ TOPIC-SPECIFIC SOLVING PATTERNS (copy this pacing exactly)
   factor as perfect square, take √, isolate x.
 
 ▸ INTEGRATION — increase power BEFORE dividing
-  ∫3x² dx → 3 × \\frac{x^{2+1}}{2+1} → \\frac{3x³}{3} → x³
+  ∫3x² dx → 3 × \\frac{x²⁺¹}{2+1} → \\frac{3x³}{3} → x³
   Always add + C.
 
 ▸ VENN DIAGRAMS — centre first, subtract overlaps gradually, one region per line.

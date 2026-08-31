@@ -10,6 +10,8 @@
 // This module separates the two on the document data we already hold — no OCR,
 // no screenshot. Visual analysis stays a later fallback only.
 
+import { breakRowSeparators } from "@/lib/lessonnotes/rowSeparators";
+
 export type ProblemStatus =
   | "valid"       // mathematics present and usable
   | "uncertain"   // a question exists but the AI cannot fully confirm it
@@ -123,7 +125,9 @@ const normalizeLabel = (s: string) =>
 
 /* ------------------------------------------------------ content classifying */
 
-const MATH_HINT = /[0-9=+\-−×÷·^_/<>≤≥≠≈→±√∑∏∫∞°πθ∠]|\\[a-zA-Z]+|\b(?:log|ln|sin|cos|tan|sqrt|frac)\b/;
+const MATH_HINT =
+  /[0-9=+\-−×÷·^_/<>≤≥≠≈→±√∑∏∫∞°πθ∠∪∩⊂⊆⊃⊇∈∉∅µσΔ]|\b[A-Z]'|\\[a-zA-Z]+|\b(?:log|ln|sin|cos|tan|sqrt|frac)\b/;
+
 
 const INSTRUCTION_VERB =
   /\b(solve|find|calculate|evaluate|simplify|factori[sz]e|expand|differentiate|integrate|determine|prove|show|sketch|draw|plot|convert|express|rationali[sz]e|complete|work out|state|hence|round|estimate|construct|verify|list|copy)\b/i;
@@ -175,7 +179,7 @@ export function analyzeProblem(
   const labels: string[] = [];
   const kept: string[] = [];
 
-  for (const raw of String(rawText ?? "").split("\n")) {
+  for (const raw of breakRowSeparators(String(rawText ?? "")).split("\n")) {
     const line = raw.trim();
     if (!line) continue;
     const { label, rest } = stripLeadingStructuralLabel(line);
