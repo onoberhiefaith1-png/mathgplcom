@@ -1206,22 +1206,15 @@ const BranchOpening = ({
         />
       </mesh>
 
-      {/* Wall sign: hallway name + direction arrow, beside the mouth */}
-      <Suspense fallback={null}>
-        <Text
-          renderOrder={10}
-          material-depthTest={true}
-          position={[wallX - side * 0.06, HALL_HEIGHT - 0.9, far[1] - 1.6]}
-          rotation-y={(-side * Math.PI) / 2}
-          fontSize={0.28}
-          maxWidth={3.4}
-          anchorX="center"
-          anchorY="middle"
-          color={hovered ? "#ffffff" : "#eef4ff"}
-        >
-          {`${name}  →`}
-        </Text>
-      </Suspense>
+      {/* THE HALLWAY NAME FRAME — mounted on the wall directly ACROSS from this
+          mouth, facing it, so walking up to the junction you read the name of
+          the hallway you are about to enter. Derived entirely from this mouth's
+          own geometry (side + position along the corridor), never a fixed spot. */}
+      <HallwayNameFrame
+        name={name}
+        position={[-side * (HALL_WIDTH / 2 - 0.1), 2.15, mouthMid]}
+        rotationY={(side * Math.PI) / 2}
+      />
     </group>
   );
 };
