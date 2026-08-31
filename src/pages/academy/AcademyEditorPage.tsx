@@ -440,7 +440,7 @@ const handleTextureUpload = useCallback(
         <div className="flex-1 overflow-y-auto p-3">
           {rooms.length === 0 && (
             <p className="mb-2 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-              The hallway has no rooms yet. Add your first room — it appears in the corridor instantly.
+              This building has no hallway sections yet. Add the first one — it appears in the corridor instantly.
             </p>
           )}
 
@@ -702,7 +702,7 @@ const handleTextureUpload = useCallback(
 
           <div className="mt-2">
             <AddButton
-              label="Add hallway"
+              label="Add hallway section"
               onAdd={async () => {
                 if (!tree) return;
                 const id = await createNode("academy_rooms", tree.academy.id, {});
@@ -833,7 +833,7 @@ const handleTextureUpload = useCallback(
           />
         ) : (
           <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-300">
-            Add a room and the corridor builds itself here.
+            Add a hallway section and the corridor builds itself here.
           </div>
         )}
         <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[11px] uppercase tracking-[0.18em] text-slate-400">
