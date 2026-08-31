@@ -1742,6 +1742,8 @@ const HallwayScene = ({
     st.seg = rootEffective;
     st.dist = 0;
     st.moving = false;
+    st.holding = false;
+    st.speed = 0;
     st.yaw = 0;
     st.turn = null;
     st.zoom = null;
@@ -1754,16 +1756,36 @@ const HallwayScene = ({
     syncBreadcrumb();
   }, [rootEffective, notifyMode, syncBreadcrumb]);
 
+  /** Press-and-hold Forward. Nothing moves until the hold begins. */
+  const startHold = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase !== "walking" && st.phase !== "idle") return;
+    if (st.dist >= st.seg.length - 0.05) return; // at the terminal wall
+    st.holding = true;
+    st.moving = true;
+    setMoving(true);
+    setMachinePhase("walking");
+  }, [setMachinePhase]);
+
+  const endHold = useCallback(() => {
+    const st = machineRef.current;
+    st.holding = false;
+    st.moving = false;
+    setMoving(false);
+  }, []);
+
   const enterWalk = useCallback(
     (seg: Segment) => {
       const st = machineRef.current;
       st.seg = seg;
       st.dist = 0;
-      st.moving = true;
+      st.moving = false;
+      st.holding = false;
+      st.speed = 0;
       st.yaw = segYaw(seg.heading);
       historyRef.current.clear();
       historyRef.current.push(seg.walkway?.id ?? "entrance");
-      setMoving(true);
+      setMoving(false);
       setEndReached(false);
       setNav({ seg, mode: "walk" });
       setMachinePhase("walking");
@@ -1772,6 +1794,7 @@ const HallwayScene = ({
     },
     [setMachinePhase, notifyMode, syncBreadcrumb],
   );
+
 
   /**
    * Enter a connected hallway. Forward continuations simply carry on. Side
