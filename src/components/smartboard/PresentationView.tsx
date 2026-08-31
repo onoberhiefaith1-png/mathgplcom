@@ -7197,7 +7197,7 @@ const PresentationView = ({
       </div>
 
       {/* RIGHT rail — relocated theory tools: Smart Line, Two-point line, Box. */}
-      {canEdit && carrierVisible && (
+      {canEdit && carrierVisible && !mobileStudent && (
         <div
           data-sb-chrome
           className="absolute z-30 flex flex-col items-center gap-2"
@@ -7279,7 +7279,7 @@ const PresentationView = ({
       {/* Emoji dock removed from the Smartboard by request — no replacement. */}
 
       {/* Permanent activation buttons for the three workspace assistants. */}
-      {canEdit && carrierVisible && (
+      {canEdit && carrierVisible && !mobileStudent && (
         <AssistantButtons
           active={activeAssistant}
           onToggle={toggleAssistant}
@@ -7603,7 +7603,7 @@ const PresentationView = ({
 
           {/* Per-line Check menu — grades any line server-side (grade-line).
               Hidden entirely in View Only mode; returns in Edit mode. */}
-          {hasGuidedLines && canEdit && (
+          {hasGuidedLines && canEdit && !mobileStudent && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
