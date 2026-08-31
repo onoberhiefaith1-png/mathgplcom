@@ -161,9 +161,16 @@ const WalkwayManager = ({
                 <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
                   {d.content_kind ? DOOR_KIND_LABEL[d.content_kind] : "Empty"}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                  {doorTitle(d, titles)}
-                </span>
+                <input
+                  aria-label="Door name"
+                  defaultValue={doorTitle(d, titles)}
+                  onBlur={(e) => {
+                    const next = e.target.value.trim();
+                    if (next && next !== doorTitle(d, titles)) void onRenameDoor?.(d.id, next);
+                    else e.target.value = doorTitle(d, titles);
+                  }}
+                  className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-1 text-sm text-foreground"
+                />
                 <input
                   aria-label="Door position"
                   type="range"
