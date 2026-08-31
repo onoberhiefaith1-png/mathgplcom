@@ -95,10 +95,21 @@ export function evaluateExpression(raw: string, vars: Record<string, number> = {
         const arg = expr();
         if (peek()?.t !== "rp") throw new Error("missing )");
         p++;
+        const deg = (n: number) => (n * 180) / Math.PI;
+        const rad = (n: number) => (n * Math.PI) / 180;
         const fns: Record<string, (n: number) => number> = {
-          sqrt: Math.sqrt, abs: Math.abs, sin: Math.sin, cos: Math.cos, tan: Math.tan,
+          sqrt: Math.sqrt, abs: Math.abs,
+          // Classroom trigonometry works in degrees, so sin 30 is 0.5 — never
+          // the radian reading of 30.
+          sin: (n) => Math.sin(rad(n)), cos: (n) => Math.cos(rad(n)), tan: (n) => Math.tan(rad(n)),
           ln: Math.log, log: Math.log10,
+          // An inverse function returns the angle a student would write.
+          arcsin: (n) => deg(Math.asin(n)), arccos: (n) => deg(Math.acos(n)), arctan: (n) => deg(Math.atan(n)),
+          asin: (n) => deg(Math.asin(n)), acos: (n) => deg(Math.acos(n)), atan: (n) => deg(Math.atan(n)),
+          "sin⁻¹": (n) => deg(Math.asin(n)), "cos⁻¹": (n) => deg(Math.acos(n)), "tan⁻¹": (n) => deg(Math.atan(n)),
         };
+
+
         const fn = fns[name];
         if (!fn) throw new Error(`unknown function ${name}`);
         return implicit(fn(arg));
@@ -255,6 +266,22 @@ export function checkClaim(claim: EngineClaim | null | undefined): { ok: boolean
 
 const RAW_SYNTAX = /(\d\s*\/\s*\d|sqrt\s*\(|\*\*|\\times|\\cdot|\\left|\\right|```)/;
 
+// A board solution never argues with its own question. When the model notices
+// its data is inconsistent it writes phrases like these instead of a clean
+// solution, so the question must be regenerated rather than shown.
+const SELF_CONTRADICTION =
+  /(however,? the (question|problem)|re-?evaluat|the (question|problem) statement (is|seems|appears)|inconsisten|contradict|assuming (the|a) typo|there (is|seems to be) an error in the (question|problem))/i;
+
+/**
+ * A board solution states the method and walks it. It never deliberates in
+ * front of the class, so thinking-out-loud wording means the engine has not
+ * settled on a method yet and the working must be produced again.
+ */
+const DELIBERATION =
+  /(let'?s (reconsider|re-?examine|assume|call|try)|we don'?t have|is not directly given|reconsider the (properties|approach)|this would imply|the standard interpretation|on the 'other' side|wait,)/i;
+
+
+
 /** Every gate that must pass before a question may reach the canvas. */
 export function verifyQuestion(q: EngineQuestion, opts: { method?: string } = {}): EngineVerification {
   const checks: EngineVerification["checks"] = [];
@@ -266,6 +293,12 @@ export function verifyQuestion(q: EngineQuestion, opts: { method?: string } = {}
   add("Final answer present", Boolean(q.finalAnswer && q.finalAnswer.trim()), "No final answer was produced.");
   add("Board-ready notation", !RAW_SYNTAX.test(`${q.text}\n${(q.solutionSteps ?? []).join("\n")}`),
     "Raw syntax (slash fraction, sqrt(), ** or LaTeX command) reached the output.");
+  add("Question and solution agree", !SELF_CONTRADICTION.test((q.solutionSteps ?? []).join("\n")),
+    "The solution argues with its own question — the question's data is inconsistent.");
+  add("Solution walks one method", !DELIBERATION.test((q.solutionSteps ?? []).join("\n")),
+    "The solution deliberates instead of teaching — choose the method first, then write only the steps of that method.");
+
+
 
   if (opts.method && q.method) {
     const wanted = opts.method.toLowerCase();

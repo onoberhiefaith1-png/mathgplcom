@@ -83,7 +83,8 @@ For operations that do not produce questions, return "questions": [].
 
 const OPERATION_BRIEF: Record<EngineOperation, string> = {
   generateLessonSection:
-    "Produce the mathematical content for one lesson-note section. Introduction and explanation sections carry teaching prose in solutionSteps and no question text beyond the heading idea.",
+    "Produce the mathematical content for one lesson-note section. Introduction and explanation sections carry the TEACHING PROSE ITSELF in questions[0].solutionSteps — one classroom sentence or stated result per entry, at least four entries, the words the teacher writes on the board. Never return an empty questions array and never summarise the section instead of teaching it; \"analysis.brief\" is a note about the section, not the section.",
+
   generateExample:
     "Produce worked example question(s) with the full classroom solution, one micro-step per line.",
   generateClasswork:
@@ -267,10 +268,40 @@ function repairTail(s: string): string {
   }
   if (esc) out = out.slice(0, -1);
   if (inStr) out += '"';
+  // A reply cut mid-member leaves a key with no value, or half a number.
+  // Closing the brackets over that fragment still fails, so drop the fragment.
+  for (let i = 0; i < 4; i++) {
+    const before = out;
+    out = out.replace(/[,:]\s*$/, "");
+    
+    out = out.replace(/(?:[,{[]\s*)?"(?:[^"\\]|\\.)*"\s*:\s*$/, "");
+    out = out.replace(/([,[{]\s*)[-+]?[\d.]+[eE][-+]?$/, "$1");
+    out = out.replace(/([,[{]\s*)[-+.]$/, "$1");
+    out = out.replace(/[,{[]\s*$/, (m) => (m.trim() === "," ? "" : m));
+    if (out === before) break;
+  }
   out = out.replace(/,\s*$/, "");
   while (stack.length) out += stack.pop() === "{" ? "}" : "]";
+
   return out;
 }
+
+// A construction value sometimes arrives as arithmetic the model did not work
+// out, e.g. "angle": 180 + 105. JSON has no expressions, so compute the value.
+const NUMERIC_EXPRESSION = /:\s*(-?\d+(?:\.\d+)?(?:\s*[-+*/]\s*-?\d+(?:\.\d+)?)+)\s*(?=[,}\]])/g;
+// A string value sometimes loses its opening quote, e.g. "op": intersect",
+const UNOPENED_STRING = /:\s*([A-Za-z_][A-Za-z0-9_]*)"(\s*[,}\]])/g;
+function foldNumericExpressions(s: string): string {
+  return s
+    .replace(UNOPENED_STRING, ': "$1"$2')
+    .replace(NUMERIC_EXPRESSION, (whole, expr: string) => {
+      try {
+        const v = evalArithmetic(expr);
+        return Number.isFinite(v) ? `: ${v}` : whole;
+      } catch { return whole; }
+    });
+}
+
 
 // deno-lint-ignore no-explicit-any
 export function parseEngineJson(raw: string): any {
@@ -284,12 +315,13 @@ export function parseEngineJson(raw: string): any {
     // never mangled.
     const latex = candidate.replace(LATEX_ESCAPE, "\\\\");
     for (const fixed of [candidate, latex, latex.replace(BAD_ESCAPE, "\\\\"), candidate.replace(BAD_ESCAPE, "\\\\")]) {
-      shapes.push(fixed, escapeRawControls(fixed));
+      shapes.push(fixed, escapeRawControls(fixed), foldNumericExpressions(escapeRawControls(fixed)));
     }
   }
   for (const text of shapes) {
     try { return JSON.parse(text); } catch { /* try next shape */ }
     try { return JSON.parse(repairTail(text)); } catch { /* try next shape */ }
+
   }
   return null;
 }

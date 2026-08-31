@@ -132,13 +132,23 @@ export function verifyScene(scene: GeometryScene | null, question = ""): Diagram
   add("labels inside the frame", !clipped,
     clipped ? `Label ${clipped.id} falls outside the diagram frame.` : undefined);
 
-  // labels the question names must appear
-  const named = [...String(question).matchAll(/\b([A-Z])(?![A-Za-z])/g)].map((m) => m[1]);
+  // labels the question names must appear. "A tangent is drawn…" and "I have…"
+  // are English words, not points, so a lone A or I followed by an ordinary
+  // word does not count as a named point. A run like PA, APB or OAB names one
+  // point per letter, so each letter of a short run counts too.
+  const single = [...String(question).matchAll(/\b([A-Z])(?![A-Za-z])(\s+[a-z]+)?/g)]
+    .filter((m) => !(("AI".includes(m[1]!)) && m[2]))
+    .map((m) => m[1]!);
+  const runs = [...String(question).matchAll(/\b([A-Z]{2,4})\b/g)]
+    .flatMap((m) => m[1]!.split(""));
+  const named = [...single, ...runs];
+
   const have = new Set(points.map((p) => (p.label ?? "").trim()).filter(Boolean));
   const wanted = [...new Set(named)].filter((n) => !have.has(n));
   const labelsOk = wanted.length === 0 || named.length === 0 || wanted.length > 3;
   add("labels match the question", labelsOk,
     labelsOk ? undefined : `The question names ${wanted.join(", ")} but the diagram does not label ${wanted.length > 1 ? "them" : "it"}.`);
+
 
 
   return { ok: problems.length === 0, problems, checks };
