@@ -520,9 +520,8 @@ const DoorMesh = ({
         <meshStandardMaterial
           ref={leaf}
           map={tex ?? null}
-          alphaMap={tex ?? null}
           transparent
-          alphaTest={0.35}
+          alphaTest={0.5}
           depthWrite
           color={tex ? "#ffffff" : color}
           emissive={accent}
