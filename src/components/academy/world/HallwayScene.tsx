@@ -2508,7 +2508,9 @@ const HallwayScene = ({
   /** The junction the walker is approaching, if any — the LEFT button's action. */
   const junctionAction = (phase === "walking" || phase === "idle") ? (candidates[0] ?? null) : null;
   const atJunction = junctionAction !== null;
-  const canBack = phase === "walking" || phase === "idle";
+  // The two walk controls are permanent: they are never gated on a phase, so
+  // they work the instant the building loads and never vanish at a door.
+
 
 
   const doorsById = useMemo(() => {
