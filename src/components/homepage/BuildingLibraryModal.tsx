@@ -120,20 +120,11 @@ const BuildingLibraryModal = ({
             ) : (
               <div className="grid gap-3 md:grid-cols-2">
                 {snapshots.map((row) => {
-                  const custom = row.config?.customBuilding ?? null;
                   return (
                     <div key={row.id} className="rounded-xl border border-border/60 bg-card/50 p-3">
                       <div className="flex items-start gap-3">
                         <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/50 bg-muted/30">
-                          {custom ? (
-                            <SignedMedia
-                              path={custom.storagePath}
-                              source={custom.source}
-                              mediaType={custom.mediaType}
-                              fit="contain"
-                              className="h-full w-full"
-                            />
-                          ) : row.version === "free" ? (
+                          {row.version === "free" ? (
                             <Megaphone className="h-6 w-6 text-primary" />
                           ) : (
                             <Building2 className="h-6 w-6 text-primary" />
