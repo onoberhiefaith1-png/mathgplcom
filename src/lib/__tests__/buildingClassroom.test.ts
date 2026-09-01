@@ -60,6 +60,6 @@ describe("default vs individual settings", () => {
       ...DEFAULT_ENVIRONMENT.leftWall,
       texture: { path: "org/wall.png" },
     });
-    expect(overrideTexturePaths([overrides])).toContain("org/wall.png");
+    expect(overrideTexturePaths(overrides)).toContain("org/wall.png");
   });
 });
