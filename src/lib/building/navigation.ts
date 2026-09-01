@@ -611,6 +611,45 @@ export const MIN_OBJECT_SPACING = 2.4;
  */
 export const JUNCTION_CLEAR = 4.5;
 
+/** The run of a hallway of `length` that objects may actually occupy. */
+export function usableRun(
+  length: number,
+  spacing = OBJECT_SPACING,
+  clear = JUNCTION_CLEAR,
+): number {
+  return Math.max(0, length - Math.max(clear, spacing * 0.5));
+}
+
+/**
+ * HOW MANY OBJECTS A HALLWAY CAN CARRY.
+ *
+ * A hallway that ends at a junction cannot grow, so its wall run is finite:
+ * objects sit at `MIN_OBJECT_SPACING` at the very tightest, inside the run
+ * before the junction clearance. This is the single capacity figure the editor
+ * and the renderer share, so a door is never offered a hallway with no wall
+ * left for it — and never ends up standing in the road.
+ */
+export function hallwayCapacity(
+  length: number,
+  spacing = OBJECT_SPACING,
+  clear = JUNCTION_CLEAR,
+): number {
+  const usable = usableRun(length, spacing, clear);
+  if (usable <= 0) return 0;
+  return 1 + Math.floor(usable / MIN_OBJECT_SPACING);
+}
+
+/** How many more objects a hallway of `length` can still take. */
+export function remainingObjectSlots(
+  length: number,
+  objectCount: number,
+  spacing = OBJECT_SPACING,
+  clear = JUNCTION_CLEAR,
+): number {
+  return Math.max(0, hallwayCapacity(length, spacing, clear) - objectCount);
+}
+
+
 /** Width of the hole a road arriving at `sinAngle` cuts in the wall it meets. */
 export function mouthSpanFor(hallWidth: number, sinAngle: number): number {
   const sin = Math.max(0.28, Math.min(1, Math.abs(sinAngle)));
@@ -636,7 +675,7 @@ export function fitObjectsToLength(
   if (objects.length === 0) return objects;
   const sorted = [...objects].sort((a, b) => a.along - b.along);
   // The far end belongs to the junction: objects stop short of it entirely.
-  const usable = Math.max(0, length - Math.max(clear, spacing * 0.5));
+  const usable = usableRun(length, spacing, clear);
   const last = sorted[sorted.length - 1].along;
   if (last <= usable) return objects;
 
@@ -649,7 +688,13 @@ export function fitObjectsToLength(
     start = Math.max(0, Math.min(first, usable - step * gaps));
   }
   const placed = new Map<string, number>();
-  sorted.forEach((o, i) => placed.set(`${o.kind}:${o.id}`, Math.max(0, start + i * step)));
+  // HARD BOUND: nothing may ever be placed past the usable run, whatever the
+  // object count. Beyond capacity the last slots pack against the end of the
+  // wall run instead of drifting into the junction throat.
+  sorted.forEach((o, i) =>
+    placed.set(`${o.kind}:${o.id}`, Math.max(0, Math.min(usable, start + i * step))),
+  );
+
 
   // Doors alternate walls once the run is compressed, so a tight hallway reads
   // as a two-sided corridor instead of a queue of doors on one wall. Mouths keep

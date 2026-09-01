@@ -67,9 +67,17 @@ import {
   uploadBuildingTexture,
 } from "@/lib/building/api";
 import {
+  HALLWAY_ENTRY_RUN,
+  HALLWAY_PAD,
+  HALL_WIDTH,
+  hallwayLength,
+  layoutHallwayObjects,
+  mergeLimits,
   nextBranchDirection,
   nextObjectOffset,
+  remainingObjectSlots,
 } from "@/lib/building/navigation";
+
 import type {
   Building,
   BuildingData,
@@ -460,6 +468,62 @@ const handleTextureUpload = useCallback(
     [refreshBuilding],
   );
 
+  /**
+   * HOW MANY MORE OBJECTS EACH HALLWAY CAN TAKE.
+   *
+   * A hallway that runs from one junction to another has a finite wall run: once
+   * its doors and openings are spaced across it there is no wall left. Such a
+   * hallway is simply not offered when adding a door, so a door can never be
+   * pushed into the junction and end up standing in the middle of the road.
+   * A hallway that is still free to grow always has room, because adding a door
+   * lengthens it.
+   */
+  const remainingSlots = useMemo(() => {
+    const out: Record<string, number> = {};
+    if (!buildingData) return out;
+    const { walkways, doors, links } = buildingData;
+    const lineLinks = links.filter((l) => !l.corridor_walkway_id);
+    const objectsOf = (w: { id: string; parent_id: string | null }) =>
+      layoutHallwayObjects({
+        doors: doors
+          .filter((d) => d.walkway_id === w.id)
+          .map((d) => ({ id: d.id, name: "", order: 5 + d.position_along * 100 })),
+        openings: walkways
+          .filter((k) => k.parent_id === w.id && k.direction !== "forward")
+          .map((k) => ({
+            id: k.id,
+            name: k.name,
+            direction: k.direction,
+            order: 5 + (k.junction_at ?? 0.5) * 100,
+          })),
+        links: lineLinks
+          .filter((l) => l.from_walkway_id === w.id || l.to_walkway_id === w.id)
+          .map((l) => ({
+            id: l.id,
+            name: "",
+            targetWalkwayId: l.from_walkway_id === w.id ? l.to_walkway_id : l.from_walkway_id,
+            order:
+              5 + (l.from_walkway_id === w.id ? l.from_position : l.to_position) * 100,
+          })),
+        pad: w.parent_id ? HALLWAY_ENTRY_RUN : HALLWAY_PAD,
+      });
+    const counts = new Map<string, number>();
+    const limits = mergeLimits(walkways, HALL_WIDTH, (w) => {
+      const objs = objectsOf(w);
+      counts.set(w.id, objs.length);
+      return hallwayLength(objs, w.parent_id ? HALLWAY_ENTRY_RUN : HALLWAY_PAD);
+    });
+    for (const w of walkways) {
+      const merged = limits.get(w.id);
+      const count = counts.get(w.id) ?? objectsOf(w).length;
+      out[w.id] = merged
+        ? remainingObjectSlots(merged.limit, count)
+        : Number.POSITIVE_INFINITY;
+    }
+    return out;
+  }, [buildingData]);
+
+
   const rooms = tree?.rooms ?? [];
   const products = useMemo(() => catalogue.filter((p) => p.kind === kind), [catalogue, kind]);
 
@@ -608,6 +672,8 @@ const handleTextureUpload = useCallback(
                         doors={buildingData.doors}
                         catalogue={catalogue}
                         selectedDoorId={selectedDoorId}
+                        remainingSlots={remainingSlots}
+
                         onAddWalkway={handleAddWalkway}
                         links={buildingData.links}
                         onAddLink={handleAddLink}

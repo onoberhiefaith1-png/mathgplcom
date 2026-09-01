@@ -67,6 +67,14 @@ export interface WalkwayManagerProps {
   onBuildSampleMaze?: () => Promise<void>;
   /** A door clicked in the live world — highlighted and revealed here. */
   selectedDoorId?: string | null;
+  /**
+   * How many more objects each hallway can carry. A hallway that runs from one
+   * junction to another is finite: when it is full it is not offered for a new
+   * door at all, so a door is never squeezed into a junction. Hallways that can
+   * still grow report `Infinity`.
+   */
+  remainingSlots?: Record<string, number>;
+
 }
 
 /**
@@ -96,6 +104,8 @@ const WalkwayManager = ({
   onDeleteLink,
   onBuildSampleMaze,
   selectedDoorId = null,
+  remainingSlots = {},
+
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
   const [form, setForm] = useState<"hallway" | "door" | "link" | null>(null);
@@ -160,13 +170,29 @@ const WalkwayManager = ({
    */
   const autoDirection = (parentId: string): WalkwayDirection =>
     parentId ? nextBranchDirection(walkways, parentId) : "forward";
-  const autoJunction = (parentId: string): number =>
+  /**
+   * ONE SHARED SEQUENCE. Doors and hallways take the next slot on the road from
+   * the SAME order key, so a door created after a hallway lands after that
+   * hallway — door, hallway, door, hallway alternating along the corridor.
+   */
+  const nextSlot = (walkwayId: string): number =>
     nextObjectOffset([
-      ...doors.filter((d) => d.walkway_id === parentId).map((d) => d.position_along),
+      ...doors.filter((d) => d.walkway_id === walkwayId).map((d) => d.position_along),
       ...walkways
-        .filter((w) => w.parent_id === parentId && w.direction !== "forward")
+        .filter((w) => w.parent_id === walkwayId && w.direction !== "forward")
         .map((w) => w.junction_at ?? 0.5),
+      ...links
+        .filter((l) => l.from_walkway_id === walkwayId || l.to_walkway_id === walkwayId)
+        .map((l) => (l.from_walkway_id === walkwayId ? l.from_position : l.to_position)),
     ]);
+  const autoJunction = (parentId: string): number => nextSlot(parentId);
+
+  /**
+   * A hallway that has been filled between its two junctions has no wall left
+   * for another door, so it is not offered — never an error message.
+   */
+  const hasRoom = (walkwayId: string) => (remainingSlots[walkwayId] ?? Infinity) > 0;
+  const doorHallways = useMemo(() => flat.filter(({ w }) => hasRoom(w.id)), [flat, remainingSlots]);
 
   const openHallwayForm = (parentId?: string) => {
     const parent = parentId || hallParent || roots[0]?.id || "";
@@ -177,13 +203,17 @@ const WalkwayManager = ({
   };
 
   const openDoorForm = (walkwayId?: string) => {
-    setDoorWalkway(walkwayId || doorWalkway || roots[0]?.id || "");
+    const preferred = [walkwayId, doorWalkway, ...doorHallways.map(({ w }) => w.id)].find(
+      (id): id is string => Boolean(id) && hasRoom(id as string),
+    );
+    setDoorWalkway(preferred ?? "");
     setDoorName("");
     setDoorStyle("");
     setDoorProduct(null);
     setFormError("");
     setForm("door");
   };
+
 
   const submitHallway = async () => {
     if (busy) return;
@@ -224,7 +254,7 @@ const WalkwayManager = ({
     setFormError("");
     try {
       await onAddDoor(doorWalkway, {
-        position_along: 0.5,
+        position_along: nextSlot(doorWalkway),
         content_kind: doorProduct.kind as DoorContentKind,
         content_id: doorProduct.id,
         title_override: doorName.trim() || null,
@@ -332,13 +362,16 @@ const WalkwayManager = ({
               >
                 <Route className="h-3 w-3" /> Add Hallway here
               </button>
-              <button
-                type="button"
-                onClick={() => openDoorForm(w.id)}
-                className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-emerald-500/40 px-2.5 text-[11px] font-semibold text-emerald-400"
-              >
-                <DoorOpen className="h-3 w-3" /> Add Door here
-              </button>
+              {hasRoom(w.id) && (
+                <button
+                  type="button"
+                  onClick={() => openDoorForm(w.id)}
+                  className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-emerald-500/40 px-2.5 text-[11px] font-semibold text-emerald-400"
+                >
+                  <DoorOpen className="h-3 w-3" /> Add Door here
+                </button>
+              )}
+
             </div>
 
             {segDoors.map((d) => (
@@ -620,12 +653,13 @@ const WalkwayManager = ({
               onChange={(e) => setDoorWalkway(e.target.value)}
               className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
             >
-              {flat.map(({ w, depth }) => (
+              {doorHallways.map(({ w, depth }) => (
                 <option key={w.id} value={w.id}>
                   {"— ".repeat(depth)}
                   {w.name}
                 </option>
               ))}
+
             </select>
           </label>
           <label className="mt-2 block text-[11px] text-muted-foreground">

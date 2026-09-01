@@ -31,7 +31,11 @@ import {
   firstRoadMeeting,
   connectedWalkwayIds,
   openingRevealLayout,
+  hallwayCapacity,
+  remainingObjectSlots,
+  usableRun,
 } from "../building/navigation";
+
 
 import type { BuildingWalkway } from "../building/types";
 
@@ -571,5 +575,24 @@ describe("a hallway always meets, merges and makes a junction", () => {
       openings: [],
     });
     expect(fitObjectsToLength(objects, 60, HALLWAY_PAD, OBJECT_SPACING)).toEqual(objects);
+  });
+});
+
+describe("hallway capacity", () => {
+  it("reports no room once a junction-bound hallway is full", () => {
+    expect(hallwayCapacity(0)).toBe(0);
+    expect(remainingObjectSlots(20, 0)).toBeGreaterThan(0);
+    const cap = hallwayCapacity(20);
+    expect(remainingObjectSlots(20, cap)).toBe(0);
+    expect(remainingObjectSlots(20, cap + 5)).toBe(0);
+  });
+
+  it("never places an object past the usable run, however many there are", () => {
+    const doors = Array.from({ length: 40 }, (_, i) => ({ id: `d${i}`, name: `D${i}`, order: i }));
+    const objects = layoutHallwayObjects({ doors, openings: [] });
+    const length = 14;
+    const fitted = fitObjectsToLength(objects, length, HALLWAY_PAD, OBJECT_SPACING);
+    const limit = usableRun(length, OBJECT_SPACING);
+    for (const o of fitted) expect(o.along).toBeLessThanOrEqual(limit + 1e-9);
   });
 });
