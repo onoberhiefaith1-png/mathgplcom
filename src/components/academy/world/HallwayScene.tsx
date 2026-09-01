@@ -1722,7 +1722,10 @@ if (st.phase === "walking" || st.phase === "idle") {
       // direct results of held intent, integrated with delta time and clamped
       // to the room's own footprint, so the walls are solid.
       const dims = classroomDimensions(w.kind);
-      if (w.turning !== 0) w.yaw += w.turning * ROOM_TURN_SPEED * dt;
+// Increasing yaw swings the view toward room-local +x, which is the
+      // screen's LEFT when looking into the room, so turning right must
+      // DECREASE yaw (the drag-look handler below uses the same sign).
+      if (w.turning !== 0) w.yaw -= w.turning * ROOM_TURN_SPEED * dt;
       const wantWalk = w.hold !== 0 ? ROOM_WALK_SPEED : 0;
       const wantSide = w.strafe !== 0 ? ROOM_WALK_SPEED * 0.7 : 0;
       const ramp = 1 - Math.exp(-9 * dt);
@@ -1738,9 +1741,10 @@ if (st.phase === "walking" || st.phase === "idle") {
         nx += sin * w.speed * w.hold * dt;
         nz += cos * w.speed * w.hold * dt;
       }
-      if (w.strafeSpeed > 0.001) {
-        nx += cos * w.strafeSpeed * w.strafe * dt;
-        nz += -sin * w.strafeSpeed * w.strafe * dt;
+if (w.strafeSpeed > 0.001) {
+        // The view's right vector is (-cos, sin), so strafe +1 steps right.
+        nx += -cos * w.strafeSpeed * w.strafe * dt;
+        nz += sin * w.strafeSpeed * w.strafe * dt;
       }
 
       // Stepping back through the doorway leaves the room.
