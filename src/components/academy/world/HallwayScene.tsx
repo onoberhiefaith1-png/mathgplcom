@@ -672,7 +672,7 @@ return (
             map={map}
             transparent
             toneMapped={false}
-            side={THREE.DoubleSide}
+            side={facing}
           />
         </mesh>
       )}
