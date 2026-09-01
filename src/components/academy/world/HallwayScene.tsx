@@ -3135,16 +3135,30 @@ const HallwayScene = ({
     };
     const onKeyUp = (e: KeyboardEvent) => {
       const key = e.key;
+      const w = machineRef.current.inside;
+      if (w) {
+        if (["ArrowUp", "w", "W", "ArrowDown", "s", "S"].includes(key)) w.hold = 0;
+        else if (["ArrowLeft", "a", "A", "ArrowRight", "d", "D"].includes(key)) w.turning = 0;
+        else if (["q", "Q", "e", "E"].includes(key)) w.strafe = 0;
+        return;
+      }
       if (["ArrowUp", "w", "W"].includes(key)) heldMoveKeys.current.delete(1);
       else return;
       if (pointerIntent.current || heldMoveKeys.current.has(1)) startHold(machineRef.current.dir);
       else endHold();
     };
     const onBlur = () => {
+      const w = machineRef.current.inside;
+      if (w) {
+        w.hold = 0;
+        w.turning = 0;
+        w.strafe = 0;
+      }
       heldMoveKeys.current.clear();
       pointerIntent.current = false;
       endHold();
     };
+
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
