@@ -39,6 +39,7 @@ import {
   branchHeading,
   connectorMeeting,
   firstRoadMeeting,
+  fitObjectsToLength,
   insertGeometricMouth,
   easeInOut,
   forwardFromYaw,
