@@ -705,7 +705,7 @@ const handleTextureUpload = useCallback(
                     onClick={() => setBuildingOpen((o) => ({ ...o, walk: !o.walk }))}
                     className="flex min-h-[44px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
                   >
-                    Hallways &amp; doors
+                    Hallways &amp; rooms
                     {buildingOpen.walk ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   </button>
                   {buildingOpen.walk && (
