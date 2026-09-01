@@ -1,8 +1,11 @@
-// Administrator management for one page's guide video. Deliberately small: no
-// media library to navigate, just this page's guide.
+// Tutorial video management for one page.
+//
+// Only a platform administrator or an Asset Manager ever reaches this dialog, and
+// the database enforces the same rule. A page may hold several tutorials, so this
+// is a small ordered list: add, retitle, replace, reorder, publish, remove.
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -14,48 +17,47 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  deletePageGuide,
-  guideVideoUrl,
-  savePageGuide,
-  setGuideStatus,
-  type PageGuide,
-} from "@/lib/guides/pageGuides";
 import { pageKeyLabel } from "@/lib/guides/pageKey";
+import {
+  addTutorial,
+  removeTutorial,
+  reorderTutorials,
+  replaceTutorialVideo,
+  tutorialVideoUrl,
+  updateTutorial,
+  type Tutorial,
+} from "@/lib/guides/tutorials";
+import { deletePageGuide, loadPageGuide } from "@/lib/guides/pageGuides";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pageKey: string;
-  guide: PageGuide | null;
-  onSaved: (guide: PageGuide | null) => void;
+  tutorials: Tutorial[];
+  onChanged: () => void;
 }
 
-const PageGuideManagerDialog = ({ open, onOpenChange, pageKey, guide, onSaved }: Props) => {
+const PageGuideManagerDialog = ({ open, onOpenChange, pageKey, tutorials, onChanged }: Props) => {
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const addRef = useRef<HTMLInputElement | null>(null);
+  const replaceRef = useRef<HTMLInputElement | null>(null);
+  const [replacing, setReplacing] = useState<Tutorial | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setTitle(guide?.title || `How to use ${pageKeyLabel(pageKey)}`);
-    setDescription(guide?.description ?? "");
+    setTitle(`How to use ${pageKeyLabel(pageKey)}`);
     setFile(null);
-  }, [open, guide, pageKey]);
+  }, [open, pageKey]);
 
-  const previewUrl = file ? URL.createObjectURL(file) : guideVideoUrl(guide?.videoPath ?? null);
-
-  const save = async (status?: "draft" | "published") => {
+  const run = async (label: string, task: () => Promise<unknown>) => {
     setBusy(true);
     try {
-      const saved = await savePageGuide({ pageKey, title, description, file, status });
-      onSaved(saved);
-      toast.success(status === "published" ? "Guide published." : "Guide saved.");
-      onOpenChange(false);
+      await task();
+      onChanged();
+      toast.success(label);
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -63,112 +65,178 @@ const PageGuideManagerDialog = ({ open, onOpenChange, pageKey, guide, onSaved }:
     }
   };
 
-  const toggleStatus = async () => {
-    if (!guide) return;
-    const next = guide.status === "published" ? "draft" : "published";
-    setBusy(true);
-    try {
-      await setGuideStatus(pageKey, next);
-      onSaved({ ...guide, status: next });
-      toast.success(next === "published" ? "Guide published." : "Guide unpublished.");
-    } catch (error) {
-      toast.error((error as Error).message);
-    } finally {
-      setBusy(false);
+  const add = () => {
+    if (!file) {
+      toast.error("Choose a video file first.");
+      return;
     }
+    void run("Tutorial added.", async () => {
+      await addTutorial({ pageKey, title, file, status: "published" });
+      setFile(null);
+      setTitle(`How to use ${pageKeyLabel(pageKey)}`);
+    });
   };
 
-  const remove = async () => {
-    if (!guide) return;
-    setBusy(true);
-    try {
-      await deletePageGuide(guide);
-      onSaved(null);
-      toast.success("Guide video deleted.");
-      onOpenChange(false);
-    } catch (error) {
-      toast.error((error as Error).message);
-    } finally {
-      setBusy(false);
-    }
+  const move = (index: number, delta: number) => {
+    const next = [...tutorials];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    void run("Order updated.", () => reorderTutorials(next));
   };
+
+  const drop = (tutorial: Tutorial) =>
+    void run("Tutorial removed.", async () => {
+      if (tutorial.legacy) {
+        const legacy = await loadPageGuide(pageKey);
+        if (legacy) await deletePageGuide(legacy);
+        return;
+      }
+      await removeTutorial(tutorial);
+    });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Page Guide Video</DialogTitle>
+          <DialogTitle>Tutorial videos</DialogTitle>
           <DialogDescription>
             {pageKeyLabel(pageKey)} · <span className="font-mono text-[11px]">{pageKey}</span>
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Status:{" "}
-            <span className="font-semibold text-foreground">
-              {guide ? (guide.status === "published" ? "Published" : "Unpublished") : "No guide video uploaded"}
-            </span>
-          </p>
-
-          <div className="space-y-1">
-            <Label htmlFor="guide-title">Title</Label>
-            <Input id="guide-title" value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="guide-desc">Description</Label>
-            <Textarea
-              id="guide-desc"
-              rows={2}
-              maxLength={400}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What this page does, in one line."
-            />
-          </div>
-
-          <input
-            ref={inputRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1" onClick={() => inputRef.current?.click()}>
-              <Upload className="h-3.5 w-3.5" />
-              {guide?.videoPath ? "Replace video" : "Upload guide video"}
-            </Button>
-            {guide && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => void toggleStatus()} disabled={busy}>
-                  {guide.status === "published" ? "Unpublish" : "Publish"}
-                </Button>
-                <Button variant="ghost" size="sm" className="gap-1 text-destructive" onClick={() => void remove()} disabled={busy}>
-                  <Trash2 className="h-3.5 w-3.5" /> Delete
-                </Button>
-              </>
+        <div className="space-y-4">
+          <ul className="space-y-2">
+            {tutorials.length === 0 && (
+              <li className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+                No tutorial uploaded for this page yet.
+              </li>
             )}
+            {tutorials.map((tutorial, index) => (
+              <li key={tutorial.id} className="rounded-lg border border-border p-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{index + 1}.</span>
+                  <Input
+                    value={tutorial.title}
+                    maxLength={120}
+                    disabled={tutorial.legacy || busy}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      void updateTutorial(tutorial.id, { title: next }).then(onChanged).catch(() => undefined);
+                    }}
+                    className="h-8 text-xs"
+                  />
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busy} onClick={() => move(index, -1)}>
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busy} onClick={() => move(index, 1)}>
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                    {!tutorial.legacy && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1 text-[11px]"
+                        disabled={busy}
+                        onClick={() => {
+                          setReplacing(tutorial);
+                          replaceRef.current?.click();
+                        }}
+                      >
+                        <Upload className="h-3.5 w-3.5" /> Replace
+                      </Button>
+                    )}
+                    {!tutorial.legacy && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(
+                            tutorial.status === "published" ? "Unpublished." : "Published.",
+                            () =>
+                              updateTutorial(tutorial.id, {
+                                status: tutorial.status === "published" ? "draft" : "published",
+                              }),
+                          )
+                        }
+                      >
+                        {tutorial.status === "published" ? "Unpublish" : "Publish"}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      disabled={busy}
+                      onClick={() => drop(tutorial)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                {tutorialVideoUrl(tutorial.videoPath) && (
+                  <video
+                    src={tutorialVideoUrl(tutorial.videoPath) ?? undefined}
+                    controls
+                    preload="metadata"
+                    className="mt-2 max-h-40 w-full rounded bg-black"
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <Label htmlFor="tutorial-title" className="text-xs">
+              Add another tutorial
+            </Label>
+            <Input
+              id="tutorial-title"
+              value={title}
+              maxLength={120}
+              onChange={(e) => setTitle(e.target.value)}
+              className="h-8 text-xs"
+            />
+            <input
+              ref={addRef}
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => addRef.current?.click()}>
+                <Upload className="h-3.5 w-3.5" /> Choose video
+              </Button>
+              <Button size="sm" onClick={add} disabled={busy || !file} className="gap-1">
+                {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Add tutorial
+              </Button>
+              {file && <span className="text-[11px] text-muted-foreground">{file.name}</span>}
+            </div>
           </div>
-
-          {file && <p className="text-xs text-muted-foreground">Selected: {file.name}</p>}
-
-          {previewUrl && (
-            <video src={previewUrl} controls preload="metadata" className="max-h-56 w-full rounded-lg bg-black" />
-          )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <input
+          ref={replaceRef}
+          type="file"
+          accept="video/*"
+          className="hidden"
+          onChange={(e) => {
+            const picked = e.target.files?.[0];
+            const target = replacing;
+            e.target.value = "";
+            setReplacing(null);
+            if (!picked || !target) return;
+            void run("Video replaced.", () => replaceTutorialVideo(target, picked));
+          }}
+        />
+
+        <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
-            Cancel
-          </Button>
-          <Button variant="outline" onClick={() => void save("draft")} disabled={busy}>
-            Save as unpublished
-          </Button>
-          <Button onClick={() => void save("published")} disabled={busy} className="gap-1">
-            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Save &amp; publish
+            Done
           </Button>
         </DialogFooter>
       </DialogContent>

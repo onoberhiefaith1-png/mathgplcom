@@ -7,3 +7,4 @@
 - [x] Remove the duplicate full-height branch return that protruded into the road.
 - [x] Cut angled merge walls and decks on the target wall plane so no shell projects into the joined hallway.
 - [x] Run navigation/type checks and authenticated live-building walkthrough.
+- [ ] Tutorial icon must be visible on EVERY page, including the intro/homepage (was hidden behind page chrome; guide read denied for signed-out visitors)
