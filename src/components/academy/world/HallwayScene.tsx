@@ -3145,10 +3145,11 @@ const HallwayScene = ({
       if (o.kind === "link") {
         if (!o.targetWalkwayId) return null;
         return (
-          <BranchOpening
+          <MergeOpening
             key={o.id}
             side={o.side}
             along={o.along}
+            span={mouths.get(o.id)?.span ?? HALL_WIDTH}
             name={o.name}
             accent={o.side === -1 ? env.leftWall.color : env.rightWall.color}
             floorColor={env.floor.color}
@@ -3157,6 +3158,7 @@ const HallwayScene = ({
           />
         );
       }
+
 
       const wx = seg.start[0] + seg.heading[0] * o.along + o.side * (HALL_WIDTH / 2 - 0.2) * cy;
       const wz = seg.start[1] + seg.heading[1] * o.along - o.side * (HALL_WIDTH / 2 - 0.2) * sy;
