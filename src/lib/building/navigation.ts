@@ -566,23 +566,39 @@ export function hallwayLength(
 export const MIN_OBJECT_SPACING = 2.4;
 
 /**
+ * JUNCTION CLEARANCE. The run of a hallway immediately before the junction it
+ * makes is architectural crossing space: no door, no branch mouth and no plaque
+ * may sit inside it, so nothing ever appears to stand in the middle of the road
+ * where two hallways meet.
+ */
+export const JUNCTION_CLEAR = 4.5;
+
+/** Width of the hole a road arriving at `sinAngle` cuts in the wall it meets. */
+export function mouthSpanFor(hallWidth: number, sinAngle: number): number {
+  const sin = Math.max(0.28, Math.min(1, Math.abs(sinAngle)));
+  return Math.min(hallWidth * 3, hallWidth / sin);
+}
+
+/**
  * FIT OBJECTS INTO A SHORTENED ROAD.
  *
  * A road that merges into another one is exactly as long as the space it had, so
- * it can be shorter than its objects would normally need. Nothing is dropped:
- * the slots are squeezed together (down to `MIN_OBJECT_SPACING`) and, if the run
- * is shorter still, the entry pad shrinks too, so every door and mouth stays on
- * the road inside the trimmed length.
+ * it can be shorter than its objects would normally need. Nothing is dropped and
+ * nothing lands in the crossing: the slots are squeezed into the run BEFORE the
+ * junction clearance (down to `MIN_OBJECT_SPACING`), and doors alternate walls
+ * so both sides of the corridor are used before the spacing is reduced.
  */
 export function fitObjectsToLength(
   objects: HallwayObject[],
   length: number,
   pad = HALLWAY_PAD,
   spacing = OBJECT_SPACING,
+  clear = JUNCTION_CLEAR,
 ): HallwayObject[] {
   if (objects.length === 0) return objects;
   const sorted = [...objects].sort((a, b) => a.along - b.along);
-  const usable = Math.max(0, length - spacing * 0.5);
+  // The far end belongs to the junction: objects stop short of it entirely.
+  const usable = Math.max(0, length - Math.max(clear, spacing * 0.5));
   const last = sorted[sorted.length - 1].along;
   if (last <= usable) return objects;
 
@@ -596,7 +612,25 @@ export function fitObjectsToLength(
   }
   const placed = new Map<string, number>();
   sorted.forEach((o, i) => placed.set(`${o.kind}:${o.id}`, Math.max(0, start + i * step)));
-  return objects.map((o) => ({ ...o, along: placed.get(`${o.kind}:${o.id}`) ?? o.along }));
+
+  // Doors alternate walls once the run is compressed, so a tight hallway reads
+  // as a two-sided corridor instead of a queue of doors on one wall. Mouths keep
+  // the wall their hallway actually leaves through.
+  const sides = new Map<string, -1 | 1>();
+  let next: -1 | 1 = -1;
+  for (const o of sorted) {
+    if (o.kind !== "door") {
+      next = -o.side as -1 | 1;
+      continue;
+    }
+    sides.set(`${o.kind}:${o.id}`, next);
+    next = -next as -1 | 1;
+  }
+
+  return objects.map((o) => {
+    const k = `${o.kind}:${o.id}`;
+    return { ...o, along: placed.get(k) ?? o.along, side: sides.get(k) ?? o.side };
+  });
 }
 
 // ── Connector corridors (Connect Hallway) ─────────────────────────────────
