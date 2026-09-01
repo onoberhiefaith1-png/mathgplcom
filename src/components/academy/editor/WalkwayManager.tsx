@@ -254,7 +254,7 @@ const WalkwayManager = ({
     setFormError("");
     try {
       await onAddDoor(doorWalkway, {
-        position_along: 0.5,
+        position_along: nextSlot(doorWalkway),
         content_kind: doorProduct.kind as DoorContentKind,
         content_id: doorProduct.id,
         title_override: doorName.trim() || null,
