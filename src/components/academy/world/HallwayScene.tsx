@@ -156,7 +156,7 @@ export interface ConnectorInfo {
   targetSide: -1 | 1;
 }
 
-export const buildHallways = (
+const buildHallways = (
   walkways: BuildingWalkway[],
   doorObjects: (walkwayId: string) => DoorObjectInput[],
   rootRoomObjects: DoorObjectInput[],

@@ -5,4 +5,5 @@
 - [x] Suppress near-zero merged corridor shells and resolve merge chains to stability.
 - [x] Bind 3D pointer events to a stable mounted scene host.
 - [x] Remove the duplicate full-height branch return that protruded into the road.
-- [ ] Run navigation/type checks and authenticated multi-angle walkthrough.
+- [x] Cut angled merge walls and decks on the target wall plane so no shell projects into the joined hallway.
+- [x] Run navigation/type checks and authenticated live-building walkthrough.
