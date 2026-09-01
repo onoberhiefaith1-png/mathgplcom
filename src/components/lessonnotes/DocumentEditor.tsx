@@ -1949,11 +1949,16 @@ function DocumentEditorInner({
   // many atoms heal themselves here, so no seam-gaps and no raw markup.
   const normalizedDoc = useMemo(
     () =>
-      reconcileSolutionOwnership(
-        repairDocumentMath(sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC).doc,
+      // QUESTION + SOLUTION = ONE ITEM: orphaned Solutions are removed, drifted
+      // ones re-homed, legacy ones adopted — before anything is rendered.
+      enforceQuestionSolutionPairs(
+        reconcileSolutionOwnership(
+          repairDocumentMath(sanitizeLegacyCanvasAttrs(documentJson) ?? EMPTY_DOC).doc,
+        ).doc,
       ).doc,
     [documentJson],
   );
+
 
 
   const [atState, setAtState] = useState<AtCommandState>({ active: false, query: "", from: 0, to: 0, coords: null });
