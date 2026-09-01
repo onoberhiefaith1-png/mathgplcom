@@ -264,6 +264,44 @@ export function wallRuns(
   return runs.filter(([a, b]) => b - a > 0.05);
 }
 
+/**
+ * Single-owner reveal dimensions for a cut wall opening. Jambs live wholly
+ * inside the removed wall interval and the lintel owns exactly that interval,
+ * so neither can overlap the solid wall runs beside it.
+ */
+export function openingRevealLayout(span: number, requestedJambWidth: number) {
+  const width = Math.max(0, span);
+  const jambWidth = Math.min(Math.max(0, requestedJambWidth), width / 2);
+  return {
+    cutMin: -width / 2,
+    cutMax: width / 2,
+    jambWidth,
+    jambCenters: [
+      -width / 2 + jambWidth / 2,
+      width / 2 - jambWidth / 2,
+    ] as [number, number],
+    lintelWidth: width,
+  };
+}
+
+export interface WalkwayConnection {
+  a: string;
+  b: string;
+}
+
+/** Current hallway plus every hallway sharing a physical mouth with it. */
+export function connectedWalkwayIds(
+  currentId: string,
+  connections: WalkwayConnection[],
+): Set<string> {
+  const ids = new Set([currentId]);
+  for (const connection of connections) {
+    if (connection.a === currentId) ids.add(connection.b);
+    else if (connection.b === currentId) ids.add(connection.a);
+  }
+  return ids;
+}
+
 
 /** Smoothstep easing for turns and door zooms. */
 export const easeInOut = (t: number): number =>

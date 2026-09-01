@@ -29,6 +29,8 @@ import {
   HALLWAY_PAD,
   OBJECT_SPACING,
   firstRoadMeeting,
+  connectedWalkwayIds,
+  openingRevealLayout,
 } from "../building/navigation";
 
 import type { BuildingWalkway } from "../building/types";
@@ -317,6 +319,14 @@ describe("hallway junctions are automatic and physical", () => {
     expect(wallRuns(0, 30, [])).toEqual([[0, 30]]);
   });
 
+  it("keeps merge jambs and lintel wholly inside the wall cut", () => {
+    const reveal = openingRevealLayout(8, 0.35);
+    const [left, right] = reveal.jambCenters;
+    expect(left - reveal.jambWidth / 2).toBeCloseTo(reveal.cutMin);
+    expect(right + reveal.jambWidth / 2).toBeCloseTo(reveal.cutMax);
+    expect(reveal.lintelWidth).toBeCloseTo(reveal.cutMax - reveal.cutMin);
+  });
+
   it("solves a 60 degree junction as two corridor volumes meeting", () => {
     const w = 7;
     const geo = junctionGeometry(w);
@@ -352,6 +362,27 @@ describe("hallway junctions are automatic and physical", () => {
     const h = branchHeading([0, -1], "right");
     expect(h[0]).toBeCloseTo(Math.sin(BRANCH_ANGLE));
     expect(h[1]).toBeCloseTo(-Math.cos(BRANCH_ANGLE));
+  });
+});
+
+describe("connected hallway visibility", () => {
+  const connections = [
+    { a: "entrance", b: "yu" },
+    { a: "yu", b: "mn" },
+    { a: "ki", b: "entrance" },
+  ];
+
+  it("includes branch and merge neighbours in both directions", () => {
+    expect([...connectedWalkwayIds("entrance", connections)].sort()).toEqual(
+      ["entrance", "ki", "yu"],
+    );
+    expect([...connectedWalkwayIds("yu", connections)].sort()).toEqual(
+      ["entrance", "mn", "yu"],
+    );
+  });
+
+  it("does not pull unrelated distant hallways into the render set", () => {
+    expect(connectedWalkwayIds("entrance", connections).has("mn")).toBe(false);
   });
 });
 
