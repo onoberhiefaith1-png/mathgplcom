@@ -23,6 +23,7 @@ import {
   junctionGeometry,
   WALL_THICKNESS,
   wallRuns,
+  connectorEndDistances,
   connectorMeeting,
   fitObjectsToLength,
   HALLWAY_PAD,
