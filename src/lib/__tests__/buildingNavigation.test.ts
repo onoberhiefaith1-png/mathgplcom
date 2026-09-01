@@ -23,6 +23,7 @@ import {
   junctionGeometry,
   WALL_THICKNESS,
   wallRuns,
+  connectorEndDistances,
   connectorMeeting,
   fitObjectsToLength,
   HALLWAY_PAD,
@@ -381,6 +382,31 @@ describe("connector corridor intersections", () => {
     const sinBetweenRoads = Math.abs(targetHeading[1]);
     expect(approach).toBeCloseTo((3.5 + WALL_THICKNESS / 2) / sinBetweenRoads);
     expect(meet.length).toBeLessThan(meet.crossingDistance - 3.5);
+  });
+
+  it("cuts both walls and deck edges on the target wall plane at an angled merge", () => {
+    const corridor = {
+      start: [49.36344801571301, -8.5] as [number, number],
+      heading: [-Math.sqrt(3) / 2, -0.5] as [number, number],
+      length: 52.819984051067095,
+    };
+    const target = {
+      start: [0, 0] as [number, number],
+      heading: [0, -1] as [number, number],
+      length: 77,
+    };
+    const ends = connectorEndDistances(corridor, target, 1, 7);
+    expect(ends.walls.left).toBeLessThan(corridor.length);
+    expect(ends.walls.right).toBeGreaterThan(corridor.length);
+    expect(ends.deck.left).toBeLessThan(ends.deck.right);
+
+    const targetRight: [number, number] = [1, 0];
+    const corridorRight: [number, number] = [0.5, -Math.sqrt(3) / 2];
+    const boundary = 3.5 + WALL_THICKNESS / 2;
+    for (const [side, distance] of [[-1, ends.walls.left], [1, ends.walls.right]] as const) {
+      const x = corridor.start[0] + corridor.heading[0] * distance + corridorRight[0] * side * (3.5 + WALL_THICKNESS / 2);
+      expect(x * targetRight[0]).toBeCloseTo(boundary);
+    }
   });
 
   it("rejects a crossing outside the finite target hallway", () => {
