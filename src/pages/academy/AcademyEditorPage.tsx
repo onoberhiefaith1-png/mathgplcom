@@ -608,7 +608,7 @@ const handleTextureUpload = useCallback(
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-foreground">Building structure</h1>
             <p className="text-[11px] text-muted-foreground">
-              Hallways are the paths, doors are the destinations. Build it here, walk it on the right.
+              Hallways are the paths, rooms are the destinations. Build it here, walk it on the right.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
