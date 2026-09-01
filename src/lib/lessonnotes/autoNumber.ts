@@ -28,6 +28,9 @@ export function applyAutoNumbering(editor: Editor): boolean {
   const counts = new Map<SectionKind, number>();
   let currentOrdinal: number | null = null;
   const edits: { from: number; to: number; text: string }[] = [];
+  // Ordinal of every question heading by its durable id, so a Solution is
+  // numbered from the question it BELONGS to, not from whatever came last.
+  const ordinalByQuestionId = new Map<string, number>();
 
   doc.descendants((node, pos) => {
     if (node.type.name !== "heading") return;
@@ -42,14 +45,20 @@ export function applyAutoNumbering(editor: Editor): boolean {
       const n = (counts.get(kind) ?? 0) + 1;
       counts.set(kind, n);
       currentOrdinal = n;
+      const sectionId = (node.attrs as any)?.sectionId;
+      if (typeof sectionId === "string" && sectionId) ordinalByQuestionId.set(sectionId, n);
       if (plainLabel(text, label)) desired = `${label} ${n}`;
     } else if (kind === "solution") {
-      if (currentOrdinal != null && plainLabel(text, "Solution")) {
-        desired = `Solution ${currentOrdinal}`;
+      const owner = (node.attrs as any)?.ownerQuestionId;
+      const owned = typeof owner === "string" && owner ? ordinalByQuestionId.get(owner) ?? null : null;
+      const ordinal = owned ?? currentOrdinal;
+      if (ordinal != null && plainLabel(text, "Solution")) {
+        desired = `Solution ${ordinal}`;
       }
     } else {
       currentOrdinal = null;
     }
+
 
     if (desired == null || desired === text.trim()) return;
     // Only rewrite a heading whose whole content is one plain text node, so
