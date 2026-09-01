@@ -580,6 +580,7 @@ const Surface = ({
   "rotation-y": rotationY,
   castShadow,
   receiveShadow,
+  facing = THREE.DoubleSide,
 children,
 }: {
   url?: string | null;
@@ -599,6 +600,13 @@ children,
   "rotation-y"?: number;
   castShadow?: boolean;
   receiveShadow?: boolean;
+  /**
+   * Which face of the surface is drawn. Corridor surfaces pass FrontSide with
+   * their normal pointing INTO the hallway, so a corridor is only ever seen
+   * from the inside: looking through a junction mouth shows the far hallway's
+   * wallpaper, floor and ceiling instead of the unlit back of its shell.
+   */
+  facing?: THREE.Side;
 children?: React.ReactNode;
 }) => {
   const tex = useLoadedTexture(url);
@@ -648,7 +656,7 @@ return (
         metalness={mat.metalness}
         emissive={mat.emissive ?? "#000000"}
         emissiveIntensity={mat.emissiveIntensity ?? 0}
-        side={THREE.DoubleSide}
+        side={facing}
       />
       {map && (
         // An imported image is artwork fitted ON the surface, not plaster: it
@@ -664,7 +672,7 @@ return (
             map={map}
             transparent
             toneMapped={false}
-            side={THREE.DoubleSide}
+            side={facing}
           />
         </mesh>
       )}
@@ -760,6 +768,7 @@ const SegmentCorridor = ({
         repeat={env.endWall.repeat}
         fit={env.endWall.fit}
         brightness={env.endWall.brightness}
+        facing={THREE.FrontSide}
         planeW={HALL_WIDTH}
         planeH={HALL_HEIGHT}
       >
@@ -795,6 +804,7 @@ const SegmentCorridor = ({
         repeat={env.startWall.repeat}
         fit={env.startWall.fit}
         brightness={env.startWall.brightness}
+        facing={THREE.FrontSide}
         planeW={HALL_WIDTH}
         planeH={HALL_HEIGHT}
       >
@@ -857,6 +867,7 @@ const SegmentCorridor = ({
               repeat={env.floor.repeat}
               fit={env.floor.fit}
               brightness={env.floor.brightness}
+              facing={THREE.FrontSide}
               planeW={HALL_WIDTH}
               planeH={runLen}
             >
@@ -885,6 +896,7 @@ const SegmentCorridor = ({
               repeat={env.roof.repeat}
               fit={env.roof.fit}
               brightness={env.roof.brightness}
+              facing={THREE.FrontSide}
               planeW={HALL_WIDTH}
               planeH={runLen}
             >
@@ -904,11 +916,12 @@ const SegmentCorridor = ({
           </group>
         );
       })}
-      {/* LEFT / RIGHT WALLS — solid RUNS of real blockwork, broken by this
-          hallway's cut-throughs. Each run is a BOX of wall thickness, so every
-          cut edge shows depth, catches light and casts a shadow instead of
-          reading as a paper-thin plane. The wall genuinely stops at a junction,
-          so the connected hallway is seen through the gap. */}
+      {/* LEFT / RIGHT WALLS — each solid run is drawn as its designed surface
+          facing INTO the hallway, with a blockwork reveal closing each cut edge
+          so the wall still reads with real thickness at a junction. Nothing is
+          drawn on the outside of the shell, so looking through a junction mouth
+          shows the far hallway's own wallpaper instead of the unlit back of a
+          wall. The wall genuinely stops at a junction. */}
       {([-1, 1] as const).map((side) => {
         const wall = side === -1 ? env.leftWall : env.rightWall;
         // Each hole carries its own centre and width: a diagonal branch's mouth
@@ -925,34 +938,60 @@ const SegmentCorridor = ({
             ? endDistances.walls.left
             : endDistances.walls.right
           : length;
-        return wallRuns(-backPad, wallEnd, holes).map(([a, b], i) => {
+        const runs = wallRuns(-backPad, wallEnd, holes);
+        return runs.map(([a, b], i) => {
           const runLen = b - a;
           const center = (a + b) / 2;
+          const x = side * (HALL_WIDTH / 2);
           return (
-            <Surface
-              key={`${side}-${i}`}
-              position={[
-                side * (HALL_WIDTH / 2 + WALL_THICKNESS / 2),
-                HALL_HEIGHT / 2,
-                length / 2 - center,
-              ]}
-              rotation-y={(-side * Math.PI) / 2}
-              url={wall.texture ? textures[wall.texture.path] : undefined}
-              presetKey={wall.preset}
-              color={wall.color}
-              scale={wall.scale}
-              offsetX={wall.offsetX}
-              offsetY={wall.offsetY}
-              repeat={wall.repeat}
-              fit={wall.fit}
-              brightness={wall.brightness}
-              planeW={runLen}
-              planeH={HALL_HEIGHT}
-              castShadow
-              receiveShadow
-            >
-              <boxGeometry args={[runLen, HALL_HEIGHT, WALL_THICKNESS]} />
-            </Surface>
+            <group key={`${side}-${i}`}>
+              <Surface
+                position={[x, HALL_HEIGHT / 2, length / 2 - center]}
+                rotation-y={(-side * Math.PI) / 2}
+                url={wall.texture ? textures[wall.texture.path] : undefined}
+                presetKey={wall.preset}
+                color={wall.color}
+                scale={wall.scale}
+                offsetX={wall.offsetX}
+                offsetY={wall.offsetY}
+                repeat={wall.repeat}
+                fit={wall.fit}
+                brightness={wall.brightness}
+                facing={THREE.FrontSide}
+                planeW={runLen}
+                planeH={HALL_HEIGHT}
+                receiveShadow
+              >
+                <planeGeometry args={[runLen, HALL_HEIGHT]} />
+              </Surface>
+              {/* Blockwork reveals: only where this run was cut by a junction,
+                  never at the hallway's own ends, so an edge shows depth
+                  without any piece overlapping a neighbouring surface. */}
+              {([a, b] as const).map((edge, k) => {
+                const cut = holes.some(
+                  (h) =>
+                    Math.abs(edge - (h.along - h.width / 2)) < 1e-4 ||
+                    Math.abs(edge - (h.along + h.width / 2)) < 1e-4,
+                );
+                if (!cut) return null;
+                const dir = k === 0 ? 1 : -1;
+                return (
+                  <mesh
+                    key={`reveal-${k}`}
+                    position={[
+                      side * (HALL_WIDTH / 2 - WALL_THICKNESS / 2),
+                      HALL_HEIGHT / 2,
+                      length / 2 - (edge + (dir * WALL_THICKNESS) / 2),
+                    ]}
+                    castShadow
+                    receiveShadow
+                  >
+                    <boxGeometry args={[WALL_THICKNESS, HALL_HEIGHT, WALL_THICKNESS]} />
+                    <meshStandardMaterial color={wall.color} roughness={0.85} metalness={0.05} />
+                  </mesh>
+                );
+              })}
+            </group>
           );
         });
       })}
@@ -3272,6 +3311,40 @@ const HallwayScene = ({
             );
           });
         })}
+
+        {/* JUNCTION MOUTH LIGHTS — the throat just beyond an opening sits before
+            the connected hallway's own row of ceiling lights begins, so without
+            this the first metres you look at through a mouth read as a dark
+            patch. One light per visible mouth, at corridor light level. */}
+        {segments
+          .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
+          .flatMap((seg) => {
+            const yaw = segYaw(seg.heading);
+            const cy = Math.cos(yaw);
+            const sy = Math.sin(yaw);
+            const fx = -Math.sin(yaw);
+            const fz = -Math.cos(yaw);
+            return (layouts.get(seg.walkway?.id ?? "") ?? [])
+              .filter((o) => o.kind !== "door")
+              .map((o) => {
+                const lat = o.side * (HALL_WIDTH * 0.55);
+                return (
+                  <pointLight
+                    key={`ml-${o.id}`}
+                    position={[
+                      seg.start[0] + fx * o.along + lat * cy,
+                      HALL_HEIGHT - 0.7,
+                      seg.start[1] + fz * o.along - lat * sy,
+                    ]}
+                    intensity={lights.point}
+                    distance={14}
+                    color="#cfe3ff"
+                  />
+                );
+              });
+          })}
+
+
 
         <CameraRig
           focus={focus}
