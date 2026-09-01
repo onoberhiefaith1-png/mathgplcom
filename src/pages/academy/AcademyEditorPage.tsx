@@ -63,9 +63,11 @@ import {
   ensureBuilding,
   listBuildings,
   loadBuildingData,
+  updateClassroomOverrides,
   updateDoor,
   updateEnvironment,
   updateWalkway,
+  updateWalkwayOverrides,
   uploadBuildingTexture,
 } from "@/lib/building/api";
 import {
@@ -240,6 +242,9 @@ let list = await listBuildings(org);
     const data: BuildingData | null = building ? await loadBuildingData(building) : null;
     return { list, data };
   }, []);
+
+  /** Which element the Environment panel is editing: "" = Default Settings. */
+  const [settingsScope, setSettingsScope] = useState("");
 
   const refreshBuilding = useCallback(async () => {
     const { list, data } = await loadEditorBuilding(orgId ?? null);
@@ -650,6 +655,19 @@ const handleTextureUpload = useCallback(
                         onSave={async (env) => {
                           await updateEnvironment(buildingData.building.id, env);
                           toast({ title: "Building saved", description: "The environment is live in the world." });
+                          await refreshBuilding();
+                        }}
+                        scopes={settingsScopes}
+                        scopeId={settingsScope}
+                        onScopeChange={setSettingsScope}
+                        onSaveOverrides={async (id, overrides) => {
+                          const [kind, rowId] = id.split(":");
+                          if (kind === "hallway") await updateWalkwayOverrides(rowId, overrides);
+                          else await updateClassroomOverrides(rowId, overrides);
+                          toast({
+                            title: "Individual settings saved",
+                            description: "Only the fields you changed stop following the default.",
+                          });
                           await refreshBuilding();
                         }}
                         onUpload={handleTextureUpload}
