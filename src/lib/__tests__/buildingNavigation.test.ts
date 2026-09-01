@@ -24,6 +24,7 @@ import {
   WALL_THICKNESS,
   wallRuns,
   connectorMeeting,
+  firstRoadMeeting,
 } from "../building/navigation";
 
 import type { BuildingWalkway } from "../building/types";
@@ -387,5 +388,73 @@ describe("connector corridor intersections", () => {
         7,
       ),
     ).toBeNull();
+  });
+});
+
+describe("walkway merging into open junctions", () => {
+  const road = (
+    id: string,
+    start: [number, number],
+    heading: [number, number],
+    length: number,
+  ) => ({ id, start, heading, length });
+
+  it("pulls a road that already overlaps another back to its wall", () => {
+    // The arriving road's centre line crosses only 2 units ahead, well inside
+    // the target's footprint: it must merge, never be rejected as "too close".
+    const meet = connectorMeeting(
+      { start: [0, 0], heading: [1, 0] },
+      { start: [2, -10], heading: [0, 1], length: 20 },
+      7,
+    );
+    expect(meet).not.toBeNull();
+    expect(meet?.length).toBeLessThan(2);
+    expect(meet?.alongTarget).toBeCloseTo(10);
+  });
+
+  it("clamps a mouth that lands near the end of the target road", () => {
+    const meet = connectorMeeting(
+      { start: [0, 0], heading: [1, 0] },
+      { start: [20, -0.5], heading: [0, 1], length: 20 },
+      7,
+    );
+    expect(meet).not.toBeNull();
+    // 0.5 along a 20-long road cannot hold a mouth; it snaps to half a hall in.
+    expect(meet?.alongTarget).toBeCloseTo(3.5);
+  });
+
+  it("merges a road returning alongside an existing one", () => {
+    const meet = connectorMeeting(
+      { start: [4, -40], heading: [0, 1] },
+      { start: [0, 0], heading: [0, -1], length: 30 },
+      7,
+    );
+    expect(meet).not.toBeNull();
+    expect(meet?.length).toBeGreaterThan(0);
+    expect(meet?.targetSide).toBe(1);
+  });
+
+  it("leaves genuinely separate parallel roads alone", () => {
+    expect(
+      connectorMeeting(
+        { start: [40, -40], heading: [0, 1] },
+        { start: [0, 0], heading: [0, -1], length: 30 },
+        7,
+      ),
+    ).toBeNull();
+  });
+
+  it("closes a north/west/south/east route back onto the road it left", () => {
+    // north 20 from the entrance, west 15, south 10, then east back to it.
+    const main = road("main", [0, 0], [0, -1], 20);
+    const west = road("west", [0, -20], [-1, 0], 15);
+    const south = road("south", [-15, -20], [0, 1], 10);
+    const east = road("east", [-15, -10], [1, 0], 20);
+    const meet = firstRoadMeeting(east, [main, west, south, east], 7, new Set(["south"]));
+    expect(meet).not.toBeNull();
+    expect(meet?.targetId).toBe("main");
+    // it stops short of the main road's wall instead of crossing it
+    expect(meet!.length).toBeLessThan(15 - 3.5);
+    expect(meet?.alongTarget).toBeCloseTo(10);
   });
 });
