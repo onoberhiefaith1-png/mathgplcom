@@ -2959,7 +2959,11 @@ function DocumentEditorInner({
         sectionEndWithin(editor.state.doc, hit.headingPos),
         editor.state.doc.content.size,
       );
-      editor.chain().focus().insertContentAt(at, solutionPlaceholderNodes()).run();
+      editor.chain().focus().insertContentAt(
+        at,
+        solutionPlaceholderNodes(ensureOwnerQuestionId(editor, hit.headingPos)),
+      ).run();
+
       sol = copilotSolutionHeading(hit.headingPos);
       if (!sol) throw new Error("That section has no Solution area to write into.");
     }
