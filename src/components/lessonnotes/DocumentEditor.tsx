@@ -2546,15 +2546,21 @@ function DocumentEditorInner({
   const insertSection = (kind: SectionKind) => {
     if (!editor) return;
     // Question-style sections come with an empty Solution space by default so
-    // the teacher can type both the problem and the solution manually.
-    const trailing = isQuestionSectionKind(kind) && kind !== "game_questions"
-      ? solutionPlaceholderNodes()
-      : [];
+    // the teacher can type both the problem and the solution manually. The
+    // question id is minted HERE so the pair is linked from birth.
+    const withSolutionArea = isQuestionSectionKind(kind) && kind !== "game_questions";
+    const qid = withSolutionArea ? newQuestionId() : null;
+    const trailing = qid ? solutionPlaceholderNodes(qid) : [];
     const insertAt = insertAtSensor([
-      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: SECTION_LABELS[kind] }] },
+      {
+        type: "heading",
+        attrs: { level: 2, ...(qid ? { sectionId: qid } : {}) },
+        content: [{ type: "text", text: SECTION_LABELS[kind] }],
+      },
       { type: "paragraph" },
       ...trailing,
     ]);
+
     moveSensorAfterInsert(insertAt, SECTION_LABELS[kind]);
   };
 
