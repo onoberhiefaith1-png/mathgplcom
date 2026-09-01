@@ -338,38 +338,11 @@ const handleTextureUpload = useCallback(
   );
 
   /**
-   * A hallway that has merged into another hallway cannot grow past its
-   * junction — the space beyond it belongs to the hallway it met. Returns a
-   * reason when adding `extra` objects would push it past the merge boundary.
+   * A hallway may always MEET another hallway: when it runs out of space it is
+   * clamped to the connection point and a junction is made there (see
+   * `mergeRoadInto` in the scene). Growth is therefore never refused — only
+   * continuing PAST a junction is impossible, and that is handled by geometry.
    */
-  const mergeBlock = useCallback(
-    (walkwayId: string, extra: number): string | null => {
-      if (!buildingData) return null;
-      const { walkways, doors } = buildingData;
-      const countOf = (id: string) =>
-        doors.filter((d) => d.walkway_id === id).length +
-        walkways.filter((w) => w.parent_id === id).length;
-      const derived = (w: { id: string; parent_id: string | null }) =>
-        lengthForObjects(
-          countOf(w.id),
-          OBJECT_SPACING,
-          w.parent_id ? HALLWAY_ENTRY_RUN : HALLWAY_PAD,
-        );
-      const limits = mergeLimits(walkways, HALL_WIDTH, derived);
-      const hit = limits.get(walkwayId);
-      if (!hit) return null;
-      const self = walkways.find((w) => w.id === walkwayId);
-      const needed = lengthForObjects(
-        countOf(walkwayId) + extra,
-        OBJECT_SPACING,
-        self?.parent_id ? HALLWAY_ENTRY_RUN : HALLWAY_PAD,
-      );
-      if (needed <= hit.limit) return null;
-      const targetName = walkways.find((w) => w.id === hit.targetId)?.name ?? "another hallway";
-      return `This hallway ends at its junction with “${targetName}”, so it cannot grow any further. Add to another hallway, or start a new one from this junction.`;
-    },
-    [buildingData],
-  );
 
   const handleAddWalkway = useCallback(
     async (
