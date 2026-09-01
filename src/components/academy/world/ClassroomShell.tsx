@@ -66,11 +66,9 @@ export const classroomEntryPose = (
   const inset = Math.min(4, dims.length * 0.3);
   return {
     position: [door[0] + heading[0] * inset, 1.75, door[1] + heading[1] * inset],
-    look: [
-      door[0] + heading[0] * dims.length,
-      1.55 + (dims.tiers[dims.tiers.length - 1]?.y ?? 0),
-      door[1] + heading[1] * dims.length,
-    ],
+    // Look straight down the room at standing eye height — never tipped into the
+    // floor, which made a stepped auditorium read as a dark pit on entry.
+    look: [door[0] + heading[0] * dims.length, 1.6, door[1] + heading[1] * dims.length],
   };
 };
 
@@ -197,9 +195,24 @@ const ClassroomShell = ({
         <planeGeometry args={[openingWidth, Math.max(0.1, height - 3.1)]} />
       </Surface>
 
-      {/* Room lighting, so the shell is never a dark void. */}
-      <pointLight position={[0, height - 0.8, length * 0.3]} intensity={0.5} distance={length * 1.6} />
-      <pointLight position={[0, height - 0.8, length * 0.8]} intensity={0.4} distance={length * 1.4} />
+      {/* ROOM LIGHTING — a real ceiling grid, so a big room (and the stepped
+          front of an auditorium) is lit end to end instead of fading to black. */}
+      <ambientLight intensity={0.85} />
+      <hemisphereLight args={["#ffffff", "#8a8f9c", 0.6]} />
+      {Array.from({ length: Math.max(2, Math.round(length / 4)) }).map((_, row) => {
+        const z = ((row + 0.5) * length) / Math.max(2, Math.round(length / 4));
+        const xs = width > 12 ? [-width / 4, width / 4] : [0];
+        return xs.map((x, col) => (
+          <pointLight
+            key={`lamp-${row}-${col}`}
+            position={[x, height - 0.7, z]}
+            intensity={0.55}
+            distance={Math.max(12, length / 2)}
+            decay={1.2}
+          />
+        ));
+      })}
+
 
       {/* NAMEPLATE — wall-mounted on the teaching wall, never floating. */}
       <group position={[0, 2.5 + lowest, length - 0.06]} rotation-y={Math.PI}>
