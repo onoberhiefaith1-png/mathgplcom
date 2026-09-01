@@ -3381,9 +3381,8 @@ const HallwayScene = ({
     <div
       ref={setEventSource}
       className="absolute inset-0"
-      onPointerDown={(e) => (dragStart.current = e.clientX)}
-      onPointerUp={(e) => {
       onPointerDown={(e) => {
+
         dragStart.current = e.clientX;
         if (machineRef.current.inside) lookDrag.current = e.clientX;
       }}
