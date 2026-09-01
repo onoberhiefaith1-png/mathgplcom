@@ -662,6 +662,58 @@ export interface ConnectorMeeting {
   crossingDistance: number;
 }
 
+export interface ConnectorEndDistances {
+  /** End of the deck at its local left/right edge. */
+  deck: { left: number; right: number };
+  /** End of each side-wall centre line, including the wall's real thickness. */
+  walls: { left: number; right: number };
+}
+
+/**
+ * Cut an arriving corridor on the SAME line as the wall it meets.
+ *
+ * A diagonal corridor cannot end every surface at one centre-line distance: its
+ * near wall reaches the target first and its far wall reaches it later. Using a
+ * single distance creates both a triangular gap and a wall wedge protruding into
+ * the target road. These four distances form one true angled architectural cut.
+ */
+export function connectorEndDistances(
+  corridor: { start: [number, number]; heading: [number, number]; length: number },
+  target: RoadLine,
+  targetSide: -1 | 1,
+  hallWidth: number,
+): ConnectorEndDistances {
+  const [hx, hz] = corridor.heading;
+  const corridorRight: [number, number] = [-hz, hx];
+  const targetRight: [number, number] = [-target.heading[1], target.heading[0]];
+  const advance = hx * targetRight[0] + hz * targetRight[1];
+  if (Math.abs(advance) < 1e-4) {
+    return {
+      deck: { left: corridor.length, right: corridor.length },
+      walls: { left: corridor.length, right: corridor.length },
+    };
+  }
+
+  // connectorMeeting() stops the centre line on the target wall's centre line.
+  // Solve every lateral edge against that exact same line.
+  const boundary =
+    (target.start[0] - corridor.start[0]) * targetRight[0] +
+    (target.start[1] - corridor.start[1]) * targetRight[1] +
+    targetSide * (hallWidth / 2 + WALL_THICKNESS / 2);
+  const atOffset = (offset: number) =>
+    Math.max(
+      0,
+      (boundary - offset * (corridorRight[0] * targetRight[0] + corridorRight[1] * targetRight[1])) /
+        advance,
+    );
+  const deckHalf = hallWidth / 2;
+  const wallHalf = deckHalf + WALL_THICKNESS / 2;
+  return {
+    deck: { left: atOffset(-deckHalf), right: atOffset(deckHalf) },
+    walls: { left: atOffset(-wallHalf), right: atOffset(wallHalf) },
+  };
+}
+
 /**
  * CONNECTION TOLERANCE. Two roads that come this close are the SAME piece of
  * the maze: tiny positioning differences must never stop a junction from

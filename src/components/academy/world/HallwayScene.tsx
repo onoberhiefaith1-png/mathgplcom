@@ -37,6 +37,7 @@ import { presetMaterial } from "@/lib/building/presets";
 import { coverFit } from "@/lib/building/imageFit";
 import {
   branchHeading,
+  connectorEndDistances,
   connectorMeeting,
   firstRoadMeeting,
   fitObjectsToLength,
@@ -133,6 +134,11 @@ interface HallwayLayout {
 }
 
 const MIN_RENDERABLE_CORRIDOR = 0.5;
+
+interface CorridorEndDistances {
+  deck: { left: number; right: number };
+  walls: { left: number; right: number };
+}
 
 /** A straight junction opening cut where one hallway arrives at another. */
 export interface MergeMouth {
@@ -678,6 +684,7 @@ const SegmentCorridor = ({
   startTrim = 0,
   deckHoles = [],
   deckLift = 0,
+  endDistances,
   frontPad = 0,
   capEnd = true,
   capStart = false,
@@ -710,6 +717,8 @@ const SegmentCorridor = ({
    * share a plane at exactly the same depth.
    */
   deckLift?: number;
+  /** Angled far-end cut when this corridor merges into another corridor. */
+  endDistances?: CorridorEndDistances;
   /**
    * How far this corridor's FLOOR AND CEILING may run past its own far end. It
    * is 0 by default: a junction throat is floored and ceiled by the junction
@@ -823,8 +832,17 @@ const SegmentCorridor = ({
           a plane at the same depth. `deckLift` gives this corridor its own real
           slab depth, which is what removes the z-fighting for good. */}
       {deckSpans.map(([a, b], i) => {
+        const clippedEnd = endDistances && Math.abs(b - (length + frontPad)) < 1e-4;
+        const leftEnd = clippedEnd ? endDistances.deck.left : b;
+        const rightEnd = clippedEnd ? endDistances.deck.right : b;
+        const centerAlong = (a + Math.max(leftEnd, rightEnd)) / 2;
         const runLen = b - a;
-        const zc = length / 2 - (a + b) / 2;
+        const zc = length / 2 - centerAlong;
+        const deckGeometry = clippedEnd ? (
+          <planeGeometry />
+        ) : (
+          <planeGeometry args={[HALL_WIDTH, runLen]} />
+        );
         return (
           <group key={`deck-${i}`}>
             <Surface
@@ -842,7 +860,18 @@ const SegmentCorridor = ({
               planeW={HALL_WIDTH}
               planeH={runLen}
             >
-              <planeGeometry args={[HALL_WIDTH, runLen]} />
+              {clippedEnd ? (
+                <shapeGeometry
+                  args={[
+                    new THREE.Shape([
+                      new THREE.Vector2(-HALL_WIDTH / 2, a - centerAlong),
+                      new THREE.Vector2(HALL_WIDTH / 2, a - centerAlong),
+                      new THREE.Vector2(HALL_WIDTH / 2, rightEnd - centerAlong),
+                      new THREE.Vector2(-HALL_WIDTH / 2, leftEnd - centerAlong),
+                    ]),
+                  ]}
+                />
+              ) : deckGeometry}
             </Surface>
             <Surface
               rotation-x={Math.PI / 2}
@@ -859,7 +888,18 @@ const SegmentCorridor = ({
               planeW={HALL_WIDTH}
               planeH={runLen}
             >
-              <planeGeometry args={[HALL_WIDTH, runLen]} />
+              {clippedEnd ? (
+                <shapeGeometry
+                  args={[
+                    new THREE.Shape([
+                      new THREE.Vector2(-HALL_WIDTH / 2, centerAlong - leftEnd),
+                      new THREE.Vector2(HALL_WIDTH / 2, centerAlong - rightEnd),
+                      new THREE.Vector2(HALL_WIDTH / 2, centerAlong - a),
+                      new THREE.Vector2(-HALL_WIDTH / 2, centerAlong - a),
+                    ]),
+                  ]}
+                />
+              ) : deckGeometry}
             </Surface>
           </group>
         );
@@ -880,7 +920,12 @@ const SegmentCorridor = ({
         // WALLS STOP AT THE HALLWAY'S OWN END. Only the floor and ceiling run
         // past it (into a junction throat); a wall that overran would poke into
         // the next hallway and fight its wall for the same plane.
-        return wallRuns(-backPad, length, holes).map(([a, b], i) => {
+        const wallEnd = endDistances
+          ? side === -1
+            ? endDistances.walls.left
+            : endDistances.walls.right
+          : length;
+        return wallRuns(-backPad, wallEnd, holes).map(([a, b], i) => {
           const runLen = b - a;
           const center = (a + b) / 2;
           return (
@@ -3266,6 +3311,22 @@ const HallwayScene = ({
           // Rendering a complete shell here puts its walls across the target road.
           if (connectors.has(seg.walkway?.id ?? "") && seg.length < MIN_RENDERABLE_CORRIDOR) return null;
           const near = nearbyIds.has(seg.walkway?.id ?? "root");
+          const connector = connectors.get(seg.walkway?.id ?? "");
+          const connectorTarget = connector
+            ? findSegment(segments, connector.targetWalkwayId)
+            : null;
+          const endDistances = connector && connectorTarget
+            ? connectorEndDistances(
+                { start: seg.start, heading: seg.heading, length: seg.length },
+                {
+                  start: connectorTarget.start,
+                  heading: connectorTarget.heading,
+                  length: connectorTarget.length,
+                },
+                connector.targetSide,
+                HALL_WIDTH,
+              )
+            : undefined;
           // Every junction on this hallway removes a run of its wall, so the
           // connected hallway is seen through a real cut, not a flat plane. A
           // branch leaves at the branch angle (offset, wider mouth); a hallway
@@ -3298,6 +3359,7 @@ const HallwayScene = ({
                   : 0
               }
               frontPad={0}
+              endDistances={endDistances}
 
               capEnd={
                 !seg.children.some((c) => c.walkway?.direction === "forward") &&
