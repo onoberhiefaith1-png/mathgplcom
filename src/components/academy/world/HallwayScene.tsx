@@ -3312,6 +3312,40 @@ const HallwayScene = ({
           });
         })}
 
+        {/* JUNCTION MOUTH LIGHTS — the throat just beyond an opening sits before
+            the connected hallway's own row of ceiling lights begins, so without
+            this the first metres you look at through a mouth read as a dark
+            patch. One light per visible mouth, at corridor light level. */}
+        {segments
+          .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
+          .flatMap((seg) => {
+            const yaw = segYaw(seg.heading);
+            const cy = Math.cos(yaw);
+            const sy = Math.sin(yaw);
+            const fx = -Math.sin(yaw);
+            const fz = -Math.cos(yaw);
+            return (layouts.get(seg.walkway?.id ?? "") ?? [])
+              .filter((o) => o.kind !== "door")
+              .map((o) => {
+                const lat = o.side * (HALL_WIDTH * 0.55);
+                return (
+                  <pointLight
+                    key={`ml-${o.id}`}
+                    position={[
+                      seg.start[0] + fx * o.along + lat * cy,
+                      HALL_HEIGHT - 0.7,
+                      seg.start[1] + fz * o.along - lat * sy,
+                    ]}
+                    intensity={lights.point}
+                    distance={14}
+                    color="#cfe3ff"
+                  />
+                );
+              });
+          })}
+
+
+
         <CameraRig
           focus={focus}
           rooms={rooms}
