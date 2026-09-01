@@ -1,10 +1,10 @@
-// The small, unobtrusive Page Guide control.
+// The small tutorial control. Present on EVERY page.
 //
-// Hidden entirely when no published guide exists for the page (administrators
-// still see it, so they can attach one). The page stays the workspace: this is a
-// pill, never a modal or an overlay on the work surface.
+// Just an icon — no label, no "View Only" text. It sits at the top-right by
+// default and can be hosted inline in a page's own header row where that corner
+// is already busy, so it never covers a button, title, map or navigation.
 
-import { PlayCircle, Settings2 } from "lucide-react";
+import { CirclePlay, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import BoardViewSwitcher from "@/components/student/BoardViewSwitcher";
 import { usePageGuide } from "./PageGuideProvider";
@@ -12,45 +12,56 @@ import { usePageGuide } from "./PageGuideProvider";
 /** Renders inline when a page places it in its own header, floating otherwise. */
 const PageGuideLauncher = ({ inline = false }: { inline?: boolean }) => {
   const ctx = usePageGuide();
-  if (!ctx || !ctx.available) return null;
+  if (!ctx) return null;
 
-  const { guide, canManage, open, view, setView, openGuide, openManager } = ctx;
-  const hasVideo = Boolean(guide?.videoPath);
+  const { tutorials, canManage, open, view, setView, openGuide, openManager, hasTutorial } = ctx;
+  const title = tutorials[0]?.title;
 
   return (
     <div
       className={cn(
         "flex items-center gap-1.5",
-        !inline && "fixed right-3 top-3 z-40",
+        // Sits clear of page headers and their own top-right controls, above
+        // every page chrome layer, so it is visible on EVERY page — intro page
+        // and login included.
+        !inline && "pointer-events-auto fixed right-3 top-16 z-[70] sm:right-4 sm:top-20",
       )}
     >
-      {open && hasVideo ? (
+      {open ? (
         <BoardViewSwitcher value={view} onChange={setView} mainLabel="Page" />
-
       ) : (
-        hasVideo && (
-          <button
-            type="button"
-            onClick={openGuide}
-            title={guide?.title || "Page guide"}
-            className="inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-border/70 bg-card/85 px-3 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur transition hover:bg-muted"
-          >
-            <PlayCircle className="h-3.5 w-3.5 text-primary" />
-            Guide
-          </button>
-        )
+        <button
+          type="button"
+          onClick={hasTutorial ? openGuide : undefined}
+          disabled={!hasTutorial}
+          aria-label={hasTutorial ? title || "Watch the tutorial for this page" : "No tutorial yet"}
+          title={hasTutorial ? title || "Watch the tutorial for this page" : "No tutorial yet"}
+          className={cn(
+            // Legible on any page background, light or dark.
+            "inline-flex h-9 w-9 items-center justify-center rounded-full shadow-lg ring-2 ring-background/70 transition",
+            hasTutorial
+              ? "bg-primary text-primary-foreground hover:opacity-90"
+              : "cursor-default border border-foreground/25 bg-secondary text-secondary-foreground/70",
+          )}
+
+        >
+          <CirclePlay className="h-4 w-4" />
+        </button>
       )}
+
 
       {canManage && (
         <button
           type="button"
           onClick={openManager}
-          title="Manage this page's guide video"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-card/85 text-muted-foreground shadow-sm backdrop-blur transition hover:text-foreground"
+          title="Manage this page's tutorial videos"
+          aria-label="Manage this page's tutorial videos"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-foreground/25 bg-secondary text-secondary-foreground shadow-lg ring-2 ring-background/70 transition hover:bg-muted"
         >
-          <Settings2 className="h-3.5 w-3.5" />
+          <Settings2 className="h-4 w-4" />
         </button>
       )}
+
     </div>
   );
 };

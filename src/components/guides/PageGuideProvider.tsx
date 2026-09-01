@@ -1,9 +1,12 @@
-// Universal Page Guide layer.
+// Universal tutorial layer.
 //
-// Wraps the route outlet once, so EVERY page — present and future — gains a
-// small guide control with no per-page code. Opening the guide never remounts
-// the page: the same outlet element stays in place and simply shares the screen
-// with the companion panel, so forms, editors and boards keep their state.
+// Wraps the route outlet once, so EVERY page — present and future, including the
+// intro page, the login page and the rotating building — gains a small tutorial
+// icon with no per-page code.
+//
+// The player is an APPLICATION-LEVEL session: once a tutorial starts, moving to
+// another page never destroys, reloads or rewinds it. Navigation only changes
+// which page's tutorials the icon offers.
 
 import {
   createContext,
@@ -17,76 +20,89 @@ import {
 import { useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/lib/accounts/useAccount";
-import { loadPageGuide, type PageGuide } from "@/lib/guides/pageGuides";
+import { useAssetManager } from "@/lib/gpl/useAssetManager";
+import { loadTutorials, type Tutorial } from "@/lib/guides/tutorials";
 import { toPageKey } from "@/lib/guides/pageKey";
 import type { BoardVideoView } from "@/components/student/BoardViewSwitcher";
-import PageGuidePlayer from "./PageGuidePlayer";
+import TutorialPlayer from "./TutorialPlayer";
 import PageGuideLauncher from "./PageGuideLauncher";
 import PageGuideManagerDialog from "./PageGuideManagerDialog";
 
 interface PageGuideContextValue {
   pageKey: string;
-  guide: PageGuide | null;
-  /** True when this account may upload / replace / publish guides. */
+  /** Tutorials for the page currently on screen. */
+  tutorials: Tutorial[];
+  /** True when this account may add / replace / reorder / remove tutorials. */
   canManage: boolean;
+  /** A tutorial session is open (possibly one started on another page). */
   open: boolean;
   view: BoardVideoView;
   setView: (next: BoardVideoView) => void;
   openGuide: () => void;
   closeGuide: () => void;
   openManager: () => void;
-  /** True when the launcher should be visible at all. */
+  /** The icon is on every page; this says whether it can be clicked. */
+  hasTutorial: boolean;
+  /** Always true: every page carries the control. */
   available: boolean;
 }
 
 const PageGuideContext = createContext<PageGuideContextValue | null>(null);
 
-/** Lets any page render the guide control inside its own header instead of
- *  relying on the floating launcher. */
+/** Lets any page render the tutorial control inside its own header instead of
+ *  relying on the floating one. */
 export const usePageGuide = () => useContext(PageGuideContext);
-
-const HIDDEN_PREFIXES = ["/auth", "/login", "/signup", "/api", "/lovable"];
 
 export const PageGuideProvider = ({ children }: { children: ReactNode }) => {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const pageKey = useMemo(() => toPageKey(pathname), [pathname]);
   const { can, isPlatformOwner } = useAccount();
-  const canManage = can("platform_admin") || isPlatformOwner;
+  const { isManager } = useAssetManager();
+  const canManage = can("platform_admin") || isPlatformOwner || isManager;
 
-  const [guide, setGuide] = useState<PageGuide | null>(null);
+  const [tutorials, setTutorials] = useState<Tutorial[]>([]);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<BoardVideoView>("split");
   const [managerOpen, setManagerOpen] = useState(false);
-  // Mounted from the first open onwards, so the playhead survives closing.
-  const [mounted, setMounted] = useState(false);
+  // The playing session. Kept independent of the route, so navigation never
+  // stops the tutorial.
+  const [session, setSession] = useState<{ tutorial: Tutorial; playlist: Tutorial[] } | null>(null);
+
+  const refresh = useCallback(async () => {
+    const list = await loadTutorials(pageKey);
+    setTutorials(list);
+    return list;
+  }, [pageKey]);
 
   useEffect(() => {
     let active = true;
-    setOpen(false);
-    setGuide(null);
-    void loadPageGuide(pageKey).then((found) => {
-      if (active) setGuide(found);
+    setTutorials([]);
+    void loadTutorials(pageKey).then((list) => {
+      if (active) setTutorials(list);
     });
     return () => {
       active = false;
     };
   }, [pageKey]);
 
+  const visible = useMemo(
+    () => tutorials.filter((t) => t.status === "published" || canManage),
+    [tutorials, canManage],
+  );
+
   const openGuide = useCallback(() => {
-    setMounted(true);
+    if (visible.length === 0) return;
+    setSession({ tutorial: visible[0], playlist: visible });
     setView("split");
     setOpen(true);
-  }, []);
-  const closeGuide = useCallback(() => setOpen(false), []);
+  }, [visible]);
 
-  const visibleGuide = guide && (guide.status === "published" || canManage) ? guide : null;
-  const hidden = HIDDEN_PREFIXES.some((p) => pageKey === p || pageKey.startsWith(`${p}/`));
-  const available = !hidden && (Boolean(visibleGuide?.videoPath) || canManage);
+  const closeGuide = useCallback(() => setOpen(false), []);
 
   const value = useMemo<PageGuideContextValue>(
     () => ({
       pageKey,
-      guide: visibleGuide,
+      tutorials: visible,
       canManage,
       open,
       view,
@@ -94,17 +110,18 @@ export const PageGuideProvider = ({ children }: { children: ReactNode }) => {
       openGuide,
       closeGuide,
       openManager: () => setManagerOpen(true),
-      available,
+      hasTutorial: visible.length > 0,
+      available: true,
     }),
-    [pageKey, visibleGuide, canManage, open, view, openGuide, closeGuide, available],
+    [pageKey, visible, canManage, open, view, openGuide, closeGuide],
   );
 
-  const showCompanion = open && Boolean(visibleGuide?.videoPath);
+  const showCompanion = open && Boolean(session);
 
   return (
     <PageGuideContext.Provider value={value}>
       {/* One constant element tree in every state: only classes change, so the
-          page subtree is never remounted when the guide opens or closes. */}
+          page subtree is never remounted when the tutorial opens or closes. */}
       <div
         data-page-guide-root=""
         className={cn(
@@ -122,7 +139,7 @@ export const PageGuideProvider = ({ children }: { children: ReactNode }) => {
           {children}
         </div>
 
-        {mounted && (
+        {session && (
           <div
             className={cn(
               showCompanion && view !== "board"
@@ -131,20 +148,25 @@ export const PageGuideProvider = ({ children }: { children: ReactNode }) => {
             )}
             aria-hidden={!showCompanion}
           >
-            {visibleGuide && <PageGuidePlayer guide={visibleGuide} onClose={closeGuide} />}
+            <TutorialPlayer
+              tutorial={session.tutorial}
+              playlist={session.playlist}
+              onSelect={(tutorial) => setSession((s) => (s ? { ...s, tutorial } : s))}
+              onClose={closeGuide}
+            />
           </div>
         )}
       </div>
 
-      {available && <PageGuideLauncher />}
+      <PageGuideLauncher />
 
       {canManage && (
         <PageGuideManagerDialog
           open={managerOpen}
           onOpenChange={setManagerOpen}
           pageKey={pageKey}
-          guide={guide}
-          onSaved={setGuide}
+          tutorials={tutorials}
+          onChanged={() => void refresh()}
         />
       )}
     </PageGuideContext.Provider>
