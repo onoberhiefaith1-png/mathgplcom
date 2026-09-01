@@ -527,6 +527,36 @@ export async function addClassroom(
   return (data as unknown as BuildingClassroom).id;
 }
 
+/**
+ * ADD ROOM — a door and its room shell created together as ONE object.
+ *
+ * A door is strictly a room entrance, so it never exists on its own: if the
+ * shell cannot be created the door is removed again, and no naked door or
+ * detached room is ever left behind.
+ */
+export async function addRoom(
+  buildingId: string,
+  walkwayId: string,
+  fields: { position_along: number; kind: ClassroomKind; name: string },
+): Promise<{ doorId: string; roomId: string }> {
+  const doorId = await addDoor(buildingId, walkwayId, {
+    position_along: fields.position_along,
+    title_override: fields.name.trim() || null,
+  });
+  try {
+    const roomId = await addClassroom(buildingId, doorId, fields.kind, fields.name);
+    return { doorId, roomId };
+  } catch (e) {
+    await deleteDoor(doorId).catch(() => undefined);
+    throw e;
+  }
+}
+
+/** Delete a room and its door together — they are one object. */
+export async function deleteRoom(doorId: string): Promise<void> {
+  await deleteDoor(doorId);
+}
+
 export async function updateClassroom(
   id: string,
   fields: Partial<Pick<BuildingClassroom, "name" | "kind" | "position">>,

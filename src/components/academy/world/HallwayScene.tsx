@@ -23,7 +23,7 @@ import { Sparkles, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { AcademyRoom, AcademyProduct } from "@/lib/academy/types";
 import { mergeEnvironment, lightBudget, DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
-import { DEFAULT_ENVIRONMENT, DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
+import { CLASSROOM_KIND_LABEL, DEFAULT_ENVIRONMENT, DIRECTION_LABEL } from "@/lib/building/types";
 import type {
   BuildingClassroom,
   BuildingData,
@@ -1973,12 +1973,15 @@ const MiniMap = ({
   show,
   ended = false,
   routeIds = [],
+  rooms,
 }: {
   segments: Segment[];
   layouts: Map<string, HallwayObject[]>;
   connectors: Map<string, ConnectorInfo>;
   m: React.RefObject<Machine>;
   show: boolean;
+  /** door id → the room behind that door, so the plan shows real rooms. */
+  rooms: Map<string, BuildingClassroom>;
   /** True when the walker is standing at the end of the current hallway. */
   ended?: boolean;
   /** Hallways actually travelled, in order — the route highlight. */
@@ -1991,6 +1994,18 @@ const MiniMap = ({
     const pts: number[] = [];
     const lines: { id: string; x1: number; y1: number; x2: number; y2: number; name: string }[] = [];
     const doorDots: { x: number; z: number }[] = [];
+    /**
+     * ROOM FOOTPRINTS. A room is one unit with its door: the shape starts at the
+     * doorway and runs away from the corridor, using the shell's real size.
+     */
+    const roomShapes: {
+      id: string;
+      points: string;
+      front: string;
+      labelX: number;
+      labelZ: number;
+      label: string;
+    }[] = [];
     /** Terminal navigation nodes — the editable ENDPOINT of each route. */
     const ends: { id: string; x: number; z: number; name: string }[] = [];
     /** hallway id → its parent hallway id, so the active route can be traced. */
@@ -2009,7 +2024,40 @@ const MiniMap = ({
           x: s.start[0] + s.heading[0] * o.along + o.side * 1.2 * -s.heading[1],
           z: s.start[1] + s.heading[1] * o.along + o.side * 1.2 * s.heading[0],
         };
-        if (o.kind === "door") doorDots.push(at);
+        if (o.kind === "door") {
+          doorDots.push(at);
+          const room = rooms.get(o.id);
+          if (room) {
+            const dims = classroomDimensions(room.kind);
+            // Outward normal — from the wall away from the corridor.
+            const nx = o.side * -s.heading[1];
+            const nz = o.side * s.heading[0];
+            const hw = dims.width / 2;
+            const corner = (a: number, b: number): [number, number] => [
+              at.x + s.heading[0] * a + nx * b,
+              at.z + s.heading[1] * a + nz * b,
+            ];
+            const cs: [number, number][] = [
+              corner(-hw, 0),
+              corner(hw, 0),
+              corner(hw, dims.length),
+              corner(-hw, dims.length),
+            ];
+            const mid = corner(0, dims.length / 2);
+            // The presentation end of the room, marked on the plan.
+            const f1 = corner(-hw, dims.length);
+            const f2 = corner(hw, dims.length);
+            roomShapes.push({
+              id: o.id,
+              points: cs.map((c) => `${c[0]},${c[1]}`).join(" "),
+              front: `${f1[0]},${f1[1]} ${f2[0]},${f2[1]}`,
+              labelX: mid[0],
+              labelZ: mid[1],
+              label: `${CLASSROOM_KIND_LABEL[room.kind].toUpperCase()} – ${room.name.toUpperCase()}`,
+            });
+            for (const c of cs) pts.push(c[0], c[1]);
+          }
+        }
         else if (o.kind === "link") linkEnds.set(o.id, [...(linkEnds.get(o.id) ?? []), at]);
       }
       if (
@@ -2050,13 +2098,14 @@ const MiniMap = ({
       lines,
       linkLines,
       doorDots,
+      roomShapes,
       ends,
       parentOf,
       /** drawing extent in map pixels, used to pin the plan to the box edges */
       spanW: (maxX - minX) * sc,
       spanH: (maxZ - minZ) * sc,
     };
-  }, [segments, layouts, connectors, zoom]);
+  }, [segments, layouts, connectors, rooms, zoom]);
 
   // ── live player position: eased toward the walker's real coordinates ──
   const marker = useRef({ x: 0, y: 0, dx: 0, dy: -1, ready: false });
@@ -2245,6 +2294,45 @@ const MiniMap = ({
               strokeLinecap="round"
             />
           ))}
+          {/* rooms — each drawn as one unit with its own door */}
+          {svg.roomShapes.map((r) => (
+            <g key={`room-${r.id}`}>
+              <polygon
+                points={r.points
+                  .split(" ")
+                  .map((pt) => {
+                    const [x, z] = pt.split(",").map(Number);
+                    return `${svg.px(x)},${svg.py(z)}`;
+                  })
+                  .join(" ")}
+                fill="#0ea5e9"
+                fillOpacity={0.14}
+                stroke="#7dd3fc"
+                strokeWidth={1.2}
+              />
+              <polyline
+                points={r.front
+                  .split(" ")
+                  .map((pt) => {
+                    const [x, z] = pt.split(",").map(Number);
+                    return `${svg.px(x)},${svg.py(z)}`;
+                  })
+                  .join(" ")}
+                fill="none"
+                stroke="#fcd34d"
+                strokeWidth={2}
+              />
+              <text
+                x={svg.px(r.labelX)}
+                y={svg.py(r.labelZ)}
+                textAnchor="middle"
+                fontSize={6}
+                fill="#bae6fd"
+              >
+                {r.label}
+              </text>
+            </g>
+          ))}
           {/* doors — destinations along the hallway walls */}
           {svg.doorDots.map((d, i) => (
             <rect
@@ -2316,7 +2404,11 @@ export interface HallwaySceneProps {
   focus: number;
   onFocusChange: (index: number) => void;
   onEnterRoom?: (roomId: string) => void;
-  onOpenDoor: (door: BuildingDoor) => void;
+  /**
+   * Kept for the editor's selection panel only. A door never opens a product:
+   * entering a door always walks into the room attached to it.
+   */
+  onOpenDoor?: (door: BuildingDoor) => void;
   onModeChange?: (mode: "browse" | "walk") => void;
   /** Walk to this hallway id (used by the editor after creating one). */
   navigateTo?: string | null;
@@ -2336,7 +2428,6 @@ const HallwayScene = ({
   focus,
   onFocusChange,
   onEnterRoom,
-  onOpenDoor,
   onModeChange,
   onExitBuilding,
   navigateTo = null,
@@ -3318,17 +3409,20 @@ const HallwayScene = ({
       const d = doorsById.get(o.id);
       if (!d) return null;
       const design = d.design as Partial<typeof env.door> | null;
-      const sublabel = d.content_kind
-        ? `${DOOR_KIND_LABEL[d.content_kind]}${d.content_kind === "adventure" || d.content_kind === "assessment" ? " · runs in class" : ""}`
-        : "Add content in the editor";
+      // A DOOR IS ONLY A ROOM ENTRANCE. It never launches a course, adventure
+      // or assessment — those live inside the room, behind this door.
+      const attached = classroomsByDoor.get(d.id);
+      const sublabel = attached
+        ? CLASSROOM_KIND_LABEL[attached.kind]
+        : "Room missing — recreate it in the editor";
       return (
         <group key={o.id} position={[0, 0, -o.along]}>
           <DoorMesh
             side={o.side}
             z={0}
-            label={o.name}
+            label={attached ? attached.name : o.name}
             sublabel={sublabel}
-            accent={d.content_kind ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4] : "#64748b"}
+            accent={attached ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4] : "#64748b"}
             color={design?.color || env.door.color}
             emissiveIntensity={(design?.brightness ?? env.door.brightness) * 0.12}
             styleKey={design?.style || env.door.style}
@@ -3340,13 +3434,9 @@ const HallwayScene = ({
                   : undefined
             }
             onEnter={() => {
-              const room = classroomsByDoor.get(d.id);
-              if (room) {
-                const into: [number, number] = [-front[0], -front[1]];
-                startDoorZoom([wx, wz], front, () => enterClassroom([wx, wz], into, room));
-                return;
-              }
-              startDoorZoom([wx, wz], front, () => onOpenDoor(d));
+              if (!attached) return;
+              const into: [number, number] = [-front[0], -front[1]];
+              startDoorZoom([wx, wz], front, () => enterClassroom([wx, wz], into, attached));
             }}
           />
         </group>
@@ -3691,6 +3781,7 @@ const HallwayScene = ({
         show={showMap}
         ended={endReached}
         routeIds={routeIds}
+        rooms={classroomsByDoor}
       />
     </div>
   );

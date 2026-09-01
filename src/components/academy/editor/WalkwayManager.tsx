@@ -10,24 +10,21 @@
  * the destination that opens an existing product (never duplicated).
  */
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronRight, DoorOpen, GraduationCap, Link2, Plus, Route, Trash2, Wand2 } from "lucide-react";
+import { ChevronDown, ChevronRight, GraduationCap, Link2, Plus, Route, Trash2, Wand2 } from "lucide-react";
 import type {
   BuildingClassroom,
   ClassroomKind,
   BuildingDoor,
   BuildingWalkway,
   BuildingWalkwayLink,
-  DoorContentKind,
   WalkwayDirection,
 } from "@/lib/building/types";
-import { CLASSROOM_KIND_LABEL, DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
+import { CLASSROOM_KIND_LABEL, DIRECTION_LABEL } from "@/lib/building/types";
 import { CLASSROOM_KIND_BLURB } from "@/lib/building/classroom";
-import { doorTitle } from "@/lib/building/api";
 import { nextBranchDirection, nextObjectOffset } from "@/lib/building/navigation";
 import { DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
 import { DOOR_STYLES } from "@/lib/building/doors";
-import type { AcademyProduct, AcademyProductKind } from "@/lib/academy/types";
-import { PRODUCT_KINDS } from "@/lib/academy/types";
+import type { AcademyProduct } from "@/lib/academy/types";
 
 export interface WalkwayManagerProps {
   walkways: BuildingWalkway[];
@@ -47,13 +44,16 @@ export interface WalkwayManagerProps {
   onRenameEndpoint?: (id: string, endLabel: string) => Promise<void>;
   onRenameDoor?: (id: string, title: string) => Promise<void>;
   onDeleteWalkway: (id: string) => Promise<void>;
-  onAddDoor: (
+  /**
+   * ADD ROOM — a door and its room shell created together as one object. There
+   * is no way to create a door on its own, and never a room without its door.
+   */
+  onAddRoom: (
     walkwayId: string,
     fields: {
       position_along: number;
-      content_kind: DoorContentKind;
-      content_id: string;
-      title_override?: string | null;
+      kind: ClassroomKind;
+      name: string;
       style?: string | null;
     },
   ) => Promise<void>;
@@ -80,12 +80,8 @@ export interface WalkwayManagerProps {
 
   /** Classrooms that already exist, one per door. */
   classrooms?: BuildingClassroom[];
-  /**
-   * Create a classroom BEHIND an existing door. The door is the entry point, so
-   * no second door is ever created for a classroom.
-   */
-  onAddClassroom?: (doorId: string, kind: ClassroomKind, name: string) => Promise<void>;
-  onDeleteClassroom?: (id: string) => Promise<void>;
+  /** Change the type of the room behind a door. The door never moves. */
+  onSetRoomKind?: (roomId: string, kind: ClassroomKind) => Promise<void>;
 }
 
 /**
@@ -106,7 +102,7 @@ const WalkwayManager = ({
   onRenameEndpoint,
   onRenameDoor,
   onDeleteWalkway,
-  onAddDoor,
+  onAddRoom,
   onUpdateDoor,
   onSetDoorStyle,
   onDeleteDoor,
@@ -117,17 +113,15 @@ const WalkwayManager = ({
   selectedDoorId = null,
   remainingSlots = {},
   classrooms = [],
-  onAddClassroom,
-  onDeleteClassroom,
+  onSetRoomKind,
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
-  const [form, setForm] = useState<"hallway" | "door" | "link" | "classroom" | null>(null);
+  const [form, setForm] = useState<"hallway" | "room" | "link" | null>(null);
 
-  // Add Classroom wizard: type → existing door → name. One step at a time, so
-  // nothing is created until the whole chain has been chosen.
-  const [roomStep, setRoomStep] = useState<"kind" | "door" | "name">("kind");
+  // Add Room wizard: hallway → room type → name. Nothing is created until the
+  // whole chain has been chosen, and the door and the shell are made together.
+  const [roomStep, setRoomStep] = useState<"hallway" | "kind" | "name">("hallway");
   const [roomKind, setRoomKind] = useState<ClassroomKind>("classroom");
-  const [roomDoorId, setRoomDoorId] = useState("");
   const [roomName, setRoomName] = useState("");
 
   // Connect Hallways form state
@@ -138,22 +132,16 @@ const WalkwayManager = ({
   const [hallParent, setHallParent] = useState<string>("");
   const [hallName, setHallName] = useState("");
 
-  // Add Door form state
+  // Which hallway and door design the new room uses.
   const [doorWalkway, setDoorWalkway] = useState<string>("");
-  const [doorName, setDoorName] = useState("");
   const [doorStyle, setDoorStyle] = useState("");
-  const [kind, setKind] = useState<AcademyProductKind>("course");
-  /** The product this door will open — chosen first, created on Create Door. */
-  const [doorProduct, setDoorProduct] = useState<AcademyProduct | null>(null);
   const [busy, setBusy] = useState(false);
   /** Why the last create failed, shown inline so a failure is never silent. */
   const [formError, setFormError] = useState("");
 
-  const titles = useMemo(() => {
-    const out: Record<string, string> = {};
-    for (const p of catalogue) out[`${p.kind}:${p.id}`] = p.title;
-    return out;
-  }, [catalogue]);
+  /** The room behind a door — every door is a room entrance. */
+  const roomOf = (doorId: string) => classrooms.find((c) => c.door_id === doorId) ?? null;
+  const roomLabel = (doorId: string) => roomOf(doorId)?.name ?? "Room";
 
   const childrenOf = (id: string | null) =>
     walkways
@@ -165,8 +153,6 @@ const WalkwayManager = ({
     doors
       .filter((d) => d.walkway_id === walkwayId)
       .sort((a, b) => a.position_along - b.position_along);
-
-  const products = catalogue.filter((p) => p.kind === kind);
 
   /** Depth-first list of hallways so a select can show the tree by name. */
   const flat = useMemo(() => {
@@ -222,16 +208,17 @@ const WalkwayManager = ({
     setForm("hallway");
   };
 
-  const openDoorForm = (walkwayId?: string) => {
+  const openRoomForm = (walkwayId?: string) => {
     const preferred = [walkwayId, doorWalkway, ...doorHallways.map(({ w }) => w.id)].find(
       (id): id is string => Boolean(id) && hasRoom(id as string),
     );
     setDoorWalkway(preferred ?? "");
-    setDoorName("");
     setDoorStyle("");
-    setDoorProduct(null);
+    setRoomKind("classroom");
+    setRoomName("");
+    setRoomStep(walkwayId ? "kind" : "hallway");
     setFormError("");
-    setForm("door");
+    setForm("room");
   };
 
 
@@ -268,16 +255,15 @@ const WalkwayManager = ({
     }
   };
 
-  const submitDoor = async () => {
-    if (busy || !doorWalkway || !doorProduct) return;
+  const submitRoom = async () => {
+    if (busy || !doorWalkway || roomName.trim().length === 0) return;
     setBusy(true);
     setFormError("");
     try {
-      await onAddDoor(doorWalkway, {
+      await onAddRoom(doorWalkway, {
         position_along: nextSlot(doorWalkway),
-        content_kind: doorProduct.kind as DoorContentKind,
-        content_id: doorProduct.id,
-        title_override: doorName.trim() || null,
+        kind: roomKind,
+        name: roomName.trim(),
         style: doorStyle || null,
       });
       setForm(null);
@@ -385,10 +371,10 @@ const WalkwayManager = ({
               {hasRoom(w.id) && (
                 <button
                   type="button"
-                  onClick={() => openDoorForm(w.id)}
+                  onClick={() => openRoomForm(w.id)}
                   className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-emerald-500/40 px-2.5 text-[11px] font-semibold text-emerald-400"
                 >
-                  <DoorOpen className="h-3 w-3" /> Add Door here
+                  <GraduationCap className="h-3 w-3" /> Add Room here
                 </button>
               )}
 
@@ -401,16 +387,29 @@ const WalkwayManager = ({
                   d.id === selectedDoorId ? "bg-primary/10 ring-1 ring-primary/40" : "hover:bg-muted/60"
                 }`}
               >
-                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                  {d.content_kind ? DOOR_KIND_LABEL[d.content_kind] : "Empty"}
-                </span>
+                <select
+                  aria-label="Room type"
+                  value={roomOf(d.id)?.kind ?? "classroom"}
+                  disabled={!roomOf(d.id) || !onSetRoomKind}
+                  onChange={(e) => {
+                    const room = roomOf(d.id);
+                    if (room) void onSetRoomKind?.(room.id, e.target.value as ClassroomKind);
+                  }}
+                  className="min-h-[32px] max-w-[7.5rem] rounded-full border border-primary/40 bg-primary/10 px-1.5 text-[10px] font-bold uppercase text-primary"
+                >
+                  {(["classroom", "teaching_hall", "auditorium"] as ClassroomKind[]).map((k) => (
+                    <option key={k} value={k}>
+                      {CLASSROOM_KIND_LABEL[k]}
+                    </option>
+                  ))}
+                </select>
                 <input
-                  aria-label="Door name"
-                  defaultValue={doorTitle(d, titles)}
+                  aria-label="Room name"
+                  defaultValue={roomLabel(d.id)}
                   onBlur={(e) => {
                     const next = e.target.value.trim();
-                    if (next && next !== doorTitle(d, titles)) void onRenameDoor?.(d.id, next);
-                    else e.target.value = doorTitle(d, titles);
+                    if (next && next !== roomLabel(d.id)) void onRenameDoor?.(d.id, next);
+                    else e.target.value = roomLabel(d.id);
                   }}
                   className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-1 text-sm text-foreground"
                 />
@@ -428,7 +427,7 @@ const WalkwayManager = ({
                   ))}
                 </select>
                 <input
-                  aria-label="Door position"
+                  aria-label="Room position"
                   type="range"
                   min={0}
                   max={100}
@@ -438,7 +437,7 @@ const WalkwayManager = ({
                 />
                 <button
                   type="button"
-                  aria-label="Remove door"
+                  aria-label="Remove room"
                   onClick={() => onDeleteDoor(d.id)}
                   className="rounded p-2 text-muted-foreground hover:text-destructive"
                 >
@@ -467,30 +466,12 @@ const WalkwayManager = ({
         </button>
         <button
           type="button"
-          onClick={() => (form === "door" ? setForm(null) : openDoorForm())}
+          onClick={() => (form === "room" ? setForm(null) : openRoomForm())}
           disabled={roots.length === 0}
           className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-emerald-500/40 px-3 text-xs font-semibold text-emerald-400 disabled:opacity-40"
         >
-          <Plus className="h-3.5 w-3.5" /> Add Door
+          <GraduationCap className="h-3.5 w-3.5" /> Add Room
         </button>
-        {onAddClassroom && (
-          <button
-            type="button"
-            onClick={() => {
-              if (form === "classroom") return setForm(null);
-              setRoomStep("kind");
-              setRoomKind("classroom");
-              setRoomDoorId("");
-              setRoomName("");
-              setFormError("");
-              setForm("classroom");
-            }}
-            disabled={doors.length === 0}
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-violet-500/40 px-3 text-xs font-semibold text-violet-400 disabled:opacity-40"
-          >
-            <GraduationCap className="h-3.5 w-3.5" /> Add Classroom
-          </button>
-        )}
         {onAddLink && (
           <button
             type="button"
@@ -526,157 +507,6 @@ const WalkwayManager = ({
         )}
       </div>
 
-
-      {form === "classroom" && onAddClassroom && (
-        <div className="rounded-xl border border-border bg-card p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Add classroom
-          </p>
-
-          {/* STEP 1 — the professional type. */}
-          {roomStep === "kind" && (
-            <div className="mt-2 space-y-1.5">
-              <p className="text-[11px] text-muted-foreground">Select classroom type</p>
-              {(["classroom", "teaching_hall", "auditorium"] as ClassroomKind[]).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => {
-                    setRoomKind(k);
-                    setRoomStep("door");
-                  }}
-                  className="block w-full rounded-lg border border-border bg-background p-2.5 text-left hover:border-violet-500/50"
-                >
-                  <span className="block text-sm font-semibold text-foreground">
-                    {CLASSROOM_KIND_LABEL[k]}
-                  </span>
-                  <span className="block text-[11px] text-muted-foreground">
-                    {CLASSROOM_KIND_BLURB[k]}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* STEP 2 — which EXISTING door it opens from. No door is created. */}
-          {roomStep === "door" && (
-            <div className="mt-2 space-y-1.5">
-              <p className="text-[11px] text-muted-foreground">
-                Select the door for this {CLASSROOM_KIND_LABEL[roomKind].toLowerCase()}
-              </p>
-              {doors.filter((d) => !classrooms.some((c) => c.door_id === d.id)).length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">
-                  Every door already has a classroom. Add a door first.
-                </p>
-              ) : (
-                doors
-                  .filter((d) => !classrooms.some((c) => c.door_id === d.id))
-                  .map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => {
-                        setRoomDoorId(d.id);
-                        setRoomStep("name");
-                      }}
-                      className="block w-full rounded-lg border border-border bg-background p-2.5 text-left text-sm text-foreground hover:border-violet-500/50"
-                    >
-                      {doorTitle(d, titles)}
-                      <span className="block text-[11px] text-muted-foreground">
-                        {walkways.find((w) => w.id === d.walkway_id)?.name ?? "Hallway"}
-                      </span>
-                    </button>
-                  ))
-              )}
-            </div>
-          )}
-
-          {/* STEP 3 — the required name. */}
-          {roomStep === "name" && (
-            <label className="mt-2 block text-[11px] text-muted-foreground">
-              Classroom name
-              <input
-                aria-label="Classroom name"
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
-                placeholder="JSS1 Mathematics"
-                className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
-              />
-            </label>
-          )}
-
-          {formError && (
-            <p className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
-              {formError}
-            </p>
-          )}
-          <div className="mt-3 flex items-center gap-2">
-            {roomStep === "name" && (
-              <button
-                type="button"
-                disabled={busy || roomName.trim().length === 0}
-                onClick={async () => {
-                  setBusy(true);
-                  setFormError("");
-                  try {
-                    await onAddClassroom(roomDoorId, roomKind, roomName.trim());
-                    setForm(null);
-                  } catch (e) {
-                    setFormError(e instanceof Error ? e.message : "Could not create the classroom.");
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-                className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
-              >
-                {busy ? "Creating…" : "Create Classroom"}
-              </button>
-            )}
-            {roomStep !== "kind" && (
-              <button
-                type="button"
-                onClick={() => setRoomStep(roomStep === "name" ? "door" : "kind")}
-                className="min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
-              >
-                Back
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setForm(null)}
-              className="min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
-            >
-              Cancel
-            </button>
-          </div>
-
-          {classrooms.length > 0 && (
-            <div className="mt-3 space-y-1 border-t border-border pt-2">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Classrooms</p>
-              {classrooms.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-2 text-xs text-foreground">
-                  <span>
-                    {c.name}
-                    <span className="ml-1 text-[11px] text-muted-foreground">
-                      {CLASSROOM_KIND_LABEL[c.kind]}
-                    </span>
-                  </span>
-                  {onDeleteClassroom && (
-                    <button
-                      type="button"
-                      aria-label={`Remove ${c.name}`}
-                      onClick={() => onDeleteClassroom(c.id)}
-                      className="rounded p-2 text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {form === "hallway" && (
         <div className="rounded-xl border border-border bg-card p-3">
@@ -831,110 +661,134 @@ const WalkwayManager = ({
         </div>
       )}
 
-      {form === "door" && (
+      {form === "room" && (
         <div className="rounded-xl border border-border bg-card p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add door</p>
-          <label className="mt-2 block text-[11px] text-muted-foreground">
-            On hallway
-            <select
-              aria-label="Door hallway"
-              value={doorWalkway}
-              onChange={(e) => setDoorWalkway(e.target.value)}
-              className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
-            >
-              {doorHallways.map(({ w, depth }) => (
-                <option key={w.id} value={w.id}>
-                  {"— ".repeat(depth)}
-                  {w.name}
-                </option>
-              ))}
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add room</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            A room is a door and its shell together: the door is the entrance, the room is the space
+            behind it.
+          </p>
 
-            </select>
-          </label>
-          <label className="mt-2 block text-[11px] text-muted-foreground">
-            Door name (optional)
-            <input
-              aria-label="New door name"
-              value={doorName}
-              onChange={(e) => setDoorName(e.target.value)}
-              placeholder="Statistics"
-              className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
-            />
-          </label>
-          <label className="mt-2 block text-[11px] text-muted-foreground">
-            Door design
-            <select
-              aria-label="New door design"
-              value={doorStyle}
-              onChange={(e) => setDoorStyle(e.target.value)}
-              className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
-            >
-              <option value="">Building default</option>
-              {DOOR_STYLES.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="mt-2 text-[11px] text-muted-foreground">Opens</div>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {PRODUCT_KINDS.map((k) => (
-              <button
-                key={k.value}
-                type="button"
-                onClick={() => setKind(k.value)}
-                className={`min-h-[32px] rounded-full px-2.5 text-[11px] font-semibold ${
-                  kind === k.value ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground"
-                }`}
+          {/* STEP 1 — the hallway the entrance opens off. */}
+          {roomStep === "hallway" && (
+            <label className="mt-2 block text-[11px] text-muted-foreground">
+              On hallway
+              <select
+                aria-label="Room hallway"
+                value={doorWalkway}
+                onChange={(e) => setDoorWalkway(e.target.value)}
+                className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
               >
-                {k.label}
-              </button>
-            ))}
-          </div>
-          <div className="mt-2 max-h-44 overflow-y-auto">
-            {products.length === 0 ? (
-              <p className="p-2 text-xs text-muted-foreground">
-                You have no {kind}s yet. The door only references existing products — it never duplicates them.
+                {doorHallways.map(({ w, depth }) => (
+                  <option key={w.id} value={w.id}>
+                    {"— ".repeat(depth)}
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {/* STEP 2 — the room type. */}
+          {roomStep === "kind" && (
+            <div className="mt-2 space-y-1.5">
+              <p className="text-[11px] text-muted-foreground">Select room type</p>
+              {(["classroom", "teaching_hall", "auditorium"] as ClassroomKind[]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setRoomKind(k);
+                    setRoomStep("name");
+                  }}
+                  className={`block w-full rounded-lg border p-2.5 text-left ${
+                    roomKind === k ? "border-emerald-500/60 bg-emerald-500/10" : "border-border bg-background"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold text-foreground">
+                    {CLASSROOM_KIND_LABEL[k]}
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    {CLASSROOM_KIND_BLURB[k]}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* STEP 3 — the name and the door design. */}
+          {roomStep === "name" && (
+            <>
+              <label className="mt-2 block text-[11px] text-muted-foreground">
+                Room name
+                <input
+                  aria-label="Room name"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  placeholder="JSS1 Mathematics"
+                  className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
+                />
+              </label>
+              <label className="mt-2 block text-[11px] text-muted-foreground">
+                Door design
+                <select
+                  aria-label="New door design"
+                  value={doorStyle}
+                  onChange={(e) => setDoorStyle(e.target.value)}
+                  className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
+                >
+                  <option value="">Building default</option>
+                  {DOOR_STYLES.map((st) => (
+                    <option key={st.key} value={st.key}>
+                      {st.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="mt-2 rounded-lg border border-border bg-muted/40 p-2 text-[11px] text-muted-foreground">
+                {CLASSROOM_KIND_LABEL[roomKind]} on{" "}
+                <strong className="text-foreground">
+                  {flat.find((f) => f.w.id === doorWalkway)?.w.name ?? "this hallway"}
+                </strong>
+                . The entrance takes the next free slot along that hallway, clear of every junction.
               </p>
-            ) : (
-              products.map((p) => {
-                const picked = doorProduct?.kind === p.kind && doorProduct?.id === p.id;
-                return (
-                  <button
-                    key={`${p.kind}-${p.id}`}
-                    type="button"
-                    aria-pressed={picked}
-                    onClick={() => setDoorProduct(picked ? null : p)}
-                    className={`flex min-h-[40px] w-full items-center justify-between gap-2 rounded-lg px-2 text-left text-sm ${
-                      picked ? "bg-primary/15 ring-1 ring-primary/50 text-foreground" : "hover:bg-muted"
-                    }`}
-                  >
-                    <span className="truncate">{p.title}</span>
-                    {picked ? (
-                      <Check className="h-3.5 w-3.5 text-primary" />
-                    ) : (
-                      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
+            </>
+          )}
+
           {formError && (
             <p className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
               {formError}
             </p>
           )}
           <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={submitDoor}
-              disabled={busy || !doorWalkway || !doorProduct}
-              className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
-            >
-              {busy ? "Creating…" : "Create Door"}
-            </button>
+            {roomStep !== "name" ? (
+              <button
+                type="button"
+                disabled={!doorWalkway}
+                onClick={() => setRoomStep(roomStep === "hallway" ? "kind" : "name")}
+                className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={submitRoom}
+                disabled={busy || !doorWalkway || roomName.trim().length === 0}
+                className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+              >
+                {busy ? "Creating…" : "Create Room"}
+              </button>
+            )}
+            {roomStep !== "hallway" && (
+              <button
+                type="button"
+                onClick={() => setRoomStep(roomStep === "name" ? "kind" : "hallway")}
+                className="min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
+              >
+                Back
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setForm(null)}
@@ -942,11 +796,6 @@ const WalkwayManager = ({
             >
               Cancel
             </button>
-            {!doorProduct && (
-              <span className="text-[11px] text-muted-foreground">
-                Pick what this door opens above.
-              </span>
-            )}
           </div>
         </div>
       )}
@@ -965,8 +814,8 @@ const WalkwayManager = ({
 
       <p className="pt-1 text-[11px] text-muted-foreground">
         A hallway is the path: it continues forward or turns left/right into another hallway, and a branch can
-        branch again without limit. Each junction takes one hallway per direction, so branches never reconnect. A
-        door is the destination: it opens an existing course, game, adventure or assessment.
+        branch again without limit. A room is a door plus the space behind it — the door is only the entrance to
+        its room, never a shortcut to a course, and courses live inside the room.
       </p>
     </div>
   );

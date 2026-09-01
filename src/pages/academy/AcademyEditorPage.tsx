@@ -50,12 +50,10 @@ import {
 } from "@/lib/academy/types";
 import {
   activateBuilding,
-  addClassroom,
-  addDoor,
+  addRoom,
   addWalkway,
   addWalkwayLink,
   deleteWalkwayLink,
-  deleteClassroom,
   deleteDoor,
   deleteWalkway,
   duplicateBuilding,
@@ -63,6 +61,7 @@ import {
   ensureBuilding,
   listBuildings,
   loadBuildingData,
+  updateClassroom,
   updateClassroomOverrides,
   updateDoor,
   updateEnvironment,
@@ -86,7 +85,7 @@ import { CLASSROOM_KIND_LABEL } from "@/lib/building/types";
 import type {
   Building,
   BuildingData,
-  DoorContentKind,
+  ClassroomKind,
   EnvironmentSettings,
   SurfaceKey,
   WalkwayDirection,
@@ -435,30 +434,32 @@ const handleTextureUpload = useCallback(
     [refreshBuilding],
   );
 
-  const handleAddDoor = useCallback(
+  /**
+   * ADD ROOM — the door and its room shell are created together as one object,
+   * so a door never exists without the room it opens into.
+   */
+  const handleAddRoom = useCallback(
     async (
       walkwayId: string,
-      fields: {
-        position_along: number;
-        content_kind: DoorContentKind;
-        content_id: string;
-        title_override?: string | null;
-        style?: string | null;
-      },
+      fields: { position_along: number; kind: ClassroomKind; name: string; style?: string | null },
     ) => {
       if (!buildingData) throw new Error("The building is still loading — try again in a moment.");
       try {
-        const { style, ...rest } = fields;
-        const id = await addDoor(buildingData.building.id, walkwayId, rest);
-        if (id && style) {
-          await updateDoor(id, { design: { ...buildingData.building.environment.door, style } as never });
+        const { style, position_along, kind: roomKind, name } = fields;
+        const { doorId } = await addRoom(buildingData.building.id, walkwayId, {
+          position_along,
+          kind: roomKind,
+          name,
+        });
+        if (doorId && style) {
+          await updateDoor(doorId, { design: { ...buildingData.building.environment.door, style } as never });
         }
         await refreshBuilding();
-        if (id) setSelectedDoorId(id);
+        if (doorId) setSelectedDoorId(doorId);
       } catch (e: unknown) {
         const reason = String((e as Error)?.message ?? e);
-        console.error("[building] create door failed", e);
-        toast({ title: "Could not create door", description: reason, variant: "destructive" });
+        console.error("[building] create room failed", e);
+        toast({ title: "Could not create room", description: reason, variant: "destructive" });
         throw e;
       }
     },
@@ -607,7 +608,7 @@ const handleTextureUpload = useCallback(
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-foreground">Building structure</h1>
             <p className="text-[11px] text-muted-foreground">
-              Hallways are the paths, doors are the destinations. Build it here, walk it on the right.
+              Hallways are the paths, rooms are the destinations. Build it here, walk it on the right.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -704,7 +705,7 @@ const handleTextureUpload = useCallback(
                     onClick={() => setBuildingOpen((o) => ({ ...o, walk: !o.walk }))}
                     className="flex min-h-[44px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
                   >
-                    Hallways &amp; doors
+                    Hallways &amp; rooms
                     {buildingOpen.walk ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   </button>
                   {buildingOpen.walk && (
@@ -714,12 +715,8 @@ const handleTextureUpload = useCallback(
                         doors={buildingData.doors}
                         catalogue={catalogue}
                         classrooms={buildingData.classrooms}
-                        onAddClassroom={async (doorId, kind, name) => {
-                          await addClassroom(buildingData.building.id, doorId, kind, name);
-                          await refreshBuilding();
-                        }}
-                        onDeleteClassroom={async (id) => {
-                          await deleteClassroom(id);
+                        onSetRoomKind={async (roomId, kind) => {
+                          await updateClassroom(roomId, { kind });
                           await refreshBuilding();
                         }}
                         selectedDoorId={selectedDoorId}
@@ -746,6 +743,8 @@ const handleTextureUpload = useCallback(
                           await refreshBuilding();
                         }}
                         onRenameDoor={async (id, title) => {
+                          const room = buildingData.classrooms.find((c) => c.door_id === id);
+                          if (room) await updateClassroom(room.id, { name: title });
                           await updateDoor(id, { title_override: title });
                           await refreshBuilding();
                         }}
@@ -753,7 +752,7 @@ const handleTextureUpload = useCallback(
                           await deleteWalkway(id);
                           await refreshBuilding();
                         }}
-                        onAddDoor={handleAddDoor}
+                        onAddRoom={handleAddRoom}
                         onUpdateDoor={handleDoorPosition}
                         onSetDoorStyle={async (id, style) => {
                           const door = buildingData?.doors.find((d) => d.id === id);
