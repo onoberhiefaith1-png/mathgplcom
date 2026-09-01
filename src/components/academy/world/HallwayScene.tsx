@@ -867,6 +867,7 @@ const SegmentCorridor = ({
               repeat={env.floor.repeat}
               fit={env.floor.fit}
               brightness={env.floor.brightness}
+              facing={THREE.FrontSide}
               planeW={HALL_WIDTH}
               planeH={runLen}
             >
