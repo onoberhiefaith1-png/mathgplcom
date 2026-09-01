@@ -1539,9 +1539,11 @@ const MergeOpening = ({
   const openH = HALL_HEIGHT - geo.soffit;
   const wallX = side * (HALL_WIDTH / 2);
   const revealLayout = openingRevealLayout(span, geo.jambWidth);
-  // The target deck ends on the wall centre-line and the arriving deck stops at
-  // the wall's outside face. This half-wall reveal is the sole surface between.
-  const reveal = WALL_THICKNESS / 2;
+  // The arriving deck stops at the wall's outside face, so the throat carries
+  // the FULL wall thickness — exactly the span the jambs and lintel occupy. A
+  // half-thickness reveal left an unfloored, unceiled sliver that read as a
+  // dark line through the opening.
+  const reveal = WALL_THICKNESS;
 
   return (
     <group position={[0, 0, -along]}>
