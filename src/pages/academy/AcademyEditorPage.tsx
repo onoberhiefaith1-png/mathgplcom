@@ -67,12 +67,6 @@ import {
   uploadBuildingTexture,
 } from "@/lib/building/api";
 import {
-  HALL_WIDTH,
-  HALLWAY_ENTRY_RUN,
-  HALLWAY_PAD,
-  OBJECT_SPACING,
-  lengthForObjects,
-  mergeLimits,
   nextBranchDirection,
   nextObjectOffset,
 } from "@/lib/building/navigation";
@@ -373,7 +367,7 @@ const handleTextureUpload = useCallback(
         throw e;
       }
     },
-    [buildingData, mergeBlock, refreshBuilding],
+    [buildingData, refreshBuilding],
   );
 
   /**
@@ -437,13 +431,6 @@ const handleTextureUpload = useCallback(
       },
     ) => {
       if (!buildingData) throw new Error("The building is still loading — try again in a moment.");
-      // BLOCKED GROWTH. A hallway that merges into another hallway is finite: it
-      // stops at that junction, so it can never grow another slot past it.
-      const blocked = mergeBlock(walkwayId, 1);
-      if (blocked) {
-        toast({ title: "This hallway is full", description: blocked, variant: "destructive" });
-        throw new Error(blocked);
-      }
       try {
         const { style, ...rest } = fields;
         const id = await addDoor(buildingData.building.id, walkwayId, rest);
@@ -459,7 +446,7 @@ const handleTextureUpload = useCallback(
         throw e;
       }
     },
-    [buildingData, mergeBlock, refreshBuilding],
+    [buildingData, refreshBuilding],
   );
 
   const handleDoorPosition = useCallback(
