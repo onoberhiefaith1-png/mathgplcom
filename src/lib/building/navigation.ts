@@ -635,10 +635,8 @@ export function connectorMeeting(
     const dir = chx * thx + chz * thz >= 0 ? 1 : -1;
     // Distance along this road at which it enters the target's own extent.
     const enterAlong = dir > 0 ? -half : target.length + half;
-    const d0 = alongAt(0);
-    const step = dir > 0 ? 1 : -1;
-    const reach = (enterAlong - d0) / (step * 1) / (dir > 0 ? 1 : -1);
-    const entry = Number.isFinite(reach) ? reach : 0;
+    const entry = Math.max(0, (enterAlong - alongAt(0)) / dir);
+
     const trimmed = Math.max(MIN_MERGE_RUN, entry - half);
     const s = mouthAt(alongAt(trimmed));
     return {
