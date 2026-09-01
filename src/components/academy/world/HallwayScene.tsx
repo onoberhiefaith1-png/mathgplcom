@@ -580,6 +580,7 @@ const Surface = ({
   "rotation-y": rotationY,
   castShadow,
   receiveShadow,
+  facing = THREE.DoubleSide,
 children,
 }: {
   url?: string | null;
