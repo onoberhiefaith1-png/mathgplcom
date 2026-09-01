@@ -15,7 +15,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { GAME_ASSETS_BUCKET } from "@/lib/games/types";
 import type {
   Building,
+  BuildingClassroom,
   BuildingData,
+  ClassroomKind,
+  SurfaceOverrides,
   BuildingDoor,
   BuildingWalkway,
   BuildingWalkwayLink,
@@ -88,7 +91,7 @@ export async function canEditBuilding(buildingId: string): Promise<boolean> {
 
 /** The whole structure of one building: walkway graph + doors + connections. */
 export async function loadBuildingData(building: Building): Promise<BuildingData> {
-  const [walkRes, doorRes, linkRes, canEdit] = await Promise.all([
+  const [walkRes, doorRes, linkRes, classRes, canEdit] = await Promise.all([
     supabase.from("building_walkways").select("*").eq("building_id", building.id).order("position"),
     supabase.from("building_doors").select("*").eq("building_id", building.id).order("position_along"),
     supabase
@@ -96,16 +99,23 @@ export async function loadBuildingData(building: Building): Promise<BuildingData
       .select("*")
       .eq("building_id", building.id)
       .order("created_at"),
+    supabase
+      .from("building_classrooms")
+      .select("*")
+      .eq("building_id", building.id)
+      .order("position"),
     canEditBuilding(building.id),
   ]);
 fail(walkRes.error);
   fail(doorRes.error);
   fail(linkRes.error);
+  fail(classRes.error);
   return {
     building,
     walkways: (walkRes.data ?? []) as unknown as BuildingWalkway[],
     doors: (doorRes.data ?? []) as unknown as BuildingDoor[],
     links: (linkRes.data ?? []) as unknown as BuildingWalkwayLink[],
+    classrooms: (classRes.data ?? []) as unknown as BuildingClassroom[],
     canEdit,
   };
 }
@@ -383,7 +393,7 @@ fail(error);
           length: w.length,
           position: w.position,
           junction_at: w.junction_at ?? 0.5,
-
+          surface_overrides: (w.surface_overrides ?? {}) as never,
         })
         .select("id")
         .single();
@@ -398,18 +408,44 @@ fail(error);
     .from("building_doors")
     .select("*")
     .eq("building_id", source.id);
+  const doorMap = new Map<string, string>();
 for (const d of (doorRows ?? []) as unknown as BuildingDoor[]) {
     const walkId = idMap.get(d.walkway_id);
     if (!walkId) continue;
-    await supabase.from("building_doors").insert({
+    const { data: nd } = await supabase
+      .from("building_doors")
+      .insert({
+        building_id: copy.id,
+        walkway_id: walkId,
+        position_along: d.position_along,
+        design: d.design as never,
+        content_kind: null,
+        content_id: null,
+        title_override: null,
+      })
+      .select("id")
+      .single();
+    if (nd) doorMap.set(d.id, (nd as { id: string }).id);
+  }
+
+  // Copy CLASSROOM SHELLS (type, name and individual settings) — the shell is
+  // part of the environment frame; its content is not copied.
+  const { data: roomRows } = await supabase
+    .from("building_classrooms")
+    .select("*")
+    .eq("building_id", source.id)
+    .order("position");
+  for (const c of (roomRows ?? []) as unknown as BuildingClassroom[]) {
+    const doorId = doorMap.get(c.door_id);
+    if (!doorId) continue;
+    await supabase.from("building_classrooms").insert({
       building_id: copy.id,
-      walkway_id: walkId,
-      position_along: d.position_along,
-      design: d.design as never,
-      content_kind: null,
-      content_id: null,
-      title_override: null,
-    });
+      door_id: doorId,
+      name: c.name,
+      kind: c.kind,
+      surface_overrides: (c.surface_overrides ?? {}) as never,
+      position: c.position,
+    } as never);
   }
 
   return copy;
@@ -463,3 +499,70 @@ export const doorRoute = (door: BuildingDoor): string => {
   if (!door.content_kind || !door.content_id) return "";
   return productRoute(door.content_kind as DoorContentKind, door.content_id);
 };
+
+// ── Classrooms (Hallway -> Door -> Classroom) ─────────────────────────────
+
+/**
+ * Create a classroom shell at an EXISTING door. The door is the entry point, so
+ * no new door is ever created for a classroom, and a door can hold only one
+ * classroom (enforced by the database).
+ */
+export async function addClassroom(
+  buildingId: string,
+  doorId: string,
+  kind: ClassroomKind,
+  name: string,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from("building_classrooms")
+    .insert({ building_id: buildingId, door_id: doorId, kind, name: name.trim() } as never)
+    .select("*")
+    .maybeSingle();
+  fail(error);
+  if (!data) {
+    throw new Error(
+      "The classroom was not created — your account may not have permission to edit this building.",
+    );
+  }
+  return (data as unknown as BuildingClassroom).id;
+}
+
+export async function updateClassroom(
+  id: string,
+  fields: Partial<Pick<BuildingClassroom, "name" | "kind" | "position">>,
+): Promise<void> {
+  const { error } = await supabase
+    .from("building_classrooms")
+    .update(fields as never)
+    .eq("id", id);
+  fail(error);
+}
+
+export async function deleteClassroom(id: string): Promise<void> {
+  const { error } = await supabase.from("building_classrooms").delete().eq("id", id);
+  fail(error);
+}
+
+/** Individual Settings of one classroom. An empty record means "inherit". */
+export async function updateClassroomOverrides(
+  id: string,
+  overrides: SurfaceOverrides,
+): Promise<void> {
+  const { error } = await supabase
+    .from("building_classrooms")
+    .update({ surface_overrides: overrides as never })
+    .eq("id", id);
+  fail(error);
+}
+
+/** Individual Settings of one hallway. An empty record means "inherit". */
+export async function updateWalkwayOverrides(
+  id: string,
+  overrides: SurfaceOverrides,
+): Promise<void> {
+  const { error } = await supabase
+    .from("building_walkways")
+    .update({ surface_overrides: overrides as never })
+    .eq("id", id);
+  fail(error);
+}

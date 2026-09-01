@@ -50,10 +50,12 @@ import {
 } from "@/lib/academy/types";
 import {
   activateBuilding,
+  addClassroom,
   addDoor,
   addWalkway,
   addWalkwayLink,
   deleteWalkwayLink,
+  deleteClassroom,
   deleteDoor,
   deleteWalkway,
   duplicateBuilding,
@@ -61,9 +63,11 @@ import {
   ensureBuilding,
   listBuildings,
   loadBuildingData,
+  updateClassroomOverrides,
   updateDoor,
   updateEnvironment,
   updateWalkway,
+  updateWalkwayOverrides,
   uploadBuildingTexture,
 } from "@/lib/building/api";
 import {
@@ -78,6 +82,7 @@ import {
   remainingObjectSlots,
 } from "@/lib/building/navigation";
 
+import { CLASSROOM_KIND_LABEL } from "@/lib/building/types";
 import type {
   Building,
   BuildingData,
@@ -238,6 +243,9 @@ let list = await listBuildings(org);
     const data: BuildingData | null = building ? await loadBuildingData(building) : null;
     return { list, data };
   }, []);
+
+  /** Which element the Environment panel is editing: "" = Default Settings. */
+  const [settingsScope, setSettingsScope] = useState("");
 
   const refreshBuilding = useCallback(async () => {
     const { list, data } = await loadEditorBuilding(orgId ?? null);
@@ -478,6 +486,27 @@ const handleTextureUpload = useCallback(
    * A hallway that is still free to grow always has room, because adding a door
    * lengthens it.
    */
+  /**
+   * Everything that can carry Individual Settings: each hallway and each
+   * classroom. New elements appear automatically, so the settings architecture
+   * never needs changing when the building grows.
+   */
+  const settingsScopes = useMemo(
+    () => [
+      ...(buildingData?.walkways ?? []).map((w) => ({
+        id: `hallway:${w.id}`,
+        label: `Hallway · ${w.name}`,
+        overrides: w.surface_overrides ?? {},
+      })),
+      ...(buildingData?.classrooms ?? []).map((c) => ({
+        id: `classroom:${c.id}`,
+        label: `${CLASSROOM_KIND_LABEL[c.kind]} · ${c.name}`,
+        overrides: c.surface_overrides ?? {},
+      })),
+    ],
+    [buildingData],
+  );
+
   const remainingSlots = useMemo(() => {
     const out: Record<string, number> = {};
     if (!buildingData) return out;
@@ -650,6 +679,19 @@ const handleTextureUpload = useCallback(
                           toast({ title: "Building saved", description: "The environment is live in the world." });
                           await refreshBuilding();
                         }}
+                        scopes={settingsScopes}
+                        scopeId={settingsScope}
+                        onScopeChange={setSettingsScope}
+                        onSaveOverrides={async (id, overrides) => {
+                          const [kind, rowId] = id.split(":");
+                          if (kind === "hallway") await updateWalkwayOverrides(rowId, overrides);
+                          else await updateClassroomOverrides(rowId, overrides);
+                          toast({
+                            title: "Individual settings saved",
+                            description: "Only the fields you changed stop following the default.",
+                          });
+                          await refreshBuilding();
+                        }}
                         onUpload={handleTextureUpload}
                         getTextureUrl={(p) => textures[p]}
                       />
@@ -671,6 +713,15 @@ const handleTextureUpload = useCallback(
                         walkways={buildingData.walkways}
                         doors={buildingData.doors}
                         catalogue={catalogue}
+                        classrooms={buildingData.classrooms}
+                        onAddClassroom={async (doorId, kind, name) => {
+                          await addClassroom(buildingData.building.id, doorId, kind, name);
+                          await refreshBuilding();
+                        }}
+                        onDeleteClassroom={async (id) => {
+                          await deleteClassroom(id);
+                          await refreshBuilding();
+                        }}
                         selectedDoorId={selectedDoorId}
                         remainingSlots={remainingSlots}
 
