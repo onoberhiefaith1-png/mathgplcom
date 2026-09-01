@@ -693,10 +693,21 @@ const QUESTION_SECTION_KINDS: SectionKind[] = ["example", "exercise", "classwork
 const isQuestionSectionKind = (kind: SectionKind) => QUESTION_SECTION_KINDS.includes(kind);
 
 
-const solutionPlaceholderNodes = () => ([
-  { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "Solution" }] },
+/** Durable identity for a question block, so its Solution can be bound to it
+ *  the moment both are created. */
+const newQuestionId = (): string => `q_${Math.random().toString(36).slice(2, 10)}`;
+
+/** The Solution area of ONE question. It is ALWAYS stamped with the owning
+ *  question's id: a solution never exists without its question. */
+const solutionPlaceholderNodes = (ownerQuestionId?: string | null) => ([
+  {
+    type: "heading",
+    attrs: { level: 3, ...(ownerQuestionId ? { ownerQuestionId } : {}) },
+    content: [{ type: "text", text: "Solution" }],
+  },
   { type: "paragraph" },
 ]);
+
 
 /** True for a heading that already acts as this question's Solution slot. */
 const isSolutionLabel = (raw: string): boolean => {
