@@ -2316,11 +2316,14 @@ function DocumentEditorInner({
       if (!editor || editor.isDestroyed || !(editor as any).view?.dom) return;
       if (editor.isFocused) return;
       const repaired = repairDocumentMath(editor.getJSON());
-      // Any solution that drifted away from its question is put back with it.
+      // Any solution that drifted away from its question is put back with it,
+      // and a solution whose question was deleted goes with it.
       const paired = reconcileSolutionOwnership(repaired.doc);
-      if (repaired.changed || paired.changed) {
-        editor.commands.setContent(paired.doc, { emitUpdate: true });
+      const linked = enforceQuestionSolutionPairs(paired.doc);
+      if (repaired.changed || paired.changed || linked.changed) {
+        editor.commands.setContent(linked.doc, { emitUpdate: true });
       }
+
 
     }, 400);
     return () => window.clearTimeout(t);
