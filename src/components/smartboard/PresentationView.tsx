@@ -86,6 +86,7 @@ import { SensorDPad } from "./SensorDPad";
 import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
+import { useMobileStudentBoard } from "@/hooks/useMobileStudentBoard";
 import { clampRowSpacing, normalizeRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
 import {
@@ -450,6 +451,25 @@ const PresentationView = ({
   // viewer is a teacher — including while reviewing a student's assessment.
   const isTeacher = role === "teacher";
 
+  // MOBILE STUDENT MODE — phone/tablet student session. The board keeps its
+  // full size; the device becomes a viewport that pans across it. Desktop and
+  // every teacher surface are untouched because all branches read this flag.
+  const mobileBoard = useMobileStudentBoard(role);
+  const mobileStudent = mobileBoard.active;
+  // Two-finger viewport pan (mobile student mode only). One finger keeps
+  // writing exactly as before.
+  const panRef = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
+  // Measured height of the mobile chrome panel so the board content always
+  // starts below it, however many rows the number line wraps onto.
+  const [mobileChromeH, setMobileChromeH] = useState(0);
+  const chromeMeasureRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const apply = () => setMobileChromeH(node.getBoundingClientRect().height);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(node);
+  }, []);
+
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
   const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
 
@@ -796,6 +816,14 @@ const PresentationView = ({
   const [heightsTick, setHeightsTick] = useState(0);
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
   const boardScrollRef = useRef<HTMLElement>(null);
+
+  // KEYBOARD CAPTURE FOCUS. On a mobile student session focusing this hidden
+  // textarea would raise the phone keyboard over the board, so focus is
+  // skipped there — hardware-keyboard handlers stay registered.
+  const focusCapture = useCallback(() => {
+    if (mobileStudent) return;
+    hiddenInputRef.current?.focus({ preventScroll: true });
+  }, [mobileStudent]);
 
   // Track the scroll host's visible height so assistant panels can default
   // to a position INSIDE the viewport (not the off-screen band bottom).
@@ -1284,7 +1312,7 @@ const PresentationView = ({
 
   // Keep the hidden textarea focused so keystrokes flow into the board.
   useEffect(() => {
-    const t = window.setTimeout(() => hiddenInputRef.current?.focus({ preventScroll: true }), 0);
+    const t = window.setTimeout(() => focusCapture(), 0);
     return () => window.clearTimeout(t);
   }, [sensor.line]);
 
@@ -1465,7 +1493,7 @@ const PresentationView = ({
       else next[writeLine] = res.root;
       return next;
     });
-    hiddenInputRef.current?.focus({ preventScroll: true });
+    focusCapture();
   };
 
   // LIVE DISPATCH: `editActive` and `insertIntoActiveBox` are re-created on
@@ -2348,7 +2376,7 @@ const PresentationView = ({
         const next = dir < 0 ? treeMoveUp(rowInk, c) : treeMoveDown(rowInk, c);
         if (next) {
           setLiveCursor(next);
-          hiddenInputRef.current?.focus({ preventScroll: true });
+          focusCapture();
           return;
         }
       }
@@ -2427,7 +2455,7 @@ const PresentationView = ({
       // any board-layout guard — it is the only way out of a nested slot
       // such as a radical's radicand.
       setLiveCursor((c) => (dir > 0 ? treeMoveRight(rowInk, c) : treeMoveLeft(rowInk, c)));
-      hiddenInputRef.current?.focus({ preventScroll: true });
+      focusCapture();
       return;
     }
     if (!activeLayout || activeLayout.bandLines <= 0) return;
@@ -5875,18 +5903,47 @@ const PresentationView = ({
           places the writing sensor on the nearest invisible baseline. */}
       <main
         ref={boardScrollRef}
-        className="relative z-10 h-full w-full overflow-x-hidden overflow-y-auto overscroll-contain"
+        className={`relative z-10 h-full w-full overflow-y-auto overscroll-contain ${
+          mobileStudent ? "overflow-x-auto" : "overflow-x-hidden"
+        }`}
         style={{
-          paddingTop: 24,
+          // Room for the compact mobile chrome panel (number line + marks).
+          paddingTop: mobileStudent ? mobileChromeH + 24 : 24,
           // No bottom panel or tab; the canvas fills to the edge.
-          paddingBottom: 24,
+          paddingBottom: mobileStudent ? 8 : 24,
           paddingRight: 0,
           cursor: eraseMode ? "cell" : undefined,
           // Touch devices: a finger on the board writes/erases instead of
-          // triggering browser pan-zoom gestures.
-          touchAction: eraseMode ? "none" : "pan-y",
+          // triggering browser pan-zoom gestures. On a mobile student session
+          // pinch-zoom stays available and TWO fingers pan the viewport.
+          touchAction: eraseMode ? "none" : mobileStudent ? "pan-y pinch-zoom" : "pan-y",
           WebkitTapHighlightColor: "transparent",
         }}
+        onTouchStart={(e) => {
+          if (!mobileStudent || e.touches.length !== 2) return;
+          const host = boardScrollRef.current;
+          if (!host) return;
+          const [a, b] = [e.touches[0], e.touches[1]];
+          panRef.current = {
+            x: (a.clientX + b.clientX) / 2,
+            y: (a.clientY + b.clientY) / 2,
+            sl: host.scrollLeft,
+            st: host.scrollTop,
+          };
+        }}
+        onTouchMove={(e) => {
+          const start = panRef.current;
+          const host = boardScrollRef.current;
+          if (!start || !host || e.touches.length !== 2) return;
+          const [a, b] = [e.touches[0], e.touches[1]];
+          const cx = (a.clientX + b.clientX) / 2;
+          const cy = (a.clientY + b.clientY) / 2;
+          host.scrollLeft = start.sl - (cx - start.x);
+          host.scrollTop = start.st - (cy - start.y);
+        }}
+        onTouchEnd={() => { panRef.current = null; }}
+        onTouchCancel={() => { panRef.current = null; }}
+
 
         onPointerDown={(e) => {
           // WORKSPACE SWITCH — the cursor alone decides which floating
@@ -6028,7 +6085,7 @@ const PresentationView = ({
           }
           setSensor({ line: targetLine, x: 0 });
           setLiveCursor({ path: [], index: row.length });
-          hiddenInputRef.current?.focus({ preventScroll: true });
+          focusCapture();
 
 
         }}
@@ -6058,7 +6115,10 @@ const PresentationView = ({
                 ? layouts[layouts.length - 1].startLine + layouts[layouts.length - 1].totalLines
                 : 10) + 10,
             )}px`,
-            width: "100%",
+             width: "100%",
+             // MOBILE STUDENT MODE — the board keeps a readable width and the
+             // device pans across it instead of shrinking the mathematics.
+             ...(mobileStudent ? { minWidth: `${mobileBoard.boardWidth * zoom}px` } : null),
           }}
         >
           {/* All revealed beats — cover, intro, problems, summary — render
@@ -6222,7 +6282,7 @@ const PresentationView = ({
               }
               if (line !== sensor.line) setSensor((s) => ({ ...s, line }));
               setLiveCursor(c);
-              hiddenInputRef.current?.focus({ preventScroll: true });
+              focusCapture();
             }}
           />
 
@@ -6719,6 +6779,35 @@ const PresentationView = ({
         </WritingSurface>
       </main>
 
+      {/* MOBILE STUDENT MODE — edge arrows step the viewport one screen across
+          the full-size board. Two fingers pan; one finger still writes. */}
+      {mobileStudent && (
+        <>
+          {([-1, 1] as const).map((dir) => (
+            <button
+              key={dir}
+              data-sb-chrome
+              aria-label={dir < 0 ? "Pan board left" : "Pan board right"}
+              onClick={() => {
+                const host = boardScrollRef.current;
+                if (!host) return;
+                host.scrollBy({ left: dir * host.clientWidth * 0.8, behavior: "smooth" });
+              }}
+              className="absolute top-1/2 z-[55] grid h-10 w-8 -translate-y-1/2 place-items-center rounded-full border shadow-lg backdrop-blur"
+              style={{
+                [dir < 0 ? "left" : "right"]: 4,
+                background: palette.chromeBg,
+                color: palette.chromeFg,
+                borderColor: palette.chromeBorder,
+                opacity: 0.9,
+              }}
+            >
+              {dir < 0 ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            </button>
+          ))}
+        </>
+      )}
+
 
 
       {/* Invisible keyboard capture. Omitted in view-only mirror mode. */}
@@ -6726,7 +6815,7 @@ const PresentationView = ({
       <textarea
         ref={hiddenInputRef}
         aria-hidden
-        inputMode="text"
+        inputMode={mobileStudent ? "none" : "text"}
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}
@@ -7148,7 +7237,7 @@ const PresentationView = ({
       </div>
 
       {/* RIGHT rail — relocated theory tools: Smart Line, Two-point line, Box. */}
-      {canEdit && carrierVisible && (
+      {canEdit && carrierVisible && !mobileStudent && (
         <div
           data-sb-chrome
           className="absolute z-30 flex flex-col items-center gap-2"
@@ -7230,7 +7319,7 @@ const PresentationView = ({
       {/* Emoji dock removed from the Smartboard by request — no replacement. */}
 
       {/* Permanent activation buttons for the three workspace assistants. */}
-      {canEdit && carrierVisible && (
+      {canEdit && carrierVisible && !mobileStudent && (
         <AssistantButtons
           active={activeAssistant}
           onToggle={toggleAssistant}
@@ -7334,7 +7423,14 @@ const PresentationView = ({
             // Row 1 of the board chrome. The video view switcher measures this
             // element and stacks itself underneath, so the two never overlap.
             data-board-chrome="top"
-            className="absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
+            ref={mobileStudent ? chromeMeasureRef : undefined}
+            className={
+              mobileStudent
+                // MOBILE STUDENT MODE — same controls, reflowed into a compact
+                // panel so the question number line always stays visible.
+                ? "absolute left-2 right-2 top-2 z-[60] flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border px-2 py-1.5 shadow-lg backdrop-blur"
+                : "absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
+            }
             style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
           >
             {backTo ? (
@@ -7355,15 +7451,19 @@ const PresentationView = ({
               </BackButton>
             )}
 
-            <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
+            {!mobileBoard.phone && (
+              <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
+            )}
 
             {beats.length > 1 && (
-              <div className="flex items-center gap-1">
+              <div className={mobileStudent ? "flex w-full flex-wrap items-center gap-1" : "flex items-center gap-1"}>
                 {beats.map((b, i) => (
                   <button
                     key={b.id}
                     onClick={() => setBeatCursor(i)}
-                    className="grid h-6 min-w-6 place-items-center rounded-full border px-2 text-[11px] font-medium transition"
+                    className={`grid place-items-center rounded-full border font-medium transition ${
+                      mobileStudent ? "h-8 min-w-8 px-2 text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
+                    }`}
                     style={i === beatCursor
                       ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
                       : { borderColor: palette.chromeBorder }}
@@ -7380,7 +7480,7 @@ const PresentationView = ({
                 Bottom row = CURRENT ATTEMPT (timer only, cleared by Reset) */}
             {hasGuidedLines && (
               <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1" title="Mastered">
+                <div className={`flex items-center gap-1 ${mobileStudent ? "flex-wrap" : ""}`} title="Mastered">
                   {guidedLines.map((ln, k) => {
                     const slot = slotFor(k);
                     const solved = !!slot && slot in solvedSlots;
@@ -7399,7 +7499,7 @@ const PresentationView = ({
                   })}
                 </div>
                 {timer.active && (
-                  <div className="flex items-center gap-1" title="This attempt">
+                  <div className={`flex items-center gap-1 ${mobileStudent ? "flex-wrap" : ""}`} title="This attempt">
                     {guidedLines.map((ln, k) => {
                       const slot = slotFor(k);
                       const done = !!slot && slot in timer.confirmed;
@@ -7544,7 +7644,7 @@ const PresentationView = ({
 
           {/* Per-line Check menu — grades any line server-side (grade-line).
               Hidden entirely in View Only mode; returns in Edit mode. */}
-          {hasGuidedLines && canEdit && (
+          {hasGuidedLines && canEdit && !mobileStudent && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

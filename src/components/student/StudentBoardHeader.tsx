@@ -6,7 +6,8 @@
 
 import type { ReactNode } from "react";
 import { Link } from "@/lib/router-compat";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Maximize2 } from "lucide-react";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 
 const StudentBoardHeader = ({
   backTo,
@@ -18,6 +19,7 @@ const StudentBoardHeader = ({
   earned,
   totalMarks,
   actions,
+  onImmersive,
 }: {
   backTo: string;
   backLabel?: string;
@@ -28,15 +30,27 @@ const StudentBoardHeader = ({
   earned?: number | null;
   totalMarks?: number | null;
   actions?: ReactNode;
+  /** Phone/tablet only — hide this header and give the board the screen. */
+  onImmersive?: () => void;
 }) => {
   const hasMarks = typeof totalMarks === "number" && totalMarks > 0;
   const hasEarned = hasMarks && typeof earned === "number";
+  const bp = useBreakpoint();
+  const mobile = bp === "phone" || bp === "tablet";
   const pct = hasEarned ? Math.min(100, Math.round(((earned ?? 0) / (totalMarks as number)) * 100)) : 0;
 
 
   return (
     <header className="shrink-0 border-b border-border/60 bg-card/60 backdrop-blur">
-      <div className="flex flex-wrap items-center gap-3 px-3 py-2 sm:px-5">
+      <div
+        className={
+          mobile
+            // MOBILE STUDENT SESSION — one slim row, never a stacked block, so
+            // the board keeps the height.
+            ? "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-1"
+            : "flex flex-wrap items-center gap-3 px-3 py-2 sm:px-5"
+        }
+      >
         <Link
           to={backTo}
           className="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
@@ -62,7 +76,19 @@ const StudentBoardHeader = ({
           </div>
         </div>
 
-        {actions}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {actions}
+          {mobile && onImmersive && (
+            <button
+              type="button"
+              onClick={onImmersive}
+              aria-label="Full screen board"
+              className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {hasEarned && (
