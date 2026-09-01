@@ -768,6 +768,7 @@ const SegmentCorridor = ({
         repeat={env.endWall.repeat}
         fit={env.endWall.fit}
         brightness={env.endWall.brightness}
+        facing={THREE.FrontSide}
         planeW={HALL_WIDTH}
         planeH={HALL_HEIGHT}
       >
