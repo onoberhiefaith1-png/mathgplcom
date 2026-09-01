@@ -491,8 +491,11 @@ const findSegment = (segs: Segment[], id: string): Segment | null => {
 };
 
 import { Surface, useLoadedTexture } from "./surface";
-import ClassroomShell, { classroomEntryPose } from "./ClassroomShell";
+import ClassroomShell from "./ClassroomShell";
+import { classroomDimensions } from "@/lib/building/classroom";
+import type { ClassroomKind } from "@/lib/building/types";
 import { resolveSurfaces } from "@/lib/building/resolve";
+
 
 
 // ── Corridor pieces ───────────────────────────────────────────────────────
@@ -1520,9 +1523,69 @@ interface Machine {
   /**
    * Standing INSIDE a classroom shell. The walker's hallway position is left
    * untouched, so leaving the room continues the walk exactly where it stopped.
+   * Inside the room the camera is a free first-person walker in the room's own
+   * local space: +z runs from the doorway into the room, x across it.
    */
-  inside: { position: [number, number, number]; look: [number, number, number] } | null;
+  inside: RoomWalker | null;
 }
+
+/**
+ * FREE MOVEMENT INSIDE A ROOM.
+ *
+ * Local space matches `ClassroomShell`: the group sits at the doorway and is
+ * rotated so local +z points into the room. The walker owns its own position
+ * and facing there, so it can walk, strafe and turn all the way round.
+ */
+export interface RoomWalker {
+  /** World position of the doorway the room hangs off. */
+  door: [number, number];
+  /** Unit heading pointing from the doorway INTO the room. */
+  heading: [number, number];
+  kind: ClassroomKind;
+  /** local across-the-room position, 0 = centre line */
+  x: number;
+  /** local distance from the doorway into the room */
+  z: number;
+  /** local facing, 0 = looking straight into the room */
+  yaw: number;
+  /** walk intent: 1 = forward held, -1 = backward held */
+  hold: -1 | 0 | 1;
+  /** sideways-step intent: -1 = left, 1 = right */
+  strafe: -1 | 0 | 1;
+  /** turn intent: -1 = turn left, 1 = turn right */
+  turning: -1 | 0 | 1;
+  speed: number;
+  strafeSpeed: number;
+}
+
+/** Metres per second walking inside a room — calmer than corridor walking. */
+const ROOM_WALK_SPEED = 2.6;
+/** Radians per second while a turn control is held. */
+const ROOM_TURN_SPEED = 1.5;
+/** How close the walker may get to a room wall. */
+const ROOM_WALL_MARGIN = 0.55;
+/** Half-width of the walkable doorway back to the hallway. */
+const ROOM_DOOR_HALF = 1.1;
+/** Local z at or below which the walker steps back out through the door. */
+const ROOM_EXIT_Z = 0.35;
+
+/** Room-local (x, z) to world (x, z), matching the shell's own transform. */
+const roomLocalToWorld = (
+  w: RoomWalker,
+  x: number,
+  z: number,
+): [number, number] => {
+  const [hx, hz] = w.heading;
+  return [w.door[0] + x * hz + z * hx, w.door[1] - x * hx + z * hz];
+};
+
+/** Floor height of the tier the walker is standing on. */
+const roomFloorAt = (kind: ClassroomKind, z: number): number => {
+  const tiers = classroomDimensions(kind).tiers;
+  const t = tiers.find((tier) => z >= tier.from && z <= tier.to);
+  return (t ?? tiers[tiers.length - 1]).y;
+};
+
 
 
 // ── Camera rig ────────────────────────────────────────────────────────────
@@ -1540,8 +1603,10 @@ const CameraRig = ({
   onWalkEnd,
   onJunctionReach,
   onBoundary,
+  onLeaveRoom,
   setPhase,
 }: {
+
   focus: number;
   rooms: AcademyRoom[];
   m: React.RefObject<Machine>;
@@ -1555,7 +1620,10 @@ const CameraRig = ({
    * is a real boundary and the walk must stop there.
    */
   onBoundary: (sign: 1 | -1) => boolean;
+  /** The room walker stepped back out through the doorway. */
+  onLeaveRoom: () => void;
   setPhase: (p: NavPhase) => void;
+
 }) => {
   useFrame(({ camera }, rawDelta) => {
     const st = m.current;
@@ -1644,18 +1712,56 @@ if (st.phase === "walking" || st.phase === "idle") {
     }
 
     if (st.phase === "inside") {
-      const room = st.inside;
-      if (!room) {
+      const w = st.inside;
+      if (!w) {
         setPhase("idle");
         st.phase = "idle";
         return;
       }
-      camera.position.x = THREE.MathUtils.lerp(camera.position.x, room.position[0], k);
-      camera.position.y = THREE.MathUtils.lerp(camera.position.y, room.position[1], k);
-      camera.position.z = THREE.MathUtils.lerp(camera.position.z, room.position[2], k);
-      camera.lookAt(room.look[0], room.look[1], room.look[2]);
+      // FREE FIRST-PERSON WALKER. Turning, walking and side-stepping are all
+      // direct results of held intent, integrated with delta time and clamped
+      // to the room's own footprint, so the walls are solid.
+      const dims = classroomDimensions(w.kind);
+      if (w.turning !== 0) w.yaw += w.turning * ROOM_TURN_SPEED * dt;
+      const wantWalk = w.hold !== 0 ? ROOM_WALK_SPEED : 0;
+      const wantSide = w.strafe !== 0 ? ROOM_WALK_SPEED * 0.7 : 0;
+      const ramp = 1 - Math.exp(-9 * dt);
+      w.speed = THREE.MathUtils.lerp(w.speed, wantWalk, ramp);
+      w.strafeSpeed = THREE.MathUtils.lerp(w.strafeSpeed, wantSide, ramp);
+
+      const sin = Math.sin(w.yaw);
+      const cos = Math.cos(w.yaw);
+      // Local forward = (sin, cos); local right = (cos, -sin).
+      let nx = w.x;
+      let nz = w.z;
+      if (w.speed > 0.001) {
+        nx += sin * w.speed * w.hold * dt;
+        nz += cos * w.speed * w.hold * dt;
+      }
+      if (w.strafeSpeed > 0.001) {
+        nx += cos * w.strafeSpeed * w.strafe * dt;
+        nz += -sin * w.strafeSpeed * w.strafe * dt;
+      }
+
+      // Stepping back through the doorway leaves the room.
+      if (nz <= ROOM_EXIT_Z && Math.abs(nx) <= ROOM_DOOR_HALF) {
+        onLeaveRoom();
+        return;
+      }
+      const halfX = dims.width / 2 - ROOM_WALL_MARGIN;
+      w.x = THREE.MathUtils.clamp(nx, -halfX, halfX);
+      w.z = THREE.MathUtils.clamp(nz, ROOM_WALL_MARGIN, dims.length - ROOM_WALL_MARGIN);
+
+      const [wx, wz] = roomLocalToWorld(w, w.x, w.z);
+      const eye = roomFloorAt(w.kind, w.z) + 1.75;
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, wx, k);
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, eye, k);
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, wz, k);
+      const [lx, lz] = roomLocalToWorld(w, w.x + sin * 6, w.z + cos * 6);
+      camera.lookAt(lx, eye, lz);
       return;
     }
+
 
     if (st.phase === "zooming") {
       const z = st.zoom;
@@ -1762,6 +1868,73 @@ const WalkControls = ({
     </div>
   </div>
 );
+
+// ── Room controls overlay ─────────────────────────────────────────────────
+
+/**
+ * INSIDE A ROOM the navigation changes: hold to walk forward or back, hold to
+ * turn left or right (all the way round), and hold the side buttons to step
+ * sideways. Nothing moves on its own. Walking back out through the doorway is
+ * the natural way out; the Leave button stays as a fallback.
+ */
+const RoomControls = ({
+  onWalk,
+  onTurn,
+  onStrafe,
+  onLeave,
+}: {
+  onWalk: (v: -1 | 0 | 1) => void;
+  onTurn: (v: -1 | 0 | 1) => void;
+  onStrafe: (v: -1 | 0 | 1) => void;
+  onLeave: () => void;
+}) => {
+  const hold = (start: () => void, end: () => void) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      start();
+    },
+    onPointerUp: end,
+    onPointerCancel: end,
+    onLostPointerCapture: end,
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+  });
+  const btn =
+    "inline-flex h-14 w-14 select-none touch-none items-center justify-center rounded-full bg-primary/80 text-lg text-primary-foreground active:scale-105 active:bg-primary";
+
+  return (
+    <div className="absolute inset-x-0 bottom-4 z-30 flex flex-col items-center gap-2 px-4">
+      <div className="flex items-center gap-3 rounded-full border border-border/60 bg-background/80 p-1.5 backdrop-blur">
+        <button type="button" aria-label="Turn left" className={btn} {...hold(() => onTurn(-1), () => onTurn(0))}>
+          ↰
+        </button>
+        <button type="button" aria-label="Step left" className={btn} {...hold(() => onStrafe(-1), () => onStrafe(0))}>
+          ◀
+        </button>
+        <div className="flex flex-col gap-1.5">
+          <button type="button" aria-label="Walk forward" className={btn} {...hold(() => onWalk(1), () => onWalk(0))}>
+            ▲
+          </button>
+          <button type="button" aria-label="Walk backward" className={btn} {...hold(() => onWalk(-1), () => onWalk(0))}>
+            ▼
+          </button>
+        </div>
+        <button type="button" aria-label="Step right" className={btn} {...hold(() => onStrafe(1), () => onStrafe(0))}>
+          ▶
+        </button>
+        <button type="button" aria-label="Turn right" className={btn} {...hold(() => onTurn(1), () => onTurn(0))}>
+          ↱
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={onLeave}
+        className="rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur hover:text-foreground"
+      >
+        Leave through the door
+      </button>
+    </div>
+  );
+};
 
 
 // ── Live navigation minimap (fixed top-right HUD) ─────────────────────────
@@ -2659,15 +2832,28 @@ const HallwayScene = ({
   );
 
   /**
-   * ENTER A CLASSROOM. The shell is a real space beyond its door, so entering it
+   * ENTER A ROOM. The shell is a real space beyond its door, so entering it
    * is camera navigation inside the same scene — never a page swap. The hallway
    * position is preserved, so leaving resumes the walk exactly where it stopped.
+   * Inside, the camera becomes a free walker in the room's own local space.
    */
   const enterClassroom = useCallback(
     (doorWorld: [number, number], into: [number, number], room: BuildingClassroom) => {
       const st = machineRef.current;
-      const pose = classroomEntryPose(doorWorld, into, room.kind);
-      st.inside = pose;
+      const dims = classroomDimensions(room.kind);
+      st.inside = {
+        door: doorWorld,
+        heading: into,
+        kind: room.kind,
+        x: 0,
+        z: Math.min(3, dims.length * 0.28),
+        yaw: 0,
+        hold: 0,
+        strafe: 0,
+        turning: 0,
+        speed: 0,
+        strafeSpeed: 0,
+      };
       st.moving = false;
       setMoving(false);
       setInsideRoom({ room, door: doorWorld, into });
@@ -2682,6 +2868,22 @@ const HallwayScene = ({
     setInsideRoom(null);
     setMachinePhase("idle");
   }, [setMachinePhase]);
+
+  /** Held intent inside a room — walking, turning and side-stepping. */
+  const roomWalk = useCallback((v: -1 | 0 | 1) => {
+    const w = machineRef.current.inside;
+    if (w) w.hold = v;
+  }, []);
+  const roomTurn = useCallback((v: -1 | 0 | 1) => {
+    const w = machineRef.current.inside;
+    if (w) w.turning = v;
+  }, []);
+  const roomStrafe = useCallback((v: -1 | 0 | 1) => {
+    const w = machineRef.current.inside;
+    if (w) w.strafe = v;
+  }, []);
+
+
 
   /**
    * Turn round on the spot. The walker keeps their exact position on the road —
@@ -2872,6 +3074,18 @@ const HallwayScene = ({
       const st = machineRef.current;
       const key = e.key;
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
+      // INSIDE A ROOM the keys drive the free room walker, not the corridor.
+      if (st.phase === "inside" && st.inside) {
+        const w = st.inside;
+        if (key === "ArrowUp" || key === "w" || key === "W") w.hold = 1;
+        else if (key === "ArrowDown" || key === "s" || key === "S") w.hold = -1;
+        else if (key === "ArrowLeft" || key === "a" || key === "A") w.turning = -1;
+        else if (key === "ArrowRight" || key === "d" || key === "D") w.turning = 1;
+        else if (key === "q" || key === "Q") w.strafe = -1;
+        else if (key === "e" || key === "E") w.strafe = 1;
+        return;
+      }
+
       if (key === "ArrowUp" || key === "w" || key === "W") {
         if (e.repeat) return;
         heldMoveKeys.current.add(1);
@@ -2921,16 +3135,30 @@ const HallwayScene = ({
     };
     const onKeyUp = (e: KeyboardEvent) => {
       const key = e.key;
+      const w = machineRef.current.inside;
+      if (w) {
+        if (["ArrowUp", "w", "W", "ArrowDown", "s", "S"].includes(key)) w.hold = 0;
+        else if (["ArrowLeft", "a", "A", "ArrowRight", "d", "D"].includes(key)) w.turning = 0;
+        else if (["q", "Q", "e", "E"].includes(key)) w.strafe = 0;
+        return;
+      }
       if (["ArrowUp", "w", "W"].includes(key)) heldMoveKeys.current.delete(1);
       else return;
       if (pointerIntent.current || heldMoveKeys.current.has(1)) startHold(machineRef.current.dir);
       else endHold();
     };
     const onBlur = () => {
+      const w = machineRef.current.inside;
+      if (w) {
+        w.hold = 0;
+        w.turning = 0;
+        w.strafe = 0;
+      }
       heldMoveKeys.current.clear();
       pointerIntent.current = false;
       endHold();
     };
+
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
@@ -2958,6 +3186,9 @@ const HallwayScene = ({
 
 
   const dragStart = useRef<number | null>(null);
+  /** Last pointer x while dragging to look around inside a room. */
+  const lookDrag = useRef<number | null>(null);
+
 
   const inWalk = phase !== "browse";
   /** The junction the walker is approaching, if any — the LEFT button's action. */
@@ -3150,8 +3381,24 @@ const HallwayScene = ({
     <div
       ref={setEventSource}
       className="absolute inset-0"
-      onPointerDown={(e) => (dragStart.current = e.clientX)}
+      onPointerDown={(e) => {
+
+        dragStart.current = e.clientX;
+        if (machineRef.current.inside) lookDrag.current = e.clientX;
+      }}
+      onPointerMove={(e) => {
+        // DRAG TO LOOK AROUND inside a room, so turning is never button-only.
+        const w = machineRef.current.inside;
+        if (!w || lookDrag.current === null) return;
+        const dx = e.clientX - lookDrag.current;
+        lookDrag.current = e.clientX;
+        w.yaw -= dx * 0.005;
+      }}
+      onPointerLeave={() => {
+        lookDrag.current = null;
+      }}
       onPointerUp={(e) => {
+        lookDrag.current = null;
         if (phase !== "browse" || dragStart.current === null) return;
         const dx = e.clientX - dragStart.current;
         dragStart.current = null;
@@ -3161,6 +3408,7 @@ const HallwayScene = ({
         );
       }}
     >
+
       {eventSource && <Canvas
         eventSource={eventSource}
         shadows
@@ -3266,7 +3514,9 @@ const HallwayScene = ({
           onWalkEnd={handleWalkEnd}
           onJunctionReach={handleJunctionReach}
           onBoundary={handleBoundary}
+          onLeaveRoom={leaveClassroom}
           setPhase={setMachinePhase}
+
         />
 
 {/* Enclosed hallways — each finite, named, walled at its far end. Only the
@@ -3382,21 +3632,25 @@ const HallwayScene = ({
       </Canvas>}
 
       {/* Navigation HUD */}
-      {/* Inside a classroom: the corridor controls step aside for one way out. */}
+      {/* Inside a room the navigation CHANGES: free walking, turning and
+          side-stepping replace the corridor's forward/turn-around pair. */}
       {insideRoom && (
         <>
           <div className="pointer-events-none absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs font-semibold text-foreground backdrop-blur">
             {insideRoom.room.name}
           </div>
-          <button
-            type="button"
-            onClick={leaveClassroom}
-            className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full border border-border/60 bg-background/85 px-6 py-3 text-sm font-semibold text-foreground shadow-lg backdrop-blur transition hover:bg-background"
-          >
-            Leave classroom
-          </button>
+          <p className="pointer-events-none absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur">
+            Walk, turn and step around — go back through the door to leave
+          </p>
+          <RoomControls
+            onWalk={roomWalk}
+            onTurn={roomTurn}
+            onStrafe={roomStrafe}
+            onLeave={leaveClassroom}
+          />
         </>
       )}
+
 
       {inWalk && !insideRoom && (
         <>
