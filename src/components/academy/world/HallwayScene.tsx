@@ -317,12 +317,14 @@ const buildHallways = (
     const w = seg.walkway;
     const targetId = target.walkway?.id;
     if (!w || !targetId) return;
-    seg.length = Math.max(HALL_WIDTH / 2, stopLength);
-    // Objects that would now sit outside the road, or right in the junction it
-    // opens into, are dropped rather than left hanging past the merge boundary.
+    // The road is exactly as long as the space it had: it can be 2 units, 1
+    // unit or a fraction of one, and it ends flush at the junction it makes.
+    seg.length = Math.max(0.02, stopLength);
+    // Nothing is dropped: the objects on the road are squeezed into the run that
+    // is left, so a shortened hallway keeps every door and mouth it was given.
     layouts.set(
       w.id,
-      (layouts.get(w.id) ?? []).filter((o) => o.along < seg.length - SPACING * 0.6),
+      fitObjectsToLength(layouts.get(w.id) ?? [], seg.length, HALLWAY_PAD, SPACING),
     );
     // Any branch anchored past the new end is pulled back inside the road, so a
     // trimmed hallway never leaves a child hanging in open space.
