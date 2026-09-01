@@ -72,8 +72,79 @@ export const classroomEntryPose = (
   };
 };
 
+/** Shallow steps that close the change of level between two tiers. */
+const STEP_MAX_RISE = 0.3;
+const STEP_TREAD = 0.36;
+
+const StepRun = ({
+  env,
+  textures,
+  width,
+  zTop,
+  yTop,
+  yBottom,
+}: {
+  env: EnvironmentSettings;
+  textures: Record<string, string>;
+  width: number;
+  zTop: number;
+  yTop: number;
+  yBottom: number;
+}) => {
+  const drop = Math.abs(yTop - yBottom);
+  if (drop <= 0.001) return null;
+  const count = Math.max(1, Math.ceil(drop / STEP_MAX_RISE));
+  const rise = drop / count;
+  const props = surfaceProps(env, "floor", textures);
+  return (
+    <group>
+      {Array.from({ length: count }, (_, k) => {
+        const riserTop = yTop - k * rise;
+        const riserBottom = riserTop - rise;
+        const z = zTop + k * STEP_TREAD;
+        return (
+          <group key={`step-${k}`}>
+            {/* Riser — vertical face looking back up the room. */}
+            <Surface
+              {...props}
+              planeW={width}
+              planeH={rise}
+              position={[0, (riserTop + riserBottom) / 2, z]}
+              rotation-y={Math.PI}
+              facing={THREE.DoubleSide}
+            >
+              <planeGeometry args={[width, rise]} />
+            </Surface>
+            {/* Tread — the walking surface of this step. */}
+            <Surface
+              {...props}
+              planeW={width}
+              planeH={STEP_TREAD}
+              position={[0, riserBottom, z + STEP_TREAD / 2]}
+              rotation-x={-Math.PI / 2}
+              facing={THREE.DoubleSide}
+              receiveShadow
+            >
+              <planeGeometry args={[width, STEP_TREAD]} />
+            </Surface>
+            {/* Step wash, so a riser reads as stone rather than a black band. */}
+            <pointLight
+              position={[0, riserTop + 0.55, z - 0.5]}
+              intensity={5}
+              distance={7}
+              decay={2}
+              color="#fff3dd"
+            />
+          </group>
+        );
+      })}
+    </group>
+  );
+};
+
 const ClassroomShell = ({
   door,
+
   heading,
   kind,
   name,
@@ -104,21 +175,24 @@ const ClassroomShell = ({
           >
             <planeGeometry args={[width, t.to - t.from]} />
           </Surface>
-          {/* Riser between this tier and the next, facing back up the room. */}
+          {/* The change of level is a real staircase: each drop is split into
+              shallow tread + riser pairs spanning the full room width. Every
+              face is drawn on both sides, so a step can never be seen through
+              from the level below and no open slot is left under the tier
+              above. Treads sit on top of the lower slab, like stair nosings. */}
           {i < tiers.length - 1 && (
-            <Surface
-              {...surfaceProps(env, "floor", textures)}
-              planeW={width}
-              planeH={Math.abs(t.y - tiers[i + 1].y)}
-              position={[0, (t.y + tiers[i + 1].y) / 2, t.to]}
-              rotation-y={Math.PI}
-              facing={THREE.FrontSide}
-            >
-              <planeGeometry args={[width, Math.abs(t.y - tiers[i + 1].y)]} />
-            </Surface>
+            <StepRun
+              env={env}
+              textures={textures}
+              width={width}
+              zTop={t.to}
+              yTop={t.y}
+              yBottom={tiers[i + 1].y}
+            />
           )}
         </group>
       ))}
+
 
       {/* CEILING — level, so the volume opens up over a stepped floor. */}
       <Surface
