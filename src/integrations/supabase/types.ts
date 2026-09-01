@@ -5705,6 +5705,48 @@ export type Database = {
           },
         ]
       }
+      page_guide_videos: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_seconds: number | null
+          id: string
+          page_key: string
+          position: number
+          status: string
+          title: string | null
+          updated_at: string
+          uploaded_by: string | null
+          video_path: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          page_key: string
+          position?: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          video_path: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          page_key?: string
+          position?: number
+          status?: string
+          title?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          video_path?: string
+        }
+        Relationships: []
+      }
       page_guides: {
         Row: {
           created_at: string
@@ -8440,6 +8482,7 @@ export type Database = {
       can_edit_academy: { Args: { _academy_id: string }; Returns: boolean }
       can_edit_building: { Args: { _building_id: string }; Returns: boolean }
       can_manage_gpl_assets: { Args: never; Returns: boolean }
+      can_manage_tutorials: { Args: never; Returns: boolean }
       can_view_academy: { Args: { _academy_id: string }; Returns: boolean }
       can_view_building: { Args: { _building_id: string }; Returns: boolean }
       can_view_workspace: { Args: { _org_id: string }; Returns: boolean }
