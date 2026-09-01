@@ -599,6 +599,13 @@ children,
   "rotation-y"?: number;
   castShadow?: boolean;
   receiveShadow?: boolean;
+  /**
+   * Which face of the surface is drawn. Corridor surfaces pass FrontSide with
+   * their normal pointing INTO the hallway, so a corridor is only ever seen
+   * from the inside: looking through a junction mouth shows the far hallway's
+   * wallpaper, floor and ceiling instead of the unlit back of its shell.
+   */
+  facing?: THREE.Side;
 children?: React.ReactNode;
 }) => {
   const tex = useLoadedTexture(url);
