@@ -1133,7 +1133,7 @@ const DoorMesh = ({
         />
       </mesh>
 
-      </mesh>
+
 
       {/* The door's nameplate: a real navy plaque mounted on the wall just above
           the lintel. It is a CHILD of the door group, so it keeps its position
