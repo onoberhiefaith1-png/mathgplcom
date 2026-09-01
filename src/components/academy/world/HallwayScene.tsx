@@ -3632,21 +3632,25 @@ const HallwayScene = ({
       </Canvas>}
 
       {/* Navigation HUD */}
-      {/* Inside a classroom: the corridor controls step aside for one way out. */}
+      {/* Inside a room the navigation CHANGES: free walking, turning and
+          side-stepping replace the corridor's forward/turn-around pair. */}
       {insideRoom && (
         <>
           <div className="pointer-events-none absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs font-semibold text-foreground backdrop-blur">
             {insideRoom.room.name}
           </div>
-          <button
-            type="button"
-            onClick={leaveClassroom}
-            className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full border border-border/60 bg-background/85 px-6 py-3 text-sm font-semibold text-foreground shadow-lg backdrop-blur transition hover:bg-background"
-          >
-            Leave classroom
-          </button>
+          <p className="pointer-events-none absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur">
+            Walk, turn and step around — go back through the door to leave
+          </p>
+          <RoomControls
+            onWalk={roomWalk}
+            onTurn={roomTurn}
+            onStrafe={roomStrafe}
+            onLeave={leaveClassroom}
+          />
         </>
       )}
+
 
       {inWalk && !insideRoom && (
         <>
