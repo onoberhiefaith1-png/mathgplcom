@@ -672,6 +672,8 @@ const handleTextureUpload = useCallback(
                         doors={buildingData.doors}
                         catalogue={catalogue}
                         selectedDoorId={selectedDoorId}
+                        remainingSlots={remainingSlots}
+
                         onAddWalkway={handleAddWalkway}
                         links={buildingData.links}
                         onAddLink={handleAddLink}
