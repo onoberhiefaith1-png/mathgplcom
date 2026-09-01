@@ -287,10 +287,11 @@ const buildHallways = (
     });
   }
 
-  // ── NO TUNNELLING. Every OTHER road (branches and forward continuations, not
-  // just Connect-Hallway corridors) is solved against every road already in the
-  // plan. When a road would run into one, it stops at that road's wall and a real
-  // junction mouth opens there, so two walkways can never occupy each other.
+  // ── NO TUNNELLING, NO CROSSINGS. Every OTHER road (branches and forward
+  // continuations, not just Connect-Hallway corridors) is solved against every
+  // road already in the plan. When a road would run into one, it stops at that
+  // road's wall and a real OPEN junction mouth is cut there: the two roads
+  // become one connected walkway system, never two layers sharing ground.
   const subtreeIds = (seg: Segment): string[] => [
     seg.walkway?.id ?? "",
     ...seg.children.flatMap(subtreeIds),
@@ -300,42 +301,32 @@ const buildHallways = (
     for (const c of seg.children) shiftSubtree(c, dx, dz);
   };
 
-  // Shallow roads win: a hallway nearer the entrance is the established one, and
-  // the newer road arriving at it is the one that stops.
-  for (const seg of [...segments].sort((a, b) => a.depth - b.depth)) {
+  /**
+   * Stop one road at another and open a real junction between them: the arriving
+   * road is trimmed, anything hanging past the boundary is pulled back inside,
+   * the road it met loses that run of wall (a `link` mouth), and the connection
+   * is registered so the walker can pass through in either direction.
+   */
+  const mergeRoadInto = (
+    seg: Segment,
+    target: Segment,
+    stopLength: number,
+    alongTarget: number,
+    targetSide: -1 | 1,
+  ) => {
     const w = seg.walkway;
-    if (!w) continue;
-    if (connectors.has(w.id)) continue; // already merged as a connector corridor
-    const own = new Set(subtreeIds(seg));
-    if (w.parent_id) own.add(w.parent_id);
-    const meet = firstRoadMeeting(
-      { id: w.id, start: seg.start, heading: seg.heading, length: seg.length },
-      segments
-        .filter((s) => s.walkway)
-        .map((s) => ({
-          id: s.walkway!.id,
-          start: s.start,
-          heading: s.heading,
-          length: s.length,
-        })),
-      HALL_WIDTH,
-      own,
-    );
-    if (!meet || meet.length >= seg.length - 0.05) continue;
-
-    const target = findSegment(segments, meet.targetId);
-    if (!target?.walkway) continue;
-
-    seg.length = meet.length;
+    const targetId = target.walkway?.id;
+    if (!w || !targetId) return;
+    seg.length = Math.max(HALL_WIDTH / 2, stopLength);
     // Objects that would now sit outside the road, or right in the junction it
     // opens into, are dropped rather than left hanging past the merge boundary.
     layouts.set(
       w.id,
-      (layouts.get(w.id) ?? []).filter((o) => o.along < meet.length - SPACING * 0.6),
+      (layouts.get(w.id) ?? []).filter((o) => o.along < seg.length - SPACING * 0.6),
     );
     // Any branch anchored past the new end is pulled back inside the road, so a
     // trimmed hallway never leaves a child hanging in open space.
-    const limit = Math.max(HALLWAY_ENTRY_RUN, meet.length - SPACING * 0.6);
+    const limit = Math.max(HALLWAY_ENTRY_RUN, seg.length - SPACING * 0.6);
     for (const child of seg.children) {
       const along =
         (child.start[0] - seg.start[0]) * seg.heading[0] +
@@ -344,8 +335,6 @@ const buildHallways = (
       const back = along - limit;
       shiftSubtree(child, -seg.heading[0] * back, -seg.heading[1] * back);
     }
-
-    const targetId = target.walkway.id;
     layouts.set(
       targetId,
       insertGeometricMouth(
@@ -354,8 +343,8 @@ const buildHallways = (
           kind: "link",
           id: `merge:${w.id}`,
           name: w.name,
-          side: meet.targetSide,
-          along: meet.alongTarget,
+          side: targetSide,
+          along: alongTarget,
           targetWalkwayId: w.id,
         },
         SPACING,
@@ -366,14 +355,91 @@ const buildHallways = (
     connectors.set(w.id, {
       linkId: `merge:${w.id}`,
       targetWalkwayId: targetId,
-      alongTarget: meet.alongTarget,
-      targetSide: meet.targetSide,
+      alongTarget,
+      targetSide,
     });
+  };
+
+  const roadLines = () =>
+    segments
+      .filter((s) => s.walkway)
+      .map((s) => ({
+        id: s.walkway!.id,
+        start: s.start,
+        heading: s.heading,
+        length: s.length,
+      }));
+
+  // Shallow roads win: a hallway nearer the entrance is the established one, and
+  // the newer road arriving at it is the one that stops. Trimming one road can
+  // bring another within reach, so the solver settles over a few passes.
+  for (let pass = 0; pass < 3; pass += 1) {
+    let merged = false;
+    for (const seg of [...segments].sort((a, b) => a.depth - b.depth)) {
+      const w = seg.walkway;
+      if (!w) continue;
+      if (connectors.has(w.id)) continue; // already merged into another road
+      const own = new Set(subtreeIds(seg));
+      if (w.parent_id) own.add(w.parent_id);
+      const meet = firstRoadMeeting(
+        { id: w.id, start: seg.start, heading: seg.heading, length: seg.length },
+        roadLines(),
+        HALL_WIDTH,
+        own,
+      );
+      if (!meet || meet.length >= seg.length - 0.05) continue;
+      const target = findSegment(segments, meet.targetId);
+      if (!target?.walkway) continue;
+      mergeRoadInto(seg, target, meet.length, meet.alongTarget, meet.targetSide);
+      merged = true;
+    }
+    if (!merged) break;
+  }
+
+  // ── ASSERTION PASS. After merging, no two roads may still share ground. A
+  // remaining plan overlap means a merge was missed, so the deeper road is cut
+  // back to that boundary and merged there. Crossings are therefore structurally
+  // impossible instead of being hidden by removing a floor slab.
+  const related = (a: Segment, b: Segment) =>
+    a.walkway?.parent_id === b.walkway?.id ||
+    b.walkway?.parent_id === a.walkway?.id ||
+    connectors.get(a.walkway?.id ?? "")?.targetWalkwayId === b.walkway?.id ||
+    connectors.get(b.walkway?.id ?? "")?.targetWalkwayId === a.walkway?.id;
+
+  for (let pass = 0; pass < 3; pass += 1) {
+    let cut = false;
+    const ordered = [...segments].filter((s) => s.walkway).sort((a, b) => a.depth - b.depth);
+    for (let i = 0; i < ordered.length; i += 1) {
+      for (let j = i + 1; j < ordered.length; j += 1) {
+        const upper = ordered[i];
+        const lower = ordered[j];
+        if (related(upper, lower)) continue;
+        const hit = corridorCrossing(
+          { start: upper.start, heading: upper.heading, length: upper.length },
+          { start: lower.start, heading: lower.heading, length: lower.length },
+          HALL_WIDTH,
+          0,
+        );
+        if (!hit) continue;
+        const stop = hit.b[0];
+        if (stop >= lower.length - 0.05) continue; // the overlap is past its end
+        const alongTarget = Math.min(
+          Math.max((hit.a[0] + hit.a[1]) / 2, HALL_WIDTH / 2),
+          Math.max(HALL_WIDTH / 2, upper.length - HALL_WIDTH / 2),
+        );
+        const cross =
+          upper.heading[0] * -lower.heading[1] - upper.heading[1] * -lower.heading[0];
+        mergeRoadInto(lower, upper, stop, alongTarget, cross >= 0 ? 1 : -1);
+        cut = true;
+      }
+    }
+    if (!cut) break;
   }
 
   return { segments, layouts, connectors };
 
 };
+
 
 
 const findSegment = (segs: Segment[], id: string): Segment | null => {
