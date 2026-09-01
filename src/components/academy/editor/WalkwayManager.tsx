@@ -67,6 +67,14 @@ export interface WalkwayManagerProps {
   onBuildSampleMaze?: () => Promise<void>;
   /** A door clicked in the live world — highlighted and revealed here. */
   selectedDoorId?: string | null;
+  /**
+   * How many more objects each hallway can carry. A hallway that runs from one
+   * junction to another is finite: when it is full it is not offered for a new
+   * door at all, so a door is never squeezed into a junction. Hallways that can
+   * still grow report `Infinity`.
+   */
+  remainingSlots?: Record<string, number>;
+
 }
 
 /**
