@@ -3128,8 +3128,9 @@ const HallwayScene = ({
       // exactly like a junction mouth, so the maze reads as one road network.
       if (o.kind === "link") {
         if (!o.targetWalkwayId) return null;
+        const targetWalkwayId = o.targetWalkwayId;
         const activeId = nav.seg.walkway?.id ?? "root";
-        const destinationName = activeId === o.targetWalkwayId
+        const destinationName = activeId === targetWalkwayId
           ? (seg.walkway?.name ?? "Entrance Hall")
           : o.name;
         return (
@@ -3142,7 +3143,7 @@ const HallwayScene = ({
             accent={o.side === -1 ? env.leftWall.color : env.rightWall.color}
             floorColor={env.floor.color}
             roofColor={env.roof.color}
-            onEnter={() => crossLink(o.id, o.targetWalkwayId!)}
+            onEnter={() => crossLink(o.id, targetWalkwayId)}
           />
         );
       }
