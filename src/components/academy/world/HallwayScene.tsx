@@ -45,6 +45,8 @@ import {
   forwardFromYaw,
   layoutHallwayObjects,
   hallwayLength,
+  JUNCTION_CLEAR,
+  mouthSpanFor,
   HALL_WIDTH,
   HALLWAY_ENTRY_RUN,
   HALLWAY_PAD,
@@ -121,6 +123,21 @@ interface HallwayLayout {
    * created, so the walker can carry on into that hallway.
    */
   connectors: Map<string, ConnectorInfo>;
+  /**
+   * THE MOUTH OF EVERY MERGE, keyed by the mouth object's id. A road that
+   * arrives at another road cuts a STRAIGHT opening in the wall it meets, whose
+   * width follows the angle the two roads actually make. Branch openings are not
+   * listed here: they leave at the fixed branch angle and carry their own throat.
+   */
+  mouths: Map<string, MergeMouth>;
+}
+
+/** A straight junction opening cut where one hallway arrives at another. */
+export interface MergeMouth {
+  /** width of the hole along the wall it is cut in */
+  span: number;
+  /** sine of the angle between the two hallways (1 = square crossing) */
+  sinAngle: number;
 }
 
 export interface ConnectorInfo {
@@ -141,6 +158,12 @@ const buildHallways = (
   const segments: Segment[] = [];
   const layouts = new Map<string, HallwayObject[]>();
   const connectors = new Map<string, ConnectorInfo>();
+  const mouths = new Map<string, MergeMouth>();
+  /** The straight opening one road cuts in the wall of the road it arrives at. */
+  const registerMouth = (id: string, a: Segment, b: Segment) => {
+    const sinAngle = Math.abs(a.heading[0] * b.heading[1] - a.heading[1] * b.heading[0]);
+    mouths.set(id, { span: mouthSpanFor(HALL_WIDTH, sinAngle), sinAngle });
+  };
   // A connection with a corridor is a real road (already a child hallway); only
   // legacy connections without one are still drawn as a plain mouth pair.
   const lineLinks = links.filter((l) => !l.corridor_walkway_id);
@@ -280,6 +303,7 @@ const buildHallways = (
         SPACING,
       ),
     );
+    registerMouth(l.id, corridor, target);
     connectors.set(corridor.walkway.id, {
       linkId: l.id,
       targetWalkwayId: targetId,
@@ -327,9 +351,9 @@ const buildHallways = (
       w.id,
       fitObjectsToLength(layouts.get(w.id) ?? [], seg.length, HALLWAY_PAD, SPACING),
     );
-    // Any branch anchored past the new end is pulled back inside the road, so a
-    // trimmed hallway never leaves a child hanging in open space.
-    const limit = Math.max(HALLWAY_ENTRY_RUN, seg.length - SPACING * 0.6);
+    // Any branch anchored inside the crossing is pulled back out of it, so a
+    // trimmed hallway never leaves a child hanging in the junction or beyond it.
+    const limit = Math.max(HALLWAY_ENTRY_RUN, seg.length - JUNCTION_CLEAR);
     for (const child of seg.children) {
       const along =
         (child.start[0] - seg.start[0]) * seg.heading[0] +
@@ -353,6 +377,7 @@ const buildHallways = (
         SPACING,
       ),
     );
+    registerMouth(`merge:${w.id}`, seg, target);
     // The merge is a two-way junction: the arriving road continues into the road
     // it met, and that road can be walked back into this one through the mouth.
     connectors.set(w.id, {
@@ -439,7 +464,7 @@ const buildHallways = (
     if (!cut) break;
   }
 
-  return { segments, layouts, connectors };
+  return { segments, layouts, connectors, mouths };
 
 };
 
@@ -649,7 +674,7 @@ const SegmentCorridor = ({
   startTrim = 0,
   deckHoles = [],
   deckLift = 0,
-  frontPad = 3,
+  frontPad = 0,
   capEnd = true,
   capStart = false,
   name,
@@ -660,8 +685,13 @@ const SegmentCorridor = ({
   length: number;
   env: EnvironmentSettings;
   textures: Record<string, string>;
-  /** Cut-throughs in this hallway's walls, where connected hallways leave. */
-  gaps?: { side: -1 | 1; along: number }[];
+  /**
+   * Cut-throughs in this hallway's walls. `center` is where the hole's centre
+   * sits relative to the junction point (a branch leaves diagonally, so its
+   * mouth is offset forward; a hallway arriving square-on is not) and `width`
+   * is the hole's true width along this wall.
+   */
+  gaps?: { side: -1 | 1; along: number; center: number; width: number }[];
   /** Distance from this hallway's start where its own shell may begin — a
       branch begins at the mouth in its parent's wall, never inside it. */
   startTrim?: number;
@@ -676,7 +706,11 @@ const SegmentCorridor = ({
    * share a plane at exactly the same depth.
    */
   deckLift?: number;
-  /** How far this corridor's deck may run past its own far end. */
+  /**
+   * How far this corridor's FLOOR AND CEILING may run past its own far end. It
+   * is 0 by default: a junction throat is floored and ceiled by the junction
+   * itself, so no two slabs ever overlap at the same height.
+   */
   frontPad?: number;
   /** Solid wall at the far end (no forward continuation). */
   capEnd?: boolean;
@@ -695,8 +729,12 @@ const SegmentCorridor = ({
   const span = length + frontPad + backPad;
   /** Local z of the wall runs' centre inside the group offset by -length / 2. */
   const shellZ = length / 2 - (length + frontPad - backPad) / 2;
-  /** Floor/ceiling reach back past the mouth so the throat is continuous. */
-  const deckBack = capStart ? 3 : startTrim + 1.5;
+  /**
+   * Floor/ceiling reach back past the mouth so a BRANCH's throat is continuous.
+   * A hallway that simply continues forward starts its slabs exactly where its
+   * parent's stop, so the two never overlap and never flicker.
+   */
+  const deckBack = capStart ? 3 : startTrim > 0 ? startTrim + 1.5 : 0;
   /** The deck, minus every crossing another corridor's slab carries through. */
   const deckSpans = wallRuns(-deckBack, length + frontPad, deckHoles);
 
@@ -836,13 +874,16 @@ const SegmentCorridor = ({
           so the connected hallway is seen through the gap. */}
       {([-1, 1] as const).map((side) => {
         const wall = side === -1 ? env.leftWall : env.rightWall;
-        const geo = junctionGeometry(HALL_WIDTH);
-        // A diagonal branch's mouth is wider than the corridor and sits forward
-        // of the junction point — the solver says exactly where.
+        // Each hole carries its own centre and width: a diagonal branch's mouth
+        // is offset forward of its junction point, a hallway arriving square-on
+        // is centred on it, and the width follows the real crossing angle.
         const holes = gaps
           .filter((g) => g.side === side)
-          .map((g) => ({ along: g.along + geo.mouthCenterOffset, width: geo.mouthSpan }));
-        return wallRuns(-backPad, length + frontPad, holes).map(([a, b], i) => {
+          .map((g) => ({ along: g.along + g.center, width: g.width }));
+        // WALLS STOP AT THE HALLWAY'S OWN END. Only the floor and ceiling run
+        // past it (into a junction throat); a wall that overran would poke into
+        // the next hallway and fight its wall for the same plane.
+        return wallRuns(-backPad, length, holes).map(([a, b], i) => {
           const runLen = b - a;
           const center = (a + b) / 2;
           return (
@@ -1416,6 +1457,136 @@ const BranchOpening = ({
     </group>
   );
 };
+
+/**
+ * THE MERGE JUNCTION — where a hallway ARRIVES at this one and stops.
+ *
+ * This is not a branch: the arriving hallway is not leaving at the branch angle,
+ * so its opening is cut STRAIGHT and centred exactly on the junction point, with
+ * a width that follows the angle the two hallways make. It is built like real
+ * construction: full-thickness jamb reveals at both cut edges, a lintel/soffit
+ * beam carrying the ceiling over the opening, and a floor and ceiling patch
+ * bridging the wall's own thickness so there is never a black seam under it.
+ * Nothing returns into the corridor, so no wall panel appears to stand in the
+ * road, and the arriving hallway's name is read off the facing wall.
+ */
+const MergeOpening = ({
+  side,
+  along,
+  span,
+  name,
+  accent,
+  floorColor,
+  roofColor,
+  onEnter,
+}: {
+  side: -1 | 1;
+  along: number;
+  /** true width of the hole along this hallway's wall */
+  span: number;
+  name: string;
+  accent: string;
+  floorColor: string;
+  roofColor: string;
+  onEnter: () => void;
+}) => {
+  const [hovered, setHovered] = useState(false);
+  const geo = junctionGeometry(HALL_WIDTH);
+  const openH = HALL_HEIGHT - geo.soffit;
+  const wallX = side * (HALL_WIDTH / 2);
+  /** Reveal depth: the wall's own thickness plus a little, so the throat reads. */
+  const reveal = WALL_THICKNESS + 0.5;
+
+  return (
+    <group position={[0, 0, -along]}>
+      {/* Floor + ceiling patch through the wall thickness, so the opening never
+          shows a dark gap between this hallway's slab and the arriving one's. */}
+      <mesh
+        rotation-x={-Math.PI / 2}
+        position={[wallX + (side * reveal) / 2, 0.028, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[span, reveal]} />
+        <meshStandardMaterial color={floorColor} roughness={0.86} />
+      </mesh>
+      <mesh rotation-x={Math.PI / 2} position={[wallX + (side * reveal) / 2, HALL_HEIGHT - 0.028, 0]}>
+        <planeGeometry args={[span, reveal]} />
+        <meshStandardMaterial color={roofColor} roughness={0.92} />
+      </mesh>
+
+      {/* Jamb reveals: the blockwork thickness shown at both cut edges, so the
+          cut wall is never a paper-thin sheet when seen from an angle. */}
+      {([-1, 1] as const).map((edge) => (
+        <mesh
+          key={`jamb-${edge}`}
+          position={[
+            wallX + (side * WALL_THICKNESS) / 2,
+            openH / 2,
+            edge * (span / 2 + geo.jambWidth / 2),
+          ]}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry args={[WALL_THICKNESS, openH, geo.jambWidth]} />
+          <meshStandardMaterial color={accent} roughness={0.9} metalness={0.05} />
+        </mesh>
+      ))}
+
+      {/* Lintel carrying the ceiling straight across the opening */}
+      <mesh
+        position={[wallX + (side * WALL_THICKNESS) / 2, openH + geo.soffit / 2, 0]}
+        castShadow
+        receiveShadow
+      >
+        <boxGeometry args={[WALL_THICKNESS, geo.soffit, span + geo.jambWidth * 2]} />
+        <meshStandardMaterial color={roofColor} roughness={0.92} metalness={0.04} />
+      </mesh>
+
+      <pointLight
+        position={[wallX + side * 1.2, HALL_HEIGHT - 0.9, 0]}
+        intensity={hovered ? 2.2 : 1.7}
+        distance={18}
+        color="#dbeafe"
+      />
+
+      {/* Pick target filling the opening: click to walk into that hallway */}
+      <mesh
+        position={[wallX, openH / 2, 0]}
+        rotation-y={(-side * Math.PI) / 2}
+        onClick={(e) => {
+          e.stopPropagation();
+          onEnter();
+        }}
+        onPointerOver={() => {
+          document.body.style.cursor = "pointer";
+          setHovered(true);
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = "auto";
+          setHovered(false);
+        }}
+      >
+        <planeGeometry args={[span, openH]} />
+        <meshBasicMaterial
+          transparent
+          opacity={hovered ? 0.07 : 0}
+          color="#e0f2fe"
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* The arriving hallway's name, mounted flat on the wall opposite its
+          opening — on a wall, at eye level, never floating in the corridor. */}
+      <HallwayNameFrame
+        name={name}
+        position={[-side * (HALL_WIDTH / 2 - 0.1), 2.15, 0]}
+        rotationY={(side * Math.PI) / 2}
+      />
+    </group>
+  );
+};
+
 
 
 /**
@@ -2194,7 +2365,7 @@ const HallwayScene = ({
   );
 
 
-  const { segments, layouts, connectors } = useMemo(
+  const { segments, layouts, connectors, mouths } = useMemo(
     () =>
       buildHallways(
         walkways,
@@ -2212,27 +2383,10 @@ const HallwayScene = ({
     [walkways, doorsByWalkway, productTitles, rootLen, links],
   );
 
-  /**
-   * THE CROSSINGS — every place two corridor volumes share plan area. Each
-   * crossing gets a deterministic upper corridor (shallower road wins, ties
-   * broken by id) that carries its slab straight through; the other corridor's
-   * deck is CUT there, so the two are never coplanar and never flicker. Every
-   * corridor also gets its own tiny slab depth, so even a crossing this solver
-   * did not see cannot end up sharing a plane.
-   */
-  // DECK PADDING ONLY. Corridors never cross any more — a road that reaches
-  // another one merges into it — so no deck is ever holed or lifted to fake an
-  // over-under crossing. The only thing solved here is how far a deck may run
-  // past its own end: a road that stops at a junction hands the floor and
-  // ceiling over to the road it merged into instead of bleeding across it.
-  const decks = useMemo(() => {
-    const key = (s: Segment) => s.walkway?.id ?? "root";
-    const frontPads = new Map<string, number>();
-    for (const s of segments) {
-      if (s.walkway && connectors.has(s.walkway.id)) frontPads.set(key(s), 0.4);
-    }
-    return { frontPads };
-  }, [segments, connectors]);
+  // NO DECK PADDING AT ALL. Corridors never cross — a road that reaches another
+  // one merges into it — and every hallway's floor and ceiling now stop exactly
+  // at its own ends. A junction throat is floored and ceiled by the junction
+  // piece itself, so no two slabs share a height and nothing can flicker.
 
 
 
@@ -2991,10 +3145,11 @@ const HallwayScene = ({
       if (o.kind === "link") {
         if (!o.targetWalkwayId) return null;
         return (
-          <BranchOpening
+          <MergeOpening
             key={o.id}
             side={o.side}
             along={o.along}
+            span={mouths.get(o.id)?.span ?? HALL_WIDTH}
             name={o.name}
             accent={o.side === -1 ? env.leftWall.color : env.rightWall.color}
             floorColor={env.floor.color}
@@ -3003,6 +3158,7 @@ const HallwayScene = ({
           />
         );
       }
+
 
       const wx = seg.start[0] + seg.heading[0] * o.along + o.side * (HALL_WIDTH / 2 - 0.2) * cy;
       const wz = seg.start[1] + seg.heading[1] * o.along - o.side * (HALL_WIDTH / 2 - 0.2) * sy;
@@ -3142,10 +3298,22 @@ const HallwayScene = ({
         {segments.map((seg) => {
           const near = nearbyIds.has(seg.walkway?.id ?? "root");
           // Every junction on this hallway removes a run of its wall, so the
-          // connected hallway is seen through a real cut, not a flat plane.
+          // connected hallway is seen through a real cut, not a flat plane. A
+          // branch leaves at the branch angle (offset, wider mouth); a hallway
+          // that ARRIVES here cuts a straight opening centred on the junction.
           const gaps = (layouts.get(seg.walkway?.id ?? "") ?? [])
             .filter((o) => o.kind !== "door")
-            .map((o) => ({ side: o.side, along: o.along }));
+            .map((o) => {
+              const merge = mouths.get(o.id);
+              if (merge) return { side: o.side, along: o.along, center: 0, width: merge.span };
+              const g = junctionGeometry(HALL_WIDTH);
+              return {
+                side: o.side,
+                along: o.along,
+                center: g.mouthCenterOffset,
+                width: g.mouthSpan,
+              };
+            });
           return (
             <SegmentCorridor
               key={seg.walkway?.id ?? "root"}
@@ -3160,7 +3328,7 @@ const HallwayScene = ({
                   ? junctionGeometry(HALL_WIDTH).branchTrim
                   : 0
               }
-              frontPad={decks.frontPads.get(seg.walkway?.id ?? "root") ?? 3}
+              frontPad={0}
 
               capEnd={
                 !seg.children.some((c) => c.walkway?.direction === "forward") &&
