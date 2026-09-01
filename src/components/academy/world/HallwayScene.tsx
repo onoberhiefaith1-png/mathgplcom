@@ -1077,25 +1077,29 @@ const DoorMesh = ({
         {[-1, 1].map((s) => (
           <mesh key={s} position={[s * (openW / 2 - jambW / 2), openH / 2, 0.09]} castShadow>
             <boxGeometry args={[jambW, openH, 0.18]} />
-            <meshStandardMaterial ref={s === -1 ? frame : undefined} color={accent} emissive={accent} emissiveIntensity={0} roughness={0.55} metalness={0.15} />
+            <meshStandardMaterial ref={addFrame} color={accent} emissive={accent} emissiveIntensity={0} roughness={0.55} metalness={0.15} />
           </mesh>
         ))}
         <mesh position={[0, openH - jambW / 2, 0.09]} castShadow>
           <boxGeometry args={[openW, jambW, 0.18]} />
-          <meshStandardMaterial color={accent} roughness={0.55} metalness={0.15} />
+          <meshStandardMaterial ref={addFrame} color={accent} emissive={accent} emissiveIntensity={0} roughness={0.55} metalness={0.15} />
         </mesh>
         <mesh position={[0, 0.03, 0.09]}>
           <boxGeometry args={[openW, 0.06, 0.18]} />
-          <meshStandardMaterial color={accent} roughness={0.7} metalness={0.1} />
+          <meshStandardMaterial ref={addFrame} color={accent} emissive={accent} emissiveIntensity={0} roughness={0.7} metalness={0.1} />
         </mesh>
-        {/* Recess behind the leaf so the doorway reads as depth, not a sticker */}
+        {/* Recess behind the leaf so the doorway reads as depth, not a sticker.
+            Neutral shadow tone — never the door design colour, so the panel is
+            the only surface that carries the door's own look. */}
         <mesh position={[0, openH / 2, -0.04]}>
           <planeGeometry args={[openW, openH]} />
-          <meshStandardMaterial color={color} roughness={0.95} metalness={0} />
+          <meshStandardMaterial color="#0b0f18" roughness={0.95} metalness={0} />
         </mesh>
       </group>
 
-      {/* The door leaf: uploaded/built-in transparent door artwork */}
+      {/* The DOOR PANEL: the imported/built-in door artwork, rendered exactly as
+          provided. Independent of the frame — no accent tint, no frame-coloured
+          emissive wash, so changing the frame never repaints the door. */}
       <mesh
         position={[0, leafH / 2 + 0.03, 0.07]}
         castShadow
@@ -1115,18 +1119,20 @@ const DoorMesh = ({
         <planeGeometry args={[leafW, leafH]} />
         <meshStandardMaterial
           key={tex ? url : "flat"}
-          ref={leaf}
           map={tex ?? null}
           transparent
           alphaTest={0.5}
           depthWrite
           color={tex ? "#ffffff" : color}
-          emissive={accent}
-          emissiveIntensity={emissiveIntensity * 0.5}
+          emissive={tex ? "#ffffff" : color}
+          emissiveMap={tex ?? null}
+          emissiveIntensity={tex ? Math.min(0.35, emissiveIntensity * 0.6) : emissiveIntensity * 0.5}
           roughness={0.7}
           metalness={0.05}
           side={THREE.FrontSide}
         />
+      </mesh>
+
       </mesh>
 
       {/* The door's nameplate: a real navy plaque mounted on the wall just above
