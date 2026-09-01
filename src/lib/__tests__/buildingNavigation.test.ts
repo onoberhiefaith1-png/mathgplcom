@@ -31,7 +31,11 @@ import {
   firstRoadMeeting,
   connectedWalkwayIds,
   openingRevealLayout,
+  hallwayCapacity,
+  remainingObjectSlots,
+  usableRun,
 } from "../building/navigation";
+
 
 import type { BuildingWalkway } from "../building/types";
 
