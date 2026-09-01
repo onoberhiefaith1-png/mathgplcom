@@ -1171,6 +1171,57 @@ export type Database = {
         }
         Relationships: []
       }
+      building_classrooms: {
+        Row: {
+          building_id: string
+          created_at: string
+          door_id: string
+          id: string
+          kind: string
+          name: string
+          position: number
+          surface_overrides: Json
+          updated_at: string
+        }
+        Insert: {
+          building_id: string
+          created_at?: string
+          door_id: string
+          id?: string
+          kind?: string
+          name: string
+          position?: number
+          surface_overrides?: Json
+          updated_at?: string
+        }
+        Update: {
+          building_id?: string
+          created_at?: string
+          door_id?: string
+          id?: string
+          kind?: string
+          name?: string
+          position?: number
+          surface_overrides?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_classrooms_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_classrooms_door_id_fkey"
+            columns: ["door_id"]
+            isOneToOne: true
+            referencedRelation: "building_doors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       building_doors: {
         Row: {
           building_id: string
@@ -1308,6 +1359,7 @@ export type Database = {
           name: string
           parent_id: string | null
           position: number
+          surface_overrides: Json
           updated_at: string
         }
         Insert: {
@@ -1321,6 +1373,7 @@ export type Database = {
           name?: string
           parent_id?: string | null
           position?: number
+          surface_overrides?: Json
           updated_at?: string
         }
         Update: {
@@ -1334,6 +1387,7 @@ export type Database = {
           name?: string
           parent_id?: string | null
           position?: number
+          surface_overrides?: Json
           updated_at?: string
         }
         Relationships: [

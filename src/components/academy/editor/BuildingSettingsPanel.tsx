@@ -17,7 +17,9 @@ import {
   type EnvironmentSettings,
   type SurfaceDesign,
   type SurfaceKey,
+  type SurfaceOverrides,
 } from "@/lib/building/types";
+import { resolveSurfaces } from "@/lib/building/resolve";
 import { SURFACE_PRESET_LIST } from "@/lib/building/presets";
 import { DOOR_STYLES } from "@/lib/building/doors";
 import {
@@ -37,6 +39,16 @@ const SURFACE_TITLES: Record<SurfaceKey, string> = {
   endWall: "Terminal Wall",
   startWall: "Start Point",
 };
+
+/** Every designable surface, in panel order. */
+const SURFACE_ORDER: SurfaceKey[] = [
+  "leftWall",
+  "rightWall",
+  "floor",
+  "roof",
+  "endWall",
+  "startWall",
+];
 
 const Section = ({
   title,
@@ -252,6 +264,17 @@ export interface BuildingSettingsPanelProps {
   ) => Promise<string>;
   /** Resolve a texture path (built-in or stored) to a previewable URL. */
   getTextureUrl: (path: string) => string | undefined;
+  /**
+   * INDIVIDUAL SETTINGS. Every element that can carry its own design — each
+   * hallway, each classroom — is offered here beside "Default Settings". An
+   * element edited in its own scope stores only the fields it overrides, so
+   * every untouched field keeps following the building default.
+   */
+  scopes?: { id: string; label: string; overrides: SurfaceOverrides }[];
+  /** "" means the building's Default Settings. */
+  scopeId?: string;
+  onScopeChange?: (id: string) => void;
+  onSaveOverrides?: (scopeId: string, overrides: SurfaceOverrides) => Promise<void>;
 }
 
 const BuildingSettingsPanel = ({
@@ -261,8 +284,17 @@ const BuildingSettingsPanel = ({
   onSave,
   onUpload,
   getTextureUrl,
+  scopes = [],
+  scopeId = "",
+  onScopeChange,
+  onSaveOverrides,
 }: BuildingSettingsPanelProps) => {
-  const [draft, setDraft] = useState<EnvironmentSettings>(environment);
+  const activeScope = scopes.find((s) => s.id === scopeId) ?? null;
+  /** What this scope currently renders: default, with its own overrides on top. */
+  const scopeEnvironment = activeScope
+    ? resolveSurfaces(environment, activeScope.overrides)
+    : environment;
+  const [draft, setDraft] = useState<EnvironmentSettings>(scopeEnvironment);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState<Record<string, boolean>>({
@@ -276,13 +308,13 @@ const BuildingSettingsPanel = ({
   const [galleryFor, setGalleryFor] = useState<SurfaceKey | null>(null);
   const [uploadFor, setUploadFor] = useState<SurfaceKey | null>(null);
 
-  // Re-sync the draft when the building changes (switcher / reload).
-  const envKey = JSON.stringify(environment);
+  // Re-sync the draft when the building or the edited element changes.
+  const envKey = JSON.stringify(scopeEnvironment);
   useEffect(() => {
-    setDraft(environment);
+    setDraft(scopeEnvironment);
     setDirty(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildingId, envKey]);
+  }, [buildingId, scopeId, envKey]);
 
   const apply = (next: EnvironmentSettings) => {
     setDraft(next);
@@ -572,8 +604,77 @@ const BuildingSettingsPanel = ({
     [draft],
   );
 
+  /** Fields this element overrides, so a reset only clears what was changed. */
+  const overriddenKeys = SURFACE_ORDER.filter(
+    (k) => JSON.stringify(draft[k]) !== JSON.stringify(environment[k]),
+  );
+
+  /** Only the surfaces that differ from the default are stored as overrides. */
+  const overridesFromDraft = (): SurfaceOverrides => {
+    const out: SurfaceOverrides = {};
+    for (const k of overriddenKeys) out[k] = draft[k];
+    return out;
+  };
+
+  const resetSurface = (key: SurfaceKey) => apply({ ...draft, [key]: environment[key] });
+
   return (
     <div className="space-y-2">
+      {scopes.length > 0 && onScopeChange && (
+        <div className="rounded-xl border border-border/70 bg-card p-3">
+          <label className="block text-[11px] font-medium text-muted-foreground">
+            Settings for
+            <select
+              aria-label="Settings scope"
+              value={scopeId}
+              onChange={(e) => onScopeChange(e.target.value)}
+              className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
+            >
+              <option value="">Default Settings (whole building)</option>
+              {scopes.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {activeScope && (
+            <div className="mt-2 space-y-2">
+              <p className="text-[11px] text-muted-foreground">
+                {overriddenKeys.length === 0
+                  ? "This element follows the building's Default Settings. Change any field to give it its own design."
+                  : `Own design for: ${overriddenKeys.map((k) => SURFACE_TITLES[k]).join(", ")}. Every other field still follows the default.`}
+              </p>
+              {overriddenKeys.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {overriddenKeys.map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => resetSurface(k)}
+                      className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-border px-2.5 text-[11px] font-medium text-muted-foreground"
+                    >
+                      <RotateCcw className="h-3 w-3" /> Reset {SURFACE_TITLES[k]}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = { ...draft };
+                      for (const k of overriddenKeys) next[k] = environment[k];
+                      apply(next);
+                    }}
+                    className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-border px-2.5 text-[11px] font-semibold text-foreground"
+                  >
+                    Reset all to default
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {fieldSections.map((s) => (
         <Section key={s.key} title={s.title} open={open[s.key]} onToggle={() => toggle(s.key)}>
           {s.body}
@@ -609,7 +710,8 @@ const BuildingSettingsPanel = ({
         onClick={async () => {
           setSaving(true);
           try {
-            await onSave(draft);
+            if (activeScope && onSaveOverrides) await onSaveOverrides(activeScope.id, overridesFromDraft());
+            else await onSave(draft);
             setDirty(false);
           } catch (e: unknown) {
             alert(String((e as Error)?.message ?? e));

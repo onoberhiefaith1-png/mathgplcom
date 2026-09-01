@@ -50,10 +50,12 @@ import {
 } from "@/lib/academy/types";
 import {
   activateBuilding,
+  addClassroom,
   addDoor,
   addWalkway,
   addWalkwayLink,
   deleteWalkwayLink,
+  deleteClassroom,
   deleteDoor,
   deleteWalkway,
   duplicateBuilding,
@@ -671,6 +673,15 @@ const handleTextureUpload = useCallback(
                         walkways={buildingData.walkways}
                         doors={buildingData.doors}
                         catalogue={catalogue}
+                        classrooms={buildingData.classrooms}
+                        onAddClassroom={async (doorId, kind, name) => {
+                          await addClassroom(buildingData.building.id, doorId, kind, name);
+                          await refreshBuilding();
+                        }}
+                        onDeleteClassroom={async (id) => {
+                          await deleteClassroom(id);
+                          await refreshBuilding();
+                        }}
                         selectedDoorId={selectedDoorId}
                         remainingSlots={remainingSlots}
 

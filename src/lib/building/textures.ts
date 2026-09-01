@@ -7,7 +7,8 @@
  */
 import { getSignedUrls } from "@/lib/games/urls";
 import { builtinTextureUrl, isBuiltinTexturePath } from "./gallery";
-import type { EnvironmentSettings, SurfaceKey } from "./types";
+import { overrideTexturePaths } from "./resolve";
+import type { EnvironmentSettings, SurfaceKey, SurfaceOverrides } from "./types";
 
 export const SURFACE_KEYS: SurfaceKey[] = ["leftWall", "rightWall", "floor", "roof", "endWall", "startWall"];
 
@@ -22,13 +23,18 @@ export const SURFACE_LABEL: Record<SurfaceKey, string> = {
 
 
 /** Collect every STORAGE texture path the environment references (built-ins excluded). */
-export const collectTexturePaths = (env: EnvironmentSettings): string[] => {
+export const collectTexturePaths = (
+  env: EnvironmentSettings,
+  overrides: (SurfaceOverrides | null | undefined)[] = [],
+): string[] => {
   const paths: string[] = [];
   const note = (path: string | undefined) => {
     if (path && !isBuiltinTexturePath(path)) paths.push(path);
   };
   for (const key of SURFACE_KEYS) note(env[key]?.texture?.path);
   note(env.door?.texture?.path);
+  // Individual Settings can carry their own imported panels.
+  for (const o of overrides) for (const p of overrideTexturePaths(o)) note(p);
   return paths;
 };
 
@@ -40,6 +46,7 @@ export const collectTexturePaths = (env: EnvironmentSettings): string[] => {
  */
 export const resolveEnvironmentTextures = async (
   env: EnvironmentSettings,
+  overrides: (SurfaceOverrides | null | undefined)[] = [],
 ): Promise<Record<string, string>> => {
   const out: Record<string, string> = {};
   const note = (path: string | undefined) => {
@@ -54,6 +61,7 @@ export const resolveEnvironmentTextures = async (
   const storagePaths: string[] = [];
   for (const key of SURFACE_KEYS) note(env[key]?.texture?.path);
   note(env.door?.texture?.path);
+  for (const o of overrides) for (const p of overrideTexturePaths(o)) note(p);
   if (storagePaths.length > 0) {
     const resolved = await getSignedUrls(storagePaths);
     Object.assign(out, resolved);

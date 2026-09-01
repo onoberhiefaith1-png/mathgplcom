@@ -10,15 +10,18 @@
  * the destination that opens an existing product (never duplicated).
  */
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronRight, DoorOpen, Link2, Plus, Route, Trash2, Wand2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, DoorOpen, GraduationCap, Link2, Plus, Route, Trash2, Wand2 } from "lucide-react";
 import type {
+  BuildingClassroom,
+  ClassroomKind,
   BuildingDoor,
   BuildingWalkway,
   BuildingWalkwayLink,
   DoorContentKind,
   WalkwayDirection,
 } from "@/lib/building/types";
-import { DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
+import { CLASSROOM_KIND_LABEL, DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
+import { CLASSROOM_KIND_BLURB } from "@/lib/building/classroom";
 import { doorTitle } from "@/lib/building/api";
 import { nextBranchDirection, nextObjectOffset } from "@/lib/building/navigation";
 import { DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
@@ -75,6 +78,14 @@ export interface WalkwayManagerProps {
    */
   remainingSlots?: Record<string, number>;
 
+  /** Classrooms that already exist, one per door. */
+  classrooms?: BuildingClassroom[];
+  /**
+   * Create a classroom BEHIND an existing door. The door is the entry point, so
+   * no second door is ever created for a classroom.
+   */
+  onAddClassroom?: (doorId: string, kind: ClassroomKind, name: string) => Promise<void>;
+  onDeleteClassroom?: (id: string) => Promise<void>;
 }
 
 /**
@@ -105,10 +116,19 @@ const WalkwayManager = ({
   onBuildSampleMaze,
   selectedDoorId = null,
   remainingSlots = {},
-
+  classrooms = [],
+  onAddClassroom,
+  onDeleteClassroom,
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
-  const [form, setForm] = useState<"hallway" | "door" | "link" | null>(null);
+  const [form, setForm] = useState<"hallway" | "door" | "link" | "classroom" | null>(null);
+
+  // Add Classroom wizard: type → existing door → name. One step at a time, so
+  // nothing is created until the whole chain has been chosen.
+  const [roomStep, setRoomStep] = useState<"kind" | "door" | "name">("kind");
+  const [roomKind, setRoomKind] = useState<ClassroomKind>("classroom");
+  const [roomDoorId, setRoomDoorId] = useState("");
+  const [roomName, setRoomName] = useState("");
 
   // Connect Hallways form state
   const [linkFrom, setLinkFrom] = useState("");
@@ -453,6 +473,24 @@ const WalkwayManager = ({
         >
           <Plus className="h-3.5 w-3.5" /> Add Door
         </button>
+        {onAddClassroom && (
+          <button
+            type="button"
+            onClick={() => {
+              if (form === "classroom") return setForm(null);
+              setRoomStep("kind");
+              setRoomKind("classroom");
+              setRoomDoorId("");
+              setRoomName("");
+              setFormError("");
+              setForm("classroom");
+            }}
+            disabled={doors.length === 0}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-violet-500/40 px-3 text-xs font-semibold text-violet-400 disabled:opacity-40"
+          >
+            <GraduationCap className="h-3.5 w-3.5" /> Add Classroom
+          </button>
+        )}
         {onAddLink && (
           <button
             type="button"
@@ -488,6 +526,157 @@ const WalkwayManager = ({
         )}
       </div>
 
+
+      {form === "classroom" && onAddClassroom && (
+        <div className="rounded-xl border border-border bg-card p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Add classroom
+          </p>
+
+          {/* STEP 1 — the professional type. */}
+          {roomStep === "kind" && (
+            <div className="mt-2 space-y-1.5">
+              <p className="text-[11px] text-muted-foreground">Select classroom type</p>
+              {(["classroom", "teaching_hall", "auditorium"] as ClassroomKind[]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setRoomKind(k);
+                    setRoomStep("door");
+                  }}
+                  className="block w-full rounded-lg border border-border bg-background p-2.5 text-left hover:border-violet-500/50"
+                >
+                  <span className="block text-sm font-semibold text-foreground">
+                    {CLASSROOM_KIND_LABEL[k]}
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    {CLASSROOM_KIND_BLURB[k]}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* STEP 2 — which EXISTING door it opens from. No door is created. */}
+          {roomStep === "door" && (
+            <div className="mt-2 space-y-1.5">
+              <p className="text-[11px] text-muted-foreground">
+                Select the door for this {CLASSROOM_KIND_LABEL[roomKind].toLowerCase()}
+              </p>
+              {doors.filter((d) => !classrooms.some((c) => c.door_id === d.id)).length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">
+                  Every door already has a classroom. Add a door first.
+                </p>
+              ) : (
+                doors
+                  .filter((d) => !classrooms.some((c) => c.door_id === d.id))
+                  .map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => {
+                        setRoomDoorId(d.id);
+                        setRoomStep("name");
+                      }}
+                      className="block w-full rounded-lg border border-border bg-background p-2.5 text-left text-sm text-foreground hover:border-violet-500/50"
+                    >
+                      {doorTitle(d, titles)}
+                      <span className="block text-[11px] text-muted-foreground">
+                        {walkways.find((w) => w.id === d.walkway_id)?.name ?? "Hallway"}
+                      </span>
+                    </button>
+                  ))
+              )}
+            </div>
+          )}
+
+          {/* STEP 3 — the required name. */}
+          {roomStep === "name" && (
+            <label className="mt-2 block text-[11px] text-muted-foreground">
+              Classroom name
+              <input
+                aria-label="Classroom name"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                placeholder="JSS1 Mathematics"
+                className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
+              />
+            </label>
+          )}
+
+          {formError && (
+            <p className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
+              {formError}
+            </p>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            {roomStep === "name" && (
+              <button
+                type="button"
+                disabled={busy || roomName.trim().length === 0}
+                onClick={async () => {
+                  setBusy(true);
+                  setFormError("");
+                  try {
+                    await onAddClassroom(roomDoorId, roomKind, roomName.trim());
+                    setForm(null);
+                  } catch (e) {
+                    setFormError(e instanceof Error ? e.message : "Could not create the classroom.");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+              >
+                {busy ? "Creating…" : "Create Classroom"}
+              </button>
+            )}
+            {roomStep !== "kind" && (
+              <button
+                type="button"
+                onClick={() => setRoomStep(roomStep === "name" ? "door" : "kind")}
+                className="min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
+              >
+                Back
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setForm(null)}
+              className="min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+
+          {classrooms.length > 0 && (
+            <div className="mt-3 space-y-1 border-t border-border pt-2">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Classrooms</p>
+              {classrooms.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-2 text-xs text-foreground">
+                  <span>
+                    {c.name}
+                    <span className="ml-1 text-[11px] text-muted-foreground">
+                      {CLASSROOM_KIND_LABEL[c.kind]}
+                    </span>
+                  </span>
+                  {onDeleteClassroom && (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${c.name}`}
+                      onClick={() => onDeleteClassroom(c.id)}
+                      className="rounded p-2 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {form === "hallway" && (
         <div className="rounded-xl border border-border bg-card p-3">

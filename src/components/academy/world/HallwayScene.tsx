@@ -25,6 +25,7 @@ import type { AcademyRoom, AcademyProduct } from "@/lib/academy/types";
 import { mergeEnvironment, lightBudget, DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
 import { DEFAULT_ENVIRONMENT, DIRECTION_LABEL, DOOR_KIND_LABEL } from "@/lib/building/types";
 import type {
+  BuildingClassroom,
   BuildingData,
   BuildingDoor,
   BuildingWalkway,
@@ -34,7 +35,7 @@ import type {
 import { doorTitle } from "@/lib/building/api";
 import { doorStyle } from "@/lib/building/doors";
 import { presetMaterial } from "@/lib/building/presets";
-import { coverFit } from "@/lib/building/imageFit";
+
 import {
   branchHeading,
   connectorEndDistances,
@@ -489,196 +490,10 @@ const findSegment = (segs: Segment[], id: string): Segment | null => {
   return null;
 };
 
-// ── Surface texture loading ───────────────────────────────────────────────
-// Each surface owns its own texture instance so it can fit/tile independently
-// without disturbing another surface that shows the same image. Decoded images
-// are cached by the browser, so loading the same URL twice is cheap.
+import { Surface, useLoadedTexture } from "./surface";
+import ClassroomShell, { classroomEntryPose } from "./ClassroomShell";
+import { resolveSurfaces } from "@/lib/building/resolve";
 
-/**
- * Textures are cached per URL for the lifetime of the page and never disposed
- * while the scene is alive: a component unmount (or React's double-invoked
- * effects) must not pull the image out from under another surface or door that
- * shows the same design.
- */
-const textureCache = new Map<string, Promise<THREE.Texture | null>>();
-
-const loadTexture = (url: string): Promise<THREE.Texture | null> => {
-  const hit = textureCache.get(url);
-  if (hit) return hit;
-  const p = new Promise<THREE.Texture | null>((resolve) => {
-    new THREE.TextureLoader().load(
-      url,
-      (t) => {
-        t.anisotropy = 4;
-        t.colorSpace = THREE.SRGBColorSpace;
-        t.needsUpdate = true;
-        resolve(t);
-      },
-      undefined,
-      () => resolve(null),
-    );
-  });
-  textureCache.set(url, p);
-  return p;
-};
-
-/**
- * Every surface gets its OWN texture instance (a clone sharing the decoded
- * image). Two walls showing the same image therefore cannot fight over one
- * object's fit / zoom / position, which is what made an edit appear to land on
- * the wrong wall or not at all until the scene re-rendered.
- */
-const useLoadedTexture = (url: string | null | undefined): THREE.Texture | null => {
-  const [tex, setTex] = useState<THREE.Texture | null>(null);
-  useEffect(() => {
-    if (!url) {
-      setTex(null);
-      return;
-    }
-    let live = true;
-    loadTexture(url).then((t) => {
-      if (!live) return;
-      if (!t) {
-        setTex(null);
-        return;
-      }
-      const own = t.clone();
-      own.colorSpace = THREE.SRGBColorSpace;
-      own.anisotropy = 4;
-      own.needsUpdate = true;
-      setTex(own);
-    });
-    return () => {
-      live = false;
-    };
-  }, [url]);
-  return tex;
-};
-
-/** Grey value for a faithful (unlit) textured surface: 1 = exactly as imported. */
-const brightnessColor = (brightness: number): string => {
-  const v = Math.min(2, Math.max(0.2, Number.isFinite(brightness) ? brightness : 1));
-  const c = new THREE.Color(1, 1, 1).multiplyScalar(Math.min(1, v));
-  return `#${c.getHexString()}`;
-};
-
-/** One surface (wall / floor / roof) of a corridor segment. */
-const Surface = ({
-  url,
-  presetKey,
-  color,
-  scale,
-  offsetX,
-  offsetY,
-  repeat,
-  fit,
-  brightness = 1,
-  planeW,
-  planeH,
-  position,
-  "rotation-x": rotationX,
-  "rotation-y": rotationY,
-  castShadow,
-  receiveShadow,
-  facing = THREE.DoubleSide,
-children,
-}: {
-  url?: string | null;
-  presetKey: string;
-  color?: string;
-  scale: number;
-  offsetX: number;
-  offsetY: number;
-  repeat: boolean;
-  fit: "cover" | "stretch";
-  /** 0.2 – 2, 1 = exactly as imported. Only affects textured surfaces. */
-  brightness?: number;
-  planeW: number;
-  planeH: number;
-  position?: [number, number, number];
-  "rotation-x"?: number;
-  "rotation-y"?: number;
-  castShadow?: boolean;
-  receiveShadow?: boolean;
-  /**
-   * Which face of the surface is drawn. Corridor surfaces pass FrontSide with
-   * their normal pointing INTO the hallway, so a corridor is only ever seen
-   * from the inside: looking through a junction mouth shows the far hallway's
-   * wallpaper, floor and ceiling instead of the unlit back of its shell.
-   */
-  facing?: THREE.Side;
-children?: React.ReactNode;
-}) => {
-  const tex = useLoadedTexture(url);
-  const mat = presetMaterial(presetKey, color);
-  const map = tex ?? null;
-  // Fit the texture to the plane. Runs when the texture or its placement
-  // changes — never during render. The material is flagged so the new
-  // placement is visible immediately, without waiting for anything else to
-  // change in the scene.
-  const matRef = useRef<THREE.Material | null>(null);
-  useEffect(() => {
-    if (!tex) return;
-    const img = tex.image as { width?: number; height?: number } | undefined;
-    const iw = img?.width ?? planeW;
-    const ih = img?.height ?? planeH;
-    if (repeat) {
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      const s = Math.max(0.1, scale);
-      tex.repeat.set(s, s);
-      tex.offset.set(offsetX, offsetY);
-    } else {
-      tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-      if (fit === "stretch") {
-        tex.repeat.set(1, 1);
-        tex.offset.set(0, 0);
-      } else {
-        const fitted = coverFit(planeW, planeH, iw, ih, scale, offsetX, offsetY);
-        tex.repeat.set(fitted.repeat[0], fitted.repeat[1]);
-        tex.offset.set(fitted.offset[0], fitted.offset[1]);
-      }
-    }
-    tex.needsUpdate = true;
-    if (matRef.current) matRef.current.needsUpdate = true;
-  }, [tex, repeat, fit, scale, offsetX, offsetY, planeW, planeH, brightness]);
-return (
-    <mesh
-      position={position}
-      rotation-x={rotationX}
-      rotation-y={rotationY}
-      castShadow={castShadow}
-      receiveShadow={receiveShadow}
-    >
-      {children}
-      <meshStandardMaterial
-        color={mat.color}
-        roughness={mat.roughness}
-        metalness={mat.metalness}
-        emissive={mat.emissive ?? "#000000"}
-        emissiveIntensity={mat.emissiveIntensity ?? 0}
-        side={facing}
-      />
-      {map && (
-        // An imported image is artwork fitted ON the surface, not plaster: it
-        // sits just in front of the painted plane, is rendered unlit and
-        // outside tone mapping, so it looks exactly like the source file in
-        // every hallway whatever the corridor lighting is doing. Transparent
-        // areas of the image simply reveal the surface colour behind it.
-        <mesh position={[0, 0, 0.012]}>
-          {children}
-          <meshBasicMaterial
-            ref={matRef as never}
-            color={brightnessColor(brightness)}
-            map={map}
-            transparent
-            toneMapped={false}
-            side={facing}
-          />
-        </mesh>
-      )}
-    </mesh>
-  );
-};
 
 // ── Corridor pieces ───────────────────────────────────────────────────────
 
@@ -1651,7 +1466,7 @@ const shortestYaw = (current: number, target: number, k: number): number => {
   return current + delta * k;
 };
 
-export type NavPhase = "browse" | "walking" | "turning" | "zooming" | "idle";
+export type NavPhase = "browse" | "walking" | "turning" | "zooming" | "idle" | "inside";
 
 interface TurnSpec {
   pivot: [number, number];
@@ -1702,6 +1517,11 @@ interface Machine {
   yaw: number;
   turn: TurnSpec | null;
   zoom: ZoomSpec | null;
+  /**
+   * Standing INSIDE a classroom shell. The walker's hallway position is left
+   * untouched, so leaving the room continues the walk exactly where it stopped.
+   */
+  inside: { position: [number, number, number]; look: [number, number, number] } | null;
 }
 
 
@@ -1820,6 +1640,20 @@ if (st.phase === "walking" || st.phase === "idle") {
         st.turn = null;
         t.onDone();
       }
+      return;
+    }
+
+    if (st.phase === "inside") {
+      const room = st.inside;
+      if (!room) {
+        setPhase("idle");
+        st.phase = "idle";
+        return;
+      }
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, room.position[0], k);
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, room.position[1], k);
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, room.position[2], k);
+      camera.lookAt(room.look[0], room.look[1], room.look[2]);
       return;
     }
 
@@ -2417,6 +2251,10 @@ const HallwayScene = ({
   const [phase, setPhase] = useState<NavPhase>("browse");
   const [nav, setNav] = useState<NavState>({ seg: rootEffective, mode: "browse" });
   const [moving, setMoving] = useState(false);
+  /** The classroom the walker is standing in, with where its shell sits. */
+  const [insideRoom, setInsideRoom] = useState<
+    { room: BuildingClassroom; door: [number, number]; into: [number, number] } | null
+  >(null);
   const [facing, setFacing] = useState<1 | -1>(1);
   const [endReached, setEndReached] = useState(false);
   /** Everything enterable ahead of the walker, nearest first. */
@@ -2440,6 +2278,7 @@ const HallwayScene = ({
     yaw: 0,
     turn: null,
     zoom: null,
+    inside: null,
   });
   const historyRef = useRef(new NavigationHistory());
   const cueTimer = useRef<number | null>(null);
@@ -2820,6 +2659,31 @@ const HallwayScene = ({
   );
 
   /**
+   * ENTER A CLASSROOM. The shell is a real space beyond its door, so entering it
+   * is camera navigation inside the same scene — never a page swap. The hallway
+   * position is preserved, so leaving resumes the walk exactly where it stopped.
+   */
+  const enterClassroom = useCallback(
+    (doorWorld: [number, number], into: [number, number], room: BuildingClassroom) => {
+      const st = machineRef.current;
+      const pose = classroomEntryPose(doorWorld, into, room.kind);
+      st.inside = pose;
+      st.moving = false;
+      setMoving(false);
+      setInsideRoom({ room, door: doorWorld, into });
+      setMachinePhase("inside");
+    },
+    [setMachinePhase],
+  );
+
+  const leaveClassroom = useCallback(() => {
+    const st = machineRef.current;
+    st.inside = null;
+    setInsideRoom(null);
+    setMachinePhase("idle");
+  }, [setMachinePhase]);
+
+  /**
    * Turn round on the spot. The walker keeps their exact position on the road —
    * only the facing flips — so they can then hold Forward (or ▼) to retrace the
    * way they came, hallway after hallway, with no scripted animation.
@@ -3110,6 +2974,26 @@ const HallwayScene = ({
     return map;
   }, [doors]);
 
+  /**
+   * INDIVIDUAL SETTINGS. Each hallway renders the building's Default Settings
+   * unless its owner customised it, so changing a default still updates every
+   * element that is still inheriting.
+   */
+  const envForWalkway = useCallback(
+    (walkwayId: string | null | undefined): EnvironmentSettings => {
+      const w = walkways.find((x) => x.id === walkwayId);
+      return resolveSurfaces(env, w?.surface_overrides);
+    },
+    [walkways, env],
+  );
+
+  /** Classroom shells, keyed by the door they hang off. */
+  const classroomsByDoor = useMemo(() => {
+    const map = new Map<string, BuildingClassroom>();
+    for (const c of building?.classrooms ?? []) map.set(c.door_id, c);
+    return map;
+  }, [building]);
+
   /** The hallway you are in, plus every corridor sharing a physical mouth. */
   const nearbyIds = useMemo(() => {
     const currentId = nav.seg.walkway?.id ?? "root";
@@ -3219,7 +3103,15 @@ const HallwayScene = ({
                   ? textures[env.door.texture.path]
                   : undefined
             }
-            onEnter={() => startDoorZoom([wx, wz], front, () => onOpenDoor(d))}
+            onEnter={() => {
+              const room = classroomsByDoor.get(d.id);
+              if (room) {
+                const into: [number, number] = [-front[0], -front[1]];
+                startDoorZoom([wx, wz], front, () => enterClassroom([wx, wz], into, room));
+                return;
+              }
+              startDoorZoom([wx, wz], front, () => onOpenDoor(d));
+            }}
           />
         </group>
       );
@@ -3348,6 +3240,19 @@ const HallwayScene = ({
 
 
 
+        {/* The classroom shell — a real space beyond its door, mounted only while
+            you are inside it so its walls never read through the corridor. */}
+        {insideRoom && (
+          <ClassroomShell
+            door={insideRoom.door}
+            heading={insideRoom.into}
+            kind={insideRoom.room.kind}
+            name={insideRoom.room.name}
+            env={resolveSurfaces(env, insideRoom.room.surface_overrides)}
+            textures={textures}
+          />
+        )}
+
         <CameraRig
           focus={focus}
           rooms={rooms}
@@ -3405,7 +3310,7 @@ const HallwayScene = ({
               start={seg.start}
               yaw={segYaw(seg.heading)}
               length={seg.length}
-              env={env}
+              env={envForWalkway(seg.walkway?.id)}
               textures={textures}
               gaps={gaps}
               startTrim={
@@ -3472,7 +3377,23 @@ const HallwayScene = ({
       </Canvas>}
 
       {/* Navigation HUD */}
-      {inWalk && (
+      {/* Inside a classroom: the corridor controls step aside for one way out. */}
+      {insideRoom && (
+        <>
+          <div className="pointer-events-none absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs font-semibold text-foreground backdrop-blur">
+            {insideRoom.room.name}
+          </div>
+          <button
+            type="button"
+            onClick={leaveClassroom}
+            className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 rounded-full border border-border/60 bg-background/85 px-6 py-3 text-sm font-semibold text-foreground shadow-lg backdrop-blur transition hover:bg-background"
+          >
+            Leave classroom
+          </button>
+        </>
+      )}
+
+      {inWalk && !insideRoom && (
         <>
           <div className="pointer-events-none absolute left-3 top-16 z-10 flex max-w-[60vw] items-center gap-1.5 overflow-hidden rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-[11px] text-muted-foreground backdrop-blur">
             {trail.map((b, i) => (
@@ -3491,7 +3412,7 @@ const HallwayScene = ({
         </>
       )}
 
-      <WalkControls
+      {!insideRoom && <WalkControls
         action={junctionAction}
         moving={moving}
         ended={endReached}
@@ -3499,7 +3420,7 @@ const HallwayScene = ({
         onForwardEnd={endPointerHold}
         onTurnAround={goBack}
         onJunction={runJunctionAction}
-      />
+      />}
 
 
       {/* Fixed structural map — always on, top-right, like a racing minimap */}

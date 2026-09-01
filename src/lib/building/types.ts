@@ -118,7 +118,9 @@ export interface BuildingWalkway {
 
   length: number;
   position: number;
-  created_at: string;
+  /** Individual Settings for this hallway; empty means "inherit the default". */
+  surface_overrides?: SurfaceOverrides;
+  created_at: string
   updated_at: string;
 }
 
@@ -160,10 +162,46 @@ export interface BuildingWalkwayLink {
   updated_at: string;
 }
 
+/**
+ * INDIVIDUAL SETTINGS — a per-element override of the building's Default
+ * Settings. Only the surfaces the owner actually customised are stored, and
+ * only the fields they changed: everything else keeps inheriting the default,
+ * so changing a default still updates this element.
+ */
+export type SurfaceOverrides = Partial<Record<SurfaceKey, Partial<SurfaceDesign>>>;
+
+/** The three professional classroom structures. */
+export type ClassroomKind = "classroom" | "teaching_hall" | "auditorium";
+
+export const CLASSROOM_KIND_LABEL: Record<ClassroomKind, string> = {
+  classroom: "Classroom",
+  teaching_hall: "Teaching Hall",
+  auditorium: "Auditorium",
+};
+
+/**
+ * A CLASSROOM SHELL. Structure is Hallway -> Door -> Classroom: a classroom is
+ * its own spatial structure attached to an existing door (never part of the
+ * hallway geometry, and it never creates a door of its own).
+ */
+export interface BuildingClassroom {
+  id: string;
+  building_id: string;
+  door_id: string;
+  name: string;
+  kind: ClassroomKind;
+  surface_overrides: SurfaceOverrides;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BuildingData {
   building: Building;
   walkways: BuildingWalkway[];
   doors: BuildingDoor[];
+  /** classroom shells, one per door at most */
+  classrooms: BuildingClassroom[];
   /** hallway-to-hallway connections (loops) */
   links: BuildingWalkwayLink[];
   canEdit: boolean;
