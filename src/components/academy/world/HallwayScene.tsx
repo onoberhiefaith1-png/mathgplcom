@@ -132,6 +132,8 @@ interface HallwayLayout {
   mouths: Map<string, MergeMouth>;
 }
 
+const MIN_RENDERABLE_CORRIDOR = 0.5;
+
 /** A straight junction opening cut where one hallway arrives at another. */
 export interface MergeMouth {
   /** width of the hole along the wall it is cut in */
@@ -399,9 +401,11 @@ const buildHallways = (
       }));
 
   // Shallow roads win: a hallway nearer the entrance is the established one, and
-  // the newer road arriving at it is the one that stops. Trimming one road can
-  // bring another within reach, so the solver settles over a few passes.
-  for (let pass = 0; pass < 3; pass += 1) {
+  // the newer road arriving at it is the one that stops. A trim can expose a
+  // later collision, so iterate to stability. The graph-sized bound prevents a
+  // malformed layout from looping forever without assuming three passes suffice.
+  const settleLimit = Math.max(1, segments.length * segments.length);
+  for (let pass = 0; pass < settleLimit; pass += 1) {
     let merged = false;
     for (const seg of [...segments].sort((a, b) => a.depth - b.depth)) {
       const w = seg.walkway;
@@ -434,7 +438,7 @@ const buildHallways = (
     connectors.get(a.walkway?.id ?? "")?.targetWalkwayId === b.walkway?.id ||
     connectors.get(b.walkway?.id ?? "")?.targetWalkwayId === a.walkway?.id;
 
-  for (let pass = 0; pass < 3; pass += 1) {
+  for (let pass = 0; pass < settleLimit; pass += 1) {
     let cut = false;
     const ordered = [...segments].filter((s) => s.walkway).sort((a, b) => a.depth - b.depth);
     for (let i = 0; i < ordered.length; i += 1) {
@@ -720,23 +724,16 @@ const SegmentCorridor = ({
   /** Name of this hallway's ENDPOINT, shown on the capped far wall. */
   endName?: string;
 }) => {
-  // A branch hallway starts AT the cut in its parent's wall, so its WALLS must
-  // not run backwards past that cut and cover the opening. Its floor and
-  // ceiling, however, must run all the way back into the junction throat —
-  // otherwise the branch reads as a dark void behind the opening instead of a
-  // corridor you can see down.
+  // A branch hallway starts AT the cut in its parent's wall. Its shell starts at
+  // the far edge of the dedicated throat mesh; it must never extend backwards
+  // beneath the parent's deck or three coplanar surfaces occupy the junction.
   const backPad = capStart ? 3 : -startTrim;
   const span = length + frontPad + backPad;
   /** Local z of the wall runs' centre inside the group offset by -length / 2. */
   const shellZ = length / 2 - (length + frontPad - backPad) / 2;
-  /**
-   * Floor/ceiling reach back past the mouth so a BRANCH's throat is continuous.
-   * A hallway that simply continues forward starts its slabs exactly where its
-   * parent's stop, so the two never overlap and never flicker.
-   */
-  const deckBack = capStart ? 3 : startTrim > 0 ? startTrim + 1.5 : 0;
+  const deckStart = capStart ? -3 : startTrim;
   /** The deck, minus every crossing another corridor's slab carries through. */
-  const deckSpans = wallRuns(-deckBack, length + frontPad, deckHoles);
+  const deckSpans = wallRuns(deckStart, length + frontPad, deckHoles);
 
   return (
   <group position={[start[0], 0, start[1]]} rotation-y={yaw}>
@@ -1292,39 +1289,6 @@ const PlanTriangle = ({
   );
 };
 
-/** A blockwork wall run between two plan points, with real thickness. */
-const PlanWall = ({
-  a,
-  b,
-  height,
-  color,
-  thickness = WALL_THICKNESS,
-  y = 0,
-}: {
-  a: [number, number];
-  b: [number, number];
-  height: number;
-  color: string;
-  thickness?: number;
-  y?: number;
-}) => {
-  const dx = b[0] - a[0];
-  const dz = b[1] - a[1];
-  const len = Math.hypot(dx, dz);
-  if (len < 0.01) return null;
-  return (
-    <mesh
-      position={[(a[0] + b[0]) / 2, y + height / 2, (a[1] + b[1]) / 2]}
-      rotation-y={Math.atan2(-dz, dx)}
-      castShadow
-      receiveShadow
-    >
-      <boxGeometry args={[len, height, thickness]} />
-      <meshStandardMaterial color={color} roughness={0.92} metalness={0.04} />
-    </mesh>
-  );
-};
-
 /**
  * THE HALLWAY JUNCTION — where two real corridor VOLUMES meet at 60°.
  *
@@ -1373,15 +1337,11 @@ const BranchOpening = ({
 
   return (
     <group position={[0, 0, -along]}>
-      {/* Continuous floor and ceiling through the intersection throat */}
-      {/* Throat floor/ceiling sit clear of every corridor slab depth, so the
-          cut deck edges meet them flush instead of fighting for the plane. */}
-      <PlanTriangle pts={[near, far, corner]} y={0.032} color={floorColor} roughness={0.85} />
-      <PlanTriangle pts={[near, far, corner]} y={HALL_HEIGHT - 0.032} color={roofColor} up={false} />
-
-      {/* The branch's upstream wall returning out into the branch — the piece
-          that makes the intersection read as walls meeting, not panels. */}
-      <PlanWall a={near} b={corner} height={HALL_HEIGHT} color={accent} />
+      {/* This triangle alone owns the throat between the parent's side edge and
+          the branch shell. The parent owns its interior and the branch deck now
+          starts at `branchTrim`, so these faces meet only along shared edges. */}
+      <PlanTriangle pts={[near, far, corner]} y={0} color={floorColor} roughness={0.85} />
+      <PlanTriangle pts={[near, far, corner]} y={HALL_HEIGHT} color={roofColor} up={false} />
 
       {/* Jamb blocks: the blockwork thickness shown at both cut edges */}
       {[
@@ -1494,23 +1454,25 @@ const MergeOpening = ({
   const geo = junctionGeometry(HALL_WIDTH);
   const openH = HALL_HEIGHT - geo.soffit;
   const wallX = side * (HALL_WIDTH / 2);
-  /** Reveal depth: the wall's own thickness plus a little, so the throat reads. */
-  const reveal = WALL_THICKNESS + 0.5;
+  // The target deck ends on the wall centre-line and the arriving deck stops at
+  // the wall's outside face. This half-wall reveal is the sole surface between.
+  const reveal = WALL_THICKNESS / 2;
 
   return (
     <group position={[0, 0, -along]}>
-      {/* Floor + ceiling patch through the wall thickness, so the opening never
-          shows a dark gap between this hallway's slab and the arriving one's. */}
+      {/* Floor + ceiling through the wall thickness. Plane dimensions are
+          [across-wall depth, along-wall span]; reversing these axes used to lay
+          a large coplanar rectangle over the target deck and caused flicker. */}
       <mesh
         rotation-x={-Math.PI / 2}
-        position={[wallX + (side * reveal) / 2, 0.028, 0]}
+        position={[wallX + (side * reveal) / 2, 0, 0]}
         receiveShadow
       >
-        <planeGeometry args={[span, reveal]} />
+        <planeGeometry args={[reveal, span]} />
         <meshStandardMaterial color={floorColor} roughness={0.86} />
       </mesh>
-      <mesh rotation-x={Math.PI / 2} position={[wallX + (side * reveal) / 2, HALL_HEIGHT - 0.028, 0]}>
-        <planeGeometry args={[span, reveal]} />
+      <mesh rotation-x={Math.PI / 2} position={[wallX + (side * reveal) / 2, HALL_HEIGHT, 0]}>
+        <planeGeometry args={[reveal, span]} />
         <meshStandardMaterial color={roofColor} roughness={0.92} />
       </mesh>
 
@@ -2326,6 +2288,7 @@ const HallwayScene = ({
   onExitBuilding,
   navigateTo = null,
 }: HallwaySceneProps) => {
+  const [eventSource, setEventSource] = useState<HTMLDivElement | null>(null);
   // Saved configuration is the source of truth: merge it field-by-field over
   // the defaults so a partial/legacy record never loses its custom materials.
   const env = useMemo(
@@ -3117,6 +3080,7 @@ const HallwayScene = ({
   /** Doors and sub-hallway openings of one hallway, from the shared layout. */
   const renderObjects = (seg: Segment) => {
     if (!seg.walkway) return null;
+    if (connectors.has(seg.walkway.id) && seg.length < MIN_RENDERABLE_CORRIDOR) return null;
     const objs = layouts.get(seg.walkway.id) ?? [];
     const yaw = segYaw(seg.heading);
     const cy = Math.cos(yaw);
@@ -3221,6 +3185,7 @@ const HallwayScene = ({
 
   return (
     <div
+      ref={setEventSource}
       className="absolute inset-0"
       onPointerDown={(e) => (dragStart.current = e.clientX)}
       onPointerUp={(e) => {
@@ -3233,7 +3198,8 @@ const HallwayScene = ({
         );
       }}
     >
-      <Canvas
+      {eventSource && <Canvas
+        eventSource={eventSource}
         shadows
         camera={{ position: [0, 1.7, 6.5], fov: 62 }}
         dpr={[1, 2]}
@@ -3296,6 +3262,9 @@ const HallwayScene = ({
 {/* Enclosed hallways — each finite, named, walled at its far end. Only the
     connected hallways are signposted, so far-away names never read through walls. */}
         {segments.map((seg) => {
+          // A sub-half-metre merge is only a junction throat, not a corridor.
+          // Rendering a complete shell here puts its walls across the target road.
+          if (connectors.has(seg.walkway?.id ?? "") && seg.length < MIN_RENDERABLE_CORRIDOR) return null;
           const near = nearbyIds.has(seg.walkway?.id ?? "root");
           // Every junction on this hallway removes a run of its wall, so the
           // connected hallway is seen through a real cut, not a flat plane. A
@@ -3405,7 +3374,7 @@ const HallwayScene = ({
           })()}
 
 
-      </Canvas>
+      </Canvas>}
 
       {/* Navigation HUD */}
       {inWalk && (
