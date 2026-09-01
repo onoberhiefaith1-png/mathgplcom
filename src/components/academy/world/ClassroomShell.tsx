@@ -225,8 +225,7 @@ const ClassroomShell = ({
           <meshStandardMaterial color="#3a5786" roughness={0.4} metalness={0.35} />
         </mesh>
         <Text
-          position={[0, 0, -0.06]}
-          rotation-y={Math.PI}
+          position={[0, 0, 0.06]}
           fontSize={0.3}
           maxWidth={Math.min(width * 0.55, 4)}
           color="#ffffff"
