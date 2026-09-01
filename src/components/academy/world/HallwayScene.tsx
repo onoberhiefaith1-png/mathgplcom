@@ -1043,20 +1043,22 @@ const DoorMesh = ({
   const leafH = DOOR_HEIGHT;
   const leafW = Math.min(3.0, leafH * ratio);
 
-  const leaf = useRef<THREE.MeshStandardMaterial>(null);
-  const frame = useRef<THREE.MeshStandardMaterial>(null);
+  // The FRAME and the DOOR PANEL are independent layers. Hover feedback lives
+  // on the frame only — the panel must always show the imported door artwork
+  // with its own colour, glass and lighting, never a frame-coloured wash.
+  const frames = useRef<THREE.MeshStandardMaterial[]>([]);
+  const addFrame = (m: THREE.MeshStandardMaterial | null) => {
+    if (m && !frames.current.includes(m)) frames.current.push(m);
+  };
   const [hovered, setHovered] = useState(false);
   useFrame((_, delta) => {
     const k = 1 - Math.exp(-8 * Math.min(delta, 0.05));
-    const target = hovered ? Math.max(0.35, emissiveIntensity * 4) : emissiveIntensity * 0.5;
-    if (leaf.current) {
-      leaf.current.emissiveIntensity = THREE.MathUtils.lerp(leaf.current.emissiveIntensity, target, k);
-    }
-    if (frame.current) {
-      const ft = hovered ? 0.9 : 0;
-      frame.current.emissiveIntensity = THREE.MathUtils.lerp(frame.current.emissiveIntensity ?? 0, ft, k);
+    const ft = hovered ? 0.9 : 0;
+    for (const m of frames.current) {
+      m.emissiveIntensity = THREE.MathUtils.lerp(m.emissiveIntensity ?? 0, ft, k);
     }
   });
+
 
   const jambW = 0.16;
   const openW = leafW + jambW * 2;
