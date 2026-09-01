@@ -611,6 +611,45 @@ export const MIN_OBJECT_SPACING = 2.4;
  */
 export const JUNCTION_CLEAR = 4.5;
 
+/** The run of a hallway of `length` that objects may actually occupy. */
+export function usableRun(
+  length: number,
+  spacing = OBJECT_SPACING,
+  clear = JUNCTION_CLEAR,
+): number {
+  return Math.max(0, length - Math.max(clear, spacing * 0.5));
+}
+
+/**
+ * HOW MANY OBJECTS A HALLWAY CAN CARRY.
+ *
+ * A hallway that ends at a junction cannot grow, so its wall run is finite:
+ * objects sit at `MIN_OBJECT_SPACING` at the very tightest, inside the run
+ * before the junction clearance. This is the single capacity figure the editor
+ * and the renderer share, so a door is never offered a hallway with no wall
+ * left for it — and never ends up standing in the road.
+ */
+export function hallwayCapacity(
+  length: number,
+  spacing = OBJECT_SPACING,
+  clear = JUNCTION_CLEAR,
+): number {
+  const usable = usableRun(length, spacing, clear);
+  if (usable <= 0) return 0;
+  return 1 + Math.floor(usable / MIN_OBJECT_SPACING);
+}
+
+/** How many more objects a hallway of `length` can still take. */
+export function remainingObjectSlots(
+  length: number,
+  objectCount: number,
+  spacing = OBJECT_SPACING,
+  clear = JUNCTION_CLEAR,
+): number {
+  return Math.max(0, hallwayCapacity(length, spacing, clear) - objectCount);
+}
+
+
 /** Width of the hole a road arriving at `sinAngle` cuts in the wall it meets. */
 export function mouthSpanFor(hallWidth: number, sinAngle: number): number {
   const sin = Math.max(0.28, Math.min(1, Math.abs(sinAngle)));
