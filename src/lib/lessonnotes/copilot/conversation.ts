@@ -388,7 +388,12 @@ export function useCoPilotConversation(
                 ? `The question is exactly: ${approved}\nBegin the solution by restating that question verbatim on its own line, then work it out.`
                 : "",
               "Write the full step-by-step classroom solution for this question, one micro-step per line.",
+              // QUESTION + SOLUTION = ONE ITEM: when the block holds several
+              // questions, each solution is labelled with ITS question number,
+              // never a block of solutions after a block of questions.
+              "If this block contains more than one question, write Solution 1 for Question 1, Solution 2 for Question 2, and so on — each solution numbered to match its own question.",
               "Write plain classroom mathematics — no LaTeX commands such as \\frac, \\right or \\left.",
+
             ].filter(Boolean).join(" "),
             runController.signal,
           );
