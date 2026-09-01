@@ -82,6 +82,7 @@ import {
   remainingObjectSlots,
 } from "@/lib/building/navigation";
 
+import { CLASSROOM_KIND_LABEL } from "@/lib/building/types";
 import type {
   Building,
   BuildingData,
@@ -485,6 +486,27 @@ const handleTextureUpload = useCallback(
    * A hallway that is still free to grow always has room, because adding a door
    * lengthens it.
    */
+  /**
+   * Everything that can carry Individual Settings: each hallway and each
+   * classroom. New elements appear automatically, so the settings architecture
+   * never needs changing when the building grows.
+   */
+  const settingsScopes = useMemo(
+    () => [
+      ...(buildingData?.walkways ?? []).map((w) => ({
+        id: `hallway:${w.id}`,
+        label: `Hallway · ${w.name}`,
+        overrides: w.surface_overrides ?? {},
+      })),
+      ...(buildingData?.classrooms ?? []).map((c) => ({
+        id: `classroom:${c.id}`,
+        label: `${CLASSROOM_KIND_LABEL[c.kind]} · ${c.name}`,
+        overrides: c.surface_overrides ?? {},
+      })),
+    ],
+    [buildingData],
+  );
+
   const remainingSlots = useMemo(() => {
     const out: Record<string, number> = {};
     if (!buildingData) return out;
