@@ -24,6 +24,9 @@ import {
   WALL_THICKNESS,
   wallRuns,
   connectorMeeting,
+  fitObjectsToLength,
+  HALLWAY_PAD,
+  OBJECT_SPACING,
   firstRoadMeeting,
 } from "../building/navigation";
 
@@ -456,5 +459,60 @@ describe("walkway merging into open junctions", () => {
     // it stops short of the main road's wall instead of crossing it
     expect(meet!.length).toBeLessThan(15 - 3.5);
     expect(meet?.alongTarget).toBeCloseTo(10);
+  });
+});
+
+describe("a hallway always meets, merges and makes a junction", () => {
+  it("shortens the final run to the space available instead of refusing it", () => {
+    // Only ~1 unit of clear space before the target road's near wall.
+    const meet = connectorMeeting(
+      { start: [0, 0], heading: [1, 0] },
+      { start: [4.6, -10], heading: [0, 1], length: 20 },
+      7,
+    );
+    expect(meet).not.toBeNull();
+    expect(meet!.length).toBeGreaterThan(0);
+    expect(meet!.length).toBeLessThan(1.4);
+  });
+
+  it("snaps flush when barely any space is left", () => {
+    const meet = connectorMeeting(
+      { start: [0, 0], heading: [1, 0] },
+      { start: [3.55, -10], heading: [0, 1], length: 20 },
+      7,
+    );
+    expect(meet).not.toBeNull();
+    expect(meet!.length).toBeGreaterThan(0);
+    expect(meet!.length).toBeLessThan(0.2);
+  });
+
+  it("keeps every object on a road that had to be shortened", () => {
+    const objects = layoutHallwayObjects({
+      doors: [
+        { id: "d1", name: "One", order: 1 },
+        { id: "d2", name: "Two", order: 2 },
+        { id: "d3", name: "Three", order: 3 },
+      ],
+      openings: [],
+    });
+    const fitted = fitObjectsToLength(objects, 9, HALLWAY_PAD, OBJECT_SPACING);
+    expect(fitted).toHaveLength(objects.length);
+    for (const o of fitted) {
+      expect(o.along).toBeGreaterThanOrEqual(0);
+      expect(o.along).toBeLessThan(9);
+    }
+    // slots stay ordered and never collapse onto each other
+    const alongs = fitted.map((o) => o.along).sort((a, b) => a - b);
+    for (let i = 1; i < alongs.length; i += 1) {
+      expect(alongs[i] - alongs[i - 1]).toBeGreaterThan(0.5);
+    }
+  });
+
+  it("leaves a road that already fits untouched", () => {
+    const objects = layoutHallwayObjects({
+      doors: [{ id: "d1", name: "One", order: 1 }],
+      openings: [],
+    });
+    expect(fitObjectsToLength(objects, 60, HALLWAY_PAD, OBJECT_SPACING)).toEqual(objects);
   });
 });
