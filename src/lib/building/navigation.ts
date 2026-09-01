@@ -591,43 +591,88 @@ export interface ConnectorMeeting {
   crossingDistance: number;
 }
 
+/**
+ * CONNECTION TOLERANCE. Two roads that come this close are the SAME piece of
+ * the maze: tiny positioning differences must never stop a junction from
+ * forming, because a corridor that "nearly" reaches another one would otherwise
+ * be left occupying the same ground.
+ */
+export const JUNCTION_TOLERANCE = 1.6;
+
+/** Shortest run a merged road keeps, so a junction always has an approach. */
+const MIN_MERGE_RUN = 1.5;
+
 export function connectorMeeting(
   corridor: { start: [number, number]; heading: [number, number] },
   target: RoadLine,
   hallWidth: number,
+  tolerance = JUNCTION_TOLERANCE,
 ): ConnectorMeeting | null {
   const [cx, cz] = corridor.start;
   const [chx, chz] = corridor.heading;
   const [tx, tz] = target.start;
   const [thx, thz] = target.heading;
+  const half = hallWidth / 2;
+  const sinAngle = Math.abs(chx * thz - chz * thx);
+  // Which side of the target the corridor comes from: sign of the cross product
+  // of the target's heading with the corridor's approach.
+  const cross = thx * -chz - thz * -chx;
+  const side: -1 | 1 = cross >= 0 ? 1 : -1;
+  /** mouth position clamped to a run of the target that can actually hold it */
+  const mouthAt = (s: number) =>
+    Math.min(Math.max(s, half), Math.max(half, target.length - half));
+
+  if (sinAngle < 1e-3) {
+    // PARALLEL / RETURNING ROADS. There is no crossing point to solve, so the
+    // merge is decided by proximity: a road running back alongside one that
+    // already exists must stop where it enters that road's footprint.
+    const rx = cx - tx;
+    const rz = cz - tz;
+    const lateral = rx * -thz + rz * thx; // signed distance across the target
+    const gap = Math.abs(lateral) - hallWidth;
+    if (gap > tolerance) return null; // they never share ground
+    const alongAt = (d: number) => (rx + chx * d) * thx + (rz + chz * d) * thz;
+    const dir = chx * thx + chz * thz >= 0 ? 1 : -1;
+    // Distance along this road at which it enters the target's own extent.
+    const enterAlong = dir > 0 ? -half : target.length + half;
+    const d0 = alongAt(0);
+    const step = dir > 0 ? 1 : -1;
+    const reach = (enterAlong - d0) / (step * 1) / (dir > 0 ? 1 : -1);
+    const entry = Number.isFinite(reach) ? reach : 0;
+    const trimmed = Math.max(MIN_MERGE_RUN, entry - half);
+    const s = mouthAt(alongAt(trimmed));
+    return {
+      length: trimmed,
+      alongTarget: s,
+      targetSide: lateral >= 0 ? 1 : -1,
+      crossingDistance: Math.max(entry, trimmed),
+    };
+  }
+
   const det = chx * -thz - chz * -thx;
-  if (Math.abs(det) < 1e-6) return null; // parallel roads never meet
   const rx = tx - cx;
   const rz = tz - cz;
   // Solve  corridor.start + t*ch = target.start + s*th
   const t = (rx * -thz - rz * -thx) / det;
   const s = (chx * rz - chz * rx) / det;
-  const half = hallWidth / 2;
+  if (t <= 0) return null; // the target sits behind this road, not ahead of it
+  if (s < -half - tolerance || s > target.length + half + tolerance) return null;
   // The distance from the centre-line crossing to the near wall depends on the
   // angle between the roads. `half` only works at 90° and lets a 60° corridor
   // run visibly through the target. Include the target wall's outside face so
   // the approaching shell ends flush against real blockwork.
-  const sinAngle = Math.abs(chx * thz - chz * thx);
-  if (sinAngle < 1e-6) return null;
   const nearWallRun = (half + WALL_THICKNESS / 2) / sinAngle;
-  const trimmed = t - nearWallRun;
-  if (trimmed < half) return null; // the hallways already touch
-  if (s < half || s > target.length - half) return null; // meets past the road's end
-  // Which side of the target the corridor comes from: sign of the cross product
-  // of the target's heading with the corridor's approach.
-  const cross = thx * -chz - thz * -chx;
+  // A road that already overlaps the target is not "too close to merge": it is
+  // pulled back so it ends flush against the wall it reached.
+  const trimmed = Math.max(MIN_MERGE_RUN, t - nearWallRun);
   return {
     length: trimmed,
-    alongTarget: s,
-    targetSide: cross >= 0 ? 1 : -1,
+    alongTarget: mouthAt(s),
+    targetSide: side,
     crossingDistance: t,
   };
 }
+
 
 /**
  * WALKWAYS CAN NEVER CROSS THROUGH ONE ANOTHER.
