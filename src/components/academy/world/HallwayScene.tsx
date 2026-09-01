@@ -3186,6 +3186,9 @@ const HallwayScene = ({
 
 
   const dragStart = useRef<number | null>(null);
+  /** Last pointer x while dragging to look around inside a room. */
+  const lookDrag = useRef<number | null>(null);
+
 
   const inWalk = phase !== "browse";
   /** The junction the walker is approaching, if any — the LEFT button's action. */
