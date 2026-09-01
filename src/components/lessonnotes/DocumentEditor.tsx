@@ -2580,11 +2580,17 @@ function DocumentEditorInner({
     if (!name) return;
     // At the sensor: in the flow, or in a free canvas frame when the sensor is
     // parked in open space.
+    const sessionQid = withSolution ? newQuestionId() : null;
     const insertAt = insertAtSensor([
-      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: name }] },
+      {
+        type: "heading",
+        attrs: { level: 2, ...(sessionQid ? { sectionId: sessionQid } : {}) },
+        content: [{ type: "text", text: name }],
+      },
       { type: "paragraph" },
-      ...(withSolution ? solutionPlaceholderNodes() : []),
+      ...(sessionQid ? solutionPlaceholderNodes(sessionQid) : []),
     ]);
+
     moveSensorAfterInsert(insertAt, name);
 
 
