@@ -3074,6 +3074,18 @@ const HallwayScene = ({
       const st = machineRef.current;
       const key = e.key;
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
+      // INSIDE A ROOM the keys drive the free room walker, not the corridor.
+      if (st.phase === "inside" && st.inside) {
+        const w = st.inside;
+        if (key === "ArrowUp" || key === "w" || key === "W") w.hold = 1;
+        else if (key === "ArrowDown" || key === "s" || key === "S") w.hold = -1;
+        else if (key === "ArrowLeft" || key === "a" || key === "A") w.turning = -1;
+        else if (key === "ArrowRight" || key === "d" || key === "D") w.turning = 1;
+        else if (key === "q" || key === "Q") w.strafe = -1;
+        else if (key === "e" || key === "E") w.strafe = 1;
+        return;
+      }
+
       if (key === "ArrowUp" || key === "w" || key === "W") {
         if (e.repeat) return;
         heldMoveKeys.current.add(1);
