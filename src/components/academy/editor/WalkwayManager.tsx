@@ -170,13 +170,29 @@ const WalkwayManager = ({
    */
   const autoDirection = (parentId: string): WalkwayDirection =>
     parentId ? nextBranchDirection(walkways, parentId) : "forward";
-  const autoJunction = (parentId: string): number =>
+  /**
+   * ONE SHARED SEQUENCE. Doors and hallways take the next slot on the road from
+   * the SAME order key, so a door created after a hallway lands after that
+   * hallway — door, hallway, door, hallway alternating along the corridor.
+   */
+  const nextSlot = (walkwayId: string): number =>
     nextObjectOffset([
-      ...doors.filter((d) => d.walkway_id === parentId).map((d) => d.position_along),
+      ...doors.filter((d) => d.walkway_id === walkwayId).map((d) => d.position_along),
       ...walkways
-        .filter((w) => w.parent_id === parentId && w.direction !== "forward")
+        .filter((w) => w.parent_id === walkwayId && w.direction !== "forward")
         .map((w) => w.junction_at ?? 0.5),
+      ...links
+        .filter((l) => l.from_walkway_id === walkwayId || l.to_walkway_id === walkwayId)
+        .map((l) => (l.from_walkway_id === walkwayId ? l.from_position : l.to_position)),
     ]);
+  const autoJunction = (parentId: string): number => nextSlot(parentId);
+
+  /**
+   * A hallway that has been filled between its two junctions has no wall left
+   * for another door, so it is not offered — never an error message.
+   */
+  const hasRoom = (walkwayId: string) => (remainingSlots[walkwayId] ?? Infinity) > 0;
+  const doorHallways = useMemo(() => flat.filter(({ w }) => hasRoom(w.id)), [flat, remainingSlots]);
 
   const openHallwayForm = (parentId?: string) => {
     const parent = parentId || hallParent || roots[0]?.id || "";
@@ -187,13 +203,17 @@ const WalkwayManager = ({
   };
 
   const openDoorForm = (walkwayId?: string) => {
-    setDoorWalkway(walkwayId || doorWalkway || roots[0]?.id || "");
+    const preferred = [walkwayId, doorWalkway, ...doorHallways.map(({ w }) => w.id)].find(
+      (id): id is string => Boolean(id) && hasRoom(id as string),
+    );
+    setDoorWalkway(preferred ?? "");
     setDoorName("");
     setDoorStyle("");
     setDoorProduct(null);
     setFormError("");
     setForm("door");
   };
+
 
   const submitHallway = async () => {
     if (busy) return;
