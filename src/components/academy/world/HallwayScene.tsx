@@ -979,7 +979,7 @@ const SegmentCorridor = ({
                   <mesh
                     key={`reveal-${k}`}
                     position={[
-                      side * (HALL_WIDTH / 2 + WALL_THICKNESS / 2),
+                      side * (HALL_WIDTH / 2 - WALL_THICKNESS / 2),
                       HALL_HEIGHT / 2,
                       length / 2 - (edge + (dir * WALL_THICKNESS) / 2),
                     ]}
