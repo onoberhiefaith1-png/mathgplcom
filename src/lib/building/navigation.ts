@@ -700,8 +700,10 @@ export function firstRoadMeeting(
     const meet = connectorMeeting({ start: road.start, heading: road.heading }, other, hallWidth);
     if (!meet) continue;
     // Only a road it would actually run INTO is a merge. A meeting further away
-    // than this road reaches is simply two roads that never touch.
-    if (meet.crossingDistance > road.length) continue;
+    // than this road reaches (beyond the connection tolerance) is simply two
+    // roads that never touch.
+    if (meet.crossingDistance > road.length + JUNCTION_TOLERANCE) continue;
+
     hits.push({ ...meet, targetId: other.id });
   }
   hits.sort((a, b) => a.length - b.length);
