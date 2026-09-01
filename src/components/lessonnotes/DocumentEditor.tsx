@@ -1756,8 +1756,9 @@ function DocumentEditorInner({
       ? findSolutionHeading(info.headingPos)
       : null;
     const trailingNodes = isQuestionSectionKind(info.kind) && !existingSolution
-      ? solutionPlaceholderNodes()
+      ? solutionPlaceholderNodes(ensureOwnerQuestionId(editor, info.headingPos))
       : [];
+
 
     let insertFrom: number;
     // Position immediately AFTER the question body — this is where the
