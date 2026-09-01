@@ -362,13 +362,16 @@ const WalkwayManager = ({
               >
                 <Route className="h-3 w-3" /> Add Hallway here
               </button>
-              <button
-                type="button"
-                onClick={() => openDoorForm(w.id)}
-                className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-emerald-500/40 px-2.5 text-[11px] font-semibold text-emerald-400"
-              >
-                <DoorOpen className="h-3 w-3" /> Add Door here
-              </button>
+              {hasRoom(w.id) && (
+                <button
+                  type="button"
+                  onClick={() => openDoorForm(w.id)}
+                  className="inline-flex min-h-[32px] items-center gap-1 rounded-full border border-emerald-500/40 px-2.5 text-[11px] font-semibold text-emerald-400"
+                >
+                  <DoorOpen className="h-3 w-3" /> Add Door here
+                </button>
+              )}
+
             </div>
 
             {segDoors.map((d) => (
