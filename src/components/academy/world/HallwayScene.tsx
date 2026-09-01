@@ -3157,9 +3157,8 @@ const HallwayScene = ({
                   ? junctionGeometry(HALL_WIDTH).branchTrim
                   : 0
               }
-              deckHoles={decks.holes.get(seg.walkway?.id ?? "root") ?? []}
-              deckLift={decks.lifts.get(seg.walkway?.id ?? "root") ?? 0}
               frontPad={decks.frontPads.get(seg.walkway?.id ?? "root") ?? 3}
+
               capEnd={
                 !seg.children.some((c) => c.walkway?.direction === "forward") &&
                 !(seg.walkway ? connectors.has(seg.walkway.id) : false)
