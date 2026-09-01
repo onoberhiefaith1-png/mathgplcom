@@ -562,6 +562,43 @@ export function hallwayLength(
   return Math.max(pad + spacing, last + Math.max(pad, spacing * 0.8));
 }
 
+/** Closest two object slots may ever sit on a road that had to be shortened. */
+export const MIN_OBJECT_SPACING = 2.4;
+
+/**
+ * FIT OBJECTS INTO A SHORTENED ROAD.
+ *
+ * A road that merges into another one is exactly as long as the space it had, so
+ * it can be shorter than its objects would normally need. Nothing is dropped:
+ * the slots are squeezed together (down to `MIN_OBJECT_SPACING`) and, if the run
+ * is shorter still, the entry pad shrinks too, so every door and mouth stays on
+ * the road inside the trimmed length.
+ */
+export function fitObjectsToLength(
+  objects: HallwayObject[],
+  length: number,
+  pad = HALLWAY_PAD,
+  spacing = OBJECT_SPACING,
+): HallwayObject[] {
+  if (objects.length === 0) return objects;
+  const sorted = [...objects].sort((a, b) => a.along - b.along);
+  const usable = Math.max(0, length - spacing * 0.5);
+  const last = sorted[sorted.length - 1].along;
+  if (last <= usable) return objects;
+
+  const gaps = sorted.length - 1;
+  const first = Math.min(pad, Math.max(usable * 0.15, 0));
+  let step = gaps > 0 ? (usable - first) / gaps : 0;
+  let start = first;
+  if (gaps > 0 && step < MIN_OBJECT_SPACING) {
+    step = MIN_OBJECT_SPACING;
+    start = Math.max(0, Math.min(first, usable - step * gaps));
+  }
+  const placed = new Map<string, number>();
+  sorted.forEach((o, i) => placed.set(`${o.kind}:${o.id}`, Math.max(0, start + i * step)));
+  return objects.map((o) => ({ ...o, along: placed.get(`${o.kind}:${o.id}`) ?? o.along }));
+}
+
 // ── Connector corridors (Connect Hallway) ─────────────────────────────────
 
 /** A road in plan form: where it starts, which way it runs and how long it is. */
@@ -600,7 +637,7 @@ export interface ConnectorMeeting {
 export const JUNCTION_TOLERANCE = 1.6;
 
 /** Shortest run a merged road keeps, so a junction always has an approach. */
-const MIN_MERGE_RUN = 1.5;
+const MIN_MERGE_RUN = 0.02;
 
 export function connectorMeeting(
   corridor: { start: [number, number]; heading: [number, number] },
