@@ -164,6 +164,8 @@ import { useLessonAiContextStore, sameSubtopic } from "@/lib/lessonnotes/aiConte
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
 import { applyAutoNumbering } from "@/lib/lessonnotes/autoNumber";
 import { reconcileSolutionOwnership } from "@/lib/lessonnotes/solutionPairing";
+import { enforceQuestionSolutionPairs } from "@/lib/lessonnotes/questionPairs";
+
 
 
 import { aiTextToNodes, hasStructuredAiContent, repairDocumentMath } from "@/lib/lessonnotes/aiToNodes";
