@@ -67,9 +67,17 @@ import {
   uploadBuildingTexture,
 } from "@/lib/building/api";
 import {
+  HALLWAY_ENTRY_RUN,
+  HALLWAY_PAD,
+  HALL_WIDTH,
+  hallwayLength,
+  layoutHallwayObjects,
+  mergeLimits,
   nextBranchDirection,
   nextObjectOffset,
+  remainingObjectSlots,
 } from "@/lib/building/navigation";
+
 import type {
   Building,
   BuildingData,
