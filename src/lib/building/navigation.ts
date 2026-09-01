@@ -675,7 +675,7 @@ export function fitObjectsToLength(
   if (objects.length === 0) return objects;
   const sorted = [...objects].sort((a, b) => a.along - b.along);
   // The far end belongs to the junction: objects stop short of it entirely.
-  const usable = Math.max(0, length - Math.max(clear, spacing * 0.5));
+  const usable = usableRun(length, spacing, clear);
   const last = sorted[sorted.length - 1].along;
   if (last <= usable) return objects;
 
@@ -688,7 +688,13 @@ export function fitObjectsToLength(
     start = Math.max(0, Math.min(first, usable - step * gaps));
   }
   const placed = new Map<string, number>();
-  sorted.forEach((o, i) => placed.set(`${o.kind}:${o.id}`, Math.max(0, start + i * step)));
+  // HARD BOUND: nothing may ever be placed past the usable run, whatever the
+  // object count. Beyond capacity the last slots pack against the end of the
+  // wall run instead of drifting into the junction throat.
+  sorted.forEach((o, i) =>
+    placed.set(`${o.kind}:${o.id}`, Math.max(0, Math.min(usable, start + i * step))),
+  );
+
 
   // Doors alternate walls once the run is compressed, so a tight hallway reads
   // as a two-sided corridor instead of a queue of doors on one wall. Mouths keep
