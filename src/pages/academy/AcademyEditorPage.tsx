@@ -352,13 +352,6 @@ const handleTextureUpload = useCallback(
       junctionAt?: number,
     ) => {
       if (!buildingData) throw new Error("The building is still loading — try again in a moment.");
-      if (parentId) {
-        const blocked = mergeBlock(parentId, 1);
-        if (blocked) {
-          toast({ title: "This hallway is full", description: blocked, variant: "destructive" });
-          throw new Error(blocked);
-        }
-      }
       try {
         const id = await addWalkway(
           buildingData.building.id,
