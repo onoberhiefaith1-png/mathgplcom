@@ -104,6 +104,8 @@ const WalkwayManager = ({
   onDeleteLink,
   onBuildSampleMaze,
   selectedDoorId = null,
+  remainingSlots = {},
+
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
   const [form, setForm] = useState<"hallway" | "door" | "link" | null>(null);
