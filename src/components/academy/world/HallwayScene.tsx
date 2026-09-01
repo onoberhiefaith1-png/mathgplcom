@@ -3383,6 +3383,23 @@ const HallwayScene = ({
       className="absolute inset-0"
       onPointerDown={(e) => (dragStart.current = e.clientX)}
       onPointerUp={(e) => {
+      onPointerDown={(e) => {
+        dragStart.current = e.clientX;
+        if (machineRef.current.inside) lookDrag.current = e.clientX;
+      }}
+      onPointerMove={(e) => {
+        // DRAG TO LOOK AROUND inside a room, so turning is never button-only.
+        const w = machineRef.current.inside;
+        if (!w || lookDrag.current === null) return;
+        const dx = e.clientX - lookDrag.current;
+        lookDrag.current = e.clientX;
+        w.yaw -= dx * 0.005;
+      }}
+      onPointerLeave={() => {
+        lookDrag.current = null;
+      }}
+      onPointerUp={(e) => {
+        lookDrag.current = null;
         if (phase !== "browse" || dragStart.current === null) return;
         const dx = e.clientX - dragStart.current;
         dragStart.current = null;
@@ -3392,6 +3409,7 @@ const HallwayScene = ({
         );
       }}
     >
+
       {eventSource && <Canvas
         eventSource={eventSource}
         shadows
