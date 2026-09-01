@@ -637,7 +637,7 @@ export interface ConnectorMeeting {
 export const JUNCTION_TOLERANCE = 1.6;
 
 /** Shortest run a merged road keeps, so a junction always has an approach. */
-const MIN_MERGE_RUN = 1.5;
+const MIN_MERGE_RUN = 0.02;
 
 export function connectorMeeting(
   corridor: { start: [number, number]; heading: [number, number] },
