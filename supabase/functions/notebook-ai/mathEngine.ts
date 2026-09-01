@@ -173,17 +173,87 @@ export function buildEnginePrompt(input: EnginePromptInput): string {
 
 /* ── deterministic verification, server side ───────────────────────── */
 
-function evalArithmetic(raw: string): number {
-  let s = String(raw ?? "")
-    .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, "(($1)/($2))")
-    .replace(/\\sqrt\{([^{}]*)\}/g, "Math.sqrt(($1))")
-    .replace(/\^\{([^{}]*)\}/g, "**($1)")
-    .replace(/\^/g, "**")
+/**
+ * Read the balanced {...} group starting at `i` (s[i] must be "{").
+ * Returns the group's inner text and the index just after its closing brace.
+ */
+function readBraceGroup(s: string, i: number): [string, number] {
+  let depth = 0;
+  for (let j = i; j < s.length; j++) {
+    if (s[j] === "{") depth++;
+    else if (s[j] === "}" && --depth === 0) return [s.slice(i + 1, j), j + 1];
+  }
+  throw new Error("unbalanced braces");
+}
+
+/**
+ * Convert board notation into JavaScript arithmetic. Groups are read with a
+ * balanced-brace reader, so nested board notation such as
+ * \frac{3 - \sqrt{2}}{7} converts correctly, and the plain-text forms teachers
+ * type (sqrt(7), 10 / (sqrt(18) - sqrt(2))) are accepted too.
+ */
+function latexToJs(raw: string): string {
+  const src = String(raw ?? "")
+    .replace(/\\left|\\right|\\!|\\,|\\;|\\ /g, "")
+    .replace(/\\(?:times|cdot)/g, "*")
+    .replace(/\\div/g, "/")
+    .replace(/\\dfrac|\\tfrac/g, "\\frac")
     .replace(/[×·]/g, "*")
     .replace(/÷/g, "/")
-    .replace(/−/g, "-")
-    .replace(/\s+/g, "");
-  if (!/^[-+*/().0-9Mathsqrt*]+$/.test(s.replace(/Math\.sqrt/g, ""))) throw new Error("not arithmetic");
+    .replace(/[−–—]/g, "-");
+
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    if (src.startsWith("\\frac", i)) {
+      let j = i + 5;
+      while (src[j] === " ") j++;
+      const [a, afterA] = readBraceGroup(src, j);
+      let k = afterA;
+      while (src[k] === " ") k++;
+      const [b, afterB] = readBraceGroup(src, k);
+      out += `((${latexToJs(a)})/(${latexToJs(b)}))`;
+      i = afterB;
+      continue;
+    }
+    if (src.startsWith("\\sqrt", i) || src.startsWith("sqrt", i)) {
+      let j = i + (src[i] === "\\" ? 5 : 4);
+      while (src[j] === " ") j++;
+      if (src[j] === "{") {
+        const [a, after] = readBraceGroup(src, j);
+        out += `Math.sqrt((${latexToJs(a)}))`;
+        i = after;
+        continue;
+      }
+      if (src[j] === "(") {
+        out += "Math.sqrt(";
+        i = j + 1;
+        continue;
+      }
+      throw new Error("unreadable root");
+    }
+    if (src[i] === "^") {
+      let j = i + 1;
+      while (src[j] === " ") j++;
+      if (src[j] === "{") {
+        const [a, after] = readBraceGroup(src, j);
+        out += `**(${latexToJs(a)})`;
+        i = after;
+        continue;
+      }
+      out += "**";
+      i = i + 1;
+      continue;
+    }
+    out += src[i];
+    i++;
+  }
+  return out;
+}
+
+function evalArithmetic(raw: string): number {
+  const s = latexToJs(raw).replace(/\s+/g, "");
+  if (!/^[-+*/().0-9]*$/.test(s.replace(/Math\.sqrt/g, ""))) throw new Error("not arithmetic");
   // deno-lint-ignore no-explicit-any
   const value = (new Function(`"use strict";return (${s});`) as any)();
   if (typeof value !== "number" || !Number.isFinite(value)) throw new Error("not finite");

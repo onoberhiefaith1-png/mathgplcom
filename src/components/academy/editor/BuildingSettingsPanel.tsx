@@ -19,6 +19,7 @@ import {
   type SurfaceKey,
 } from "@/lib/building/types";
 import { SURFACE_PRESET_LIST } from "@/lib/building/presets";
+import { DOOR_STYLES } from "@/lib/building/doors";
 import {
   builtinTextureLabel,
   builtinTexturePath,
@@ -32,7 +33,9 @@ const SURFACE_TITLES: Record<SurfaceKey, string> = {
   leftWall: "Left wall",
   rightWall: "Right wall",
   floor: "Floor",
-  roof: "Roof / ceiling",
+  roof: "Ceiling",
+  endWall: "Terminal Wall",
+  startWall: "Start Point",
 };
 
 const Section = ({
@@ -220,6 +223,14 @@ const SurfaceEditor = ({
           >
             <RotateCcw className="h-3.5 w-3.5" /> Reset placement
           </button>
+          <SliderField
+            label="Brightness (1 = as imported)"
+            value={design.brightness ?? 1}
+            min={0.2}
+            max={2}
+            step={0.05}
+            onChange={(v) => onChange({ ...design, brightness: v })}
+          />
           <ToggleField label="Tile the image" checked={design.repeat} onChange={(v) => onChange({ ...design, repeat: v })} />
         </div>
       )}
@@ -372,11 +383,51 @@ const BuildingSettingsPanel = ({
         ),
       },
       {
+        key: "startWall",
+        title: "Start Point",
+        body: (
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              The wall behind you at the building entrance — what you see when you turn
+              around and look back. Designed independently of the terminal walls.
+            </p>
+            <SurfaceEditor
+              title="Start Point"
+              design={surface("startWall")}
+              previewUrl={urlOf(surface("startWall").texture?.path)}
+              onChange={(d) => setSurface("startWall", d)}
+              onChooseTemplate={() => setGalleryFor("startWall")}
+              onUploadClick={() => setUploadFor("startWall")}
+            />
+          </div>
+        ),
+      },
+      {
+
+        key: "endWall",
+        title: "Terminal Wall",
+        body: (
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              The wall at the end of a hallway that does not continue forward.
+            </p>
+            <SurfaceEditor
+              title="Terminal Wall"
+              design={surface("endWall")}
+              previewUrl={urlOf(surface("endWall").texture?.path)}
+              onChange={(d) => setSurface("endWall", d)}
+              onChooseTemplate={() => setGalleryFor("endWall")}
+              onUploadClick={() => setUploadFor("endWall")}
+            />
+          </div>
+        ),
+      },
+      {
         key: "roof",
-        title: "Roof / ceiling",
+        title: "Ceiling",
         body: (
           <SurfaceEditor
-            title="Roof / ceiling"
+            title="Ceiling"
             design={surface("roof")}
             previewUrl={urlOf(surface("roof").texture?.path)}
             onChange={(d) => setSurface("roof", d)}
@@ -390,6 +441,30 @@ const BuildingSettingsPanel = ({
         title: "Doors",
         body: (
           <div className="space-y-2 rounded-lg border border-border/50 p-2.5">
+            <p className="text-[11px] font-semibold text-foreground">Door design</p>
+            <div className="grid grid-cols-3 gap-2">
+              {DOOR_STYLES.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => apply({ ...draft, door: { ...draft.door, style: s.key } })}
+                  className={`rounded-lg border p-1 text-[10px] font-medium transition ${
+                    draft.door.style === s.key
+                      ? "border-primary ring-2 ring-primary/50 text-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={s.label}
+                >
+                  <img
+                    src={s.url}
+                    alt={s.label}
+                    loading="lazy"
+                    className="mx-auto h-20 w-auto object-contain"
+                  />
+                  <span className="mt-1 block truncate">{s.label}</span>
+                </button>
+              ))}
+            </div>
             <div className="flex flex-wrap gap-1">
               {SURFACE_PRESET_LIST.map((p) => (
                 <button

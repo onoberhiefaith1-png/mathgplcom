@@ -1,0 +1,42 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text x="0" y="14" style="font-size:12px" fill="hsl(var(--muted-foreground))">today</text>
+  <rect x="0" y="24" width="130" height="44" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="65" y="50" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Render mix</text>
+  <line x1="130" y1="46" x2="196" y2="46" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <rect x="200" y="24" width="150" height="44" rx="22" fill="hsl(var(--muted))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="275" y="50" text-anchor="middle" style="font-size:12px" fill="hsl(var(--foreground))">toast, then nothing</text>
+  <line x1="350" y1="46" x2="416" y2="46" stroke="hsl(var(--muted-foreground))" stroke-dasharray="4 3" marker-end="url(#ch)"/>
+  <text x="424" y="50" style="font-size:12px" fill="hsl(var(--muted-foreground))">dead end — no file</text>
+
+  <line x1="0" y1="96" x2="640" y2="96" stroke="hsl(var(--border))"/>
+
+  <text x="0" y="122" style="font-size:12px" fill="hsl(var(--muted-foreground))">after this change</text>
+  <rect x="0" y="132" width="130" height="44" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="65" y="158" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Render mix</text>
+  <line x1="130" y1="154" x2="196" y2="154" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+
+  <rect x="200" y="120" width="200" height="70" rx="8" fill="hsl(var(--card))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="212" y="140" style="font-size:12px" fill="hsl(var(--card-foreground))">stated on the stage:</text>
+  <rect x="212" y="148" width="150" height="8" rx="4" fill="hsl(var(--border))"/>
+  <rect x="212" y="160" width="120" height="8" rx="4" fill="hsl(var(--border))"/>
+  <rect x="212" y="172" width="112" height="14" rx="7" fill="hsl(var(--accent))"/>
+  <text x="268" y="182" text-anchor="middle" style="font-size:10px" fill="hsl(var(--accent-foreground))">Proceed anyway</text>
+
+  <line x1="400" y1="154" x2="466" y2="154" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <rect x="470" y="132" width="160" height="44" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="550" y="152" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">final mix built</text>
+  <text x="550" y="167" text-anchor="middle" style="font-size:10px" fill="hsl(var(--muted-foreground))">overflow allowed to run over</text>
+
+  <circle cx="212" cy="228" r="9" fill="hsl(var(--accent))"/>
+  <text x="212" y="232" text-anchor="middle" style="font-size:11px" fill="hsl(var(--accent-foreground))">1</text>
+  <text x="230" y="232" style="font-size:12px" fill="hsl(var(--muted-foreground))">the decision is remembered per stage and survives reload</text>
+  <circle cx="212" cy="256" r="9" fill="hsl(var(--accent))"/>
+  <text x="212" y="260" text-anchor="middle" style="font-size:11px" fill="hsl(var(--accent-foreground))">2</text>
+  <text x="230" y="260" style="font-size:12px" fill="hsl(var(--muted-foreground))">editing the content behind a warning clears the override again</text>
+</svg>

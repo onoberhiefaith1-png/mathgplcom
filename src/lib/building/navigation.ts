@@ -38,24 +38,263 @@ export const forwardFromYaw = (yaw: number): [number, number] => [-Math.sin(yaw)
 /** Heading pointing back the way a segment came. */
 export const reverseHeading = (h: [number, number]): [number, number] => [-h[0], -h[1]];
 
-/** Rotate a heading left/right by 90° (or keep it). */
-export const turnHeading = (h: [number, number], dir: WalkwayDirection): [number, number] => {
-  if (dir === "forward") return h;
-  const theta = dir === "left" ? Math.PI / 2 : -Math.PI / 2;
+/** Rotate a heading by an arbitrary angle (positive = to the player's left). */
+export const rotateHeading = (h: [number, number], theta: number): [number, number] => {
   const c = Math.cos(theta);
   const s = Math.sin(theta);
   return [h[0] * c + h[1] * s, -h[0] * s + h[1] * c];
 };
 
+/** Rotate a heading left/right by 90° (or keep it). */
+export const turnHeading = (h: [number, number], dir: WalkwayDirection): [number, number] => {
+  if (dir === "forward") return h;
+  return rotateHeading(h, dir === "left" ? Math.PI / 2 : -Math.PI / 2);
+};
+
+/**
+ * A branch hallway leaves its parent at an OPEN DIAGONAL, not a right angle, so
+ * from one standing position you see the hallway you are in and the connected
+ * hallway through the same opening. 60° is the reference geometry.
+ */
+export const BRANCH_ANGLE = (60 * Math.PI) / 180;
+
+/** Heading of a hallway branching off `h` on the given side. */
+export const branchHeading = (h: [number, number], dir: WalkwayDirection): [number, number] => {
+  if (dir === "forward") return h;
+  return rotateHeading(h, dir === "left" ? BRANCH_ANGLE : -BRANCH_ANGLE);
+};
+
+/**
+ * Which side the NEXT hallway added to a road takes. The teacher never chooses:
+ * branches alternate right → left → right → left along the road, so a hallway
+ * opening and a door can never end up directly opposite each other.
+ */
+export function nextBranchDirection(
+  walkways: BuildingWalkway[],
+  parentId: string,
+): WalkwayDirection {
+  const branches = walkways.filter((w) => w.parent_id === parentId && w.direction !== "forward");
+  return branches.length % 2 === 0 ? "right" : "left";
+}
+
+/**
+ * The ORDER KEY of the next object on a road (0–1). Physical distance is not
+ * stored: slots are fixed and derived by `layoutHallwayObjects`, so this value
+ * only has to sort a new object after everything already on that hallway.
+ */
+export function nextObjectOffset(existing: number[]): number {
+  const last = existing.length ? Math.max(...existing) : 0;
+  return Math.min(0.999, Math.max(0.02, last + 0.02));
+}
+
+/** Conceptual blockwork thickness of every hallway wall (metres). */
+export const WALL_THICKNESS = 0.24;
+
+/** Plan width of a hallway — the shared figure for geometry and merge solving. */
+export const HALL_WIDTH = 7;
+
+/** Physical size of a hallway-to-hallway cut-through in a wall. */
+export interface OpeningFootprint {
+  /** width of the gap measured along the parent wall */
+  width: number;
+  /** depth of the reveal returning into the branch (wall thickness) */
+  jambDepth: number;
+  /** wall thickness shown at the edges of the cut */
+  jambWidth: number;
+  /** height of the soffit beam spanning over the cut */
+  soffit: number;
+  /** angle the reveal is splayed to, matching the branch corridor */
+  splay: number;
+}
+
+/**
+ * THE JUNCTION SOLVER — one source of truth for a hallway-to-hallway
+ * intersection, solved as two real corridor VOLUMES meeting at `angle`.
+ *
+ * Everything is expressed in the parent hallway's own plan coordinates:
+ * `lateral` runs across the parent (positive towards the branch side) and
+ * `along` runs forward down the parent from the junction point. The renderer
+ * mirrors `lateral` by the branch side, so left and right junctions are the
+ * same solved geometry.
+ *
+ * The branch corridor's two side walls cross the parent's wall plane at two
+ * different distances, so the mouth is WIDER than the corridor (width / sinθ)
+ * and its centre sits FORWARD of the junction point — a diagonal intersection
+ * is never symmetric about the junction, which is why a perpendicular-style
+ * hole never reads correctly.
+ */
+export interface JunctionGeometry {
+  angle: number;
+  wallThickness: number;
+  /** span of the opening measured along the parent wall */
+  mouthSpan: number;
+  /** how far forward of the junction point the mouth's centre sits */
+  mouthCenterOffset: number;
+  /** distance along the branch axis where the branch's own shell may begin */
+  branchTrim: number;
+  /** upstream edge of the mouth, on the parent wall plane */
+  mouthNear: [number, number];
+  /** downstream edge of the mouth, on the parent wall plane */
+  mouthFar: [number, number];
+  /** where the branch's upstream wall begins, out in the branch */
+  throatCorner: [number, number];
+  /** height of the soffit beam carried over the mouth */
+  soffit: number;
+  /** breadth of the jamb block shown at each edge of the cut */
+  jambWidth: number;
+}
+
+export function junctionGeometry(hallWidth: number, angle = BRANCH_ANGLE): JunctionGeometry {
+  const half = hallWidth / 2;
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+  // Branch axis u = (sin, cos); its wall lines are u·s ± half·p, p = (cos, -sin).
+  const sNear = (half * (1 - cos)) / sin;
+  const sFar = (half * (1 + cos)) / sin;
+  const mouthNear: [number, number] = [half, sNear * cos - half * sin];
+  const mouthFar: [number, number] = [half, sFar * cos + half * sin];
+  const throatCorner: [number, number] = [sFar * sin + half * cos, sFar * cos - half * sin];
+  return {
+    angle,
+    wallThickness: WALL_THICKNESS,
+    mouthSpan: mouthFar[1] - mouthNear[1],
+    mouthCenterOffset: (mouthFar[1] + mouthNear[1]) / 2,
+    branchTrim: sFar,
+    mouthNear,
+    mouthFar,
+    throatCorner,
+    soffit: 0.55,
+    jambWidth: 0.34,
+  };
+}
+
+/**
+ * Legacy footprint view of the solved junction, kept so callers that only need
+ * the wall gap can stay simple.
+ */
+export function openingFootprint(hallWidth: number): OpeningFootprint {
+  const geo = junctionGeometry(hallWidth);
+  return {
+    width: geo.mouthSpan,
+    jambDepth: geo.wallThickness,
+    jambWidth: geo.jambWidth,
+    soffit: geo.soffit,
+    splay: geo.angle,
+  };
+}
+
+
+/**
+ * A corridor as a plan RECTANGLE: a centreline from `start` running `length`
+ * along `heading`, with the hallway's width across it.
+ */
+export interface CorridorSpan {
+  start: [number, number];
+  heading: [number, number];
+  length: number;
+}
+
+/**
+ * Where two corridors physically CROSS, expressed as the interval each one
+ * loses to the other along its own centreline. This is the one solver for the
+ * over-under intersection: a crossing is a real footprint shared by two
+ * corridor volumes, never two coplanar planes stacked at the same depth.
+ *
+ * `a` / `b` are distances measured from each corridor's own start. The interval
+ * is the full plan overlap of the two rectangles projected on that centreline,
+ * so cutting it out of one deck leaves exactly the other deck's slab showing.
+ */
+export interface CorridorCrossing {
+  a: [number, number];
+  b: [number, number];
+}
+
+export function corridorCrossing(
+  a: CorridorSpan,
+  b: CorridorSpan,
+  hallWidth: number,
+  /** how far past each end a deck is still considered present */
+  pad = 3.2,
+): CorridorCrossing | null {
+  const [ux, uz] = a.heading;
+  const [vx, vz] = b.heading;
+  const det = vx * uz - ux * vz; // = sin of the angle between them
+  if (Math.abs(det) < 1e-3) return null; // parallel roads never cross
+  const dx = b.start[0] - a.start[0];
+  const dz = b.start[1] - a.start[1];
+  const t = (-dx * vz + vx * dz) / det;
+  const s = (ux * dz - uz * dx) / det;
+
+  const sin = Math.abs(det);
+  const cos = Math.abs(ux * vx + uz * vz);
+  // The two side walls of one corridor cut the other's axis at different
+  // distances, so the shared footprint is wider than the corridor itself.
+  const half = ((hallWidth / 2) * (1 + cos)) / sin;
+
+  const aRange: [number, number] = [t - half, t + half];
+  const bRange: [number, number] = [s - half, s + half];
+  const touches = (r: [number, number], len: number) => r[1] > -pad && r[0] < len + pad;
+  if (!touches(aRange, a.length) || !touches(bRange, b.length)) return null;
+  return { a: aRange, b: bRange };
+}
+
+
+/**
+ * The solid runs of one hallway wall once its cut-throughs are removed. The
+ * wall genuinely STOPS at an opening — it is never a hole punched through a
+ * single continuous plane.
+ */
+export function wallRuns(
+  from: number,
+  to: number,
+  gaps: { along: number; width: number }[],
+): [number, number][] {
+  const holes = gaps
+    .map((g) => [g.along - g.width / 2, g.along + g.width / 2] as [number, number])
+    .sort((a, b) => a[0] - b[0]);
+  const runs: [number, number][] = [];
+  let cursor = from;
+  for (const [a, b] of holes) {
+    if (b <= cursor) continue;
+    if (a > cursor) runs.push([cursor, Math.min(a, to)]);
+    cursor = Math.max(cursor, b);
+    if (cursor >= to) break;
+  }
+  if (cursor < to) runs.push([cursor, to]);
+  return runs.filter(([a, b]) => b - a > 0.05);
+}
+
+
 /** Smoothstep easing for turns and door zooms. */
 export const easeInOut = (t: number): number =>
   t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
+/**
+ * How long a hallway has to be to carry `count` objects (doors + junction
+ * openings) comfortably. A hallway is a road: it grows by itself as things are
+ * added to it, so there is never an "extend hallway" control.
+ */
+export function lengthForObjects(count: number, gap = 7.5, pad = 3): number {
+  return Math.max(gap * 2, pad * 2 + Math.max(1, count) * gap);
+}
+
+/**
+ * Where along its parent a branch leaves. A junction is perpendicular and sits
+ * ON the parent road, not at its far end, so `junction_at` (0–1) is honoured.
+ */
+export const junctionDistance = (parentLength: number, junctionAt: number): number =>
+  Math.min(parentLength - 0.5, Math.max(0.5, parentLength * Math.min(1, Math.max(0, junctionAt))));
+
 /** Recursively compile the walkway tree into a navigable graph. */
-export function compileNavGraph(walkways: BuildingWalkway[]): NavGraph {
+export function compileNavGraph(
+  walkways: BuildingWalkway[],
+  /** Optional derived length per hallway id (auto-grown from its objects). */
+  lengthOf?: (w: BuildingWalkway) => number,
+): NavGraph {
   const nodes: NavNode[] = [];
   const byId = new Map<string, NavNode>();
   const childrenByParent = new Map<string | null, NavNode[]>();
+  const len = (w: BuildingWalkway) => lengthOf?.(w) ?? w.length;
 
   const walk = (
     w: BuildingWalkway,
@@ -65,6 +304,7 @@ export function compileNavGraph(walkways: BuildingWalkway[]): NavGraph {
     parentId: string | null,
     direction: WalkwayDirection | null,
   ): NavNode => {
+    const length = len(w);
     const node: NavNode = {
       id: w.id,
       walkwayId: w.id,
@@ -72,16 +312,25 @@ export function compileNavGraph(walkways: BuildingWalkway[]): NavGraph {
       direction,
       start,
       heading,
-      length: w.length,
+      length,
       depth,
     };
     nodes.push(node);
     byId.set(w.id, node);
-    const end: [number, number] = [start[0] + heading[0] * w.length, start[1] + heading[1] * w.length];
     const kids = walkways
       .filter((x) => x.parent_id === w.id)
       .sort((a, b) => a.position - b.position);
-    childrenByParent.set(w.id, kids.map((k) => walk(k, end, turnHeading(heading, k.direction), depth + 1, w.id, k.direction)));
+    childrenByParent.set(
+      w.id,
+      kids.map((k) => {
+        // A forward continuation carries on from the far end; a left/right
+        // hallway leaves perpendicular from a junction along this road.
+        const along =
+          k.direction === "forward" ? length : junctionDistance(length, k.junction_at ?? 0.5);
+        const at: [number, number] = [start[0] + heading[0] * along, start[1] + heading[1] * along];
+        return walk(k, at, branchHeading(heading, k.direction), depth + 1, w.id, k.direction);
+      }),
+    );
     return node;
   };
 
@@ -92,6 +341,19 @@ export function compileNavGraph(walkways: BuildingWalkway[]): NavGraph {
   );
   return { nodes, byId, rootId: roots[0]?.id ?? null, childrenByParent };
 }
+
+/**
+ * Branch directions available on a hallway. A road can carry as many junctions
+ * as it has slots, so both sides always stay available — the side of the next
+ * one is chosen automatically (see `nextBranchDirection`).
+ */
+export function freeBranchDirections(
+  _walkways: BuildingWalkway[],
+  _parentId: string,
+): WalkwayDirection[] {
+  return ["left", "right"];
+}
+
 
 export interface DirectionAvailability {
   forward: boolean;
@@ -142,14 +404,40 @@ export function turnaround(fromHeading: [number, number], at: [number, number]):
   };
 }
 
+/**
+ * Where the "way back" marker sits inside a hallway you have just entered.
+ *
+ * Entering a side hallway never unloads the one you came from: the mouth you
+ * walked through stays just behind you, so the parent hallway is marked with a
+ * named connection sign a short inset from the child's start, facing back the
+ * way you came.
+ */
+export interface ConnectionAnchor {
+  position: [number, number];
+  /** yaw of a sign whose face looks back toward the parent hallway */
+  yaw: number;
+}
+
+export function parentConnectionAnchor(
+  start: [number, number],
+  heading: [number, number],
+  inset = 1.2,
+): ConnectionAnchor {
+  return {
+    position: [start[0] + heading[0] * inset, start[1] + heading[1] * inset],
+    yaw: segYaw(reverseHeading(heading)),
+  };
+}
+
+
 // ── Hallway object layout (single source of truth) ─────────────────────────
 
-export type HallwayObjectKind = "door" | "opening";
+export type HallwayObjectKind = "door" | "opening" | "link";
 
-/** One navigable object attached to a hallway: a door, or a sub-hallway opening. */
+/** One navigable object attached to a hallway: a door, a branch or a link. */
 export interface HallwayObject {
   kind: HallwayObjectKind;
-  /** door id, or child walkway id for an opening */
+  /** door id, child walkway id for an opening, link id for a link */
   id: string;
   name: string;
   /** -1 = left wall, +1 = right wall */
@@ -158,36 +446,52 @@ export interface HallwayObject {
   along: number;
   /** for openings only: which wall the branch leaves through */
   direction?: WalkwayDirection;
+  /** for links only: the hallway on the other side of the connection */
+  targetWalkwayId?: string;
 }
 
 export interface LayoutInput {
-  length: number;
   doors: { id: string; name: string; order: number }[];
   /** child walkways; "forward" children are continuations, not objects */
   openings: { id: string; name: string; direction: WalkwayDirection; order: number }[];
-  /** minimum distance between two objects along the corridor */
-  minGap?: number;
-  /** clearance kept at the start and end of the corridor */
+  /** connections to hallways that already exist elsewhere (loops) */
+  links?: { id: string; name: string; targetWalkwayId: string; order: number }[];
+  /** fixed distance between two consecutive object slots */
+  spacing?: number;
+  /** clearance kept before the first slot (an entry run for a branch) */
   pad?: number;
 }
 
+/** Standard distance between any two objects along any hallway. */
+export const OBJECT_SPACING = 7.5;
+/** Clearance before the first object of the entrance hallway. */
+export const HALLWAY_PAD = 4;
 /**
- * Place doors and sub-hallway openings along one hallway.
+ * Clearance before the first object of a hallway you walk INTO. A branch keeps
+ * a longer entry run so its first door cannot be seen from the parent hallway —
+ * you have to walk in to find it.
+ */
+export const HALLWAY_ENTRY_RUN = 12;
+
+/**
+ * Place doors, branch openings and links along one hallway.
  *
- * Rules enforced here (and only here — the 3D scene and the minimap both read
- * this function, so they can never disagree):
+ * A hallway is a road with FIXED slots: slot n sits at `pad + n * spacing`, so
+ * the distance between two objects never changes as the building grows, and the
+ * road simply gets longer (see `hallwayLength`). Rules enforced here — and only
+ * here, so the 3D scene and the map can never disagree:
  *  - forward children are the hallway continuing, never an object;
- *  - openings sit on the wall their branch leaves through;
+ *  - a branch opening sits on the wall its hallway leaves through;
  *  - doors alternate to the opposite wall from the previous object;
- *  - every object gets its own distance along the corridor, at least `minGap`
- *    apart, so two clickable objects are never directly opposite each other.
+ *  - a door and an opening never take neighbouring slots: an empty slot is kept
+ *    between them, so no door sits at a junction mouth.
  */
 export function layoutHallwayObjects({
-  length,
   doors,
   openings,
-  minGap = 4,
-  pad = 3,
+  links = [],
+  spacing = OBJECT_SPACING,
+  pad = HALLWAY_PAD,
 }: LayoutInput): HallwayObject[] {
   const seq = [
     ...doors.map((d) => ({ kind: "door" as const, id: d.id, name: d.name, order: d.order })),
@@ -200,24 +504,235 @@ export function layoutHallwayObjects({
         order: o.order,
         direction: o.direction,
       })),
+    ...links.map((l) => ({
+      kind: "link" as const,
+      id: l.id,
+      name: l.name,
+      order: l.order,
+      targetWalkwayId: l.targetWalkwayId,
+    })),
   ].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 
   if (seq.length === 0) return [];
 
-  const usable = Math.max(minGap, length - pad * 2);
-  const gap = Math.max(minGap, usable / seq.length);
+  const isMouth = (k: HallwayObjectKind) => k !== "door";
+  let slot = 0;
   let lastSide: -1 | 1 = 1; // so the first object lands on the left wall
+  let linkCount = 0;
 
   return seq.map((item, i) => {
-    const side: -1 | 1 =
-      item.kind === "opening" ? (item.direction === "left" ? -1 : 1) : (-lastSide as -1 | 1);
+    // Keep an empty slot whenever the kind changes between a door and a mouth,
+    // so a clickable door is never adjacent to a hallway opening.
+    if (i > 0 && isMouth(item.kind) !== isMouth(seq[i - 1].kind)) slot += 1;
+    const along = pad + slot * spacing;
+    slot += 1;
+
+    let side: -1 | 1;
+    if (item.kind === "opening") side = item.direction === "left" ? -1 : 1;
+    else if (item.kind === "link") side = (linkCount++ % 2 === 0 ? 1 : -1) as -1 | 1;
+    else side = -lastSide as -1 | 1;
     lastSide = side;
-    const along = Math.min(length - 0.5, pad + gap * (i + 0.5));
-    return item.kind === "opening"
-      ? { kind: item.kind, id: item.id, name: item.name, side, along, direction: item.direction }
-      : { kind: item.kind, id: item.id, name: item.name, side, along };
+
+    if (item.kind === "opening")
+      return { kind: item.kind, id: item.id, name: item.name, side, along, direction: item.direction };
+    if (item.kind === "link")
+      return {
+        kind: item.kind,
+        id: item.id,
+        name: item.name,
+        side,
+        along,
+        targetWalkwayId: item.targetWalkwayId,
+      };
+    return { kind: item.kind, id: item.id, name: item.name, side, along };
   });
 }
+
+/**
+ * How long a road has to be to carry its objects. The road is derived from what
+ * sits on it, so adding a door or a hallway extends it automatically and there
+ * is never an "extend hallway" control.
+ */
+export function hallwayLength(
+  objects: HallwayObject[],
+  pad = HALLWAY_PAD,
+  spacing = OBJECT_SPACING,
+): number {
+  const last = objects.length ? Math.max(...objects.map((o) => o.along)) : 0;
+  return Math.max(pad + spacing, last + Math.max(pad, spacing * 0.8));
+}
+
+// ── Connector corridors (Connect Hallway) ─────────────────────────────────
+
+/** A road in plan form: where it starts, which way it runs and how long it is. */
+export interface RoadLine {
+  start: [number, number];
+  heading: [number, number];
+  length: number;
+}
+
+/**
+ * Where a CONNECTOR corridor meets an existing hallway.
+ *
+ * A connector is a real road: it leaves one hallway through a junction mouth and
+ * runs until it reaches the hallway it connects to, where it STOPS — it never
+ * passes through it. This solves the two centre lines, so the corridor's length
+ * is trimmed at the target's near wall and the target gains a mouth at the exact
+ * meeting point.
+ */
+export interface ConnectorMeeting {
+  /** trimmed corridor length: it stops at the target hallway's near wall */
+  length: number;
+  /** distance along the TARGET hallway where the mouth opens */
+  alongTarget: number;
+  /** which of the target's walls the corridor arrives at (-1 left, +1 right) */
+  targetSide: -1 | 1;
+  /** centre-line distance to the geometric crossing, before near-wall clipping */
+  crossingDistance: number;
+}
+
+export function connectorMeeting(
+  corridor: { start: [number, number]; heading: [number, number] },
+  target: RoadLine,
+  hallWidth: number,
+): ConnectorMeeting | null {
+  const [cx, cz] = corridor.start;
+  const [chx, chz] = corridor.heading;
+  const [tx, tz] = target.start;
+  const [thx, thz] = target.heading;
+  const det = chx * -thz - chz * -thx;
+  if (Math.abs(det) < 1e-6) return null; // parallel roads never meet
+  const rx = tx - cx;
+  const rz = tz - cz;
+  // Solve  corridor.start + t*ch = target.start + s*th
+  const t = (rx * -thz - rz * -thx) / det;
+  const s = (chx * rz - chz * rx) / det;
+  const half = hallWidth / 2;
+  // The distance from the centre-line crossing to the near wall depends on the
+  // angle between the roads. `half` only works at 90° and lets a 60° corridor
+  // run visibly through the target. Include the target wall's outside face so
+  // the approaching shell ends flush against real blockwork.
+  const sinAngle = Math.abs(chx * thz - chz * thx);
+  if (sinAngle < 1e-6) return null;
+  const nearWallRun = (half + WALL_THICKNESS / 2) / sinAngle;
+  const trimmed = t - nearWallRun;
+  if (trimmed < half) return null; // the hallways already touch
+  if (s < half || s > target.length - half) return null; // meets past the road's end
+  // Which side of the target the corridor comes from: sign of the cross product
+  // of the target's heading with the corridor's approach.
+  const cross = thx * -chz - thz * -chx;
+  return {
+    length: trimmed,
+    alongTarget: s,
+    targetSide: cross >= 0 ? 1 : -1,
+    crossingDistance: t,
+  };
+}
+
+/**
+ * WALKWAYS CAN NEVER CROSS THROUGH ONE ANOTHER.
+ *
+ * A road that grows towards a road that already exists must STOP at the wall it
+ * reaches and merge into a junction there. This solves one road against every
+ * other road in the plan and returns the first one it would enter, together with
+ * the trimmed length and the exact mouth position on the road it met.
+ *
+ * `exclude` carries the ids a road is allowed to touch: its own parent (whose
+ * mouth it begins in) and its own children (which begin in its walls).
+ */
+export interface RoadMeeting extends ConnectorMeeting {
+  /** the road that stops this one */
+  targetId: string;
+}
+
+export function firstRoadMeeting(
+  road: { id: string; start: [number, number]; heading: [number, number]; length: number },
+  others: (RoadLine & { id: string })[],
+  hallWidth: number,
+  exclude: Set<string> = new Set(),
+): RoadMeeting | null {
+  const hits: RoadMeeting[] = [];
+  for (const other of others) {
+    if (other.id === road.id || exclude.has(other.id)) continue;
+    const meet = connectorMeeting({ start: road.start, heading: road.heading }, other, hallWidth);
+    if (!meet) continue;
+    // Only a road it would actually run INTO is a merge. A meeting further away
+    // than this road reaches is simply two roads that never touch.
+    if (meet.crossingDistance > road.length) continue;
+    hits.push({ ...meet, targetId: other.id });
+  }
+  hits.sort((a, b) => a.length - b.length);
+  return hits[0] ?? null;
+}
+
+/**
+ * How long each hallway is ALLOWED to be before it runs into another hallway.
+ *
+ * A road that merges into another road is finite: it cannot keep growing as
+ * objects are added, because past the junction there is another hallway. The
+ * editor uses this to refuse growth instead of letting a walkway tunnel through.
+ */
+export interface MergeLimit {
+  /** trimmed length of the arriving hallway */
+  limit: number;
+  /** the hallway it merges into */
+  targetId: string;
+}
+
+export function mergeLimits(
+  walkways: BuildingWalkway[],
+  hallWidth: number,
+  lengthOf?: (w: BuildingWalkway) => number,
+): Map<string, MergeLimit> {
+  const graph = compileNavGraph(walkways, lengthOf);
+  const roads = graph.nodes.map((n) => ({
+    id: n.id,
+    start: n.start,
+    heading: n.heading,
+    length: n.length,
+  }));
+  const descendants = (id: string): string[] => {
+    const kids = graph.childrenByParent.get(id) ?? [];
+    return kids.flatMap((k) => [k.id, ...descendants(k.id)]);
+  };
+  const out = new Map<string, MergeLimit>();
+  for (const n of [...graph.nodes].sort((a, b) => a.depth - b.depth)) {
+    const own = new Set<string>([n.id, ...descendants(n.id)]);
+    if (n.parentId) own.add(n.parentId);
+    const meet = firstRoadMeeting(
+      { id: n.id, start: n.start, heading: n.heading, length: n.length },
+      roads,
+      hallWidth,
+      own,
+    );
+    if (meet && meet.length < n.length - 0.05) {
+      out.set(n.id, { limit: meet.length, targetId: meet.targetId });
+    }
+  }
+  return out;
+}
+
+/**
+ * Insert a mouth whose position comes from GEOMETRY (a connector arriving from
+ * another hallway) into a hallway's object layout, pushing any door that would
+ * otherwise sit at the junction edge one slot further down the road.
+ */
+export function insertGeometricMouth(
+  objects: HallwayObject[],
+  mouth: HallwayObject,
+  spacing = OBJECT_SPACING,
+): HallwayObject[] {
+  const clear = spacing * 0.9;
+  const shifted = objects.map((o) => {
+    if (o.kind !== "door") return o;
+    let along = o.along;
+    let guard = 0;
+    while (Math.abs(along - mouth.along) < clear && guard++ < 8) along += spacing;
+    return along === o.along ? o : { ...o, along };
+  });
+  return [...shifted, mouth].sort((a, b) => a.along - b.along);
+}
+
 
 /**
  * Navigation history — a stack of visited node ids (root first). Branch turns
@@ -249,4 +764,83 @@ export class NavigationHistory {
   clear(): void {
     this.stack = [];
   }
+}
+// ── Junction reachability ─────────────────────────────────────────────────
+/**
+ * WHAT CAN I ENTER FROM HERE?
+ *
+ * The maze is a connected graph of roads, so the answer depends only on where
+ * the walker stands and which way they travel — never on where they have
+ * already been. A junction may be entered any number of times, from either
+ * side, so turning around never makes a junction inaccessible.
+ */
+export interface JunctionCandidateInput {
+  /** openings and links attached to the hallway being walked (doors ignored) */
+  objects: { kind: HallwayObjectKind; id: string; name: string; side: -1 | 1; along: number }[];
+  /** physical length of the hallway being walked */
+  length: number;
+  /** the walker's distance along that hallway */
+  dist: number;
+  /** 1 = travelling with the hallway heading, -1 = travelling back down it */
+  dir: 1 | -1;
+  /** the hallway (or connector target) this road continues into at its far end */
+  forward?: { id: string; name: string } | null;
+  /** the junction this hallway left from, sitting at distance 0 */
+  parent?: { id: string; name: string } | null;
+  /** how close a junction must be to be enterable (default ENTER_RANGE) */
+  range?: number;
+}
+
+export interface JunctionCandidate {
+  key: string;
+  kind: "branch" | "link" | "forward" | "parent";
+  label: string;
+  side: -1 | 0 | 1;
+  targetId: string;
+  /** metres ahead of the walker */
+  distance: number;
+}
+
+export const JUNCTION_ENTER_RANGE = 6;
+
+/** Everything enterable AHEAD of the walker, nearest first. */
+export function resolveJunctionCandidates(input: JunctionCandidateInput): JunctionCandidate[] {
+  const range = input.range ?? JUNCTION_ENTER_RANGE;
+  const raw: JunctionCandidate[] = [];
+
+  for (const o of input.objects) {
+    if (o.kind === "door") continue;
+    raw.push({
+      key: `${o.kind}:${o.id}`,
+      kind: o.kind === "link" ? "link" : "branch",
+      label: o.name,
+      side: o.side,
+      targetId: o.id,
+      distance: (o.along - input.dist) * input.dir,
+    });
+  }
+  if (input.forward) {
+    raw.push({
+      key: `forward:${input.forward.id}`,
+      kind: "forward",
+      label: input.forward.name,
+      side: 0,
+      targetId: input.forward.id,
+      distance: (input.length - input.dist) * input.dir,
+    });
+  }
+  if (input.parent) {
+    raw.push({
+      key: `parent:${input.parent.id}`,
+      kind: "parent",
+      label: input.parent.name,
+      side: 0,
+      targetId: input.parent.id,
+      distance: (0 - input.dist) * input.dir,
+    });
+  }
+
+  return raw
+    .filter((c) => c.distance > -0.5 && c.distance <= range)
+    .sort((a, b) => a.distance - b.distance);
 }

@@ -18,6 +18,7 @@ import type {
   BuildingData,
   BuildingDoor,
   BuildingWalkway,
+  BuildingWalkwayLink,
   DoorContentKind,
   EnvironmentSettings,
   WalkwayDirection,
@@ -85,21 +86,115 @@ export async function canEditBuilding(buildingId: string): Promise<boolean> {
   return Boolean(data);
 }
 
-/** The whole structure of one building: walkway graph + doors. */
+/** The whole structure of one building: walkway graph + doors + connections. */
 export async function loadBuildingData(building: Building): Promise<BuildingData> {
-  const [walkRes, doorRes, canEdit] = await Promise.all([
+  const [walkRes, doorRes, linkRes, canEdit] = await Promise.all([
     supabase.from("building_walkways").select("*").eq("building_id", building.id).order("position"),
     supabase.from("building_doors").select("*").eq("building_id", building.id).order("position_along"),
+    supabase
+      .from("building_walkway_links")
+      .select("*")
+      .eq("building_id", building.id)
+      .order("created_at"),
     canEditBuilding(building.id),
   ]);
 fail(walkRes.error);
   fail(doorRes.error);
+  fail(linkRes.error);
   return {
     building,
     walkways: (walkRes.data ?? []) as unknown as BuildingWalkway[],
     doors: (doorRes.data ?? []) as unknown as BuildingDoor[],
+    links: (linkRes.data ?? []) as unknown as BuildingWalkwayLink[],
     canEdit,
   };
+}
+
+// ── Hallway-to-hallway connections (maze loops) ───────────────────────────
+
+/**
+ * Connect two hallways that already exist. The opening takes the next free slot
+ * on BOTH roads, so neither connection lands on top of a door.
+ */
+export async function addWalkwayLink(
+  buildingId: string,
+  fromWalkwayId: string,
+  toWalkwayId: string,
+  positions: { from: number; to: number },
+  corridorWalkwayId: string | null = null,
+): Promise<string> {
+  const { data: userData } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("building_walkway_links")
+    .insert({
+      building_id: buildingId,
+      from_walkway_id: fromWalkwayId,
+      to_walkway_id: toWalkwayId,
+      from_position: positions.from,
+      to_position: positions.to,
+      corridor_walkway_id: corridorWalkwayId,
+      created_by: userData.user?.id ?? null,
+    } as never)
+    .select("*")
+    .maybeSingle();
+  fail(error);
+  if (!data) {
+    throw new Error(
+      "The connection was not created — your account may not have permission to edit this building.",
+    );
+  }
+  return (data as unknown as BuildingWalkwayLink).id;
+}
+
+/**
+ * CONNECT HALLWAY — build a real corridor between two hallways that exist.
+ *
+ * The corridor is a genuine hallway branching off `fromWalkwayId` (so it has
+ * floor, both walls, ceiling, lighting and object slots like every other road);
+ * the link row records which hallway it must stop at, and the renderer trims it
+ * at that hallway and opens a junction there.
+ */
+export async function connectHallways(
+  buildingId: string,
+  fromWalkwayId: string,
+  toWalkwayId: string,
+  positions: { from: number; to: number },
+  direction: WalkwayDirection,
+  name: string,
+): Promise<{ linkId: string; corridorWalkwayId: string }> {
+  const corridorWalkwayId = await addWalkway(
+    buildingId,
+    fromWalkwayId,
+    direction === "forward" ? "right" : direction,
+    name,
+    positions.from,
+  );
+  try {
+    const linkId = await addWalkwayLink(
+      buildingId,
+      fromWalkwayId,
+      toWalkwayId,
+      positions,
+      corridorWalkwayId,
+    );
+    return { linkId, corridorWalkwayId };
+  } catch (err) {
+    // Never leave a stray corridor behind if the connection record fails.
+    await supabase.from("building_walkways").delete().eq("id", corridorWalkwayId);
+    throw err;
+  }
+}
+
+export async function deleteWalkwayLink(id: string): Promise<void> {
+  const { data } = await supabase
+    .from("building_walkway_links")
+    .select("corridor_walkway_id")
+    .eq("id", id)
+    .maybeSingle();
+  const { error } = await supabase.from("building_walkway_links").delete().eq("id", id);
+  fail(error);
+  const corridorId = (data as { corridor_walkway_id: string | null } | null)?.corridor_walkway_id;
+  if (corridorId) await supabase.from("building_walkways").delete().eq("id", corridorId);
 }
 
 export async function updateEnvironment(
@@ -137,25 +232,42 @@ export async function addWalkway(
   parentId: string | null,
   direction: WalkwayDirection,
   name?: string,
+  junctionAt = 0.5,
 ): Promise<string> {
   const hallwayName =
-    name?.trim() || (parentId === null ? "Main Hallway" : direction === "left" ? "Left Hallway" : "New Hallway");
+    name?.trim() || (parentId === null ? "Main Hallway" : direction === "left" ? "Left Hallway" : "Right Hallway");
   const { data, error } = await supabase
     .from("building_walkways")
-    .insert({ building_id: buildingId, parent_id: parentId, direction, name: hallwayName } as never)
-    .select("id")
+    .insert({
+      building_id: buildingId,
+      parent_id: parentId,
+      direction,
+      name: hallwayName,
+      junction_at: junctionAt,
+    } as never)
+    .select("*")
     .maybeSingle();
   fail(error);
-  return (data as { id: string } | null)?.id ?? "";
+  // A silent "nothing written" is impossible to debug from the UI, so it is an
+  // explicit failure: the insert either returns its row or throws.
+  if (!data) {
+    throw new Error(
+      "The hallway was not created — your account may not have permission to edit this building.",
+    );
+  }
+  return (data as unknown as BuildingWalkway).id;
 }
 
 export async function updateWalkway(
   id: string,
-  fields: Partial<Pick<BuildingWalkway, "length" | "position" | "name" | "end_label">>,
+  fields: Partial<
+    Pick<BuildingWalkway, "length" | "position" | "name" | "end_label" | "junction_at">
+  >,
 ): Promise<void> {
   const { error } = await supabase.from("building_walkways").update(fields as never).eq("id", id);
   fail(error);
 }
+
 
 export async function deleteWalkway(id: string): Promise<void> {
   const { error } = await supabase.from("building_walkways").delete().eq("id", id);
@@ -186,15 +298,22 @@ export async function addDoor(
       title_override: fields.title_override ?? null,
       created_by: userData.user?.id ?? null,
     })
-    .select("id")
+    .select("*")
     .maybeSingle();
   fail(error);
-  return (data as { id: string } | null)?.id ?? "";
+  if (!data) {
+    throw new Error(
+      "The door was not created — your account may not have permission to edit this building.",
+    );
+  }
+  return (data as unknown as BuildingDoor).id;
 }
 
 export async function updateDoor(
   id: string,
-  fields: Partial<Pick<BuildingDoor, "position_along" | "content_kind" | "content_id" | "title_override">>,
+  fields: Partial<
+    Pick<BuildingDoor, "position_along" | "content_kind" | "content_id" | "title_override" | "design">
+  >,
 ): Promise<void> {
   const { error } = await supabase.from("building_doors").update(fields as never).eq("id", id);
   fail(error);
@@ -263,6 +382,8 @@ fail(error);
           direction: w.direction,
           length: w.length,
           position: w.position,
+          junction_at: w.junction_at ?? 0.5,
+
         })
         .select("id")
         .single();
