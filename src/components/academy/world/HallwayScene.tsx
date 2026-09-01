@@ -656,7 +656,7 @@ return (
         metalness={mat.metalness}
         emissive={mat.emissive ?? "#000000"}
         emissiveIntensity={mat.emissiveIntensity ?? 0}
-        side={THREE.DoubleSide}
+        side={facing}
       />
       {map && (
         // An imported image is artwork fitted ON the surface, not plaster: it
