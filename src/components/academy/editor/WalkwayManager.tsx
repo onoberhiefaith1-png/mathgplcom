@@ -653,12 +653,13 @@ const WalkwayManager = ({
               onChange={(e) => setDoorWalkway(e.target.value)}
               className="mt-1 min-h-[38px] w-full rounded border border-border bg-background px-2 text-sm text-foreground"
             >
-              {flat.map(({ w, depth }) => (
+              {doorHallways.map(({ w, depth }) => (
                 <option key={w.id} value={w.id}>
                   {"— ".repeat(depth)}
                   {w.name}
                 </option>
               ))}
+
             </select>
           </label>
           <label className="mt-2 block text-[11px] text-muted-foreground">
