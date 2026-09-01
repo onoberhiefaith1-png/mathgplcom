@@ -38,6 +38,7 @@ import { coverFit } from "@/lib/building/imageFit";
 import {
   branchHeading,
   connectorEndDistances,
+  connectedWalkwayIds,
   connectorMeeting,
   firstRoadMeeting,
   fitObjectsToLength,
@@ -48,6 +49,7 @@ import {
   hallwayLength,
   JUNCTION_CLEAR,
   mouthSpanFor,
+  openingRevealLayout,
   HALL_WIDTH,
   HALLWAY_ENTRY_RUN,
   HALLWAY_PAD,
@@ -57,8 +59,6 @@ import {
   junctionGeometry,
   corridorCrossing,
   WALL_THICKNESS,
-  parentConnectionAnchor,
-
   resolveJunctionCandidates,
   reverseHeading,
   segYaw,
@@ -1499,6 +1499,7 @@ const MergeOpening = ({
   const geo = junctionGeometry(HALL_WIDTH);
   const openH = HALL_HEIGHT - geo.soffit;
   const wallX = side * (HALL_WIDTH / 2);
+  const revealLayout = openingRevealLayout(span, geo.jambWidth);
   // The target deck ends on the wall centre-line and the arriving deck stops at
   // the wall's outside face. This half-wall reveal is the sole surface between.
   const reveal = WALL_THICKNESS / 2;
@@ -1523,18 +1524,18 @@ const MergeOpening = ({
 
       {/* Jamb reveals: the blockwork thickness shown at both cut edges, so the
           cut wall is never a paper-thin sheet when seen from an angle. */}
-      {([-1, 1] as const).map((edge) => (
+      {revealLayout.jambCenters.map((center, edge) => (
         <mesh
           key={`jamb-${edge}`}
           position={[
             wallX + (side * WALL_THICKNESS) / 2,
             openH / 2,
-            edge * (span / 2 + geo.jambWidth / 2),
+            center,
           ]}
           castShadow
           receiveShadow
         >
-          <boxGeometry args={[WALL_THICKNESS, openH, geo.jambWidth]} />
+          <boxGeometry args={[WALL_THICKNESS, openH, revealLayout.jambWidth]} />
           <meshStandardMaterial color={accent} roughness={0.9} metalness={0.05} />
         </mesh>
       ))}
@@ -1545,7 +1546,7 @@ const MergeOpening = ({
         castShadow
         receiveShadow
       >
-        <boxGeometry args={[WALL_THICKNESS, geo.soffit, span + geo.jambWidth * 2]} />
+        <boxGeometry args={[WALL_THICKNESS, geo.soffit, revealLayout.lintelWidth]} />
         <meshStandardMaterial color={roofColor} roughness={0.92} metalness={0.04} />
       </mesh>
 
@@ -1594,47 +1595,6 @@ const MergeOpening = ({
   );
 };
 
-
-
-/**
- * The way back. Inside a hallway you entered from another one, the mouth you
- * came through sits behind you and is marked with the parent hallway's name.
- * Clicking it retraces into that hallway — hallways are connected nodes, so the
- * previous hallway is never removed.
- */
-const ParentConnection = ({
-  name,
-  onBack,
-}: {
-  name: string;
-  onBack: () => void;
-}) => {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <group>
-      <mesh
-        position={[0, 2.4, 0]}
-        onClick={(e) => {
-          e.stopPropagation();
-          onBack();
-        }}
-        onPointerOver={() => {
-          document.body.style.cursor = "pointer";
-          setHovered(true);
-        }}
-        onPointerOut={() => {
-          document.body.style.cursor = "auto";
-          setHovered(false);
-        }}
-      >
-        <planeGeometry args={[3.4, 0.72]} />
-        <meshBasicMaterial transparent opacity={hovered ? 0.16 : 0.06} color="#bae6fd" depthWrite={false} />
-      </mesh>
-      {/* The way back reads as the same kind of sign, mounted on the return wall */}
-      <Nameplate text={name} caption="Back this way" position={[0, 2.4, 0.05]} fontSize={0.24} maxWidth={4} />
-    </group>
-  );
-};
 
 
 // ── Navigation machine ────────────────────────────────────────────────────
@@ -3109,17 +3069,28 @@ const HallwayScene = ({
     return map;
   }, [doors]);
 
-  /** The hallway you are in, plus the ones directly connected to it. */
+  /** The hallway you are in, plus every corridor sharing a physical mouth. */
   const nearbyIds = useMemo(() => {
-    const ids = new Set<string>();
-    const add = (s: Segment | null | undefined) => {
-      if (s) ids.add(s.walkway?.id ?? "root");
-    };
-    add(nav.seg);
-    nav.seg.children.forEach(add);
-    if (nav.seg.walkway?.parent_id) add(findSegment(segments, nav.seg.walkway.parent_id));
-    return ids;
-  }, [nav.seg, segments]);
+    const currentId = nav.seg.walkway?.id ?? "root";
+    const connections: { a: string; b: string }[] = [];
+    for (const seg of segments) {
+      const id = seg.walkway?.id ?? "root";
+      for (const child of seg.children) {
+        connections.push({ a: id, b: child.walkway?.id ?? "root" });
+      }
+    }
+    for (const [sourceId, connector] of connectors) {
+      connections.push({ a: sourceId, b: connector.targetWalkwayId });
+    }
+    for (const [ownerId, objects] of layouts) {
+      for (const object of objects) {
+        if (object.kind === "link" && object.targetWalkwayId) {
+          connections.push({ a: ownerId, b: object.targetWalkwayId });
+        }
+      }
+    }
+    return connectedWalkwayIds(currentId, connections);
+  }, [nav.seg, segments, connectors, layouts]);
 
 
   /** Doors and sub-hallway openings of one hallway, from the shared layout. */
@@ -3135,12 +3106,16 @@ const HallwayScene = ({
       if (o.kind === "opening") {
         const child = seg.children.find((c) => c.walkway?.id === o.id);
         if (!child) return null;
+        const activeId = nav.seg.walkway?.id ?? "root";
+        const destinationName = activeId === o.id
+          ? (seg.walkway?.name ?? "Entrance Hall")
+          : o.name;
         return (
           <BranchOpening
             key={o.id}
             side={o.side}
             along={o.along}
-            name={o.name}
+            name={destinationName}
             accent={o.side === -1 ? env.leftWall.color : env.rightWall.color}
             floorColor={env.floor.color}
             roofColor={env.roof.color}
@@ -3153,13 +3128,17 @@ const HallwayScene = ({
       // exactly like a junction mouth, so the maze reads as one road network.
       if (o.kind === "link") {
         if (!o.targetWalkwayId) return null;
+        const activeId = nav.seg.walkway?.id ?? "root";
+        const destinationName = activeId === o.targetWalkwayId
+          ? (seg.walkway?.name ?? "Entrance Hall")
+          : o.name;
         return (
           <MergeOpening
             key={o.id}
             side={o.side}
             along={o.along}
             span={mouths.get(o.id)?.span ?? HALL_WIDTH}
-            name={o.name}
+            name={destinationName}
             accent={o.side === -1 ? env.leftWall.color : env.rightWall.color}
             floorColor={env.floor.color}
             roofColor={env.roof.color}
@@ -3413,28 +3392,6 @@ const HallwayScene = ({
             onEnter={exitBuilding}
           />
         </group>
-
-        {/* The hallway you came from stays connected and selectable */}
-        {nav.seg.walkway?.parent_id &&
-          (() => {
-            const seg = nav.seg;
-            const parent = findSegment(segments, seg.walkway!.parent_id!);
-            if (!parent) return null;
-            const a = parentConnectionAnchor(seg.start, seg.heading, 2.2);
-            return (
-              <group
-                key={`back-${seg.walkway!.id}`}
-                position={[a.position[0], 0, a.position[1]]}
-                rotation-y={a.yaw}
-              >
-                <ParentConnection
-                  name={parent.walkway?.name ?? "Previous hallway"}
-                  onBack={goBack}
-                />
-              </group>
-            );
-          })()}
-
 
       </Canvas>}
 
