@@ -492,6 +492,8 @@ const findSegment = (segs: Segment[], id: string): Segment | null => {
 
 import { Surface, useLoadedTexture } from "./surface";
 import ClassroomShell from "./ClassroomShell";
+import SmartScreenControls from "./SmartScreenControls";
+import { useRoomScreen } from "@/hooks/useRoomScreen";
 import { classroomDimensions } from "@/lib/building/classroom";
 import type { ClassroomKind } from "@/lib/building/types";
 import { resolveSurfaces } from "@/lib/building/resolve";
@@ -2523,6 +2525,12 @@ const HallwayScene = ({
   const [insideRoom, setInsideRoom] = useState<
     { room: BuildingClassroom; door: [number, number]; into: [number, number] } | null
   >(null);
+  // Every room has a built-in smart screen; this drives the one you stand in.
+  const roomScreen = useRoomScreen({
+    buildingId: building?.building.id ?? null,
+    classroomId: insideRoom?.room.id ?? null,
+    canEdit: building?.canEdit ?? false,
+  });
   const [facing, setFacing] = useState<1 | -1>(1);
   const [endReached, setEndReached] = useState(false);
   /** Everything enterable ahead of the walker, nearest first. */
@@ -3597,6 +3605,8 @@ const HallwayScene = ({
             name={insideRoom.room.name}
             env={resolveSurfaces(env, insideRoom.room.surface_overrides)}
             textures={textures}
+            screenVideo={roomScreen.video}
+            screenHasContent={roomScreen.mode !== "idle"}
           />
         )}
 
@@ -3736,6 +3746,7 @@ const HallwayScene = ({
           <p className="pointer-events-none absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur">
             Walk, turn and step around — go back through the door to leave
           </p>
+          <SmartScreenControls api={roomScreen} />
           <RoomControls
             onWalk={roomWalk}
             onTurn={roomTurn}
