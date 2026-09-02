@@ -821,13 +821,13 @@ const PresentationView = ({
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
   const boardScrollRef = useRef<HTMLElement>(null);
 
-  // KEYBOARD CAPTURE FOCUS. On a mobile student session focusing this hidden
-  // textarea would raise the phone keyboard over the board, so focus is
-  // skipped there — hardware-keyboard handlers stay registered.
+  // KEYBOARD CAPTURE FOCUS. On a phone or tablet focusing this hidden textarea
+  // would raise the device keyboard over the board, so focus is skipped for
+  // every role there — hardware-keyboard handlers stay registered.
   const focusCapture = useCallback(() => {
-    if (mobileStudent) return;
+    if (noNativeKeyboard) return;
     hiddenInputRef.current?.focus({ preventScroll: true });
-  }, [mobileStudent]);
+  }, [noNativeKeyboard]);
 
   // Track the scroll host's visible height so assistant panels can default
   // to a position INSIDE the viewport (not the off-screen band bottom).
