@@ -496,6 +496,8 @@ import type { RoomDoorVisual } from "./RoomDoor";
 
 import SmartScreenControls from "./SmartScreenControls";
 import { useRoomScreen } from "@/hooks/useRoomScreen";
+import { useAutoHide } from "@/hooks/useAutoHide";
+
 import { classroomDimensions } from "@/lib/building/classroom";
 import type { ClassroomKind } from "@/lib/building/types";
 import { resolveSurfaces } from "@/lib/building/resolve";
@@ -1568,6 +1570,9 @@ const ROOM_WALK_SPEED = 2.6;
 const ROOM_TURN_SPEED = 1.5;
 /** How close the walker may get to a room wall. */
 const ROOM_WALL_MARGIN = 0.55;
+/** How close you may stand to the teaching wall, so the screen can fill the view. */
+const ROOM_SCREEN_MARGIN = 0.22;
+
 /** Half-width of the walkable doorway back to the hallway. */
 const ROOM_DOOR_HALF = 1.1;
 /** Local z at or below which the walker steps back out through the door. */
@@ -1758,7 +1763,10 @@ if (w.strafeSpeed > 0.001) {
       }
       const halfX = dims.width / 2 - ROOM_WALL_MARGIN;
       w.x = THREE.MathUtils.clamp(nx, -halfX, halfX);
-      w.z = THREE.MathUtils.clamp(nz, ROOM_WALL_MARGIN, dims.length - ROOM_WALL_MARGIN);
+      // The teaching wall carries the smart screen, so a student may stand very
+      // close to it — close enough for the picture to fill the view.
+      w.z = THREE.MathUtils.clamp(nz, ROOM_WALL_MARGIN, dims.length - ROOM_SCREEN_MARGIN);
+
 
       const [wx, wz] = roomLocalToWorld(w, w.x, w.z);
       const eye = roomFloorAt(w.kind, w.z) + 1.75;
@@ -2546,6 +2554,35 @@ const HallwayScene = ({
   });
   /** The smart screen's own panel — opened by clicking the screen itself. */
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
+  /**
+   * Room navigation is a separate control system from the lesson video: it
+   * fades out after 10 seconds of stillness so it never covers the picture,
+   * and returns on any touch, click or key.
+   */
+  const roomHud = useAutoHide(10000);
+  const pingRoomHud = roomHud.ping;
+  useEffect(() => {
+    if (!insideRoom) return;
+    const wake = () => pingRoomHud();
+    window.addEventListener("pointerdown", wake);
+    window.addEventListener("pointermove", wake);
+    window.addEventListener("keydown", wake);
+    window.addEventListener("wheel", wake);
+    wake();
+    return () => {
+      window.removeEventListener("pointerdown", wake);
+      window.removeEventListener("pointermove", wake);
+      window.removeEventListener("keydown", wake);
+      window.removeEventListener("wheel", wake);
+    };
+  }, [insideRoom, pingRoomHud]);
+  // A viewer entering a room that already has a lesson video gets the player
+  // straight away — the video is already playing, so the controls must be there.
+  const viewerVideo = !editing && roomScreen.mode === "video";
+  useEffect(() => {
+    if (insideRoom && viewerVideo) setScreenPanelOpen(true);
+  }, [insideRoom, viewerVideo]);
+
   const [facing, setFacing] = useState<1 | -1>(1);
   const [endReached, setEndReached] = useState(false);
   /** Everything enterable ahead of the walker, nearest first. */
@@ -3789,25 +3826,33 @@ const HallwayScene = ({
           side-stepping replace the corridor's forward/turn-around pair. */}
       {insideRoom && (
         <>
-          <div className="pointer-events-none absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs font-semibold text-foreground backdrop-blur">
-            {insideRoom.room.name}
+          {/* Room navigation — hidden while the student is still, so it never
+              sits permanently over the lesson video. */}
+          <div
+            className={`transition-opacity duration-300 ${roomHud.visible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          >
+            <div className="pointer-events-none absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs font-semibold text-foreground backdrop-blur">
+              {insideRoom.room.name}
+            </div>
+            <p className="pointer-events-none absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur">
+              Walk, turn and step around — go back through the door to leave
+            </p>
+            <RoomControls
+              onWalk={roomWalk}
+              onTurn={roomTurn}
+              onStrafe={roomStrafe}
+              onLeave={leaveClassroom}
+            />
           </div>
-          <p className="pointer-events-none absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur">
-            Walk, turn and step around — go back through the door to leave
-          </p>
+          {/* The lesson video's own controls — a separate system from movement. */}
           <SmartScreenControls
             api={roomScreen}
             open={screenPanelOpen}
             onClose={() => setScreenPanelOpen(false)}
           />
-          <RoomControls
-            onWalk={roomWalk}
-            onTurn={roomTurn}
-            onStrafe={roomStrafe}
-            onLeave={leaveClassroom}
-          />
         </>
       )}
+
 
 
       {inWalk && !insideRoom && (

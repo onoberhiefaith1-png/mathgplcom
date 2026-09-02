@@ -86,16 +86,21 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
   // Face the room: the teaching wall is at +z, so the panel looks back down -z.
   return (
     <group position={[0, mount.centreY, mount.wallZ - 0.06]} rotation-y={Math.PI}>
-      {/* recessed housing */}
-      <mesh position={[0, 0, 0.02]}>
-        <boxGeometry args={[bezelW + 0.1, bezelH + 0.1, 0.16]} />
-        <meshStandardMaterial color="#0b1020" roughness={0.6} metalness={0.35} />
-      </mesh>
+      {/* PLACEHOLDER ONLY — the housing and bezel exist while the screen is
+          empty. Once a video is playing the frame disappears completely and
+          the picture itself is the screen. */}
+      {!hasContent && (
+        <>
+          <mesh position={[0, 0, 0.02]}>
+            <boxGeometry args={[bezelW + 0.1, bezelH + 0.1, 0.16]} />
+            <meshStandardMaterial color="#0b1020" roughness={0.6} metalness={0.35} />
+          </mesh>
+          <mesh geometry={bezelGeo} position={[0, 0, -0.07]}>
+            <meshStandardMaterial color="#1b2440" roughness={0.35} metalness={0.55} side={THREE.FrontSide} />
+          </mesh>
+        </>
+      )}
 
-      {/* slim bezel */}
-      <mesh geometry={bezelGeo} position={[0, 0, -0.07]}>
-        <meshStandardMaterial color="#1b2440" roughness={0.35} metalness={0.55} side={THREE.FrontSide} />
-      </mesh>
 
       {/* the glass */}
       <mesh
