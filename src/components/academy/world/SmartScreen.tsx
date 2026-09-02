@@ -6,8 +6,9 @@
  * lesson video or the teacher's camera) is painted straight onto its glass, so
  * a student keeps walking around the room while watching.
  */
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import { screenMount } from "@/lib/building/screen";
 import type { ClassroomKind } from "@/lib/building/types";
@@ -30,6 +31,28 @@ const roundedPlane = (w: number, h: number, r: number): THREE.ShapeGeometry => {
   return new THREE.ShapeGeometry(shape, 12);
 };
 
+/**
+ * ShapeGeometry writes texture coordinates in metres, so a video frame would be
+ * sampled far outside its own image. Remap them to 0..1 across the panel (and
+ * mirror x, because the screen group faces back down -z) so one video frame
+ * covers the glass exactly once, the right way round.
+ */
+const normalizeUVs = (geo: THREE.BufferGeometry): THREE.BufferGeometry => {
+  geo.computeBoundingBox();
+  const box = geo.boundingBox;
+  const uv = geo.getAttribute("uv");
+  if (!box || !uv) return geo;
+  const w = box.max.x - box.min.x || 1;
+  const h = box.max.y - box.min.y || 1;
+  for (let i = 0; i < uv.count; i += 1) {
+    const u = (uv.getX(i) - box.min.x) / w;
+    const v = (uv.getY(i) - box.min.y) / h;
+    uv.setXY(i, 1 - u, v);
+  }
+  uv.needsUpdate = true;
+  return geo;
+};
+
 interface Props {
   kind: ClassroomKind;
   /** The element feeding the glass. Null keeps the standby face. */
@@ -49,7 +72,32 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
   const bezelH = mount.height + 0.18;
 
   const bezelGeo = useMemo(() => roundedPlane(bezelW, bezelH, 0.12), [bezelW, bezelH]);
-  const glassGeo = useMemo(() => roundedPlane(mount.width, mount.height, 0.08), [mount.width, mount.height]);
+  const glassGeo = useMemo(
+    () => normalizeUVs(roundedPlane(mount.width, mount.height, 0.08)),
+    [mount.width, mount.height],
+  );
+
+  const [frameSize, setFrameSize] = useState<{ w: number; h: number } | null>(null);
+
+  // Track the video's natural size so the picture can be cover-fitted.
+  useEffect(() => {
+    if (!video) {
+      setFrameSize(null);
+      return;
+    }
+    const read = () => {
+      if (video.videoWidth && video.videoHeight) {
+        setFrameSize({ w: video.videoWidth, h: video.videoHeight });
+      }
+    };
+    read();
+    video.addEventListener("loadedmetadata", read);
+    video.addEventListener("resize", read);
+    return () => {
+      video.removeEventListener("loadedmetadata", read);
+      video.removeEventListener("resize", read);
+    };
+  }, [video]);
 
   // One video texture per element; recreated only when the element changes.
   const texture = useMemo(() => {
@@ -58,10 +106,35 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
     t.colorSpace = THREE.SRGBColorSpace;
     t.minFilter = THREE.LinearFilter;
     t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = false;
+    t.wrapS = THREE.ClampToEdgeWrapping;
+    t.wrapT = THREE.ClampToEdgeWrapping;
     return t;
   }, [video]);
 
   useEffect(() => () => texture?.dispose(), [texture]);
+
+  // Cover-fit: fill the 16:9 glass, centre-cropping anything shaped differently.
+  useEffect(() => {
+    if (!texture || !frameSize) return;
+    const panel = mount.width / mount.height;
+    const source = frameSize.w / frameSize.h;
+    if (source > panel) {
+      const scale = panel / source;
+      texture.repeat.set(scale, 1);
+      texture.offset.set((1 - scale) / 2, 0);
+    } else {
+      const scale = source / panel;
+      texture.repeat.set(1, scale);
+      texture.offset.set(0, (1 - scale) / 2);
+    }
+    texture.needsUpdate = true;
+  }, [texture, frameSize, mount.width, mount.height]);
+
+  // Keep frames flowing even if the renderer skips a texture upload.
+  useFrame(() => {
+    if (texture && video && video.readyState >= 2) texture.needsUpdate = true;
+  });
 
   useEffect(() => {
     const mesh = glassRef.current;
@@ -81,7 +154,7 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
       mat.color = new THREE.Color("#0d1424");
     }
     mat.needsUpdate = true;
-  }, [hasContent, texture]);
+  }, [hasContent, texture, frameSize]);
 
   // Face the room: the teaching wall is at +z, so the panel looks back down -z.
   return (
