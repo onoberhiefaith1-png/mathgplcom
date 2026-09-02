@@ -17,6 +17,8 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { Text } from "@react-three/drei";
 import { Surface } from "./surface";
+import SmartScreen from "./SmartScreen";
+import { screenMount } from "@/lib/building/screen";
 import { classroomDimensions } from "@/lib/building/classroom";
 import type { ClassroomKind, EnvironmentSettings } from "@/lib/building/types";
 
@@ -50,6 +52,13 @@ export interface ClassroomShellProps {
   textures: Record<string, string>;
   /** Doorway width of the opening back to the hallway. */
   openingWidth?: number;
+  /**
+   * The picture feeding the room's built-in smart screen (an uploaded lesson
+   * video or the teacher's live camera). Every room has a screen; content is
+   * optional.
+   */
+  screenVideo?: HTMLVideoElement | null;
+  screenHasContent?: boolean;
 }
 
 /**
@@ -151,12 +160,17 @@ const ClassroomShell = ({
   env,
   textures,
   openingWidth = 2.2,
+  screenVideo = null,
+  screenHasContent = false,
 }: ClassroomShellProps) => {
   const dims = useMemo(() => classroomDimensions(kind), [kind]);
   const yaw = Math.atan2(heading[0], heading[1]);
   const { width, length, height, tiers } = dims;
   const lowest = tiers[tiers.length - 1]?.y ?? 0;
   const half = width / 2;
+  // The nameplate sits clear of the smart screen on the same teaching wall.
+  const mount = useMemo(() => screenMount(kind), [kind]);
+  const plateY = Math.min(height - 0.7, mount.centreY + mount.height / 2 + 0.6);
 
   return (
     // Local space: +z runs from the doorway into the room, x across it.
@@ -288,8 +302,16 @@ const ClassroomShell = ({
       })}
 
 
+      {/* SMART SCREEN — the teaching display built into every room. */}
+      <SmartScreen
+        kind={kind}
+        video={screenVideo}
+        hasContent={screenHasContent}
+        label={`${name.toUpperCase()} · SMART SCREEN`}
+      />
+
       {/* NAMEPLATE — wall-mounted on the teaching wall, never floating. */}
-      <group position={[0, 2.5 + lowest, length - 0.06]} rotation-y={Math.PI}>
+      <group position={[0, plateY, length - 0.06]} rotation-y={Math.PI}>
         <mesh>
           <boxGeometry args={[Math.min(width * 0.6, 4.4), 0.7, 0.09]} />
           <meshStandardMaterial color="#16213e" roughness={0.45} metalness={0.25} />
