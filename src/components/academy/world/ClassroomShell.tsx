@@ -59,7 +59,12 @@ export interface ClassroomShellProps {
    */
   screenVideo?: HTMLVideoElement | null;
   screenHasContent?: boolean;
+  /** Look of the door this room belongs to, so the inside face matches it. */
+  doorVisual?: RoomDoorVisual | null;
+  /** Leaves the room, used when the inside door is clicked. */
+  onLeave?: () => void;
 }
+
 
 /**
  * The camera pose for standing just inside a classroom, looking at its front
