@@ -18,6 +18,8 @@ import * as THREE from "three";
 import { Text } from "@react-three/drei";
 import { Surface } from "./surface";
 import SmartScreen from "./SmartScreen";
+import RoomDoor, { type RoomDoorVisual } from "./RoomDoor";
+
 import { screenMount } from "@/lib/building/screen";
 import { classroomDimensions } from "@/lib/building/classroom";
 import type { ClassroomKind, EnvironmentSettings } from "@/lib/building/types";
