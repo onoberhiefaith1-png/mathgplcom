@@ -47,7 +47,7 @@ const normalizeUVs = (geo: THREE.BufferGeometry): THREE.BufferGeometry => {
   for (let i = 0; i < uv.count; i += 1) {
     const u = (uv.getX(i) - box.min.x) / w;
     const v = (uv.getY(i) - box.min.y) / h;
-    uv.setXY(i, 1 - u, v);
+    uv.setXY(i, u, v);
   }
   uv.needsUpdate = true;
   return geo;
