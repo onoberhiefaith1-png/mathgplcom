@@ -2523,8 +2523,15 @@ const HallwayScene = ({
   const [moving, setMoving] = useState(false);
   /** The classroom the walker is standing in, with where its shell sits. */
   const [insideRoom, setInsideRoom] = useState<
-    { room: BuildingClassroom; door: [number, number]; into: [number, number] } | null
+    {
+      room: BuildingClassroom;
+      door: [number, number];
+      into: [number, number];
+      /** Look of the door walked through, so its inside face matches. */
+      doorVisual?: RoomDoorVisual | null;
+    } | null
   >(null);
+
   // Every room has a built-in smart screen; this drives the one you stand in.
   const roomScreen = useRoomScreen({
     buildingId: building?.building.id ?? null,
