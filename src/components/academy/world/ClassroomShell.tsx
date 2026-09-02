@@ -18,6 +18,8 @@ import * as THREE from "three";
 import { Text } from "@react-three/drei";
 import { Surface } from "./surface";
 import SmartScreen from "./SmartScreen";
+import RoomDoor, { type RoomDoorVisual } from "./RoomDoor";
+
 import { screenMount } from "@/lib/building/screen";
 import { classroomDimensions } from "@/lib/building/classroom";
 import type { ClassroomKind, EnvironmentSettings } from "@/lib/building/types";
@@ -59,7 +61,12 @@ export interface ClassroomShellProps {
    */
   screenVideo?: HTMLVideoElement | null;
   screenHasContent?: boolean;
+  /** Look of the door this room belongs to, so the inside face matches it. */
+  doorVisual?: RoomDoorVisual | null;
+  /** Leaves the room, used when the inside door is clicked. */
+  onLeave?: () => void;
 }
+
 
 /**
  * The camera pose for standing just inside a classroom, looking at its front
@@ -162,7 +169,10 @@ const ClassroomShell = ({
   openingWidth = 2.2,
   screenVideo = null,
   screenHasContent = false,
+  doorVisual = null,
+  onLeave,
 }: ClassroomShellProps) => {
+
   const dims = useMemo(() => classroomDimensions(kind), [kind]);
   const yaw = Math.atan2(heading[0], heading[1]);
   const { width, length, height, tiers } = dims;
@@ -282,6 +292,17 @@ const ClassroomShell = ({
       >
         <planeGeometry args={[openingWidth, Math.max(0.1, height - 3.1)]} />
       </Surface>
+
+      {/* THE SAME DOOR YOU CAME THROUGH, seen from inside the room. */}
+      {doorVisual && (
+        <RoomDoor
+          visual={doorVisual}
+          openingWidth={openingWidth}
+          openingHeight={3.1}
+          onLeave={onLeave}
+        />
+      )}
+
 
       {/* ROOM LIGHTING — a real ceiling grid, so a big room (and the stepped
           front of an auditorium) is lit end to end instead of fading to black. */}

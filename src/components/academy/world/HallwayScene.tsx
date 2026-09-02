@@ -492,6 +492,8 @@ const findSegment = (segs: Segment[], id: string): Segment | null => {
 
 import { Surface, useLoadedTexture } from "./surface";
 import ClassroomShell from "./ClassroomShell";
+import type { RoomDoorVisual } from "./RoomDoor";
+
 import SmartScreenControls from "./SmartScreenControls";
 import { useRoomScreen } from "@/hooks/useRoomScreen";
 import { classroomDimensions } from "@/lib/building/classroom";
@@ -2523,8 +2525,15 @@ const HallwayScene = ({
   const [moving, setMoving] = useState(false);
   /** The classroom the walker is standing in, with where its shell sits. */
   const [insideRoom, setInsideRoom] = useState<
-    { room: BuildingClassroom; door: [number, number]; into: [number, number] } | null
+    {
+      room: BuildingClassroom;
+      door: [number, number];
+      into: [number, number];
+      /** Look of the door walked through, so its inside face matches. */
+      doorVisual?: RoomDoorVisual | null;
+    } | null
   >(null);
+
   // Every room has a built-in smart screen; this drives the one you stand in.
   const roomScreen = useRoomScreen({
     buildingId: building?.building.id ?? null,
@@ -2941,7 +2950,13 @@ const HallwayScene = ({
    * Inside, the camera becomes a free walker in the room's own local space.
    */
   const enterClassroom = useCallback(
-    (doorWorld: [number, number], into: [number, number], room: BuildingClassroom) => {
+    (
+      doorWorld: [number, number],
+      into: [number, number],
+      room: BuildingClassroom,
+      doorVisual?: RoomDoorVisual | null,
+    ) => {
+
       const st = machineRef.current;
       const dims = classroomDimensions(room.kind);
       st.inside = {
@@ -2959,7 +2974,7 @@ const HallwayScene = ({
       };
       st.moving = false;
       setMoving(false);
-      setInsideRoom({ room, door: doorWorld, into });
+      setInsideRoom({ room, door: doorWorld, into, doorVisual: doorVisual ?? null });
       setMachinePhase("inside");
     },
     [setMachinePhase],
@@ -3453,8 +3468,22 @@ const HallwayScene = ({
             onEnter={() => {
               if (!attached) return;
               const into: [number, number] = [-front[0], -front[1]];
-              startDoorZoom([wx, wz], front, () => enterClassroom([wx, wz], into, attached));
+              // The room carries the same door's look, so its inside face is
+              // the very door that was walked through.
+              const visual: RoomDoorVisual = {
+                color: design?.color || env.door.color,
+                brightness: design?.brightness ?? env.door.brightness,
+                styleKey: design?.style || env.door.style,
+                textureUrl: design?.texture?.path
+                  ? textures[design.texture.path]
+                  : env.door.texture
+                    ? textures[env.door.texture.path]
+                    : undefined,
+                accent: attached ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4] : "#64748b",
+              };
+              startDoorZoom([wx, wz], front, () => enterClassroom([wx, wz], into, attached, visual));
             }}
+
           />
         </group>
       );
@@ -3612,6 +3641,9 @@ const HallwayScene = ({
             textures={textures}
             screenVideo={roomScreen.video}
             screenHasContent={roomScreen.mode !== "idle"}
+            doorVisual={insideRoom.doorVisual}
+            onLeave={leaveClassroom}
+
           />
         )}
 

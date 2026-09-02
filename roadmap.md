@@ -11,3 +11,8 @@
 - [x] Pre-render lights, doors, and junction details for branch and merge neighbours in both directions.
 - [x] Replace the floating reverse plaque with wall-mounted destination labels that swap with travel direction.
 - [ ] Tutorial icon must be visible on EVERY page, including the intro/homepage (was hidden behind page chrome; guide read denied for signed-out visitors)
+
+# Smartboard video
+
+- [x] Teacher upload / replace / remove video per classroom smart screen (v1 exists).
+- [ ] Verify upload + student play end to end in the live room.
