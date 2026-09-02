@@ -169,7 +169,10 @@ const ClassroomShell = ({
   openingWidth = 2.2,
   screenVideo = null,
   screenHasContent = false,
+  doorVisual = null,
+  onLeave,
 }: ClassroomShellProps) => {
+
   const dims = useMemo(() => classroomDimensions(kind), [kind]);
   const yaw = Math.atan2(heading[0], heading[1]);
   const { width, length, height, tiers } = dims;
