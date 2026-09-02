@@ -492,6 +492,8 @@ const findSegment = (segs: Segment[], id: string): Segment | null => {
 
 import { Surface, useLoadedTexture } from "./surface";
 import ClassroomShell from "./ClassroomShell";
+import type { RoomDoorVisual } from "./RoomDoor";
+
 import SmartScreenControls from "./SmartScreenControls";
 import { useRoomScreen } from "@/hooks/useRoomScreen";
 import { classroomDimensions } from "@/lib/building/classroom";
