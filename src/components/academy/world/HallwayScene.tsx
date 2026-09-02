@@ -3413,8 +3413,8 @@ const HallwayScene = ({
       }
 
 
-      const wx = seg.start[0] + seg.heading[0] * o.along + o.side * (HALL_WIDTH / 2 - 0.2) * cy;
-      const wz = seg.start[1] + seg.heading[1] * o.along - o.side * (HALL_WIDTH / 2 - 0.2) * sy;
+      const wx = seg.start[0] + seg.heading[0] * o.along + o.side * (HALL_WIDTH / 2 - 0.06) * cy;
+      const wz = seg.start[1] + seg.heading[1] * o.along - o.side * (HALL_WIDTH / 2 - 0.06) * sy;
       // `front` is the direction the door FACES — out of its wall and into the
       // corridor. A left-wall door (side -1) sits at -x of the walk, so it faces
       // right of the walk; a right-wall door faces left. The room therefore lies
