@@ -1758,7 +1758,10 @@ if (w.strafeSpeed > 0.001) {
       }
       const halfX = dims.width / 2 - ROOM_WALL_MARGIN;
       w.x = THREE.MathUtils.clamp(nx, -halfX, halfX);
-      w.z = THREE.MathUtils.clamp(nz, ROOM_WALL_MARGIN, dims.length - ROOM_WALL_MARGIN);
+      // The teaching wall carries the smart screen, so a student may stand very
+      // close to it — close enough for the picture to fill the view.
+      w.z = THREE.MathUtils.clamp(nz, ROOM_WALL_MARGIN, dims.length - ROOM_SCREEN_MARGIN);
+
 
       const [wx, wz] = roomLocalToWorld(w, w.x, w.z);
       const eye = roomFloorAt(w.kind, w.z) + 1.75;
