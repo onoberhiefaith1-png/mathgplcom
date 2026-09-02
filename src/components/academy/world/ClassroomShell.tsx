@@ -283,6 +283,17 @@ const ClassroomShell = ({
         <planeGeometry args={[openingWidth, Math.max(0.1, height - 3.1)]} />
       </Surface>
 
+      {/* THE SAME DOOR YOU CAME THROUGH, seen from inside the room. */}
+      {doorVisual && (
+        <RoomDoor
+          visual={doorVisual}
+          openingWidth={openingWidth}
+          openingHeight={3.1}
+          onLeave={onLeave}
+        />
+      )}
+
+
       {/* ROOM LIGHTING — a real ceiling grid, so a big room (and the stepped
           front of an auditorium) is lit end to end instead of fading to black. */}
       <ambientLight intensity={0.85} />
