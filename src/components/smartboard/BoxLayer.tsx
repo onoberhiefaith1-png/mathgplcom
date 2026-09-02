@@ -156,7 +156,7 @@ export const BoxLayer = ({
 };
 
 const BoxView = ({
-  box, ink, active, fontPx, placeholderColor, onActivate,
+  box, ink, active, fontPx, placeholderColor, onActivate, suppressNativeKeyboard,
   onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onTextChange,
 }: {
   box: MagnetBox;
@@ -165,6 +165,7 @@ const BoxView = ({
   fontPx?: number;
   placeholderColor: string;
   onActivate?: (id: string | null) => void;
+  suppressNativeKeyboard?: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: (e: React.PointerEvent) => void;
@@ -180,10 +181,13 @@ const BoxView = ({
   }, [box.text]);
 
   useEffect(() => {
+    // Focusing the slot is what raises the device keyboard, so on phone and
+    // tablet the box is selected without ever taking DOM focus.
+    if (suppressNativeKeyboard) return;
     if (active && editRef.current && document.activeElement !== editRef.current) {
       editRef.current.focus();
     }
-  }, [active]);
+  }, [active, suppressNativeKeyboard]);
 
   const fs = fontPx ?? 34;
   const height = Math.round(fs * 1.05);
