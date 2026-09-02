@@ -79,6 +79,7 @@ const projectOnLine = (px: number, py: number, l: SmartLine) => {
 export const BoxLayer = ({
   boxes, ink, onChange, smartLines, activeBoxId, onActivate, fontPx,
   placeholderColor = PLACEHOLDER_COLOR,
+  suppressNativeKeyboard = false,
 }: Props) => {
   const dragRef = useRef<{ id: string; pid: number; moved: boolean } | null>(null);
 
