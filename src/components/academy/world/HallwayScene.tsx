@@ -2974,7 +2974,7 @@ const HallwayScene = ({
       };
       st.moving = false;
       setMoving(false);
-      setInsideRoom({ room, door: doorWorld, into });
+      setInsideRoom({ room, door: doorWorld, into, doorVisual: doorVisual ?? null });
       setMachinePhase("inside");
     },
     [setMachinePhase],
