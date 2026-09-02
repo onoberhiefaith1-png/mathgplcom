@@ -1279,6 +1279,60 @@ export type Database = {
           },
         ]
       }
+      building_room_screens: {
+        Row: {
+          building_id: string
+          camera_active: boolean
+          camera_host_id: string | null
+          classroom_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          video_mime: string | null
+          video_name: string | null
+          video_path: string | null
+        }
+        Insert: {
+          building_id: string
+          camera_active?: boolean
+          camera_host_id?: string | null
+          classroom_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          video_mime?: string | null
+          video_name?: string | null
+          video_path?: string | null
+        }
+        Update: {
+          building_id?: string
+          camera_active?: boolean
+          camera_host_id?: string | null
+          classroom_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          video_mime?: string | null
+          video_name?: string | null
+          video_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_room_screens_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_room_screens_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: true
+            referencedRelation: "building_classrooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       building_walkway_links: {
         Row: {
           building_id: string
