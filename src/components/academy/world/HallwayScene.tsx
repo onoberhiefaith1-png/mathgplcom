@@ -3720,6 +3720,7 @@ const HallwayScene = ({
             a stored door, so editing the building cannot duplicate it). It caps
             the start of the corridor, so turning around and walking back always
             ends at a real door instead of a blank wall. Clicking it leaves. */}
+        {!insideRoom && (
         <group
           position={[rootEffective.start[0], 0, rootEffective.start[1]]}
           rotation-y={segYaw(rootEffective.heading)}
@@ -3738,6 +3739,8 @@ const HallwayScene = ({
             onEnter={exitBuilding}
           />
         </group>
+        )}
+
 
       </Canvas>}
 
