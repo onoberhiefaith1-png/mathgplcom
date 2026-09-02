@@ -17,6 +17,8 @@ import { useMemo } from "react";
 import * as THREE from "three";
 import { Text } from "@react-three/drei";
 import { Surface } from "./surface";
+import SmartScreen from "./SmartScreen";
+import { screenMount } from "@/lib/building/screen";
 import { classroomDimensions } from "@/lib/building/classroom";
 import type { ClassroomKind, EnvironmentSettings } from "@/lib/building/types";
 
@@ -166,6 +168,9 @@ const ClassroomShell = ({
   const { width, length, height, tiers } = dims;
   const lowest = tiers[tiers.length - 1]?.y ?? 0;
   const half = width / 2;
+  // The nameplate sits clear of the smart screen on the same teaching wall.
+  const mount = useMemo(() => screenMount(kind), [kind]);
+  const plateY = Math.min(height - 0.7, mount.centreY + mount.height / 2 + 0.6);
 
   return (
     // Local space: +z runs from the doorway into the room, x across it.
@@ -306,7 +311,7 @@ const ClassroomShell = ({
       />
 
       {/* NAMEPLATE — wall-mounted on the teaching wall, never floating. */}
-      <group position={[0, 2.5 + lowest, length - 0.06]} rotation-y={Math.PI}>
+      <group position={[0, plateY, length - 0.06]} rotation-y={Math.PI}>
         <mesh>
           <boxGeometry args={[Math.min(width * 0.6, 4.4), 0.7, 0.09]} />
           <meshStandardMaterial color="#16213e" roughness={0.45} metalness={0.25} />
