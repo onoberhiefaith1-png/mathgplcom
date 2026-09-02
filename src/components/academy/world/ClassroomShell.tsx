@@ -50,6 +50,13 @@ export interface ClassroomShellProps {
   textures: Record<string, string>;
   /** Doorway width of the opening back to the hallway. */
   openingWidth?: number;
+  /**
+   * The picture feeding the room's built-in smart screen (an uploaded lesson
+   * video or the teacher's live camera). Every room has a screen; content is
+   * optional.
+   */
+  screenVideo?: HTMLVideoElement | null;
+  screenHasContent?: boolean;
 }
 
 /**
