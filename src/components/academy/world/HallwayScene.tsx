@@ -1568,6 +1568,9 @@ const ROOM_WALK_SPEED = 2.6;
 const ROOM_TURN_SPEED = 1.5;
 /** How close the walker may get to a room wall. */
 const ROOM_WALL_MARGIN = 0.55;
+/** How close you may stand to the teaching wall, so the screen can fill the view. */
+const ROOM_SCREEN_MARGIN = 0.22;
+
 /** Half-width of the walkable doorway back to the hallway. */
 const ROOM_DOOR_HALF = 1.1;
 /** Local z at or below which the walker steps back out through the door. */
