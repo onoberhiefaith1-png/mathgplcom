@@ -2552,6 +2552,35 @@ const HallwayScene = ({
   });
   /** The smart screen's own panel — opened by clicking the screen itself. */
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
+  /**
+   * Room navigation is a separate control system from the lesson video: it
+   * fades out after 10 seconds of stillness so it never covers the picture,
+   * and returns on any touch, click or key.
+   */
+  const roomHud = useAutoHide(10000);
+  const pingRoomHud = roomHud.ping;
+  useEffect(() => {
+    if (!insideRoom) return;
+    const wake = () => pingRoomHud();
+    window.addEventListener("pointerdown", wake);
+    window.addEventListener("pointermove", wake);
+    window.addEventListener("keydown", wake);
+    window.addEventListener("wheel", wake);
+    wake();
+    return () => {
+      window.removeEventListener("pointerdown", wake);
+      window.removeEventListener("pointermove", wake);
+      window.removeEventListener("keydown", wake);
+      window.removeEventListener("wheel", wake);
+    };
+  }, [insideRoom, pingRoomHud]);
+  // A viewer entering a room that already has a lesson video gets the player
+  // straight away — the video is already playing, so the controls must be there.
+  const viewerVideo = !editing && roomScreen.mode === "video";
+  useEffect(() => {
+    if (insideRoom && viewerVideo) setScreenPanelOpen(true);
+  }, [insideRoom, viewerVideo]);
+
   const [facing, setFacing] = useState<1 | -1>(1);
   const [endReached, setEndReached] = useState(false);
   /** Everything enterable ahead of the walker, nearest first. */
