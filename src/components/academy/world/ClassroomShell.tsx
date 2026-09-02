@@ -151,6 +151,8 @@ const ClassroomShell = ({
   env,
   textures,
   openingWidth = 2.2,
+  screenVideo = null,
+  screenHasContent = false,
 }: ClassroomShellProps) => {
   const dims = useMemo(() => classroomDimensions(kind), [kind]);
   const yaw = Math.atan2(heading[0], heading[1]);
