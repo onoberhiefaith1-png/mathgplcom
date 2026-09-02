@@ -143,6 +143,7 @@ export const BoxLayer = ({
           fontPx={fontPx}
           placeholderColor={placeholderColor}
           onActivate={onActivate}
+          suppressNativeKeyboard={suppressNativeKeyboard}
           onPointerDown={(e) => startDrag(e, b)}
           onPointerMove={onMove}
           onPointerUp={endDrag}
