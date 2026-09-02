@@ -297,6 +297,14 @@ const ClassroomShell = ({
       })}
 
 
+      {/* SMART SCREEN — the teaching display built into every room. */}
+      <SmartScreen
+        kind={kind}
+        video={screenVideo}
+        hasContent={screenHasContent}
+        label={`${name.toUpperCase()} · SMART SCREEN`}
+      />
+
       {/* NAMEPLATE — wall-mounted on the teaching wall, never floating. */}
       <group position={[0, 2.5 + lowest, length - 0.06]} rotation-y={Math.PI}>
         <mesh>
