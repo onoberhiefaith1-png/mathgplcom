@@ -47,6 +47,12 @@ interface Props {
   onActivate?: (id: string | null) => void;
   fontPx?: number;
   placeholderColor?: string;
+  /**
+   * Phone/tablet Smartboard: the slot must never raise the device keyboard.
+   * Tapping still selects the box and the board's own number / symbol keys
+   * write into it. Desktop keeps direct typing.
+   */
+  suppressNativeKeyboard?: boolean;
 }
 
 /** Pixel gap between the line and the text edge. */
@@ -73,6 +79,7 @@ const projectOnLine = (px: number, py: number, l: SmartLine) => {
 export const BoxLayer = ({
   boxes, ink, onChange, smartLines, activeBoxId, onActivate, fontPx,
   placeholderColor = PLACEHOLDER_COLOR,
+  suppressNativeKeyboard = false,
 }: Props) => {
   const dragRef = useRef<{ id: string; pid: number; moved: boolean } | null>(null);
 
@@ -136,6 +143,7 @@ export const BoxLayer = ({
           fontPx={fontPx}
           placeholderColor={placeholderColor}
           onActivate={onActivate}
+          suppressNativeKeyboard={suppressNativeKeyboard}
           onPointerDown={(e) => startDrag(e, b)}
           onPointerMove={onMove}
           onPointerUp={endDrag}
@@ -148,7 +156,7 @@ export const BoxLayer = ({
 };
 
 const BoxView = ({
-  box, ink, active, fontPx, placeholderColor, onActivate,
+  box, ink, active, fontPx, placeholderColor, onActivate, suppressNativeKeyboard,
   onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onTextChange,
 }: {
   box: MagnetBox;
@@ -157,6 +165,7 @@ const BoxView = ({
   fontPx?: number;
   placeholderColor: string;
   onActivate?: (id: string | null) => void;
+  suppressNativeKeyboard?: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: (e: React.PointerEvent) => void;
@@ -172,10 +181,13 @@ const BoxView = ({
   }, [box.text]);
 
   useEffect(() => {
+    // Focusing the slot is what raises the device keyboard, so on phone and
+    // tablet the box is selected without ever taking DOM focus.
+    if (suppressNativeKeyboard) return;
     if (active && editRef.current && document.activeElement !== editRef.current) {
       editRef.current.focus();
     }
-  }, [active]);
+  }, [active, suppressNativeKeyboard]);
 
   const fs = fontPx ?? 34;
   const height = Math.round(fs * 1.05);
@@ -232,10 +244,15 @@ const BoxView = ({
     >
       <div
         ref={editRef}
-        contentEditable
+        contentEditable={!suppressNativeKeyboard}
+        inputMode={suppressNativeKeyboard ? "none" : undefined}
         suppressContentEditableWarning
         spellCheck={false}
-        onPointerDown={(e) => { e.stopPropagation(); }}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          // Touch board: no focus, so selection happens on the tap itself.
+          if (suppressNativeKeyboard) onActivate?.(box.id);
+        }}
         onFocus={() => onActivate?.(box.id)}
         onInput={(e) => onTextChange((e.target as HTMLDivElement).innerText)}
         style={{

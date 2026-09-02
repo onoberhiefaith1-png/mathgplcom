@@ -87,6 +87,7 @@ import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
 import { useMobileStudentBoard } from "@/hooks/useMobileStudentBoard";
+import { useBoardNativeKeyboard } from "@/hooks/useBoardNativeKeyboard";
 import { clampRowSpacing, normalizeRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
 import {
@@ -456,6 +457,9 @@ const PresentationView = ({
   // every teacher surface are untouched because all branches read this flag.
   const mobileBoard = useMobileStudentBoard(role);
   const mobileStudent = mobileBoard.active;
+  // PHONE/TABLET + SMARTBOARD = no native keyboard, for every role. Layout and
+  // chrome still follow `mobileStudent`; only keyboard raising reads this flag.
+  const noNativeKeyboard = useBoardNativeKeyboard();
   // Two-finger viewport pan (mobile student mode only). One finger keeps
   // writing exactly as before.
   const panRef = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
@@ -817,13 +821,13 @@ const PresentationView = ({
   const hiddenInputRef = useRef<HTMLTextAreaElement>(null);
   const boardScrollRef = useRef<HTMLElement>(null);
 
-  // KEYBOARD CAPTURE FOCUS. On a mobile student session focusing this hidden
-  // textarea would raise the phone keyboard over the board, so focus is
-  // skipped there — hardware-keyboard handlers stay registered.
+  // KEYBOARD CAPTURE FOCUS. On a phone or tablet focusing this hidden textarea
+  // would raise the device keyboard over the board, so focus is skipped for
+  // every role there — hardware-keyboard handlers stay registered.
   const focusCapture = useCallback(() => {
-    if (mobileStudent) return;
+    if (noNativeKeyboard) return;
     hiddenInputRef.current?.focus({ preventScroll: true });
-  }, [mobileStudent]);
+  }, [noNativeKeyboard]);
 
   // Track the scroll host's visible height so assistant panels can default
   // to a position INSIDE the viewport (not the off-screen band bottom).
@@ -6312,6 +6316,7 @@ const PresentationView = ({
             onActivate={setActiveBoxId}
             fontPx={grid.FONT_PX}
             placeholderColor={placeholderColor}
+            suppressNativeKeyboard={noNativeKeyboard}
           />
 
           {/* Diagrams live on the page itself — they scroll with the board and
@@ -6815,7 +6820,7 @@ const PresentationView = ({
       <textarea
         ref={hiddenInputRef}
         aria-hidden
-        inputMode={mobileStudent ? "none" : "text"}
+        inputMode={noNativeKeyboard ? "none" : "text"}
         autoCapitalize="off"
         autoCorrect="off"
         spellCheck={false}
