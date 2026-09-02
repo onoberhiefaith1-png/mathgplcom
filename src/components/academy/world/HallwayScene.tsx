@@ -3630,10 +3630,11 @@ const HallwayScene = ({
 
 {/* Enclosed hallways — each finite, named, walled at its far end. Only the
     connected hallways are signposted, so far-away names never read through walls. */}
-        {segments.map((seg) => {
+        {!insideRoom && segments.map((seg) => {
           // A sub-half-metre merge is only a junction throat, not a corridor.
           // Rendering a complete shell here puts its walls across the target road.
           if (connectors.has(seg.walkway?.id ?? "") && seg.length < MIN_RENDERABLE_CORRIDOR) return null;
+
           const near = nearbyIds.has(seg.walkway?.id ?? "root");
           const connector = connectors.get(seg.walkway?.id ?? "");
           const connectorTarget = connector
