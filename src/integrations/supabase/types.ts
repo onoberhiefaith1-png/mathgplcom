@@ -9510,6 +9510,7 @@ export type Database = {
         Returns: string
       }
       revoke_connection: { Args: { _connection_id: string }; Returns: string }
+      room_screen_object_building: { Args: { _name: string }; Returns: string }
       save_plan_draft: {
         Args: {
           _credit_amount: number
