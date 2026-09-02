@@ -3641,6 +3641,9 @@ const HallwayScene = ({
             textures={textures}
             screenVideo={roomScreen.video}
             screenHasContent={roomScreen.mode !== "idle"}
+            doorVisual={insideRoom.doorVisual}
+            onLeave={leaveClassroom}
+
           />
         )}
 
