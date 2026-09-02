@@ -3826,25 +3826,33 @@ const HallwayScene = ({
           side-stepping replace the corridor's forward/turn-around pair. */}
       {insideRoom && (
         <>
-          <div className="pointer-events-none absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs font-semibold text-foreground backdrop-blur">
-            {insideRoom.room.name}
+          {/* Room navigation — hidden while the student is still, so it never
+              sits permanently over the lesson video. */}
+          <div
+            className={`transition-opacity duration-300 ${roomHud.visible ? "opacity-100" : "pointer-events-none opacity-0"}`}
+          >
+            <div className="pointer-events-none absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-full border border-border/60 bg-background/80 px-4 py-1.5 text-xs font-semibold text-foreground backdrop-blur">
+              {insideRoom.room.name}
+            </div>
+            <p className="pointer-events-none absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur">
+              Walk, turn and step around — go back through the door to leave
+            </p>
+            <RoomControls
+              onWalk={roomWalk}
+              onTurn={roomTurn}
+              onStrafe={roomStrafe}
+              onLeave={leaveClassroom}
+            />
           </div>
-          <p className="pointer-events-none absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur">
-            Walk, turn and step around — go back through the door to leave
-          </p>
+          {/* The lesson video's own controls — a separate system from movement. */}
           <SmartScreenControls
             api={roomScreen}
             open={screenPanelOpen}
             onClose={() => setScreenPanelOpen(false)}
           />
-          <RoomControls
-            onWalk={roomWalk}
-            onTurn={roomTurn}
-            onStrafe={roomStrafe}
-            onLeave={leaveClassroom}
-          />
         </>
       )}
+
 
 
       {inWalk && !insideRoom && (
