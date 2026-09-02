@@ -2950,7 +2950,13 @@ const HallwayScene = ({
    * Inside, the camera becomes a free walker in the room's own local space.
    */
   const enterClassroom = useCallback(
-    (doorWorld: [number, number], into: [number, number], room: BuildingClassroom) => {
+    (
+      doorWorld: [number, number],
+      into: [number, number],
+      room: BuildingClassroom,
+      doorVisual?: RoomDoorVisual | null,
+    ) => {
+
       const st = machineRef.current;
       const dims = classroomDimensions(room.kind);
       st.inside = {
