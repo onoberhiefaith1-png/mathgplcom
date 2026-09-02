@@ -3468,8 +3468,22 @@ const HallwayScene = ({
             onEnter={() => {
               if (!attached) return;
               const into: [number, number] = [-front[0], -front[1]];
-              startDoorZoom([wx, wz], front, () => enterClassroom([wx, wz], into, attached));
+              // The room carries the same door's look, so its inside face is
+              // the very door that was walked through.
+              const visual: RoomDoorVisual = {
+                color: design?.color || env.door.color,
+                brightness: design?.brightness ?? env.door.brightness,
+                styleKey: design?.style || env.door.style,
+                textureUrl: design?.texture?.path
+                  ? textures[design.texture.path]
+                  : env.door.texture
+                    ? textures[env.door.texture.path]
+                    : undefined,
+                accent: attached ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4] : "#64748b",
+              };
+              startDoorZoom([wx, wz], front, () => enterClassroom([wx, wz], into, attached, visual));
             }}
+
           />
         </group>
       );
