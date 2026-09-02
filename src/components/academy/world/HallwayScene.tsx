@@ -3330,8 +3330,13 @@ const HallwayScene = ({
 
   /** The hallway you are in, plus every corridor sharing a physical mouth. */
   const nearbyIds = useMemo(() => {
+    // INSIDE A ROOM the hallway network is not visible at all: a room is a
+    // separate space beyond its door, and the building's corridors would
+    // otherwise cut straight through it and read as "the wrong place".
+    if (insideRoom) return new Set<string>();
     const currentId = nav.seg.walkway?.id ?? "root";
     const connections: { a: string; b: string }[] = [];
+
     for (const seg of segments) {
       const id = seg.walkway?.id ?? "root";
       for (const child of seg.children) {
@@ -3349,7 +3354,7 @@ const HallwayScene = ({
       }
     }
     return connectedWalkwayIds(currentId, connections);
-  }, [nav.seg, segments, connectors, layouts]);
+  }, [nav.seg, segments, connectors, layouts, insideRoom]);
 
 
   /** Doors and sub-hallway openings of one hallway, from the shared layout. */
@@ -3408,8 +3413,8 @@ const HallwayScene = ({
       }
 
 
-      const wx = seg.start[0] + seg.heading[0] * o.along + o.side * (HALL_WIDTH / 2 - 0.2) * cy;
-      const wz = seg.start[1] + seg.heading[1] * o.along - o.side * (HALL_WIDTH / 2 - 0.2) * sy;
+      const wx = seg.start[0] + seg.heading[0] * o.along + o.side * (HALL_WIDTH / 2 - 0.06) * cy;
+      const wz = seg.start[1] + seg.heading[1] * o.along - o.side * (HALL_WIDTH / 2 - 0.06) * sy;
       // `front` is the direction the door FACES — out of its wall and into the
       // corridor. A left-wall door (side -1) sits at -x of the walk, so it faces
       // right of the walk; a right-wall door faces left. The room therefore lies
@@ -3625,10 +3630,11 @@ const HallwayScene = ({
 
 {/* Enclosed hallways — each finite, named, walled at its far end. Only the
     connected hallways are signposted, so far-away names never read through walls. */}
-        {segments.map((seg) => {
+        {!insideRoom && segments.map((seg) => {
           // A sub-half-metre merge is only a junction throat, not a corridor.
           // Rendering a complete shell here puts its walls across the target road.
           if (connectors.has(seg.walkway?.id ?? "") && seg.length < MIN_RENDERABLE_CORRIDOR) return null;
+
           const near = nearbyIds.has(seg.walkway?.id ?? "root");
           const connector = connectors.get(seg.walkway?.id ?? "");
           const connectorTarget = connector
@@ -3714,6 +3720,7 @@ const HallwayScene = ({
             a stored door, so editing the building cannot duplicate it). It caps
             the start of the corridor, so turning around and walking back always
             ends at a real door instead of a blank wall. Clicking it leaves. */}
+        {!insideRoom && (
         <group
           position={[rootEffective.start[0], 0, rootEffective.start[1]]}
           rotation-y={segYaw(rootEffective.heading)}
@@ -3732,6 +3739,8 @@ const HallwayScene = ({
             onEnter={exitBuilding}
           />
         </group>
+        )}
+
 
       </Canvas>}
 
