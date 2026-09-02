@@ -2425,6 +2425,9 @@ export interface HallwaySceneProps {
    * main hallway. Falls back to the in-scene browse view when not supplied.
    */
   onExitBuilding?: () => void;
+  /** True in the building editor: unlocks Edit Mode surfaces such as the smart
+   *  screen's content panel. View mode users only ever watch. */
+  editing?: boolean;
 }
 
 const HallwayScene = ({
@@ -2439,6 +2442,7 @@ const HallwayScene = ({
   onModeChange,
   onExitBuilding,
   navigateTo = null,
+  editing = false,
 }: HallwaySceneProps) => {
   const [eventSource, setEventSource] = useState<HTMLDivElement | null>(null);
   // Saved configuration is the source of truth: merge it field-by-field over
@@ -2538,8 +2542,10 @@ const HallwayScene = ({
   const roomScreen = useRoomScreen({
     buildingId: building?.building.id ?? null,
     classroomId: insideRoom?.room.id ?? null,
-    canEdit: building?.canEdit ?? false,
+    canEdit: (building?.canEdit ?? false) && editing,
   });
+  /** The smart screen's own panel — opened by clicking the screen itself. */
+  const [screenPanelOpen, setScreenPanelOpen] = useState(false);
   const [facing, setFacing] = useState<1 | -1>(1);
   const [endReached, setEndReached] = useState(false);
   /** Everything enterable ahead of the walker, nearest first. */
@@ -2984,6 +2990,7 @@ const HallwayScene = ({
     const st = machineRef.current;
     st.inside = null;
     setInsideRoom(null);
+    setScreenPanelOpen(false);
     setMachinePhase("idle");
   }, [setMachinePhase]);
 
@@ -3643,6 +3650,7 @@ const HallwayScene = ({
             screenHasContent={roomScreen.mode !== "idle"}
             doorVisual={insideRoom.doorVisual}
             onLeave={leaveClassroom}
+            onScreenSelect={() => setScreenPanelOpen((o) => !o)}
 
           />
         )}
@@ -3787,7 +3795,11 @@ const HallwayScene = ({
           <p className="pointer-events-none absolute left-1/2 top-24 z-20 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-[11px] text-muted-foreground backdrop-blur">
             Walk, turn and step around — go back through the door to leave
           </p>
-          <SmartScreenControls api={roomScreen} />
+          <SmartScreenControls
+            api={roomScreen}
+            open={screenPanelOpen}
+            onClose={() => setScreenPanelOpen(false)}
+          />
           <RoomControls
             onWalk={roomWalk}
             onTurn={roomTurn}
