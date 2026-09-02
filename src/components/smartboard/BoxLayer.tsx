@@ -47,6 +47,12 @@ interface Props {
   onActivate?: (id: string | null) => void;
   fontPx?: number;
   placeholderColor?: string;
+  /**
+   * Phone/tablet Smartboard: the slot must never raise the device keyboard.
+   * Tapping still selects the box and the board's own number / symbol keys
+   * write into it. Desktop keeps direct typing.
+   */
+  suppressNativeKeyboard?: boolean;
 }
 
 /** Pixel gap between the line and the text edge. */
