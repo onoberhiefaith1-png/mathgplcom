@@ -6316,6 +6316,7 @@ const PresentationView = ({
             onActivate={setActiveBoxId}
             fontPx={grid.FONT_PX}
             placeholderColor={placeholderColor}
+            suppressNativeKeyboard={noNativeKeyboard}
           />
 
           {/* Diagrams live on the page itself — they scroll with the board and
