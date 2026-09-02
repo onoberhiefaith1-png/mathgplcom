@@ -244,10 +244,15 @@ const BoxView = ({
     >
       <div
         ref={editRef}
-        contentEditable
+        contentEditable={!suppressNativeKeyboard}
+        inputMode={suppressNativeKeyboard ? "none" : undefined}
         suppressContentEditableWarning
         spellCheck={false}
-        onPointerDown={(e) => { e.stopPropagation(); }}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          // Touch board: no focus, so selection happens on the tap itself.
+          if (suppressNativeKeyboard) onActivate?.(box.id);
+        }}
         onFocus={() => onActivate?.(box.id)}
         onInput={(e) => onTextChange((e.target as HTMLDivElement).innerText)}
         style={{
