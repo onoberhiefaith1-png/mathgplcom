@@ -3354,7 +3354,7 @@ const HallwayScene = ({
       }
     }
     return connectedWalkwayIds(currentId, connections);
-  }, [nav.seg, segments, connectors, layouts]);
+  }, [nav.seg, segments, connectors, layouts, insideRoom]);
 
 
   /** Doors and sub-hallway openings of one hallway, from the shared layout. */
