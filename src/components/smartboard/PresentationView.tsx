@@ -457,6 +457,9 @@ const PresentationView = ({
   // every teacher surface are untouched because all branches read this flag.
   const mobileBoard = useMobileStudentBoard(role);
   const mobileStudent = mobileBoard.active;
+  // PHONE/TABLET + SMARTBOARD = no native keyboard, for every role. Layout and
+  // chrome still follow `mobileStudent`; only keyboard raising reads this flag.
+  const noNativeKeyboard = useBoardNativeKeyboard();
   // Two-finger viewport pan (mobile student mode only). One finger keeps
   // writing exactly as before.
   const panRef = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
