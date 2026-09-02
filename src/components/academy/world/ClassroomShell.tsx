@@ -65,6 +65,8 @@ export interface ClassroomShellProps {
   doorVisual?: RoomDoorVisual | null;
   /** Leaves the room, used when the inside door is clicked. */
   onLeave?: () => void;
+  /** Clicking the smart screen glass — opens the screen's own panel. */
+  onScreenSelect?: () => void;
 }
 
 
@@ -171,6 +173,7 @@ const ClassroomShell = ({
   screenHasContent = false,
   doorVisual = null,
   onLeave,
+  onScreenSelect,
 }: ClassroomShellProps) => {
 
   const dims = useMemo(() => classroomDimensions(kind), [kind]);
@@ -329,6 +332,7 @@ const ClassroomShell = ({
         video={screenVideo}
         hasContent={screenHasContent}
         label={`${name.toUpperCase()} · SMART SCREEN`}
+        onSelect={onScreenSelect}
       />
 
       {/* NAMEPLATE — wall-mounted on the teaching wall, never floating. */}

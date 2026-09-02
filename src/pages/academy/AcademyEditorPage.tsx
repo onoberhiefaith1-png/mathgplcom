@@ -786,6 +786,7 @@ const handleTextureUpload = useCallback(
             focus={focus}
             onFocusChange={setFocus}
             navigateTo={navigateTo}
+            editing
             onOpenDoor={(door) => {
               setSelectedDoorId(door.id);
               setBuildingOpen((o) => ({ ...o, walk: true }));
