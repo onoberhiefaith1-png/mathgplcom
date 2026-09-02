@@ -3330,8 +3330,13 @@ const HallwayScene = ({
 
   /** The hallway you are in, plus every corridor sharing a physical mouth. */
   const nearbyIds = useMemo(() => {
+    // INSIDE A ROOM the hallway network is not visible at all: a room is a
+    // separate space beyond its door, and the building's corridors would
+    // otherwise cut straight through it and read as "the wrong place".
+    if (insideRoom) return new Set<string>();
     const currentId = nav.seg.walkway?.id ?? "root";
     const connections: { a: string; b: string }[] = [];
+
     for (const seg of segments) {
       const id = seg.walkway?.id ?? "root";
       for (const child of seg.children) {
