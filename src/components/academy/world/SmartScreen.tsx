@@ -114,22 +114,29 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
 
   useEffect(() => () => texture?.dispose(), [texture]);
 
-  // Cover-fit: fill the 16:9 glass, centre-cropping anything shaped differently.
+  // The video is a PLAIN PANEL: one whole frame across the whole surface, no
+  // crop and no stretch. The panel itself takes the video's aspect ratio and is
+  // sized to fit inside the screen envelope, so nothing is ever cut off.
   useEffect(() => {
-    if (!texture || !frameSize) return;
-    const panel = mount.width / mount.height;
-    const source = frameSize.w / frameSize.h;
-    if (source > panel) {
-      const scale = panel / source;
-      texture.repeat.set(scale, 1);
-      texture.offset.set((1 - scale) / 2, 0);
-    } else {
-      const scale = source / panel;
-      texture.repeat.set(1, scale);
-      texture.offset.set(0, (1 - scale) / 2);
-    }
+    if (!texture) return;
+    texture.repeat.set(1, 1);
+    texture.offset.set(0, 0);
     texture.needsUpdate = true;
-  }, [texture, frameSize, mount.width, mount.height]);
+  }, [texture]);
+
+  const panel = useMemo(() => {
+    if (!hasContent || !frameSize) return { w: mount.width, h: mount.height };
+    const a = frameSize.w / frameSize.h;
+    const fitH = mount.width / a;
+    return fitH <= mount.height
+      ? { w: mount.width, h: fitH }
+      : { w: mount.height * a, h: mount.height };
+  }, [hasContent, frameSize, mount.width, mount.height]);
+
+  const videoGeo = useMemo(
+    () => normalizeUVs(roundedPlane(panel.w, panel.h, 0.02)),
+    [panel.w, panel.h],
+  );
 
   // Keep frames flowing even if the renderer skips a texture upload.
   useFrame(() => {
@@ -157,6 +164,8 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
   }, [hasContent, texture, frameSize]);
 
   // Face the room: the teaching wall is at +z, so the panel looks back down -z.
+  // The group is rotated 180°, so a POSITIVE local z sits in front of the wall,
+  // inside the room — anything negative would be buried behind the wall plane.
   return (
     <group position={[0, mount.centreY, mount.wallZ - 0.06]} rotation-y={Math.PI}>
       {/* PLACEHOLDER ONLY — the housing and bezel exist while the screen is
@@ -164,22 +173,21 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
           the picture itself is the screen. */}
       {!hasContent && (
         <>
-          <mesh position={[0, 0, 0.02]}>
+          <mesh position={[0, 0, -0.02]}>
             <boxGeometry args={[bezelW + 0.1, bezelH + 0.1, 0.16]} />
             <meshStandardMaterial color="#0b1020" roughness={0.6} metalness={0.35} />
           </mesh>
-          <mesh geometry={bezelGeo} position={[0, 0, -0.07]}>
+          <mesh geometry={bezelGeo} position={[0, 0, 0.07]}>
             <meshStandardMaterial color="#1b2440" roughness={0.35} metalness={0.55} side={THREE.FrontSide} />
           </mesh>
         </>
       )}
 
-
       {/* the glass */}
       <mesh
         ref={glassRef}
-        geometry={glassGeo}
-        position={[0, 0, -0.075]}
+        geometry={hasContent ? videoGeo : glassGeo}
+        position={[0, 0, 0.075]}
         onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(); } : undefined}
       >
         <meshStandardMaterial toneMapped={false} roughness={0.18} metalness={0.05} side={THREE.FrontSide} />
@@ -187,7 +195,7 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
 
       {!hasContent && (
         <Text
-          position={[0, 0, -0.09]}
+          position={[0, 0, 0.09]}
           fontSize={Math.min(0.26, mount.height * 0.09)}
           color="#8ea4d2"
           anchorX="center"
@@ -200,7 +208,7 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
       )}
 
       {/* soft glow from the panel into the room */}
-      <pointLight position={[0, 0, -0.9]} intensity={hasContent ? 1.1 : 0.35} distance={9} color="#a8c6ff" />
+      <pointLight position={[0, 0, 0.9]} intensity={hasContent ? 1.1 : 0.35} distance={9} color="#a8c6ff" />
     </group>
   );
 };
