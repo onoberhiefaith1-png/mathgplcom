@@ -496,6 +496,8 @@ import type { RoomDoorVisual } from "./RoomDoor";
 
 import SmartScreenControls from "./SmartScreenControls";
 import { useRoomScreen } from "@/hooks/useRoomScreen";
+import { useAutoHide } from "@/hooks/useAutoHide";
+
 import { classroomDimensions } from "@/lib/building/classroom";
 import type { ClassroomKind } from "@/lib/building/types";
 import { resolveSurfaces } from "@/lib/building/resolve";
