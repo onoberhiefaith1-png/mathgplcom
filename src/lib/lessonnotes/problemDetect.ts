@@ -272,7 +272,7 @@ export function analyzeProblem(
     if (solutionMath.length) {
       return { ...base, status: "valid", issue: "" };
     }
-    if (needsFigure(problem)) {
+    if (needsFigure(problem) && !carriesOwnData(problem, instruction)) {
       return {
         ...base,
         status: "uncertain",
