@@ -25,7 +25,32 @@ export interface RoomLock {
   classroom_id: string;
   charset: LockCharset;
   code_length: number;
+  /**
+   * OPTIONAL SECURITY POLICY. Null means "no limit": the learner may keep trying
+   * until the code is right. A number means that many wrong codes are allowed
+   * before the panel refuses further attempts for `retry_after_minutes`.
+   */
+  max_attempts: number | null;
+  retry_after_minutes: number | null;
 }
+
+/** How long a locked-out learner must wait, in plain English. */
+export const retryLabel = (minutes: number | null | undefined): string => {
+  const m = Math.max(1, Math.round(minutes ?? 0));
+  if (m % 1440 === 0) {
+    const d = m / 1440;
+    return d === 1 ? "24 hours" : `${d} days`;
+  }
+  if (m % 60 === 0) {
+    const h = m / 60;
+    return h === 1 ? "1 hour" : `${h} hours`;
+  }
+  return m === 1 ? "1 minute" : `${m} minutes`;
+};
+
+/** The retry-wait choices a teacher picks from, in minutes. */
+export const RETRY_OPTIONS: number[] = [5, 15, 30, 60, 180, 720, 1440, 4320];
+
 
 const DIGITS = "0123456789";
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
