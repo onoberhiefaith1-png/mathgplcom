@@ -121,6 +121,9 @@ const WalkwayManager = ({
   remainingSlots = {},
   classrooms = [],
   onSetRoomKind,
+  locks = [],
+  onSetDoorLock,
+  onRemoveDoorLock,
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
   const [form, setForm] = useState<"hallway" | "room" | "link" | null>(null);
