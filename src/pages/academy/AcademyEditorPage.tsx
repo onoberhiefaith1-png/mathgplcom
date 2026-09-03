@@ -727,8 +727,17 @@ const handleTextureUpload = useCallback(
                               ) ?? null
                             : null
                         }
-                        onSetRoomLock={async (roomId, code, charset, length) => {
-                          await setRoomLock({ data: { roomId, code, charset, codeLength: length } });
+                        onSetRoomLock={async (roomId, code, charset, length, policy) => {
+                          await setRoomLock({
+                            data: {
+                              roomId,
+                              code,
+                              charset,
+                              codeLength: length,
+                              maxAttempts: policy?.maxAttempts ?? null,
+                              retryAfterMinutes: policy?.retryAfterMinutes ?? null,
+                            },
+                          });
                           toast({ title: "Lock saved", description: "This room now asks for its code." });
                           await refreshBuilding();
                         }}
