@@ -69,3 +69,34 @@ export const CLASSROOM_KIND_BLURB: Record<ClassroomKind, string> = {
   teaching_hall: "Same width, about three times the length — a longer teaching room.",
   auditorium: "Large stepped space; the floor descends toward the front teaching area.",
 };
+
+// ── Door → Room resolution (the ONLY way a door finds its room) ────────────
+
+/**
+ * A door is strictly a room entrance, so opening a door can only ever open the
+ * room whose `door_id` is that exact door. Every caller must resolve through
+ * this module: no page route, no product link, no positional guess. Keeping the
+ * rule in one function is what stops "the door opened somewhere else" from
+ * coming back.
+ */
+export const indexRoomsByDoor = <T extends { door_id: string }>(
+  rooms: readonly T[] | null | undefined,
+): Map<string, T> => {
+  const map = new Map<string, T>();
+  for (const r of rooms ?? []) {
+    // First row wins, so a duplicated shell can never flip which room a door
+    // opens between renders.
+    if (!map.has(r.door_id)) map.set(r.door_id, r);
+  }
+  return map;
+};
+
+/** The room behind one door, matched strictly on the door's own id. */
+export const roomForDoor = <T extends { door_id: string }>(
+  rooms: readonly T[] | Map<string, T> | null | undefined,
+  doorId: string,
+): T | null => {
+  if (!doorId) return null;
+  const map = rooms instanceof Map ? rooms : indexRoomsByDoor(rooms);
+  return map.get(doorId) ?? null;
+};

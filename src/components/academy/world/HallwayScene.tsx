@@ -498,7 +498,10 @@ import SmartScreenControls from "./SmartScreenControls";
 import { useRoomScreen } from "@/hooks/useRoomScreen";
 import { useAutoHide } from "@/hooks/useAutoHide";
 
-import { classroomDimensions } from "@/lib/building/classroom";
+import { classroomDimensions, indexRoomsByDoor, roomForDoor } from "@/lib/building/classroom";
+import { fetchRoomForDoor } from "@/lib/building/api";
+import { toast } from "sonner";
+
 import type { ClassroomKind } from "@/lib/building/types";
 import { resolveSurfaces } from "@/lib/building/resolve";
 
@@ -1082,10 +1085,37 @@ const DoorMesh = ({
   return (
     // Flush against the wall plane and rotated to the wall's own orientation:
     // the door face is parallel to the wall and looks into the corridor.
+    //
+    // THE WHOLE DOORWAY IS THE DOOR. Frame, jambs, threshold, nameplate and the
+    // pick plane below all enter the same room, and the click stops here, so a
+    // click a few centimetres off the leaf can never fall through to a corridor
+    // mouth or the exit door behind it.
     <group
       position={atStart ? [0, 0, z - 0.06] : [side * (HALL_WIDTH / 2 - 0.06), 0, z]}
       rotation-y={atStart ? Math.PI : -side * (Math.PI / 2)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onEnter();
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "pointer";
+        setHovered(true);
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "auto";
+        setHovered(false);
+      }}
     >
+      {/* Invisible pick surface covering the full opening, inside the door group
+          so it can never drift away from the leaf. */}
+      <mesh position={[0, openH / 2, 0.12]}>
+        <planeGeometry args={[openW + 0.5, openH + 0.9]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+
+
 
       {/* Reveal / frame — jambs, lintel and threshold read as one structure */}
       <group>
@@ -1115,22 +1145,8 @@ const DoorMesh = ({
       {/* The DOOR PANEL: the imported/built-in door artwork, rendered exactly as
           provided. Independent of the frame — no accent tint, no frame-coloured
           emissive wash, so changing the frame never repaints the door. */}
-      <mesh
-        position={[0, leafH / 2 + 0.03, 0.07]}
-        castShadow
-        onClick={(e) => {
-          e.stopPropagation();
-          onEnter();
-        }}
-        onPointerOver={() => {
-          document.body.style.cursor = "pointer";
-          setHovered(true);
-        }}
-        onPointerOut={() => {
-          document.body.style.cursor = "auto";
-          setHovered(false);
-        }}
-      >
+      <mesh position={[0, leafH / 2 + 0.03, 0.07]} castShadow>
+
         <planeGeometry args={[leafW, leafH]} />
         <meshStandardMaterial
           key={tex ? url : "flat"}
@@ -2419,12 +2435,13 @@ export interface HallwaySceneProps {
   roomCounts?: Record<string, string>;
   focus: number;
   onFocusChange: (index: number) => void;
-  onEnterRoom?: (roomId: string) => void;
   /**
-   * Kept for the editor's selection panel only. A door never opens a product:
-   * entering a door always walks into the room attached to it.
+   * A door has no navigation of its own: it can only open the room attached to
+   * it, resolved inside this scene. There are deliberately no `onEnterRoom` /
+   * `onOpenDoor` escape hatches, so a door can never be re-pointed at a page,
+   * a course, an adventure or another room.
    */
-  onOpenDoor?: (door: BuildingDoor) => void;
+
   onModeChange?: (mode: "browse" | "walk") => void;
   /** Walk to this hallway id (used by the editor after creating one). */
   navigateTo?: string | null;
@@ -2446,7 +2463,6 @@ const HallwayScene = ({
   roomCounts = {},
   focus,
   onFocusChange,
-  onEnterRoom,
   onModeChange,
   onExitBuilding,
   navigateTo = null,
@@ -3380,12 +3396,46 @@ const HallwayScene = ({
     [walkways, env],
   );
 
-  /** Classroom shells, keyed by the door they hang off. */
-  const classroomsByDoor = useMemo(() => {
-    const map = new Map<string, BuildingClassroom>();
-    for (const c of building?.classrooms ?? []) map.set(c.door_id, c);
-    return map;
-  }, [building]);
+  /**
+   * Classroom shells, keyed by the door they hang off. This map is only a render
+   * cache: the door -> room rule itself lives in `roomForDoor`, and every door
+   * click resolves through `openDoorRoom` below.
+   */
+  const classroomsByDoor = useMemo(
+    () => indexRoomsByDoor<BuildingClassroom>(building?.classrooms ?? []),
+    [building],
+  );
+
+  /**
+   * OPEN A DOOR. A door is strictly a room entrance, so this is the single path
+   * from a doorway into a space: it resolves the room whose `door_id` is this
+   * exact door, and nothing else. It never navigates to a page, never opens a
+   * product, and never falls back to another room. If the loaded page is stale
+   * the room is re-read from the database for this one door; if there is still
+   * no room the door says so out loud instead of quietly doing nothing.
+   */
+  const openDoorRoom = useCallback(
+    async (
+      door: BuildingDoor,
+      world: [number, number],
+      front: [number, number],
+      visual: RoomDoorVisual,
+    ) => {
+      let room = roomForDoor(classroomsByDoor, door.id);
+      if (!room) room = await fetchRoomForDoor(door.id);
+      if (!room || room.door_id !== door.id) {
+        toast.error(`“${doorTitle(door, productTitles)}” has no room yet`, {
+          description: "Open the building editor and give this door a room.",
+        });
+        return;
+      }
+      const attached = room;
+      const into: [number, number] = [-front[0], -front[1]];
+      startDoorZoom(world, front, () => enterClassroom(world, into, attached, visual));
+    },
+    [classroomsByDoor, enterClassroom, productTitles, startDoorZoom],
+  );
+
 
   /** The hallway you are in, plus every corridor sharing a physical mouth. */
   const nearbyIds = useMemo(() => {
@@ -3487,10 +3537,13 @@ const HallwayScene = ({
       const design = d.design as Partial<typeof env.door> | null;
       // A DOOR IS ONLY A ROOM ENTRANCE. It never launches a course, adventure
       // or assessment — those live inside the room, behind this door.
-      const attached = classroomsByDoor.get(d.id);
+      const attached = roomForDoor(classroomsByDoor, d.id);
       const sublabel = attached
         ? CLASSROOM_KIND_LABEL[attached.kind]
         : "Room missing — recreate it in the editor";
+      const accent = attached
+        ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4]
+        : "#64748b";
       return (
         <group key={o.id} position={[0, 0, -o.along]}>
           <DoorMesh
@@ -3498,7 +3551,7 @@ const HallwayScene = ({
             z={0}
             label={attached ? attached.name : o.name}
             sublabel={sublabel}
-            accent={attached ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4] : "#64748b"}
+            accent={accent}
             color={design?.color || env.door.color}
             emissiveIntensity={(design?.brightness ?? env.door.brightness) * 0.12}
             styleKey={design?.style || env.door.style}
@@ -3510,8 +3563,6 @@ const HallwayScene = ({
                   : undefined
             }
             onEnter={() => {
-              if (!attached) return;
-              const into: [number, number] = [-front[0], -front[1]];
               // The room carries the same door's look, so its inside face is
               // the very door that was walked through.
               const visual: RoomDoorVisual = {
@@ -3523,14 +3574,15 @@ const HallwayScene = ({
                   : env.door.texture
                     ? textures[env.door.texture.path]
                     : undefined,
-                accent: attached ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4] : "#64748b",
+                accent,
               };
-              startDoorZoom([wx, wz], front, () => enterClassroom([wx, wz], into, attached, visual));
+              void openDoorRoom(d, [wx, wz], front, visual);
             }}
 
           />
         </group>
       );
+
     });
   };
 

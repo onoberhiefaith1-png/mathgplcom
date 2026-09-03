@@ -503,6 +503,24 @@ export const doorRoute = (door: BuildingDoor): string => {
 // ── Classrooms (Hallway -> Door -> Classroom) ─────────────────────────────
 
 /**
+ * The room behind ONE door, read straight from the database.
+ *
+ * This is the last-resort resolver used when the loaded page is stale (a room
+ * created in another tab, or data fetched before the room existed). A door can
+ * hold only one room, so this can only ever return that door's own room.
+ */
+export async function fetchRoomForDoor(doorId: string): Promise<BuildingClassroom | null> {
+  const { data, error } = await supabase
+    .from("building_classrooms")
+    .select("*")
+    .eq("door_id", doorId)
+    .maybeSingle();
+  if (error) return null;
+  return (data as unknown as BuildingClassroom) ?? null;
+}
+
+
+/**
  * Create a classroom shell at an EXISTING door. The door is the entry point, so
  * no new door is ever created for a classroom, and a door can hold only one
  * classroom (enforced by the database).

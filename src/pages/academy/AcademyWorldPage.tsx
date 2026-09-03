@@ -19,16 +19,14 @@ import { ensureAcademy, loadAcademyTree, loadProductCatalogue } from "@/lib/acad
 import { productRoute, type AcademyProduct, type AcademyTree } from "@/lib/academy/types";
 import {
   activateBuilding,
-  doorRoute,
   ensureBuilding,
   listBuildings,
   loadBuildingData,
 } from "@/lib/building/api";
-import type { Building, BuildingData, BuildingDoor } from "@/lib/building/types";
+import type { Building, BuildingData } from "@/lib/building/types";
 import { resolveEnvironmentTextures } from "@/lib/building/textures";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 /** Tables whose changes should refresh the world live. */
 const LIVE_TABLES = [
@@ -193,30 +191,8 @@ const AcademyWorldPage = () => {
     [rooms],
   );
 
-  /** Entering a room navigates to its deep-linkable leaf route. */
-  const enterRoom = useCallback(
-    (id: string) => {
-      navigate(`/academy/room/${id}` as never);
-    },
-    [navigate],
-  );
-
-  /** A door either opens an existing product, or is class-context only. */
-  const handleOpenDoor = useCallback(
-    (door: BuildingDoor) => {
-      const route = doorRoute(door);
-      if (route) {
-        navigate(route as never);
-        return;
-      }
-      toast({
-        title: "Runs in class",
-        description:
-          "Adventures and assessments are played in class — open this product from your class dashboard.",
-      });
-    },
-    [navigate],
-  );
+  // A door has no route of its own: it opens only the room attached to it,
+  // inside the 3D scene. Nothing here may navigate on behalf of a door.
 
   const switchBuilding = useCallback(
     async (id: string) => {
@@ -259,8 +235,6 @@ const AcademyWorldPage = () => {
           roomCounts={roomCounts}
           focus={focus}
           onFocusChange={setFocus}
-          onEnterRoom={enterRoom}
-          onOpenDoor={handleOpenDoor}
           onModeChange={(m) => setWalking(m === "walk")}
           onExitBuilding={() => navigate("/")}
 

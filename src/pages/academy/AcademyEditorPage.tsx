@@ -787,10 +787,6 @@ const handleTextureUpload = useCallback(
             onFocusChange={setFocus}
             navigateTo={navigateTo}
             editing
-            onOpenDoor={(door) => {
-              setSelectedDoorId(door.id);
-              setBuildingOpen((o) => ({ ...o, walk: true }));
-            }}
           />
         ) : (
           <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-300">

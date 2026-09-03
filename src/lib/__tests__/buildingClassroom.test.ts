@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ENVIRONMENT } from "@/lib/building/types";
-import { classroomDimensions, classroomFloorLow } from "@/lib/building/classroom";
+import {
+  classroomDimensions,
+  classroomFloorLow,
+  indexRoomsByDoor,
+  roomForDoor,
+} from "@/lib/building/classroom";
 import {
   isDefaultSurface,
   overrideTexturePaths,
@@ -61,5 +66,40 @@ describe("default vs individual settings", () => {
       texture: { path: "org/wall.png" },
     });
     expect(overrideTexturePaths(overrides)).toContain("org/wall.png");
+  });
+});
+
+describe("a door opens only its own room", () => {
+  const rooms = [
+    { door_id: "door-a", id: "room-a" },
+    { door_id: "door-b", id: "room-b" },
+    { door_id: "door-b", id: "room-b-duplicate" },
+  ];
+
+  it("resolves strictly on the door id", () => {
+    expect(roomForDoor(rooms, "door-a")?.id).toBe("room-a");
+    expect(roomForDoor(rooms, "door-b")?.id).toBe("room-b");
+  });
+
+  it("never falls back to another room when a door has none", () => {
+    expect(roomForDoor(rooms, "door-c")).toBeNull();
+    expect(roomForDoor(rooms, "")).toBeNull();
+    expect(roomForDoor([], "door-a")).toBeNull();
+  });
+
+  it("is stable when a door somehow has two shells", () => {
+    const first = roomForDoor(rooms, "door-b")?.id;
+    expect(roomForDoor(indexRoomsByDoor(rooms), "door-b")?.id).toBe(first);
+  });
+});
+
+describe("doors carry no navigation of their own", () => {
+  it("the hallway scene exposes no door route escape hatch", async () => {
+    const src = await import("node:fs/promises").then((fs) =>
+      fs.readFile("src/components/academy/world/HallwayScene.tsx", "utf8"),
+    );
+    expect(src).not.toMatch(/onEnterRoom\?:/);
+    expect(src).not.toMatch(/onOpenDoor\?:/);
+    expect(src).toMatch(/openDoorRoom/);
   });
 });
