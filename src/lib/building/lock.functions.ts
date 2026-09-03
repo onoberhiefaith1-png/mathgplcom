@@ -19,10 +19,13 @@ const setSchema = z.object({
   codeLength: z.number().int().min(MIN_CODE_LENGTH).max(MAX_CODE_LENGTH),
 });
 
-async function assertCanEdit(supabase: { rpc: (fn: string, args: object) => Promise<{ data: unknown }> }, buildingId: string) {
+type EditCheckClient = { rpc: (fn: "can_edit_building", args: { _building_id: string }) => PromiseLike<{ data: unknown }> };
+
+async function assertCanEdit(supabase: EditCheckClient, buildingId: string) {
   const { data } = await supabase.rpc("can_edit_building", { _building_id: buildingId });
   if (!data) throw new Error("You do not have permission to edit this building.");
 }
+
 
 /** Attach a lock to one door, or replace the code on the lock already there. */
 export const setDoorLock = createServerFn({ method: "POST" })
