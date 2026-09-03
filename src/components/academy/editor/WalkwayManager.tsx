@@ -284,8 +284,14 @@ const WalkwayManager = ({
         name: roomName.trim(),
         style: doorStyle || null,
         lock: roomLockOn
-          ? { code: roomLock.code, charset: roomLock.charset, length: roomLock.length }
+          ? {
+              code: roomLock.code,
+              charset: "digits" as LockCharset,
+              length: roomLock.length,
+              ...lockDraftPolicy(roomLock),
+            }
           : null,
+
       });
       setForm(null);
     } catch (e: unknown) {
