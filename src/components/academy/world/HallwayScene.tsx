@@ -4065,6 +4065,9 @@ const HallwayScene = ({
 
 
       </Canvas>}
+      </div>
+
+
 
       {/* Navigation HUD */}
       {/* Inside a room the navigation CHANGES: free walking, turning and
