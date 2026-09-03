@@ -450,7 +450,13 @@ const handleTextureUpload = useCallback(
         kind: ClassroomKind;
         name: string;
         style?: string | null;
-        lock?: { code: string; charset: LockCharset; length: number } | null;
+        lock?: {
+          code: string;
+          charset: LockCharset;
+          length: number;
+          maxAttempts: number | null;
+          retryAfterMinutes: number | null;
+        } | null;
       },
     ) => {
       if (!buildingData) throw new Error("The building is still loading — try again in a moment.");
