@@ -1,10 +1,10 @@
 /**
- * DOOR LOCK — the access-code contract, kept independent of any door.
+ * ROOM LOCK — the access-code contract, kept independent of any door.
  *
- * A lock is an OPTIONAL component mounted beside a door. It knows only three
- * things: which characters its code may use, how long the code is, and how to
- * hash a code so the secret itself never travels or gets stored in the clear.
- * Nothing here knows about hallways, rooms or navigation.
+ * A lock belongs to a ROOM, because a room and its entrance are one object. It
+ * knows only three things: which characters its code may use, how long the code
+ * is, and how to hash a code so the secret itself never travels or gets stored
+ * in the clear. Nothing here knows about hallways, doors or navigation.
  */
 
 export type LockCharset = "digits" | "letters" | "alphanumeric";
@@ -19,10 +19,10 @@ export const MIN_CODE_LENGTH = 4;
 export const MAX_CODE_LENGTH = 8;
 
 /** The lock's public shape — everything a viewer may know about it. */
-export interface DoorLock {
+export interface RoomLock {
   id: string;
   building_id: string;
-  door_id: string;
+  classroom_id: string;
   charset: LockCharset;
   code_length: number;
 }
@@ -77,21 +77,37 @@ export const keypadRows = (charset: LockCharset): string[][] => {
 };
 
 /**
- * Hash a code. SHA-256 over a per-door salt, available in both the browser and
+ * Hash a code. SHA-256 over a per-room salt, available in both the browser and
  * the server runtime through Web Crypto, so the same code always hashes the
  * same way wherever it is checked.
  */
-export const hashCode = async (code: string, doorId: string): Promise<string> => {
-  const data = new TextEncoder().encode(`mathgpl-door-lock:${doorId}:${normaliseCode(code)}`);
+export const hashCode = async (code: string, roomId: string): Promise<string> => {
+  const data = new TextEncoder().encode(`mathgpl-room-lock:${roomId}:${normaliseCode(code)}`);
   const digest = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 };
 
-/** Index locks by the door they are mounted beside. */
-export const indexLocksByDoor = (locks: DoorLock[]): Map<string, DoorLock> => {
-  const map = new Map<string, DoorLock>();
-  for (const lock of locks) if (lock.door_id) map.set(lock.door_id, lock);
+/** Index locks by the room they belong to. */
+export const indexLocksByRoom = (locks: RoomLock[]): Map<string, RoomLock> => {
+  const map = new Map<string, RoomLock>();
+  for (const lock of locks) if (lock.classroom_id) map.set(lock.classroom_id, lock);
   return map;
+};
+
+/**
+ * A code must be typed twice and match, everywhere it is set. Returns null when
+ * the pair is acceptable, or a plain-English reason when it is not.
+ */
+export const validateCodePair = (
+  code: string,
+  confirm: string,
+  charset: LockCharset,
+  length: number,
+): string | null => {
+  const problem = validateCode(code, charset, length);
+  if (problem) return problem;
+  if (normaliseCode(code) !== normaliseCode(confirm)) return "The two codes do not match.";
+  return null;
 };

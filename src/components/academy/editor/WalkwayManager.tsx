@@ -24,8 +24,9 @@ import { CLASSROOM_KIND_BLURB } from "@/lib/building/classroom";
 import { nextBranchDirection, nextObjectOffset } from "@/lib/building/navigation";
 import { DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
 import { DOOR_STYLES } from "@/lib/building/doors";
-import DoorLockSettings from "./DoorLockSettings";
-import type { DoorLock, LockCharset } from "@/lib/building/lock";
+import { RoomLockFields, emptyLockDraft, lockDraftProblem } from "./RoomLockSettings";
+import type { RoomLockDraft } from "./RoomLockSettings";
+import type { LockCharset } from "@/lib/building/lock";
 import type { AcademyProduct } from "@/lib/academy/types";
 
 export interface WalkwayManagerProps {
@@ -57,6 +58,8 @@ export interface WalkwayManagerProps {
       kind: ClassroomKind;
       name: string;
       style?: string | null;
+      /** Optional access lock, chosen on the last step of Add Room. */
+      lock?: { code: string; charset: LockCharset; length: number } | null;
     },
   ) => Promise<void>;
   onUpdateDoor: (id: string, position_along: number) => Promise<void>;
@@ -86,9 +89,6 @@ export interface WalkwayManagerProps {
   onSetRoomKind?: (roomId: string, kind: ClassroomKind) => Promise<void>;
 
   /** OPTIONAL ACCESS LOCKS, at most one per door. */
-  locks?: DoorLock[];
-  onSetDoorLock?: (doorId: string, code: string, charset: LockCharset, length: number) => Promise<void>;
-  onRemoveDoorLock?: (doorId: string) => Promise<void>;
 }
 
 /**
@@ -121,18 +121,18 @@ const WalkwayManager = ({
   remainingSlots = {},
   classrooms = [],
   onSetRoomKind,
-  locks = [],
-  onSetDoorLock,
-  onRemoveDoorLock,
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
   const [form, setForm] = useState<"hallway" | "room" | "link" | null>(null);
 
   // Add Room wizard: hallway → room type → name. Nothing is created until the
   // whole chain has been chosen, and the door and the shell are made together.
-  const [roomStep, setRoomStep] = useState<"hallway" | "kind" | "name">("hallway");
+  const [roomStep, setRoomStep] = useState<"hallway" | "kind" | "name" | "lock">("hallway");
   const [roomKind, setRoomKind] = useState<ClassroomKind>("classroom");
   const [roomName, setRoomName] = useState("");
+  /** The optional lock for the room being created — off until a teacher adds it. */
+  const [roomLockOn, setRoomLockOn] = useState(false);
+  const [roomLock, setRoomLock] = useState<RoomLockDraft>(emptyLockDraft);
 
   // Connect Hallways form state
   const [linkFrom, setLinkFrom] = useState("");
@@ -151,7 +151,6 @@ const WalkwayManager = ({
 
   /** The room behind a door — every door is a room entrance. */
   const roomOf = (doorId: string) => classrooms.find((c) => c.door_id === doorId) ?? null;
-  const lockOf = (doorId: string) => locks.find((l) => l.door_id === doorId) ?? null;
   const roomLabel = (doorId: string) => roomOf(doorId)?.name ?? "Room";
 
   const childrenOf = (id: string | null) =>
@@ -227,6 +226,8 @@ const WalkwayManager = ({
     setDoorStyle("");
     setRoomKind("classroom");
     setRoomName("");
+    setRoomLockOn(false);
+    setRoomLock(emptyLockDraft());
     setRoomStep(walkwayId ? "kind" : "hallway");
     setFormError("");
     setForm("room");
@@ -268,6 +269,12 @@ const WalkwayManager = ({
 
   const submitRoom = async () => {
     if (busy || !doorWalkway || roomName.trim().length === 0) return;
+    // A lock is optional, but a lock that IS being added must be valid first.
+    const lockProblem = roomLockOn ? lockDraftProblem(roomLock) : null;
+    if (lockProblem) {
+      setFormError(lockProblem);
+      return;
+    }
     setBusy(true);
     setFormError("");
     try {
@@ -276,6 +283,9 @@ const WalkwayManager = ({
         kind: roomKind,
         name: roomName.trim(),
         style: doorStyle || null,
+        lock: roomLockOn
+          ? { code: roomLock.code, charset: roomLock.charset, length: roomLock.length }
+          : null,
       });
       setForm(null);
     } catch (e: unknown) {
@@ -456,15 +466,6 @@ const WalkwayManager = ({
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
                 </div>
-                {/* Door settings — the optional access lock lives here. */}
-                {onSetDoorLock && onRemoveDoorLock && (
-                  <DoorLockSettings
-                    doorId={d.id}
-                    lock={lockOf(d.id)}
-                    onSetLock={onSetDoorLock}
-                    onRemoveLock={onRemoveDoorLock}
-                  />
-                )}
               </div>
             ))}
           </div>
@@ -777,17 +778,43 @@ const WalkwayManager = ({
             </>
           )}
 
+          {/* STEP 4 — the optional lock. Skipping it leaves the room open. */}
+          {roomStep === "lock" && (
+            <div className="mt-2 space-y-2">
+              <p className="text-[11px] text-muted-foreground">
+                A lock is optional. Add one and learners must enter this code on the panel
+                beside the entrance before the room opens.
+              </p>
+              <label className="flex items-center gap-2 text-[11px] text-foreground">
+                <input
+                  type="checkbox"
+                  aria-label="Add Lock"
+                  checked={roomLockOn}
+                  onChange={(e) => setRoomLockOn(e.target.checked)}
+                />
+                Add Lock to this room
+              </label>
+              {roomLockOn && <RoomLockFields draft={roomLock} onChange={setRoomLock} />}
+            </div>
+          )}
+
           {formError && (
             <p className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
               {formError}
             </p>
           )}
           <div className="mt-3 flex items-center gap-2">
-            {roomStep !== "name" ? (
+            {roomStep !== "lock" ? (
               <button
                 type="button"
-                disabled={!doorWalkway}
-                onClick={() => setRoomStep(roomStep === "hallway" ? "kind" : "name")}
+                disabled={
+                  !doorWalkway || (roomStep === "name" && roomName.trim().length === 0)
+                }
+                onClick={() =>
+                  setRoomStep(
+                    roomStep === "hallway" ? "kind" : roomStep === "kind" ? "name" : "lock",
+                  )
+                }
                 className="min-h-[38px] rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground disabled:opacity-40"
               >
                 Next
@@ -805,7 +832,11 @@ const WalkwayManager = ({
             {roomStep !== "hallway" && (
               <button
                 type="button"
-                onClick={() => setRoomStep(roomStep === "name" ? "kind" : "hallway")}
+                onClick={() =>
+                  setRoomStep(
+                    roomStep === "lock" ? "name" : roomStep === "name" ? "kind" : "hallway",
+                  )
+                }
                 className="min-h-[38px] rounded-full border border-border px-4 text-xs font-semibold text-muted-foreground"
               >
                 Back
