@@ -275,6 +275,13 @@ export interface BuildingSettingsPanelProps {
   scopeId?: string;
   onScopeChange?: (id: string) => void;
   onSaveOverrides?: (scopeId: string, overrides: SurfaceOverrides) => Promise<void>;
+  /**
+   * ROOM LOCK. A lock belongs to a room, so this section appears only while a
+   * classroom scope is active — never in the building's Default Settings.
+   */
+  roomLock?: RoomLock | null;
+  onSetRoomLock?: (roomId: string, code: string, charset: LockCharset, length: number) => Promise<void>;
+  onRemoveRoomLock?: (roomId: string) => Promise<void>;
 }
 
 const BuildingSettingsPanel = ({
@@ -288,8 +295,13 @@ const BuildingSettingsPanel = ({
   scopeId = "",
   onScopeChange,
   onSaveOverrides,
+  roomLock = null,
+  onSetRoomLock,
+  onRemoveRoomLock,
 }: BuildingSettingsPanelProps) => {
   const activeScope = scopes.find((s) => s.id === scopeId) ?? null;
+  /** The room being edited, when the active scope is a classroom. */
+  const activeRoomId = scopeId.startsWith("classroom:") ? scopeId.slice("classroom:".length) : "";
   /** What this scope currently renders: default, with its own overrides on top. */
   const scopeEnvironment = activeScope
     ? resolveSurfaces(environment, activeScope.overrides)
@@ -560,6 +572,23 @@ const BuildingSettingsPanel = ({
           </div>
         ),
       },
+      ...(activeRoomId && onSetRoomLock && onRemoveRoomLock
+        ? [
+            {
+              key: "lock",
+              title: "Lock",
+              body: (
+                <RoomLockSettings
+                  lock={roomLock}
+                  onSetLock={(code, charset, length) =>
+                    onSetRoomLock(activeRoomId, code, charset, length)
+                  }
+                  onRemoveLock={() => onRemoveRoomLock(activeRoomId)}
+                />
+              ),
+            },
+          ]
+        : []),
       {
         key: "lighting",
         title: "Lighting",
