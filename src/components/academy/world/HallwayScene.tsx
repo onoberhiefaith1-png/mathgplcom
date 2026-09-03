@@ -3754,20 +3754,7 @@ const HallwayScene = ({
                   ? textures[env.door.texture.path]
                   : undefined
             }
-            lock={lockViewFor(d.id, () => {
-              const visual: RoomDoorVisual = {
-                color: design?.color || env.door.color,
-                brightness: design?.brightness ?? env.door.brightness,
-                styleKey: design?.style || env.door.style,
-                textureUrl: design?.texture?.path
-                  ? textures[design.texture.path]
-                  : env.door.texture
-                    ? textures[env.door.texture.path]
-                    : undefined,
-                accent,
-              };
-              void openDoorRoom(d, [wx, wz], front, visual);
-            })}
+            lock={lockViewFor(d.id, () => focusLockPanel([wx, wz], front))}
             onEnter={() => {
               // The room carries the same door's look, so its inside face is
               // the very door that was walked through.
@@ -3782,8 +3769,13 @@ const HallwayScene = ({
                     : undefined,
                 accent,
               };
-              guardedEnter(d.id, () => void openDoorRoom(d, [wx, wz], front, visual));
+              guardedEnter(
+                d.id,
+                () => void openDoorRoom(d, [wx, wz], front, visual),
+                () => focusLockPanel([wx, wz], front),
+              );
             }}
+
 
           />
         </group>
