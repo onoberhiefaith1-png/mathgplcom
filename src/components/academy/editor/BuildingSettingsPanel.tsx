@@ -282,7 +282,13 @@ export interface BuildingSettingsPanelProps {
    * classroom scope is active — never in the building's Default Settings.
    */
   roomLock?: RoomLock | null;
-  onSetRoomLock?: (roomId: string, code: string, charset: LockCharset, length: number) => Promise<void>;
+  onSetRoomLock?: (
+    roomId: string,
+    code: string,
+    charset: LockCharset,
+    length: number,
+    policy: { maxAttempts: number | null; retryAfterMinutes: number | null },
+  ) => Promise<void>;
   onRemoveRoomLock?: (roomId: string) => Promise<void>;
 }
 
