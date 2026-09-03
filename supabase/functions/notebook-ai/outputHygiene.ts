@@ -223,5 +223,7 @@ export function residueReport(s: string): string[] {
   if (/\{\{|\}\}/.test(s)) hits.push("template placeholder");
   if (/\\n|\\t|\\"/.test(s)) hits.push("escape residue");
   if (/\bsqrt\s*\(|\*\*\d/.test(s)) hits.push("programming syntax");
+  // A JSON-mangled macro that survived every repair pass (`rac{3x}{3}`, `rac3x3`).
+  if (/(?<![A-Za-z\\])(?:rac|qrt|inom)\s*[{[\d]/.test(s)) hits.push("mangled macro");
   return Array.from(new Set(hits));
 }
