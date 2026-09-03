@@ -61,5 +61,5 @@ export function repairMangledMacros(input: string): string {
     }
     out += ch;
   }
-  return out;
+  return recoverMacroResidue(out);
 }
