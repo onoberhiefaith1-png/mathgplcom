@@ -3,6 +3,8 @@
 // Used by the floating-number extractor on both server and client so chips
 // never display raw `\sqrt`, `^{2}`, `**`, etc.
 
+import { repairMangledMacros } from "./outputHygiene.ts";
+
 const SUP: Record<string, string> = {
   "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
   "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
