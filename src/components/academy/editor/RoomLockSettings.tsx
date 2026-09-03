@@ -149,14 +149,21 @@ const RoomLockSettings = ({
   onRemoveLock,
 }: {
   lock: RoomLock | null;
-  onSetLock: (code: string, charset: LockCharset, length: number) => Promise<void>;
+  onSetLock: (
+    code: string,
+    charset: LockCharset,
+    length: number,
+    policy: { maxAttempts: number | null; retryAfterMinutes: number | null },
+  ) => Promise<void>;
   onRemoveLock: () => Promise<void>;
 }) => {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<RoomLockDraft>(() => ({
     ...emptyLockDraft(),
-    charset: lock?.charset ?? "digits",
     length: lock?.code_length ?? 4,
+    limitOn: !!lock?.max_attempts,
+    maxAttempts: lock?.max_attempts ?? 3,
+    retryAfterMinutes: lock?.retry_after_minutes ?? 1440,
   }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,9 +177,10 @@ const RoomLockSettings = ({
     setBusy(true);
     setError(null);
     try {
-      await onSetLock(draft.code, draft.charset, draft.length);
-      setDraft({ ...emptyLockDraft(), charset: draft.charset, length: draft.length });
+      await onSetLock(draft.code, "digits", draft.length, lockDraftPolicy(draft));
+      setDraft({ ...draft, code: "", confirm: "" });
       setOpen(false);
+
     } catch (e: unknown) {
       setError(String((e as Error)?.message ?? e));
     } finally {
