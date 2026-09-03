@@ -19,6 +19,7 @@
  */
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { useServerFn } from "@tanstack/react-start";
 import { Sparkles, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { AcademyRoom, AcademyProduct } from "@/lib/academy/types";
@@ -34,6 +35,11 @@ import type {
 } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
 import { doorStyle } from "@/lib/building/doors";
+import DoorLockPanel from "./DoorLockPanel";
+import type { LockState } from "./DoorLockPanel";
+import { indexLocksByDoor } from "@/lib/building/lock";
+import type { DoorLock } from "@/lib/building/lock";
+import { verifyDoorLock } from "@/lib/building/lock.functions";
 import { presetMaterial } from "@/lib/building/presets";
 
 import {
@@ -1061,6 +1067,7 @@ const DoorMesh = ({
   textureUrl,
   aspect,
   atStart = false,
+  lock,
   onEnter,
 }: {
   side: number;
@@ -1079,6 +1086,22 @@ const DoorMesh = ({
    * hallway, facing back down the corridor, instead of in a side wall.
    */
   atStart?: boolean;
+  /**
+   * OPTIONAL ACCESS LOCK. A door has one only when a teacher added it; without
+   * it the door behaves exactly as an unlocked door always has. The panel is a
+   * child of this door group, so it holds its place beside the leaf whatever
+   * the camera does.
+   */
+  lock?: {
+    charset: DoorLock["charset"];
+    length: number;
+    state: LockState;
+    filled: number;
+    onKey: (key: string) => void;
+    onClear: () => void;
+    onSubmit: () => void;
+    onFocus: () => void;
+  } | null;
   onEnter: () => void;
 }) => {
 
@@ -1198,6 +1221,24 @@ const DoorMesh = ({
       </mesh>
 
 
+
+      {/* THE ACCESS PANEL — mounted on the wall immediately to the right of the
+          leaf, at hand height. Independent of the door's own materials: adding
+          or removing it never changes how the door looks. */}
+      {lock && (
+        <group position={[leafW / 2 + 0.52, 1.32, 0.1]}>
+          <DoorLockPanel
+            state={lock.state}
+            filled={lock.filled}
+            length={lock.length}
+            charset={lock.charset}
+            onKey={lock.onKey}
+            onClear={lock.onClear}
+            onSubmit={lock.onSubmit}
+            onFocus={lock.onFocus}
+          />
+        </group>
+      )}
 
       {/* The door's nameplate: a real navy plaque mounted on the wall just above
           the lintel. It is a CHILD of the door group, so it keeps its position
@@ -3440,6 +3481,89 @@ const HallwayScene = ({
   );
 
   /**
+   * ACCESS LOCKS. A lock belongs to one door and is entirely optional: doors
+   * without one keep working exactly as before. What is entered lives here, so
+   * the keypad on the wall is the only place a code is ever typed.
+   */
+  const locksByDoor = useMemo(() => indexLocksByDoor(building?.locks ?? []), [building]);
+  const [unlockedDoors, setUnlockedDoors] = useState<Set<string>>(new Set());
+  const [lockEntry, setLockEntry] = useState<{
+    doorId: string;
+    code: string;
+    state: LockState;
+  } | null>(null);
+  const verifyLock = useServerFn(verifyDoorLock);
+  /** What to do the moment a door's code is accepted. */
+  const pendingEntry = useRef<Map<string, () => void>>(new Map());
+
+  const lockViewFor = useCallback(
+    (doorId: string, enter: () => void) => {
+      const lock = locksByDoor.get(doorId);
+      if (!lock || unlockedDoors.has(doorId)) return null;
+      pendingEntry.current.set(doorId, enter);
+      const active = lockEntry?.doorId === doorId ? lockEntry : null;
+
+      const submit = async (code: string) => {
+        setLockEntry({ doorId, code, state: "checking" });
+        try {
+          const res = await verifyLock({ data: { doorId, code } });
+          if (res.ok) {
+            setLockEntry({ doorId, code, state: "unlocked" });
+            setUnlockedDoors((prev) => new Set(prev).add(doorId));
+            const go = pendingEntry.current.get(doorId);
+            setTimeout(() => {
+              setLockEntry(null);
+              go?.();
+            }, 600);
+          } else {
+            setLockEntry({ doorId, code: "", state: "error" });
+          }
+        } catch {
+          setLockEntry({ doorId, code: "", state: "error" });
+        }
+      };
+
+      return {
+        charset: lock.charset,
+        length: lock.code_length,
+        state: (active?.state ?? "locked") as LockState,
+        filled: active?.code.length ?? 0,
+        onKey: (key: string) => {
+          const base = active && active.state !== "error" ? active.code : "";
+          if (base.length >= lock.code_length) return;
+          const next = base + key;
+          setLockEntry({ doorId, code: next, state: "locked" });
+          // A full code checks itself, exactly like a real access panel.
+          if (next.length === lock.code_length) void submit(next);
+        },
+        onClear: () => setLockEntry({ doorId, code: "", state: "locked" }),
+        onSubmit: () => {
+          if (active?.code) void submit(active.code);
+        },
+        onFocus: () => {
+          if (!active) setLockEntry({ doorId, code: "", state: "locked" });
+        },
+      };
+    },
+    [locksByDoor, unlockedDoors, lockEntry, verifyLock],
+  );
+
+  /**
+   * The gate in front of every door: a locked door asks for its code on its own
+   * panel first, and only then runs the ordinary entry path unchanged.
+   */
+  const guardedEnter = useCallback(
+    (doorId: string, enter: () => void) => {
+      if (locksByDoor.has(doorId) && !unlockedDoors.has(doorId)) {
+        setLockEntry((prev) => (prev?.doorId === doorId ? prev : { doorId, code: "", state: "locked" }));
+        return;
+      }
+      enter();
+    },
+    [locksByDoor, unlockedDoors],
+  );
+
+  /**
    * OPEN A DOOR. A door is strictly a room entrance, so this is the single path
    * from a doorway into a space: it resolves the room whose `door_id` is this
    * exact door, and nothing else. It never navigates to a page, never opens a
@@ -3595,6 +3719,20 @@ const HallwayScene = ({
                   ? textures[env.door.texture.path]
                   : undefined
             }
+            lock={lockViewFor(d.id, () => {
+              const visual: RoomDoorVisual = {
+                color: design?.color || env.door.color,
+                brightness: design?.brightness ?? env.door.brightness,
+                styleKey: design?.style || env.door.style,
+                textureUrl: design?.texture?.path
+                  ? textures[design.texture.path]
+                  : env.door.texture
+                    ? textures[env.door.texture.path]
+                    : undefined,
+                accent,
+              };
+              void openDoorRoom(d, [wx, wz], front, visual);
+            })}
             onEnter={() => {
               // The room carries the same door's look, so its inside face is
               // the very door that was walked through.
@@ -3609,7 +3747,7 @@ const HallwayScene = ({
                     : undefined,
                 accent,
               };
-              void openDoorRoom(d, [wx, wz], front, visual);
+              guardedEnter(d.id, () => void openDoorRoom(d, [wx, wz], front, visual));
             }}
 
           />

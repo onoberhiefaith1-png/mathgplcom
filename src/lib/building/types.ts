@@ -1,3 +1,5 @@
+import type { DoorLock } from "./lock";
+
 /**
  * EDITABLE 3D BUILDING — data contract.
  *
@@ -204,6 +206,8 @@ export interface BuildingData {
   classrooms: BuildingClassroom[];
   /** hallway-to-hallway connections (loops) */
   links: BuildingWalkwayLink[];
+  /** optional access locks, at most one per door */
+  locks: DoorLock[];
   canEdit: boolean;
 }
 

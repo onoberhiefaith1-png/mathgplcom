@@ -24,6 +24,8 @@ import { CLASSROOM_KIND_BLURB } from "@/lib/building/classroom";
 import { nextBranchDirection, nextObjectOffset } from "@/lib/building/navigation";
 import { DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
 import { DOOR_STYLES } from "@/lib/building/doors";
+import DoorLockSettings from "./DoorLockSettings";
+import type { DoorLock, LockCharset } from "@/lib/building/lock";
 import type { AcademyProduct } from "@/lib/academy/types";
 
 export interface WalkwayManagerProps {
@@ -82,6 +84,11 @@ export interface WalkwayManagerProps {
   classrooms?: BuildingClassroom[];
   /** Change the type of the room behind a door. The door never moves. */
   onSetRoomKind?: (roomId: string, kind: ClassroomKind) => Promise<void>;
+
+  /** OPTIONAL ACCESS LOCKS, at most one per door. */
+  locks?: DoorLock[];
+  onSetDoorLock?: (doorId: string, code: string, charset: LockCharset, length: number) => Promise<void>;
+  onRemoveDoorLock?: (doorId: string) => Promise<void>;
 }
 
 /**
@@ -114,6 +121,9 @@ const WalkwayManager = ({
   remainingSlots = {},
   classrooms = [],
   onSetRoomKind,
+  locks = [],
+  onSetDoorLock,
+  onRemoveDoorLock,
 }: WalkwayManagerProps) => {
   const [openWalkway, setOpenWalkway] = useState<string | null>(null);
   const [form, setForm] = useState<"hallway" | "room" | "link" | null>(null);
@@ -141,6 +151,7 @@ const WalkwayManager = ({
 
   /** The room behind a door — every door is a room entrance. */
   const roomOf = (doorId: string) => classrooms.find((c) => c.door_id === doorId) ?? null;
+  const lockOf = (doorId: string) => locks.find((l) => l.door_id === doorId) ?? null;
   const roomLabel = (doorId: string) => roomOf(doorId)?.name ?? "Room";
 
   const childrenOf = (id: string | null) =>
@@ -383,10 +394,11 @@ const WalkwayManager = ({
             {segDoors.map((d) => (
               <div
                 key={d.id}
-                className={`flex min-h-[44px] items-center gap-1 rounded-lg px-1 ${
+                className={`rounded-lg px-1 ${
                   d.id === selectedDoorId ? "bg-primary/10 ring-1 ring-primary/40" : "hover:bg-muted/60"
                 }`}
               >
+                <div className="flex min-h-[44px] items-center gap-1">
                 <select
                   aria-label="Room type"
                   value={roomOf(d.id)?.kind ?? "classroom"}
@@ -443,6 +455,16 @@ const WalkwayManager = ({
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
+                </div>
+                {/* Door settings — the optional access lock lives here. */}
+                {onSetDoorLock && onRemoveDoorLock && (
+                  <DoorLockSettings
+                    doorId={d.id}
+                    lock={lockOf(d.id)}
+                    onSetLock={onSetDoorLock}
+                    onRemoveLock={onRemoveDoorLock}
+                  />
+                )}
               </div>
             ))}
           </div>

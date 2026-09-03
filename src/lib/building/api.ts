@@ -26,6 +26,7 @@ import type {
   EnvironmentSettings,
   WalkwayDirection,
 } from "./types";
+import type { DoorLock } from "./lock";
 import { productRoute } from "@/lib/academy/types";
 import { isBuiltinTexturePath } from "./gallery";
 
@@ -106,6 +107,12 @@ export async function loadBuildingData(building: Building): Promise<BuildingData
       .order("position"),
     canEditBuilding(building.id),
   ]);
+  // Locks are read WITHOUT their secret: only the shape of each lock (which
+  // characters it takes and how long the code is) may reach the client.
+  const lockRes = await supabase
+    .from("building_door_locks")
+    .select("id, building_id, door_id, charset, code_length")
+    .eq("building_id", building.id);
 fail(walkRes.error);
   fail(doorRes.error);
   fail(linkRes.error);
@@ -116,6 +123,7 @@ fail(walkRes.error);
     doors: (doorRes.data ?? []) as unknown as BuildingDoor[],
     links: (linkRes.data ?? []) as unknown as BuildingWalkwayLink[],
     classrooms: (classRes.data ?? []) as unknown as BuildingClassroom[],
+    locks: (lockRes.data ?? []) as unknown as DoorLock[],
     canEdit,
   };
 }

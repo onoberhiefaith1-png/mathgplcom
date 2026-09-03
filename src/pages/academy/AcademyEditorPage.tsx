@@ -28,6 +28,7 @@ import {
 import HallwayScene from "@/components/academy/world/HallwayScene";
 import BuildingSettingsPanel from "@/components/academy/editor/BuildingSettingsPanel";
 import WalkwayManager from "@/components/academy/editor/WalkwayManager";
+import { removeDoorLock, setDoorLock } from "@/lib/building/lock.functions";
 import { createSampleMaze } from "@/lib/building/sampleMaze";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -715,6 +716,15 @@ const handleTextureUpload = useCallback(
                         doors={buildingData.doors}
                         catalogue={catalogue}
                         classrooms={buildingData.classrooms}
+                        locks={buildingData.locks}
+                        onSetDoorLock={async (doorId, code, charset, length) => {
+                          await setDoorLock({ data: { doorId, code, charset, codeLength: length } });
+                          await refreshBuilding();
+                        }}
+                        onRemoveDoorLock={async (doorId) => {
+                          await removeDoorLock({ data: { doorId } });
+                          await refreshBuilding();
+                        }}
                         onSetRoomKind={async (roomId, kind) => {
                           await updateClassroom(roomId, { kind });
                           await refreshBuilding();
