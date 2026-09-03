@@ -299,7 +299,12 @@ export function analyzeProblem(
     };
   }
 
-  if (needsFigure(problem) && !hasDiagram && mathLines.every((l) => !/[=<>≤≥]/.test(l))) {
+  if (
+    needsFigure(problem)
+    && !hasDiagram
+    && !carriesOwnData(problem, instruction)
+    && mathLines.every((l) => !/[=<>≤≥]/.test(l))
+  ) {
     return {
       ...base,
       status: "uncertain",
