@@ -23,11 +23,10 @@ import {
   listBuildings,
   loadBuildingData,
 } from "@/lib/building/api";
-import type { Building, BuildingData, BuildingDoor } from "@/lib/building/types";
+import type { Building, BuildingData } from "@/lib/building/types";
 import { resolveEnvironmentTextures } from "@/lib/building/textures";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 /** Tables whose changes should refresh the world live. */
 const LIVE_TABLES = [
