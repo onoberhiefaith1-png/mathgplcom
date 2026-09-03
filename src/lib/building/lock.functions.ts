@@ -12,7 +12,6 @@ import type { LockCharset } from "./lock";
 const charsetSchema = z.enum(["digits", "letters", "alphanumeric"]);
 
 const setSchema = z.object({
-  buildingId: z.string().uuid(),
   roomId: z.string().uuid(),
   code: z.string().min(MIN_CODE_LENGTH).max(MAX_CODE_LENGTH),
   charset: charsetSchema,
@@ -28,12 +27,29 @@ async function assertCanEdit(supabase: EditCheckClient, buildingId: string) {
   if (!data) throw new Error("You do not have permission to edit this building.");
 }
 
+/**
+ * A lock belongs to a room, so the building it lives in is the room's own —
+ * never something the caller has to say.
+ */
+async function buildingOfRoom(roomId: string): Promise<string> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("building_classrooms")
+    .select("building_id")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.building_id) throw new Error("This room no longer exists.");
+  return data.building_id as string;
+}
+
 /** Attach a lock to one room, or replace the code on the lock already there. */
 export const setRoomLock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => setSchema.parse(data))
   .handler(async ({ data, context }) => {
-    await assertCanEdit(context.supabase, data.buildingId);
+    const buildingId = await buildingOfRoom(data.roomId);
+    await assertCanEdit(context.supabase, buildingId);
     const charset = data.charset as LockCharset;
     const problem = validateCode(data.code, charset, data.codeLength);
     if (problem) throw new Error(problem);
@@ -42,7 +58,7 @@ export const setRoomLock = createServerFn({ method: "POST" })
     const code_hash = await hashCode(data.code, data.roomId);
     const { error } = await supabaseAdmin.from("building_room_locks").upsert(
       {
-        building_id: data.buildingId,
+        building_id: buildingId,
         classroom_id: data.roomId,
         code_hash,
         charset,
@@ -59,9 +75,9 @@ export const setRoomLock = createServerFn({ method: "POST" })
 /** Take the lock off a room. The room then opens exactly as an unlocked room. */
 export const removeRoomLock = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ buildingId: z.string().uuid(), roomId: z.string().uuid() }).parse(data))
+  .inputValidator((data) => z.object({ roomId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
-    await assertCanEdit(context.supabase, data.buildingId);
+    await assertCanEdit(context.supabase, await buildingOfRoom(data.roomId));
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("building_room_locks")
