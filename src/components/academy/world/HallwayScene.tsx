@@ -2435,12 +2435,13 @@ export interface HallwaySceneProps {
   roomCounts?: Record<string, string>;
   focus: number;
   onFocusChange: (index: number) => void;
-  onEnterRoom?: (roomId: string) => void;
   /**
-   * Kept for the editor's selection panel only. A door never opens a product:
-   * entering a door always walks into the room attached to it.
+   * A door has no navigation of its own: it can only open the room attached to
+   * it, resolved inside this scene. There are deliberately no `onEnterRoom` /
+   * `onOpenDoor` escape hatches, so a door can never be re-pointed at a page,
+   * a course, an adventure or another room.
    */
-  onOpenDoor?: (door: BuildingDoor) => void;
+
   onModeChange?: (mode: "browse" | "walk") => void;
   /** Walk to this hallway id (used by the editor after creating one). */
   navigateTo?: string | null;
