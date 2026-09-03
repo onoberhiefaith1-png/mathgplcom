@@ -3,6 +3,8 @@
 // Used by the floating-number extractor on both server and client so chips
 // never display raw `\sqrt`, `^{2}`, `**`, etc.
 
+import { repairMangledMacros } from "./outputHygiene.ts";
+
 const SUP: Record<string, string> = {
   "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
   "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
@@ -65,7 +67,9 @@ const holdFractions = (src: string, holds: string[]): string => {
 /** Convert any LaTeX / code-flavored math to Unicode classroom math. */
 export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
-  let s = String(input);
+  // A JSON-mangled macro (`\frac` → FORM FEED + "rac") must be restored BEFORE
+  // any brace-stripping below, otherwise `\frac{3x}{3}` degrades to `rac3x3`.
+  let s = repairMangledMacros(String(input));
 
   // Preserve empty power slots as structural superscripts. If we let the
   // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads

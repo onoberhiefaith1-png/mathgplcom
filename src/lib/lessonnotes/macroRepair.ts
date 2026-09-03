@@ -19,6 +19,27 @@ const TAILS: Record<string, string[]> = {
   "\x07": ["alpha", "approx", "abs", "array", "angle"],
 };
 
+/** Last-resort recovery when even the control character is gone, so only the
+ *  macro tail survives (`rac{3x}{3}`). Conservative: the residue must be at a
+ *  word boundary and be followed by a brace/bracket, so ordinary words such as
+ *  "racing" or "times" are never rewritten. */
+const RESIDUE: Array<[RegExp, string]> = [
+  [/(?<![A-Za-z\\])rac(?=\s*\{)/g, "\\frac"],
+  [/(?<![A-Za-z\\])frac(?=\s*\{)/g, "\\frac"],
+  [/(?<![A-Za-z\\])qrt(?=\s*[{[])/g, "\\sqrt"],
+  [/(?<![A-Za-z\\])inom(?=\s*\{)/g, "\\binom"],
+  [/(?<![A-Za-z\\])ec(?=\s*\{)/g, "\\vec"],
+  [/(?<![A-Za-z\\])imes(?![A-Za-z])/g, "\\times"],
+];
+
+export function recoverMacroResidue(input: string): string {
+  if (!input) return "";
+  let out = input;
+  for (const [re, rep] of RESIDUE) out = out.replace(re, rep);
+  // Never double the backslash if it was already intact.
+  return out.replace(/\\{2,}(frac|sqrt|binom|vec|times)/g, "\\$1");
+}
+
 export function repairMangledMacros(input: string): string {
   if (!input) return "";
   let out = "";
@@ -40,5 +61,5 @@ export function repairMangledMacros(input: string): string {
     }
     out += ch;
   }
-  return out;
+  return recoverMacroResidue(out);
 }

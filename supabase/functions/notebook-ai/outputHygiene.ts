@@ -23,6 +23,25 @@ const MACRO_TAILS: Record<string, string[]> = {
   "\x07": ["alpha", "approx", "abs", "array", "angle"],
 };
 
+/** Last-resort recovery when even the control character is gone, so only the
+ *  macro tail survives (`rac{3x}{3}`). Conservative: word boundary + brace, so
+ *  ordinary words ("racing", "times") are never rewritten. */
+const RESIDUE: Array<[RegExp, string]> = [
+  [/(?<![A-Za-z\\])rac(?=\s*\{)/g, "\\frac"],
+  [/(?<![A-Za-z\\])frac(?=\s*\{)/g, "\\frac"],
+  [/(?<![A-Za-z\\])qrt(?=\s*[{[])/g, "\\sqrt"],
+  [/(?<![A-Za-z\\])inom(?=\s*\{)/g, "\\binom"],
+  [/(?<![A-Za-z\\])ec(?=\s*\{)/g, "\\vec"],
+  [/(?<![A-Za-z\\])imes(?![A-Za-z])/g, "\\times"],
+];
+
+export function recoverMacroResidue(input: string): string {
+  if (!input) return "";
+  let out = input;
+  for (const [re, rep] of RESIDUE) out = out.replace(re, rep);
+  return out.replace(/\\{2,}(frac|sqrt|binom|vec|times)/g, "\\$1");
+}
+
 export function repairMangledMacros(input: string): string {
   if (!input) return "";
   let out = "";
@@ -42,7 +61,7 @@ export function repairMangledMacros(input: string): string {
     }
     out += ch;
   }
-  return out;
+  return recoverMacroResidue(out);
 }
 
 /** Unwrap an accidental JSON envelope such as {"content": "..."} or ["a","b"]. */
@@ -204,5 +223,7 @@ export function residueReport(s: string): string[] {
   if (/\{\{|\}\}/.test(s)) hits.push("template placeholder");
   if (/\\n|\\t|\\"/.test(s)) hits.push("escape residue");
   if (/\bsqrt\s*\(|\*\*\d/.test(s)) hits.push("programming syntax");
+  // A JSON-mangled macro that survived every repair pass (`rac{3x}{3}`, `rac3x3`).
+  if (/(?<![A-Za-z\\])(?:rac|qrt|inom)\s*[{[\d]/.test(s)) hits.push("mangled macro");
   return Array.from(new Set(hits));
 }

@@ -11,6 +11,7 @@
 // no screenshot. Visual analysis stays a later fallback only.
 
 import { breakRowSeparators } from "@/lib/lessonnotes/rowSeparators";
+import { figureNeeded } from "@/lib/lessonnotes/figureNeed";
 
 export type ProblemStatus =
   | "valid"       // mathematics present and usable
@@ -154,9 +155,21 @@ function isTruncatedMath(line: string): boolean {
   return open > close;
 }
 
-/** A question whose data lives in a figure ("Find ∠ABC", "the diagram shows"). */
+/** A question whose data lives in a figure ("Find ∠ABC", "the diagram shows").
+ *  Uses the SHARED decision in figureNeed.ts so the builder (which draws) and
+ *  the checker (which complains) can never disagree. The old local regex fired
+ *  on the bare word "angle", so a self-contained question such as "Find the
+ *  complementary angle of 67°" was wrongly flagged as needing a diagram. */
 function needsFigure(text: string): boolean {
-  return /∠|\bangle\b|\bdiagram\b|\bfigure\b|\bshown\b|\btriangle\b|\bcircle\b/i.test(text);
+  return figureNeeded(text);
+}
+
+/** The question already carries its own data: a number/measure plus something
+ *  to do with it. Such a question is complete with or without a figure. */
+function carriesOwnData(problem: string, instruction: string): boolean {
+  const hasNumber = /\d/.test(problem);
+  const hasTask = Boolean(instruction) || INSTRUCTION_VERB.test(problem);
+  return hasNumber && hasTask && !/\b(in|from) the (diagram|figure|sketch|drawing)\b|\bas shown\b|\bshown (below|above)\b/i.test(problem);
 }
 
 /* ------------------------------------------------------------------ report */
@@ -259,7 +272,7 @@ export function analyzeProblem(
     if (solutionMath.length) {
       return { ...base, status: "valid", issue: "" };
     }
-    if (needsFigure(problem)) {
+    if (needsFigure(problem) && !carriesOwnData(problem, instruction)) {
       return {
         ...base,
         status: "uncertain",
@@ -286,7 +299,12 @@ export function analyzeProblem(
     };
   }
 
-  if (needsFigure(problem) && !hasDiagram && mathLines.every((l) => !/[=<>≤≥]/.test(l))) {
+  if (
+    needsFigure(problem)
+    && !hasDiagram
+    && !carriesOwnData(problem, instruction)
+    && mathLines.every((l) => !/[=<>≤≥]/.test(l))
+  ) {
     return {
       ...base,
       status: "uncertain",
