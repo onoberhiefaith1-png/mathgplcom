@@ -22,6 +22,8 @@ import {
 import { resolveSurfaces } from "@/lib/building/resolve";
 import { SURFACE_PRESET_LIST } from "@/lib/building/presets";
 import { DOOR_STYLES } from "@/lib/building/doors";
+import RoomLockSettings from "./RoomLockSettings";
+import type { LockCharset, RoomLock } from "@/lib/building/lock";
 import {
   builtinTextureLabel,
   builtinTexturePath,
