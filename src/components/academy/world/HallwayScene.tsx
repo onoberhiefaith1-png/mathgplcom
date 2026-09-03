@@ -34,6 +34,11 @@ import type {
 } from "@/lib/building/types";
 import { doorTitle } from "@/lib/building/api";
 import { doorStyle } from "@/lib/building/doors";
+import DoorLockPanel from "./DoorLockPanel";
+import type { LockState } from "./DoorLockPanel";
+import { indexLocksByDoor } from "@/lib/building/lock";
+import type { DoorLock } from "@/lib/building/lock";
+import { verifyDoorLock } from "@/lib/building/lock.functions";
 import { presetMaterial } from "@/lib/building/presets";
 
 import {
@@ -1061,6 +1066,7 @@ const DoorMesh = ({
   textureUrl,
   aspect,
   atStart = false,
+  lock,
   onEnter,
 }: {
   side: number;
@@ -1079,6 +1085,22 @@ const DoorMesh = ({
    * hallway, facing back down the corridor, instead of in a side wall.
    */
   atStart?: boolean;
+  /**
+   * OPTIONAL ACCESS LOCK. A door has one only when a teacher added it; without
+   * it the door behaves exactly as an unlocked door always has. The panel is a
+   * child of this door group, so it holds its place beside the leaf whatever
+   * the camera does.
+   */
+  lock?: {
+    charset: DoorLock["charset"];
+    length: number;
+    state: LockState;
+    filled: number;
+    onKey: (key: string) => void;
+    onClear: () => void;
+    onSubmit: () => void;
+    onFocus: () => void;
+  } | null;
   onEnter: () => void;
 }) => {
 
@@ -1198,6 +1220,24 @@ const DoorMesh = ({
       </mesh>
 
 
+
+      {/* THE ACCESS PANEL — mounted on the wall immediately to the right of the
+          leaf, at hand height. Independent of the door's own materials: adding
+          or removing it never changes how the door looks. */}
+      {lock && (
+        <group position={[leafW / 2 + 0.52, 1.32, 0.1]}>
+          <DoorLockPanel
+            state={lock.state}
+            filled={lock.filled}
+            length={lock.length}
+            charset={lock.charset}
+            onKey={lock.onKey}
+            onClear={lock.onClear}
+            onSubmit={lock.onSubmit}
+            onFocus={lock.onFocus}
+          />
+        </group>
+      )}
 
       {/* The door's nameplate: a real navy plaque mounted on the wall just above
           the lintel. It is a CHILD of the door group, so it keeps its position
