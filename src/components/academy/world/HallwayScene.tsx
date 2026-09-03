@@ -3824,9 +3824,13 @@ const HallwayScene = ({
         );
       }}
     >
-
+      {/* THE 3D WORLD'S OWN EVENT SURFACE. Only what is inside this layer feeds
+          clicks to the scene, so pressing a navigation button can never also
+          raycast into a doorway behind it. */}
+      <div ref={setEventSource} className="absolute inset-0">
       {eventSource && <Canvas
         eventSource={eventSource}
+
         shadows
         camera={{ position: [0, 1.7, 6.5], fov: 62, near: 0.3 }}
         // Nothing closer than the near plane can be clicked. Standing in the
