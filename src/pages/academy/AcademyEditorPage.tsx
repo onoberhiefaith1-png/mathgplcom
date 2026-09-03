@@ -29,6 +29,8 @@ import HallwayScene from "@/components/academy/world/HallwayScene";
 import BuildingSettingsPanel from "@/components/academy/editor/BuildingSettingsPanel";
 import WalkwayManager from "@/components/academy/editor/WalkwayManager";
 import { removeRoomLock, setRoomLock } from "@/lib/building/lock.functions";
+import { indexLocksByRoom } from "@/lib/building/lock";
+import type { LockCharset } from "@/lib/building/lock";
 import { createSampleMaze } from "@/lib/building/sampleMaze";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -56,6 +58,7 @@ import {
   addWalkwayLink,
   deleteWalkwayLink,
   deleteDoor,
+  deleteRoom,
   deleteWalkway,
   duplicateBuilding,
   connectHallways,
@@ -708,6 +711,23 @@ const handleTextureUpload = useCallback(
                         scopes={settingsScopes}
                         scopeId={settingsScope}
                         onScopeChange={setSettingsScope}
+                        roomLock={
+                          settingsScope.startsWith("classroom:")
+                            ? indexLocksByRoom(buildingData.locks).get(
+                                settingsScope.slice("classroom:".length),
+                              ) ?? null
+                            : null
+                        }
+                        onSetRoomLock={async (roomId, code, charset, length) => {
+                          await setRoomLock({ data: { roomId, code, charset, codeLength: length } });
+                          toast({ title: "Lock saved", description: "This room now asks for its code." });
+                          await refreshBuilding();
+                        }}
+                        onRemoveRoomLock={async (roomId) => {
+                          await removeRoomLock({ data: { roomId } });
+                          toast({ title: "Lock removed", description: "This room opens without a code." });
+                          await refreshBuilding();
+                        }}
                         onSaveOverrides={async (id, overrides) => {
                           const [kind, rowId] = id.split(":");
                           if (kind === "hallway") await updateWalkwayOverrides(rowId, overrides);
