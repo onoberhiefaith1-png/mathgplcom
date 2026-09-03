@@ -1085,10 +1085,37 @@ const DoorMesh = ({
   return (
     // Flush against the wall plane and rotated to the wall's own orientation:
     // the door face is parallel to the wall and looks into the corridor.
+    //
+    // THE WHOLE DOORWAY IS THE DOOR. Frame, jambs, threshold, nameplate and the
+    // pick plane below all enter the same room, and the click stops here, so a
+    // click a few centimetres off the leaf can never fall through to a corridor
+    // mouth or the exit door behind it.
     <group
       position={atStart ? [0, 0, z - 0.06] : [side * (HALL_WIDTH / 2 - 0.06), 0, z]}
       rotation-y={atStart ? Math.PI : -side * (Math.PI / 2)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onEnter();
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "pointer";
+        setHovered(true);
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "auto";
+        setHovered(false);
+      }}
     >
+      {/* Invisible pick surface covering the full opening, inside the door group
+          so it can never drift away from the leaf. */}
+      <mesh position={[0, openH / 2, 0.12]}>
+        <planeGeometry args={[openW + 0.5, openH + 0.9]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+
+
 
       {/* Reveal / frame — jambs, lintel and threshold read as one structure */}
       <group>
