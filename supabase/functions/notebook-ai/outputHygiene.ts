@@ -61,7 +61,7 @@ export function repairMangledMacros(input: string): string {
     }
     out += ch;
   }
-  return out;
+  return recoverMacroResidue(out);
 }
 
 /** Unwrap an accidental JSON envelope such as {"content": "..."} or ["a","b"]. */
