@@ -3499,58 +3499,77 @@ const HallwayScene = ({
     roomId: string;
     code: string;
     state: LockState;
+    /** Attempts left when the teacher set a limit; null when there is no limit. */
+    remaining: number | null;
+    /** How long the wait lasts once the attempts ran out. */
+    retryIn: string | null;
   } | null>(null);
   const verifyLock = useServerFn(verifyRoomLock);
-  /** What to do the moment a room's code is accepted. */
-  const pendingEntry = useRef<Map<string, () => void>>(new Map());
 
   const lockViewFor = useCallback(
-    (doorId: string, enter: () => void) => {
+    (doorId: string, focusLock: () => void) => {
       const lock = lockForDoor(doorId);
       if (!lock || unlockedRooms.has(lock.classroom_id)) return null;
       const roomId = lock.classroom_id;
-      pendingEntry.current.set(roomId, enter);
       const active = lockEntry?.roomId === roomId ? lockEntry : null;
+      const blank = { roomId, remaining: active?.remaining ?? null, retryIn: active?.retryIn ?? null };
 
       const submit = async (code: string) => {
-        setLockEntry({ roomId, code, state: "checking" });
+        setLockEntry({ ...blank, code, state: "checking" });
         try {
           const res = await verifyLock({ data: { roomId, code } });
           if (res.ok) {
-            setLockEntry({ roomId, code, state: "unlocked" });
+            // A CORRECT CODE UNLOCKS THE DOOR — it does not walk the student in.
+            // They stay outside and use Forward to enter, exactly as at any
+            // unlocked door.
             setUnlockedRooms((prev) => new Set(prev).add(roomId));
-            const go = pendingEntry.current.get(roomId);
+            setLockEntry({ ...blank, code, state: "unlocked", remaining: null, retryIn: null });
             setTimeout(() => {
-              setLockEntry(null);
-              go?.();
-            }, 600);
+              setLockEntry((prev) => (prev?.roomId === roomId ? null : prev));
+            }, 900);
           } else {
-            setLockEntry({ roomId, code: "", state: "error" });
+            const retryIn = res.retryAfterMinutes ? retryLabel(res.retryAfterMinutes) : null;
+            setLockEntry({
+              roomId,
+              code: "",
+              state: res.lockedOut ? "blocked" : "error",
+              remaining: res.remaining,
+              retryIn,
+            });
           }
         } catch {
-          setLockEntry({ roomId, code: "", state: "error" });
+          setLockEntry({ ...blank, code: "", state: "error" });
         }
       };
+
+      const blocked = active?.state === "blocked";
 
       return {
         charset: lock.charset,
         length: lock.code_length,
         state: (active?.state ?? "locked") as LockState,
         filled: active?.code.length ?? 0,
+        remaining: active?.remaining ?? null,
+        retryIn: active?.retryIn ?? null,
         onKey: (key: string) => {
+          if (blocked) return;
           const base = active && active.state !== "error" ? active.code : "";
           if (base.length >= lock.code_length) return;
           const next = base + key;
-          setLockEntry({ roomId, code: next, state: "locked" });
+          setLockEntry({ ...blank, code: next, state: "locked" });
           // A full code checks itself, exactly like a real access panel.
           if (next.length === lock.code_length) void submit(next);
         },
-        onClear: () => setLockEntry({ roomId, code: "", state: "locked" }),
+        onClear: () => {
+          if (blocked) return;
+          setLockEntry({ ...blank, code: "", state: "locked" });
+        },
         onSubmit: () => {
-          if (active?.code) void submit(active.code);
+          if (!blocked && active?.code) void submit(active.code);
         },
         onFocus: () => {
-          if (!active) setLockEntry({ roomId, code: "", state: "locked" });
+          if (!active) setLockEntry({ roomId, code: "", state: "locked", remaining: null, retryIn: null });
+          focusLock();
         },
       };
     },
@@ -3558,23 +3577,26 @@ const HallwayScene = ({
   );
 
   /**
-   * The gate in front of every room entrance: a locked room asks for its code on
-   * the panel beside its door first, and only then runs the ordinary entry path
-   * unchanged.
+   * The gate in front of every room entrance. A LOCKED door never opens on a
+   * click: the camera moves up to its keypad, the door stays shut, and the code
+   * is typed on the panel. An unlocked room enters exactly as it always has.
    */
   const guardedEnter = useCallback(
-    (doorId: string, enter: () => void) => {
+    (doorId: string, enter: () => void, focusLock?: () => void) => {
       const lock = lockForDoor(doorId);
       if (lock && !unlockedRooms.has(lock.classroom_id)) {
         const roomId = lock.classroom_id;
-        pendingEntry.current.set(roomId, enter);
-        setLockEntry((prev) => (prev?.roomId === roomId ? prev : { roomId, code: "", state: "locked" }));
+        setLockEntry((prev) =>
+          prev?.roomId === roomId ? prev : { roomId, code: "", state: "locked", remaining: null, retryIn: null },
+        );
+        focusLock?.();
         return;
       }
       enter();
     },
     [lockForDoor, unlockedRooms],
   );
+
 
   /**
    * OPEN A DOOR. A door is strictly a room entrance, so this is the single path
