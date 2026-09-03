@@ -19,6 +19,7 @@
  */
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { useServerFn } from "@tanstack/react-start";
 import { Sparkles, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { AcademyRoom, AcademyProduct } from "@/lib/academy/types";
