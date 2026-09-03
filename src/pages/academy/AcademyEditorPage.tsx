@@ -481,8 +481,11 @@ const handleTextureUpload = useCallback(
                 code: fields.lock.code,
                 charset: fields.lock.charset,
                 codeLength: fields.lock.length,
+                maxAttempts: fields.lock.maxAttempts,
+                retryAfterMinutes: fields.lock.retryAfterMinutes,
               },
             });
+
           } catch (lockError) {
             await deleteRoom(doorId).catch(() => undefined);
             throw lockError;
