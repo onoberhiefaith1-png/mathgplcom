@@ -37,9 +37,9 @@ import { doorTitle } from "@/lib/building/api";
 import { doorStyle } from "@/lib/building/doors";
 import DoorLockPanel from "./DoorLockPanel";
 import type { LockState } from "./DoorLockPanel";
-import { indexLocksByDoor } from "@/lib/building/lock";
-import type { DoorLock } from "@/lib/building/lock";
-import { verifyDoorLock } from "@/lib/building/lock.functions";
+import { indexLocksByRoom } from "@/lib/building/lock";
+import type { RoomLock } from "@/lib/building/lock";
+import { verifyRoomLock } from "@/lib/building/lock.functions";
 import { presetMaterial } from "@/lib/building/presets";
 
 import {
@@ -1093,7 +1093,7 @@ const DoorMesh = ({
    * the camera does.
    */
   lock?: {
-    charset: DoorLock["charset"];
+    charset: RoomLock["charset"];
     length: number;
     state: LockState;
     filled: number;
@@ -3485,41 +3485,50 @@ const HallwayScene = ({
    * without one keep working exactly as before. What is entered lives here, so
    * the keypad on the wall is the only place a code is ever typed.
    */
-  const locksByDoor = useMemo(() => indexLocksByDoor(building?.locks ?? []), [building]);
-  const [unlockedDoors, setUnlockedDoors] = useState<Set<string>>(new Set());
+  const locksByRoom = useMemo(() => indexLocksByRoom(building?.locks ?? []), [building]);
+  /** The lock a door leads to: the lock of the ROOM behind that door. */
+  const lockForDoor = useCallback(
+    (doorId: string): RoomLock | null => {
+      const room = roomForDoor(classroomsByDoor, doorId);
+      return room ? locksByRoom.get(room.id) ?? null : null;
+    },
+    [classroomsByDoor, locksByRoom],
+  );
+  const [unlockedRooms, setUnlockedRooms] = useState<Set<string>>(new Set());
   const [lockEntry, setLockEntry] = useState<{
-    doorId: string;
+    roomId: string;
     code: string;
     state: LockState;
   } | null>(null);
-  const verifyLock = useServerFn(verifyDoorLock);
-  /** What to do the moment a door's code is accepted. */
+  const verifyLock = useServerFn(verifyRoomLock);
+  /** What to do the moment a room's code is accepted. */
   const pendingEntry = useRef<Map<string, () => void>>(new Map());
 
   const lockViewFor = useCallback(
     (doorId: string, enter: () => void) => {
-      const lock = locksByDoor.get(doorId);
-      if (!lock || unlockedDoors.has(doorId)) return null;
-      pendingEntry.current.set(doorId, enter);
-      const active = lockEntry?.doorId === doorId ? lockEntry : null;
+      const lock = lockForDoor(doorId);
+      if (!lock || unlockedRooms.has(lock.classroom_id)) return null;
+      const roomId = lock.classroom_id;
+      pendingEntry.current.set(roomId, enter);
+      const active = lockEntry?.roomId === roomId ? lockEntry : null;
 
       const submit = async (code: string) => {
-        setLockEntry({ doorId, code, state: "checking" });
+        setLockEntry({ roomId, code, state: "checking" });
         try {
-          const res = await verifyLock({ data: { doorId, code } });
+          const res = await verifyLock({ data: { roomId, code } });
           if (res.ok) {
-            setLockEntry({ doorId, code, state: "unlocked" });
-            setUnlockedDoors((prev) => new Set(prev).add(doorId));
-            const go = pendingEntry.current.get(doorId);
+            setLockEntry({ roomId, code, state: "unlocked" });
+            setUnlockedRooms((prev) => new Set(prev).add(roomId));
+            const go = pendingEntry.current.get(roomId);
             setTimeout(() => {
               setLockEntry(null);
               go?.();
             }, 600);
           } else {
-            setLockEntry({ doorId, code: "", state: "error" });
+            setLockEntry({ roomId, code: "", state: "error" });
           }
         } catch {
-          setLockEntry({ doorId, code: "", state: "error" });
+          setLockEntry({ roomId, code: "", state: "error" });
         }
       };
 
@@ -3532,35 +3541,39 @@ const HallwayScene = ({
           const base = active && active.state !== "error" ? active.code : "";
           if (base.length >= lock.code_length) return;
           const next = base + key;
-          setLockEntry({ doorId, code: next, state: "locked" });
+          setLockEntry({ roomId, code: next, state: "locked" });
           // A full code checks itself, exactly like a real access panel.
           if (next.length === lock.code_length) void submit(next);
         },
-        onClear: () => setLockEntry({ doorId, code: "", state: "locked" }),
+        onClear: () => setLockEntry({ roomId, code: "", state: "locked" }),
         onSubmit: () => {
           if (active?.code) void submit(active.code);
         },
         onFocus: () => {
-          if (!active) setLockEntry({ doorId, code: "", state: "locked" });
+          if (!active) setLockEntry({ roomId, code: "", state: "locked" });
         },
       };
     },
-    [locksByDoor, unlockedDoors, lockEntry, verifyLock],
+    [lockForDoor, unlockedRooms, lockEntry, verifyLock],
   );
 
   /**
-   * The gate in front of every door: a locked door asks for its code on its own
-   * panel first, and only then runs the ordinary entry path unchanged.
+   * The gate in front of every room entrance: a locked room asks for its code on
+   * the panel beside its door first, and only then runs the ordinary entry path
+   * unchanged.
    */
   const guardedEnter = useCallback(
     (doorId: string, enter: () => void) => {
-      if (locksByDoor.has(doorId) && !unlockedDoors.has(doorId)) {
-        setLockEntry((prev) => (prev?.doorId === doorId ? prev : { doorId, code: "", state: "locked" }));
+      const lock = lockForDoor(doorId);
+      if (lock && !unlockedRooms.has(lock.classroom_id)) {
+        const roomId = lock.classroom_id;
+        pendingEntry.current.set(roomId, enter);
+        setLockEntry((prev) => (prev?.roomId === roomId ? prev : { roomId, code: "", state: "locked" }));
         return;
       }
       enter();
     },
-    [locksByDoor, unlockedDoors],
+    [lockForDoor, unlockedRooms],
   );
 
   /**

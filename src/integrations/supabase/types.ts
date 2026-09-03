@@ -1222,57 +1222,6 @@ export type Database = {
           },
         ]
       }
-      building_door_locks: {
-        Row: {
-          building_id: string
-          charset: string
-          code_hash: string
-          code_length: number
-          created_at: string
-          created_by: string | null
-          door_id: string
-          id: string
-          updated_at: string
-        }
-        Insert: {
-          building_id: string
-          charset?: string
-          code_hash: string
-          code_length?: number
-          created_at?: string
-          created_by?: string | null
-          door_id: string
-          id?: string
-          updated_at?: string
-        }
-        Update: {
-          building_id?: string
-          charset?: string
-          code_hash?: string
-          code_length?: number
-          created_at?: string
-          created_by?: string | null
-          door_id?: string
-          id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "building_door_locks_building_id_fkey"
-            columns: ["building_id"]
-            isOneToOne: false
-            referencedRelation: "buildings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "building_door_locks_door_id_fkey"
-            columns: ["door_id"]
-            isOneToOne: true
-            referencedRelation: "building_doors"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       building_doors: {
         Row: {
           building_id: string
@@ -1326,6 +1275,57 @@ export type Database = {
             columns: ["walkway_id"]
             isOneToOne: false
             referencedRelation: "building_walkways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      building_room_locks: {
+        Row: {
+          building_id: string
+          charset: string
+          classroom_id: string
+          code_hash: string
+          code_length: number
+          created_at: string
+          created_by: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          building_id: string
+          charset?: string
+          classroom_id: string
+          code_hash: string
+          code_length?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          building_id?: string
+          charset?: string
+          classroom_id?: string
+          code_hash?: string
+          code_length?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_room_locks_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_room_locks_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: true
+            referencedRelation: "building_classrooms"
             referencedColumns: ["id"]
           },
         ]
