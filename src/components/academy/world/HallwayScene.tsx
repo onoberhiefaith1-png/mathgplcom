@@ -3507,10 +3507,13 @@ const HallwayScene = ({
       const design = d.design as Partial<typeof env.door> | null;
       // A DOOR IS ONLY A ROOM ENTRANCE. It never launches a course, adventure
       // or assessment — those live inside the room, behind this door.
-      const attached = classroomsByDoor.get(d.id);
+      const attached = roomForDoor(classroomsByDoor, d.id);
       const sublabel = attached
         ? CLASSROOM_KIND_LABEL[attached.kind]
         : "Room missing — recreate it in the editor";
+      const accent = attached
+        ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4]
+        : "#64748b";
       return (
         <group key={o.id} position={[0, 0, -o.along]}>
           <DoorMesh
@@ -3518,7 +3521,7 @@ const HallwayScene = ({
             z={0}
             label={attached ? attached.name : o.name}
             sublabel={sublabel}
-            accent={attached ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4] : "#64748b"}
+            accent={accent}
             color={design?.color || env.door.color}
             emissiveIntensity={(design?.brightness ?? env.door.brightness) * 0.12}
             styleKey={design?.style || env.door.style}
@@ -3530,8 +3533,6 @@ const HallwayScene = ({
                   : undefined
             }
             onEnter={() => {
-              if (!attached) return;
-              const into: [number, number] = [-front[0], -front[1]];
               // The room carries the same door's look, so its inside face is
               // the very door that was walked through.
               const visual: RoomDoorVisual = {
@@ -3543,14 +3544,15 @@ const HallwayScene = ({
                   : env.door.texture
                     ? textures[env.door.texture.path]
                     : undefined,
-                accent: attached ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4] : "#64748b",
+                accent,
               };
-              startDoorZoom([wx, wz], front, () => enterClassroom([wx, wz], into, attached, visual));
+              void openDoorRoom(d, [wx, wz], front, visual);
             }}
 
           />
         </group>
       );
+
     });
   };
 
