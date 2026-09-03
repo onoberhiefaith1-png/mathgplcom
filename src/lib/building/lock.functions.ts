@@ -212,5 +212,3 @@ export const verifyRoomLock = createServerFn({ method: "POST" })
       retryAfterMinutes: waitMinutes,
     };
   });
-
-  });
