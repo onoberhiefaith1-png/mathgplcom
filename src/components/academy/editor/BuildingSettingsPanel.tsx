@@ -588,9 +588,10 @@ const BuildingSettingsPanel = ({
               body: (
                 <RoomLockSettings
                   lock={roomLock}
-                  onSetLock={(code, charset, length) =>
-                    onSetRoomLock(activeRoomId, code, charset, length)
+                  onSetLock={(code, charset, length, policy) =>
+                    onSetRoomLock(activeRoomId, code, charset, length, policy)
                   }
+
                   onRemoveLock={() => onRemoveRoomLock(activeRoomId)}
                 />
               ),
