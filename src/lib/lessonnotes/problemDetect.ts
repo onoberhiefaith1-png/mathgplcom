@@ -11,6 +11,7 @@
 // no screenshot. Visual analysis stays a later fallback only.
 
 import { breakRowSeparators } from "@/lib/lessonnotes/rowSeparators";
+import { figureNeeded } from "@/lib/lessonnotes/figureNeed";
 
 export type ProblemStatus =
   | "valid"       // mathematics present and usable
