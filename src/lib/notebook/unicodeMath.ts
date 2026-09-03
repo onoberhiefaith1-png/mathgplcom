@@ -4,6 +4,7 @@
 // never display raw `\sqrt`, `^{2}`, `**`, etc.
 
 import { readStructureAt } from "./mathTokens";
+import { repairMangledMacros } from "@/lib/lessonnotes/macroRepair";
 
 const SUP: Record<string, string> = {
   "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
