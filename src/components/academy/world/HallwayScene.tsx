@@ -3396,12 +3396,16 @@ const HallwayScene = ({
     [walkways, env],
   );
 
-  /** Classroom shells, keyed by the door they hang off. */
-  const classroomsByDoor = useMemo(() => {
-    const map = new Map<string, BuildingClassroom>();
-    for (const c of building?.classrooms ?? []) map.set(c.door_id, c);
-    return map;
-  }, [building]);
+  /**
+   * Classroom shells, keyed by the door they hang off. This map is only a render
+   * cache: the door -> room rule itself lives in `roomForDoor`, and every door
+   * click resolves through `openDoorRoom` below.
+   */
+  const classroomsByDoor = useMemo(
+    () => indexRoomsByDoor<BuildingClassroom>(building?.classrooms ?? []),
+    [building],
+  );
+
 
   /** The hallway you are in, plus every corridor sharing a physical mouth. */
   const nearbyIds = useMemo(() => {
