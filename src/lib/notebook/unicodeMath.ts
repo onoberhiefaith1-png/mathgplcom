@@ -116,7 +116,9 @@ const holdStructures = (src: string, holds: string[]): string => {
 /** Convert any LaTeX / code-flavored math to Unicode classroom math. */
 export const toUnicodeMath = (input: string): string => {
   if (!input) return "";
-  let s = String(input);
+  // Restore JSON-mangled macros (`\frac` → FORM FEED + "rac") BEFORE any
+  // brace-stripping below, otherwise `\frac{3x}{3}` degrades to `rac3x3`.
+  let s = repairMangledMacros(String(input));
 
   // Preserve empty power slots as structural superscripts. If we let the
   // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads
