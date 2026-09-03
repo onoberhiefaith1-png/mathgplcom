@@ -3077,6 +3077,43 @@ const HallwayScene = ({
   );
 
   /**
+   * LOCK FOCUS. Clicking a locked door does not open it: the camera walks up to
+   * the keypad beside it, stops at a comfortable reading distance and faces the
+   * panel, so the code can be typed. Nothing is entered and nothing moves on.
+   */
+  const focusLockPanel = useCallback(
+    (world: [number, number], front: [number, number]) => {
+      // The panel sits just to one side of the leaf, on the same wall plane.
+      const lateral: [number, number] = [-front[1], front[0]];
+      const panel: [number, number] = [
+        world[0] + lateral[0] * 0.75,
+        world[1] + lateral[1] * 0.75,
+      ];
+      const st = machineRef.current;
+      if (st.phase === "turning" || st.phase === "zooming") return;
+      const restore = st.phase;
+      st.moving = false;
+      setMoving(false);
+      st.zoom = {
+        from: [0, 0, 0],
+        to: [panel[0] + front[0] * 1.5, 1.5, panel[1] + front[1] * 1.5],
+        look: [panel[0], 1.35, panel[1]],
+        duration: 0.7,
+        elapsed: 0,
+        started: false,
+        restorePhase: restore,
+        onDone: () => {
+          const st2 = machineRef.current;
+          setMachinePhase(st2.phase === "zooming" ? restore : st2.phase);
+        },
+      };
+      setMachinePhase("zooming");
+    },
+    [setMachinePhase],
+  );
+
+
+  /**
    * ENTER A ROOM. The shell is a real space beyond its door, so entering it
    * is camera navigation inside the same scene — never a page swap. The hallway
    * position is preserved, so leaving resumes the walk exactly where it stopped.
