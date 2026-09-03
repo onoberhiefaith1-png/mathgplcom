@@ -16,7 +16,11 @@ const setSchema = z.object({
   code: z.string().min(MIN_CODE_LENGTH).max(MAX_CODE_LENGTH),
   charset: charsetSchema,
   codeLength: z.number().int().min(MIN_CODE_LENGTH).max(MAX_CODE_LENGTH),
+  /** Optional security policy. Null / omitted means "no attempt limit". */
+  maxAttempts: z.number().int().min(1).max(20).nullable().optional(),
+  retryAfterMinutes: z.number().int().min(1).max(20160).nullable().optional(),
 });
+
 
 type EditCheckClient = {
   rpc: (fn: "can_edit_building", args: { _building_id: string }) => PromiseLike<{ data: unknown }>;
