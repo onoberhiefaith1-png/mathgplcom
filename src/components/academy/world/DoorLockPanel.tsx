@@ -201,10 +201,10 @@ const DoorLockPanel = ({
           maxWidth={faceW * 0.9}
           anchorX="center"
           anchorY="middle"
-          color={state === "error" ? "#ffb4bc" : "#8fb3d9"}
+          color={state === "error" || blocked ? "#ffb4bc" : "#8fb3d9"}
           material-toneMapped={false}
         >
-          {CAPTION[state]}
+          {caption}
         </Text>
       </Suspense>
 
@@ -232,10 +232,13 @@ const DoorLockPanel = ({
               <mesh
                 onClick={(e) => {
                   e.stopPropagation();
+                  // A locked-out panel takes no input until the wait is over.
+                  if (blocked) return;
                   if (key === "*") onClear?.();
                   else if (key === "#") onSubmit?.();
                   else onKey?.(key);
                 }}
+
                 onPointerOver={(e) => {
                   e.stopPropagation();
                   document.body.style.cursor = "pointer";
