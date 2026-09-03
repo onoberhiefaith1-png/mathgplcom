@@ -259,8 +259,6 @@ const AcademyWorldPage = () => {
           roomCounts={roomCounts}
           focus={focus}
           onFocusChange={setFocus}
-          onEnterRoom={enterRoom}
-          onOpenDoor={handleOpenDoor}
           onModeChange={(m) => setWalking(m === "walk")}
           onExitBuilding={() => navigate("/")}
 

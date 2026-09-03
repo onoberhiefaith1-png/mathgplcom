@@ -2463,7 +2463,6 @@ const HallwayScene = ({
   roomCounts = {},
   focus,
   onFocusChange,
-  onEnterRoom,
   onModeChange,
   onExitBuilding,
   navigateTo = null,
