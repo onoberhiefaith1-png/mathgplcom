@@ -3406,6 +3406,36 @@ const HallwayScene = ({
     [building],
   );
 
+  /**
+   * OPEN A DOOR. A door is strictly a room entrance, so this is the single path
+   * from a doorway into a space: it resolves the room whose `door_id` is this
+   * exact door, and nothing else. It never navigates to a page, never opens a
+   * product, and never falls back to another room. If the loaded page is stale
+   * the room is re-read from the database for this one door; if there is still
+   * no room the door says so out loud instead of quietly doing nothing.
+   */
+  const openDoorRoom = useCallback(
+    async (
+      door: BuildingDoor,
+      world: [number, number],
+      front: [number, number],
+      visual: RoomDoorVisual,
+    ) => {
+      let room = roomForDoor(classroomsByDoor, door.id);
+      if (!room) room = await fetchRoomForDoor(door.id);
+      if (!room || room.door_id !== door.id) {
+        toast.error(`“${doorTitle(door, productTitles)}” has no room yet`, {
+          description: "Open the building editor and give this door a room.",
+        });
+        return;
+      }
+      const attached = room;
+      const into: [number, number] = [-front[0], -front[1]];
+      startDoorZoom(world, front, () => enterClassroom(world, into, attached, visual));
+    },
+    [classroomsByDoor, enterClassroom, productTitles, startDoorZoom],
+  );
+
 
   /** The hallway you are in, plus every corridor sharing a physical mouth. */
   const nearbyIds = useMemo(() => {
