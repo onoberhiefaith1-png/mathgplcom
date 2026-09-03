@@ -88,18 +88,18 @@ export const validateCode = (raw: string, charset: LockCharset, length: number):
  * The keypad layout for a charset. Digits keep the real security-panel layout
  * (1-9, then * 0 #); letter locks add the alphabet in rows of six.
  */
-export const keypadRows = (charset: LockCharset): string[][] => {
-  const numeric = [
-    ["1", "2", "3"],
-    ["4", "5", "6"],
-    ["7", "8", "9"],
-    ["*", "0", "#"],
-  ];
-  if (charset === "digits") return numeric;
-  const letters: string[][] = [];
-  for (let i = 0; i < LETTERS.length; i += 6) letters.push(LETTERS.slice(i, i + 6).split(""));
-  return charset === "letters" ? letters : [...numeric.slice(0, 3), ["*", "0", "#"], ...letters];
-};
+/**
+ * The keypad layout. The lock is a NUMERIC access panel: ten digits, then clear
+ * and enter, exactly like a real door keypad. There is no alphabet keyboard —
+ * a short numeric code is cleaner and quicker on a wall panel.
+ */
+export const keypadRows = (_charset?: LockCharset): string[][] => [
+  ["1", "2", "3"],
+  ["4", "5", "6"],
+  ["7", "8", "9"],
+  ["*", "0", "#"],
+];
+
 
 /**
  * Hash a code. SHA-256 over a per-room salt, available in both the browser and
