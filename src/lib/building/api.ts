@@ -26,6 +26,7 @@ import type {
   EnvironmentSettings,
   WalkwayDirection,
 } from "./types";
+import type { DoorLock } from "./lock";
 import { productRoute } from "@/lib/academy/types";
 import { isBuiltinTexturePath } from "./gallery";
 
