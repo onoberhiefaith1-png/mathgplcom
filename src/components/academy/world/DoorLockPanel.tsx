@@ -14,7 +14,7 @@ import { Text } from "@react-three/drei";
 import { keypadRows } from "@/lib/building/lock";
 import type { LockCharset } from "@/lib/building/lock";
 
-export type LockState = "locked" | "checking" | "unlocked" | "error";
+export type LockState = "locked" | "checking" | "unlocked" | "error" | "blocked";
 
 const BEZEL = "#141821";
 const FACE = "#0a1220";
@@ -23,19 +23,23 @@ const GLOW: Record<LockState, string> = {
   checking: "#7dd3ff",
   unlocked: "#3ef2a0",
   error: "#ff5a6a",
+  blocked: "#ff5a6a",
 };
 const CAPTION: Record<LockState, string> = {
   locked: "Please enter the code to unlock",
   checking: "Checking…",
   unlocked: "Access granted",
-  error: "Incorrect access code",
+  error: "Try the code again",
+  blocked: "Maximum attempts reached",
 };
 const TITLE: Record<LockState, string> = {
   locked: "ENTER ACCESS CODE",
   checking: "ENTER ACCESS CODE",
   unlocked: "UNLOCKED",
-  error: "ACCESS DENIED",
+  error: "WRONG CODE",
+  blocked: "LOCKED OUT",
 };
+
 
 /** A rounded rectangle path, used for the bezel and every key. */
 const roundedPath = (w: number, h: number, r: number) => {
