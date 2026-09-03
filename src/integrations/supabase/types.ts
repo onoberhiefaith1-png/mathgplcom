@@ -1279,6 +1279,44 @@ export type Database = {
           },
         ]
       }
+      building_room_lock_attempts: {
+        Row: {
+          classroom_id: string
+          created_at: string
+          failed_count: number
+          id: string
+          updated_at: string
+          user_id: string
+          window_started_at: string
+        }
+        Insert: {
+          classroom_id: string
+          created_at?: string
+          failed_count?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+          window_started_at?: string
+        }
+        Update: {
+          classroom_id?: string
+          created_at?: string
+          failed_count?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+          window_started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_room_lock_attempts_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: false
+            referencedRelation: "building_classrooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       building_room_locks: {
         Row: {
           building_id: string
@@ -1289,6 +1327,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          max_attempts: number | null
+          retry_after_minutes: number | null
           updated_at: string
         }
         Insert: {
@@ -1300,6 +1340,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          max_attempts?: number | null
+          retry_after_minutes?: number | null
           updated_at?: string
         }
         Update: {
@@ -1311,6 +1353,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          max_attempts?: number | null
+          retry_after_minutes?: number | null
           updated_at?: string
         }
         Relationships: [
