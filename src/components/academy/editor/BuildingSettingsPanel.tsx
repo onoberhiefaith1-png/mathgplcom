@@ -632,7 +632,7 @@ const BuildingSettingsPanel = ({
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [draft],
+    [draft, activeRoomId, roomLock, onSetRoomLock, onRemoveRoomLock],
   );
 
   /** Fields this element overrides, so a reset only clears what was changed. */
