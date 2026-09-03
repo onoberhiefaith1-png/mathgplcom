@@ -1145,22 +1145,8 @@ const DoorMesh = ({
       {/* The DOOR PANEL: the imported/built-in door artwork, rendered exactly as
           provided. Independent of the frame — no accent tint, no frame-coloured
           emissive wash, so changing the frame never repaints the door. */}
-      <mesh
-        position={[0, leafH / 2 + 0.03, 0.07]}
-        castShadow
-        onClick={(e) => {
-          e.stopPropagation();
-          onEnter();
-        }}
-        onPointerOver={() => {
-          document.body.style.cursor = "pointer";
-          setHovered(true);
-        }}
-        onPointerOut={() => {
-          document.body.style.cursor = "auto";
-          setHovered(false);
-        }}
-      >
+      <mesh position={[0, leafH / 2 + 0.03, 0.07]} castShadow>
+
         <planeGeometry args={[leafW, leafH]} />
         <meshStandardMaterial
           key={tex ? url : "flat"}
