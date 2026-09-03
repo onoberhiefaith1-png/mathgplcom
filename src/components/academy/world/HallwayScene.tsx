@@ -1020,6 +1020,34 @@ const HallwayNameFrame = ({
  * opens the existing product/room page).
  */
 const DOOR_HEIGHT = 3.4;
+/**
+ * Closest distance (metres) at which anything in the scene can be clicked.
+ * Geometry nearer than this is behind the camera's near plane — invisible —
+ * so it must never swallow a click meant for the door you are looking at.
+ */
+const MIN_PICK_DISTANCE = 0.6;
+
+const _doorNormal = new THREE.Vector3();
+const _doorPos = new THREE.Vector3();
+const _toCamera = new THREE.Vector3();
+/**
+ * A door can only be used from the side you can SEE it from. The ray must hit
+ * the door's face (never its back through a wall) from a visible distance.
+ * This is what stops the entrance door — which sits centimetres in front of the
+ * eye while you stand in the lobby, and behind you once you walk in — from
+ * swallowing clicks meant for a classroom door further down the hallway.
+ */
+const doorFacesCamera = (e: {
+  distance: number;
+  eventObject: THREE.Object3D;
+  camera: THREE.Camera;
+}): boolean => {
+  if (e.distance < MIN_PICK_DISTANCE) return false;
+  e.eventObject.getWorldDirection(_doorNormal); // the leaf's front (+z local)
+  e.eventObject.getWorldPosition(_doorPos);
+  _toCamera.copy(e.camera.position).sub(_doorPos);
+  return _doorNormal.dot(_toCamera) > 0;
+};
 
 const DoorMesh = ({
   side,
@@ -1094,10 +1122,15 @@ const DoorMesh = ({
       position={atStart ? [0, 0, z - 0.06] : [side * (HALL_WIDTH / 2 - 0.06), 0, z]}
       rotation-y={atStart ? Math.PI : -side * (Math.PI / 2)}
       onClick={(e) => {
+        // A door you are standing inside (the entrance door when you have not
+        // walked in yet, or a doorway mid-zoom) is not a door you can see, so
+        // it is not a door you can click. Only visible doors respond.
+        if (!doorFacesCamera(e)) return;
         e.stopPropagation();
         onEnter();
       }}
       onPointerOver={(e) => {
+        if (!doorFacesCamera(e)) return;
         e.stopPropagation();
         document.body.style.cursor = "pointer";
         setHovered(true);
@@ -3644,7 +3677,12 @@ const HallwayScene = ({
       {eventSource && <Canvas
         eventSource={eventSource}
         shadows
-        camera={{ position: [0, 1.7, 6.5], fov: 62 }}
+        camera={{ position: [0, 1.7, 6.5], fov: 62, near: 0.3 }}
+        // Nothing closer than the near plane can be clicked. Standing in the
+        // entrance lobby the exit door's frame is only centimetres in front of
+        // the eye (outside the rendered view), and without this every click on
+        // the canvas would land on it and leave the building.
+        raycaster={{ near: MIN_PICK_DISTANCE }}
         dpr={[1, 2]}
         gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1 }}
       >
