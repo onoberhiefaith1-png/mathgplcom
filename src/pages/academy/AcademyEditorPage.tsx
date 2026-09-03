@@ -28,7 +28,7 @@ import {
 import HallwayScene from "@/components/academy/world/HallwayScene";
 import BuildingSettingsPanel from "@/components/academy/editor/BuildingSettingsPanel";
 import WalkwayManager from "@/components/academy/editor/WalkwayManager";
-import { removeDoorLock, setDoorLock } from "@/lib/building/lock.functions";
+import { removeRoomLock, setRoomLock } from "@/lib/building/lock.functions";
 import { createSampleMaze } from "@/lib/building/sampleMaze";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -442,18 +442,42 @@ const handleTextureUpload = useCallback(
   const handleAddRoom = useCallback(
     async (
       walkwayId: string,
-      fields: { position_along: number; kind: ClassroomKind; name: string; style?: string | null },
+      fields: {
+        position_along: number;
+        kind: ClassroomKind;
+        name: string;
+        style?: string | null;
+        lock?: { code: string; charset: LockCharset; length: number } | null;
+      },
     ) => {
       if (!buildingData) throw new Error("The building is still loading — try again in a moment.");
       try {
         const { style, position_along, kind: roomKind, name } = fields;
-        const { doorId } = await addRoom(buildingData.building.id, walkwayId, {
+        const { doorId, roomId } = await addRoom(buildingData.building.id, walkwayId, {
           position_along,
           kind: roomKind,
           name,
         });
         if (doorId && style) {
           await updateDoor(doorId, { design: { ...buildingData.building.environment.door, style } as never });
+        }
+        // The optional lock, chosen while creating the room. If it cannot be
+        // stored the whole room is rolled back, so a room never exists with a
+        // lock the teacher believes is protecting it.
+        if (fields.lock) {
+          try {
+            await setRoomLock({
+              data: {
+                roomId,
+                code: fields.lock.code,
+                charset: fields.lock.charset,
+                codeLength: fields.lock.length,
+              },
+            });
+          } catch (lockError) {
+            await deleteRoom(doorId).catch(() => undefined);
+            throw lockError;
+          }
         }
         await refreshBuilding();
         if (doorId) setSelectedDoorId(doorId);
@@ -716,15 +740,6 @@ const handleTextureUpload = useCallback(
                         doors={buildingData.doors}
                         catalogue={catalogue}
                         classrooms={buildingData.classrooms}
-                        locks={buildingData.locks}
-                        onSetDoorLock={async (doorId, code, charset, length) => {
-                          await setDoorLock({ data: { doorId, code, charset, codeLength: length } });
-                          await refreshBuilding();
-                        }}
-                        onRemoveDoorLock={async (doorId) => {
-                          await removeDoorLock({ data: { doorId } });
-                          await refreshBuilding();
-                        }}
                         onSetRoomKind={async (roomId, kind) => {
                           await updateClassroom(roomId, { kind });
                           await refreshBuilding();
