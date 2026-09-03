@@ -70,6 +70,10 @@ export interface DoorLockPanelProps {
   charset: LockCharset;
   /** Overall panel height in world units; the width follows from it. */
   height?: number;
+  /** Attempts left when the teacher set a limit; null when there is no limit. */
+  remaining?: number | null;
+  /** How long the learner must wait once the attempts ran out, e.g. "24 hours". */
+  retryIn?: string | null;
   onKey?: (key: string) => void;
   onClear?: () => void;
   onSubmit?: () => void;
@@ -83,6 +87,8 @@ const DoorLockPanel = ({
   length,
   charset,
   height = 1.15,
+  remaining = null,
+  retryIn = null,
   onKey,
   onClear,
   onSubmit,
@@ -90,6 +96,13 @@ const DoorLockPanel = ({
 }: DoorLockPanelProps) => {
   const rows = useMemo(() => keypadRows(charset), [charset]);
   const cols = rows.reduce((m, r) => Math.max(m, r.length), 3);
+  const blocked = state === "blocked";
+  const caption = blocked
+    ? `Maximum attempts reached. Try again in ${retryIn ?? "a while"}.`
+    : state === "error" && remaining !== null
+      ? `WRONG CODE — ${remaining} attempt${remaining === 1 ? "" : "s"} left`
+      : CAPTION[state];
+
 
   const h = height;
   const w = h * 0.52 * (cols / 3);
