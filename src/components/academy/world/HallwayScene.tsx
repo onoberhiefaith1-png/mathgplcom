@@ -3795,8 +3795,8 @@ const HallwayScene = ({
 
   return (
     <div
-      ref={setEventSource}
       className="absolute inset-0"
+
       onPointerDown={(e) => {
 
         dragStart.current = e.clientX;
