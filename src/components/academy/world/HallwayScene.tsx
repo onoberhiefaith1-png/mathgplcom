@@ -498,7 +498,10 @@ import SmartScreenControls from "./SmartScreenControls";
 import { useRoomScreen } from "@/hooks/useRoomScreen";
 import { useAutoHide } from "@/hooks/useAutoHide";
 
-import { classroomDimensions } from "@/lib/building/classroom";
+import { classroomDimensions, indexRoomsByDoor, roomForDoor } from "@/lib/building/classroom";
+import { fetchRoomForDoor } from "@/lib/building/api";
+import { toast } from "sonner";
+
 import type { ClassroomKind } from "@/lib/building/types";
 import { resolveSurfaces } from "@/lib/building/resolve";
 
