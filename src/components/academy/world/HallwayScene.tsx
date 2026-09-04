@@ -1235,6 +1235,9 @@ const DoorMesh = ({
             filled={lock.filled}
             length={lock.length}
             charset={lock.charset}
+            remaining={lock.remaining ?? null}
+            retryIn={lock.retryIn ?? null}
+
             onKey={lock.onKey}
             onClear={lock.onClear}
             onSubmit={lock.onSubmit}
