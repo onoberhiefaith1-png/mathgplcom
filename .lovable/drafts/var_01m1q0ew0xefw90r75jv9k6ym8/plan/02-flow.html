@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="640" height="300">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); font-size: 12px; }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: hsl(var(--accent)); stroke: hsl(var(--accent)); }
+  </style>
+  <defs>
+    <marker id="a" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="12" y="24" width="120" height="44" rx="8"/>
+  <text class="lbl" x="72" y="51" text-anchor="middle">Media</text>
+
+  <rect class="box" x="176" y="4" width="120" height="40" rx="8"/>
+  <text class="lbl" x="236" y="29" text-anchor="middle">Video</text>
+  <rect class="box" x="176" y="52" width="120" height="40" rx="8"/>
+  <text class="lbl" x="236" y="77" text-anchor="middle">Audio</text>
+
+  <line class="wire" x1="132" y1="40" x2="172" y2="24" marker-end="url(#a)"/>
+  <line class="wire" x1="132" y1="52" x2="172" y2="72" marker-end="url(#a)"/>
+
+  <rect class="zone" x="332" y="0" width="296" height="96" rx="8"/>
+  <text class="note" x="344" y="18">one shared timeline</text>
+  <rect class="box" x="346" y="28" width="268" height="52" rx="8"/>
+  <text class="lbl" x="480" y="49" text-anchor="middle">start · end · duration · per-line position</text>
+  <text class="note" x="480" y="68" text-anchor="middle">preview · play/pause</text>
+  <line class="wire" x1="296" y1="24" x2="342" y2="44" marker-end="url(#a)"/>
+  <line class="wire" x1="296" y1="72" x2="342" y2="60" marker-end="url(#a)"/>
+
+  <rect class="box" x="12" y="160" width="132" height="48" rx="8"/>
+  <text class="lbl" x="78" y="189" text-anchor="middle">Save</text>
+  <rect class="box" x="196" y="160" width="152" height="48" rx="8"/>
+  <text class="lbl" x="272" y="183" text-anchor="middle">stored with question</text>
+  <text class="note" x="272" y="200" text-anchor="middle">timing + type + file</text>
+  <rect class="box" x="400" y="160" width="120" height="48" rx="8"/>
+  <circle class="acc" cx="424" cy="184" r="9"/>
+  <text x="424" y="188" text-anchor="middle" style="fill:hsl(var(--accent-foreground));font-size:11px">1</text>
+  <text class="lbl" x="472" y="189" text-anchor="middle">Locked</text>
+  <rect class="box" x="196" y="240" width="152" height="44" rx="8"/>
+  <text class="lbl" x="272" y="267" text-anchor="middle">Edit — unlocks</text>
+
+  <line class="wire" x1="144" y1="184" x2="192" y2="184" marker-end="url(#a)"/>
+  <line class="wire" x1="348" y1="184" x2="396" y2="184" marker-end="url(#a)"/>
+  <path class="wire" d="M460 208 L460 262 L352 262" marker-end="url(#a)"/>
+  <path class="wire" d="M196 262 L78 262 L78 212" marker-end="url(#a)"/>
+
+  <text class="note" x="540" y="252">1 · reopening the course</text>
+  <text class="note" x="540" y="268">reloads the saved timing</text>
+  <text class="note" x="540" y="284">exactly, never recomputed</text>
+</svg>
