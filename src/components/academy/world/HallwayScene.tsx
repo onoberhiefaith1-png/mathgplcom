@@ -3264,6 +3264,7 @@ const HallwayScene = ({
 
   const leaveClassroom = useCallback(() => {
     const st = machineRef.current;
+    console.log("[DBG] leaveClassroom", new Error().stack);
     st.inside = null;
     setInsideRoom(null);
     setScreenPanelOpen(false);
