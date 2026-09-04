@@ -8,7 +8,12 @@
 // its owner may write it and learners may read it, so no separate store is
 // needed and nothing here depends on a new table.
 import { supabase } from "@/integrations/supabase/client";
-import { emptyVideoConfig, type QuestionVideoConfig, type VideoSegmentMarker } from "./questionVideo";
+import {
+  emptyVideoConfig,
+  type QuestionMediaType,
+  type QuestionVideoConfig,
+  type VideoSegmentMarker,
+} from "./questionVideo";
 
 type Db = { from: (t: string) => any };
 const db = supabase as unknown as Db;
@@ -24,6 +29,10 @@ type StoredVideo = {
   segments?: VideoSegmentMarker[] | null;
   introEnabled?: boolean | null;
   conclusionEnabled?: boolean | null;
+  mediaType?: QuestionMediaType | null;
+  locked?: boolean | null;
+  savedAt?: string | null;
+  sectionOrder?: string[] | null;
 };
 
 type BlockConfig = Record<string, unknown> & {
@@ -39,6 +48,12 @@ const toConfig = (row: StoredVideo | null | undefined): QuestionVideoConfig | nu
     segments: Array.isArray(row.segments) ? row.segments : [],
     introEnabled: !!row.introEnabled,
     conclusionEnabled: !!row.conclusionEnabled,
+    mediaType: row.mediaType === "audio" ? "audio" : "video",
+    // An older record has no lock flag: a saved timeline is treated as locked,
+    // so reopening never presents it as editable-by-accident.
+    locked: row.locked === null || row.locked === undefined ? !!row.videoPath : !!row.locked,
+    savedAt: row.savedAt ?? null,
+    sectionOrder: Array.isArray(row.sectionOrder) ? row.sectionOrder : [],
   };
 };
 
@@ -107,6 +122,11 @@ export const saveQuestionVideo = async (
     segments: cfg.segments,
     introEnabled: cfg.introEnabled,
     conclusionEnabled: cfg.conclusionEnabled,
+    mediaType: cfg.mediaType === "audio" ? "audio" : "video",
+    // Saving always re-locks the timeline.
+    locked: true,
+    savedAt: new Date().toISOString(),
+    sectionOrder: cfg.sectionOrder ?? [],
   };
   const next: BlockConfig = { ...config, [VIDEO_CONFIG_KEY]: map };
   const { error } = await db.from(TABLE).update({ config: next }).eq("id", blockId);

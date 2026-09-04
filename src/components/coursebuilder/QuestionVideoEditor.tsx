@@ -14,7 +14,7 @@
 //   · gaps and overlaps are allowed and are never auto-corrected
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Maximize2, Minimize2, Trash2, Upload } from "lucide-react";
+import { Loader2, Lock, Maximize2, Minimize2, Pencil, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,10 +30,14 @@ import {
   emptySectionsFor,
   emptyVideoConfig,
   fmtClock,
+  isLocked,
+  markersFor,
+  mediaTypeOf,
   overlapsFor,
   parseClock,
   sectionsFor,
   writeBoundary,
+  type QuestionMediaType,
   type QuestionVideoConfig,
   type VideoLine,
   type VideoSection,
@@ -52,6 +56,8 @@ interface Props {
   questionLabel: string;
   lines: VideoLine[];
   config: QuestionVideoConfig | null;
+  /** Which kind of media a brand-new record starts as. */
+  mediaType?: QuestionMediaType;
   onSaved: (cfg: QuestionVideoConfig | null) => void;
 }
 
@@ -64,6 +70,7 @@ const QuestionVideoEditor = ({
   questionLabel,
   lines,
   config,
+  mediaType,
   onSaved,
 }: Props) => {
   const { toast } = useToast();
@@ -71,15 +78,28 @@ const QuestionVideoEditor = ({
   const playerRef = useRef<HTMLDivElement>(null);
   const [isFs, setIsFs] = useState(false);
   const [draft, setDraft] = useState<QuestionVideoConfig>(
-    config ?? emptyVideoConfig(),
+    config ?? emptyVideoConfig(mediaType),
   );
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [playhead, setPlayhead] = useState(0);
+  /** Set by Edit. A saved timeline is read-only until then. */
+  const [unlocked, setUnlocked] = useState(false);
 
+  // The saved record is loaded ONCE per opening. Nothing recalculates the
+  // timeline afterwards, so the teacher's saved timings can never be replaced
+  // while the dialog is on screen.
   useEffect(() => {
-    if (open) setDraft(config ?? emptyVideoConfig());
-  }, [open, config]);
+    if (!open) return;
+    setDraft(config ?? emptyVideoConfig(mediaType));
+    setUnlocked(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, questionId]);
+
+  const kind = mediaTypeOf(draft);
+  const isAudio = kind === "audio";
+  const noun = isAudio ? "audio" : "video";
+  const locked = isLocked(draft) && !unlocked;
 
   useEffect(() => {
     if (!open) setIsFs(false);
@@ -112,7 +132,7 @@ const QuestionVideoEditor = ({
         segments: [],
       }));
       toast({
-        title: "Video uploaded",
+        title: isAudio ? "Audio uploaded" : "Video uploaded",
         description: "Now set each section's start and end.",
       });
     } catch (e) {
@@ -163,10 +183,20 @@ const QuestionVideoEditor = ({
     }
     setBusy(true);
     try {
-      await saveQuestionVideo(blockId, questionId, draft);
-      onSaved(draft);
+      const saved: QuestionVideoConfig = {
+        ...draft,
+        mediaType: kind,
+        segments: markersFor(sections),
+        sectionOrder: sections.map((s) => s.key),
+        locked: true,
+        savedAt: new Date().toISOString(),
+      };
+      await saveQuestionVideo(blockId, questionId, saved);
+      setDraft(saved);
+      setUnlocked(false);
+      onSaved(saved);
       onOpenChange(false);
-      toast({ title: "Teaching video saved" });
+      toast({ title: isAudio ? "Teaching audio saved" : "Teaching video saved" });
     } catch (e) {
       toast({
         title: "Could not save",
@@ -193,6 +223,21 @@ const QuestionVideoEditor = ({
     const value = field === "start" ? s.startAt : s.endAt;
     const prepared =
       field === "start" && s.startSource === "auto" && s.startAt !== null;
+    if (locked) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <span className="w-9 text-xs text-muted-foreground">
+            {field === "start" ? "start" : "end"}
+          </span>
+          <span
+            className="inline-flex h-8 w-24 items-center rounded-md border border-border bg-muted/50 px-2 font-mono text-xs"
+            aria-label={`${s.label} ${field} time`}
+          >
+            {value === null ? "Not set" : fmtClock(value)}
+          </span>
+        </div>
+      );
+    }
     return (
       <div className="flex items-center gap-1.5">
         <span className="w-9 text-xs text-muted-foreground">
@@ -214,6 +259,7 @@ const QuestionVideoEditor = ({
             if (parsed !== null) setBoundary(s.key, field, parsed);
           }}
         />
+
         <Button
           size="sm"
           variant="outline"
@@ -257,7 +303,7 @@ const QuestionVideoEditor = ({
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-2 pr-8">
             <DialogTitle className="flex-1">
-              Teaching video — {questionLabel}
+              Teaching {noun} — {questionLabel}
             </DialogTitle>
             <button
               type="button"
@@ -288,7 +334,11 @@ const QuestionVideoEditor = ({
                 controls
                 playsInline
                 className={
-                  isFs ? "max-h-[44vh] w-full" : "max-h-[260px] w-full"
+                  isAudio
+                    ? "h-14 w-full bg-black"
+                    : isFs
+                      ? "max-h-[44vh] w-full"
+                      : "max-h-[260px] w-full"
                 }
 
                 onLoadedMetadata={(e) => {
@@ -308,7 +358,7 @@ const QuestionVideoEditor = ({
               />
             ) : (
               <div className="grid h-40 place-items-center text-xs text-white/60">
-                No video uploaded yet
+                No {noun} uploaded yet
               </div>
             )}
           </div>
@@ -317,7 +367,7 @@ const QuestionVideoEditor = ({
             <label className="inline-flex">
               <input
                 type="file"
-                accept="video/*"
+                accept={isAudio ? "audio/*" : "video/*"}
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -325,14 +375,14 @@ const QuestionVideoEditor = ({
                   e.target.value = "";
                 }}
               />
-              <Button asChild size="sm" variant="outline" disabled={busy}>
+              <Button asChild size="sm" variant="outline" disabled={busy || locked}>
                 <span className="cursor-pointer">
                   {busy ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Upload className="mr-2 h-4 w-4" />
                   )}
-                  {draft.videoPath ? "Replace video" : "Upload video"}
+                  {draft.videoPath ? `Replace ${noun}` : `Upload ${noun}`}
                 </span>
               </Button>
             </label>
@@ -341,6 +391,16 @@ const QuestionVideoEditor = ({
               length{" "}
               <span className="font-mono">{fmtClock(draft.duration)}</span>
             </span>
+            {locked && (
+              <div className="ml-auto flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  <Lock className="h-3 w-3" /> Saved timing — locked
+                </span>
+                <Button size="sm" variant="outline" onClick={() => setUnlocked(true)}>
+                  <Pencil className="mr-1.5 h-4 w-4" /> Edit
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -352,6 +412,7 @@ const QuestionVideoEditor = ({
                 </span>
               </span>
               <Switch
+                disabled={locked}
                 checked={draft.introEnabled}
                 onCheckedChange={(v) =>
                   setDraft((d) => ({ ...d, introEnabled: v }))
@@ -366,6 +427,7 @@ const QuestionVideoEditor = ({
                 </span>
               </span>
               <Switch
+                disabled={locked}
                 checked={draft.conclusionEnabled}
                 onCheckedChange={(v) =>
                   setDraft((d) => ({ ...d, conclusionEnabled: v }))
@@ -480,7 +542,7 @@ const QuestionVideoEditor = ({
               onClick={() => void removeAll()}
               disabled={busy}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Remove video
+              <Trash2 className="mr-2 h-4 w-4" /> Remove {noun}
             </Button>
           ) : (
             <span />
@@ -491,10 +553,10 @@ const QuestionVideoEditor = ({
             </Button>
             <Button
               onClick={() => void save()}
-              disabled={busy || !draft.videoPath}
+              disabled={busy || !draft.videoPath || locked}
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
-              video
+              {" "}{noun}
             </Button>
           </div>
         </div>

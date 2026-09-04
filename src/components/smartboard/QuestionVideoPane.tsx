@@ -27,6 +27,7 @@ import {
   nextSection,
   prevSection,
   sectionForLine,
+  mediaTypeOf,
   sectionsFor,
   shouldAutoPlay,
   type QuestionVideoConfig,
@@ -72,6 +73,8 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  // Audio-only teaching media: identical timeline, no picture area at all.
+  const isAudio = mediaTypeOf(config) === "audio";
   const [mediaReady, setMediaReady] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -563,18 +566,35 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
       <div ref={stageRef} className="relative min-h-0 flex-1">
         {url ? (
           <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-            style={{
-              width: fitted.width ? `${fitted.width}px` : "100%",
-              height: fitted.height ? `${fitted.height}px` : "100%",
-            }}
+            className={
+              isAudio
+                ? "absolute left-1/2 top-1/2 w-[min(560px,92%)] -translate-x-1/2 -translate-y-1/2"
+                : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            }
+            style={
+              isAudio
+                ? undefined
+                : {
+                    width: fitted.width ? `${fitted.width}px` : "100%",
+                    height: fitted.height ? `${fitted.height}px` : "100%",
+                  }
+            }
           >
+            {isAudio && (
+              <div className="mb-3 flex items-center justify-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-white/60">
+                <Volume2 className="h-4 w-4" /> Teaching audio
+              </div>
+            )}
             <video
               ref={videoRef}
               src={url}
               playsInline
               preload="auto"
-              className="h-full w-full cursor-pointer bg-black object-contain"
+              className={
+                isAudio
+                  ? "h-12 w-full cursor-pointer bg-transparent"
+                  : "h-full w-full cursor-pointer bg-black object-contain"
+              }
               onClick={() => { revealControls(); toggle(); }}
 
               onLoadedMetadata={(e) => {
@@ -600,11 +620,13 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
         ) : failed ? (
           <span className="absolute inset-0 inline-flex flex-col items-center justify-center gap-1 px-6 text-center text-xs text-white/70">
             <AlertTriangle className="h-4 w-4" />
-            This teaching video isn't available right now — the Smartboard still works.
+            This teaching {isAudio ? "audio" : "video"} isn't available right now — the Smartboard
+            still works.
           </span>
         ) : (
           <span className="absolute inset-0 inline-flex items-center justify-center gap-2 text-xs text-white/70">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading the teaching video…
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading the teaching{" "}
+            {isAudio ? "audio" : "video"}…
           </span>
         )}
 
@@ -629,7 +651,9 @@ const QuestionVideoPane = ({ config, lines, lineContext, className }: Props) => 
           )}
         >
           <div className="flex items-center justify-between gap-2 text-[11px] text-white/75">
-            <span className="min-w-0 truncate">{active ? active.label : "Teaching video"}</span>
+            <span className="min-w-0 truncate">
+              {active ? active.label : isAudio ? "Teaching audio" : "Teaching video"}
+            </span>
             <span className="shrink-0 font-mono">
               {fmtClock(Math.max(0, playhead - (active?.start ?? 0)))} /{" "}
               {fmtClock(

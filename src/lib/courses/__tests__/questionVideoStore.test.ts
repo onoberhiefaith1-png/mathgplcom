@@ -86,3 +86,36 @@ describe("question video store", () => {
     expect([...(await store.loadCardVideoFlags(B))]).toEqual([]);
   });
 });
+
+describe("media type and lock", () => {
+  beforeEach(() => {
+    config = {};
+  });
+
+  it("round-trips the media kind, the lock and the saved order", async () => {
+    const store = await import("../questionVideoStore");
+    await store.saveQuestionVideo(B, Q1, {
+      ...cfg("teacher-1/talk.m4a", [{ key: "line:a", start: 2, end: 9 }]),
+      mediaType: "audio",
+      sectionOrder: ["line:a"],
+      locked: false,
+    } as never);
+
+    const loaded = await store.loadQuestionVideo(B, Q1);
+    expect(loaded?.mediaType).toBe("audio");
+    expect(loaded?.locked).toBe(true);
+    expect(loaded?.sectionOrder).toEqual(["line:a"]);
+  });
+
+  it("treats an older saved record as locked video", async () => {
+    config = {
+      questionVideos: {
+        [Q1]: { videoPath: "old.mp4", duration: 10, segments: [] },
+      },
+    };
+    const store = await import("../questionVideoStore");
+    const loaded = await store.loadQuestionVideo(B, Q1);
+    expect(loaded?.mediaType).toBe("video");
+    expect(loaded?.locked).toBe(true);
+  });
+});

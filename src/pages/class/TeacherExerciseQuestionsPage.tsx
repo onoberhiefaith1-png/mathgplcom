@@ -7,8 +7,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, Brain, ClipboardList, Loader2, MonitorPlay, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, AudioLines, Brain, ClipboardList, Loader2, MonitorPlay, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import PresentationView from "@/components/smartboard/PresentationView";
 import TeacherEvaluationPanel from "@/components/smartboard/TeacherEvaluationPanel";
@@ -32,8 +38,10 @@ import {
 } from "@/lib/courses/exerciseBoard";
 
 import {
+  mediaTypeOf,
   videoLinesFromQuestion,
   videoReady,
+  type QuestionMediaType,
   type QuestionVideoConfig,
 } from "@/lib/courses/questionVideo";
 import { loadCardVideoFlags, loadQuestionVideo } from "@/lib/courses/questionVideoStore";
@@ -62,6 +70,7 @@ const TeacherExerciseQuestionsPage = () => {
   const [withVideo, setWithVideo] = useState<Set<string>>(new Set());
   const [editorFor, setEditorFor] = useState<string | null>(null);
   const [editorConfig, setEditorConfig] = useState<QuestionVideoConfig | null>(null);
+  const [editorKind, setEditorKind] = useState<QuestionMediaType>("video");
   const [activeVideo, setActiveVideo] = useState<QuestionVideoConfig | null>(null);
   const [lineCtx, setLineCtx] = useState<LineContext>({
     questionId: null, lineId: null, index: 0, total: 0, completed: false,
@@ -200,10 +209,62 @@ const TeacherExerciseQuestionsPage = () => {
   }, [testBoard]);
 
 
-  const openEditor = async (questionId: string) => {
+  /** Media for one question: the saved record when there is one, otherwise a
+   *  fresh timeline of the kind the teacher chose. */
+  const openEditor = async (questionId: string, kind: QuestionMediaType = "video") => {
     if (!blockId) return;
-    setEditorConfig(await loadQuestionVideo(blockId, questionId).catch(() => null));
+    const cfg = await loadQuestionVideo(blockId, questionId).catch(() => null);
+    setEditorConfig(cfg);
+    setEditorKind(cfg?.videoPath ? mediaTypeOf(cfg) : kind);
     setEditorFor(questionId);
+  };
+
+  /** Media button: one entry point, then Video or Audio for a new record. */
+  const MediaButton = ({
+    questionId,
+    saved,
+    variant = "outline",
+  }: {
+    questionId: string;
+    saved: QuestionVideoConfig | null | boolean;
+    variant?: "outline" | "ghost";
+  }) => {
+    const cfg = typeof saved === "boolean" ? null : saved;
+    const has = typeof saved === "boolean" ? saved : videoReady(saved);
+    if (has) {
+      return (
+        <Button
+          size="sm"
+          variant={variant}
+          className="pointer-events-auto"
+          onClick={() => void openEditor(questionId)}
+        >
+          {cfg && mediaTypeOf(cfg) === "audio" ? (
+            <AudioLines className="mr-1.5 h-4 w-4" />
+          ) : (
+            <MonitorPlay className="mr-1.5 h-4 w-4" />
+          )}
+          Edit media
+        </Button>
+      );
+    }
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant={variant} className="pointer-events-auto">
+            <MonitorPlay className="mr-1.5 h-4 w-4" /> Media
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={() => void openEditor(questionId, "video")}>
+            <MonitorPlay className="mr-2 h-4 w-4" /> Video
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void openEditor(questionId, "audio")}>
+            <AudioLines className="mr-2 h-4 w-4" /> Audio
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
   };
 
   if (loading) {
@@ -301,15 +362,7 @@ const TeacherExerciseQuestionsPage = () => {
         </div>
 
         <div className="pointer-events-none fixed left-3 top-3 z-[70] flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="pointer-events-auto"
-            onClick={() => void openEditor(activeQuestionId)}
-          >
-            <MonitorPlay className="mr-1.5 h-4 w-4" />
-            {videoReady(activeVideo) ? "Edit video" : "Add Video"}
-          </Button>
+          <MediaButton questionId={activeQuestionId} saved={activeVideo} />
           {videoReady(activeVideo) && (
             <BoardViewSwitcher
               value={videoView}
@@ -361,6 +414,8 @@ const TeacherExerciseQuestionsPage = () => {
             questionLabel={`Question ${questions.findIndex((q) => q.id === editorFor) + 1}`}
             lines={videoLinesFromQuestion(questions.find((q) => q.id === editorFor)?.lines)}
             config={editorConfig}
+            mediaType={editorKind}
+
             onSaved={(cfg) => {
               setActiveVideo(cfg);
               setWithVideo((prev) => {
@@ -423,7 +478,7 @@ const TeacherExerciseQuestionsPage = () => {
                     <span className="block truncate text-xs text-muted-foreground">
                       {entry.marks} marks
                       {entry.missing ? " · source not found — relink or remove" : ` · ${lines} lines`}
-                      {hasVideo ? " · teaching video" : ""}
+                      {hasVideo ? " · teaching media" : ""}
                     </span>
                   </span>
                   <div className="ml-auto flex items-center gap-2">
@@ -450,9 +505,11 @@ const TeacherExerciseQuestionsPage = () => {
                         >
                           <Play className="mr-1.5 h-4 w-4" /> View
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => void openEditor(entry.questionId)}>
-                          <MonitorPlay className="mr-1.5 h-4 w-4" /> {hasVideo ? "Edit video" : "Add Video"}
-                        </Button>
+                        <MediaButton
+                          questionId={entry.questionId}
+                          saved={hasVideo}
+                          variant="ghost"
+                        />
                       </>
                     )}
                   </div>
@@ -474,6 +531,7 @@ const TeacherExerciseQuestionsPage = () => {
           questionLabel={`Question ${questions.findIndex((q) => q.id === editorFor) + 1}`}
           lines={videoLinesFromQuestion(questions.find((q) => q.id === editorFor)?.lines)}
           config={editorConfig}
+          mediaType={editorKind}
           onSaved={(cfg) => {
             setWithVideo((prev) => {
               const next = new Set(prev);

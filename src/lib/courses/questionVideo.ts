@@ -28,6 +28,9 @@ export interface VideoSegmentMarker {
   startSource?: "auto" | "manual";
 }
 
+/** Both kinds share one timeline; only the presentation differs. */
+export type QuestionMediaType = "video" | "audio";
+
 export interface QuestionVideoConfig {
   videoPath: string | null;
   duration: number;
@@ -37,7 +40,21 @@ export interface QuestionVideoConfig {
   segments: VideoSegmentMarker[];
   introEnabled: boolean;
   conclusionEnabled: boolean;
+  /** Video (picture + sound) or audio only. Absent means video. */
+  mediaType?: QuestionMediaType;
+  /** True once saved: the timeline is read-only until the teacher edits it. */
+  locked?: boolean;
+  /** When the saved timeline was written. */
+  savedAt?: string | null;
+  /**
+   * The section keys, in the order they were saved. A saved timeline is
+   * resolved by key first; when a line's id has changed since (a recompiled
+   * question), its saved range is recovered by position from this list, so
+   * saved timings never degrade to "Not set".
+   */
+  sectionOrder?: string[];
 }
+
 
 export interface VideoLine {
   lineId: string;
@@ -75,14 +92,30 @@ export interface VideoSection {
   note: string | null;
 }
 
-export const emptyVideoConfig = (): QuestionVideoConfig => ({
+export const emptyVideoConfig = (
+  mediaType: QuestionMediaType = "video",
+): QuestionVideoConfig => ({
   videoPath: null,
   duration: 0,
   checkpoints: {},
   segments: [],
   introEnabled: false,
   conclusionEnabled: false,
+  mediaType,
+  locked: false,
+  savedAt: null,
+  sectionOrder: [],
 });
+
+/** Video unless the saved record says audio. */
+export const mediaTypeOf = (
+  cfg: QuestionVideoConfig | null | undefined,
+): QuestionMediaType => (cfg?.mediaType === "audio" ? "audio" : "video");
+
+/** A saved timeline is read-only until the teacher chooses Edit. */
+export const isLocked = (cfg: QuestionVideoConfig | null | undefined): boolean =>
+  !!cfg?.locked && !!cfg?.videoPath;
+
 
 /** The gap the next section's prepared start leaves after an end point. */
 export const NEXT_START_GAP = 1;
@@ -154,11 +187,31 @@ export const sectionsFor = (
     });
   }
 
+  // Position rescue: a saved range whose key no longer exists (the question was
+  // recompiled and its line ids changed) is recovered from the saved order, so
+  // an already-authored timeline is never shown as unset.
+  const savedOrder = (cfg?.sectionOrder ?? []).filter((k) => typeof k === "string");
+  const rescued = new Map<string, VideoSegmentMarker>();
+  if (savedOrder.length > 0) {
+    const currentKeys = entries.map((e) => e.key);
+    const orphanKeys = savedOrder.filter((k) => !currentKeys.includes(k));
+    if (orphanKeys.length > 0) {
+      entries.forEach((entry, i) => {
+        if (markers.has(entry.key)) return;
+        const savedKey = savedOrder[i];
+        if (!savedKey || currentKeys.includes(savedKey)) return;
+        const m = markers.get(savedKey) ?? (cfg?.segments ?? []).find((s) => s?.key === savedKey);
+        if (m) rescued.set(entry.key, m);
+      });
+    }
+  }
+
   return entries.map((entry) => {
-    const marker = markers.get(entry.key);
+    const marker = markers.get(entry.key) ?? rescued.get(entry.key);
     const fallback = legacy.get(entry.key);
     const startAt = marker ? num(marker.start) : (fallback?.start ?? null);
     const endAt = marker ? num(marker.end) : (fallback?.end ?? null);
+
     const start = startAt ?? 0;
     const end = endAt ?? (duration > 0 ? duration : 0);
     return {
