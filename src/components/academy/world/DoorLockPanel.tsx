@@ -14,6 +14,9 @@ import { Text } from "@react-three/drei";
 import { keypadRows } from "@/lib/building/lock";
 import type { LockCharset } from "@/lib/building/lock";
 
+/** Decoration never takes a press. */
+const NO_PICK = () => {};
+
 export type LockState = "locked" | "checking" | "unlocked" | "error" | "blocked";
 
 const BEZEL = "#141821";
@@ -167,7 +170,9 @@ const DoorLockPanel = ({
         <meshStandardMaterial color={FACE} emissive={FACE} emissiveIntensity={0.5} roughness={0.25} metalness={0.2} />
       </mesh>
       {/* Inner edge glow: the state of the lock, read at a glance */}
-      <lineSegments position={[0, 0, z]}>
+      {/* Outlines are decoration only. Three.js gives lines a fat pick radius,
+          so an un-picked outline would swallow presses meant for the keys. */}
+      <lineSegments position={[0, 0, z]} raycast={NO_PICK}>
         <edgesGeometry args={[new THREE.PlaneGeometry(faceW - 0.02, faceH - 0.02)]} />
         <lineBasicMaterial color={glow} toneMapped={false} transparent opacity={0.9} />
       </lineSegments>
@@ -240,7 +245,6 @@ const DoorLockPanel = ({
                 e.stopPropagation();
                 // A locked-out panel takes no input until the wait is over.
                 if (blocked) return;
-                console.log("[lockpad] press", key);
                 if (key === "*") onClear?.();
                 else if (key === "#") onSubmit?.();
                 else onKey?.(key);
@@ -258,7 +262,7 @@ const DoorLockPanel = ({
                 <planeGeometry args={[keyW * 0.86, keyH]} />
                 <meshBasicMaterial color="#132030" toneMapped={false} transparent opacity={0.95} />
               </mesh>
-              <lineSegments>
+              <lineSegments raycast={NO_PICK}>
                 <edgesGeometry args={[new THREE.PlaneGeometry(keyW * 0.86, keyH)]} />
                 <lineBasicMaterial color={glow} toneMapped={false} transparent opacity={0.55} />
               </lineSegments>
