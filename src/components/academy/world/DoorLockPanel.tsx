@@ -147,6 +147,7 @@ const DoorLockPanel = ({
     <group
       onClick={(e) => {
         e.stopPropagation();
+        console.log("[lockpad] panel body hit", e.object.type, e.object.name, e.point.toArray().map(n=>n.toFixed(2)).join(","));
         onFocus?.();
       }}
       onPointerOver={(e) => {
