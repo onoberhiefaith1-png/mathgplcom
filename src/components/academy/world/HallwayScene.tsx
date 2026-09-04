@@ -2718,6 +2718,8 @@ const HallwayScene = ({
     yaw: 0,
     turn: null,
     zoom: null,
+    keypad: null,
+
     inside: null,
   });
   const historyRef = useRef(new NavigationHistory());
