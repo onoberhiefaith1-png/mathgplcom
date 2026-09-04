@@ -285,7 +285,7 @@ const DoorLockPanel = ({
       {/* A hint of the keys' purpose, kept small and clinical */}
       <Suspense fallback={null}>
         <Text
-          position={[0, keypadTop - keypadH - h * 0.045, z]}
+          position={[0, keypadTop - keypadH - h * 0.075, z]}
           fontSize={h * 0.028}
           letterSpacing={0.06}
           anchorX="center"
