@@ -3146,8 +3146,8 @@ const HallwayScene = ({
       if (st.phase === "turning" || st.phase === "zooming") return;
       const restore = st.phase === "keypad" ? st.keypad?.restorePhase ?? "idle" : st.phase;
       const stance: KeypadStance = {
-        to: [panel[0] + front[0] * 1.5, 1.5, panel[1] + front[1] * 1.5],
-        look: [panel[0], 1.35, panel[1]],
+        to: [panel[0] + front[0] * 2.1, 1.42, panel[1] + front[1] * 2.1],
+        look: [panel[0], 1.32, panel[1]],
         restorePhase: restore,
       };
       st.hold = 0;
