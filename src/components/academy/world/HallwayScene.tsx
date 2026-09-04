@@ -3160,7 +3160,6 @@ const HallwayScene = ({
           setMachinePhase("keypad");
         },
 
-        },
       };
       setMachinePhase("zooming");
     },
