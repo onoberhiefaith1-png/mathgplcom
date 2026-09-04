@@ -1571,7 +1571,20 @@ const shortestYaw = (current: number, target: number, k: number): number => {
   return current + delta * k;
 };
 
-export type NavPhase = "browse" | "walking" | "turning" | "zooming" | "idle" | "inside";
+export type NavPhase = "browse" | "walking" | "turning" | "zooming" | "idle" | "inside" | "keypad";
+
+/**
+ * STANDING AT A KEYPAD. Reading a wall panel is a place you STAY, not a glance:
+ * the camera holds this spot until the code opens the door or the walker moves
+ * off, so the view never springs back to the middle of the hallway.
+ */
+interface KeypadStance {
+  to: [number, number, number];
+  look: [number, number, number];
+  /** The phase the walk returns to once the panel is left. */
+  restorePhase: NavPhase;
+}
+
 
 interface TurnSpec {
   pivot: [number, number];
