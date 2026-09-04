@@ -234,6 +234,7 @@ const DoorLockPanel = ({
               <mesh
                 onClick={(e) => {
                   e.stopPropagation();
+                  console.log("[lockpad] key", key);
                   // A locked-out panel takes no input until the wait is over.
                   if (blocked) return;
                   if (key === "*") onClear?.();
