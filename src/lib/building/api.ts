@@ -111,7 +111,7 @@ export async function loadBuildingData(building: Building): Promise<BuildingData
   // characters it takes and how long the code is) may reach the client.
   const lockRes = await supabase
     .from("building_room_locks")
-    .select("id, building_id, classroom_id, charset, code_length")
+    .select("id, building_id, classroom_id, charset, code_length, max_attempts, retry_after_minutes")
     .eq("building_id", building.id);
 fail(walkRes.error);
   fail(doorRes.error);

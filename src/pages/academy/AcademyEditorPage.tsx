@@ -450,7 +450,13 @@ const handleTextureUpload = useCallback(
         kind: ClassroomKind;
         name: string;
         style?: string | null;
-        lock?: { code: string; charset: LockCharset; length: number } | null;
+        lock?: {
+          code: string;
+          charset: LockCharset;
+          length: number;
+          maxAttempts: number | null;
+          retryAfterMinutes: number | null;
+        } | null;
       },
     ) => {
       if (!buildingData) throw new Error("The building is still loading — try again in a moment.");
@@ -475,8 +481,11 @@ const handleTextureUpload = useCallback(
                 code: fields.lock.code,
                 charset: fields.lock.charset,
                 codeLength: fields.lock.length,
+                maxAttempts: fields.lock.maxAttempts,
+                retryAfterMinutes: fields.lock.retryAfterMinutes,
               },
             });
+
           } catch (lockError) {
             await deleteRoom(doorId).catch(() => undefined);
             throw lockError;
@@ -718,8 +727,17 @@ const handleTextureUpload = useCallback(
                               ) ?? null
                             : null
                         }
-                        onSetRoomLock={async (roomId, code, charset, length) => {
-                          await setRoomLock({ data: { roomId, code, charset, codeLength: length } });
+                        onSetRoomLock={async (roomId, code, charset, length, policy) => {
+                          await setRoomLock({
+                            data: {
+                              roomId,
+                              code,
+                              charset,
+                              codeLength: length,
+                              maxAttempts: policy?.maxAttempts ?? null,
+                              retryAfterMinutes: policy?.retryAfterMinutes ?? null,
+                            },
+                          });
                           toast({ title: "Lock saved", description: "This room now asks for its code." });
                           await refreshBuilding();
                         }}

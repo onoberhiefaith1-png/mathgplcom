@@ -14,7 +14,7 @@ import { Text } from "@react-three/drei";
 import { keypadRows } from "@/lib/building/lock";
 import type { LockCharset } from "@/lib/building/lock";
 
-export type LockState = "locked" | "checking" | "unlocked" | "error";
+export type LockState = "locked" | "checking" | "unlocked" | "error" | "blocked";
 
 const BEZEL = "#141821";
 const FACE = "#0a1220";
@@ -23,19 +23,23 @@ const GLOW: Record<LockState, string> = {
   checking: "#7dd3ff",
   unlocked: "#3ef2a0",
   error: "#ff5a6a",
+  blocked: "#ff5a6a",
 };
 const CAPTION: Record<LockState, string> = {
   locked: "Please enter the code to unlock",
   checking: "Checking…",
   unlocked: "Access granted",
-  error: "Incorrect access code",
+  error: "Try the code again",
+  blocked: "Maximum attempts reached",
 };
 const TITLE: Record<LockState, string> = {
   locked: "ENTER ACCESS CODE",
   checking: "ENTER ACCESS CODE",
   unlocked: "UNLOCKED",
-  error: "ACCESS DENIED",
+  error: "WRONG CODE",
+  blocked: "LOCKED OUT",
 };
+
 
 /** A rounded rectangle path, used for the bezel and every key. */
 const roundedPath = (w: number, h: number, r: number) => {
@@ -66,6 +70,10 @@ export interface DoorLockPanelProps {
   charset: LockCharset;
   /** Overall panel height in world units; the width follows from it. */
   height?: number;
+  /** Attempts left when the teacher set a limit; null when there is no limit. */
+  remaining?: number | null;
+  /** How long the learner must wait once the attempts ran out, e.g. "24 hours". */
+  retryIn?: string | null;
   onKey?: (key: string) => void;
   onClear?: () => void;
   onSubmit?: () => void;
@@ -79,6 +87,8 @@ const DoorLockPanel = ({
   length,
   charset,
   height = 1.15,
+  remaining = null,
+  retryIn = null,
   onKey,
   onClear,
   onSubmit,
@@ -86,6 +96,13 @@ const DoorLockPanel = ({
 }: DoorLockPanelProps) => {
   const rows = useMemo(() => keypadRows(charset), [charset]);
   const cols = rows.reduce((m, r) => Math.max(m, r.length), 3);
+  const blocked = state === "blocked";
+  const caption = blocked
+    ? `Maximum attempts reached. Try again in ${retryIn ?? "a while"}.`
+    : state === "error" && remaining !== null
+      ? `WRONG CODE — ${remaining} attempt${remaining === 1 ? "" : "s"} left`
+      : CAPTION[state];
+
 
   const h = height;
   const w = h * 0.52 * (cols / 3);
@@ -184,10 +201,10 @@ const DoorLockPanel = ({
           maxWidth={faceW * 0.9}
           anchorX="center"
           anchorY="middle"
-          color={state === "error" ? "#ffb4bc" : "#8fb3d9"}
+          color={state === "error" || blocked ? "#ffb4bc" : "#8fb3d9"}
           material-toneMapped={false}
         >
-          {CAPTION[state]}
+          {caption}
         </Text>
       </Suspense>
 
@@ -215,10 +232,13 @@ const DoorLockPanel = ({
               <mesh
                 onClick={(e) => {
                   e.stopPropagation();
+                  // A locked-out panel takes no input until the wait is over.
+                  if (blocked) return;
                   if (key === "*") onClear?.();
                   else if (key === "#") onSubmit?.();
                   else onKey?.(key);
                 }}
+
                 onPointerOver={(e) => {
                   e.stopPropagation();
                   document.body.style.cursor = "pointer";

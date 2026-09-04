@@ -10,10 +10,11 @@
 import { useState } from "react";
 import { Lock, LockOpen, Trash2 } from "lucide-react";
 import {
-  LOCK_CHARSET_LABEL,
   MAX_CODE_LENGTH,
   MIN_CODE_LENGTH,
+  RETRY_OPTIONS,
   normaliseCode,
+  retryLabel,
   validateCodePair,
 } from "@/lib/building/lock";
 import type { LockCharset, RoomLock } from "@/lib/building/lock";
@@ -24,6 +25,10 @@ export interface RoomLockDraft {
   length: number;
   code: string;
   confirm: string;
+  /** Optional security policy — off unless the teacher turns it on. */
+  limitOn: boolean;
+  maxAttempts: number;
+  retryAfterMinutes: number;
 }
 
 export const emptyLockDraft = (): RoomLockDraft => ({
@@ -31,15 +36,24 @@ export const emptyLockDraft = (): RoomLockDraft => ({
   length: 4,
   code: "",
   confirm: "",
+  limitOn: false,
+  maxAttempts: 3,
+  retryAfterMinutes: 1440,
 });
 
 /** Null when the draft is acceptable, or the reason it is not. */
 export const lockDraftProblem = (draft: RoomLockDraft): string | null =>
-  validateCodePair(draft.code, draft.confirm, draft.charset, draft.length);
+  validateCodePair(draft.code, draft.confirm, "digits", draft.length);
+
+/** The attempt policy a draft carries, in the shape the server expects. */
+export const lockDraftPolicy = (draft: RoomLockDraft) => ({
+  maxAttempts: draft.limitOn ? draft.maxAttempts : null,
+  retryAfterMinutes: draft.limitOn ? draft.retryAfterMinutes : null,
+});
 
 /**
- * The bare fields: characters, length, code, confirm code. Controlled, so the
- * wizard can carry them alongside the room it is about to create.
+ * The bare fields: code length, the numeric code typed twice, and the optional
+ * attempt limit. The lock is a NUMERIC keypad, so there is no character choice.
  */
 export const RoomLockFields = ({
   draft,
@@ -49,50 +63,81 @@ export const RoomLockFields = ({
   onChange: (next: RoomLockDraft) => void;
 }) => (
   <div className="space-y-1.5">
-    <div className="flex flex-wrap gap-1.5">
-      <select
-        aria-label="Code characters"
-        value={draft.charset}
-        onChange={(e) => onChange({ ...draft, charset: e.target.value as LockCharset })}
-        className="min-h-[32px] rounded border border-border bg-background px-1.5 text-[11px] text-foreground"
-      >
-        {(Object.keys(LOCK_CHARSET_LABEL) as LockCharset[]).map((k) => (
-          <option key={k} value={k}>
-            {LOCK_CHARSET_LABEL[k]}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="Code length"
-        value={draft.length}
-        onChange={(e) => onChange({ ...draft, length: Number(e.target.value) })}
-        className="min-h-[32px] rounded border border-border bg-background px-1.5 text-[11px] text-foreground"
-      >
-        {Array.from({ length: MAX_CODE_LENGTH - MIN_CODE_LENGTH + 1 }).map((_, i) => (
-          <option key={i} value={MIN_CODE_LENGTH + i}>
-            {MIN_CODE_LENGTH + i} characters
-          </option>
-        ))}
-      </select>
-    </div>
+    <select
+      aria-label="Code length"
+      value={draft.length}
+      onChange={(e) => onChange({ ...draft, length: Number(e.target.value) })}
+      className="min-h-[32px] rounded border border-border bg-background px-1.5 text-[11px] text-foreground"
+    >
+      {Array.from({ length: MAX_CODE_LENGTH - MIN_CODE_LENGTH + 1 }).map((_, i) => (
+        <option key={i} value={MIN_CODE_LENGTH + i}>
+          {MIN_CODE_LENGTH + i} digits
+        </option>
+      ))}
+    </select>
     <input
       aria-label="Access code"
+      inputMode="numeric"
       value={draft.code}
       maxLength={draft.length}
-      placeholder={draft.charset === "digits" ? "Access code, e.g. 4821" : "Access code, e.g. MATH24"}
-      onChange={(e) => onChange({ ...draft, code: normaliseCode(e.target.value) })}
+      placeholder="Access code, e.g. 4729"
+      onChange={(e) =>
+        onChange({ ...draft, code: normaliseCode(e.target.value).replace(/\D/g, "") })
+      }
       className="w-full rounded border border-border bg-background px-2 py-1 text-sm tracking-[0.3em] text-foreground"
     />
     <input
       aria-label="Confirm access code"
+      inputMode="numeric"
       value={draft.confirm}
       maxLength={draft.length}
       placeholder="Type the same code again"
-      onChange={(e) => onChange({ ...draft, confirm: normaliseCode(e.target.value) })}
+      onChange={(e) =>
+        onChange({ ...draft, confirm: normaliseCode(e.target.value).replace(/\D/g, "") })
+      }
       className="w-full rounded border border-border bg-background px-2 py-1 text-sm tracking-[0.3em] text-foreground"
     />
+
+    {/* OPTIONAL attempt limit. Off by default: learners may keep trying. */}
+    <label className="flex items-center gap-1.5 text-[11px] text-foreground">
+      <input
+        type="checkbox"
+        checked={draft.limitOn}
+        onChange={(e) => onChange({ ...draft, limitOn: e.target.checked })}
+      />
+      Limit the number of attempts
+    </label>
+    {draft.limitOn && (
+      <div className="flex flex-wrap gap-1.5">
+        <select
+          aria-label="Maximum attempts"
+          value={draft.maxAttempts}
+          onChange={(e) => onChange({ ...draft, maxAttempts: Number(e.target.value) })}
+          className="min-h-[32px] rounded border border-border bg-background px-1.5 text-[11px] text-foreground"
+        >
+          {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
+            <option key={n} value={n}>
+              {n} attempt{n === 1 ? "" : "s"}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Retry after"
+          value={draft.retryAfterMinutes}
+          onChange={(e) => onChange({ ...draft, retryAfterMinutes: Number(e.target.value) })}
+          className="min-h-[32px] rounded border border-border bg-background px-1.5 text-[11px] text-foreground"
+        >
+          {RETRY_OPTIONS.map((m) => (
+            <option key={m} value={m}>
+              Retry after {retryLabel(m)}
+            </option>
+          ))}
+        </select>
+      </div>
+    )}
   </div>
 );
+
 
 /**
  * The room's Lock section: add a lock, change its code, or take it off. Shown
@@ -104,14 +149,21 @@ const RoomLockSettings = ({
   onRemoveLock,
 }: {
   lock: RoomLock | null;
-  onSetLock: (code: string, charset: LockCharset, length: number) => Promise<void>;
+  onSetLock: (
+    code: string,
+    charset: LockCharset,
+    length: number,
+    policy: { maxAttempts: number | null; retryAfterMinutes: number | null },
+  ) => Promise<void>;
   onRemoveLock: () => Promise<void>;
 }) => {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<RoomLockDraft>(() => ({
     ...emptyLockDraft(),
-    charset: lock?.charset ?? "digits",
     length: lock?.code_length ?? 4,
+    limitOn: !!lock?.max_attempts,
+    maxAttempts: lock?.max_attempts ?? 3,
+    retryAfterMinutes: lock?.retry_after_minutes ?? 1440,
   }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,9 +177,10 @@ const RoomLockSettings = ({
     setBusy(true);
     setError(null);
     try {
-      await onSetLock(draft.code, draft.charset, draft.length);
-      setDraft({ ...emptyLockDraft(), charset: draft.charset, length: draft.length });
+      await onSetLock(draft.code, "digits", draft.length, lockDraftPolicy(draft));
+      setDraft({ ...draft, code: "", confirm: "" });
       setOpen(false);
+
     } catch (e: unknown) {
       setError(String((e as Error)?.message ?? e));
     } finally {

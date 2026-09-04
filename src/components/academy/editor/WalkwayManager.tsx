@@ -24,7 +24,7 @@ import { CLASSROOM_KIND_BLURB } from "@/lib/building/classroom";
 import { nextBranchDirection, nextObjectOffset } from "@/lib/building/navigation";
 import { DEFAULT_ENDPOINT_NAME } from "@/lib/building/env";
 import { DOOR_STYLES } from "@/lib/building/doors";
-import { RoomLockFields, emptyLockDraft, lockDraftProblem } from "./RoomLockSettings";
+import { RoomLockFields, emptyLockDraft, lockDraftPolicy, lockDraftProblem } from "./RoomLockSettings";
 import type { RoomLockDraft } from "./RoomLockSettings";
 import type { LockCharset } from "@/lib/building/lock";
 import type { AcademyProduct } from "@/lib/academy/types";
@@ -59,7 +59,13 @@ export interface WalkwayManagerProps {
       name: string;
       style?: string | null;
       /** Optional access lock, chosen on the last step of Add Room. */
-      lock?: { code: string; charset: LockCharset; length: number } | null;
+      lock?: {
+        code: string;
+        charset: LockCharset;
+        length: number;
+        maxAttempts: number | null;
+        retryAfterMinutes: number | null;
+      } | null;
     },
   ) => Promise<void>;
   onUpdateDoor: (id: string, position_along: number) => Promise<void>;
@@ -284,8 +290,14 @@ const WalkwayManager = ({
         name: roomName.trim(),
         style: doorStyle || null,
         lock: roomLockOn
-          ? { code: roomLock.code, charset: roomLock.charset, length: roomLock.length }
+          ? {
+              code: roomLock.code,
+              charset: "digits" as LockCharset,
+              length: roomLock.length,
+              ...lockDraftPolicy(roomLock),
+            }
           : null,
+
       });
       setForm(null);
     } catch (e: unknown) {

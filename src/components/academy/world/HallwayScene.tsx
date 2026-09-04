@@ -37,7 +37,7 @@ import { doorTitle } from "@/lib/building/api";
 import { doorStyle } from "@/lib/building/doors";
 import DoorLockPanel from "./DoorLockPanel";
 import type { LockState } from "./DoorLockPanel";
-import { indexLocksByRoom } from "@/lib/building/lock";
+import { indexLocksByRoom, retryLabel } from "@/lib/building/lock";
 import type { RoomLock } from "@/lib/building/lock";
 import { verifyRoomLock } from "@/lib/building/lock.functions";
 import { presetMaterial } from "@/lib/building/presets";
@@ -1097,11 +1097,14 @@ const DoorMesh = ({
     length: number;
     state: LockState;
     filled: number;
+    remaining?: number | null;
+    retryIn?: string | null;
     onKey: (key: string) => void;
     onClear: () => void;
     onSubmit: () => void;
     onFocus: () => void;
   } | null;
+
   onEnter: () => void;
 }) => {
 
@@ -1232,6 +1235,9 @@ const DoorMesh = ({
             filled={lock.filled}
             length={lock.length}
             charset={lock.charset}
+            remaining={lock.remaining ?? null}
+            retryIn={lock.retryIn ?? null}
+
             onKey={lock.onKey}
             onClear={lock.onClear}
             onSubmit={lock.onSubmit}
@@ -3077,6 +3083,43 @@ const HallwayScene = ({
   );
 
   /**
+   * LOCK FOCUS. Clicking a locked door does not open it: the camera walks up to
+   * the keypad beside it, stops at a comfortable reading distance and faces the
+   * panel, so the code can be typed. Nothing is entered and nothing moves on.
+   */
+  const focusLockPanel = useCallback(
+    (world: [number, number], front: [number, number]) => {
+      // The panel sits just to one side of the leaf, on the same wall plane.
+      const lateral: [number, number] = [-front[1], front[0]];
+      const panel: [number, number] = [
+        world[0] + lateral[0] * 0.75,
+        world[1] + lateral[1] * 0.75,
+      ];
+      const st = machineRef.current;
+      if (st.phase === "turning" || st.phase === "zooming") return;
+      const restore = st.phase;
+      st.moving = false;
+      setMoving(false);
+      st.zoom = {
+        from: [0, 0, 0],
+        to: [panel[0] + front[0] * 1.5, 1.5, panel[1] + front[1] * 1.5],
+        look: [panel[0], 1.35, panel[1]],
+        duration: 0.7,
+        elapsed: 0,
+        started: false,
+        restorePhase: restore,
+        onDone: () => {
+          const st2 = machineRef.current;
+          setMachinePhase(st2.phase === "zooming" ? restore : st2.phase);
+        },
+      };
+      setMachinePhase("zooming");
+    },
+    [setMachinePhase],
+  );
+
+
+  /**
    * ENTER A ROOM. The shell is a real space beyond its door, so entering it
    * is camera navigation inside the same scene — never a page swap. The hallway
    * position is preserved, so leaving resumes the walk exactly where it stopped.
@@ -3499,58 +3542,77 @@ const HallwayScene = ({
     roomId: string;
     code: string;
     state: LockState;
+    /** Attempts left when the teacher set a limit; null when there is no limit. */
+    remaining: number | null;
+    /** How long the wait lasts once the attempts ran out. */
+    retryIn: string | null;
   } | null>(null);
   const verifyLock = useServerFn(verifyRoomLock);
-  /** What to do the moment a room's code is accepted. */
-  const pendingEntry = useRef<Map<string, () => void>>(new Map());
 
   const lockViewFor = useCallback(
-    (doorId: string, enter: () => void) => {
+    (doorId: string, focusLock: () => void) => {
       const lock = lockForDoor(doorId);
       if (!lock || unlockedRooms.has(lock.classroom_id)) return null;
       const roomId = lock.classroom_id;
-      pendingEntry.current.set(roomId, enter);
       const active = lockEntry?.roomId === roomId ? lockEntry : null;
+      const blank = { roomId, remaining: active?.remaining ?? null, retryIn: active?.retryIn ?? null };
 
       const submit = async (code: string) => {
-        setLockEntry({ roomId, code, state: "checking" });
+        setLockEntry({ ...blank, code, state: "checking" });
         try {
           const res = await verifyLock({ data: { roomId, code } });
           if (res.ok) {
-            setLockEntry({ roomId, code, state: "unlocked" });
+            // A CORRECT CODE UNLOCKS THE DOOR — it does not walk the student in.
+            // They stay outside and use Forward to enter, exactly as at any
+            // unlocked door.
             setUnlockedRooms((prev) => new Set(prev).add(roomId));
-            const go = pendingEntry.current.get(roomId);
+            setLockEntry({ ...blank, code, state: "unlocked", remaining: null, retryIn: null });
             setTimeout(() => {
-              setLockEntry(null);
-              go?.();
-            }, 600);
+              setLockEntry((prev) => (prev?.roomId === roomId ? null : prev));
+            }, 900);
           } else {
-            setLockEntry({ roomId, code: "", state: "error" });
+            const retryIn = res.retryAfterMinutes ? retryLabel(res.retryAfterMinutes) : null;
+            setLockEntry({
+              roomId,
+              code: "",
+              state: res.lockedOut ? "blocked" : "error",
+              remaining: res.remaining,
+              retryIn,
+            });
           }
         } catch {
-          setLockEntry({ roomId, code: "", state: "error" });
+          setLockEntry({ ...blank, code: "", state: "error" });
         }
       };
+
+      const blocked = active?.state === "blocked";
 
       return {
         charset: lock.charset,
         length: lock.code_length,
         state: (active?.state ?? "locked") as LockState,
         filled: active?.code.length ?? 0,
+        remaining: active?.remaining ?? null,
+        retryIn: active?.retryIn ?? null,
         onKey: (key: string) => {
+          if (blocked) return;
           const base = active && active.state !== "error" ? active.code : "";
           if (base.length >= lock.code_length) return;
           const next = base + key;
-          setLockEntry({ roomId, code: next, state: "locked" });
+          setLockEntry({ ...blank, code: next, state: "locked" });
           // A full code checks itself, exactly like a real access panel.
           if (next.length === lock.code_length) void submit(next);
         },
-        onClear: () => setLockEntry({ roomId, code: "", state: "locked" }),
+        onClear: () => {
+          if (blocked) return;
+          setLockEntry({ ...blank, code: "", state: "locked" });
+        },
         onSubmit: () => {
-          if (active?.code) void submit(active.code);
+          if (!blocked && active?.code) void submit(active.code);
         },
         onFocus: () => {
-          if (!active) setLockEntry({ roomId, code: "", state: "locked" });
+          if (!active) setLockEntry({ roomId, code: "", state: "locked", remaining: null, retryIn: null });
+          focusLock();
         },
       };
     },
@@ -3558,23 +3620,26 @@ const HallwayScene = ({
   );
 
   /**
-   * The gate in front of every room entrance: a locked room asks for its code on
-   * the panel beside its door first, and only then runs the ordinary entry path
-   * unchanged.
+   * The gate in front of every room entrance. A LOCKED door never opens on a
+   * click: the camera moves up to its keypad, the door stays shut, and the code
+   * is typed on the panel. An unlocked room enters exactly as it always has.
    */
   const guardedEnter = useCallback(
-    (doorId: string, enter: () => void) => {
+    (doorId: string, enter: () => void, focusLock?: () => void) => {
       const lock = lockForDoor(doorId);
       if (lock && !unlockedRooms.has(lock.classroom_id)) {
         const roomId = lock.classroom_id;
-        pendingEntry.current.set(roomId, enter);
-        setLockEntry((prev) => (prev?.roomId === roomId ? prev : { roomId, code: "", state: "locked" }));
+        setLockEntry((prev) =>
+          prev?.roomId === roomId ? prev : { roomId, code: "", state: "locked", remaining: null, retryIn: null },
+        );
+        focusLock?.();
         return;
       }
       enter();
     },
     [lockForDoor, unlockedRooms],
   );
+
 
   /**
    * OPEN A DOOR. A door is strictly a room entrance, so this is the single path
@@ -3732,20 +3797,7 @@ const HallwayScene = ({
                   ? textures[env.door.texture.path]
                   : undefined
             }
-            lock={lockViewFor(d.id, () => {
-              const visual: RoomDoorVisual = {
-                color: design?.color || env.door.color,
-                brightness: design?.brightness ?? env.door.brightness,
-                styleKey: design?.style || env.door.style,
-                textureUrl: design?.texture?.path
-                  ? textures[design.texture.path]
-                  : env.door.texture
-                    ? textures[env.door.texture.path]
-                    : undefined,
-                accent,
-              };
-              void openDoorRoom(d, [wx, wz], front, visual);
-            })}
+            lock={lockViewFor(d.id, () => focusLockPanel([wx, wz], front))}
             onEnter={() => {
               // The room carries the same door's look, so its inside face is
               // the very door that was walked through.
@@ -3760,8 +3812,13 @@ const HallwayScene = ({
                     : undefined,
                 accent,
               };
-              guardedEnter(d.id, () => void openDoorRoom(d, [wx, wz], front, visual));
+              guardedEnter(
+                d.id,
+                () => void openDoorRoom(d, [wx, wz], front, visual),
+                () => focusLockPanel([wx, wz], front),
+              );
             }}
+
 
           />
         </group>
@@ -3795,8 +3852,8 @@ const HallwayScene = ({
 
   return (
     <div
-      ref={setEventSource}
       className="absolute inset-0"
+
       onPointerDown={(e) => {
 
         dragStart.current = e.clientX;
@@ -3824,9 +3881,13 @@ const HallwayScene = ({
         );
       }}
     >
-
+      {/* THE 3D WORLD'S OWN EVENT SURFACE. Only what is inside this layer feeds
+          clicks to the scene, so pressing a navigation button can never also
+          raycast into a doorway behind it. */}
+      <div ref={setEventSource} className="absolute inset-0">
       {eventSource && <Canvas
         eventSource={eventSource}
+
         shadows
         camera={{ position: [0, 1.7, 6.5], fov: 62, near: 0.3 }}
         // Nothing closer than the near plane can be clicked. Standing in the
@@ -4061,6 +4122,9 @@ const HallwayScene = ({
 
 
       </Canvas>}
+      </div>
+
+
 
       {/* Navigation HUD */}
       {/* Inside a room the navigation CHANGES: free walking, turning and
