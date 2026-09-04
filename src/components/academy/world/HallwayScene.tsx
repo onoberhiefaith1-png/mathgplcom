@@ -3639,7 +3639,11 @@ const HallwayScene = ({
             setLockEntry({ ...blank, code, state: "unlocked", remaining: null, retryIn: null });
             setTimeout(() => {
               setLockEntry((prev) => (prev?.roomId === roomId ? null : prev));
+              // The door is open now, so the walker steps back from the panel
+              // and returns to normal hallway walking.
+              releaseKeypad();
             }, 900);
+
           } else {
             const retryIn = res.retryAfterMinutes ? retryLabel(res.retryAfterMinutes) : null;
             setLockEntry({
