@@ -3134,20 +3134,32 @@ const HallwayScene = ({
       ];
       const st = machineRef.current;
       if (st.phase === "turning" || st.phase === "zooming") return;
-      const restore = st.phase;
+      const restore = st.phase === "keypad" ? st.keypad?.restorePhase ?? "idle" : st.phase;
+      const stance: KeypadStance = {
+        to: [panel[0] + front[0] * 1.5, 1.5, panel[1] + front[1] * 1.5],
+        look: [panel[0], 1.35, panel[1]],
+        restorePhase: restore,
+      };
+      st.hold = 0;
+      st.speed = 0;
       st.moving = false;
       setMoving(false);
       st.zoom = {
         from: [0, 0, 0],
-        to: [panel[0] + front[0] * 1.5, 1.5, panel[1] + front[1] * 1.5],
-        look: [panel[0], 1.35, panel[1]],
+        to: stance.to,
+        look: stance.look,
         duration: 0.7,
         elapsed: 0,
         started: false,
         restorePhase: restore,
         onDone: () => {
+          // The walk does NOT resume: the walker now stands at the panel and
+          // stays there until the door opens or they move away themselves.
           const st2 = machineRef.current;
-          setMachinePhase(st2.phase === "zooming" ? restore : st2.phase);
+          st2.keypad = stance;
+          setMachinePhase("keypad");
+        },
+
         },
       };
       setMachinePhase("zooming");
