@@ -245,6 +245,7 @@ const DoorLockPanel = ({
                 e.stopPropagation();
                 // A locked-out panel takes no input until the wait is over.
                 if (blocked) return;
+                console.log("[lockpad] press", key);
                 if (key === "*") onClear?.();
                 else if (key === "#") onSubmit?.();
                 else onKey?.(key);
