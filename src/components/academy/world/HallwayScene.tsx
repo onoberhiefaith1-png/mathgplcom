@@ -1571,7 +1571,20 @@ const shortestYaw = (current: number, target: number, k: number): number => {
   return current + delta * k;
 };
 
-export type NavPhase = "browse" | "walking" | "turning" | "zooming" | "idle" | "inside";
+export type NavPhase = "browse" | "walking" | "turning" | "zooming" | "idle" | "inside" | "keypad";
+
+/**
+ * STANDING AT A KEYPAD. Reading a wall panel is a place you STAY, not a glance:
+ * the camera holds this spot until the code opens the door or the walker moves
+ * off, so the view never springs back to the middle of the hallway.
+ */
+interface KeypadStance {
+  to: [number, number, number];
+  look: [number, number, number];
+  /** The phase the walk returns to once the panel is left. */
+  restorePhase: NavPhase;
+}
+
 
 interface TurnSpec {
   pivot: [number, number];
@@ -1622,6 +1635,9 @@ interface Machine {
   yaw: number;
   turn: TurnSpec | null;
   zoom: ZoomSpec | null;
+  /** Held position in front of a door's access keypad, while a code is typed. */
+  keypad: KeypadStance | null;
+
   /**
    * Standing INSIDE a classroom shell. The walker's hallway position is left
    * untouched, so leaving the room continues the walk exactly where it stopped.
@@ -1871,6 +1887,25 @@ if (w.strafeSpeed > 0.001) {
       camera.position.z = THREE.MathUtils.lerp(camera.position.z, wz, k);
       const [lx, lz] = roomLocalToWorld(w, w.x + sin * 6, w.z + cos * 6);
       camera.lookAt(lx, eye, lz);
+      return;
+    }
+
+    /**
+     * AT THE KEYPAD. The walker is standing in front of a wall panel, so the
+     * camera simply stays there and keeps facing it. It is held, not animated:
+     * nothing drags it back into the hallway while the code is being typed.
+     */
+    if (st.phase === "keypad") {
+      const f = st.keypad;
+      if (!f) {
+        setPhase(st.moving ? "walking" : "idle");
+        st.phase = st.moving ? "walking" : "idle";
+        return;
+      }
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, f.to[0], k);
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, f.to[1], k);
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, f.to[2], k);
+      camera.lookAt(f.look[0], f.look[1], f.look[2]);
       return;
     }
 
@@ -2702,6 +2737,8 @@ const HallwayScene = ({
     yaw: 0,
     turn: null,
     zoom: null,
+    keypad: null,
+
     inside: null,
   });
   const historyRef = useRef(new NavigationHistory());
@@ -2887,8 +2924,16 @@ const HallwayScene = ({
   const startHold = useCallback(
     (sign: 1 | -1) => {
       const st = machineRef.current;
+      // Standing at a keypad is a stance, not a lock on the controls: choosing
+      // to walk simply steps away from the panel and carries on.
+      if (st.phase === "keypad") {
+        const back = st.keypad?.restorePhase ?? "idle";
+        st.keypad = null;
+        setMachinePhase(back === "keypad" || back === "zooming" ? "idle" : back);
+      }
       if (!ensureWalking()) return;
       if (st.phase !== "walking" && st.phase !== "idle" && st.phase !== "turning") return;
+
       st.hold = sign;
       st.moving = true;
       setMoving(true);
@@ -3088,35 +3133,62 @@ const HallwayScene = ({
    * panel, so the code can be typed. Nothing is entered and nothing moves on.
    */
   const focusLockPanel = useCallback(
-    (world: [number, number], front: [number, number]) => {
-      // The panel sits just to one side of the leaf, on the same wall plane.
-      const lateral: [number, number] = [-front[1], front[0]];
+    (world: [number, number], front: [number, number], lateral: [number, number]) => {
+      // The panel sits just to one side of the leaf, on the same wall plane. The
+      // side is the door's own, passed in from the doorway, so the camera always
+      // ends up in front of the keypad and never nose-to-nose with the leaf.
       const panel: [number, number] = [
-        world[0] + lateral[0] * 0.75,
-        world[1] + lateral[1] * 0.75,
+        world[0] + lateral[0] * 1.7,
+        world[1] + lateral[1] * 1.7,
       ];
+
       const st = machineRef.current;
       if (st.phase === "turning" || st.phase === "zooming") return;
-      const restore = st.phase;
+      const restore = st.phase === "keypad" ? st.keypad?.restorePhase ?? "idle" : st.phase;
+      const stance: KeypadStance = {
+        to: [panel[0] + front[0] * 2.1, 1.42, panel[1] + front[1] * 2.1],
+        look: [panel[0], 1.32, panel[1]],
+        restorePhase: restore,
+      };
+      st.hold = 0;
+      st.speed = 0;
       st.moving = false;
       setMoving(false);
       st.zoom = {
         from: [0, 0, 0],
-        to: [panel[0] + front[0] * 1.5, 1.5, panel[1] + front[1] * 1.5],
-        look: [panel[0], 1.35, panel[1]],
+        to: stance.to,
+        look: stance.look,
         duration: 0.7,
         elapsed: 0,
         started: false,
         restorePhase: restore,
         onDone: () => {
+          // The walk does NOT resume: the walker now stands at the panel and
+          // stays there until the door opens or they move away themselves.
           const st2 = machineRef.current;
-          setMachinePhase(st2.phase === "zooming" ? restore : st2.phase);
+          st2.keypad = stance;
+          setMachinePhase("keypad");
         },
+
       };
       setMachinePhase("zooming");
     },
     [setMachinePhase],
   );
+
+  /**
+   * LEAVE THE KEYPAD. Once the door is open — or the walker chooses to move —
+   * the hallway walk resumes from exactly the spot they are standing on.
+   */
+  const releaseKeypad = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase !== "keypad") return;
+    const back = st.keypad?.restorePhase ?? "idle";
+    st.keypad = null;
+    setMachinePhase(back === "keypad" || back === "zooming" ? "idle" : back);
+  }, [setMachinePhase]);
+
+
 
 
   /**
@@ -3569,7 +3641,11 @@ const HallwayScene = ({
             setLockEntry({ ...blank, code, state: "unlocked", remaining: null, retryIn: null });
             setTimeout(() => {
               setLockEntry((prev) => (prev?.roomId === roomId ? null : prev));
+              // The door is open now, so the walker steps back from the panel
+              // and returns to normal hallway walking.
+              releaseKeypad();
             }, 900);
+
           } else {
             const retryIn = res.retryAfterMinutes ? retryLabel(res.retryAfterMinutes) : null;
             setLockEntry({
@@ -3616,7 +3692,7 @@ const HallwayScene = ({
         },
       };
     },
-    [lockForDoor, unlockedRooms, lockEntry, verifyLock],
+    [lockForDoor, unlockedRooms, lockEntry, verifyLock, releaseKeypad],
   );
 
   /**
@@ -3797,7 +3873,9 @@ const HallwayScene = ({
                   ? textures[env.door.texture.path]
                   : undefined
             }
-            lock={lockViewFor(d.id, () => focusLockPanel([wx, wz], front))}
+            lock={lockViewFor(d.id, () =>
+              focusLockPanel([wx, wz], front, [-o.side * seg.heading[0], -o.side * seg.heading[1]]),
+            )}
             onEnter={() => {
               // The room carries the same door's look, so its inside face is
               // the very door that was walked through.
@@ -3815,7 +3893,7 @@ const HallwayScene = ({
               guardedEnter(
                 d.id,
                 () => void openDoorRoom(d, [wx, wz], front, visual),
-                () => focusLockPanel([wx, wz], front),
+                () => focusLockPanel([wx, wz], front, [-o.side * seg.heading[0], -o.side * seg.heading[1]]),
               );
             }}
 

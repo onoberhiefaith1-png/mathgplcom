@@ -14,6 +14,9 @@ import { Text } from "@react-three/drei";
 import { keypadRows } from "@/lib/building/lock";
 import type { LockCharset } from "@/lib/building/lock";
 
+/** Decoration never takes a press. */
+const NO_PICK = () => {};
+
 export type LockState = "locked" | "checking" | "unlocked" | "error" | "blocked";
 
 const BEZEL = "#141821";
@@ -133,10 +136,10 @@ const DoorLockPanel = ({
   const keypadH = rows.length * keyH + (rows.length - 1) * keyGap;
 
   const topY = faceH / 2;
-  const iconY = topY - h * 0.1;
-  const titleY = topY - h * 0.22;
-  const capY = topY - h * 0.29;
-  const dotsY = topY - h * 0.38;
+  const iconY = topY - h * 0.08;
+  const titleY = topY - h * 0.19;
+  const capY = topY - h * 0.28;
+  const dotsY = topY - h * 0.37;
   const keypadTop = dotsY - h * 0.08;
   const z = 0.062;
 
@@ -167,7 +170,9 @@ const DoorLockPanel = ({
         <meshStandardMaterial color={FACE} emissive={FACE} emissiveIntensity={0.5} roughness={0.25} metalness={0.2} />
       </mesh>
       {/* Inner edge glow: the state of the lock, read at a glance */}
-      <lineSegments position={[0, 0, z]}>
+      {/* Outlines are decoration only. Three.js gives lines a fat pick radius,
+          so an un-picked outline would swallow presses meant for the keys. */}
+      <lineSegments position={[0, 0, z]} raycast={NO_PICK}>
         <edgesGeometry args={[new THREE.PlaneGeometry(faceW - 0.02, faceH - 0.02)]} />
         <lineBasicMaterial color={glow} toneMapped={false} transparent opacity={0.9} />
       </lineSegments>
@@ -185,9 +190,10 @@ const DoorLockPanel = ({
         </Text>
         <Text
           position={[0, titleY, z]}
-          fontSize={h * 0.058}
-          letterSpacing={0.08}
-          maxWidth={faceW * 0.9}
+          fontSize={h * 0.036}
+          letterSpacing={0.06}
+          lineHeight={1.25}
+          maxWidth={faceW * 0.96}
           anchorX="center"
           anchorY="middle"
           color={state === "error" ? GLOW.error : "#dbeafe"}
@@ -197,8 +203,9 @@ const DoorLockPanel = ({
         </Text>
         <Text
           position={[0, capY, z]}
-          fontSize={h * 0.036}
-          maxWidth={faceW * 0.9}
+          fontSize={h * 0.03}
+          lineHeight={1.25}
+          maxWidth={faceW * 0.96}
           anchorX="center"
           anchorY="middle"
           color={state === "error" || blocked ? "#ffb4bc" : "#8fb3d9"}
@@ -228,30 +235,34 @@ const DoorLockPanel = ({
           const x = (c - (row.length - 1) / 2) * (keyW + keyGap * 0.5);
           const y = keypadTop - keyH / 2 - r * (keyH + keyGap);
           return (
-            <group key={`${r}-${c}`} position={[x, y, z]}>
-              <mesh
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // A locked-out panel takes no input until the wait is over.
-                  if (blocked) return;
-                  if (key === "*") onClear?.();
-                  else if (key === "#") onSubmit?.();
-                  else onKey?.(key);
-                }}
-
-                onPointerOver={(e) => {
-                  e.stopPropagation();
-                  document.body.style.cursor = "pointer";
-                }}
-                onPointerOut={(e) => {
-                  e.stopPropagation();
-                  document.body.style.cursor = "auto";
-                }}
-              >
+            <group
+              key={`${r}-${c}`}
+              position={[x, y, z]}
+              // THE WHOLE KEY IS THE BUTTON. The press lives on the group, so a
+              // press that lands on the key's outline or its number still counts
+              // as a press of that key — never a click that falls through.
+              onClick={(e) => {
+                e.stopPropagation();
+                // A locked-out panel takes no input until the wait is over.
+                if (blocked) return;
+                if (key === "*") onClear?.();
+                else if (key === "#") onSubmit?.();
+                else onKey?.(key);
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = "pointer";
+              }}
+              onPointerOut={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = "auto";
+              }}
+            >
+              <mesh>
                 <planeGeometry args={[keyW * 0.86, keyH]} />
                 <meshBasicMaterial color="#132030" toneMapped={false} transparent opacity={0.95} />
               </mesh>
-              <lineSegments>
+              <lineSegments raycast={NO_PICK}>
                 <edgesGeometry args={[new THREE.PlaneGeometry(keyW * 0.86, keyH)]} />
                 <lineBasicMaterial color={glow} toneMapped={false} transparent opacity={0.55} />
               </lineSegments>
@@ -283,7 +294,7 @@ const DoorLockPanel = ({
       {/* A hint of the keys' purpose, kept small and clinical */}
       <Suspense fallback={null}>
         <Text
-          position={[0, keypadTop - keypadH - h * 0.045, z]}
+          position={[0, keypadTop - keypadH - h * 0.075, z]}
           fontSize={h * 0.028}
           letterSpacing={0.06}
           anchorX="center"
