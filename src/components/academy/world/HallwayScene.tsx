@@ -3166,6 +3166,20 @@ const HallwayScene = ({
     [setMachinePhase],
   );
 
+  /**
+   * LEAVE THE KEYPAD. Once the door is open — or the walker chooses to move —
+   * the hallway walk resumes from exactly the spot they are standing on.
+   */
+  const releaseKeypad = useCallback(() => {
+    const st = machineRef.current;
+    if (st.phase !== "keypad") return;
+    const back = st.keypad?.restorePhase ?? "idle";
+    st.keypad = null;
+    setMachinePhase(back === "keypad" || back === "zooming" ? "idle" : back);
+  }, [setMachinePhase]);
+
+
+
 
   /**
    * ENTER A ROOM. The shell is a real space beyond its door, so entering it
