@@ -1097,11 +1097,14 @@ const DoorMesh = ({
     length: number;
     state: LockState;
     filled: number;
+    remaining?: number | null;
+    retryIn?: string | null;
     onKey: (key: string) => void;
     onClear: () => void;
     onSubmit: () => void;
     onFocus: () => void;
   } | null;
+
   onEnter: () => void;
 }) => {
 
