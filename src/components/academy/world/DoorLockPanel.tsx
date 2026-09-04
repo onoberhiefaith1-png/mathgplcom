@@ -133,10 +133,10 @@ const DoorLockPanel = ({
   const keypadH = rows.length * keyH + (rows.length - 1) * keyGap;
 
   const topY = faceH / 2;
-  const iconY = topY - h * 0.1;
-  const titleY = topY - h * 0.22;
-  const capY = topY - h * 0.29;
-  const dotsY = topY - h * 0.38;
+  const iconY = topY - h * 0.08;
+  const titleY = topY - h * 0.19;
+  const capY = topY - h * 0.28;
+  const dotsY = topY - h * 0.37;
   const keypadTop = dotsY - h * 0.08;
   const z = 0.062;
 
@@ -185,9 +185,10 @@ const DoorLockPanel = ({
         </Text>
         <Text
           position={[0, titleY, z]}
-          fontSize={h * 0.058}
-          letterSpacing={0.08}
-          maxWidth={faceW * 0.9}
+          fontSize={h * 0.045}
+          letterSpacing={0.06}
+          lineHeight={1.25}
+          maxWidth={faceW * 0.92}
           anchorX="center"
           anchorY="middle"
           color={state === "error" ? GLOW.error : "#dbeafe"}
@@ -197,8 +198,9 @@ const DoorLockPanel = ({
         </Text>
         <Text
           position={[0, capY, z]}
-          fontSize={h * 0.036}
-          maxWidth={faceW * 0.9}
+          fontSize={h * 0.03}
+          lineHeight={1.25}
+          maxWidth={faceW * 0.92}
           anchorX="center"
           anchorY="middle"
           color={state === "error" || blocked ? "#ffb4bc" : "#8fb3d9"}
