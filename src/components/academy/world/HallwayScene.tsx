@@ -2924,8 +2924,16 @@ const HallwayScene = ({
   const startHold = useCallback(
     (sign: 1 | -1) => {
       const st = machineRef.current;
+      // Standing at a keypad is a stance, not a lock on the controls: choosing
+      // to walk simply steps away from the panel and carries on.
+      if (st.phase === "keypad") {
+        const back = st.keypad?.restorePhase ?? "idle";
+        st.keypad = null;
+        setMachinePhase(back === "keypad" || back === "zooming" ? "idle" : back);
+      }
       if (!ensureWalking()) return;
       if (st.phase !== "walking" && st.phase !== "idle" && st.phase !== "turning") return;
+
       st.hold = sign;
       st.moving = true;
       setMoving(true);
