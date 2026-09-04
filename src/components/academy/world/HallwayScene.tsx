@@ -1043,12 +1043,15 @@ const _toCamera = new THREE.Vector3();
  * eye while you stand in the lobby, and behind you once you walk in — from
  * swallowing clicks meant for a classroom door further down the hallway.
  */
-const doorFacesCamera = (e: {
-  distance: number;
-  eventObject: THREE.Object3D;
-  camera: THREE.Camera;
-}): boolean => {
-  if (e.distance < MIN_PICK_DISTANCE) return false;
+const doorFacesCamera = (
+  e: {
+    distance: number;
+    eventObject: THREE.Object3D;
+    camera: THREE.Camera;
+  },
+  minDistance = MIN_PICK_DISTANCE,
+): boolean => {
+  if (e.distance < minDistance) return false;
   e.eventObject.getWorldDirection(_doorNormal); // the leaf's front (+z local)
   e.eventObject.getWorldPosition(_doorPos);
   _toCamera.copy(e.camera.position).sub(_doorPos);
@@ -1148,15 +1151,19 @@ const DoorMesh = ({
       position={atStart ? [0, 0, z - 0.06] : [side * (HALL_WIDTH / 2 - 0.06), 0, z]}
       rotation-y={atStart ? Math.PI : -side * (Math.PI / 2)}
       onClick={(e) => {
-        // A door you are standing inside (the entrance door when you have not
-        // walked in yet, or a doorway mid-zoom) is not a door you can see, so
-        // it is not a door you can click. Only visible doors respond.
-        if (!doorFacesCamera(e)) return;
+        // THE ENTRANCE DOOR is the one you can stand inside (before walking in,
+        // or with your back to it), so it only answers from a visible distance.
+        // A CLASSROOM DOOR answers from any distance — it only has to be hit on
+        // its face, never through the wall from the corridor behind it.
+        if (!doorFacesCamera(e, atStart ? MIN_PICK_DISTANCE : 0)) {
+          if (!atStart) toast.message("Step back into the hallway to open this door.");
+          return;
+        }
         e.stopPropagation();
         onEnter();
       }}
       onPointerOver={(e) => {
-        if (!doorFacesCamera(e)) return;
+        if (!doorFacesCamera(e, atStart ? MIN_PICK_DISTANCE : 0)) return;
         e.stopPropagation();
         document.body.style.cursor = "pointer";
         setHovered(true);
@@ -3104,8 +3111,23 @@ const HallwayScene = ({
   const startDoorZoom = useCallback(
     (world: [number, number], front: [number, number], onDone: () => void) => {
       const st = machineRef.current;
-      if (st.phase === "turning" || st.phase === "zooming") return;
-      const restore = st.phase;
+      // A DOOR CLICK IS NEVER DROPPED. Whatever the walker is doing — finishing
+      // a turn, mid-zoom, or standing at a keypad — that motion ends here and
+      // the door takes over from wherever the camera is right now.
+      let restore: NavPhase = st.phase;
+      if (st.phase === "turning") {
+        if (st.turn) st.yaw = st.turn.toYaw;
+        st.turn = null;
+        restore = "idle";
+      } else if (st.phase === "zooming") {
+        restore = st.zoom?.restorePhase ?? "idle";
+      } else if (st.phase === "keypad") {
+        restore = st.keypad?.restorePhase ?? "idle";
+        st.keypad = null;
+      }
+      if (restore === "turning" || restore === "zooming" || restore === "keypad") restore = "idle";
+      st.hold = 0;
+      st.speed = 0;
       st.moving = false;
       setMoving(false);
       st.zoom = {
@@ -3118,6 +3140,7 @@ const HallwayScene = ({
         restorePhase: restore,
         onDone: () => {
           const st2 = machineRef.current;
+          console.log("[DBG] zoom done, phase", st2.phase);
           setMachinePhase(st2.phase === "zooming" ? restore : st2.phase);
           onDone();
         },
@@ -3138,13 +3161,23 @@ const HallwayScene = ({
       // side is the door's own, passed in from the doorway, so the camera always
       // ends up in front of the keypad and never nose-to-nose with the leaf.
       const panel: [number, number] = [
-        world[0] + lateral[0] * 1.7,
-        world[1] + lateral[1] * 1.7,
+        world[0] + lateral[0] * 1.5,
+        world[1] + lateral[1] * 1.5,
       ];
 
       const st = machineRef.current;
-      if (st.phase === "turning" || st.phase === "zooming") return;
-      const restore = st.phase === "keypad" ? st.keypad?.restorePhase ?? "idle" : st.phase;
+      // Never refused: a turn or zoom in progress ends here so the keypad wins.
+      let restore: NavPhase = st.phase;
+      if (st.phase === "turning") {
+        if (st.turn) st.yaw = st.turn.toYaw;
+        st.turn = null;
+        restore = "idle";
+      } else if (st.phase === "zooming") {
+        restore = st.zoom?.restorePhase ?? "idle";
+      } else if (st.phase === "keypad") {
+        restore = st.keypad?.restorePhase ?? "idle";
+      }
+      if (restore === "turning" || restore === "zooming" || restore === "keypad") restore = "idle";
       const stance: KeypadStance = {
         to: [panel[0] + front[0] * 2.1, 1.42, panel[1] + front[1] * 2.1],
         look: [panel[0], 1.32, panel[1]],
@@ -3222,6 +3255,7 @@ const HallwayScene = ({
       };
       st.moving = false;
       setMoving(false);
+      console.log("[DBG] enterClassroom", room.id);
       setInsideRoom({ room, door: doorWorld, into, doorVisual: doorVisual ?? null });
       setMachinePhase("inside");
     },
@@ -3622,7 +3656,7 @@ const HallwayScene = ({
   const verifyLock = useServerFn(verifyRoomLock);
 
   const lockViewFor = useCallback(
-    (doorId: string, focusLock: () => void) => {
+    (doorId: string, focusLock: () => void, open: () => void) => {
       const lock = lockForDoor(doorId);
       if (!lock || unlockedRooms.has(lock.classroom_id)) return null;
       const roomId = lock.classroom_id;
@@ -3634,16 +3668,17 @@ const HallwayScene = ({
         try {
           const res = await verifyLock({ data: { roomId, code } });
           if (res.ok) {
-            // A CORRECT CODE UNLOCKS THE DOOR — it does not walk the student in.
-            // They stay outside and use Forward to enter, exactly as at any
-            // unlocked door.
+            // A CORRECT CODE OPENS THE DOOR. The panel shows UNLOCKED for a
+            // moment, then the walker leaves the keypad and the door opens into
+            // its room — the same zoom-and-enter an unlocked door uses. The room
+            // stays unlocked for the rest of the visit.
             setUnlockedRooms((prev) => new Set(prev).add(roomId));
             setLockEntry({ ...blank, code, state: "unlocked", remaining: null, retryIn: null });
             setTimeout(() => {
               setLockEntry((prev) => (prev?.roomId === roomId ? null : prev));
-              // The door is open now, so the walker steps back from the panel
-              // and returns to normal hallway walking.
+              console.log("[DBG] unlocked -> open");
               releaseKeypad();
+              open();
             }, 900);
 
           } else {
@@ -3855,6 +3890,25 @@ const HallwayScene = ({
       const accent = attached
         ? ["#7dd3fc", "#fcd34d", "#a7f3d0", "#f9a8d4"][i % 4]
         : "#64748b";
+      // The room carries the same door's look, so its inside face is the very
+      // door that was walked through.
+      const textureUrl = design?.texture?.path
+        ? textures[design.texture.path]
+        : env.door.texture
+          ? textures[env.door.texture.path]
+          : undefined;
+      const visual: RoomDoorVisual = {
+        color: design?.color || env.door.color,
+        brightness: design?.brightness ?? env.door.brightness,
+        styleKey: design?.style || env.door.style,
+        textureUrl,
+        accent,
+      };
+      const lateral: [number, number] = [-o.side * seg.heading[0], -o.side * seg.heading[1]];
+      // ONE WAY IN. Every route to this room — a click on an unlocked door, or
+      // the keypad accepting its code — ends in this same call.
+      const openThisDoor = () => void openDoorRoom(d, [wx, wz], front, visual);
+      const focusThisLock = () => focusLockPanel([wx, wz], front, lateral);
       return (
         <group key={o.id} position={[0, 0, -o.along]}>
           <DoorMesh
@@ -3866,38 +3920,9 @@ const HallwayScene = ({
             color={design?.color || env.door.color}
             emissiveIntensity={(design?.brightness ?? env.door.brightness) * 0.12}
             styleKey={design?.style || env.door.style}
-            textureUrl={
-              design?.texture?.path
-                ? textures[design.texture.path]
-                : env.door.texture
-                  ? textures[env.door.texture.path]
-                  : undefined
-            }
-            lock={lockViewFor(d.id, () =>
-              focusLockPanel([wx, wz], front, [-o.side * seg.heading[0], -o.side * seg.heading[1]]),
-            )}
-            onEnter={() => {
-              // The room carries the same door's look, so its inside face is
-              // the very door that was walked through.
-              const visual: RoomDoorVisual = {
-                color: design?.color || env.door.color,
-                brightness: design?.brightness ?? env.door.brightness,
-                styleKey: design?.style || env.door.style,
-                textureUrl: design?.texture?.path
-                  ? textures[design.texture.path]
-                  : env.door.texture
-                    ? textures[env.door.texture.path]
-                    : undefined,
-                accent,
-              };
-              guardedEnter(
-                d.id,
-                () => void openDoorRoom(d, [wx, wz], front, visual),
-                () => focusLockPanel([wx, wz], front, [-o.side * seg.heading[0], -o.side * seg.heading[1]]),
-              );
-            }}
-
-
+            textureUrl={textureUrl}
+            lock={lockViewFor(d.id, focusThisLock, openThisDoor)}
+            onEnter={() => guardedEnter(d.id, openThisDoor, focusThisLock)}
           />
         </group>
       );

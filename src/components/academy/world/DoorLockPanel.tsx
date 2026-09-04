@@ -7,10 +7,14 @@
  * Because it is a plain 3D group, whoever mounts it decides where it hangs. As a
  * child of a door group it inherits that door's wall position and facing, so it
  * keeps its place and perspective while the camera moves, turns or zooms.
+ *
+ * EVERY LEGEND IS PAINTED, NOT TYPESET. The digits, title, caption and padlock
+ * are drawn onto small canvases in code and used as textures. There is no font
+ * download, no worker and no asynchronous step, so the keypad can never appear
+ * as a set of blank tiles.
  */
-import { Suspense, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { Text } from "@react-three/drei";
 import { keypadRows } from "@/lib/building/lock";
 import type { LockCharset } from "@/lib/building/lock";
 
@@ -43,6 +47,14 @@ const TITLE: Record<LockState, string> = {
   blocked: "LOCKED OUT",
 };
 
+/** What the two non-digit keys do, printed small beneath their symbol. */
+const KEY_CAPTION: Record<string, string> = { "*": "CLEAR", "#": "ENTER" };
+
+const FONT_STACK =
+  '"Inter", "Segoe UI", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif';
+
+/** Canvas pixels per world unit — sharp at reading distance, cheap in memory. */
+const PPU = 1400;
 
 /** A rounded rectangle path, used for the bezel and every key. */
 const roundedPath = (w: number, h: number, r: number) => {
@@ -61,8 +73,205 @@ const roundedPath = (w: number, h: number, r: number) => {
   return s;
 };
 
-const PADLOCK_LOCKED = "\u{1F512}";
-const PADLOCK_OPEN = "\u{1F513}";
+interface LabelSpec {
+  text: string;
+  /** World size of the plane the label fills. */
+  w: number;
+  h: number;
+  color: string;
+  /** Font size as a fraction of the plane height. */
+  size?: number;
+  weight?: number | string;
+  letterSpacing?: number;
+  /** A second, smaller line under the main text (the CLEAR / ENTER captions). */
+  sub?: string;
+  subColor?: string;
+  /** Never wrap; shrink to fit instead (titles). */
+  oneLine?: boolean;
+}
+
+/** Word-wrap `text` to `maxWidth` pixels with the context's current font. */
+const wrapLines = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] => {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const probe = line ? `${line} ${word}` : word;
+    if (ctx.measureText(probe).width <= maxWidth || !line) line = probe;
+    else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+};
+
+/** Paint a label onto a canvas and hand back a texture ready for a plane. */
+const paintLabel = (spec: LabelSpec): THREE.CanvasTexture | null => {
+  if (typeof document === "undefined") return null;
+  const pw = Math.max(8, Math.round(spec.w * PPU));
+  const ph = Math.max(8, Math.round(spec.h * PPU));
+  const canvas = document.createElement("canvas");
+  canvas.width = pw;
+  canvas.height = ph;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, pw, ph);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = spec.color;
+  const px = ph * (spec.size ?? 0.6);
+  const weight = spec.weight ?? 600;
+  ctx.font = `${weight} ${px}px ${FONT_STACK}`;
+  // Canvas has no cross-browser letter-spacing, so it is applied by hand.
+  const spacing = (spec.letterSpacing ?? 0) * px;
+  const drawSpaced = (text: string, cx: number, cy: number) => {
+    if (!spacing) {
+      ctx.fillText(text, cx, cy);
+      return;
+    }
+    const chars = Array.from(text);
+    const widths = chars.map((c) => ctx.measureText(c).width);
+    const total = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
+    let x = cx - total / 2;
+    ctx.textAlign = "left";
+    chars.forEach((c, i) => {
+      ctx.fillText(c, x, cy);
+      x += widths[i] + spacing;
+    });
+    ctx.textAlign = "center";
+  };
+
+  if (spec.sub) {
+    // Symbol on top, its purpose printed small underneath.
+    drawSpaced(spec.text, pw / 2, ph * 0.4);
+    const subPx = ph * 0.2;
+    ctx.font = `600 ${subPx}px ${FONT_STACK}`;
+    ctx.fillStyle = spec.subColor ?? spec.color;
+    ctx.fillText(spec.sub, pw / 2, ph * 0.8);
+  } else if (spec.oneLine) {
+    // Headings never wrap: shrink the type until the line fits the plane.
+    let fontPx = px;
+    while (fontPx > 4 && ctx.measureText(spec.text).width + spacing * (spec.text.length - 1) > pw * 0.96) {
+      fontPx *= 0.94;
+      ctx.font = `${weight} ${fontPx}px ${FONT_STACK}`;
+    }
+    drawSpaced(spec.text, pw / 2, ph / 2);
+  } else {
+    const lines = wrapLines(ctx, spec.text, pw * 0.96);
+    const lineH = px * 1.25;
+    const startY = ph / 2 - ((lines.length - 1) * lineH) / 2;
+    lines.forEach((line, i) => drawSpaced(line, pw / 2, startY + i * lineH));
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
+  tex.needsUpdate = true;
+  return tex;
+};
+
+/** A padlock, drawn with strokes so it needs no emoji font. */
+const paintPadlock = (size: number, color: string, open: boolean): THREE.CanvasTexture | null => {
+  if (typeof document === "undefined") return null;
+  const p = Math.max(32, Math.round(size * PPU));
+  const canvas = document.createElement("canvas");
+  canvas.width = p;
+  canvas.height = p;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, p, p);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = p * 0.09;
+  ctx.lineCap = "round";
+  // Body
+  const bw = p * 0.58;
+  const bh = p * 0.44;
+  const bx = (p - bw) / 2;
+  const by = p * 0.5;
+  const r = p * 0.08;
+  ctx.beginPath();
+  ctx.moveTo(bx + r, by);
+  ctx.lineTo(bx + bw - r, by);
+  ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r);
+  ctx.lineTo(bx + bw, by + bh - r);
+  ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - r, by + bh);
+  ctx.lineTo(bx + r, by + bh);
+  ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - r);
+  ctx.lineTo(bx, by + r);
+  ctx.quadraticCurveTo(bx, by, bx + r, by);
+  ctx.closePath();
+  ctx.fill();
+  // Keyhole
+  ctx.fillStyle = "#0a1220";
+  ctx.beginPath();
+  ctx.arc(p / 2, by + bh * 0.42, p * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(p / 2 - p * 0.025, by + bh * 0.42, p * 0.05, bh * 0.3);
+  // Shackle — swung to the side when open
+  const sr = p * 0.19;
+  const scx = open ? p / 2 + p * 0.2 : p / 2;
+  ctx.beginPath();
+  ctx.arc(scx, by - p * 0.02, sr, Math.PI, 0);
+  ctx.moveTo(scx - sr, by - p * 0.02);
+  ctx.lineTo(scx - sr, open ? by - p * 0.12 : by + p * 0.02);
+  ctx.moveTo(scx + sr, by - p * 0.02);
+  ctx.lineTo(scx + sr, by + p * 0.02);
+  ctx.stroke();
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+};
+
+/** A plane carrying a painted label. Disposes its texture when it changes. */
+const Label = ({
+  position,
+  spec,
+}: {
+  position: [number, number, number];
+  spec: LabelSpec;
+}) => {
+  const tex = useMemo(
+    () => paintLabel(spec),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [spec.text, spec.w, spec.h, spec.color, spec.size, spec.weight, spec.letterSpacing, spec.sub, spec.subColor, spec.oneLine],
+  );
+  useEffect(() => () => tex?.dispose(), [tex]);
+  if (!tex) return null;
+  return (
+    <mesh position={position} raycast={NO_PICK}>
+      <planeGeometry args={[spec.w, spec.h]} />
+      <meshBasicMaterial map={tex} transparent toneMapped={false} depthWrite={false} />
+    </mesh>
+  );
+};
+
+const Padlock = ({
+  position,
+  size,
+  color,
+  open,
+}: {
+  position: [number, number, number];
+  size: number;
+  color: string;
+  open: boolean;
+}) => {
+  const tex = useMemo(() => paintPadlock(size, color, open), [size, color, open]);
+  useEffect(() => () => tex?.dispose(), [tex]);
+  if (!tex) return null;
+  return (
+    <mesh position={position} raycast={NO_PICK}>
+      <planeGeometry args={[size, size]} />
+      <meshBasicMaterial map={tex} transparent toneMapped={false} depthWrite={false} />
+    </mesh>
+  );
+};
 
 export interface DoorLockPanelProps {
   state: LockState;
@@ -106,7 +315,6 @@ const DoorLockPanel = ({
       ? `WRONG CODE — ${remaining} attempt${remaining === 1 ? "" : "s"} left`
       : CAPTION[state];
 
-
   const h = height;
   const w = h * 0.52 * (cols / 3);
   const glow = GLOW[state];
@@ -133,7 +341,6 @@ const DoorLockPanel = ({
   const keyW = (faceW - h * 0.12) / cols;
   const keyH = Math.min(keyW * 0.78, h * 0.11);
   const keyGap = keyH * 0.22;
-  const keypadH = rows.length * keyH + (rows.length - 1) * keyGap;
 
   const topY = faceH / 2;
   const iconY = topY - h * 0.08;
@@ -177,43 +384,31 @@ const DoorLockPanel = ({
         <lineBasicMaterial color={glow} toneMapped={false} transparent opacity={0.9} />
       </lineSegments>
 
-      <Suspense fallback={null}>
-        <Text
-          position={[0, iconY, z]}
-          fontSize={h * 0.09}
-          anchorX="center"
-          anchorY="middle"
-          color={glow}
-          material-toneMapped={false}
-        >
-          {state === "unlocked" ? PADLOCK_OPEN : PADLOCK_LOCKED}
-        </Text>
-        <Text
-          position={[0, titleY, z]}
-          fontSize={h * 0.036}
-          letterSpacing={0.06}
-          lineHeight={1.25}
-          maxWidth={faceW * 0.96}
-          anchorX="center"
-          anchorY="middle"
-          color={state === "error" ? GLOW.error : "#dbeafe"}
-          material-toneMapped={false}
-        >
-          {TITLE[state]}
-        </Text>
-        <Text
-          position={[0, capY, z]}
-          fontSize={h * 0.03}
-          lineHeight={1.25}
-          maxWidth={faceW * 0.96}
-          anchorX="center"
-          anchorY="middle"
-          color={state === "error" || blocked ? "#ffb4bc" : "#8fb3d9"}
-          material-toneMapped={false}
-        >
-          {caption}
-        </Text>
-      </Suspense>
+      <Padlock position={[0, iconY, z]} size={h * 0.11} color={glow} open={state === "unlocked"} />
+      <Label
+        position={[0, titleY, z]}
+        spec={{
+          text: TITLE[state],
+          w: faceW * 0.96,
+          h: h * 0.06,
+          size: 0.62,
+          weight: 700,
+          letterSpacing: 0.08,
+          oneLine: true,
+          color: state === "error" || blocked ? GLOW.error : "#dbeafe",
+        }}
+      />
+      <Label
+        position={[0, capY, z]}
+        spec={{
+          text: caption,
+          w: faceW * 0.96,
+          h: h * 0.075,
+          size: 0.4,
+          weight: 500,
+          color: state === "error" || blocked ? "#ffb4bc" : "#8fb3d9",
+        }}
+      />
 
       {/* Secure code indicators — filled as characters are entered, never the
           characters themselves. */}
@@ -229,11 +424,12 @@ const DoorLockPanel = ({
         </mesh>
       ))}
 
-      {/* Keypad */}
+      {/* Keypad: 1 2 3 / 4 5 6 / 7 8 9 / * 0 # — a real door panel's layout */}
       {rows.map((row, r) =>
         row.map((key, c) => {
           const x = (c - (row.length - 1) / 2) * (keyW + keyGap * 0.5);
           const y = keypadTop - keyH / 2 - r * (keyH + keyGap);
+          const sub = KEY_CAPTION[key];
           return (
             <group
               key={`${r}-${c}`}
@@ -266,18 +462,23 @@ const DoorLockPanel = ({
                 <edgesGeometry args={[new THREE.PlaneGeometry(keyW * 0.86, keyH)]} />
                 <lineBasicMaterial color={glow} toneMapped={false} transparent opacity={0.55} />
               </lineSegments>
-              <Suspense fallback={null}>
-                <Text
-                  position={[0, 0, 0.004]}
-                  fontSize={keyH * 0.5}
-                  anchorX="center"
-                  anchorY="middle"
-                  color="#e6f2ff"
-                  material-toneMapped={false}
-                >
-                  {key}
-                </Text>
-              </Suspense>
+              <Label
+                position={[0, 0, 0.004]}
+                spec={
+                  sub
+                    ? {
+                        text: key,
+                        w: keyW * 0.86,
+                        h: keyH,
+                        size: 0.5,
+                        weight: 700,
+                        color: glow,
+                        sub,
+                        subColor: "#8fb3d9",
+                      }
+                    : { text: key, w: keyW * 0.86, h: keyH, size: 0.6, weight: 700, color: "#e6f2ff" }
+                }
+              />
             </group>
           );
         }),
@@ -291,20 +492,6 @@ const DoorLockPanel = ({
       {/* Just enough spill light that the panel reads as a lit device on a wall */}
       <pointLight position={[0, 0, 0.35]} intensity={0.35} distance={1.6} decay={2} color={glow} />
 
-      {/* A hint of the keys' purpose, kept small and clinical */}
-      <Suspense fallback={null}>
-        <Text
-          position={[0, keypadTop - keypadH - h * 0.075, z]}
-          fontSize={h * 0.028}
-          letterSpacing={0.06}
-          anchorX="center"
-          anchorY="middle"
-          color="#6f8dad"
-          material-toneMapped={false}
-        >
-          {"\u2731 CLEAR    # ENTER"}
-        </Text>
-      </Suspense>
     </group>
   );
 };
