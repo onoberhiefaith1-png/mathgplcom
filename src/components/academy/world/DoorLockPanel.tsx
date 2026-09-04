@@ -147,7 +147,6 @@ const DoorLockPanel = ({
     <group
       onClick={(e) => {
         e.stopPropagation();
-        console.log("[lockpad] panel body hit", e.object.type, e.object.name, e.point.toArray().map(n=>n.toFixed(2)).join(","));
         onFocus?.();
       }}
       onPointerOver={(e) => {
@@ -231,27 +230,30 @@ const DoorLockPanel = ({
           const x = (c - (row.length - 1) / 2) * (keyW + keyGap * 0.5);
           const y = keypadTop - keyH / 2 - r * (keyH + keyGap);
           return (
-            <group key={`${r}-${c}`} position={[x, y, z]}>
-              <mesh
-                onClick={(e) => {
-                  e.stopPropagation();
-                  console.log("[lockpad] key", key);
-                  // A locked-out panel takes no input until the wait is over.
-                  if (blocked) return;
-                  if (key === "*") onClear?.();
-                  else if (key === "#") onSubmit?.();
-                  else onKey?.(key);
-                }}
-
-                onPointerOver={(e) => {
-                  e.stopPropagation();
-                  document.body.style.cursor = "pointer";
-                }}
-                onPointerOut={(e) => {
-                  e.stopPropagation();
-                  document.body.style.cursor = "auto";
-                }}
-              >
+            <group
+              key={`${r}-${c}`}
+              position={[x, y, z]}
+              // THE WHOLE KEY IS THE BUTTON. The press lives on the group, so a
+              // press that lands on the key's outline or its number still counts
+              // as a press of that key — never a click that falls through.
+              onClick={(e) => {
+                e.stopPropagation();
+                // A locked-out panel takes no input until the wait is over.
+                if (blocked) return;
+                if (key === "*") onClear?.();
+                else if (key === "#") onSubmit?.();
+                else onKey?.(key);
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = "pointer";
+              }}
+              onPointerOut={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = "auto";
+              }}
+            >
+              <mesh>
                 <planeGeometry args={[keyW * 0.86, keyH]} />
                 <meshBasicMaterial color="#132030" toneMapped={false} transparent opacity={0.95} />
               </mesh>
