@@ -3690,7 +3690,7 @@ const HallwayScene = ({
         },
       };
     },
-    [lockForDoor, unlockedRooms, lockEntry, verifyLock],
+    [lockForDoor, unlockedRooms, lockEntry, verifyLock, releaseKeypad],
   );
 
   /**
