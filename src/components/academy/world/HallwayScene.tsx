@@ -1635,6 +1635,9 @@ interface Machine {
   yaw: number;
   turn: TurnSpec | null;
   zoom: ZoomSpec | null;
+  /** Held position in front of a door's access keypad, while a code is typed. */
+  keypad: KeypadStance | null;
+
   /**
    * Standing INSIDE a classroom shell. The walker's hallway position is left
    * untouched, so leaving the room continues the walk exactly where it stopped.
