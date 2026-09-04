@@ -3133,13 +3133,15 @@ const HallwayScene = ({
    * panel, so the code can be typed. Nothing is entered and nothing moves on.
    */
   const focusLockPanel = useCallback(
-    (world: [number, number], front: [number, number]) => {
-      // The panel sits just to one side of the leaf, on the same wall plane.
-      const lateral: [number, number] = [-front[1], front[0]];
+    (world: [number, number], front: [number, number], lateral: [number, number]) => {
+      // The panel sits just to one side of the leaf, on the same wall plane. The
+      // side is the door's own, passed in from the doorway, so the camera always
+      // ends up in front of the keypad and never nose-to-nose with the leaf.
       const panel: [number, number] = [
-        world[0] + lateral[0] * 0.75,
-        world[1] + lateral[1] * 0.75,
+        world[0] + lateral[0] * 1.35,
+        world[1] + lateral[1] * 1.35,
       ];
+
       const st = machineRef.current;
       if (st.phase === "turning" || st.phase === "zooming") return;
       const restore = st.phase === "keypad" ? st.keypad?.restorePhase ?? "idle" : st.phase;
