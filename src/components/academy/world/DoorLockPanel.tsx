@@ -185,10 +185,10 @@ const DoorLockPanel = ({
         </Text>
         <Text
           position={[0, titleY, z]}
-          fontSize={h * 0.045}
+          fontSize={h * 0.036}
           letterSpacing={0.06}
           lineHeight={1.25}
-          maxWidth={faceW * 0.92}
+          maxWidth={faceW * 0.96}
           anchorX="center"
           anchorY="middle"
           color={state === "error" ? GLOW.error : "#dbeafe"}
@@ -200,7 +200,7 @@ const DoorLockPanel = ({
           position={[0, capY, z]}
           fontSize={h * 0.03}
           lineHeight={1.25}
-          maxWidth={faceW * 0.92}
+          maxWidth={faceW * 0.96}
           anchorX="center"
           anchorY="middle"
           color={state === "error" || blocked ? "#ffb4bc" : "#8fb3d9"}

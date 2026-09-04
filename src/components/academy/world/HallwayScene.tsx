@@ -3138,8 +3138,8 @@ const HallwayScene = ({
       // side is the door's own, passed in from the doorway, so the camera always
       // ends up in front of the keypad and never nose-to-nose with the leaf.
       const panel: [number, number] = [
-        world[0] + lateral[0] * 1.0,
-        world[1] + lateral[1] * 1.0,
+        world[0] + lateral[0] * 1.7,
+        world[1] + lateral[1] * 1.7,
       ];
 
       const st = machineRef.current;
