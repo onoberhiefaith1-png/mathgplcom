@@ -3140,7 +3140,6 @@ const HallwayScene = ({
         restorePhase: restore,
         onDone: () => {
           const st2 = machineRef.current;
-          console.log("[DBG] zoom done, phase", st2.phase);
           setMachinePhase(st2.phase === "zooming" ? restore : st2.phase);
           onDone();
         },
@@ -3255,7 +3254,6 @@ const HallwayScene = ({
       };
       st.moving = false;
       setMoving(false);
-      console.log("[DBG] enterClassroom", room.id);
       setInsideRoom({ room, door: doorWorld, into, doorVisual: doorVisual ?? null });
       setMachinePhase("inside");
     },
@@ -3264,7 +3262,6 @@ const HallwayScene = ({
 
   const leaveClassroom = useCallback(() => {
     const st = machineRef.current;
-    console.log("[DBG] leaveClassroom", new Error().stack);
     st.inside = null;
     setInsideRoom(null);
     setScreenPanelOpen(false);
@@ -3677,7 +3674,6 @@ const HallwayScene = ({
             setLockEntry({ ...blank, code, state: "unlocked", remaining: null, retryIn: null });
             setTimeout(() => {
               setLockEntry((prev) => (prev?.roomId === roomId ? null : prev));
-              console.log("[DBG] unlocked -> open");
               releaseKeypad();
               open();
             }, 900);
