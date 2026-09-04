@@ -1890,6 +1890,25 @@ if (w.strafeSpeed > 0.001) {
       return;
     }
 
+    /**
+     * AT THE KEYPAD. The walker is standing in front of a wall panel, so the
+     * camera simply stays there and keeps facing it. It is held, not animated:
+     * nothing drags it back into the hallway while the code is being typed.
+     */
+    if (st.phase === "keypad") {
+      const f = st.keypad;
+      if (!f) {
+        setPhase(st.moving ? "walking" : "idle");
+        st.phase = st.moving ? "walking" : "idle";
+        return;
+      }
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, f.to[0], k);
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, f.to[1], k);
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, f.to[2], k);
+      camera.lookAt(f.look[0], f.look[1], f.look[2]);
+      return;
+    }
+
 
     if (st.phase === "zooming") {
       const z = st.zoom;
