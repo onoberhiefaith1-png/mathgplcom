@@ -31,25 +31,38 @@ export const useMathgplId = () => {
     enabled: Boolean(user?.id),
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<AccountIdentity | null> => {
-      const { data, error } = await supabase
+      // `custom_id` is part of the same row; the generated types catch up
+      // after the chosen-ID change lands.
+      const { data, error } = await (supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (c: string, v: string) => { maybeSingle: () => Promise<{ data: Record<string, string | null> | null; error: unknown }> };
+          };
+        };
+      })
         .from("account_ids")
-        .select("mathgpl_id, role, prefix, acronym")
+        .select("mathgpl_id, role, prefix, acronym, custom_id")
         .eq("user_id", user!.id)
         .maybeSingle();
       if (error) throw error;
       if (!data) return null;
       return {
-        mathgplId: data.mathgpl_id,
-        role: data.role,
-        prefix: data.prefix,
-        acronym: data.acronym,
+        mathgplId: data["mathgpl_id"] ?? "",
+        role: data["role"] ?? "",
+        prefix: data["prefix"] ?? "",
+        acronym: data["acronym"] ?? null,
+        customId: data["custom_id"] ?? null,
       };
     },
   });
   return {
     identity: query.data ?? null,
     mathgplId: query.data?.mathgplId ?? null,
+    customId: query.data?.customId ?? null,
+    /** What the person actually types to sign in. */
+    signInId: query.data?.customId ?? query.data?.mathgplId ?? null,
     typeLabel: accountTypeLabel(query.data?.role),
     loading: query.isLoading,
+    refetch: query.refetch,
   };
 };
