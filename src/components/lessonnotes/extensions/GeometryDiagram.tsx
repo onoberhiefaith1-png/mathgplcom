@@ -279,9 +279,10 @@ function GeometryDiagramView({
         return detachIntoFrame(tiptapEditor, at, at + self.nodeSize, x, y, {
           objectKind: "diagram",
           ownerQuestionId: ensureOwnerQuestionId(tiptapEditor, at),
-          // A diagram is a free object: it reserves no flow space and may
-          // overlap freely.
-          reserveSpace: false,
+          // A diagram may be dragged freely, but it reserves the band it
+          // occupies so equations and solution steps below it are never
+          // written across the figure.
+          reserveSpace: true,
           w: width,
         });
       },
