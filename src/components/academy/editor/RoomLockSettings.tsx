@@ -237,7 +237,30 @@ const RoomLockSettings = ({
             <Trash2 className="h-3 w-3" /> Remove Lock
           </button>
         )}
+        {lock && lock.max_attempts && onResetAttempts && (
+          <button
+            type="button"
+            disabled={busy}
+            title="Clears everyone's wrong-try count on this room, ending any wait"
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                await onResetAttempts();
+                setNote("Wrong-try counts cleared. The panel accepts codes again.");
+              } catch (e: unknown) {
+                setError(String((e as Error)?.message ?? e));
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="inline-flex min-h-[30px] items-center rounded-full border border-border px-2.5 text-[11px] font-semibold text-muted-foreground"
+          >
+            Reset attempts
+          </button>
+        )}
       </div>
+      {note && <p className="text-[11px] text-emerald-500">{note}</p>}
 
       {open && (
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/40 p-2">
