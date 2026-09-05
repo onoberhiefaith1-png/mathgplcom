@@ -234,6 +234,8 @@ const AcademyEditorPage = () => {
   const [textures, setTextures] = useState<Record<string, string>>({});
   const [buildingOpen, setBuildingOpen] = useState<Record<string, boolean>>({ env: true, walk: true });
   const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
+  /** The frame being positioned; it lights up in the live world. */
+  const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
   /** Hallway the live preview should walk into (set after creating one). */
   const [navigateTo, setNavigateTo] = useState<string | null>(null);
   const doorPosTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
