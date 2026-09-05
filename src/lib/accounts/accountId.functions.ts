@@ -18,6 +18,7 @@ import {
   credentialsSchema,
   emailSchema,
   firstNameOf,
+  normaliseId,
   throttle,
   userIdSchema,
 } from "./accountIdRules";
