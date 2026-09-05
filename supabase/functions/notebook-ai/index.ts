@@ -33,6 +33,11 @@ import { extractLine as deterministicExtractLine, splitSolutionLines } from "./f
 import { verifyLine as verifyFloatingLine } from "./floatingVerifier.ts";
 import { verifyCompleteness, summariseMissing } from "./completenessVerifier.ts";
 import {
+  SOLUTION_COMPLETENESS_STANDARD,
+  checkSolutionCompleteness,
+  completenessCorrector,
+} from "./solutionCompletenessStandard.ts";
+import {
   ensureEnginePrinciples,
   writeGenerationLog,
   inferAppliedPrinciples,
@@ -180,6 +185,30 @@ async function callAIRich(
 }
 
 /**
+ * A call that is never allowed to stop half way. When the model hits its length
+ * limit the SAME request is re-sent with a bigger budget (8k → 16k → 32k), so a
+ * long solution can never arrive cut off mid-step.
+ */
+async function callAICompleteRich(
+  messages: any[],
+  model = "google/gemini-2.5-flash",
+): Promise<{ content: string; truncated: boolean }> {
+  let last = { content: "", truncated: true };
+  for (const tokens of [8000, 16000, 32000]) {
+    const rich = await callAIRich(messages, { model, maxTokens: tokens });
+    const truncated = rich.finishReason === "length";
+    if (rich.content) last = { content: rich.content, truncated };
+    if (!truncated) return { content: rich.content, truncated: false };
+    console.warn(`[notebook-ai] reply truncated at ${tokens} tokens — retrying larger`);
+  }
+  return last;
+}
+
+async function callAIComplete(messages: any[], model = "google/gemini-2.5-flash"): Promise<string> {
+  return (await callAICompleteRich(messages, model)).content;
+}
+
+/**
  * MathGPL Pre-Publication Validation Engine — staged pipeline.
  *
  * Stage 1  Backend draft (this model call — output never displayed yet)
@@ -215,7 +244,7 @@ async function generateValidated(opts: {
   const maxRounds = opts.maxRoundsPerStage ?? 2;
   const messages = [...opts.messages];
   const deadline = Date.now() + VALIDATION_BUDGET_MS;
-  let draft = await callAI(messages, model);
+  let draft = await callAIComplete(messages, model);
   let cleaned = sanitizePresentation(sanitizeMath(stripFences(draft)));
   let lastStage = 1;
 
@@ -252,7 +281,7 @@ labels. Preserve the original meaning and final answer.
 
 PREVIOUS DRAFT:
 ${cleaned}`;
-      const correction = await callAI(
+      const correction = await callAIComplete(
         [...messages, { role: "assistant", content: draft }, { role: "user", content: correctorPrompt }],
         model,
       );
@@ -743,7 +772,7 @@ ${CONTINUITY_STANDARD}
 ${WORKSPACE_STANDARD}
 
 ${workspaceManifestBlock(b.workspaceManifest)}
-${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n` : ""}
+${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n\n${SOLUTION_COMPLETENESS_STANDARD}\n` : ""}
 ${b.blockKind === "problem" ? `\n${QUESTION_TASK_STANDARD}\n` : ""}
 Task style for this block: ${styleLine}
 
