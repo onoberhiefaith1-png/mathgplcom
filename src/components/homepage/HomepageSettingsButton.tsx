@@ -45,11 +45,13 @@ const HomepageSettingsButton = () => {
 
   // Signed-out visitors always see the default homepage.
   if (!userId) return null;
-  // Students never own a building, and a member visiting a school workspace
-  // sees the building its owner set — only the owner can change it.
-  if (role === "student" && !isPlatformOwner) return null;
+  // A member visiting a school workspace sees the building its owner set — only
+  // the owner can change it. Students are read-only unless the building context
+  // has already granted them their own (full-access account, personal homepage).
+  if (role === "student" && !isPlatformOwner && !canCustomize) return null;
   if (workspaces.length > 0 && !isPersonal && !isPlatformOwner) return null;
   if (!canCustomize && !canManageAds) return null;
+
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
