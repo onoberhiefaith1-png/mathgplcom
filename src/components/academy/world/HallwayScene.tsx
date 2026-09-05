@@ -4364,6 +4364,20 @@ const HallwayScene = ({
         </>
       )}
 
+      {/* WHAT IS BEHIND A FRAME — a short list of the items the teacher hung on
+          it. Closing it puts the student back exactly where they were standing. */}
+      {openFrame && (
+        <FramePanel
+          frame={openFrame}
+          links={linksByFrame.get(openFrame.id) ?? []}
+          catalogue={catalogue}
+          onOpen={(kind, id) => {
+            setOpenFrame(null);
+            onOpenFrameContent?.(kind, id);
+          }}
+          onClose={() => setOpenFrame(null)}
+        />
+      )}
 
 
       {inWalk && !insideRoom && (
