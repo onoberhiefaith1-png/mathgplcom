@@ -193,9 +193,64 @@ function numericEqual(a: any, b: any): Verdict {
   return anySuccess ? "equal" : "unknown";
 }
 
+/* ── relevance & vacuity guards ────────────────────────────────────────────
+ * The engines below compare `lhs - rhs` of each line. That is right for a
+ * solving step, but on its own it accepts ANY line that is trivially true
+ * (`2 = 2`, `1 + 1 = 2`, `x = x`) whenever the expected line is itself an
+ * identity/simplification — which most solution lines are. Two guards close
+ * that hole:
+ *   • vacuity  — a student line whose own sides cancel to zero is only
+ *                accepted when it really matches the expected statement
+ *                side by side.
+ *   • relevance— letters the student uses must occur in the expected line.
+ */
+
+/** Free symbols of a written line (both sides), reserved names excluded. */
+function symbolsOf(line: string): Set<string> {
+  const out = new Set<string>();
+  const { lhs, rhs } = splitEq(normalize(line));
+  for (const part of [lhs, rhs]) {
+    if (!part) continue;
+    const node = tryParse(part);
+    if (node) collectSymbols(node, out);
+    else {
+      for (const m of part.match(/[A-Za-z]/g) ?? []) out.add(m);
+    }
+  }
+  for (const reserved of ["e", "pi", "i"]) out.delete(reserved);
+  return out;
+}
+
+/** Does the student use a letter that never appears in the expected line? */
+function usesForeignSymbol(teacher: string, student: string): boolean {
+  const t = symbolsOf(teacher);
+  if (t.size === 0) {
+    // A purely numeric expected line can still legitimately be written with
+    // no letters; any letter the student adds is foreign.
+    return symbolsOf(student).size > 0;
+  }
+  for (const s of symbolsOf(student)) {
+    if (!t.has(s)) return true;
+  }
+  return false;
+}
+
+/** Are these two parsed expressions the same value/expression? */
+function expressionsEqual(a: any, b: any): boolean {
+  if (simplifiesToZero(a, b) === true) return true;
+  return numericEqual(a, b) === "equal";
+}
+
+/** Does a line say nothing (its two sides are already the same)? */
+function isVacuousEquation(lhs: any, rhs: any): boolean {
+  return expressionsEqual(lhs, rhs);
+}
+
 export function deterministicVerdict(teacher: string, student: string): Verdict {
   // Written exactly as expected → correct, whatever the engines can parse.
   if (structurallyIdentical(teacher, student)) return "equal";
+  // A line about other letters is never the expected line.
+  if (usesForeignSymbol(teacher, student)) return "not_equal";
   const T = splitEq(normalize(teacher));
   const S = splitEq(normalize(student));
 
@@ -207,6 +262,24 @@ export function deterministicVerdict(teacher: string, student: string): Verdict 
     if (S.rhs !== null) {
       const sL = tryParse(S.lhs); const sR = tryParse(S.rhs);
       if (!sL || !sR) return "unknown";
+
+      const teacherVacuous = isVacuousEquation(tL, tR);
+      const studentVacuous = isVacuousEquation(sL, sR);
+
+      // A statement that says nothing cannot stand in for a real step.
+      if (studentVacuous && !teacherVacuous) return "not_equal";
+
+      if (teacherVacuous) {
+        // Identity / simplification key line: demand a genuine side-by-side
+        // match (either pairing — `10 = 5 + 5` is the same statement).
+        if (!studentVacuous) return "not_equal";
+        const sameOrder = expressionsEqual(tL, sL) && expressionsEqual(tR, sR);
+        if (sameOrder) return "equal";
+        const swappedOrder = expressionsEqual(tL, sR) && expressionsEqual(tR, sL);
+        if (swappedOrder) return "equal";
+        return "not_equal";
+      }
+
       const direct = simplifiesToZero(
         math.parse(`(${tL.toString()})-(${tR.toString()})`),
         math.parse(`(${sL.toString()})-(${sR.toString()})`),
@@ -244,14 +317,26 @@ export function deterministicVerdict(teacher: string, student: string): Verdict 
   }
 
   const tE = tryParse(T.lhs);
-  const sE = tryParse(S.rhs === null ? S.lhs : `(${S.lhs})-(${S.rhs})`);
-  if (!tE || !sE) return "unknown";
+  if (!tE) return "unknown";
+  if (S.rhs !== null) {
+    // Expected line is an expression; the student wrote an equation. One of
+    // its sides must be that expression — an internally true statement is not
+    // enough.
+    const sL = tryParse(S.lhs); const sR = tryParse(S.rhs);
+    if (!sL || !sR) return "unknown";
+    if (isVacuousEquation(sL, sR) && !expressionsEqual(tE, sL)) return "not_equal";
+    if (expressionsEqual(tE, sL) || expressionsEqual(tE, sR)) return "equal";
+    return "not_equal";
+  }
+  const sE = tryParse(S.lhs);
+  if (!sE) return "unknown";
   const sym = simplifiesToZero(tE, sE);
   if (sym === true) return "equal";
   const num = numericEqual(tE, sE);
   if (num !== "unknown") return num;
   return sym === false ? "not_equal" : "unknown";
 }
+
 
 async function llmVerdict(teacher: string, student: string): Promise<Verdict> {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
