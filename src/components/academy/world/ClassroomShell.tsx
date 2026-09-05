@@ -19,7 +19,8 @@ import { Text } from "@react-three/drei";
 import { Surface } from "./surface";
 import SmartScreen from "./SmartScreen";
 import RoomDoor, { type RoomDoorVisual } from "./RoomDoor";
-import FrameBoard from "./FrameBoard";
+import FrameObject from "./FrameObject";
+import WindowObject from "./WindowObject";
 
 import { screenMount } from "@/lib/building/screen";
 import { classroomDimensions } from "@/lib/building/classroom";
@@ -339,20 +340,34 @@ const ClassroomShell = ({
         ));
       })}
 
-      {/* SHORTCUT FRAMES — bolted flat to the wall the teacher chose. They are
-          objects in the room, never part of a wall's surface design. */}
+      {/* FRAMES & WINDOWS — real 3D objects fixed to the wall the teacher chose.
+          The structure is built by the building; the picture inside it is a
+          separate, replaceable content layer. */}
       <Suspense fallback={null}>
-        {frames.map((frame) => (
-          <FrameBoard
-            key={frame.id}
-            frame={frame}
-            mount={roomFrameMount(frame, kind)}
-            selected={selectedFrameId === frame.id}
-            linkCount={frameLinkCounts[frame.id] ?? 0}
-            onSelect={onFrameSelect}
-          />
-        ))}
+        {frames.map((frame) =>
+          (frame.kind ?? "frame") === "window" ? (
+            <WindowObject
+              key={frame.id}
+              frame={frame}
+              mount={roomFrameMount(frame, kind)}
+              contentUrl={frame.content_path ? textures[frame.content_path] : null}
+              selected={selectedFrameId === frame.id}
+              onSelect={onFrameSelect}
+            />
+          ) : (
+            <FrameObject
+              key={frame.id}
+              frame={frame}
+              mount={roomFrameMount(frame, kind)}
+              contentUrl={frame.content_path ? textures[frame.content_path] : null}
+              selected={selectedFrameId === frame.id}
+              linkCount={frameLinkCounts[frame.id] ?? 0}
+              onSelect={onFrameSelect}
+            />
+          ),
+        )}
       </Suspense>
+
 
 
       {/* SMART SCREEN — the teaching display built into every room. */}

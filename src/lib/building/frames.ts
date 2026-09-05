@@ -11,13 +11,11 @@
  * renderer and the map can never disagree about where a frame is.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { GAME_ASSETS_BUCKET } from "@/lib/games/types";
 import type { AcademyProductKind } from "@/lib/academy/types";
 import { classroomDimensions } from "./classroom";
+import { frameProfile, type FrameKind } from "./frameStyles";
 import type { ClassroomKind } from "./types";
-
-import assignmentArt from "@/assets/frames/frame-assignment.png.asset.json";
-import adventureArt from "@/assets/frames/frame-adventure.png.asset.json";
-import coursesArt from "@/assets/frames/frame-courses.png.asset.json";
 
 /** The wall surfaces a frame may hang on. */
 export type FrameWall = "leftWall" | "rightWall" | "endWall";
@@ -28,26 +26,6 @@ export const FRAME_WALL_LABEL: Record<FrameWall, string> = {
   endWall: "End wall",
 };
 
-/** The three supplied artworks — used exactly as delivered, never restyled. */
-export type FrameDesignKey = "assignment" | "adventure" | "courses";
-
-export interface FrameDesign {
-  key: FrameDesignKey;
-  label: string;
-  url: string;
-  /** height ÷ width of the artwork, so the board is never distorted */
-  ratio: number;
-}
-
-export const FRAME_DESIGNS: FrameDesign[] = [
-  { key: "assignment", label: "Assignment", url: assignmentArt.url, ratio: 1.1 },
-  { key: "adventure", label: "Adventure", url: adventureArt.url, ratio: 1.08 },
-  { key: "courses", label: "Courses", url: coursesArt.url, ratio: 1 },
-];
-
-export const frameDesign = (key: string): FrameDesign =>
-  FRAME_DESIGNS.find((d) => d.key === key) ?? FRAME_DESIGNS[2];
-
 export interface BuildingFrame {
   id: string;
   building_id: string;
@@ -56,14 +34,23 @@ export interface BuildingFrame {
   /** Set when the frame hangs inside a room. */
   classroom_id: string | null;
   wall: FrameWall;
-  design: FrameDesignKey;
+  /** A content frame, or a purely architectural window. */
+  kind: FrameKind;
+  /** which 3D profile the Building system builds (see frameStyles.ts) */
+  design: string;
   name: string;
+  /** the picture placed INSIDE the object — never part of the frame itself */
+  content_path: string | null;
   /** 0–1 along the chosen wall */
   offset_along: number;
   /** centre height above the wall's floor level, metres */
   offset_y: number;
   /** board width, metres */
   width: number;
+  /** height ÷ width of the object */
+  height_ratio: number;
+  /** frozen in place, so it can never be nudged by accident */
+  locked: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -79,6 +66,8 @@ export interface FrameLink {
 
 export const FRAME_MIN_WIDTH = 0.6;
 export const FRAME_MAX_WIDTH = 4;
+export const MAX_FRAME_IMAGE_BYTES = 12 * 1024 * 1024;
+
 
 const fail = (error: { message: string } | null) => {
   if (error) throw new Error(error.message);
@@ -113,11 +102,14 @@ export interface NewFrame {
   walkwayId?: string | null;
   classroomId?: string | null;
   wall: FrameWall;
-  design: FrameDesignKey;
+  kind: FrameKind;
+  design: string;
   name: string;
+  contentPath?: string | null;
 }
 
 export async function createFrame(input: NewFrame): Promise<BuildingFrame> {
+  const profile = frameProfile(input.design, input.kind);
   const { data, error } = await supabase
     .from("building_frames")
     .insert({
@@ -125,23 +117,59 @@ export async function createFrame(input: NewFrame): Promise<BuildingFrame> {
       walkway_id: input.walkwayId ?? null,
       classroom_id: input.classroomId ?? null,
       wall: input.wall,
-      design: input.design,
-      name: input.name || "New frame",
+      kind: input.kind,
+      design: profile.key,
+      name: input.name || profile.label,
+      content_path: input.contentPath ?? null,
+      height_ratio: profile.ratio,
+      width: input.kind === "window" ? 1.6 : 1.4,
     })
     .select("*")
     .maybeSingle();
   fail(error);
-  if (!data) throw new Error("The frame was not created — you may not have permission to edit this building.");
+  if (!data) throw new Error("It was not created — you may not have permission to edit this building.");
   return data as unknown as BuildingFrame;
 }
 
 export async function updateFrame(
   id: string,
-  patch: Partial<Pick<BuildingFrame, "name" | "design" | "wall" | "offset_along" | "offset_y" | "width">>,
+  patch: Partial<
+    Pick<
+      BuildingFrame,
+      | "name"
+      | "design"
+      | "wall"
+      | "offset_along"
+      | "offset_y"
+      | "width"
+      | "height_ratio"
+      | "content_path"
+      | "locked"
+    >
+  >,
 ): Promise<void> {
   const { error } = await supabase.from("building_frames").update(patch).eq("id", id);
   fail(error);
 }
+
+/**
+ * Upload the picture that goes INSIDE a frame or window. The stored path is
+ * content only: replacing it never changes the 3D object around it.
+ */
+export async function uploadFrameImage(frameId: string, file: File): Promise<string> {
+  if (file.size > MAX_FRAME_IMAGE_BYTES) {
+    throw new Error("That image is larger than 12 MB. Please choose a smaller one.");
+  }
+  const ext = (file.name.split(".").pop() ?? "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `building-frames/${frameId}/${Date.now()}.${ext || "png"}`;
+  const { error } = await supabase.storage
+    .from(GAME_ASSETS_BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type || "image/png" });
+  if (error) throw new Error(error.message);
+  await updateFrame(frameId, { content_path: path });
+  return path;
+}
+
 
 /** Deleting a frame removes only the shortcut board and its links. */
 export async function deleteFrame(id: string): Promise<void> {
@@ -183,8 +211,10 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 
 export const frameSize = (frame: BuildingFrame): { width: number; height: number } => {
   const width = clamp(frame.width, FRAME_MIN_WIDTH, FRAME_MAX_WIDTH);
-  return { width, height: width * frameDesign(frame.design).ratio };
+  const ratio = clamp(frame.height_ratio || frameProfile(frame.design, frame.kind).ratio, 0.35, 1.6);
+  return { width, height: width * ratio };
 };
+
 
 /**
  * Where a frame sits inside a ROOM, in `ClassroomShell` local space: +z runs

@@ -288,13 +288,18 @@ let list = await listBuildings(org);
   // Resolve uploaded textures whenever the (draft) environment changes.
   const textureEnv = previewEnv ?? buildingData?.building.environment ?? null;
   const textureEnvKey = JSON.stringify(textureEnv);
+  // Pictures placed inside frames and windows resolve alongside wall designs.
+  const framePictureKey = (buildingData?.frames ?? [])
+    .map((f) => f.content_path)
+    .filter((p): p is string => Boolean(p))
+    .join("|");
   useEffect(() => {
     let cancelled = false;
     if (!textureEnv) {
       setTextures({});
       return;
     }
-    resolveEnvironmentTextures(textureEnv).then((t) => {
+    resolveEnvironmentTextures(textureEnv, [], framePictureKey.split("|")).then((t) => {
       // Merge, never replace: a freshly chosen image must not blank the walls
       // that are already showing while its URL resolves.
       if (!cancelled) setTextures((prev) => ({ ...prev, ...t }));
@@ -303,7 +308,7 @@ let list = await listBuildings(org);
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textureEnvKey]);
+  }, [textureEnvKey, framePictureKey]);
 
   /** The live preview uses the draft environment until it is saved. */
   const previewData: BuildingData | null = useMemo(() => {
@@ -865,6 +870,34 @@ const handleTextureUpload = useCallback(
                         selectedFrameId={selectedFrameId}
                         onSelectFrame={setSelectedFrameId}
                         onChanged={refreshBuilding}
+                        kind="frame"
+                      />
+                    </div>
+                  )}
+                </div>
+                {/* WINDOWS — interior architectural openings, built like the doors. */}
+                <div className="rounded-xl border border-border/70 bg-card">
+                  <button
+                    type="button"
+                    onClick={() => setBuildingOpen((o) => ({ ...o, windows: !o.windows }))}
+                    className="flex min-h-[44px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
+                  >
+                    Windows
+                    {buildingOpen.windows ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                  {buildingOpen.windows && (
+                    <div className="border-t border-border/60 p-3">
+                      <FrameManager
+                        buildingId={buildingData.building.id}
+                        frames={buildingData.frames}
+                        frameLinks={buildingData.frameLinks}
+                        walkways={buildingData.walkways}
+                        classrooms={buildingData.classrooms}
+                        catalogue={catalogue}
+                        selectedFrameId={selectedFrameId}
+                        onSelectFrame={setSelectedFrameId}
+                        onChanged={refreshBuilding}
+                        kind="window"
                       />
                     </div>
                   )}

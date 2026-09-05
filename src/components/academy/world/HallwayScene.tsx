@@ -510,7 +510,8 @@ import { toast } from "sonner";
 
 import type { ClassroomKind } from "@/lib/building/types";
 import { resolveSurfaces } from "@/lib/building/resolve";
-import FrameBoard from "./FrameBoard";
+import FrameObject from "./FrameObject";
+import WindowObject from "./WindowObject";
 import FramePanel from "./FramePanel";
 import { hallFrameMount, type BuildingFrame } from "@/lib/building/frames";
 
@@ -4270,16 +4271,29 @@ const HallwayScene = ({
                     position={[seg.start[0], 0, seg.start[1]]}
                     rotation-y={segYaw(seg.heading)}
                   >
-                    {own.map((frame) => (
-                      <FrameBoard
-                        key={frame.id}
-                        frame={frame}
-                        mount={hallFrameMount(frame, seg.length, HALL_WIDTH, HALL_HEIGHT)}
-                        selected={selectedFrameId === frame.id}
-                        linkCount={frameLinkCounts[frame.id] ?? 0}
-                        onSelect={pickFrame}
-                      />
-                    ))}
+                    {own.map((frame) =>
+                      (frame.kind ?? "frame") === "window" ? (
+                        <WindowObject
+                          key={frame.id}
+                          frame={frame}
+                          mount={hallFrameMount(frame, seg.length, HALL_WIDTH, HALL_HEIGHT)}
+                          contentUrl={frame.content_path ? textures[frame.content_path] : null}
+                          selected={selectedFrameId === frame.id}
+                          onSelect={editing ? pickFrame : undefined}
+                        />
+                      ) : (
+                        <FrameObject
+                          key={frame.id}
+                          frame={frame}
+                          mount={hallFrameMount(frame, seg.length, HALL_WIDTH, HALL_HEIGHT)}
+                          contentUrl={frame.content_path ? textures[frame.content_path] : null}
+                          selected={selectedFrameId === frame.id}
+                          linkCount={frameLinkCounts[frame.id] ?? 0}
+                          onSelect={pickFrame}
+                        />
+                      ),
+                    )}
+
                   </group>,
                 ];
               })}
