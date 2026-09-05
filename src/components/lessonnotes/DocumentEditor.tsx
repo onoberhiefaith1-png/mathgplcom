@@ -10,6 +10,7 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
+import { useT } from "@/lib/i18n/LanguageProvider";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import { useServerFn } from "@tanstack/react-start";
 import StarterKit from "@tiptap/starter-kit";
@@ -760,6 +761,8 @@ function DocumentEditorInner({
   pageExtraMm: pageExtraMmProp, onPageExtraMmChange,
   notebookId: notebookIdProp, scopeSuffix, copilotBridgeRef,
 }: Props) {
+  /** Platform chrome translates; the teacher's own writing never does. */
+  const tLabel = useT();
   const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
   /** Whole-lesson AI assist belongs to MathGPL Builder mode only. */
   const builderAi = useBuilderAiVisible();
@@ -3796,7 +3799,7 @@ function DocumentEditorInner({
           aria-pressed={symbolPanelOpen}
           className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${symbolPanelOpen ? "bg-foreground/10" : ""}`}
         >
-          <FunctionSquare className="h-4 w-4" /> Symbols
+          <FunctionSquare className="h-4 w-4" /> {tLabel("editor_symbols")}
         </button>
         <button
           type="button"
@@ -3805,7 +3808,7 @@ function DocumentEditorInner({
           aria-pressed={matrixPanelOpen}
           className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${matrixPanelOpen ? "bg-foreground/10" : ""}`}
         >
-          <Grid3X3 className="h-4 w-4" /> Matrix
+          <Grid3X3 className="h-4 w-4" /> {tLabel("editor_matrix")}
         </button>
 
 
@@ -3816,7 +3819,7 @@ function DocumentEditorInner({
           aria-pressed={slidePanelOpen}
           className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${slidePanelOpen ? "bg-foreground/10" : ""}`}
         >
-          <LayoutGrid className="h-4 w-4" /> Slide
+          <LayoutGrid className="h-4 w-4" /> {tLabel("editor_slide")}
         </button>
 
         <button
@@ -3826,7 +3829,7 @@ function DocumentEditorInner({
           aria-pressed={emojiPanelOpen}
           className={`p-1.5 rounded inline-flex items-center gap-1 text-xs hover:bg-foreground/10 ${emojiPanelOpen ? "bg-foreground/10" : ""}`}
         >
-          <span className="text-base leading-none">😊</span> Emojis
+          <span className="text-base leading-none">😊</span> {tLabel("editor_emojis")}
         </button>
 
         <Divider />
@@ -3858,7 +3861,7 @@ function DocumentEditorInner({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="p-1.5 rounded hover:bg-foreground/10 inline-flex items-center gap-1 text-xs" title="Export">
-              <Download className="h-4 w-4" /> Export
+              <Download className="h-4 w-4" /> {tLabel("editor_export")}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

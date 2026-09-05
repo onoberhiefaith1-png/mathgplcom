@@ -14,6 +14,8 @@ import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
 import AccountAvatar from "@/components/accounts/AccountAvatar";
 import WorkspaceGoLive from "./WorkspaceGoLive";
 import { navGroupsFor } from "./workspaceNav";
+import { useT } from "@/lib/i18n/LanguageProvider";
+import LanguageSelector from "@/components/i18n/LanguageSelector";
 
 /**
  * The one shell every account works inside: navigation on the left, the
@@ -42,6 +44,7 @@ const WorkspaceLayout = ({
   const { counts } = useConnectionCounts();
   const location = useLocation();
   const { goBack, goForward } = useNavHistory();
+  const t = useT();
 
   const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
@@ -90,7 +93,7 @@ const WorkspaceLayout = ({
         {groups.map((group) => (
           <div key={group.title}>
             <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-ws-gold/70">
-              {group.title}
+              {t(group.titleKey)}
             </div>
             <ul className="space-y-1">
               {group.items.map((item) => {
@@ -108,7 +111,7 @@ const WorkspaceLayout = ({
                       }`}
                     >
                       <item.icon className={`h-4 w-4 shrink-0 ${activeItem ? "text-ws-gold" : ""}`} />
-                      <span className="truncate">{item.label}</span>
+                      <span className="truncate">{t(item.labelKey)}</span>
                     </Link>
                   </li>
                 );

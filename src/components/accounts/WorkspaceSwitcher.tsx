@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Building2, Check, ChevronDown, Loader2 } from "lucide-react";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { workspaceLabel } from "@/lib/accounts/workspace";
+import { useT } from "@/lib/i18n/LanguageProvider";
 
 /**
  * Workspace Switcher — Personal / School A / School B.
@@ -11,6 +12,7 @@ import { workspaceLabel } from "@/lib/accounts/workspace";
  */
 const WorkspaceSwitcher = ({ compact }: { compact?: boolean }) => {
   const { workspaces, active, activeOrgId, switchTo, isLoading } = useWorkspace();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -48,7 +50,7 @@ const WorkspaceSwitcher = ({ compact }: { compact?: boolean }) => {
         aria-expanded={open}
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4 text-muted-foreground" />}
-        <span className="max-w-[10rem] truncate">{active ? workspaceLabel(active) : "Workspace"}</span>
+        <span className="max-w-[10rem] truncate">{active ? workspaceLabel(active) : t("workspace_label")}</span>
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
       </button>
 
@@ -68,7 +70,7 @@ const WorkspaceSwitcher = ({ compact }: { compact?: boolean }) => {
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate text-foreground">{workspaceLabel(workspace)}</span>
                   <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {workspace.isOwner ? "My MathGPL" : "Shared workspace"}
+                    {workspace.isOwner ? t("workspace_mine") : t("workspace_shared")}
                     {workspace.status !== "active" ? " · suspended" : ""}
                   </span>
 

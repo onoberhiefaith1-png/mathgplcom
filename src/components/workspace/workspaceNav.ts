@@ -21,43 +21,52 @@ import {
 } from "lucide-react";
 
 import type { AppRole } from "@/lib/accounts/roles";
+import type { TranslationKey } from "@/lib/i18n/catalogues";
 
-export type WorkspaceNavItem = { to: string; label: string; icon: LucideIcon };
-export type WorkspaceNavGroup = { title: string; items: WorkspaceNavItem[] };
+/**
+ * `label` stays as the English master text; `labelKey` is the translation key
+ * the shell resolves, so navigation follows the user's chosen language.
+ */
+export type WorkspaceNavItem = { to: string; label: string; labelKey: TranslationKey; icon: LucideIcon };
+export type WorkspaceNavGroup = { title: string; titleKey: TranslationKey; items: WorkspaceNavItem[] };
 
-const HOME: WorkspaceNavItem = { to: "/", label: "Building", icon: Home };
+const HOME: WorkspaceNavItem = { to: "/", label: "Building", labelKey: "nav_building", icon: Home };
 const COMMUNITY: WorkspaceNavGroup = {
   title: "Community",
+  titleKey: "group_community",
   items: [
-    { to: "/community", label: "MathGPL Community", icon: Globe2 },
-    { to: "/requests", label: "Requests", icon: Inbox },
+    { to: "/community", label: "MathGPL Community", labelKey: "nav_community", icon: Globe2 },
+    { to: "/requests", label: "Requests", labelKey: "nav_requests", icon: Inbox },
   ],
 };
 /** Teaching Hub settings belong to a teacher account, never to another role. */
 const ACCOUNT: WorkspaceNavGroup = {
   title: "Account",
+  titleKey: "group_account",
   items: [
-    { to: "/account", label: "Account & Go Live", icon: UserCircle },
-    { to: "/teaching-hub/settings", label: "Settings", icon: Settings },
+    { to: "/account", label: "Account & Go Live", labelKey: "nav_account_go_live", icon: UserCircle },
+    { to: "/teaching-hub/settings", label: "Settings", labelKey: "nav_settings", icon: Settings },
   ],
 };
 
 const ACCOUNT_ONLY: WorkspaceNavGroup = {
   title: "Account",
-  items: [{ to: "/account", label: "Account & Go Live", icon: UserCircle }],
+  titleKey: "group_account",
+  items: [{ to: "/account", label: "Account & Go Live", labelKey: "nav_account_go_live", icon: UserCircle }],
 };
 
 /** Platform administration never shows authoring tools. */
 const ADMIN: WorkspaceNavGroup[] = [
   {
     title: "Platform Console",
+    titleKey: "group_platform_console",
     items: [
       HOME,
-      { to: "/admin", label: "Overview", icon: LayoutDashboard },
-      { to: "/admin/plans", label: "Plans", icon: Tag },
-      { to: "/admin/credits", label: "Credits & Economics", icon: BarChart3 },
-      { to: "/admin/usage-revenue", label: "Usage & Revenue", icon: BarChart3 },
-      { to: "/referral", label: "Refer & Earn", icon: Gift },
+      { to: "/admin", label: "Overview", labelKey: "nav_overview", icon: LayoutDashboard },
+      { to: "/admin/plans", label: "Plans", labelKey: "nav_plans", icon: Tag },
+      { to: "/admin/credits", label: "Credits & Economics", labelKey: "nav_credits", icon: BarChart3 },
+      { to: "/admin/usage-revenue", label: "Usage & Revenue", labelKey: "nav_usage_revenue", icon: BarChart3 },
+      { to: "/referral", label: "Refer & Earn", labelKey: "nav_referral", icon: Gift },
     ],
   },
   COMMUNITY,
@@ -67,26 +76,28 @@ const ADMIN: WorkspaceNavGroup[] = [
 const TEACHER: WorkspaceNavGroup[] = [
   {
     title: "Workspace",
+    titleKey: "group_workspace",
     items: [
       HOME,
-      { to: "/teaching-hub", label: "Teaching Hub", icon: LayoutDashboard },
-      { to: "/lesson-notes", label: "Lesson Notes", icon: BookOpen },
-      { to: "/smartboard", label: "SmartBoard", icon: Sparkles },
-      { to: "/teaching-hub/classes", label: "Classes", icon: Users },
-      { to: "/adventure", label: "Adventure", icon: Compass },
-      { to: "/course-builder", label: "Skill Builder", icon: GraduationCap },
-      { to: "/live", label: "MathGPL Live", icon: Radio },
-      { to: "/plans", label: "Plan", icon: CreditCard },
-      { to: "/teaching-hub/pricing", label: "Pricing", icon: Tag },
-      { to: "/referral", label: "Refer & Earn", icon: Gift },
+      { to: "/teaching-hub", label: "Teaching Hub", labelKey: "nav_teaching_hub", icon: LayoutDashboard },
+      { to: "/lesson-notes", label: "Lesson Notes", labelKey: "nav_lesson_notes", icon: BookOpen },
+      { to: "/smartboard", label: "SmartBoard", labelKey: "nav_smartboard", icon: Sparkles },
+      { to: "/teaching-hub/classes", label: "Classes", labelKey: "nav_classes", icon: Users },
+      { to: "/adventure", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
+      { to: "/course-builder", label: "Skill Builder", labelKey: "nav_skill_builder", icon: GraduationCap },
+      { to: "/live", label: "MathGPL Live", labelKey: "nav_live", icon: Radio },
+      { to: "/plans", label: "Plan", labelKey: "nav_plan", icon: CreditCard },
+      { to: "/teaching-hub/pricing", label: "Pricing", labelKey: "nav_pricing", icon: Tag },
+      { to: "/referral", label: "Refer & Earn", labelKey: "nav_referral", icon: Gift },
     ],
   },
   {
     title: "My Connections",
+    titleKey: "group_my_connections",
     items: [
-      { to: "/requests?view=schools", label: "My Schools", icon: Building2 },
-      { to: "/teaching-hub/students", label: "My Students", icon: Users },
-      { to: "/requests?view=parents", label: "Parents", icon: Users },
+      { to: "/requests?view=schools", label: "My Schools", labelKey: "nav_my_schools", icon: Building2 },
+      { to: "/teaching-hub/students", label: "My Students", labelKey: "nav_my_students", icon: Users },
+      { to: "/requests?view=parents", label: "Parents", labelKey: "nav_parents", icon: Users },
     ],
   },
   COMMUNITY,
@@ -96,17 +107,18 @@ const TEACHER: WorkspaceNavGroup[] = [
 const SCHOOL: WorkspaceNavGroup[] = [
   {
     title: "School Console",
+    titleKey: "group_school_console",
     items: [
       HOME,
-      { to: "/school", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/homepage/building", label: "Building", icon: Building2 },
-      { to: "/school/teachers", label: "Teachers", icon: GraduationCap },
-      { to: "/school/students", label: "Students", icon: Users },
-      { to: "/school?tab=reports", label: "Reports", icon: BarChart3 },
-      { to: "/plans", label: "Plan", icon: CreditCard },
-      { to: "/school/pricing", label: "Pricing", icon: Tag },
-      { to: "/referral", label: "Refer & Earn", icon: Gift },
-      { to: "/account", label: "Account", icon: UserCircle },
+      { to: "/school", label: "Dashboard", labelKey: "nav_dashboard", icon: LayoutDashboard },
+      { to: "/homepage/building", label: "Building", labelKey: "nav_building", icon: Building2 },
+      { to: "/school/teachers", label: "Teachers", labelKey: "nav_teachers", icon: GraduationCap },
+      { to: "/school/students", label: "Students", labelKey: "nav_students", icon: Users },
+      { to: "/school?tab=reports", label: "Reports", labelKey: "nav_reports", icon: BarChart3 },
+      { to: "/plans", label: "Plan", labelKey: "nav_plan", icon: CreditCard },
+      { to: "/school/pricing", label: "Pricing", labelKey: "nav_pricing", icon: Tag },
+      { to: "/account", label: "Account", labelKey: "nav_account", icon: UserCircle },
+      { to: "/referral", label: "Refer & Earn", labelKey: "nav_referral", icon: Gift },
     ],
   },
   COMMUNITY,
@@ -117,27 +129,29 @@ const SCHOOL: WorkspaceNavGroup[] = [
 const STUDENT: WorkspaceNavGroup[] = [
   {
     title: "Student Dashboard",
+    titleKey: "group_student_dashboard",
     items: [
       HOME,
-      { to: "/student", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/student/classes", label: "My Classes", icon: Users },
-      { to: "/student/assignments", label: "Assignments", icon: ClipboardList },
-      { to: "/student/adventures", label: "Adventure", icon: Compass },
-      { to: "/student/skill-builder", label: "Skill Builder", icon: GraduationCap },
-      
+      { to: "/student", label: "Dashboard", labelKey: "nav_dashboard", icon: LayoutDashboard },
+      { to: "/student/classes", label: "My Classes", labelKey: "nav_my_classes", icon: Users },
+      { to: "/student/assignments", label: "Assignments", labelKey: "nav_assignments", icon: ClipboardList },
+      { to: "/student/adventures", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
+      { to: "/student/skill-builder", label: "Skill Builder", labelKey: "nav_skill_builder", icon: GraduationCap },
     ],
   },
   {
     title: "Connections",
+    titleKey: "group_connections",
     items: [
-      { to: "/requests?view=schools", label: "My Schools", icon: Building2 },
-      { to: "/requests?view=teachers", label: "My Teachers", icon: GraduationCap },
+      { to: "/requests?view=schools", label: "My Schools", labelKey: "nav_my_schools", icon: Building2 },
+      { to: "/requests?view=teachers", label: "My Teachers", labelKey: "nav_my_teachers", icon: GraduationCap },
     ],
   },
   COMMUNITY,
   {
     title: "Account",
-    items: [{ to: "/account", label: "Account & Go Live", icon: UserCircle }],
+    titleKey: "group_account",
+    items: [{ to: "/account", label: "Account & Go Live", labelKey: "nav_account_go_live", icon: UserCircle }],
   },
 ];
 
@@ -148,19 +162,21 @@ const STUDENT: WorkspaceNavGroup[] = [
 const PARENT: WorkspaceNavGroup[] = [
   {
     title: "Parent Console",
+    titleKey: "group_parent_console",
     items: [
       HOME,
-      { to: "/family", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/family", label: "My Children", icon: Users },
-      { to: "/requests?view=schools", label: "School Connections", icon: Building2 },
-      { to: "/family/teachers", label: "Teacher Connections", icon: GraduationCap },
-      { to: "/plans", label: "Plan", icon: CreditCard },
+      { to: "/family", label: "Dashboard", labelKey: "nav_dashboard", icon: LayoutDashboard },
+      { to: "/family", label: "My Children", labelKey: "nav_my_children", icon: Users },
+      { to: "/requests?view=schools", label: "School Connections", labelKey: "nav_school_connections", icon: Building2 },
+      { to: "/family/teachers", label: "Teacher Connections", labelKey: "nav_teacher_connections", icon: GraduationCap },
+      { to: "/plans", label: "Plan", labelKey: "nav_plan", icon: CreditCard },
     ],
   },
   COMMUNITY,
   {
     title: "Account",
-    items: [{ to: "/account", label: "Account & Go Live", icon: UserCircle }],
+    titleKey: "group_account",
+    items: [{ to: "/account", label: "Account & Go Live", labelKey: "nav_account_go_live", icon: UserCircle }],
   },
 ];
 
@@ -173,21 +189,23 @@ const PARENT: WorkspaceNavGroup[] = [
 const SHARED_TEACHER: WorkspaceNavGroup[] = [
   {
     title: "Shared Workspace",
+    titleKey: "group_shared_workspace",
     items: [
       HOME,
-      { to: "/teaching-hub", label: "Teaching Hub", icon: LayoutDashboard },
-      { to: "/lesson-notes", label: "Lesson Notes", icon: BookOpen },
-      { to: "/smartboard", label: "SmartBoard", icon: Sparkles },
-      { to: "/teaching-hub/classes", label: "Classes", icon: Users },
-      { to: "/adventure", label: "Adventure", icon: Compass },
-      { to: "/course-builder", label: "Skill Builder", icon: GraduationCap },
-      { to: "/live", label: "MathGPL Live", icon: Radio },
+      { to: "/teaching-hub", label: "Teaching Hub", labelKey: "nav_teaching_hub", icon: LayoutDashboard },
+      { to: "/lesson-notes", label: "Lesson Notes", labelKey: "nav_lesson_notes", icon: BookOpen },
+      { to: "/smartboard", label: "SmartBoard", labelKey: "nav_smartboard", icon: Sparkles },
+      { to: "/teaching-hub/classes", label: "Classes", labelKey: "nav_classes", icon: Users },
+      { to: "/adventure", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
+      { to: "/course-builder", label: "Skill Builder", labelKey: "nav_skill_builder", icon: GraduationCap },
+      { to: "/live", label: "MathGPL Live", labelKey: "nav_live", icon: Radio },
     ],
   },
   COMMUNITY,
   {
     title: "Account",
-    items: [{ to: "/account", label: "Account & Go Live", icon: UserCircle }],
+    titleKey: "group_account",
+    items: [{ to: "/account", label: "Account & Go Live", labelKey: "nav_account_go_live", icon: UserCircle }],
   },
 ];
 
@@ -205,9 +223,14 @@ export const navGroupsFor = (
   if (role === "student") return STUDENT;
   if (role === "parent") return PARENT;
   if (role === "school" && workspaceKind === "school") return SCHOOL;
-  if (role === "school") return [{ title: "School Console", items: [HOME] }, COMMUNITY, ACCOUNT_ONLY];
+  if (role === "school")
+    return [
+      { title: "School Console", titleKey: "group_school_console", items: [HOME] },
+      COMMUNITY,
+      ACCOUNT_ONLY,
+    ];
   if (options?.shared) return SHARED_TEACHER;
   if (role === "teacher") return TEACHER;
   // No role: the Building only, never another account type's menu.
-  return [{ title: "Workspace", items: [HOME] }, ACCOUNT_ONLY];
+  return [{ title: "Workspace", titleKey: "group_workspace", items: [HOME] }, ACCOUNT_ONLY];
 };

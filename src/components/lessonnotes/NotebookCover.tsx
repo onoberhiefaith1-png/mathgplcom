@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/LanguageProvider";
 import { themeForIndex } from "@/lib/lessonnotes/themes";
 import {
   NotebookCoverConfig,
@@ -172,6 +173,7 @@ const DesignedCover = ({
 };
 
 const LegacyCover = ({ notebook, onClick }: { notebook: NotebookCoverData; onClick?: () => void }) => {
+  const tr = useT();
   const t = themeForIndex(notebook.color_index ?? 0);
   const isLight = (notebook.color_index ?? 0) === 9; // cream
 
@@ -213,7 +215,7 @@ const LegacyCover = ({ notebook, onClick }: { notebook: NotebookCoverData; onCli
         className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[8px] tracking-widest uppercase font-semibold"
         style={{ background: t.accent, color: isLight ? "#3a2f1c" : "#0a0a0a" }}
       >
-        Teacher
+        {tr("term_teacher")}
       </div>
 
       {/* Content */}
@@ -223,7 +225,7 @@ const LegacyCover = ({ notebook, onClick }: { notebook: NotebookCoverData; onCli
           <div className="text-base font-black tracking-wider" style={{ color: t.accent }}>
             GPL
           </div>
-          <div className="text-[9px] tracking-[0.4em] opacity-80 uppercase mt-0.5">Notebook</div>
+          <div className="text-[9px] tracking-[0.4em] opacity-80 uppercase mt-0.5">{tr("notebook_label")}</div>
           <div
             className="mx-auto mt-2 h-0.5 w-10 rounded-full"
             style={{ background: t.accent, opacity: 0.8 }}
@@ -231,11 +233,11 @@ const LegacyCover = ({ notebook, onClick }: { notebook: NotebookCoverData; onCli
         </div>
 
         <div className="mt-auto space-y-1 text-[10px] leading-snug">
-          <Row label="Class" value={notebook.class_name} />
-          <Row label="Session" value={notebook.session} />
-          <Row label="Subject" value={notebook.subject} />
-          <Row label="Topic" value={notebook.title ?? ""} />
-          <Row label="Subtopic" value={notebook.subtopic ?? ""} />
+          <Row label={tr("term_class")} value={notebook.class_name} />
+          <Row label={tr("term_session")} value={notebook.session} />
+          <Row label={tr("term_subject")} value={notebook.subject} />
+          <Row label={tr("term_topic")} value={notebook.title ?? ""} />
+          <Row label={tr("notebook_subtopic")} value={notebook.subtopic ?? ""} />
         </div>
 
       </div>

@@ -14,15 +14,17 @@ import PlanSection from "@/components/plans/PlanSection";
 import CreditsSection from "@/components/plans/CreditsSection";
 import { useUpgradeGuard } from "@/lib/entitlements/useUpgradeGuard";
 import type { FeatureKey } from "@/lib/entitlements/features";
+import { useT } from "@/lib/i18n/LanguageProvider";
+import type { TranslationKey } from "@/lib/i18n/catalogues";
 
-const QUICK: { to: string; label: string; feature?: FeatureKey }[] = [
-  { to: "/lesson-notes", label: "Lesson Notes", feature: "create_lesson_notes" },
-  { to: "/smartboard", label: "SmartBoard", feature: "smartboard" },
-  { to: "/teaching-hub/classes", label: "Classes", feature: "classes" },
-  { to: "/adventure", label: "Adventure", feature: "adventure" },
-  { to: "/course-builder", label: "Skill Builder", feature: "skill_builder" },
-  { to: "/live", label: "MathGPL Live", feature: "mathgpl_live" },
-  { to: "/teaching-hub/pricing", label: "Pricing" },
+const QUICK: { to: string; labelKey: TranslationKey; feature?: FeatureKey }[] = [
+  { to: "/lesson-notes", labelKey: "nav_lesson_notes", feature: "create_lesson_notes" },
+  { to: "/smartboard", labelKey: "nav_smartboard", feature: "smartboard" },
+  { to: "/teaching-hub/classes", labelKey: "nav_classes", feature: "classes" },
+  { to: "/adventure", labelKey: "nav_adventure", feature: "adventure" },
+  { to: "/course-builder", labelKey: "nav_skill_builder", feature: "skill_builder" },
+  { to: "/live", labelKey: "nav_live", feature: "mathgpl_live" },
+  { to: "/teaching-hub/pricing", labelKey: "nav_pricing" },
 ];
 
 
@@ -41,6 +43,7 @@ const when = (iso: string) =>
  * teaching itself always belongs to the teacher.
  */
 const TeacherDashboard = () => {
+  const t = useT();
   const { data, isLoading } = useTeacherStats();
   const { guard, allowed, dialog: upgradeDialog } = useUpgradeGuard();
   const { workspaces, activeOrgId, switchTo } = useWorkspace();
@@ -53,9 +56,9 @@ const TeacherDashboard = () => {
 
   const rail = (
     <>
-      <RailCard title="My Schools" action={{ to: "/requests?view=schools", label: "Manage" }}>
+      <RailCard title={t("nav_my_schools")} action={{ to: "/requests?view=schools", label: t("action_manage") }}>
         {schools.length === 0 ? (
-          <EmptyNote>You are not connected to a school yet. Requests and invitations appear here.</EmptyNote>
+          <EmptyNote>{t("hub_no_school_yet")}</EmptyNote>
         ) : (
           <ul className="space-y-2">
             {schools.map((school) => (
@@ -67,7 +70,7 @@ const TeacherDashboard = () => {
                 >
                   <span className="truncate text-sm">{school.name}</span>
                   <span className="shrink-0 text-[10px] uppercase tracking-[0.18em] text-ws-gold/80">
-                    {school.orgId === activeOrgId ? "Active" : "Enter"}
+                    {school.orgId === activeOrgId ? t("status_active") : t("action_enter")}
                   </span>
                 </button>
               </li>
@@ -76,30 +79,30 @@ const TeacherDashboard = () => {
         )}
       </RailCard>
 
-      <RailCard title="Manage Connections" action={{ to: "/requests", label: "Open" }}>
+      <RailCard title={t("hub_manage_connections")} action={{ to: "/requests", label: t("action_open") }}>
         <ul className="space-y-1 text-sm text-muted-foreground">
           <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-            <span className="truncate">Pending requests</span>
+            <span className="truncate">{t("hub_pending_requests")}</span>
             <span className="shrink-0 font-semibold text-ws-gold">{counts.pendingIncoming}</span>
           </li>
           <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-            <span className="truncate">Schools</span>
+            <span className="truncate">{t("nav_my_schools")}</span>
             <span className="shrink-0 font-semibold text-foreground">{counts.schools}</span>
           </li>
           <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-            <span className="truncate">Students</span>
+            <span className="truncate">{t("nav_students")}</span>
             <span className="shrink-0 font-semibold text-foreground">{counts.students}</span>
           </li>
           <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-            <span className="truncate">Parents</span>
+            <span className="truncate">{t("nav_parents")}</span>
             <span className="shrink-0 font-semibold text-foreground">{counts.parents}</span>
           </li>
         </ul>
       </RailCard>
 
-      <RailCard title="My Students Overview" action={{ to: "/teaching-hub/students", label: "View all" }}>
+      <RailCard title={t("hub_my_students_overview")} action={{ to: "/teaching-hub/students", label: t("action_view_all") }}>
         {students.length === 0 ? (
-          <EmptyNote>No connected students yet. Accepted student connections appear here.</EmptyNote>
+          <EmptyNote>{t("hub_no_students_yet")}</EmptyNote>
         ) : (
           <ul className="space-y-2">
             {students.slice(0, 5).map((student) => (
@@ -124,20 +127,20 @@ const TeacherDashboard = () => {
   );
 
   return (
-    <WorkspaceLayout title="Teaching Hub" subtitle="Your teaching workspace" rail={rail}>
+    <WorkspaceLayout title={t("nav_teaching_hub")} subtitle={t("hub_your_workspace")} rail={rail}>
       <DashboardHero />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Schools connected" value={data?.schools ?? 0} icon={Building2} loading={isLoading} to="/requests?view=schools" />
-        <StatCard label="Students" value={data?.students ?? 0} icon={Users} loading={isLoading} to="/teaching-hub/students" />
-        <StatCard label="Classes" value={data?.classes ?? 0} icon={GraduationCap} loading={isLoading} to="/teaching-hub/classes" />
-        <StatCard label="Assignments" value={data?.assignments ?? 0} icon={ClipboardList} loading={isLoading} to="/teaching-hub/classes" />
+        <StatCard label={t("hub_schools_connected")} value={data?.schools ?? 0} icon={Building2} loading={isLoading} to="/requests?view=schools" />
+        <StatCard label={t("nav_students")} value={data?.students ?? 0} icon={Users} loading={isLoading} to="/teaching-hub/students" />
+        <StatCard label={t("nav_classes")} value={data?.classes ?? 0} icon={GraduationCap} loading={isLoading} to="/teaching-hub/classes" />
+        <StatCard label={t("nav_assignments")} value={data?.assignments ?? 0} icon={ClipboardList} loading={isLoading} to="/teaching-hub/classes" />
       </div>
 
       <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
         <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <h2 className="truncate text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">
-            Upcoming schedule
+            {t("hub_upcoming_schedule")}
           </h2>
           <Link to="/live" className="shrink-0 text-xs text-ws-gold hover:underline">
             MathGPL Live
@@ -146,7 +149,7 @@ const TeacherDashboard = () => {
         {schedule.isLoading ? (
           <p className="text-sm text-muted-foreground">—</p>
         ) : (schedule.data ?? []).length === 0 ? (
-          <EmptyNote>Nothing scheduled. Sessions you plan in MathGPL Live appear here.</EmptyNote>
+          <EmptyNote>{t("hub_nothing_scheduled")}</EmptyNote>
         ) : (
           <ul className="space-y-2">
             {(schedule.data ?? []).map((session) => (
@@ -171,7 +174,7 @@ const TeacherDashboard = () => {
       <ReferEarnCard />
 
       <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">Quick actions</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">{t("hub_quick_actions")}</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {QUICK.map((item) =>
             !item.feature || allowed(item.feature) ? (
@@ -180,7 +183,7 @@ const TeacherDashboard = () => {
                 to={item.to}
                 className="min-h-[44px] rounded-full border border-ws-border/70 bg-ws-canvas/40 px-4 py-2 text-sm transition hover:border-ws-gold/50"
               >
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             ) : (
               <button
@@ -190,7 +193,7 @@ const TeacherDashboard = () => {
                 className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ws-border/40 bg-ws-canvas/20 px-4 py-2 text-sm text-muted-foreground transition hover:border-ws-gold/40"
               >
                 <Lock className="h-3.5 w-3.5" />
-                {item.label}
+                {t(item.labelKey)}
               </button>
             ),
           )}
@@ -200,8 +203,8 @@ const TeacherDashboard = () => {
       </section>
 
       <section className="rounded-2xl border border-ws-border/70 bg-ws-panel/60 p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">Recent activity</h2>
-        <ActivityList items={data?.activity ?? []} empty="No lesson notes in this workspace yet." />
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-ws-gold/80">{t("hub_recent_activity")}</h2>
+        <ActivityList items={data?.activity ?? []} empty={t("hub_no_lesson_notes")} />
       </section>
       <PlanSection />
       <CreditsSection />

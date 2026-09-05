@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useT } from "@/lib/i18n/LanguageProvider";
 
 export interface CreateNotebookValues {
   teacher: string;
@@ -50,6 +51,7 @@ const blank = (session: string): CreateNotebookValues => ({
 
 export const CreateNotebookDialog = ({ open, onOpenChange, onCreate }: Props) => {
   const { user } = useAuth();
+  const t = useT();
   const defaultSession = useMemo(currentSession, []);
   const [v, setV] = useState<CreateNotebookValues>(() => blank(defaultSession));
   const [busy, setBusy] = useState(false);
@@ -82,41 +84,41 @@ export const CreateNotebookDialog = ({ open, onOpenChange, onCreate }: Props) =>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New notebook</DialogTitle>
+          <DialogTitle>{t("notebook_new")}</DialogTitle>
           <p className="text-xs text-muted-foreground">
-            One notebook = one lesson topic. You can add more sections inside later.
+            {t("notebook_new_hint")}
           </p>
         </DialogHeader>
         <form className="space-y-3" onSubmit={submit}>
           <Field
-            label="Subject"
+            label={t("term_subject")}
             value={v.subject}
             onChange={(x) => setV({ ...v, subject: x })}
-            placeholder="Type subject…"
+            placeholder={t("notebook_type_subject")}
             required
           />
-          <Field label="Topic" value={v.topic} onChange={(x) => setV({ ...v, topic: x })} placeholder="Type topic…" required />
+          <Field label={t("term_topic")} value={v.topic} onChange={(x) => setV({ ...v, topic: x })} placeholder={t("notebook_type_topic")} required />
           <Field
-            label="Subtopic"
+            label={t("notebook_subtopic")}
             value={v.subtopic}
             onChange={(x) => setV({ ...v, subtopic: x })}
-            placeholder="Type subtopic…"
+            placeholder={t("notebook_type_subtopic")}
           />
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Class</Label>
+              <Label>{t("term_class")}</Label>
               <Input
                 value={v.class_name}
                 onChange={(e) => setV({ ...v, class_name: e.target.value })}
-                placeholder="Type class…"
+                placeholder={t("notebook_type_class")}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Academic session</Label>
+              <Label>{t("notebook_academic_session")}</Label>
               <Select value={v.session} onValueChange={(x) => setV({ ...v, session: x })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select session…" />
+                  <SelectValue placeholder={t("notebook_select_session")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
                   {SESSIONS.map((s) => (
@@ -129,18 +131,18 @@ export const CreateNotebookDialog = ({ open, onOpenChange, onCreate }: Props) =>
             </div>
           </div>
           <Field
-            label="Teacher"
+            label={t("term_teacher")}
             value={v.teacher}
             onChange={(x) => setV({ ...v, teacher: x })}
-            placeholder="Type teacher name…"
+            placeholder={t("notebook_type_teacher")}
             required
           />
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
-              Cancel
+              {t("action_cancel")}
             </Button>
             <Button type="submit" disabled={busy || !v.class_name.trim()}>
-              {busy ? "Creating…" : "Create notebook"}
+              {busy ? t("notebook_creating") : t("notes_create_notebook")}
             </Button>
           </DialogFooter>
         </form>

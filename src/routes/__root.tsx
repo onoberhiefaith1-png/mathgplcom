@@ -29,6 +29,7 @@ import PageGuideProvider from "@/components/guides/PageGuideProvider";
 
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 
 import { registerRealtimeAuthSync } from "@/lib/realtime/auth";
 import { clearStaleChunkRecovery, recoverFromStaleChunk } from "@/lib/router/chunkRecovery";
@@ -212,24 +213,26 @@ function RootComponent() {
       />
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <SonnerToaster />
+          <LanguageProvider>
+            <TooltipProvider>
+              <Toaster />
+              <SonnerToaster />
 
-            <ImpersonationBanner />
-            <FullscreenToggle />
-            <GlobalSoundtrack />
-            <ConnectionIndicator />
-            <StabilityWatchdog />
+              <ImpersonationBanner />
+              <FullscreenToggle />
+              <GlobalSoundtrack />
+              <ConnectionIndicator />
+              <StabilityWatchdog />
 
 
-            <NavHistoryProvider>
-              <PageGuideProvider>
-                <Outlet />
-              </PageGuideProvider>
-            </NavHistoryProvider>
+              <NavHistoryProvider>
+                <PageGuideProvider>
+                  <Outlet />
+                </PageGuideProvider>
+              </NavHistoryProvider>
 
-          </TooltipProvider>
+            </TooltipProvider>
+          </LanguageProvider>
         </AuthProvider>
       </QueryClientProvider>
     </>

@@ -91,6 +91,7 @@ import { Route as AdminIntegritySegmentRouteImport } from './routes/admin/integr
 import { Route as AdminPlansIndexRouteImport } from './routes/admin/plans/index'
 import { Route as AdminReferralsIndexRouteImport } from './routes/admin/referrals/index'
 import { Route as AdminSecurityIndexRouteImport } from './routes/admin/security/index'
+import { Route as AdminTranslationsIndexRouteImport } from './routes/admin/translations/index'
 import { Route as AdminUsageAnalyticsIndexRouteImport } from './routes/admin/usage-analytics/index'
 import { Route as AdminUsageRevenueIndexRouteImport } from './routes/admin/usage-revenue/index'
 import { Route as AdminWebsiteIndexRouteImport } from './routes/admin/website/index'
@@ -737,6 +738,11 @@ const AdminReferralsIndexRoute = AdminReferralsIndexRouteImport.update({
 const AdminSecurityIndexRoute = AdminSecurityIndexRouteImport.update({
   id: '/security/',
   path: '/security/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminTranslationsIndexRoute = AdminTranslationsIndexRouteImport.update({
+  id: '/translations/',
+  path: '/translations/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminUsageAnalyticsIndexRoute =
@@ -2152,6 +2158,7 @@ export interface FileRoutesByFullPath {
   '/admin/plans/': typeof AdminPlansIndexRoute
   '/admin/referrals/': typeof AdminReferralsIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
+  '/admin/translations/': typeof AdminTranslationsIndexRoute
   '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
   '/admin/usage-revenue/': typeof AdminUsageRevenueIndexRoute
   '/admin/website/': typeof AdminWebsiteIndexRoute
@@ -2458,6 +2465,7 @@ export interface FileRoutesByTo {
   '/admin/plans': typeof AdminPlansIndexRoute
   '/admin/referrals': typeof AdminReferralsIndexRoute
   '/admin/security': typeof AdminSecurityIndexRoute
+  '/admin/translations': typeof AdminTranslationsIndexRoute
   '/admin/usage-analytics': typeof AdminUsageAnalyticsIndexRoute
   '/admin/usage-revenue': typeof AdminUsageRevenueIndexRoute
   '/admin/website': typeof AdminWebsiteIndexRoute
@@ -2777,6 +2785,7 @@ export interface FileRoutesById {
   '/admin/plans/': typeof AdminPlansIndexRoute
   '/admin/referrals/': typeof AdminReferralsIndexRoute
   '/admin/security/': typeof AdminSecurityIndexRoute
+  '/admin/translations/': typeof AdminTranslationsIndexRoute
   '/admin/usage-analytics/': typeof AdminUsageAnalyticsIndexRoute
   '/admin/usage-revenue/': typeof AdminUsageRevenueIndexRoute
   '/admin/website/': typeof AdminWebsiteIndexRoute
@@ -3097,6 +3106,7 @@ export interface FileRouteTypes {
     | '/admin/plans/'
     | '/admin/referrals/'
     | '/admin/security/'
+    | '/admin/translations/'
     | '/admin/usage-analytics/'
     | '/admin/usage-revenue/'
     | '/admin/website/'
@@ -3403,6 +3413,7 @@ export interface FileRouteTypes {
     | '/admin/plans'
     | '/admin/referrals'
     | '/admin/security'
+    | '/admin/translations'
     | '/admin/usage-analytics'
     | '/admin/usage-revenue'
     | '/admin/website'
@@ -3721,6 +3732,7 @@ export interface FileRouteTypes {
     | '/admin/plans/'
     | '/admin/referrals/'
     | '/admin/security/'
+    | '/admin/translations/'
     | '/admin/usage-analytics/'
     | '/admin/usage-revenue/'
     | '/admin/website/'
@@ -4666,6 +4678,13 @@ declare module '@tanstack/react-router' {
       path: '/security'
       fullPath: '/admin/security/'
       preLoaderRoute: typeof AdminSecurityIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/translations/': {
+      id: '/admin/translations/'
+      path: '/translations'
+      fullPath: '/admin/translations/'
+      preLoaderRoute: typeof AdminTranslationsIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/usage-analytics/': {
@@ -6325,6 +6344,7 @@ interface AdminRouteRouteChildren {
   AdminPlansIndexRoute: typeof AdminPlansIndexRoute
   AdminReferralsIndexRoute: typeof AdminReferralsIndexRoute
   AdminSecurityIndexRoute: typeof AdminSecurityIndexRoute
+  AdminTranslationsIndexRoute: typeof AdminTranslationsIndexRoute
   AdminUsageAnalyticsIndexRoute: typeof AdminUsageAnalyticsIndexRoute
   AdminUsageRevenueIndexRoute: typeof AdminUsageRevenueIndexRoute
   AdminWebsiteIndexRoute: typeof AdminWebsiteIndexRoute
@@ -6346,6 +6366,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminPlansIndexRoute: AdminPlansIndexRoute,
   AdminReferralsIndexRoute: AdminReferralsIndexRoute,
   AdminSecurityIndexRoute: AdminSecurityIndexRoute,
+  AdminTranslationsIndexRoute: AdminTranslationsIndexRoute,
   AdminUsageAnalyticsIndexRoute: AdminUsageAnalyticsIndexRoute,
   AdminUsageRevenueIndexRoute: AdminUsageRevenueIndexRoute,
   AdminWebsiteIndexRoute: AdminWebsiteIndexRoute,

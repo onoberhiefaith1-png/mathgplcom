@@ -1,4 +1,5 @@
 // Persistent Lesson Note section navigation.
+import { useT } from "@/lib/i18n/LanguageProvider";
 //
 // This is navigation ONLY. Clicking an entry scrolls the note to that heading
 // and parks the caret there. It never reloads the editor, never rewrites the
@@ -94,6 +95,7 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
     } catch { /* navigation must never break the workspace */ }
   }, [editor]);
 
+  const t = useT();
   const items = useMemo(() => entries, [entries]);
   if (!items.length) return null;
 
@@ -103,7 +105,7 @@ export function SectionNav({ editor }: { editor: Editor | null }) {
       className="flex items-center gap-1 overflow-x-auto border-b border-foreground/10 bg-background/95 px-3 py-1 backdrop-blur"
     >
       <span className="shrink-0 pr-1 text-[10px] uppercase tracking-widest text-muted-foreground">
-        Sections
+        {t("editor_sections")}
       </span>
       {items.map((e) => (
         <button

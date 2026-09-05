@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/LanguageProvider";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -58,6 +59,7 @@ const LessonNotesPage = () => {
   const [shareFor, setShareFor] = useState<NotebookRow | null>(null);
   // Archive is Lesson Note management: retired notes leave the active shelf and
   // can be opened or restored from here. It is never a workspace tool.
+  const t = useT();
   const [view, setView] = useState<"active" | "archive">("active");
 
 
@@ -222,8 +224,8 @@ const LessonNotesPage = () => {
             type="button"
             onClick={() => navigate("/teaching-hub")}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md text-amber-100/80 hover:text-amber-50 hover:bg-amber-200/10"
-            aria-label="Back to Teaching Hub"
-            title="Back to Teaching Hub"
+            aria-label={t("notes_back_to_hub")}
+            title={t("notes_back_to_hub")}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -231,7 +233,7 @@ const LessonNotesPage = () => {
 
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase tracking-[0.4em] text-amber-300/70">MathGPL</p>
-            <h1 className="text-xl font-semibold truncate">Lesson Notes</h1>
+            <h1 className="text-xl font-semibold truncate">{t("notes_title")}</h1>
           </div>
 
           {/* Smartboard — visually separated as a tool, not a primary action */}
@@ -241,7 +243,7 @@ const LessonNotesPage = () => {
             onClick={() => navigate("/smartboard")}
             className="gap-2 border-amber-200/20 bg-transparent text-amber-100/90 hover:bg-amber-200/10 hover:text-amber-50"
           >
-            <Presentation className="h-4 w-4" /> Smartboard
+            <Presentation className="h-4 w-4" /> {t("nav_smartboard")}
           </Button>
 
           <Button
@@ -250,7 +252,7 @@ const LessonNotesPage = () => {
             onClick={() => setView(view === "archive" ? "active" : "archive")}
             className="gap-2 border-amber-200/20 bg-transparent text-amber-100/90 hover:bg-amber-200/10 hover:text-amber-50"
           >
-            <Archive className="h-4 w-4" /> {view === "archive" ? "Active notes" : "Archive"}
+            <Archive className="h-4 w-4" /> {view === "archive" ? t("notes_active_notes") : t("notes_archive")}
           </Button>
 
           <div className="h-6 w-px bg-amber-200/15 mx-1 hidden sm:block" />
@@ -261,10 +263,10 @@ const LessonNotesPage = () => {
             onClick={() => setDialogOpen(true)}
             className="gap-2 rounded-xl bg-gradient-to-b from-amber-300 to-amber-500 text-amber-950 font-semibold shadow-[0_4px_14px_-2px_hsl(40_90%_55%/0.5)] hover:shadow-[0_8px_22px_-4px_hsl(40_95%_60%/0.7)] hover:-translate-y-0.5 hover:from-amber-200 hover:to-amber-400 transition-all duration-200"
           >
-            <Plus className="h-4 w-4" /> Create notebook
+            <Plus className="h-4 w-4" /> {t("notes_create_notebook")}
           </Button>
 
-          <Button variant="ghost" size="icon" onClick={signOut} title={userEmail ?? "Sign out"}>
+          <Button variant="ghost" size="icon" onClick={signOut} title={userEmail ?? t("auth_log_out")}>
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
@@ -272,10 +274,10 @@ const LessonNotesPage = () => {
 
       <section className="mx-auto max-w-7xl px-4 py-8">
         {loading ? (
-          <p className="text-sm text-muted-foreground">Loading your shelf…</p>
+          <p className="text-sm text-muted-foreground">{t("notes_loading_shelf")}</p>
         ) : notebooks.length === 0 ? (
           view === "archive" ? (
-            <p className="text-sm text-amber-100/70">No archived lesson notes yet.</p>
+            <p className="text-sm text-amber-100/70">{t("notes_no_archived")}</p>
           ) : (
             <EmptyState onCreate={() => setDialogOpen(true)} />
           )
@@ -309,7 +311,7 @@ const LessonNotesPage = () => {
                 <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
                   ← Previous
                 </Button>
-                <span className="text-muted-foreground">Shelf {page + 1} of {totalPages}</span>
+                <span className="text-muted-foreground">{t("notes_shelf")} {page + 1} {t("sys_of")} {totalPages}</span>
                 <Button variant="ghost" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>
                   Next →
                 </Button>

@@ -1,4 +1,5 @@
 // Symbols quick-access palette — a docked right-hand panel in the lesson note.
+import { useT } from "@/lib/i18n/LanguageProvider";
 //
 // Same shell as the Matrix panel and the Emoji Library: it SHARES the editor
 // width instead of covering the page. One click inserts at the caret and the
@@ -28,6 +29,7 @@ export function SymbolQuickPanel({ open, onClose, onInsertText, onInsertStructur
 
   const cats = filterSymbolCategories(q);
 
+  const t = useT();
   const click = (it: QuickSymbolItem) => {
     if (it.kind === "text") onInsertText(it.value);
     else onInsertStructure(it);
@@ -41,7 +43,7 @@ export function SymbolQuickPanel({ open, onClose, onInsertText, onInsertStructur
     >
       <div className="h-11 px-3 flex items-center justify-between border-b border-border">
         <div className="text-xs font-semibold uppercase tracking-wider text-foreground/80">
-          Symbols
+          {t("editor_symbols")}
         </div>
         <button
           type="button"

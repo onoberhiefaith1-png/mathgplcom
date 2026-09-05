@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@/lib/router-compat";
 import { LogOut, Search } from "lucide-react";
 import { searchCurriculum } from "@/data/curriculum";
+import LanguageSelector from "@/components/i18n/LanguageSelector";
 import AccountMenu from "@/components/academy/AccountMenu";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useT } from "@/lib/i18n/LanguageProvider";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -17,6 +19,7 @@ const AcademyTopBar = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, ready } = useAuth();
+  const t = useT();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -50,9 +53,9 @@ const AcademyTopBar = () => {
               setOpen(true);
             }}
             onFocus={() => setOpen(true)}
-            placeholder="Search any maths topic…"
+            placeholder={t("sys_search_topics")}
             className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden sm:text-base"
-            aria-label="Search any maths topic"
+            aria-label={t("sys_search_topics")}
           />
         </div>
 
@@ -63,7 +66,7 @@ const AcademyTopBar = () => {
           >
             {results.length === 0 ? (
               <li className="px-4 py-3 text-sm text-muted-foreground">
-                No matching topics yet.
+                {t("sys_no_matching_topics")}
               </li>
             ) : (
               results.map((result) => (
@@ -104,6 +107,7 @@ const AcademyTopBar = () => {
       </div>
 
       <div className="pointer-events-auto flex items-center gap-2">
+        <LanguageSelector compact />
         <WorkspaceSwitcher />
         <NotificationBell />
         <AccountMenu />
@@ -111,11 +115,11 @@ const AcademyTopBar = () => {
           <button
             type="button"
             onClick={handleSignOut}
-            aria-label="Sign out"
+            aria-label={t("auth_log_out")}
             className="inline-flex items-center gap-2 rounded-full border border-rose-400/60 bg-background/55 px-4 py-2 text-sm font-medium text-rose-200 shadow-[0_4px_22px_hsl(var(--background)/0.6)] backdrop-blur transition hover:border-rose-400 hover:bg-rose-500/20 sm:px-5 sm:text-base"
           >
             <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Log out</span>
+            <span className="hidden sm:inline">{t("auth_log_out")}</span>
           </button>
         )}
       </div>
