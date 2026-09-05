@@ -3679,7 +3679,7 @@ const HallwayScene = ({
             }, 900);
 
           } else {
-            const retryIn = res.retryAfterMinutes ? retryLabel(res.retryAfterMinutes) : null;
+            const retryIn = remainingWaitLabel(res.retryAt, res.retryAfterMinutes);
             setLockEntry({
               roomId,
               code: "",
