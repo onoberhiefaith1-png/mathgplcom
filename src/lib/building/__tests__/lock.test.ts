@@ -19,3 +19,14 @@ describe("room lock", () => {
     expect(retryLabel(4320)).toBe("3 days");
   });
 });
+
+describe("remaining wait", () => {
+  it("counts down from the moment the wait ends", async () => {
+    const { remainingWaitLabel } = await import("../lock");
+    const in3h = new Date(Date.now() + 3 * 60 * 60_000).toISOString();
+    expect(remainingWaitLabel(in3h, 1440)).toBe("3 hours");
+    expect(remainingWaitLabel(new Date(Date.now() - 1000).toISOString(), 1440)).toBeNull();
+    expect(remainingWaitLabel(null, 1440)).toBe("24 hours");
+    expect(remainingWaitLabel(null, null)).toBeNull();
+  });
+});

@@ -37,7 +37,7 @@ import { doorTitle } from "@/lib/building/api";
 import { doorStyle } from "@/lib/building/doors";
 import DoorLockPanel from "./DoorLockPanel";
 import type { LockState } from "./DoorLockPanel";
-import { indexLocksByRoom, retryLabel } from "@/lib/building/lock";
+import { indexLocksByRoom, remainingWaitLabel } from "@/lib/building/lock";
 import type { RoomLock } from "@/lib/building/lock";
 import { verifyRoomLock } from "@/lib/building/lock.functions";
 import { presetMaterial } from "@/lib/building/presets";
@@ -3679,7 +3679,7 @@ const HallwayScene = ({
             }, 900);
 
           } else {
-            const retryIn = res.retryAfterMinutes ? retryLabel(res.retryAfterMinutes) : null;
+            const retryIn = remainingWaitLabel(res.retryAt, res.retryAfterMinutes);
             setLockEntry({
               roomId,
               code: "",

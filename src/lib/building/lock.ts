@@ -48,6 +48,23 @@ export const retryLabel = (minutes: number | null | undefined): string => {
   return m === 1 ? "1 minute" : `${m} minutes`;
 };
 
+/**
+ * The wait STILL LEFT, taken from the moment the panel becomes available again.
+ * A learner who waited most of the day should be told the hour that remains,
+ * not the full policy length.
+ */
+export const remainingWaitLabel = (
+  retryAt: string | null | undefined,
+  fallbackMinutes: number | null | undefined,
+): string | null => {
+  if (retryAt) {
+    const ms = new Date(retryAt).getTime() - Date.now();
+    if (Number.isFinite(ms) && ms > 0) return retryLabel(Math.ceil(ms / 60_000));
+    return null;
+  }
+  return fallbackMinutes ? retryLabel(fallbackMinutes) : null;
+};
+
 /** The retry-wait choices a teacher picks from, in minutes. */
 export const RETRY_OPTIONS: number[] = [5, 15, 30, 60, 180, 720, 1440, 4320];
 

@@ -95,6 +95,32 @@ export const removeRoomLock = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Clear the wrong-try counts on a room's lock. A teacher never has to sit out a
+ * wait they set for learners, and a learner who was genuinely stuck can be let
+ * back in at once. Everyone's counts on this room go, or one person's when a
+ * learner is named.
+ */
+export const resetRoomLockAttempts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({ roomId: z.string().uuid(), userId: z.string().uuid().nullable().optional() })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await assertCanEdit(context.supabase, await buildingOfRoom(data.roomId));
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("building_room_lock_attempts")
+      .delete()
+      .eq("classroom_id", data.roomId);
+    if (data.userId) q = q.eq("user_id", data.userId);
+    const { error } = await q;
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 /** What a code check can answer. Never the code, never how close the attempt was. */
 export interface LockVerdict {
   ok: boolean;
@@ -135,7 +161,20 @@ export const verifyRoomLock = createServerFn({ method: "POST" })
     // No lock on this room: nothing to unlock, and nothing to refuse either.
     if (!lock?.code_hash) return free;
 
-    const max = lock.max_attempts ?? null;
+    // THE PEOPLE WHO SET THE CODE ARE NEVER SHUT OUT BY IT. Someone who can edit
+    // this building is testing their own door, so the attempt limit — and any
+    // wait already running — simply does not apply to them.
+    let canEdit = false;
+    try {
+      const { data: allowed } = await context.supabase.rpc("can_edit_building", {
+        _building_id: await buildingOfRoom(data.roomId),
+      });
+      canEdit = !!allowed;
+    } catch {
+      canEdit = false;
+    }
+
+    const max = canEdit ? null : (lock.max_attempts ?? null);
     const waitMinutes = max ? (lock.retry_after_minutes ?? 1440) : null;
     const userId = context.userId;
 

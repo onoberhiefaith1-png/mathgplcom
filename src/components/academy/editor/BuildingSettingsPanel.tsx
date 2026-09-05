@@ -290,6 +290,8 @@ export interface BuildingSettingsPanelProps {
     policy: { maxAttempts: number | null; retryAfterMinutes: number | null },
   ) => Promise<void>;
   onRemoveRoomLock?: (roomId: string) => Promise<void>;
+  /** Clears the wrong-try counts on a room's lock, ending any wait at once. */
+  onResetRoomLockAttempts?: (roomId: string) => Promise<void>;
 }
 
 const BuildingSettingsPanel = ({
@@ -306,6 +308,7 @@ const BuildingSettingsPanel = ({
   roomLock = null,
   onSetRoomLock,
   onRemoveRoomLock,
+  onResetRoomLockAttempts,
 }: BuildingSettingsPanelProps) => {
   const activeScope = scopes.find((s) => s.id === scopeId) ?? null;
   /** The room being edited, when the active scope is a classroom. */
@@ -593,6 +596,11 @@ const BuildingSettingsPanel = ({
                   }
 
                   onRemoveLock={() => onRemoveRoomLock(activeRoomId)}
+                  onResetAttempts={
+                    onResetRoomLockAttempts
+                      ? () => onResetRoomLockAttempts(activeRoomId)
+                      : undefined
+                  }
                 />
               ),
             },
@@ -639,7 +647,7 @@ const BuildingSettingsPanel = ({
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [draft, activeRoomId, roomLock, onSetRoomLock, onRemoveRoomLock],
+    [draft, activeRoomId, roomLock, onSetRoomLock, onRemoveRoomLock, onResetRoomLockAttempts],
   );
 
   /** Fields this element overrides, so a reset only clears what was changed. */
