@@ -126,32 +126,45 @@ const SCHOOL: WorkspaceNavGroup[] = [
 ];
 
 
+/**
+ * The student never leaves their workspace: every entry except the Building and
+ * the Community opens inside the workspace itself as a panel.
+ */
 const STUDENT: WorkspaceNavGroup[] = [
   {
-    title: "Student Dashboard",
-    titleKey: "group_student_dashboard",
+    title: "Student Workspace",
+    titleKey: "group_student_workspace",
     items: [
       HOME,
-      { to: "/student", label: "Dashboard", labelKey: "nav_dashboard", icon: LayoutDashboard },
-      { to: "/student/classes", label: "My Classes", labelKey: "nav_my_classes", icon: Users },
-      { to: "/student/assignments", label: "Assignments", labelKey: "nav_assignments", icon: ClipboardList },
-      { to: "/student/adventures", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
-      { to: "/student/skill-builder", label: "Skill Builder", labelKey: "nav_skill_builder", icon: GraduationCap },
+      { to: "/student?panel=classes", label: "My Classes", labelKey: "nav_my_classes", icon: Users },
+      { to: "/student?panel=assignments", label: "Assignments", labelKey: "nav_assignments", icon: ClipboardList },
+      { to: "/student?panel=adventure", label: "Adventure", labelKey: "nav_adventure", icon: Compass },
+      { to: "/student?panel=courses", label: "Courses", labelKey: "nav_courses", icon: GraduationCap },
     ],
   },
   {
     title: "Connections",
     titleKey: "group_connections",
     items: [
-      { to: "/requests?view=schools", label: "My Schools", labelKey: "nav_my_schools", icon: Building2 },
-      { to: "/requests?view=teachers", label: "My Teachers", labelKey: "nav_my_teachers", icon: GraduationCap },
+      { to: "/student?panel=schools", label: "My Schools", labelKey: "nav_my_schools", icon: Building2 },
+      { to: "/student?panel=teachers", label: "My Teachers", labelKey: "nav_my_teachers", icon: GraduationCap },
     ],
   },
-  COMMUNITY,
+  {
+    title: "Community",
+    titleKey: "group_community",
+    items: [
+      { to: "/community", label: "MathGPL Community", labelKey: "nav_community", icon: Globe2 },
+      { to: "/student?panel=requests", label: "Requests", labelKey: "nav_requests", icon: Inbox },
+    ],
+  },
   {
     title: "Account",
     titleKey: "group_account",
-    items: [{ to: "/account", label: "Account & Go Live", labelKey: "nav_account_go_live", icon: UserCircle }],
+    items: [
+      { to: "/student?panel=account", label: "Account", labelKey: "nav_account", icon: UserCircle },
+      { to: "/student?panel=golive", label: "Go Live", labelKey: "nav_go_live", icon: Radio },
+    ],
   },
 ];
 
