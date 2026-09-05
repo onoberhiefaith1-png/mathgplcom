@@ -4,6 +4,7 @@ import { GraduationCap, Loader2, Search, Users } from "lucide-react";
 
 import PersonAvatar from "@/components/accounts/PersonAvatar";
 import SchoolShell from "@/components/accounts/SchoolShell";
+import ManagedStudentsPanel from "@/components/accounts/ManagedStudentsPanel";
 import ConnectByCodeDialog from "@/components/connections/ConnectByCodeDialog";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { fetchSchoolStudents, fetchSchoolTeachers } from "@/lib/accounts/schoolDirectory";
@@ -139,6 +140,11 @@ const SchoolPeoplePage = ({ kind }: { kind: Kind }) => {
 
             </div>
           )}
+          {kind === "students" ? (
+            <div className="mt-6">
+              <ManagedStudentsPanel tone="dark" />
+            </div>
+          ) : null}
           {connectActions}
         </>
       )}

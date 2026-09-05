@@ -3,6 +3,7 @@ import { Users } from "lucide-react";
 import { Link } from "@/lib/router-compat";
 import WorkspaceLayout from "@/components/workspace/WorkspaceLayout";
 import { EmptyNote } from "@/components/workspace/DashboardParts";
+import ManagedStudentsPanel from "@/components/accounts/ManagedStudentsPanel";
 import { useConnections } from "@/lib/connections/useConnections";
 
 /** Every student connected to this teacher; each opens their workspace read-only. */
@@ -40,6 +41,10 @@ const TeacherStudentsPage = () => {
           </ul>
         )}
       </section>
+
+      <div className="mt-6">
+        <ManagedStudentsPanel tone="dark" />
+      </div>
     </WorkspaceLayout>
   );
 };
