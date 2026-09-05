@@ -169,6 +169,7 @@ const RoomLockSettings = ({
   }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   const save = async () => {
     const problem = lockDraftProblem(draft);
