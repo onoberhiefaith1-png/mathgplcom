@@ -147,6 +147,7 @@ const RoomLockSettings = ({
   lock,
   onSetLock,
   onRemoveLock,
+  onResetAttempts,
 }: {
   lock: RoomLock | null;
   onSetLock: (
@@ -156,6 +157,7 @@ const RoomLockSettings = ({
     policy: { maxAttempts: number | null; retryAfterMinutes: number | null },
   ) => Promise<void>;
   onRemoveLock: () => Promise<void>;
+  onResetAttempts?: () => Promise<void>;
 }) => {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<RoomLockDraft>(() => ({
