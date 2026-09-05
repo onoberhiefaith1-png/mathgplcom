@@ -23,10 +23,15 @@ export const normaliseId = (value: string) => {
   return [...parts, last.replace(/O/g, "0").replace(/[IL]/g, "1")].join("/");
 };
 
+/**
+ * The entry is kept exactly as typed: it may be a chosen ID (free text) or a
+ * permanent issued ID, and only the issued form is look-alike corrected.
+ */
 export const credentialsSchema = z.object({
-  mathgplId: z.string().trim().max(40).transform(normaliseId),
+  mathgplId: z.string().trim().max(40),
   password: z.string().min(1).max(128),
 });
+
 
 export const emailSchema = z.object({ email: z.string().trim().email().max(255) });
 
