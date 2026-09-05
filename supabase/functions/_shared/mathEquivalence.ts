@@ -165,9 +165,8 @@ function collectSymbols(node: any, out: Set<string>) {
   if (node.expr) collectSymbols(node.expr, out);
   // Bracketed sub-expressions: `(x + 2)` keeps its content here, not in args.
   if (node.content) collectSymbols(node.content, out);
-  if (node.fn && typeof node.fn === "object") collectSymbols(node.fn, out);
-  if (node.index) collectSymbols(node.index, out);
   if (node.condition) { collectSymbols(node.condition, out); collectSymbols(node.trueExpr, out); collectSymbols(node.falseExpr, out); }
+
 
 }
 
