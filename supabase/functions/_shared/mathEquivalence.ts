@@ -299,9 +299,24 @@ export function deterministicVerdict(teacher: string, student: string): Verdict 
         math.parse(`(${sR.toString()})-(${sL.toString()})`),
       );
       if (nSwap === "equal") return "equal";
+      // A valid solving step may be a multiple of the expected step
+      // (`2x = 4` vs `x = 2`): the two statements have the same solutions when
+      // one leftover is a constant multiple of the other.
+      const propDirect = proportional(
+        math.parse(`(${tL.toString()})-(${tR.toString()})`),
+        math.parse(`(${sL.toString()})-(${sR.toString()})`),
+      );
+      if (propDirect === true) return "equal";
+      const propSwap = proportional(
+        math.parse(`(${tL.toString()})-(${tR.toString()})`),
+        math.parse(`(${sR.toString()})-(${sL.toString()})`),
+      );
+      if (propSwap === true) return "equal";
       if (nDirect === "not_equal" && nSwap === "not_equal") return "not_equal";
       if (direct === false && swapped === false) return "not_equal";
+      if (propDirect === false && propSwap === false) return "not_equal";
       return "unknown";
+
     }
 
     const sE = tryParse(S.lhs);
