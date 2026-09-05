@@ -7778,6 +7778,44 @@ export type Database = {
           },
         ]
       }
+      speed_record_history: {
+        Row: {
+          assessment_id: string
+          best_ms: number
+          holder_id: string | null
+          holder_kind: string
+          id: string
+          question_id: string
+          set_at: string
+        }
+        Insert: {
+          assessment_id: string
+          best_ms: number
+          holder_id?: string | null
+          holder_kind?: string
+          id?: string
+          question_id: string
+          set_at?: string
+        }
+        Update: {
+          assessment_id?: string
+          best_ms?: number
+          holder_id?: string | null
+          holder_kind?: string
+          id?: string
+          question_id?: string
+          set_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "speed_record_history_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_codes: {
         Row: {
           active: boolean
@@ -9720,6 +9758,40 @@ export type Database = {
       snapshot_subscription_terms: {
         Args: { _plan_id: string; _subscription_id: string }
         Returns: undefined
+      }
+      speed_performance_student: {
+        Args: { _class_id: string }
+        Returns: {
+          assessment_id: string
+          assignment_title: string
+          i_hold_record: boolean
+          my_best_ms: number
+          overall_best_ms: number
+          question_id: string
+          question_label: string
+        }[]
+      }
+      speed_performance_teacher: {
+        Args: { _class_id: string; _notebook_id?: string }
+        Returns: {
+          assessment_id: string
+          assignment_title: string
+          holder_id: string
+          holder_kind: string
+          notebook_id: string
+          overall_best_ms: number
+          question_id: string
+          question_label: string
+          student_best_ms: number
+          student_id: string
+        }[]
+      }
+      speed_records_held: {
+        Args: { _class_id: string }
+        Returns: {
+          records_held: number
+          student_id: string
+        }[]
       }
       start_subscription_period: {
         Args: {
