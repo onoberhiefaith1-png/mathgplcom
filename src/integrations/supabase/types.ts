@@ -6908,6 +6908,7 @@ export type Database = {
           org_id: string | null
           referred_role: string | null
           referred_user_id: string
+          referrer_kind: string | null
           referrer_user_id: string
           registered_at: string
           subscribed_at: string | null
@@ -6919,6 +6920,7 @@ export type Database = {
           org_id?: string | null
           referred_role?: string | null
           referred_user_id: string
+          referrer_kind?: string | null
           referrer_user_id: string
           registered_at?: string
           subscribed_at?: string | null
@@ -6930,6 +6932,7 @@ export type Database = {
           org_id?: string | null
           referred_role?: string | null
           referred_user_id?: string
+          referrer_kind?: string | null
           referrer_user_id?: string
           registered_at?: string
           subscribed_at?: string | null
@@ -7034,6 +7037,7 @@ export type Database = {
           id: string
           is_active: boolean
           org_id: string | null
+          referrer_kind: string | null
           referrer_user_id: string
         }
         Insert: {
@@ -7043,6 +7047,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           org_id?: string | null
+          referrer_kind?: string | null
           referrer_user_id: string
         }
         Update: {
@@ -7052,6 +7057,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           org_id?: string | null
+          referrer_kind?: string | null
           referrer_user_id?: string
         }
         Relationships: [
