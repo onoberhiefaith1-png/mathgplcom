@@ -840,6 +840,32 @@ const handleTextureUpload = useCallback(
                     </div>
                   )}
                 </div>
+                {/* FRAMES — wall-mounted shortcut boards. */}
+                <div className="rounded-xl border border-border/70 bg-card">
+                  <button
+                    type="button"
+                    onClick={() => setBuildingOpen((o) => ({ ...o, frames: !o.frames }))}
+                    className="flex min-h-[44px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
+                  >
+                    Frames
+                    {buildingOpen.frames ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                  {buildingOpen.frames && (
+                    <div className="border-t border-border/60 p-3">
+                      <FrameManager
+                        buildingId={buildingData.building.id}
+                        frames={buildingData.frames}
+                        frameLinks={buildingData.frameLinks}
+                        walkways={buildingData.walkways}
+                        classrooms={buildingData.classrooms}
+                        catalogue={catalogue}
+                        selectedFrameId={selectedFrameId}
+                        onSelectFrame={setSelectedFrameId}
+                        onChanged={refreshBuilding}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -856,8 +882,11 @@ const handleTextureUpload = useCallback(
             focus={focus}
             onFocusChange={setFocus}
             navigateTo={navigateTo}
+            selectedFrameId={selectedFrameId}
+            onFrameSelect={(frame) => setSelectedFrameId(frame.id)}
             editing
           />
+
         ) : (
           <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-300">
             Add a hallway and the corridor builds itself here — then walk into it.
