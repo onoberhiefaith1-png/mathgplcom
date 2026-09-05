@@ -130,7 +130,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
           });
           if (!result.ok) {
             if (result.reason === "unconfirmed") setUnverified(true);
-            if (result.reason === "id_not_found") authErrorTitle = "MathGPL ID not found";
+            if (result.reason === "id_not_found") authErrorTitle = "That ID was not found";
             if (result.reason === "email_not_found") authErrorTitle = "Email not registered";
             if (result.reason === "password_incorrect") authErrorTitle = "Incorrect password";
             if (result.reason === "throttled") authErrorTitle = "Too many attempts";
@@ -296,7 +296,7 @@ const RoleAuthPage = ({ roleKey }: { roleKey: AuthRoleKey }) => {
 
           {mode === "signin" ? (
             <div className="space-y-1.5">
-              <Label htmlFor="mathgpl_id">User ID (MathGPL ID)</Label>
+              <Label htmlFor="mathgpl_id">User ID (your chosen ID or MathGPL ID)</Label>
               <Input
                 id="mathgpl_id"
                 required
