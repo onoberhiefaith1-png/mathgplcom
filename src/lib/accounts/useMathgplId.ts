@@ -7,6 +7,8 @@ export type AccountIdentity = {
   role: string;
   prefix: string;
   acronym: string | null;
+  /** The ID this person chose for themselves, when they have set one. */
+  customId: string | null;
 };
 
 const ACCOUNT_TYPE: Record<string, string> = {
