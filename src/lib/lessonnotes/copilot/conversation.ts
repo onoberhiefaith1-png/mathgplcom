@@ -346,10 +346,16 @@ export function useCoPilotConversation(
         // it identical to the draft the teacher signed off, and stops the model
         // from restating it a second time inside the same block (which used to
         // break the question lock and leave the Solution empty).
-        if (approved && bridge.writeQuestion) {
-          await bridge.writeQuestion(ref, approved, runController.signal);
-        } else {
-          await bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false, runController.signal);
+        const writeIt = () =>
+          approved && bridge.writeQuestion
+            ? bridge.writeQuestion(ref, approved, runController.signal)
+            : bridge.generateQuestion(ref, itemInstruction(item, analysisRef.current, queueRef.current), false, runController.signal);
+        try {
+          await writeIt();
+        } catch (questionError) {
+          if (isAbort(questionError)) throw questionError;
+          // One retry before the item is given up on.
+          await writeIt();
         }
         // THE PROMISED FIGURE. An item whose mathematics needs a diagram gets
         // one constructed and placed here — the blueprint's promise is binding,
