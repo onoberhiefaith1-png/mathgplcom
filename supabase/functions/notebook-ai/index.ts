@@ -607,7 +607,9 @@ Rules:
         { role: "system", content: sys },
         { role: "user", content: user },
       ];
-      let raw = await callAI(messages);
+      const firstDraft = await callAICompleteRich(messages);
+      let raw = firstDraft.content;
+      let truncatedDraft = firstDraft.truncated;
       let parsed = parseSolution(raw);
       let firstLine = parsed.solution[0] ?? "";
       if (!matchesLock(firstLine, lockedProblem)) {
@@ -619,11 +621,13 @@ Your solution[0] was:
 ${firstLine || "(empty)"}
 
 Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sign, variable, or exponent. solution[0] must equal QUESTION_LOCK character-for-character. Return STRICT JSON only.`;
-        raw = await callAI([
+        const lockFix = await callAICompleteRich([
           ...messages,
           { role: "assistant", content: raw },
           { role: "user", content: corrector },
         ]);
+        raw = lockFix.content;
+        truncatedDraft = lockFix.truncated;
         parsed = parseSolution(raw);
         firstLine = parsed.solution[0] ?? "";
         if (!matchesLock(firstLine, lockedProblem)) {
@@ -638,6 +642,48 @@ Regenerate the ENTIRE solution from QUESTION_LOCK. Do not change any number, sig
         }
       }
 
+      // COMPLETENESS GATE — a solution that stops before its final answer is
+      // never returned. One bounded regeneration naming the exact defects,
+      // then a plain refusal instead of half a solution.
+      let completeness = checkSolutionCompleteness(parsed.solution.join("\n"), {
+        truncated: truncatedDraft,
+      });
+      if (!completeness.ok) {
+        const fix = await callAICompleteRich([
+          ...messages,
+          { role: "assistant", content: raw },
+          {
+            role: "user",
+            content:
+              completenessCorrector(completeness, parsed.solution.join("\n")) +
+              "\n\nReturn STRICT JSON only, in the same shape as before.",
+          },
+        ]);
+        const retryParsed = parseSolution(fix.content);
+        const retryCheck = checkSolutionCompleteness(retryParsed.solution.join("\n"), {
+          truncated: fix.truncated,
+        });
+        if (
+          retryCheck.ok &&
+          matchesLock(retryParsed.solution[0] ?? "", lockedProblem)
+        ) {
+          parsed = retryParsed;
+          completeness = retryCheck;
+        }
+      }
+      if (!completeness.ok) {
+        console.warn("[notebook-ai] incomplete solution refused:", completeness.defects);
+        return new Response(
+          JSON.stringify({
+            error: "incomplete_solution",
+            detail:
+              "The solution did not come through complete, so it was not written to the note. " +
+              completeness.defects[0],
+            defects: completeness.defects,
+          }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
 
       return new Response(
         JSON.stringify({
