@@ -13,8 +13,10 @@
 //     below it, the lower one — and then the next, and the next — is pushed down
 //     by the exact deficit plus a small gap. The session that grew stays put.
 //
-// Diagram frames are deliberately excluded: a diagram is a free object and may
-// overlap a session, exactly as specified.
+// Diagram frames stay free objects (they may be dragged, and they never push
+// another session down), but they DO reserve their measured height inside the
+// section that owns them. That reserved band is why equations, working and
+// solution steps always begin below the figure instead of running across it.
 
 import type { Editor } from "@tiptap/react";
 import { editorZoom, isObjectDragging } from "./objectDrag";
