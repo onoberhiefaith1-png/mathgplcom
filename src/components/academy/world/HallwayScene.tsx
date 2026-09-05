@@ -4161,8 +4161,12 @@ const HallwayScene = ({
             doorVisual={insideRoom.doorVisual}
             onLeave={leaveClassroom}
             onScreenSelect={() => setScreenPanelOpen((o) => !o)}
-
+            frames={frames.filter((f) => f.classroom_id === insideRoom.room.id)}
+            frameLinkCounts={frameLinkCounts}
+            selectedFrameId={selectedFrameId}
+            onFrameSelect={pickFrame}
           />
+
         )}
 
         <CameraRig
