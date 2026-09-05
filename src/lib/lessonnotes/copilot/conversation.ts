@@ -435,19 +435,26 @@ export function useCoPilotConversation(
           setStage("idle");
           return;
         }
+        // ONE FAILED ITEM STAYS ONE FAILED ITEM. The rest of the queue is still
+        // built, so a seven-item lesson can never end up half written because a
+        // single question misbehaved.
         const detail = e instanceof Error ? e.message : String(e);
         mark(item.key, { state: "failed", detail });
-        if (abortRef.current === runController) abortRef.current = null;
-        finishWorking("failed");
-        setStage("idle");
-        say(`I stopped at ${item.label}. ${detail} Everything built before it is untouched — tell me how you'd like to proceed.`);
-        return;
+        failures.push(`${item.label}: ${detail}`);
+        say(`${item.label} did not come through (${detail}). I'm carrying on with the rest and will list it at the end.`);
+        continue;
       }
     }
 
     if (abortRef.current === runController) abortRef.current = null;
-    finishWorking();
+    finishWorking(failures.length ? "failed" : undefined);
     setStage("idle");
+    if (failures.length) {
+      say(
+        `The rest of the lesson is built. These need another go:\n${failures.map((f) => `• ${f}`).join("\n")}\nSay "rebuild" and name the one you want and I'll redo just that item.`,
+      );
+      return;
+    }
     try {
       const data = await ask({
         stage: "chat",
