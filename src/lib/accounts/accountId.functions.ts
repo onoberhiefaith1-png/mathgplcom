@@ -41,27 +41,14 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const ids = await import("./accountIds.server");
     const entry = data.mathgplId.trim();
     const issued = normaliseId(entry);
 
     // A chosen ID first, then the permanent issued one.
     let userId: string | null = null;
-    if (!entry.includes("/")) {
-      const { data: chosen } = await supabaseAdmin
-        .from("account_ids")
-        .select("user_id")
-        .ilike("custom_id", entry)
-        .maybeSingle();
-      userId = chosen?.user_id ?? null;
-    }
-    if (!userId && ID_PATTERN.test(issued)) {
-      const { data: row } = await supabaseAdmin
-        .from("account_ids")
-        .select("user_id")
-        .eq("mathgpl_id", issued)
-        .maybeSingle();
-      userId = row?.user_id ?? null;
-    }
+    if (!entry.includes("/")) userId = await ids.userIdByCustomId(entry);
+    if (!userId && ID_PATTERN.test(issued)) userId = await ids.userIdByIssuedId(issued);
     if (!userId) {
       return { ok: false, reason: "id_not_found", message: ID_NOT_FOUND_MESSAGE };
     }
