@@ -347,8 +347,13 @@ async function llmVerdict(teacher: string, student: string): Promise<Verdict> {
     "Accept algebraic rearrangement, expansion, factoring, arithmetic",
     "evaluation, side-swaps of equations, and any equivalent form.",
     "Reject anything that changes the mathematical relationship.",
+    "A line that is simply true on its own (for example '2 = 2', '1 + 1 = 2',",
+    "'x = x') is NOT equivalent unless it states the same thing as the TEACHER",
+    "line. Reject any line about different quantities, different letters, or a",
+    "different problem, even when that line is true.",
     'Reply with ONLY compact JSON: {"equivalent": true} or {"equivalent": false}.',
   ].join(" ");
+
   const user = `TEACHER line: ${teacher}\nSTUDENT line: ${student}`;
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -394,5 +399,27 @@ export async function equivalent(
   if (!t || !s) return "unknown";
   const det = deterministicVerdict(t, s);
   if (det !== "unknown") return det;
-  return await llmVerdict(t, s);
+  const ai = await llmVerdict(t, s);
+  if (ai !== "equal") return ai;
+  // The AI never overrides the hard guards: a foreign letter or a line that
+  // says nothing is still wrong, whatever the model replies.
+  if (structurallyIdentical(t, s)) return "equal";
+  if (usesForeignSymbol(t, s)) return "not_equal";
+  const T = splitEq(normalize(t));
+  const S = splitEq(normalize(s));
+  if (S.rhs !== null) {
+    const sL = tryParse(S.lhs); const sR = tryParse(S.rhs);
+    if (sL && sR && isVacuousEquation(sL, sR)) {
+      const tL = T.rhs !== null ? tryParse(T.lhs) : null;
+      const tR = T.rhs !== null ? tryParse(T.rhs) : null;
+      const teacherVacuous = !!tL && !!tR && isVacuousEquation(tL, tR);
+      if (!teacherVacuous) return "not_equal";
+      const ok =
+        (expressionsEqual(tL, sL) && expressionsEqual(tR, sR)) ||
+        (expressionsEqual(tL, sR) && expressionsEqual(tR, sL));
+      if (!ok) return "not_equal";
+    }
+  }
+  return "equal";
 }
+
