@@ -161,7 +161,20 @@ export const verifyRoomLock = createServerFn({ method: "POST" })
     // No lock on this room: nothing to unlock, and nothing to refuse either.
     if (!lock?.code_hash) return free;
 
-    const max = lock.max_attempts ?? null;
+    // THE PEOPLE WHO SET THE CODE ARE NEVER SHUT OUT BY IT. Someone who can edit
+    // this building is testing their own door, so the attempt limit — and any
+    // wait already running — simply does not apply to them.
+    let canEdit = false;
+    try {
+      const { data: allowed } = await context.supabase.rpc("can_edit_building", {
+        _building_id: await buildingOfRoom(data.roomId),
+      });
+      canEdit = !!allowed;
+    } catch {
+      canEdit = false;
+    }
+
+    const max = canEdit ? null : (lock.max_attempts ?? null);
     const waitMinutes = max ? (lock.retry_after_minutes ?? 1440) : null;
     const userId = context.userId;
 
