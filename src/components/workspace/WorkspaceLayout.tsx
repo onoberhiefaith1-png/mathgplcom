@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bell, ChevronLeft, ChevronRight, Menu, Search, X } from "lucide-react";
+import { Bell, ChevronLeft, ChevronRight, Info, Menu, Search, X } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "@/lib/router-compat";
 import { useNavHistory } from "@/lib/nav/NavHistory";
@@ -11,6 +11,8 @@ import { useMathgplId } from "@/lib/accounts/useMathgplId";
 import { useProfileSummary } from "@/lib/accounts/useProfileSummary";
 import { useConnectionCounts } from "@/lib/connections/useConnections";
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
+import CreditsBadge from "@/components/plans/CreditsBadge";
+
 import AccountAvatar from "@/components/accounts/AccountAvatar";
 import WorkspaceGoLive from "./WorkspaceGoLive";
 import { navGroupsFor } from "./workspaceNav";
@@ -30,13 +32,29 @@ const WorkspaceLayout = ({
   title,
   subtitle,
   rail,
+  collapsibleNav = false,
+  railMode = "column",
+  onRailIconClick,
+  keepNavOpen = false,
+  bottomInset = 0,
   children,
 }: {
   title: string;
   subtitle?: string;
   rail?: ReactNode;
+  /** Closed-by-default navigation: no permanent column, drawer on every width. */
+  collapsibleNav?: boolean;
+  /** "drawer" keeps the rail out of the layout until the info icon opens it. */
+  railMode?: "column" | "drawer";
+  /** When given, the header info icon calls this instead of opening the rail drawer. */
+  onRailIconClick?: () => void;
+  /** Selecting a navigation item leaves the panel open — a workspace, not a menu. */
+  keepNavOpen?: boolean;
+  /** Space reserved at the bottom for a viewport-fixed application bar, in px. */
+  bottomInset?: number;
   children: ReactNode;
 }) => {
+
   const { role } = useAccount();
   const { kind, active, viewOnly } = useWorkspace();
   const { mathgplId } = useMathgplId();
@@ -48,11 +66,16 @@ const WorkspaceLayout = ({
 
   const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
+  const [railOpen, setRailOpen] = useState(false);
   const [term, setTerm] = useState("");
+  const railDrawer = railMode === "drawer" && Boolean(rail);
+  const showRailIcon = railDrawer || Boolean(onRailIconClick);
+
 
   const shared = Boolean(active && !active.isOwner && active.kind === "school" && role === "teacher");
   const groups = navGroupsFor(role, kind, { shared });
   const path = location.pathname ?? "";
+  const panel = new URLSearchParams((location.search ?? "").replace(/^\?+/, "")).get("panel");
 
   const search = (event: React.FormEvent) => {
     event.preventDefault();
@@ -97,13 +120,18 @@ const WorkspaceLayout = ({
             </div>
             <ul className="space-y-1">
               {group.items.map((item) => {
-                const base = item.to.split("?")[0];
-                const activeItem = base === "/" ? path === "/" : path === base;
+                const [base, query = ""] = item.to.split("?");
+                const itemPanel = new URLSearchParams(query).get("panel");
+                const samePath = base === "/" ? path === "/" : path === base;
+                // A panel entry is only current when its own panel is showing.
+                const activeItem = samePath && (itemPanel ? itemPanel === panel : !panel || base !== path);
                 return (
                   <li key={item.to + item.label}>
                     <Link
                       to={item.to}
-                      onClick={() => setNavOpen(false)}
+                      onClick={() => {
+                        if (!keepNavOpen) setNavOpen(false);
+                      }}
                       className={`flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2 text-sm transition ${
                         activeItem
                           ? "border border-ws-gold/40 bg-gradient-to-r from-ws-gold/20 to-ws-violet/10 text-foreground"
@@ -131,19 +159,42 @@ const WorkspaceLayout = ({
       style={{ backgroundImage: "var(--gradient-ws-canvas)" }}
     >
       <div className="flex w-full">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-ws-border/70 bg-ws-canvas/70 backdrop-blur lg:block">
-          {nav}
-        </aside>
+        {!collapsibleNav && (
+          <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-ws-border/70 bg-ws-canvas/70 backdrop-blur lg:block">
+            {nav}
+          </aside>
+        )}
+
+        {navOpen && collapsibleNav && (
+          <aside
+            className="relative sticky top-0 hidden h-screen w-72 shrink-0 overflow-y-auto border-r border-ws-border/70 bg-ws-canvas/70 lg:block"
+
+            style={bottomInset ? { paddingBottom: bottomInset } : undefined}
+          >
+            <button
+              type="button"
+              aria-label="Close navigation"
+              onClick={() => setNavOpen(false)}
+              className="absolute right-3 top-3 rounded-md p-2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {nav}
+          </aside>
+        )}
 
         {navOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
             <button
               type="button"
               aria-label="Close navigation"
-              className="absolute inset-0 bg-ws-canvas/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-ws-canvas/60"
               onClick={() => setNavOpen(false)}
             />
-            <aside className="absolute left-0 top-0 h-full w-72 border-r border-ws-border bg-ws-canvas shadow-2xl">
+            <aside
+              className="absolute left-0 top-0 h-full w-72 overflow-y-auto border-r border-ws-border bg-ws-canvas shadow-2xl"
+              style={bottomInset ? { paddingBottom: bottomInset } : undefined}
+            >
               <button
                 type="button"
                 aria-label="Close navigation"
@@ -157,14 +208,17 @@ const WorkspaceLayout = ({
           </div>
         )}
 
+
         <div className="min-w-0 flex-1">
           <header className="sticky top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-ws-border/70 bg-ws-canvas/80 px-4 py-3 backdrop-blur sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
-                aria-label="Open navigation"
-                onClick={() => setNavOpen(true)}
-                className="rounded-md p-2 text-muted-foreground hover:text-foreground lg:hidden"
+                aria-label={navOpen ? "Close navigation" : "Open navigation"}
+                aria-expanded={navOpen}
+                onClick={() => setNavOpen((v) => !v)}
+                className={`rounded-md p-2 text-muted-foreground hover:text-foreground ${collapsibleNav ? "" : "lg:hidden"}`}
+
               >
                 <Menu className="h-5 w-5" />
               </button>
@@ -207,7 +261,22 @@ const WorkspaceLayout = ({
                   />
                 </label>
               </form>
+              {showRailIcon && (
+                <button
+                  type="button"
+                  aria-label="Open progress and Go Live"
+                  title="Progress and Go Live"
+                  aria-expanded={onRailIconClick ? undefined : railOpen}
+                  onClick={() => (onRailIconClick ? onRailIconClick() : setRailOpen((v) => !v))}
+                  className="rounded-md p-2 text-muted-foreground transition hover:bg-ws-panel hover:text-foreground"
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+              )}
+
+              {role !== "student" && <CreditsBadge />}
               <WorkspaceSwitcher compact />
+
               <Link
                 to="/requests"
                 aria-label="Requests"
@@ -240,10 +309,37 @@ const WorkspaceLayout = ({
             </div>
           )}
 
-          <div className="mx-auto grid w-full max-w-[1500px] grid-cols-1 gap-6 px-4 py-6 sm:px-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <div
+            className={`mx-auto grid w-full max-w-[1500px] grid-cols-1 gap-6 px-4 py-6 sm:px-6 ${
+              rail && !railDrawer ? "xl:grid-cols-[minmax(0,1fr)_20rem]" : ""
+            }`}
+            style={bottomInset ? { paddingBottom: bottomInset } : undefined}
+          >
             <main className="min-w-0 space-y-6">{children}</main>
-            {rail && <aside className="min-w-0 space-y-4">{rail}</aside>}
+            {rail && !railDrawer && <aside className="min-w-0 space-y-4">{rail}</aside>}
           </div>
+
+          {railDrawer && railOpen && (
+            <div className="fixed inset-0 z-50">
+              <button
+                type="button"
+                aria-label="Close progress panel"
+                className="absolute inset-0 bg-ws-canvas/80 backdrop-blur-sm"
+                onClick={() => setRailOpen(false)}
+              />
+              <aside className="absolute right-0 top-0 h-full w-[22rem] max-w-[90vw] overflow-y-auto border-l border-ws-border bg-ws-canvas p-5 pt-14 shadow-2xl">
+                <button
+                  type="button"
+                  aria-label="Close progress panel"
+                  onClick={() => setRailOpen(false)}
+                  className="absolute right-3 top-3 rounded-md p-2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <div className="space-y-4">{rail}</div>
+              </aside>
+            </div>
+          )}
         </div>
       </div>
     </div>
