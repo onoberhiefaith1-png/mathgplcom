@@ -28,7 +28,7 @@ import {
 import HallwayScene from "@/components/academy/world/HallwayScene";
 import BuildingSettingsPanel from "@/components/academy/editor/BuildingSettingsPanel";
 import WalkwayManager from "@/components/academy/editor/WalkwayManager";
-import { removeRoomLock, setRoomLock } from "@/lib/building/lock.functions";
+import { removeRoomLock, resetRoomLockAttempts, setRoomLock } from "@/lib/building/lock.functions";
 import { indexLocksByRoom } from "@/lib/building/lock";
 import type { LockCharset } from "@/lib/building/lock";
 import { createSampleMaze } from "@/lib/building/sampleMaze";
@@ -745,6 +745,13 @@ const handleTextureUpload = useCallback(
                           await removeRoomLock({ data: { roomId } });
                           toast({ title: "Lock removed", description: "This room opens without a code." });
                           await refreshBuilding();
+                        }}
+                        onResetRoomLockAttempts={async (roomId) => {
+                          await resetRoomLockAttempts({ data: { roomId } });
+                          toast({
+                            title: "Attempts cleared",
+                            description: "The panel accepts codes again straight away.",
+                          });
                         }}
                         onSaveOverrides={async (id, overrides) => {
                           const [kind, rowId] = id.split(":");
