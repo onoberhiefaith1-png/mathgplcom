@@ -22,6 +22,7 @@ export const id: Catalogue = {
   nav_account_go_live: "Akun & Tayang",
   nav_settings: "Pengaturan",
   nav_overview: "Ringkasan",
+  nav_referral: "Rekomendasikan & Dapatkan",
   nav_credits: "Kredit & Keuangan",
   nav_usage_revenue: "Penggunaan & Pendapatan",
   nav_my_schools: "Sekolah Saya",

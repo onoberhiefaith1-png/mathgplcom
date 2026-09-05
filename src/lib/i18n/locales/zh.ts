@@ -22,6 +22,7 @@ export const zh: Catalogue = {
   nav_account_go_live: "账户与开通",
   nav_settings: "设置",
   nav_overview: "概览",
+  nav_referral: "推荐赚奖励",
   nav_credits: "点数与收支",
   nav_usage_revenue: "使用与收入",
   nav_my_schools: "我的学校",

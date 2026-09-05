@@ -22,6 +22,7 @@ export const ja: Catalogue = {
   nav_account_go_live: "アカウントと公開",
   nav_settings: "設定",
   nav_overview: "概要",
+  nav_referral: "紹介して特典を獲得",
   nav_credits: "クレジットと収支",
   nav_usage_revenue: "利用状況と収益",
   nav_my_schools: "所属校",

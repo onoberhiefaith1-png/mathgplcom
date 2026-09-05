@@ -22,6 +22,7 @@ export const hi: Catalogue = {
   nav_account_go_live: "खाता और लाइव",
   nav_settings: "सेटिंग्स",
   nav_overview: "अवलोकन",
+  nav_referral: "रेफ़र करें और कमाएँ",
   nav_credits: "क्रेडिट और वित्त",
   nav_usage_revenue: "उपयोग और आय",
   nav_my_schools: "मेरे विद्यालय",

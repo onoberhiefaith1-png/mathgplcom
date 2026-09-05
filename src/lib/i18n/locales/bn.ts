@@ -22,6 +22,7 @@ export const bn: Catalogue = {
   nav_account_go_live: "অ্যাকাউন্ট ও লাইভ",
   nav_settings: "সেটিংস",
   nav_overview: "সারসংক্ষেপ",
+  nav_referral: "রেফার করুন ও আয় করুন",
   nav_credits: "ক্রেডিট ও হিসাব",
   nav_usage_revenue: "ব্যবহার ও আয়",
   nav_my_schools: "আমার বিদ্যালয়",

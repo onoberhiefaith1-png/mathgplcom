@@ -27,6 +27,7 @@ export const en = {
   nav_account_go_live: "Account & Go Live",
   nav_settings: "Settings",
   nav_overview: "Overview",
+  nav_referral: "Refer & Earn",
   nav_credits: "Credits & Economics",
   nav_usage_revenue: "Usage & Revenue",
   nav_my_schools: "My Schools",

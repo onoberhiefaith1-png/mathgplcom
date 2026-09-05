@@ -22,6 +22,7 @@ export const ru: Catalogue = {
   nav_account_go_live: "Аккаунт и публикация",
   nav_settings: "Настройки",
   nav_overview: "Обзор",
+  nav_referral: "Приглашайте и получайте",
   nav_credits: "Кредиты и финансы",
   nav_usage_revenue: "Использование и доход",
   nav_my_schools: "Мои школы",

@@ -22,6 +22,7 @@ export const ar: Catalogue = {
   nav_account_go_live: "الحساب والنشر",
   nav_settings: "الإعدادات",
   nav_overview: "نظرة عامة",
+  nav_referral: "وصِّ واكسب",
   nav_credits: "الأرصدة والحسابات",
   nav_usage_revenue: "الاستخدام والإيرادات",
   nav_my_schools: "مدارسي",

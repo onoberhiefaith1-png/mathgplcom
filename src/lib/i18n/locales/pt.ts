@@ -22,6 +22,7 @@ export const pt: Catalogue = {
   nav_account_go_live: "Conta e publicação",
   nav_settings: "Configurações",
   nav_overview: "Visão geral",
+  nav_referral: "Indique e ganhe",
   nav_credits: "Créditos e finanças",
   nav_usage_revenue: "Uso e receita",
   nav_my_schools: "Minhas escolas",

@@ -209,8 +209,6 @@ const RequestsPage = () => {
   const [params] = useSearchParams();
   const viewParam = params.get("view");
   const view = isView(viewParam) ? viewParam : null;
-  const { role } = useAccount();
-
   const [tab, setTab] = useState<TabKey>(view ? "accepted" : "incoming");
   useEffect(() => setTab(view ? "accepted" : "incoming"), [view]);
 
