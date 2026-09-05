@@ -4251,6 +4251,37 @@ const HallwayScene = ({
           );
         })}
 
+        {/* SHORTCUT FRAMES IN THE HALLWAYS — hung flat on the wall of the
+            hallway they belong to, only for hallways you can actually see. */}
+        {!insideRoom && (
+          <Suspense fallback={null}>
+            {segments
+              .filter((seg) => nearbyIds.has(seg.walkway?.id ?? "root"))
+              .flatMap((seg) => {
+                const own = framesByWalkway.get(seg.walkway?.id ?? "") ?? [];
+                if (own.length === 0) return [];
+                return [
+                  <group
+                    key={`frames-${seg.walkway?.id ?? "root"}`}
+                    position={[seg.start[0], 0, seg.start[1]]}
+                    rotation-y={segYaw(seg.heading)}
+                  >
+                    {own.map((frame) => (
+                      <FrameBoard
+                        key={frame.id}
+                        frame={frame}
+                        mount={hallFrameMount(frame, seg.length, HALL_WIDTH, HALL_HEIGHT)}
+                        selected={selectedFrameId === frame.id}
+                        linkCount={frameLinkCounts[frame.id] ?? 0}
+                        onSelect={pickFrame}
+                      />
+                    ))}
+                  </group>,
+                ];
+              })}
+          </Suspense>
+        )}
+
 
         {/* Doors and sub-hallway openings — only for the hallway you are in and
             the ones it connects to, so distant labels never ghost through walls */}
