@@ -330,6 +330,9 @@ export type Database = {
         Row: {
           acronym: string | null
           created_at: string
+          custom_id: string | null
+          custom_id_history: Json
+          custom_id_updated_at: string | null
           id: string
           mathgpl_id: string
           org_id: string | null
@@ -342,6 +345,9 @@ export type Database = {
         Insert: {
           acronym?: string | null
           created_at?: string
+          custom_id?: string | null
+          custom_id_history?: Json
+          custom_id_updated_at?: string | null
           id?: string
           mathgpl_id: string
           org_id?: string | null
@@ -354,6 +360,9 @@ export type Database = {
         Update: {
           acronym?: string | null
           created_at?: string
+          custom_id?: string | null
+          custom_id_history?: Json
+          custom_id_updated_at?: string | null
           id?: string
           mathgpl_id?: string
           org_id?: string | null
@@ -6733,6 +6742,8 @@ export type Database = {
           homepage_config: Json
           is_live: boolean
           last_name: string | null
+          managed_by_org_id: string | null
+          managed_by_user_id: string | null
           marketing_opt_in: boolean
           mathgpl_student_id: string | null
           rejected_retention_hours: number
@@ -6759,6 +6770,8 @@ export type Database = {
           homepage_config?: Json
           is_live?: boolean
           last_name?: string | null
+          managed_by_org_id?: string | null
+          managed_by_user_id?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
           rejected_retention_hours?: number
@@ -6785,6 +6798,8 @@ export type Database = {
           homepage_config?: Json
           is_live?: boolean
           last_name?: string | null
+          managed_by_org_id?: string | null
+          managed_by_user_id?: string | null
           marketing_opt_in?: boolean
           mathgpl_student_id?: string | null
           rejected_retention_hours?: number
@@ -6800,6 +6815,13 @@ export type Database = {
           {
             foreignKeyName: "profiles_active_org_id_fkey"
             columns: ["active_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_managed_by_org_id_fkey"
+            columns: ["managed_by_org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
