@@ -510,6 +510,9 @@ import { toast } from "sonner";
 
 import type { ClassroomKind } from "@/lib/building/types";
 import { resolveSurfaces } from "@/lib/building/resolve";
+import FrameBoard from "./FrameBoard";
+import FramePanel from "./FramePanel";
+import { hallFrameMount, type BuildingFrame } from "@/lib/building/frames";
 
 
 
@@ -2575,6 +2578,16 @@ export interface HallwaySceneProps {
   /** True in the building editor: unlocks Edit Mode surfaces such as the smart
    *  screen's content panel. View mode users only ever watch. */
   editing?: boolean;
+  /**
+   * A FRAME is a shortcut to content that already exists: picking an item from
+   * one opens that item's own experience, which is the page's job, not the
+   * scene's. Without this the frame simply does nothing.
+   */
+  onOpenFrameContent?: (kind: AcademyProduct["kind"], id: string) => void;
+  /** Editor only: clicking a frame selects it for moving/resizing instead. */
+  onFrameSelect?: (frame: BuildingFrame) => void;
+  /** The frame currently being positioned in the editor. */
+  selectedFrameId?: string | null;
 }
 
 const HallwayScene = ({
@@ -2589,6 +2602,9 @@ const HallwayScene = ({
   onExitBuilding,
   navigateTo = null,
   editing = false,
+  onOpenFrameContent,
+  onFrameSelect,
+  selectedFrameId = null,
 }: HallwaySceneProps) => {
   const [eventSource, setEventSource] = useState<HTMLDivElement | null>(null);
   // Saved configuration is the source of truth: merge it field-by-field over
@@ -2602,6 +2618,61 @@ const HallwayScene = ({
   const doors = building?.doors ?? [];
   /** Hallway-to-hallway connections, so the building can loop back on itself. */
   const links = building?.links ?? [];
+  /** Shortcut boards on the walls, and the items each one points at. */
+  const frames = building?.frames ?? [];
+  const frameLinks = building?.frameLinks ?? [];
+  const linksByFrame = useMemo(() => {
+    const map = new Map<string, typeof frameLinks>();
+    for (const l of frameLinks) {
+      const arr = map.get(l.frame_id) ?? [];
+      arr.push(l);
+      map.set(l.frame_id, arr);
+    }
+    for (const arr of map.values()) arr.sort((a, b) => a.position - b.position);
+    return map;
+  }, [frameLinks]);
+  const frameLinkCounts = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const f of frames) out[f.id] = linksByFrame.get(f.id)?.length ?? 0;
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frames, linksByFrame]);
+  const framesByWalkway = useMemo(() => {
+    const map = new Map<string, BuildingFrame[]>();
+    for (const f of frames) {
+      if (!f.walkway_id) continue;
+      const arr = map.get(f.walkway_id) ?? [];
+      arr.push(f);
+      map.set(f.walkway_id, arr);
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frames]);
+  /** The frame a student opened: one item opens straight away, many list out. */
+  const [openFrame, setOpenFrame] = useState<BuildingFrame | null>(null);
+
+  /**
+   * Clicking a frame. In the editor it is picked up for moving; for everyone
+   * else it opens what is behind it — straight through when there is only one
+   * item, otherwise a short list to choose from.
+   */
+  const pickFrame = useCallback(
+    (frame: BuildingFrame) => {
+      if (editing && onFrameSelect) {
+        onFrameSelect(frame);
+        return;
+      }
+      const items = linksByFrame.get(frame.id) ?? [];
+      if (items.length === 1 && onOpenFrameContent) {
+        onOpenFrameContent(items[0].content_kind, items[0].content_id);
+        return;
+      }
+      setOpenFrame(frame);
+    },
+    [editing, onFrameSelect, linksByFrame, onOpenFrameContent],
+  );
+
+
 
   const productTitles = useMemo(() => {
     const out: Record<string, string> = {};

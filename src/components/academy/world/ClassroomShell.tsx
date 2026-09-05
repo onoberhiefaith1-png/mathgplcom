@@ -13,15 +13,17 @@
  * Surfaces come from `resolveSurfaces`, so a classroom follows the building's
  * Default Settings until its owner gives it Individual Settings.
  */
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import * as THREE from "three";
 import { Text } from "@react-three/drei";
 import { Surface } from "./surface";
 import SmartScreen from "./SmartScreen";
 import RoomDoor, { type RoomDoorVisual } from "./RoomDoor";
+import FrameBoard from "./FrameBoard";
 
 import { screenMount } from "@/lib/building/screen";
 import { classroomDimensions } from "@/lib/building/classroom";
+import { roomFrameMount, type BuildingFrame } from "@/lib/building/frames";
 import type { ClassroomKind, EnvironmentSettings } from "@/lib/building/types";
 
 const surfaceProps = (
@@ -67,7 +69,15 @@ export interface ClassroomShellProps {
   onLeave?: () => void;
   /** Clicking the smart screen glass — opens the screen's own panel. */
   onScreenSelect?: () => void;
+  /** Shortcut boards the teacher hung on this room's walls. */
+  frames?: BuildingFrame[];
+  /** How many learning items each frame points at, keyed by frame id. */
+  frameLinkCounts?: Record<string, number>;
+  /** The frame being positioned in the editor, highlighted while selected. */
+  selectedFrameId?: string | null;
+  onFrameSelect?: (frame: BuildingFrame) => void;
 }
+
 
 
 /**
@@ -174,6 +184,10 @@ const ClassroomShell = ({
   doorVisual = null,
   onLeave,
   onScreenSelect,
+  frames = [],
+  frameLinkCounts = {},
+  selectedFrameId = null,
+  onFrameSelect,
 }: ClassroomShellProps) => {
 
   const dims = useMemo(() => classroomDimensions(kind), [kind]);
@@ -324,6 +338,21 @@ const ClassroomShell = ({
           />
         ));
       })}
+
+      {/* SHORTCUT FRAMES — bolted flat to the wall the teacher chose. They are
+          objects in the room, never part of a wall's surface design. */}
+      <Suspense fallback={null}>
+        {frames.map((frame) => (
+          <FrameBoard
+            key={frame.id}
+            frame={frame}
+            mount={roomFrameMount(frame, kind)}
+            selected={selectedFrameId === frame.id}
+            linkCount={frameLinkCounts[frame.id] ?? 0}
+            onSelect={onFrameSelect}
+          />
+        ))}
+      </Suspense>
 
 
       {/* SMART SCREEN — the teaching display built into every room. */}

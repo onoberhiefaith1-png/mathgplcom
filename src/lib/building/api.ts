@@ -27,6 +27,7 @@ import type {
   WalkwayDirection,
 } from "./types";
 import type { RoomLock } from "./lock";
+import { listFrameLinks, listFrames } from "./frames";
 import { productRoute } from "@/lib/academy/types";
 import { isBuiltinTexturePath } from "./gallery";
 
@@ -113,6 +114,12 @@ export async function loadBuildingData(building: Building): Promise<BuildingData
     .from("building_room_locks")
     .select("id, building_id, classroom_id, charset, code_length, max_attempts, retry_after_minutes")
     .eq("building_id", building.id);
+  // Shortcut boards and the items they point at. Links are references only, so
+  // reading them never touches the courses/adventures themselves.
+  const [frames, frameLinks] = await Promise.all([
+    listFrames(building.id),
+    listFrameLinks(building.id),
+  ]);
 fail(walkRes.error);
   fail(doorRes.error);
   fail(linkRes.error);
@@ -124,6 +131,8 @@ fail(walkRes.error);
     links: (linkRes.data ?? []) as unknown as BuildingWalkwayLink[],
     classrooms: (classRes.data ?? []) as unknown as BuildingClassroom[],
     locks: (lockRes.data ?? []) as unknown as RoomLock[],
+    frames,
+    frameLinks,
     canEdit,
   };
 }
