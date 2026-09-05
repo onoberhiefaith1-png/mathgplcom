@@ -6751,6 +6751,8 @@ export type Database = {
           subjects_taught: string | null
           terms_accepted_at: string | null
           time_zone: string | null
+          ui_language: string
+          ui_languages: string[]
           updated_at: string
           user_id: string
           username: string | null
@@ -6779,6 +6781,8 @@ export type Database = {
           subjects_taught?: string | null
           terms_accepted_at?: string | null
           time_zone?: string | null
+          ui_language?: string
+          ui_languages?: string[]
           updated_at?: string
           user_id: string
           username?: string | null
@@ -6807,6 +6811,8 @@ export type Database = {
           subjects_taught?: string | null
           terms_accepted_at?: string | null
           time_zone?: string | null
+          ui_language?: string
+          ui_languages?: string[]
           updated_at?: string
           user_id?: string
           username?: string | null
