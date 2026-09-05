@@ -34,6 +34,8 @@ interface FrameBox {
   y: number;
   h: number;
   spacerId: string | null;
+  /** True for a diagram frame: it reserves space but is never pushed. */
+  isDiagram: boolean;
 }
 
 function collectSessionFrames(editor: Editor): FrameBox[] {
@@ -41,9 +43,7 @@ function collectSessionFrames(editor: Editor): FrameBox[] {
   const out: FrameBox[] = [];
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name !== "canvasFrame") return true;
-    // Diagrams are free objects — they never take part in text spacing. All
-    // other frames now reserve their own height through normal browser flow.
-    if (node.attrs.objectKind === "diagram") return false;
+    const isDiagram = node.attrs.objectKind === "diagram";
     const dom = editor.view.nodeDOM(pos) as HTMLElement | null;
     const h = dom ? dom.getBoundingClientRect().height / (z || 1) : 0;
     out.push({
@@ -51,6 +51,7 @@ function collectSessionFrames(editor: Editor): FrameBox[] {
       y: dom ? dom.offsetTop : Number(node.attrs.y) || 0,
       h,
       spacerId: (node.attrs.spacerId as string | null) ?? null,
+      isDiagram,
     });
     return false;
   });
@@ -64,15 +65,19 @@ export function runSessionLayout(editor: Editor) {
   if (!frames.length) return;
 
   // Reserved height per spacer id, from the frame's real measured height.
+  // A diagram reserves its band here too, so the equations and solution steps
+  // that follow it in the section start below the figure, never across it.
   const reserve = new Map<string, number>();
   for (const f of frames) {
     if (f.spacerId) reserve.set(f.spacerId, Math.round(f.h + GAP));
   }
 
-  // Cascading push: keep every session below the one above it.
+  // Cascading push: keep every session below the one above it. A diagram is a
+  // free object: it contributes no floor and is never moved by the guard.
   const nextY = new Map<number, number>();
   let floor: number | null = null;
   for (const f of frames) {
+    if (f.isDiagram) continue;
     let y = f.y;
     if (floor != null && y < floor - EPS) y = floor;
     if (Math.abs(y - f.y) > EPS) nextY.set(f.pos, y);
