@@ -36,7 +36,8 @@ const OPEN_ENDED_TAIL =
 const ABBREVIATION = /(?:and so on|continue similarly|steps omitted|etc\.?$|…|\.\.\.)/i;
 
 /** Final-answer shapes we accept: "name = value", "≈", "Answer:", a bare value. */
-const ANSWER_LINE = /(?:=|≈|≡|:)\s*[^\s=]+\s*$|^\s*(?:answer|therefore|hence|∴)/i;
+const ANSWER_LINE =
+  /(?:=|≈|≡|:)\s*[^=\s][^=]*$|^\s*(?:answer|therefore|hence|∴|the\s)/i;
 
 export interface SolutionCompletenessResult {
   ok: boolean;
