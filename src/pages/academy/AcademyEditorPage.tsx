@@ -28,6 +28,7 @@ import {
 import HallwayScene from "@/components/academy/world/HallwayScene";
 import BuildingSettingsPanel from "@/components/academy/editor/BuildingSettingsPanel";
 import WalkwayManager from "@/components/academy/editor/WalkwayManager";
+import FrameManager from "@/components/academy/editor/FrameManager";
 import { removeRoomLock, resetRoomLockAttempts, setRoomLock } from "@/lib/building/lock.functions";
 import { indexLocksByRoom } from "@/lib/building/lock";
 import type { LockCharset } from "@/lib/building/lock";
@@ -234,6 +235,8 @@ const AcademyEditorPage = () => {
   const [textures, setTextures] = useState<Record<string, string>>({});
   const [buildingOpen, setBuildingOpen] = useState<Record<string, boolean>>({ env: true, walk: true });
   const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
+  /** The frame being positioned; it lights up in the live world. */
+  const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
   /** Hallway the live preview should walk into (set after creating one). */
   const [navigateTo, setNavigateTo] = useState<string | null>(null);
   const doorPosTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -840,6 +843,32 @@ const handleTextureUpload = useCallback(
                     </div>
                   )}
                 </div>
+                {/* FRAMES — wall-mounted shortcut boards. */}
+                <div className="rounded-xl border border-border/70 bg-card">
+                  <button
+                    type="button"
+                    onClick={() => setBuildingOpen((o) => ({ ...o, frames: !o.frames }))}
+                    className="flex min-h-[44px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
+                  >
+                    Frames
+                    {buildingOpen.frames ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+                  {buildingOpen.frames && (
+                    <div className="border-t border-border/60 p-3">
+                      <FrameManager
+                        buildingId={buildingData.building.id}
+                        frames={buildingData.frames}
+                        frameLinks={buildingData.frameLinks}
+                        walkways={buildingData.walkways}
+                        classrooms={buildingData.classrooms}
+                        catalogue={catalogue}
+                        selectedFrameId={selectedFrameId}
+                        onSelectFrame={setSelectedFrameId}
+                        onChanged={refreshBuilding}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -856,8 +885,11 @@ const handleTextureUpload = useCallback(
             focus={focus}
             onFocusChange={setFocus}
             navigateTo={navigateTo}
+            selectedFrameId={selectedFrameId}
+            onFrameSelect={(frame) => setSelectedFrameId(frame.id)}
             editing
           />
+
         ) : (
           <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-300">
             Add a hallway and the corridor builds itself here — then walk into it.

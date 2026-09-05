@@ -237,8 +237,9 @@ const AcademyWorldPage = () => {
           onFocusChange={setFocus}
           onModeChange={(m) => setWalking(m === "walk")}
           onExitBuilding={() => navigate("/")}
-
+          onOpenFrameContent={(kind, id) => navigate(productRoute(kind, id))}
         />
+
       ) : (
         <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
           <h1 className="text-xl font-semibold text-foreground">The Academy hallway is empty</h1>

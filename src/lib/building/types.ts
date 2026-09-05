@@ -1,4 +1,5 @@
 import type { RoomLock } from "./lock";
+import type { BuildingFrame, FrameLink } from "./frames";
 
 /**
  * EDITABLE 3D BUILDING — data contract.
@@ -208,6 +209,10 @@ export interface BuildingData {
   links: BuildingWalkwayLink[];
   /** optional access locks, at most one per door */
   locks: RoomLock[];
+  /** shortcut boards hung on hallway and room walls */
+  frames: BuildingFrame[];
+  /** the learning items each frame points at (references, never copies) */
+  frameLinks: FrameLink[];
   canEdit: boolean;
 }
 

@@ -1288,6 +1288,108 @@ export type Database = {
           },
         ]
       }
+      building_frame_links: {
+        Row: {
+          content_id: string
+          content_kind: string
+          created_at: string
+          frame_id: string
+          id: string
+          position: number
+        }
+        Insert: {
+          content_id: string
+          content_kind: string
+          created_at?: string
+          frame_id: string
+          id?: string
+          position?: number
+        }
+        Update: {
+          content_id?: string
+          content_kind?: string
+          created_at?: string
+          frame_id?: string
+          id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_frame_links_frame_id_fkey"
+            columns: ["frame_id"]
+            isOneToOne: false
+            referencedRelation: "building_frames"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      building_frames: {
+        Row: {
+          building_id: string
+          classroom_id: string | null
+          created_at: string
+          design: string
+          id: string
+          name: string
+          offset_along: number
+          offset_y: number
+          updated_at: string
+          walkway_id: string | null
+          wall: string
+          width: number
+        }
+        Insert: {
+          building_id: string
+          classroom_id?: string | null
+          created_at?: string
+          design?: string
+          id?: string
+          name?: string
+          offset_along?: number
+          offset_y?: number
+          updated_at?: string
+          walkway_id?: string | null
+          wall?: string
+          width?: number
+        }
+        Update: {
+          building_id?: string
+          classroom_id?: string | null
+          created_at?: string
+          design?: string
+          id?: string
+          name?: string
+          offset_along?: number
+          offset_y?: number
+          updated_at?: string
+          walkway_id?: string | null
+          wall?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_frames_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_frames_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: false
+            referencedRelation: "building_classrooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_frames_walkway_id_fkey"
+            columns: ["walkway_id"]
+            isOneToOne: false
+            referencedRelation: "building_walkways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       building_room_lock_attempts: {
         Row: {
           classroom_id: string
