@@ -18,6 +18,8 @@ export const pt: Catalogue = {
   nav_pricing: "Preços",
   nav_community: "Comunidade MathGPL",
   nav_requests: "Pedidos",
+  nav_courses: "Cursos",
+  nav_go_live: "Ao vivo",
   nav_account: "Conta",
   nav_account_go_live: "Conta e publicação",
   nav_settings: "Configurações",
@@ -46,6 +48,7 @@ export const pt: Catalogue = {
   group_platform_console: "Console da plataforma",
   group_school_console: "Console da escola",
   group_student_dashboard: "Painel do aluno",
+  group_student_workspace: "Espaço do aluno",
   group_parent_console: "Console dos responsáveis",
 
   action_save: "Salvar",

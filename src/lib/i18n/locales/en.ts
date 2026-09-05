@@ -24,6 +24,8 @@ export const en = {
   nav_community: "MathGPL Community",
   nav_requests: "Requests",
   nav_account: "Account",
+  nav_courses: "Courses",
+  nav_go_live: "Go Live",
   nav_account_go_live: "Account & Go Live",
   nav_settings: "Settings",
   nav_overview: "Overview",
@@ -52,6 +54,7 @@ export const en = {
   group_platform_console: "Platform Console",
   group_school_console: "School Console",
   group_student_dashboard: "Student Dashboard",
+  group_student_workspace: "Student Workspace",
   group_parent_console: "Parent Console",
 
   // Actions

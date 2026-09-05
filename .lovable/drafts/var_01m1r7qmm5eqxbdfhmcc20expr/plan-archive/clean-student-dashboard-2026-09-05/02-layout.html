@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 430" width="640" height="430">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .quiet { fill: hsl(var(--muted)); stroke: none; }
+    .bar { fill: hsl(var(--border)); }
+  </style>
+
+  <!-- page frame -->
+  <rect class="box" x="16" y="16" width="400" height="398" rx="8"/>
+
+  <!-- header -->
+  <rect class="quiet" x="16" y="16" width="400" height="40" rx="8"/>
+  <circle cx="40" cy="36" r="10" fill="hsl(var(--accent))"/>
+  <text class="sm" x="40" y="40" text-anchor="middle" style="fill: hsl(var(--accent-foreground))">☰</text>
+  <text class="lbl" x="60" y="41">Student Dashboard</text>
+  <circle cx="392" cy="36" r="10" fill="hsl(var(--accent))"/>
+  <text class="sm" x="392" y="40" text-anchor="middle" style="fill: hsl(var(--accent-foreground))">i</text>
+
+  <!-- hero -->
+  <rect class="box" x="32" y="72" width="368" height="56" rx="8"/>
+  <text class="lbl" x="48" y="96">Good morning, [name]!</text>
+  <rect class="bar" x="48" y="106" width="150" height="6" rx="3"/>
+
+  <!-- learning -->
+  <text class="sm" x="32" y="156">LEARNING</text>
+  <rect class="box" x="32" y="166" width="176" height="52" rx="8"/><text class="lbl" x="48" y="197">My Classes</text>
+  <rect class="box" x="224" y="166" width="176" height="52" rx="8"/><text class="lbl" x="240" y="197">Assignments</text>
+  <rect class="box" x="32" y="228" width="176" height="52" rx="8"/><text class="lbl" x="48" y="259">Adventure</text>
+  <rect class="box" x="224" y="228" width="176" height="52" rx="8"/><text class="lbl" x="240" y="259">Skill Builder</text>
+
+  <!-- connections -->
+  <text class="sm" x="32" y="312">CONNECTIONS</text>
+  <rect class="box" x="32" y="322" width="368" height="38" rx="8"/>
+  <text class="lbl" x="48" y="346">My Schools</text><text class="sm" x="376" y="346" text-anchor="end">open</text>
+  <rect class="box" x="32" y="368" width="368" height="38" rx="8"/>
+  <text class="lbl" x="48" y="392">My Teachers</text><text class="sm" x="376" y="392" text-anchor="end">open</text>
+
+  <!-- overlays -->
+  <rect class="zone" x="448" y="16" width="176" height="180" rx="8"/>
+  <text class="sm" x="460" y="38">☰ opens (overlay)</text>
+  <rect class="bar" x="460" y="52" width="120" height="6" rx="3"/>
+  <rect class="bar" x="460" y="68" width="140" height="6" rx="3"/>
+  <rect class="bar" x="460" y="84" width="100" height="6" rx="3"/>
+  <rect class="bar" x="460" y="100" width="132" height="6" rx="3"/>
+  <text class="sm" x="460" y="130">existing nav links</text>
+  <text class="sm" x="460" y="150">unchanged routes</text>
+
+  <rect class="zone" x="448" y="220" width="176" height="186" rx="8"/>
+  <text class="sm" x="460" y="242">i opens (overlay)</text>
+  <rect class="box" x="460" y="256" width="152" height="40" rx="8"/><text class="lbl" x="472" y="281">Overall Progress</text>
+  <rect class="box" x="460" y="304" width="152" height="40" rx="8"/><text class="lbl" x="472" y="329">Class Progress</text>
+  <rect class="box" x="460" y="352" width="152" height="40" rx="8"/><text class="lbl" x="472" y="377">Go Live</text>
+</svg>

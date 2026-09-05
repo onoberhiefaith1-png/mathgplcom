@@ -18,6 +18,8 @@ export const hi: Catalogue = {
   nav_pricing: "मूल्य",
   nav_community: "MathGPL समुदाय",
   nav_requests: "अनुरोध",
+  nav_courses: "पाठ्यक्रम",
+  nav_go_live: "लाइव जाएँ",
   nav_account: "खाता",
   nav_account_go_live: "खाता और लाइव",
   nav_settings: "सेटिंग्स",
@@ -46,6 +48,7 @@ export const hi: Catalogue = {
   group_platform_console: "प्लेटफ़ॉर्म कंसोल",
   group_school_console: "विद्यालय कंसोल",
   group_student_dashboard: "विद्यार्थी डैशबोर्ड",
+  group_student_workspace: "छात्र कार्यक्षेत्र",
   group_parent_console: "अभिभावक कंसोल",
 
   action_save: "सहेजें",

@@ -18,6 +18,8 @@ export const zh: Catalogue = {
   nav_pricing: "定价",
   nav_community: "MathGPL 社区",
   nav_requests: "申请",
+  nav_courses: "课程",
+  nav_go_live: "开始直播",
   nav_account: "账户",
   nav_account_go_live: "账户与开通",
   nav_settings: "设置",
@@ -46,6 +48,7 @@ export const zh: Catalogue = {
   group_platform_console: "平台控制台",
   group_school_console: "学校控制台",
   group_student_dashboard: "学生仪表板",
+  group_student_workspace: "学生工作区",
   group_parent_console: "家长控制台",
 
   action_save: "保存",

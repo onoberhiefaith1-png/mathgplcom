@@ -18,6 +18,8 @@ export const id: Catalogue = {
   nav_pricing: "Harga",
   nav_community: "Komunitas MathGPL",
   nav_requests: "Permintaan",
+  nav_courses: "Kursus",
+  nav_go_live: "Mulai Siaran",
   nav_account: "Akun",
   nav_account_go_live: "Akun & Tayang",
   nav_settings: "Pengaturan",
@@ -46,6 +48,7 @@ export const id: Catalogue = {
   group_platform_console: "Konsol Platform",
   group_school_console: "Konsol Sekolah",
   group_student_dashboard: "Dasbor Siswa",
+  group_student_workspace: "Ruang Kerja Siswa",
   group_parent_console: "Konsol Orang Tua",
 
   action_save: "Simpan",

@@ -18,6 +18,8 @@ export const ar: Catalogue = {
   nav_pricing: "الأسعار",
   nav_community: "مجتمع MathGPL",
   nav_requests: "الطلبات",
+  nav_courses: "الدورات",
+  nav_go_live: "البدء المباشر",
   nav_account: "الحساب",
   nav_account_go_live: "الحساب والنشر",
   nav_settings: "الإعدادات",
@@ -46,6 +48,7 @@ export const ar: Catalogue = {
   group_platform_console: "لوحة المنصة",
   group_school_console: "لوحة المدرسة",
   group_student_dashboard: "لوحة الطالب",
+  group_student_workspace: "مساحة عمل الطالب",
   group_parent_console: "لوحة ولي الأمر",
 
   action_save: "حفظ",

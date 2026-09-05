@@ -18,6 +18,8 @@ export const ja: Catalogue = {
   nav_pricing: "料金",
   nav_community: "MathGPL コミュニティ",
   nav_requests: "リクエスト",
+  nav_courses: "コース",
+  nav_go_live: "ライブ配信",
   nav_account: "アカウント",
   nav_account_go_live: "アカウントと公開",
   nav_settings: "設定",
@@ -46,6 +48,7 @@ export const ja: Catalogue = {
   group_platform_console: "プラットフォーム管理",
   group_school_console: "学校管理",
   group_student_dashboard: "生徒ダッシュボード",
+  group_student_workspace: "生徒のワークスペース",
   group_parent_console: "保護者コンソール",
 
   action_save: "保存",
