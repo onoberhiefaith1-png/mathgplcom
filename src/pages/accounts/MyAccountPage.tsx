@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MathgplIdCard } from "@/components/accounts/MathgplIdCard";
+import ChangeAccountIdPanel from "@/components/accounts/ChangeAccountIdPanel";
 import AvatarUploader from "@/components/accounts/AvatarUploader";
 import PublicProfileCard from "@/components/accounts/PublicProfileCard";
 import ShareCodeCard from "@/components/connections/ShareCodeCard";
@@ -125,6 +126,8 @@ const MyAccountPage = () => {
             No MathGPL ID is attached to this account yet.
           </div>
         )}
+
+        <ChangeAccountIdPanel />
 
         <AvatarUploader />
         <PublicProfileCard />
