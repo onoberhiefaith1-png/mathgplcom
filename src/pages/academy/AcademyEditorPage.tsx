@@ -28,6 +28,7 @@ import {
 import HallwayScene from "@/components/academy/world/HallwayScene";
 import BuildingSettingsPanel from "@/components/academy/editor/BuildingSettingsPanel";
 import WalkwayManager from "@/components/academy/editor/WalkwayManager";
+import FrameManager from "@/components/academy/editor/FrameManager";
 import { removeRoomLock, resetRoomLockAttempts, setRoomLock } from "@/lib/building/lock.functions";
 import { indexLocksByRoom } from "@/lib/building/lock";
 import type { LockCharset } from "@/lib/building/lock";
