@@ -39,19 +39,33 @@ export const signInWithMathgplId = createServerFn({ method: "POST" })
     } catch (error) {
       return { ok: false, reason: "throttled", message: (error as Error).message };
     }
-    if (!ID_PATTERN.test(data.mathgplId)) {
-      return { ok: false, reason: "id_not_found", message: ID_NOT_FOUND_MESSAGE };
-    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: row } = await supabaseAdmin
-      .from("account_ids")
-      .select("user_id")
-      .eq("mathgpl_id", data.mathgplId)
-      .maybeSingle();
-    if (!row?.user_id) {
+    const entry = data.mathgplId.trim();
+    const issued = normaliseId(entry);
+
+    // A chosen ID first, then the permanent issued one.
+    let userId: string | null = null;
+    if (!entry.includes("/")) {
+      const { data: chosen } = await supabaseAdmin
+        .from("account_ids")
+        .select("user_id")
+        .ilike("custom_id", entry)
+        .maybeSingle();
+      userId = chosen?.user_id ?? null;
+    }
+    if (!userId && ID_PATTERN.test(issued)) {
+      const { data: row } = await supabaseAdmin
+        .from("account_ids")
+        .select("user_id")
+        .eq("mathgpl_id", issued)
+        .maybeSingle();
+      userId = row?.user_id ?? null;
+    }
+    if (!userId) {
       return { ok: false, reason: "id_not_found", message: ID_NOT_FOUND_MESSAGE };
     }
+    const row = { user_id: userId };
 
     const { data: found } = await supabaseAdmin.auth.admin.getUserById(row.user_id);
     const email = found?.user?.email;
