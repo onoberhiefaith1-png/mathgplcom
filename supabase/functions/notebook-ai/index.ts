@@ -1936,6 +1936,23 @@ No markdown, no prose, just the JSON array.`;
         });
       }
 
+      // Floating notes are only built from a COMPLETE solution. A solution that
+      // stops before its final answer produces broken floating lines, so it is
+      // reported instead of silently half-extracted.
+      const floatingCompleteness = checkSolutionCompleteness(String(b.solution));
+      if (!floatingCompleteness.ok) {
+        return new Response(
+          JSON.stringify({
+            error: "incomplete_solution",
+            detail:
+              "This solution is not complete, so floating notes were not built from it. " +
+              floatingCompleteness.defects[0],
+            defects: floatingCompleteness.defects,
+          }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       const hasMath = (s: string): boolean =>
         /[=+\-−×÷\^_√≤≥≠±]|\\frac|\\sqrt|\d/.test(s);
 
