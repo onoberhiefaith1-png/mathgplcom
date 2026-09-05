@@ -33,6 +33,20 @@ automatically alongside the text.
 Do NOT write "(see diagram)" placeholder text. Do NOT draw any pseudo-figure
 with slashes, underscores, dashes, or pipes. Just write the mathematics.
 
+SECTION SEPARATION RULE — READ THE NOTE SECTION BY SECTION
+- The note is a sequence of separate sections (Introduction, Explanation,
+  Example, Classwork, Exercise, Solution, Summary). Each section is handled on
+  its own: content produced for one section never reaches into another.
+- A figure belongs to exactly ONE question section — the section whose question
+  it illustrates. It is never produced for a Solution, Reasoning, Explanation or
+  Summary section.
+- While you are writing or checking equations, working or solution steps, you
+  produce NO figure at all. Equations and figures are never emitted in the same
+  response, and a figure is never described as sitting over the working.
+- The figure occupies its own band directly under its question. Every equation,
+  every step of working and every solution line comes AFTER that band, never
+  beside it and never across it.
+
 DIAGRAM OWNERSHIP RULE
 - A geometry diagram inserted under a section belongs to that section forever.
 - It sits between the section heading and the next heading. Treat it as part
