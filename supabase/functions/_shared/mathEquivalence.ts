@@ -193,6 +193,42 @@ function numericEqual(a: any, b: any): Verdict {
   return anySuccess ? "equal" : "unknown";
 }
 
+/** Is `b` a non-zero constant multiple of `a`? (Same solution set for two
+ *  equations already moved to one side.) `null` when undecidable. */
+function proportional(a: any, b: any): boolean | null {
+  const vars = new Set<string>();
+  collectSymbols(a, vars);
+  collectSymbols(b, vars);
+  const names = Array.from(vars);
+  if (names.length === 0) return null;
+  const cA = (() => { try { return a.compile(); } catch { return null; } })();
+  const cB = (() => { try { return b.compile(); } catch { return null; } })();
+  if (!cA || !cB) return null;
+  let ratio: number | null = null;
+  let samples = 0;
+  for (let i = 0; i < 12; i++) {
+    const scope: Record<string, number> = {};
+    for (const n of names) scope[n] = (Math.random() - 0.5) * 6 + 1.7;
+    let va: any, vb: any;
+    try { va = cA.evaluate(scope); vb = cB.evaluate(scope); } catch { return null; }
+    if (typeof va !== "number" || typeof vb !== "number") return null;
+    if (!Number.isFinite(va) || !Number.isFinite(vb)) continue;
+    if (Math.abs(vb) < EPS) {
+      if (Math.abs(va) < EPS) continue;
+      return false;
+    }
+    const r = va / vb;
+    if (Math.abs(r) < EPS) return false;
+    samples++;
+    if (ratio === null) ratio = r;
+    else if (Math.abs(r - ratio) > 1e-6 * Math.max(1, Math.abs(r))) return false;
+  }
+  if (ratio === null || samples < 3) return null;
+  return true;
+}
+
+
+
 /* ── relevance & vacuity guards ────────────────────────────────────────────
  * The engines below compare `lhs - rhs` of each line. That is right for a
  * solving step, but on its own it accepts ANY line that is trivially true
