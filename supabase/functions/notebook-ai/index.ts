@@ -985,6 +985,48 @@ Regenerate the ENTIRE solution from ACTIVE_QUESTION. The FIRST ${lockLineCount} 
             );
           }
         }
+
+        // COMPLETENESS GATE — the solution must reach an explicit final answer.
+        // One bounded regeneration naming the defects; a second failure is
+        // reported plainly rather than written to the note half finished.
+        let completeness = checkSolutionCompleteness(content);
+        if (!completeness.ok) {
+          try {
+            const retried = await generateValidated({
+              messages: [
+                ...baseMessages,
+                { role: "assistant", content },
+                { role: "user", content: completenessCorrector(completeness, content) },
+              ],
+              kind: validationKind,
+            });
+            const retryCheck = checkSolutionCompleteness(retried.content);
+            const stillLocked = matchesLock(
+              firstNNonEmptyLines(retried.content, lockLineCount),
+              activeQuestion,
+            );
+            if (retryCheck.ok && stillLocked) {
+              content = retried.content;
+              warnings = retried.warnings;
+              completeness = retryCheck;
+            }
+          } catch {
+            // fall through to the refusal below
+          }
+        }
+        if (!completeness.ok) {
+          console.warn("[notebook-ai] incomplete solution refused:", completeness.defects);
+          return new Response(
+            JSON.stringify({
+              error: "incomplete_solution",
+              detail:
+                "The solution did not come through complete, so it was not written to the note. " +
+                completeness.defects[0],
+              defects: completeness.defects,
+            }),
+            { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
       }
 
       // The application owns the heading. If the model repeated it, drop the
