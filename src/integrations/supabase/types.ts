@@ -1327,9 +1327,13 @@ export type Database = {
         Row: {
           building_id: string
           classroom_id: string | null
+          content_path: string | null
           created_at: string
           design: string
+          height_ratio: number
           id: string
+          kind: string
+          locked: boolean
           name: string
           offset_along: number
           offset_y: number
@@ -1341,9 +1345,13 @@ export type Database = {
         Insert: {
           building_id: string
           classroom_id?: string | null
+          content_path?: string | null
           created_at?: string
           design?: string
+          height_ratio?: number
           id?: string
+          kind?: string
+          locked?: boolean
           name?: string
           offset_along?: number
           offset_y?: number
@@ -1355,9 +1363,13 @@ export type Database = {
         Update: {
           building_id?: string
           classroom_id?: string | null
+          content_path?: string | null
           created_at?: string
           design?: string
+          height_ratio?: number
           id?: string
+          kind?: string
+          locked?: boolean
           name?: string
           offset_along?: number
           offset_y?: number

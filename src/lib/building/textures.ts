@@ -47,6 +47,8 @@ export const collectTexturePaths = (
 export const resolveEnvironmentTextures = async (
   env: EnvironmentSettings,
   overrides: (SurfaceOverrides | null | undefined)[] = [],
+  /** Extra pictures, e.g. the images placed inside frames and windows. */
+  extraPaths: (string | null | undefined)[] = [],
 ): Promise<Record<string, string>> => {
   const out: Record<string, string> = {};
   const note = (path: string | undefined) => {
@@ -62,6 +64,7 @@ export const resolveEnvironmentTextures = async (
   for (const key of SURFACE_KEYS) note(env[key]?.texture?.path);
   note(env.door?.texture?.path);
   for (const o of overrides) for (const p of overrideTexturePaths(o)) note(p);
+  for (const p of extraPaths) note(p ?? undefined);
   if (storagePaths.length > 0) {
     const resolved = await getSignedUrls(storagePaths);
     Object.assign(out, resolved);

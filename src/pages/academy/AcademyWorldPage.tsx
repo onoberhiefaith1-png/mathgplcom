@@ -140,20 +140,24 @@ const AcademyWorldPage = () => {
   // Resolve uploaded textures whenever the environment changes.
   const textureEnv = buildingData?.building.environment ?? null;
   const textureEnvKey = JSON.stringify(textureEnv);
+  const framePictureKey = (buildingData?.frames ?? [])
+    .map((f) => f.content_path)
+    .filter((p): p is string => Boolean(p))
+    .join("|");
   useEffect(() => {
     let cancelled = false;
     if (!textureEnv) {
       setTextures({});
       return;
     }
-    resolveEnvironmentTextures(textureEnv).then((t) => {
+    resolveEnvironmentTextures(textureEnv, [], framePictureKey.split("|")).then((t) => {
       if (!cancelled) setTextures(t);
     });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textureEnvKey]);
+  }, [textureEnvKey, framePictureKey]);
 
   const rooms = useMemo(
     () => (tree?.rooms ?? []).filter((r) => r.is_visible || tree?.canEdit),

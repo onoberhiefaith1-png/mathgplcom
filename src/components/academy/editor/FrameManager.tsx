@@ -1,13 +1,19 @@
 /**
- * FRAMES — the teacher's control for the wall-mounted shortcut boards.
+ * FRAMES & WINDOWS — the teacher's control for the wall-mounted 3D objects.
  *
- * A frame is placed on a chosen wall of a chosen hallway or room, given a name,
- * then filled with LINKS to work that already exists. Nothing is copied here, so
- * removing a link or the whole frame never touches the course, assignment,
- * adventure or game itself.
+ * Every object here is built in two independent parts:
+ *   1. the STRUCTURE — a real 3D frame or window surround chosen from the
+ *      building's profiles, which never changes when the picture does;
+ *   2. the CONTENT — a picture placed inside it, either uploaded or taken from
+ *      the MathGPL gallery, replaceable at any time.
+ *
+ * Content frames can additionally hold LINKS to work that already exists;
+ * nothing is copied, so removing a link or the whole frame never touches the
+ * course, assignment, adventure or game itself. Windows are architectural only:
+ * they hold a view, never a link.
  */
-import { useMemo, useState } from "react";
-import { Frame as FrameIcon, Loader2, Plus, Trash2, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Frame as FrameIcon, Image as ImageIcon, Loader2, Lock, Plus, Trash2, Unlock, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,16 +23,16 @@ import {
   deleteFrame,
   removeFrameLink,
   updateFrame,
-  FRAME_DESIGNS,
+  uploadFrameImage,
   FRAME_MAX_WIDTH,
   FRAME_MIN_WIDTH,
   FRAME_WALL_LABEL,
-  frameDesign,
   type BuildingFrame,
-  type FrameDesignKey,
   type FrameLink,
   type FrameWall,
 } from "@/lib/building/frames";
+import { profilesFor, frameProfile, type FrameKind } from "@/lib/building/frameStyles";
+import { SURFACE_SAMPLES, builtinTexturePath } from "@/lib/building/gallery";
 import type { AcademyProduct, AcademyProductKind } from "@/lib/academy/types";
 import type { BuildingClassroom, BuildingWalkway } from "@/lib/building/types";
 
@@ -43,6 +49,8 @@ interface FrameManagerProps {
   onSelectFrame: (id: string | null) => void;
   /** Reloads the building so the 3D view matches the panel. */
   onChanged: () => Promise<void>;
+  /** Which section this instance edits: content frames or windows. */
+  kind?: FrameKind;
 }
 
 const SliderRow = ({
@@ -51,6 +59,7 @@ const SliderRow = ({
   min,
   max,
   step,
+  disabled,
   onChange,
 }: {
   label: string;
@@ -58,6 +67,7 @@ const SliderRow = ({
   min: number;
   max: number;
   step: number;
+  disabled?: boolean;
   onChange: (v: number) => void;
 }) => (
   <label className="block text-[11px] text-muted-foreground">
@@ -71,11 +81,27 @@ const SliderRow = ({
       max={max}
       step={step}
       value={value}
+      disabled={disabled}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full accent-primary"
+      className="w-full accent-primary disabled:opacity-40"
     />
   </label>
 );
+
+/** A miniature of the 3D structure, so the choice is obvious before building it. */
+const ProfileChip = ({ profileKey, active }: { profileKey: string; active: boolean }) => {
+  const p = frameProfile(profileKey, profileKey.includes("trim") ? "window" : "frame");
+  return (
+    <span
+      className={`block rounded-md p-1.5 transition ${active ? "ring-2 ring-primary" : ""}`}
+      style={{ background: p.face }}
+    >
+      <span className="block rounded-sm p-1" style={{ background: p.bevel }}>
+        <span className="block h-8 rounded-sm" style={{ background: p.back }} />
+      </span>
+    </span>
+  );
+};
 
 const FrameManager = ({
   buildingId,
@@ -87,15 +113,23 @@ const FrameManager = ({
   selectedFrameId,
   onSelectFrame,
   onChanged,
+  kind = "frame",
 }: FrameManagerProps) => {
+  const isWindow = kind === "window";
+  const profiles = useMemo(() => profilesFor(kind), [kind]);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [design, setDesign] = useState<FrameDesignKey>("courses");
+  const [design, setDesign] = useState<string>(profiles[0].key);
   const [place, setPlace] = useState<string>("");
   const [wall, setWall] = useState<FrameWall>("leftWall");
   const [name, setName] = useState("");
   const [pickKind, setPickKind] = useState<AcademyProductKind>("course");
   const [pickId, setPickId] = useState("");
+  const [gallery, setGallery] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const uploadTarget = useRef<string | null>(null);
+
+  const mine = useMemo(() => frames.filter((f) => (f.kind ?? "frame") === kind), [frames, kind]);
 
   const places = useMemo(
     () => [
@@ -108,8 +142,8 @@ const FrameManager = ({
   const linksOf = (frameId: string) =>
     frameLinks.filter((l) => l.frame_id === frameId).sort((a, b) => a.position - b.position);
 
-  const titleOf = (kind: AcademyProductKind, id: string) =>
-    catalogue.find((p) => p.kind === kind && p.id === id)?.title ?? "Unavailable item";
+  const titleOf = (k: AcademyProductKind, id: string) =>
+    catalogue.find((p) => p.kind === k && p.id === id)?.title ?? "Unavailable item";
 
   const placeLabel = (frame: BuildingFrame) =>
     frame.walkway_id
@@ -129,15 +163,16 @@ const FrameManager = ({
   const submitNew = async () => {
     const target = place || places[0]?.value;
     if (!target) return;
-    const [kind, id] = target.split(":");
+    const [where, id] = target.split(":");
     await run(async () => {
       const created = await createFrame({
         buildingId,
-        walkwayId: kind === "hall" ? id : null,
-        classroomId: kind === "room" ? id : null,
+        walkwayId: where === "hall" ? id : null,
+        classroomId: where === "room" ? id : null,
         wall,
+        kind,
         design,
-        name: name.trim() || frameDesign(design).label,
+        name: name.trim() || frameProfile(design, kind).label,
       });
       onSelectFrame(created.id);
       setAdding(false);
@@ -145,40 +180,52 @@ const FrameManager = ({
     });
   };
 
+  const onFile = async (file: File | undefined) => {
+    const id = uploadTarget.current;
+    if (!file || !id) return;
+    await run(() => uploadFrameImage(id, file).then(() => undefined));
+  };
+
   const options = catalogue.filter((p) => p.kind === pickKind);
 
   return (
     <div className="space-y-3">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          void onFile(e.target.files?.[0]);
+          e.currentTarget.value = "";
+        }}
+      />
+
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] text-muted-foreground">
-          Hang a frame on a wall and link work that already exists to it.
+          {isWindow
+            ? "Install a window in a wall, then choose the view seen through it."
+            : "Build a frame on a wall, put a picture inside it, and link work that already exists."}
         </p>
         <Button size="sm" variant="outline" onClick={() => setAdding((v) => !v)} disabled={busy}>
           {adding ? <X className="mr-1.5 h-3.5 w-3.5" /> : <Plus className="mr-1.5 h-3.5 w-3.5" />}
-          {adding ? "Cancel" : "Add frame"}
+          {adding ? "Cancel" : isWindow ? "Add window" : "Add frame"}
         </Button>
       </div>
 
       {adding && (
         <div className="space-y-3 rounded-xl border border-border/60 bg-background/50 p-3">
-          <div className="grid grid-cols-3 gap-2">
-            {FRAME_DESIGNS.map((d) => (
-              <button
-                key={d.key}
-                type="button"
-                onClick={() => setDesign(d.key)}
-                className={`overflow-hidden rounded-lg border text-left transition ${
-                  design === d.key ? "border-primary ring-1 ring-primary/50" : "border-border/60"
-                }`}
-              >
-                <img src={d.url} alt={d.label} className="aspect-square w-full object-cover" />
-                <span className="block truncate px-1.5 py-1 text-[10px]">{d.label}</span>
+          <div className="grid grid-cols-2 gap-2">
+            {profiles.map((p) => (
+              <button key={p.key} type="button" onClick={() => setDesign(p.key)} className="text-left">
+                <ProfileChip profileKey={p.key} active={design === p.key} />
+                <span className="mt-1 block truncate text-[10px]">{p.label}</span>
               </button>
             ))}
           </div>
 
           <label className="block text-[11px] text-muted-foreground">
-            Where does it hang?
+            Where does it go?
             <select
               value={place || places[0]?.value || ""}
               onChange={(e) => setPlace(e.target.value)}
@@ -212,26 +259,27 @@ const FrameManager = ({
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Frame name, e.g. This week's assignments"
+            placeholder={isWindow ? "Window name, e.g. Courtyard view" : "Frame name, e.g. This week's assignments"}
             className="h-9 text-xs"
           />
 
           <Button size="sm" className="w-full" onClick={() => void submitNew()} disabled={busy || places.length === 0}>
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FrameIcon className="mr-2 h-4 w-4" />}
-            Hang the frame
+            {isWindow ? "Install the window" : "Build the frame"}
           </Button>
         </div>
       )}
 
-      {frames.length === 0 && !adding && (
+      {mine.length === 0 && !adding && (
         <p className="rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-[11px] text-muted-foreground">
-          No frames yet.
+          {isWindow ? "No windows yet." : "No frames yet."}
         </p>
       )}
 
-      {frames.map((frame) => {
+      {mine.map((frame) => {
         const open = selectedFrameId === frame.id;
         const links = linksOf(frame.id);
+        const locked = frame.locked;
         return (
           <div key={frame.id} className="rounded-xl border border-border/60 bg-card/40 p-3">
             <button
@@ -239,17 +287,17 @@ const FrameManager = ({
               onClick={() => onSelectFrame(open ? null : frame.id)}
               className="flex w-full items-center gap-2 text-left"
             >
-              <img
-                src={frameDesign(frame.design).url}
-                alt=""
-                className="h-9 w-9 shrink-0 rounded border border-border/50 object-cover"
-              />
+              <span className="h-9 w-9 shrink-0">
+                <ProfileChip profileKey={frame.design} active={false} />
+              </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-semibold">{frame.name}</span>
                 <span className="block truncate text-[10px] text-muted-foreground">
-                  {placeLabel(frame)} · {FRAME_WALL_LABEL[frame.wall]} · {links.length} linked
+                  {placeLabel(frame)} · {FRAME_WALL_LABEL[frame.wall]}
+                  {isWindow ? "" : ` · ${links.length} linked`}
                 </span>
               </span>
+              {locked && <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
             </button>
 
             {open && (
@@ -260,13 +308,88 @@ const FrameManager = ({
                   className="h-8 text-xs"
                 />
 
+                {/* STRUCTURE — changing it never touches the picture inside. */}
+                <div className="grid grid-cols-2 gap-2">
+                  {profiles.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => void run(() => updateFrame(frame.id, { design: p.key }))}
+                      className="text-left disabled:opacity-40"
+                    >
+                      <ProfileChip profileKey={p.key} active={frame.design === p.key} />
+                      <span className="mt-1 block truncate text-[10px]">{p.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* CONTENT — the picture inside the object. */}
+                <div className="space-y-2 rounded-lg border border-border/50 bg-background/50 p-2">
+                  <p className="text-[11px] font-semibold">
+                    {isWindow ? "View through the window" : "Picture inside the frame"}
+                  </p>
+                  <div className="flex gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      disabled={busy}
+                      onClick={() => {
+                        uploadTarget.current = frame.id;
+                        fileRef.current?.click();
+                      }}
+                    >
+                      <ImageIcon className="mr-1.5 h-3.5 w-3.5" /> Upload
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setGallery(gallery === frame.id ? null : frame.id)}
+                    >
+                      MathGPL assets
+                    </Button>
+                    {frame.content_path && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => void run(() => updateFrame(frame.id, { content_path: null }))}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  {gallery === frame.id && (
+                    <div className="grid max-h-40 grid-cols-4 gap-1.5 overflow-y-auto">
+                      {SURFACE_SAMPLES.map((s) => (
+                        <button
+                          key={s.key}
+                          type="button"
+                          title={s.label}
+                          onClick={() =>
+                            void run(() =>
+                              updateFrame(frame.id, { content_path: builtinTexturePath(s.key) }),
+                            )
+                          }
+                          className="overflow-hidden rounded border border-border/60"
+                        >
+                          <img src={s.url} alt={s.label} className="aspect-square w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex flex-wrap gap-1.5">
                   {WALLS.map((w) => (
                     <button
                       key={w}
                       type="button"
+                      disabled={locked}
                       onClick={() => void run(() => updateFrame(frame.id, { wall: w }))}
-                      className={`min-h-[30px] rounded-full px-2.5 text-[11px] font-semibold ${
+                      className={`min-h-[30px] rounded-full px-2.5 text-[11px] font-semibold disabled:opacity-40 ${
                         frame.wall === w
                           ? "bg-primary text-primary-foreground"
                           : "border border-border text-muted-foreground hover:text-foreground"
@@ -277,27 +400,13 @@ const FrameManager = ({
                   ))}
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  {FRAME_DESIGNS.map((d) => (
-                    <button
-                      key={d.key}
-                      type="button"
-                      onClick={() => void run(() => updateFrame(frame.id, { design: d.key }))}
-                      className={`overflow-hidden rounded-lg border ${
-                        frame.design === d.key ? "border-primary ring-1 ring-primary/50" : "border-border/60"
-                      }`}
-                    >
-                      <img src={d.url} alt={d.label} className="aspect-square w-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-
                 <SliderRow
                   label="Along the wall"
                   value={frame.offset_along}
                   min={0.04}
                   max={0.96}
                   step={0.01}
+                  disabled={locked}
                   onChange={(v) => void run(() => updateFrame(frame.id, { offset_along: v }))}
                 />
                 <SliderRow
@@ -306,79 +415,112 @@ const FrameManager = ({
                   min={0.8}
                   max={4}
                   step={0.05}
+                  disabled={locked}
                   onChange={(v) => void run(() => updateFrame(frame.id, { offset_y: v }))}
                 />
                 <SliderRow
-                  label="Size"
+                  label="Width"
                   value={frame.width}
                   min={FRAME_MIN_WIDTH}
                   max={FRAME_MAX_WIDTH}
                   step={0.05}
+                  disabled={locked}
                   onChange={(v) => void run(() => updateFrame(frame.id, { width: v }))}
                 />
+                <SliderRow
+                  label="Shape (height ÷ width)"
+                  value={frame.height_ratio}
+                  min={0.35}
+                  max={1.6}
+                  step={0.01}
+                  disabled={locked}
+                  onChange={(v) => void run(() => updateFrame(frame.id, { height_ratio: v }))}
+                />
 
-                {/* LINKED WORK — references only. */}
-                <div className="space-y-1.5">
-                  {links.map((link) => (
-                    <div
-                      key={link.id}
-                      className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/50 px-2 py-1.5"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-[11px]">
-                        {titleOf(link.content_kind, link.content_id)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => void run(() => removeFrameLink(link.id))}
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label="Unlink"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  disabled={busy}
+                  onClick={() => void run(() => updateFrame(frame.id, { locked: !locked }))}
+                >
+                  {locked ? (
+                    <>
+                      <Unlock className="mr-1.5 h-3.5 w-3.5" /> Unlock position
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="mr-1.5 h-3.5 w-3.5" /> Lock in place
+                    </>
+                  )}
+                </Button>
+
+                {/* LINKED WORK — references only, and never on a window. */}
+                {!isWindow && (
+                  <>
+                    <div className="space-y-1.5">
+                      {links.map((link) => (
+                        <div
+                          key={link.id}
+                          className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/50 px-2 py-1.5"
+                        >
+                          <span className="min-w-0 flex-1 truncate text-[11px]">
+                            {titleOf(link.content_kind, link.content_id)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void run(() => removeFrameLink(link.id))}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label="Unlink"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <select
-                    value={pickKind}
-                    onChange={(e) => {
-                      setPickKind(e.target.value as AcademyProductKind);
-                      setPickId("");
-                    }}
-                    className="rounded-md border border-border bg-background px-2 py-1.5 text-[11px]"
-                  >
-                    <option value="course">Courses</option>
-                    <option value="assessment">Assignments</option>
-                    <option value="adventure">Adventures</option>
-                    <option value="game">Games</option>
-                  </select>
-                  <select
-                    value={pickId}
-                    onChange={(e) => setPickId(e.target.value)}
-                    className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-[11px]"
-                  >
-                    <option value="">Choose an item…</option>
-                    {options.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!pickId || busy}
-                    onClick={() =>
-                      void run(async () => {
-                        await addFrameLink(frame.id, pickKind, pickId, links.length);
-                        setPickId("");
-                      })
-                    }
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <select
+                        value={pickKind}
+                        onChange={(e) => {
+                          setPickKind(e.target.value as AcademyProductKind);
+                          setPickId("");
+                        }}
+                        className="rounded-md border border-border bg-background px-2 py-1.5 text-[11px]"
+                      >
+                        <option value="course">Courses</option>
+                        <option value="assessment">Assignments</option>
+                        <option value="adventure">Adventures</option>
+                        <option value="game">Games</option>
+                      </select>
+                      <select
+                        value={pickId}
+                        onChange={(e) => setPickId(e.target.value)}
+                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-[11px]"
+                      >
+                        <option value="">Choose an item…</option>
+                        {options.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.title}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!pickId || busy}
+                        onClick={() =>
+                          void run(async () => {
+                            await addFrameLink(frame.id, pickKind, pickId, links.length);
+                            setPickId("");
+                          })
+                        }
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </>
+                )}
 
                 <Button
                   size="sm"
@@ -392,7 +534,7 @@ const FrameManager = ({
                     })
                   }
                 >
-                  <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Remove this frame
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" /> {isWindow ? "Remove this window" : "Remove this frame"}
                 </Button>
               </div>
             )}
