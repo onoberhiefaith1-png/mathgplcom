@@ -15,6 +15,7 @@ import TrendRangeBar from "@/components/reports/TrendRangeBar";
 import ReportModeSwitch, { type ReportMode } from "@/components/reports/ReportModeSwitch";
 import IndividualStudentReport from "@/components/reports/IndividualStudentReport";
 import ClassOverviewReport from "@/components/reports/ClassOverviewReport";
+import SpeedPerformanceCard from "@/components/reports/SpeedPerformanceCard";
 import { buildTrendSeries } from "@/lib/reports/trendChart";
 import {
   reportSurfaceClass,
@@ -147,6 +148,11 @@ const ClassReportPage = () => {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-6 pb-16">
+        <SpeedPerformanceCard
+          to={`${classRoot()}/${classId}/report/speed`}
+          subtitle="Overall best times, record holders and record history."
+        />
+
         {mode === "student" ? (
           <IndividualStudentReport
             className={className}

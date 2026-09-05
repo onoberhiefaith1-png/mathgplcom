@@ -24,6 +24,7 @@ const TREND_SUBTITLE: Record<TrendGrouping, string> = {
 };
 import { loadStudentTaskBars, type TaskBar } from "@/lib/reports/progressChart";
 import StudentSummaryCards from "@/components/reports/StudentSummaryCards";
+import SpeedPerformanceCard from "@/components/reports/SpeedPerformanceCard";
 import StudentAssessmentTable from "@/components/reports/StudentAssessmentTable";
 import {
   loadOneStudentReport,
@@ -136,6 +137,11 @@ const StudentReportPage = () => {
 
       <main className="mx-auto w-full max-w-6xl px-6 pb-16">
         <StudentSummaryCards summary={summary} />
+
+        <SpeedPerformanceCard
+          to={`/student/class/${classId}/report/speed`}
+          subtitle="Your best times against the overall best."
+        />
 
         <div className="mt-5 rounded-2xl border border-[hsl(var(--rp-border))] bg-[hsl(var(--rp-panel))] p-4">
           <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--rp-muted))]">
