@@ -18,6 +18,8 @@ export const ru: Catalogue = {
   nav_pricing: "Цены",
   nav_community: "Сообщество MathGPL",
   nav_requests: "Запросы",
+  nav_courses: "Курсы",
+  nav_go_live: "Начать эфир",
   nav_account: "Аккаунт",
   nav_account_go_live: "Аккаунт и публикация",
   nav_settings: "Настройки",
@@ -46,6 +48,7 @@ export const ru: Catalogue = {
   group_platform_console: "Консоль платформы",
   group_school_console: "Консоль школы",
   group_student_dashboard: "Панель ученика",
+  group_student_workspace: "Рабочее пространство ученика",
   group_parent_console: "Консоль родителя",
 
   action_save: "Сохранить",
