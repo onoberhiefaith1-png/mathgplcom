@@ -315,6 +315,7 @@ export function useCoPilotConversation(
       });
     };
 
+    const failures: string[] = [];
     for (const item of queueRef.current) {
       if (item.state === "done" || item.state === "skipped") continue;
       if (pauseRef.current || cancelledRef.current) {
