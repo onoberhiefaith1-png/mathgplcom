@@ -1,0 +1,48 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .b { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1 }
+    .l { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480 }
+    .n { fill: hsl(var(--muted-foreground)); font-size: 12px }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none }
+    .acc { stroke: hsl(var(--accent)); stroke-width: 1; fill: none }
+    .accf { fill: hsl(var(--accent)); }
+    .accl { fill: hsl(var(--accent-foreground)); font-size: 12px; font-weight: 480 }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+    <marker id="aa" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--accent))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="b" x="12" y="118" width="132" height="46" rx="8"/>
+  <text class="l" x="78" y="139" text-anchor="middle">Signed-in account</text>
+  <text class="n" x="78" y="155" text-anchor="middle">opens homepage</text>
+
+  <line class="w" x1="144" y1="141" x2="196" y2="141" marker-end="url(#a)"/>
+
+  <rect class="b" x="200" y="106" width="150" height="70" rx="8"/>
+  <text class="l" x="275" y="132" text-anchor="middle">Owns this building?</text>
+  <text class="n" x="275" y="150" text-anchor="middle">visiting = read-only</text>
+  <text class="n" x="275" y="166" text-anchor="middle">unchanged</text>
+
+  <line class="acc" x1="350" y1="128" x2="430" y2="60" marker-end="url(#aa)"/>
+  <line class="w" x1="350" y1="156" x2="430" y2="228" marker-end="url(#a)"/>
+
+  <rect class="acc" x="434" y="24" width="194" height="72" rx="8"/>
+  <text class="l" x="531" y="48" text-anchor="middle">Paid, access code,</text>
+  <text class="l" x="531" y="66" text-anchor="middle">test account or admin</text>
+  <text class="n" x="531" y="85" text-anchor="middle">own building · no ads · full Settings</text>
+
+  <rect class="b" x="434" y="196" width="194" height="72" rx="8"/>
+  <text class="l" x="531" y="220" text-anchor="middle">Unpaid free account</text>
+  <text class="n" x="531" y="239" text-anchor="middle">platform advert building</text>
+  <text class="n" x="531" y="255" text-anchor="middle">no editing — as today</text>
+
+  <circle class="accf" cx="24" cy="252" r="9"/>
+  <text class="accl" x="24" y="256" text-anchor="middle">1</text>
+  <text class="n" x="40" y="250">Students: read-only, except a full-access student on their</text>
+  <text class="n" x="40" y="266">own personal homepage.</text>
+</svg>
