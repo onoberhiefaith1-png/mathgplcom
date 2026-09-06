@@ -773,6 +773,35 @@ const handleTextureUpload = useCallback(
                         }}
                         onUpload={handleTextureUpload}
                         getTextureUrl={(p) => textures[p]}
+                        framesSection={
+                          <FrameManager
+                            buildingId={buildingData.building.id}
+                            frames={buildingData.frames}
+                            frameLinks={buildingData.frameLinks}
+                            walkways={buildingData.walkways}
+                            classrooms={buildingData.classrooms}
+                            catalogue={catalogue}
+                            selectedFrameId={selectedFrameId}
+                            onSelectFrame={setSelectedFrameId}
+                            onChanged={refreshBuilding}
+                            kind="frame"
+                          />
+                        }
+                        windowsSection={
+                          <FrameManager
+                            buildingId={buildingData.building.id}
+                            frames={buildingData.frames}
+                            frameLinks={buildingData.frameLinks}
+                            walkways={buildingData.walkways}
+                            classrooms={buildingData.classrooms}
+                            catalogue={catalogue}
+                            selectedFrameId={selectedFrameId}
+                            onSelectFrame={setSelectedFrameId}
+                            onChanged={refreshBuilding}
+                            kind="window"
+                          />
+                        }
+
                       />
                     </div>
                   )}
@@ -848,60 +877,9 @@ const handleTextureUpload = useCallback(
                     </div>
                   )}
                 </div>
-                {/* FRAMES — wall-mounted shortcut boards. */}
-                <div className="rounded-xl border border-border/70 bg-card">
-                  <button
-                    type="button"
-                    onClick={() => setBuildingOpen((o) => ({ ...o, frames: !o.frames }))}
-                    className="flex min-h-[44px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
-                  >
-                    Frames
-                    {buildingOpen.frames ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                  </button>
-                  {buildingOpen.frames && (
-                    <div className="border-t border-border/60 p-3">
-                      <FrameManager
-                        buildingId={buildingData.building.id}
-                        frames={buildingData.frames}
-                        frameLinks={buildingData.frameLinks}
-                        walkways={buildingData.walkways}
-                        classrooms={buildingData.classrooms}
-                        catalogue={catalogue}
-                        selectedFrameId={selectedFrameId}
-                        onSelectFrame={setSelectedFrameId}
-                        onChanged={refreshBuilding}
-                        kind="frame"
-                      />
-                    </div>
-                  )}
-                </div>
-                {/* WINDOWS — interior architectural openings, built like the doors. */}
-                <div className="rounded-xl border border-border/70 bg-card">
-                  <button
-                    type="button"
-                    onClick={() => setBuildingOpen((o) => ({ ...o, windows: !o.windows }))}
-                    className="flex min-h-[44px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
-                  >
-                    Windows
-                    {buildingOpen.windows ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                  </button>
-                  {buildingOpen.windows && (
-                    <div className="border-t border-border/60 p-3">
-                      <FrameManager
-                        buildingId={buildingData.building.id}
-                        frames={buildingData.frames}
-                        frameLinks={buildingData.frameLinks}
-                        walkways={buildingData.walkways}
-                        classrooms={buildingData.classrooms}
-                        catalogue={catalogue}
-                        selectedFrameId={selectedFrameId}
-                        onSelectFrame={setSelectedFrameId}
-                        onChanged={refreshBuilding}
-                        kind="window"
-                      />
-                    </div>
-                  )}
-                </div>
+                {/* Frames and Windows now live inside the Environment
+                    structure list, directly after Doors. */}
+
               </div>
             )}
           </div>

@@ -2802,6 +2802,19 @@ const HallwayScene = ({
   const [routeIds, setRouteIds] = useState<string[]>([]);
   const [cue, setCue] = useState<string | null>(null);
   const [showMap] = useState(true);
+  /**
+   * COMMITTED ROOM ENTRY. Set the moment a door click is accepted, cleared the
+   * moment the walker is placed inside. The camera glide never owns this.
+   */
+  const pendingEntryRef = useRef<{
+    doorId: string;
+    world: [number, number];
+    into: [number, number];
+    room: BuildingClassroom;
+    visual: RoomDoorVisual;
+    timer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
+
   const machineRef = useRef<Machine>({
     phase: "browse",
     seg: rootEffective,
@@ -2946,6 +2959,10 @@ const HallwayScene = ({
     st.yaw = 0;
     st.turn = null;
     st.zoom = null;
+    // Going back to browsing abandons any door move that was under way.
+    if (pendingEntryRef.current?.timer) clearTimeout(pendingEntryRef.current.timer);
+    pendingEntryRef.current = null;
+
     historyRef.current.clear();
     setMoving(false);
     setEndReached(false);
@@ -3332,13 +3349,40 @@ const HallwayScene = ({
     [setMachinePhase],
   );
 
+
+  /**
+   * COMMITTED ROOM ENTRY. Entering a room is a navigation direction, exactly
+   * like turning: the destination is recorded BEFORE any camera movement, and
+   * the glide toward the doorway is cosmetic. Whether the glide finishes, is
+   * cut short, or is interrupted, the walker still ends up inside that room.
+   */
+
+
+  const commitEntry = useCallback(() => {
+    const pending = pendingEntryRef.current;
+    if (!pending) return;
+    pendingEntryRef.current = null;
+    if (pending.timer) clearTimeout(pending.timer);
+    enterClassroom(pending.world, pending.into, pending.room, pending.visual);
+  }, [enterClassroom]);
+
+  const cancelPendingEntry = useCallback(() => {
+    const pending = pendingEntryRef.current;
+    if (pending?.timer) clearTimeout(pending.timer);
+    pendingEntryRef.current = null;
+  }, []);
+
+  useEffect(() => cancelPendingEntry, [cancelPendingEntry]);
+
   const leaveClassroom = useCallback(() => {
     const st = machineRef.current;
+    cancelPendingEntry();
     st.inside = null;
     setInsideRoom(null);
     setScreenPanelOpen(false);
     setMachinePhase("idle");
-  }, [setMachinePhase]);
+  }, [cancelPendingEntry, setMachinePhase]);
+
 
   /** Held intent inside a room — walking, turning and side-stepping. */
   const roomWalk = useCallback((v: -1 | 0 | 1) => {
@@ -3836,6 +3880,9 @@ const HallwayScene = ({
       front: [number, number],
       visual: RoomDoorVisual,
     ) => {
+      // A repeat click on the same door resolves to the same destination
+      // instead of restarting or cancelling the move already under way.
+      if (pendingEntryRef.current?.doorId === door.id) return;
       let room = roomForDoor(classroomsByDoor, door.id);
       if (!room) room = await fetchRoomForDoor(door.id);
       if (!room || room.door_id !== door.id) {
@@ -3844,11 +3891,15 @@ const HallwayScene = ({
         });
         return;
       }
-      const attached = room;
       const into: [number, number] = [-front[0], -front[1]];
-      startDoorZoom(world, front, () => enterClassroom(world, into, attached, visual));
+      // Committed BEFORE the camera moves: the glide is decoration only.
+      cancelPendingEntry();
+      const timer = setTimeout(commitEntry, 1500);
+      pendingEntryRef.current = { doorId: door.id, world, into, room, visual, timer };
+      startDoorZoom(world, front, commitEntry);
     },
-    [classroomsByDoor, enterClassroom, productTitles, startDoorZoom],
+    [cancelPendingEntry, classroomsByDoor, commitEntry, productTitles, startDoorZoom],
+
   );
 
 

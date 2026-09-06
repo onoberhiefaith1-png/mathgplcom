@@ -9,7 +9,7 @@
  * persisted per building with "Save Changes". The door, lighting and effects
  * sections complete the environment.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, LayoutGrid, Loader2, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import {
   DEFAULT_ENVIRONMENT,
@@ -292,7 +292,11 @@ export interface BuildingSettingsPanelProps {
   onRemoveRoomLock?: (roomId: string) => Promise<void>;
   /** Clears the wrong-try counts on a room's lock, ending any wait at once. */
   onResetRoomLockAttempts?: (roomId: string) => Promise<void>;
+  /** Frames / Windows editors, rendered in the physical order after Doors. */
+  framesSection?: ReactNode;
+  windowsSection?: ReactNode;
 }
+
 
 const BuildingSettingsPanel = ({
   buildingId,
@@ -309,6 +313,9 @@ const BuildingSettingsPanel = ({
   onSetRoomLock,
   onRemoveRoomLock,
   onResetRoomLockAttempts,
+  framesSection,
+  windowsSection,
+
 }: BuildingSettingsPanelProps) => {
   const activeScope = scopes.find((s) => s.id === scopeId) ?? null;
   /** The room being edited, when the active scope is a classroom. */
@@ -606,7 +613,12 @@ const BuildingSettingsPanel = ({
             },
           ]
         : []),
+      // FRAMES and WINDOWS are structural components of the shell, so they sit
+      // in the physical sequence right after Doors — never below the hallways.
+      ...(framesSection ? [{ key: "frames", title: "Frames", body: framesSection }] : []),
+      ...(windowsSection ? [{ key: "windows", title: "Windows", body: windowsSection }] : []),
       {
+
         key: "lighting",
         title: "Lighting",
         body: (
@@ -647,7 +659,7 @@ const BuildingSettingsPanel = ({
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [draft, activeRoomId, roomLock, onSetRoomLock, onRemoveRoomLock, onResetRoomLockAttempts],
+    [draft, activeRoomId, roomLock, onSetRoomLock, onRemoveRoomLock, onResetRoomLockAttempts, framesSection, windowsSection],
   );
 
   /** Fields this element overrides, so a reset only clears what was changed. */
