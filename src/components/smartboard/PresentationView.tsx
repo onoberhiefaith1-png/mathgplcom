@@ -7172,8 +7172,8 @@ const PresentationView = ({
           left: 12,
           top: "50%",
           transform: "translateY(-50%)",
-          opacity: leftToolsVisible ? 1 : 0,
-          pointerEvents: leftToolsVisible ? "auto" : "none",
+          opacity: touchLayout || leftToolsVisible ? 1 : 0,
+          pointerEvents: touchLayout || leftToolsVisible ? "auto" : "none",
         }}
         onPointerMove={revealLeftTools}
       >
