@@ -5887,7 +5887,9 @@ const PresentationView = ({
         style={{
           width: 44,
           height: 18,
-          marginTop: topOpen ? 44 : 0,
+          // Follows the bar's real height so the tab stays reachable however
+          // many rows the controls wrap onto.
+          marginTop: topOpen ? topBarH : 0,
           color: palette.chromeFg,
           background: "transparent",
           boxShadow: `0 0 14px 2px ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
