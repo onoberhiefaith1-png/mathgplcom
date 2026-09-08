@@ -7612,8 +7612,12 @@ const PresentationView = ({
                 <button
                   disabled={assessChecking || guidedLines.length === 0}
                   className={`absolute right-4 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50 ${touchLayout ? "" : "bottom-6 right-6"}`}
-                  style={touchLayout ? { bottom: touchControlsBottom } : undefined}
-                  style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
+                  style={{
+                    background: palette.accent,
+                    color: palette.chromeBg,
+                    borderColor: palette.accent,
+                    ...(touchLayout ? { bottom: touchControlsBottom } : null),
+                  }}
                 >
                   {assessChecking
                     ? <Loader2 className="h-4 w-4 animate-spin" />
