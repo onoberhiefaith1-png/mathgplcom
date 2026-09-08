@@ -51,6 +51,7 @@ const AccountMenu = () => {
 
   const signOut = async () => {
     setOpen(false);
+    // Full teardown of the previous account, then the sign-in page.
     await signOutEverywhere();
   };
 

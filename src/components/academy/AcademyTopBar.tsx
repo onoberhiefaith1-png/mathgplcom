@@ -23,6 +23,7 @@ const AcademyTopBar = () => {
   const t = useT();
 
   const handleSignOut = async () => {
+    // Full teardown of the previous account, then the sign-in page.
     await signOutEverywhere();
   };
 

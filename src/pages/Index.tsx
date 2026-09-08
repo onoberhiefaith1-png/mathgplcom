@@ -39,7 +39,8 @@ const Index = () => {
 
 
   const handleSignOut = async () => {
-    await signOutEverywhere({ to: "/" });
+    // Leaving means leaving: land on the sign-in page, not a signed-out home.
+    await signOutEverywhere();
   };
 
 
