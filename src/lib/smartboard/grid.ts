@@ -70,12 +70,16 @@ export const getGrid = (
   zoom = 1,
   rowSpacing = 1,
   textScale = 1,
+  /** 1 = desktop margins. Narrow viewports pass a smaller value so the
+   *  writing starts near the left edge and uses the whole width. */
+  marginScale = 1,
 ): Grid => {
   const cursorHeight = BASE_FONT_PX * MIN_ROW_PER_FONT * zoom;
   const fontPx = BASE_FONT_PX * zoom * clampTextScale(textScale);
   const lineHeight = cursorHeight * clampRowSpacing(rowSpacing);
+  const ms = Math.max(0.15, Math.min(1, Number.isFinite(marginScale) ? marginScale : 1));
   return {
-    MARGIN_LEFT: BASE.MARGIN_LEFT,
+    MARGIN_LEFT: Math.round(BASE.MARGIN_LEFT * ms),
     MARGIN_TOP: BASE.MARGIN_TOP,
     LINE_HEIGHT: lineHeight,
     BASELINE_OFFSET: BASE.BASELINE_OFFSET,

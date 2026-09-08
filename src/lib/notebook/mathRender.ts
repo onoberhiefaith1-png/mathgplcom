@@ -593,7 +593,19 @@ export function renderMathInline(
   opts: RenderOptions = {},
 ): ReactNode[] {
   const ctx: RenderCtx = { opts, slotCounter: { n: 0 } };
-  return renderInner(stripBrokenGlyphs(normalizeMath(srcRaw)), keyBase, ctx);
+  const nodes = renderInner(stripBrokenGlyphs(normalizeMath(srcRaw)), keyBase, ctx);
+  // LINE-BREAK OPPORTUNITIES — a long expression is a chain of inline boxes
+  // (fractions, radicals, powers, text runs) with no whitespace between them,
+  // which browsers treat as unbreakable. A <wbr> between top-level pieces lets
+  // the expression continue on the next line instead of running off the screen.
+  // Every atom stays internally intact (its own `nowrap` is untouched).
+  if (nodes.length < 2) return nodes;
+  const withBreaks: ReactNode[] = [];
+  nodes.forEach((n, idx) => {
+    if (idx > 0) withBreaks.push(createElement("wbr", { key: `${keyBase}-wbr-${idx}` }));
+    withBreaks.push(n);
+  });
+  return withBreaks;
 }
 
 function renderInner(src: string, keyBase: string, ctx: RenderCtx): ReactNode[] {

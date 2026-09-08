@@ -461,9 +461,7 @@ const PresentationView = ({
   // PHONE/TABLET + SMARTBOARD = no native keyboard, for every role. Layout and
   // chrome still follow `mobileStudent`; only keyboard raising reads this flag.
   const noNativeKeyboard = useBoardNativeKeyboard();
-  // Two-finger viewport pan (mobile student mode only). One finger keeps
-  // writing exactly as before.
-  const panRef = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
+  // (Two-finger viewport pan removed: the board fits the viewport width.)
   // Measured height of the mobile chrome panel so the board content always
   // starts below it, however many rows the number line wraps onto.
   const [mobileChromeH, setMobileChromeH] = useState(0);
@@ -760,9 +758,13 @@ const PresentationView = ({
   useEffect(() => {
     try { localStorage.setItem(TEXT_SCALE_KEY, String(textScale)); } catch { /* noop */ }
   }, [TEXT_SCALE_KEY, textScale]);
+  // Narrow viewports (phone/tablet, any role) start the writing near the left
+  // edge so the full width is usable. Desktop keeps the classic wide margin.
+  const compactMargins = touchLayout;
+  const marginScale = compactMargins ? 0.25 : 1;
   const grid = useMemo(
-    () => getGrid(zoom, rowSpacing, textScale),
-    [zoom, rowSpacing, textScale],
+    () => getGrid(zoom, rowSpacing, textScale, marginScale),
+    [zoom, rowSpacing, textScale, marginScale],
   );
 
   const [sensor, setSensor] = useState<GridPoint>(() => {
@@ -5972,9 +5974,7 @@ const PresentationView = ({
           places the writing sensor on the nearest invisible baseline. */}
       <main
         ref={boardScrollRef}
-        className={`relative z-10 h-full w-full overflow-y-auto overscroll-contain ${
-          mobileStudent ? "overflow-x-auto" : "overflow-x-hidden"
-        }`}
+        className="relative z-10 h-full w-full min-w-0 max-w-full overflow-y-auto overflow-x-hidden overscroll-contain"
         style={{
           // Room for the compact mobile chrome panel (number line + marks).
           paddingTop: mobileStudent ? mobileChromeH + 24 : 24,
@@ -5983,35 +5983,10 @@ const PresentationView = ({
           paddingRight: 0,
           cursor: eraseMode ? "cell" : undefined,
           // Touch devices: a finger on the board writes/erases instead of
-          // triggering browser pan-zoom gestures. On a mobile student session
-          // pinch-zoom stays available and TWO fingers pan the viewport.
-          touchAction: eraseMode ? "none" : mobileStudent ? "pan-y pinch-zoom" : "pan-y",
+          // triggering browser pan-zoom gestures. Vertical scrolling stays.
+          touchAction: eraseMode ? "none" : "pan-y",
           WebkitTapHighlightColor: "transparent",
         }}
-        onTouchStart={(e) => {
-          if (!mobileStudent || e.touches.length !== 2) return;
-          const host = boardScrollRef.current;
-          if (!host) return;
-          const [a, b] = [e.touches[0], e.touches[1]];
-          panRef.current = {
-            x: (a.clientX + b.clientX) / 2,
-            y: (a.clientY + b.clientY) / 2,
-            sl: host.scrollLeft,
-            st: host.scrollTop,
-          };
-        }}
-        onTouchMove={(e) => {
-          const start = panRef.current;
-          const host = boardScrollRef.current;
-          if (!start || !host || e.touches.length !== 2) return;
-          const [a, b] = [e.touches[0], e.touches[1]];
-          const cx = (a.clientX + b.clientX) / 2;
-          const cy = (a.clientY + b.clientY) / 2;
-          host.scrollLeft = start.sl - (cx - start.x);
-          host.scrollTop = start.st - (cy - start.y);
-        }}
-        onTouchEnd={() => { panRef.current = null; }}
-        onTouchCancel={() => { panRef.current = null; }}
 
 
         onPointerDown={(e) => {
@@ -6185,9 +6160,9 @@ const PresentationView = ({
                 : 10) + 10,
             )}px`,
              width: "100%",
-             // MOBILE STUDENT MODE — the board keeps a readable width and the
-             // device pans across it instead of shrinking the mathematics.
-             ...(mobileStudent ? { minWidth: `${mobileBoard.boardWidth * zoom}px` } : null),
+             // The board always fits the available width — never wider, so
+             // the page only ever scrolls vertically.
+             maxWidth: "100%",
           }}
         >
           {/* All revealed beats — cover, intro, problems, summary — render
@@ -6203,14 +6178,15 @@ const PresentationView = ({
                 left: 0,
                 right: 0,
                 paddingLeft: grid.MARGIN_LEFT,
-                paddingRight: 32,
+                paddingRight: compactMargins ? 12 : 32,
                 pointerEvents: "none",
               }}
             >
               <div
                 style={{
                   pointerEvents: "auto",
-                  maxWidth: "64rem",
+                  maxWidth: "min(64rem, 100%)",
+                  overflowWrap: "break-word",
                   // Beats scale with Text Size and follow Row Spacing just
                   // like hand-written rows, so intro / example / explanation
                   // all react to the same two controls.
@@ -6850,34 +6826,8 @@ const PresentationView = ({
         </WritingSurface>
       </main>
 
-      {/* MOBILE STUDENT MODE — edge arrows step the viewport one screen across
-          the full-size board. Two fingers pan; one finger still writes. */}
-      {mobileStudent && (
-        <>
-          {([-1, 1] as const).map((dir) => (
-            <button
-              key={dir}
-              data-sb-chrome
-              aria-label={dir < 0 ? "Pan board left" : "Pan board right"}
-              onClick={() => {
-                const host = boardScrollRef.current;
-                if (!host) return;
-                host.scrollBy({ left: dir * host.clientWidth * 0.8, behavior: "smooth" });
-              }}
-              className="absolute top-1/2 z-[55] grid h-10 w-8 -translate-y-1/2 place-items-center rounded-full border shadow-lg backdrop-blur"
-              style={{
-                [dir < 0 ? "left" : "right"]: 4,
-                background: palette.chromeBg,
-                color: palette.chromeFg,
-                borderColor: palette.chromeBorder,
-                opacity: 0.9,
-              }}
-            >
-              {dir < 0 ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-            </button>
-          ))}
-        </>
-      )}
+      {/* Edge pan arrows removed — the board always fits the viewport width,
+          so there is nothing to pan across. */}
 
 
 

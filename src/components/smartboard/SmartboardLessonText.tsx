@@ -85,7 +85,18 @@ export const SmartboardLessonText = ({
 
   const lines = presentable.split(/\r?\n/);
   return (
-    <span className={className} style={{ whiteSpace: "pre-wrap", ...style }}>
+    <span
+      className={className}
+      style={{
+        // Long lines continue on the next line instead of running off the
+        // side of the screen. Vertical flow only.
+        whiteSpace: "pre-wrap",
+        overflowWrap: "break-word",
+        wordBreak: "break-word",
+        maxWidth: "100%",
+        ...style,
+      }}
+    >
       {lines.map((line, li) => (
         <Fragment key={li}>
           {li > 0 && <br />}
@@ -99,7 +110,7 @@ export const SmartboardLessonText = ({
             }
             // Math run: render through the Lesson Note renderer.
             return (
-              <span key={ri} style={{ display: "inline" }}>
+              <span key={ri} style={{ display: "inline", overflowWrap: "break-word" }}>
                 {renderMathInline(run.text, `sblt-${seed}-${li}-${ri}`, { placeholderColor })}
               </span>
             );
