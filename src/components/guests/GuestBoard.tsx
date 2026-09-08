@@ -6,7 +6,7 @@
 // duplicated for a guest — the original video is streamed by reference.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import PresentationView from "@/components/smartboard/PresentationView";
 import ThreeViewFrame, { useBoardVideoView } from "@/components/smartboard/ThreeViewFrame";
@@ -30,6 +30,7 @@ interface Props {
 const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack }: Props) => {
   const questions = useMemo(() => assessment.questions ?? [], [assessment]);
   const [questionId, setQuestionId] = useState<string | null>(questions[0]?.id ?? null);
+  const qIndex = Math.max(0, questions.findIndex((q) => q.id === questionId));
   const [video, setVideo] = useState<QuestionVideoConfig | null>(null);
   const [videoView, setVideoView] = useBoardVideoView();
   // Phone/tablet guest session: compact header + in-app immersive mode (iOS
@@ -165,6 +166,34 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
                   Q{i + 1}
                 </button>
               ))}
+            </span>
+          )}
+
+          {/* Phone/tablet: the question chips do not fit, so guests step
+              between questions with Back / Next. */}
+          {mobile && questions.length > 1 && (
+            <span className="ml-auto flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setQuestionId(questions[Math.max(0, qIndex - 1)]?.id ?? questionId)}
+                disabled={qIndex <= 0}
+                aria-label="Previous question"
+                className="grid h-8 w-8 place-items-center rounded-md border disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="tabular-nums text-[11px] font-semibold">
+                {qIndex + 1}/{questions.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setQuestionId(questions[Math.min(questions.length - 1, qIndex + 1)]?.id ?? questionId)}
+                disabled={qIndex >= questions.length - 1}
+                aria-label="Next question"
+                className="grid h-8 w-8 place-items-center rounded-md border disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </span>
           )}
         </div>

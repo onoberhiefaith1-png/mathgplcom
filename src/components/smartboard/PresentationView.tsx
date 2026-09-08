@@ -7172,8 +7172,8 @@ const PresentationView = ({
           left: 12,
           top: "50%",
           transform: "translateY(-50%)",
-          opacity: leftToolsVisible ? 1 : 0,
-          pointerEvents: leftToolsVisible ? "auto" : "none",
+          opacity: touchLayout || leftToolsVisible ? 1 : 0,
+          pointerEvents: touchLayout || leftToolsVisible ? "auto" : "none",
         }}
         onPointerMove={revealLeftTools}
       >
@@ -7305,7 +7305,7 @@ const PresentationView = ({
 
       {/* Permanent activation button for the Floating Numbers workspace. On
           phone/tablet it is suspended above the measured workspace. */}
-      {canEdit && carrierVisible && !mobileStudent && (
+      {canEdit && carrierVisible && (
         <AssistantButtons
           active={activeAssistant}
           onToggle={toggleAssistant}
@@ -7606,13 +7606,18 @@ const PresentationView = ({
 
           {/* Per-line Check menu — grades any line server-side (grade-line).
               Hidden entirely in View Only mode; returns in Edit mode. */}
-          {hasGuidedLines && canEdit && !mobileStudent && (
+          {hasGuidedLines && canEdit && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   disabled={assessChecking || guidedLines.length === 0}
-                  className="absolute bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50"
-                  style={{ background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }}
+                  className={`absolute right-4 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50 ${touchLayout ? "" : "bottom-6 right-6"}`}
+                  style={{
+                    background: palette.accent,
+                    color: palette.chromeBg,
+                    borderColor: palette.accent,
+                    ...(touchLayout ? { bottom: touchControlsBottom } : null),
+                  }}
                 >
                   {assessChecking
                     ? <Loader2 className="h-4 w-4 animate-spin" />
