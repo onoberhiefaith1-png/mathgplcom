@@ -9854,6 +9854,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      session_allows_free_entry: {
+        Args: { _session_id: string }
+        Returns: boolean
+      }
       session_is_open: { Args: { _session_id: string }; Returns: boolean }
       session_owner_is: {
         Args: { _session_id: string; _user_id: string }
