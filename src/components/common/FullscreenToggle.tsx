@@ -5,9 +5,13 @@
 
 import { useEffect, useState } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
+import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 
 export function FullscreenToggle() {
   const [isFs, setIsFs] = useState(false);
+  // Phones and tablets have no use for this control — and it competes with the
+  // Smartboard top bar for space. Desktop keeps it.
+  const touch = useIsTouchLayout();
 
   useEffect(() => {
     const fn = () => setIsFs(!!document.fullscreenElement);
@@ -23,6 +27,8 @@ export function FullscreenToggle() {
       /* user gesture / unsupported — ignore silently */
     }
   };
+
+  if (touch) return null;
 
   return (
     <button

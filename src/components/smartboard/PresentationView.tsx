@@ -475,6 +475,18 @@ const PresentationView = ({
     ro.observe(node);
   }, []);
 
+  // Measured height of the foldable TOP BAR. On phones/tablets its controls
+  // wrap onto as many rows as they need, so the pull-tab must follow the real
+  // rendered height instead of a hard-coded single-row offset.
+  const [topBarH, setTopBarH] = useState(44);
+  const topBarMeasureRef = useCallback((node: HTMLElement | null) => {
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const apply = () => setTopBarH(Math.max(36, node.getBoundingClientRect().height));
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(node);
+  }, []);
+
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
   const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
 
@@ -5671,15 +5683,36 @@ const PresentationView = ({
       <header
         data-sb-chrome
         data-sb-teacher-only
-        className="absolute z-20 flex items-center gap-3 px-4 py-2 border rounded-b-2xl transition-transform duration-500"
-        style={{
-          ...chromeStyle,
-          top: 0,
-          left: "50%",
-          transform: `translate(-50%, ${topOpen ? "0" : "-110%"})`,
-          maxWidth: "min(880px, 92vw)",
-          width: "max-content",
-        }}
+        ref={topBarMeasureRef}
+        className={
+          touchLayout
+            // PHONE / TABLET — a responsive toolbar container: it spans the
+            // usable width and its controls flow onto as many rows as needed.
+            ? "absolute z-20 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 px-2 py-2 border rounded-b-2xl transition-transform duration-500"
+            : "absolute z-20 flex items-center gap-3 px-4 py-2 border rounded-b-2xl transition-transform duration-500"
+        }
+        style={
+          touchLayout
+            ? {
+                ...chromeStyle,
+                top: 0,
+                left: 8,
+                right: 8,
+                transform: `translateY(${topOpen ? "0" : "-110%"})`,
+                maxWidth: "none",
+                width: "auto",
+                paddingLeft: "max(8px, env(safe-area-inset-left))",
+                paddingRight: "max(8px, env(safe-area-inset-right))",
+              }
+            : {
+                ...chromeStyle,
+                top: 0,
+                left: "50%",
+                transform: `translate(-50%, ${topOpen ? "0" : "-110%"})`,
+                maxWidth: "min(880px, 92vw)",
+                width: "max-content",
+              }
+        }
       >
         <button
           onClick={() => navigate(backTarget.to)}
@@ -5735,15 +5768,27 @@ const PresentationView = ({
           </button>
         </span>
 
-        <div className="flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate">
-          <span className="font-medium truncate">{notebook?.title ?? "Untitled"}</span>
+        <div
+          className={
+            touchLayout
+              ? "flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5 text-[12px] px-1"
+              : "flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate"
+          }
+        >
+          <span className={touchLayout ? "font-medium" : "font-medium truncate"}>{notebook?.title ?? "Untitled"}</span>
           {notebook?.subtopic && (
-            <span className="opacity-60 truncate">· {notebook.subtopic}</span>
+            <span className={touchLayout ? "opacity-60" : "opacity-60 truncate"}>· {notebook.subtopic}</span>
           )}
           <span className="opacity-40 tabular-nums whitespace-nowrap">· {today()}</span>
         </div>
 
-        <div className="flex items-center gap-1 text-[11px]">
+        <div
+          className={
+            touchLayout
+              ? "flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1.5 text-[12px]"
+              : "flex items-center gap-1 text-[11px]"
+          }
+        >
           <button
             onClick={() => {
               setBeatCursor(0);
@@ -5842,7 +5887,9 @@ const PresentationView = ({
         style={{
           width: 44,
           height: 18,
-          marginTop: topOpen ? 44 : 0,
+          // Follows the bar's real height so the tab stays reachable however
+          // many rows the controls wrap onto.
+          marginTop: topOpen ? topBarH : 0,
           color: palette.chromeFg,
           background: "transparent",
           boxShadow: `0 0 14px 2px ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
