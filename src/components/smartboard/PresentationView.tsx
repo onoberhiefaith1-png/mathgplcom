@@ -461,9 +461,7 @@ const PresentationView = ({
   // PHONE/TABLET + SMARTBOARD = no native keyboard, for every role. Layout and
   // chrome still follow `mobileStudent`; only keyboard raising reads this flag.
   const noNativeKeyboard = useBoardNativeKeyboard();
-  // Two-finger viewport pan (mobile student mode only). One finger keeps
-  // writing exactly as before.
-  const panRef = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
+  // (Two-finger viewport pan removed: the board fits the viewport width.)
   // Measured height of the mobile chrome panel so the board content always
   // starts below it, however many rows the number line wraps onto.
   const [mobileChromeH, setMobileChromeH] = useState(0);
@@ -762,7 +760,7 @@ const PresentationView = ({
   }, [TEXT_SCALE_KEY, textScale]);
   // Narrow viewports (phone/tablet, any role) start the writing near the left
   // edge so the full width is usable. Desktop keeps the classic wide margin.
-  const compactMargins = useIsTouchLayout();
+  const compactMargins = touchLayout;
   const marginScale = compactMargins ? 0.25 : 1;
   const grid = useMemo(
     () => getGrid(zoom, rowSpacing, textScale, marginScale),
