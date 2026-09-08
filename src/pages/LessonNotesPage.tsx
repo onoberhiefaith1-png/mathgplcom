@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { useSignOut } from "@/lib/auth/signOutEverywhere";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { activeSchoolOrgId, myOwnerId } from "@/lib/accounts/workspaceScope";
 import { useViewAs } from "@/lib/accounts/viewAs";
