@@ -1,9 +1,8 @@
-// Three permanent activation buttons for the workspace assistants.
-// Floating Numbers (bottom-left), Structures (bottom-right), Symbols
-// (right-edge middle). Tapping one toggles it; activating any auto-hides
-// the others (mutual exclusion handled by the parent).
+// Permanent activation button for the Floating Numbers workspace (bottom-left
+// on desktop). The Structures (F) and Symbols (Σ) openers were removed by
+// request and are not replaced.
 
-import { Hash, FunctionSquare, Sigma } from "lucide-react";
+import { Hash } from "lucide-react";
 
 export type Assistant = "numbers" | "structures" | "symbols";
 
@@ -19,6 +18,9 @@ interface Props {
   /** Extra lift (px) for the bottom-right Structures button so it clears a
    *  fixed bottom-right element (e.g. the per-line "Check line" button). */
   liftRightBottom?: number;
+  /** Phone/tablet only: absolute placement override so the parent can suspend
+   *  this control above the measured Floating Number workspace. */
+  positionOverride?: React.CSSProperties;
 }
 
 const btnStyle = (
@@ -39,45 +41,26 @@ const btnStyle = (
 
 export const AssistantButtons = ({
   active, onToggle, chromeBg, chromeFg, chromeBorder, ink, bottomInset,
-  liftRightBottom = 0,
+  positionOverride,
 }: Props) => {
   const palette = { chromeBg, chromeFg, chromeBorder, ink };
   return (
     <>
-      {/* Floating Numbers — bottom-left */}
+      {/* Floating Numbers — bottom-left (desktop) or above the workspace (touch) */}
       <button
         data-sb-chrome
         onClick={(e) => { e.stopPropagation(); onToggle("numbers"); }}
         aria-label="Toggle floating numbers"
         title="Floating numbers"
         className="absolute z-40 grid place-items-center rounded-full border transition-all"
-        style={{ left: 12, bottom: bottomInset + 12, ...btnStyle(active === "numbers", palette) }}
+        style={{
+          left: 12,
+          bottom: bottomInset + 12,
+          ...btnStyle(active === "numbers", palette),
+          ...(positionOverride ?? null),
+        }}
       >
         <Hash className="h-5 w-5" />
-      </button>
-
-      {/* Structures — bottom-right */}
-      <button
-        data-sb-chrome
-        onClick={(e) => { e.stopPropagation(); onToggle("structures"); }}
-        aria-label="Toggle structures"
-        title="Structures (□/□, √□, …)"
-        className="absolute z-40 grid place-items-center rounded-full border transition-all"
-        style={{ right: 12, bottom: bottomInset + 12 + liftRightBottom, ...btnStyle(active === "structures", palette) }}
-      >
-        <FunctionSquare className="h-5 w-5" />
-      </button>
-
-      {/* Symbols — right-edge middle */}
-      <button
-        data-sb-chrome
-        onClick={(e) => { e.stopPropagation(); onToggle("symbols"); }}
-        aria-label="Toggle symbols"
-        title="Symbols (+ − × ÷ = …)"
-        className="absolute z-40 grid place-items-center rounded-full border transition-all"
-        style={{ right: 12, top: "50%", transform: "translateY(-50%)", ...btnStyle(active === "symbols", palette) }}
-      >
-        <Sigma className="h-5 w-5" />
       </button>
     </>
   );

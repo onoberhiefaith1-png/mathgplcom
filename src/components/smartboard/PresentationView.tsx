@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
-  Eraser, Undo2, Redo2, ScanEye, PanelLeftOpen, X as XIcon,
+  Eraser, Undo2, Redo2, PanelLeftOpen, X as XIcon,
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
@@ -87,6 +87,7 @@ import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
 import { useMobileStudentBoard } from "@/hooks/useMobileStudentBoard";
+import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useBoardNativeKeyboard } from "@/hooks/useBoardNativeKeyboard";
 import { clampRowSpacing, normalizeRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
@@ -142,7 +143,7 @@ import Workspace3DDialog from "@/components/lessonnotes/geometry3d/Workspace3DDi
 
 import type { GeometryScene } from "@/lib/geometry/scene";
 import type { Scene3D } from "@/lib/geometry3d/scene3d";
-import { Minus as MinusIcon, Circle as CircleIcon, Square as SquareIcon, Shapes as ShapesIcon,
+import { Circle as CircleIcon,
   Table as TableIcon, LineChart as LineChartIcon, Calculator as CalculatorIcon,
   ArrowLeftRight as ArrowLeftRightIcon, Columns2 } from "lucide-react";
 
@@ -681,7 +682,24 @@ const PresentationView = ({
   // pointer and wipes any line it crosses. On release it animates home.
   const [eraserDrag, setEraserDrag] = useState<{ x: number; y: number } | null>(null);
   // AI line-status verification — off by default. When off, no bulbs render.
-  const [verifyOn, setVerifyOn] = useState(false);
+  const [verifyOn] = useState(false);
+
+  // PHONE/TABLET layout: the Floating Number workspace reports its real
+  // rendered box, and the eraser + # controls hang immediately above it. Taller
+  // designs push them up, shorter designs let them settle back down. Desktop is
+  // untouched.
+  const touchLayout = useIsTouchLayout();
+  const [floatingBox, setFloatingBox] = useState<{ height: number; bottom: number } | null>(null);
+  const onFloatingMeasure = useCallback((m: { height: number; bottom: number } | null) => {
+    setFloatingBox((prev) => {
+      if (!m) return prev === null ? prev : null;
+      if (prev && Math.abs(prev.height - m.height) < 1 && Math.abs(prev.bottom - m.bottom) < 1) return prev;
+      return m;
+    });
+  }, []);
+  const touchControlsBottom = floatingBox
+    ? Math.round(floatingBox.bottom + floatingBox.height + 12)
+    : 12 + 52;
 
   // Invisible-grid free-writing state.
   const FREEWRITE_KEY = boardKey("freewrite", boardScope);
@@ -6597,6 +6615,7 @@ const PresentationView = ({
             return (
               <>
                 <FloatingNumberPanel
+                  onMeasure={onFloatingMeasure}
                   displayStyle={floatingDisplayStyle}
                   chromeFg={palette.chromeFg}
                   reservoirs={reservoirs}
@@ -7057,7 +7076,8 @@ const PresentationView = ({
         const HOME_LEFT = 12;
         // Stack above the bottom-left Floating Numbers AssistantButton so the
         // eraser never sits under (or near) any right-edge control.
-        const HOME_BOTTOM = 12 + 52;
+        // PHONE/TABLET: suspended above the measured Floating Number workspace.
+        const HOME_BOTTOM = touchLayout ? touchControlsBottom : 12 + 52;
         const wiping = !!eraserDrag;
         // Convert viewport pointer coords to Smartboard-pane-local coords.
         // The pane has `transform: translateZ(0)`, so any `position: fixed`
@@ -7241,7 +7261,7 @@ const PresentationView = ({
             Sensor D-pad (bottom-center, 4-direction). Nothing renders here. */}
       </div>
 
-      {/* RIGHT rail — relocated theory tools: Smart Line, Two-point line, Box. */}
+      {/* RIGHT rail — two-point line tool. */}
       {canEdit && carrierVisible && !mobileStudent && (
         <div
           data-sb-chrome
@@ -7254,23 +7274,6 @@ const PresentationView = ({
           }}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <button
-            onClick={() => { spawnSmartLine(); }}
-            aria-label="Drop line"
-            title="Drop a line (fraction bar / strike-through)"
-            className="grid place-items-center rounded-full border transition-all"
-            style={{
-              width: 40, height: 40,
-              background: palette.chromeBg,
-              color: palette.chromeFg,
-              borderColor: palette.chromeBorder,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.14)",
-              backdropFilter: "blur(10px)",
-              opacity: 0.95,
-            }}
-          >
-            <MinusIcon className="h-5 w-5" />
-          </button>
           <button
             onClick={() => { if (dotArmed) disarmDot(); else armDot(); }}
             aria-label="Two-point line"
@@ -7290,27 +7293,7 @@ const PresentationView = ({
           >
             <CircleIcon className="h-3 w-3" fill="currentColor" />
           </button>
-          <button
-            onClick={() => { if (boxArmed) disarmBox(); else armBox(); }}
-            aria-label="Arm box tool — tap near a line to drop a magnet box"
-            title="Arm box tool, then tap near a SmartLine to drop a box above or below it"
-            className="grid place-items-center rounded-full border transition-all"
-            style={{
-              width: 40, height: 40,
-              background: palette.chromeBg,
-              color: boxFlashError ? "#e11d48" : (boxArmed ? ink : palette.chromeFg),
-              borderColor: boxFlashError ? "#e11d48" : (boxArmed ? ink : palette.chromeBorder),
-              boxShadow: boxFlashError
-                ? "0 0 14px #e11d48, 0 2px 10px rgba(0,0,0,0.14)"
-                : (boxArmed
-                  ? `0 0 14px ${ink}, 0 2px 10px rgba(0,0,0,0.14)`
-                  : "0 2px 10px rgba(0,0,0,0.14)"),
-              backdropFilter: "blur(10px)",
-              opacity: 0.95,
-            }}
-          >
-            <SquareIcon className="h-4 w-4" />
-          </button>
+          {/* Box tool button removed by request — no replacement. */}
         </div>
       )}
 
@@ -7323,7 +7306,8 @@ const PresentationView = ({
 
       {/* Emoji dock removed from the Smartboard by request — no replacement. */}
 
-      {/* Permanent activation buttons for the three workspace assistants. */}
+      {/* Permanent activation button for the Floating Numbers workspace. On
+          phone/tablet it is suspended above the measured workspace. */}
       {canEdit && carrierVisible && !mobileStudent && (
         <AssistantButtons
           active={activeAssistant}
@@ -7333,7 +7317,11 @@ const PresentationView = ({
           chromeBorder={palette.chromeBorder}
           ink={ink}
           bottomInset={0}
-          liftRightBottom={hasGuidedLines ? 64 : 0}
+          positionOverride={
+            touchLayout
+              ? { left: "max(64px, calc(env(safe-area-inset-left) + 64px))", bottom: touchControlsBottom }
+              : undefined
+          }
         />
       )}
 
@@ -7342,35 +7330,7 @@ const PresentationView = ({
 
 
 
-      {/* AI line-status verification toggle. Off by default; when on, the
-          left-edge bulbs render (yellow → in progress, green → correct,
-          red → mismatch, blue → whole problem solved). */}
-      {canEdit && carrierVisible && (
-        <button
-          data-sb-chrome
-          data-sb-teacher-only
-          onClick={(e) => { e.stopPropagation(); setVerifyOn((v) => !v); }}
-          aria-label="Toggle AI line verification"
-          title={verifyOn ? "AI verification on — tap to turn off" : "AI verification off — tap to turn on"}
-          className="absolute z-40 grid place-items-center rounded-full border transition-all"
-          style={{
-            right: 12,
-            top: `calc(50% + 56px)`,
-            width: 44,
-            height: 44,
-            background: palette.chromeBg,
-            color: verifyOn ? palette.accent : palette.chromeFg,
-            borderColor: verifyOn ? palette.accent : palette.chromeBorder,
-            boxShadow: verifyOn
-              ? `0 0 14px ${palette.accent}, 0 2px 10px rgba(0,0,0,0.18)`
-              : "0 2px 10px rgba(0,0,0,0.18)",
-            backdropFilter: "blur(10px)",
-            opacity: 0.95,
-          }}
-        >
-          <ScanEye className="h-5 w-5" />
-        </button>
-      )}
+      {/* AI line-status verification toggle removed by request — no replacement. */}
 
 
 

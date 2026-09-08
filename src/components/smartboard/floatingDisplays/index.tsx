@@ -157,7 +157,17 @@ export const FloatingDisplayFrame = ({
   const wrap = (node: ReactNode): ReactNode => (
     <div
       className="flex items-center select-none"
-      style={{ color: chipsColor ?? chromeFg, fontSize: 22, gap: 8, fontFamily: "ui-serif, Georgia, serif" }}
+      style={{
+        color: chipsColor ?? chromeFg,
+        fontSize: 22,
+        gap: 8,
+        fontFamily: "ui-serif, Georgia, serif",
+        // Grows only when the outer container is stretched (phone/tablet
+        // full-width workspace); on desktop the container is content-sized so
+        // this is a no-op.
+        flex: "1 1 auto",
+        minWidth: 0,
+      }}
     >
       {node}
     </div>
