@@ -18,13 +18,14 @@ import { clearWorkspaceScopeCache } from "./workspaceScope";
  */
 export function useWorkspace() {
   const queryClient = useQueryClient();
-  const { role } = useAccount();
+  const { role, userId } = useAccount();
 
   const query = useQuery({
-    queryKey: ["workspaces"],
+    queryKey: ["workspaces", userId ?? "anon"],
     queryFn: fetchWorkspaces,
     staleTime: 5 * 60 * 1000,
   });
+
 
   const workspaces: Workspace[] = query.data?.workspaces ?? [];
   const activeOrgId = query.data?.activeOrgId ?? null;

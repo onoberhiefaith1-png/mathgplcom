@@ -10,6 +10,7 @@ import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { WORKSPACE_LABEL, WORKSPACE_PATH } from "@/lib/accounts/roles";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useSignOut } from "@/lib/auth/signOutEverywhere";
 import PlanInviteBanner from "@/components/plans/PlanInviteBanner";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +21,7 @@ const Index = () => {
   const { role, roles, isPlatformOwner } = useAccount();
 
   const navigate = useNavigate();
+  const signOutEverywhere = useSignOut();
   const { user, ready } = useAuth();
   // Anything other than a plain student account keeps the full homepage: the
   // owner, school admins and teachers must never be locked into the student view.
@@ -37,9 +39,9 @@ const Index = () => {
 
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/", { replace: true });
+    await signOutEverywhere({ to: "/" });
   };
+
 
 
 

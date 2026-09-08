@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "@/lib/router-compat";
 import { ChevronDown, LogOut, LayoutDashboard, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { supabase } from "@/integrations/supabase/client";
+import { useSignOut } from "@/lib/auth/signOutEverywhere";
 
 import { useAccount } from "@/lib/accounts/useAccount";
 
@@ -37,6 +37,7 @@ const AccountMenu = () => {
   const { user, ready } = useAuth();
   const { role, isLoading } = useAccount();
   const navigate = useNavigate();
+  const signOutEverywhere = useSignOut();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -50,9 +51,9 @@ const AccountMenu = () => {
 
   const signOut = async () => {
     setOpen(false);
-    await supabase.auth.signOut();
-    navigate("/", { replace: true });
+    await signOutEverywhere();
   };
+
 
   // Every signed-in person needs one place to see their MathGPL ID, so the
   // button itself is universal — only the management links are role-specific.

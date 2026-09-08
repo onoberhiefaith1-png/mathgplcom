@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useT } from "@/lib/i18n/LanguageProvider";
 import { useLocation, useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { useSignOut } from "@/lib/auth/signOutEverywhere";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { activeSchoolOrgId, myOwnerId } from "@/lib/accounts/workspaceScope";
 import { useViewAs } from "@/lib/accounts/viewAs";
@@ -41,6 +42,7 @@ const PAGE_SIZE = 20;
 
 const LessonNotesPage = () => {
   const navigate = useNavigate();
+  const signOutEverywhere = useSignOut();
   // Someone else's shelf can be opened read-only (school → teacher): the page
   // is identical, only the authoring actions are refused.
   const { allowEdit } = useViewAs();
@@ -208,9 +210,9 @@ const LessonNotesPage = () => {
 
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth", { replace: true });
+    await signOutEverywhere({ to: "/auth" });
   };
+
 
   const pageStart = page * PAGE_SIZE;
   const pageItems = notebooks.slice(pageStart, pageStart + PAGE_SIZE);
