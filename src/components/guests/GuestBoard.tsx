@@ -167,6 +167,34 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
               ))}
             </span>
           )}
+
+          {/* Phone/tablet: the question chips do not fit, so guests step
+              between questions with Back / Next. */}
+          {mobile && questions.length > 1 && (
+            <span className="ml-auto flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setQuestionId(questions[Math.max(0, qIndex - 1)]?.id ?? questionId)}
+                disabled={qIndex <= 0}
+                aria-label="Previous question"
+                className="grid h-8 w-8 place-items-center rounded-md border disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="tabular-nums text-[11px] font-semibold">
+                {qIndex + 1}/{questions.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setQuestionId(questions[Math.min(questions.length - 1, qIndex + 1)]?.id ?? questionId)}
+                disabled={qIndex >= questions.length - 1}
+                aria-label="Next question"
+                className="grid h-8 w-8 place-items-center rounded-md border disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </span>
+          )}
         </div>
 
         <span className={`flex shrink-0 items-center gap-2 ${mobile ? "" : "ml-auto"}`}>
