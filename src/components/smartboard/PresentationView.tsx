@@ -760,9 +760,13 @@ const PresentationView = ({
   useEffect(() => {
     try { localStorage.setItem(TEXT_SCALE_KEY, String(textScale)); } catch { /* noop */ }
   }, [TEXT_SCALE_KEY, textScale]);
+  // Narrow viewports (phone/tablet, any role) start the writing near the left
+  // edge so the full width is usable. Desktop keeps the classic wide margin.
+  const compactMargins = useIsTouchLayout();
+  const marginScale = compactMargins ? 0.25 : 1;
   const grid = useMemo(
-    () => getGrid(zoom, rowSpacing, textScale),
-    [zoom, rowSpacing, textScale],
+    () => getGrid(zoom, rowSpacing, textScale, marginScale),
+    [zoom, rowSpacing, textScale, marginScale],
   );
 
   const [sensor, setSensor] = useState<GridPoint>(() => {
