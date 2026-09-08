@@ -475,6 +475,18 @@ const PresentationView = ({
     ro.observe(node);
   }, []);
 
+  // Measured height of the foldable TOP BAR. On phones/tablets its controls
+  // wrap onto as many rows as they need, so the pull-tab must follow the real
+  // rendered height instead of a hard-coded single-row offset.
+  const [topBarH, setTopBarH] = useState(44);
+  const topBarMeasureRef = useCallback((node: HTMLElement | null) => {
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const apply = () => setTopBarH(Math.max(36, node.getBoundingClientRect().height));
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(node);
+  }, []);
+
   const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
   const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
 
