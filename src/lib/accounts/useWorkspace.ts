@@ -21,7 +21,7 @@ export function useWorkspace() {
   const { role, userId } = useAccount();
 
   const query = useQuery({
-    queryKey: ["workspaces", userId ?? "anon"],
+    queryKey: ["workspaces", userId],
     queryFn: fetchWorkspaces,
     staleTime: 5 * 60 * 1000,
   });

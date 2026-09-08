@@ -81,7 +81,7 @@ export function useAccount() {
   // capabilities can then never be handed to the next person who signs in.
   const { user } = useAuth();
   const query = useQuery({
-    queryKey: ["account", user?.id ?? "anon"],
+    queryKey: ["account", user?.id ?? null],
     queryFn: () => loadAccount(),
     staleTime: 5 * 60 * 1000,
   });
