@@ -1,0 +1,40 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <defs>
+    <marker id="ch" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <text x="0" y="14" style="font-size:12px" fill="hsl(var(--muted-foreground))">today</text>
+  <rect x="0" y="26" width="130" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="65" y="54" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Teacher signs out</text>
+  <line x1="132" y1="49" x2="186" y2="49" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <rect x="188" y="26" width="150" height="46" rx="8" fill="hsl(var(--muted))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="263" y="47" text-anchor="middle" style="font-size:12px" fill="hsl(var(--foreground))">held data stays</text>
+  <text x="263" y="63" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">role, name, lists</text>
+  <line x1="340" y1="49" x2="394" y2="49" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <rect x="396" y="26" width="150" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="471" y="47" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Student signs in</text>
+  <text x="471" y="63" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">sees teacher's screen</text>
+
+  <line x1="0" y1="108" x2="640" y2="108" stroke="hsl(var(--border))"/>
+
+  <text x="0" y="140" style="font-size:12px" fill="hsl(var(--muted-foreground))">after this change</text>
+  <rect x="0" y="152" width="130" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="65" y="180" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Teacher signs out</text>
+  <line x1="132" y1="175" x2="186" y2="175" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <rect x="188" y="152" width="150" height="46" rx="8" fill="hsl(var(--accent))" stroke="hsl(var(--muted-foreground))"/>
+  <text x="263" y="173" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--accent-foreground))">one full wipe</text>
+  <text x="263" y="189" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">nothing left behind</text>
+  <line x1="340" y1="175" x2="394" y2="175" stroke="hsl(var(--muted-foreground))" marker-end="url(#ch)"/>
+  <rect x="396" y="152" width="150" height="46" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="471" y="173" text-anchor="middle" style="font-size:14px;font-weight:480" fill="hsl(var(--foreground))">Student signs in</text>
+  <text x="471" y="189" text-anchor="middle" style="font-size:12px" fill="hsl(var(--muted-foreground))">own account only</text>
+
+  <circle cx="10" cy="238" r="9" fill="hsl(var(--accent))"/>
+  <text x="10" y="242" text-anchor="middle" style="font-size:11px;font-weight:480" fill="hsl(var(--accent-foreground))">1</text>
+  <text x="28" y="242" style="font-size:12px" fill="hsl(var(--muted-foreground))">The same wipe also runs when a different person signs in, so a stale page cannot leak either.</text>
+  <circle cx="10" cy="268" r="9" fill="hsl(var(--accent))"/>
+  <text x="10" y="272" text-anchor="middle" style="font-size:11px;font-weight:480" fill="hsl(var(--accent-foreground))">2</text>
+  <text x="28" y="272" style="font-size:12px" fill="hsl(var(--muted-foreground))">Back button after sign out cannot return to the previous account's pages.</text>
+</svg>

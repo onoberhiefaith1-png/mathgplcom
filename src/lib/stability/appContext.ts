@@ -60,6 +60,20 @@ export function hydrateAppContext(): void {
   }
 }
 
+/** Forget the current context entirely — used when an account leaves this browser. */
+export function resetAppContext(): void {
+  state = { ...initial };
+  if (typeof window !== "undefined") {
+    if (persistTimer) window.clearTimeout(persistTimer);
+    try {
+      window.sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Storage blocked — the in-memory reset above is what matters.
+    }
+  }
+  for (const listener of listeners) listener(state);
+}
+
 export function getAppContext(): AppContextState {
   return state;
 }

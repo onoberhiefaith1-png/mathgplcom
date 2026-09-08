@@ -7,6 +7,7 @@
  * data). Exiting restores the parked owner session.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { resetAccountState } from "@/lib/auth/sessionReset";
 
 const OWNER_KEY = "mathgpl.impersonation.owner";
 const ACTIVE_KEY = "mathgpl.impersonation.active";
@@ -94,6 +95,9 @@ export async function endImpersonation() {
   window.localStorage.removeItem(ACTIVE_KEY);
   window.localStorage.removeItem(OWNER_KEY);
   if (!raw) {
+    // No parked owner session to return to: this is a full departure, so
+    // nothing about the visited account may survive in this browser.
+    await resetAccountState();
     await supabase.auth.signOut();
     return;
   }
