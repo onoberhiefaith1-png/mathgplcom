@@ -219,6 +219,7 @@ function RootComponent() {
               <SonnerToaster />
 
               <ImpersonationBanner />
+              <IdleSignOutWatcher />
               <FullscreenToggle />
               <GlobalSoundtrack />
               <ConnectionIndicator />

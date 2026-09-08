@@ -41,6 +41,7 @@ const PAGE_SIZE = 20;
 
 const LessonNotesPage = () => {
   const navigate = useNavigate();
+  const signOutEverywhere = useSignOut();
   // Someone else's shelf can be opened read-only (school → teacher): the page
   // is identical, only the authoring actions are refused.
   const { allowEdit } = useViewAs();
@@ -208,9 +209,9 @@ const LessonNotesPage = () => {
 
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/auth", { replace: true });
+    await signOutEverywhere({ to: "/auth" });
   };
+
 
   const pageStart = page * PAGE_SIZE;
   const pageItems = notebooks.slice(pageStart, pageStart + PAGE_SIZE);

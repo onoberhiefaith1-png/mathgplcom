@@ -8,7 +8,7 @@ import NotificationBell from "@/components/notifications/NotificationBell";
 import WorkspaceSwitcher from "@/components/accounts/WorkspaceSwitcher";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useT } from "@/lib/i18n/LanguageProvider";
-import { supabase } from "@/integrations/supabase/client";
+import { useSignOut } from "@/lib/auth/signOutEverywhere";
 
 
 
@@ -19,12 +19,13 @@ const AcademyTopBar = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, ready } = useAuth();
+  const signOutEverywhere = useSignOut();
   const t = useT();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/", { replace: true });
+    await signOutEverywhere();
   };
+
 
   const results = useMemo(() => searchCurriculum(query, 12), [query]);
 

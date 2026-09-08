@@ -11,12 +11,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/async/withTimeout";
+import { clearAccountLocalState } from "@/lib/auth/signOutEverywhere";
+
+
 
 type AuthContextValue = {
   session: Session | null;
@@ -36,6 +41,23 @@ const AuthContext = createContext<AuthContextValue>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const queryClient = useQueryClient();
+  const lastUserIdRef = useRef<string | null>(null);
+  const seenRef = useRef(false);
+
+  // Whoever is signed in now owns the cache. If the identity changes — a new
+  // sign-in, a switch, or a restored session belonging to somebody else — every
+  // cached answer from the previous account is dropped before any screen reads
+  // it. Without this the next person sees the previous person's account.
+  const adopt = (next: Session | null) => {
+    const nextId = next?.user?.id ?? null;
+    if (seenRef.current && nextId !== lastUserIdRef.current) {
+      queryClient.clear();
+    }
+    seenRef.current = true;
+    lastUserIdRef.current = nextId;
+    setSession(next);
+  };
 
   useEffect(() => {
     let active = true;
@@ -43,24 +65,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       if (!active) return;
       restored = true;
-      setSession(next);
+      adopt(next);
       setReady(true);
     });
+
     const restore = async () => {
       try {
         const { data } = await withTimeout(supabase.auth.getSession(), 8_000, "Session restoration timed out");
         if (!active) return;
         restored = true;
-        setSession(data.session);
+        adopt(data.session);
       } catch (firstError) {
         try {
           const { data } = await withTimeout(supabase.auth.getSession(), 5_000);
           if (!active) return;
           restored = true;
-          setSession(data.session);
+          adopt(data.session);
         } catch (retryError) {
           console.warn("[auth] session restoration failed", retryError ?? firstError);
-          if (active && !restored) setSession(null);
+          if (active && !restored) adopt(null);
         }
       } finally {
         if (active) setReady(true);
@@ -71,7 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false;
       sub.subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -79,10 +104,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       ready,
       signOut: async () => {
+        try {
+          await queryClient.cancelQueries();
+        } catch {
+          /* best effort */
+        }
+        queryClient.clear();
+        clearAccountLocalState();
         await supabase.auth.signOut();
       },
     }),
-    [session, ready],
+    [session, ready, queryClient],
+
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

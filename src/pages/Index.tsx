@@ -20,6 +20,7 @@ const Index = () => {
   const { role, roles, isPlatformOwner } = useAccount();
 
   const navigate = useNavigate();
+  const signOutEverywhere = useSignOut();
   const { user, ready } = useAuth();
   // Anything other than a plain student account keeps the full homepage: the
   // owner, school admins and teachers must never be locked into the student view.
@@ -37,9 +38,9 @@ const Index = () => {
 
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/", { replace: true });
+    await signOutEverywhere({ to: "/" });
   };
+
 
 
 

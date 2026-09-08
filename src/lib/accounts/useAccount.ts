@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import type { AppRole, Capability } from "./roles";
+
 
 export type AccountState = {
   userId: string | null;
@@ -75,11 +77,15 @@ export async function loadAccount(requestedRole?: string): Promise<AccountState>
 }
 
 export function useAccount() {
+  // The key carries the signed-in person: cached role, workspace and
+  // capabilities can then never be handed to the next person who signs in.
+  const { user } = useAuth();
   const query = useQuery({
-    queryKey: ["account"],
+    queryKey: ["account", user?.id ?? "anon"],
     queryFn: () => loadAccount(),
     staleTime: 5 * 60 * 1000,
   });
+
 
   const account = query.data ?? EMPTY;
   const can = (capability: Capability) => account.capabilities.includes(capability);
