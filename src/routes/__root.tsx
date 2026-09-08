@@ -21,6 +21,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { FullscreenToggle } from "@/components/common/FullscreenToggle";
 import { RouterErrorBoundary } from "@/components/common/RouterErrorBoundary";
 import ImpersonationBanner from "@/components/accounts/ImpersonationBanner";
+import IdleSignOutWatcher from "@/components/auth/IdleSignOutWatcher";
 import GlobalSoundtrack from "@/components/audio/GlobalSoundtrack";
 import ConnectionIndicator from "@/components/common/ConnectionIndicator";
 import StabilityWatchdog from "@/components/common/StabilityWatchdog";

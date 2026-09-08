@@ -42,38 +42,47 @@ export function backgroundCss(id: string | null): string {
   return (DASHBOARD_BACKGROUNDS.find((b) => b.id === id) ?? DASHBOARD_BACKGROUNDS[0]).css;
 }
 
-/** Per-account dashboard background: instant locally, persisted to the profile. */
+/**
+ * Per-account dashboard background: instant locally, persisted to the profile.
+ * The local copy is keyed by account so the next person to sign in on this
+ * browser never inherits the previous person's canvas.
+ */
 export function useDashboardBackground() {
   const [id, setId] = useState<string>("navy");
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   useEffect(() => {
-    const local = window.localStorage.getItem(STORAGE_KEY);
+    setId("navy");
+    // Retire the old shared key, which leaked between accounts.
+    window.localStorage.removeItem(STORAGE_KEY);
+    if (!userId) return;
+    const key = `${STORAGE_KEY}:${userId}`;
+    const local = window.localStorage.getItem(key);
     if (local) setId(local);
     void (async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
       const { data } = await supabase
         .from("profiles")
         .select("dashboard_background")
-        .eq("user_id", userData.user.id)
+        .eq("user_id", userId)
         .maybeSingle();
       if (data?.dashboard_background) {
         setId(data.dashboard_background);
-        window.localStorage.setItem(STORAGE_KEY, data.dashboard_background);
+        window.localStorage.setItem(key, data.dashboard_background);
       }
     })();
-  }, []);
+  }, [userId]);
 
-  const choose = useCallback(async (next: string) => {
-    setId(next);
-    window.localStorage.setItem(STORAGE_KEY, next);
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) return;
-    await supabase
-      .from("profiles")
-      .update({ dashboard_background: next })
-      .eq("user_id", userData.user.id);
-  }, []);
+  const choose = useCallback(
+    async (next: string) => {
+      setId(next);
+      if (!userId) return;
+      window.localStorage.setItem(`${STORAGE_KEY}:${userId}`, next);
+      await supabase.from("profiles").update({ dashboard_background: next }).eq("user_id", userId);
+    },
+    [userId],
+  );
 
   return { id, css: backgroundCss(id), choose };
 }
+
