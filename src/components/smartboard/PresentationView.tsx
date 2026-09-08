@@ -5768,15 +5768,27 @@ const PresentationView = ({
           </button>
         </span>
 
-        <div className="flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate">
-          <span className="font-medium truncate">{notebook?.title ?? "Untitled"}</span>
+        <div
+          className={
+            touchLayout
+              ? "flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5 text-[12px] px-1"
+              : "flex items-baseline justify-center gap-2 text-[12px] px-2 max-w-[420px] truncate"
+          }
+        >
+          <span className={touchLayout ? "font-medium" : "font-medium truncate"}>{notebook?.title ?? "Untitled"}</span>
           {notebook?.subtopic && (
-            <span className="opacity-60 truncate">· {notebook.subtopic}</span>
+            <span className={touchLayout ? "opacity-60" : "opacity-60 truncate"}>· {notebook.subtopic}</span>
           )}
           <span className="opacity-40 tabular-nums whitespace-nowrap">· {today()}</span>
         </div>
 
-        <div className="flex items-center gap-1 text-[11px]">
+        <div
+          className={
+            touchLayout
+              ? "flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1.5 text-[12px]"
+              : "flex items-center gap-1 text-[11px]"
+          }
+        >
           <button
             onClick={() => {
               setBeatCursor(0);
