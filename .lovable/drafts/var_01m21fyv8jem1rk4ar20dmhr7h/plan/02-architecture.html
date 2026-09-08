@@ -1,0 +1,48 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Assigned question snapshot flow">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .s { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .l { font-size: 14px; font-weight: 480; }
+    .b { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .z { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .a { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+  </style>
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="b" x="12" y="22" width="140" height="54" rx="8"/>
+  <text class="l" x="82" y="46" text-anchor="middle">Lesson Note</text>
+  <text class="s" x="82" y="63" text-anchor="middle">question + floating data</text>
+
+  <line class="w" x1="152" y1="49" x2="228" y2="49" marker-end="url(#ch)"/>
+  <text class="s" x="190" y="40" text-anchor="middle">assign</text>
+
+  <rect class="a" x="230" y="14" width="170" height="70" rx="8"/>
+  <text class="l" x="315" y="40" text-anchor="middle">Frozen copy</text>
+  <text class="s" x="315" y="58" text-anchor="middle">question · chips · marks</text>
+  <text class="s" x="315" y="74" text-anchor="middle">notes · tables · answer key</text>
+
+  <line class="w" x1="400" y1="49" x2="470" y2="49" marker-end="url(#ch)"/>
+  <rect class="b" x="472" y="22" width="150" height="54" rx="8"/>
+  <text class="l" x="547" y="46" text-anchor="middle">Student board</text>
+  <text class="s" x="547" y="63" text-anchor="middle">reads copy only</text>
+
+  <rect class="z" x="12" y="112" width="610" height="80" rx="8"/>
+  <text class="s" x="24" y="130">already frozen today</text>
+  <rect class="b" x="28" y="140" width="126" height="38" rx="8"/><text class="l" x="91" y="164" text-anchor="middle">Assignment</text>
+  <rect class="b" x="168" y="140" width="126" height="38" rx="8"/><text class="l" x="231" y="164" text-anchor="middle">Assessment</text>
+  <rect class="b" x="308" y="140" width="126" height="38" rx="8"/><text class="l" x="371" y="164" text-anchor="middle">Smart Card</text>
+  <rect class="b" x="448" y="140" width="150" height="38" rx="8"/><text class="l" x="523" y="164" text-anchor="middle">Adventure bar</text>
+
+  <rect class="z" x="12" y="208" width="610" height="76" rx="8"/>
+  <text class="s" x="24" y="226">rebuilt live from the note — this is the gap</text>
+  <rect class="a" x="28" y="236" width="180" height="38" rx="8"/>
+  <text class="l" x="118" y="260" text-anchor="middle">Exercise Card question</text>
+  <text class="mono" x="224" y="255">course_exercise_questions</text>
+  <text class="s" x="224" y="271">pointer only: note / section / label</text>
+</svg>
