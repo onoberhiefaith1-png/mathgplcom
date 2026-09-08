@@ -6,7 +6,7 @@
 // duplicated for a guest — the original video is streamed by reference.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import PresentationView from "@/components/smartboard/PresentationView";
 import ThreeViewFrame, { useBoardVideoView } from "@/components/smartboard/ThreeViewFrame";
@@ -30,6 +30,7 @@ interface Props {
 const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack }: Props) => {
   const questions = useMemo(() => assessment.questions ?? [], [assessment]);
   const [questionId, setQuestionId] = useState<string | null>(questions[0]?.id ?? null);
+  const qIndex = Math.max(0, questions.findIndex((q) => q.id === questionId));
   const [video, setVideo] = useState<QuestionVideoConfig | null>(null);
   const [videoView, setVideoView] = useBoardVideoView();
   // Phone/tablet guest session: compact header + in-app immersive mode (iOS
