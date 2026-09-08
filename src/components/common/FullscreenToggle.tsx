@@ -28,6 +28,8 @@ export function FullscreenToggle() {
     }
   };
 
+  if (touch) return null;
+
   return (
     <button
       type="button"
