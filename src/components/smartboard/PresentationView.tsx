@@ -5683,15 +5683,36 @@ const PresentationView = ({
       <header
         data-sb-chrome
         data-sb-teacher-only
-        className="absolute z-20 flex items-center gap-3 px-4 py-2 border rounded-b-2xl transition-transform duration-500"
-        style={{
-          ...chromeStyle,
-          top: 0,
-          left: "50%",
-          transform: `translate(-50%, ${topOpen ? "0" : "-110%"})`,
-          maxWidth: "min(880px, 92vw)",
-          width: "max-content",
-        }}
+        ref={topBarMeasureRef}
+        className={
+          touchLayout
+            // PHONE / TABLET — a responsive toolbar container: it spans the
+            // usable width and its controls flow onto as many rows as needed.
+            ? "absolute z-20 flex flex-wrap items-center justify-center gap-x-2 gap-y-1.5 px-2 py-2 border rounded-b-2xl transition-transform duration-500"
+            : "absolute z-20 flex items-center gap-3 px-4 py-2 border rounded-b-2xl transition-transform duration-500"
+        }
+        style={
+          touchLayout
+            ? {
+                ...chromeStyle,
+                top: 0,
+                left: 8,
+                right: 8,
+                transform: `translateY(${topOpen ? "0" : "-110%"})`,
+                maxWidth: "none",
+                width: "auto",
+                paddingLeft: "max(8px, env(safe-area-inset-left))",
+                paddingRight: "max(8px, env(safe-area-inset-right))",
+              }
+            : {
+                ...chromeStyle,
+                top: 0,
+                left: "50%",
+                transform: `translate(-50%, ${topOpen ? "0" : "-110%"})`,
+                maxWidth: "min(880px, 92vw)",
+                width: "max-content",
+              }
+        }
       >
         <button
           onClick={() => navigate(backTarget.to)}
