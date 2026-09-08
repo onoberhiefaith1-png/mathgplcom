@@ -12,6 +12,7 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router-compat";
 import { supabase } from "@/integrations/supabase/client";
+import { resetAccountState } from "@/lib/auth/sessionReset";
 
 /** Browser keys that describe one account and must never outlive its session. */
 const ACCOUNT_LOCAL_KEYS = [
@@ -43,12 +44,9 @@ export function useSignOut() {
 
   return useCallback(
     async (options?: { to?: string; reason?: "idle" }) => {
-      try {
-        await queryClient.cancelQueries();
-      } catch {
-        /* cancellation is best-effort */
-      }
-      queryClient.clear();
+      // Cancels in-flight reads, empties the cache, and forgets workspace,
+      // view-as and app context as well as the per-account browser keys.
+      await resetAccountState(queryClient);
       clearAccountLocalState();
       try {
         await supabase.auth.signOut();

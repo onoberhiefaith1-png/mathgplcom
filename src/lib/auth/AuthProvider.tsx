@@ -20,6 +20,10 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { withTimeout } from "@/lib/async/withTimeout";
 import { clearAccountLocalState } from "@/lib/auth/signOutEverywhere";
+import { resetAccountState } from "@/lib/auth/sessionReset";
+
+/** Marks the current browsing session, so a fresh browser start is detectable. */
+const TAB_KEY = "mathgpl:visit";
 
 
 
@@ -44,6 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const lastUserIdRef = useRef<string | null>(null);
   const seenRef = useRef(false);
+  /** True while the previous account's data is being wiped — nothing renders. */
+  const [switching, setSwitching] = useState(false);
 
   // Whoever is signed in now owns the cache. If the identity changes — a new
   // sign-in, a switch, or a restored session belonging to somebody else — every
@@ -52,7 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const adopt = (next: Session | null) => {
     const nextId = next?.user?.id ?? null;
     if (seenRef.current && nextId !== lastUserIdRef.current) {
-      queryClient.clear();
+      setSwitching(true);
+      void resetAccountState(queryClient).finally(() => setSwitching(false));
     }
     seenRef.current = true;
     lastUserIdRef.current = nextId;
@@ -98,11 +105,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
 
+  // "Remember me" unticked means the sign-in belongs to this browsing session
+  // only: closing the browser ends it, and coming back requires a fresh sign-in.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const remember = window.localStorage.getItem("mathgpl:remember");
+      const sameVisit = window.sessionStorage.getItem(TAB_KEY) === "1";
+      window.sessionStorage.setItem(TAB_KEY, "1");
+      if (remember === "0" && !sameVisit) {
+        void resetAccountState(queryClient).then(() => supabase.auth.signOut());
+      }
+    } catch {
+      // Storage blocked — the session simply behaves as remembered.
+    }
+  }, [queryClient]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
-      session,
-      user: session?.user ?? null,
-      ready,
+      session: switching ? null : session,
+      user: switching ? null : session?.user ?? null,
+      ready: ready && !switching,
       signOut: async () => {
         try {
           await queryClient.cancelQueries();
@@ -114,9 +137,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut();
       },
     }),
-    [session, ready, queryClient],
+    [session, ready, switching, queryClient],
 
   );
+
+  if (switching) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        Signing out…
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
