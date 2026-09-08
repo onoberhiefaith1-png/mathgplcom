@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useSmartboardRoot } from "./SmartboardRoot";
 import { Table as TableIcon } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
@@ -258,6 +259,10 @@ interface Props {
   /** Selected presentation design. Presentation only — the mathematics,
    *  conveyor and navigation behaviour are identical for every design. */
   displayStyle?: FloatingDisplayStyleId;
+  /** Phone/tablet only: reports the workspace's real rendered height and its
+   *  distance from the board bottom, so the parent can suspend the eraser and
+   *  the # control directly above it whatever the chosen design measures. */
+  onMeasure?: (m: { height: number; bottom: number } | null) => void;
 
 }
 
@@ -280,9 +285,12 @@ export const FloatingNumberPanel = ({
   tableChip = null,
   displayStyle,
   onPlaceTable,
+  onMeasure,
 
 }: Props) => {
   const sbRoot = useSmartboardRoot();
+  const touchLayout = useIsTouchLayout();
+  const [panelEl, setPanelEl] = useState<HTMLDivElement | null>(null);
   const [offset, setOffset] = useState<number>(0);
   // How many already-USED numbers are currently revealed (green) on the left of
   // the single strip. 0 = pure forward view of unused numbers. Backward grows
@@ -552,14 +560,39 @@ export const FloatingNumberPanel = ({
     return null;
   };
 
-
   // New fallback positioning rule: the floating-number display is a fixed
   // viewport overlay at the bottom-left, just to the right of the hash/eraser
   // tool column. It no longer depends on vertical dragging to stay usable.
+  // PHONE/TABLET: the workspace instead spans the full usable width along the
+  // bottom edge, respecting safe-area insets, so the writing area keeps every
+  // pixel above it. Desktop values are unchanged.
   const fixedLeft = Math.max(76, leftPx);
   const fixedBottom = Math.max(8, viewportBottomInset + 8);
+  const shown = visible && reservoirs.length > 0;
 
-  if (!visible || reservoirs.length === 0) return null;
+  // Report the real rendered box so the parent can hang the eraser and the #
+  // control immediately above it — tall designs push them up, short designs
+  // let them settle down, always with the same gap.
+  useEffect(() => {
+    if (!touchLayout || !shown || !panelEl) { onMeasure?.(null); return; }
+    const report = () =>
+      onMeasure?.({ height: panelEl.getBoundingClientRect().height, bottom: fixedBottom });
+    report();
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(report);
+      ro.observe(panelEl);
+    }
+    window.addEventListener("resize", report);
+    window.addEventListener("orientationchange", report);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", report);
+      window.removeEventListener("orientationchange", report);
+    };
+  }, [touchLayout, shown, panelEl, fixedBottom, onMeasure]);
+
+  if (!shown) return null;
 
   // ── Presentation-agnostic pieces ────────────────────────────────────────
   // The engine builds them; the selected design only arranges them.
@@ -730,23 +763,34 @@ export const FloatingNumberPanel = ({
 
   const panel = (
     <div
+      ref={setPanelEl}
       data-sb-chrome
       data-floating-halo
       onPointerDown={(e) => { e.stopPropagation(); onPing(); }}
       onClick={(e) => { e.stopPropagation(); }}
       style={{
         position: "absolute",
-        left: fixedLeft,
-        bottom: fixedBottom,
         zIndex: 39,
         display: "flex",
         alignItems: "center",
         gap: 8,
-        padding: "10px 12px",
         margin: 0,
-        maxWidth: `calc(100% - ${fixedLeft + 12}px)`,
         cursor: "default",
         touchAction: "manipulation",
+        ...(touchLayout
+          ? {
+              left: "max(8px, env(safe-area-inset-left))",
+              right: "max(8px, env(safe-area-inset-right))",
+              bottom: `calc(${fixedBottom}px + env(safe-area-inset-bottom))`,
+              padding: "8px 8px",
+              maxWidth: "none",
+            }
+          : {
+              left: fixedLeft,
+              bottom: fixedBottom,
+              padding: "10px 12px",
+              maxWidth: `calc(100% - ${fixedLeft + 12}px)`,
+            }),
       }}
     >
       <FloatingDisplayFrame
