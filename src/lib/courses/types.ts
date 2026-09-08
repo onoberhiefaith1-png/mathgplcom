@@ -80,6 +80,9 @@ export interface CourseExerciseQuestion {
   question_key: string | null;
   label: string;
   total_marks: number;
+  /** This link's own frozen copy of the question. Once set, the Lesson Note is
+   *  never read again for this question. */
+  assigned_question_id?: string | null;
 }
 
 /** Everything the editor and the Student View render from. */

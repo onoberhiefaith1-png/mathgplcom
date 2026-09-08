@@ -14,6 +14,13 @@ import {
   type AnswerKeyLine,
   type QuestionPayload,
 } from "@/lib/assessments/createAssessment";
+import {
+  deleteFrozenQuestion,
+  freezeQuestion,
+  questionMarks,
+  readFrozenAnswerKeys,
+  readFrozenQuestions,
+} from "@/lib/assessments/snapshot";
 import type { CourseExerciseQuestion } from "./types";
 import { ensureTestClass } from "@/lib/floating/testBoard";
 import { videoLinesFromQuestion, type VideoLine } from "./questionVideo";
@@ -133,22 +140,39 @@ const candidateSections = async (link: CourseExerciseQuestion): Promise<string[]
 /**
  * Resolve every link of a card, in card order — never a shortened list.
  *
- * Fan-out, not a queue: every link's candidate sections are looked up at once,
- * each distinct lesson-note section is compiled exactly once, and the matching
- * afterwards is pure. Opening a card no longer costs one round trip per link.
+ * FROZEN COPY FIRST. A link that already carries its own copy of the question
+ * is served from that copy and the Lesson Note is never touched, so a note that
+ * was edited, moved, renamed or deleted cannot change what students solve.
+ * Only a legacy link without a copy is compiled from the note — and it is then
+ * frozen once, quietly, so it is independent from that moment on.
  */
 const resolveLinks = async (
   links: CourseExerciseQuestion[],
 ): Promise<{ entries: ExerciseCardEntry[]; answerKey: AnswerKeyLine[]; total: number }> => {
   const ordered = [...links].sort((a, b) => a.position - b.position);
 
-  // 1. Candidate sections for every link, concurrently.
-  const candidates = await Promise.all(ordered.map((link) => candidateSections(link)));
+  // 1. The frozen copies, in one round trip.
+  const frozenIds = ordered.map((l) => (l as { assigned_question_id?: string | null }).assigned_question_id ?? null);
+  const [frozen, frozenKeys] = await Promise.all([
+    readFrozenQuestions(frozenIds),
+    readFrozenAnswerKeys(frozenIds),
+  ]);
+  const hasCopy = (i: number): boolean => {
+    const id = frozenIds[i];
+    return !!id && frozen.has(id);
+  };
 
-  // 2. Compile each distinct section once, concurrently.
+  // 2. Only links without a copy still need the Lesson Note.
+  const candidates: string[][] = [];
+  await Promise.all(
+    ordered.map(async (link, i) => {
+      candidates[i] = hasCopy(i) ? [] : await candidateSections(link);
+    }),
+  );
+
   const compiles = new Map<string, Promise<Awaited<ReturnType<typeof compileSectionQuestions>>>>();
   for (const list of candidates) {
-    for (const sectionId of list) {
+    for (const sectionId of list ?? []) {
       if (compiles.has(sectionId)) continue;
       compiles.set(
         sectionId,
@@ -164,6 +188,7 @@ const resolveLinks = async (
   // 3. Match in card order — pure, no I/O.
   const entries: ExerciseCardEntry[] = [];
   const answerKey: AnswerKeyLine[] = [];
+  const backfill: { link: CourseExerciseQuestion; payload: QuestionPayload; key: AnswerKeyLine[] }[] = [];
   let total = 0;
 
   ordered.forEach((link, i) => {
@@ -172,22 +197,28 @@ const resolveLinks = async (
     let payload: QuestionPayload | null = null;
     let matchedKey: AnswerKeyLine[] = [];
 
-    for (const sectionId of candidates[i] ?? []) {
-      const compiled = bySection.get(sectionId);
-      if (!compiled) continue;
-      const hit =
-        (link.subsection_id ? compiled.questions.find((q) => q.id === link.subsection_id) : null) ??
-        (label ? compiled.questions.find((q) => norm(q.questionText) === norm(label)) : null) ??
-        null;
-      if (!hit) continue;
-      payload = hit;
-      matchedKey = compiled.answerKey.filter((k) => k.questionId === hit.id);
-      break;
+    const copyId = frozenIds[i];
+    const copy = copyId ? frozen.get(copyId) : undefined;
+    if (copy) {
+      payload = copy.question;
+      matchedKey = copyId ? (frozenKeys.get(copyId) ?? []) : [];
+    } else {
+      for (const sectionId of candidates[i] ?? []) {
+        const compiled = bySection.get(sectionId);
+        if (!compiled) continue;
+        const hit =
+          (link.subsection_id ? compiled.questions.find((q) => q.id === link.subsection_id) : null) ??
+          (label ? compiled.questions.find((q) => norm(q.questionText) === norm(label)) : null) ??
+          null;
+        if (!hit) continue;
+        payload = hit;
+        matchedKey = compiled.answerKey.filter((k) => k.questionId === hit.id);
+        break;
+      }
+      if (payload) backfill.push({ link, payload, key: matchedKey });
     }
 
-    const marks = payload
-      ? (payload.lines ?? []).reduce((s, l) => s + (Number(l.marks) || 0), 0)
-      : saved;
+    const marks = payload ? questionMarks(payload) : saved;
     total += marks;
     answerKey.push(...matchedKey);
     entries.push({
@@ -200,7 +231,38 @@ const resolveLinks = async (
     });
   });
 
+  // 4. Legacy links become independent, once, in the background.
+  if (backfill.length > 0) void freezeExistingLinks(backfill);
+
   return { entries, answerKey, total };
+};
+
+/** One-time backfill: give a legacy link its own frozen copy. */
+const freezeExistingLinks = async (
+  items: { link: CourseExerciseQuestion; payload: QuestionPayload; key: AnswerKeyLine[] }[],
+): Promise<void> => {
+  for (const item of items) {
+    try {
+      const id = await freezeQuestion({
+        question: item.payload,
+        answerKey: item.key,
+        source: {
+          notebookId: item.link.notebook_id,
+          sectionId: item.link.section_id,
+          subsectionId: item.link.subsection_id,
+          label: item.link.label,
+        },
+      });
+      if (!id) continue;
+      await db
+        .from("course_exercise_questions")
+        .update({ assigned_question_id: id, total_marks: questionMarks(item.payload) })
+        .eq("id", item.link.id)
+        .is("assigned_question_id", null);
+    } catch {
+      /* the card keeps working from the note until the copy succeeds */
+    }
+  }
 };
 
 
@@ -269,9 +331,16 @@ export const loadExerciseCardShell = async (blockId: string): Promise<ExerciseCa
 };
 
 
-/** Remove one dead link from a card (the link only — never the lesson note). */
+/** Remove one dead link from a card (the link only — never the lesson note).
+ *  The link's frozen copy of the question goes with it; nothing else does. */
 export const removeExerciseLink = async (linkId: string): Promise<void> => {
+  const { data } = await db
+    .from("course_exercise_questions")
+    .select("assigned_question_id")
+    .eq("id", linkId)
+    .maybeSingle();
   await db.from("course_exercise_questions").delete().eq("id", linkId);
+  await deleteFrozenQuestion((data as { assigned_question_id?: string | null } | null)?.assigned_question_id ?? null);
 };
 
 /**

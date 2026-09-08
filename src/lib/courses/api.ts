@@ -13,7 +13,67 @@ import {
   type CourseTree,
 } from "./types";
 
+import { compileSectionQuestions } from "@/lib/assessments/createAssessment";
+import {
+  freezeQuestion,
+  questionMarks,
+  readFrozenAnswerKeys,
+  readFrozenQuestions,
+} from "@/lib/assessments/snapshot";
+
 const db = supabase as unknown as { from: (t: string) => any };
+
+/**
+ * Freeze the question a new Exercise Card link points at, so the card owns its
+ * own copy from the moment it is created. Returns the copy id and its marks;
+ * a failure never blocks the link.
+ */
+const freezeLinkedQuestion = async (args: {
+  notebookId: string;
+  sectionId: string | null;
+  subsectionId: string | null;
+  label: string;
+}): Promise<{ id: string | null; marks: number | null }> => {
+  if (!args.sectionId) return { id: null, marks: null };
+  try {
+    const compiled = await compileSectionQuestions(args.sectionId);
+    const norm = (s: unknown) => String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+    const question =
+      (args.subsectionId ? compiled.questions.find((q) => q.id === args.subsectionId) : null) ??
+      compiled.questions.find((q) => norm(q.questionText) === norm(args.label)) ??
+      null;
+    if (!question) return { id: null, marks: null };
+    const id = await freezeQuestion({
+      question,
+      answerKey: compiled.answerKey.filter((k) => k.questionId === question.id),
+      source: {
+        notebookId: args.notebookId,
+        sectionId: args.sectionId,
+        subsectionId: args.subsectionId,
+        label: args.label,
+      },
+    });
+    return { id, marks: questionMarks(question) };
+  } catch {
+    return { id: null, marks: null };
+  }
+};
+
+/** A duplicated link gets its OWN copy, so deleting either course leaves the
+ *  other one working exactly as it was. */
+const cloneFrozenQuestion = async (
+  sourceId: string | null | undefined,
+  source: { notebookId: string | null; sectionId: string | null; subsectionId: string | null; label: string },
+): Promise<string | null> => {
+  if (!sourceId) return null;
+  const [copies, keys] = await Promise.all([
+    readFrozenQuestions([sourceId]),
+    readFrozenAnswerKeys([sourceId]),
+  ]);
+  const copy = copies.get(sourceId);
+  if (!copy) return null;
+  return freezeQuestion({ question: copy.question, answerKey: keys.get(sourceId) ?? [], source });
+};
 
 export interface CourseSummary extends Course {
   sectionCount: number;
@@ -188,6 +248,12 @@ export const duplicateCourse = async (id: string): Promise<Course> => {
       const newBlock = await addBlock(newSection.id, block.kind, block.position);
       await updateBlockConfig(newBlock.id, block.config ?? {});
       for (const q of tree.questions.filter((x) => x.block_id === block.id)) {
+        const clonedId = await cloneFrozenQuestion(q.assigned_question_id, {
+          notebookId: q.notebook_id,
+          sectionId: q.section_id,
+          subsectionId: q.subsection_id,
+          label: q.label,
+        });
         await db.from("course_exercise_questions").insert({
           block_id: newBlock.id,
           position: q.position,
@@ -197,6 +263,7 @@ export const duplicateCourse = async (id: string): Promise<Course> => {
           question_key: q.question_key,
           label: q.label,
           total_marks: q.total_marks,
+          assigned_question_id: clonedId,
         });
       }
     }
@@ -227,6 +294,12 @@ export const copyCourseFromCommunity = async (sourceId: string, fallbackTitle?: 
       const newBlock = await addBlock(newSection.id, block.kind, block.position);
       await updateBlockConfig(newBlock.id, block.config ?? {});
       for (const q of tree.questions.filter((x) => x.block_id === block.id)) {
+        const clonedId = await cloneFrozenQuestion(q.assigned_question_id, {
+          notebookId: q.notebook_id,
+          sectionId: q.section_id,
+          subsectionId: q.subsection_id,
+          label: q.label,
+        });
         await db.from("course_exercise_questions").insert({
           block_id: newBlock.id,
           position: q.position,
@@ -236,6 +309,7 @@ export const copyCourseFromCommunity = async (sourceId: string, fallbackTitle?: 
           question_key: q.question_key,
           label: q.label,
           total_marks: q.total_marks,
+          assigned_question_id: clonedId,
         });
       }
     }
@@ -265,6 +339,13 @@ export const linkQuestionToExercise = async (args: {
     .from("course_exercise_questions")
     .select("id", { count: "exact", head: true })
     .eq("block_id", args.blockId);
+  // The card takes its own permanent copy of the question right now.
+  const frozen = await freezeLinkedQuestion({
+    notebookId: args.notebookId,
+    sectionId: args.sectionId,
+    subsectionId: args.subsectionId,
+    label: args.label,
+  });
   const { error } = await db.from("course_exercise_questions").insert({
     block_id: args.blockId,
     position: count ?? 0,
@@ -273,7 +354,8 @@ export const linkQuestionToExercise = async (args: {
     section_id: args.sectionId,
     question_key: args.questionKey,
     label: args.label,
-    total_marks: args.totalMarks,
+    total_marks: frozen.marks ?? args.totalMarks,
+    assigned_question_id: frozen.id,
   });
   if (error) throw error;
 };
