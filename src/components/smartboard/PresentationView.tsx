@@ -7542,21 +7542,25 @@ const PresentationView = ({
               <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
             )}
 
-            {(mobileStudent ? questionWindow.length > 0 : beats.length > 1) && (
+            {(mobileStudent ? true : beats.length > 1) && (
               <div className="flex min-w-0 items-center gap-1">
-                {(mobileStudent ? questionWindow : beats.map((_beat, index) => index)).map((i) => (
+                {(mobileStudent
+                  ? questionWindow
+                  : beats.map((_beat, index) => index as number | null)
+                ).map((i, slot) => (
                   <button
-                    key={i}
-                    onClick={() => changeTouchQuestion(i)}
-                    className={`grid place-items-center rounded-full border font-medium transition ${
+                    key={i ?? `empty-${slot}`}
+                    onClick={() => { if (i != null) changeTouchQuestion(i); }}
+                    disabled={i == null}
+                    className={`grid place-items-center rounded-full border font-medium transition disabled:opacity-30 ${
                       mobileStudent ? "h-8 min-w-8 px-2 text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
                     }`}
-                    style={i === touchQuestionIndex
+                    style={i != null && i === touchQuestionIndex
                       ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
                       : { borderColor: palette.chromeBorder }}
-                    title={`Question ${i + 1}`}
+                    title={i != null ? `Question ${i + 1}` : "No question"}
                   >
-                    {i + 1}
+                    {i != null ? i + 1 : "–"}
                   </button>
                 ))}
               </div>
