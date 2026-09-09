@@ -59,7 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const nextId = next?.user?.id ?? null;
     if (seenRef.current && nextId !== lastUserIdRef.current) {
       setSwitching(true);
-      void resetAccountState(queryClient).finally(() => setSwitching(false));
+      // An identity change may BE a workspace entry, so the way-back note stays.
+      void resetAccountState(queryClient, { keepWorkspaceNote: true }).finally(() =>
+        setSwitching(false),
+      );
     }
     seenRef.current = true;
     lastUserIdRef.current = nextId;

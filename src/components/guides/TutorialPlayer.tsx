@@ -19,6 +19,7 @@ import {
   VolumeX,
   X,
   ListVideo,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -53,7 +54,8 @@ const TutorialPlayer = ({ tutorial, playlist, onSelect, onClose }: Props) => {
   const [muted, setMuted] = useState(false);
   const [showList, setShowList] = useState(false);
 
-  const url = tutorialVideoUrl(tutorial.videoPath);
+  // A link tutorial lives on another site: it opens there instead of playing here.
+  const url = tutorial.linkUrl ? null : tutorialVideoUrl(tutorial.videoPath);
 
   // Only a NEW video resets the element. Layout changes never touch it, so the
   // playhead survives every split-view switch and every navigation.
@@ -164,6 +166,19 @@ const TutorialPlayer = ({ tutorial, playlist, onSelect, onClose }: Props) => {
             }}
             className="h-full max-h-full w-full object-contain"
           />
+        ) : tutorial.linkUrl ? (
+          <div className="flex flex-col items-center gap-3 px-4 py-6 text-center">
+            <p className="text-sm text-white/80">This tutorial is on another site.</p>
+            <a
+              href={tutorial.linkUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              <ExternalLink className="h-4 w-4" /> Open and watch
+            </a>
+            <span className="max-w-full truncate text-[11px] text-white/50">{tutorial.linkUrl}</span>
+          </div>
         ) : (
           <p className="px-4 text-center text-sm text-muted-foreground">
             This tutorial has no video yet.

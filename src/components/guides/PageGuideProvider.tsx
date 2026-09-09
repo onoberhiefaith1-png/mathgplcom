@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouterState } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useAssetManager } from "@/lib/gpl/useAssetManager";
@@ -58,7 +59,28 @@ export const PageGuideProvider = ({ children }: { children: ReactNode }) => {
   const pageKey = useMemo(() => toPageKey(pathname), [pathname]);
   const { can, isPlatformOwner } = useAccount();
   const { isManager } = useAssetManager();
-  const canManage = can("platform_admin") || isPlatformOwner || isManager;
+  // The database is the authority on who may manage tutorials: the administrator
+  // and every account that belongs to the administrator (their own school,
+  // teacher, parent and student accounts). Asking it directly means the upload
+  // control appears on ALL of those accounts, and on nobody else's.
+  const [dbCanManage, setDbCanManage] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const ask = async () => {
+      const { data } = await supabase.rpc("can_manage_tutorials" as never);
+      if (active) setDbCanManage(data === true);
+    };
+    void ask().catch(() => undefined);
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      void ask().catch(() => undefined);
+    });
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+  const canManage = can("platform_admin") || isPlatformOwner || isManager || dbCanManage;
+
 
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
   const [open, setOpen] = useState(false);
