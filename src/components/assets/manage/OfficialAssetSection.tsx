@@ -81,6 +81,7 @@ const OfficialAssetSection = ({ sessionSlug, subSlug, excludeUrls, heading }: Pr
   const [busy, setBusy] = useState<string | null>(null);
   const [bulkDelete, setBulkDelete] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const plusInputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -427,10 +428,38 @@ const OfficialAssetSection = ({ sessionSlug, subSlug, excludeUrls, heading }: Pr
           </p>
         )}
 
-        {visible.length === 0 ? (
+        {visible.length === 0 && !isManager ? (
           <p className="text-sm text-muted-foreground">No official assets in this folder yet.</p>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {/* The first tile is an empty card: one tap opens your own files and
+                every picture chosen becomes its own asset for everyone. */}
+            {isManager && !selecting && (
+              <>
+                <input
+                  ref={plusInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    e.currentTarget.value = "";
+                    if (files.length) void importFiles(files);
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={!!busy}
+                  onClick={() => plusInputRef.current?.click()}
+                  className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/50 bg-background/40 text-primary transition hover:border-primary hover:bg-background/70 disabled:opacity-50"
+                  aria-label="Add pictures from my files"
+                >
+                  {busy ? <Loader2 className="h-7 w-7 animate-spin" /> : <Plus className="h-9 w-9" />}
+                  <span className="text-xs font-semibold">Add from my files</span>
+                </button>
+              </>
+            )}
             {visible.map((asset) => (
               <figure
                 key={asset.id}

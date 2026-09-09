@@ -14,7 +14,7 @@ import { Text } from "@react-three/drei";
 
 import { frameProfile, type FrameProfile } from "@/lib/building/frameStyles";
 import type { BuildingFrame, FrameMount } from "@/lib/building/frames";
-import { coverFit, useImageTexture } from "./useImageTexture";
+import { useCoverFit, useImageTexture } from "./useImageTexture";
 import WallGizmo, { type WallTransform } from "./WallGizmo";
 
 export interface FrameStructureProps {
@@ -23,6 +23,12 @@ export interface FrameStructureProps {
   height: number;
   /** highlight while the teacher is positioning it */
   selected?: boolean;
+  /**
+   * The recessed backboard is what an EMPTY object shows. Once a picture is
+   * inside, the backboard must not be built at all: it sits in front of the
+   * content layer and would hide the picture completely.
+   */
+  showBack?: boolean;
 }
 
 /** Bar thickness in metres, always readable and never thinner than a real moulding. */
@@ -34,7 +40,13 @@ export const barThickness = (profile: FrameProfile, width: number) =>
  * picture sits against. Shared by frames and windows so the whole building keeps
  * one architectural language.
  */
-export const FrameStructure = ({ profile, width, height, selected = false }: FrameStructureProps) => {
+export const FrameStructure = ({
+  profile,
+  width,
+  height,
+  selected = false,
+  showBack = true,
+}: FrameStructureProps) => {
   const bar = barThickness(profile, width);
   const depth = profile.depth;
   const innerW = Math.max(width - bar * 2, 0.1);
@@ -84,17 +96,28 @@ export const FrameStructure = ({ profile, width, height, selected = false }: Fra
         </mesh>
       ))}
 
-      {/* Outer bevel band, so the object reads as moulded, not as a slab. */}
-      <mesh position={[0, 0, depth * 0.2]}>
-        <boxGeometry args={[width + 0.015, height + 0.015, depth * 0.12]} />
-        <meshStandardMaterial color={profile.bevel} roughness={0.4} metalness={profile.metalness} />
-      </mesh>
+      {/* Outer bevel band, so the object reads as moulded, not as a slab. It is
+          built as four edge strips: a full slab here would seal the opening and
+          hide whatever is placed inside. */}
+      {[
+        { p: [0, height / 2 - bar / 2, depth * 0.2] as [number, number, number], s: [width + 0.015, bar, depth * 0.12] as [number, number, number] },
+        { p: [0, -height / 2 + bar / 2, depth * 0.2] as [number, number, number], s: [width + 0.015, bar, depth * 0.12] as [number, number, number] },
+        { p: [-width / 2 + bar / 2, 0, depth * 0.2] as [number, number, number], s: [bar + 0.015, height - bar * 2, depth * 0.12] as [number, number, number] },
+        { p: [width / 2 - bar / 2, 0, depth * 0.2] as [number, number, number], s: [bar + 0.015, height - bar * 2, depth * 0.12] as [number, number, number] },
+      ].map((b, i) => (
+        <mesh key={`band-${i}`} position={b.p}>
+          <boxGeometry args={b.s} />
+          <meshStandardMaterial color={profile.bevel} roughness={0.4} metalness={profile.metalness} />
+        </mesh>
+      ))}
 
-      {/* Recessed backboard — what an empty frame shows. */}
-      <mesh position={[0, 0, depth * 0.22]} receiveShadow>
-        <boxGeometry args={[innerW + bar * 0.4, innerH + bar * 0.4, depth * 0.1]} />
-        <meshStandardMaterial color={profile.back} roughness={0.85} metalness={0.05} />
-      </mesh>
+      {/* Recessed backboard — what an EMPTY object shows, and nothing more. */}
+      {showBack && (
+        <mesh position={[0, 0, depth * 0.22]} receiveShadow>
+          <boxGeometry args={[innerW + bar * 0.4, innerH + bar * 0.4, depth * 0.1]} />
+          <meshStandardMaterial color={profile.back} roughness={0.85} metalness={0.05} />
+        </mesh>
+      )}
 
       <FrameOrnaments profile={profile} width={width} height={height} bar={bar} depth={depth} />
     </group>
@@ -232,7 +255,7 @@ const FrameObject = ({
   const innerW = Math.max(width - bar * 2, 0.1);
   const innerH = Math.max(height - bar * 2, 0.1);
   const tex = useImageTexture(contentUrl);
-  useMemo(() => coverFit(tex, innerW, innerH), [tex, innerW, innerH]);
+  useCoverFit(tex, innerW, innerH);
 
   return (
     <group position={mount.position} rotation-y={mount.yaw}>

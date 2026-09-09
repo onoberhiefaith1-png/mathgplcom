@@ -1,0 +1,49 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .b { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .lbl { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .note { fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .tag { fill: hsl(var(--border)); font-size: 12px; }
+    .acc { fill: hsl(var(--accent)); stroke: hsl(var(--accent)); }
+    .accink { fill: hsl(var(--accent-foreground)); font-size: 12px; font-weight: 480; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="8" width="300" height="150" rx="8"/>
+  <text class="tag" x="18" y="26">official gallery</text>
+  <rect class="b" x="26" y="40" width="120" height="42" rx="8"/>
+  <text class="lbl" x="46" y="66">Admin build</text>
+  <rect class="acc" x="176" y="40" width="112" height="42" rx="8"/>
+  <text class="accink" x="192" y="65">Save to Gallery</text>
+  <path class="w" d="M146 61 H172" marker-end="url(#a)"/>
+  <text class="note" x="26" y="112">name · category · live preview · full package</text>
+  <text class="note" x="26" y="132">owner and Asset Managers only</text>
+
+  <rect class="b" x="360" y="30" width="250" height="62" rx="8"/>
+  <text class="lbl" x="380" y="56">Choose a Building</text>
+  <text class="note" x="380" y="76">categories · one live preview · swipe</text>
+  <path class="w" d="M308 61 H356" marker-end="url(#a)"/>
+
+  <rect class="b" x="360" y="126" width="250" height="52" rx="8"/>
+  <text class="lbl" x="380" y="148">Active building</text>
+  <text class="note" x="380" y="166">settings apply here · default if none chosen</text>
+  <path class="w" d="M485 92 V122" marker-end="url(#a)"/>
+
+  <rect class="b" x="360" y="212" width="250" height="52" rx="8"/>
+  <text class="lbl" x="380" y="234">My copy, edited</text>
+  <text class="note" x="380" y="252">original template untouched</text>
+  <path class="w" d="M485 178 V208" marker-end="url(#a)"/>
+
+  <rect class="zone" x="8" y="196" width="300" height="118" rx="8"/>
+  <text class="tag" x="18" y="214">community gallery</text>
+  <rect class="b" x="26" y="228" width="262" height="46" rx="8"/>
+  <text class="lbl" x="46" y="250">Share to Community</text>
+  <text class="note" x="46" y="268">others browse and copy it</text>
+  <path class="w" d="M356 238 H292" marker-end="url(#a)"/>
+</svg>

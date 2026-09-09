@@ -354,118 +354,21 @@ export async function deleteDoor(id: string): Promise<void> {
 // ── Duplicate ─────────────────────────────────────────────────────────────
 
 /**
- * Duplicate a building: copies the environment frame (surface designs,
- * walkway structure, door designs, lighting, effects). Content associations
- * are NOT copied — the copy starts with empty doors so the owner adds their
- * own content.
+ * Duplicate a building as a COMPLETE package: environment, hallways and their
+ * connections, doors, room shells, room locks, frames, windows with their
+ * pictures and Smart Screens. Learning content is referenced, never copied, so
+ * deleting a copy can never remove a course, adventure or assignment.
  */
 export async function duplicateBuilding(
   source: Building,
   orgId: string | null,
 ): Promise<Building | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id;
-  if (!uid) return null;
-
-  const { data: inserted, error } = await supabase
-    .from("buildings")
-    .insert({
-      org_id: orgId,
-      owner_id: uid,
-      name: `${source.name} (copy)`,
-      source_building_id: source.id,
-      environment: source.environment as never,
-      is_active: false,
-    })
-    .select("*")
-    .single();
-  if (error || !inserted) {
-fail(error);
-    return null;
-  }
-  const copy = inserted as unknown as Building;
-
-  // Copy the walkway graph in tree order (roots first, then children).
-  const { data: walkRows } = await supabase
-    .from("building_walkways")
-    .select("*")
-    .eq("building_id", source.id)
-    .order("position");
-  const rows = (walkRows ?? []) as BuildingWalkway[];
-  const idMap = new Map<string, string>();
-  let remaining = rows;
-  while (remaining.length > 0) {
-    const pending: BuildingWalkway[] = [];
-    for (const w of remaining) {
-      if (w.parent_id && !idMap.has(w.parent_id)) {
-        pending.push(w);
-        continue;
-      }
-      const { data: nw } = await supabase
-        .from("building_walkways")
-        .insert({
-          building_id: copy.id,
-          parent_id: w.parent_id ? (idMap.get(w.parent_id) ?? null) : null,
-          direction: w.direction,
-          length: w.length,
-          position: w.position,
-          junction_at: w.junction_at ?? 0.5,
-          surface_overrides: (w.surface_overrides ?? {}) as never,
-        })
-        .select("id")
-        .single();
-      if (nw) idMap.set(w.id, (nw as { id: string }).id);
-    }
-    if (pending.length === remaining.length) break; // safety net
-    remaining = pending;
-  }
-
-  // Copy door FRAMES (design + position) without any content.
-  const { data: doorRows } = await supabase
-    .from("building_doors")
-    .select("*")
-    .eq("building_id", source.id);
-  const doorMap = new Map<string, string>();
-for (const d of (doorRows ?? []) as unknown as BuildingDoor[]) {
-    const walkId = idMap.get(d.walkway_id);
-    if (!walkId) continue;
-    const { data: nd } = await supabase
-      .from("building_doors")
-      .insert({
-        building_id: copy.id,
-        walkway_id: walkId,
-        position_along: d.position_along,
-        design: d.design as never,
-        content_kind: null,
-        content_id: null,
-        title_override: null,
-      })
-      .select("id")
-      .single();
-    if (nd) doorMap.set(d.id, (nd as { id: string }).id);
-  }
-
-  // Copy CLASSROOM SHELLS (type, name and individual settings) — the shell is
-  // part of the environment frame; its content is not copied.
-  const { data: roomRows } = await supabase
-    .from("building_classrooms")
-    .select("*")
-    .eq("building_id", source.id)
-    .order("position");
-  for (const c of (roomRows ?? []) as unknown as BuildingClassroom[]) {
-    const doorId = doorMap.get(c.door_id);
-    if (!doorId) continue;
-    await supabase.from("building_classrooms").insert({
-      building_id: copy.id,
-      door_id: doorId,
-      name: c.name,
-      kind: c.kind,
-      surface_overrides: (c.surface_overrides ?? {}) as never,
-      position: c.position,
-    } as never);
-  }
-
-  return copy;
+  const { cloneMyBuilding } = await import("./gallery.functions");
+  const { buildingId } = await cloneMyBuilding({
+    data: { buildingId: source.id, orgId, name: `${source.name} (copy)` },
+  });
+  const { data } = await supabase.from("buildings").select("*").eq("id", buildingId).maybeSingle();
+  return (data as unknown as Building) ?? null;
 }
 
 // ── Textures ──────────────────────────────────────────────────────────────

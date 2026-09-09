@@ -505,6 +505,7 @@ import { useRoomScreen } from "@/hooks/useRoomScreen";
 import { useAutoHide } from "@/hooks/useAutoHide";
 
 import { classroomDimensions, indexRoomsByDoor, roomForDoor } from "@/lib/building/classroom";
+import { resolveEntry, type RoomEntry } from "@/lib/building/entry";
 import { fetchRoomForDoor } from "@/lib/building/api";
 import { toast } from "sonner";
 
@@ -1728,8 +1729,6 @@ interface NavState {
 }
 
 const CameraRig = ({
-  focus,
-  rooms,
   m,
   rootLen,
   onWalkEnd,
@@ -1738,9 +1737,6 @@ const CameraRig = ({
   onLeaveRoom,
   setPhase,
 }: {
-
-  focus: number;
-  rooms: AcademyRoom[];
   m: React.RefObject<Machine>;
   rootLen: number;
   onWalkEnd: () => void;
@@ -1764,9 +1760,9 @@ const CameraRig = ({
     const k = 1 - Math.exp(-6 * dt);
 
     if (st.phase === "browse") {
-      // Standing in the hallway looking straight down it — never angled at a
-      // wall, so entering walk mode is seamless.
-      const targetZ = -Math.min(focus * SPACING, Math.max(0, rootLen - 6));
+      // Standing at the entrance looking straight down the hallway — never
+      // angled at a wall, so entering walk mode is seamless.
+      const targetZ = -Math.min(0, Math.max(0, rootLen - 6));
       camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZ, k);
       camera.position.y = 1.75;
       camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, k);
@@ -1946,7 +1942,7 @@ if (w.strafeSpeed > 0.001) {
       return;
     }
   });
-  void rooms;
+  
   return null;
 };
 
@@ -2552,15 +2548,17 @@ const MiniMap = ({
 // ── Scene ─────────────────────────────────────────────────────────────────
 
 export interface HallwaySceneProps {
-  /** Legacy academy rooms. The building is hallways + doors, so this is optional. */
-  rooms?: AcademyRoom[];
+  /**
+   * The building IS hallways, doors and the rooms behind them. There is
+   * deliberately no room list or carousel index any more: the old Academy
+   * browse mode was the reason a door could land on the Academy instead of its
+   * own room.
+   */
   building: BuildingData | null;
   catalogue: AcademyProduct[];
   textures?: Record<string, string>;
   /** Live section counts per room id (from the database). */
   roomCounts?: Record<string, string>;
-  focus: number;
-  onFocusChange: (index: number) => void;
   /**
    * A door has no navigation of its own: it can only open the room attached to
    * it, resolved inside this scene. There are deliberately no `onEnterRoom` /
@@ -2594,13 +2592,10 @@ export interface HallwaySceneProps {
 }
 
 const HallwayScene = ({
-  rooms = [],
   building,
   catalogue,
   textures = {},
   roomCounts = {},
-  focus,
-  onFocusChange,
   onModeChange,
   onExitBuilding,
   navigateTo = null,
@@ -2820,17 +2815,11 @@ const HallwayScene = ({
   const [cue, setCue] = useState<string | null>(null);
   const [showMap] = useState(true);
   /**
-   * COMMITTED ROOM ENTRY. Set the moment a door click is accepted, cleared the
-   * moment the walker is placed inside. The camera glide never owns this.
+   * There is deliberately no "pending entry" here any more. A door click places
+   * the walker inside its room in the same tick, so there is no in-between state
+   * for anything to cancel, race or redirect.
    */
-  const pendingEntryRef = useRef<{
-    doorId: string;
-    world: [number, number];
-    into: [number, number];
-    room: BuildingClassroom;
-    visual: RoomDoorVisual;
-    timer: ReturnType<typeof setTimeout> | null;
-  } | null>(null);
+
 
   const machineRef = useRef<Machine>({
     phase: "browse",
@@ -2976,9 +2965,6 @@ const HallwayScene = ({
     st.yaw = 0;
     st.turn = null;
     st.zoom = null;
-    // Going back to browsing abandons any door move that was under way.
-    if (pendingEntryRef.current?.timer) clearTimeout(pendingEntryRef.current.timer);
-    pendingEntryRef.current = null;
 
     historyRef.current.clear();
     setMoving(false);
@@ -3326,32 +3312,26 @@ const HallwayScene = ({
     setMachinePhase(back === "keypad" || back === "zooming" ? "idle" : back);
   }, [setMachinePhase]);
 
-
-
-
   /**
-   * ENTER A ROOM. The shell is a real space beyond its door, so entering it
-   * is camera navigation inside the same scene — never a page swap. The hallway
-   * position is preserved, so leaving resumes the walk exactly where it stopped.
-   * Inside, the camera becomes a free walker in the room's own local space.
+   * ENTER A ROOM — the single, immediate act.
+   *
+   * The entry has already been decided (`resolveEntry`), so this only places the
+   * walker: the room is mounted, the walker stands inside it, and the phase is
+   * `inside` from this frame onwards. There is no pending slot, no watchdog and
+   * no deferred commit, so nothing later in the frame — a camera glide, a graph
+   * rebuild, a browse reset — can send the walker anywhere else. The hallway
+   * position is untouched, so leaving resumes the walk exactly where it stopped.
    */
   const enterClassroom = useCallback(
-    (
-      doorWorld: [number, number],
-      into: [number, number],
-      room: BuildingClassroom,
-      doorVisual?: RoomDoorVisual | null,
-    ) => {
-
+    (entry: RoomEntry, doorVisual?: RoomDoorVisual | null) => {
       const st = machineRef.current;
-      const dims = classroomDimensions(room.kind);
       st.inside = {
-        door: doorWorld,
-        heading: into,
-        kind: room.kind,
-        x: 0,
-        z: Math.min(3, dims.length * 0.28),
-        yaw: 0,
+        door: entry.doorWorld,
+        heading: entry.into,
+        kind: entry.room.kind,
+        x: entry.stance.x,
+        z: entry.stance.z,
+        yaw: entry.stance.yaw,
         hold: 0,
         strafe: 0,
         turning: 0,
@@ -3360,45 +3340,24 @@ const HallwayScene = ({
       };
       st.moving = false;
       setMoving(false);
-      setInsideRoom({ room, door: doorWorld, into, doorVisual: doorVisual ?? null });
+      setInsideRoom({
+        room: entry.room,
+        door: entry.doorWorld,
+        into: entry.into,
+        doorVisual: doorVisual ?? null,
+      });
       setMachinePhase("inside");
     },
     [setMachinePhase],
   );
 
-
-  /**
-   * COMMITTED ROOM ENTRY. Entering a room is a navigation direction, exactly
-   * like turning: the destination is recorded BEFORE any camera movement, and
-   * the glide toward the doorway is cosmetic. Whether the glide finishes, is
-   * cut short, or is interrupted, the walker still ends up inside that room.
-   */
-
-
-  const commitEntry = useCallback(() => {
-    const pending = pendingEntryRef.current;
-    if (!pending) return;
-    pendingEntryRef.current = null;
-    if (pending.timer) clearTimeout(pending.timer);
-    enterClassroom(pending.world, pending.into, pending.room, pending.visual);
-  }, [enterClassroom]);
-
-  const cancelPendingEntry = useCallback(() => {
-    const pending = pendingEntryRef.current;
-    if (pending?.timer) clearTimeout(pending.timer);
-    pendingEntryRef.current = null;
-  }, []);
-
-  useEffect(() => cancelPendingEntry, [cancelPendingEntry]);
-
   const leaveClassroom = useCallback(() => {
     const st = machineRef.current;
-    cancelPendingEntry();
     st.inside = null;
     setInsideRoom(null);
     setScreenPanelOpen(false);
     setMachinePhase("idle");
-  }, [cancelPendingEntry, setMachinePhase]);
+  }, [setMachinePhase]);
 
 
   /** Held intent inside a room — walking, turning and side-stepping. */
@@ -3581,12 +3540,11 @@ const HallwayScene = ({
    * entering the building starts the walk immediately and keeps moving forward.
    */
   useEffect(() => {
-    if (rooms.length > 0) return;
     if (machineRef.current.phase !== "browse") return;
     if (!rootEffective.walkway) return;
     enterWalk(rootEffective);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rooms.length, rootEffective, enterWalk, setMachinePhase]);
+  }, [rootEffective, enterWalk, setMachinePhase]);
 
   /** The editor asks the walker to walk the freshly created hallway. */
   useEffect(() => {
@@ -3622,8 +3580,7 @@ const HallwayScene = ({
         if (e.repeat) return;
         heldMoveKeys.current.add(1);
         if (st.phase === "browse") {
-          if (focus < rooms.length - 1) onFocusChange(focus + 1);
-          else enterWalk(rootEffective);
+          enterWalk(rootEffective);
         } else if (st.phase === "walking" || st.phase === "idle") {
           if (endReached) {
             const fwd = st.seg.children.find((c) => c.walkway?.direction === "forward");
@@ -3639,15 +3596,10 @@ const HallwayScene = ({
 
       if (key === "ArrowDown" || key === "s" || key === "S") {
         if (e.repeat) return;
-        if (st.phase === "browse") onFocusChange(Math.max(0, focus - 1));
-        else if (st.phase === "walking" || st.phase === "idle") goBack();
+        if (st.phase === "walking" || st.phase === "idle") goBack();
         return;
       }
       if (key === "ArrowLeft" || key === "a" || key === "A") {
-        if (st.phase === "browse") {
-          onFocusChange(Math.max(0, focus - 1));
-          return;
-        }
         if (st.phase !== "walking" && st.phase !== "idle") return;
         const left = candidates.find((c) => c.side === -1);
         if (left) runJunctionAction(left);
@@ -3655,10 +3607,6 @@ const HallwayScene = ({
         return;
       }
       if (key === "ArrowRight" || key === "d" || key === "D") {
-        if (st.phase === "browse") {
-          onFocusChange(Math.min(rooms.length - 1, focus + 1));
-          return;
-        }
         if (st.phase !== "walking" && st.phase !== "idle") return;
         const right = candidates.find((c) => c.side === 1);
         if (right) runJunctionAction(right);
@@ -3700,9 +3648,6 @@ const HallwayScene = ({
       window.removeEventListener("blur", onBlur);
     };
   }, [
-    focus,
-    rooms.length,
-    onFocusChange,
     enterWalk,
     rootEffective,
     goBack,
@@ -3883,12 +3828,15 @@ const HallwayScene = ({
 
 
   /**
-   * OPEN A DOOR. A door is strictly a room entrance, so this is the single path
-   * from a doorway into a space: it resolves the room whose `door_id` is this
-   * exact door, and nothing else. It never navigates to a page, never opens a
-   * product, and never falls back to another room. If the loaded page is stale
-   * the room is re-read from the database for this one door; if there is still
-   * no room the door says so out loud instead of quietly doing nothing.
+   * OPEN A DOOR — the ONE path from a doorway into a space.
+   *
+   * The room is resolved from this exact door and the walker is put inside it
+   * straight away. Only then does the cosmetic glide up to the doorway run, so
+   * whether that glide finishes, is cut short or never plays, the outcome is
+   * identical: you are inside that door's room. A door never navigates to a
+   * page, never opens a product, and never falls back to another room; if the
+   * loaded page is stale the room is re-read for this one door, and if there is
+   * still no room the door says so out loud and stays shut.
    */
   const openDoorRoom = useCallback(
     async (
@@ -3897,26 +3845,32 @@ const HallwayScene = ({
       front: [number, number],
       visual: RoomDoorVisual,
     ) => {
-      // A repeat click on the same door resolves to the same destination
-      // instead of restarting or cancelling the move already under way.
-      if (pendingEntryRef.current?.doorId === door.id) return;
-      let room = roomForDoor(classroomsByDoor, door.id);
-      if (!room) room = await fetchRoomForDoor(door.id);
-      if (!room || room.door_id !== door.id) {
+      let result = resolveEntry({
+        doorId: door.id,
+        rooms: classroomsByDoor,
+        doorWorld: world,
+        front,
+      });
+      if (!result.ok) {
+        const fresh = await fetchRoomForDoor(door.id);
+        result = resolveEntry({
+          doorId: door.id,
+          rooms: fresh ? [fresh] : [],
+          doorWorld: world,
+          front,
+        });
+      }
+      if (!result.ok) {
         toast.error(`“${doorTitle(door, productTitles)}” has no room yet`, {
           description: "Open the building editor and give this door a room.",
         });
         return;
       }
-      const into: [number, number] = [-front[0], -front[1]];
-      // Committed BEFORE the camera moves: the glide is decoration only.
-      cancelPendingEntry();
-      const timer = setTimeout(commitEntry, 1500);
-      pendingEntryRef.current = { doorId: door.id, world, into, room, visual, timer };
-      startDoorZoom(world, front, commitEntry);
+      // STRAIGHT INSIDE. The room's own first-person camera takes over from this
+      // frame, so no glide can leave the walker stranded in the corridor.
+      enterClassroom(result.entry, visual);
     },
-    [cancelPendingEntry, classroomsByDoor, commitEntry, productTitles, startDoorZoom],
-
+    [classroomsByDoor, enterClassroom, productTitles],
   );
 
 
@@ -4110,15 +4064,9 @@ const HallwayScene = ({
       onPointerLeave={() => {
         lookDrag.current = null;
       }}
-      onPointerUp={(e) => {
+      onPointerUp={() => {
         lookDrag.current = null;
-        if (phase !== "browse" || dragStart.current === null) return;
-        const dx = e.clientX - dragStart.current;
         dragStart.current = null;
-        if (Math.abs(dx) < 60) return;
-        onFocusChange(
-          dx < 0 ? Math.min(rooms.length - 1, focus + 1) : Math.max(0, focus - 1),
-        );
       }}
     >
       {/* THE 3D WORLD'S OWN EVENT SURFACE. Only what is inside this layer feeds
@@ -4243,8 +4191,6 @@ const HallwayScene = ({
         )}
 
         <CameraRig
-          focus={focus}
-          rooms={rooms}
           m={machineRef}
           rootLen={rootLen}
           onWalkEnd={handleWalkEnd}

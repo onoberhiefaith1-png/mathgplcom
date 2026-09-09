@@ -14,7 +14,7 @@ import { useMemo } from "react";
 import { frameProfile } from "@/lib/building/frameStyles";
 import type { BuildingFrame, FrameMount } from "@/lib/building/frames";
 import { FrameStructure, barThickness } from "./FrameObject";
-import { coverFit, useImageTexture } from "./useImageTexture";
+import { useCoverFit, useImageTexture } from "./useImageTexture";
 import WallGizmo, { type WallTransform } from "./WallGizmo";
 
 interface WindowObjectProps {
@@ -45,7 +45,7 @@ const WindowObject = ({
   const innerH = Math.max(height - bar * 2, 0.1);
   const reveal = profile.depth * 0.9;
   const tex = useImageTexture(contentUrl);
-  useMemo(() => coverFit(tex, innerW, innerH), [tex, innerW, innerH]);
+  useCoverFit(tex, innerW, innerH);
 
   return (
     <group position={mount.position} rotation-y={mount.yaw}>
@@ -63,8 +63,10 @@ const WindowObject = ({
         </mesh>
       ))}
 
-      {/* The view through the glass, set back inside the opening. */}
-      <mesh position={[0, 0, -reveal * 0.85]}>
+      {/* The view seen through the glass. It sits just INSIDE the opening — a
+          shade behind the glass sheen, never behind the wall itself, where the
+          wall and the surround's backboard would hide it completely. */}
+      <mesh position={[0, 0, profile.depth * 0.14]}>
         <planeGeometry args={[innerW, innerH]} />
         {tex ? (
           <meshStandardMaterial
@@ -108,8 +110,15 @@ const WindowObject = ({
         <meshStandardMaterial color={profile.face} roughness={profile.roughness} metalness={profile.metalness} />
       </mesh>
 
-      {/* Surround + trim, built exactly like the frames and doors. */}
-      <FrameStructure profile={profile} width={width} height={height} selected={selected} />
+      {/* Surround + trim, built exactly like the frames and doors. The solid
+          backboard is only built when the window has no view inside it. */}
+      <FrameStructure
+        profile={profile}
+        width={width}
+        height={height}
+        selected={selected}
+        showBack={!tex}
+      />
 
       {/* Interior sill, projecting into the room. */}
       <mesh position={[0, -height / 2 - bar * 0.15, profile.depth * 0.72]} castShadow receiveShadow>

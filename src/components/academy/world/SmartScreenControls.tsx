@@ -18,6 +18,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { RoomScreenApi } from "@/hooks/useRoomScreen";
+import { SCREEN_MAX_WIDTH, SCREEN_MIN_WIDTH } from "@/lib/building/screen";
+
+/** The shape limits used everywhere a wall object is reshaped. */
+const SCREEN_MIN_RATIO = 0.3;
+const SCREEN_MAX_RATIO = 1.6;
+
+/** One tap for the usual three, then free fine-tuning either side of them. */
+const SCREEN_SHAPES: { key: string; label: string; ratio: number }[] = [
+  { key: "widescreen", label: "Widescreen", ratio: 9 / 16 },
+  { key: "square", label: "Square", ratio: 1 },
+  { key: "portrait", label: "Portrait", ratio: 1.35 },
+];
 
 const clock = (s: number) => {
   if (!Number.isFinite(s) || s < 0) return "0:00";
@@ -33,12 +45,50 @@ interface Props {
   onClose: () => void;
 }
 
+/** One labelled slider, matching the frame and window controls. */
+const ScreenSlider = ({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}) => (
+  <label className="block text-[11px] text-muted-foreground">
+    <span className="mb-1 flex items-center justify-between">
+      {label}
+      <span className="tabular-nums text-foreground">{value.toFixed(2)}</span>
+    </span>
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="w-full accent-primary"
+    />
+  </label>
+);
+
 const SmartScreenControls = ({ api, open, onClose }: Props) => {
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!open) return null;
 
   const hasVideo = !!api.screen?.video_path;
+  // What the sliders show: the teacher's own value, or a sensible starting point.
+  const width = api.screen?.width ?? 4.2;
+  const ratio = Number(api.screen?.height_ratio ?? 9 / 16);
+  const along = api.screen?.offset_along ?? 0.5;
+  const lift = api.screen?.offset_y ?? 1.15 + (width * ratio) / 2;
 
   // ── EDIT MODE ────────────────────────────────────────────────────────────
   if (api.canEdit) {
@@ -96,6 +146,69 @@ const SmartScreenControls = ({ api, open, onClose }: Props) => {
             <Trash2 className="h-4 w-4" /> Remove video
           </Button>
         )}
+
+        {/* SIZE, SHAPE AND PLACE — the screen is a wall object like any other. */}
+        <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-2">
+          <p className="text-[11px] font-semibold text-foreground">Size and position</p>
+          <div className="flex flex-wrap gap-1.5">
+            {SCREEN_SHAPES.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                disabled={!!api.busy}
+                onClick={() => void api.saveTransform({ height_ratio: s.ratio })}
+                className={`min-h-[28px] rounded-full px-2.5 text-[11px] font-semibold disabled:opacity-40 ${
+                  Math.abs(ratio - s.ratio) < 0.03
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <ScreenSlider
+            label="Bigger / smaller"
+            value={width}
+            min={SCREEN_MIN_WIDTH}
+            max={SCREEN_MAX_WIDTH}
+            step={0.1}
+            onChange={(v) => void api.saveTransform({ width: v })}
+          />
+          <ScreenSlider
+            label="Shape (height ÷ width)"
+            value={ratio}
+            min={SCREEN_MIN_RATIO}
+            max={SCREEN_MAX_RATIO}
+            step={0.01}
+            onChange={(v) => void api.saveTransform({ height_ratio: v })}
+          />
+          <ScreenSlider
+            label="Across the wall"
+            value={along}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => void api.saveTransform({ offset_along: v })}
+          />
+          <ScreenSlider
+            label="Height on the wall"
+            value={lift}
+            min={0.8}
+            max={4}
+            step={0.05}
+            onChange={(v) => void api.saveTransform({ offset_y: v })}
+          />
+          <button
+            type="button"
+            onClick={() =>
+              void api.saveTransform({ width: 4.2, height_ratio: 9 / 16, offset_along: 0.5, offset_y: 2.1 })
+            }
+            className="text-[10px] font-semibold text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Back to the room's own size
+          </button>
+        </div>
 
         {api.busy && (
           <p className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">

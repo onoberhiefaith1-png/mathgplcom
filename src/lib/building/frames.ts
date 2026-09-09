@@ -155,13 +155,20 @@ export async function updateFrame(
 /**
  * Upload the picture that goes INSIDE a frame or window. The stored path is
  * content only: replacing it never changes the 3D object around it.
+ *
+ * The shared asset bucket only accepts a file whose FIRST folder is the signed-in
+ * account's id, so the picture is filed under the uploader; anything else is
+ * refused by the storage rules before it ever reaches the frame.
  */
 export async function uploadFrameImage(frameId: string, file: File): Promise<string> {
   if (file.size > MAX_FRAME_IMAGE_BYTES) {
     throw new Error("That image is larger than 12 MB. Please choose a smaller one.");
   }
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) throw new Error("Please sign in again before adding a picture.");
   const ext = (file.name.split(".").pop() ?? "png").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const path = `building-frames/${frameId}/${Date.now()}.${ext || "png"}`;
+  const path = `${uid}/building-frames/${frameId}/${Date.now()}.${ext || "png"}`;
   const { error } = await supabase.storage
     .from(GAME_ASSETS_BUCKET)
     .upload(path, file, { upsert: true, contentType: file.type || "image/png" });
@@ -213,9 +220,22 @@ export interface FrameMount {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+/** Shape presets, so portrait / square / landscape is one tap. */
+export const FRAME_MIN_RATIO = 0.3;
+export const FRAME_MAX_RATIO = 1.8;
+export const FRAME_SHAPES: { key: string; label: string; ratio: number }[] = [
+  { key: "portrait", label: "Portrait", ratio: 1.4 },
+  { key: "square", label: "Square", ratio: 1 },
+  { key: "landscape", label: "Landscape", ratio: 0.6 },
+];
+
 export const frameSize = (frame: BuildingFrame): { width: number; height: number } => {
   const width = clamp(frame.width, FRAME_MIN_WIDTH, FRAME_MAX_WIDTH);
-  const ratio = clamp(frame.height_ratio || frameProfile(frame.design, frame.kind).ratio, 0.35, 1.6);
+  const ratio = clamp(
+    frame.height_ratio || frameProfile(frame.design, frame.kind).ratio,
+    FRAME_MIN_RATIO,
+    FRAME_MAX_RATIO,
+  );
   return { width, height: width * ratio };
 };
 

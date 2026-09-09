@@ -17,6 +17,8 @@ import { Frame as FrameIcon, Image as ImageIcon, Loader2, Lock, Plus, Trash2, Un
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import PicturePickerDialog from "./PicturePickerDialog";
 import {
   addFrameLink,
   createFrame,
@@ -24,17 +26,17 @@ import {
   removeFrameLink,
   updateFrame,
   uploadFrameImage,
+  FRAME_MAX_RATIO,
   FRAME_MAX_WIDTH,
+  FRAME_MIN_RATIO,
   FRAME_MIN_WIDTH,
+  FRAME_SHAPES,
   FRAME_WALL_LABEL,
   type BuildingFrame,
   type FrameLink,
   type FrameWall,
 } from "@/lib/building/frames";
 import { profilesFor, frameProfile, type FrameKind } from "@/lib/building/frameStyles";
-import { SURFACE_SAMPLES, builtinTexturePath } from "@/lib/building/gallery";
-import MyGplMediaPicker from "@/components/lessonnotes/slides/MyGplMediaPicker";
-import { toast } from "@/hooks/use-toast";
 import type { AcademyProduct, AcademyProductKind } from "@/lib/academy/types";
 import type { BuildingClassroom, BuildingWalkway } from "@/lib/building/types";
 
@@ -128,10 +130,9 @@ const FrameManager = ({
   const [pickKind, setPickKind] = useState<AcademyProductKind>("course");
   const [pickId, setPickId] = useState("");
   const [gallery, setGallery] = useState<string | null>(null);
-  /** The frame whose picture is being chosen from the shared MATHGPL library. */
-  const [gplFor, setGplFor] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const uploadTarget = useRef<string | null>(null);
+  const { toast } = useToast();
 
   const mine = useMemo(() => frames.filter((f) => (f.kind ?? "frame") === kind), [frames, kind]);
 
@@ -154,22 +155,19 @@ const FrameManager = ({
       ? `Hallway · ${walkways.find((w) => w.id === frame.walkway_id)?.name ?? "Unknown"}`
       : `Room · ${classrooms.find((c) => c.id === frame.classroom_id)?.name ?? "Unknown"}`;
 
+  /**
+   * Every change here writes straight away. A failure must be visible: a silent
+   * rejection is how a picture appeared to "not go in" at all.
+   */
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     try {
       await fn();
       await onChanged();
-    } catch (err) {
-      // Two objects with the same name would make "Add to Building" ambiguous,
-      // so the name has to be unique — say so plainly instead of failing quietly.
-      const message = err instanceof Error ? err.message : String(err);
+    } catch (error) {
       toast({
-        title: /duplicate|unique/i.test(message)
-          ? "That name is already used"
-          : "That change could not be saved",
-        description: /duplicate|unique/i.test(message)
-          ? "Give this one a different name so it can be picked out by name later."
-          : message,
+        title: "That did not save",
+        description: (error as Error)?.message ?? "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -197,10 +195,20 @@ const FrameManager = ({
     });
   };
 
+  /** A picture going in is confirmed, so nothing ever looks silently ignored. */
+  const confirmPicture = () =>
+    toast({
+      title: isWindow ? "The view is in the window" : "The picture is in the frame",
+      description: "Walk up to it in the building to see it.",
+    });
+
   const onFile = async (file: File | undefined) => {
     const id = uploadTarget.current;
     if (!file || !id) return;
-    await run(() => uploadFrameImage(id, file).then(() => undefined));
+    await run(async () => {
+      await uploadFrameImage(id, file);
+      confirmPicture();
+    });
   };
 
   const options = catalogue.filter((p) => p.kind === pickKind);
@@ -346,120 +354,127 @@ const FrameManager = ({
                   <p className="text-[11px] font-semibold">
                     {isWindow ? "View through the window" : "Picture inside the frame"}
                   </p>
-                  <div className="flex gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      disabled={busy}
-                      onClick={() => {
-                        uploadTarget.current = frame.id;
-                        fileRef.current?.click();
-                      }}
+                  {/* Straight from this page, from your own device — the main way
+                      a picture gets in. */}
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    disabled={busy}
+                    onClick={() => {
+                      uploadTarget.current = frame.id;
+                      fileRef.current?.click();
+                    }}
+                  >
+                    <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+                    {frame.content_path ? "Choose a different picture" : "Add a picture from my device"}
+                  </Button>
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setGallery(frame.id)}
+                      className="text-[10px] font-semibold text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                     >
-                      <ImageIcon className="mr-1.5 h-3.5 w-3.5" /> Upload
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setGplFor(frame.id)}
-                    >
-                      MATHGPL Assets
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setGallery(gallery === frame.id ? null : frame.id)}
-                    >
-                      Samples
-                    </Button>
+                      or pick one from MathGPL assets
+                    </button>
                     {frame.content_path && (
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="h-7 px-2 text-[10px]"
                         disabled={busy}
                         onClick={() => void run(() => updateFrame(frame.id, { content_path: null }))}
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="mr-1 h-3 w-3" /> Take it out
                       </Button>
                     )}
                   </div>
-                  {gallery === frame.id && (
-                    <div className="grid max-h-40 grid-cols-4 gap-1.5 overflow-y-auto">
-                      {SURFACE_SAMPLES.map((s) => (
-                        <button
-                          key={s.key}
-                          type="button"
-                          title={s.label}
-                          onClick={() =>
-                            void run(() =>
-                              updateFrame(frame.id, { content_path: builtinTexturePath(s.key) }),
-                            )
-                          }
-                          className="overflow-hidden rounded border border-border/60"
-                        >
-                          <img src={s.url} alt={s.label} className="aspect-square w-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <p className="text-[10px] text-muted-foreground">
+                    {frame.content_path ? "A picture is inside it." : "Nothing inside it yet."} Changes
+                    here save as you make them.
+                  </p>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5">
-                  {WALLS.map((w) => (
-                    <button
-                      key={w}
-                      type="button"
-                      disabled={locked}
-                      onClick={() => void run(() => updateFrame(frame.id, { wall: w }))}
-                      className={`min-h-[30px] rounded-full px-2.5 text-[11px] font-semibold disabled:opacity-40 ${
-                        frame.wall === w
-                          ? "bg-primary text-primary-foreground"
-                          : "border border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {FRAME_WALL_LABEL[w]}
-                    </button>
-                  ))}
+                {/* SIZE AND POSITION — same controls as the Smart Screen, right
+                    under the picture so both live together. */}
+                <div className="space-y-2 rounded-lg border border-border/50 bg-background/50 p-2">
+                  <p className="text-[11px] font-semibold">Size and position</p>
+
+                  {/* SHAPE — one tap for the usual three, then free fine-tuning. */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {FRAME_SHAPES.map((s) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => void run(() => updateFrame(frame.id, { height_ratio: s.ratio }))}
+                        className={`min-h-[30px] rounded-full px-2.5 text-[11px] font-semibold disabled:opacity-40 ${
+                          Math.abs(frame.height_ratio - s.ratio) < 0.03
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <SliderRow
+                    label="Bigger / smaller"
+                    value={frame.width}
+                    min={FRAME_MIN_WIDTH}
+                    max={FRAME_MAX_WIDTH}
+                    step={0.05}
+                    disabled={locked}
+                    onChange={(v) => void run(() => updateFrame(frame.id, { width: v }))}
+                  />
+                  <SliderRow
+                    label="Shape (height ÷ width)"
+                    value={frame.height_ratio}
+                    min={FRAME_MIN_RATIO}
+                    max={FRAME_MAX_RATIO}
+                    step={0.01}
+                    disabled={locked}
+                    onChange={(v) => void run(() => updateFrame(frame.id, { height_ratio: v }))}
+                  />
+                  <SliderRow
+                    label="Across the wall"
+                    value={frame.offset_along}
+                    min={0.04}
+                    max={0.96}
+                    step={0.01}
+                    disabled={locked}
+                    onChange={(v) => void run(() => updateFrame(frame.id, { offset_along: v }))}
+                  />
+                  <SliderRow
+                    label="Height on the wall"
+                    value={frame.offset_y}
+                    min={0.8}
+                    max={4}
+                    step={0.05}
+                    disabled={locked}
+                    onChange={(v) => void run(() => updateFrame(frame.id, { offset_y: v }))}
+                  />
+
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {WALLS.map((w) => (
+                      <button
+                        key={w}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => void run(() => updateFrame(frame.id, { wall: w }))}
+                        className={`min-h-[30px] rounded-full px-2.5 text-[11px] font-semibold disabled:opacity-40 ${
+                          frame.wall === w
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {FRAME_WALL_LABEL[w]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <SliderRow
-                  label="Along the wall"
-                  value={frame.offset_along}
-                  min={0.04}
-                  max={0.96}
-                  step={0.01}
-                  disabled={locked}
-                  onChange={(v) => void run(() => updateFrame(frame.id, { offset_along: v }))}
-                />
-                <SliderRow
-                  label="Height on the wall"
-                  value={frame.offset_y}
-                  min={0.8}
-                  max={4}
-                  step={0.05}
-                  disabled={locked}
-                  onChange={(v) => void run(() => updateFrame(frame.id, { offset_y: v }))}
-                />
-                <SliderRow
-                  label="Width"
-                  value={frame.width}
-                  min={FRAME_MIN_WIDTH}
-                  max={FRAME_MAX_WIDTH}
-                  step={0.05}
-                  disabled={locked}
-                  onChange={(v) => void run(() => updateFrame(frame.id, { width: v }))}
-                />
-                <SliderRow
-                  label="Shape (height ÷ width)"
-                  value={frame.height_ratio}
-                  min={0.35}
-                  max={1.6}
-                  step={0.01}
-                  disabled={locked}
-                  onChange={(v) => void run(() => updateFrame(frame.id, { height_ratio: v }))}
-                />
+
 
                 <Button
                   size="sm"
@@ -565,22 +580,22 @@ const FrameManager = ({
           </div>
         );
       })}
-      {/* THE SHARED MATHGPL ASSETS LIBRARY — the same library used everywhere
-          else in MathGPL. Choosing here only points the frame at the asset; the
-          asset itself is never copied or moved. */}
-      {gplFor && (
-        <MyGplMediaPicker
-          kind="image"
-          onClose={() => setGplFor(null)}
-          onPick={(asset) => {
-            const path = asset.storage_path ?? asset.external_url;
-            setGplFor(null);
-            if (!path) return;
-            void run(() => updateFrame(gplFor, { content_path: path }));
-          }}
-        />
-      )}
 
+      <PicturePickerDialog
+        open={gallery !== null}
+        title={isWindow ? "Choose the view" : "Choose a picture"}
+        onOpenChange={(o) => {
+          if (!o) setGallery(null);
+        }}
+        onChoose={(path) => {
+          const id = gallery;
+          if (!id) return;
+          void run(async () => {
+            await updateFrame(id, { content_path: path });
+            confirmPicture();
+          });
+        }}
+      />
     </div>
   );
 };
