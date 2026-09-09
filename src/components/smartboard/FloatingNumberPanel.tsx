@@ -759,12 +759,15 @@ export const FloatingNumberPanel = ({
             {lineNo != null && (
               <span
                 aria-hidden
+                data-line-tag={lineNo}
                 style={{
-                  // Sits just inside the chip so the label is never clipped by
-                  // the dock edge on phones.
+                  // INTERNAL identity only. The tag stays in the DOM so every
+                  // engine that reads it keeps working, but it blends away so
+                  // the student sees only the floating number itself. The
+                  // visible line indicator is the top line control.
                   position: "absolute", right: -1, bottom: 0,
-                  fontSize: 10, lineHeight: 1, opacity: used ? 0.5 : 0.4,
-                  color: ink, fontWeight: 700,
+                  fontSize: 10, lineHeight: 1, opacity: 0,
+                  color: "transparent", fontWeight: 700,
                   pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
                 }}
 
