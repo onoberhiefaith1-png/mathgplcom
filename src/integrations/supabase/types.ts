@@ -6250,45 +6250,78 @@ export type Database = {
           },
         ]
       }
+      page_guide_placement: {
+        Row: {
+          created_at: string
+          id: string
+          page_key: string
+          updated_at: string
+          updated_by: string | null
+          x_pct: number
+          y_pct: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          page_key: string
+          updated_at?: string
+          updated_by?: string | null
+          x_pct?: number
+          y_pct?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          page_key?: string
+          updated_at?: string
+          updated_by?: string | null
+          x_pct?: number
+          y_pct?: number
+        }
+        Relationships: []
+      }
       page_guide_videos: {
         Row: {
           created_at: string
           description: string | null
           duration_seconds: number | null
           id: string
+          link_url: string | null
           page_key: string
           position: number
           status: string
           title: string | null
           updated_at: string
           uploaded_by: string | null
-          video_path: string
+          video_path: string | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           duration_seconds?: number | null
           id?: string
+          link_url?: string | null
           page_key: string
           position?: number
           status?: string
           title?: string | null
           updated_at?: string
           uploaded_by?: string | null
-          video_path: string
+          video_path?: string | null
         }
         Update: {
           created_at?: string
           description?: string | null
           duration_seconds?: number | null
           id?: string
+          link_url?: string | null
           page_key?: string
           position?: number
           status?: string
           title?: string | null
           updated_at?: string
           uploaded_by?: string | null
-          video_path?: string
+          video_path?: string | null
         }
         Relationships: []
       }
