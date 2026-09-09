@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { BookOpen, Copy, Link2, Pencil, School } from "lucide-react";
+import { BookOpen, Building2, Copy, Link2, Pencil, School } from "lucide-react";
 import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
 import AddToBuildingDialog from "@/components/building/AddToBuildingDialog";
 import { syncGuestExerciseAssessments } from "@/lib/courses/exerciseBoard";

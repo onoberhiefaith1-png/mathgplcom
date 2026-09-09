@@ -3,7 +3,7 @@ import { classRoot } from "@/lib/product/workspaceRoutes";
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, ClipboardList, Link2, Loader2, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, Building2, ClipboardList, Link2, Loader2, LayoutDashboard } from "lucide-react";
 import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
 import AddToBuildingDialog from "@/components/building/AddToBuildingDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ const ClassAssignmentsPage = () => {
   const [notebooks, setNotebooks] = useState<Record<string, NotebookMeta>>({});
   // Guest Link — public access to ONE assignment card, no account needed.
   const [guestFor, setGuestFor] = useState<{ notebookId: string; label: string } | null>(null);
+  const [buildingFor, setBuildingFor] = useState<{ notebookId: string; label: string } | null>(null);
 
   useEffect(() => {
     (async () => {
