@@ -14,6 +14,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchQuestionBestTimes } from "@/lib/assessments/bestTimes";
 import { fasterTime } from "@/lib/smartboard/touchUi";
+import { sendGuestHeartbeat } from "@/lib/guests/guestApi";
+
 
 
 // `assessment_timer_attempts` ships with this change, so the generated types
@@ -63,14 +65,62 @@ export const formatAttemptTime = (ms: number): string => {
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 };
 
+/** Guest attempts have no account row, so they live on the guest's device. */
+type GuestStore = {
+  attempt_no: number;
+  elapsed_ms: number;
+  running: boolean;
+  attempt_lines: Record<string, number>;
+  completed_at: string | null;
+  success: boolean;
+  best_ms: number | null;
+};
+
+const guestKey = (token: string, assessmentId: string, questionId: string) =>
+  `sb:guestTimer:${assessmentId}:${questionId}:${token}`;
+
+const readGuestStore = (key: string): GuestStore => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const p = JSON.parse(raw) as Partial<GuestStore>;
+      return {
+        attempt_no: Number(p.attempt_no) || 1,
+        elapsed_ms: Number(p.elapsed_ms) || 0,
+        running: !!p.running,
+        attempt_lines: (p.attempt_lines ?? {}) as Record<string, number>,
+        completed_at: p.completed_at ?? null,
+        success: !!p.success,
+        best_ms: typeof p.best_ms === "number" ? p.best_ms : null,
+      };
+    }
+  } catch { /* private mode */ }
+  return { attempt_no: 1, elapsed_ms: 0, running: false, attempt_lines: {}, completed_at: null, success: false, best_ms: null };
+};
+
+const writeGuestStore = (key: string, next: GuestStore) => {
+  try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* private mode */ }
+};
+
 export function useQuestionTimerAttempt(opts: {
   enabled: boolean;
   assessmentId?: string | null;
   studentId?: string | null;
   questionId?: string | null;
+  /** Guest Link sitting — same timer rules, no account row. */
+  guest?: { code: string; token: string } | null;
 }): QuestionTimerAttempt {
-  const { enabled, assessmentId, studentId, questionId } = opts;
+  const { enabled, assessmentId, studentId, questionId, guest } = opts;
   const active = !!(enabled && assessmentId && studentId && questionId);
+  const guestCode = guest?.code ?? null;
+  const guestToken = guest?.token ?? null;
+  const isGuest = !!guestCode && !!guestToken;
+  const storeKey = isGuest && assessmentId && questionId
+    ? guestKey(guestToken!, assessmentId, questionId)
+    : null;
+  const storeKeyRef = useRef<string | null>(storeKey);
+  storeKeyRef.current = storeKey;
+
 
   const [ready, setReady] = useState(false);
   const [rowId, setRowId] = useState<string | null>(null);
@@ -111,6 +161,22 @@ export function useQuestionTimerAttempt(opts: {
     setRunningSince(null);
     setConfirmed({});
     setCompleted(false);
+
+    // GUEST LINK — same timer, kept on the guest's own device. A guest link
+    // must never strip a timer-enabled question of its timer.
+    if (isGuest && storeKey) {
+      const store = readGuestStore(storeKey);
+      setAttemptNo(store.attempt_no);
+      setBaseMs(store.elapsed_ms);
+      setConfirmed(store.attempt_lines);
+      setCompleted(!!store.completed_at);
+      setBestMs(store.best_ms);
+      if (store.running && !store.completed_at) setRunningSince(Date.now());
+      setReady(true);
+      return;
+    }
+
+
 
     (async () => {
       const { data: rows, error } = await db
@@ -162,7 +228,7 @@ export function useQuestionTimerAttempt(opts: {
     })();
 
     return () => { cancelled = true; };
-  }, [active, assessmentId, studentId, questionId]);
+  }, [active, isGuest, storeKey, assessmentId, studentId, questionId]);
 
   // ── Best times for THIS question ─────────────────────────────────────────
   // Two aggregates, no identities: my own fastest success, and the fastest
@@ -174,13 +240,29 @@ export function useQuestionTimerAttempt(opts: {
     void fetchQuestionBestTimes(assessmentId!, questionId!).then((res) => {
       if (cancelled) return;
       setOverallBestMs(res.overallBestMs);
-      if (res.myBestMs != null) setBestMs((prev) => (prev == null || res.myBestMs! < prev ? res.myBestMs : prev));
+      // A guest has no account row, so their own best comes from their device.
+      if (!isGuest && res.myBestMs != null) {
+        setBestMs((prev) => (prev == null || res.myBestMs! < prev ? res.myBestMs : prev));
+      }
     });
     return () => { cancelled = true; };
-  }, [active, assessmentId, questionId, bestStamp]);
+  }, [active, isGuest, assessmentId, questionId, bestStamp]);
 
 
   const patch = useCallback((fields: Record<string, unknown>) => {
+    const key = storeKeyRef.current;
+    if (key) {
+      const prev = readGuestStore(key);
+      writeGuestStore(key, {
+        ...prev,
+        elapsed_ms: typeof fields["elapsed_ms"] === "number" ? (fields["elapsed_ms"] as number) : prev.elapsed_ms,
+        running: typeof fields["running"] === "boolean" ? (fields["running"] as boolean) : prev.running,
+        attempt_lines: (fields["attempt_lines"] as Record<string, number> | undefined) ?? prev.attempt_lines,
+        completed_at: (fields["completed_at"] as string | undefined) ?? prev.completed_at,
+        success: typeof fields["success"] === "boolean" ? (fields["success"] as boolean) : prev.success,
+      });
+      return;
+    }
     const id = rowIdRef.current;
     if (!id) return;
     void db
@@ -191,6 +273,7 @@ export function useQuestionTimerAttempt(opts: {
         if (error) console.warn("[timer-attempt] save failed", error.message);
       });
   }, []);
+
 
   // Visible clock while running.
   useEffect(() => {
@@ -283,9 +366,22 @@ export function useQuestionTimerAttempt(opts: {
       success: true,
       completed_at: new Date().toISOString(),
     });
+    const key = storeKeyRef.current;
+    if (key) {
+      const prev = readGuestStore(key);
+      writeGuestStore(key, { ...prev, best_ms: fasterTime(prev.best_ms, total) });
+      // A guest's finished time still counts towards the Overall Best Time.
+      void sendGuestHeartbeat(guestCode!, {
+        token: guestToken!,
+        assessmentId: assessmentId ?? null,
+        questionId: questionId ?? null,
+        elapsedMs: total,
+        completed: true,
+      });
+    }
     // Re-read the benchmark shortly after the write lands.
     window.setTimeout(() => setBestStamp((s) => s + 1), 1200);
-  }, [active, patch]);
+  }, [active, patch, guestCode, guestToken, assessmentId, questionId]);
 
 
   /** RESET = start a new attempt. It never touches permanent achievement. */
@@ -302,6 +398,20 @@ export function useQuestionTimerAttempt(opts: {
     setConfirmed({});
     setCompleted(false);
     setAttemptNo(nextNo);
+    const key = storeKeyRef.current;
+    if (key) {
+      const prev = readGuestStore(key);
+      writeGuestStore(key, {
+        attempt_no: nextNo,
+        elapsed_ms: 0,
+        running: false,
+        attempt_lines: {},
+        completed_at: null,
+        success: false,
+        best_ms: prev.best_ms,
+      });
+      return;
+    }
     const { data, error } = await db
       .from("assessment_timer_attempts")
       .insert({
@@ -315,6 +425,7 @@ export function useQuestionTimerAttempt(opts: {
     if (error) console.warn("[timer-attempt] new attempt failed", error.message);
     setRowId((data as { id?: string } | null)?.id ?? null);
   }, [active, assessmentId, studentId, questionId, attemptNo, pause]);
+
 
   return useMemo(
     () => ({

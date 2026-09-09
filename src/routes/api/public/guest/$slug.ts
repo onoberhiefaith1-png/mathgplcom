@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
           if (section?.course_id !== link.resource_id) return json({ error: "not_found" }, 404);
           const { data: rows } = await admin
             .from("assessments")
-            .select("id, title, questions, total_marks")
+            .select("id, title, questions, total_marks, timer_enabled")
             .eq("kind", "course_exercise_guest")
             .eq("question_key", blockId)
             .order("created_at", { ascending: true })
@@ -163,7 +163,7 @@ export const Route = createFileRoute("/api/public/guest/$slug")({
         // Assignment Card = every question compiled from one lesson note.
         const { data: assessments } = await admin
           .from("assessments")
-          .select("id, title, total_marks, questions")
+          .select("id, title, total_marks, questions, timer_enabled")
           .eq("class_id", link.class_id)
           .eq("notebook_id", link.resource_id)
           .is("unassigned_at", null)

@@ -2152,7 +2152,10 @@ const PresentationView = ({
     assessmentId,
     studentId: boardStudentId,
     questionId: boardQuestionId ?? current?.id ?? null,
+    // Guest Link sitting — the same timer, kept on the guest's own device.
+    guest: guestSlug && participantKey ? { code: guestSlug, token: participantKey } : null,
   });
+
   const timerRef = useRef(timer);
   timerRef.current = timer;
 
