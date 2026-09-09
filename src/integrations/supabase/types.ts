@@ -1147,6 +1147,68 @@ export type Database = {
         }
         Relationships: []
       }
+      assigned_question_keys: {
+        Row: {
+          assigned_question_id: string
+          created_at: string
+          lines: Json
+        }
+        Insert: {
+          assigned_question_id: string
+          created_at?: string
+          lines?: Json
+        }
+        Update: {
+          assigned_question_id?: string
+          created_at?: string
+          lines?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assigned_question_keys_assigned_question_id_fkey"
+            columns: ["assigned_question_id"]
+            isOneToOne: true
+            referencedRelation: "assigned_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assigned_questions: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          owner_id: string
+          question: Json
+          source_notebook_id: string | null
+          source_section_id: string | null
+          source_subsection_id: string | null
+          total_marks: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          owner_id?: string
+          question: Json
+          source_notebook_id?: string | null
+          source_section_id?: string | null
+          source_subsection_id?: string | null
+          total_marks?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          owner_id?: string
+          question?: Json
+          source_notebook_id?: string | null
+          source_section_id?: string | null
+          source_subsection_id?: string | null
+          total_marks?: number
+        }
+        Relationships: []
+      }
       building_assets: {
         Row: {
           config: Json
@@ -3072,6 +3134,7 @@ export type Database = {
       }
       course_exercise_questions: {
         Row: {
+          assigned_question_id: string | null
           block_id: string
           created_at: string
           id: string
@@ -3085,6 +3148,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_question_id?: string | null
           block_id: string
           created_at?: string
           id?: string
@@ -3098,6 +3162,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_question_id?: string | null
           block_id?: string
           created_at?: string
           id?: string
@@ -3111,6 +3176,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "course_exercise_questions_assigned_question_id_fkey"
+            columns: ["assigned_question_id"]
+            isOneToOne: false
+            referencedRelation: "assigned_questions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "course_exercise_questions_block_id_fkey"
             columns: ["block_id"]
