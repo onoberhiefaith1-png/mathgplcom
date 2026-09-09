@@ -207,7 +207,7 @@ interface Props {
   activeLineIdx?: number;
   consumedAbsIdx?: Set<number>;
   /** Mark a fragment (by absolute index) as USED — the conveyor moves it to the
-   *  grey "used" zone and Check Line trusts this state instead of re-parsing ink. */
+   *  grey "used" zone and automatic marking trusts it instead of re-parsing ink. */
   onUse?: (absIdx: number, label: string) => void;
   /** Un-mark a fragment — returns it from the USED zone back to ACTIVE. */
   onUnuse?: (absIdx: number) => void;

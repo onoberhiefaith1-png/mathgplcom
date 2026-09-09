@@ -720,7 +720,7 @@ const PresentationView = ({
   }, []);
   const touchControlsBottom = floatingBox
     ? Math.round(floatingBox.bottom + floatingBox.height + 12)
-    : 12 + 52;
+    : 8;
   const questionWindow = useMemo(() => {
     const count = touchSession?.questionCount ?? beats.length;
     const active = touchSession?.questionIndex ?? Math.max(0, beatCursor);
@@ -5940,7 +5940,7 @@ const PresentationView = ({
       )}
 
       {/* Soft-glow pull-tab — TOP. Drag the header down/up. */}
-      <button
+      {!touchLayout && <button
         data-sb-chrome
         data-sb-teacher-only
         onClick={() => setTopOpen((v) => !v)}
@@ -5959,7 +5959,7 @@ const PresentationView = ({
         }}
       >
         {topOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-      </button>
+      </button>}
 
       {/* RIGHT edge — Next-section button. Advances the lesson beat cursor.
           Does NOT solve, write, or fill anything on the board; equations
