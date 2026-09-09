@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { Building2, Image as ImageIcon, Megaphone, Settings2 } from "lucide-react";
+import {
+  Building2,
+  Image as ImageIcon,
+  LibraryBig,
+  Megaphone,
+  Save,
+  Settings2,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -12,6 +19,7 @@ import {
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
+import SaveBuildingDialog from "./SaveBuildingDialog";
 
 const OPTIONS = [
   {
@@ -25,6 +33,12 @@ const OPTIONS = [
     icon: Building2,
     title: "Edit MathGPL Building",
     body: "Change the pictures inside the original MathGPL building and set how fast it rotates. Position, curve, perspective and size stay exactly as designed.",
+  },
+  {
+    to: "/academy/edit",
+    icon: LibraryBig,
+    title: "Building Gallery",
+    body: "Every complete building ever saved. Open one and it arrives whole — outside, rooms, hallways, windows and screens together.",
   },
 ];
 
