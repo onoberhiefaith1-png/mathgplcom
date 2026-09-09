@@ -97,6 +97,11 @@ export function useSmartboardSync(opts: {
   const lastSendAt = useRef(0);
   const persistTimer = useRef<number | null>(null);
   const selfIdRef = useRef<string | null>(null);
+  /** When the last live frame (or local edit) touched the shared board. The
+   *  durable row is a recovery copy only — it must never overwrite state that
+   *  is fresher than the row it was written from. */
+  const lastLiveAt = useRef(0);
+
 
   useEffect(() => {
     let cancelled = false;
