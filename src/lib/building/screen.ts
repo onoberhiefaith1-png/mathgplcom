@@ -12,7 +12,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { GAME_ASSETS_BUCKET } from "@/lib/games/types";
 import { getSignedUrl } from "@/lib/games/urls";
 import { classroomDimensions } from "./classroom";
+import type { FrameWall } from "./frames";
 import type { ClassroomKind } from "./types";
+
+export const SCREEN_MIN_WIDTH = 0.8;
+export const SCREEN_MAX_WIDTH = 9;
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export interface RoomScreen {
   id: string;
@@ -23,6 +29,17 @@ export interface RoomScreen {
   video_name: string | null;
   camera_active: boolean;
   camera_host_id: string | null;
+  /** The wall the screen belongs to; it can slide along it but never leave it. */
+  wall: FrameWall;
+  /** 0–1 along that wall (null until the teacher moves it) */
+  offset_along: number | null;
+  /** centre height above the room floor (null until the teacher moves it) */
+  offset_y: number | null;
+  /** panel width in metres (null = the room's default size) */
+  width: number | null;
+  height_ratio: number;
+  rotation: number;
+  locked: boolean;
   updated_at: string;
 }
 
@@ -42,20 +59,86 @@ export interface ScreenMount {
   wallZ: number;
   /** floor level at the teaching wall */
   floorY: number;
+  /** the wall the screen is fixed to */
+  wall: FrameWall;
+  /** 0–1 along that wall */
+  along: number;
+  /** metres of wall available to slide along */
+  alongLength: number;
+  /** +1 when local +x increases `along` */
+  alongSign: 1 | -1;
+  /** local centre of the panel inside the room */
+  position: [number, number, number];
+  /** rotation about Y so the panel faces into the room */
+  yaw: number;
+  /** extra roll about its own axis, in radians */
+  rotation: number;
+  /** height ÷ width of the panel */
+  heightRatio: number;
+  /** highest centre height allowed on this wall */
+  maxY: number;
+  locked: boolean;
 }
 
 /**
  * Screen proportions per room type — a bigger room needs a bigger display, and
  * a stepped auditorium needs it raised so the back tiers can see it.
+ *
+ * Once a teacher has moved or resized the screen, the SAVED values win: the
+ * formula below is only the starting point for a screen nobody has touched.
  */
-export const screenMount = (kind: ClassroomKind): ScreenMount => {
+export const screenMount = (kind: ClassroomKind, screen?: RoomScreen | null): ScreenMount => {
   const dims = classroomDimensions(kind);
   const floorY = Math.min(...dims.tiers.map((t) => t.y));
-  const width = Math.min(dims.width * 0.62, kind === "classroom" ? 4.2 : 7.2);
-  const height = width * (9 / 16);
+  const defaultWidth = Math.min(dims.width * 0.62, kind === "classroom" ? 4.2 : 7.2);
   const lift = kind === "auditorium" ? 1.5 : 1.15;
-  const centreY = floorY + lift + height / 2;
-  return { width, height, centreY, wallZ: dims.length, floorY };
+
+  const wall: FrameWall = (screen?.wall as FrameWall) ?? "endWall";
+  const width = clamp(screen?.width ?? defaultWidth, SCREEN_MIN_WIDTH, SCREEN_MAX_WIDTH);
+  const ratio = clamp(Number(screen?.height_ratio ?? 9 / 16) || 9 / 16, 0.3, 1.6);
+  const height = width * ratio;
+  const defaultY = floorY + lift + height / 2;
+  const centreY = clamp(screen?.offset_y ?? defaultY, floorY + 0.6, dims.height - height / 2 - 0.1);
+  const along = clamp(screen?.offset_along ?? 0.5, 0.04, 0.96);
+  const nudge = 0.06;
+
+  if (wall === "endWall") {
+    return {
+      width,
+      height,
+      centreY,
+      wallZ: dims.length,
+      floorY,
+      wall,
+      along,
+      alongLength: dims.width,
+      alongSign: -1,
+      position: [(along - 0.5) * dims.width, centreY, dims.length - nudge],
+      yaw: Math.PI,
+      rotation: screen?.rotation ?? 0,
+      heightRatio: ratio,
+      maxY: dims.height - height / 2 - 0.1,
+      locked: !!screen?.locked,
+    };
+  }
+  const side = wall === "leftWall" ? -1 : 1;
+  return {
+    width,
+    height,
+    centreY,
+    wallZ: dims.length,
+    floorY,
+    wall,
+    along,
+    alongLength: dims.length,
+    alongSign: side === -1 ? -1 : 1,
+    position: [side * (dims.width / 2 - nudge), centreY, along * dims.length],
+    yaw: side === -1 ? Math.PI / 2 : -Math.PI / 2,
+    rotation: screen?.rotation ?? 0,
+    heightRatio: ratio,
+    maxY: dims.height - height / 2 - 0.1,
+    locked: !!screen?.locked,
+  };
 };
 
 // ── Data ──────────────────────────────────────────────────────────────────
@@ -78,7 +161,23 @@ export const fetchRoomScreen = async (classroomId: string): Promise<RoomScreen |
 const saveRoomScreen = async (
   buildingId: string,
   classroomId: string,
-  fields: Partial<Pick<RoomScreen, "video_path" | "video_mime" | "video_name" | "camera_active" | "camera_host_id">>,
+  fields: Partial<
+    Pick<
+      RoomScreen,
+      | "video_path"
+      | "video_mime"
+      | "video_name"
+      | "camera_active"
+      | "camera_host_id"
+      | "wall"
+      | "offset_along"
+      | "offset_y"
+      | "width"
+      | "height_ratio"
+      | "rotation"
+      | "locked"
+    >
+  >,
 ): Promise<RoomScreen> => {
   const { data, error } = await supabase
     .from("building_room_screens")
@@ -152,6 +251,16 @@ export const setScreenCamera = async (
     camera_active: active,
     camera_host_id: active ? hostId : null,
   });
+
+/**
+ * Save where the teacher put the screen. Only the placement is written, so a
+ * video that is playing is never disturbed by a move or a resize.
+ */
+export const saveScreenTransform = async (
+  buildingId: string,
+  classroomId: string,
+  patch: Partial<Pick<RoomScreen, "wall" | "offset_along" | "offset_y" | "width" | "height_ratio" | "rotation" | "locked">>,
+): Promise<RoomScreen> => saveRoomScreen(buildingId, classroomId, patch);
 
 /** A playable URL for the room's stored video (short-lived signed link). */
 export const screenVideoUrl = async (path?: string | null): Promise<string | null> =>

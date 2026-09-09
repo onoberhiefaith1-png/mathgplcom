@@ -22,7 +22,8 @@ import RoomDoor, { type RoomDoorVisual } from "./RoomDoor";
 import FrameObject from "./FrameObject";
 import WindowObject from "./WindowObject";
 
-import { screenMount } from "@/lib/building/screen";
+import { screenMount, type RoomScreen } from "@/lib/building/screen";
+import type { WallTransform } from "./WallGizmo";
 import { classroomDimensions } from "@/lib/building/classroom";
 import { roomFrameMount, type BuildingFrame } from "@/lib/building/frames";
 import type { ClassroomKind, EnvironmentSettings } from "@/lib/building/types";
@@ -64,6 +65,14 @@ export interface ClassroomShellProps {
    */
   screenVideo?: HTMLVideoElement | null;
   screenHasContent?: boolean;
+  /** Saved placement of this room's screen — where the teacher last put it. */
+  screen?: RoomScreen | null;
+  /** True while the teacher is editing, so the screen shows its drag handles. */
+  screenEditable?: boolean;
+  /** Called when a screen drag/resize ends. */
+  onScreenTransform?: (next: WallTransform) => void;
+  /** Called when a frame or window drag/resize ends. */
+  onFrameTransform?: (frame: BuildingFrame, next: WallTransform) => void;
   /** Look of the door this room belongs to, so the inside face matches it. */
   doorVisual?: RoomDoorVisual | null;
   /** Leaves the room, used when the inside door is clicked. */
@@ -182,6 +191,10 @@ const ClassroomShell = ({
   openingWidth = 2.2,
   screenVideo = null,
   screenHasContent = false,
+  screen = null,
+  screenEditable = false,
+  onScreenTransform,
+  onFrameTransform,
   doorVisual = null,
   onLeave,
   onScreenSelect,
@@ -197,7 +210,7 @@ const ClassroomShell = ({
   const lowest = tiers[tiers.length - 1]?.y ?? 0;
   const half = width / 2;
   // The nameplate sits clear of the smart screen on the same teaching wall.
-  const mount = useMemo(() => screenMount(kind), [kind]);
+  const mount = useMemo(() => screenMount(kind, screen), [kind, screen]);
   const plateY = Math.min(height - 0.7, mount.centreY + mount.height / 2 + 0.6);
 
   return (
@@ -353,6 +366,10 @@ const ClassroomShell = ({
               contentUrl={frame.content_path ? textures[frame.content_path] : null}
               selected={selectedFrameId === frame.id}
               onSelect={onFrameSelect}
+              editable={selectedFrameId === frame.id && !!onFrameTransform}
+              onTransform={
+                onFrameTransform ? (next) => onFrameTransform(frame, next) : undefined
+              }
             />
           ) : (
             <FrameObject
@@ -363,6 +380,10 @@ const ClassroomShell = ({
               selected={selectedFrameId === frame.id}
               linkCount={frameLinkCounts[frame.id] ?? 0}
               onSelect={onFrameSelect}
+              editable={selectedFrameId === frame.id && !!onFrameTransform}
+              onTransform={
+                onFrameTransform ? (next) => onFrameTransform(frame, next) : undefined
+              }
             />
           ),
         )}
@@ -377,6 +398,9 @@ const ClassroomShell = ({
         hasContent={screenHasContent}
         label={`${name.toUpperCase()} · SMART SCREEN`}
         onSelect={onScreenSelect}
+        screen={screen}
+        editable={screenEditable}
+        onTransform={onScreenTransform}
       />
 
       {/* NAMEPLATE — wall-mounted on the teaching wall, never floating. */}

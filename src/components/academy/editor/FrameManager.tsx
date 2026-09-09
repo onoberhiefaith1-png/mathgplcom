@@ -33,6 +33,8 @@ import {
 } from "@/lib/building/frames";
 import { profilesFor, frameProfile, type FrameKind } from "@/lib/building/frameStyles";
 import { SURFACE_SAMPLES, builtinTexturePath } from "@/lib/building/gallery";
+import MyGplMediaPicker from "@/components/lessonnotes/slides/MyGplMediaPicker";
+import { toast } from "@/hooks/use-toast";
 import type { AcademyProduct, AcademyProductKind } from "@/lib/academy/types";
 import type { BuildingClassroom, BuildingWalkway } from "@/lib/building/types";
 
@@ -126,6 +128,8 @@ const FrameManager = ({
   const [pickKind, setPickKind] = useState<AcademyProductKind>("course");
   const [pickId, setPickId] = useState("");
   const [gallery, setGallery] = useState<string | null>(null);
+  /** The frame whose picture is being chosen from the shared MATHGPL library. */
+  const [gplFor, setGplFor] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const uploadTarget = useRef<string | null>(null);
 
@@ -155,6 +159,19 @@ const FrameManager = ({
     try {
       await fn();
       await onChanged();
+    } catch (err) {
+      // Two objects with the same name would make "Add to Building" ambiguous,
+      // so the name has to be unique — say so plainly instead of failing quietly.
+      const message = err instanceof Error ? err.message : String(err);
+      toast({
+        title: /duplicate|unique/i.test(message)
+          ? "That name is already used"
+          : "That change could not be saved",
+        description: /duplicate|unique/i.test(message)
+          ? "Give this one a different name so it can be picked out by name later."
+          : message,
+        variant: "destructive",
+      });
     } finally {
       setBusy(false);
     }
@@ -346,9 +363,16 @@ const FrameManager = ({
                       size="sm"
                       variant="outline"
                       className="flex-1"
+                      onClick={() => setGplFor(frame.id)}
+                    >
+                      MATHGPL Assets
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => setGallery(gallery === frame.id ? null : frame.id)}
                     >
-                      MathGPL assets
+                      Samples
                     </Button>
                     {frame.content_path && (
                       <Button
@@ -541,6 +565,22 @@ const FrameManager = ({
           </div>
         );
       })}
+      {/* THE SHARED MATHGPL ASSETS LIBRARY — the same library used everywhere
+          else in MathGPL. Choosing here only points the frame at the asset; the
+          asset itself is never copied or moved. */}
+      {gplFor && (
+        <MyGplMediaPicker
+          kind="image"
+          onClose={() => setGplFor(null)}
+          onPick={(asset) => {
+            const path = asset.storage_path ?? asset.external_url;
+            setGplFor(null);
+            if (!path) return;
+            void run(() => updateFrame(gplFor, { content_path: path }));
+          }}
+        />
+      )}
+
     </div>
   );
 };

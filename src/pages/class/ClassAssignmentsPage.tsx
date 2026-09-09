@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, ClipboardList, Link2, Loader2, LayoutDashboard } from "lucide-react";
 import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
+import AddToBuildingDialog from "@/components/building/AddToBuildingDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 
@@ -144,6 +145,19 @@ const ClassAssignmentsPage = () => {
                       <Link2 className="h-3.5 w-3.5" /> Guest Link
                     </button>
                   )}
+                  {/* Puts this assignment on a named frame in a building — a
+                      shortcut for signed-in learners, alongside Guest Link. */}
+                  {g.notebookId && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBuildingFor({ notebookId: g.notebookId as string, label: g.label })
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                    >
+                      <Building2 className="h-3.5 w-3.5" /> Add to Building
+                    </button>
+                  )}
                   {g.notebookId ? (
                     <Link
                       to={`${classRoot()}/${classId}/assignments/${g.notebookId}/dashboard`}
@@ -160,6 +174,18 @@ const ClassAssignmentsPage = () => {
           })
         )}
       </main>
+
+      {buildingFor && (
+        <AddToBuildingDialog
+          open
+          onOpenChange={(v) => {
+            if (!v) setBuildingFor(null);
+          }}
+          contentKind="assessment"
+          contentId={buildingFor.notebookId}
+          contentTitle={buildingFor.label}
+        />
+      )}
 
       {guestFor && classId && (
         <GuestLinkDialog

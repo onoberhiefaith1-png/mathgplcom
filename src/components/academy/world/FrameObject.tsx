@@ -15,6 +15,7 @@ import { Text } from "@react-three/drei";
 import { frameProfile, type FrameProfile } from "@/lib/building/frameStyles";
 import type { BuildingFrame, FrameMount } from "@/lib/building/frames";
 import { coverFit, useImageTexture } from "./useImageTexture";
+import WallGizmo, { type WallTransform } from "./WallGizmo";
 
 export interface FrameStructureProps {
   profile: FrameProfile;
@@ -210,9 +211,21 @@ interface FrameObjectProps {
   selected?: boolean;
   linkCount?: number;
   onSelect?: (frame: BuildingFrame) => void;
+  /** Editor only: show the drag/resize handles on this frame. */
+  editable?: boolean;
+  onTransform?: (next: WallTransform) => void;
 }
 
-const FrameObject = ({ frame, mount, contentUrl, selected = false, linkCount = 0, onSelect }: FrameObjectProps) => {
+const FrameObject = ({
+  frame,
+  mount,
+  contentUrl,
+  selected = false,
+  linkCount = 0,
+  onSelect,
+  editable = false,
+  onTransform,
+}: FrameObjectProps) => {
   const profile = useMemo(() => frameProfile(frame.design, "frame"), [frame.design]);
   const { width, height } = mount;
   const bar = barThickness(profile, width);
@@ -290,6 +303,28 @@ const FrameObject = ({ frame, mount, contentUrl, selected = false, linkCount = 0
           {`${frame.name.toUpperCase()}${linkCount > 1 ? ` · ${linkCount} ITEMS` : ""}`}
         </Text>
       </group>
+      {/* DIRECT MANIPULATION — slide the frame along its wall, or grab a grip to
+          resize it. Nothing can leave the wall it belongs to. */}
+      {editable && onTransform && (
+        <WallGizmo
+          width={width}
+          height={height}
+          alongLength={mount.alongLength}
+          alongSign={mount.alongSign}
+          minWidth={0.4}
+          maxWidth={Math.min(6, mount.alongLength * 0.9)}
+          maxY={3.4}
+          locked={!!frame.locked}
+          current={{
+            offset_along: frame.offset_along,
+            offset_y: frame.offset_y,
+            width: frame.width,
+            height_ratio: frame.height_ratio,
+          }}
+          onCommit={onTransform}
+        />
+      )}
+
     </group>
   );
 };

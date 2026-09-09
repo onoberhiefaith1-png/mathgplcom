@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@/lib/router-compat";
 import { BookOpen, Copy, Link2, Pencil, School } from "lucide-react";
 import GuestLinkDialog from "@/components/guests/GuestLinkDialog";
+import AddToBuildingDialog from "@/components/building/AddToBuildingDialog";
 import { syncGuestExerciseAssessments } from "@/lib/courses/exerciseBoard";
 import { useCourseMediaUrl } from "@/lib/courses/useCourseMediaUrl";
 import ShareMenu from "@/components/community/ShareMenu";
@@ -26,6 +27,7 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
   const [shared, setShared] = useState(false);
   // Guest Link — anyone can open this ORIGINAL course without an account.
   const [guestOpen, setGuestOpen] = useState(false);
+  const [buildingOpen, setBuildingOpen] = useState(false);
 
   // A course already listed in Community carries a Shared badge on the card.
   useEffect(() => {
@@ -109,6 +111,15 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
           >
             <Link2 className="h-4 w-4" /> Guest link
           </button>
+          {/* ADD TO BUILDING — a shortcut on a frame for signed-in learners.
+              Guest link is untouched: it stays the way out to visitors. */}
+          <button
+            type="button"
+            onClick={() => setBuildingOpen(true)}
+            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-sm text-slate-700 transition hover:bg-slate-100"
+          >
+            <Building2 className="h-4 w-4" /> Add to Building
+          </button>
 
           <ShareMenu
             className="ml-auto"
@@ -143,6 +154,13 @@ const CourseCard = ({ course, onDuplicate, onDelete }: Props) => {
         onReady={() => syncGuestExerciseAssessments(course.id)}
       />
       <AssignToClassDialog open={assigning} onOpenChange={setAssigning} courseId={course.id} />
+      <AddToBuildingDialog
+        open={buildingOpen}
+        onOpenChange={setBuildingOpen}
+        contentKind="course"
+        contentId={course.id}
+        contentTitle={course.title}
+      />
     </article>
 
   );
