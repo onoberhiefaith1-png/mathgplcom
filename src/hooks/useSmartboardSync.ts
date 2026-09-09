@@ -139,10 +139,15 @@ export function useSmartboardSync(opts: {
       const sj = row.state_json;
       if (sj && typeof sj === "object" && "v" in sj) {
         const snap = sj as BoardSnapshot;
+        // Live frames are the truth. Only adopt the durable copy when nothing
+        // live has arrived recently (first load, reconnect after a drop).
+        const staleWindow = Date.now() - lastLiveAt.current < 4000;
+        if (staleWindow) return;
         const { v: _v, author: _author, ts: _ts, ...rest } = snap;
         remoteBaseRef.current = rest as BoardState;
         setIncoming(snap);
       }
+
     };
 
     loadRef.current = load;
