@@ -6,7 +6,20 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useSmartboardRoot } from "./SmartboardRoot";
-import { ChevronLeft, ChevronRight, Table as TableIcon } from "lucide-react";
+import { Table as TableIcon } from "lucide-react";
+
+/** Thick solid navigation triangle — same key-like shape as the Sensor pad. */
+const NavTriangle = ({ dir }: { dir: "left" | "right" }) => (
+  <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden focusable="false">
+    <polygon
+      points={dir === "left" ? "16,2 16,18 3,10" : "4,2 17,10 4,18"}
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
