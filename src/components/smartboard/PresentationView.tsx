@@ -1326,6 +1326,10 @@ const PresentationView = ({
     if (incoming.profileId) setProfileId(incoming.profileId as WritingProfileId);
     if (incoming.inkColorId) setInkColorId(incoming.inkColorId as InkColorId);
     if (incoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(incoming.placeholderColorId));
+    // SAME floating number, not a copy: the active line activates on every
+    // board at the same instant, even where its panel is hidden.
+    if (typeof incoming.activeLineIdx === "number") setActiveLineIdxState(incoming.activeLineIdx);
+    if (typeof incoming.lineEngaged === "boolean") setLineEngaged(incoming.lineEngaged);
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
   }, [incoming, syncEnabled, selfId]);
@@ -1337,12 +1341,15 @@ const PresentationView = ({
     pushSnapshot({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+      activeLineIdx, lineEngaged,
     });
   }, [
     syncEnabled, canEdit, pushSnapshot,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+    activeLineIdx, lineEngaged,
   ]);
+
 
 
 
