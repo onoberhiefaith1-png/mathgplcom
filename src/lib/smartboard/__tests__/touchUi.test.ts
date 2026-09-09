@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fasterTime, getQuestionWindow, resetAttemptMarkers } from "../touchUi";
+import { fasterTime, getQuestionWindow, lineCarriesMarkState, resetAttemptMarkers } from "../touchUi";
 
 describe("phone Smartboard question window", () => {
   it("keeps the first three stable at the start", () => {
