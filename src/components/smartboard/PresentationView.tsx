@@ -291,7 +291,7 @@ const SURFACE_KEY = "smartboard:surface";
 
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 3.5;
-const ZOOM_STEP = 0.12;
+const ZOOM_STEP = 0.1;
 const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
 
 /* ─────── Floating-number usage check (Phase 1 of "Check line") ───────
@@ -7650,23 +7650,30 @@ const PresentationView = ({
                 >
                   {formatAttemptTime(timer.elapsedMs)}
                 </span>
-                {/* Two statistics only — my own best, and the best by anyone
-                    (guests through public links included). No names, no
-                    positions, no leaderboard. */}
-                <span
-                  className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-90"
-                  style={{ border: `1px solid ${palette.chromeBorder}` }}
-                  title="My Best Time — your own fastest solve of this question"
-                >
-                  ⏱ My Best {timer.bestMs == null ? "—" : formatAttemptTime(timer.bestMs)}
-                </span>
-                <span
-                  className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-90"
-                  style={{ border: `1px solid ${palette.chromeBorder}` }}
-                  title="Overall Best Time — fastest solve of this question by anyone"
-                >
-                  🏆 Overall Best {timer.overallBestMs == null ? "—" : formatAttemptTime(timer.overallBestMs)}
-                </span>
+                {/* One visible statistic — the student's own Best Time. The
+                    fastest time by anyone appears only when they open it. */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setTimeDetailsOpen((open) => !open)}
+                    className="rounded-md px-2 py-1 text-[11px] tabular-nums opacity-90 hover:bg-black/5"
+                    style={{ border: `1px solid ${palette.chromeBorder}` }}
+                    aria-expanded={timeDetailsOpen}
+                    title="Best Time — your own fastest completed solve"
+                  >
+                    ⏱ Best Time {timer.bestMs == null ? "—" : formatAttemptTime(timer.bestMs)}
+                  </button>
+                  {timeDetailsOpen && (
+                    <div
+                      className="absolute left-0 top-full z-[80] mt-1 w-48 rounded-md border p-2 text-[11px] tabular-nums shadow-lg"
+                      style={{ background: palette.chromeBg, borderColor: palette.chromeBorder }}
+                    >
+                      🏆 Overall Best {timer.overallBestMs == null ? "—" : formatAttemptTime(timer.overallBestMs)}
+                    </div>
+                  )}
+                </div>
+
+
 
 
                 <button
