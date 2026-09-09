@@ -1464,6 +1464,126 @@ export type Database = {
           },
         ]
       }
+      building_gallery_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: number
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          slug?: string
+        }
+        Relationships: []
+      }
+      building_gallery_entries: {
+        Row: {
+          category_slug: string
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          name: string
+          published: boolean
+          published_at: string
+          publisher_id: string
+          template_building_id: string
+          updated_at: string
+        }
+        Insert: {
+          category_slug: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          name: string
+          published?: boolean
+          published_at?: string
+          publisher_id: string
+          template_building_id: string
+          updated_at?: string
+        }
+        Update: {
+          category_slug?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          published?: boolean
+          published_at?: string
+          publisher_id?: string
+          template_building_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_gallery_entries_category_slug_fkey"
+            columns: ["category_slug"]
+            isOneToOne: false
+            referencedRelation: "building_gallery_categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "building_gallery_entries_template_building_id_fkey"
+            columns: ["template_building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      building_gallery_uses: {
+        Row: {
+          building_id: string
+          created_at: string
+          entry_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          building_id: string
+          created_at?: string
+          entry_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          building_id?: string
+          created_at?: string
+          entry_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_gallery_uses_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_gallery_uses_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "building_gallery_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       building_room_lock_attempts: {
         Row: {
           classroom_id: string
