@@ -7745,8 +7745,9 @@ const PresentationView = ({
             )}
 
             {/* Zoom controls */}
-            {/* Compact [ − ] 100% [ + ] content zoom — every layout keeps both
-                steppers; the percentage itself resets to 100%. */}
+            {/* Compact [ − ] 100% [ + ] content zoom — when the timer is active the
+                percentage label is hidden so the tracker/score/timer have room; the
+                steppers stay visible. */}
             <div className="inline-flex shrink-0 items-center rounded-md" style={{ background: palette.hoverBg }}>
               <button
                 onClick={() => applyZoom(zoom - ZOOM_STEP)}
@@ -7754,14 +7755,16 @@ const PresentationView = ({
                 aria-label="Zoom out"
                 title="Make the content smaller"
               >−</button>
-              <button
-                onClick={() => applyZoom(1)}
-                className="px-1 py-1 tabular-nums text-[9px] min-[390px]:px-2 min-[390px]:text-[10px]"
-                aria-label="Reset zoom"
-                title="Reset zoom"
-              >
-                {Math.round(zoom * 100)}%
-              </button>
+              {!timer.active && (
+                <button
+                  onClick={() => applyZoom(1)}
+                  className="px-1 py-1 tabular-nums text-[9px] min-[390px]:px-2 min-[390px]:text-[10px]"
+                  aria-label="Reset zoom"
+                  title="Reset zoom"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+              )}
               <button
                 onClick={() => applyZoom(zoom + ZOOM_STEP)}
                 className={mobileStudent ? "px-1.5 py-1 text-sm leading-none" : "px-2 py-1 text-base leading-none"}
