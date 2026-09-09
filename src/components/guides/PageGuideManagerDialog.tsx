@@ -5,7 +5,7 @@
 // is a small ordered list: add, retitle, replace, reorder, publish, remove.
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Loader2, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Link as LinkIcon, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -41,6 +41,7 @@ interface Props {
 const PageGuideManagerDialog = ({ open, onOpenChange, pageKey, tutorials, onChanged }: Props) => {
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const addRef = useRef<HTMLInputElement | null>(null);
   const replaceRef = useRef<HTMLInputElement | null>(null);
@@ -50,6 +51,7 @@ const PageGuideManagerDialog = ({ open, onOpenChange, pageKey, tutorials, onChan
     if (!open) return;
     setTitle(`How to use ${pageKeyLabel(pageKey)}`);
     setFile(null);
+    setLink("");
   }, [open, pageKey]);
 
   const run = async (label: string, task: () => Promise<unknown>) => {
@@ -66,13 +68,24 @@ const PageGuideManagerDialog = ({ open, onOpenChange, pageKey, tutorials, onChan
   };
 
   const add = () => {
-    if (!file) {
-      toast.error("Choose a video file first.");
+    if (!file && !link.trim()) {
+      toast.error("Choose a video file, or paste a link.");
+      return;
+    }
+    if (file && link.trim()) {
+      toast.error("Use either a video file or a link, not both.");
       return;
     }
     void run("Tutorial added.", async () => {
-      await addTutorial({ pageKey, title, file, status: "published" });
+      await addTutorial({
+        pageKey,
+        title,
+        file,
+        linkUrl: file ? null : link,
+        status: "published",
+      });
       setFile(null);
+      setLink("");
       setTitle(`How to use ${pageKeyLabel(pageKey)}`);
     });
   };
@@ -133,7 +146,7 @@ const PageGuideManagerDialog = ({ open, onOpenChange, pageKey, tutorials, onChan
                     <Button variant="ghost" size="icon" className="h-7 w-7" disabled={busy} onClick={() => move(index, 1)}>
                       <ArrowDown className="h-3.5 w-3.5" />
                     </Button>
-                    {!tutorial.legacy && (
+                    {!tutorial.legacy && !tutorial.linkUrl && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -177,7 +190,17 @@ const PageGuideManagerDialog = ({ open, onOpenChange, pageKey, tutorials, onChan
                     </Button>
                   </div>
                 </div>
-                {tutorialVideoUrl(tutorial.videoPath) && (
+                {tutorial.linkUrl && (
+                  <a
+                    href={tutorial.linkUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 flex items-center gap-1 truncate text-[11px] text-primary underline"
+                  >
+                    <LinkIcon className="h-3 w-3 shrink-0" /> {tutorial.linkUrl}
+                  </a>
+                )}
+                {!tutorial.linkUrl && tutorialVideoUrl(tutorial.videoPath) && (
                   <video
                     src={tutorialVideoUrl(tutorial.videoPath) ?? undefined}
                     controls
@@ -211,7 +234,15 @@ const PageGuideManagerDialog = ({ open, onOpenChange, pageKey, tutorials, onChan
               <Button variant="outline" size="sm" className="gap-1" onClick={() => addRef.current?.click()}>
                 <Upload className="h-3.5 w-3.5" /> Choose video
               </Button>
-              <Button size="sm" onClick={add} disabled={busy || !file} className="gap-1">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">or</span>
+              <Input
+                value={link}
+                placeholder="Paste a link (youtube.com/…)"
+                disabled={Boolean(file)}
+                onChange={(e) => setLink(e.target.value)}
+                className="h-8 min-w-[200px] flex-1 text-xs"
+              />
+              <Button size="sm" onClick={add} disabled={busy || (!file && !link.trim())} className="gap-1">
                 {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Add tutorial
               </Button>
               {file && <span className="text-[11px] text-muted-foreground">{file.name}</span>}
