@@ -28,3 +28,29 @@ export const resetAttemptMarkers = (
 
 export const fasterTime = (current: number | null, candidate: number): number =>
   current == null ? candidate : Math.min(current, candidate);
+
+/**
+ * NO FLOATING NUMBER = NO MARK STATE.
+ *
+ * A note-only line (prose, explanation, an empty row) carries nothing to
+ * solve, so it must stay neutral: never blue, never brown. Only a line with
+ * real floating-number content can hold a mark state.
+ */
+export const lineCarriesMarkState = (line: {
+  notebookOnly?: boolean;
+  equation?: string;
+  fragments?: string[];
+  fragmentStart?: number;
+  fragmentEnd?: number;
+  table?: unknown;
+} | null | undefined): boolean => {
+  if (!line) return false;
+  if (line.notebookOnly) return false;
+  if (line.table) return true;
+  const span =
+    typeof line.fragmentStart === "number" && typeof line.fragmentEnd === "number"
+      ? line.fragmentEnd - line.fragmentStart
+      : (line.fragments?.length ?? 0);
+  if (span > 0) return true;
+  return !!(line.equation ?? "").trim();
+};
