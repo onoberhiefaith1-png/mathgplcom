@@ -5336,6 +5336,8 @@ const PresentationView = ({
     setSensor((p) => (p.line === 0 && p.x === 0 ? p : { line: 0, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
     setShownNotebookIdx((p) => (p.size === 0 ? p : new Set<number>()));
+    noteRowByLineRef.current = {};
+
     setNotebookAttentionIdx((p) => (p.size === 0 ? p : new Set<number>()));
     setConsumedAbsIdx((p) => (p.size === 0 ? p : new Set<number>()));
     setNotebookRowLines((p) => (p.size === 0 ? p : new Set<number>()));
