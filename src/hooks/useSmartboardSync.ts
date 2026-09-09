@@ -166,10 +166,12 @@ export function useSmartboardSync(opts: {
     // adopt it rather than discarding every later frame forever.
     if (msg.seq === seen || (msg.seq < seen && msg.seq > 1)) return;
     lastSeenSeqRef.current.set(who, msg.seq);
+    lastLiveAt.current = Date.now();
     const base = msg.full ? null : remoteBaseRef.current;
     const merged = { ...(base ?? {}), ...msg.patch } as BoardState;
     remoteBaseRef.current = merged;
     setIncoming({ v: 1, author: msg.author, ts: msg.ts, ...merged });
+
   }, []);
 
   // One managed subscription per class — remounting replaces it instead of
