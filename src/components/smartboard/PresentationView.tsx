@@ -7401,20 +7401,21 @@ const PresentationView = ({
         />
       )}
 
-      {/* Phone/tablet: one measured strip owns every frequent solving action.
-          It rises with the actual Floating Number workspace and leaves no
-          reserved space when that workspace is closed. */}
+      {/* Phone/tablet: one PERMANENT strip owns every frequent solving action.
+          It is screen-anchored (never inside the scrolling lesson content) and
+          never depends on the Floating Number workspace being open — that
+          workspace only pushes the strip upward while it is showing. */}
       {canEdit && touchLayout && (
         <div
-          data-sb-chrome
-          className="absolute left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border p-1 shadow-lg backdrop-blur"
+          className="fixed left-1/2 z-[70] flex -translate-x-1/2 items-center gap-1 rounded-full border p-1 shadow-lg backdrop-blur"
           style={{
-            bottom: `calc(${touchControlsBottom}px + env(safe-area-inset-bottom))`,
+            bottom: `calc(${Math.max(12, touchControlsBottom)}px + env(safe-area-inset-bottom))`,
             background: palette.chromeBg,
             color: palette.chromeFg,
             borderColor: palette.chromeBorder,
           }}
         >
+
           {[
             { label: "Eraser", disabled: false, action: () => setEraseMode((value) => !value), icon: <Eraser className="h-4 w-4" /> },
             { label: "Floating numbers", disabled: false, action: () => toggleAssistant("numbers"), icon: <Hash className="h-4 w-4" /> },
