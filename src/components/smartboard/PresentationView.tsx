@@ -5174,12 +5174,33 @@ const PresentationView = ({
   );
 
   /** Note write entry for the # panel and the AI controller — delegates
-   *  to the FLOATING channel (the Preview writes through its own). */
+   *  to the FLOATING channel (the Preview writes through its own).
+   *
+   *  ONE ACTIVATION = ONE NOTE. Automatic activation and a manual tap can
+   *  both target the same line, which used to stamp the text twice. The
+   *  row this line's note landed on is remembered; while that row still
+   *  carries ink we scroll to it instead of writing a second copy. Once
+   *  the copy is erased (or Reset clears the board) the note may be
+   *  written again. */
+  const noteRowByLineRef = useRef<Record<number, number>>({});
   const writeNoteForLine = useCallback(
-    (lineIdx: number, text: string): number | null =>
-      floatingWriteNote(lineIdx, text, floatingHost),
-    [floatingHost],
+    (lineIdx: number, text: string): number | null => {
+      const existing = noteRowByLineRef.current[lineIdx];
+      if (typeof existing === "number") {
+        const row = freeLinesRef.current[existing] ?? freeLinesRef.current[existing + 0.5];
+        if (row && rowHasVisibleInk(row)) {
+          scrollBoardToRow(existing);
+          return existing;
+        }
+        delete noteRowByLineRef.current[lineIdx];
+      }
+      const landed = floatingWriteNote(lineIdx, text, floatingHost);
+      if (typeof landed === "number") noteRowByLineRef.current[lineIdx] = landed;
+      return landed;
+    },
+    [floatingHost, scrollBoardToRow],
   );
+
 
 
 
