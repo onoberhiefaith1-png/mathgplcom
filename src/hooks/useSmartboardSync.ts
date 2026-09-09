@@ -279,7 +279,9 @@ export function useSmartboardSync(opts: {
   const pushSnapshot = useCallback((state: BoardState) => {
     if (!classId) return;
     lastLocalRef.current = state;
+    lastLiveAt.current = Date.now();
     const since = Date.now() - lastSendAt.current;
+
     if (since >= BROADCAST_INTERVAL_MS) { flush(); return; }
     if (sendTimer.current) return;
     sendTimer.current = window.setTimeout(() => {
