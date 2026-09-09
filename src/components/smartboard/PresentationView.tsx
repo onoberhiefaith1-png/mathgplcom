@@ -1308,6 +1308,12 @@ const PresentationView = ({
   useEffect(() => {
     try { localStorage.setItem(ZOOM_KEY, String(zoom)); } catch { /* noop */ }
   }, [zoom, ZOOM_KEY]);
+  // Floating-number workspace mirror (declared before the sync effects; the
+  // state itself lives further down). The student's floating number is the
+  // SAME shared object, so its activation travels with every board frame.
+  const floatingSyncRef = useRef({ activeLineIdx: 0, lineEngaged: false });
+  const [floatingSyncTick, setFloatingSyncTick] = useState(0);
+
 
   // ── Live mirroring: apply remote board snapshots authored by someone else. ──
   useEffect(() => {
