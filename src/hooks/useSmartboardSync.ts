@@ -37,9 +37,16 @@ export type BoardSnapshot = {
   profileId: string;
   inkColorId: string;
   placeholderColorId?: string;
+  /** Floating-number workspace: which lesson line is active on the shared
+   *  board, and whether it has been engaged. The student's floating number is
+   *  the SAME object as the teacher's — it must activate at the same instant,
+   *  even while its panel is hidden on the student side. */
+  activeLineIdx?: number;
+  lineEngaged?: boolean;
 };
 
 export type BoardState = Omit<BoardSnapshot, "v" | "author" | "ts">;
+
 
 /** Fastest cadence at which local edits leave the browser (leading edge). */
 export const BROADCAST_INTERVAL_MS = 40;
@@ -90,6 +97,11 @@ export function useSmartboardSync(opts: {
   const lastSendAt = useRef(0);
   const persistTimer = useRef<number | null>(null);
   const selfIdRef = useRef<string | null>(null);
+  /** When the last live frame (or local edit) touched the shared board. The
+   *  durable row is a recovery copy only — it must never overwrite state that
+   *  is fresher than the row it was written from. */
+  const lastLiveAt = useRef(0);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -127,10 +139,15 @@ export function useSmartboardSync(opts: {
       const sj = row.state_json;
       if (sj && typeof sj === "object" && "v" in sj) {
         const snap = sj as BoardSnapshot;
+        // Live frames are the truth. Only adopt the durable copy when nothing
+        // live has arrived recently (first load, reconnect after a drop).
+        const staleWindow = Date.now() - lastLiveAt.current < 4000;
+        if (staleWindow) return;
         const { v: _v, author: _author, ts: _ts, ...rest } = snap;
         remoteBaseRef.current = rest as BoardState;
         setIncoming(snap);
       }
+
     };
 
     loadRef.current = load;
@@ -149,10 +166,12 @@ export function useSmartboardSync(opts: {
     // adopt it rather than discarding every later frame forever.
     if (msg.seq === seen || (msg.seq < seen && msg.seq > 1)) return;
     lastSeenSeqRef.current.set(who, msg.seq);
+    lastLiveAt.current = Date.now();
     const base = msg.full ? null : remoteBaseRef.current;
     const merged = { ...(base ?? {}), ...msg.patch } as BoardState;
     remoteBaseRef.current = merged;
     setIncoming({ v: 1, author: msg.author, ts: msg.ts, ...merged });
+
   }, []);
 
   // One managed subscription per class — remounting replaces it instead of
@@ -260,7 +279,9 @@ export function useSmartboardSync(opts: {
   const pushSnapshot = useCallback((state: BoardState) => {
     if (!classId) return;
     lastLocalRef.current = state;
+    lastLiveAt.current = Date.now();
     const since = Date.now() - lastSendAt.current;
+
     if (since >= BROADCAST_INTERVAL_MS) { flush(); return; }
     if (sendTimer.current) return;
     sendTimer.current = window.setTimeout(() => {

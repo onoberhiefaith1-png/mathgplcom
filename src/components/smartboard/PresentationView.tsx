@@ -1308,6 +1308,12 @@ const PresentationView = ({
   useEffect(() => {
     try { localStorage.setItem(ZOOM_KEY, String(zoom)); } catch { /* noop */ }
   }, [zoom, ZOOM_KEY]);
+  // Floating-number workspace mirror (declared before the sync effects; the
+  // state itself lives further down). The student's floating number is the
+  // SAME shared object, so its activation travels with every board frame.
+  const floatingSyncRef = useRef({ activeLineIdx: 0, lineEngaged: false });
+  const [floatingSyncTick, setFloatingSyncTick] = useState(0);
+
 
   // ── Live mirroring: apply remote board snapshots authored by someone else. ──
   useEffect(() => {
@@ -1326,23 +1332,34 @@ const PresentationView = ({
     if (incoming.profileId) setProfileId(incoming.profileId as WritingProfileId);
     if (incoming.inkColorId) setInkColorId(incoming.inkColorId as InkColorId);
     if (incoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(incoming.placeholderColorId));
+    // SAME floating number, not a copy: the active line activates on every
+    // board at the same instant, even where its panel is hidden.
+    if (typeof incoming.activeLineIdx === "number") setActiveLineIdxState(incoming.activeLineIdx);
+    if (typeof incoming.lineEngaged === "boolean") setLineEngaged(incoming.lineEngaged);
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
   }, [incoming, syncEnabled, selfId]);
 
   // ── Live mirroring: broadcast local board state while we hold edit rights. ──
+  // The floating-number workspace (active line + engagement) is declared later
+  // in this component, so it reaches this effect through a ref plus a tick.
   useEffect(() => {
     if (!syncEnabled || !canEdit) return;
     if (applyingRemoteRef.current) return;
     pushSnapshot({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+      activeLineIdx: floatingSyncRef.current.activeLineIdx,
+      lineEngaged: floatingSyncRef.current.lineEngaged,
     });
   }, [
     syncEnabled, canEdit, pushSnapshot,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+    floatingSyncTick,
   ]);
+
+
 
 
 
@@ -2624,6 +2641,13 @@ const PresentationView = ({
     setActiveLineIdxState(v);
   }, []);
   const floatingLineIdx = activeLineIdx;
+  // Feed the live-mirroring effect above: any activation of the shared
+  // floating number publishes on the very next frame, with no debounce.
+  useEffect(() => {
+    floatingSyncRef.current = { activeLineIdx, lineEngaged };
+    setFloatingSyncTick((n) => n + 1);
+  }, [activeLineIdx, lineEngaged]);
+
   const setFloatingLineIdx = setActiveLineIdx;
   const setManualFloatingLineIdx = useCallback((v: number | null) => {
     if (typeof v === "number") setActiveLineIdx(v);
