@@ -230,11 +230,11 @@ export const SensorDPad = ({
       >
         <div />
         <div className="grid place-items-center">
-          {btn(canUp, onUp, <ChevronUp className="h-5 w-5" />, "Sensor up")}
+          {btn(canUp, onUp, <Triangle dir="up" color={ink ?? chromeFg} />, "Sensor up")}
         </div>
         <div />
         <div className="grid place-items-center">
-          {btn(canLeft, onLeft, <ChevronLeft className="h-5 w-5" />, "Sensor left")}
+          {btn(canLeft, onLeft, <Triangle dir="left" color={ink ?? chromeFg} />, "Sensor left")}
         </div>
         <div
           role="button"
@@ -292,11 +292,11 @@ export const SensorDPad = ({
           />
         </div>
         <div className="grid place-items-center">
-          {btn(canRight, onRight, <ChevronRight className="h-5 w-5" />, "Sensor right")}
+          {btn(canRight, onRight, <Triangle dir="right" color={ink ?? chromeFg} />, "Sensor right")}
         </div>
         <div />
         <div className="grid place-items-center">
-          {btn(canDown, onDown, <ChevronDown className="h-5 w-5" />, "Sensor down")}
+          {btn(canDown, onDown, <Triangle dir="down" color={ink ?? chromeFg} />, "Sensor down")}
         </div>
         <div />
       </div>
