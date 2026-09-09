@@ -16,3 +16,11 @@
 
 - [x] Teacher upload / replace / remove video per classroom smart screen (v1 exists).
 - [ ] Verify upload + student play end to end in the live room.
+
+# Smartboard touch layout
+
+- [ ] Consolidate phone/tablet controls into one compact header and bottom strip.
+- [ ] Add the clamped three-question moving window and guest-owned controls.
+- [ ] Move the draggable sensor pad to the middle-right on touch screens.
+- [ ] Remove the manual Check / Check Line interface on every device.
+- [ ] Verify phone, tablet, guest-link, and desktop behavior.

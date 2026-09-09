@@ -3,11 +3,11 @@
 // whiteboard; a blackboard mode is available from Settings. UI chrome hides
 // after a moment of inactivity so only mathematics remains present.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
-  Eraser, Undo2, Redo2, PanelLeftOpen, X as XIcon,
+  Eraser, Undo2, Redo2, PanelLeftOpen, X as XIcon, Hash, Maximize2, Minimize2,
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
@@ -354,6 +354,7 @@ const PresentationView = ({
   testMode = false,
   timerEnabled = false,
   onLineContext,
+  touchSession,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -408,6 +409,19 @@ const PresentationView = ({
     /** Increments when Reset begins a fresh video sequence. */
     playbackResetGeneration?: number;
   }) => void;
+  /** Optional phone/tablet session controls owned by an outer guest surface. */
+  touchSession?: {
+    questionIndex: number;
+    questionCount: number;
+    onQuestionChange: (index: number) => void;
+    score: number;
+    totalScore: number;
+    onBack: () => void;
+    backLabel: string;
+    videoControl?: ReactNode;
+    fullscreen: boolean;
+    onFullscreenChange: (active: boolean) => void;
+  };
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -710,6 +724,14 @@ const PresentationView = ({
   const touchControlsBottom = floatingBox
     ? Math.round(floatingBox.bottom + floatingBox.height + 12)
     : 12 + 52;
+  const questionWindow = useMemo(() => {
+    const count = touchSession?.questionCount ?? beats.length;
+    const active = touchSession?.questionIndex ?? Math.max(0, beatCursor);
+    if (count <= 0) return [] as number[];
+    const size = Math.min(3, count);
+    const start = Math.max(0, Math.min(active - 1, count - size));
+    return Array.from({ length: size }, (_, index) => start + index);
+  }, [touchSession?.questionCount, touchSession?.questionIndex, beats.length, beatCursor]);
 
   // Invisible-grid free-writing state.
   const FREEWRITE_KEY = boardKey("freewrite", boardScope);

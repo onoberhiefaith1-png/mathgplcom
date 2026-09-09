@@ -32,6 +32,8 @@ interface Props {
   canRight?: boolean;
   /** CSS bottom offset in px — leave room for the BottomPanel. */
   bottomPx?: number;
+  /** Phone/tablet placement: middle-right instead of desktop bottom-centre. */
+  touchLayout?: boolean;
 }
 
 const HOLD_DELAY_MS = 350;
@@ -46,6 +48,7 @@ export const SensorDPad = ({
   chromeBg, chromeFg, chromeBorder, ink,
   canUp = true, canDown = true, canLeft = true, canRight = true,
   bottomPx = 96,
+  touchLayout = false,
 }: Props) => {
   const sbRoot = useSmartboardRoot();
   const holdRef = useRef<{ timer: number | null; interval: number | null }>({ timer: null, interval: null });
@@ -188,9 +191,9 @@ export const SensorDPad = ({
       aria-label="Sensor controller"
       className="absolute z-40"
       style={{
-        left: "50%",
-        bottom: bottomPx,
-        transform: `translateX(-50%) translate(${offset.x}px, ${offset.y}px)`,
+        ...(touchLayout
+          ? { right: 8, top: "50%", transform: `translateY(-50%) translate(${offset.x}px, ${offset.y}px)` }
+          : { left: "50%", bottom: bottomPx, transform: `translateX(-50%) translate(${offset.x}px, ${offset.y}px)` }),
         userSelect: "none",
         pointerEvents: visible ? "auto" : "none",
         opacity: visible ? 1 : 0,
@@ -232,10 +235,16 @@ export const SensorDPad = ({
           onPointerMove={(e) => {
             const d = dragRef.current;
             if (!d) return;
-            const half = window.innerWidth / 2 - 70;
-            const x = Math.max(-half, Math.min(half, d.ox + (e.clientX - d.startX)));
-            const maxUp = Math.max(0, window.innerHeight - 180);
-            const y = Math.max(-maxUp, Math.min(120, d.oy + (e.clientY - d.startY)));
+            const root = sbRoot?.getBoundingClientRect();
+            const width = root?.width ?? window.innerWidth;
+            const height = root?.height ?? window.innerHeight;
+            const nextX = d.ox + (e.clientX - d.startX);
+            const nextY = d.oy + (e.clientY - d.startY);
+            const x = touchLayout
+              ? Math.max(-(width - 140), Math.min(0, nextX))
+              : Math.max(-(width / 2 - 70), Math.min(width / 2 - 70, nextX));
+            const yLimit = Math.max(0, height / 2 - 84);
+            const y = Math.max(-yLimit, Math.min(yLimit, nextY));
             setOffset({ x, y });
             kickIdle();
           }}
