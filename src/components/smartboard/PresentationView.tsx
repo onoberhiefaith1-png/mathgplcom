@@ -757,9 +757,22 @@ const PresentationView = ({
       if (!next) {
         if (document.fullscreenElement) await document.exitFullscreen();
       } else if (!document.fullscreenElement) {
-        const target = sbRootEl ?? document.documentElement;
-        await target.requestFullscreen?.();
+        // Phones: try the board surface first, then the whole document, then
+        // the old WebKit call — whichever the browser accepts, so Expand
+        // really does fill the entire screen.
+        type FsEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+        const targets: FsEl[] = [];
+        if (sbRootEl) targets.push(sbRootEl as FsEl);
+        targets.push(document.documentElement as FsEl);
+        for (const el of targets) {
+          try {
+            if (el.requestFullscreen) { await el.requestFullscreen({ navigationUI: "hide" } as FullscreenOptions); }
+            else if (el.webkitRequestFullscreen) { await el.webkitRequestFullscreen(); }
+            if (document.fullscreenElement) break;
+          } catch { /* try the next target */ }
+        }
       }
+
     } catch {
       // Unsupported mobile browsers already receive the full 100dvh board.
     }
