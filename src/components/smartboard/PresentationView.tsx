@@ -151,7 +151,7 @@ import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 import { studentGradingKey } from "@/lib/assessments/studentGrading";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
-import { getQuestionWindow } from "@/lib/smartboard/touchUi";
+import { getQuestionWindow, lineCarriesMarkState } from "@/lib/smartboard/touchUi";
 
 import ActiveStudentControl from "./ActiveStudentControl";
 import StudentAccessControl from "./StudentAccessControl";
@@ -7602,10 +7602,15 @@ const PresentationView = ({
                   const key = hasGuidedLines
                     ? (i != null ? slotFor(i) : null)
                     : (i != null ? beats[i]?.id ?? null : null);
-                  const blue = !!key && (hasGuidedLines
+                  // NO FLOATING NUMBER = NO MARK STATE: a note-only line stays
+                  // neutral, never blue and never brown.
+                  const carries = hasGuidedLines
+                    ? (i != null && lineCarriesMarkState(guidedLines[i]))
+                    : true;
+                  const blue = carries && !!key && (hasGuidedLines
                     ? key in solvedSlots
                     : progressLayers.blue.has(key));
-                  const brown = !!key && timer.active && (hasGuidedLines
+                  const brown = carries && !!key && timer.active && (hasGuidedLines
                     ? key in timer.confirmed
                     : progressLayers.brown.has(key));
                   const active = i != null && i === (hasGuidedLines ? activeLineIdx : touchQuestionIndex);
