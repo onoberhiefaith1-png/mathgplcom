@@ -10,8 +10,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
-import { screenMount } from "@/lib/building/screen";
+import { SCREEN_MAX_WIDTH, SCREEN_MIN_WIDTH, screenMount, type RoomScreen } from "@/lib/building/screen";
 import type { ClassroomKind } from "@/lib/building/types";
+import WallGizmo, { type WallTransform } from "./WallGizmo";
 
 /** Rounded rectangle used for the bezel and the glass, so corners are soft. */
 const roundedPlane = (w: number, h: number, r: number): THREE.ShapeGeometry => {
@@ -62,10 +63,25 @@ interface Props {
   /** Standby caption on an empty screen. */
   label: string;
   onSelect?: () => void;
+  /** The saved placement of this room's screen (null = room default). */
+  screen?: RoomScreen | null;
+  /** True while the teacher has the screen selected and may move it. */
+  editable?: boolean;
+  /** Called when a drag or resize finishes, with the new placement. */
+  onTransform?: (next: WallTransform) => void;
 }
 
-const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
-  const mount = useMemo(() => screenMount(kind), [kind]);
+const SmartScreen = ({
+  kind,
+  video,
+  hasContent,
+  label,
+  onSelect,
+  screen = null,
+  editable = false,
+  onTransform,
+}: Props) => {
+  const mount = useMemo(() => screenMount(kind, screen), [kind, screen]);
   const glassRef = useRef<THREE.Mesh>(null);
 
   const bezelW = mount.width + 0.18;
@@ -167,7 +183,7 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
   // The group is rotated 180°, so a POSITIVE local z sits in front of the wall,
   // inside the room — anything negative would be buried behind the wall plane.
   return (
-    <group position={[0, mount.centreY, mount.wallZ - 0.06]} rotation-y={Math.PI}>
+    <group position={mount.position} rotation-y={mount.yaw} rotation-z={mount.rotation}>
       {/* PLACEHOLDER ONLY — the housing and bezel exist while the screen is
           empty. Once a video is playing the frame disappears completely and
           the picture itself is the screen. */}
@@ -209,6 +225,28 @@ const SmartScreen = ({ kind, video, hasContent, label, onSelect }: Props) => {
 
       {/* soft glow from the panel into the room */}
       <pointLight position={[0, 0, 0.9]} intensity={hasContent ? 1.1 : 0.35} distance={9} color="#a8c6ff" />
+      {/* DIRECT MANIPULATION — drag the screen along its wall, or grab a corner
+          to resize it. Everything is saved when the drag ends. */}
+      {editable && onTransform && (
+        <WallGizmo
+          width={mount.width}
+          height={mount.height}
+          alongLength={mount.alongLength}
+          alongSign={mount.alongSign}
+          minWidth={SCREEN_MIN_WIDTH}
+          maxWidth={SCREEN_MAX_WIDTH}
+          maxY={mount.maxY}
+          locked={mount.locked}
+          current={{
+            offset_along: mount.along,
+            offset_y: mount.centreY,
+            width: mount.width,
+            height_ratio: mount.heightRatio,
+          }}
+          onCommit={onTransform}
+        />
+      )}
+
     </group>
   );
 };

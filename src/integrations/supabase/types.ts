@@ -1566,11 +1566,18 @@ export type Database = {
           camera_host_id: string | null
           classroom_id: string
           created_at: string
+          height_ratio: number
           id: string
+          locked: boolean
+          offset_along: number | null
+          offset_y: number | null
+          rotation: number
           updated_at: string
           video_mime: string | null
           video_name: string | null
           video_path: string | null
+          wall: string
+          width: number | null
         }
         Insert: {
           building_id: string
@@ -1578,11 +1585,18 @@ export type Database = {
           camera_host_id?: string | null
           classroom_id: string
           created_at?: string
+          height_ratio?: number
           id?: string
+          locked?: boolean
+          offset_along?: number | null
+          offset_y?: number | null
+          rotation?: number
           updated_at?: string
           video_mime?: string | null
           video_name?: string | null
           video_path?: string | null
+          wall?: string
+          width?: number | null
         }
         Update: {
           building_id?: string
@@ -1590,11 +1604,18 @@ export type Database = {
           camera_host_id?: string | null
           classroom_id?: string
           created_at?: string
+          height_ratio?: number
           id?: string
+          locked?: boolean
+          offset_along?: number | null
+          offset_y?: number | null
+          rotation?: number
           updated_at?: string
           video_mime?: string | null
           video_name?: string | null
           video_path?: string | null
+          wall?: string
+          width?: number | null
         }
         Relationships: [
           {

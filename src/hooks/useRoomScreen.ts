@@ -16,6 +16,7 @@ import {
   removeScreenVideo,
   roomScreenChannel,
   screenVideoUrl,
+  saveScreenTransform,
   setScreenCamera,
   uploadScreenVideo,
   type RoomScreen,
@@ -56,6 +57,16 @@ export interface RoomScreenApi {
   setMuted: (next: boolean) => void;
   setVolume: (next: number) => void;
   uploadVideo: (file: File) => Promise<void>;
+  /** Save where the teacher dragged/resized the screen on its wall. */
+  saveTransform: (patch: {
+    wall?: RoomScreen["wall"];
+    offset_along?: number;
+    offset_y?: number;
+    width?: number;
+    height_ratio?: number;
+    rotation?: number;
+    locked?: boolean;
+  }) => Promise<void>;
   removeVideo: () => Promise<void>;
   startCamera: () => Promise<void>;
   stopCamera: () => Promise<void>;
@@ -368,6 +379,23 @@ export const useRoomScreen = ({ buildingId, classroomId, canEdit }: Options): Ro
   // Leaving the room always ends a live lesson this session was publishing.
   useEffect(() => () => { stopLocal(); closePeers(); }, [stopLocal, closePeers]);
 
+  /**
+   * Placement is saved on its own, never together with the video, so moving the
+   * screen can never interrupt a lesson that is playing.
+   */
+  const saveTransform = useCallback(
+    async (patch: Parameters<RoomScreenApi["saveTransform"]>[0]) => {
+      if (!buildingId || !classroomId || !canEdit) return;
+      try {
+        const row = await saveScreenTransform(buildingId, classroomId, patch);
+        setScreen(row);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not save the screen position.");
+      }
+    },
+    [buildingId, classroomId, canEdit],
+  );
+
   return {
     screen,
     mode,
@@ -388,6 +416,7 @@ export const useRoomScreen = ({ buildingId, classroomId, canEdit }: Options): Ro
     setVolume,
     uploadVideo,
     removeVideo,
+    saveTransform,
     startCamera,
     stopCamera,
   };

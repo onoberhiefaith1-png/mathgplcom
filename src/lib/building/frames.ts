@@ -205,6 +205,10 @@ export interface FrameMount {
   yaw: number;
   width: number;
   height: number;
+  /** how many metres of wall the object may slide along (drag conversion) */
+  alongLength: number;
+  /** +1 when dragging toward local +x increases `offset_along`, else -1 */
+  alongSign: 1 | -1;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -233,6 +237,8 @@ export const roomFrameMount = (frame: BuildingFrame, kind: ClassroomKind): Frame
       yaw: Math.PI,
       width,
       height,
+      alongLength: dims.width,
+      alongSign: -1,
     };
   }
   const side = frame.wall === "leftWall" ? -1 : 1;
@@ -241,6 +247,8 @@ export const roomFrameMount = (frame: BuildingFrame, kind: ClassroomKind): Frame
     yaw: side === -1 ? Math.PI / 2 : -Math.PI / 2,
     width,
     height,
+    alongLength: dims.length,
+    alongSign: side === -1 ? -1 : 1,
   };
 };
 
@@ -259,7 +267,14 @@ export const hallFrameMount = (
   const y = clamp(frame.offset_y, 0.6, hallHeight - height / 2 - 0.1);
   const lift = 0.05;
   if (frame.wall === "endWall") {
-    return { position: [(along - 0.5) * hallWidth, y, -length + lift], yaw: 0, width, height };
+    return {
+      position: [(along - 0.5) * hallWidth, y, -length + lift],
+      yaw: 0,
+      width,
+      height,
+      alongLength: hallWidth,
+      alongSign: 1,
+    };
   }
   const side = frame.wall === "leftWall" ? -1 : 1;
   return {
@@ -267,5 +282,7 @@ export const hallFrameMount = (
     yaw: side === -1 ? Math.PI / 2 : -Math.PI / 2,
     width,
     height,
+    alongLength: length,
+    alongSign: side === -1 ? 1 : -1,
   };
 };

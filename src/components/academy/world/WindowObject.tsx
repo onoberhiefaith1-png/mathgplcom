@@ -15,6 +15,7 @@ import { frameProfile } from "@/lib/building/frameStyles";
 import type { BuildingFrame, FrameMount } from "@/lib/building/frames";
 import { FrameStructure, barThickness } from "./FrameObject";
 import { coverFit, useImageTexture } from "./useImageTexture";
+import WallGizmo, { type WallTransform } from "./WallGizmo";
 
 interface WindowObjectProps {
   frame: BuildingFrame;
@@ -23,9 +24,20 @@ interface WindowObjectProps {
   selected?: boolean;
   /** Editor only: picking the window up for positioning. */
   onSelect?: (frame: BuildingFrame) => void;
+  /** Editor only: show the drag/resize handles on this window. */
+  editable?: boolean;
+  onTransform?: (next: WallTransform) => void;
 }
 
-const WindowObject = ({ frame, mount, contentUrl, selected = false, onSelect }: WindowObjectProps) => {
+const WindowObject = ({
+  frame,
+  mount,
+  contentUrl,
+  selected = false,
+  onSelect,
+  editable = false,
+  onTransform,
+}: WindowObjectProps) => {
   const profile = useMemo(() => frameProfile(frame.design, "window"), [frame.design]);
   const { width, height } = mount;
   const bar = barThickness(profile, width);
@@ -107,6 +119,27 @@ const WindowObject = ({ frame, mount, contentUrl, selected = false, onSelect }: 
 
       {/* Daylight spill from the opening, so the window lights its own wall. */}
       <pointLight position={[0, 0, 0.7]} intensity={2.4} distance={6} decay={2} color="#dceaff" />
+      {/* DIRECT MANIPULATION — the window slides and resizes on its own wall. */}
+      {editable && onTransform && (
+        <WallGizmo
+          width={width}
+          height={height}
+          alongLength={mount.alongLength}
+          alongSign={mount.alongSign}
+          minWidth={0.5}
+          maxWidth={Math.min(6, mount.alongLength * 0.9)}
+          maxY={3.4}
+          locked={!!frame.locked}
+          current={{
+            offset_along: frame.offset_along,
+            offset_y: frame.offset_y,
+            width: frame.width,
+            height_ratio: frame.height_ratio,
+          }}
+          onCommit={onTransform}
+        />
+      )}
+
     </group>
   );
 };

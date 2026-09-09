@@ -513,7 +513,7 @@ import { resolveSurfaces } from "@/lib/building/resolve";
 import FrameObject from "./FrameObject";
 import WindowObject from "./WindowObject";
 import FramePanel from "./FramePanel";
-import { hallFrameMount, type BuildingFrame } from "@/lib/building/frames";
+import { hallFrameMount, updateFrame, type BuildingFrame } from "@/lib/building/frames";
 
 
 
@@ -2589,6 +2589,8 @@ export interface HallwaySceneProps {
   onFrameSelect?: (frame: BuildingFrame) => void;
   /** The frame currently being positioned in the editor. */
   selectedFrameId?: string | null;
+  /** Editor only: a frame/window was dragged or resized on its wall. */
+  onFrameMoved?: () => void;
 }
 
 const HallwayScene = ({
@@ -2606,6 +2608,7 @@ const HallwayScene = ({
   onOpenFrameContent,
   onFrameSelect,
   selectedFrameId = null,
+  onFrameMoved,
 }: HallwaySceneProps) => {
   const [eventSource, setEventSource] = useState<HTMLDivElement | null>(null);
   // Saved configuration is the source of truth: merge it field-by-field over
@@ -2671,6 +2674,20 @@ const HallwayScene = ({
       setOpenFrame(frame);
     },
     [editing, onFrameSelect, linksByFrame, onOpenFrameContent],
+  );
+
+  /**
+   * Dragging or resizing a frame/window in the editor. The 3D object has already
+   * moved on screen; this only makes the new placement permanent.
+   */
+  const moveFrame = useCallback(
+    (frame: BuildingFrame, next: { offset_along: number; offset_y: number; width: number; height_ratio: number }) => {
+      if (!editing || !(building?.canEdit ?? false) || frame.locked) return;
+      void updateFrame(frame.id, next)
+        .then(() => onFrameMoved?.())
+        .catch((err) => console.error("frame move failed", err));
+    },
+    [editing, building?.canEdit, onFrameMoved],
   );
 
 
@@ -4217,6 +4234,10 @@ const HallwayScene = ({
             frameLinkCounts={frameLinkCounts}
             selectedFrameId={selectedFrameId}
             onFrameSelect={pickFrame}
+            onFrameTransform={editing ? moveFrame : undefined}
+            screen={roomScreen.screen}
+            screenEditable={editing && roomScreen.canEdit}
+            onScreenTransform={(next) => void roomScreen.saveTransform(next)}
           />
 
         )}
@@ -4331,6 +4352,8 @@ const HallwayScene = ({
                           contentUrl={frame.content_path ? textures[frame.content_path] : null}
                           selected={selectedFrameId === frame.id}
                           onSelect={editing ? pickFrame : undefined}
+                          editable={editing && selectedFrameId === frame.id}
+                          onTransform={(next) => moveFrame(frame, next)}
                         />
                       ) : (
                         <FrameObject
@@ -4341,6 +4364,8 @@ const HallwayScene = ({
                           selected={selectedFrameId === frame.id}
                           linkCount={frameLinkCounts[frame.id] ?? 0}
                           onSelect={pickFrame}
+                          editable={editing && selectedFrameId === frame.id}
+                          onTransform={(next) => moveFrame(frame, next)}
                         />
                       ),
                     )}
