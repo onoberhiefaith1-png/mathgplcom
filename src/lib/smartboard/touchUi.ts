@@ -18,7 +18,7 @@ export const getQuestionWindow = (
   });
 };
 
-/** Reset affects only the green timed-attempt layer. */
+/** Reset affects only the temporary (brown) timed-attempt layer. */
 export const resetAttemptMarkers = (
   states: Record<string, QuestionMarkerState>,
 ): Record<string, QuestionMarkerState> =>

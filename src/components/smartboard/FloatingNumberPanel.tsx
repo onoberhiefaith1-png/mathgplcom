@@ -6,7 +6,20 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useSmartboardRoot } from "./SmartboardRoot";
-import { ChevronLeft, ChevronRight, Table as TableIcon } from "lucide-react";
+import { Table as TableIcon } from "lucide-react";
+
+/** Thick solid navigation triangle — same key-like shape as the Sensor pad. */
+const NavTriangle = ({ dir }: { dir: "left" | "right" }) => (
+  <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden focusable="false">
+    <polygon
+      points={dir === "left" ? "16,2 16,18 3,10" : "4,2 17,10 4,18"}
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
@@ -801,7 +814,7 @@ export const FloatingNumberPanel = ({
       >
         <div className={`grid h-10 items-center px-1 ${visible ? "grid-cols-[repeat(4,1fr)_auto_auto_auto]" : "grid-cols-[repeat(4,1fr)_auto_auto]"}`}>
           {phoneControls}
-          {phoneLineControl(canUp, onPrevLine, "Previous line", <ChevronLeft className="h-4 w-4" />)}
+          {phoneLineControl(canUp, onPrevLine, "Previous line", <NavTriangle dir="left" />)}
           {visible && (
             <span
               className="min-w-8 px-1 text-center text-[11px] font-bold tabular-nums"
@@ -810,7 +823,7 @@ export const FloatingNumberPanel = ({
               {showLine ? String(lineLabel ?? `L${lineNumber}`) : "L–"}
             </span>
           )}
-          {phoneLineControl(canDown, onNextLine, "Next line", <ChevronRight className="h-4 w-4" />)}
+          {phoneLineControl(canDown, onNextLine, "Next line", <NavTriangle dir="right" />)}
         </div>
 
         <div
@@ -820,12 +833,12 @@ export const FloatingNumberPanel = ({
           <div className="min-h-0 overflow-hidden">
             <div className="flex min-h-11 min-w-0 items-center gap-1 border-t px-1 py-0.5" style={{ borderColor: "color-mix(in oklab, currentColor 12%, transparent)" }}>
               <button type="button" disabled={!canPrev} onClick={() => { goBackward(); onPing(); }} aria-label="Previous floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
-                <ChevronLeft className="h-4 w-4" />
+                <NavTriangle dir="left" />
               </button>
               <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden text-lg">{chipsNode}</div>
               {notebookNode}
               <button type="button" disabled={!canNext} onClick={() => { goForward(); onPing(); }} aria-label="Next floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
-                <ChevronRight className="h-4 w-4" />
+                <NavTriangle dir="right" />
               </button>
             </div>
           </div>
