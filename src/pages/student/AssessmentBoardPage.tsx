@@ -362,7 +362,7 @@ const AssessmentBoardPage = () => {
   return (
     <>
       <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
-        {!(mobile && immersive) && (
+        {bpAssess !== "phone" && !(mobile && immersive) && (
         <StudentBoardHeader
           onImmersive={() => setImmersive(true)}
           backTo={`/student/class/${classId ?? ""}`}
@@ -380,7 +380,7 @@ const AssessmentBoardPage = () => {
         />
         )}
         <div className="relative min-h-0 flex-1">
-          {mobile && immersive && (
+          {bpAssess !== "phone" && mobile && immersive && (
             <button
               type="button"
               onClick={() => setImmersive(false)}
