@@ -2,17 +2,18 @@
 
 ## What you will get
 
-1. The two round buttons (watch a video, and the settings/upload button next to it) appear on every page of **every one of your accounts** — admin, teacher, student.
-2. Only you can upload. Anyone else signed into those accounts sees the watch button only, never the upload one.
+1. The two round buttons (watch a video, and the settings/upload button next to it) appear on every page of **all five of your accounts** — administrator, school, teacher, parent, student.
+2. Only you can upload. Anyone else signed into a teacher, school, parent or student account sees the watch button only, never the upload one.
 3. You can drag the pair to any spot on the screen. Where you drop it is where everyone sees it, on every account.
-4. Besides uploading a video, you can paste a **link**. Students click it and it opens for them to watch.
+4. Besides uploading a video, you can paste a **link**. Students click it and it opens the site straight away so they can watch there.
 5. The yellow bar with "Exit workspace" comes back reliably at the top whenever you are inside another account, so you are never stuck in there.
 
 ## How each part works
 
 ### Who may upload
 
-Upload rights are granted per account through the existing Asset Managers list (the same list that already controls the shared asset library). Your teacher and student accounts get added there, so all of them show the upload button, while ordinary teachers and students never do. The database rules stay the gatekeeper — hiding a button is never the only protection.
+Your five accounts are separate logins, so upload rights are granted per account through the existing Asset Managers list — the same list that already controls the shared asset library. Your school, teacher, parent and student accounts are added to it, so each of them shows both icons, while ordinary teachers, schools, parents and students show only the watch icon. The database rules remain the gatekeeper — hiding a button is never the only protection. You can add or remove accounts from that list yourself in the administrator console.
+
 
 ### Buttons on every page
 
@@ -24,7 +25,7 @@ A single stored position (x and y, kept as a percentage of the screen so it land
 
 ### Links as well as videos
 
-Each tutorial entry may hold either an uploaded video **or** a web address. Entries with a link render as a clickable item in the player list that opens the link. Uploading and linking use the same title, order, and publish controls that exist now.
+Each tutorial entry may hold either an uploaded video **or** a web address (YouTube or any site). The manage panel gains a "Paste a link" box beside the file picker. Link entries appear in the same list on the page and open the site in a new tab when clicked. Titles, order and publish controls work exactly as they do for uploaded videos.
 
 ### The workspace bar
 
