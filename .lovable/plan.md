@@ -25,7 +25,7 @@ A single stored position (x and y, kept as a percentage of the screen so it land
 
 ### Links as well as videos
 
-Each tutorial entry may hold either an uploaded video **or** a web address. Entries with a link render as a clickable item in the player list that opens the link. Uploading and linking use the same title, order, and publish controls that exist now.
+Each tutorial entry may hold either an uploaded video **or** a web address (YouTube or any site). The manage panel gains a "Paste a link" box beside the file picker. Link entries appear in the same list on the page and open the site in a new tab when clicked. Titles, order and publish controls work exactly as they do for uploaded videos.
 
 ### The workspace bar
 
