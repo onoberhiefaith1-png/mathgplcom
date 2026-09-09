@@ -2159,6 +2159,12 @@ const PresentationView = ({
   const timerRef = useRef(timer);
   timerRef.current = timer;
 
+  /** The dust pen (Eraser) and # (Floating numbers) are toggles, so their
+   *  button must read unmistakably ON while the tool is active. */
+  const controlIsOn = (label: string): boolean =>
+    (label === "Eraser" && eraseMode) ||
+    (label === "Floating numbers" && activeAssistant === "numbers");
+
   // ONE number sequence, TWO visible colours only.
   //   BLUE  → the mark for that position is already awarded (survives Reset)
   //   BROWN → that position is being solved/re-solved in the live timed attempt
@@ -6755,8 +6761,11 @@ const PresentationView = ({
                       disabled={control.disabled}
                       aria-label={control.label}
                       title={control.label}
+                      aria-pressed={controlIsOn(control.label)}
                       className="mx-auto grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30"
-                      style={{ background: control.label === "Eraser" && eraseMode ? palette.accent : palette.hoverBg }}
+                      style={controlIsOn(control.label)
+                        ? { background: palette.accent, color: palette.chromeBg, boxShadow: `0 0 0 2px ${palette.accent}` }
+                        : { background: palette.hoverBg }}
                     >
                       {control.icon}
                     </button>
@@ -7474,8 +7483,11 @@ const PresentationView = ({
               disabled={control.disabled}
               aria-label={control.label}
               title={control.label}
+              aria-pressed={controlIsOn(control.label)}
               className="grid h-9 w-9 shrink-0 place-items-center rounded-full transition disabled:opacity-30"
-              style={{ background: control.label === "Eraser" && eraseMode ? palette.accent : palette.hoverBg }}
+              style={controlIsOn(control.label)
+                ? { background: palette.accent, color: palette.chromeBg, boxShadow: `0 0 0 2px ${palette.accent}` }
+                : { background: palette.hoverBg }}
             >
               {control.icon}
             </button>
