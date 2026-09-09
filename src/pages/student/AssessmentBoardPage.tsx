@@ -40,6 +40,8 @@ const AssessmentBoardPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   // Phone / tablet only: false = question screen, true = Smartboard.
   const [boardOpen, setBoardOpen] = useState(false);
+  // A new question always shows its question screen first.
+  useEffect(() => { setBoardOpen(false); }, [searchParams.get("q")]);
   const questionParam = searchParams.get("q");
   const openedFrom = searchParams.get("source");
   const gameId = searchParams.get("game");
