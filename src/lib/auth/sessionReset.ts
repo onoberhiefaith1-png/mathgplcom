@@ -14,11 +14,15 @@ import { setViewAsScope } from "@/lib/accounts/viewAsScope";
 import { resetAppContext } from "@/lib/stability/appContext";
 
 /** Browser keys that describe *a person*, never the device. */
-const ACCOUNT_LOCAL_KEYS = [
-  "mathgpl.dashboard.background",
-  "mathgpl.impersonation.owner",
-  "mathgpl.impersonation.active",
-];
+const ACCOUNT_LOCAL_KEYS = ["mathgpl.dashboard.background"];
+
+/**
+ * The note that says "you are visiting another account, here is the way back".
+ * Entering a workspace deliberately changes identity, and wiping this note in
+ * that moment removed the yellow bar and the way out. So it is cleared only on
+ * a real departure (sign-out), never on an identity change.
+ */
+const WORKSPACE_NOTE_KEYS = ["mathgpl.impersonation.owner", "mathgpl.impersonation.active"];
 
 const ACCOUNT_SESSION_KEYS = ["mathgpl:returnTo", "mathgpl:app-context"];
 
@@ -26,7 +30,10 @@ const ACCOUNT_SESSION_KEYS = ["mathgpl:returnTo", "mathgpl:app-context"];
  * Forget everything about the account that was signed in. Safe to call twice,
  * and safe to call before the new session exists.
  */
-export async function resetAccountState(queryClient?: QueryClient): Promise<void> {
+export async function resetAccountState(
+  queryClient?: QueryClient,
+  options?: { keepWorkspaceNote?: boolean },
+): Promise<void> {
   if (queryClient) {
     // Cancel first: in-flight protected reads would otherwise land after the
     // session is gone and repopulate the cache (or storm 401s).
@@ -43,7 +50,10 @@ export async function resetAccountState(queryClient?: QueryClient): Promise<void
   resetAppContext();
 
   if (typeof window !== "undefined") {
-    for (const key of ACCOUNT_LOCAL_KEYS) {
+    const localKeys = options?.keepWorkspaceNote
+      ? ACCOUNT_LOCAL_KEYS
+      : [...ACCOUNT_LOCAL_KEYS, ...WORKSPACE_NOTE_KEYS];
+    for (const key of localKeys) {
       try {
         window.localStorage.removeItem(key);
       } catch {

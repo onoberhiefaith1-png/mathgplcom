@@ -9,6 +9,19 @@
 import { supabase } from "@/integrations/supabase/client";
 import { resetAccountState } from "@/lib/auth/sessionReset";
 
+/** Fired whenever the visiting note changes, so the banner reacts at once. */
+const CHANGED_EVENT = "mathgpl:workspace-visit-changed";
+
+export const onWorkspaceVisitChanged = (fn: () => void) => {
+  if (typeof window === "undefined") return () => undefined;
+  window.addEventListener(CHANGED_EVENT, fn);
+  return () => window.removeEventListener(CHANGED_EVENT, fn);
+};
+
+const announce = () => {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(CHANGED_EVENT));
+};
+
 const OWNER_KEY = "mathgpl.impersonation.owner";
 const ACTIVE_KEY = "mathgpl.impersonation.active";
 
@@ -52,6 +65,7 @@ export async function beginImpersonation(entry: {
     ACTIVE_KEY,
     JSON.stringify({ name: entry.name, role: entry.role, home: entry.home }),
   );
+  announce();
 }
 
 /**
@@ -87,6 +101,7 @@ export async function beginImpersonationWithCredentials(entry: {
     ACTIVE_KEY,
     JSON.stringify({ name: entry.name, role: entry.role, home: entry.home }),
   );
+  announce();
 }
 
 
@@ -94,6 +109,7 @@ export async function endImpersonation() {
   const raw = window.localStorage.getItem(OWNER_KEY);
   window.localStorage.removeItem(ACTIVE_KEY);
   window.localStorage.removeItem(OWNER_KEY);
+  announce();
   if (!raw) {
     // No parked owner session to return to: this is a full departure, so
     // nothing about the visited account may survive in this browser.
