@@ -6,7 +6,7 @@
 // duplicated for a guest — the original video is streamed by reference.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, MonitorPlay } from "lucide-react";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import PresentationView from "@/components/smartboard/PresentationView";
 import ThreeViewFrame, { useBoardVideoView } from "@/components/smartboard/ThreeViewFrame";
@@ -124,20 +124,38 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
       participantKey={token}
       guestName={guestLinkName()}
       onLineContext={videoReady(video) ? setLineCtx : undefined}
+      touchSession={mobile ? {
+        questionIndex: qIndex,
+        questionCount: questions.length,
+        onQuestionChange: (index) => setQuestionId(questions[index]?.id ?? questionId),
+        score: score?.score ?? 0,
+        totalScore: score?.total ?? 0,
+        onBack,
+        backLabel,
+        videoControl: videoReady(video) ? (
+          <button
+            type="button"
+            onClick={() => setVideoView(videoView === "video" ? "board" : "video")}
+            aria-label={videoView === "video" ? "Show Smartboard" : "Show video"}
+            title={videoView === "video" ? "Smartboard" : "Video"}
+            className="grid h-8 w-8 place-items-center rounded-md"
+          >
+            <MonitorPlay className="h-4 w-4" />
+          </button>
+        ) : null,
+        fullscreen: immersive,
+        onFullscreenChange: setImmersive,
+      } : undefined}
     />
   );
 
   return (
     <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
-      {/* MOBILE SESSION HEADER — one slim row on a phone/tablet, and hidden
-          entirely in immersive mode so the board gets the whole screen. */}
-      {!(mobile && immersive) && (
+      {/* Desktop keeps its established session header. Phone/tablet controls
+          live inside PresentationView so there is exactly one compact row. */}
+      {!mobile && (
       <div
-        className={
-          mobile
-            ? "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b bg-card px-2 py-1.5 text-xs"
-            : "flex flex-wrap items-center gap-2 border-b bg-card px-3 py-2 text-xs"
-        }
+        className="flex flex-wrap items-center gap-2 border-b bg-card px-3 py-2 text-xs"
       >
         <div className="flex min-w-0 items-center gap-2">
           <button
@@ -146,11 +164,11 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
             className="inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-md px-2 font-medium hover:bg-muted"
             aria-label={backLabel}
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> {mobile ? "" : backLabel}
+            <ArrowLeft className="h-3.5 w-3.5" /> {backLabel}
           </button>
           <span className="truncate font-semibold">{assessment.title}</span>
 
-          {!mobile && questions.length > 1 && (
+          {questions.length > 1 && (
             <span className="flex flex-wrap items-center gap-1">
               {questions.map((q, i) => (
                 <button
@@ -169,70 +187,21 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
             </span>
           )}
 
-          {/* Phone/tablet: the question chips do not fit, so guests step
-              between questions with Back / Next. */}
-          {mobile && questions.length > 1 && (
-            <span className="ml-auto flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setQuestionId(questions[Math.max(0, qIndex - 1)]?.id ?? questionId)}
-                disabled={qIndex <= 0}
-                aria-label="Previous question"
-                className="grid h-8 w-8 place-items-center rounded-md border disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="tabular-nums text-[11px] font-semibold">
-                {qIndex + 1}/{questions.length}
-              </span>
-              <button
-                type="button"
-                onClick={() => setQuestionId(questions[Math.min(questions.length - 1, qIndex + 1)]?.id ?? questionId)}
-                disabled={qIndex >= questions.length - 1}
-                aria-label="Next question"
-                className="grid h-8 w-8 place-items-center rounded-md border disabled:opacity-40"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </span>
-          )}
         </div>
 
-        <span className={`flex shrink-0 items-center gap-2 ${mobile ? "" : "ml-auto"}`}>
+        <span className="ml-auto flex shrink-0 items-center gap-2">
           {score && (
             <span className="tabular-nums text-muted-foreground">
-              {score.score}/{score.total}{mobile ? "" : " marks"}
+              {score.score}/{score.total} marks
             </span>
           )}
-          {!mobile && (
-            <span className="rounded-full bg-muted px-2 py-0.5">{guestLinkDisplayName()}</span>
-          )}
+          <span className="rounded-full bg-muted px-2 py-0.5">{guestLinkDisplayName()}</span>
           {videoReady(video) && <BoardViewSwitcher value={videoView} onChange={setVideoView} />}
-          {mobile && (
-            <button
-              type="button"
-              onClick={() => setImmersive(true)}
-              aria-label="Full screen board"
-              className="grid h-8 w-8 place-items-center rounded-md hover:bg-muted"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-          )}
         </span>
       </div>
       )}
 
       <div className="relative min-h-0 flex-1">
-        {mobile && immersive && (
-          <button
-            type="button"
-            onClick={() => setImmersive(false)}
-            aria-label="Exit full screen board"
-            className="absolute bottom-3 left-3 z-[70] grid h-9 w-9 place-items-center rounded-full border bg-card/90 shadow-lg backdrop-blur"
-          >
-            <Minimize2 className="h-4 w-4" />
-          </button>
-        )}
         {videoReady(video) && video ? (
           <ThreeViewFrame
             config={video}
