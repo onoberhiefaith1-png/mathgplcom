@@ -8,7 +8,12 @@ import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
 import { makeTransparent } from "@/lib/games/removeBackground";
 import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
-import { slotsForVersion, type BuildingSlot } from "@/lib/homepage/buildingSlots";
+import {
+  CORE_SLOTS,
+  RING_SLOTS,
+  slotsForVersion,
+  type BuildingSlot,
+} from "@/lib/homepage/buildingSlots";
 import {
   clampBuildingSpeed,
   resolveMediaUrl,
@@ -34,11 +39,28 @@ const HomepageBuildingPage = () => {
   const [dirty, setDirty] = useState(false);
   const overrides = draft;
 
+  /**
+   * MASTER IMAGES — the fast start. Two pictures, one for the eight outer
+   * positions and one for the eight inner ones, are copied into all sixteen
+   * slots as ordinary independent images. Afterwards every position is still
+   * edited on its own.
+   */
+  const [masterOpen, setMasterOpen] = useState(false);
+  const [masterOuter, setMasterOuter] = useState<HomepageMediaRef | null>(null);
+  const [masterInner, setMasterInner] = useState<HomepageMediaRef | null>(null);
+  const [masterBusy, setMasterBusy] = useState<"outer" | "inner" | null>(null);
+  const [cutMaster, setCutMaster] = useState(true);
+  const masterInputRef = useRef<HTMLInputElement>(null);
+  const masterTargetRef = useRef<"outer" | "inner" | null>(null);
+
   useEffect(() => {
     if (!ready) return;
-    setDraft(config.slotOverrides ?? {});
+    const saved = config.slotOverrides ?? {};
+    setDraft(saved);
     setSpeed(clampBuildingSpeed(config.buildingSpeed));
     setDirty(false);
+    // First time in: ask for the two master pictures instead of sixteen.
+    setMasterOpen(Object.keys(saved).length === 0);
   }, [ready, configMode, config.slotOverrides, config.buildingSpeed]);
 
   const stage = (next: Record<string, HomepageMediaRef>) => {
@@ -119,6 +141,86 @@ const HomepageBuildingPage = () => {
     delete next[slotId];
     stage(next);
   };
+
+  /** Upload one master picture, optionally with its background cut out. */
+  const uploadMaster = async (which: "outer" | "inner", file: File) => {
+    setMasterBusy(which);
+    try {
+      let source = file;
+      if (cutMaster) {
+        const cut = await makeTransparent(file);
+        source = new File([cut], `${which}-master.png`, { type: "image/png" });
+      }
+      const asset = await uploadGameAsset(source, "background", `${which} building master image`);
+      const ref: HomepageMediaRef = {
+        path: renderPathOf(asset),
+        source: "storage",
+        mediaType: cutMaster ? "image" : asset.media_type,
+      };
+      if (which === "outer") setMasterOuter(ref);
+      else setMasterInner(ref);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setMasterBusy(null);
+    }
+  };
+
+  /** Copy the outer master into the 8 upper positions, the inner into the 8 lower. */
+  const applyMasters = () => {
+    const next = { ...overrides };
+    if (masterOuter) RING_SLOTS.forEach((s) => (next[s.id] = masterOuter));
+    if (masterInner) CORE_SLOTS.forEach((s) => (next[s.id] = masterInner));
+    stage(next);
+    setMasterOpen(false);
+    toast.success("All sixteen positions filled — each one can still be changed on its own");
+  };
+
+  const MasterCard = ({
+    which,
+    label,
+    hint,
+    media: mediaRef,
+  }: {
+    which: "outer" | "inner";
+    label: string;
+    hint: string;
+    media: HomepageMediaRef | null;
+  }) => (
+    <div className="rounded-2xl border border-border bg-card/50 p-3">
+      <p className="text-sm font-semibold">{label}</p>
+      <p className="mb-2 text-[11px] text-muted-foreground">{hint}</p>
+      <div className="h-32 w-full overflow-hidden rounded-lg bg-muted/30">
+        {mediaRef ? (
+          <SignedMedia
+            path={mediaRef.path}
+            source={mediaRef.source}
+            mediaType={mediaRef.mediaType}
+            fit="contain"
+            className="h-full w-full"
+          />
+        ) : (
+          <div className="grid h-full place-items-center px-4 text-center text-xs text-muted-foreground">
+            No picture yet
+          </div>
+        )}
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        className="mt-2 w-full"
+        disabled={masterBusy === which}
+        onClick={() => {
+          masterTargetRef.current = which;
+          masterInputRef.current?.click();
+        }}
+      >
+        <Upload className="mr-1.5 h-3.5 w-3.5" />
+        {masterBusy === which ? "Uploading…" : mediaRef ? "Change picture" : "Choose picture"}
+      </Button>
+    </div>
+  );
+
 
 
   const Thumb = ({ slot }: { slot: BuildingSlot }) => {
@@ -208,6 +310,74 @@ const HomepageBuildingPage = () => {
             e.target.value = "";
           }}
         />
+
+        <input
+          ref={masterInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            const which = masterTargetRef.current;
+            if (f && which) void uploadMaster(which, f);
+            e.target.value = "";
+          }}
+        />
+
+        {masterOpen ? (
+          <section className="space-y-4 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+            <div>
+              <h2 className="text-sm font-semibold">Start with two pictures</h2>
+              <p className="text-[11px] text-muted-foreground">
+                One picture for the outer building and one for the inner building. Continue fills all
+                sixteen positions, and every position can still be changed on its own afterwards.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={cutMaster}
+                onChange={(e) => setCutMaster(e.target.checked)}
+              />
+              Remove the background of the pictures I choose
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <MasterCard
+                which="outer"
+                label="Outer Building Image"
+                hint="Fills the eight upper positions."
+                media={masterOuter}
+              />
+              <MasterCard
+                which="inner"
+                label="Inner Building Image"
+                hint="Fills the eight lower positions."
+                media={masterInner}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={!masterOuter && !masterInner}
+                onClick={applyMasters}
+              >
+                <Check className="mr-1.5 h-4 w-4" /> Continue
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setMasterOpen(false)}>
+                Skip — edit the sixteen positions myself
+              </Button>
+            </div>
+          </section>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-fit"
+            onClick={() => setMasterOpen(true)}
+          >
+            <Upload className="mr-1.5 h-3.5 w-3.5" /> Edit master images
+          </Button>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {slots.map((slot, i) => (

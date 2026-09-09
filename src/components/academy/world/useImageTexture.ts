@@ -48,7 +48,7 @@ export const useImageTexture = (url?: string | null): THREE.Texture | null => {
  * Fit a picture inside a fixed opening the way a real mount does: fill the
  * opening and crop the overflow, never stretch the image out of shape.
  */
-export const coverFit = (tex: THREE.Texture | null, width: number, height: number) => {
+export const coverFit = (tex: THREE.Texture | null, width: number, height: number): void => {
   if (!tex?.image) return;
   const iw = (tex.image as { width?: number }).width ?? 1;
   const ih = (tex.image as { height?: number }).height ?? 1;
@@ -64,4 +64,14 @@ export const coverFit = (tex: THREE.Texture | null, width: number, height: numbe
     tex.offset.set(0, (1 - r) / 2);
   }
   tex.needsUpdate = true;
+};
+
+/**
+ * Keep the crop correct after the picture finishes loading and whenever the
+ * opening is resized, so a late image is never left stretched.
+ */
+export const useCoverFit = (tex: THREE.Texture | null, width: number, height: number): void => {
+  useEffect(() => {
+    coverFit(tex, width, height);
+  }, [tex, width, height]);
 };

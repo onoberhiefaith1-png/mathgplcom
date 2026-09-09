@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import HallwayScene from "@/components/academy/world/HallwayScene";
 import BuildingSettingsPanel from "@/components/academy/editor/BuildingSettingsPanel";
+import ChooseBuildingPanel from "@/components/academy/editor/ChooseBuildingPanel";
 import WalkwayManager from "@/components/academy/editor/WalkwayManager";
 import FrameManager from "@/components/academy/editor/FrameManager";
 import { removeRoomLock, resetRoomLockAttempts, setRoomLock } from "@/lib/building/lock.functions";
@@ -237,6 +238,8 @@ const AcademyEditorPage = () => {
   const [selectedDoorId, setSelectedDoorId] = useState<string | null>(null);
   /** The frame being positioned; it lights up in the live world. */
   const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null);
+  /** Which settings section to open and scroll to after a click in the world. */
+  const [reveal, setReveal] = useState<{ key: string; nonce: number } | null>(null);
   /** Hallway the live preview should walk into (set after creating one). */
   const [navigateTo, setNavigateTo] = useState<string | null>(null);
   const doorPosTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -252,6 +255,24 @@ let list = await listBuildings(org);
 
   /** Which element the Environment panel is editing: "" = Default Settings. */
   const [settingsScope, setSettingsScope] = useState("");
+
+  /**
+   * Staff (platform owner, co-admin, building manager) create buildings for the
+   * gallery; everyone else chooses one. Same machinery, different entry name.
+   */
+  const [canCreateBuildings, setCanCreateBuildings] = useState(false);
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { canPublishToGallery } = await import("@/lib/building/gallery.functions");
+        const { official } = await canPublishToGallery();
+        setCanCreateBuildings(official);
+      } catch {
+        setCanCreateBuildings(false);
+      }
+    })();
+  }, []);
+
 
   const refreshBuilding = useCallback(async () => {
     const { list, data } = await loadEditorBuilding(orgId ?? null);
@@ -710,11 +731,22 @@ const handleTextureUpload = useCallback(
                     onClick={() => setBuildingOpen((o) => ({ ...o, env: !o.env }))}
                     className="flex min-h-[44px] w-full items-center justify-between px-3 text-sm font-semibold text-foreground"
                   >
-                    Environment
+                    {canCreateBuildings ? "Create Building" : "Choose Building"}
                     {buildingOpen.env ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                   </button>
                   {buildingOpen.env && (
                     <div className="border-t border-border/60 p-3">
+                      <ChooseBuildingPanel
+                        activeBuildingId={buildingData.building.id}
+                        activeBuildingName={buildingData.building.name}
+                        orgId={orgId ?? null}
+                        catalogue={catalogue}
+                        onSelected={async () => {
+                          setPreviewEnv(null);
+                          setSettingsScope("");
+                          await refreshBuilding();
+                        }}
+                      >
 <BuildingSettingsPanel
                         key={buildingData.building.id}
                         buildingId={buildingData.building.id}
@@ -801,8 +833,12 @@ const handleTextureUpload = useCallback(
                             kind="window"
                           />
                         }
+                        revealSection={reveal?.key ?? null}
+                        revealNonce={reveal?.nonce ?? 0}
+
 
                       />
+                      </ChooseBuildingPanel>
                     </div>
                   )}
                 </div>
@@ -893,11 +929,17 @@ const handleTextureUpload = useCallback(
             building={previewData}
             catalogue={catalogue}
             textures={textures}
-            focus={focus}
-            onFocusChange={setFocus}
             navigateTo={navigateTo}
             selectedFrameId={selectedFrameId}
-            onFrameSelect={(frame) => setSelectedFrameId(frame.id)}
+            onFrameSelect={(frame) => {
+              // Clicking the object in the building brings up its own controls.
+              setSelectedFrameId(frame.id);
+              setBuildingOpen((o) => ({ ...o, env: true }));
+              setReveal({
+                key: (frame.kind ?? "frame") === "window" ? "windows" : "frames",
+                nonce: Date.now(),
+              });
+            }}
             editing
           />
 

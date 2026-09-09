@@ -230,15 +230,14 @@ const AcademyWorldPage = () => {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0b0f18]">
-      {rooms.length > 0 ? (
+      {/* THE BUILDING IS ITS HALLWAYS. As soon as one exists you walk it — the
+          old room-carousel entry is gone, so a door can only ever open its room. */}
+      {(buildingData?.walkways.length ?? 0) > 0 ? (
         <HallwayScene
-          rooms={rooms}
           building={buildingData}
           catalogue={catalogue}
           textures={textures}
           roomCounts={roomCounts}
-          focus={focus}
-          onFocusChange={setFocus}
           onModeChange={(m) => setWalking(m === "walk")}
           onExitBuilding={() => navigate("/")}
           onOpenFrameContent={(kind, id) => navigate(productRoute(kind, id))}

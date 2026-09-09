@@ -9,7 +9,7 @@
  * persisted per building with "Save Changes". The door, lighting and effects
  * sections complete the environment.
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, LayoutGrid, Loader2, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import {
   DEFAULT_ENVIRONMENT,
@@ -295,6 +295,12 @@ export interface BuildingSettingsPanelProps {
   /** Frames / Windows editors, rendered in the physical order after Doors. */
   framesSection?: ReactNode;
   windowsSection?: ReactNode;
+  /**
+   * Which section to open and scroll to, e.g. after the teacher clicks a frame
+   * in the building itself. The nonce lets the same section be revealed again.
+   */
+  revealSection?: string | null;
+  revealNonce?: number;
 }
 
 
@@ -315,7 +321,8 @@ const BuildingSettingsPanel = ({
   onResetRoomLockAttempts,
   framesSection,
   windowsSection,
-
+  revealSection = null,
+  revealNonce = 0,
 }: BuildingSettingsPanelProps) => {
   const activeScope = scopes.find((s) => s.id === scopeId) ?? null;
   /** The room being edited, when the active scope is a classroom. */
@@ -337,6 +344,19 @@ const BuildingSettingsPanel = ({
   });
   const [galleryFor, setGalleryFor] = useState<SurfaceKey | null>(null);
   const [uploadFor, setUploadFor] = useState<SurfaceKey | null>(null);
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  /**
+   * Clicking an object in the building brings its own controls to the teacher,
+   * instead of leaving them to hunt for the right section.
+   */
+  useEffect(() => {
+    if (!revealSection) return;
+    setOpen((o) => ({ ...o, [revealSection]: true }));
+    const node = sectionRefs.current[revealSection];
+    if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [revealSection, revealNonce]);
+
 
   // Re-sync the draft when the building or the edited element changes.
   const envKey = JSON.stringify(scopeEnvironment);
@@ -734,9 +754,16 @@ const BuildingSettingsPanel = ({
       )}
 
       {fieldSections.map((s) => (
-        <Section key={s.key} title={s.title} open={open[s.key]} onToggle={() => toggle(s.key)}>
-          {s.body}
-        </Section>
+        <div
+          key={s.key}
+          ref={(node) => {
+            sectionRefs.current[s.key] = node;
+          }}
+        >
+          <Section title={s.title} open={open[s.key]} onToggle={() => toggle(s.key)}>
+            {s.body}
+          </Section>
+        </div>
       ))}
 
       <SurfaceGalleryDialog
@@ -762,9 +789,14 @@ const BuildingSettingsPanel = ({
         }}
       />
 
+      {/* Frames, windows and locks write the moment they are changed, so the
+          button stays usable even when the wall/floor/ceiling draft is clean. */}
+      <p className="text-center text-[10px] text-muted-foreground">
+        Frames, windows and locks save as you change them.
+      </p>
       <button
         type="button"
-        disabled={!dirty || saving}
+        disabled={saving}
         onClick={async () => {
           setSaving(true);
           try {
@@ -780,7 +812,7 @@ const BuildingSettingsPanel = ({
         className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50"
       >
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-        {dirty ? "Save Changes" : "Saved"}
+        {saving ? "Saving…" : dirty ? "Save Changes" : "Save Again"}
       </button>
     </div>
   );
