@@ -721,31 +721,50 @@ const PresentationView = ({
   const touchControlsBottom = floatingBox
     ? Math.round(floatingBox.bottom + floatingBox.height + 12)
     : 8;
+  // PHONE/TABLET question strip: ALWAYS three positions — previous, current,
+  // next — with the current question in the middle whenever possible. When a
+  // board carries fewer than three questions the empty positions render as
+  // disabled placeholders (null entries) so the row never collapses to one.
   const questionWindow = useMemo(() => {
     const count = touchSession?.questionCount ?? beats.length;
     const active = touchSession?.questionIndex ?? Math.max(0, beatCursor);
-    if (count <= 0) return [] as number[];
-    const size = Math.min(3, count);
-    const start = Math.max(0, Math.min(active - 1, count - size));
-    return Array.from({ length: size }, (_, index) => start + index);
+    if (count <= 0) return [null, null, null] as (number | null)[];
+    const start = count <= 3 ? 0 : Math.max(0, Math.min(active - 1, count - 3));
+    return Array.from({ length: 3 }, (_, index) => {
+      const i = start + index;
+      return i < count ? i : null;
+    });
   }, [touchSession?.questionCount, touchSession?.questionIndex, beats.length, beatCursor]);
   const touchQuestionIndex = touchSession?.questionIndex ?? Math.max(0, beatCursor);
   const changeTouchQuestion = useCallback((index: number) => {
     if (touchSession) touchSession.onQuestionChange(index);
     else setBeatCursor(index);
   }, [touchSession]);
+  // Real browser full screen on the board surface, with the chrome-hiding
+  // immersive mode switched on alongside it so browsers that refuse the
+  // Fullscreen API still hand the whole screen to the board.
+  const [browserFullscreen, setBrowserFullscreen] = useState(false);
+  useEffect(() => {
+    const sync = () => setBrowserFullscreen(!!document.fullscreenElement);
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const touchFullscreenActive = browserFullscreen || !!touchSession?.fullscreen;
   const toggleTouchFullscreen = useCallback(async () => {
-    if (touchSession) {
-      touchSession.onFullscreenChange(!touchSession.fullscreen);
-      return;
-    }
+    const next = !touchFullscreenActive;
+    touchSession?.onFullscreenChange(next);
     try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await sbRootEl?.requestFullscreen?.();
+      if (!next) {
+        if (document.fullscreenElement) await document.exitFullscreen();
+      } else if (!document.fullscreenElement) {
+        const target = sbRootEl ?? document.documentElement;
+        await target.requestFullscreen?.();
+      }
     } catch {
       // Unsupported mobile browsers already receive the full 100dvh board.
     }
-  }, [sbRootEl, touchSession]);
+  }, [sbRootEl, touchSession, touchFullscreenActive]);
 
   // Invisible-grid free-writing state.
   const FREEWRITE_KEY = boardKey("freewrite", boardScope);
@@ -7382,20 +7401,21 @@ const PresentationView = ({
         />
       )}
 
-      {/* Phone/tablet: one measured strip owns every frequent solving action.
-          It rises with the actual Floating Number workspace and leaves no
-          reserved space when that workspace is closed. */}
+      {/* Phone/tablet: one PERMANENT strip owns every frequent solving action.
+          It is screen-anchored (never inside the scrolling lesson content) and
+          never depends on the Floating Number workspace being open — that
+          workspace only pushes the strip upward while it is showing. */}
       {canEdit && touchLayout && (
         <div
-          data-sb-chrome
-          className="absolute left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border p-1 shadow-lg backdrop-blur"
+          className="fixed left-1/2 z-[70] flex -translate-x-1/2 items-center gap-1 rounded-full border p-1 shadow-lg backdrop-blur"
           style={{
-            bottom: `calc(${touchControlsBottom}px + env(safe-area-inset-bottom))`,
+            bottom: `calc(${Math.max(12, touchControlsBottom)}px + env(safe-area-inset-bottom))`,
             background: palette.chromeBg,
             color: palette.chromeFg,
             borderColor: palette.chromeBorder,
           }}
         >
+
           {[
             { label: "Eraser", disabled: false, action: () => setEraseMode((value) => !value), icon: <Eraser className="h-4 w-4" /> },
             { label: "Floating numbers", disabled: false, action: () => toggleAssistant("numbers"), icon: <Hash className="h-4 w-4" /> },
@@ -7523,21 +7543,25 @@ const PresentationView = ({
               <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
             )}
 
-            {(mobileStudent ? questionWindow.length > 0 : beats.length > 1) && (
+            {(mobileStudent ? true : beats.length > 1) && (
               <div className="flex min-w-0 items-center gap-1">
-                {(mobileStudent ? questionWindow : beats.map((_beat, index) => index)).map((i) => (
+                {(mobileStudent
+                  ? questionWindow
+                  : beats.map((_beat, index) => index as number | null)
+                ).map((i, slot) => (
                   <button
-                    key={i}
-                    onClick={() => changeTouchQuestion(i)}
-                    className={`grid place-items-center rounded-full border font-medium transition ${
+                    key={i ?? `empty-${slot}`}
+                    onClick={() => { if (i != null) changeTouchQuestion(i); }}
+                    disabled={i == null}
+                    className={`grid place-items-center rounded-full border font-medium transition disabled:opacity-30 ${
                       mobileStudent ? "h-8 min-w-8 px-2 text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
                     }`}
-                    style={i === touchQuestionIndex
+                    style={i != null && i === touchQuestionIndex
                       ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
                       : { borderColor: palette.chromeBorder }}
-                    title={`Question ${i + 1}`}
+                    title={i != null ? `Question ${i + 1}` : "No question"}
                   >
-                    {i + 1}
+                    {i != null ? i + 1 : "–"}
                   </button>
                 ))}
               </div>
@@ -7687,10 +7711,10 @@ const PresentationView = ({
                 type="button"
                 onClick={() => { void toggleTouchFullscreen(); }}
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
-                aria-label={touchSession?.fullscreen ? "Exit full screen" : "Full screen"}
-                title={touchSession?.fullscreen ? "Exit full screen" : "Full screen"}
+                aria-label={touchFullscreenActive ? "Exit full screen" : "Full screen"}
+                title={touchFullscreenActive ? "Exit full screen" : "Full screen"}
               >
-                {touchSession?.fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                {touchFullscreenActive ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </button>
             )}
           </div>
