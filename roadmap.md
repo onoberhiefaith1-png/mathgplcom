@@ -25,3 +25,5 @@
 - [x] Remove the manual Check / Check Line interface on every device.
 - [x] Verify phone/tablet/desktop rendering and shared Smartboard tests; signed-in shelf navigation timed out before the board loaded.
 - [x] Finish the phone-only compact top bar, Floating Number toolbar, fullscreen, timer-state merge, and non-blocking notes.
+
+- [x] Page tutorials: watch + upload buttons on all owner-linked accounts, saved draggable position, link tutorials, workspace bar restored
