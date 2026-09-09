@@ -747,11 +747,14 @@ export const FloatingNumberPanel = ({
               <span
                 aria-hidden
                 style={{
-                  position: "absolute", right: -2, bottom: -6,
+                  // Sits just inside the chip so the label is never clipped by
+                  // the dock edge on phones.
+                  position: "absolute", right: -1, bottom: 0,
                   fontSize: 10, lineHeight: 1, opacity: used ? 0.5 : 0.4,
                   color: ink, fontWeight: 700,
                   pointerEvents: "none", fontFamily: "ui-sans-serif, system-ui",
                 }}
+
               >
                 {lineNo}
               </span>
