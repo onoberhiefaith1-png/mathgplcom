@@ -38,6 +38,8 @@ const AssessmentBoardPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Phone / tablet only: false = question screen, true = Smartboard.
+  const [boardOpen, setBoardOpen] = useState(false);
   const questionParam = searchParams.get("q");
   const openedFrom = searchParams.get("source");
   const gameId = searchParams.get("game");
