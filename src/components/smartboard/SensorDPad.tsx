@@ -13,9 +13,23 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSmartboardRoot } from "./SmartboardRoot";
 import { registerInteractionResetter } from "@/lib/stability/interactionReset";
+
+/** Solid, shaded navigation triangle — reads as a real key, not a thin line. */
+const Triangle = ({ dir, color }: { dir: "up" | "down" | "left" | "right"; color: string }) => {
+  const points =
+    dir === "up" ? "10,3 18,16 2,16"
+    : dir === "down" ? "2,4 18,4 10,17"
+    : dir === "left" ? "16,2 16,18 3,10"
+    : "4,2 17,10 4,18";
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden focusable="false">
+      <polygon points={points} fill={color} stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
 
 interface Props {
   onUp: () => void;
@@ -216,11 +230,11 @@ export const SensorDPad = ({
       >
         <div />
         <div className="grid place-items-center">
-          {btn(canUp, onUp, <ChevronUp className="h-5 w-5" />, "Sensor up")}
+          {btn(canUp, onUp, <Triangle dir="up" color={ink ?? chromeFg} />, "Sensor up")}
         </div>
         <div />
         <div className="grid place-items-center">
-          {btn(canLeft, onLeft, <ChevronLeft className="h-5 w-5" />, "Sensor left")}
+          {btn(canLeft, onLeft, <Triangle dir="left" color={ink ?? chromeFg} />, "Sensor left")}
         </div>
         <div
           role="button"
@@ -278,11 +292,11 @@ export const SensorDPad = ({
           />
         </div>
         <div className="grid place-items-center">
-          {btn(canRight, onRight, <ChevronRight className="h-5 w-5" />, "Sensor right")}
+          {btn(canRight, onRight, <Triangle dir="right" color={ink ?? chromeFg} />, "Sensor right")}
         </div>
         <div />
         <div className="grid place-items-center">
-          {btn(canDown, onDown, <ChevronDown className="h-5 w-5" />, "Sensor down")}
+          {btn(canDown, onDown, <Triangle dir="down" color={ink ?? chromeFg} />, "Sensor down")}
         </div>
         <div />
       </div>

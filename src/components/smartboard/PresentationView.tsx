@@ -2156,6 +2156,20 @@ const PresentationView = ({
   const timerRef = useRef(timer);
   timerRef.current = timer;
 
+  // ONE number sequence, two colour layers. Blue is the permanent awarded
+  // state and survives Reset; green belongs only to the live timed attempt;
+  // a position carrying both reads purple. Green never gets its own row.
+  const PROGRESS_GREEN = "hsl(150 65% 42%)";
+  const PROGRESS_PURPLE = "hsl(268 62% 58%)";
+  const progressLayers = useMemo(() => {
+    const blue = new Set<string>();
+    const green = new Set<string>();
+    for (const key of Object.keys(solvedSlots)) blue.add(key.split(":")[0] ?? "");
+    if (timer.active) for (const key of Object.keys(timer.confirmed)) green.add(key.split(":")[0] ?? "");
+    return { blue, green };
+  }, [solvedSlots, timer.active, timer.confirmed]);
+
+
   const phase = getPhase(current);
   const caps = phaseCapabilities(phase);
   const floatingVisible = !!current && beatNeedsFloatingMath(current) && caps.showFloatingMath;
@@ -5160,12 +5174,33 @@ const PresentationView = ({
   );
 
   /** Note write entry for the # panel and the AI controller — delegates
-   *  to the FLOATING channel (the Preview writes through its own). */
+   *  to the FLOATING channel (the Preview writes through its own).
+   *
+   *  ONE ACTIVATION = ONE NOTE. Automatic activation and a manual tap can
+   *  both target the same line, which used to stamp the text twice. The
+   *  row this line's note landed on is remembered; while that row still
+   *  carries ink we scroll to it instead of writing a second copy. Once
+   *  the copy is erased (or Reset clears the board) the note may be
+   *  written again. */
+  const noteRowByLineRef = useRef<Record<number, number>>({});
   const writeNoteForLine = useCallback(
-    (lineIdx: number, text: string): number | null =>
-      floatingWriteNote(lineIdx, text, floatingHost),
-    [floatingHost],
+    (lineIdx: number, text: string): number | null => {
+      const existing = noteRowByLineRef.current[lineIdx];
+      if (typeof existing === "number") {
+        const row = freeLinesRef.current[existing] ?? freeLinesRef.current[existing + 0.5];
+        if (row && rowHasVisibleInk(row)) {
+          scrollBoardToRow(existing);
+          return existing;
+        }
+        delete noteRowByLineRef.current[lineIdx];
+      }
+      const landed = floatingWriteNote(lineIdx, text, floatingHost);
+      if (typeof landed === "number") noteRowByLineRef.current[lineIdx] = landed;
+      return landed;
+    },
+    [floatingHost, scrollBoardToRow],
   );
+
 
 
 
@@ -5301,6 +5336,8 @@ const PresentationView = ({
     setSensor((p) => (p.line === 0 && p.x === 0 ? p : { line: 0, x: 0 }));
     setLiveCursor({ path: [], index: 0 });
     setShownNotebookIdx((p) => (p.size === 0 ? p : new Set<number>()));
+    noteRowByLineRef.current = {};
+
     setNotebookAttentionIdx((p) => (p.size === 0 ? p : new Set<number>()));
     setConsumedAbsIdx((p) => (p.size === 0 ? p : new Set<number>()));
     setNotebookRowLines((p) => (p.size === 0 ? p : new Set<number>()));
@@ -7552,55 +7589,74 @@ const PresentationView = ({
                 {(mobileStudent
                   ? questionWindow
                   : beats.map((_beat, index) => index as number | null)
-                ).map((i, slot) => (
-                  <button
-                    key={i ?? `empty-${slot}`}
-                    onClick={() => { if (i != null) changeTouchQuestion(i); }}
-                    disabled={i == null}
-                    className={`grid place-items-center rounded-full border font-medium transition disabled:opacity-30 ${
-                      mobileStudent ? "h-7 min-w-7 px-1 text-xs min-[390px]:h-8 min-[390px]:min-w-8 min-[390px]:px-2 min-[390px]:text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
-                    }`}
-                    style={i != null && i === touchQuestionIndex
-                      ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
-                      : { borderColor: palette.chromeBorder }}
-                    title={i != null ? `Question ${i + 1}` : "No question"}
-                  >
-                    {i != null ? i + 1 : "–"}
-                  </button>
-                ))}
+                ).map((i, slot) => {
+                  const beatId = i != null ? beats[i]?.id ?? "" : "";
+                  const blue = !!beatId && progressLayers.blue.has(beatId);
+                  const green = !!beatId && progressLayers.green.has(beatId);
+                  const active = i != null && i === touchQuestionIndex;
+                  const fill = blue && green
+                    ? PROGRESS_PURPLE
+                    : blue
+                      ? palette.accent
+                      : green
+                        ? PROGRESS_GREEN
+                        : null;
+                  const style = fill
+                    ? { background: fill, color: palette.chromeBg, borderColor: fill }
+                    : active
+                      ? { background: palette.hoverBg, borderColor: palette.accent, color: palette.chromeFg }
+                      : { borderColor: palette.chromeBorder };
+                  return (
+                    <button
+                      key={i ?? `empty-${slot}`}
+                      onClick={() => { if (i != null) changeTouchQuestion(i); }}
+                      disabled={i == null}
+                      className={`grid place-items-center rounded-full font-medium transition disabled:opacity-30 ${
+                        mobileStudent ? "h-7 min-w-7 px-1 text-xs min-[390px]:h-8 min-[390px]:min-w-8 min-[390px]:px-2 min-[390px]:text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
+                      }`}
+                      style={{ ...style, borderWidth: active ? 2 : 1, borderStyle: "solid" }}
+                      title={i != null
+                        ? `Question ${i + 1}${blue ? " · marks earned" : ""}${green ? " · this attempt" : ""}`
+                        : "No question"}
+                    >
+                      {i != null ? i + 1 : "–"}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
-            {/* One sequence, two independent states: blue permanent mastery
-                survives Reset; green belongs only to the current timer attempt. */}
-            {hasGuidedLines && (
-              <div className={`items-center gap-1 ${mobileStudent ? "hidden min-[390px]:flex" : "flex"}`} title="Question progress">
-                  {guidedLines.map((ln, k) => {
+            {/* ONE line sequence — blue permanent, green this attempt, purple
+                both. Desktop only; the phone row keeps a single number strip. */}
+            {hasGuidedLines && !mobileStudent && (
+              <div className="flex items-center gap-1" title="Line progress">
+                  {guidedLines.map((_ln, k) => {
                     const slot = slotFor(k);
                     const mastered = !!slot && slot in solvedSlots;
                     const attempted = timer.active && !!slot && slot in timer.confirmed;
+                    const fill = mastered && attempted
+                      ? PROGRESS_PURPLE
+                      : mastered
+                        ? palette.accent
+                        : attempted
+                          ? PROGRESS_GREEN
+                          : null;
                     return (
                       <span
                         key={k}
                         className="relative grid h-5 w-5 place-items-center rounded-full border text-[10px]"
-                        style={mastered
-                          ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
+                        style={fill
+                          ? { background: fill, color: palette.chromeBg, borderColor: fill }
                           : { borderColor: palette.chromeBorder, opacity: 0.6 }}
                         title={`Line ${k + 1}${mastered ? " · completed" : ""}${attempted ? " · current attempt" : ""}`}
                       >
-                        {mastered ? <CheckIcon className="h-3 w-3" /> : k + 1}
-                        {attempted && (
-                          <span
-                            aria-hidden
-                            className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-1"
-                            style={{ background: "hsl(var(--success))", color: palette.chromeBg }}
-                          />
-                        )}
+                        {k + 1}
                       </span>
                     );
                   })}
               </div>
             )}
+
 
             <div className="shrink-0 rounded-md px-1 py-1 text-[10px] font-bold tabular-nums min-[390px]:px-1.5 min-[390px]:text-xs" style={{ background: palette.hoverBg }}>
               {touchSession?.score ?? assessScore} <span className="opacity-60">/ {touchSession?.totalScore ?? assessTotal}</span>
