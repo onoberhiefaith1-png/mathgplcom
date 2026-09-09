@@ -73,6 +73,8 @@ const ChooseBuildingPanel = ({
   const [preview, setPreview] = useState<BuildingData | null>(null);
   const [previewTextures, setPreviewTextures] = useState<Record<string, string>>({});
   const [loadingPreview, setLoadingPreview] = useState(false);
+  // The building's face: the rotating exterior saved with the entry.
+  const [previewFace, setPreviewFace] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [canPublishOfficial, setCanPublishOfficial] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -146,6 +148,7 @@ const ChooseBuildingPanel = ({
       try {
         const data = await loadGalleryBuilding({ data: { entryId: current.id } });
         if (!alive) return;
+        setPreviewFace((data as { exteriorThumbnail?: string | null }).exteriorThumbnail ?? null);
         const built = {
           ...data,
           canEdit: false,
@@ -382,6 +385,14 @@ const ChooseBuildingPanel = ({
                 : "Nobody has shared a building in this category yet."
               : "This building has no hallways to walk yet."}
           </div>
+        )}
+
+        {previewFace && (
+          <img
+            src={previewFace}
+            alt={`${current?.name ?? "Building"} seen from outside`}
+            className="pointer-events-none absolute left-2 top-2 h-16 w-16 rounded-lg border border-white/25 bg-black/40 object-contain p-1"
+          />
         )}
 
         {entries.length > 1 && (
