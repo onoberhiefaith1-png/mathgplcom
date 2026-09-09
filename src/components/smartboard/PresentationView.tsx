@@ -7566,55 +7566,74 @@ const PresentationView = ({
                 {(mobileStudent
                   ? questionWindow
                   : beats.map((_beat, index) => index as number | null)
-                ).map((i, slot) => (
-                  <button
-                    key={i ?? `empty-${slot}`}
-                    onClick={() => { if (i != null) changeTouchQuestion(i); }}
-                    disabled={i == null}
-                    className={`grid place-items-center rounded-full border font-medium transition disabled:opacity-30 ${
-                      mobileStudent ? "h-7 min-w-7 px-1 text-xs min-[390px]:h-8 min-[390px]:min-w-8 min-[390px]:px-2 min-[390px]:text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
-                    }`}
-                    style={i != null && i === touchQuestionIndex
-                      ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
-                      : { borderColor: palette.chromeBorder }}
-                    title={i != null ? `Question ${i + 1}` : "No question"}
-                  >
-                    {i != null ? i + 1 : "–"}
-                  </button>
-                ))}
+                ).map((i, slot) => {
+                  const beatId = i != null ? beats[i]?.id ?? "" : "";
+                  const blue = !!beatId && progressLayers.blue.has(beatId);
+                  const green = !!beatId && progressLayers.green.has(beatId);
+                  const active = i != null && i === touchQuestionIndex;
+                  const fill = blue && green
+                    ? PROGRESS_PURPLE
+                    : blue
+                      ? palette.accent
+                      : green
+                        ? PROGRESS_GREEN
+                        : null;
+                  const style = fill
+                    ? { background: fill, color: palette.chromeBg, borderColor: fill }
+                    : active
+                      ? { background: palette.hoverBg, borderColor: palette.accent, color: palette.chromeFg }
+                      : { borderColor: palette.chromeBorder };
+                  return (
+                    <button
+                      key={i ?? `empty-${slot}`}
+                      onClick={() => { if (i != null) changeTouchQuestion(i); }}
+                      disabled={i == null}
+                      className={`grid place-items-center rounded-full font-medium transition disabled:opacity-30 ${
+                        mobileStudent ? "h-7 min-w-7 px-1 text-xs min-[390px]:h-8 min-[390px]:min-w-8 min-[390px]:px-2 min-[390px]:text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
+                      }`}
+                      style={{ ...style, borderWidth: active ? 2 : 1, borderStyle: "solid" }}
+                      title={i != null
+                        ? `Question ${i + 1}${blue ? " · marks earned" : ""}${green ? " · this attempt" : ""}`
+                        : "No question"}
+                    >
+                      {i != null ? i + 1 : "–"}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
-            {/* One sequence, two independent states: blue permanent mastery
-                survives Reset; green belongs only to the current timer attempt. */}
-            {hasGuidedLines && (
-              <div className={`items-center gap-1 ${mobileStudent ? "hidden min-[390px]:flex" : "flex"}`} title="Question progress">
-                  {guidedLines.map((ln, k) => {
+            {/* ONE line sequence — blue permanent, green this attempt, purple
+                both. Desktop only; the phone row keeps a single number strip. */}
+            {hasGuidedLines && !mobileStudent && (
+              <div className="flex items-center gap-1" title="Line progress">
+                  {guidedLines.map((_ln, k) => {
                     const slot = slotFor(k);
                     const mastered = !!slot && slot in solvedSlots;
                     const attempted = timer.active && !!slot && slot in timer.confirmed;
+                    const fill = mastered && attempted
+                      ? PROGRESS_PURPLE
+                      : mastered
+                        ? palette.accent
+                        : attempted
+                          ? PROGRESS_GREEN
+                          : null;
                     return (
                       <span
                         key={k}
                         className="relative grid h-5 w-5 place-items-center rounded-full border text-[10px]"
-                        style={mastered
-                          ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
+                        style={fill
+                          ? { background: fill, color: palette.chromeBg, borderColor: fill }
                           : { borderColor: palette.chromeBorder, opacity: 0.6 }}
                         title={`Line ${k + 1}${mastered ? " · completed" : ""}${attempted ? " · current attempt" : ""}`}
                       >
-                        {mastered ? <CheckIcon className="h-3 w-3" /> : k + 1}
-                        {attempted && (
-                          <span
-                            aria-hidden
-                            className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-1"
-                            style={{ background: "hsl(var(--success))", color: palette.chromeBg }}
-                          />
-                        )}
+                        {k + 1}
                       </span>
                     );
                   })}
               </div>
             )}
+
 
             <div className="shrink-0 rounded-md px-1 py-1 text-[10px] font-bold tabular-nums min-[390px]:px-1.5 min-[390px]:text-xs" style={{ background: palette.hoverBg }}>
               {touchSession?.score ?? assessScore} <span className="opacity-60">/ {touchSession?.totalScore ?? assessTotal}</span>
