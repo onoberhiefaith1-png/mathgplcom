@@ -23,6 +23,7 @@ import { assessmentPresenceTopic } from "@/lib/realtime/lessonPresence";
 import { ensureRealtimeAuth } from "@/lib/realtime/auth";
 import { useAdventureHeartbeat } from "@/hooks/useAdventureHeartbeat";
 import { useGameTimeBar } from "@/hooks/useGameTimeBar";
+import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
 
 type Meta = AssessmentLike & { due_at: string | null };
 
