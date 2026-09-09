@@ -14,6 +14,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Json } from "@/integrations/supabase/types";
 import { cloneBuildingPackage } from "./clone.server";
 
 const asAny = (client: unknown) => client as unknown as { from: (t: string) => any };
@@ -51,7 +52,7 @@ export const loadGalleryBuilding = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: entry } = await asAny(context.supabase)
       .from("building_gallery_entries")
-      .select("id, name, template_building_id, published, publisher_id")
+      .select("id, name, template_building_id, published, publisher_id, exterior_config, exterior_thumbnail")
       .eq("id", data.entryId)
       .maybeSingle();
     if (!entry) throw new Error("That building is no longer in the gallery.");
@@ -92,13 +93,21 @@ export const loadGalleryBuilding = createServerFn({ method: "GET" })
       frames: frameRows,
       frameLinks,
       locks: locks.data ?? [],
+      // The building's face — the rotating exterior saved with this entry.
+      exterior: ((entry as { exterior_config?: Json | null }).exterior_config ?? null) as Json | null,
+      exteriorThumbnail: (entry as { exterior_thumbnail?: string | null }).exterior_thumbnail ?? null,
     };
   });
 
 /**
- * Publish the current building into a gallery. The published entry points at a
- * frozen CLONE, so the publisher keeps working on their own building without
- * changing what anybody else sees.
+ * Save the current building into a gallery as a NEW complete building:
+ * its rotating exterior plus its whole interior. The entry points at a frozen
+ * CLONE, so the publisher keeps working on their own building without changing
+ * what anybody else sees, and an earlier saved building is never overwritten.
+ *
+ * Learning links do not travel: doors and frames arrive without their Course /
+ * Adventure / Assignment connections, because those belong to one particular
+ * use of a building, not to the building itself.
  */
 export const publishBuildingToGallery = createServerFn({ method: "POST" })
   .inputValidator((data) =>
@@ -109,6 +118,9 @@ export const publishBuildingToGallery = createServerFn({ method: "POST" })
         categorySlug: z.string().trim().min(1).max(60),
         description: z.string().trim().max(400).optional(),
         kind: z.enum(["official", "community"]),
+        /** The rotating exterior exactly as it looks at the moment of saving. */
+        exteriorConfig: z.any().nullable().optional(),
+        exteriorThumbnail: z.string().max(2000).nullable().optional(),
       })
       .parse(data),
   )
@@ -127,6 +139,7 @@ export const publishBuildingToGallery = createServerFn({ method: "POST" })
       orgId: null,
       name: `${data.name} (gallery template)`,
       isActive: false,
+      keepContent: false,
     });
 
     const { data: entry, error } = await db
@@ -139,6 +152,8 @@ export const publishBuildingToGallery = createServerFn({ method: "POST" })
         template_building_id: templateId,
         publisher_id: context.userId,
         published: true,
+        exterior_config: data.exteriorConfig ?? null,
+        exterior_thumbnail: data.exteriorThumbnail ?? null,
       })
       .select("id")
       .single();
@@ -163,11 +178,16 @@ export const useGalleryBuilding = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: entry } = await asAny(context.supabase)
       .from("building_gallery_entries")
-      .select("id, name, template_building_id, published")
+      .select("id, name, template_building_id, published, exterior_config")
       .eq("id", data.entryId)
       .maybeSingle();
     if (!entry) throw new Error("That building is no longer in the gallery.");
-    const row = entry as { name: string; template_building_id: string; published: boolean };
+    const row = entry as {
+      name: string;
+      template_building_id: string;
+      published: boolean;
+      exterior_config: Json | null;
+    };
     if (!row.published) throw new Error("That building is not available.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -179,6 +199,8 @@ export const useGalleryBuilding = createServerFn({ method: "POST" })
       orgId,
       name: row.name,
       isActive: true,
+      // Links belong to a use of a building, never to the reusable building.
+      keepContent: false,
     });
 
     // Exactly one active building per workspace.
@@ -192,7 +214,9 @@ export const useGalleryBuilding = createServerFn({ method: "POST" })
       building_id: buildingId,
     });
 
-    return { buildingId };
+    // The caller applies this to their homepage building, so the exterior and
+    // the interior arrive together.
+    return { buildingId, exterior: row.exterior_config ?? null };
   });
 
 /** Copy the caller's own building, complete, inside their workspace. */

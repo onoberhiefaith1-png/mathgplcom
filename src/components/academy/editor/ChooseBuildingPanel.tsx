@@ -32,6 +32,8 @@ import {
   publishBuildingToGallery,
   useGalleryBuilding,
 } from "@/lib/building/gallery.functions";
+import { applyExterior, exteriorThumbnail, readMyExterior } from "@/lib/building/exterior";
+import type { HomepageConfig } from "@/lib/homepage/homepageConfig";
 
 interface MyEntry {
   id: string;
@@ -71,6 +73,8 @@ const ChooseBuildingPanel = ({
   const [preview, setPreview] = useState<BuildingData | null>(null);
   const [previewTextures, setPreviewTextures] = useState<Record<string, string>>({});
   const [loadingPreview, setLoadingPreview] = useState(false);
+  // The building's face: the rotating exterior saved with the entry.
+  const [previewFace, setPreviewFace] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [canPublishOfficial, setCanPublishOfficial] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -144,6 +148,7 @@ const ChooseBuildingPanel = ({
       try {
         const data = await loadGalleryBuilding({ data: { entryId: current.id } });
         if (!alive) return;
+        setPreviewFace((data as { exteriorThumbnail?: string | null }).exteriorThumbnail ?? null);
         const built = {
           ...data,
           canEdit: false,
@@ -182,10 +187,13 @@ const ChooseBuildingPanel = ({
   const useEntry = async (entryId: string, name: string) => {
     setBusy(true);
     try {
-      await useGalleryBuilding({ data: { entryId, orgId } });
+      const result = await useGalleryBuilding({ data: { entryId, orgId } });
+      // The exterior travels with the building, so the outside and the inside
+      // arrive together instead of an interior on somebody else's face.
+      await applyExterior((result?.exterior ?? null) as HomepageConfig | null);
       toast({
         title: canPublishOfficial ? "Building opened" : "Building selected",
-        description: `“${name}” is now your building — hallways, rooms and all.`,
+        description: `“${name}” is now your building — outside, hallways, rooms and all.`,
       });
       await onSelected();
     } catch (e) {
@@ -204,8 +212,16 @@ const ChooseBuildingPanel = ({
     const name = publishName.trim() || activeBuildingName;
     setBusy(true);
     try {
+      const exterior = await readMyExterior();
       await publishBuildingToGallery({
-        data: { buildingId: activeBuildingId, name, categorySlug: publishCategory, kind },
+        data: {
+          buildingId: activeBuildingId,
+          name,
+          categorySlug: publishCategory,
+          kind,
+          exteriorConfig: exterior,
+          exteriorThumbnail: await exteriorThumbnail(exterior),
+        },
       });
       toast({
         title: kind === "official" ? "Saved to the Building Gallery" : "Shared to Community",
@@ -371,6 +387,14 @@ const ChooseBuildingPanel = ({
           </div>
         )}
 
+        {previewFace && (
+          <img
+            src={previewFace}
+            alt={`${current?.name ?? "Building"} seen from outside`}
+            className="pointer-events-none absolute left-2 top-2 h-16 w-16 rounded-lg border border-white/25 bg-black/40 object-contain p-1"
+          />
+        )}
+
         {entries.length > 1 && (
           <>
             <button
@@ -432,8 +456,9 @@ const ChooseBuildingPanel = ({
       {publishOpen && (
         <div className="space-y-2 rounded-xl border border-border/70 bg-card p-3">
           <p className="text-[11px] text-muted-foreground">
-            Saving takes a complete copy of this building — rooms, doors, frames, windows, lighting
-            and effects. The building you are working on keeps working exactly as it is.
+            Saving takes a complete copy of this building — its rotating outside plus rooms, doors,
+            frames, windows, lighting and effects. Course, adventure and assignment links stay
+            behind, and the building you are working on keeps working exactly as it is.
           </p>
           <input
             value={publishName}

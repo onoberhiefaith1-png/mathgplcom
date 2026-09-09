@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { Building2, Image as ImageIcon, Megaphone, Settings2 } from "lucide-react";
+import {
+  Building2,
+  Image as ImageIcon,
+  LibraryBig,
+  Megaphone,
+  Save,
+  Settings2,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -12,6 +19,7 @@ import {
 import { useAccount } from "@/lib/accounts/useAccount";
 import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
+import SaveBuildingDialog from "./SaveBuildingDialog";
 
 const OPTIONS = [
   {
@@ -26,6 +34,12 @@ const OPTIONS = [
     title: "Edit MathGPL Building",
     body: "Change the pictures inside the original MathGPL building and set how fast it rotates. Position, curve, perspective and size stay exactly as designed.",
   },
+  {
+    to: "/academy/edit",
+    icon: LibraryBig,
+    title: "Building Gallery",
+    body: "Every complete building ever saved. Open one and it arrives whole — outside, rooms, hallways, windows and screens together.",
+  },
 ];
 
 
@@ -37,6 +51,7 @@ const HomepageSettingsButton = () => {
   // to change, so no background / edit / replace controls are offered at all.
   const { canCustomize, canManageAds } = useBuildingContext();
   const [open, setOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
 
   // Signed-out visitors always see the default homepage.
   if (!userId) return null;
@@ -93,8 +108,31 @@ const HomepageSettingsButton = () => {
               <p className="mt-1 text-xs text-muted-foreground">{opt.body}</p>
             </Link>
           ))}
+
+          {canCustomize && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setSaveOpen(true);
+              }}
+              className="block w-full rounded-xl border border-primary/50 bg-primary/5 p-4 text-left transition hover:border-primary hover:bg-primary/10"
+            >
+              <div className="flex items-center gap-2">
+                <Save className="h-4 w-4 text-primary" />
+                <p className="text-sm font-semibold">Save Building</p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Keep this building as a new one in the Building Gallery — the outside together with
+                every room, hallway, window and screen inside it. Buildings you saved before stay
+                exactly as they are.
+              </p>
+            </button>
+          )}
         </div>
       </SheetContent>
+
+      <SaveBuildingDialog open={saveOpen} onOpenChange={setSaveOpen} defaultName="My Building" />
     </Sheet>
   );
 };

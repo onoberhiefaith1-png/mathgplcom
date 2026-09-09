@@ -1493,6 +1493,8 @@ export type Database = {
           category_slug: string
           created_at: string
           description: string | null
+          exterior_config: Json | null
+          exterior_thumbnail: string | null
           id: string
           kind: string
           name: string
@@ -1506,6 +1508,8 @@ export type Database = {
           category_slug: string
           created_at?: string
           description?: string | null
+          exterior_config?: Json | null
+          exterior_thumbnail?: string | null
           id?: string
           kind?: string
           name: string
@@ -1519,6 +1523,8 @@ export type Database = {
           category_slug?: string
           created_at?: string
           description?: string | null
+          exterior_config?: Json | null
+          exterior_thumbnail?: string | null
           id?: string
           kind?: string
           name?: string
