@@ -1335,20 +1335,24 @@ const PresentationView = ({
   }, [incoming, syncEnabled, selfId]);
 
   // ── Live mirroring: broadcast local board state while we hold edit rights. ──
+  // The floating-number workspace (active line + engagement) is declared later
+  // in this component, so it reaches this effect through a ref plus a tick.
   useEffect(() => {
     if (!syncEnabled || !canEdit) return;
     if (applyingRemoteRef.current) return;
     pushSnapshot({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
-      activeLineIdx, lineEngaged,
+      activeLineIdx: floatingSyncRef.current.activeLineIdx,
+      lineEngaged: floatingSyncRef.current.lineEngaged,
     });
   }, [
     syncEnabled, canEdit, pushSnapshot,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
-    activeLineIdx, lineEngaged,
+    floatingSyncTick,
   ]);
+
 
 
 
