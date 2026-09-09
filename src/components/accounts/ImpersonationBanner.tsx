@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { ShieldAlert, LogOut, Loader2, ChevronUp, ChevronDown } from "lucide-react";
-import { activeImpersonation, endImpersonation, type ImpersonationInfo } from "@/lib/accounts/impersonation";
+import {
+  activeImpersonation,
+  endImpersonation,
+  onWorkspaceVisitChanged,
+  type ImpersonationInfo,
+} from "@/lib/accounts/impersonation";
+import { supabase } from "@/integrations/supabase/client";
 import { useDraggableTab } from "@/hooks/useDraggableTab";
 
 const FOLDED_KEY = "mgpl:impersonation-banner-folded";
@@ -27,9 +33,20 @@ const ImpersonationBanner = () => {
     } catch {
       // sessionStorage may be unavailable in some environments.
     }
-    const onStorage = () => setInfo(activeImpersonation());
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    const recheck = () => setInfo(activeImpersonation());
+    // The note is written *after* this banner mounts (entering a workspace
+    // changes the session), so it must react to that moment as well as to a
+    // change made in another tab.
+    const stopWatching = onWorkspaceVisitChanged(recheck);
+    const { data: sub } = supabase.auth.onAuthStateChange(recheck);
+    window.addEventListener("storage", recheck);
+    window.addEventListener("focus", recheck);
+    return () => {
+      stopWatching();
+      sub.subscription.unsubscribe();
+      window.removeEventListener("storage", recheck);
+      window.removeEventListener("focus", recheck);
+    };
   }, []);
 
 
