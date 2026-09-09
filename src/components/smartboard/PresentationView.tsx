@@ -2156,6 +2156,20 @@ const PresentationView = ({
   const timerRef = useRef(timer);
   timerRef.current = timer;
 
+  // ONE number sequence, two colour layers. Blue is the permanent awarded
+  // state and survives Reset; green belongs only to the live timed attempt;
+  // a position carrying both reads purple. Green never gets its own row.
+  const PROGRESS_GREEN = "hsl(150 65% 42%)";
+  const PROGRESS_PURPLE = "hsl(268 62% 58%)";
+  const progressLayers = useMemo(() => {
+    const blue = new Set<string>();
+    const green = new Set<string>();
+    for (const key of Object.keys(solvedSlots)) blue.add(key.split(":")[0] ?? "");
+    if (timer.active) for (const key of Object.keys(timer.confirmed)) green.add(key.split(":")[0] ?? "");
+    return { blue, green };
+  }, [solvedSlots, timer.active, timer.confirmed]);
+
+
   const phase = getPhase(current);
   const caps = phaseCapabilities(phase);
   const floatingVisible = !!current && beatNeedsFloatingMath(current) && caps.showFloatingMath;
