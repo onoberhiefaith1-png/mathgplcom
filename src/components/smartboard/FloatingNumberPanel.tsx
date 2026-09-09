@@ -818,7 +818,7 @@ export const FloatingNumberPanel = ({
           className={`grid min-w-0 transition-[grid-template-rows,opacity] duration-200 ${visible ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="flex min-h-10 min-w-0 items-center gap-1 border-t px-1" style={{ borderColor: "color-mix(in oklab, currentColor 12%, transparent)" }}>
+            <div className="flex min-h-11 min-w-0 items-center gap-1 border-t px-1 py-0.5" style={{ borderColor: "color-mix(in oklab, currentColor 12%, transparent)" }}>
               <button type="button" disabled={!canPrev} onClick={() => { goBackward(); onPing(); }} aria-label="Previous floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
                 <ChevronLeft className="h-4 w-4" />
               </button>
