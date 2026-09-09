@@ -358,6 +358,55 @@ const AssessmentBoardPage = () => {
     0,
   );
 
+  // PHONE / TABLET — the question comes first. The student reads it and can
+  // ask the teacher here, then opens the Smartboard, which keeps all of its
+  // screen space because it carries no Ask button of its own.
+  if (mobile && !boardOpen) {
+    return (
+      <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
+        <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
+          <button
+            type="button"
+            onClick={() => navigate(`/student/class/${classId ?? ""}`)}
+            className="rounded-md px-2 py-1 font-medium hover:bg-muted"
+          >
+            Back to class
+          </button>
+          <span className="truncate font-semibold">{assessment?.title ?? "Assignment"}</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {questionIndex >= 0 ? `Question ${questionIndex + 1}` : "Question"}
+            {questionTotal > 1 ? ` of ${questionTotal}` : ""}
+            {totalMarks > 0 ? ` · ${totalMarks} marks` : ""}
+          </p>
+          <p className="mt-2 whitespace-pre-wrap text-base font-medium leading-relaxed text-foreground">
+            {activeQuestion?.questionText ?? "Open the Smartboard to begin."}
+          </p>
+
+          {assessmentId && classId && !readOnly && (
+            <div className="mt-5">
+              <AskAssessmentQuestion
+                variant="page"
+                assessmentId={assessmentId}
+                classId={classId}
+                boardQuestionId={questionId}
+              />
+            </div>
+          )}
+        </div>
+        <div className="border-t px-4 py-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+          <button
+            type="button"
+            onClick={() => setBoardOpen(true)}
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+          >
+            Open Smartboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

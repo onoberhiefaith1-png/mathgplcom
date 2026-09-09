@@ -20,10 +20,18 @@ const AskAssessmentQuestion = ({
   assessmentId,
   classId,
   boardQuestionId,
+  variant = "board",
 }: {
   assessmentId: string;
   classId: string;
   boardQuestionId?: string | null;
+  /**
+   * "board" — floats over the writing surface (laptop board).
+   * "page"  — sits in the page flow on the question screen a phone/tablet
+   *           student sees BEFORE the board opens, so the board keeps all of
+   *           its screen space.
+   */
+  variant?: "board" | "page";
 }) => {
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
@@ -51,15 +59,23 @@ const AskAssessmentQuestion = ({
 
   const items = questionsForBoard(thread.data ?? [], boardQuestionId);
 
+  const page = variant === "page";
+
   return (
-    <div data-sb-chrome className="absolute right-4 top-4 z-[70]">
+    <div data-sb-chrome className={page ? "w-full" : "absolute right-4 top-4 z-[70]"}>
       {!open ? (
-        <Button type="button" size="sm" variant="secondary" className="gap-2 shadow-lg" onClick={() => setOpen(true)}>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className={page ? "w-full gap-2" : "gap-2 shadow-lg"}
+          onClick={() => setOpen(true)}
+        >
           <HelpCircle className="h-4 w-4" aria-hidden="true" />
-          Ask a Question
+          Ask your teacher a question
         </Button>
       ) : (
-        <div className="w-80 rounded-xl border border-border bg-card p-3 shadow-2xl">
+        <div className={page ? "w-full rounded-xl border border-border bg-card p-3" : "w-80 rounded-xl border border-border bg-card p-3 shadow-2xl"}>
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-card-foreground">Ask a Question</p>
             <button

@@ -151,7 +151,7 @@ import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 import { studentGradingKey } from "@/lib/assessments/studentGrading";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
-import { getQuestionWindow, lineCarriesMarkState } from "@/lib/smartboard/touchUi";
+import { getQuestionWindow, lineCarriesMarkState, questionTabState } from "@/lib/smartboard/touchUi";
 
 import ActiveStudentControl from "./ActiveStudentControl";
 import StudentAccessControl from "./StudentAccessControl";
@@ -749,6 +749,18 @@ const PresentationView = ({
     document.addEventListener("fullscreenchange", sync);
     return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
+  // HONEST FULL SCREEN — only offer it where the browser really grants it.
+  // A "fullscreen" that leaves the address bar sitting over the board hides
+  // controls, so on those browsers the button is simply not shown and the
+  // board keeps the whole usable height instead.
+  const canFullscreen = useMemo(() => {
+    if (typeof document === "undefined") return false;
+    const doc = document as Document & { webkitFullscreenEnabled?: boolean };
+    const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => unknown };
+    const enabled = doc.fullscreenEnabled === true || doc.webkitFullscreenEnabled === true;
+    const callable = typeof el.requestFullscreen === "function" || typeof el.webkitRequestFullscreen === "function";
+    return enabled && callable;
+  }, []);
   const touchFullscreenActive = browserFullscreen || !!touchSession?.fullscreen;
   const toggleTouchFullscreen = useCallback(async () => {
     const next = !touchFullscreenActive;
@@ -778,6 +790,35 @@ const PresentationView = ({
     }
     window.requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
   }, [sbRootEl, touchSession, touchFullscreenActive]);
+
+  // FIXED SHELL (phone / tablet) — the page behind the board must not scroll.
+  // Only the maths canvas inside the board moves, so the top bar and bottom
+  // toolbar can never be pushed out of view. Desktop is untouched.
+  useEffect(() => {
+    if (!touchLayout) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      bodyOverscroll: body.style.overscrollBehavior,
+      htmlHeight: html.style.height,
+      bodyHeight: body.style.height,
+    };
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehavior = "none";
+    html.style.height = "100%";
+    body.style.height = "100%";
+    return () => {
+      html.style.overflow = prev.htmlOverflow;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.overscrollBehavior = prev.bodyOverscroll;
+      html.style.height = prev.htmlHeight;
+      body.style.height = prev.bodyHeight;
+    };
+  }, [touchLayout]);
+
 
   // Invisible-grid free-writing state.
   const FREEWRITE_KEY = boardKey("freewrite", boardScope);
@@ -5785,7 +5826,9 @@ const PresentationView = ({
           never goes to the general notification system. */}
       {/* Teacher test boards mount in student mode to reuse the solving
           engine — but only students ask teachers, so never show it there. */}
-      {role === "student" && !testMode && !smartCardSlug && !guestSlug && !viewOnly && assessmentId && classIdProp && (
+      {/* Phone / tablet: asking happens on the question screen BEFORE the
+          board opens, so the board itself keeps every pixel. */}
+      {role === "student" && !touchLayout && !testMode && !smartCardSlug && !guestSlug && !viewOnly && assessmentId && classIdProp && (
         <AskAssessmentQuestion
           assessmentId={assessmentId}
           classId={classIdProp}
@@ -7614,31 +7657,37 @@ const PresentationView = ({
             )}
 
             {/* ONE number strip, never more than THREE positions:
-                previous · current · next. When the board carries guided lines
-                the strip tracks the LINE the student is on and slides with it;
-                otherwise it tracks the question. Two visible colours only:
-                blue = mark awarded, brown = solving/re-solving right now. */}
-            {(hasGuidedLines || beats.length > 1 || mobileStudent) && (
-              <div className="flex min-w-0 items-center gap-1" title={hasGuidedLines ? "Line progress" : "Question progress"}>
-                {(hasGuidedLines
+                previous · current · next. On a phone or tablet with several
+                questions the strip tracks the QUESTION (tap to move); a
+                single-question board tracks the guided line instead.
+                Colour comes from the question's own state only — the score
+                beside it never decides it:
+                blue = mark earned, brown/gold = inside the live timed attempt. */}
+            {(hasGuidedLines || beats.length > 1 || mobileStudent) && (() => {
+              const byLine = hasGuidedLines && !(mobileStudent && beats.length > 1);
+              return (
+              <div className="flex min-w-0 items-center gap-1" title={byLine ? "Line progress" : "Question progress"}>
+                {(byLine
                   ? getQuestionWindow(guidedLines.length, activeLineIdx)
                   : getQuestionWindow(beats.length, touchQuestionIndex)
                 ).map((i, slot) => {
-                  const key = hasGuidedLines
+                  const key = byLine
                     ? (i != null ? slotFor(i) : null)
                     : (i != null ? beats[i]?.id ?? null : null);
                   // NO FLOATING NUMBER = NO MARK STATE: a note-only line stays
                   // neutral, never blue and never brown.
-                  const carries = hasGuidedLines
+                  const carries = byLine
                     ? (i != null && lineCarriesMarkState(guidedLines[i]))
-                    : true;
-                  const blue = carries && !!key && (hasGuidedLines
-                    ? key in solvedSlots
-                    : progressLayers.blue.has(key));
-                  const brown = carries && !!key && timer.active && (hasGuidedLines
-                    ? key in timer.confirmed
-                    : progressLayers.brown.has(key));
-                  const active = i != null && i === (hasGuidedLines ? activeLineIdx : touchQuestionIndex);
+                    : i != null && !!key;
+                  const state = questionTabState({
+                    carries: carries && !!key,
+                    marked: !!key && (byLine ? key in solvedSlots : progressLayers.blue.has(key)),
+                    confirmedNow: !!key && (byLine ? key in timer.confirmed : progressLayers.brown.has(key)),
+                    timerActive: timer.active,
+                  });
+                  const blue = state === "blue";
+                  const brown = state === "brown";
+                  const active = i != null && i === (byLine ? activeLineIdx : touchQuestionIndex);
                   // Brown wins while the line is in the live attempt; blue is
                   // what remains once Reset clears that temporary layer.
                   const fill = brown ? PROGRESS_BROWN : blue ? palette.accent : null;
@@ -7647,11 +7696,11 @@ const PresentationView = ({
                     : active
                       ? { background: palette.hoverBg, borderColor: palette.accent, color: palette.chromeFg }
                       : { borderColor: palette.chromeBorder };
-                  const label = hasGuidedLines ? "Line" : "Question";
+                  const label = byLine ? "Line" : "Question";
                   return (
                     <button
                       key={`${label}-${i ?? `empty-${slot}`}`}
-                      onClick={() => { if (i != null && !hasGuidedLines) changeTouchQuestion(i); }}
+                      onClick={() => { if (i != null && !byLine) changeTouchQuestion(i); }}
                       disabled={i == null}
                       className={`grid place-items-center rounded-full font-medium transition disabled:opacity-30 ${
                         mobileStudent ? "h-7 min-w-7 px-1 text-xs min-[390px]:h-8 min-[390px]:min-w-8 min-[390px]:px-2 min-[390px]:text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
@@ -7664,9 +7713,11 @@ const PresentationView = ({
                       {i != null ? i + 1 : "–"}
                     </button>
                   );
-                })}
+                 })}
               </div>
-            )}
+              );
+            })()}
+
 
 
             <div className="shrink-0 rounded-md px-1 py-1 text-[10px] font-bold tabular-nums min-[390px]:px-1.5 min-[390px]:text-xs" style={{ background: palette.hoverBg }}>
@@ -7798,7 +7849,10 @@ const PresentationView = ({
               <SettingsIcon className="h-4 w-4" />
             </button>
 
-            {mobileStudent && (
+            {/* Only where the browser genuinely grants full screen. Where it
+                doesn't (most iPhone browsers) no button is offered at all —
+                the board already fills the real usable height. */}
+            {mobileStudent && canFullscreen && (
               <button
                 type="button"
                 onClick={() => { void toggleTouchFullscreen(); }}
