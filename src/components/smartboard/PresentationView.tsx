@@ -7711,10 +7711,10 @@ const PresentationView = ({
                 type="button"
                 onClick={() => { void toggleTouchFullscreen(); }}
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
-                aria-label={touchSession?.fullscreen ? "Exit full screen" : "Full screen"}
-                title={touchSession?.fullscreen ? "Exit full screen" : "Full screen"}
+                aria-label={touchFullscreenActive ? "Exit full screen" : "Full screen"}
+                title={touchFullscreenActive ? "Exit full screen" : "Full screen"}
               >
-                {touchSession?.fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                {touchFullscreenActive ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
               </button>
             )}
           </div>
