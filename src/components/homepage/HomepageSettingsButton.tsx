@@ -108,8 +108,31 @@ const HomepageSettingsButton = () => {
               <p className="mt-1 text-xs text-muted-foreground">{opt.body}</p>
             </Link>
           ))}
+
+          {canCustomize && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setSaveOpen(true);
+              }}
+              className="block w-full rounded-xl border border-primary/50 bg-primary/5 p-4 text-left transition hover:border-primary hover:bg-primary/10"
+            >
+              <div className="flex items-center gap-2">
+                <Save className="h-4 w-4 text-primary" />
+                <p className="text-sm font-semibold">Save Building</p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Keep this building as a new one in the Building Gallery — the outside together with
+                every room, hallway, window and screen inside it. Buildings you saved before stay
+                exactly as they are.
+              </p>
+            </button>
+          )}
         </div>
       </SheetContent>
+
+      <SaveBuildingDialog open={saveOpen} onOpenChange={setSaveOpen} defaultName="My Building" />
     </Sheet>
   );
 };
