@@ -54,3 +54,28 @@ export const lineCarriesMarkState = (line: {
   if (span > 0) return true;
   return !!(line.equation ?? "").trim();
 };
+
+/**
+ * PHONE / TABLET QUESTION TABS — the only three states a 1 / 2 / 3 tab can
+ * carry. Score is information, never a colour input:
+ *   neutral — nothing to solve here, or nothing done yet
+ *   blue    — the mark is permanently earned
+ *   brown   — this line/question is inside the live timed attempt right now
+ */
+export type QuestionTabState = "neutral" | "blue" | "brown";
+
+export const questionTabState = (input: {
+  /** The tab addresses something solvable (a floating number / marks). */
+  carries: boolean;
+  /** A mark is permanently recorded here. */
+  marked: boolean;
+  /** Confirmed inside the attempt that is being timed right now. */
+  confirmedNow: boolean;
+  /** A timed attempt is running on this board. */
+  timerActive: boolean;
+}): QuestionTabState => {
+  if (!input.carries) return "neutral";
+  if (input.timerActive && input.confirmedNow) return "brown";
+  if (input.marked) return "blue";
+  return "neutral";
+};
