@@ -7585,76 +7585,53 @@ const PresentationView = ({
               <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
             )}
 
-            {(mobileStudent ? true : beats.length > 1) && (
-              <div className="flex min-w-0 items-center gap-1">
-                {(mobileStudent
-                  ? questionWindow
-                  : beats.map((_beat, index) => index as number | null)
+            {/* ONE number strip, never more than THREE positions:
+                previous · current · next. When the board carries guided lines
+                the strip tracks the LINE the student is on and slides with it;
+                otherwise it tracks the question. Two visible colours only:
+                blue = mark awarded, brown = solving/re-solving right now. */}
+            {(hasGuidedLines || beats.length > 1 || mobileStudent) && (
+              <div className="flex min-w-0 items-center gap-1" title={hasGuidedLines ? "Line progress" : "Question progress"}>
+                {(hasGuidedLines
+                  ? getQuestionWindow(guidedLines.length, activeLineIdx)
+                  : getQuestionWindow(beats.length, touchQuestionIndex)
                 ).map((i, slot) => {
-                  const beatId = i != null ? beats[i]?.id ?? "" : "";
-                  const blue = !!beatId && progressLayers.blue.has(beatId);
-                  const green = !!beatId && progressLayers.green.has(beatId);
-                  const active = i != null && i === touchQuestionIndex;
-                  const fill = blue && green
-                    ? PROGRESS_PURPLE
-                    : blue
-                      ? palette.accent
-                      : green
-                        ? PROGRESS_GREEN
-                        : null;
+                  const key = hasGuidedLines
+                    ? (i != null ? slotFor(i) : null)
+                    : (i != null ? beats[i]?.id ?? null : null);
+                  const blue = !!key && (hasGuidedLines
+                    ? key in solvedSlots
+                    : progressLayers.blue.has(key));
+                  const brown = !!key && timer.active && (hasGuidedLines
+                    ? key in timer.confirmed
+                    : progressLayers.brown.has(key));
+                  const active = i != null && i === (hasGuidedLines ? activeLineIdx : touchQuestionIndex);
+                  // Brown wins while the line is in the live attempt; blue is
+                  // what remains once Reset clears that temporary layer.
+                  const fill = brown ? PROGRESS_BROWN : blue ? palette.accent : null;
                   const style = fill
                     ? { background: fill, color: palette.chromeBg, borderColor: fill }
                     : active
                       ? { background: palette.hoverBg, borderColor: palette.accent, color: palette.chromeFg }
                       : { borderColor: palette.chromeBorder };
+                  const label = hasGuidedLines ? "Line" : "Question";
                   return (
                     <button
-                      key={i ?? `empty-${slot}`}
-                      onClick={() => { if (i != null) changeTouchQuestion(i); }}
+                      key={`${label}-${i ?? `empty-${slot}`}`}
+                      onClick={() => { if (i != null && !hasGuidedLines) changeTouchQuestion(i); }}
                       disabled={i == null}
                       className={`grid place-items-center rounded-full font-medium transition disabled:opacity-30 ${
                         mobileStudent ? "h-7 min-w-7 px-1 text-xs min-[390px]:h-8 min-[390px]:min-w-8 min-[390px]:px-2 min-[390px]:text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
                       }`}
                       style={{ ...style, borderWidth: active ? 2 : 1, borderStyle: "solid" }}
                       title={i != null
-                        ? `Question ${i + 1}${blue ? " · marks earned" : ""}${green ? " · this attempt" : ""}`
-                        : "No question"}
+                        ? `${label} ${i + 1}${blue ? " · mark awarded" : ""}${brown ? " · solving now" : ""}`
+                        : `No ${label.toLowerCase()}`}
                     >
                       {i != null ? i + 1 : "–"}
                     </button>
                   );
                 })}
-              </div>
-            )}
-
-            {/* ONE line sequence — blue permanent, green this attempt, purple
-                both. Desktop only; the phone row keeps a single number strip. */}
-            {hasGuidedLines && !mobileStudent && (
-              <div className="flex items-center gap-1" title="Line progress">
-                  {guidedLines.map((_ln, k) => {
-                    const slot = slotFor(k);
-                    const mastered = !!slot && slot in solvedSlots;
-                    const attempted = timer.active && !!slot && slot in timer.confirmed;
-                    const fill = mastered && attempted
-                      ? PROGRESS_PURPLE
-                      : mastered
-                        ? palette.accent
-                        : attempted
-                          ? PROGRESS_GREEN
-                          : null;
-                    return (
-                      <span
-                        key={k}
-                        className="relative grid h-5 w-5 place-items-center rounded-full border text-[10px]"
-                        style={fill
-                          ? { background: fill, color: palette.chromeBg, borderColor: fill }
-                          : { borderColor: palette.chromeBorder, opacity: 0.6 }}
-                        title={`Line ${k + 1}${mastered ? " · completed" : ""}${attempted ? " · current attempt" : ""}`}
-                      >
-                        {k + 1}
-                      </span>
-                    );
-                  })}
               </div>
             )}
 
@@ -7728,13 +7705,15 @@ const PresentationView = ({
             )}
 
             {/* Zoom controls */}
+            {/* Compact [ − ] 100% [ + ] content zoom — every layout keeps both
+                steppers; the percentage itself resets to 100%. */}
             <div className="inline-flex shrink-0 items-center rounded-md" style={{ background: palette.hoverBg }}>
-              {!mobileStudent && <button
+              <button
                 onClick={() => applyZoom(zoom - ZOOM_STEP)}
-                className="px-2 py-1 text-base leading-none"
+                className={mobileStudent ? "px-1.5 py-1 text-sm leading-none" : "px-2 py-1 text-base leading-none"}
                 aria-label="Zoom out"
-                title="Zoom out"
-              >−</button>}
+                title="Make the content smaller"
+              >−</button>
               <button
                 onClick={() => applyZoom(1)}
                 className="px-1 py-1 tabular-nums text-[9px] min-[390px]:px-2 min-[390px]:text-[10px]"
@@ -7743,12 +7722,12 @@ const PresentationView = ({
               >
                 {Math.round(zoom * 100)}%
               </button>
-              {!mobileStudent && <button
+              <button
                 onClick={() => applyZoom(zoom + ZOOM_STEP)}
-                className="px-2 py-1 text-base leading-none"
+                className={mobileStudent ? "px-1.5 py-1 text-sm leading-none" : "px-2 py-1 text-base leading-none"}
                 aria-label="Zoom in"
-                title="Zoom in"
-              >+</button>}
+                title="Make the content bigger"
+              >+</button>
             </div>
 
             {mobileStudent && (
