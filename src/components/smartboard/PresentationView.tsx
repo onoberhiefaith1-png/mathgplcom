@@ -412,8 +412,8 @@ const PresentationView = ({
     questionIndex: number;
     questionCount: number;
     onQuestionChange: (index: number) => void;
-    score: number;
-    totalScore: number;
+    score?: number;
+    totalScore?: number;
     onBack: () => void;
     backLabel: string;
     videoControl?: ReactNode;
