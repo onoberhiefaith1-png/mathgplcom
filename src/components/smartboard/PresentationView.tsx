@@ -7641,7 +7641,7 @@ const PresentationView = ({
                 aria-label="Zoom out"
                 title="Zoom out"
               >−</button>}
-              {!mobileStudent && <button
+              <button
                 onClick={() => applyZoom(1)}
                 className="px-2 py-1 tabular-nums text-[10px]"
                 aria-label="Reset zoom"
@@ -7649,7 +7649,7 @@ const PresentationView = ({
               >
                 {Math.round(zoom * 100)}%
               </button>
-              <button
+              {!mobileStudent && <button
                 onClick={() => applyZoom(zoom + ZOOM_STEP)}
                 className="px-2 py-1 text-base leading-none"
                 aria-label="Zoom in"
