@@ -7511,7 +7511,7 @@ const PresentationView = ({
             data-board-chrome="top"
             ref={mobileStudent ? chromeMeasureRef : undefined}
             className={mobileStudent
-              ? "absolute left-1 right-1 top-1 z-[60] flex min-w-0 items-center justify-between gap-1 rounded-lg border px-1.5 py-1 shadow-md backdrop-blur"
+              ? "absolute left-0.5 right-0.5 top-0.5 z-[60] flex min-w-0 items-center justify-between gap-0.5 overflow-visible rounded-md border px-0.5 py-0.5 shadow-md backdrop-blur"
               : "absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"}
             style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
           >
@@ -7521,7 +7521,7 @@ const PresentationView = ({
                 onClick={touchSession.onBack}
                 aria-label={touchSession.backLabel}
                 title={touchSession.backLabel}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md min-[390px]:h-8 min-[390px]:w-8"
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
@@ -7558,7 +7558,7 @@ const PresentationView = ({
                     onClick={() => { if (i != null) changeTouchQuestion(i); }}
                     disabled={i == null}
                     className={`grid place-items-center rounded-full border font-medium transition disabled:opacity-30 ${
-                      mobileStudent ? "h-8 min-w-8 px-2 text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
+                      mobileStudent ? "h-7 min-w-7 px-1 text-xs min-[390px]:h-8 min-[390px]:min-w-8 min-[390px]:px-2 min-[390px]:text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
                     }`}
                     style={i != null && i === touchQuestionIndex
                       ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
@@ -7602,7 +7602,7 @@ const PresentationView = ({
               </div>
             )}
 
-            <div className="shrink-0 rounded-lg px-1.5 py-1 text-xs font-bold tabular-nums" style={{ background: palette.hoverBg }}>
+            <div className="shrink-0 rounded-md px-1 py-1 text-[10px] font-bold tabular-nums min-[390px]:px-1.5 min-[390px]:text-xs" style={{ background: palette.hoverBg }}>
               {touchSession?.score ?? assessScore} <span className="opacity-60">/ {touchSession?.totalScore ?? assessTotal}</span>
             </div>
 
@@ -7651,7 +7651,7 @@ const PresentationView = ({
                 <button
                   type="button"
                   onClick={() => setTimeDetailsOpen((open) => !open)}
-                  className="rounded-md px-1.5 py-1 text-[10px] font-semibold tabular-nums"
+                  className="rounded-md px-1 py-1 text-[9px] font-semibold tabular-nums min-[390px]:px-1.5 min-[390px]:text-[10px]"
                   style={{ background: palette.hoverBg }}
                   aria-expanded={timeDetailsOpen}
                   aria-label="Timer and best times"
@@ -7671,7 +7671,7 @@ const PresentationView = ({
             )}
 
             {/* Zoom controls */}
-            <div className="inline-flex shrink-0 items-center gap-0.5 rounded-md" style={{ background: palette.hoverBg }}>
+            <div className="inline-flex shrink-0 items-center rounded-md" style={{ background: palette.hoverBg }}>
               {!mobileStudent && <button
                 onClick={() => applyZoom(zoom - ZOOM_STEP)}
                 className="px-2 py-1 text-base leading-none"
@@ -7680,7 +7680,7 @@ const PresentationView = ({
               >−</button>}
               <button
                 onClick={() => applyZoom(1)}
-                className="px-2 py-1 tabular-nums text-[10px]"
+                className="px-1 py-1 tabular-nums text-[9px] min-[390px]:px-2 min-[390px]:text-[10px]"
                 aria-label="Reset zoom"
                 title="Reset zoom"
               >
@@ -7698,7 +7698,7 @@ const PresentationView = ({
               <button
                 type="button"
                 onClick={() => { void resetAttempt(); }}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md min-[390px]:h-8 min-[390px]:w-8"
                 aria-label="Reset attempt"
                 title="Reset attempt"
               >
@@ -7711,7 +7711,7 @@ const PresentationView = ({
             {/* Board Settings — same sheet the teacher Smartboard uses. */}
             <button
               onClick={() => setSettingsOpen((v) => !v)}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-black/5"
+              className={mobileStudent ? "grid h-7 w-7 shrink-0 place-items-center rounded-md hover:bg-black/5 min-[390px]:h-8 min-[390px]:w-8" : "inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-black/5"}
               aria-label="Board settings"
               title="Board settings"
               style={{ color: palette.chromeFg }}
@@ -7723,7 +7723,7 @@ const PresentationView = ({
               <button
                 type="button"
                 onClick={() => { void toggleTouchFullscreen(); }}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md min-[390px]:h-8 min-[390px]:w-8"
                 aria-label={touchFullscreenActive ? "Exit full screen" : "Full screen"}
                 title={touchFullscreenActive ? "Exit full screen" : "Full screen"}
               >

@@ -796,15 +796,17 @@ export const FloatingNumberPanel = ({
         onPointerDown={(event) => { event.stopPropagation(); onPing(); }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="grid h-10 grid-cols-[repeat(4,1fr)_auto_auto_auto] items-center px-1">
+        <div className={`grid h-10 items-center px-1 ${visible ? "grid-cols-[repeat(4,1fr)_auto_auto_auto]" : "grid-cols-[repeat(4,1fr)_auto_auto]"}`}>
           {phoneControls}
           {phoneLineControl(canUp, onPrevLine, "Previous line", <ChevronLeft className="h-4 w-4" />)}
-          <span
-            className="min-w-8 px-1 text-center text-[11px] font-bold tabular-nums"
-            title={lineLabel ? `${lineLabel} of ${lineCount}` : `Line ${lineNumber} of ${lineCount}`}
-          >
-            {showLine ? String(lineLabel ?? `L${lineNumber}`) : "L–"}
-          </span>
+          {visible && (
+            <span
+              className="min-w-8 px-1 text-center text-[11px] font-bold tabular-nums"
+              title={lineLabel ? `${lineLabel} of ${lineCount}` : `Line ${lineNumber} of ${lineCount}`}
+            >
+              {showLine ? String(lineLabel ?? `L${lineNumber}`) : "L–"}
+            </span>
+          )}
           {phoneLineControl(canDown, onNextLine, "Next line", <ChevronRight className="h-4 w-4" />)}
         </div>
 
