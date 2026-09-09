@@ -37,9 +37,16 @@ export type BoardSnapshot = {
   profileId: string;
   inkColorId: string;
   placeholderColorId?: string;
+  /** Floating-number workspace: which lesson line is active on the shared
+   *  board, and whether it has been engaged. The student's floating number is
+   *  the SAME object as the teacher's — it must activate at the same instant,
+   *  even while its panel is hidden on the student side. */
+  activeLineIdx?: number;
+  lineEngaged?: boolean;
 };
 
 export type BoardState = Omit<BoardSnapshot, "v" | "author" | "ts">;
+
 
 /** Fastest cadence at which local edits leave the browser (leading edge). */
 export const BROADCAST_INTERVAL_MS = 40;
