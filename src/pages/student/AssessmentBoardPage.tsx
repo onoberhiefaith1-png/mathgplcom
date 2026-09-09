@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { Loader2, Minimize2 } from "lucide-react";
+import { Loader2, Minimize2, MonitorPlay } from "lucide-react";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -317,6 +317,32 @@ const AssessmentBoardPage = () => {
       viewOnly={readOnly}
       timerEnabled={timerSettings.timer_enabled}
       onLineContext={videoReady(video) ? setLineCtx : undefined}
+      touchSession={bpAssess === "phone" ? {
+        questionIndex: Math.max(0, (assessment?.questions ?? []).findIndex((q) => q.id === questionId)),
+        questionCount: (assessment?.questions ?? []).length,
+        onQuestionChange: (index) => {
+          const nextQuestion = assessment?.questions?.[index]?.id;
+          if (!nextQuestion) return;
+          const next = new URLSearchParams(searchParams);
+          next.set("q", nextQuestion);
+          setSearchParams(next);
+        },
+        onBack: () => navigate(`/student/class/${classId ?? ""}`),
+        backLabel: "Back to class",
+        videoControl: videoReady(video) ? (
+          <button
+            type="button"
+            onClick={() => setVideoView(videoView === "video" ? "board" : "video")}
+            aria-label={videoView === "video" ? "Show Smartboard" : "Show video"}
+            title={videoView === "video" ? "Smartboard" : "Video"}
+            className="grid h-8 w-8 place-items-center rounded-md"
+          >
+            <MonitorPlay className="h-4 w-4" />
+          </button>
+        ) : null,
+        fullscreen: immersive,
+        onFullscreenChange: setImmersive,
+      } : undefined}
     />
   );
 
@@ -336,7 +362,7 @@ const AssessmentBoardPage = () => {
   return (
     <>
       <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
-        {!(mobile && immersive) && (
+        {bpAssess !== "phone" && !(mobile && immersive) && (
         <StudentBoardHeader
           onImmersive={() => setImmersive(true)}
           backTo={`/student/class/${classId ?? ""}`}
@@ -354,7 +380,7 @@ const AssessmentBoardPage = () => {
         />
         )}
         <div className="relative min-h-0 flex-1">
-          {mobile && immersive && (
+          {bpAssess !== "phone" && mobile && immersive && (
             <button
               type="button"
               onClick={() => setImmersive(false)}

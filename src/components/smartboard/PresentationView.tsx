@@ -412,8 +412,8 @@ const PresentationView = ({
     questionIndex: number;
     questionCount: number;
     onQuestionChange: (index: number) => void;
-    score: number;
-    totalScore: number;
+    score?: number;
+    totalScore?: number;
     onBack: () => void;
     backLabel: string;
     videoControl?: ReactNode;
@@ -6047,6 +6047,7 @@ const PresentationView = ({
         setRowSpacing={setRowSpacing}
         textScale={textScale}
         setTextScale={setTextScale}
+        compactPhone={phoneLayout}
       />
 
       {/* Board body — pure surface, fills edge-to-edge. Tapping anywhere
@@ -6552,25 +6553,24 @@ const PresentationView = ({
             const notebookFor = (k: number): string =>
               noteForLine(guidedLines[k] as { notebook?: string } | undefined);
 
-            // NOTE GATE — the single uniform rule. A line with a note blocks
-            // Next until BOTH are true:
-            //   1. the teacher CLICKED the note icon THIS session
-            //      (shownNotebookIdx is session-only, never persisted), and
-            //   2. the note's text is on the board RIGHT NOW (live ink check
-            //      — erasing it closes the gate again).
-            // Stale ink from an old session can no longer open the gate on
-            // its own: a click is always required. Identical for line 1 and
-            // every other line.
-            // NOTE GATE — uniform for every line. A line with a note
-            // blocks Next until the teacher CLICKED the note icon this
-            // session (shownNotebookIdx is session-only). The click alone
-            // opens the gate — no live board scan — because notes now
-            // write on every click without dedupe. Identical for line 1
-            // and line ∞.
+            // Notes never block progression. The first forward movement from
+            // a line activates its note once for this attempt; manual opening
+            // remains available, and Reset clears shownNotebookIdx.
             const noteGateOpen = (k: number): boolean => {
               const note = notebookFor(k);
               if (note.length === 0) return true;
               return shownNotebookIdx.has(k);
+            };
+            const activateNoteOnce = (k: number) => {
+              const note = notebookFor(k);
+              if (!note || shownNotebookIdx.has(k)) return;
+              writeNoteForLine(k, note);
+              setShownNotebookIdx((prev) => new Set(prev).add(k));
+              setNotebookAttentionIdx((prev) => {
+                const next = new Set(prev);
+                next.delete(k);
+                return next;
+              });
             };
 
             // Cursor movement: teacher may freely traverse every line up to
@@ -6602,15 +6602,7 @@ const PresentationView = ({
               if (!hasGuidedLines) return;
               if (target < 0 || target >= lineCount) return;
               if (target > maxReachable) return; // out of reach — block the jump
-              if (target > curLineIdx && !noteGateOpen(curLineIdx)) {
-                setNotebookAttentionIdx((prev) => {
-                  if (prev.has(curLineIdx)) return prev;
-                  const next = new Set(prev);
-                  next.add(curLineIdx);
-                  return next;
-                });
-                return;
-              }
+              if (target > curLineIdx) activateNoteOnce(curLineIdx);
               // The display drives everything: moving it advances/rewinds
               // the lesson-line index, releases any D-pad override, and
               // lets the line-sync effect park the sensor on the target
@@ -6658,17 +6650,7 @@ const PresentationView = ({
                 setManualFloatingLineIdx(k);
                 return;
               }
-              // NOTE GATE: if this line has a note that is not on the board,
-              // block Next and glow the note icon. Live check, no flags.
-              if (!noteGateOpen(curLineIdx)) {
-                setNotebookAttentionIdx((prev) => {
-                  if (prev.has(curLineIdx)) return prev;
-                  const next = new Set(prev);
-                  next.add(curLineIdx);
-                  return next;
-                });
-                return;
-              }
+              activateNoteOnce(curLineIdx);
               // BRANCH EXIT (explicit, teacher-driven): when every track of the
               // active table is filled, Next returns to the next MAIN-PATH node
               // (T1 → L4, T2 → L6), never to another table's child line.
@@ -6718,6 +6700,26 @@ const PresentationView = ({
               <>
                 <FloatingNumberPanel
                   onMeasure={onFloatingMeasure}
+                  phoneCompact={phoneLayout}
+                  phoneControls={phoneLayout ? [
+                    { label: "Eraser", disabled: false, action: () => setEraseMode((value) => !value), icon: <Eraser className="h-4 w-4" /> },
+                    { label: "Floating numbers", disabled: false, action: () => toggleAssistant("numbers"), icon: <Hash className="h-4 w-4" /> },
+                    { label: "Undo", disabled: !canUndo, action: doUndo, icon: <Undo2 className="h-4 w-4" /> },
+                    { label: "Redo", disabled: !canRedo, action: doRedo, icon: <Redo2 className="h-4 w-4" /> },
+                  ].map((control) => (
+                    <button
+                      key={control.label}
+                      type="button"
+                      onClick={control.action}
+                      disabled={control.disabled}
+                      aria-label={control.label}
+                      title={control.label}
+                      className="mx-auto grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30"
+                      style={{ background: control.label === "Eraser" && eraseMode ? palette.accent : palette.hoverBg }}
+                    >
+                      {control.icon}
+                    </button>
+                  )) : undefined}
                   displayStyle={floatingDisplayStyle}
                   chromeFg={palette.chromeFg}
                   reservoirs={reservoirs}
@@ -7405,7 +7407,7 @@ const PresentationView = ({
           It is screen-anchored (never inside the scrolling lesson content) and
           never depends on the Floating Number workspace being open — that
           workspace only pushes the strip upward while it is showing. */}
-      {canEdit && touchLayout && (
+      {canEdit && touchLayout && !phoneLayout && (
         <div
           className="fixed left-1/2 z-[70] flex -translate-x-1/2 items-center gap-1 rounded-full border p-1 shadow-lg backdrop-blur"
           style={{
@@ -7468,6 +7470,8 @@ const PresentationView = ({
           canRight={canCursorRight}
           bottomPx={16}
           touchLayout={touchLayout}
+          topInsetPx={mobileStudent ? mobileChromeH + 12 : 0}
+          bottomInsetPx={phoneLayout ? (floatingBox?.height ?? 48) + 8 : 0}
         />
       )}
 
@@ -7507,7 +7511,7 @@ const PresentationView = ({
             data-board-chrome="top"
             ref={mobileStudent ? chromeMeasureRef : undefined}
             className={mobileStudent
-              ? "absolute left-1 right-1 top-1 z-[60] flex min-w-0 items-center justify-between gap-1 rounded-lg border px-1.5 py-1 shadow-md backdrop-blur"
+              ? "absolute left-0.5 right-0.5 top-0.5 z-[60] flex min-w-0 items-center justify-between gap-0.5 overflow-visible rounded-md border px-0.5 py-0.5 shadow-md backdrop-blur"
               : "absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"}
             style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
           >
@@ -7517,7 +7521,7 @@ const PresentationView = ({
                 onClick={touchSession.onBack}
                 aria-label={touchSession.backLabel}
                 title={touchSession.backLabel}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md min-[390px]:h-8 min-[390px]:w-8"
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
@@ -7554,7 +7558,7 @@ const PresentationView = ({
                     onClick={() => { if (i != null) changeTouchQuestion(i); }}
                     disabled={i == null}
                     className={`grid place-items-center rounded-full border font-medium transition disabled:opacity-30 ${
-                      mobileStudent ? "h-8 min-w-8 px-2 text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
+                      mobileStudent ? "h-7 min-w-7 px-1 text-xs min-[390px]:h-8 min-[390px]:min-w-8 min-[390px]:px-2 min-[390px]:text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
                     }`}
                     style={i != null && i === touchQuestionIndex
                       ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
@@ -7567,53 +7571,38 @@ const PresentationView = ({
               </div>
             )}
 
-            {/* Per-line ticks for the current question.
-                Top row  = PERMANENT ACHIEVEMENT (mastered, never removed)
-                Bottom row = CURRENT ATTEMPT (timer only, cleared by Reset) */}
-            {hasGuidedLines && !mobileStudent && (
-              <div className="flex flex-col gap-1">
-                <div className={`flex items-center gap-1 ${mobileStudent ? "flex-wrap" : ""}`} title="Mastered">
+            {/* One sequence, two independent states: blue permanent mastery
+                survives Reset; green belongs only to the current timer attempt. */}
+            {hasGuidedLines && (
+              <div className={`items-center gap-1 ${mobileStudent ? "hidden min-[390px]:flex" : "flex"}`} title="Question progress">
                   {guidedLines.map((ln, k) => {
                     const slot = slotFor(k);
-                    const solved = !!slot && slot in solvedSlots;
+                    const mastered = !!slot && slot in solvedSlots;
+                    const attempted = timer.active && !!slot && slot in timer.confirmed;
                     return (
                       <span
                         key={k}
-                        className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
-                        style={solved
-                          ? { background: "rgba(34,197,94,0.18)", color: "#16a34a", borderColor: "rgba(34,197,94,0.5)" }
-                          : { borderColor: palette.chromeBorder, opacity: 0.55 }}
-                        title={`Line ${k + 1}${solved ? " · mastered" : ""}`}
+                        className="relative grid h-5 w-5 place-items-center rounded-full border text-[10px]"
+                        style={mastered
+                          ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
+                          : { borderColor: palette.chromeBorder, opacity: 0.6 }}
+                        title={`Line ${k + 1}${mastered ? " · completed" : ""}${attempted ? " · current attempt" : ""}`}
                       >
-                        {solved ? <CheckIcon className="h-3 w-3" /> : k + 1}
+                        {mastered ? <CheckIcon className="h-3 w-3" /> : k + 1}
+                        {attempted && (
+                          <span
+                            aria-hidden
+                            className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-1"
+                            style={{ background: "hsl(var(--success))", color: palette.chromeBg }}
+                          />
+                        )}
                       </span>
                     );
                   })}
-                </div>
-                {timer.active && (
-                  <div className={`flex items-center gap-1 ${mobileStudent ? "flex-wrap" : ""}`} title="This attempt">
-                    {guidedLines.map((ln, k) => {
-                      const slot = slotFor(k);
-                      const done = !!slot && slot in timer.confirmed;
-                      return (
-                        <span
-                          key={k}
-                          className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
-                          style={done
-                            ? { background: "rgba(56,189,248,0.18)", color: "#0284c7", borderColor: "rgba(56,189,248,0.55)" }
-                            : { borderColor: palette.chromeBorder, opacity: 0.45 }}
-                          title={`Line ${k + 1} · this attempt${done ? " · correct" : ""}`}
-                        >
-                          {done ? <CheckIcon className="h-3 w-3" /> : k + 1}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             )}
 
-            <div className="shrink-0 rounded-lg px-1.5 py-1 text-xs font-bold tabular-nums" style={{ background: palette.hoverBg }}>
+            <div className="shrink-0 rounded-md px-1 py-1 text-[10px] font-bold tabular-nums min-[390px]:px-1.5 min-[390px]:text-xs" style={{ background: palette.hoverBg }}>
               {touchSession?.score ?? assessScore} <span className="opacity-60">/ {touchSession?.totalScore ?? assessTotal}</span>
             </div>
 
@@ -7657,8 +7646,32 @@ const PresentationView = ({
               </div>
             )}
 
+            {timer.active && mobileStudent && (
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setTimeDetailsOpen((open) => !open)}
+                  className="rounded-md px-1 py-1 text-[9px] font-semibold tabular-nums min-[390px]:px-1.5 min-[390px]:text-[10px]"
+                  style={{ background: palette.hoverBg }}
+                  aria-expanded={timeDetailsOpen}
+                  aria-label="Timer and best times"
+                >
+                  {formatAttemptTime(timer.elapsedMs)}
+                </button>
+                {timeDetailsOpen && (
+                  <div
+                    className="absolute right-0 top-full z-[80] mt-1 w-44 rounded-md border p-2 text-[10px] shadow-lg"
+                    style={{ background: palette.chromeBg, borderColor: palette.chromeBorder }}
+                  >
+                    <div>My Best {timer.bestMs == null ? "—" : formatAttemptTime(timer.bestMs)}</div>
+                    <div>Overall Best {timer.overallBestMs == null ? "—" : formatAttemptTime(timer.overallBestMs)}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Zoom controls */}
-            <div className="inline-flex shrink-0 items-center gap-0.5 rounded-md" style={{ background: palette.hoverBg }}>
+            <div className="inline-flex shrink-0 items-center rounded-md" style={{ background: palette.hoverBg }}>
               {!mobileStudent && <button
                 onClick={() => applyZoom(zoom - ZOOM_STEP)}
                 className="px-2 py-1 text-base leading-none"
@@ -7667,7 +7680,7 @@ const PresentationView = ({
               >−</button>}
               <button
                 onClick={() => applyZoom(1)}
-                className="px-2 py-1 tabular-nums text-[10px]"
+                className="px-1 py-1 tabular-nums text-[9px] min-[390px]:px-2 min-[390px]:text-[10px]"
                 aria-label="Reset zoom"
                 title="Reset zoom"
               >
@@ -7685,7 +7698,7 @@ const PresentationView = ({
               <button
                 type="button"
                 onClick={() => { void resetAttempt(); }}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md min-[390px]:h-8 min-[390px]:w-8"
                 aria-label="Reset attempt"
                 title="Reset attempt"
               >
@@ -7698,7 +7711,7 @@ const PresentationView = ({
             {/* Board Settings — same sheet the teacher Smartboard uses. */}
             <button
               onClick={() => setSettingsOpen((v) => !v)}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-black/5"
+              className={mobileStudent ? "grid h-7 w-7 shrink-0 place-items-center rounded-md hover:bg-black/5 min-[390px]:h-8 min-[390px]:w-8" : "inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-black/5"}
               aria-label="Board settings"
               title="Board settings"
               style={{ color: palette.chromeFg }}
@@ -7710,7 +7723,7 @@ const PresentationView = ({
               <button
                 type="button"
                 onClick={() => { void toggleTouchFullscreen(); }}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md min-[390px]:h-8 min-[390px]:w-8"
                 aria-label={touchFullscreenActive ? "Exit full screen" : "Full screen"}
                 title={touchFullscreenActive ? "Exit full screen" : "Full screen"}
               >
