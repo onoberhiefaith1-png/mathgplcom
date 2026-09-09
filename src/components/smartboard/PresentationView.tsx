@@ -2156,17 +2156,18 @@ const PresentationView = ({
   const timerRef = useRef(timer);
   timerRef.current = timer;
 
-  // ONE number sequence, two colour layers. Blue is the permanent awarded
-  // state and survives Reset; green belongs only to the live timed attempt;
-  // a position carrying both reads purple. Green never gets its own row.
-  const PROGRESS_GREEN = "hsl(150 65% 42%)";
-  const PROGRESS_PURPLE = "hsl(268 62% 58%)";
+  // ONE number sequence, TWO visible colours only.
+  //   BLUE  → the mark for that position is already awarded (survives Reset)
+  //   BROWN → that position is being solved/re-solved in the live timed attempt
+  // The permanent and attempt layers are still tracked separately internally,
+  // but the student never sees a green state and never a second number row.
+  const PROGRESS_BROWN = "hsl(26 55% 38%)";
   const progressLayers = useMemo(() => {
     const blue = new Set<string>();
-    const green = new Set<string>();
+    const brown = new Set<string>();
     for (const key of Object.keys(solvedSlots)) blue.add(key.split(":")[0] ?? "");
-    if (timer.active) for (const key of Object.keys(timer.confirmed)) green.add(key.split(":")[0] ?? "");
-    return { blue, green };
+    if (timer.active) for (const key of Object.keys(timer.confirmed)) brown.add(key.split(":")[0] ?? "");
+    return { blue, brown };
   }, [solvedSlots, timer.active, timer.confirmed]);
 
 
