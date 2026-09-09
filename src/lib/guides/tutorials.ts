@@ -20,6 +20,8 @@ export interface Tutorial {
   title: string;
   description: string | null;
   videoPath: string;
+  /** Set instead of `videoPath` when the tutorial is a link to another site. */
+  linkUrl: string | null;
   position: number;
   status: "draft" | "published";
   /** True when the row comes from the older single-guide table. */
@@ -32,6 +34,7 @@ type Row = {
   title: string | null;
   description: string | null;
   video_path: string | null;
+  link_url?: string | null;
   position: number | null;
   status: string | null;
 };
@@ -46,6 +49,7 @@ const toTutorial = (row: Row): Tutorial => ({
   title: row.title ?? "",
   description: row.description,
   videoPath: row.video_path ?? "",
+  linkUrl: row.link_url ?? null,
   position: row.position ?? 0,
   status: row.status === "draft" ? "draft" : "published",
 });
@@ -70,6 +74,7 @@ export const loadTutorials = async (pageKey: string): Promise<Tutorial[]> => {
       videoPath: legacy.videoPath,
       position: -1,
       status: legacy.status,
+      linkUrl: null,
       legacy: true,
     });
   }
@@ -80,7 +85,8 @@ export const loadTutorials = async (pageKey: string): Promise<Tutorial[]> => {
       .eq("page_key", pageKey)
       .order("position")
       .order("created_at");
-    if (!error && data) list.push(...(data as Row[]).map(toTutorial).filter((t) => t.videoPath));
+    if (!error && data)
+      list.push(...(data as Row[]).map(toTutorial).filter((t) => t.videoPath || t.linkUrl));
   } catch {
     /* the table may not exist yet; the legacy guide still plays */
   }
@@ -92,12 +98,27 @@ export interface AddTutorialInput {
   pageKey: string;
   title: string;
   description?: string | null;
-  file: File;
+  /** Either an uploaded file… */
+  file?: File | null;
+  /** …or a link to the site where the video lives. Exactly one is required. */
+  linkUrl?: string | null;
   status?: "draft" | "published";
 }
 
+/** A pasted link, normalised so a bare address still opens. */
+export const normaliseLink = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed.replace(/^\/+/, "")}`;
+};
+
 export const addTutorial = async (input: AddTutorialInput): Promise<Tutorial> => {
-  const videoPath = await uploadGuideVideo(input.pageKey, input.file);
+  const link = input.linkUrl ? normaliseLink(input.linkUrl) : "";
+  if (!input.file && !link) throw new Error("Choose a video file or paste a link.");
+  if (input.file && link) throw new Error("A tutorial holds either a video file or a link, not both.");
+
+  const videoPath = input.file ? await uploadGuideVideo(input.pageKey, input.file) : null;
   const existing = await loadTutorials(input.pageKey);
   const { data: userData } = await supabase.auth.getUser();
 
@@ -107,6 +128,7 @@ export const addTutorial = async (input: AddTutorialInput): Promise<Tutorial> =>
       title: input.title.trim() || "Tutorial",
       description: input.description?.trim() || null,
       video_path: videoPath,
+      link_url: videoPath ? null : link,
       position: existing.length,
       status: input.status ?? "published",
       uploaded_by: userData.user?.id ?? null,
@@ -121,7 +143,7 @@ export const addTutorial = async (input: AddTutorialInput): Promise<Tutorial> =>
 export const replaceTutorialVideo = async (tutorial: Tutorial, file: File): Promise<Tutorial> => {
   const videoPath = await uploadGuideVideo(tutorial.pageKey, file);
   const { data, error } = await table()
-    .update({ video_path: videoPath })
+    .update({ video_path: videoPath, link_url: null })
     .eq("id", tutorial.id)
     .select("*")
     .single();
@@ -134,7 +156,13 @@ export const replaceTutorialVideo = async (tutorial: Tutorial, file: File): Prom
 
 export const updateTutorial = async (
   id: string,
-  patch: { title?: string; description?: string | null; status?: "draft" | "published"; position?: number },
+  patch: {
+    title?: string;
+    description?: string | null;
+    status?: "draft" | "published";
+    position?: number;
+    link_url?: string | null;
+  },
 ): Promise<void> => {
   const { error } = await table().update(patch).eq("id", id);
   if (error) throw error;
