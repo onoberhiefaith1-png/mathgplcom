@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fasterTime, getQuestionWindow, resetAttemptMarkers } from "../touchUi";
+import { fasterTime, getQuestionWindow, lineCarriesMarkState, resetAttemptMarkers } from "../touchUi";
 
 describe("phone Smartboard question window", () => {
   it("keeps the first three stable at the start", () => {
@@ -29,5 +29,17 @@ describe("timer attempt state", () => {
   it("never replaces a faster best time with a slower one", () => {
     expect(fasterTime(135_000, 160_000)).toBe(135_000);
     expect(fasterTime(135_000, 120_000)).toBe(120_000);
+  });
+});
+describe("lineCarriesMarkState", () => {
+  it("keeps note-only lines neutral", () => {
+    expect(lineCarriesMarkState({ notebookOnly: true, equation: "x = 1" })).toBe(false);
+    expect(lineCarriesMarkState(null)).toBe(false);
+    expect(lineCarriesMarkState({ equation: "   " })).toBe(false);
+  });
+  it("marks real floating-number lines", () => {
+    expect(lineCarriesMarkState({ equation: "x = 1" })).toBe(true);
+    expect(lineCarriesMarkState({ fragmentStart: 0, fragmentEnd: 3 })).toBe(true);
+    expect(lineCarriesMarkState({ table: {} })).toBe(true);
   });
 });

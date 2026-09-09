@@ -123,6 +123,7 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
       guestSlug={code}
       participantKey={token}
       guestName={guestLinkName()}
+      timerEnabled={!!(assessment as { timer_enabled?: boolean }).timer_enabled}
       onLineContext={videoReady(video) ? setLineCtx : undefined}
        touchSession={phone ? {
         questionIndex: qIndex,

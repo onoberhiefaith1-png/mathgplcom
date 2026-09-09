@@ -151,7 +151,7 @@ import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 import { studentGradingKey } from "@/lib/assessments/studentGrading";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
-import { getQuestionWindow } from "@/lib/smartboard/touchUi";
+import { getQuestionWindow, lineCarriesMarkState } from "@/lib/smartboard/touchUi";
 
 import ActiveStudentControl from "./ActiveStudentControl";
 import StudentAccessControl from "./StudentAccessControl";
@@ -757,9 +757,22 @@ const PresentationView = ({
       if (!next) {
         if (document.fullscreenElement) await document.exitFullscreen();
       } else if (!document.fullscreenElement) {
-        const target = sbRootEl ?? document.documentElement;
-        await target.requestFullscreen?.();
+        // Phones: try the board surface first, then the whole document, then
+        // the old WebKit call — whichever the browser accepts, so Expand
+        // really does fill the entire screen.
+        type FsEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+        const targets: FsEl[] = [];
+        if (sbRootEl) targets.push(sbRootEl as FsEl);
+        targets.push(document.documentElement as FsEl);
+        for (const el of targets) {
+          try {
+            if (el.requestFullscreen) { await el.requestFullscreen({ navigationUI: "hide" } as FullscreenOptions); }
+            else if (el.webkitRequestFullscreen) { await el.webkitRequestFullscreen(); }
+            if (document.fullscreenElement) break;
+          } catch { /* try the next target */ }
+        }
       }
+
     } catch {
       // Unsupported mobile browsers already receive the full 100dvh board.
     }
@@ -2152,9 +2165,18 @@ const PresentationView = ({
     assessmentId,
     studentId: boardStudentId,
     questionId: boardQuestionId ?? current?.id ?? null,
+    // Guest Link sitting — the same timer, kept on the guest's own device.
+    guest: guestSlug && participantKey ? { code: guestSlug, token: participantKey } : null,
   });
+
   const timerRef = useRef(timer);
   timerRef.current = timer;
+
+  /** The dust pen (Eraser) and # (Floating numbers) are toggles, so their
+   *  button must read unmistakably ON while the tool is active. */
+  const controlIsOn = (label: string): boolean =>
+    (label === "Eraser" && eraseMode) ||
+    (label === "Floating numbers" && activeAssistant === "numbers");
 
   // ONE number sequence, TWO visible colours only.
   //   BLUE  → the mark for that position is already awarded (survives Reset)
@@ -6752,8 +6774,11 @@ const PresentationView = ({
                       disabled={control.disabled}
                       aria-label={control.label}
                       title={control.label}
+                      aria-pressed={controlIsOn(control.label)}
                       className="mx-auto grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30"
-                      style={{ background: control.label === "Eraser" && eraseMode ? palette.accent : palette.hoverBg }}
+                      style={controlIsOn(control.label)
+                        ? { background: palette.accent, color: palette.chromeBg, boxShadow: `0 0 0 2px ${palette.accent}` }
+                        : { background: palette.hoverBg }}
                     >
                       {control.icon}
                     </button>
@@ -7471,8 +7496,11 @@ const PresentationView = ({
               disabled={control.disabled}
               aria-label={control.label}
               title={control.label}
+              aria-pressed={controlIsOn(control.label)}
               className="grid h-9 w-9 shrink-0 place-items-center rounded-full transition disabled:opacity-30"
-              style={{ background: control.label === "Eraser" && eraseMode ? palette.accent : palette.hoverBg }}
+              style={controlIsOn(control.label)
+                ? { background: palette.accent, color: palette.chromeBg, boxShadow: `0 0 0 2px ${palette.accent}` }
+                : { background: palette.hoverBg }}
             >
               {control.icon}
             </button>
@@ -7599,10 +7627,15 @@ const PresentationView = ({
                   const key = hasGuidedLines
                     ? (i != null ? slotFor(i) : null)
                     : (i != null ? beats[i]?.id ?? null : null);
-                  const blue = !!key && (hasGuidedLines
+                  // NO FLOATING NUMBER = NO MARK STATE: a note-only line stays
+                  // neutral, never blue and never brown.
+                  const carries = hasGuidedLines
+                    ? (i != null && lineCarriesMarkState(guidedLines[i]))
+                    : true;
+                  const blue = carries && !!key && (hasGuidedLines
                     ? key in solvedSlots
                     : progressLayers.blue.has(key));
-                  const brown = !!key && timer.active && (hasGuidedLines
+                  const brown = carries && !!key && timer.active && (hasGuidedLines
                     ? key in timer.confirmed
                     : progressLayers.brown.has(key));
                   const active = i != null && i === (hasGuidedLines ? activeLineIdx : touchQuestionIndex);
