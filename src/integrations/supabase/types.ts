@@ -9325,6 +9325,7 @@ export type Database = {
       }
       expire_credit_grants: { Args: never; Returns: number }
       expire_lapsed_subscriptions: { Args: never; Returns: number }
+      frame_object_building: { Args: { _name: string }; Returns: string }
       gateway_by_handle: {
         Args: { _handle: string }
         Returns: {
