@@ -34,6 +34,9 @@ interface Props {
   bottomPx?: number;
   /** Phone/tablet placement: middle-right instead of desktop bottom-centre. */
   touchLayout?: boolean;
+  /** Measured phone chrome insets used to keep the movable pad in the canvas. */
+  topInsetPx?: number;
+  bottomInsetPx?: number;
 }
 
 const HOLD_DELAY_MS = 350;
@@ -49,6 +52,8 @@ export const SensorDPad = ({
   canUp = true, canDown = true, canLeft = true, canRight = true,
   bottomPx = 96,
   touchLayout = false,
+  topInsetPx = 0,
+  bottomInsetPx = 0,
 }: Props) => {
   const sbRoot = useSmartboardRoot();
   const holdRef = useRef<{ timer: number | null; interval: number | null }>({ timer: null, interval: null });
@@ -243,8 +248,11 @@ export const SensorDPad = ({
             const x = touchLayout
               ? Math.max(-(width - 140), Math.min(0, nextX))
               : Math.max(-(width / 2 - 70), Math.min(width / 2 - 70, nextX));
-            const yLimit = Math.max(0, height / 2 - 84);
-            const y = Math.max(-yLimit, Math.min(yLimit, nextY));
+            const padHalf = 62;
+            const centre = height / 2;
+            const minY = topInsetPx + padHalf - centre;
+            const maxY = centre - bottomInsetPx - padHalf;
+            const y = Math.max(minY, Math.min(maxY, nextY));
             setOffset({ x, y });
             kickIdle();
           }}
