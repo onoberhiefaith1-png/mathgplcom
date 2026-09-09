@@ -51,6 +51,7 @@ const HomepageSettingsButton = () => {
   // to change, so no background / edit / replace controls are offered at all.
   const { canCustomize, canManageAds } = useBuildingContext();
   const [open, setOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
 
   // Signed-out visitors always see the default homepage.
   if (!userId) return null;
