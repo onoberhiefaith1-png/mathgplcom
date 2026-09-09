@@ -87,7 +87,7 @@ import { StructurePanel } from "./StructurePanel";
 import { SymbolPanel } from "./SymbolPanel";
 import { AssistantButtons, type Assistant } from "./AssistantButtons";
 import { useMobileStudentBoard } from "@/hooks/useMobileStudentBoard";
-import { useIsTouchLayout } from "@/hooks/useBreakpoint";
+import { useBreakpoint, useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useBoardNativeKeyboard } from "@/hooks/useBoardNativeKeyboard";
 import { clampRowSpacing, normalizeRowSpacing, getGrid, lineToY, snapToBaseline, type GridPoint } from "@/lib/smartboard/grid";
 import { matrixShellFromLatex } from "@/lib/floating/matrixChips";
@@ -151,6 +151,7 @@ import { useSmartboardSync } from "@/hooks/useSmartboardSync";
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 import { studentGradingKey } from "@/lib/assessments/studentGrading";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
+import { getQuestionWindow } from "@/lib/smartboard/touchUi";
 
 import ActiveStudentControl from "./ActiveStudentControl";
 import StudentAccessControl from "./StudentAccessControl";
@@ -469,6 +470,8 @@ const PresentationView = ({
   // every teacher surface are untouched because all branches read this flag.
   const mobileBoard = useMobileStudentBoard(role);
   const mobileStudent = mobileBoard.active;
+  const breakpoint = useBreakpoint();
+  const phoneLayout = mobileStudent && breakpoint === "phone";
   // PHONE/TABLET + SMARTBOARD = no native keyboard, for every role. Layout and
   // chrome still follow `mobileStudent`; only keyboard raising reads this flag.
   const noNativeKeyboard = useBoardNativeKeyboard();
@@ -728,12 +731,7 @@ const PresentationView = ({
   const questionWindow = useMemo(() => {
     const count = touchSession?.questionCount ?? beats.length;
     const active = touchSession?.questionIndex ?? Math.max(0, beatCursor);
-    if (count <= 0) return [null, null, null] as (number | null)[];
-    const start = count <= 3 ? 0 : Math.max(0, Math.min(active - 1, count - 3));
-    return Array.from({ length: 3 }, (_, index) => {
-      const i = start + index;
-      return i < count ? i : null;
-    });
+    return getQuestionWindow(count, active);
   }, [touchSession?.questionCount, touchSession?.questionIndex, beats.length, beatCursor]);
   const touchQuestionIndex = touchSession?.questionIndex ?? Math.max(0, beatCursor);
   const changeTouchQuestion = useCallback((index: number) => {
@@ -744,6 +742,7 @@ const PresentationView = ({
   // immersive mode switched on alongside it so browsers that refuse the
   // Fullscreen API still hand the whole screen to the board.
   const [browserFullscreen, setBrowserFullscreen] = useState(false);
+  const [timeDetailsOpen, setTimeDetailsOpen] = useState(false);
   useEffect(() => {
     const sync = () => setBrowserFullscreen(!!document.fullscreenElement);
     sync();
@@ -764,6 +763,7 @@ const PresentationView = ({
     } catch {
       // Unsupported mobile browsers already receive the full 100dvh board.
     }
+    window.requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
   }, [sbRootEl, touchSession, touchFullscreenActive]);
 
   // Invisible-grid free-writing state.

@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchQuestionBestTimes } from "@/lib/assessments/bestTimes";
+import { fasterTime } from "@/lib/smartboard/touchUi";
 
 
 // `assessment_timer_attempts` ships with this change, so the generated types
@@ -274,8 +275,8 @@ export function useQuestionTimerAttempt(opts: {
     setBaseMs(total);
     setRunningSince(null);
     setCompleted(true);
-    setBestMs((prev) => (prev == null || total < prev ? total : prev));
-    setOverallBestMs((prev) => (prev == null || total < prev ? total : prev));
+    setBestMs((prev) => fasterTime(prev, total));
+    setOverallBestMs((prev) => fasterTime(prev, total));
     patch({
       elapsed_ms: total,
       running: false,

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useIsTouchLayout } from "@/hooks/useBreakpoint";
 import { useSmartboardRoot } from "./SmartboardRoot";
-import { Table as TableIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Table as TableIcon } from "lucide-react";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import { assertDisplaySafe } from "@/lib/notebook/mathDisplayGate";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
@@ -263,6 +263,9 @@ interface Props {
    *  distance from the board bottom, so the parent can suspend the eraser and
    *  the # control directly above it whatever the chosen design measures. */
   onMeasure?: (m: { height: number; bottom: number } | null) => void;
+  /** Dedicated shallow phone dock. Desktop/tablet continue through the gallery styles. */
+  phoneCompact?: boolean;
+  phoneControls?: React.ReactNode;
 
 }
 
@@ -286,6 +289,8 @@ export const FloatingNumberPanel = ({
   displayStyle,
   onPlaceTable,
   onMeasure,
+  phoneCompact = false,
+  phoneControls,
 
 }: Props) => {
   const sbRoot = useSmartboardRoot();
@@ -568,7 +573,7 @@ export const FloatingNumberPanel = ({
   // pixel above it. Desktop values are unchanged.
   const fixedLeft = Math.max(76, leftPx);
   const fixedBottom = Math.max(8, viewportBottomInset + 8);
-  const shown = visible && reservoirs.length > 0;
+  const shown = (phoneCompact || visible) && reservoirs.length > 0;
 
   // Report the real rendered box so the parent can hang the eraser and the #
   // control immediately above it — tall designs push them up, short designs
@@ -760,6 +765,70 @@ export const FloatingNumberPanel = ({
   const canUp = Boolean(lineNumber && lineNumber > 1);
   const canDown = Boolean(lineNumber && lineCount && lineNumber < lineCount);
   const showLine = lineNumber != null && lineCount != null && lineCount > 0;
+
+  const phoneLineControl = (enabled: boolean, action: (() => void) | undefined, label: string, icon: React.ReactNode) => (
+    <button
+      type="button"
+      disabled={!enabled}
+      onClick={(event) => { event.stopPropagation(); action?.(); onPing(); }}
+      aria-label={label}
+      title={label}
+      className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30"
+      style={{ color: chromeFg }}
+    >
+      {icon}
+    </button>
+  );
+
+  if (phoneCompact) {
+    const phonePanel = (
+      <div
+        ref={setPanelEl}
+        data-sb-chrome
+        data-floating-halo
+        className="absolute inset-x-0 bottom-0 z-[70] flex min-w-0 flex-col border-t backdrop-blur"
+        style={{
+          color: chromeFg,
+          background: "color-mix(in oklab, var(--sb-bg, white) 94%, transparent)",
+          borderColor: "color-mix(in oklab, currentColor 16%, transparent)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+        onPointerDown={(event) => { event.stopPropagation(); onPing(); }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="grid h-10 grid-cols-[repeat(4,1fr)_auto_auto_auto] items-center px-1">
+          {phoneControls}
+          {phoneLineControl(canUp, onPrevLine, "Previous line", <ChevronLeft className="h-4 w-4" />)}
+          <span
+            className="min-w-8 px-1 text-center text-[11px] font-bold tabular-nums"
+            title={lineLabel ? `${lineLabel} of ${lineCount}` : `Line ${lineNumber} of ${lineCount}`}
+          >
+            {showLine ? String(lineLabel ?? `L${lineNumber}`) : "L–"}
+          </span>
+          {phoneLineControl(canDown, onNextLine, "Next line", <ChevronRight className="h-4 w-4" />)}
+        </div>
+
+        <div
+          aria-hidden={!visible}
+          className={`grid min-w-0 transition-[grid-template-rows,opacity] duration-200 ${visible ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="flex min-h-10 min-w-0 items-center gap-1 border-t px-1" style={{ borderColor: "color-mix(in oklab, currentColor 12%, transparent)" }}>
+              <button type="button" disabled={!canPrev} onClick={() => { goBackward(); onPing(); }} aria-label="Previous floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden text-lg">{chipsNode}</div>
+              {notebookNode}
+              <button type="button" disabled={!canNext} onClick={() => { goForward(); onPing(); }} aria-label="Next floating numbers" className="grid h-8 w-8 shrink-0 place-items-center rounded-md disabled:opacity-30">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+    return typeof document === "undefined" ? phonePanel : createPortal(phonePanel, sbRoot ?? document.body);
+  }
 
   const panel = (
     <div

@@ -46,6 +46,8 @@ interface Props {
   /** Text Size multiplier (applies only to content font, not page). */
   textScale?: number;
   setTextScale?: (v: number) => void;
+  /** Phones use one purpose-built compact Floating Number layout. */
+  compactPhone?: boolean;
 }
 
 const SAMPLE_SRC = "x = \\frac{\\sl{}}{\\sl{}}";
@@ -69,6 +71,7 @@ export const SettingsSheet = ({
   setRowSpacing,
   textScale = 1,
   setTextScale,
+  compactPhone = false,
 }: Props) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -333,7 +336,16 @@ export const SettingsSheet = ({
             <p className="text-[10px] uppercase tracking-[0.25em] opacity-60 mb-2">
               Floating Number Display
             </p>
-            <FloatingDisplayGallery chromeFg={chromeFg} chromeBorder={chromeBorder} />
+            {compactPhone ? (
+              <div
+                className="rounded-md border px-3 py-2 text-xs"
+                style={{ borderColor: chromeBorder, color: chromeFg }}
+              >
+                Compact phone layout
+              </div>
+            ) : (
+              <FloatingDisplayGallery chromeFg={chromeFg} chromeBorder={chromeBorder} />
+            )}
           </section>
 
 

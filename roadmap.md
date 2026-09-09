@@ -24,3 +24,4 @@
 - [x] Move the draggable sensor pad to the middle-right on touch screens.
 - [x] Remove the manual Check / Check Line interface on every device.
 - [x] Verify phone/tablet/desktop rendering and shared Smartboard tests; signed-in shelf navigation timed out before the board loaded.
+- [ ] Finish the phone-only compact top bar, Floating Number toolbar, fullscreen, timer-state merge, and non-blocking notes.

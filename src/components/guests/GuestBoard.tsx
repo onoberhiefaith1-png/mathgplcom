@@ -36,7 +36,7 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
   // Phone/tablet guest session: compact header + in-app immersive mode (iOS
   // Safari does not grant real element fullscreen).
   const bp = useBreakpoint();
-  const mobile = bp === "phone" || bp === "tablet";
+  const phone = bp === "phone";
   const [immersive, setImmersive] = useState(false);
   const [score, setScore] = useState<{ score: number; total: number } | null>(null);
   const [lineCtx, setLineCtx] = useState<LineContext>({
@@ -124,7 +124,7 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
       participantKey={token}
       guestName={guestLinkName()}
       onLineContext={videoReady(video) ? setLineCtx : undefined}
-      touchSession={mobile ? {
+       touchSession={phone ? {
         questionIndex: qIndex,
         questionCount: questions.length,
         onQuestionChange: (index) => setQuestionId(questions[index]?.id ?? questionId),
@@ -153,7 +153,7 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
     <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background">
       {/* Desktop keeps its established session header. Phone/tablet controls
           live inside PresentationView so there is exactly one compact row. */}
-      {!mobile && (
+      {!phone && (
       <div
         className="flex flex-wrap items-center gap-2 border-b bg-card px-3 py-2 text-xs"
       >
