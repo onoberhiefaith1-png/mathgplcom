@@ -162,7 +162,7 @@ import { localLiveChannel, publishLocalLive } from "@/lib/smartboard/localLiveBr
 
 import { extractTermsFromAscii } from "@/lib/smartboard/floatingExtractor";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
-import { Check as CheckIcon, ChevronDown as ChevronDownIcon, Loader2, LayoutGrid as LayoutGridIcon } from "lucide-react";
+import { Check as CheckIcon, LayoutGrid as LayoutGridIcon } from "lucide-react";
 import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
@@ -173,9 +173,6 @@ import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions
 import { itemObjectIds } from "@/lib/geometry/map/model";
 import { sortByPlacement } from "@/lib/floating/solutionItems";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 
 
 
@@ -732,6 +729,23 @@ const PresentationView = ({
     const start = Math.max(0, Math.min(active - 1, count - size));
     return Array.from({ length: size }, (_, index) => start + index);
   }, [touchSession?.questionCount, touchSession?.questionIndex, beats.length, beatCursor]);
+  const touchQuestionIndex = touchSession?.questionIndex ?? Math.max(0, beatCursor);
+  const changeTouchQuestion = useCallback((index: number) => {
+    if (touchSession) touchSession.onQuestionChange(index);
+    else setBeatCursor(index);
+  }, [touchSession]);
+  const toggleTouchFullscreen = useCallback(async () => {
+    if (touchSession) {
+      touchSession.onFullscreenChange(!touchSession.fullscreen);
+      return;
+    }
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await sbRootEl?.requestFullscreen?.();
+    } catch {
+      // Unsupported mobile browsers already receive the full 100dvh board.
+    }
+  }, [sbRootEl, touchSession]);
 
   // Invisible-grid free-writing state.
   const FREEWRITE_KEY = boardKey("freewrite", boardScope);
@@ -7115,7 +7129,7 @@ const PresentationView = ({
       {/* Draggable eraser. Press the icon to lift it; while held it follows
           the pointer and wipes any line it crosses. Releasing it sends it
           back to its home position. No toggle, no mode. */}
-      {(() => {
+      {!touchLayout && (() => {
         const HOME_LEFT = 12;
         // Stack above the bottom-left Floating Numbers AssistantButton so the
         // eraser never sits under (or near) any right-edge control.
@@ -7199,7 +7213,7 @@ const PresentationView = ({
       {/* LEFT-edge — invisible hit zone reveals Undo / Redo for 5 s, then
           they fade out so the board stays plain. Nest button removed (the
           board is already infinite; advancing a section appears below). */}
-      <div
+      {!touchLayout && <div
         data-sb-chrome
         onPointerEnter={revealLeftTools}
         onPointerDown={revealLeftTools}
@@ -7210,8 +7224,8 @@ const PresentationView = ({
           width: 56,
           height: "40%",
         }}
-      />
-      <div
+      />}
+      {!touchLayout && <div
         data-sb-chrome
         className="absolute z-30 flex flex-col items-center gap-2 transition-opacity duration-300"
         style={{
@@ -7302,7 +7316,7 @@ const PresentationView = ({
 
         {/* The left-rail ↑/↓ scrollbar has been replaced by the permanent
             Sensor D-pad (bottom-center, 4-direction). Nothing renders here. */}
-      </div>
+      </div>}
 
       {/* RIGHT rail — two-point line tool. */}
       {canEdit && carrierVisible && !mobileStudent && (
@@ -7351,7 +7365,7 @@ const PresentationView = ({
 
       {/* Permanent activation button for the Floating Numbers workspace. On
           phone/tablet it is suspended above the measured workspace. */}
-      {canEdit && carrierVisible && (
+      {canEdit && carrierVisible && !touchLayout && (
         <AssistantButtons
           active={activeAssistant}
           onToggle={toggleAssistant}
@@ -7366,6 +7380,44 @@ const PresentationView = ({
               : undefined
           }
         />
+      )}
+
+      {/* Phone/tablet: one measured strip owns every frequent solving action.
+          It rises with the actual Floating Number workspace and leaves no
+          reserved space when that workspace is closed. */}
+      {canEdit && touchLayout && (
+        <div
+          data-sb-chrome
+          className="absolute left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full border p-1 shadow-lg backdrop-blur"
+          style={{
+            bottom: `calc(${touchControlsBottom}px + env(safe-area-inset-bottom))`,
+            background: palette.chromeBg,
+            color: palette.chromeFg,
+            borderColor: palette.chromeBorder,
+          }}
+        >
+          {[
+            { label: "Eraser", disabled: false, action: () => setEraseMode((value) => !value), icon: <Eraser className="h-4 w-4" /> },
+            { label: "Floating numbers", disabled: false, action: () => toggleAssistant("numbers"), icon: <Hash className="h-4 w-4" /> },
+            { label: "Undo", disabled: !canUndo, action: doUndo, icon: <Undo2 className="h-4 w-4" /> },
+            { label: "Redo", disabled: !canRedo, action: doRedo, icon: <Redo2 className="h-4 w-4" /> },
+            { label: "Previous section", disabled: beatCursor <= 0, action: () => setBeatCursor((cursor) => Math.max(0, cursor - 1)), icon: <ChevronLeft className="h-4 w-4" /> },
+            { label: "Next section", disabled: !canAdvanceBeat, action: () => setBeatCursor((cursor) => Math.min(beats.length - 1, cursor + 1)), icon: <ChevronRight className="h-4 w-4" /> },
+          ].map((control) => (
+            <button
+              key={control.label}
+              type="button"
+              onClick={control.action}
+              disabled={control.disabled}
+              aria-label={control.label}
+              title={control.label}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full transition disabled:opacity-30"
+              style={{ background: control.label === "Eraser" && eraseMode ? palette.accent : palette.hoverBg }}
+            >
+              {control.icon}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Left-rail CursorScrollbar REMOVED — it duplicated the SensorDPad's
@@ -7395,6 +7447,7 @@ const PresentationView = ({
           canLeft={canCursorLeft}
           canRight={canCursorRight}
           bottomPx={16}
+          touchLayout={touchLayout}
         />
       )}
 
@@ -7424,7 +7477,8 @@ const PresentationView = ({
 
 
 
-      {/* ── Assessment mode: top progress strip + per-line Check button ── */}
+      {/* Assessment controls. Touch gets one compact row; desktop retains its
+          established progress strip. Manual Check Line UI has been removed. */}
       {assessmentMode && (
         <>
           <div
@@ -7432,16 +7486,22 @@ const PresentationView = ({
             // element and stacks itself underneath, so the two never overlap.
             data-board-chrome="top"
             ref={mobileStudent ? chromeMeasureRef : undefined}
-            className={
-              mobileStudent
-                // MOBILE STUDENT MODE — same controls, reflowed into a compact
-                // panel so the question number line always stays visible.
-                ? "absolute left-2 right-2 top-2 z-[60] flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border px-2 py-1.5 shadow-lg backdrop-blur"
-                : "absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"
-            }
+            className={mobileStudent
+              ? "absolute left-1 right-1 top-1 z-[60] flex min-w-0 items-center justify-between gap-1 rounded-lg border px-1.5 py-1 shadow-md backdrop-blur"
+              : "absolute left-1/2 top-3 z-[60] -translate-x-1/2 flex max-w-[94vw] items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg backdrop-blur"}
             style={{ background: palette.chromeBg, color: palette.chromeFg, borderColor: palette.chromeBorder }}
           >
-            {backTo ? (
+            {mobileStudent && touchSession ? (
+              <button
+                type="button"
+                onClick={touchSession.onBack}
+                aria-label={touchSession.backLabel}
+                title={touchSession.backLabel}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            ) : backTo ? (
               <a
                 href={backTo}
                 aria-label={backLabel}
@@ -7459,20 +7519,20 @@ const PresentationView = ({
               </BackButton>
             )}
 
-            {!mobileBoard.phone && (
+            {!mobileStudent && (
               <span className="truncate text-sm font-semibold max-w-[34vw]">{source?.title ?? "Assignment"}</span>
             )}
 
-            {beats.length > 1 && (
-              <div className={mobileStudent ? "flex w-full flex-wrap items-center gap-1" : "flex items-center gap-1"}>
-                {beats.map((b, i) => (
+            {(mobileStudent ? questionWindow.length > 0 : beats.length > 1) && (
+              <div className="flex min-w-0 items-center gap-1">
+                {(mobileStudent ? questionWindow : beats.map((_beat, index) => index)).map((i) => (
                   <button
-                    key={b.id}
-                    onClick={() => setBeatCursor(i)}
+                    key={i}
+                    onClick={() => changeTouchQuestion(i)}
                     className={`grid place-items-center rounded-full border font-medium transition ${
                       mobileStudent ? "h-8 min-w-8 px-2 text-[13px]" : "h-6 min-w-6 px-2 text-[11px]"
                     }`}
-                    style={i === beatCursor
+                    style={i === touchQuestionIndex
                       ? { background: palette.accent, color: palette.chromeBg, borderColor: palette.accent }
                       : { borderColor: palette.chromeBorder }}
                     title={`Question ${i + 1}`}
@@ -7486,7 +7546,7 @@ const PresentationView = ({
             {/* Per-line ticks for the current question.
                 Top row  = PERMANENT ACHIEVEMENT (mastered, never removed)
                 Bottom row = CURRENT ATTEMPT (timer only, cleared by Reset) */}
-            {hasGuidedLines && (
+            {hasGuidedLines && !mobileStudent && (
               <div className="flex flex-col gap-1">
                 <div className={`flex items-center gap-1 ${mobileStudent ? "flex-wrap" : ""}`} title="Mastered">
                   {guidedLines.map((ln, k) => {
@@ -7529,12 +7589,12 @@ const PresentationView = ({
               </div>
             )}
 
-            <div className="ml-1 rounded-lg px-2 py-1 text-sm font-bold tabular-nums" style={{ background: palette.hoverBg }}>
-              {assessScore} <span className="opacity-60">/ {assessTotal}</span>
+            <div className="shrink-0 rounded-lg px-1.5 py-1 text-xs font-bold tabular-nums" style={{ background: palette.hoverBg }}>
+              {touchSession?.score ?? assessScore} <span className="opacity-60">/ {touchSession?.totalScore ?? assessTotal}</span>
             </div>
 
             {/* Attempt timer — HH:MM:SS, best time, and Reset (new attempt). */}
-            {timer.active && (
+            {timer.active && !mobileStudent && (
               <div className="inline-flex items-center gap-1.5">
                 <span
                   className="rounded-md px-2 py-1 text-xs font-semibold tabular-nums"
@@ -7574,14 +7634,14 @@ const PresentationView = ({
             )}
 
             {/* Zoom controls */}
-            <div className="inline-flex items-center gap-0.5 rounded-md" style={{ background: palette.hoverBg }}>
-              <button
+            <div className="inline-flex shrink-0 items-center gap-0.5 rounded-md" style={{ background: palette.hoverBg }}>
+              {!mobileStudent && <button
                 onClick={() => applyZoom(zoom - ZOOM_STEP)}
                 className="px-2 py-1 text-base leading-none"
                 aria-label="Zoom out"
                 title="Zoom out"
-              >−</button>
-              <button
+              >−</button>}
+              {!mobileStudent && <button
                 onClick={() => applyZoom(1)}
                 className="px-2 py-1 tabular-nums text-[10px]"
                 aria-label="Reset zoom"
@@ -7594,8 +7654,22 @@ const PresentationView = ({
                 className="px-2 py-1 text-base leading-none"
                 aria-label="Zoom in"
                 title="Zoom in"
-              >+</button>
+              >+</button>}
             </div>
+
+            {mobileStudent && (
+              <button
+                type="button"
+                onClick={() => { void resetAttempt(); }}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                aria-label="Reset attempt"
+                title="Reset attempt"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            )}
+
+            {mobileStudent && touchSession?.videoControl}
 
             {/* Board Settings — same sheet the teacher Smartboard uses. */}
             <button
@@ -7607,109 +7681,19 @@ const PresentationView = ({
             >
               <SettingsIcon className="h-4 w-4" />
             </button>
-          </div>
 
-          {/* CHECK EVALUATION VIEW — shows the student's own expression with the
-              verdict. It never replaces or clears the board. */}
-          {checkView && (
-            <div
-              className="absolute inset-0 z-[80] flex items-end justify-end p-6"
-              onClick={() => setCheckView(null)}
-            >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-md rounded-2xl border p-5 shadow-2xl backdrop-blur"
-                style={{ background: palette.chromeBg, borderColor: palette.accent, color: palette.ink }}
-                role="dialog"
-                aria-label="Check result"
+            {mobileStudent && (
+              <button
+                type="button"
+                onClick={() => { void toggleTouchFullscreen(); }}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                aria-label={touchSession?.fullscreen ? "Exit full screen" : "Full screen"}
+                title={touchSession?.fullscreen ? "Exit full screen" : "Full screen"}
               >
-                <div className="text-xs uppercase tracking-wide opacity-70">
-                  Line {checkView.lineNo} · Check result
-                </div>
-                <div className="mt-3 text-xs uppercase tracking-wide opacity-70">Your line</div>
-                <div className="mt-1 rounded-lg border px-3 py-2 text-lg" style={{ borderColor: palette.accent }}>
-                  {checkView.studentAscii
-                    ? <span dangerouslySetInnerHTML={{ __html: renderMathInline(checkView.studentAscii) }} />
-                    : <span className="opacity-60 text-sm">Nothing written on this line yet.</span>}
-                </div>
-                <div className="mt-4 text-base font-semibold" style={{ color: checkView.correct ? palette.accent : "#e11d48" }}>
-                  {checkView.label}
-                </div>
-                <div className="mt-1 text-sm opacity-80">{checkView.detail}</div>
-                {checkView.correct && (
-                  <div className="mt-2 text-sm font-semibold tabular-nums">+{checkView.marks} marks</div>
-                )}
-                <button
-                  onClick={() => setCheckView(null)}
-                  className="mt-5 w-full rounded-full px-4 py-2 text-sm font-semibold"
-                  style={{ background: palette.accent, color: palette.chromeBg }}
-                >
-                  Back to board
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Per-line Check menu — grades any line server-side (grade-line).
-              Hidden entirely in View Only mode; returns in Edit mode. */}
-          {hasGuidedLines && canEdit && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  disabled={assessChecking || guidedLines.length === 0}
-                  className={`absolute right-4 z-[60] inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-xl backdrop-blur transition disabled:opacity-50 ${touchLayout ? "" : "bottom-6 right-6"}`}
-                  style={{
-                    background: palette.accent,
-                    color: palette.chromeBg,
-                    borderColor: palette.accent,
-                    ...(touchLayout ? { bottom: touchControlsBottom } : null),
-                  }}
-                >
-                  {assessChecking
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <CheckIcon className="h-4 w-4" />}
-                  Check
-                  <span className="opacity-70 text-xs tabular-nums">
-                    {guidedLines.reduce((n, _l, k) => {
-                      const s = slotFor(k);
-                      return n + (s && s in solvedSlots ? 1 : 0);
-                    }, 0)}/{guidedLines.length}
-                  </span>
-                  <ChevronDownIcon className="h-4 w-4 opacity-80" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="top" className="min-w-[220px] z-[70]">
-                <DropdownMenuLabel>Check any line</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {guidedLines.map((ln, k) => {
-                  const slot = slotFor(k);
-                  const solved = !!slot && slot in solvedSlots;
-                  const isLast = k === guidedLines.length - 1;
-                  const label = isLast ? `Check Final Line (Line ${k + 1})` : `Check Line ${k + 1}`;
-                  return (
-                    <DropdownMenuItem
-                      key={k}
-                      onSelect={(e) => { e.preventDefault(); checkActiveLine(k); }}
-                      className="flex items-center gap-2"
-                    >
-                      <span
-                        className="grid h-5 w-5 place-items-center rounded-full border text-[10px]"
-                        style={solved
-                          ? { background: "rgba(34,197,94,0.18)", color: "#16a34a", borderColor: "rgba(34,197,94,0.5)" }
-                          : { borderColor: "currentColor", opacity: 0.55 }}
-                      >
-                        {solved ? <CheckIcon className="h-3 w-3" /> : k + 1}
-                      </span>
-                      <span className="flex-1">{label}</span>
-                      {typeof ln.marks === "number" && ln.marks > 0 && (
-                        <span className="text-[11px] opacity-60 tabular-nums">{ln.marks}m</span>
-                      )}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                {touchSession?.fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
         </>
       )}
 
