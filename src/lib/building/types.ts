@@ -96,6 +96,14 @@ export interface Building {
   name: string;
   source_building_id: string | null;
   environment: EnvironmentSettings;
+  /**
+   * The building's own rotating exterior (artwork slots, background, speed, or a
+   * whole replacement building). Each building carries its own, so switching
+   * building switches the outside as well as the inside.
+   */
+  exterior_config?: Record<string, unknown> | null;
+  /** One picture that stands for the building when browsing the collection. */
+  thumbnail_url?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

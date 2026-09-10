@@ -1892,34 +1892,40 @@ export type Database = {
         Row: {
           created_at: string
           environment: Json
+          exterior_config: Json
           id: string
           is_active: boolean
           name: string
           org_id: string | null
           owner_id: string
           source_building_id: string | null
+          thumbnail_url: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           environment?: Json
+          exterior_config?: Json
           id?: string
           is_active?: boolean
           name?: string
           org_id?: string | null
           owner_id: string
           source_building_id?: string | null
+          thumbnail_url?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           environment?: Json
+          exterior_config?: Json
           id?: string
           is_active?: boolean
           name?: string
           org_id?: string | null
           owner_id?: string
           source_building_id?: string | null
+          thumbnail_url?: string | null
           updated_at?: string
         }
         Relationships: [
