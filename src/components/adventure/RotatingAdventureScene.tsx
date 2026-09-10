@@ -406,9 +406,15 @@ export const RotatingAdventureScene = ({
   configMode = "self",
   ownerUserId,
   showAds = false,
-
+  configOverride,
 }: {
   routeFor?: (route: string) => string;
+  /**
+   * Render one specific building's own exterior instead of the account's live
+   * one — used when browsing the building collection, where every building
+   * shows its own outside.
+   */
+  configOverride?: import("@/lib/homepage/homepageConfig").HomepageConfig | null;
   /** Students view the academy; segments are not clickable for them. */
   interactive?: boolean;
   /**
@@ -428,7 +434,11 @@ export const RotatingAdventureScene = ({
   const gpu = useWebglRecovery("homepage-building");
   const [painted, setPainted] = useState(false);
   const [artworkReady, setArtworkReady] = useState(false);
-  const { config, ready } = useHomepageConfig({ mode: configMode, ...(ownerUserId ? { ownerUserId } : {}) });
+  const { config: liveConfig, ready } = useHomepageConfig({ mode: configMode, ...(ownerUserId ? { ownerUserId } : {}) });
+  // When one specific building is being shown, that building's own exterior is
+  // the truth; otherwise the account's live homepage building is.
+  const config =
+    configOverride && Object.keys(configOverride).length > 0 ? configOverride : liveConfig;
 
   const slotUrls = useResolvedSlotUrls(config.slotOverrides);
   const buildingVersion = configMode === "platform-free" ? "free" : "pro";

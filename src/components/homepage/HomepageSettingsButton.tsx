@@ -35,10 +35,10 @@ const OPTIONS = [
     body: "Change the pictures inside the original MathGPL building and set how fast it rotates. Position, curve, perspective and size stay exactly as designed.",
   },
   {
-    to: "/academy/edit",
+    to: "/buildings",
     icon: LibraryBig,
-    title: "Building Gallery",
-    body: "Every complete building ever saved. Open one and it arrives whole — outside, rooms, hallways, windows and screens together.",
+    title: "Building",
+    body: "Your collection of complete buildings, shown one at a time. Each one arrives whole — outside, hallways, rooms, windows and screens together — and you choose which one to use.",
   },
 ];
 

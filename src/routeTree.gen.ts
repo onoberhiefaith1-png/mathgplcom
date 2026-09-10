@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as AdventureRouteRouteImport } from './routes/adventure/route'
+import { Route as BuildingsRouteImport } from './routes/buildings'
 import { Route as ClassRouteRouteImport } from './routes/class/route'
 import { Route as CommunityRouteRouteImport } from './routes/community/route'
 import { Route as CourseBuilderRouteRouteImport } from './routes/course-builder/route'
@@ -340,6 +341,11 @@ const AdminRouteRoute = AdminRouteRouteImport.update({
 const AdventureRouteRoute = AdventureRouteRouteImport.update({
   id: '/adventure',
   path: '/adventure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BuildingsRoute = BuildingsRouteImport.update({
+  id: '/buildings',
+  path: '/buildings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClassRouteRoute = ClassRouteRouteImport.update({
@@ -2083,6 +2089,7 @@ export interface FileRoutesByFullPath {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/buildings': typeof BuildingsRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
@@ -2390,6 +2397,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/class': typeof ClassRouteRouteWithChildren
+  '/buildings': typeof BuildingsRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
@@ -2710,6 +2718,7 @@ export interface FileRoutesById {
   '/smartboard': typeof SmartboardRouteRouteWithChildren
   '/student': typeof StudentRouteRouteWithChildren
   '/teaching-hub': typeof TeachingHubRouteRouteWithChildren
+  '/buildings': typeof BuildingsRoute
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
@@ -3031,6 +3040,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/buildings'
     | '/status'
     | '/welcome'
     | '/academy/edit'
@@ -3338,6 +3348,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/class'
+    | '/buildings'
     | '/status'
     | '/welcome'
     | '/academy/edit'
@@ -3657,6 +3668,7 @@ export interface FileRouteTypes {
     | '/smartboard'
     | '/student'
     | '/teaching-hub'
+    | '/buildings'
     | '/status'
     | '/welcome'
     | '/academy/edit'
@@ -3977,6 +3989,7 @@ export interface RootRouteChildren {
   SmartboardRouteRoute: typeof SmartboardRouteRouteWithChildren
   StudentRouteRoute: typeof StudentRouteRouteWithChildren
   TeachingHubRouteRoute: typeof TeachingHubRouteRouteWithChildren
+  BuildingsRoute: typeof BuildingsRoute
   StatusRoute: typeof StatusRoute
   WelcomeRoute: typeof WelcomeRoute
   AcademyEditRoute: typeof AcademyEditRoute
@@ -4125,6 +4138,13 @@ declare module '@tanstack/react-router' {
       path: '/adventure'
       fullPath: '/adventure'
       preLoaderRoute: typeof AdventureRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/buildings': {
+      id: '/buildings'
+      path: '/buildings'
+      fullPath: '/buildings'
+      preLoaderRoute: typeof BuildingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/class': {
@@ -6894,6 +6914,7 @@ const rootRouteChildren: RootRouteChildren = {
   SmartboardRouteRoute: SmartboardRouteRouteWithChildren,
   StudentRouteRoute: StudentRouteRouteWithChildren,
   TeachingHubRouteRoute: TeachingHubRouteRouteWithChildren,
+  BuildingsRoute: BuildingsRoute,
   StatusRoute: StatusRoute,
   WelcomeRoute: WelcomeRoute,
   AcademyEditRoute: AcademyEditRoute,

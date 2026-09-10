@@ -371,6 +371,39 @@ export async function duplicateBuilding(
   return (data as unknown as Building) ?? null;
 }
 
+/**
+ * Remove ONE building from the collection. Everything inside it (hallways,
+ * doors, rooms, locks, frames, screens) belongs to that building and goes with
+ * it; every other building is untouched, and no course, adventure or assignment
+ * is ever deleted because doors only ever point at them.
+ */
+export async function deleteBuilding(id: string): Promise<void> {
+  const { error } = await supabase.from("buildings").delete().eq("id", id);
+  fail(error);
+}
+
+/** Store a building's own rotating exterior on the building itself. */
+export async function updateBuildingExterior(
+  id: string,
+  exterior: Record<string, unknown>,
+  thumbnailUrl?: string | null,
+): Promise<void> {
+  const patch: Record<string, unknown> = { exterior_config: exterior };
+  if (thumbnailUrl !== undefined) patch.thumbnail_url = thumbnailUrl;
+  const { error } = await supabase.from("buildings").update(patch as never).eq("id", id);
+  fail(error);
+}
+
+/** "Building 3" — the next free name in this workspace's collection. */
+export const nextBuildingName = (existing: { name: string }[]): string => {
+  const used = new Set(existing.map((b) => b.name.trim().toLowerCase()));
+  for (let n = existing.length + 1; n < existing.length + 200; n += 1) {
+    const candidate = `Building ${n}`;
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  return `Building ${Date.now()}`;
+};
+
 // ── Textures ──────────────────────────────────────────────────────────────
 
 /**
