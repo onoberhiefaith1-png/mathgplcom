@@ -86,7 +86,7 @@ const BuildingsGalleryPage = () => {
       await activateBuilding(current.id, orgId ?? null);
       await applyExterior(exteriorOf(current));
       toast.success(`“${current.name}” is now your building`);
-      void navigate({ to: "/" });
+      navigate("/");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "That building could not be opened");
     } finally {
