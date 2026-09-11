@@ -433,6 +433,31 @@ export const mirrorLessonNoteRow = (raw: string): MirrorRowResult => {
   return second;
 };
 
+/** Join Floating Number chips into one board-ready source string WITHOUT
+ *  losing structure at the chip boundaries.
+ *
+ *  Each chip is lifted on its own (so `2x²` keeps its power exactly as the
+ *  panel shows it) and carries the previous chip's tail as base context, so a
+ *  chip that starts with a raised character still attaches to the base before
+ *  it. Never re-parse the glued string: that is what dropped powers to full
+ *  height on the main and classroom boards. */
+export const joinChipsForMirror = (chips: string[]): string => {
+  const parts: string[] = [];
+  let tail = "";
+  for (const raw of chips) {
+    const chip = raw ?? "";
+    const lifted = liftUnicodeScripts(chip, tail);
+    parts.push(lifted);
+    if (chip.trim()) tail = chip;
+  }
+  return parts.join(" ");
+};
+
+/** Count the structural scripts in a source string — used as a round-trip
+ *  guard that a converted line kept every power/index of its chips. */
+export const countScripts = (s: string): number =>
+  (s.match(/[\^_]\{/g) ?? []).length;
+
 /* ─────────── Legacy text-only API (kept for older callers) ─────────── */
 
 export interface MirrorResult {
