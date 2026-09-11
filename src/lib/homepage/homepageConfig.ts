@@ -274,7 +274,7 @@ export function useHomepageConfig(options?: {
       }
 
     },
-    [mode, apply],
+    [mode, buildingId, apply],
   );
 
 
