@@ -393,7 +393,7 @@ export const FloatingNumberPanel = ({
   const unconsumedOfLine = (k: number): number[] => {
     const line = lines[k];
     if (!line) return [];
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    const consumed = consumedIdx ?? new Set<number>();
     const out: number[] = [];
     for (let i = line.fragmentStart; i < line.fragmentEnd; i++) if (!consumed.has(i)) out.push(i);
     return out;
@@ -402,7 +402,7 @@ export const FloatingNumberPanel = ({
   const consumedOfLine = (k: number): number[] => {
     const line = lines[k];
     if (!line) return [];
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    const consumed = consumedIdx ?? new Set<number>();
     const out: number[] = [];
     for (let i = line.fragmentStart; i < line.fragmentEnd; i++) if (consumed.has(i)) out.push(i);
     return out;
@@ -439,20 +439,20 @@ export const FloatingNumberPanel = ({
         .map((idx) => ({ token: fragments[idx], absIdx: idx }))
         .filter((s) => s.token.trim().length > 0);
     }
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    const consumed = consumedIdx ?? new Set<number>();
     return fragments
       .map((token, idx) => ({ token, absIdx: idx }))
       .filter((s) => consumed.has(s.absIdx) && s.token.trim().length > 0);
-  }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fragments, useLineMode, activeLineIdx, consumedIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   /** REMAINING (unused) flow — allSlots in teacher's saved order with
    *  consumed chips removed. It is not repeated while used chips exist: the
    *  conveyor must exhaust this hidden queue, then pull from Used oldest-first. */
   const remaining = useMemo<Slot[]>(() => {
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    const consumed = consumedIdx ?? new Set<number>();
     return allSlots.filter((s) => !consumed.has(s.absIdx));
-  }, [allSlots, consumedAbsIdx]);
+  }, [allSlots, consumedIdx]);
 
   // Reset window position whenever beat or active line changes — the panel
   // always opens on the first chip of the new line, showing no used numbers.
@@ -474,7 +474,7 @@ export const FloatingNumberPanel = ({
   // longer used, append any newly-consumed ones (the tap handler already appends
   // in tap order; this effect covers resets/undo/external changes).
   useEffect(() => {
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    const consumed = consumedIdx ?? new Set<number>();
     setUsedOrder((prev) => {
       const kept = prev.filter((i) => consumed.has(i));
       const present = new Set(kept);
@@ -483,7 +483,7 @@ export const FloatingNumberPanel = ({
       added.sort((a, b) => a - b);
       return added.length === 0 && kept.length === prev.length ? prev : [...kept, ...added];
     });
-  }, [consumedAbsIdx]);
+  }, [consumedIdx]);
 
   // Used numbers for the active line, ordered MOST-RECENT FIRST so the last
   // chip the teacher tapped sits leftmost in the used zone (reversed view).
