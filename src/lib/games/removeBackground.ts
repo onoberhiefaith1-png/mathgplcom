@@ -40,6 +40,79 @@ const canvasToPng = (canvas: HTMLCanvasElement): Promise<Blob> =>
   });
 
 /**
+ * Remove colour stored in transparent pixels and decontaminate the narrow
+ * semi-transparent outline from nearby opaque subject pixels. Texture sampling
+ * blends RGB even when alpha is near zero, so an old backdrop colour can appear
+ * as a bright roof halo after an otherwise successful cutout is curved in 3D.
+ */
+export const cleanTransparentImageEdges = async (blob: Blob): Promise<Blob> => {
+  const bitmap = await createImageBitmap(blob);
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return blob;
+    ctx.drawImage(bitmap, 0, 0);
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const source = new Uint8ClampedArray(image.data);
+    const { width: w, height: h } = canvas;
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const alpha = source[i + 3] ?? 0;
+        if (alpha <= 20) {
+          image.data[i] = 0;
+          image.data[i + 1] = 0;
+          image.data[i + 2] = 0;
+          image.data[i + 3] = 0;
+          continue;
+        }
+        if (alpha >= 245) continue;
+
+        // Use only close, substantially opaque neighbours. This changes the
+        // hidden matte colour, not the building's visible opaque pixels.
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+        let samples = 0;
+        for (let oy = -2; oy <= 2; oy++) {
+          const ny = y + oy;
+          if (ny < 0 || ny >= h) continue;
+          for (let ox = -2; ox <= 2; ox++) {
+            const nx = x + ox;
+            if (nx < 0 || nx >= w || (ox === 0 && oy === 0)) continue;
+            const ni = (ny * w + nx) * 4;
+            if ((source[ni + 3] ?? 0) < 245) continue;
+            red += source[ni] ?? 0;
+            green += source[ni + 1] ?? 0;
+            blue += source[ni + 2] ?? 0;
+            samples++;
+          }
+        }
+        if (samples > 0) {
+          image.data[i] = Math.round(red / samples);
+          image.data[i + 1] = Math.round(green / samples);
+          image.data[i + 2] = Math.round(blue / samples);
+        }
+      }
+    }
+
+    ctx.putImageData(image, 0, 0);
+    return await canvasToPng(canvas);
+  } finally {
+    bitmap.close();
+  }
+};
+
+/** Lossless building cutout with edge cleanup for repeated curved textures. */
+export const makeBuildingTransparent = async (
+  file: File,
+  opts: MakeTransparentOptions = {},
+): Promise<Blob> => cleanTransparentImageEdges(await makeTransparent(file, opts));
+
+/**
  * Region-aware cut for a flat-backdrop image: the backdrop is only what is
  * connected to the edge of the frame, so white signage or glass inside the
  * building is never removed, and opaque pixels are left untouched.
