@@ -16,6 +16,7 @@ const ClassSmartBoardLauncher = () => {
   const [className, setClassName] = useState("");
   const [visibility, setVisibility] = useState<"teacher_only" | "student_access_enabled">("teacher_only");
   const [notes, setNotes] = useState<AttachedNote[]>([]);
+  const [liveId, setLiveId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!classId) return;
