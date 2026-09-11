@@ -56,7 +56,18 @@ const StudentSmartBoardPage = () => {
       lastLoadedRef.current = next;
       return next;
     }
-    const next = { name: cls?.name ?? "", accessEnabled: access, notebookId: state?.notebook_id ?? null };
+    // A deleted lesson note must never turn the student board into a dead
+    // "Notebook not found" screen: treat it as "waiting for the teacher".
+    let liveId = state?.notebook_id ?? null;
+    if (liveId) {
+      const { data: nb } = await supabase
+        .from("notebooks")
+        .select("id")
+        .eq("id", liveId)
+        .maybeSingle();
+      if (!nb) liveId = null;
+    }
+    const next = { name: cls?.name ?? "", accessEnabled: access, notebookId: liveId };
     setClassName(next.name);
     setAccessEnabled(next.accessEnabled);
     setActiveNotebookId(next.notebookId);
