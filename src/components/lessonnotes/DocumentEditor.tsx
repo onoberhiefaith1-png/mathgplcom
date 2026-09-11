@@ -599,7 +599,7 @@ function DocumentEditorInner({
 }: Props) {
   /** Platform chrome translates; the teacher's own writing never does. */
   const tLabel = useT();
-  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
+  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool, showPoints: geometryShowPoints } = useGeometryMode();
   /** Whole-lesson AI assist belongs to MathGPL Builder mode only. */
   const builderAi = useBuilderAiVisible();
   // When a school looks through a teacher's workspace the page is identical;
