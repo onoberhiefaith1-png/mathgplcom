@@ -16,7 +16,7 @@ export const en = {
   nav_classes: "Classes",
   nav_my_classes: "My Classes",
   nav_adventure: "Adventure",
-  nav_skill_builder: "Skill Builder",
+  nav_skill_builder: "Courses",
   nav_live: "MathGPL Live",
   nav_plan: "Plan",
   nav_plans: "Plans",

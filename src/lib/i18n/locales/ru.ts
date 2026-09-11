@@ -11,7 +11,7 @@ export const ru: Catalogue = {
   nav_classes: "Классы",
   nav_my_classes: "Мои классы",
   nav_adventure: "Приключение",
-  nav_skill_builder: "Тренажёр навыков",
+  nav_skill_builder: "Курсы",
   nav_live: "MathGPL Live",
   nav_plan: "Тариф",
   nav_plans: "Тарифы",

@@ -11,7 +11,7 @@ export const bn: Catalogue = {
   nav_classes: "শ্রেণি",
   nav_my_classes: "আমার শ্রেণি",
   nav_adventure: "অভিযান",
-  nav_skill_builder: "দক্ষতা গঠন",
+  nav_skill_builder: "কোর্স",
   nav_live: "MathGPL লাইভ",
   nav_plan: "প্ল্যান",
   nav_plans: "প্ল্যানসমূহ",
