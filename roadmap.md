@@ -41,6 +41,6 @@
 
 # Building master-image cleanup
 
-- [ ] Remove residual colour from transparent building edges without changing the building artwork.
-- [ ] Add independent Remove background actions to the outer and inner master images.
-- [ ] Verify master duplication, individual re-cutting, and the rotating building preview.
+- [x] Remove residual colour from transparent building edges without changing the building artwork.
+- [x] Add independent Remove background actions to the outer and inner master images.
+- [x] Verify the editor controls, cutout tests, and type safety; live application requires the user's selected image.
