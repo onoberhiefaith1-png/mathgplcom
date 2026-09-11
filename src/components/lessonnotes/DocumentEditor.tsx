@@ -3941,7 +3941,7 @@ function NotebookGeometryOverlay({
     if (!tiptapEditor) return;
     const key = notebookId ?? "note";
     if (doneRef.current === key) return;
-    const type = tiptapEditor.schema.nodes.geometryDiagram;
+    const type = tiptapEditor.schema?.nodes?.geometryDiagram;
     if (!type) return;
 
     const run = () => {
