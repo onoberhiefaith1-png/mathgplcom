@@ -6971,6 +6971,16 @@ const PresentationView = ({
                   }}
                   activeLineIdx={hasGuidedLines ? curLineIdx : undefined}
                   consumedAbsIdx={consumedAbsIdx}
+                  /* Live classroom: one shared floating workspace. The editing
+                     client publishes its arrangement and strip state; every
+                     other client renders exactly that (all null elsewhere). */
+                  sharedReservoir={sharedFloatingReservoir}
+                  sharedUsed={sharedFloatingUsed}
+                  sharedUsedOrder={sharedFloatingUsedOrder}
+                  sharedView={sharedFloatingView}
+                  onFloatingViewChange={syncEnabled && canEdit ? handleFloatingViewChange : undefined}
+                  onUsedOrderChange={syncEnabled && canEdit ? handleFloatingUsedOrderChange : undefined}
+
                   onUse={(absIdx) =>
                     setConsumedAbsIdx((prev) => {
                       const next = new Set(prev);
