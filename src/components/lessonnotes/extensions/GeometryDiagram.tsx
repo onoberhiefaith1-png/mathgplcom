@@ -316,20 +316,21 @@ function GeometryDiagramView({
           <div
             data-geometry-barrier="upper"
             aria-hidden
-            className="pointer-events-none absolute left-0 right-0 top-0 h-0 border-t-2 border-primary/70"
+            className="pointer-events-none absolute left-0 right-0 top-0 h-0 border-t-2 border-geometry-barrier"
           />
-          {/* MOVABLE LOWER BARRIER — carries the up/down control. */}
+          {/* MOVABLE LOWER BARRIER — carries move up / move down / delete. */}
           <div
             data-geometry-barrier="lower"
-            className="absolute left-0 right-0 bottom-0 h-0 border-t-2 border-primary/70"
+            className="absolute left-0 right-0 bottom-0 h-0 border-t-2 border-geometry-barrier"
           >
             <div
-              className="absolute right-2 -top-4 z-20 inline-flex items-center rounded border border-primary/40 bg-background/95 shadow-sm"
+              className="absolute right-2 -top-4 z-20 inline-flex items-center rounded border border-geometry-barrier bg-background/95 shadow-sm"
               onPointerDown={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
-                title="Reduce the drawing area"
+                title="Move the lower barrier up (less drawing space)"
+                aria-label="Move the lower barrier up"
                 className="px-1.5 py-0.5 text-[11px] text-foreground hover:bg-foreground/10"
                 onClick={(e) => { e.stopPropagation(); nudge(-60); }}
               >
@@ -338,17 +339,27 @@ function GeometryDiagramView({
               <span
                 title="Drag to resize the drawing area"
                 onPointerDown={startResize}
-                className="cursor-ns-resize select-none border-x border-primary/30 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                className="cursor-ns-resize select-none border-x border-foreground/20 px-1.5 py-0.5 text-[10px] text-muted-foreground"
               >
                 ⇕
               </span>
               <button
                 type="button"
-                title="Enlarge the drawing area"
+                title="Move the lower barrier down (more drawing space)"
+                aria-label="Move the lower barrier down"
                 className="px-1.5 py-0.5 text-[11px] text-foreground hover:bg-foreground/10"
                 onClick={(e) => { e.stopPropagation(); nudge(60); }}
               >
                 ▼
+              </button>
+              <button
+                type="button"
+                title="Close the 2D workspace"
+                aria-label="Close the 2D workspace"
+                className="border-l border-foreground/20 px-1.5 py-0.5 text-foreground/70 hover:bg-foreground/10 hover:text-red-500"
+                onClick={(e) => { e.stopPropagation(); deleteNode(); }}
+              >
+                <Trash2 className="h-3 w-3" />
               </button>
             </div>
           </div>
