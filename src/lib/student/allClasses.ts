@@ -222,7 +222,7 @@ export type GlobalSkill = {
   blockedBy: string | null;
 };
 
-/** Courses pathways from every enrolled class, honouring the teacher's locks. */
+/** course pathways from every enrolled class, honouring the teacher's locks. */
 export async function mySkillBuilders(): Promise<GlobalSkill[]> {
   const uid = await ownerId();
   const classes = await myClasses();

@@ -21,7 +21,7 @@ export type ChildOverview = {
   assignments: number;
   /** Share of assigned adventures the child has finished. */
   adventures: number;
-  /** Average Courses pathway progress. */
+  /** Average course pathway progress. */
   skillBuilder: number;
 };
 

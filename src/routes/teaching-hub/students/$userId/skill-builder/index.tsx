@@ -6,9 +6,9 @@ export const Route = createFileRoute("/teaching-hub/students/$userId/skill-build
   head: () => ({
     meta: [
       { title: "Courses — MathGPL" },
-      { name: "description", content: "Courses pathways for this student. Read only." },
+      { name: "description", content: "course pathways for this student. Read only." },
       { property: "og:title", content: "Courses — MathGPL" },
-      { property: "og:description", content: "Courses pathways for this student. Read only." },
+      { property: "og:description", content: "course pathways for this student. Read only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },

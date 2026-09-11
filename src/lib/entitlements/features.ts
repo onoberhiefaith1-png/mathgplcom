@@ -83,7 +83,7 @@ export const UPGRADE_COPY: Partial<Record<FeatureKey, string>> = {
     "AI generation is available on a paid plan. Upgrade to generate solutions, lesson notes and covers.",
   assignments: "Assignments are available on a paid plan. Upgrade to set and mark work for your classes.",
   adventure: "Adventure is available on a paid plan. Upgrade to run adventures with your students.",
-  skill_builder: "Courses is available on a paid plan. Upgrade to build and publish skill courses.",
+  skill_builder: "Courses is available on a paid plan. Upgrade to build and publish courses.",
   reports: "Reports are available on a paid plan. Upgrade to see class and student reporting.",
   progress_tracking: "Progress tracking is available on a paid plan. Upgrade to follow student progress over time.",
   advanced_assessment: "Advanced assessment is available on a paid plan. Upgrade to use the full assessment engine.",
