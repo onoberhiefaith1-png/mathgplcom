@@ -250,10 +250,24 @@ function GeometryDiagramView({
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const regionHeight = dragHeight ?? storedHeight;
 
-  // BARRIERS — layout boundaries that belong ONLY to 2D Geometry mode. They are
-  // pure mode UI: never nodes, never saved, never shown in other modes.
+  // BARRIERS — the real boundary of the 2D workspace. They are pure mode UI:
+  // never nodes, never saved, never printed, never shown in other modes.
+  // Between them is the drawable region; left/right are the page edges.
   const barriersOn = !!geometryModeOn && !!selected;
   const barrierHeight = Math.max(MIN_REGION, regionHeight || DEFAULT_REGION);
+  // Measured page width of the region, so the drawing surface covers the whole
+  // space between the barriers instead of a fixed box inside it.
+  const [regionWidth, setRegionWidth] = useState(0);
+  useEffect(() => {
+    if (!barriersOn) return;
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setRegionWidth(Math.round(el.getBoundingClientRect().width));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [barriersOn]);
 
   // Entering 2D on a fresh figure opens a usable drawing region straight away.
   useEffect(() => {
