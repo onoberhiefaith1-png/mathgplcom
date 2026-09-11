@@ -242,20 +242,36 @@ function GeometryDiagramView({
 
   // ── OWN VERTICAL REGION ────────────────────────────────────────────────
   // The block reserves real height in the document, so the text underneath
-  // always starts below the figure. Dragging the bottom edge grows the region
+  // always starts below the figure. Dragging the lower barrier grows the region
   // and pushes the following content down; shrinking pulls it back up.
+  const MIN_REGION = 160;
+  const DEFAULT_REGION = 320;
   const storedHeight = Math.max(0, Number(node.attrs.height) || 0);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const regionHeight = dragHeight ?? storedHeight;
+
+  // BARRIERS — layout boundaries that belong ONLY to 2D Geometry mode. They are
+  // pure mode UI: never nodes, never saved, never shown in other modes.
+  const barriersOn = !!geometryModeOn && !!selected;
+  const barrierHeight = Math.max(MIN_REGION, regionHeight || DEFAULT_REGION);
+
+  // Entering 2D on a fresh figure opens a usable drawing region straight away.
+  useEffect(() => {
+    if (!barriersOn) return;
+    if (storedHeight >= MIN_REGION) return;
+    updateAttributes({ height: DEFAULT_REGION });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barriersOn]);
 
   const startResize = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
     const base = wrapRef.current?.getBoundingClientRect().height ?? storedHeight;
-    let next = Math.max(80, Math.round(base));
+    let next = Math.max(MIN_REGION, Math.round(base));
     const onMove = (ev: PointerEvent) => {
-      next = Math.max(80, Math.round(base + (ev.clientY - startY)));
+      // Clamped: the lower barrier can never rise above the fixed upper one.
+      next = Math.max(MIN_REGION, Math.round(base + (ev.clientY - startY)));
       setDragHeight(next);
     };
     const onUp = () => {
@@ -268,12 +284,62 @@ function GeometryDiagramView({
     window.addEventListener("pointerup", onUp);
   };
 
+  const nudge = (delta: number) => {
+    const base = regionHeight || DEFAULT_REGION;
+    updateAttributes({ height: Math.max(MIN_REGION, Math.round(base + delta)) });
+  };
+
   return (
     <NodeViewWrapper
       data-geometry-diagram-node="true"
       className={cn("my-5 flex w-full clear-both relative", containerAlign)}
       contentEditable={false}
+      style={barriersOn ? { minHeight: barrierHeight } : undefined}
     >
+      {barriersOn && (
+        <>
+          {/* FIXED UPPER BARRIER — full page width, never moves. */}
+          <div
+            data-geometry-barrier="upper"
+            aria-hidden
+            className="pointer-events-none absolute left-0 right-0 top-0 h-0 border-t-2 border-primary/70"
+          />
+          {/* MOVABLE LOWER BARRIER — carries the up/down control. */}
+          <div
+            data-geometry-barrier="lower"
+            className="absolute left-0 right-0 bottom-0 h-0 border-t-2 border-primary/70"
+          >
+            <div
+              className="absolute right-2 -top-4 z-20 inline-flex items-center rounded border border-primary/40 bg-background/95 shadow-sm"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                title="Reduce the drawing area"
+                className="px-1.5 py-0.5 text-[11px] text-foreground hover:bg-foreground/10"
+                onClick={(e) => { e.stopPropagation(); nudge(-60); }}
+              >
+                ▲
+              </button>
+              <span
+                title="Drag to resize the drawing area"
+                onPointerDown={startResize}
+                className="cursor-ns-resize select-none border-x border-primary/30 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+              >
+                ⇕
+              </span>
+              <button
+                type="button"
+                title="Enlarge the drawing area"
+                className="px-1.5 py-0.5 text-[11px] text-foreground hover:bg-foreground/10"
+                onClick={(e) => { e.stopPropagation(); nudge(60); }}
+              >
+                ▼
+              </button>
+            </div>
+          </div>
+        </>
+      )}
       <div
         ref={wrapRef}
         data-geometry-diagram-wrapper="true"
@@ -281,7 +347,9 @@ function GeometryDiagramView({
         className="relative inline-block"
         style={{
           overflow: "visible",
-          ...(regionHeight ? { minHeight: regionHeight } : null),
+          ...(barriersOn
+            ? { minHeight: barrierHeight, width: "100%" }
+            : regionHeight ? { minHeight: regionHeight } : null),
         }}
 
         onMouseEnter={kickAi}
