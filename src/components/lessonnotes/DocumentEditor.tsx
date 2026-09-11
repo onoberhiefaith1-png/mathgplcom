@@ -3993,7 +3993,9 @@ function NotebookGeometryOverlay({
       saveNotebookGeometry(notebookId, EMPTY_SCENE);
     };
 
-    const t = window.setTimeout(run, 60);
+    // A migration hiccup must never break the note.
+    const t = window.setTimeout(() => { try { run(); } catch { /* noop */ } }, 60);
+
     return () => window.clearTimeout(t);
   }, [tiptapEditor, notebookId]);
 
