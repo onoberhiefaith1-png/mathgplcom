@@ -241,7 +241,7 @@ const normalizeFloatingPresence = (raw: string): string => {
     /([+\-−])?([⁰¹²³⁴⁵⁶⁷⁸⁹]+)[⁄/]([₀₁₂₃₄₅₆₇₈₉]+)([a-zA-Z]*)/g,
     (_m, sign = "", num, den, tail = "") => `${sign}${fromPresenceDigits(num, PRESENCE_SUP_DIGIT)}${tail}/${fromPresenceDigits(den, PRESENCE_SUB_DIGIT)}`,
   );
-  for (const [glyph, ascii] of Object.entries(PRESENCE_SUP)) s = s.split(glyph).join(ascii);
+  s = liftPresenceScripts(s);
   return s
     .toLowerCase()
     .replace(/\s+/g, "")
@@ -251,7 +251,12 @@ const normalizeFloatingPresence = (raw: string): string => {
     .replace(/√/g, "sqrt")
     .replace(/\*\*/g, "^")
     .replace(/\(([^()]+)\)\/\(([^()]+)\)/g, "$1/$2")
-    .replace(/\^\(([^()]{1,3})\)/g, "^$1");
+    // One key for every written form of a script: `^{n}`, `^(n)` and `_(n)`
+    // all reduce to `^n` / `_n`, and a single-atom base loses its board
+    // parentheses so `(a)^(m)` matches the chip `a^{m}`.
+    .replace(/([\^_])\{([^{}]*)\}/g, "$1($2)")
+    .replace(/([\^_])\(([^()]*)\)/g, "$1$2")
+    .replace(/\(([a-z0-9]{1,2})\)(?=[\^_])/g, "$1");
 };
 
 const countTokenOccurrences = (haystack: string, needle: string): number => {
