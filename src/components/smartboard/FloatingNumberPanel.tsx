@@ -324,6 +324,12 @@ export const FloatingNumberPanel = ({
   onMeasure,
   phoneCompact = false,
   phoneControls,
+  sharedReservoir = null,
+  sharedUsed = null,
+  sharedUsedOrder = null,
+  sharedView = null,
+  onFloatingViewChange,
+  onUsedOrderChange,
 
 }: Props) => {
   const sbRoot = useSmartboardRoot();
@@ -338,7 +344,36 @@ export const FloatingNumberPanel = ({
   // first when scrolling Backward (most-recently-relevant per the spec).
   const [usedOrder, setUsedOrder] = useState<number[]>([]);
   const [reentryOffset, setReentryOffset] = useState<number>(0);
-  const reservoir = reservoirs[viewIdx];
+
+  // Live classroom receiver: adopt the publisher's strip window and use order
+  // instead of computing our own, so both boards show the same chips.
+  useEffect(() => {
+    if (!sharedView) return;
+    setReveal(sharedView.reveal);
+    setOffset(sharedView.offset);
+    setReentryOffset(sharedView.reentryOffset);
+  }, [sharedView?.reveal, sharedView?.offset, sharedView?.reentryOffset]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!sharedUsedOrder) return;
+    setUsedOrder((prev) =>
+      prev.length === sharedUsedOrder.length && prev.every((v, i) => v === sharedUsedOrder[i])
+        ? prev
+        : [...sharedUsedOrder],
+    );
+  }, [sharedUsedOrder]);
+
+  // Live classroom publisher: report our strip window / use order so every
+  // other client in the class renders the identical workspace.
+  useEffect(() => {
+    onFloatingViewChange?.({ reveal, offset, reentryOffset });
+  }, [reveal, offset, reentryOffset, onFloatingViewChange]);
+  useEffect(() => {
+    onUsedOrderChange?.(usedOrder);
+  }, [usedOrder, onUsedOrderChange]);
+
+  // The shared arrangement wins when the classroom publishes one; it is never
+  // rebuilt locally, so chip order and grouping cannot drift between clients.
+  const reservoir = sharedReservoir ?? reservoirs[viewIdx];
   const fragments = useMemo<string[]>(
     // Extraction only — the master token from Present Preview passes through
     // the internal validation stage and reaches the display unchanged.
@@ -346,6 +381,10 @@ export const FloatingNumberPanel = ({
     [reservoir],
   );
   const lines: ReservoirLine[] = reservoir?.lines ?? [];
+  // Consumption is shared state in a classroom: identity comes from the
+  // publisher, never from a local re-scan of the ink.
+  const consumedIdx = sharedUsed ?? consumedAbsIdx;
+
 
   const viewingActive = viewIdx === activeIdx;
   const useLineMode =
