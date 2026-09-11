@@ -1457,16 +1457,19 @@ const PresentationView = ({
     if (incoming.inkColorId) setInkColorId(incoming.inkColorId as InkColorId);
     if (incoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(incoming.placeholderColorId));
     // SAME floating number, not a copy: the active line activates on every
-    // board at the same instant, even where its panel is hidden.
+    // board at the same instant, even while its panel is hidden.
     if (typeof incoming.activeLineIdx === "number") setActiveLineIdxState(incoming.activeLineIdx);
     if (typeof incoming.lineEngaged === "boolean") setLineEngaged(incoming.lineEngaged);
+    // The shared floating arrangement and its per-chip state, addressed by id.
+    if (incoming.floating !== undefined) setRemoteFloating(incoming.floating ?? null);
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
   }, [incoming, syncEnabled, selfId]);
 
   // ── Live mirroring: broadcast local board state while we hold edit rights. ──
-  // The floating-number workspace (active line + engagement) is declared later
-  // in this component, so it reaches this effect through a ref plus a tick.
+  // The floating-number workspace (active line, engagement, shared arrangement)
+  // is declared later in this component, so it reaches this effect through a ref
+  // plus a tick.
   useEffect(() => {
     if (!syncEnabled || !canEdit) return;
     if (applyingRemoteRef.current) return;
@@ -1475,6 +1478,7 @@ const PresentationView = ({
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
       activeLineIdx: floatingSyncRef.current.activeLineIdx,
       lineEngaged: floatingSyncRef.current.lineEngaged,
+      floating: floatingSyncRef.current.floating ?? null,
     });
   }, [
     syncEnabled, canEdit, pushSnapshot,
@@ -1482,6 +1486,7 @@ const PresentationView = ({
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
     floatingSyncTick,
   ]);
+
 
 
 
