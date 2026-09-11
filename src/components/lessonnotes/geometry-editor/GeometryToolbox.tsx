@@ -58,7 +58,7 @@ export function GeometryToolbox({ inline = false, onExit, chrome }: {
   /** Host chrome colours (Smartboard) so the panel blends with the board. */
   chrome?: { bg: string; fg: string; border: string };
 } = {}) {
-  const { mode, setMode, tool, setTool, annotationDraft, setAnnotationDraft } = useGeometryMode();
+  const { mode, setMode, tool, setTool, annotationDraft, setAnnotationDraft, showPoints, setShowPoints } = useGeometryMode();
   const [expanded, setExpanded] = useState<boolean>(() => {
     try { return localStorage.getItem(KEY) !== "0"; } catch { return true; }
   });
