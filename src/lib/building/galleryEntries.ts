@@ -72,6 +72,28 @@ export async function listGalleryEntries(options: {
   return (data ?? []) as GalleryEntry[];
 }
 
+/**
+ * Every published building of one kind, with the exterior saved on the entry so
+ * the selector can show the building's own face. Used by the Building Selector,
+ * where the collection is browsed one complete building at a time.
+ */
+export async function listGalleryShelf(kind: GalleryKind): Promise<
+  (GalleryEntry & { exterior_config: unknown; exterior_thumbnail: string | null })[]
+> {
+  const { data, error } = await table("building_gallery_entries")
+    .select(
+      "id, kind, name, description, category_slug, template_building_id, publisher_id, published, published_at, exterior_config, exterior_thumbnail",
+    )
+    .eq("kind", kind)
+    .eq("published", true)
+    .order("published_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as (GalleryEntry & {
+    exterior_config: unknown;
+    exterior_thumbnail: string | null;
+  })[];
+}
+
 export const GALLERY_KIND_LABEL: Record<GalleryKind, string> = {
   official: "MathGPL Gallery",
   community: "Community",
