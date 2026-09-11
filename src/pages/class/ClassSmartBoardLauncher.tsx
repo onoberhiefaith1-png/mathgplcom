@@ -38,6 +38,13 @@ const ClassSmartBoardLauncher = () => {
       .select("id, title, teacher, class_name, session, subject, color_index")
       .in("id", ids);
     setNotes((nbs ?? []) as AttachedNote[]);
+    // Which note the class is watching right now.
+    const { data: live } = await supabase
+      .from("class_smartboard_state")
+      .select("notebook_id")
+      .eq("class_id", classId)
+      .maybeSingle();
+    setLiveId((live as { notebook_id?: string | null } | null)?.notebook_id ?? null);
   }, [classId]);
 
   useEffect(() => {
