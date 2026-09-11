@@ -176,11 +176,61 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
     const s = snap(src, x, y);
     if (s.pointId) return { id: s.pointId, scene: src };
     const op = addPoint(src, s.x, s.y);
+    // POINT DISALIGNED (default) — the construction point is kept in the
+    // geometry (so lengths, angles and dragging still work) but it carries no
+    // dot and no A/B/C label, so the line itself is all the teacher sees.
+    const created = op.addedIds[0];
+    const shaped = showPoints
+      ? op
+      : {
+          ...op,
+          scene: {
+            ...op.scene,
+            objects: op.scene.objects.map((o) =>
+              o.id === created && o.type === "point"
+                ? { ...o, hidden: true, label: "", auto: true }
+                : o,
+            ),
+          },
+        };
     // `apply` returns the scene actually stored, so chained ops in the same
     // click work off the freshest figure instead of a stale snapshot.
-    const stored = apply(op);
-    return { id: op.addedIds[0], scene: stored ?? op.scene };
+    const stored = apply(shaped);
+    return { id: created, scene: stored ?? shaped.scene };
   };
+
+  // Switching the Point control never rebuilds the figure: it only reveals or
+  // suppresses the construction points it created.
+  const prevShowPoints = useRef<boolean | null>(null);
+  useEffect(() => {
+    const prev = prevShowPoints.current;
+    prevShowPoints.current = showPoints;
+    if (prev === null || prev === showPoints) return;
+    let changed = false;
+    let letter = 0;
+    const used = new Set(
+      scene.objects
+        .filter((o) => o.type === "point" && (o as GeoPoint).label)
+        .map((o) => (o as GeoPoint).label as string),
+    );
+    const nextLetter = () => {
+      while (letter < 26) {
+        const l = String.fromCharCode(65 + letter++);
+        if (!used.has(l)) { used.add(l); return l; }
+      }
+      return "";
+    };
+    const objects = scene.objects.map((o) => {
+      if (o.type !== "point" || !(o as GeoPoint).auto) return o;
+      const p = o as GeoPoint;
+      changed = true;
+      return showPoints
+        ? { ...p, hidden: false, label: p.label || nextLetter() }
+        : { ...p, hidden: true, label: "" };
+    });
+    if (changed) commit({ ...scene, objects });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPoints]);
 
 
   const onPointerMove = (e: React.PointerEvent) => {
