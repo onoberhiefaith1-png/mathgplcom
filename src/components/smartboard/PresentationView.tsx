@@ -5095,7 +5095,7 @@ const PresentationView = ({
       // writeProseLineOnBoard is idempotent by first-paragraph row signature,
       // so re-issuing with an extended prefix rewrites into the same owned
       // row rather than piling up new rows.
-      writeProseLineOnBoard(fillers.join(" "));
+      writeProseLineOnBoard(joinChipsForMirror(fillers));
     },
     [writeProseLineOnBoard],
   );
