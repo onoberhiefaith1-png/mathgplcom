@@ -128,7 +128,9 @@ export const liftUnicodeScripts = (src: string, prevTail = ""): string => {
     let j = i;
     while (j < src.length && map[src[j]] !== undefined) { body += map[src[j]]; j++; }
     // A script needs something to sit on; a stray glyph stays literal.
-    const hasBase = /[A-Za-z0-9)\]}□]$/.test(out);
+    const hasBase = out.length > 0
+      ? /[A-Za-z0-9)\]}□]$/.test(out)
+      : /[A-Za-z0-9)\]}□]/.test(seed);
     if (!hasBase) {
       // `⁵√(32)` — with nothing to the left, those digits are a ROOT INDEX.
       // Leave them for the radical parser.
