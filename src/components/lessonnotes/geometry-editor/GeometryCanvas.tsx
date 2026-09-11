@@ -45,11 +45,15 @@ interface Props {
   emphasisIds?: GeoId[];
   /** Uniform visual zoom for the drawing surface (geometry is unchanged). */
   zoom?: number;
+  /** 2D workspace: the drawable region between the barriers, in page pixels.
+   *  The surface fills it, so the teacher can draw anywhere inside. */
+  regionW?: number;
+  regionH?: number;
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightIds, relatedIds, emphasisIds, zoom }: Props) {
+export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightIds, relatedIds, emphasisIds, zoom, regionW, regionH }: Props) {
   // One factor for width AND height — the figure can never be distorted.
   const zoomFactor = Number.isFinite(zoom) && (zoom as number) > 0 ? (zoom as number) : 1;
 
