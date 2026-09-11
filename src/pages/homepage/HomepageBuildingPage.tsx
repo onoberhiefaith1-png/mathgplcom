@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@/lib/router-compat";
+import { Link, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, Gauge, RotateCcw, Scissors, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,10 @@ import {
  */
 const HomepageBuildingPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
-  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode });
+  // Opened from a building's own Settings: the outside of THAT building.
+  const [params] = useSearchParams();
+  const buildingId = params.get("building");
+  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode, buildingId });
   // Pro and Free are separate pages with their own default artwork.
   const slots = slotsForVersion(version);
   // Draft artwork. Nothing reaches the building until Save is pressed.
@@ -254,7 +257,7 @@ const HomepageBuildingPage = () => {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-6 px-6 pb-16">
-        {canSwitch && (
+        {canSwitch && !buildingId && (
           <BuildingVersionSelector version={version} onChange={setVersion} seeding={seeding} />
         )}
         <p className="text-sm text-muted-foreground">

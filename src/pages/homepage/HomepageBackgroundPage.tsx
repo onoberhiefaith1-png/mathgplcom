@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@/lib/router-compat";
+import { Link, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, RotateCcw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,10 @@ import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
 /** Change Background — touches the background layer only. */
 const HomepageBackgroundPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
-  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode });
+  // A background opened from a building's own Settings belongs to THAT building.
+  const [params] = useSearchParams();
+  const buildingId = params.get("building");
+  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode, buildingId });
   const [draft, setDraft] = useState<HomepageMediaRef | null>(null);
   const [library, setLibrary] = useState(false);
   const [kind, setKind] = useState<AssetKind>("background");
@@ -73,7 +76,7 @@ const HomepageBackgroundPage = () => {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-6 px-6 pb-16">
-        {canSwitch && (
+        {canSwitch && !buildingId && (
           <BuildingVersionSelector version={version} onChange={setVersion} seeding={seeding} />
         )}
         <p className="text-sm text-muted-foreground">

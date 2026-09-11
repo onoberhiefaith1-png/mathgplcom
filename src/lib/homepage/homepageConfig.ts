@@ -124,9 +124,19 @@ export async function fetchPlatformFreeBuilding(): Promise<HomepageConfig> {
  * Everyone reads it; only the platform owner can write it (enforced in the
  * database), and it is never cached into this account's local storage.
  */
-export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUserId?: string }) {
+export function useHomepageConfig(options?: {
+  mode?: HomepageConfigMode;
+  ownerUserId?: string;
+  /**
+   * PER-BUILDING EXTERIOR. When a building id is given, the exterior being read
+   * and written is that building's own `exterior_config` — never the account's
+   * homepage. This is what keeps every building's face with the building.
+   */
+  buildingId?: string | null;
+}) {
   const mode = options?.mode ?? "self";
   const ownerUserId = options?.ownerUserId;
+  const buildingId = options?.buildingId ?? null;
   // Start empty so SSR and the first client render agree; local cache is
   // applied after hydration.
   const [config, setConfig] = useState<HomepageConfig>({});
@@ -145,6 +155,19 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUs
     let alive = true;
     void (async () => {
       try {
+      // ONE BUILDING = ONE COMPLETE ENVIRONMENT: this building's own exterior.
+      if (buildingId) {
+        const { data } = await supabase
+          .from("buildings")
+          .select("exterior_config")
+          .eq("id", buildingId)
+          .maybeSingle();
+        if (!alive) return;
+        const remote = ((data as { exterior_config?: unknown } | null)?.exterior_config ??
+          null) as HomepageConfig | null;
+        apply(remote && typeof remote === "object" ? remote : {});
+        return;
+      }
       // A named account's own building: a student entering a school's or a
       // teacher's workspace sees that owner's building, never their own.
       if (ownerUserId) {
@@ -203,7 +226,7 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUs
     return () => {
       alive = false;
     };
-  }, [mode, ownerUserId, apply]);
+  }, [mode, ownerUserId, buildingId, apply]);
 
 
   /**
@@ -221,8 +244,17 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUs
       setSaving(true);
       const next: HomepageConfig = { ...configRef.current, ...patch };
       apply(next);
-      if (mode === "self") writeLocal(next);
+      // A per-building edit never touches the account's homepage or its cache.
+      if (mode === "self" && !buildingId) writeLocal(next);
       try {
+        if (buildingId) {
+          const { error } = await supabase
+            .from("buildings")
+            .update({ exterior_config: next as never })
+            .eq("id", buildingId);
+          if (error) throw error;
+          return;
+        }
         if (mode === "platform-free") {
           const { error } = await supabase.rpc("set_platform_free_building", { _config: next as never });
           if (error) throw error;
@@ -242,7 +274,7 @@ export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUs
       }
 
     },
-    [mode, apply],
+    [mode, buildingId, apply],
   );
 
 
