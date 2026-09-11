@@ -110,11 +110,17 @@ const ClassSmartBoardLauncher = () => {
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {notes.map((n) => (
-              <NotebookCover
-                key={n.id}
-                notebook={n}
-                onClick={() => navigate(`/smartboard/${n.id}?classId=${classId}`)}
-              />
+              <div key={n.id} className="relative">
+                {liveId === n.id && (
+                  <span className="absolute -top-2 left-2 z-10 rounded-full border border-green-500/40 bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-300">
+                    Live now
+                  </span>
+                )}
+                <NotebookCover
+                  notebook={n}
+                  onClick={() => navigate(`/smartboard/${n.id}?classId=${classId}`)}
+                />
+              </div>
             ))}
           </div>
         )}
