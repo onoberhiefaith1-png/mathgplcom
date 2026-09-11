@@ -154,7 +154,8 @@ const StudentSmartBoardPage = () => {
         >
           <ArrowLeft className="h-3.5 w-3.5" /> {className || "Class"}
         </Link>
-        <PresentationView notebookId={activeNotebookId} classId={classId} role="student" />
+        {/* Remount on switch so nothing from the previous lesson note lingers. */}
+        <PresentationView key={activeNotebookId} notebookId={activeNotebookId} classId={classId} role="student" />
       </div>
     );
   }
