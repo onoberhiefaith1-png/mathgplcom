@@ -30,7 +30,10 @@ import {
  */
 const HomepageBuildingPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
-  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode });
+  // Opened from a building's own Settings: the outside of THAT building.
+  const [params] = useSearchParams();
+  const buildingId = params.get("building");
+  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode, buildingId });
   // Pro and Free are separate pages with their own default artwork.
   const slots = slotsForVersion(version);
   // Draft artwork. Nothing reaches the building until Save is pressed.
