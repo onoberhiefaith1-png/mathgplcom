@@ -132,8 +132,6 @@ export const liftUnicodeScripts = (src: string): string => {
     out += `${map === UNI_SUP ? "^" : "_"}{${body}}`;
     i = j;
     continue;
-    out += `${map === UNI_SUP ? "^" : "_"}{${body}}`;
-    i = j;
   }
   return out;
 };
