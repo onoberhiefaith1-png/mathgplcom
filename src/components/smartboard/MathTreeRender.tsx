@@ -462,12 +462,15 @@ const NodeView = ({
             display: "inline-block",
             fontSize: "0.66em",
             lineHeight: 1,
-            verticalAlign: "super",
-            transform: "translateY(0.06em)",
+            // Parent is a flex container, so `vertical-align` is IGNORED here.
+            // Raise the exponent with a transform instead, or a power renders
+            // flat/low (the `b²` → `b₂` bug).
+            transform: "translateY(-0.6em)",
             marginLeft: 1,
           }}>
             {R(1)}
           </span>
+
           <RightEscape parentPath={parentPath} idxInRow={idxInRow} onCursorChange={onCursorChange} />
         </span>
       );
@@ -479,8 +482,8 @@ const NodeView = ({
             display: "inline-block",
             fontSize: "0.66em",
             lineHeight: 1,
-            verticalAlign: "super",
-            transform: "translateY(0.06em)",
+            transform: "translateY(-0.6em)",
+
             marginLeft: 1,
           }}>
             {R(0)}
@@ -496,8 +499,8 @@ const NodeView = ({
             display: "inline-block",
             fontSize: "0.66em",
             lineHeight: 1,
-            verticalAlign: "sub",
-            transform: "translateY(-0.04em)",
+            transform: "translateY(0.25em)",
+
             marginLeft: 1,
           }}>
             {R(0)}
@@ -525,8 +528,8 @@ const NodeView = ({
                 display: "inline-block",
                 fontSize: "0.66em",
                 lineHeight: 1,
-                verticalAlign: singleSup ? "super" : "sub",
-                transform: singleSup ? "translateY(0.06em)" : "translateY(-0.04em)",
+                transform: singleSup ? "translateY(-0.6em)" : "translateY(0.25em)",
+
                 marginLeft: 1,
               }}>
                 {singleSup ? R(2) : R(1)}
