@@ -147,7 +147,17 @@ import { Circle as CircleIcon,
   Table as TableIcon, LineChart as LineChartIcon, Calculator as CalculatorIcon,
   ArrowLeftRight as ArrowLeftRightIcon, Columns2 } from "lucide-react";
 
-import { useSmartboardSync } from "@/hooks/useSmartboardSync";
+import { useSmartboardSync, type FloatingShared } from "@/hooks/useSmartboardSync";
+import SyncDiagnosticsPanel from "@/components/smartboard/SyncDiagnosticsPanel";
+
+import {
+  buildFloatingLines,
+  chipIdsForAbsIdx,
+  reservoirFromShared,
+  sharedConsumedSet,
+  sharedUsedOrderIdx,
+} from "@/lib/smartboard/floatingShared";
+
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 import { studentGradingKey } from "@/lib/assessments/studentGrading";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
@@ -456,8 +466,9 @@ const PresentationView = ({
 
 
   // Live classroom mirroring (disabled in assessment mode).
-  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent } =
+  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent, diagnostics: syncDiagnostics } =
     useSmartboardSync({ classId: assessmentMode ? null : classIdProp, role });
+
   const syncEnabled = !!classIdProp && !assessmentMode;
   // In assessment mode the student edits their OWN board (canEdit true) but no
   // teacher-only chrome is shown.
@@ -1420,8 +1431,18 @@ const PresentationView = ({
   // Floating-number workspace mirror (declared before the sync effects; the
   // state itself lives further down). The student's floating number is the
   // SAME shared object, so its activation travels with every board frame.
-  const floatingSyncRef = useRef({ activeLineIdx: 0, lineEngaged: false });
+  const floatingSyncRef = useRef<{ activeLineIdx: number; lineEngaged: boolean; floating: FloatingShared | null }>(
+    { activeLineIdx: 0, lineEngaged: false, floating: null },
+  );
+
   const [floatingSyncTick, setFloatingSyncTick] = useState(0);
+  /** The shared floating workspace as published by whoever holds edit rights.
+   *  Receivers render THIS, never a locally re-derived arrangement. */
+  const [remoteFloating, setRemoteFloating] = useState<FloatingShared | null>(null);
+  /** Strip window + use order of the shared floating workspace (publisher side). */
+  const [floatingView, setFloatingView] = useState({ reveal: 0, offset: 0, reentryOffset: 0 });
+  const [floatingUsedOrderIdx, setFloatingUsedOrderIdx] = useState<number[]>([]);
+
 
 
   // ── Live mirroring: apply remote board snapshots authored by someone else. ──
@@ -1442,16 +1463,19 @@ const PresentationView = ({
     if (incoming.inkColorId) setInkColorId(incoming.inkColorId as InkColorId);
     if (incoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(incoming.placeholderColorId));
     // SAME floating number, not a copy: the active line activates on every
-    // board at the same instant, even where its panel is hidden.
+    // board at the same instant, even while its panel is hidden.
     if (typeof incoming.activeLineIdx === "number") setActiveLineIdxState(incoming.activeLineIdx);
     if (typeof incoming.lineEngaged === "boolean") setLineEngaged(incoming.lineEngaged);
+    // The shared floating arrangement and its per-chip state, addressed by id.
+    if (incoming.floating !== undefined) setRemoteFloating(incoming.floating ?? null);
     const t = window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
     return () => window.clearTimeout(t);
   }, [incoming, syncEnabled, selfId]);
 
   // ── Live mirroring: broadcast local board state while we hold edit rights. ──
-  // The floating-number workspace (active line + engagement) is declared later
-  // in this component, so it reaches this effect through a ref plus a tick.
+  // The floating-number workspace (active line, engagement, shared arrangement)
+  // is declared later in this component, so it reaches this effect through a ref
+  // plus a tick.
   useEffect(() => {
     if (!syncEnabled || !canEdit) return;
     if (applyingRemoteRef.current) return;
@@ -1460,6 +1484,7 @@ const PresentationView = ({
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
       activeLineIdx: floatingSyncRef.current.activeLineIdx,
       lineEngaged: floatingSyncRef.current.lineEngaged,
+      floating: floatingSyncRef.current.floating ?? null,
     });
   }, [
     syncEnabled, canEdit, pushSnapshot,
@@ -1467,6 +1492,7 @@ const PresentationView = ({
     sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
     floatingSyncTick,
   ]);
+
 
 
 
@@ -2777,7 +2803,7 @@ const PresentationView = ({
   // Feed the live-mirroring effect above: any activation of the shared
   // floating number publishes on the very next frame, with no debounce.
   useEffect(() => {
-    floatingSyncRef.current = { activeLineIdx, lineEngaged };
+    floatingSyncRef.current = { ...floatingSyncRef.current, activeLineIdx, lineEngaged };
     setFloatingSyncTick((n) => n + 1);
   }, [activeLineIdx, lineEngaged]);
 
@@ -2947,6 +2973,84 @@ const PresentationView = ({
   const activeReservoir = activeReservoirIdx >= 0 ? reservoirs[activeReservoirIdx] : undefined;
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
+
+  /* ── LIVE CLASSROOM: the floating number is ONE shared object ─────────────
+     The client holding edit rights publishes the arrangement itself (lines and
+     chips with stable ids) plus which chips are used and how the strip window
+     sits. Every other client renders exactly that. Nothing here runs on other
+     boards, which keep their present local behaviour. */
+  const sharedFloatingResId = activeReservoir?.beatId ?? "";
+  const publishedFloatingLines = useMemo(
+    () =>
+      syncEnabled && canEdit && activeReservoir
+        ? buildFloatingLines(sharedFloatingResId, activeReservoir)
+        : null,
+    [syncEnabled, canEdit, activeReservoir, sharedFloatingResId],
+  );
+  const floatingOut = useMemo<FloatingShared | null>(() => {
+    if (!publishedFloatingLines) return null;
+    return {
+      resId: sharedFloatingResId,
+      viewIdx: viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx),
+      activeIdx: activeReservoirIdx,
+      lineIdx: activeLineIdx,
+      lines: publishedFloatingLines,
+      usedOrder: chipIdsForAbsIdx(publishedFloatingLines, floatingUsedOrderIdx),
+      reveal: floatingView.reveal,
+      offset: floatingView.offset,
+      reentryOffset: floatingView.reentryOffset,
+    };
+  }, [
+    publishedFloatingLines, sharedFloatingResId, viewReservoirIdx, activeReservoirIdx,
+    activeLineIdx, floatingUsedOrderIdx, floatingView,
+  ]);
+  // Publish through the same ref+tick channel as the rest of the workspace, so
+  // a floating operation leaves on the very next frame with no debounce.
+  useEffect(() => {
+    floatingSyncRef.current = { ...floatingSyncRef.current, floating: floatingOut };
+    setFloatingSyncTick((n) => n + 1);
+  }, [floatingOut]);
+
+  // Receiver side: render the publisher's arrangement and per-chip state.
+  const sharedFloatingActive = syncEnabled && !canEdit && !!remoteFloating;
+  const sharedFloatingReservoir = useMemo(
+    () => (sharedFloatingActive && remoteFloating ? reservoirFromShared(remoteFloating, activeReservoir) : null),
+    [sharedFloatingActive, remoteFloating, activeReservoir],
+  );
+  const sharedFloatingUsed = useMemo(
+    () => (sharedFloatingActive && remoteFloating ? sharedConsumedSet(remoteFloating, remoteFloating.usedOrder) : null),
+    [sharedFloatingActive, remoteFloating],
+  );
+  const sharedFloatingUsedOrder = useMemo(
+    () => (sharedFloatingActive && remoteFloating ? sharedUsedOrderIdx(remoteFloating, remoteFloating.usedOrder) : null),
+    [sharedFloatingActive, remoteFloating],
+  );
+  const sharedFloatingView = useMemo(
+    () =>
+      sharedFloatingActive && remoteFloating
+        ? { reveal: remoteFloating.reveal, offset: remoteFloating.offset, reentryOffset: remoteFloating.reentryOffset }
+        : null,
+    [sharedFloatingActive, remoteFloating],
+  );
+  const handleFloatingViewChange = useCallback(
+    (v: { reveal: number; offset: number; reentryOffset: number }) => {
+      if (!syncEnabled || !canEdit) return;
+      setFloatingView((prev) =>
+        prev.reveal === v.reveal && prev.offset === v.offset && prev.reentryOffset === v.reentryOffset ? prev : v,
+      );
+    },
+    [syncEnabled, canEdit],
+  );
+  const handleFloatingUsedOrderChange = useCallback(
+    (order: number[]) => {
+      if (!syncEnabled || !canEdit) return;
+      setFloatingUsedOrderIdx((prev) =>
+        prev.length === order.length && prev.every((v, i) => v === order[i]) ? prev : [...order],
+      );
+    },
+    [syncEnabled, canEdit],
+  );
+
 
   /* ── Table Activity ──────────────────────────────────────────────
      A highlighted Smart Table's lines are ONE lesson step. While that
@@ -6870,6 +6974,16 @@ const PresentationView = ({
                   }}
                   activeLineIdx={hasGuidedLines ? curLineIdx : undefined}
                   consumedAbsIdx={consumedAbsIdx}
+                  /* Live classroom: one shared floating workspace. The editing
+                     client publishes its arrangement and strip state; every
+                     other client renders exactly that (all null elsewhere). */
+                  sharedReservoir={sharedFloatingReservoir}
+                  sharedUsed={sharedFloatingUsed}
+                  sharedUsedOrder={sharedFloatingUsedOrder}
+                  sharedView={sharedFloatingView}
+                  onFloatingViewChange={syncEnabled && canEdit ? handleFloatingViewChange : undefined}
+                  onUsedOrderChange={syncEnabled && canEdit ? handleFloatingUsedOrderChange : undefined}
+
                   onUse={(absIdx) =>
                     setConsumedAbsIdx((prev) => {
                       const next = new Set(prev);
@@ -7925,8 +8039,10 @@ const PresentationView = ({
           />
         </div>
       )}
+      {syncEnabled && <SyncDiagnosticsPanel diagnostics={syncDiagnostics} />}
       </div>
       </SmartboardRootContext.Provider>
+
       {/* Headless Preview Channel runner — renders nothing. One preview
           click = one deterministic board write through the independent
           preview channel (never through the Floating Number path). */}

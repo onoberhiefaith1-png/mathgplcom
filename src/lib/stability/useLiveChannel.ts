@@ -30,13 +30,22 @@ export type LiveChannelOptions = {
   build: (channel: RealtimeChannel) => void;
   /** Called after a successful join — resync server state here. */
   onJoined?: () => void;
+  /**
+   * Transport liveness. `true` only between a successful JOIN and the next
+   * error/timeout/close. Senders must queue while this is false: a send down a
+   * half-open socket is silently downgraded and the frame is lost.
+   */
+  onStatus?: (joined: boolean) => void;
 };
 
-export function useLiveChannel({ key, enabled = true, private: isPrivate = true, build, onJoined }: LiveChannelOptions): void {
+export function useLiveChannel({ key, enabled = true, private: isPrivate = true, build, onJoined, onStatus }: LiveChannelOptions): void {
   const buildRef = useRef(build);
   buildRef.current = build;
   const joinedRef = useRef(onJoined);
   joinedRef.current = onJoined;
+  const statusRef = useRef(onStatus);
+  statusRef.current = onStatus;
+
 
   useEffect(() => {
     if (!enabled || !key) return;
@@ -59,10 +68,12 @@ export function useLiveChannel({ key, enabled = true, private: isPrivate = true,
         if (cancelled) return;
         if (status === "SUBSCRIBED") {
           attempt = 0;
+          statusRef.current?.(true);
           joinedRef.current?.();
           return;
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          statusRef.current?.(false);
           if (attempt >= 8) return;
           attempt += 1;
           const wait = Math.min(15_000, 500 * 2 ** (attempt - 1)) * (0.7 + Math.random() * 0.6);
@@ -78,8 +89,10 @@ export function useLiveChannel({ key, enabled = true, private: isPrivate = true,
       cancelled = true;
       window.clearTimeout(retryTimer);
       dropChannel(key);
+      statusRef.current?.(false);
       releaseResource(resourceId);
     };
+
   }, [key, enabled, isPrivate]);
 }
 

@@ -280,7 +280,27 @@ interface Props {
   phoneCompact?: boolean;
   phoneControls?: React.ReactNode;
 
+  // ── LIVE CLASSROOM SHARED WORKSPACE ──────────────────────────────────────
+  // In a live classroom the floating number is ONE shared object. The client
+  // holding edit rights publishes its arrangement and strip state; every other
+  // client renders exactly that, never a locally re-derived copy. Both groups
+  // of props are absent on every other board, which keeps its present local
+  // behaviour untouched.
+  /** Receiver: the publisher's arrangement, used instead of the local one. */
+  sharedReservoir?: Reservoir | null;
+  /** Receiver: chips the publisher has consumed (absolute indexes of the
+   *  shared arrangement). */
+  sharedUsed?: Set<number> | null;
+  /** Receiver: exact use order, so the used zone reads identically. */
+  sharedUsedOrder?: number[] | null;
+  /** Receiver: strip window state (revealed used chips + rotation). */
+  sharedView?: { reveal: number; offset: number; reentryOffset: number } | null;
+  /** Publisher: report strip window state for the shared workspace. */
+  onFloatingViewChange?: (v: { reveal: number; offset: number; reentryOffset: number }) => void;
+  /** Publisher: report the exact use order for the shared workspace. */
+  onUsedOrderChange?: (order: number[]) => void;
 }
+
 
 export const FloatingNumberPanel = ({
   chromeFg,
@@ -304,6 +324,12 @@ export const FloatingNumberPanel = ({
   onMeasure,
   phoneCompact = false,
   phoneControls,
+  sharedReservoir = null,
+  sharedUsed = null,
+  sharedUsedOrder = null,
+  sharedView = null,
+  onFloatingViewChange,
+  onUsedOrderChange,
 
 }: Props) => {
   const sbRoot = useSmartboardRoot();
@@ -318,7 +344,36 @@ export const FloatingNumberPanel = ({
   // first when scrolling Backward (most-recently-relevant per the spec).
   const [usedOrder, setUsedOrder] = useState<number[]>([]);
   const [reentryOffset, setReentryOffset] = useState<number>(0);
-  const reservoir = reservoirs[viewIdx];
+
+  // Live classroom receiver: adopt the publisher's strip window and use order
+  // instead of computing our own, so both boards show the same chips.
+  useEffect(() => {
+    if (!sharedView) return;
+    setReveal(sharedView.reveal);
+    setOffset(sharedView.offset);
+    setReentryOffset(sharedView.reentryOffset);
+  }, [sharedView?.reveal, sharedView?.offset, sharedView?.reentryOffset]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!sharedUsedOrder) return;
+    setUsedOrder((prev) =>
+      prev.length === sharedUsedOrder.length && prev.every((v, i) => v === sharedUsedOrder[i])
+        ? prev
+        : [...sharedUsedOrder],
+    );
+  }, [sharedUsedOrder]);
+
+  // Live classroom publisher: report our strip window / use order so every
+  // other client in the class renders the identical workspace.
+  useEffect(() => {
+    onFloatingViewChange?.({ reveal, offset, reentryOffset });
+  }, [reveal, offset, reentryOffset, onFloatingViewChange]);
+  useEffect(() => {
+    onUsedOrderChange?.(usedOrder);
+  }, [usedOrder, onUsedOrderChange]);
+
+  // The shared arrangement wins when the classroom publishes one; it is never
+  // rebuilt locally, so chip order and grouping cannot drift between clients.
+  const reservoir = sharedReservoir ?? reservoirs[viewIdx];
   const fragments = useMemo<string[]>(
     // Extraction only — the master token from Present Preview passes through
     // the internal validation stage and reaches the display unchanged.
@@ -326,6 +381,10 @@ export const FloatingNumberPanel = ({
     [reservoir],
   );
   const lines: ReservoirLine[] = reservoir?.lines ?? [];
+  // Consumption is shared state in a classroom: identity comes from the
+  // publisher, never from a local re-scan of the ink.
+  const consumedIdx = sharedUsed ?? consumedAbsIdx;
+
 
   const viewingActive = viewIdx === activeIdx;
   const useLineMode =
@@ -334,7 +393,7 @@ export const FloatingNumberPanel = ({
   const unconsumedOfLine = (k: number): number[] => {
     const line = lines[k];
     if (!line) return [];
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    const consumed = consumedIdx ?? new Set<number>();
     const out: number[] = [];
     for (let i = line.fragmentStart; i < line.fragmentEnd; i++) if (!consumed.has(i)) out.push(i);
     return out;
@@ -343,7 +402,7 @@ export const FloatingNumberPanel = ({
   const consumedOfLine = (k: number): number[] => {
     const line = lines[k];
     if (!line) return [];
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    const consumed = consumedIdx ?? new Set<number>();
     const out: number[] = [];
     for (let i = line.fragmentStart; i < line.fragmentEnd; i++) if (consumed.has(i)) out.push(i);
     return out;
@@ -380,20 +439,20 @@ export const FloatingNumberPanel = ({
         .map((idx) => ({ token: fragments[idx], absIdx: idx }))
         .filter((s) => s.token.trim().length > 0);
     }
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    const consumed = consumedIdx ?? new Set<number>();
     return fragments
       .map((token, idx) => ({ token, absIdx: idx }))
       .filter((s) => consumed.has(s.absIdx) && s.token.trim().length > 0);
-  }, [fragments, useLineMode, activeLineIdx, consumedAbsIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fragments, useLineMode, activeLineIdx, consumedIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   /** REMAINING (unused) flow — allSlots in teacher's saved order with
    *  consumed chips removed. It is not repeated while used chips exist: the
    *  conveyor must exhaust this hidden queue, then pull from Used oldest-first. */
   const remaining = useMemo<Slot[]>(() => {
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    const consumed = consumedIdx ?? new Set<number>();
     return allSlots.filter((s) => !consumed.has(s.absIdx));
-  }, [allSlots, consumedAbsIdx]);
+  }, [allSlots, consumedIdx]);
 
   // Reset window position whenever beat or active line changes — the panel
   // always opens on the first chip of the new line, showing no used numbers.
@@ -414,8 +473,11 @@ export const FloatingNumberPanel = ({
   // Keep `usedOrder` reconciled with the parent's consumed set: drop numbers no
   // longer used, append any newly-consumed ones (the tap handler already appends
   // in tap order; this effect covers resets/undo/external changes).
+  // In a live classroom a receiver takes the publisher's exact order instead —
+  // rebuilding it locally is what previously scrambled the used zone.
   useEffect(() => {
-    const consumed = consumedAbsIdx ?? new Set<number>();
+    if (sharedUsedOrder) return;
+    const consumed = consumedIdx ?? new Set<number>();
     setUsedOrder((prev) => {
       const kept = prev.filter((i) => consumed.has(i));
       const present = new Set(kept);
@@ -424,7 +486,8 @@ export const FloatingNumberPanel = ({
       added.sort((a, b) => a - b);
       return added.length === 0 && kept.length === prev.length ? prev : [...kept, ...added];
     });
-  }, [consumedAbsIdx]);
+  }, [consumedIdx, sharedUsedOrder]);
+
 
   // Used numbers for the active line, ordered MOST-RECENT FIRST so the last
   // chip the teacher tapped sits leftmost in the used zone (reversed view).
