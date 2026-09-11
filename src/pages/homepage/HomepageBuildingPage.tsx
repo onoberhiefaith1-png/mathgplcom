@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@/lib/router-compat";
+import { Link, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, Check, Gauge, RotateCcw, Scissors, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
