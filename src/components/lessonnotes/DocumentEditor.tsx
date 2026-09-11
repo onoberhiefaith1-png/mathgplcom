@@ -2119,7 +2119,7 @@ function DocumentEditorInner({
     }
 
     return { scene, pendingIds };
-  }, []);
+  }, [geometryShowPoints]);
 
   const handleGeometryPaperClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const targetEl = eventTargetElement(e.target);
