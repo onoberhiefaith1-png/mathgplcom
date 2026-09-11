@@ -12,7 +12,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { closeHistory, undoDepth, redoDepth } from "@tiptap/pm/history";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Copy, Shapes, Sparkles, Trash2 } from "lucide-react";
+import { Copy, Shapes, Trash2 } from "lucide-react";
 import {
   type GeometryScene,
   sanitizeScene,
