@@ -621,7 +621,7 @@ function LiveEditor({
 
   return (
     <>
-      <GeometryCanvas editor={editor} zoom={zoom} />
+      <GeometryCanvas editor={editor} zoom={zoom} regionW={regionW} regionH={regionH} />
       {propertiesOpen && (
         <GeometryPropertiesWorkspace
           scene={editor.scene}
