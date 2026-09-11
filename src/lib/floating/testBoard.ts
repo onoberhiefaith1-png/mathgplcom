@@ -79,8 +79,8 @@ export async function ensureTestClass(ownerId: string): Promise<string> {
  * Compile the ONE question the teacher is editing and make it available to the
  * existing student board. Returns the record ids the board needs.
  *
- * Question scoping is exact: `question.id === subsectionId`, so no other
- * example, question or part of the lesson note is ever loaded.
+ * Question scoping is exact: the question id is the canonical lesson beat id,
+ * so no other example, question or part of the lesson note is ever loaded.
  */
 async function openFloatingTestBoard(subsectionId: string): Promise<FloatingTestBoard> {
   const end = diag.start("floating.test.open", { subsectionId });

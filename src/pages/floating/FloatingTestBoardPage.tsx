@@ -52,7 +52,7 @@ const FloatingTestBoardPage = () => {
           classId: next.classId,
           workspace: "floating_test",
           assessmentId: next.assessmentId,
-          questionId: subsectionId,
+          questionId: next.question.id,
         }),
       );
       setBoard(next);
@@ -77,7 +77,7 @@ const FloatingTestBoardPage = () => {
       classId: board.classId,
       workspace: "floating_test",
       assessmentId: board.assessmentId,
-      questionId: subsectionId,
+      questionId: board.question.id,
     });
     return () => { clearBoardScope(scope); };
   }, [board, uid, subsectionId]);
@@ -92,7 +92,7 @@ const FloatingTestBoardPage = () => {
           classId: board.classId,
           workspace: "floating_test",
           assessmentId: board.assessmentId,
-          questionId: subsectionId,
+          questionId: board.question.id,
         }),
       );
     }
@@ -128,7 +128,7 @@ const FloatingTestBoardPage = () => {
     classId: board.classId,
     workspace: "floating_test",
     assessmentId: board.assessmentId,
-    questionId: subsectionId,
+    questionId: board.question.id,
   });
 
   return (
