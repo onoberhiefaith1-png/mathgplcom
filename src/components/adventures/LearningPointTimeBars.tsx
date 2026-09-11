@@ -9,7 +9,7 @@
 import { ChevronDown, ChevronUp, Timer } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Scene } from "@/lib/games/types";
-import { REQUIRED_MARK_OPTIONS, TIME_DURATION_OPTIONS } from "@/lib/games/types";
+
 import type { ChallengeRow } from "@/hooks/useVideoAdventureRun";
 import { DEFAULT_LP_DURATION_SECONDS, DEFAULT_REQUIRED_PCT } from "@/hooks/useVideoAdventureRun";
 
@@ -22,7 +22,7 @@ const fmt = (ms: number) => {
   return `${mm}:${ss}`;
 };
 
-const durationOptions = TIME_DURATION_OPTIONS.filter((o) => o.seconds > 0);
+
 
 interface Props {
   learningPoints: Scene[];
@@ -49,6 +49,48 @@ export function LearningPointTimeBars({
     const i = learningPoints.findIndex((s) => s.id === activeChallenge.scene_id);
     if (i >= 0) setIndex(i);
   }, [activeChallenge, learningPoints]);
+
+  const shownPoint = learningPoints.length
+    ? learningPoints[Math.min(index, learningPoints.length - 1)]
+    : null;
+  const shownRow = shownPoint ? challengeFor(shownPoint.id) : null;
+  const shownDuration = shownRow?.duration_seconds ?? DEFAULT_LP_DURATION_SECONDS;
+  const shownPct = shownRow?.required_pct ?? DEFAULT_REQUIRED_PCT;
+
+  // Free-typed values. The draft follows the saved value whenever the Time Bar
+  // or the stored setting changes, and commits on blur / Enter.
+  const [minutesDraft, setMinutesDraft] = useState(String(Math.round(shownDuration / 60)));
+  const [pctDraft, setPctDraft] = useState(String(shownPct));
+  useEffect(() => {
+    setMinutesDraft(String(Math.max(1, Math.round(shownDuration / 60))));
+  }, [shownDuration, shownPoint?.id]);
+  useEffect(() => {
+    setPctDraft(String(shownPct));
+  }, [shownPct, shownPoint?.id]);
+
+  const commitMinutes = () => {
+    if (!shownPoint) return;
+    const mins = Math.round(Number(minutesDraft));
+    if (!Number.isFinite(mins) || mins <= 0) {
+      setMinutesDraft(String(Math.max(1, Math.round(shownDuration / 60))));
+      return;
+    }
+    const clamped = Math.min(600, mins);
+    setMinutesDraft(String(clamped));
+    onSetDuration(shownPoint.id, clamped * 60);
+  };
+
+  const commitPct = () => {
+    if (!shownPoint) return;
+    const pct = Math.round(Number(pctDraft));
+    if (!Number.isFinite(pct)) {
+      setPctDraft(String(shownPct));
+      return;
+    }
+    const clamped = Math.max(0, Math.min(100, pct));
+    setPctDraft(String(clamped));
+    onSetRequiredPct(shownPoint.id, clamped);
+  };
 
   if (learningPoints.length === 0) {
     return (
@@ -87,39 +129,44 @@ export function LearningPointTimeBars({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        {/* Typed, not picked: the teacher writes any number of minutes, or
+            steps it up/down with the spinner / arrow keys / scroll wheel. */}
         <label className="inline-flex items-center gap-1.5">
           <span className="text-muted-foreground">Time</span>
-          <select
-            value={String(duration)}
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={600}
+            step={1}
+            value={minutesDraft}
             disabled={!editable}
-            onChange={(e) => onSetDuration(point.id, Number(e.target.value))}
-            className="h-7 rounded border border-input bg-background px-1.5 text-xs disabled:opacity-50"
-          >
-            {durationOptions.map((o) => (
-              <option key={o.seconds} value={o.seconds}>{o.label}</option>
-            ))}
-            {!durationOptions.some((o) => o.seconds === duration) && (
-              <option value={duration}>{Math.round(duration / 60)} minutes</option>
-            )}
-          </select>
+            onChange={(e) => setMinutesDraft(e.target.value)}
+            onBlur={commitMinutes}
+            onKeyDown={(e) => { if (e.key === "Enter") commitMinutes(); }}
+            className="h-7 w-16 rounded border border-input bg-background px-1.5 text-xs tabular-nums disabled:opacity-50"
+          />
+          <span className="text-muted-foreground">minutes</span>
         </label>
 
         <label className="inline-flex items-center gap-1.5">
           <span className="text-muted-foreground">Required Mark</span>
-          <select
-            value={String(requiredPct)}
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={100}
+            step={1}
+            value={pctDraft}
             disabled={!editable}
-            onChange={(e) => onSetRequiredPct(point.id, Number(e.target.value))}
-            className="h-7 rounded border border-input bg-background px-1.5 text-xs disabled:opacity-50"
-          >
-            {REQUIRED_MARK_OPTIONS.map((p) => (
-              <option key={p} value={p}>{p}%</option>
-            ))}
-            {!REQUIRED_MARK_OPTIONS.includes(requiredPct) && (
-              <option value={requiredPct}>{requiredPct}%</option>
-            )}
-          </select>
+            onChange={(e) => setPctDraft(e.target.value)}
+            onBlur={commitPct}
+            onKeyDown={(e) => { if (e.key === "Enter") commitPct(); }}
+            className="h-7 w-16 rounded border border-input bg-background px-1.5 text-xs tabular-nums disabled:opacity-50"
+          />
+          <span className="text-muted-foreground">%</span>
         </label>
+
 
         <div className="ml-auto flex items-center gap-1">
           <button
