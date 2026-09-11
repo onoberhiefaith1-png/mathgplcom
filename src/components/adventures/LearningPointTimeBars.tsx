@@ -22,7 +22,7 @@ const fmt = (ms: number) => {
   return `${mm}:${ss}`;
 };
 
-const durationOptions = TIME_DURATION_OPTIONS.filter((o) => o.seconds > 0);
+
 
 interface Props {
   learningPoints: Scene[];
