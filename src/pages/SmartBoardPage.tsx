@@ -3,6 +3,8 @@ import { useParams, useSearchParams } from "@/lib/router-compat";
 import SmartboardShelf from "@/components/smartboard/SmartboardShelf";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { supabase } from "@/integrations/supabase/client";
+import { publishActiveNote } from "@/lib/smartboard/classBoardState";
+import { toast } from "sonner";
 
 const openClassSmartBoard = async (classId: string, notebookId: string) => {
   const now = new Date().toISOString();
@@ -32,21 +34,15 @@ const openClassSmartBoard = async (classId: string, notebookId: string) => {
     console.warn("[class-smartboard] could not share notebook with class", noteError.message);
   }
 
-  const { error: stateError } = await supabase
-    .from("class_smartboard_state")
-    .upsert(
-      {
-        class_id: classId,
-        notebook_id: notebookId,
-        // A recovery snapshot is valid only for the lesson that produced it.
-        // Clear it when the class changes lesson instead of replaying old rows.
-        ...(notebookChanged ? { state_json: null } : {}),
-        updated_at: now,
-      },
-      { onConflict: "class_id" },
-    );
-  if (stateError) {
-    console.warn("[class-smartboard] could not open class board state", stateError.message);
+  // Students render whatever this field says. If it does not move, the whole
+  // class keeps watching the previous lesson note — so the write is verified
+  // and any failure is shown to the teacher instead of only logged.
+  const result = await publishActiveNote(classId, notebookId, { clearSnapshot: notebookChanged });
+  if (!result.ok) {
+    console.warn("[class-smartboard] could not publish the live lesson note", result.error);
+    toast.error("Students are not seeing this lesson note yet", {
+      description: "Reopen it from the class SmartBoard. If it keeps happening, refresh the page.",
+    });
   }
 };
 
