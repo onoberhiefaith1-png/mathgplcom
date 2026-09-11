@@ -464,8 +464,9 @@ const PresentationView = ({
 
 
   // Live classroom mirroring (disabled in assessment mode).
-  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent } =
+  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent, diagnostics: syncDiagnostics } =
     useSmartboardSync({ classId: assessmentMode ? null : classIdProp, role });
+
   const syncEnabled = !!classIdProp && !assessmentMode;
   // In assessment mode the student edits their OWN board (canEdit true) but no
   // teacher-only chrome is shown.
