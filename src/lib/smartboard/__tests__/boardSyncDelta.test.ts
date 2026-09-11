@@ -6,6 +6,7 @@ import {
   BROADCAST_INTERVAL_MS,
   MAX_BROADCAST_BYTES,
   diffBoardState,
+  shouldApplyDelta,
   type BoardDelta,
   type BoardState,
 } from "@/hooks/useSmartboardSync";
@@ -28,14 +29,14 @@ const base = (): BoardState => ({
 /** Mirror of the receiver-side merge in useSmartboardSync.applyDelta. */
 function applyDeltas(deltas: BoardDelta[]): BoardState | null {
   let current: BoardState | null = null;
-  let lastSeq = 0;
+  const seen = new Map<string, { epoch: string; seq: number }>();
   for (const d of deltas) {
-    if (d.seq <= lastSeq) continue;
-    lastSeq = d.seq;
+    if (!shouldApplyDelta(seen, d)) continue;
     current = { ...(d.full ? {} : (current ?? {})), ...d.patch } as BoardState;
   }
   return current;
 }
+
 
 describe("board sync deltas", () => {
   it("sends the whole state on the first frame", () => {
