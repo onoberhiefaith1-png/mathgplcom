@@ -13,6 +13,26 @@
 import type { FloatingLineShared, FloatingShared } from "@/hooks/useSmartboardSync";
 import type { Reservoir, ReservoirLine } from "@/lib/smartboard/presentation";
 
+/** Deterministic identity for the exact ordered lesson structure. */
+export function floatingSourceFingerprint(reservoirs: Reservoir[]): string {
+  const source = reservoirs.map((reservoir) => ({
+    beatId: reservoir.beatId,
+    lines: reservoir.lines.map((line, lineIdx) => ({
+      id: line.lineId ?? line.sourceUid ?? line.groupId ?? lineIdx,
+      equation: line.equation,
+      containers: line.containers,
+      chips: reservoir.fragments.slice(line.fragmentStart, line.fragmentEnd),
+    })),
+  }));
+  const text = JSON.stringify(source);
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 export const floatingLineId = (resId: string, lineIdx: number, equation: string): string =>
   `${resId}|L${lineIdx}|${equation}`;
 
@@ -61,6 +81,9 @@ export function reservoirFromShared(shared: FloatingShared, template?: Reservoir
     for (const chip of line.chips) fragments.push(chip.token);
     lines.push({
       ...(templateLine ?? { equation: "", fillers: [], containers: [] }),
+      // The published object owns the exact chip sequence. Do not retain a
+      // receiver-local filler list that may have a different order or length.
+      fillers: line.chips.map((chip) => chip.token),
       fragmentStart: start,
       fragmentEnd: fragments.length,
     } as ReservoirLine);
