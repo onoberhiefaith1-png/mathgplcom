@@ -2015,7 +2015,20 @@ function DocumentEditorInner({
       const s = snap(base, px, py);
       if (s.pointId) return { id: s.pointId, scene: base };
       const op = addPoint(base, s.x, s.y);
-      return { id: op.addedIds[0], scene: op.scene };
+      const id = op.addedIds[0];
+      // Disaligned points (default): the construction point stays in the
+      // geometry but is never drawn or lettered.
+      const next = geometryShowPoints
+        ? op.scene
+        : {
+            ...op.scene,
+            objects: op.scene.objects.map((o) =>
+              o.id === id && o.type === "point"
+                ? { ...o, hidden: true, label: "", auto: true }
+                : o,
+            ),
+          };
+      return { id, scene: next };
     };
 
     if (tool === "point") {
