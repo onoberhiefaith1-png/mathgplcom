@@ -124,9 +124,19 @@ export async function fetchPlatformFreeBuilding(): Promise<HomepageConfig> {
  * Everyone reads it; only the platform owner can write it (enforced in the
  * database), and it is never cached into this account's local storage.
  */
-export function useHomepageConfig(options?: { mode?: HomepageConfigMode; ownerUserId?: string }) {
+export function useHomepageConfig(options?: {
+  mode?: HomepageConfigMode;
+  ownerUserId?: string;
+  /**
+   * PER-BUILDING EXTERIOR. When a building id is given, the exterior being read
+   * and written is that building's own `exterior_config` — never the account's
+   * homepage. This is what keeps every building's face with the building.
+   */
+  buildingId?: string | null;
+}) {
   const mode = options?.mode ?? "self";
   const ownerUserId = options?.ownerUserId;
+  const buildingId = options?.buildingId ?? null;
   // Start empty so SSR and the first client render agree; local cache is
   // applied after hydration.
   const [config, setConfig] = useState<HomepageConfig>({});
