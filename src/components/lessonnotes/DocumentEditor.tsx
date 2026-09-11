@@ -1961,11 +1961,8 @@ function DocumentEditorInner({
   const ensureGeometryRegion = useCallback(() => {
     if (!editor) return;
     const at = editor.state.selection.to;
-    const owner = ownerQuestionHeadingFor(editor.state.doc, at);
-    if (owner) {
-      const existing = diagramsOwnedByQuestion(editor.state.doc, owner.pos, isSolutionLabel)[0];
-      if (existing) { selectGeometryAt(existing.pos); return; }
-    }
+    // The 2D workspace opens exactly where the sensor is. Only a figure that is
+    // already at / next to the caret is reused — never the question's first one.
     const near = locateGeometryNearPos(at);
     if (near != null) { selectGeometryAt(near); return; }
     const beforeSize = editor.state.doc.content.size;
