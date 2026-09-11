@@ -280,7 +280,27 @@ interface Props {
   phoneCompact?: boolean;
   phoneControls?: React.ReactNode;
 
+  // ── LIVE CLASSROOM SHARED WORKSPACE ──────────────────────────────────────
+  // In a live classroom the floating number is ONE shared object. The client
+  // holding edit rights publishes its arrangement and strip state; every other
+  // client renders exactly that, never a locally re-derived copy. Both groups
+  // of props are absent on every other board, which keeps its present local
+  // behaviour untouched.
+  /** Receiver: the publisher's arrangement, used instead of the local one. */
+  sharedReservoir?: Reservoir | null;
+  /** Receiver: chips the publisher has consumed (absolute indexes of the
+   *  shared arrangement). */
+  sharedUsed?: Set<number> | null;
+  /** Receiver: exact use order, so the used zone reads identically. */
+  sharedUsedOrder?: number[] | null;
+  /** Receiver: strip window state (revealed used chips + rotation). */
+  sharedView?: { reveal: number; offset: number; reentryOffset: number } | null;
+  /** Publisher: report strip window state for the shared workspace. */
+  onFloatingViewChange?: (v: { reveal: number; offset: number; reentryOffset: number }) => void;
+  /** Publisher: report the exact use order for the shared workspace. */
+  onUsedOrderChange?: (order: number[]) => void;
 }
+
 
 export const FloatingNumberPanel = ({
   chromeFg,
