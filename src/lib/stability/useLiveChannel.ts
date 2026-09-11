@@ -68,10 +68,12 @@ export function useLiveChannel({ key, enabled = true, private: isPrivate = true,
         if (cancelled) return;
         if (status === "SUBSCRIBED") {
           attempt = 0;
+          statusRef.current?.(true);
           joinedRef.current?.();
           return;
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          statusRef.current?.(false);
           if (attempt >= 8) return;
           attempt += 1;
           const wait = Math.min(15_000, 500 * 2 ** (attempt - 1)) * (0.7 + Math.random() * 0.6);
@@ -87,8 +89,10 @@ export function useLiveChannel({ key, enabled = true, private: isPrivate = true,
       cancelled = true;
       window.clearTimeout(retryTimer);
       dropChannel(key);
+      statusRef.current?.(false);
       releaseResource(resourceId);
     };
+
   }, [key, enabled, isPrivate]);
 }
 
