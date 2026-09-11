@@ -1204,6 +1204,9 @@ input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent b
 @theme inline {
   --color-section-ink: hsl(var(--section-ink));
   --color-section-ink-muted: hsl(var(--section-ink-muted));
+  /* 2D workspace barriers — the visible top/bottom boundary of the drawing
+     region inside a lesson note. */
+  --color-geometry-barrier: hsl(45 96% 48%);
 }
 
 /* Global rule: a placeholder is a hint, never a value. Keep it clearly

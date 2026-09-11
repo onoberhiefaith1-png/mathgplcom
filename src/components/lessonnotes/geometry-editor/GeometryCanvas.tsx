@@ -45,16 +45,20 @@ interface Props {
   emphasisIds?: GeoId[];
   /** Uniform visual zoom for the drawing surface (geometry is unchanged). */
   zoom?: number;
+  /** 2D workspace: the drawable region between the barriers, in page pixels.
+   *  The surface fills it, so the teacher can draw anywhere inside. */
+  regionW?: number;
+  regionH?: number;
 }
 
 const PAD = 24;
 
-export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightIds, relatedIds, emphasisIds, zoom }: Props) {
+export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightIds, relatedIds, emphasisIds, zoom, regionW, regionH }: Props) {
   // One factor for width AND height — the figure can never be distorted.
   const zoomFactor = Number.isFinite(zoom) && (zoom as number) > 0 ? (zoom as number) : 1;
 
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
-  const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
+  const { annotationDraft, setAnnotationDraft, setTool: setModeTool, showPoints } = useGeometryMode();
 
   /**
    * End a temporary tool workflow: clear picks, return to Select and select
@@ -150,8 +154,13 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
 
   const vbox = computeSceneViewBox(scene, PAD);
   const { minX, minY } = vbox;
-  const W = Math.max(vbox.W, minViewW ?? 0);
-  const H = Math.max(vbox.H, minViewH ?? 0);
+  const zf = zoomFactor || 1;
+  // Inside the 2D barriers the region itself is the boundary: the surface
+  // stretches to it so there is no smaller box limiting where you can draw.
+  const regionViewW = regionW && regionW > 0 ? regionW / zf : 0;
+  const regionViewH = regionH && regionH > 0 ? regionH / zf : 0;
+  const W = Math.max(vbox.W, minViewW ?? 0, regionViewW);
+  const H = Math.max(vbox.H, minViewH ?? 0, regionViewH);
 
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current;
@@ -176,11 +185,61 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
     const s = snap(src, x, y);
     if (s.pointId) return { id: s.pointId, scene: src };
     const op = addPoint(src, s.x, s.y);
+    // POINT DISALIGNED (default) — the construction point is kept in the
+    // geometry (so lengths, angles and dragging still work) but it carries no
+    // dot and no A/B/C label, so the line itself is all the teacher sees.
+    const created = op.addedIds[0];
+    const shaped = showPoints
+      ? op
+      : {
+          ...op,
+          scene: {
+            ...op.scene,
+            objects: op.scene.objects.map((o) =>
+              o.id === created && o.type === "point"
+                ? { ...o, hidden: true, label: "", auto: true }
+                : o,
+            ),
+          },
+        };
     // `apply` returns the scene actually stored, so chained ops in the same
     // click work off the freshest figure instead of a stale snapshot.
-    const stored = apply(op);
-    return { id: op.addedIds[0], scene: stored ?? op.scene };
+    const stored = apply(shaped);
+    return { id: created, scene: stored ?? shaped.scene };
   };
+
+  // Switching the Point control never rebuilds the figure: it only reveals or
+  // suppresses the construction points it created.
+  const prevShowPoints = useRef<boolean | null>(null);
+  useEffect(() => {
+    const prev = prevShowPoints.current;
+    prevShowPoints.current = showPoints;
+    if (prev === null || prev === showPoints) return;
+    let changed = false;
+    let letter = 0;
+    const used = new Set(
+      scene.objects
+        .filter((o) => o.type === "point" && (o as GeoPoint).label)
+        .map((o) => (o as GeoPoint).label as string),
+    );
+    const nextLetter = () => {
+      while (letter < 26) {
+        const l = String.fromCharCode(65 + letter++);
+        if (!used.has(l)) { used.add(l); return l; }
+      }
+      return "";
+    };
+    const objects = scene.objects.map((o) => {
+      if (o.type !== "point" || !(o as GeoPoint).auto) return o;
+      const p = o as GeoPoint;
+      changed = true;
+      return showPoints
+        ? { ...p, hidden: false, label: p.label || nextLetter() }
+        : { ...p, hidden: true, label: "" };
+    });
+    if (changed) commit({ ...scene, objects });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showPoints]);
 
 
   const onPointerMove = (e: React.PointerEvent) => {

@@ -599,7 +599,7 @@ function DocumentEditorInner({
 }: Props) {
   /** Platform chrome translates; the teacher's own writing never does. */
   const tLabel = useT();
-  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool } = useGeometryMode();
+  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool, showPoints: geometryShowPoints } = useGeometryMode();
   /** Whole-lesson AI assist belongs to MathGPL Builder mode only. */
   const builderAi = useBuilderAiVisible();
   // When a school looks through a teacher's workspace the page is identical;
@@ -1961,11 +1961,8 @@ function DocumentEditorInner({
   const ensureGeometryRegion = useCallback(() => {
     if (!editor) return;
     const at = editor.state.selection.to;
-    const owner = ownerQuestionHeadingFor(editor.state.doc, at);
-    if (owner) {
-      const existing = diagramsOwnedByQuestion(editor.state.doc, owner.pos, isSolutionLabel)[0];
-      if (existing) { selectGeometryAt(existing.pos); return; }
-    }
+    // The 2D workspace opens exactly where the sensor is. Only a figure that is
+    // already at / next to the caret is reused — never the question's first one.
     const near = locateGeometryNearPos(at);
     if (near != null) { selectGeometryAt(near); return; }
     const beforeSize = editor.state.doc.content.size;
@@ -1996,13 +1993,11 @@ function DocumentEditorInner({
     const coords = view.posAtCoords({ left: clientX, top: clientY });
     let pos = coords?.pos ?? editor.state.selection.to;
     pos = Math.max(0, Math.min(pos, editor.state.doc.content.size));
-    const owner = ownerQuestionHeadingFor(editor.state.doc, pos);
-    if (owner) {
-      const existing = diagramsOwnedByQuestion(editor.state.doc, owner.pos, isSolutionLabel)[0];
-      if (existing) {
-        selectGeometryAt(existing.pos);
-        return existing.pos;
-      }
+    // Open where the teacher clicked; only a figure already there is reused.
+    const nearClick = locateGeometryNearPos(pos);
+    if (nearClick != null) {
+      selectGeometryAt(nearClick);
+      return nearClick;
     }
     const beforeSize = editor.state.doc.content.size;
     editor.chain().focus().insertContentAt(pos, {
@@ -2020,7 +2015,20 @@ function DocumentEditorInner({
       const s = snap(base, px, py);
       if (s.pointId) return { id: s.pointId, scene: base };
       const op = addPoint(base, s.x, s.y);
-      return { id: op.addedIds[0], scene: op.scene };
+      const id = op.addedIds[0];
+      // Disaligned points (default): the construction point stays in the
+      // geometry but is never drawn or lettered.
+      const next = geometryShowPoints
+        ? op.scene
+        : {
+            ...op.scene,
+            objects: op.scene.objects.map((o) =>
+              o.id === id && o.type === "point"
+                ? { ...o, hidden: true, label: "", auto: true }
+                : o,
+            ),
+          };
+      return { id, scene: next };
     };
 
     if (tool === "point") {
@@ -2111,7 +2119,7 @@ function DocumentEditorInner({
     }
 
     return { scene, pendingIds };
-  }, []);
+  }, [geometryShowPoints]);
 
   const handleGeometryPaperClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const targetEl = eventTargetElement(e.target);

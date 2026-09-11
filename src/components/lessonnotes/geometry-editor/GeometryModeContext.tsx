@@ -37,6 +37,14 @@ interface GeometryModeCtx {
   setActiveFrameId: (id: string | null) => void;
   annotationDraft: AnnotationDraft | null;
   setAnnotationDraft: (d: AnnotationDraft | null) => void;
+  /**
+   * POINT — Align (true) / Disalign (false, default).
+   * Disaligned: the helper points a line / circle / arc needs are kept in the
+   * geometry but never shown and never labelled, so drawing stays clean.
+   * Aligned: points are visible, labelled, and shared where structures meet.
+   */
+  showPoints: boolean;
+  setShowPoints: (b: boolean) => void;
 }
 
 const Ctx = createContext<GeometryModeCtx>({
@@ -48,13 +56,24 @@ const Ctx = createContext<GeometryModeCtx>({
   setActiveFrameId: () => {},
   annotationDraft: null,
   setAnnotationDraft: () => {},
+  showPoints: false,
+  setShowPoints: () => {},
 });
+
+const POINTS_KEY = "geometry-editor:show-points";
 
 export function GeometryModeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState(false);
   const [toolState, setToolState] = useState<ToolId>("select");
   const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
   const [annotationDraft, setAnnotationDraft] = useState<AnnotationDraft | null>(null);
+  const [showPoints, setShowPointsState] = useState<boolean>(() => {
+    try { return localStorage.getItem(POINTS_KEY) === "1"; } catch { return false; }
+  });
+  const setShowPoints = (b: boolean) => {
+    setShowPointsState(b);
+    try { localStorage.setItem(POINTS_KEY, b ? "1" : "0"); } catch { /* noop */ }
+  };
 
   // When switching tools, seed / clear the annotation draft.
   const setTool = (t: ToolId) => {
@@ -88,7 +107,7 @@ export function GeometryModeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ mode, setMode, tool: toolState, setTool, activeFrameId, setActiveFrameId, annotationDraft, setAnnotationDraft }}>
+    <Ctx.Provider value={{ mode, setMode, tool: toolState, setTool, activeFrameId, setActiveFrameId, annotationDraft, setAnnotationDraft, showPoints, setShowPoints }}>
       {children}
     </Ctx.Provider>
   );

@@ -12,7 +12,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { closeHistory, undoDepth, redoDepth } from "@tiptap/pm/history";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { Copy, Shapes, Sparkles, Trash2 } from "lucide-react";
+import { Copy, Shapes, Trash2 } from "lucide-react";
 import {
   type GeometryScene,
   sanitizeScene,
@@ -250,10 +250,24 @@ function GeometryDiagramView({
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const regionHeight = dragHeight ?? storedHeight;
 
-  // BARRIERS — layout boundaries that belong ONLY to 2D Geometry mode. They are
-  // pure mode UI: never nodes, never saved, never shown in other modes.
+  // BARRIERS — the real boundary of the 2D workspace. They are pure mode UI:
+  // never nodes, never saved, never printed, never shown in other modes.
+  // Between them is the drawable region; left/right are the page edges.
   const barriersOn = !!geometryModeOn && !!selected;
   const barrierHeight = Math.max(MIN_REGION, regionHeight || DEFAULT_REGION);
+  // Measured page width of the region, so the drawing surface covers the whole
+  // space between the barriers instead of a fixed box inside it.
+  const [regionWidth, setRegionWidth] = useState(0);
+  useEffect(() => {
+    if (!barriersOn) return;
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setRegionWidth(Math.round(el.getBoundingClientRect().width));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [barriersOn]);
 
   // Entering 2D on a fresh figure opens a usable drawing region straight away.
   useEffect(() => {
@@ -302,20 +316,21 @@ function GeometryDiagramView({
           <div
             data-geometry-barrier="upper"
             aria-hidden
-            className="pointer-events-none absolute left-0 right-0 top-0 h-0 border-t-2 border-primary/70"
+            className="pointer-events-none absolute left-0 right-0 top-0 h-0 border-t-2 border-geometry-barrier"
           />
-          {/* MOVABLE LOWER BARRIER — carries the up/down control. */}
+          {/* MOVABLE LOWER BARRIER — carries move up / move down / delete. */}
           <div
             data-geometry-barrier="lower"
-            className="absolute left-0 right-0 bottom-0 h-0 border-t-2 border-primary/70"
+            className="absolute left-0 right-0 bottom-0 h-0 border-t-2 border-geometry-barrier"
           >
             <div
-              className="absolute right-2 -top-4 z-20 inline-flex items-center rounded border border-primary/40 bg-background/95 shadow-sm"
+              className="absolute right-2 -top-4 z-20 inline-flex items-center rounded border border-geometry-barrier bg-background/95 shadow-sm"
               onPointerDown={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
-                title="Reduce the drawing area"
+                title="Move the lower barrier up (less drawing space)"
+                aria-label="Move the lower barrier up"
                 className="px-1.5 py-0.5 text-[11px] text-foreground hover:bg-foreground/10"
                 onClick={(e) => { e.stopPropagation(); nudge(-60); }}
               >
@@ -324,17 +339,27 @@ function GeometryDiagramView({
               <span
                 title="Drag to resize the drawing area"
                 onPointerDown={startResize}
-                className="cursor-ns-resize select-none border-x border-primary/30 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                className="cursor-ns-resize select-none border-x border-foreground/20 px-1.5 py-0.5 text-[10px] text-muted-foreground"
               >
                 ⇕
               </span>
               <button
                 type="button"
-                title="Enlarge the drawing area"
+                title="Move the lower barrier down (more drawing space)"
+                aria-label="Move the lower barrier down"
                 className="px-1.5 py-0.5 text-[11px] text-foreground hover:bg-foreground/10"
                 onClick={(e) => { e.stopPropagation(); nudge(60); }}
               >
                 ▼
+              </button>
+              <button
+                type="button"
+                title="Close the 2D workspace"
+                aria-label="Close the 2D workspace"
+                className="border-l border-foreground/20 px-1.5 py-0.5 text-foreground/70 hover:bg-foreground/10 hover:text-red-500"
+                onClick={(e) => { e.stopPropagation(); deleteNode(); }}
+              >
+                <Trash2 className="h-3 w-3" />
               </button>
             </div>
           </div>
@@ -367,6 +392,10 @@ function GeometryDiagramView({
             onChange={commitScene}
             docHistory={docHistory}
             zoom={diagramZoom}
+            // In 2D mode the drawable surface IS the region between the
+            // barriers: full page width, full barrier height.
+            regionW={barriersOn ? regionWidth : undefined}
+            regionH={barriersOn ? barrierHeight : undefined}
             onDeleteDiagram={() => deleteNode()}
             relevanceText={(node.attrs.questionText as string) || undefined}
             // The map always reads the diagram's OWN question — never the caret's.
@@ -407,22 +436,8 @@ function GeometryDiagramView({
             onMouseMove={kickAi}
           >
             <DiagramZoomControl zoom={diagramZoom} onZoom={setDiagramZoom} compact className="border-0 bg-transparent shadow-none" />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                kickAi();
-                openGeometryAiEdit({
-                  scene,
-                  topic,
-                  onApply: (next) => commitScene(next),
-                });
-              }}
-              className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded text-foreground hover:bg-foreground/5"
-              title="AI Edit"
-            >
-              <Sparkles className="h-3 w-3" /> AI Edit
-            </button>
+            {/* AI Edit is intentionally absent from the 2D workflow. */}
+
             <button
               type="button"
               onClick={(e) => {
@@ -473,11 +488,16 @@ function LiveEditor({
   getMapContext,
   onOpenSolution,
   zoom,
+  regionW,
+  regionH,
 }: {
   instanceId: string;
   scene: GeometryScene;
   /** Uniform visual zoom for this diagram (never changes the geometry). */
   zoom?: number;
+  /** Measured drawable region between the 2D barriers, in page pixels. */
+  regionW?: number;
+  regionH?: number;
   /** Owning question text — drives the generated-diagram label clean-up. */
   relevanceText?: string;
   onChange: (next: GeometryScene, opts?: { addToHistory?: boolean }) => void;
@@ -587,7 +607,7 @@ function LiveEditor({
 
   return (
     <>
-      <GeometryCanvas editor={editor} zoom={zoom} />
+      <GeometryCanvas editor={editor} zoom={zoom} regionW={regionW} regionH={regionH} />
       {propertiesOpen && (
         <GeometryPropertiesWorkspace
           scene={editor.scene}

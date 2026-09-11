@@ -58,7 +58,7 @@ export function GeometryToolbox({ inline = false, onExit, chrome }: {
   /** Host chrome colours (Smartboard) so the panel blends with the board. */
   chrome?: { bg: string; fg: string; border: string };
 } = {}) {
-  const { mode, setMode, tool, setTool, annotationDraft, setAnnotationDraft } = useGeometryMode();
+  const { mode, setMode, tool, setTool, annotationDraft, setAnnotationDraft, showPoints, setShowPoints } = useGeometryMode();
   const [expanded, setExpanded] = useState<boolean>(() => {
     try { return localStorage.getItem(KEY) !== "0"; } catch { return true; }
   });
@@ -115,6 +115,28 @@ export function GeometryToolbox({ inline = false, onExit, chrome }: {
 
       <div className="flex-1 overflow-y-auto py-1">
         {GEOMETRY_SLOTS.map((s) => renderSlot(s, tool, setTool, expanded))}
+
+        {/* POINT — Align / Disalign. Independent of every drawing tool. */}
+        <div className={cn("mt-1", expanded ? "mx-2" : "mx-1")}>
+          <button
+            type="button"
+            onClick={() => setShowPoints(!showPoints)}
+            title={showPoints
+              ? "Align Point — points are visible, labelled and shared where lines meet"
+              : "Disalign Point — draw clean lines with no visible points or labels"}
+            className={cn(
+              "w-full flex items-center gap-2 rounded border px-2 py-1.5 text-[11px] transition",
+              showPoints
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-foreground/20 text-foreground/70 hover:bg-foreground/5",
+              expanded ? "justify-start" : "justify-center",
+            )}
+          >
+            <Dot className={cn("h-4 w-4 shrink-0", !showPoints && "opacity-40")} />
+            {expanded && <span className="truncate">{showPoints ? "Align Point" : "Disalign Point"}</span>}
+          </button>
+        </div>
+
 
         {expanded ? (
           <div className="mt-2 px-2 pt-2 pb-1 text-[10px] uppercase tracking-wider text-foreground/45 border-t border-foreground/10">
