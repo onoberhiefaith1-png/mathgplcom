@@ -8037,8 +8037,10 @@ const PresentationView = ({
           />
         </div>
       )}
+      {syncEnabled && <SyncDiagnosticsPanel diagnostics={syncDiagnostics} />}
       </div>
       </SmartboardRootContext.Provider>
+
       {/* Headless Preview Channel runner — renders nothing. One preview
           click = one deterministic board write through the independent
           preview channel (never through the Floating Number path). */}
