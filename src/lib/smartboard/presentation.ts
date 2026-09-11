@@ -10,7 +10,7 @@ import { repairShiftedFloatingLines } from "@/lib/lessonnotes/floatingCompile";
 import { adoptLineIdentities, linesByUid } from "@/lib/lessonnotes/lineIdentity";
 import { looksLikeMathOnly } from "@/lib/notebook/proseGuard";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
-import { detectStructures, extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
+import { extractTermsFromAscii, dropContextualLeadingPlus } from "./floatingExtractor";
 import { normEq } from "./rowAscii";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
 import { readSolutionObjects, isFloatableObject, sortByPlacement } from "@/lib/floating/solutionItems";
@@ -115,6 +115,12 @@ export interface Reservoir {
   lines: ReservoirLine[];
 }
 
+export interface SmartboardLessonSource {
+  beats: Beat[];
+  reservoirs: Reservoir[];
+  title: string;
+}
+
 
 const NUMBERED: SectionKind[] = ["example", "exercise", "classwork", "homework"];
 
@@ -172,13 +178,6 @@ type RawFloatingLine = {
 };
 
 export const lessonSourceKey = (raw: string): string => normEq(toUnicodeMath(String(raw ?? "").trim()));
-
-const singleHighlightFallback = (payload: string): RawFloatingLine => ({
-  equation: payload,
-  fillers: payload.trim() ? [payload] : [],
-  containers: detectStructures(payload) as ContainerKind[],
-  arrangement: payload.trim() ? [0] : [],
-});
 
 export const findVerifiedFloatingLine = (
   payload: string,
@@ -614,13 +613,11 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             // text/groupId search survives purely as the adoption path for rows
             // that were never stamped (empty map ⇒ nothing to claim).
             const byIdentity = linesByIdentity.get(String((h as any).uid ?? ""));
-            // A line must never end up with NO chips: when identity adoption
-            // missed this highlight (legacy rows, renumbered groupIds, repeated
-            // payload text), fall back to the verified text/groupId search and
-            // finally to the single-highlight fallback so the line stays solvable.
+            // Compatibility is limited to saved authored rows. If identity
+            // adoption misses, a verified saved equation/group may be used;
+            // the highlighted prose itself is never converted into new chips.
             const matched = byIdentity
-              ?? findVerifiedFloatingLine(payload, rawLines, (h as any).groupId)
-              ?? singleHighlightFallback(payload);
+              ?? findVerifiedFloatingLine(payload, rawLines, (h as any).groupId);
 
             const ownNotebook = String(h.precedingNotebook ?? "").trim();
             acc.push({
@@ -639,29 +636,10 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           ? rawLines
           : hasTeacherFloating
             ? []
-            : parsedSolution.length > 0
-              ? (() => {
-                  // eslint-disable-next-line no-console
-                  console.warn(
-                    "[smartboard fallback] no teacher-curated floating data; deriving chips from solution equations for beat",
-                    `${sub.id}-q`,
-                  );
-                  return parsedSolution.map((p) => ({
-                    equation: p.equation,
-                    fillers: undefined as string[] | undefined,
-                    containers: detectStructures(p.equation) as ContainerKind[],
-                    explanation: p.explanation,
-                    // The prose that follows this equation IS its note, so the
-                    // board shows chips first and the note underneath.
-                    notebook: p.explanation,
-                  }));
-
-
-                })()
-              : notesOnlyRows(
-                  parsedSolution,
-                  solutionNotesObjects(solutionBlock),
-                );
+            : notesOnlyRows(
+                parsedSolution,
+                solutionNotesObjects(solutionBlock),
+              );
 
 
 
@@ -746,10 +724,23 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // SELECTION LAW: there is no solution-derived fragment fallback. Chips
       // exist only where the teacher highlighted content; otherwise the
       // reservoir carries notes only.
-      const fragments: string[] =
-        fragmentsFromLines.length > 0
-          ? fragmentsFromLines
-          : bucketCombined;
+      const savedBoundaries = ((bucket as any)?.byLine ?? []) as Array<{
+        lineId?: string;
+        fillerStart?: number;
+        fillerEnd?: number;
+      }>;
+      const hasRecoverableBoundaries = savedBoundaries.some(
+        (row) =>
+          typeof row?.fillerStart === "number" &&
+          typeof row?.fillerEnd === "number" &&
+          row.fillerEnd > row.fillerStart &&
+          row.fillerEnd <= bucketCombined.length,
+      );
+      const fragments: string[] = fragmentsFromLines.length > 0
+        ? fragmentsFromLines
+        : hasRecoverableBoundaries
+          ? bucketCombined
+          : [];
 
       // LINE LAW: a Floating Number line is never merged into another. When the
       // per-line data was missing and we fell back to the flat bucket, rebuild
@@ -757,12 +748,7 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
       // so every stored line still owns its own board row instead of every
       // chip piling onto one row.
       if (lines.length === 0 && fragments.length > 0) {
-        const byLine = ((bucket as any)?.byLine ?? []) as Array<{
-          lineId?: string;
-          fillerStart?: number;
-          fillerEnd?: number;
-        }>;
-        const usable = byLine.filter(
+        const usable = savedBoundaries.filter(
           (r) =>
             typeof r?.fillerStart === "number" &&
             typeof r?.fillerEnd === "number" &&
@@ -804,6 +790,16 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
   }
   return reservoirs;
 };
+
+/** The one reusable lesson-to-Smartboard boundary used by every lesson gateway. */
+export const buildLessonBoardSource = (
+  sections: SectionRow[],
+  notebook?: NotebookRow | null,
+): SmartboardLessonSource => ({
+  beats: buildBeats(sections, notebook),
+  reservoirs: buildReservoirs(sections),
+  title: notebook?.title ?? "Lesson",
+});
 
 
 /** Whether the floating math system should be visible for this beat. */

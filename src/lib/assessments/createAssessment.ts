@@ -14,6 +14,8 @@ import {
 } from "@/lib/lessonnotes/floatingCompile";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import { toUnicodeMath, isStillDirty } from "@/lib/notebook/unicodeMath";
+import { buildLessonBoardSource, type SmartboardLessonSource } from "@/lib/smartboard/presentation";
+import type { SectionRow } from "@/hooks/useNotebook";
 
 export type AssessmentKind = "classwork" | "homework" | "assessment" | "practice";
 
@@ -64,6 +66,9 @@ export interface CompiledSection {
   questions: QuestionPayload[];
   answerKey: AnswerKeyLine[];
   total: number;
+  /** Canonical lesson source. Used by the temporary Lesson Note test only;
+   *  never persisted in the student assessment payload. */
+  lessonSource?: SmartboardLessonSource;
 }
 
 /** Normalise fillers for display WITHOUT ever dropping one.
@@ -83,94 +88,6 @@ const cleanFillers = (fillers: string[] | undefined): string[] =>
 
 const marksFor = (line: FloatingLine): number => markForLine(line);
 
-/** Saved highlight shape (the authoring record for one floating line). */
-interface SavedHighlight {
-  payload?: string;
-  precedingNotebook?: string;
-  notebookOnly?: boolean;
-  object?: { objId?: string; family?: string } | null;
-}
-
-interface CompileSource {
-  line: FloatingLine;
-  note?: string;
-  noteOnly?: boolean;
-}
-
-const normEq = (s: string): string =>
-  String(s ?? "").replace(/\s+/g, " ").trim();
-
-/**
- * Attach each line's OWN teaching note, using the same law the lesson-note
- * board uses: a note belongs to the highlight above it, and a line has a note
- * only when its own highlight authored one. Standalone (`notebookOnly`)
- * highlights become note-only lines in their saved position.
- *
- * When the subsection has no saved highlights the floating lines pass through
- * unchanged — exactly today's behaviour, with no notes invented.
- */
-const withHighlightNotes = (
-  flLines: FloatingLine[],
-  rawHighlights: unknown,
-): CompileSource[] => {
-  const highlights = (Array.isArray(rawHighlights) ? rawHighlights : []) as SavedHighlight[];
-  const usable = highlights.filter((h) => !h?.object || h.object?.family === "table");
-  if (usable.length === 0) return flLines.map((line) => ({ line }));
-
-  const byEquation = new Map<string, FloatingLine[]>();
-  for (const l of flLines) {
-    const k = normEq(String(l.equation ?? ""));
-    if (!k) continue;
-    const bucket = byEquation.get(k) ?? [];
-    bucket.push(l);
-    byEquation.set(k, bucket);
-  }
-  const consumed = new Set<FloatingLine>();
-  const takeMatch = (payload: string): FloatingLine | null => {
-    const bucket = byEquation.get(normEq(payload));
-    if (!bucket) return null;
-    const hit = bucket.find((l) => !consumed.has(l)) ?? null;
-    if (hit) consumed.add(hit);
-    return hit;
-  };
-
-  const out: CompileSource[] = [];
-  usable.forEach((h, hi) => {
-    const note = String(h?.precedingNotebook ?? "").trim();
-    if (h?.notebookOnly) {
-      if (!note) return;
-      out.push({
-        line: { lineId: `note-${hi}`, equation: "", fillers: [], containers: [] } as unknown as FloatingLine,
-        note,
-        noteOnly: true,
-      });
-      return;
-    }
-    if (h?.object) {
-      // Table workspace: every saved line that belongs to it, in saved order.
-      const objId = String(h.object?.objId ?? "");
-      for (const l of flLines) {
-        if (String((l as any)?.table?.objId ?? "") !== objId) continue;
-        consumed.add(l);
-        out.push({ line: l });
-      }
-      return;
-    }
-    const payload = String(h?.payload ?? "").trim();
-    const matched = takeMatch(payload);
-    if (!matched) return;
-    out.push({ line: matched, note: note || undefined });
-  });
-
-  // Any floating line no highlight claimed still belongs to the question —
-  // it simply has no note.
-  for (const l of flLines) if (!consumed.has(l)) out.push({ line: l });
-  return out.length > 0 ? out : flLines.map((line) => ({ line }));
-};
-
-
-
-
 export async function getNotebookScoreLabel(notebookId: string): Promise<string> {
   const { data } = await supabase
     .from("notebooks")
@@ -182,9 +99,14 @@ export async function getNotebookScoreLabel(notebookId: string): Promise<string>
 }
 
 export async function compileSectionQuestions(sectionId: string): Promise<CompiledSection> {
+  const { data: sectionRow } = await supabase
+    .from("notebook_sections")
+    .select("id, notebook_id, kind, title, order_index")
+    .eq("id", sectionId)
+    .maybeSingle();
   const { data: subs } = await supabase
     .from("notebook_subsections")
-    .select("id, order_index, floating_lines, floating_highlights")
+    .select("id, section_id, order_index, floating_lines, floating_highlights, floating_bucket")
     .eq("section_id", sectionId)
     .order("order_index", { ascending: true });
 
@@ -192,7 +114,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
 
   const { data: blocks } = await supabase
     .from("notebook_blocks")
-    .select("subsection_id, kind, content_ascii")
+    .select("id, section_id, subsection_id, kind, content_ascii, content_json, order_index")
     .in("subsection_id", subIds.length ? subIds : ["00000000-0000-0000-0000-000000000000"]);
   const problemBySub = new Map<string, string>();
   for (const b of blocks ?? []) {
@@ -201,29 +123,65 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
     }
   }
 
+  const blocksBySub = new Map<string, any[]>();
+  for (const b of blocks ?? []) {
+    const subsectionId = (b as any).subsection_id as string | null;
+    if (!subsectionId) continue;
+    const list = blocksBySub.get(subsectionId) ?? [];
+    list.push(b);
+    blocksBySub.set(subsectionId, list);
+  }
+  const canonicalSection: SectionRow | null = sectionRow
+    ? {
+        id: String((sectionRow as any).id),
+        notebook_id: String((sectionRow as any).notebook_id),
+        kind: (sectionRow as any).kind,
+        title: (sectionRow as any).title ?? null,
+        order_index: Number((sectionRow as any).order_index ?? 0),
+        loose: [],
+        subsections: (subs ?? []).map((s: any) => ({
+          id: String(s.id),
+          section_id: String(s.section_id),
+          order_index: Number(s.order_index ?? 0),
+          floating_lines: s.floating_lines ?? null,
+          floating_highlights: s.floating_highlights ?? null,
+          floating_bucket: s.floating_bucket ?? null,
+          blocks: (blocksBySub.get(String(s.id)) ?? []).map((b: any) => ({
+            id: String(b.id),
+            section_id: String(b.section_id),
+            subsection_id: b.subsection_id ? String(b.subsection_id) : null,
+            kind: b.kind,
+            content_ascii: String(b.content_ascii ?? ""),
+            content_json: b.content_json ?? null,
+            order_index: Number(b.order_index ?? 0),
+          })),
+        })),
+      }
+    : null;
+  const lessonSource = canonicalSection ? buildLessonBoardSource([canonicalSection]) : undefined;
+  const canonicalByQuestion = new Map(
+    (lessonSource?.reservoirs ?? []).map((reservoir) => [reservoir.beatId, reservoir]),
+  );
+
   const questions: QuestionPayload[] = [];
   const answerKey: AnswerKeyLine[] = [];
   let total = 0;
 
   for (const s of subs ?? []) {
     const sid = (s as any).id as string;
-    const flLines = ((s as any).floating_lines ?? []) as FloatingLine[];
-    // NOTE-ATTACHMENT LAW (identical to the lesson board): a line has a note
-    // if and only if its OWN highlight authored one (`precedingNotebook`).
-    // No equation-match fallback, no positional guessing, no explanations.
-    const sourceLines = withHighlightNotes(flLines, (s as any).floating_highlights);
+    const reservoir = canonicalByQuestion.get(`${sid}-q`);
     const lines: QuestionPayload["lines"] = [];
-    for (const src of sourceLines) {
-      const { line, note, noteOnly } = src;
-      if (noteOnly) {
+    for (const line of reservoir?.lines ?? []) {
+      const chips = (reservoir?.fragments ?? []).slice(line.fragmentStart, line.fragmentEnd);
+      if (line.notebookOnly) {
         // A standalone note carries no equation, no chips and no marks — it
         // still occupies its own board line so the note reaches the student.
         lines.push({
-          lineId: line.lineId,
+          lineId: line.lineId ?? line.sourceUid ?? `${sid}-note-${lines.length}`,
           chips: [],
           marks: 0,
           containers: [],
-          note,
+          note: line.notebook,
           noteOnly: true,
         });
         continue;
@@ -231,7 +189,6 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
       // Two DIFFERENT objects, never interchangeable:
       //  • chips   — the draggable floating numbers handed to the student.
       //  • tokens/equationAscii — the teacher's correct line (the answer key).
-      const chips = cleanFillers(line.fillers);
       const equationAscii = (() => {
         const eq = String(line.equation ?? "").trim();
         if (!eq) return "";
@@ -243,19 +200,19 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
         : chips;
       const studentChips = chips.length > 0 ? chips : keyTokens;
       if (studentChips.length < 1 && !equationAscii) continue;
-      const marks = marksFor(line);
+      const marks = markForLine({ marks: line.marks });
       total += marks;
       lines.push({
-        lineId: line.lineId,
-        chips: rearrangeStream(studentChips),
+        lineId: line.lineId ?? line.sourceUid ?? `${sid}-line-${lines.length}`,
+        chips: studentChips,
         marks,
         containers: (line.containers ?? []) as ContainerKind[],
         ...(line.table ? { table: line.table } : {}),
-        ...(note ? { note } : {}),
+        ...(line.notebook ? { note: line.notebook } : {}),
       });
       answerKey.push({
         questionId: sid,
-        lineId: line.lineId,
+        lineId: line.lineId ?? line.sourceUid ?? `${sid}-line-${lines.length - 1}`,
         tokens: keyTokens.length > 0 ? keyTokens : studentChips,
         equationAscii: equationAscii || undefined,
       });
@@ -265,7 +222,7 @@ export async function compileSectionQuestions(sectionId: string): Promise<Compil
     questions.push({ id: sid, questionText: problemBySub.get(sid) ?? "", lines });
   }
 
-  return { questions, answerKey, total };
+  return { questions, answerKey, total, lessonSource };
 }
 
 

@@ -58,6 +58,23 @@ describe("shared floating workspace", () => {
     expect(a).not.toBe(b);
   });
 
+  it("keeps a saved line's chip ids stable when a preceding line grows", () => {
+    const before = reservoir();
+    before.lines[0].lineId = "first";
+    before.lines[1].lineId = "second";
+    const beforeSecond = buildFloatingLines("q1", before).find((line) => line.lineId === "second");
+
+    const after = reservoir();
+    after.fragments = ["0", ...after.fragments];
+    after.lines[0] = { ...after.lines[0], lineId: "first", fragmentStart: 0, fragmentEnd: 5 };
+    after.lines[1] = { ...after.lines[1], lineId: "second", fragmentStart: 5, fragmentEnd: 9 };
+    const afterSecond = buildFloatingLines("q1", after).find((line) => line.lineId === "second");
+
+    expect(beforeSecond?.chips.map((chip) => chip.chipId)).toEqual(
+      afterSecond?.chips.map((chip) => chip.chipId),
+    );
+  });
+
   it("the receiver reproduces the publisher's exact arrangement", () => {
     const s = shared();
     const rebuilt = reservoirFromShared(s, reservoir());
