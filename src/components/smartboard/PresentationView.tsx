@@ -2971,6 +2971,84 @@ const PresentationView = ({
   const guidedLines = activeReservoir?.lines ?? [];
   const hasGuidedLines = guidedLines.length > 0;
 
+  /* ── LIVE CLASSROOM: the floating number is ONE shared object ─────────────
+     The client holding edit rights publishes the arrangement itself (lines and
+     chips with stable ids) plus which chips are used and how the strip window
+     sits. Every other client renders exactly that. Nothing here runs on other
+     boards, which keep their present local behaviour. */
+  const sharedFloatingResId = activeReservoir?.beatId ?? "";
+  const publishedFloatingLines = useMemo(
+    () =>
+      syncEnabled && canEdit && activeReservoir
+        ? buildFloatingLines(sharedFloatingResId, activeReservoir)
+        : null,
+    [syncEnabled, canEdit, activeReservoir, sharedFloatingResId],
+  );
+  const floatingOut = useMemo<FloatingShared | null>(() => {
+    if (!publishedFloatingLines) return null;
+    return {
+      resId: sharedFloatingResId,
+      viewIdx: viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx),
+      activeIdx: activeReservoirIdx,
+      lineIdx: activeLineIdx,
+      lines: publishedFloatingLines,
+      usedOrder: chipIdsForAbsIdx(publishedFloatingLines, floatingUsedOrderIdx),
+      reveal: floatingView.reveal,
+      offset: floatingView.offset,
+      reentryOffset: floatingView.reentryOffset,
+    };
+  }, [
+    publishedFloatingLines, sharedFloatingResId, viewReservoirIdx, activeReservoirIdx,
+    activeLineIdx, floatingUsedOrderIdx, floatingView,
+  ]);
+  // Publish through the same ref+tick channel as the rest of the workspace, so
+  // a floating operation leaves on the very next frame with no debounce.
+  useEffect(() => {
+    floatingSyncRef.current = { ...floatingSyncRef.current, floating: floatingOut };
+    setFloatingSyncTick((n) => n + 1);
+  }, [floatingOut]);
+
+  // Receiver side: render the publisher's arrangement and per-chip state.
+  const sharedFloatingActive = syncEnabled && !canEdit && !!remoteFloating;
+  const sharedFloatingReservoir = useMemo(
+    () => (sharedFloatingActive && remoteFloating ? reservoirFromShared(remoteFloating, activeReservoir) : null),
+    [sharedFloatingActive, remoteFloating, activeReservoir],
+  );
+  const sharedFloatingUsed = useMemo(
+    () => (sharedFloatingActive && remoteFloating ? sharedConsumedSet(remoteFloating, remoteFloating.usedOrder) : null),
+    [sharedFloatingActive, remoteFloating],
+  );
+  const sharedFloatingUsedOrder = useMemo(
+    () => (sharedFloatingActive && remoteFloating ? sharedUsedOrderIdx(remoteFloating, remoteFloating.usedOrder) : null),
+    [sharedFloatingActive, remoteFloating],
+  );
+  const sharedFloatingView = useMemo(
+    () =>
+      sharedFloatingActive && remoteFloating
+        ? { reveal: remoteFloating.reveal, offset: remoteFloating.offset, reentryOffset: remoteFloating.reentryOffset }
+        : null,
+    [sharedFloatingActive, remoteFloating],
+  );
+  const handleFloatingViewChange = useCallback(
+    (v: { reveal: number; offset: number; reentryOffset: number }) => {
+      if (!syncEnabled || !canEdit) return;
+      setFloatingView((prev) =>
+        prev.reveal === v.reveal && prev.offset === v.offset && prev.reentryOffset === v.reentryOffset ? prev : v,
+      );
+    },
+    [syncEnabled, canEdit],
+  );
+  const handleFloatingUsedOrderChange = useCallback(
+    (order: number[]) => {
+      if (!syncEnabled || !canEdit) return;
+      setFloatingUsedOrderIdx((prev) =>
+        prev.length === order.length && prev.every((v, i) => v === order[i]) ? prev : [...order],
+      );
+    },
+    [syncEnabled, canEdit],
+  );
+
+
   /* ── Table Activity ──────────────────────────────────────────────
      A highlighted Smart Table's lines are ONE lesson step. While that
      step is active the table becomes the workspace: cell clicks pick the
