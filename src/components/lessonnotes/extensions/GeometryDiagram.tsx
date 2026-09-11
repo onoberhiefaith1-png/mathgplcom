@@ -392,6 +392,10 @@ function GeometryDiagramView({
             onChange={commitScene}
             docHistory={docHistory}
             zoom={diagramZoom}
+            // In 2D mode the drawable surface IS the region between the
+            // barriers: full page width, full barrier height.
+            regionW={barriersOn ? regionWidth : undefined}
+            regionH={barriersOn ? barrierHeight : undefined}
             onDeleteDiagram={() => deleteNode()}
             relevanceText={(node.attrs.questionText as string) || undefined}
             // The map always reads the diagram's OWN question — never the caret's.
