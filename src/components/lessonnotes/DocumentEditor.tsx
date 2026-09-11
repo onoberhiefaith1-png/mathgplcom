@@ -4155,8 +4155,40 @@ function NotebookGeometryOverlay({
     return () => window.clearTimeout(t);
   }, [tiptapEditor, notebookId]);
 
+  // Toolbar Dustbin: wipe 2D objects the dustbin passes over, inside whichever
+  // diagram block sits under the pointer.
+  useEffect(() => {
+    if (!tiptapEditor) return;
+    registerNotebookGeometryEraser((clientX, clientY) => {
+      const el = document.elementFromPoint(clientX, clientY) as Element | null;
+      const wrap = el?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
+      const raw = wrap?.dataset.geometryPos;
+      if (!wrap || !raw) return false;
+      const pos = Number(raw);
+      if (!Number.isFinite(pos)) return false;
+      const node = tiptapEditor.state.doc.nodeAt(pos);
+      if (!node || node.type.name !== "geometryDiagram") return false;
+      const scene = (sanitizeScene(node.attrs.scene) as GeometryScene | null) ?? EMPTY_SCENE;
+      const rect = wrap.getBoundingClientRect();
+      const W = scene.bounds.width + 48;
+      const H = scene.bounds.height + 48;
+      const x = ((clientX - rect.left) / (rect.width || 1)) * W - 24;
+      const y = ((clientY - rect.top) / (rect.height || 1)) * H - 24;
+      const id = pickObject(scene, x, y, 16);
+      if (!id) return false;
+      const next = (eraseObject(scene, id) as { scene?: GeometryScene }).scene;
+      if (!next) return false;
+      const tr = tiptapEditor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, scene: next });
+      closeHistory(tr);
+      tiptapEditor.view.dispatch(tr);
+      return true;
+    });
+    return () => registerNotebookGeometryEraser(null);
+  }, [tiptapEditor]);
+
   return null;
 }
+
 
 
       window.removeEventListener("beforeunload", flush);
