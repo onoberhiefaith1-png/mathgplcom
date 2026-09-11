@@ -94,8 +94,6 @@ export function useIdleSignOut() {
 
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", goHidden);
-    window.addEventListener("blur", goHidden);
-    window.addEventListener("focus", goVisible);
 
     // On mount: browser reopened or laptop resumed after being away too long.
     if (document.visibilityState === "visible") goVisible();
@@ -108,8 +106,6 @@ export function useIdleSignOut() {
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", goHidden);
-      window.removeEventListener("blur", goHidden);
-      window.removeEventListener("focus", goVisible);
       window.clearInterval(timer);
     };
   }, [active, signOut]);
