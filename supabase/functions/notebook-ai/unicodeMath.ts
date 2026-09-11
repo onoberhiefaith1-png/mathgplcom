@@ -74,10 +74,15 @@ export const toUnicodeMath = (input: string): string => {
   // Preserve empty power slots as structural superscripts. If we let the
   // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads
   // like multiplication instead of “u raised to an empty exponent box”.
-  const POWER_SLOT = "\uE000POWER_SLOT\uE000";
+  // SENTINELS MUST BE PURE PRIVATE-USE CHARS — never ASCII. The earlier
+  // "\uE000POWER_SLOT\uE000" / "\uE001SCRIPT_n\uE001" markers leaked their
+  // readable payload whenever a later pass dropped private-use characters or
+  // turned `_S` into a subscript, so a stored power (`x^{□}`) arrived as the
+  // nonsense token `xPOWERSCRIPT₀LOT` and the board showed no power at all.
+  const POWER_SLOT = "\uE000\uE010\uE000";
   const scriptSlots: string[] = [];
   const holdScript = (markup: string) => {
-    const token = `\uE001SCRIPT_${scriptSlots.length}\uE001`;
+    const token = `\uE001${String.fromCharCode(0xE100 + scriptSlots.length)}\uE001`;
     scriptSlots.push(markup);
     return token;
   };
@@ -145,13 +150,20 @@ export const toUnicodeMath = (input: string): string => {
   // Strip stray braces left behind
   s = s.replace(/[{}]/g, "");
 
+  // split/join, not replace(): every occurrence of a held script comes back,
+  // and no marker can survive as text.
   scriptSlots.forEach((markup, i) => {
-    s = s.replace(`\uE001SCRIPT_${i}\uE001`, markup);
+    const token = `\uE001${String.fromCharCode(0xE100 + i)}\uE001`;
+    s = s.split(token).join(markup);
   });
-  s = s.replace(new RegExp(POWER_SLOT, "g"), "^{□}");
+  s = s.split(POWER_SLOT).join("^{□}");
   fracHolds.forEach((markup, i) => {
     s = s.split(FRAC_TOKEN(i)).join(markup);
   });
+
+  // Defence in depth: any leftover private-use sentinel is dropped, so a
+  // half-eaten marker can never reach a lesson note or the Smartboard.
+  s = s.replace(/[\uE000-\uE3FF]/g, "");
 
   return s.trim();
 };
