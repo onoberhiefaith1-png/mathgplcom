@@ -3307,8 +3307,15 @@ function DocumentEditorInner({
     const isGeometryTarget = Boolean(el?.closest("[data-geometry-diagram-wrapper],[data-geometry-live-canvas]"));
     if (isEditorControlTarget(e.target) && !isGeometryTarget) return;
 
-    // While a drawing tool is active the geometry overlay owns the click.
-    if (geometryMode && geometryTool !== "select") return;
+    // While a drawing tool is active the geometry tools own the click. A click
+    // inside a live drawing canvas is handled there; anywhere else on the paper
+    // starts (or continues) the construction in a diagram block placed in flow.
+    if (geometryMode && geometryTool !== "select") {
+      const inLive = Boolean(el?.closest("[data-geometry-live-canvas]"));
+      if (!inLive) handleGeometryDrawStart(e);
+      return;
+    }
+
 
     // Grab a free canvas frame by its left gutter to move it. Object frames
     // (a detached diagram / solution) have no gutter — they are dragged from
