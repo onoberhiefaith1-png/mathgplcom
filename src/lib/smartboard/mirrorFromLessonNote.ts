@@ -390,7 +390,7 @@ const containsForbidden = (s: string): string | null => {
 const stageRow = (raw: string): MirrorRowResult => {
   const gated = assertDisplaySafe(raw ?? "");
   // Use the gate's cleaned form as the canonical Lesson Note source.
-  const cleaned = stripLatexScaffolding(gated.cleaned);
+  const cleaned = liftUnicodeScripts(stripLatexScaffolding(gated.cleaned));
   // One writable cell per slot — never box-inside-box.
   const row = collapseNestedBoxes(latexToRow(cleaned));
   const sig = rowSignature(row);
