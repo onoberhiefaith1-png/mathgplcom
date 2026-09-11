@@ -692,6 +692,9 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
             explanation: explanation || undefined,
             notebook,
             notebookOnly: isNotebookOnly,
+            // Marks belong to the saved Lesson Note line and must travel with
+            // it — assignment/adventure cards read their totals from here.
+            marks: Number.isFinite(Number((rl as any).marks)) ? Number((rl as any).marks) : undefined,
             lineId: (rl as any).lineId,
             groupId: (rl as any).groupId,
             sourceUid: (rl as any).sourceUid,
