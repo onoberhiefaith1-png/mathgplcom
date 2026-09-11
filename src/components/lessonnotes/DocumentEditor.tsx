@@ -1993,13 +1993,11 @@ function DocumentEditorInner({
     const coords = view.posAtCoords({ left: clientX, top: clientY });
     let pos = coords?.pos ?? editor.state.selection.to;
     pos = Math.max(0, Math.min(pos, editor.state.doc.content.size));
-    const owner = ownerQuestionHeadingFor(editor.state.doc, pos);
-    if (owner) {
-      const existing = diagramsOwnedByQuestion(editor.state.doc, owner.pos, isSolutionLabel)[0];
-      if (existing) {
-        selectGeometryAt(existing.pos);
-        return existing.pos;
-      }
+    // Open where the teacher clicked; only a figure already there is reused.
+    const nearClick = locateGeometryNearPos(pos);
+    if (nearClick != null) {
+      selectGeometryAt(nearClick);
+      return nearClick;
     }
     const beforeSize = editor.state.doc.content.size;
     editor.chain().focus().insertContentAt(pos, {
