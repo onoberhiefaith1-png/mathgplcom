@@ -156,6 +156,7 @@ import {
   reservoirFromShared,
   sharedConsumedSet,
   sharedUsedOrderIdx,
+  floatingSourceFingerprint,
 } from "@/lib/smartboard/floatingShared";
 
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
@@ -499,14 +500,6 @@ const PresentationView = ({
   const { notebook, sections, loading } = useNotebook(assessmentMode ? undefined : (notebookId ?? undefined));
 
 
-  // Live classroom mirroring (disabled in assessment mode).
-  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent, diagnostics: syncDiagnostics } =
-    useSmartboardSync({
-      classId: assessmentMode ? null : classIdProp,
-      notebookId: assessmentMode ? null : notebookId,
-      role,
-    });
-
   const syncEnabled = !!classIdProp && !assessmentMode;
   // In assessment mode the student edits their OWN board (canEdit true) but no
   // teacher-only chrome is shown.
@@ -576,6 +569,16 @@ const PresentationView = ({
   }, [rawBeats, rawReservoirs, assessmentMode, notebookId]);
   const beats = assessmentMode && source ? source.beats : notebookBeats;
   const reservoirs = assessmentMode && source ? source.reservoirs : notebookReservoirs;
+  const sourceFingerprint = useMemo(() => floatingSourceFingerprint(reservoirs), [reservoirs]);
+
+  // Recovery is keyed to both the notebook and its exact ordered math source.
+  const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent, diagnostics: syncDiagnostics } =
+    useSmartboardSync({
+      classId: assessmentMode ? null : classIdProp,
+      notebookId: assessmentMode ? null : notebookId,
+      sourceFingerprint: assessmentMode ? null : sourceFingerprint,
+      role,
+    });
 
   // ── Assessment grading state (assessment mode only) ──────────────────────
   // `solvedSlots` keys are `${questionId}:${lineId}`; the value is the marks
@@ -1521,6 +1524,7 @@ const PresentationView = ({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
       sourceNotebookId: notebookId ?? null,
+      sourceFingerprint,
       activeLineIdx: floatingSyncRef.current.activeLineIdx,
       lineEngaged: floatingSyncRef.current.lineEngaged,
       floating: floatingSyncRef.current.floating ?? null,
@@ -1528,7 +1532,7 @@ const PresentationView = ({
   }, [
     syncEnabled, canEdit, pushSnapshot,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
-    sensor, zoom, surface, profileId, inkColorId, placeholderColorId, notebookId,
+    sensor, zoom, surface, profileId, inkColorId, placeholderColorId, notebookId, sourceFingerprint,
     floatingSyncTick,
   ]);
 

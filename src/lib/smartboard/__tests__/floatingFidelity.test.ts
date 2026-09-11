@@ -5,7 +5,7 @@ import {
   liftUnicodeScripts,
   mirrorLessonNoteRow,
 } from "@/lib/smartboard/mirrorFromLessonNote";
-import { buildFloatingLines, reservoirFromShared } from "@/lib/smartboard/floatingShared";
+import { buildFloatingLines, floatingSourceFingerprint, reservoirFromShared } from "@/lib/smartboard/floatingShared";
 
 describe("floating chip fidelity", () => {
   it("keeps powers when chips are written together", () => {
@@ -66,5 +66,17 @@ describe("floating chip fidelity", () => {
     expect(rebuilt.lines).toHaveLength(2);
     expect(rebuilt.lines.map((line) => line.fillers)).toEqual([["2s²"], ["a□"]]);
     expect(rebuilt.fragments).toEqual(["2s²", "a□"]);
+  });
+
+  it("changes source identity when lesson line order changes", () => {
+    const source = [{
+      beatId: "q1", caption: "", fragments: ["a", "b"],
+      lines: [
+        { lineId: "l1", equation: "a", fillers: ["a"], containers: [], fragmentStart: 0, fragmentEnd: 1 },
+        { lineId: "l2", equation: "b", fillers: ["b"], containers: [], fragmentStart: 1, fragmentEnd: 2 },
+      ],
+    }];
+    const reordered = [{ ...source[0], lines: [source[0].lines[1], source[0].lines[0]] }];
+    expect(floatingSourceFingerprint(source as never)).not.toBe(floatingSourceFingerprint(reordered as never));
   });
 });

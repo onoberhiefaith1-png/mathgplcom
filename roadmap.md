@@ -27,3 +27,10 @@
 - [x] Finish the phone-only compact top bar, Floating Number toolbar, fullscreen, timer-state merge, and non-blocking notes.
 
 - [x] Page tutorials: watch + upload buttons on all owner-linked accounts, saved draggable position, link tutorials, workspace bar restored
+
+# Smartboard source parity
+
+- [x] Use the publisher's exact Floating Number reservoir and line index on classroom receivers.
+- [x] Reject class recovery state from another notebook or an older lesson structure.
+- [x] Preserve powers, placeholders, line boundaries, and chip order through live sharing.
+- [x] Restrict student timer-attempt visibility to each student's own work.
