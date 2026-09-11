@@ -52,7 +52,7 @@ import { ReasoningEngine, introducedTerms as introducedTermsOf } from "@/lib/sma
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
-import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
+import { joinChipsForMirror, mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
 
 
@@ -5079,7 +5079,7 @@ const PresentationView = ({
       if (!line) return "";
       const fillers = (line.fillers ?? []).slice(0, Math.max(0, prefixTokenCount));
       if (fillers.length === 0) return "";
-      const text = fillers.join(" ");
+      const text = joinChipsForMirror(fillers);
       const m = mirrorLessonNoteRow(text);
       return m.ok ? m.signature : "";
     },
@@ -5095,7 +5095,7 @@ const PresentationView = ({
       // writeProseLineOnBoard is idempotent by first-paragraph row signature,
       // so re-issuing with an extended prefix rewrites into the same owned
       // row rather than piling up new rows.
-      writeProseLineOnBoard(fillers.join(" "));
+      writeProseLineOnBoard(joinChipsForMirror(fillers));
     },
     [writeProseLineOnBoard],
   );

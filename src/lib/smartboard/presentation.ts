@@ -751,6 +751,37 @@ export const buildReservoirs = (sections: SectionRow[]): Reservoir[] => {
           ? fragmentsFromLines
           : bucketCombined;
 
+      // LINE LAW: a Floating Number line is never merged into another. When the
+      // per-line data was missing and we fell back to the flat bucket, rebuild
+      // the line boundaries from the ranges the note saved (`bucket.byLine`),
+      // so every stored line still owns its own board row instead of every
+      // chip piling onto one row.
+      if (lines.length === 0 && fragments.length > 0) {
+        const byLine = ((bucket as any)?.byLine ?? []) as Array<{
+          lineId?: string;
+          fillerStart?: number;
+          fillerEnd?: number;
+        }>;
+        const usable = byLine.filter(
+          (r) =>
+            typeof r?.fillerStart === "number" &&
+            typeof r?.fillerEnd === "number" &&
+            r.fillerEnd! > r.fillerStart! &&
+            r.fillerEnd! <= fragments.length,
+        );
+        for (const r of usable) {
+          lines.push({
+            equation: "",
+            fillers: fragments.slice(r.fillerStart!, r.fillerEnd!),
+            containers: [],
+            fragmentStart: r.fillerStart!,
+            fragmentEnd: r.fillerEnd!,
+            lineId: r.lineId,
+          } as ReservoirLine);
+        }
+      }
+
+
 
       // Parity guard: any teacher-sourced fragment must survive byte-identical.
       const teacherSource = (bucket?.fillers && bucket.fillers.length > 0)

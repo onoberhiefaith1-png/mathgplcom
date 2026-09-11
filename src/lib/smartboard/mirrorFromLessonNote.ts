@@ -110,9 +110,16 @@ const UNI_SUB: Record<string, string> = {
   "ₗ": "l", "ₘ": "m", "ₙ": "n", "ₚ": "p", "ₛ": "s", "ₜ": "t",
 };
 
-export const liftUnicodeScripts = (src: string): string => {
+/** Re-lift look-alike unicode scripts into structural `^{}` / `_{}` syntax.
+ *
+ *  `prevTail` carries the text written immediately BEFORE this fragment, so a
+ *  chip that begins with a raised character (e.g. base `2s` in one chip and
+ *  `²` at the head of the next) still recognises that it has a base to sit on
+ *  instead of falling through as a full-height character. */
+export const liftUnicodeScripts = (src: string, prevTail = ""): string => {
   let out = "";
   let i = 0;
+  const seed = prevTail.slice(-1);
   while (i < src.length) {
     const ch = src[i];
     const map = UNI_SUP[ch] ? UNI_SUP : UNI_SUB[ch] ? UNI_SUB : null;
@@ -121,7 +128,9 @@ export const liftUnicodeScripts = (src: string): string => {
     let j = i;
     while (j < src.length && map[src[j]] !== undefined) { body += map[src[j]]; j++; }
     // A script needs something to sit on; a stray glyph stays literal.
-    const hasBase = /[A-Za-z0-9)\]}□]$/.test(out);
+    const hasBase = out.length > 0
+      ? /[A-Za-z0-9)\]}□]$/.test(out)
+      : /[A-Za-z0-9)\]}□]/.test(seed);
     if (!hasBase) {
       // `⁵√(32)` — with nothing to the left, those digits are a ROOT INDEX.
       // Leave them for the radical parser.
@@ -423,6 +432,31 @@ export const mirrorLessonNoteRow = (raw: string): MirrorRowResult => {
   );
   return second;
 };
+
+/** Join Floating Number chips into one board-ready source string WITHOUT
+ *  losing structure at the chip boundaries.
+ *
+ *  Each chip is lifted on its own (so `2x²` keeps its power exactly as the
+ *  panel shows it) and carries the previous chip's tail as base context, so a
+ *  chip that starts with a raised character still attaches to the base before
+ *  it. Never re-parse the glued string: that is what dropped powers to full
+ *  height on the main and classroom boards. */
+export const joinChipsForMirror = (chips: string[]): string => {
+  const parts: string[] = [];
+  let tail = "";
+  for (const raw of chips) {
+    const chip = raw ?? "";
+    const lifted = liftUnicodeScripts(chip, tail);
+    parts.push(lifted);
+    if (chip.trim()) tail = chip;
+  }
+  return parts.join(" ");
+};
+
+/** Count the structural scripts in a source string — used as a round-trip
+ *  guard that a converted line kept every power/index of its chips. */
+export const countScripts = (s: string): number =>
+  (s.match(/[\^_]\{/g) ?? []).length;
 
 /* ─────────── Legacy text-only API (kept for older callers) ─────────── */
 
