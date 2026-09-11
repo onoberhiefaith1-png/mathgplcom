@@ -1428,7 +1428,10 @@ const PresentationView = ({
   // Floating-number workspace mirror (declared before the sync effects; the
   // state itself lives further down). The student's floating number is the
   // SAME shared object, so its activation travels with every board frame.
-  const floatingSyncRef = useRef({ activeLineIdx: 0, lineEngaged: false });
+  const floatingSyncRef = useRef<{ activeLineIdx: number; lineEngaged: boolean; floating: FloatingShared | null }>(
+    { activeLineIdx: 0, lineEngaged: false, floating: null },
+  );
+
   const [floatingSyncTick, setFloatingSyncTick] = useState(0);
   /** The shared floating workspace as published by whoever holds edit rights.
    *  Receivers render THIS, never a locally re-derived arrangement. */
