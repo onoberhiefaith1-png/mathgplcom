@@ -244,8 +244,17 @@ export function useHomepageConfig(options?: {
       setSaving(true);
       const next: HomepageConfig = { ...configRef.current, ...patch };
       apply(next);
-      if (mode === "self") writeLocal(next);
+      // A per-building edit never touches the account's homepage or its cache.
+      if (mode === "self" && !buildingId) writeLocal(next);
       try {
+        if (buildingId) {
+          const { error } = await supabase
+            .from("buildings")
+            .update({ exterior_config: next as never })
+            .eq("id", buildingId);
+          if (error) throw error;
+          return;
+        }
         if (mode === "platform-free") {
           const { error } = await supabase.rpc("set_platform_free_building", { _config: next as never });
           if (error) throw error;
