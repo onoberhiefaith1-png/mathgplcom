@@ -473,7 +473,10 @@ export const FloatingNumberPanel = ({
   // Keep `usedOrder` reconciled with the parent's consumed set: drop numbers no
   // longer used, append any newly-consumed ones (the tap handler already appends
   // in tap order; this effect covers resets/undo/external changes).
+  // In a live classroom a receiver takes the publisher's exact order instead —
+  // rebuilding it locally is what previously scrambled the used zone.
   useEffect(() => {
+    if (sharedUsedOrder) return;
     const consumed = consumedIdx ?? new Set<number>();
     setUsedOrder((prev) => {
       const kept = prev.filter((i) => consumed.has(i));
@@ -483,7 +486,8 @@ export const FloatingNumberPanel = ({
       added.sort((a, b) => a - b);
       return added.length === 0 && kept.length === prev.length ? prev : [...kept, ...added];
     });
-  }, [consumedIdx]);
+  }, [consumedIdx, sharedUsedOrder]);
+
 
   // Used numbers for the active line, ordered MOST-RECENT FIRST so the last
   // chip the teacher tapped sits leftmost in the used zone (reversed view).
