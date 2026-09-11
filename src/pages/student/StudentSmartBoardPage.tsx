@@ -56,7 +56,18 @@ const StudentSmartBoardPage = () => {
       lastLoadedRef.current = next;
       return next;
     }
-    const next = { name: cls?.name ?? "", accessEnabled: access, notebookId: state?.notebook_id ?? null };
+    // A deleted lesson note must never turn the student board into a dead
+    // "Notebook not found" screen: treat it as "waiting for the teacher".
+    let liveId = state?.notebook_id ?? null;
+    if (liveId) {
+      const { data: nb } = await supabase
+        .from("notebooks")
+        .select("id")
+        .eq("id", liveId)
+        .maybeSingle();
+      if (!nb) liveId = null;
+    }
+    const next = { name: cls?.name ?? "", accessEnabled: access, notebookId: liveId };
     setClassName(next.name);
     setAccessEnabled(next.accessEnabled);
     setActiveNotebookId(next.notebookId);
@@ -143,7 +154,8 @@ const StudentSmartBoardPage = () => {
         >
           <ArrowLeft className="h-3.5 w-3.5" /> {className || "Class"}
         </Link>
-        <PresentationView notebookId={activeNotebookId} classId={classId} role="student" />
+        {/* Remount on switch so nothing from the previous lesson note lingers. */}
+        <PresentationView key={activeNotebookId} notebookId={activeNotebookId} classId={classId} role="student" />
       </div>
     );
   }

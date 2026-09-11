@@ -16,6 +16,7 @@ const ClassSmartBoardLauncher = () => {
   const [className, setClassName] = useState("");
   const [visibility, setVisibility] = useState<"teacher_only" | "student_access_enabled">("teacher_only");
   const [notes, setNotes] = useState<AttachedNote[]>([]);
+  const [liveId, setLiveId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!classId) return;
@@ -38,6 +39,13 @@ const ClassSmartBoardLauncher = () => {
       .select("id, title, teacher, class_name, session, subject, color_index")
       .in("id", ids);
     setNotes((nbs ?? []) as AttachedNote[]);
+    // Which note the class is watching right now.
+    const { data: live } = await supabase
+      .from("class_smartboard_state")
+      .select("notebook_id")
+      .eq("class_id", classId)
+      .maybeSingle();
+    setLiveId((live as { notebook_id?: string | null } | null)?.notebook_id ?? null);
   }, [classId]);
 
   useEffect(() => {
@@ -102,11 +110,17 @@ const ClassSmartBoardLauncher = () => {
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {notes.map((n) => (
-              <NotebookCover
-                key={n.id}
-                notebook={n}
-                onClick={() => navigate(`/smartboard/${n.id}?classId=${classId}`)}
-              />
+              <div key={n.id} className="relative">
+                {liveId === n.id && (
+                  <span className="absolute -top-2 left-2 z-10 rounded-full border border-green-500/40 bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-300">
+                    Live now
+                  </span>
+                )}
+                <NotebookCover
+                  notebook={n}
+                  onClick={() => navigate(`/smartboard/${n.id}?classId=${classId}`)}
+                />
+              </div>
             ))}
           </div>
         )}
