@@ -107,7 +107,7 @@ export function GeometryModeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ mode, setMode, tool: toolState, setTool, activeFrameId, setActiveFrameId, annotationDraft, setAnnotationDraft }}>
+    <Ctx.Provider value={{ mode, setMode, tool: toolState, setTool, activeFrameId, setActiveFrameId, annotationDraft, setAnnotationDraft, showPoints, setShowPoints }}>
       {children}
     </Ctx.Provider>
   );
