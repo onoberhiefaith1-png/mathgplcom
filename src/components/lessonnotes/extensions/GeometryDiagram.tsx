@@ -31,8 +31,8 @@ import { SmartboardPropertyTest } from "@/components/lessonnotes/geometry-editor
 import { sceneHasReviewableProperties } from "@/lib/smartboard/reviewProperties";
 import type { HitKind } from "@/lib/geometry/editor/snap";
 
-import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { ensureOwnerQuestionId } from "@/lib/lessonnotes/containerRange";
+
 import {
   questionContextForOwner,
   questionHeadingPos,
@@ -229,65 +229,43 @@ function GeometryDiagramView({
   // A press without movement still activates the diagram, as before.
   const { mode: geometryModeOn } = useGeometryMode();
 
+  // A diagram is a DOCUMENT BLOCK. It never leaves the flow, so it can never
+  // be dragged over text: pressing it simply activates it for drawing.
   const handlePointerDown = (e: React.PointerEvent) => {
     kickAi();
     const pos = typeof getPos === "function" ? getPos() : null;
     if (pos == null) return;
-    const activate = () => {
-      if (selected) return;
-      pendingClick.current = { x: e.clientX, y: e.clientY };
-      tiptapEditor.commands.setNodeSelection(pos);
-    };
-    if (geometryModeOn) { activate(); return; }
+    if (selected) return;
+    pendingClick.current = { x: e.clientX, y: e.clientY };
+    tiptapEditor.commands.setNodeSelection(pos);
+  };
 
-    // Movable-object interaction.
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const wrapper = (wrapRef.current?.closest("[data-geometry-diagram-node]") as HTMLElement | null)
-      ?? wrapRef.current;
-    const frameEl = (wrapper?.closest('[data-canvas-frame][data-object-kind="diagram"]') as HTMLElement | null) ?? null;
-    if (!wrapper) { activate(); return; }
+  // ── OWN VERTICAL REGION ────────────────────────────────────────────────
+  // The block reserves real height in the document, so the text underneath
+  // always starts below the figure. Dragging the bottom edge grows the region
+  // and pushes the following content down; shrinking pulls it back up.
+  const storedHeight = Math.max(0, Number(node.attrs.height) || 0);
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const regionHeight = dragHeight ?? storedHeight;
+
+  const startResize = (e: React.PointerEvent) => {
     e.preventDefault();
-    let dragged = false;
-    const onUp = (ev: PointerEvent) => {
-      window.removeEventListener("pointerup", onUp);
-      if (dragged) return;
-      if (Math.abs(ev.clientX - startX) < 4 && Math.abs(ev.clientY - startY) < 4) activate();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const base = wrapRef.current?.getBoundingClientRect().height ?? storedHeight;
+    let next = Math.max(80, Math.round(base));
+    const onMove = (ev: PointerEvent) => {
+      next = Math.max(80, Math.round(base + (ev.clientY - startY)));
+      setDragHeight(next);
     };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setDragHeight(null);
+      updateAttributes({ height: next });
+    };
+    window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-    const myDiagramId = (node.attrs?.diagramId as string | null) ?? null;
-    startObjectDrag(tiptapEditor, frameEl, startX, startY, {
-      ghost: frameEl ?? wrapper,
-      // Labels, angles, texts and areas that belong to this diagram travel with
-      // it, keeping their exact relative positions.
-      groupFrames: () => {
-        if (!myDiagramId) return [];
-        const root = tiptapEditor.view.dom as HTMLElement;
-        return Array.from(
-          root.querySelectorAll<HTMLElement>(
-            `[data-canvas-frame][data-owner-diagram-id="${myDiagramId}"]`,
-          ),
-        );
-      },
-      onDetach: ({ x, y }) => {
-        dragged = true;
-        const at = typeof getPos === "function" ? getPos() : null;
-        if (at == null) return null;
-        const self = tiptapEditor.state.doc.nodeAt(at);
-        if (!self) return null;
-        const width = Math.max(200, Math.round((wrapper.getBoundingClientRect().width || 420)));
-        return detachIntoFrame(tiptapEditor, at, at + self.nodeSize, x, y, {
-          objectKind: "diagram",
-          ownerQuestionId: ensureOwnerQuestionId(tiptapEditor, at),
-          // A diagram may be dragged freely, but it reserves the band it
-          // occupies so equations and solution steps below it are never
-          // written across the figure.
-          reserveSpace: true,
-          w: width,
-        });
-      },
-    });
-    if (frameEl) dragged = true;
   };
 
   return (
@@ -300,14 +278,18 @@ function GeometryDiagramView({
         ref={wrapRef}
         data-geometry-diagram-wrapper="true"
         data-geometry-pos={typeof getPos === "function" ? String(getPos()) : undefined}
-        className={cn("relative inline-block", !geometryModeOn && !selected && "cursor-grab")}
-        style={{ overflow: "visible" }}
+        className="relative inline-block"
+        style={{
+          overflow: "visible",
+          ...(regionHeight ? { minHeight: regionHeight } : null),
+        }}
 
         onMouseEnter={kickAi}
         onMouseMove={kickAi}
         onFocus={kickAi}
         onPointerDown={handlePointerDown}
       >
+
 
 
         {selected ? (
@@ -395,7 +377,18 @@ function GeometryDiagramView({
             </button>
           </div>
         )}
+
+        {/* Grow / shrink the diagram's own document region. No frame, no
+            border — only this small grip appears while the diagram is active. */}
+        {selected && (
+          <div
+            onPointerDown={startResize}
+            title="Drag to give the diagram more room"
+            className="absolute left-1/2 -translate-x-1/2 -bottom-2 h-1.5 w-16 cursor-ns-resize rounded-full bg-foreground/25 hover:bg-foreground/40"
+          />
+        )}
       </div>
+
     </NodeViewWrapper>
   );
 }
@@ -585,23 +578,15 @@ function StudentGuideDiagram({ scene, zoom }: { scene: GeometryScene; zoom?: num
   );
 }
 
-/** The page-layer carrier: persisted with the note, drawn by the page overlay. */
-function PageLayerCarrierView() {
-  return (
-    <NodeViewWrapper
-      as="div"
-      data-page-layer-diagram="true"
-      className="h-0 overflow-hidden"
-      contentEditable={false}
-      aria-hidden="true"
-    />
-  );
-}
+
+
 
 function GeometryDiagramNodeView(props: NodeViewProps) {
-  if (props.node.attrs.pageLayer) return <PageLayerCarrierView />;
+  // Legacy page-layer carriers are rendered as ordinary in-flow diagrams; the
+  // notebook migration clears the flag the first time the note is opened.
   return <GeometryDiagramView {...props} />;
 }
+
 
 export function PresentationGeometryDiagram({
   scene, pageLayer, highlightIds, onPickObject, zoom,
@@ -726,7 +711,16 @@ export const GeometryDiagramNode = Node.create({
         renderHTML: (attrs) => (attrs.pageLayer ? { "data-page-layer": "true" } : {}),
       },
 
+      // The vertical room this block reserves in the document (0 = natural).
+      height: {
+        default: 0,
+        parseHTML: (el) => Number(el.getAttribute("data-height")) || 0,
+        renderHTML: (attrs) =>
+          attrs.height ? { "data-height": String(attrs.height) } : {},
+      },
+
       align: {
+
         default: "center",
         parseHTML: (el) => el.getAttribute("data-align") || "center",
         renderHTML: (attrs) =>

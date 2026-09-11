@@ -65,7 +65,10 @@ export const CanvasFrame = Node.create({
     const owner = (node.attrs.ownerQuestionId as string | null) ?? null;
     const diagram = (node.attrs.ownerDiagramId as string | null) ?? null;
     const spacer = (node.attrs.spacerId as string | null) ?? null;
-    const canOverlap = kind === "diagram";
+    // Diagrams are document blocks now: NOTHING is absolutely positioned, so
+    // no object can ever be laid over the writing.
+    const canOverlap = false;
+
     return [
       "div",
       mergeAttributes(HTMLAttributes, {

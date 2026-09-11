@@ -315,170 +315,6 @@ const saveNotebookGeometry = (notebookId: string | undefined, scene: GeometrySce
   try { localStorage.setItem(key, JSON.stringify(scene)); } catch { /* noop */ }
 };
 
-/**
- * PERMANENCE LAW. A 2D diagram drawn straight onto the page used to live only
- * in localStorage, so it never reached the saved note and could never appear
- * on the Smartboard. The page scene is therefore mirrored into the document as
- * a single invisible `geometryDiagram` carrier node (pageLayer: true), placed
- * inside the section the drawing sits in. The document save then carries it to
- * the note, to the blocks, and on to the teacher and student boards.
- */
-const pageGroupTop = (group: GeometryScene): number => {
-  const ys = group.objects
-    .map((o) => ("y" in o && typeof (o as { y?: number }).y === "number" ? (o as { y: number }).y : null))
-    .filter((y): y is number => y !== null);
-  return ys.length ? Math.min(...ys) : Number.POSITIVE_INFINITY;
-};
-
-/**
- * Read the saved page drawing back OUT of the document. The lesson note (and
- * therefore the database) is the source of truth: local storage is only a
- * same-browser cache. Every `pageLayer` carrier is merged into one scene,
- * de-duplicated by object id.
- */
-const sceneFromDocument = (editor: Editor): GeometryScene | null => {
-  const objects: GeometryScene["objects"] = [];
-  const seen = new Set<string>();
-  let bounds: GeometryScene["bounds"] | undefined;
-  editor.state.doc.descendants((node) => {
-    if (node.type.name !== "geometryDiagram" || !node.attrs?.pageLayer) return true;
-    const scene = sanitizeScene(node.attrs.scene) as GeometryScene | null;
-    if (!scene?.objects?.length) return true;
-    if (!bounds) bounds = scene.bounds;
-    for (const o of scene.objects) {
-      if (seen.has(o.id)) continue;
-      seen.add(o.id);
-      objects.push(o);
-    }
-    return true;
-  });
-  if (!objects.length) return null;
-  return { ...EMPTY_SCENE, bounds: bounds ?? EMPTY_SCENE.bounds, objects };
-};
-
-const syncPageGeometryNode = (
-  editor: Editor,
-  scene: GeometryScene,
-  layer: HTMLElement | null,
-  notebookId: string | undefined,
-  /** Saved diagrams are removed ONLY when the teacher actually erased them in
-   *  this session. An empty scene from a cold start never destroys the note. */
-  allowClear = false,
-) => {
-  const type = editor.schema.nodes.geometryDiagram;
-  if (!type) return;
-  const existing: Array<{ pos: number; size: number; json: string }> = [];
-  editor.state.doc.descendants((node, pos) => {
-    if (node.type.name === "geometryDiagram" && node.attrs?.pageLayer) {
-      existing.push({ pos, size: node.nodeSize, json: JSON.stringify(node.attrs.scene ?? null) });
-    }
-    return true;
-  });
-
-  const hasContent = (scene?.objects?.length ?? 0) > 0;
-
-  // Nothing drawn any more → drop every carrier, but only on a real erase.
-  if (!hasContent) {
-    if (!existing.length || !allowClear) return;
-    let tr = editor.state.tr;
-    for (const e of [...existing].sort((a, b) => b.pos - a.pos)) tr = tr.delete(e.pos, e.pos + e.size);
-    if (tr.docChanged) editor.view.dispatch(tr);
-    return;
-  }
-
-
-  // One carrier per visually separate drawing, each anchored to the line it
-  // was drawn beside — so the note's reading order is the board's order.
-  const groups = splitPageGeometryScene(scene);
-  const wanted = (groups.length ? groups : [scene]).map((group) => ({
-    group,
-    top: pageGroupTop(group),
-  }));
-
-  // Top-level block boundaries with their on-screen vertical position.
-  // Structural headings are retained separately: page drawings are first
-  // assigned to their visual session, then to a line inside that session.
-  // This prevents a drawing below the flowing editor body from falling through
-  // to the document end and joining every other drawing in the last section.
-  const blocks: Array<{ pos: number; top: number; heading: boolean }> = [];
-  editor.state.doc.forEach((node, offset) => {
-    let top = Number.POSITIVE_INFINITY;
-    try { top = editor.view.coordsAtPos(offset + (node.isAtom ? 0 : 1)).top; } catch { /* off-screen */ }
-    blocks.push({
-      pos: offset,
-      top,
-      heading: node.type.name === "heading" && Number(node.attrs?.level ?? 6) <= 2,
-    });
-  });
-  const docEnd = editor.state.doc.content.size;
-
-  const paperRect = layer?.getBoundingClientRect();
-  const scaleY = layer && paperRect?.height && layer.offsetHeight
-    ? paperRect.height / layer.offsetHeight
-    : 1;
-
-  // Both sides are compared in paper-layer coordinates (scene space), never in
-  // viewport space — otherwise the current scroll position decides the anchor.
-  const blocksInPaperSpace = paperRect && scaleY
-    ? blocks.map((b) => ({
-      ...b,
-      y: Number.isFinite(b.top) ? (b.top - paperRect.top) / scaleY + 24 : Number.POSITIVE_INFINITY,
-    }))
-    : [];
-
-  const visualSessions = blocksInPaperSpace
-    .filter((b) => b.heading && Number.isFinite(b.y))
-    .sort((a, b) => a.y - b.y);
-
-  const targets = wanted.map(({ group, top }) => {
-    let pos = docEnd;
-    if (blocksInPaperSpace.length && Number.isFinite(top)) {
-      // First establish the visual session. Document order is not sufficient:
-      // free-positioned content can live at the end of the JSON while appearing
-      // halfway down the page.
-      let owner = visualSessions[0] ?? null;
-      for (const heading of visualSessions) {
-        if (heading.y > top) break;
-        owner = heading;
-      }
-      const nextHeading = owner
-        ? visualSessions.find((heading) => heading.y > owner.y) ?? null
-        : visualSessions[0] ?? null;
-      const minY = owner?.y ?? Number.NEGATIVE_INFINITY;
-      const maxY = nextHeading?.y ?? Number.POSITIVE_INFINITY;
-      const after = blocksInPaperSpace
-        .filter((b) => !b.heading && b.y >= minY && b.y < maxY && b.y > top)
-        .sort((a, b) => a.y - b.y)[0];
-
-      // If the figure sits below the final prose line in its session, anchor it
-      // immediately before the next session rather than at the document end.
-      pos = after?.pos ?? nextHeading?.pos ?? docEnd;
-    }
-    return { group, pos };
-  }).sort((a, b) => a.pos - b.pos);
-
-
-
-  // Already correct (same scenes, same anchors) → leave the document alone so
-  // the mirror never churns the editor while the teacher types.
-  const stable = existing.length === targets.length
-    && existing.every((e, i) => e.json === JSON.stringify(targets[i].group) && e.pos === targets[i].pos);
-  if (stable) return;
-
-  let tr = editor.state.tr;
-  for (const e of [...existing].sort((a, b) => b.pos - a.pos)) tr = tr.delete(e.pos, e.pos + e.size);
-  targets.forEach(({ group, pos }, index) => {
-    const at = Math.min(tr.mapping.map(pos), tr.doc.content.size);
-    tr = tr.insert(at, type.create({
-      scene: group,
-      pageLayer: true,
-      diagramId: `dgm_page_${notebookId ?? "note"}_${index}`,
-      align: "center",
-    }));
-  });
-  if (tr.docChanged) editor.view.dispatch(tr);
-};
-
 
 /** Bridge so the toolbar Dustbin can clean 2D diagram content that lives in
  *  the notebook-wide geometry scene. Only 2D objects are ever eligible —
@@ -1465,9 +1301,15 @@ function DocumentEditorInner({
     // The Solution references the question's EXISTING diagram. We hand the
     // model an inventory of what is already drawn so it never redraws it,
     // renames its points, or invents a second figure.
-    const ownedQuestionDiagrams = isSolutionBlock && (solutionSource?.parentPos ?? -1) >= 0
-      ? diagramsOwnedByQuestion(editor.state.doc, solutionSource!.parentPos, isSolutionLabel)
+    // Diagrams are part of the document now, so the figure that belongs to this
+    // exercise travels with the text for questions AND solutions.
+    const diagramOwnerPos = isSolutionBlock
+      ? (solutionSource?.parentPos ?? -1)
+      : info.headingPos;
+    const ownedQuestionDiagrams = diagramOwnerPos >= 0
+      ? diagramsOwnedByQuestion(editor.state.doc, diagramOwnerPos, isSolutionLabel)
       : [];
+
     // Backward-compatible repair for notes saved before permanent ownership:
     // keep the first authoritative scene and remove only later AI-GENERATED
     // geometryDiagram nodes associated with this same question.
@@ -4076,296 +3918,119 @@ function DocumentEditorInner({
   );
 }
 
+/**
+ * MIGRATION ONLY. Diagrams are document blocks now. Notes written under the
+ * old page-overlay model stored their figures either as invisible `pageLayer`
+ * carriers or in this browser's cache. On the first open of such a note the
+ * figures are turned into normal in-flow diagram blocks at the place their
+ * carrier already records, and the cache is dropped. Nothing is drawn here.
+ */
 function NotebookGeometryOverlay({
   notebookId,
-  paperLayerRef,
   tiptapEditor,
 }: {
   notebookId?: string;
   paperLayerRef: RefObject<HTMLDivElement | null>;
   tiptapEditor: Editor | null;
 }) {
-  const { mode, tool } = useGeometryMode();
-  const [storedScene, setStoredScene] = useState<GeometryScene>(() => loadNotebookGeometry(notebookId));
-  const [paperSize, setPaperSize] = useState({ width: 720, height: 960 });
-  const [docTick, setDocTick] = useState(0);
-  /** True once the teacher actually erased/edited the drawing in this session.
-   *  Only then may the saved copy in the note be removed. */
-  const erasedRef = useRef(false);
-  /** Which note we have already hydrated from the saved document. */
-  const hydratedRef = useRef<string | null>(null);
+  const doneRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    hydratedRef.current = null;
-    erasedRef.current = false;
-    setStoredScene(loadNotebookGeometry(notebookId));
-  }, [notebookId]);
+  useEffect(() => { doneRef.current = null; }, [notebookId]);
 
-  // PERMANENCE: the lesson note is the source of truth. As soon as the saved
-  // document is available, the page drawing is rebuilt from its `pageLayer`
-  // carriers; local storage is only used when the note has nothing saved yet.
   useEffect(() => {
     if (!tiptapEditor) return;
     const key = notebookId ?? "note";
-    if (hydratedRef.current === key) return;
-    let fromDoc: GeometryScene | null = null;
-    try { fromDoc = sceneFromDocument(tiptapEditor); } catch { fromDoc = null; }
-    if (!fromDoc) return; // nothing saved (yet) — keep the local cache
-    hydratedRef.current = key;
-    setStoredScene((prev) => {
-      if ((prev.objects?.length ?? 0) > (fromDoc!.objects?.length ?? 0)) return prev;
-      saveNotebookGeometry(notebookId, fromDoc!);
-      return fromDoc!;
-    });
-  }, [tiptapEditor, notebookId, docTick]);
+    if (doneRef.current === key) return;
+    const type = tiptapEditor.schema?.nodes?.geometryDiagram;
+    if (!type) return;
 
-
-  useEffect(() => {
-    const layer = paperLayerRef.current;
-    if (!layer) return;
-    const measure = () => {
-      const rect = layer.getBoundingClientRect();
-      setPaperSize({
-        width: Math.max(240, layer.scrollWidth || rect.width || 720),
-        height: Math.max(240, layer.scrollHeight || rect.height || 960),
+    const run = () => {
+      if (doneRef.current === key) return;
+      const carriers: Array<{ pos: number; size: number; scene: GeometryScene }> = [];
+      tiptapEditor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== "geometryDiagram" || !node.attrs?.pageLayer) return true;
+        const scene = sanitizeScene(node.attrs.scene) as GeometryScene | null;
+        carriers.push({ pos, size: node.nodeSize, scene: scene ?? EMPTY_SCENE });
+        return true;
       });
+
+      const cached = loadNotebookGeometry(notebookId);
+      const hasCached = (cached.objects?.length ?? 0) > 0;
+      if (!carriers.length && !hasCached) {
+        doneRef.current = key;
+        return;
+      }
+      doneRef.current = key;
+
+      let tr = tiptapEditor.state.tr;
+      const insert = (scene: GeometryScene, at: number) => {
+        const groups = splitPageGeometryScene(scene);
+        (groups.length ? groups : [scene]).forEach((group, index) => {
+          if (!group.objects?.length) return;
+          const pos = Math.min(at, tr.doc.content.size);
+          tr = tr.insert(pos, type.create({
+            scene: group,
+            pageLayer: false,
+            align: "center",
+            diagramId: `dgm_flow_${notebookId ?? "note"}_${Date.now().toString(36)}_${index}`,
+          }));
+        });
+      };
+
+      // Carriers first, from the bottom up so earlier positions stay valid.
+      for (const carrier of [...carriers].sort((a, b) => b.pos - a.pos)) {
+        tr = tr.delete(carrier.pos, carrier.pos + carrier.size);
+        insert(carrier.scene, carrier.pos);
+      }
+      // A cache-only note has nowhere recorded: the figures join the end of the
+      // note, in the order they were drawn down the page.
+      if (!carriers.length && hasCached) insert(cached, tr.doc.content.size);
+
+      if (tr.docChanged) {
+        closeHistory(tr);
+        tiptapEditor.view.dispatch(tr);
+      }
+      saveNotebookGeometry(notebookId, EMPTY_SCENE);
     };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(layer);
-    return () => ro.disconnect();
-  }, [paperLayerRef]);
 
-  useEffect(() => {
-    if (!tiptapEditor) return;
-    const bump = () => setDocTick((v) => v + 1);
-    tiptapEditor.on("update", bump);
-    return () => { tiptapEditor.off("update", bump); };
-  }, [tiptapEditor]);
+    // A migration hiccup must never break the note.
+    const t = window.setTimeout(() => { try { run(); } catch { /* noop */ } }, 60);
 
-  useEffect(() => {
-    const layer = paperLayerRef.current;
-    if (!tiptapEditor || !layer) return;
-    const paperRect = layer.getBoundingClientRect();
-    const scaleX = paperRect.width && layer.offsetWidth ? paperRect.width / layer.offsetWidth : 1;
-    const scaleY = paperRect.height && layer.offsetHeight ? paperRect.height / layer.offsetHeight : scaleX;
-    const diagrams: Array<{ pos: number; size: number; scene: unknown; dx: number; dy: number }> = [];
-    tiptapEditor.state.doc.descendants((node, pos) => {
-      if (node.type.name !== "geometryDiagram") return true;
-      // The page-layer carrier IS the saved copy of this overlay — never
-      // merge it back into itself, and never delete it.
-      if (node.attrs?.pageLayer) return true;
-      const wrap = document.querySelector(`[data-geometry-pos="${pos}"]`) as HTMLElement | null;
-      const rect = wrap?.getBoundingClientRect();
-      diagrams.push({
-        pos,
-        size: node.nodeSize,
-        scene: node.attrs?.scene,
-        dx: rect ? (rect.left - paperRect.left) / scaleX + 24 : 24,
-        dy: rect ? (rect.top - paperRect.top) / scaleY + 24 : 24,
-      });
-      return true;
-    });
-    if (!diagrams.length) return;
-
-    setStoredScene((prev) => {
-      const next = diagrams.reduce(
-        (acc, d) => mergeGeometrySceneAt(acc, d.scene, d.dx, d.dy),
-        prev,
-      );
-      saveNotebookGeometry(notebookId, next);
-      return next;
-    });
-
-    let tr = tiptapEditor.state.tr;
-    for (const d of [...diagrams].sort((a, b) => b.pos - a.pos)) {
-      tr = tr.delete(d.pos, d.pos + d.size);
-    }
-    if (tr.docChanged) tiptapEditor.view.dispatch(tr);
-  }, [docTick, notebookId, paperLayerRef, tiptapEditor]);
-
-  const scene = useMemo<GeometryScene>(() => ({
-    ...storedScene,
-    bounds: {
-      width: Math.max(storedScene.bounds?.width ?? 0, paperSize.width),
-      height: Math.max(storedScene.bounds?.height ?? 0, paperSize.height),
-    },
-  }), [storedScene, paperSize.width, paperSize.height]);
-
-  const geometryEditor = useGeometryEditor(scene, (next) => {
-    // A user-driven change: an empty result here IS a real erase, so the saved
-    // copy in the note may now follow the drawing down to nothing.
-    if ((next.objects?.length ?? 0) === 0) erasedRef.current = true;
-    setStoredScene(next);
-    saveNotebookGeometry(notebookId, next);
-  });
-
-  // Every change to the page drawing is written into the document too, so the
-  // note's own autosave persists it and the Smartboard can render it.
-  const flushRef = useRef<() => void>(() => {});
-  flushRef.current = () => {
-    if (!tiptapEditor) return;
-    try {
-      syncPageGeometryNode(
-        tiptapEditor, storedScene, paperLayerRef.current, notebookId, erasedRef.current,
-      );
-    } catch { /* never break the editor for a diagram save */ }
-  };
-
-  useEffect(() => {
-    if (!tiptapEditor) return;
-    const t = window.setTimeout(() => flushRef.current(), 500);
     return () => window.clearTimeout(t);
-  }, [storedScene, tiptapEditor, paperLayerRef, notebookId]);
+  }, [tiptapEditor, notebookId]);
 
-  // Leaving the page (tab hide, close, sign-out, unmount) must never lose the
-  // last strokes — write them into the document immediately.
+  // Toolbar Dustbin: wipe 2D objects the dustbin passes over, inside whichever
+  // diagram block sits under the pointer.
   useEffect(() => {
-    const flush = () => flushRef.current();
-    const onVisibility = () => { if (document.visibilityState === "hidden") flush(); };
-    window.addEventListener("pagehide", flush);
-    window.addEventListener("beforeunload", flush);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("pagehide", flush);
-      window.removeEventListener("beforeunload", flush);
-      document.removeEventListener("visibilitychange", onVisibility);
-      flush();
-    };
-  }, []);
-
-
-
-  // Entrance to the existing Geometry Properties workspace (same scene).
-  const [propertiesOpen, setPropertiesOpen] = useState(false);
-
-
-  // Toolbar Dustbin: wipe 2D diagram objects the dustbin passes over.
-  useEffect(() => {
+    if (!tiptapEditor) return;
     registerNotebookGeometryEraser((clientX, clientY) => {
-      const layer = paperLayerRef.current;
-      if (!layer) return false;
-      const rect = layer.getBoundingClientRect();
-      const scaleX = rect.width && layer.offsetWidth ? rect.width / layer.offsetWidth : 1;
-      const scaleY = rect.height && layer.offsetHeight ? rect.height / layer.offsetHeight : scaleX;
-      // Scene coordinates are paper-layer pixels offset by the overlay pad.
-      const x = (clientX - rect.left) / scaleX + 24;
-      const y = (clientY - rect.top) / scaleY + 24;
+      const el = document.elementFromPoint(clientX, clientY) as Element | null;
+      const wrap = el?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
+      const raw = wrap?.dataset.geometryPos;
+      if (!wrap || !raw) return false;
+      const pos = Number(raw);
+      if (!Number.isFinite(pos)) return false;
+      const node = tiptapEditor.state.doc.nodeAt(pos);
+      if (!node || node.type.name !== "geometryDiagram") return false;
+      const scene = (sanitizeScene(node.attrs.scene) as GeometryScene | null) ?? EMPTY_SCENE;
+      const rect = wrap.getBoundingClientRect();
+      const W = scene.bounds.width + 48;
+      const H = scene.bounds.height + 48;
+      const x = ((clientX - rect.left) / (rect.width || 1)) * W - 24;
+      const y = ((clientY - rect.top) / (rect.height || 1)) * H - 24;
       const id = pickObject(scene, x, y, 16);
       if (!id) return false;
-      const next = eraseObject(scene, id);
-      const nextScene = (next as { scene?: GeometryScene }).scene;
-      if (!nextScene) return false;
-      geometryEditor.commit(nextScene);
+      const next = (eraseObject(scene, id) as { scene?: GeometryScene }).scene;
+      if (!next) return false;
+      const tr = tiptapEditor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, scene: next });
+      closeHistory(tr);
+      tiptapEditor.view.dispatch(tr);
       return true;
     });
     return () => registerNotebookGeometryEraser(null);
-  }, [scene, geometryEditor, paperLayerRef]);
+  }, [tiptapEditor]);
 
-
-  useEffect(() => {
-    if (mode && geometryEditor.tool !== tool) geometryEditor.setTool(tool);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, tool]);
-
-  useEffect(() => {
-    if (!mode) return;
-    tiptapEditor?.commands.blur();
-  }, [mode, tiptapEditor]);
-
-  const selected = geometryEditor.selectedObjects[0] ?? null;
-  const editorNode = useMemo(() => (
-    <div className="space-y-2">
-    <DiagramToolsPanel
-      hasSelection={geometryEditor.selectedObjects.length > 0}
-      pickCount={geometryEditor.pendingIds.length}
-    />
-    <SelectionInspector
-      scene={geometryEditor.scene}
-      selected={geometryEditor.selectedObjects}
-      selectedIds={geometryEditor.selectedIds}
-      kind={geometryEditor.selectionKind}
-      onApply={(next) => geometryEditor.commit(next)}
-      onSelect={(id, kind) => { geometryEditor.setSelectedIds([id]); geometryEditor.setSelectionKind(kind); }}
-      onUndo={geometryEditor.doUndo}
-      onRedo={geometryEditor.doRedo}
-      canUndo={geometryEditor.canUndo}
-      canRedo={geometryEditor.canRedo}
-      onOpenProperties={() => setPropertiesOpen(true)}
-    />
-    </div>
-  ), [
-    geometryEditor.scene, geometryEditor.selectedObjects, geometryEditor.selectedIds,
-    geometryEditor.selectionKind, geometryEditor.pendingIds, geometryEditor.canUndo, geometryEditor.canRedo,
-  ]);
-
-  const kindTitle = (() => {
-    const k = geometryEditor.selectionKind;
-    if (geometryEditor.selectedIds.length > 1) return `${geometryEditor.selectedIds.length} items`;
-    if (!selected) return "Geometry";
-    if (k === "segmentBody") return "Line";
-    if (k === "segmentLabel" || k === "pointLabel" || k === "label") return "Text";
-    if (k === "segmentDistance") return "Distance";
-    if (k === "segmentText") return "Text on line";
-    if (k === "angleValue") return "Angle value";
-    if (k === "point") return "Point";
-    if (selected.type === "region") return "Area";
-    return `${selected.type[0].toUpperCase()}${selected.type.slice(1)}`;
-  })();
-  // Token: each newly clicked item counts as a new selection, so the
-  // right-hand panel re-opens itself even if the teacher folded it earlier.
-  const selectionToken = `${geometryEditor.selectedIds.join(",")}|${geometryEditor.selectionKind ?? ""}`;
-  useRegisterAssetEditor(mode, "notebook-geometry", kindTitle, editorNode, selectionToken);
-
-
-  if (!mode && storedScene.objects.length === 0) return null;
-
-  const overlayWidth = Math.max(scene.bounds.width ?? 0, paperSize.width) + 48;
-  const overlayHeight = Math.max(scene.bounds.height ?? 0, paperSize.height) + 48;
-
-  return (
-    <div
-      data-notebook-geometry-overlay="true"
-      className="absolute"
-      style={{
-        left: -24,
-        top: -24,
-        width: overlayWidth,
-        height: overlayHeight,
-        overflow: "visible",
-        zIndex: mode ? 8 : 4,
-        pointerEvents: mode ? "auto" : "none",
-      }}
-    >
-      {propertiesOpen && (
-        <GeometryPropertiesWorkspace
-          scene={geometryEditor.scene}
-          onChange={(next) => geometryEditor.commit(next)}
-          onClose={() => setPropertiesOpen(false)}
-          // The page layer has no node of its own, so it binds to the question
-          // the caret sits in at the moment the workspace is opened.
-          context={
-            tiptapEditor
-              ? questionContextForPos(
-                  tiptapEditor.state.doc,
-                  tiptapEditor.state.selection.from,
-                )
-              : undefined
-          }
-          onOpenSolution={() => tiptapEditor?.chain().focus().run()}
-        />
-      )}
-      {mode ? (
-        <GeometryCanvas editor={geometryEditor} />
-      ) : (
-        <StaticGeometryDiagram
-          scene={scene}
-          explicitWidth={overlayWidth}
-          explicitHeight={overlayHeight}
-        />
-      )}
-    </div>
-  );
+  return null;
 }
 
 
