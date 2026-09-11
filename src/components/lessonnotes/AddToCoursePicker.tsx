@@ -1,5 +1,5 @@
 // "Assign to a course" — links this lesson-note question to an Exercise Card
-// inside Skill Builder. The question itself is never copied: only a reference
+// inside Courses. The question itself is never copied: only a reference
 // is stored, so editing the note updates the course automatically.
 import { useEffect, useState } from "react";
 import { GraduationCap, Loader2 } from "lucide-react";
@@ -74,7 +74,7 @@ const AddToCoursePicker = ({ notebookId, questionRef, label, totalMarks, onDone 
   if (targets.courses.length === 0) {
     return (
       <p className="py-6 text-center text-sm text-muted-foreground">
-        You have no courses yet. Create one in Skill Builder, add an Exercise Card, then come back.
+        You have no courses yet. Create one in Courses, add an Exercise Card, then come back.
       </p>
     );
   }

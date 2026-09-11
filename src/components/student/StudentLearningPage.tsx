@@ -6,7 +6,7 @@ import { EmptyNote } from "@/components/workspace/DashboardParts";
 
 /**
  * One shell for the student's global learning pages: assignments, adventures
- * and Skill Builder across every class. Read and play only — these pages never
+ * and Courses across every class. Read and play only — these pages never
  * offer a way to create or change a teacher's content.
  */
 const StudentLearningPage = ({

@@ -458,7 +458,7 @@ const TeacherExerciseQuestionsPage = () => {
         {entries.length === 0 ? (
           <p className="mt-8 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
             This Exercise Card has no linked questions yet. Link questions from your lesson notes in
-            Skill Builder first.
+            Courses first.
           </p>
         ) : (
           <ul className="mt-5 space-y-3">

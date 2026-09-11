@@ -79,7 +79,7 @@ const CourseBuilderLibrary = () => {
           <ArrowLeft className="h-4 w-4" /> Teaching Hub
         </Link>
         <h1 className="flex items-center gap-2 text-lg font-semibold text-white">
-          <GraduationCap className="h-5 w-5 text-amber-300" /> Skill Builder
+          <GraduationCap className="h-5 w-5 text-amber-300" /> Courses
         </h1>
         <div className="ml-auto flex items-center gap-2">
           <Button asChild variant="outline" className="min-h-[44px]">

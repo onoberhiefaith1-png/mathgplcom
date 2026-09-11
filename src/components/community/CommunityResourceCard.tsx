@@ -85,7 +85,7 @@ const CommunityResourceCard = ({
         toast({ title: "Copied to your Lesson Notes", description: "It is yours now — edit it freely." });
         navigate(`/lesson-notes/${res.notebookId}`);
       } else if (res.kind === "course") {
-        toast({ title: "Copied to your Skill Builder", description: "It is yours now — edit it freely." });
+        toast({ title: "Copied to your Courses", description: "It is yours now — edit it freely." });
         navigate(`/course-builder`);
       } else if (res.kind === "adventure") {
         toast({ title: "Copied to your Adventures", description: "It is yours now — edit it freely." });

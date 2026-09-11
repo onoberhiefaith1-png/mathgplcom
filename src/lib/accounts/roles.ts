@@ -156,7 +156,7 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { to: "/student/classes", label: "My Classes" },
     { to: "/student/assignments", label: "Assignments" },
     { to: "/student/adventures", label: "Adventure" },
-    { to: "/student/skill-builder", label: "Skill Builder" },
+    { to: "/student/skill-builder", label: "Courses" },
     
     { to: "/requests?view=schools", label: "My Schools" },
     { to: "/requests?view=teachers", label: "My Teachers" },

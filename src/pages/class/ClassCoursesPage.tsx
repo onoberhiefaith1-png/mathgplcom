@@ -129,7 +129,7 @@ const ClassCoursesPage = () => {
       backTo={`${classRoot()}/${classId}`}
       backLabel={`${productTerms().space} dashboard`}
       title="Courses"
-      subtitle={`The learning pathway for ${className || "this class"}. Courses are created in Skill Builder — here you decide which ones this class studies, in what order.`}
+      subtitle={`The learning pathway for ${className || "this class"}. Courses are created in Courses — here you decide which ones this class studies, in what order.`}
       actions={
         <Button onClick={() => setPicker(true)}>
           <Plus className="mr-1.5 h-4 w-4" /> Assign Course
@@ -178,7 +178,7 @@ const ClassCoursesPage = () => {
             No courses have been assigned.
           </div>
           <p className="mt-1 text-xs text-dash-surface-muted">
-            Assign a course you already built in Skill Builder to start this class's pathway.
+            Assign a course you already built in Courses to start this class's pathway.
           </p>
           <Button className="mt-5" onClick={() => setPicker(true)}>
             <Plus className="mr-1.5 h-4 w-4" /> Assign Course
@@ -245,7 +245,7 @@ const ClassCoursesPage = () => {
                 </Link>
                 <Link
                   to={`/course-builder/${row.course.id}`}
-                  aria-label="Edit in Skill Builder"
+                  aria-label="Edit in Courses"
                   className="grid h-11 w-11 place-items-center rounded-lg border border-dash-border text-dash-surface-muted transition hover:border-dash-gold"
                 >
                   <Pencil className="h-4 w-4" />

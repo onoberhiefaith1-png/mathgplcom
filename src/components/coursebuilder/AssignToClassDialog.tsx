@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "@/hooks/use-toast";
 import { assignCourseToClass, listOwnedClasses } from "@/lib/courses/classCourses";
 
-/** Step 2 of the assign flow started from Skill Builder: pick the class, then
+/** Step 2 of the assign flow started from Courses: pick the class, then
  *  land straight in that class's Courses workspace. */
 const AssignToClassDialog = ({
   open,
