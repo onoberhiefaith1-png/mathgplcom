@@ -23,14 +23,18 @@ export type EntitlementsState = {
  * right affordances; the server re-checks every protected action regardless.
  */
 export function useEntitlements(): EntitlementsState {
+  const { user } = useAuth();
   const fetchMine = useServerFn(fetchMyEntitlements);
   const query = useQuery({
-    queryKey: ["my-entitlements"],
+    queryKey: ["my-entitlements", user?.id ?? "anon"],
     queryFn: () => fetchMine(),
+    // Signed-out visitors have no bearer token; asking would throw Unauthorized.
+    enabled: Boolean(user?.id),
     staleTime: 60_000,
   });
 
   const data = query.data ?? null;
+
   const grants = data?.features ?? [];
   const grant = (feature: FeatureKey) => grants.find((g) => g.feature === feature) ?? null;
 
