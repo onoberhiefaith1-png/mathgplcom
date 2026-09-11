@@ -210,7 +210,7 @@ const CourseEditorPage = () => {
           to="/course-builder"
           className="inline-flex min-h-[44px] items-center gap-2 text-sm text-slate-300 transition hover:text-white"
         >
-          <ArrowLeft className="h-4 w-4" /> Skill Builder
+          <ArrowLeft className="h-4 w-4" /> Courses
         </Link>
         <h1 className="truncate text-base font-semibold text-white">{tree.course.title || "Untitled course"}</h1>
         <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] text-slate-200">

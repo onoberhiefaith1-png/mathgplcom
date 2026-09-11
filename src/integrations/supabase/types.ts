@@ -7278,6 +7278,33 @@ export type Database = {
           },
         ]
       }
+      quick_action_placement: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          x_pct: number
+          y_pct: number
+        }
+        Insert: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          x_pct?: number
+          y_pct?: number
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          x_pct?: number
+          y_pct?: number
+        }
+        Relationships: []
+      }
       referral_attributions: {
         Row: {
           campaign_id: string

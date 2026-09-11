@@ -11,7 +11,7 @@ export const ja: Catalogue = {
   nav_classes: "クラス",
   nav_my_classes: "マイクラス",
   nav_adventure: "アドベンチャー",
-  nav_skill_builder: "スキルビルダー",
+  nav_skill_builder: "コース",
   nav_live: "MathGPL ライブ",
   nav_plan: "プラン",
   nav_plans: "プラン管理",

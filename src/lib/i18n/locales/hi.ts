@@ -11,7 +11,7 @@ export const hi: Catalogue = {
   nav_classes: "कक्षाएँ",
   nav_my_classes: "मेरी कक्षाएँ",
   nav_adventure: "साहसिक कार्य",
-  nav_skill_builder: "कौशल निर्माण",
+  nav_skill_builder: "पाठ्यक्रम",
   nav_live: "MathGPL लाइव",
   nav_plan: "योजना",
   nav_plans: "योजनाएँ",

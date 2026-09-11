@@ -24,17 +24,10 @@ import { useWorkspace } from "@/lib/accounts/useWorkspace";
 import { useConnections, useConnectionCounts } from "@/lib/connections/useConnections";
 import WorkspaceInvitations from "@/components/accounts/WorkspaceInvitations";
 import { useUpgradeGuard } from "@/lib/entitlements/useUpgradeGuard";
-import type { FeatureKey } from "@/lib/entitlements/features";
 import { useT } from "@/lib/i18n/LanguageProvider";
-import type { TranslationKey } from "@/lib/i18n/catalogues";
+import { QUICK_ACTIONS } from "@/lib/workspace/quickActions";
 
-const QUICK: { to: string; labelKey: TranslationKey; icon: typeof BookOpen; feature?: FeatureKey }[] = [
-  { to: "/lesson-notes", labelKey: "nav_lesson_notes", icon: BookOpen, feature: "create_lesson_notes" },
-  { to: "/smartboard", labelKey: "nav_smartboard", icon: Sparkles, feature: "smartboard" },
-  { to: "/teaching-hub/classes", labelKey: "nav_classes", icon: Users, feature: "classes" },
-  { to: "/adventure", labelKey: "nav_adventure", icon: Compass, feature: "adventure" },
-  { to: "/course-builder", labelKey: "nav_skill_builder", icon: GraduationCap, feature: "skill_builder" },
-];
+const QUICK = QUICK_ACTIONS;
 
 /** The four permanent workspace areas, exactly as the Student bar works. */
 type Area = "quick" | "schedule" | "activity" | "school";

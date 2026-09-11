@@ -74,7 +74,7 @@ const ChildProgressCard = ({ child }: { child: ChildOverview }) => {
         <div className="min-w-0 space-y-2">
           <MetricBar label="Assignments" value={child.assignments} />
           <MetricBar label="Adventures" value={child.adventures} />
-          <MetricBar label="Skill Builder" value={child.skillBuilder} />
+          <MetricBar label="Courses" value={child.skillBuilder} />
         </div>
       </div>
 

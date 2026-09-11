@@ -6,7 +6,7 @@ import { EmptyNote } from "@/components/workspace/DashboardParts";
 import { useMySkillBuilders } from "@/lib/student/useLearning";
 
 /**
- * Every Skill Builder pathway from every class the student belongs to. A locked
+ * Every course pathway from every class the student belongs to. A locked
  * step stays locked: the teacher's sequential rules decide what opens.
  */
 const StudentAllSkillBuilderPage = () => {
@@ -16,14 +16,14 @@ const StudentAllSkillBuilderPage = () => {
 
   return (
     <StudentLearningPage
-      title="Skill Builder"
+      title="Courses"
       subtitle="Every class you belong to"
       blurb="Practice pathways your teachers prepared for you."
       loading={isLoading}
-      empty="No Skill Builder activities yet."
+      empty="No courses yet."
     >
       {rows.length === 0 ? (
-        <EmptyNote>No Skill Builder activities yet. They appear here once a teacher adds one to your class.</EmptyNote>
+        <EmptyNote>No courses yet. They appear here once a teacher adds one to your class.</EmptyNote>
       ) : (
         <div className="space-y-6">
           {classNames.map((className) => (

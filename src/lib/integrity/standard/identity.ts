@@ -279,7 +279,7 @@ export const accounts: RequirementDomain = {
       severity: "LOW",
       permanent: "PENDING",
       notes:
-        "Reviewed 2026-08-25 across every /student route and src/pages/student/* screen: the surfaces open assigned work (assignments, adventures, classes, skill builder, gallery, smartboard, reports) and carry no authoring, publishing, deletion or admin controls, and no cost, margin or multiplier figures. The only prices shown are the workspace owner's published plans on the entry gateway, which are customer-facing by design.",
+        "Reviewed 2026-08-25 across every /student route and src/pages/student/* screen: the surfaces open assigned work (assignments, adventures, classes, courses, gallery, smartboard, reports) and carry no authoring, publishing, deletion or admin controls, and no cost, margin or multiplier figures. The only prices shown are the workspace owner's published plans on the entry gateway, which are customer-facing by design.",
     },
   ],
 };

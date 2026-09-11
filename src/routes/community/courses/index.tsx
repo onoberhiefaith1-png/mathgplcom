@@ -3,7 +3,7 @@ import CommunitySectionPage from "@/pages/community/CommunitySectionPage";
 import { TEACHING_SECTIONS } from "@/lib/community/mode";
 
 const DESCRIPTION =
-  "Skill Builder courses shared with MathGPL Community: guided video lessons, exercises and text sections. Copy any course into your own Skill Builder and edit it freely.";
+  "Courses shared with MathGPL Community: guided video lessons, exercises and text sections. Copy any course into your own Courses and edit it freely.";
 
 export const Route = createFileRoute("/community/courses/")({
   head: () => ({
@@ -23,11 +23,11 @@ export const Route = createFileRoute("/community/courses/")({
           kind: "course",
           label: "Courses",
           subtitle:
-            "Every course educators shared. Copy one and the whole course — sections, videos and exercises — becomes yours in Skill Builder.",
+            "Every course educators shared. Copy one and the whole course — sections, videos and exercises — becomes yours in Courses.",
         },
       ]}
       title="Community Courses"
-      subtitle="Shared Skill Builder courses, ready to copy."
+      subtitle="Shared Courses, ready to copy."
       workspacePath="/course-builder"
       backTo="/community/network"
       backLabel="Community"

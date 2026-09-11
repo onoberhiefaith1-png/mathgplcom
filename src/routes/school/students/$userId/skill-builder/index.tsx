@@ -5,10 +5,10 @@ import StudentAllSkillBuilderPage from "@/pages/student/StudentAllSkillBuilderPa
 export const Route = createFileRoute("/school/students/$userId/skill-builder/")({
   head: () => ({
     meta: [
-      { title: "Skill Builder — MathGPL" },
-      { name: "description", content: "Skill Builder pathways for this student. Read only." },
-      { property: "og:title", content: "Skill Builder — MathGPL" },
-      { property: "og:description", content: "Skill Builder pathways for this student. Read only." },
+      { title: "Courses — MathGPL" },
+      { name: "description", content: "course pathways for this student. Read only." },
+      { property: "og:title", content: "Courses — MathGPL" },
+      { property: "og:description", content: "course pathways for this student. Read only." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },

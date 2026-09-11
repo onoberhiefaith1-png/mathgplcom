@@ -320,7 +320,7 @@ export const downloadResource = async (card: CommunityCard): Promise<DownloadRes
     return { kind: "adventure", gameId: copy.id as string };
   }
 
-  // A shared course lands in the member's own Skill Builder as an independent
+  // A shared course lands in the member's own Courses as an independent
   // draft: sections, blocks and linked exercise questions travel with it.
   if (card.kind === "course") {
     const sourceCourse = (card.payload?.course_id as string | undefined) ?? card.source_id;

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { listCourses, type CourseSummary } from "@/lib/courses/api";
 
-/** A course *selector*, never an editor: courses are authored in Skill Builder. */
+/** A course *selector*, never an editor: courses are authored in Courses. */
 const AssignCourseDialog = ({
   open,
   onOpenChange,
@@ -63,7 +63,7 @@ const AssignCourseDialog = ({
             </div>
           ) : filtered.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No courses found. Create one in Skill Builder first.
+              No courses found. Create one in Courses first.
             </p>
           ) : (
             filtered.map((c) => {
