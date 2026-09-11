@@ -1955,6 +1955,28 @@ function DocumentEditorInner({
     return exact ?? after ?? before;
   }, [editor]);
 
+  /** Entering 2D always gives the teacher a defined drawing region: reuse the
+   *  figure that belongs to the current question, otherwise open one at the
+   *  caret. The barriers are drawn by that block while 2D mode is on. */
+  const ensureGeometryRegion = useCallback(() => {
+    if (!editor) return;
+    const at = editor.state.selection.to;
+    const owner = ownerQuestionHeadingFor(editor.state.doc, at);
+    if (owner) {
+      const existing = diagramsOwnedByQuestion(editor.state.doc, owner.pos, isSolutionLabel)[0];
+      if (existing) { selectGeometryAt(existing.pos); return; }
+    }
+    const near = locateGeometryNearPos(at);
+    if (near != null) { selectGeometryAt(near); return; }
+    const beforeSize = editor.state.doc.content.size;
+    editor.chain().focus().insertContentAt(at, {
+      type: "geometryDiagram",
+      attrs: { scene: EMPTY_SCENE },
+    }).run();
+    const pos = locateGeometryNearPos(Math.min(at, beforeSize));
+    if (pos != null) selectGeometryAt(pos);
+  }, [editor, locateGeometryNearPos, selectGeometryAt]);
+
   const findGeometryAtDomPoint = useCallback((clientX: number, clientY: number): number | null => {
     const el = document.elementFromPoint(clientX, clientY) as Element | null;
     const wrap = el?.closest?.("[data-geometry-diagram-wrapper]") as HTMLElement | null;
@@ -3628,6 +3650,7 @@ function DocumentEditorInner({
                     geometryDraftRef.current = null;
                   } else {
                     setGeometryMode(true);
+                    ensureGeometryRegion();
                   }
                 }}
                 className={cn(
