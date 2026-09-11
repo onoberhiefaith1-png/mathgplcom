@@ -39,6 +39,10 @@ export const SmartboardShelf = () => {
       // Private shelf: own notes only. Shared/published material shows up where
       // it is shared, never here.
       query = query.eq("owner_id", await myOwnerId());
+      // Only the real working notes. Stored class copies are snapshots taken
+      // when a note was assigned; presenting one of those instead of the
+      // prepared original is what made Floating Numbers look missing here.
+      query = query.eq("storage_scope", "workspace");
       const { data, error } = await query.order("updated_at", { ascending: false });
 
       if (error) {
