@@ -148,6 +148,8 @@ import { Circle as CircleIcon,
   ArrowLeftRight as ArrowLeftRightIcon, Columns2 } from "lucide-react";
 
 import { useSmartboardSync, type FloatingShared } from "@/hooks/useSmartboardSync";
+import SyncDiagnosticsPanel from "@/components/smartboard/SyncDiagnosticsPanel";
+
 import {
   buildFloatingLines,
   chipIdsForAbsIdx,
