@@ -36,8 +36,8 @@ export function floatingSourceFingerprint(reservoirs: Reservoir[]): string {
 export const floatingLineId = (resId: string, lineIdx: number, equation: string): string =>
   `${resId}|L${lineIdx}|${equation}`;
 
-export const floatingChipId = (resId: string, lineIdx: number, absIdx: number, token: string): string =>
-  `${resId}|L${lineIdx}|${absIdx}|${token}`;
+export const floatingChipId = (lineId: string, slotIdx: number, token: string): string =>
+  `${lineId}|C${slotIdx}|${token}`;
 
 /** Publish-side: the teacher's arrangement, exactly as built for their board. */
 export function buildFloatingLines(resId: string, reservoir: Reservoir): FloatingLineShared[] {
@@ -49,22 +49,24 @@ export function buildFloatingLines(resId: string, reservoir: Reservoir): Floatin
         lineId: floatingLineId(resId, 0, reservoir.caption ?? ""),
         lineIdx: 0,
         chips: fragments.map((token, absIdx) => ({
-          chipId: floatingChipId(resId, 0, absIdx, token),
+          chipId: floatingChipId(floatingLineId(resId, 0, reservoir.caption ?? ""), absIdx, token),
           token,
           absIdx,
         })),
       },
     ];
   }
-  return lines.map((line, lineIdx) => ({
-    lineId: floatingLineId(resId, lineIdx, line.equation ?? ""),
+  return lines.map((line, lineIdx) => {
+    const lineId = line.lineId || line.sourceUid || floatingLineId(resId, lineIdx, line.equation ?? "");
+    return {
+    lineId,
     lineIdx,
     chips: Array.from({ length: Math.max(0, line.fragmentEnd - line.fragmentStart) }, (_, n) => {
       const absIdx = line.fragmentStart + n;
       const token = fragments[absIdx] ?? "";
-      return { chipId: floatingChipId(resId, lineIdx, absIdx, token), token, absIdx };
+      return { chipId: floatingChipId(lineId, n, token), token, absIdx };
     }),
-  }));
+  }});
 }
 
 /**

@@ -45,7 +45,7 @@ import type { EditTarget, MirrorUiStatus } from "@/lib/smartboard/manualEdit/typ
 import { BackButton } from "@/components/common/BackButton";
 
 import { useNotebook } from "@/hooks/useNotebook";
-import { buildBeats, buildReservoirs, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
+import { buildLessonBoardSource, beatNeedsFloatingMath, type Beat, type Reservoir } from "@/lib/smartboard/presentation";
 import { applyPlan, loadPlan } from "@/lib/smartboard/presentationPlan";
 import { startSession, freezeSession, cancelSession, type EditingSession } from "@/lib/smartboard/editingSession";
 import { ReasoningEngine, introducedTerms as introducedTermsOf } from "@/lib/smartboard/reasoningEngine";
@@ -554,8 +554,12 @@ const PresentationView = ({
   });
   const applyingRemoteRef = useRef(false);
 
-  const rawBeats = useMemo(() => buildBeats(sections, notebook), [sections, notebook]);
-  const rawReservoirs = useMemo(() => buildReservoirs(sections), [sections]);
+  const canonicalLessonSource = useMemo(
+    () => buildLessonBoardSource(sections, notebook),
+    [sections, notebook],
+  );
+  const rawBeats = canonicalLessonSource.beats;
+  const rawReservoirs = canonicalLessonSource.reservoirs;
   // Apply the teacher's approved Preview plan (Present / Skip flags). The
   // Preview page writes these to localStorage; the live board reads them
   // here so the classroom presentation is a 1:1 copy of what the teacher

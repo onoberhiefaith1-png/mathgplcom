@@ -13,6 +13,7 @@ import {
   type QuestionPayload,
 } from "@/lib/assessments/createAssessment";
 import { diag } from "@/lib/diagnostics/opLog";
+import type { SmartboardLessonSource } from "@/lib/smartboard/presentation";
 
 /** Hidden workspace value — Teaching Hub only lists `classroom` classes. */
 export const FLOATING_TEST_WORKSPACE = "floating_test";
@@ -26,6 +27,8 @@ export interface FloatingTestBoard {
   question: QuestionPayload;
   total: number;
   title: string;
+  /** Exact saved lesson source used by Main and Classroom Smartboards. */
+  boardSource: SmartboardLessonSource;
   /** Fresh per entry — every open is a brand new, disposable sitting. */
   sittingId: string;
 }
@@ -76,8 +79,8 @@ export async function ensureTestClass(ownerId: string): Promise<string> {
  * Compile the ONE question the teacher is editing and make it available to the
  * existing student board. Returns the record ids the board needs.
  *
- * Question scoping is exact: `question.id === subsectionId`, so no other
- * example, question or part of the lesson note is ever loaded.
+ * Question scoping is exact: the question id is the canonical lesson beat id,
+ * so no other example, question or part of the lesson note is ever loaded.
  */
 async function openFloatingTestBoard(subsectionId: string): Promise<FloatingTestBoard> {
   const end = diag.start("floating.test.open", { subsectionId });
@@ -113,13 +116,25 @@ async function openFloatingTestBoard(subsectionId: string): Promise<FloatingTest
     }
 
     const compiled = await compileSectionQuestions(sectionId);
-    const question = compiled.questions.find((q) => q.id === subsectionId);
-    if (!question) {
+    const compiledQuestion = compiled.questions.find((q) => q.id === subsectionId);
+    if (!compiledQuestion) {
       throw new Error("Generate the floating numbers for this solution before testing.");
     }
-    const answerKey: AnswerKeyLine[] = compiled.answerKey.filter(
-      (k) => k.questionId === subsectionId,
-    );
+    const beatId = `${subsectionId}-q`;
+    const question: QuestionPayload = { ...compiledQuestion, id: beatId };
+    const answerKey: AnswerKeyLine[] = compiled.answerKey
+      .filter((k) => k.questionId === subsectionId)
+      .map((line) => ({ ...line, questionId: beatId }));
+    const canonicalBeat = compiled.lessonSource?.beats.find((beat) => beat.id === beatId);
+    const canonicalReservoir = compiled.lessonSource?.reservoirs.find((reservoir) => reservoir.beatId === beatId);
+    if (!canonicalBeat || !canonicalReservoir) {
+      throw new Error("Generate the floating numbers for this solution before testing.");
+    }
+    const boardSource: SmartboardLessonSource = {
+      beats: [canonicalBeat],
+      reservoirs: [canonicalReservoir],
+      title: `${title} — test`,
+    };
     const total = question.lines.reduce((s, l) => s + (Number(l.marks) || 0), 0);
 
     const classId = await ensureTestClass(uid);
@@ -197,7 +212,7 @@ async function openFloatingTestBoard(subsectionId: string): Promise<FloatingTest
 
     const sittingId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     end("ok", { assessmentId, questionId: subsectionId, total });
-    return { assessmentId, classId, notebookId, sectionId, question, total, title, sittingId };
+    return { assessmentId, classId, notebookId, sectionId, question, total, title, boardSource, sittingId };
 
   } catch (error) {
     end("fail", { error: String((error as Error)?.message ?? error) });

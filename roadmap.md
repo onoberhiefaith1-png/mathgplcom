@@ -34,3 +34,7 @@
 - [x] Reject class recovery state from another notebook or an older lesson structure.
 - [x] Preserve powers, placeholders, line boundaries, and chip order through live sharing.
 - [x] Restrict student timer-attempt visibility to each student's own work.
+- [x] Remove prose-derived Floating Number reconstruction from every lesson Smartboard gateway.
+- [x] Compile tests and assessments from the same canonical saved reservoir as the Main and Classroom Smartboards.
+- [x] Address classroom operations by persisted line identity and line-local chip identity.
+- [ ] Complete authenticated four-gateway parity verification for the prepared T1 lesson.

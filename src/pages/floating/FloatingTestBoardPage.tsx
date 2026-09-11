@@ -13,7 +13,6 @@ import { supabase } from "@/integrations/supabase/client";
 import PresentationView from "@/components/smartboard/PresentationView";
 import TeacherEvaluationPanel from "@/components/smartboard/TeacherEvaluationPanel";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
-import { buildAssessmentBoardSource } from "@/lib/assessments/assessmentBoardSource";
 import { ensureFloatingTestBoard, type FloatingTestBoard } from "@/lib/floating/testBoard";
 import { friendlyMessage } from "@/lib/net/resilient";
 import RecoveryBoundary from "@/components/common/RecoveryBoundary";
@@ -53,7 +52,7 @@ const FloatingTestBoardPage = () => {
           classId: next.classId,
           workspace: "floating_test",
           assessmentId: next.assessmentId,
-          questionId: subsectionId,
+          questionId: next.question.id,
         }),
       );
       setBoard(next);
@@ -78,19 +77,12 @@ const FloatingTestBoardPage = () => {
       classId: board.classId,
       workspace: "floating_test",
       assessmentId: board.assessmentId,
-      questionId: subsectionId,
+      questionId: board.question.id,
     });
     return () => { clearBoardScope(scope); };
   }, [board, uid, subsectionId]);
 
-  const boardSource = useMemo(() => {
-    if (!board) return null;
-    return buildAssessmentBoardSource({
-      id: board.assessmentId,
-      title: `${board.title} — test`,
-      questions: [board.question] as never,
-    } as never);
-  }, [board]);
+  const boardSource = useMemo(() => board?.boardSource ?? null, [board]);
 
   const restart = () => {
     if (board && uid && subsectionId) {
@@ -100,7 +92,7 @@ const FloatingTestBoardPage = () => {
           classId: board.classId,
           workspace: "floating_test",
           assessmentId: board.assessmentId,
-          questionId: subsectionId,
+          questionId: board.question.id,
         }),
       );
     }
@@ -136,7 +128,7 @@ const FloatingTestBoardPage = () => {
     classId: board.classId,
     workspace: "floating_test",
     assessmentId: board.assessmentId,
-    questionId: subsectionId,
+    questionId: board.question.id,
   });
 
   return (
@@ -153,7 +145,7 @@ const FloatingTestBoardPage = () => {
             classId={board.classId}
             workspace="floating_test"
             boardStudentId={uid}
-            boardQuestionId={subsectionId ?? null}
+            boardQuestionId={board.question.id}
             testMode
           />
         </div>
@@ -163,7 +155,7 @@ const FloatingTestBoardPage = () => {
   <TeacherEvaluationPanel
                 assessmentId={board.assessmentId}
                 studentId={uid}
-                questionId={subsectionId ?? null}
+                questionId={board.question.id}
                 studentName="Test"
                 localLive
                 fullscreen={evalFull}
