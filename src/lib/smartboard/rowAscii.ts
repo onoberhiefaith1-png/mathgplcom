@@ -64,8 +64,15 @@ const nodeToAscii = (n: Node): string => {
       return `(${rowToAscii(n.rows[0] || [])})^(${rowToAscii(n.rows[1] || [])})`;
     case "sup":   return `^(${rowToAscii(n.rows[0] || [])})`;
     case "sub":   return `_(${rowToAscii(n.rows[0] || [])})`;
-    case "subsup":
-      return `(${rowToAscii(n.rows[0] || [])})_(${rowToAscii(n.rows[1] || [])})^(${rowToAscii(n.rows[2] || [])})`;
+    // Empty script slots are omitted: `a^{m}` must flatten to `(a)^(m)`, not
+    // `(a)_()^(m)`. The stray empty `_()` never matched the Floating Number
+    // chip that wrote it, so a correctly written power could snap back.
+    case "subsup": {
+      const base = `(${rowToAscii(n.rows[0] || [])})`;
+      const sub = rowToAscii(n.rows[1] || []);
+      const sup = rowToAscii(n.rows[2] || []);
+      return `${base}${sub ? `_(${sub})` : ""}${sup ? `^(${sup})` : ""}`;
+    }
     case "bracket":
       return `${n.left}${rowToAscii(n.rows[0] || [])}${n.right}`;
     case "bigop":

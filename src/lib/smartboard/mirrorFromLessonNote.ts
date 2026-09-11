@@ -86,6 +86,56 @@ const SUP_TO_DIGIT: Record<string, string> = {
   "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
 };
 
+/* ─────────── Unicode script re-lift ─────────── */
+//
+// Lesson Notes store the SAME power two different ways: structurally (`a^{m}`)
+// and as flat look-alike characters (`aⁿ`, `x⁵⁺³`, `x⁻²`). A look-alike glyph
+// is one ordinary character sitting ON the baseline, so the board used to copy
+// it as plain text — the exponent landed at the wrong height and never behaved
+// like a power. Lift every such run back into real script syntax BEFORE the
+// parser runs, so a power is one shape everywhere on the board.
+
+const UNI_SUP: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6",
+  "⁷": "7", "⁸": "8", "⁹": "9", "⁺": "+", "⁻": "-", "⁼": "=", "⁽": "(",
+  "⁾": ")", "ⁿ": "n", "ⁱ": "i", "ᵃ": "a", "ᵇ": "b", "ᶜ": "c", "ᵈ": "d",
+  "ᵉ": "e", "ᶠ": "f", "ᵍ": "g", "ʰ": "h", "ʲ": "j", "ᵏ": "k", "ˡ": "l",
+  "ᵐ": "m", "ᵒ": "o", "ᵖ": "p", "ʳ": "r", "ˢ": "s", "ᵗ": "t", "ᵘ": "u",
+  "ᵛ": "v", "ʷ": "w", "ˣ": "x", "ʸ": "y", "ᶻ": "z",
+};
+const UNI_SUB: Record<string, string> = {
+  "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6",
+  "₇": "7", "₈": "8", "₉": "9", "₊": "+", "₋": "-", "₌": "=", "₍": "(",
+  "₎": ")", "ₐ": "a", "ₑ": "e", "ₒ": "o", "ₓ": "x", "ₕ": "h", "ₖ": "k",
+  "ₗ": "l", "ₘ": "m", "ₙ": "n", "ₚ": "p", "ₛ": "s", "ₜ": "t",
+};
+
+export const liftUnicodeScripts = (src: string): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    const map = UNI_SUP[ch] ? UNI_SUP : UNI_SUB[ch] ? UNI_SUB : null;
+    if (!map) { out += ch; i++; continue; }
+    let body = "";
+    let j = i;
+    while (j < src.length && map[src[j]] !== undefined) { body += map[src[j]]; j++; }
+    // A script needs something to sit on; a stray glyph stays literal.
+    const hasBase = /[A-Za-z0-9)\]}□]$/.test(out);
+    if (!hasBase) {
+      // `⁵√(32)` — with nothing to the left, those digits are a ROOT INDEX.
+      // Leave them for the radical parser.
+      out += src.slice(i, j); i = j; continue;
+    }
+    // `x²√9` — the square belongs to x, so it must NOT be swallowed as the
+    // root's index. Having a base to the left settles it.
+    out += `${map === UNI_SUP ? "^" : "_"}{${body}}`;
+    i = j;
+    continue;
+  }
+  return out;
+};
+
 const charsOf = (s: string): Row => graphemes(stripBrokenGlyphs(s)).map(mkChar);
 
 const isScriptBase = (n: Node | undefined): boolean =>
@@ -343,7 +393,7 @@ const containsForbidden = (s: string): string | null => {
 const stageRow = (raw: string): MirrorRowResult => {
   const gated = assertDisplaySafe(raw ?? "");
   // Use the gate's cleaned form as the canonical Lesson Note source.
-  const cleaned = stripLatexScaffolding(gated.cleaned);
+  const cleaned = liftUnicodeScripts(stripLatexScaffolding(gated.cleaned));
   // One writable cell per slot — never box-inside-box.
   const row = collapseNestedBoxes(latexToRow(cleaned));
   const sig = rowSignature(row);
