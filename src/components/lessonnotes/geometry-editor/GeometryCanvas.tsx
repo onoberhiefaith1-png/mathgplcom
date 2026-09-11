@@ -54,7 +54,7 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
   const zoomFactor = Number.isFinite(zoom) && (zoom as number) > 0 ? (zoom as number) : 1;
 
   const { scene, tool, apply, commit, pendingIds, setPendingIds, selectedIds, setSelectedIds, setSelectionKind, toggleSelected, flashIds } = editor;
-  const { annotationDraft, setAnnotationDraft, setTool: setModeTool } = useGeometryMode();
+  const { annotationDraft, setAnnotationDraft, setTool: setModeTool, showPoints } = useGeometryMode();
 
   /**
    * End a temporary tool workflow: clear picks, return to Select and select
