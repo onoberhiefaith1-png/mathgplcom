@@ -1301,9 +1301,15 @@ function DocumentEditorInner({
     // The Solution references the question's EXISTING diagram. We hand the
     // model an inventory of what is already drawn so it never redraws it,
     // renames its points, or invents a second figure.
-    const ownedQuestionDiagrams = isSolutionBlock && (solutionSource?.parentPos ?? -1) >= 0
-      ? diagramsOwnedByQuestion(editor.state.doc, solutionSource!.parentPos, isSolutionLabel)
+    // Diagrams are part of the document now, so the figure that belongs to this
+    // exercise travels with the text for questions AND solutions.
+    const diagramOwnerPos = isSolutionBlock
+      ? (solutionSource?.parentPos ?? -1)
+      : info.headingPos;
+    const ownedQuestionDiagrams = diagramOwnerPos >= 0
+      ? diagramsOwnedByQuestion(editor.state.doc, diagramOwnerPos, isSolutionLabel)
       : [];
+
     // Backward-compatible repair for notes saved before permanent ownership:
     // keep the first authoritative scene and remove only later AI-GENERATED
     // geometryDiagram nodes associated with this same question.
