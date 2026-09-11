@@ -73,7 +73,7 @@ export const planFloatingHydration = (
         ? take(
             (s) =>
               !!s.problem?.trim() &&
-              normalizeProblemText(s.problem) === normalizeProblemText(target.problem),
+              normalizeProblemText(s.problem ?? "") === normalizeProblemText(target.problem ?? ""),
           )
         : undefined);
     if (!source) continue;
