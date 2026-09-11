@@ -257,7 +257,7 @@ const HomepageBuildingPage = () => {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-6 px-6 pb-16">
-        {canSwitch && (
+        {canSwitch && !buildingId && (
           <BuildingVersionSelector version={version} onChange={setVersion} seeding={seeding} />
         )}
         <p className="text-sm text-muted-foreground">
