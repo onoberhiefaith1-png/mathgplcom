@@ -9,7 +9,7 @@
 import { ChevronDown, ChevronUp, Timer } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Scene } from "@/lib/games/types";
-import { REQUIRED_MARK_OPTIONS, TIME_DURATION_OPTIONS } from "@/lib/games/types";
+
 import type { ChallengeRow } from "@/hooks/useVideoAdventureRun";
 import { DEFAULT_LP_DURATION_SECONDS, DEFAULT_REQUIRED_PCT } from "@/hooks/useVideoAdventureRun";
 
