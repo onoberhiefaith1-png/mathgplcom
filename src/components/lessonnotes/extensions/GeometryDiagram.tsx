@@ -502,11 +502,16 @@ function LiveEditor({
   getMapContext,
   onOpenSolution,
   zoom,
+  regionW,
+  regionH,
 }: {
   instanceId: string;
   scene: GeometryScene;
   /** Uniform visual zoom for this diagram (never changes the geometry). */
   zoom?: number;
+  /** Measured drawable region between the 2D barriers, in page pixels. */
+  regionW?: number;
+  regionH?: number;
   /** Owning question text — drives the generated-diagram label clean-up. */
   relevanceText?: string;
   onChange: (next: GeometryScene, opts?: { addToHistory?: boolean }) => void;
