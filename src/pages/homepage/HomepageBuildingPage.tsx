@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import SignedMedia from "@/components/gamebuilder/SignedMedia";
 import { renderPathOf, uploadGameAsset } from "@/lib/games/assets";
-import { makeTransparent } from "@/lib/games/removeBackground";
+import { makeBuildingTransparent } from "@/lib/games/removeBackground";
 import BuildingVersionSelector, { useBuildingVersion } from "@/components/homepage/BuildingVersionSelector";
 import {
   CORE_SLOTS,
@@ -119,7 +119,7 @@ const HomepageBuildingPage = () => {
       const res = await fetch(url);
       if (!res.ok) throw new Error("Could not load this artwork");
       const blob = await res.blob();
-      const cut = await makeTransparent(
+      const cut = await makeBuildingTransparent(
         new File([blob], `${slot.id}.png`, { type: blob.type || "image/png" }),
       );
       const asset = await uploadGameAsset(
@@ -151,7 +151,7 @@ const HomepageBuildingPage = () => {
     try {
       let source = file;
       if (cutMaster) {
-        const cut = await makeTransparent(file);
+        const cut = await makeBuildingTransparent(file);
         source = new File([cut], `${which}-master.png`, { type: "image/png" });
       }
       const asset = await uploadGameAsset(source, "background", `${which} building master image`);
@@ -164,6 +164,42 @@ const HomepageBuildingPage = () => {
       else setMasterInner(ref);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setMasterBusy(null);
+    }
+  };
+
+  /** Re-cut the master currently shown, without applying it to any slot yet. */
+  const removeMasterBg = async (which: "outer" | "inner") => {
+    const current = which === "outer" ? masterOuter : masterInner;
+    if (!current) return;
+    setMasterBusy(which);
+    try {
+      const url = await resolveMediaUrl(current);
+      if (!url) throw new Error("Could not load this master image");
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Could not load this master image");
+      const original = await response.blob();
+      const cut = await makeBuildingTransparent(
+        new File([original], `${which}-master-source.png`, {
+          type: original.type || "image/png",
+        }),
+      );
+      const asset = await uploadGameAsset(
+        new File([cut], `${which}-master-cutout.png`, { type: "image/png" }),
+        "background",
+        `${which} building master image (cutout)`,
+      );
+      const next: HomepageMediaRef = {
+        path: renderPathOf(asset),
+        source: "storage",
+        mediaType: "image",
+      };
+      if (which === "outer") setMasterOuter(next);
+      else setMasterInner(next);
+      toast.success("Background removed from master image");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Background removal failed");
     } finally {
       setMasterBusy(null);
     }
@@ -208,19 +244,31 @@ const HomepageBuildingPage = () => {
           </div>
         )}
       </div>
-      <Button
-        size="sm"
-        variant="outline"
-        className="mt-2 w-full"
-        disabled={masterBusy === which}
-        onClick={() => {
-          masterTargetRef.current = which;
-          masterInputRef.current?.click();
-        }}
-      >
-        <Upload className="mr-1.5 h-3.5 w-3.5" />
-        {masterBusy === which ? "Uploading…" : mediaRef ? "Change picture" : "Choose picture"}
-      </Button>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full"
+          disabled={masterBusy === which}
+          onClick={() => {
+            masterTargetRef.current = which;
+            masterInputRef.current?.click();
+          }}
+        >
+          <Upload className="mr-1.5 h-3.5 w-3.5" />
+          {mediaRef ? "Replace" : "Choose"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full"
+          disabled={!mediaRef || masterBusy === which}
+          onClick={() => void removeMasterBg(which)}
+        >
+          <Scissors className="mr-1.5 h-3.5 w-3.5" />
+          {masterBusy === which ? "Working…" : "Remove background"}
+        </Button>
+      </div>
     </div>
   );
 

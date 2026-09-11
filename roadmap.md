@@ -38,3 +38,9 @@
 - [x] Compile tests and assessments from the same canonical saved reservoir as the Main and Classroom Smartboards.
 - [x] Address classroom operations by persisted line identity and line-local chip identity.
 - [ ] Complete authenticated four-gateway parity verification for the prepared T1 lesson.
+
+# Building master-image cleanup
+
+- [x] Remove residual colour from transparent building edges without changing the building artwork.
+- [x] Add independent Remove background actions to the outer and inner master images.
+- [x] Verify the editor controls, cutout tests, and type safety; live application requires the user's selected image.
