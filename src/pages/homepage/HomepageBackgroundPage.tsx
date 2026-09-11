@@ -14,7 +14,10 @@ import { DEFAULT_BACKGROUND } from "@/lib/homepage/defaults";
 /** Change Background — touches the background layer only. */
 const HomepageBackgroundPage = () => {
   const { version, setVersion, configMode, canSwitch, seeding } = useBuildingVersion();
-  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode });
+  // A background opened from a building's own Settings belongs to THAT building.
+  const [params] = useSearchParams();
+  const buildingId = params.get("building");
+  const { config, save, ready, saving } = useHomepageConfig({ mode: configMode, buildingId });
   const [draft, setDraft] = useState<HomepageMediaRef | null>(null);
   const [library, setLibrary] = useState(false);
   const [kind, setKind] = useState<AssetKind>("background");
