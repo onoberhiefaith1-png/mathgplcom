@@ -50,6 +50,48 @@ export function LearningPointTimeBars({
     if (i >= 0) setIndex(i);
   }, [activeChallenge, learningPoints]);
 
+  const shownPoint = learningPoints.length
+    ? learningPoints[Math.min(index, learningPoints.length - 1)]
+    : null;
+  const shownRow = shownPoint ? challengeFor(shownPoint.id) : null;
+  const shownDuration = shownRow?.duration_seconds ?? DEFAULT_LP_DURATION_SECONDS;
+  const shownPct = shownRow?.required_pct ?? DEFAULT_REQUIRED_PCT;
+
+  // Free-typed values. The draft follows the saved value whenever the Time Bar
+  // or the stored setting changes, and commits on blur / Enter.
+  const [minutesDraft, setMinutesDraft] = useState(String(Math.round(shownDuration / 60)));
+  const [pctDraft, setPctDraft] = useState(String(shownPct));
+  useEffect(() => {
+    setMinutesDraft(String(Math.max(1, Math.round(shownDuration / 60))));
+  }, [shownDuration, shownPoint?.id]);
+  useEffect(() => {
+    setPctDraft(String(shownPct));
+  }, [shownPct, shownPoint?.id]);
+
+  const commitMinutes = () => {
+    if (!shownPoint) return;
+    const mins = Math.round(Number(minutesDraft));
+    if (!Number.isFinite(mins) || mins <= 0) {
+      setMinutesDraft(String(Math.max(1, Math.round(shownDuration / 60))));
+      return;
+    }
+    const clamped = Math.min(600, mins);
+    setMinutesDraft(String(clamped));
+    onSetDuration(shownPoint.id, clamped * 60);
+  };
+
+  const commitPct = () => {
+    if (!shownPoint) return;
+    const pct = Math.round(Number(pctDraft));
+    if (!Number.isFinite(pct)) {
+      setPctDraft(String(shownPct));
+      return;
+    }
+    const clamped = Math.max(0, Math.min(100, pct));
+    setPctDraft(String(clamped));
+    onSetRequiredPct(shownPoint.id, clamped);
+  };
+
   if (learningPoints.length === 0) {
     return (
       <div className={SHELL}>
