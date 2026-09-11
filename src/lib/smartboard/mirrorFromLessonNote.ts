@@ -110,9 +110,16 @@ const UNI_SUB: Record<string, string> = {
   "ₗ": "l", "ₘ": "m", "ₙ": "n", "ₚ": "p", "ₛ": "s", "ₜ": "t",
 };
 
-export const liftUnicodeScripts = (src: string): string => {
+/** Re-lift look-alike unicode scripts into structural `^{}` / `_{}` syntax.
+ *
+ *  `prevTail` carries the text written immediately BEFORE this fragment, so a
+ *  chip that begins with a raised character (e.g. base `2s` in one chip and
+ *  `²` at the head of the next) still recognises that it has a base to sit on
+ *  instead of falling through as a full-height character. */
+export const liftUnicodeScripts = (src: string, prevTail = ""): string => {
   let out = "";
   let i = 0;
+  const seed = prevTail.slice(-1);
   while (i < src.length) {
     const ch = src[i];
     const map = UNI_SUP[ch] ? UNI_SUP : UNI_SUB[ch] ? UNI_SUB : null;
