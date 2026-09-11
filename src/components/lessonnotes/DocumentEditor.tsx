@@ -2140,6 +2140,65 @@ function DocumentEditorInner({
     return true;
   }, [editor, findGeometryAtDomPoint, geometryMode, geometryWrapperForPos, insertGeometryAtPoint, selectGeometryAt, updateGeometrySceneAt, applyQuickGeometryTool]);
 
+  /** Replay a paper click on a diagram's live drawing canvas as soon as it
+   *  mounts, so the very first click with a tool is never lost. */
+  const replayClickOnLiveCanvas = useCallback((pos: number, clientX: number, clientY: number) => {
+    let raf = 0;
+    let tries = 0;
+    const attempt = () => {
+      const wrap = geometryWrapperForPos(pos);
+      const svg = wrap?.querySelector<SVGSVGElement>('[data-geometry-live-canvas="true"] > svg')
+        ?? document.querySelector<SVGSVGElement>('[data-geometry-live-canvas="true"] > svg');
+      if (!svg) {
+        if (tries++ < 30) raf = window.requestAnimationFrame(attempt);
+        return;
+      }
+      const r = svg.getBoundingClientRect();
+      const inside =
+        clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+      const x = inside ? clientX : r.left + r.width / 2;
+      const y = inside ? clientY : r.top + r.height / 2;
+      const opts = {
+        clientX: x, clientY: y, bubbles: true, cancelable: true,
+        pointerId: 1, pointerType: "mouse", isPrimary: true, button: 0, buttons: 1,
+      };
+      svg.dispatchEvent(new PointerEvent("pointerdown", opts));
+      svg.dispatchEvent(new PointerEvent("pointerup", { ...opts, buttons: 0 }));
+    };
+    raf = window.requestAnimationFrame(attempt);
+    return () => window.cancelAnimationFrame(raf);
+  }, [geometryWrapperForPos]);
+
+  /** A drawing / annotation tool is active and the teacher clicked the paper
+   *  (not an existing live canvas). Construction tools draw straight away;
+   *  annotation tools need the live canvas, so the diagram block is created
+   *  in flow at that point and the click is replayed onto it. */
+  const handleGeometryDrawStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!editor || !geometryMode || e.button !== 0) return false;
+    const tool = geometryToolRef.current;
+    if (tool === "select") return false;
+
+    const pageTools: ToolId[] = [
+      "point", "line", "midpoint", "polygon", "circle", "arc", "compass", "angle",
+      "rightAngle", "equalMark", "parallel", "perpendicular", "erase",
+    ];
+    if (pageTools.includes(tool)) return handleGeometryPaperClick(e);
+
+    // Curve + annotation tools (Add Text / Distance / Angle / Area).
+    let pos = findGeometryAtDomPoint(e.clientX, e.clientY);
+    const activeDraft = geometryDraftRef.current;
+    if (pos == null && activeDraft?.pendingIds.length) pos = activeDraft.pos;
+    if (pos == null) pos = insertGeometryAtPoint(e.clientX, e.clientY);
+    if (pos == null) return false;
+    selectGeometryAt(pos);
+    replayClickOnLiveCanvas(pos, e.clientX, e.clientY);
+    e.preventDefault();
+    e.stopPropagation();
+    return true;
+  }, [editor, geometryMode, handleGeometryPaperClick, findGeometryAtDomPoint, insertGeometryAtPoint, selectGeometryAt, replayClickOnLiveCanvas]);
+
+
+
   // Push external doc updates only when editor isn't focused.
   useEffect(() => {
     if (!editor || !documentJson) return;
