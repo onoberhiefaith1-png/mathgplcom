@@ -120,13 +120,18 @@ export const liftUnicodeScripts = (src: string): string => {
     let body = "";
     let j = i;
     while (j < src.length && map[src[j]] !== undefined) { body += map[src[j]]; j++; }
-    // `⁵√(32)` — those digits are a ROOT INDEX, not a power. Leave them for
-    // the radical parser.
-    let k = j;
-    while (src[k] === " ") k++;
-    if (map === UNI_SUP && src[k] === "√") { out += src.slice(i, j); i = j; continue; }
     // A script needs something to sit on; a stray glyph stays literal.
-    if (!/[A-Za-z0-9)\]}□]$/.test(out)) { out += src.slice(i, j); i = j; continue; }
+    const hasBase = /[A-Za-z0-9)\]}□]$/.test(out);
+    if (!hasBase) {
+      // `⁵√(32)` — with nothing to the left, those digits are a ROOT INDEX.
+      // Leave them for the radical parser.
+      out += src.slice(i, j); i = j; continue;
+    }
+    // `x²√9` — the square belongs to x, so it must NOT be swallowed as the
+    // root's index. Having a base to the left settles it.
+    out += `${map === UNI_SUP ? "^" : "_"}{${body}}`;
+    i = j;
+    continue;
     out += `${map === UNI_SUP ? "^" : "_"}{${body}}`;
     i = j;
   }
