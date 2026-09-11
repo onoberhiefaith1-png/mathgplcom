@@ -2800,7 +2800,7 @@ const PresentationView = ({
   // Feed the live-mirroring effect above: any activation of the shared
   // floating number publishes on the very next frame, with no debounce.
   useEffect(() => {
-    floatingSyncRef.current = { activeLineIdx, lineEngaged };
+    floatingSyncRef.current = { ...floatingSyncRef.current, activeLineIdx, lineEngaged };
     setFloatingSyncTick((n) => n + 1);
   }, [activeLineIdx, lineEngaged]);
 
