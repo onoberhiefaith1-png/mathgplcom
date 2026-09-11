@@ -65,9 +65,9 @@ describe("board sync deltas", () => {
     const s2 = { ...s1, zoom: 1.5 };
     const s3 = { ...s2, boxes: [{ id: "box" }] };
     const rebuilt = applyDeltas([
-      { seq: 1, author: "t", ts: 1, full: true, patch: diffBoardState(null, s1) },
-      { seq: 2, author: "t", ts: 2, full: false, patch: diffBoardState(s1, s2) },
-      { seq: 3, author: "t", ts: 3, full: false, patch: diffBoardState(s2, s3) },
+      { seq: 1, epoch: "e1", author: "t", ts: 1, full: true, patch: diffBoardState(null, s1) },
+      { seq: 2, epoch: "e1", author: "t", ts: 2, full: false, patch: diffBoardState(s1, s2) },
+      { seq: 3, epoch: "e1", author: "t", ts: 3, full: false, patch: diffBoardState(s2, s3) },
     ]);
     expect(rebuilt).toEqual(s3);
   });
@@ -76,12 +76,24 @@ describe("board sync deltas", () => {
     const s1 = base();
     const s2 = { ...s1, zoom: 3 };
     const rebuilt = applyDeltas([
-      { seq: 1, author: "t", ts: 1, full: true, patch: diffBoardState(null, s1) },
-      { seq: 3, author: "t", ts: 3, full: false, patch: { zoom: 3 } },
-      { seq: 2, author: "t", ts: 2, full: false, patch: { zoom: 99 } },
+      { seq: 1, epoch: "e1", author: "t", ts: 1, full: true, patch: diffBoardState(null, s1) },
+      { seq: 3, epoch: "e1", author: "t", ts: 3, full: false, patch: { zoom: 3 } },
+      { seq: 2, epoch: "e1", author: "t", ts: 2, full: false, patch: { zoom: 99 } },
     ]);
     expect(rebuilt?.zoom).toBe(s2.zoom);
   });
+
+  it("adopts a sender whose counter restarted (board reopened)", () => {
+    const s1 = base();
+    const rebuilt = applyDeltas([
+      { seq: 7, epoch: "e1", author: "t", ts: 1, full: true, patch: diffBoardState(null, s1) },
+      // Teacher reopened the board: fresh epoch, counter back to 1.
+      { seq: 1, epoch: "e2", author: "t", ts: 2, full: true, patch: { ...s1, zoom: 2.5 } },
+      { seq: 2, epoch: "e2", author: "t", ts: 3, full: false, patch: { zoom: 4 } },
+    ]);
+    expect(rebuilt?.zoom).toBe(4);
+  });
+
 
   it("keeps an ordinary edit far below the socket frame ceiling", () => {
     const prev = base();
