@@ -74,10 +74,15 @@ export const toUnicodeMath = (input: string): string => {
   // Preserve empty power slots as structural superscripts. If we let the
   // generic power converter touch `u^{□}`, it becomes inline `u□`, which reads
   // like multiplication instead of “u raised to an empty exponent box”.
-  const POWER_SLOT = "\uE000POWER_SLOT\uE000";
+  // SENTINELS MUST BE PURE PRIVATE-USE CHARS — never ASCII. The earlier
+  // "\uE000POWER_SLOT\uE000" / "\uE001SCRIPT_n\uE001" markers leaked their
+  // readable payload whenever a later pass dropped private-use characters or
+  // turned `_S` into a subscript, so a stored power (`x^{□}`) arrived as the
+  // nonsense token `xPOWERSCRIPT₀LOT` and the board showed no power at all.
+  const POWER_SLOT = "\uE000\uE010\uE000";
   const scriptSlots: string[] = [];
   const holdScript = (markup: string) => {
-    const token = `\uE001SCRIPT_${scriptSlots.length}\uE001`;
+    const token = `\uE001${String.fromCharCode(0xE100 + scriptSlots.length)}\uE001`;
     scriptSlots.push(markup);
     return token;
   };
