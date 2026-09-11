@@ -56,6 +56,8 @@ export type BoardSnapshot = {
   v: number;
   author: string;
   ts: number;
+  /** Notebook whose canonical lesson structure this state belongs to. */
+  sourceNotebookId?: string | null;
   beatCursor: number;
   bandExtra: Record<string, number>;
   freeLines: unknown;
@@ -144,9 +146,10 @@ const newEpoch = () => Math.random().toString(36).slice(2, 10);
 
 export function useSmartboardSync(opts: {
   classId?: string | null;
+  notebookId?: string | null;
   role: "teacher" | "student";
 }) {
-  const { classId } = opts;
+  const { classId, notebookId = null } = opts;
   const enabled = !!classId;
 
   const [selfId, setSelfId] = useState<string | null>(null);
@@ -268,6 +271,11 @@ export function useSmartboardSync(opts: {
       const sj = row.state_json;
       if (sj && typeof sj === "object" && "v" in sj) {
         const snap = sj as BoardSnapshot;
+        // A class row survives notebook switches. Never hydrate one lesson with
+        // another lesson's ink or Floating Number sequence. Legacy snapshots
+        // without an identity are deliberately ignored and replaced by the
+        // canonical notebook source on the next local publish.
+        if (!snap.sourceNotebookId || snap.sourceNotebookId !== notebookId) return;
         // Live frames are the truth. Only adopt the durable copy when nothing
         // live has arrived recently (first load, reconnect after a drop).
         if (Date.now() - lastLiveAt.current < 4000) return;
@@ -282,7 +290,7 @@ export function useSmartboardSync(opts: {
     void load();
 
     return () => { cancelled = true; };
-  }, [classId, bumpDiag]);
+  }, [classId, notebookId, bumpDiag]);
 
   const applyDelta = useCallback((msg: BoardDelta | null) => {
     if (!msg || typeof msg.seq !== "number") return;
@@ -291,6 +299,7 @@ export function useSmartboardSync(opts: {
     lastLiveAt.current = Date.now();
     const base = msg.full ? null : remoteBaseRef.current;
     const merged = { ...(base ?? {}), ...msg.patch } as BoardState;
+    if (!merged.sourceNotebookId || merged.sourceNotebookId !== notebookId) return;
     remoteBaseRef.current = merged;
     setIncoming({ v: 1, author: msg.author, ts: msg.ts, ...merged });
     if (msg.author) peersRef.current.add(msg.author);
@@ -302,7 +311,7 @@ export function useSmartboardSync(opts: {
       peers: peersRef.current.size,
       hydratedFrom: "peer",
     });
-  }, [bumpDiag]);
+  }, [bumpDiag, notebookId]);
 
   /** Publish a full snapshot of whatever this client currently holds. */
   const publishFull = useCallback(() => {

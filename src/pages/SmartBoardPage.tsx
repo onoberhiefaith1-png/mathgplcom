@@ -7,6 +7,13 @@ import { supabase } from "@/integrations/supabase/client";
 const openClassSmartBoard = async (classId: string, notebookId: string) => {
   const now = new Date().toISOString();
 
+  const { data: previousState } = await supabase
+    .from("class_smartboard_state")
+    .select("notebook_id")
+    .eq("class_id", classId)
+    .maybeSingle();
+  const notebookChanged = !!previousState?.notebook_id && previousState.notebook_id !== notebookId;
+
   const { error: classError } = await supabase
     .from("classes")
     .update({ smartboard_visibility: "student_access_enabled" })
@@ -28,7 +35,14 @@ const openClassSmartBoard = async (classId: string, notebookId: string) => {
   const { error: stateError } = await supabase
     .from("class_smartboard_state")
     .upsert(
-      { class_id: classId, notebook_id: notebookId, updated_at: now },
+      {
+        class_id: classId,
+        notebook_id: notebookId,
+        // A recovery snapshot is valid only for the lesson that produced it.
+        // Clear it when the class changes lesson instead of replaying old rows.
+        ...(notebookChanged ? { state_json: null } : {}),
+        updated_at: now,
+      },
       { onConflict: "class_id" },
     );
   if (stateError) {

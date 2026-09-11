@@ -61,6 +61,9 @@ export function reservoirFromShared(shared: FloatingShared, template?: Reservoir
     for (const chip of line.chips) fragments.push(chip.token);
     lines.push({
       ...(templateLine ?? { equation: "", fillers: [], containers: [] }),
+      // The published object owns the exact chip sequence. Do not retain a
+      // receiver-local filler list that may have a different order or length.
+      fillers: line.chips.map((chip) => chip.token),
       fragmentStart: start,
       fragmentEnd: fragments.length,
     } as ReservoirLine);

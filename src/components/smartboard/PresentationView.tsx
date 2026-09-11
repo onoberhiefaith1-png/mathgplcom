@@ -501,7 +501,11 @@ const PresentationView = ({
 
   // Live classroom mirroring (disabled in assessment mode).
   const { selfId, incoming, activeStudentId, pushSnapshot, setActiveStudent, diagnostics: syncDiagnostics } =
-    useSmartboardSync({ classId: assessmentMode ? null : classIdProp, role });
+    useSmartboardSync({
+      classId: assessmentMode ? null : classIdProp,
+      notebookId: assessmentMode ? null : notebookId,
+      role,
+    });
 
   const syncEnabled = !!classIdProp && !assessmentMode;
   // In assessment mode the student edits their OWN board (canEdit true) but no
@@ -1516,6 +1520,7 @@ const PresentationView = ({
     pushSnapshot({
       beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
       sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+      sourceNotebookId: notebookId ?? null,
       activeLineIdx: floatingSyncRef.current.activeLineIdx,
       lineEngaged: floatingSyncRef.current.lineEngaged,
       floating: floatingSyncRef.current.floating ?? null,
@@ -1523,7 +1528,7 @@ const PresentationView = ({
   }, [
     syncEnabled, canEdit, pushSnapshot,
     beatCursor, bandExtra, freeLines, lineOffsets, smartLines, boxes,
-    sensor, zoom, surface, profileId, inkColorId, placeholderColorId,
+    sensor, zoom, surface, profileId, inkColorId, placeholderColorId, notebookId,
     floatingSyncTick,
   ]);
 
@@ -3005,8 +3010,6 @@ const PresentationView = ({
 
 
   const activeReservoir = activeReservoirIdx >= 0 ? reservoirs[activeReservoirIdx] : undefined;
-  const guidedLines = activeReservoir?.lines ?? [];
-  const hasGuidedLines = guidedLines.length > 0;
 
   /* ── LIVE CLASSROOM: the floating number is ONE shared object ─────────────
      The client holding edit rights publishes the arrangement itself (lines and
@@ -3051,6 +3054,12 @@ const PresentationView = ({
     () => (sharedFloatingActive && remoteFloating ? reservoirFromShared(remoteFloating, activeReservoir) : null),
     [sharedFloatingActive, remoteFloating, activeReservoir],
   );
+  // SOURCE PARITY LAW: the line list and its active index must always come
+  // from the same reservoir. Classroom receivers render the teacher-published
+  // reservoir; standalone and test boards retain the canonical local source.
+  const effectiveReservoir = sharedFloatingReservoir ?? activeReservoir;
+  const guidedLines = effectiveReservoir?.lines ?? [];
+  const hasGuidedLines = guidedLines.length > 0;
   const sharedFloatingUsed = useMemo(
     () => (sharedFloatingActive && remoteFloating ? sharedConsumedSet(remoteFloating, remoteFloating.usedOrder) : null),
     [sharedFloatingActive, remoteFloating],
@@ -6785,8 +6794,11 @@ const PresentationView = ({
             const stY = assistantYByBeat[`structures:${beatKey}`] ?? null;
             const syY = assistantYByBeat[`symbols:${beatKey}`] ?? null;
             const syR = assistantRightByBeat[`symbols:${beatKey}`] ?? null;
+            const requestedLineIdx = sharedFloatingActive && remoteFloating
+              ? remoteFloating.lineIdx
+              : (manualFloatingLineIdx ?? floatingLineIdx);
             const curLineIdx = hasGuidedLines
-              ? Math.min(manualFloatingLineIdx ?? floatingLineIdx, guidedLines.length - 1)
+              ? Math.min(Math.max(0, requestedLineIdx), guidedLines.length - 1)
               : 0;
             const lineCount = guidedLines.length;
             // SINGLE NOTE SOURCE — same module the Presenter Preview uses.
