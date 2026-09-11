@@ -86,6 +86,10 @@ export const duplicateNotebook = async (
         kind: s.kind,
         order_index: s.order_index,
         stable_key: s.stable_key,
+        // Durable per-question identity must travel with the copy, otherwise
+        // opening it re-keys its questions and prepared floating numbers can
+        // attach to the wrong one.
+        doc_key: s.doc_key,
         title: s.title,
       } as never)
       .select("id")
@@ -113,6 +117,7 @@ export const duplicateNotebook = async (
         section_id: target,
         order_index: sub.order_index,
         stable_key: sub.stable_key,
+        doc_key: sub.doc_key,
         floating_lines: sub.floating_lines,
         floating_bucket: sub.floating_bucket,
         floating_highlights: sub.floating_highlights,

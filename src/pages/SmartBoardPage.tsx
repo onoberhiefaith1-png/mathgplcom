@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "@/lib/router-compat";
 import SmartboardShelf from "@/components/smartboard/SmartboardShelf";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { supabase } from "@/integrations/supabase/client";
 import { publishActiveNote } from "@/lib/smartboard/classBoardState";
+import { hydrateFloatingFromOrigin } from "@/lib/lessonnotes/hydrateFloatingFromOrigin";
 import { toast } from "sonner";
 
 const openClassSmartBoard = async (classId: string, notebookId: string) => {
@@ -60,6 +61,27 @@ const SmartBoardPage = () => {
   const classId = params.get("classId");
   const viewer = params.get("viewer"); // students arrive with ?viewer=class:<id>
 
+  // A stored class copy of a lesson note can be missing the prepared Floating
+  // Numbers, which live on each question row rather than in the page text. They
+  // are brought across from the original note BEFORE the board mounts, so the
+  // first render already holds the same structure the Test board uses.
+  const [sourceReady, setSourceReady] = useState(false);
+  useEffect(() => {
+    if (!notebookId) return;
+    let alive = true;
+    setSourceReady(false);
+    void hydrateFloatingFromOrigin(notebookId)
+      .catch((error) => {
+        console.warn("[smartboard] prepared floating numbers not hydrated", error);
+      })
+      .finally(() => {
+        if (alive) setSourceReady(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [notebookId]);
+
   useEffect(() => {
     if (!classId || !notebookId) return;
     // Teacher-side open: make the class visible, make the notebook readable,
@@ -72,6 +94,13 @@ const SmartBoardPage = () => {
   // viewer flag is currently informational; PresentationView already renders
   // content; preventing student input/control will be tightened in a later phase.
   void viewer;
+  if (!sourceReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        Opening the lesson…
+      </div>
+    );
+  }
   return <PresentationView classId={classId} role="teacher" />;
 };
 
