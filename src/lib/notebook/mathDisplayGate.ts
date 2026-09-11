@@ -7,6 +7,8 @@
 // empty editable math slot when safe=false so the teacher can retype, rather
 // than letting raw \frac{...} reach the DOM.
 
+import { repairLeakedSentinels } from "./sentinelRepair";
+
 const ALLOWED_MACROS = new Set([
   "frac", "dfrac", "tfrac", "sqrt", "sl", "binom",
   "sum", "prod", "int", "oint", "lim",
@@ -174,7 +176,10 @@ export function assertDisplaySafe(input: string, mode: DisplayGateMode = "editin
   const reasons: string[] = [];
   if (!input) return { safe: true, cleaned: "", reasons };
 
-  let s = input;
+  // Repair leaked converter sentinels FIRST: a power stored behind an old
+  // ASCII sentinel ("xPOWERSCRIPT₀LOT") must become a real `^{□}` again
+  // before anything else looks at the text, otherwise the power is gone.
+  let s = repairLeakedSentinels(input);
   // Strip plain operator macros first.
   for (const [re, rep] of OPERATOR_MACROS) s = s.replace(re, rep);
   // Convert slash fractions before template repair (so they become \frac).
