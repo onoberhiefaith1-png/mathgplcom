@@ -127,11 +127,20 @@ export const collapseNestedBoxes = (row: Row): Row =>
       node = node.rows[0][0] as Exclude<Node, { kind: "char" }>;
     }
     let rows = node.rows.map(collapseNestedBoxes);
-    // A structural slot (fraction numerator, radicand, exponent…) whose only
-    // content is an empty placeholder box would render TWO placeholders: the
-    // slot's own caret glyph plus the box. The slot alone is the placeholder,
-    // so drop the redundant box.
-    if (node.kind !== "box") rows = rows.map((r) => (isEmptyBoxRow(r) ? [] : r));
+    // A structural slot (fraction numerator, radicand…) whose only content is
+    // an empty placeholder box would render TWO placeholders: the slot's own
+    // caret glyph plus the box. The slot alone is the placeholder, so drop the
+    // redundant box.
+    //
+    // SCRIPT SLOTS ARE THE EXCEPTION. A super/subscript slot draws NOTHING when
+    // it is empty (unlike a fraction or root, which always show their own cell),
+    // so emptying it here made `a^□` — a power waiting to be filled — arrive on
+    // the board as a bare `a`. The box is the only visible, writable exponent
+    // cell, so it must survive.
+    const SCRIPT_KINDS = new Set(["sup", "sub", "subsup", "power"]);
+    if (node.kind !== "box" && !SCRIPT_KINDS.has(node.kind)) {
+      rows = rows.map((r) => (isEmptyBoxRow(r) ? [] : r));
+    }
     return { ...node, rows } as Node;
   });
 
