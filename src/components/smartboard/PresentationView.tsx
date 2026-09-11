@@ -541,9 +541,6 @@ const PresentationView = ({
     ro.observe(node);
   }, []);
 
-  const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
-  const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
-
   // ── Shared assessment board session (live mirror, one state) ─────────────
   const {
     sessionActive: boardSessionActive,
@@ -579,6 +576,8 @@ const PresentationView = ({
       sourceFingerprint: assessmentMode ? null : sourceFingerprint,
       role,
     });
+  const isActiveStudent = role === "student" && !!selfId && activeStudentId === selfId;
+  const canEdit = assessmentMode ? !viewOnly : (isTeacher || isActiveStudent);
 
   // ── Assessment grading state (assessment mode only) ──────────────────────
   // `solvedSlots` keys are `${questionId}:${lineId}`; the value is the marks
