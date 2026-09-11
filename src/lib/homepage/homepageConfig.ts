@@ -155,6 +155,19 @@ export function useHomepageConfig(options?: {
     let alive = true;
     void (async () => {
       try {
+      // ONE BUILDING = ONE COMPLETE ENVIRONMENT: this building's own exterior.
+      if (buildingId) {
+        const { data } = await supabase
+          .from("buildings")
+          .select("exterior_config")
+          .eq("id", buildingId)
+          .maybeSingle();
+        if (!alive) return;
+        const remote = ((data as { exterior_config?: unknown } | null)?.exterior_config ??
+          null) as HomepageConfig | null;
+        apply(remote && typeof remote === "object" ? remote : {});
+        return;
+      }
       // A named account's own building: a student entering a school's or a
       // teacher's workspace sees that owner's building, never their own.
       if (ownerUserId) {
