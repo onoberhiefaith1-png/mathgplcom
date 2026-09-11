@@ -436,22 +436,8 @@ function GeometryDiagramView({
             onMouseMove={kickAi}
           >
             <DiagramZoomControl zoom={diagramZoom} onZoom={setDiagramZoom} compact className="border-0 bg-transparent shadow-none" />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                kickAi();
-                openGeometryAiEdit({
-                  scene,
-                  topic,
-                  onApply: (next) => commitScene(next),
-                });
-              }}
-              className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded text-foreground hover:bg-foreground/5"
-              title="AI Edit"
-            >
-              <Sparkles className="h-3 w-3" /> AI Edit
-            </button>
+            {/* AI Edit is intentionally absent from the 2D workflow. */}
+
             <button
               type="button"
               onClick={(e) => {
