@@ -26,6 +26,7 @@ import GlobalSoundtrack from "@/components/audio/GlobalSoundtrack";
 import ConnectionIndicator from "@/components/common/ConnectionIndicator";
 import StabilityWatchdog from "@/components/common/StabilityWatchdog";
 import PageGuideProvider from "@/components/guides/PageGuideProvider";
+import QuickActionBar from "@/components/workspace/QuickActionBar";
 
 
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
@@ -230,6 +231,7 @@ function RootComponent() {
               <NavHistoryProvider>
                 <PageGuideProvider>
                   <Outlet />
+                  <QuickActionBar />
                 </PageGuideProvider>
               </NavHistoryProvider>
 
