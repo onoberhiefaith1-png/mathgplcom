@@ -226,7 +226,7 @@ export function useHomepageConfig(options?: {
     return () => {
       alive = false;
     };
-  }, [mode, ownerUserId, apply]);
+  }, [mode, ownerUserId, buildingId, apply]);
 
 
   /**
