@@ -147,7 +147,15 @@ import { Circle as CircleIcon,
   Table as TableIcon, LineChart as LineChartIcon, Calculator as CalculatorIcon,
   ArrowLeftRight as ArrowLeftRightIcon, Columns2 } from "lucide-react";
 
-import { useSmartboardSync } from "@/hooks/useSmartboardSync";
+import { useSmartboardSync, type FloatingShared } from "@/hooks/useSmartboardSync";
+import {
+  buildFloatingLines,
+  chipIdsForAbsIdx,
+  reservoirFromShared,
+  sharedConsumedSet,
+  sharedUsedOrderIdx,
+} from "@/lib/smartboard/floatingShared";
+
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
 import { studentGradingKey } from "@/lib/assessments/studentGrading";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
