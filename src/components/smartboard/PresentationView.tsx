@@ -52,7 +52,7 @@ import { ReasoningEngine, introducedTerms as introducedTermsOf } from "@/lib/sma
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
-import { mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
+import { joinChipsForMirror, mirrorLessonNoteRow, rowSignature } from "@/lib/smartboard/mirrorFromLessonNote";
 import { SmartboardLessonText, containsForbiddenResidue } from "./SmartboardLessonText";
 
 
