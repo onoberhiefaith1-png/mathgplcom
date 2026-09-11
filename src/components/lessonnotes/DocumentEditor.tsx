@@ -4076,158 +4076,89 @@ function DocumentEditorInner({
   );
 }
 
+/**
+ * MIGRATION ONLY. Diagrams are document blocks now. Notes written under the
+ * old page-overlay model stored their figures either as invisible `pageLayer`
+ * carriers or in this browser's cache. On the first open of such a note the
+ * figures are turned into normal in-flow diagram blocks at the place their
+ * carrier already records, and the cache is dropped. Nothing is drawn here.
+ */
 function NotebookGeometryOverlay({
   notebookId,
-  paperLayerRef,
   tiptapEditor,
 }: {
   notebookId?: string;
   paperLayerRef: RefObject<HTMLDivElement | null>;
   tiptapEditor: Editor | null;
 }) {
-  const { mode, tool } = useGeometryMode();
-  const [storedScene, setStoredScene] = useState<GeometryScene>(() => loadNotebookGeometry(notebookId));
-  const [paperSize, setPaperSize] = useState({ width: 720, height: 960 });
-  const [docTick, setDocTick] = useState(0);
-  /** True once the teacher actually erased/edited the drawing in this session.
-   *  Only then may the saved copy in the note be removed. */
-  const erasedRef = useRef(false);
-  /** Which note we have already hydrated from the saved document. */
-  const hydratedRef = useRef<string | null>(null);
+  const doneRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    hydratedRef.current = null;
-    erasedRef.current = false;
-    setStoredScene(loadNotebookGeometry(notebookId));
-  }, [notebookId]);
+  useEffect(() => { doneRef.current = null; }, [notebookId]);
 
-  // PERMANENCE: the lesson note is the source of truth. As soon as the saved
-  // document is available, the page drawing is rebuilt from its `pageLayer`
-  // carriers; local storage is only used when the note has nothing saved yet.
   useEffect(() => {
     if (!tiptapEditor) return;
     const key = notebookId ?? "note";
-    if (hydratedRef.current === key) return;
-    let fromDoc: GeometryScene | null = null;
-    try { fromDoc = sceneFromDocument(tiptapEditor); } catch { fromDoc = null; }
-    if (!fromDoc) return; // nothing saved (yet) — keep the local cache
-    hydratedRef.current = key;
-    setStoredScene((prev) => {
-      if ((prev.objects?.length ?? 0) > (fromDoc!.objects?.length ?? 0)) return prev;
-      saveNotebookGeometry(notebookId, fromDoc!);
-      return fromDoc!;
-    });
-  }, [tiptapEditor, notebookId, docTick]);
+    if (doneRef.current === key) return;
+    const type = tiptapEditor.schema.nodes.geometryDiagram;
+    if (!type) return;
 
-
-  useEffect(() => {
-    const layer = paperLayerRef.current;
-    if (!layer) return;
-    const measure = () => {
-      const rect = layer.getBoundingClientRect();
-      setPaperSize({
-        width: Math.max(240, layer.scrollWidth || rect.width || 720),
-        height: Math.max(240, layer.scrollHeight || rect.height || 960),
+    const run = () => {
+      if (doneRef.current === key) return;
+      const carriers: Array<{ pos: number; size: number; scene: GeometryScene }> = [];
+      tiptapEditor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== "geometryDiagram" || !node.attrs?.pageLayer) return true;
+        const scene = sanitizeScene(node.attrs.scene) as GeometryScene | null;
+        carriers.push({ pos, size: node.nodeSize, scene: scene ?? EMPTY_SCENE });
+        return true;
       });
+
+      const cached = loadNotebookGeometry(notebookId);
+      const hasCached = (cached.objects?.length ?? 0) > 0;
+      if (!carriers.length && !hasCached) {
+        doneRef.current = key;
+        return;
+      }
+      doneRef.current = key;
+
+      let tr = tiptapEditor.state.tr;
+      const insert = (scene: GeometryScene, at: number) => {
+        const groups = splitPageGeometryScene(scene);
+        (groups.length ? groups : [scene]).forEach((group, index) => {
+          if (!group.objects?.length) return;
+          const pos = Math.min(at, tr.doc.content.size);
+          tr = tr.insert(pos, type.create({
+            scene: group,
+            pageLayer: false,
+            align: "center",
+            diagramId: `dgm_flow_${notebookId ?? "note"}_${Date.now().toString(36)}_${index}`,
+          }));
+        });
+      };
+
+      // Carriers first, from the bottom up so earlier positions stay valid.
+      for (const carrier of [...carriers].sort((a, b) => b.pos - a.pos)) {
+        tr = tr.delete(carrier.pos, carrier.pos + carrier.size);
+        insert(carrier.scene, carrier.pos);
+      }
+      // A cache-only note has nowhere recorded: the figures join the end of the
+      // note, in the order they were drawn down the page.
+      if (!carriers.length && hasCached) insert(cached, tr.doc.content.size);
+
+      if (tr.docChanged) {
+        closeHistory(tr);
+        tiptapEditor.view.dispatch(tr);
+      }
+      saveNotebookGeometry(notebookId, EMPTY_SCENE);
     };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(layer);
-    return () => ro.disconnect();
-  }, [paperLayerRef]);
 
-  useEffect(() => {
-    if (!tiptapEditor) return;
-    const bump = () => setDocTick((v) => v + 1);
-    tiptapEditor.on("update", bump);
-    return () => { tiptapEditor.off("update", bump); };
-  }, [tiptapEditor]);
-
-  useEffect(() => {
-    const layer = paperLayerRef.current;
-    if (!tiptapEditor || !layer) return;
-    const paperRect = layer.getBoundingClientRect();
-    const scaleX = paperRect.width && layer.offsetWidth ? paperRect.width / layer.offsetWidth : 1;
-    const scaleY = paperRect.height && layer.offsetHeight ? paperRect.height / layer.offsetHeight : scaleX;
-    const diagrams: Array<{ pos: number; size: number; scene: unknown; dx: number; dy: number }> = [];
-    tiptapEditor.state.doc.descendants((node, pos) => {
-      if (node.type.name !== "geometryDiagram") return true;
-      // The page-layer carrier IS the saved copy of this overlay — never
-      // merge it back into itself, and never delete it.
-      if (node.attrs?.pageLayer) return true;
-      const wrap = document.querySelector(`[data-geometry-pos="${pos}"]`) as HTMLElement | null;
-      const rect = wrap?.getBoundingClientRect();
-      diagrams.push({
-        pos,
-        size: node.nodeSize,
-        scene: node.attrs?.scene,
-        dx: rect ? (rect.left - paperRect.left) / scaleX + 24 : 24,
-        dy: rect ? (rect.top - paperRect.top) / scaleY + 24 : 24,
-      });
-      return true;
-    });
-    if (!diagrams.length) return;
-
-    setStoredScene((prev) => {
-      const next = diagrams.reduce(
-        (acc, d) => mergeGeometrySceneAt(acc, d.scene, d.dx, d.dy),
-        prev,
-      );
-      saveNotebookGeometry(notebookId, next);
-      return next;
-    });
-
-    let tr = tiptapEditor.state.tr;
-    for (const d of [...diagrams].sort((a, b) => b.pos - a.pos)) {
-      tr = tr.delete(d.pos, d.pos + d.size);
-    }
-    if (tr.docChanged) tiptapEditor.view.dispatch(tr);
-  }, [docTick, notebookId, paperLayerRef, tiptapEditor]);
-
-  const scene = useMemo<GeometryScene>(() => ({
-    ...storedScene,
-    bounds: {
-      width: Math.max(storedScene.bounds?.width ?? 0, paperSize.width),
-      height: Math.max(storedScene.bounds?.height ?? 0, paperSize.height),
-    },
-  }), [storedScene, paperSize.width, paperSize.height]);
-
-  const geometryEditor = useGeometryEditor(scene, (next) => {
-    // A user-driven change: an empty result here IS a real erase, so the saved
-    // copy in the note may now follow the drawing down to nothing.
-    if ((next.objects?.length ?? 0) === 0) erasedRef.current = true;
-    setStoredScene(next);
-    saveNotebookGeometry(notebookId, next);
-  });
-
-  // Every change to the page drawing is written into the document too, so the
-  // note's own autosave persists it and the Smartboard can render it.
-  const flushRef = useRef<() => void>(() => {});
-  flushRef.current = () => {
-    if (!tiptapEditor) return;
-    try {
-      syncPageGeometryNode(
-        tiptapEditor, storedScene, paperLayerRef.current, notebookId, erasedRef.current,
-      );
-    } catch { /* never break the editor for a diagram save */ }
-  };
-
-  useEffect(() => {
-    if (!tiptapEditor) return;
-    const t = window.setTimeout(() => flushRef.current(), 500);
+    const t = window.setTimeout(run, 60);
     return () => window.clearTimeout(t);
-  }, [storedScene, tiptapEditor, paperLayerRef, notebookId]);
+  }, [tiptapEditor, notebookId]);
 
-  // Leaving the page (tab hide, close, sign-out, unmount) must never lose the
-  // last strokes — write them into the document immediately.
-  useEffect(() => {
-    const flush = () => flushRef.current();
-    const onVisibility = () => { if (document.visibilityState === "hidden") flush(); };
-    window.addEventListener("pagehide", flush);
-    window.addEventListener("beforeunload", flush);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("pagehide", flush);
+  return null;
+}
+
+
       window.removeEventListener("beforeunload", flush);
       document.removeEventListener("visibilitychange", onVisibility);
       flush();
