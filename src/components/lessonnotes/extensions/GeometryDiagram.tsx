@@ -347,7 +347,9 @@ function GeometryDiagramView({
         className="relative inline-block"
         style={{
           overflow: "visible",
-          ...(regionHeight ? { minHeight: regionHeight } : null),
+          ...(barriersOn
+            ? { minHeight: barrierHeight, width: "100%" }
+            : regionHeight ? { minHeight: regionHeight } : null),
         }}
 
         onMouseEnter={kickAi}
