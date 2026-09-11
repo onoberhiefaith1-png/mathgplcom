@@ -5079,7 +5079,7 @@ const PresentationView = ({
       if (!line) return "";
       const fillers = (line.fillers ?? []).slice(0, Math.max(0, prefixTokenCount));
       if (fillers.length === 0) return "";
-      const text = fillers.join(" ");
+      const text = joinChipsForMirror(fillers);
       const m = mirrorLessonNoteRow(text);
       return m.ok ? m.signature : "";
     },
