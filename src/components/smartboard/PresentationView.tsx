@@ -191,9 +191,38 @@ import type { SolutionObject } from "@/lib/floating/solutionItems";
 
 type Surface = "whiteboard" | "blackboard";
 
-const PRESENCE_SUP: Record<string, string> = {
-  "⁰": "^0", "¹": "^1", "²": "^2", "³": "^3", "⁴": "^4",
-  "⁵": "^5", "⁶": "^6", "⁷": "^7", "⁸": "^8", "⁹": "^9",
+/* A power has THREE written forms in the system: look-alike glyphs (`aⁿ`),
+ * Lesson Note syntax (`a^{n}`) and board ink (`(a)^(n)`). They are the same
+ * mathematics, so presence matching must reduce all three to one key —
+ * otherwise a chip written correctly onto the board is not recognised as used
+ * and snaps back to the reservoir. */
+const PRESENCE_SUP_RUN: Record<string, string> = {
+  "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6",
+  "⁷": "7", "⁸": "8", "⁹": "9", "⁺": "+", "⁻": "-", "⁼": "=", "⁽": "(",
+  "⁾": ")", "ⁿ": "n", "ⁱ": "i", "ᵃ": "a", "ᵇ": "b", "ᶜ": "c", "ᵈ": "d",
+  "ᵉ": "e", "ᶠ": "f", "ᵍ": "g", "ʰ": "h", "ʲ": "j", "ᵏ": "k", "ˡ": "l",
+  "ᵐ": "m", "ᵒ": "o", "ᵖ": "p", "ʳ": "r", "ˢ": "s", "ᵗ": "t", "ᵘ": "u",
+  "ᵛ": "v", "ʷ": "w", "ˣ": "x", "ʸ": "y", "ᶻ": "z",
+};
+const PRESENCE_SUB_RUN: Record<string, string> = {
+  "₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6",
+  "₇": "7", "₈": "8", "₉": "9", "₊": "+", "₋": "-", "₌": "=", "₍": "(",
+  "₎": ")", "ₐ": "a", "ₑ": "e", "ₒ": "o", "ₓ": "x", "ₕ": "h", "ₖ": "k",
+  "ₗ": "l", "ₘ": "m", "ₙ": "n", "ₚ": "p", "ₛ": "s", "ₜ": "t",
+};
+const liftPresenceScripts = (src: string): string => {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const map = PRESENCE_SUP_RUN[src[i]] !== undefined
+      ? PRESENCE_SUP_RUN
+      : PRESENCE_SUB_RUN[src[i]] !== undefined ? PRESENCE_SUB_RUN : null;
+    if (!map) { out += src[i]; i++; continue; }
+    let body = "";
+    while (i < src.length && map[src[i]] !== undefined) { body += map[src[i]]; i++; }
+    out += `${map === PRESENCE_SUP_RUN ? "^" : "_"}{${body}}`;
+  }
+  return out;
 };
 const PRESENCE_SUP_DIGIT: Record<string, string> = {
   "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
