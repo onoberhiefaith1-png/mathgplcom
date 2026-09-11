@@ -1422,6 +1422,13 @@ const PresentationView = ({
   // SAME shared object, so its activation travels with every board frame.
   const floatingSyncRef = useRef({ activeLineIdx: 0, lineEngaged: false });
   const [floatingSyncTick, setFloatingSyncTick] = useState(0);
+  /** The shared floating workspace as published by whoever holds edit rights.
+   *  Receivers render THIS, never a locally re-derived arrangement. */
+  const [remoteFloating, setRemoteFloating] = useState<FloatingShared | null>(null);
+  /** Strip window + use order of the shared floating workspace (publisher side). */
+  const [floatingView, setFloatingView] = useState({ reveal: 0, offset: 0, reentryOffset: 0 });
+  const [floatingUsedOrderIdx, setFloatingUsedOrderIdx] = useState<number[]>([]);
+
 
 
   // ── Live mirroring: apply remote board snapshots authored by someone else. ──
