@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { fetchMyEntitlements } from "./entitlements.functions";
+
 import type { EntitlementSource, FeatureKey, LimitKey } from "./features";
 
 export type EntitlementsState = {
