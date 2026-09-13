@@ -1263,7 +1263,9 @@ never repeat the same fixed phrase twice in a session.
 Changing numbers in a question is NOT changing the mathematics; only a change
 of method, structure or concept is.
 
-${COPILOT_TRAINING_STANDARD}`;
+${COPILOT_TRAINING_STANDARD}
+
+${TABLE_RECOGNITION_STANDARD}`;
 
       const jsonOnly = (shape: string) =>
         `Reply with JSON ONLY, no code fence:\n${shape}`;
