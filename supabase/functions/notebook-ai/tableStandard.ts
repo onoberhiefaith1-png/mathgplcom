@@ -182,8 +182,7 @@ export function convertHandTables(text: string): string {
   let out = text;
 
   // 1. array / tabular environments.
-  out = out.replace(ARRAY_ENV_RE, (whole, _env: string, body: string) => {
-    const [t] = detectArrayTables(`\\begin{array}${body}\\end{array}`.replace("{array}", "{array}{}"));
+  out = out.replace(ARRAY_ENV_RE, (whole: string, _env: string, body: string) => {
     const rows = body
       .split(/\\\\/)
       .map((r) => r.replace(/\\hline/g, "").trim())
