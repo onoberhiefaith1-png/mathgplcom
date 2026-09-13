@@ -38,6 +38,17 @@ interface Props {
   minViewW?: number;
   minViewH?: number;
   /**
+   * ONE AUTHORITATIVE FRAME. When the live 2D canvas owns the coordinate
+   * system (the region between the barriers), it passes its exact viewBox
+   * here. The renderer then must NOT compute its own frame, otherwise the
+   * painted figure and the click layer sit in two different systems and every
+   * new line lands offset from the clicked points.
+   */
+  frameW?: number;
+  frameH?: number;
+  frameMinX?: number;
+  frameMinY?: number;
+  /**
    * Draw hidden points as faint "ghost" markers instead of omitting them.
    * The live editing canvas turns this on so a teacher can still see, select
    * and un-hide construction points that the clean-up pass hid.
