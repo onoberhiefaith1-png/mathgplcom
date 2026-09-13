@@ -324,10 +324,12 @@ ${cleaned}`;
     ? lastFailing.violations.map((v) => `[Stage ${v.phase}] ${v.rule}: ${v.detail}`)
     : [];
   for (const r of residueReport(cleaned)) warnings.push(`[Hygiene] raw syntax residue: ${r}`);
+  // A table that survived as text is a defect, not silent success.
+  for (const t of tableIssues) warnings.push(`[Table] ${t}`);
   if (warnings.length) {
     console.warn(`[notebook-ai] validation warnings remain after stage ${lastStage}:`, warnings);
   }
-  return { content: cleaned, warnings, lastStage };
+  return { content: cleaned, warnings, lastStage, tableIssues };
 }
 
 const stripFences = (s: string) =>
