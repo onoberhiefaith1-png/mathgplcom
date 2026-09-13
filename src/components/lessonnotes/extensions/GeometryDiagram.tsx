@@ -562,21 +562,27 @@ function LiveEditor({
   );
 
   const editorNode = useMemo(() => (
-    <SelectionInspector
-      scene={editor.scene}
-      selected={editor.selectedObjects}
-      selectedIds={editor.selectedIds}
-      kind={editor.selectionKind}
-      onApply={(next) => editor.commit(next)}
-      onSelect={selectItem}
-      onUndo={doUndo}
-      onRedo={doRedo}
-      canUndo={canUndo}
-      canRedo={canRedo}
-      onDeleteDiagram={onDeleteDiagram}
-      onOpenProperties={() => setPropertiesOpen(true)}
-    />
-  ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind, editor.commit, selectItem, canUndo, canRedo, doUndo, doRedo, onDeleteDiagram]);
+    <div className="space-y-2">
+      <DiagramToolsPanel
+        hasSelection={editor.selectedObjects.length > 0}
+        pickCount={editor.pendingIds.length}
+      />
+      <SelectionInspector
+        scene={editor.scene}
+        selected={editor.selectedObjects}
+        selectedIds={editor.selectedIds}
+        kind={editor.selectionKind}
+        onApply={(next) => editor.commit(next)}
+        onSelect={selectItem}
+        onUndo={doUndo}
+        onRedo={doRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onDeleteDiagram={onDeleteDiagram}
+        onOpenProperties={() => setPropertiesOpen(true)}
+      />
+    </div>
+  ), [editor.scene, editor.selectedObjects, editor.selectedIds, editor.selectionKind, editor.pendingIds, editor.commit, selectItem, canUndo, canRedo, doUndo, doRedo, onDeleteDiagram]);
 
   const kindTitle = (() => {
     const k = editor.selectionKind;
