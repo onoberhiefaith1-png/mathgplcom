@@ -7,6 +7,7 @@
 // re-compute the mathematics before anything is displayed.
 
 import { CONSTRUCTION_STANDARD } from "./constructionStandard.ts";
+import { TABLE_RECOGNITION_STANDARD } from "./tableStandard.ts";
 
 export type EngineOperation =
   | "generateLessonSection" | "generateExample" | "generateClasswork"
@@ -167,6 +168,7 @@ export function buildEnginePrompt(input: EnginePromptInput): string {
     );
   }
 
+  lines.push("", TABLE_RECOGNITION_STANDARD);
   lines.push("", SHAPE);
   return lines.join("\n");
 }

@@ -23,6 +23,12 @@ import {
   workspaceCorrection,
 } from "./workspaceStandard.ts";
 import {
+  TABLE_RECOGNITION_STANDARD,
+  convertHandTables,
+  tableViolations,
+  tableCorrection,
+} from "./tableStandard.ts";
+import {
   runValidationPipeline,
   firstFailingStage,
   formatViolations,
@@ -239,13 +245,20 @@ async function generateValidated(opts: {
   kind: ValidationKind;
   model?: string;
   maxRoundsPerStage?: number;
-}): Promise<{ content: string; warnings: string[]; lastStage: number }> {
+}): Promise<{ content: string; warnings: string[]; lastStage: number; tableIssues: string[] }> {
   const model = opts.model ?? "google/gemini-2.5-flash";
   const maxRounds = opts.maxRoundsPerStage ?? 2;
   const messages = [...opts.messages];
   const deadline = Date.now() + VALIDATION_BUDGET_MS;
+  // TABLE LAW — a hand-typed table must be turned into the real Smart Table
+  // directive on the RAW draft. The markdown cleaner flattens pipe rows into
+  // space-separated text, so any table not rescued here is lost before the
+  // workspace guard can ever see it.
+  const clean1 = (raw: string) =>
+    sanitizePresentation(sanitizeMath(convertHandTables(stripFences(raw))));
   let draft = await callAIComplete(messages, model);
-  let cleaned = sanitizePresentation(sanitizeMath(stripFences(draft)));
+  let tableIssues = tableViolations(stripFences(draft));
+  let cleaned = clean1(draft);
   let lastStage = 1;
 
   // Run the pipeline; on the first failing stage, correct in a loop until
@@ -286,7 +299,8 @@ ${cleaned}`;
         model,
       );
       draft = correction;
-      cleaned = sanitizePresentation(sanitizeMath(stripFences(correction)));
+      tableIssues = tableViolations(stripFences(correction));
+      cleaned = clean1(correction);
       const recheck = runValidationPipeline(cleaned, opts.kind);
       const stillFailing = firstFailingStage(recheck);
       if (!stillFailing || stillFailing.stage > failing.stage) {
@@ -310,10 +324,12 @@ ${cleaned}`;
     ? lastFailing.violations.map((v) => `[Stage ${v.phase}] ${v.rule}: ${v.detail}`)
     : [];
   for (const r of residueReport(cleaned)) warnings.push(`[Hygiene] raw syntax residue: ${r}`);
+  // A table that survived as text is a defect, not silent success.
+  for (const t of tableIssues) warnings.push(`[Table] ${t}`);
   if (warnings.length) {
     console.warn(`[notebook-ai] validation warnings remain after stage ${lastStage}:`, warnings);
   }
-  return { content: cleaned, warnings, lastStage };
+  return { content: cleaned, warnings, lastStage, tableIssues };
 }
 
 const stripFences = (s: string) =>
@@ -817,6 +833,8 @@ ${CONTINUITY_STANDARD}
 
 ${WORKSPACE_STANDARD}
 
+${TABLE_RECOGNITION_STANDARD}
+
 ${workspaceManifestBlock(b.workspaceManifest)}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n\n${SOLUTION_COMPLETENESS_STANDARD}\n` : ""}
 ${b.blockKind === "problem" ? `\n${QUESTION_TASK_STANDARD}\n` : ""}
@@ -869,28 +887,38 @@ Output ONLY the requested content. No headings like "Solution:", no markdown, no
         { role: "user", content: parts.join("\n\n") },
       ];
 
-      let { content, warnings } = await generateValidated({
+      let { content, warnings, tableIssues } = await generateValidated({
         messages: baseMessages,
         kind: validationKind,
       });
 
       // WORKSPACE GUARD — hand-typed tables / ASCII figures / described graphs
-      // must be re-emitted as real workspace tool directives. One round.
+      // must be re-emitted as real workspace tool directives. A table that is
+      // still typed by hand is binding: correct it in up to two rounds.
       {
-        const violations = workspaceViolations(content);
-        if (violations.length) {
+        let rounds = 0;
+        let problems = [...workspaceViolations(content), ...tableIssues];
+        while (problems.length && rounds < 2) {
+          rounds++;
+          const instruction = tableIssues.length
+            ? tableCorrection(problems)
+            : workspaceCorrection(problems);
           const retry = await generateValidated({
             messages: [
               ...baseMessages,
               { role: "assistant", content },
-              { role: "user", content: workspaceCorrection(violations) },
+              { role: "user", content: instruction },
             ],
             kind: validationKind,
           });
-          if (workspaceViolations(retry.content).length <= violations.length) {
+          const retryProblems = [...workspaceViolations(retry.content), ...retry.tableIssues];
+          if (retryProblems.length <= problems.length) {
             content = retry.content;
             warnings = retry.warnings;
-          }
+            tableIssues = retry.tableIssues;
+            problems = retryProblems;
+          } else break;
+          if (!problems.length) break;
         }
       }
 
@@ -1235,7 +1263,9 @@ never repeat the same fixed phrase twice in a session.
 Changing numbers in a question is NOT changing the mathematics; only a change
 of method, structure or concept is.
 
-${COPILOT_TRAINING_STANDARD}`;
+${COPILOT_TRAINING_STANDARD}
+
+${TABLE_RECOGNITION_STANDARD}`;
 
       const jsonOnly = (shape: string) =>
         `Reply with JSON ONLY, no code fence:\n${shape}`;
@@ -1571,6 +1601,7 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         RENDERING_STANDARD,
         STRUCTURAL_STANDARD,
         WORKSPACE_STANDARD,
+        TABLE_RECOGNITION_STANDARD,
         includeBenchmark ? BENCHMARK_STANDARD : "",
         includePedagogy ? PEDAGOGY_RULES : "",
       ].filter(Boolean).join("\n\n");
@@ -1762,7 +1793,14 @@ Return STRICT JSON only, no markdown, exactly this shape:
   "diagramRequired": false, "diagramDescription": "", "labels": [],
   "answerFormat": "", "sourceQuestion": "", "notes": ""
 }
+
+${TABLE_RECOGNITION_STANDARD}
+When the mathematics of this section is naturally rows and columns (frequency
+work, a table of values, sequence terms, log/antilog lookup, factors, outcomes,
+conversions, financial working …), say so in "notes" so the build stage emits a
+real Smart Table. Never draw the table here.
 `.trim();
+
 
       const content: any[] = [{ type: "text", text: instruction }];
       if (String(material.text ?? "").trim()) {

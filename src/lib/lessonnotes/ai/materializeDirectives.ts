@@ -53,6 +53,18 @@ const splitList = (s: string | undefined, sep = "|") =>
     .map((x) => x.trim())
     .filter((x) => x.length > 0);
 
+/**
+ * Table cells keep their position: an intentionally blank cell must NOT collapse
+ * the row, or every following column shifts left.
+ */
+const splitCells = (s: string | undefined, sep = "|") => {
+  const cells = (s ?? "").split(sep).map((x) => x.trim());
+  while (cells.length && cells[cells.length - 1] === "") cells.pop();
+  while (cells.length > 1 && cells[0] === "") cells.shift();
+  return cells;
+};
+
+
 const num = (v: string | undefined, d: number) =>
   Number.isFinite(Number(v)) ? Number(v) : d;
 
@@ -74,12 +86,12 @@ function normalizeCell(raw: string): string {
 }
 
 function smartTableNode(p: Record<string, string>): TipTapNode {
-  const headers = splitList(p.headers ?? p.cols);
+  const headers = splitCells(p.headers ?? p.cols);
   const rowSpecs = (p.rows ?? "")
     .split(";")
     .map((r) => r.trim())
     .filter(Boolean);
-  const cells = rowSpecs.map((r) => splitList(r));
+  const cells = rowSpecs.map((r) => splitCells(r));
   const cols = Math.max(headers.length, ...cells.map((c) => c.length), num(p.cols, 0), 2);
   const rows = Math.max(cells.length, num(p.rowCount, 0), 1);
   const grid = Array.from({ length: rows }, (_, r) =>
