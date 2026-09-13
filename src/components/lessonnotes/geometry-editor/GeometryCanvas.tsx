@@ -162,6 +162,9 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
   const W = Math.max(vbox.W, minViewW ?? 0, regionViewW);
   const H = Math.max(vbox.H, minViewH ?? 0, regionViewH);
 
+  // Point activation decides what is SEEN, never what exists.
+  const displayScene = useMemo(() => applyPointVisibility(scene, showPoints), [scene, showPoints]);
+
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
