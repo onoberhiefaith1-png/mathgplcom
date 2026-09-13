@@ -599,7 +599,7 @@ function DocumentEditorInner({
 }: Props) {
   /** Platform chrome translates; the teacher's own writing never does. */
   const tLabel = useT();
-  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool, showPoints: geometryShowPoints } = useGeometryMode();
+  const { mode: geometryMode, setMode: setGeometryMode, tool: geometryTool, setTool: setGeometryTool, showPoints: geometryShowPoints, setShowPoints: setGeometryShowPoints } = useGeometryMode();
   /** Whole-lesson AI assist belongs to MathGPL Builder mode only. */
   const builderAi = useBuilderAiVisible();
   // When a school looks through a teacher's workspace the page is identical;
@@ -1955,24 +1955,72 @@ function DocumentEditorInner({
     return exact ?? after ?? before;
   }, [editor]);
 
-  /** Entering 2D always gives the teacher a defined drawing region: reuse the
-   *  figure that belongs to the current question, otherwise open one at the
-   *  caret. The barriers are drawn by that block while 2D mode is on. */
+  /** A figure the sensor is actually sitting on / immediately touching. Used so
+   *  entering 2D reopens THAT diagram and never a distant one. */
+  const locateGeometryExactlyAtPos = useCallback((docPos: number): number | null => {
+    if (!editor) return null;
+    let found: number | null = null;
+    editor.state.doc.descendants((node, nodePos) => {
+      if (found != null) return false;
+      if (node.type.name !== "geometryDiagram") return true;
+      if (docPos >= nodePos - 1 && docPos <= nodePos + node.nodeSize + 1) found = nodePos;
+      return true;
+    });
+    return found;
+  }, [editor]);
+
+  /** Position of the temporary region opened by the last 2D activation, so
+   *  leaving 2D can drop it again when nothing was drawn. */
+  const geometryRegionRef = useRef<{ id: string } | null>(null);
+
+  const findGeometryPosById = useCallback((id: string): number | null => {
+    if (!editor) return null;
+    let pos: number | null = null;
+    editor.state.doc.descendants((node, nodePos) => {
+      if (pos != null) return false;
+      if (node.type.name === "geometryDiagram" && node.attrs?.diagramId === id) pos = nodePos;
+      return true;
+    });
+    return pos;
+  }, [editor]);
+
+  /** Leaving 2D: an untouched region is temporary space, not content — remove
+   *  it so the lesson note closes back up exactly as it was. */
+  const discardEmptyGeometryRegion = useCallback(() => {
+    const tracked = geometryRegionRef.current;
+    geometryRegionRef.current = null;
+    if (!editor || !tracked) return;
+    const pos = findGeometryPosById(tracked.id);
+    if (pos == null) return;
+    const node = editor.state.doc.nodeAt(pos);
+    if (!node || node.type.name !== "geometryDiagram") return;
+    const scene = (sanitizeScene(node.attrs.scene) as GeometryScene | null) ?? EMPTY_SCENE;
+    if ((scene.objects?.length ?? 0) > 0) return;
+    editor.view.dispatch(editor.state.tr.delete(pos, pos + node.nodeSize));
+  }, [editor, findGeometryPosById]);
+
+  /** Entering 2D opens a drawing region AT THE SENSOR, every time: reopen the
+   *  figure the caret is on, otherwise insert a fresh temporary region there.
+   *  The barriers are drawn by that block while 2D mode is on. */
   const ensureGeometryRegion = useCallback(() => {
     if (!editor) return;
     const at = editor.state.selection.to;
-    // The 2D workspace opens exactly where the sensor is. Only a figure that is
-    // already at / next to the caret is reused — never the question's first one.
-    const near = locateGeometryNearPos(at);
-    if (near != null) { selectGeometryAt(near); return; }
-    const beforeSize = editor.state.doc.content.size;
-    editor.chain().focus().insertContentAt(at, {
-      type: "geometryDiagram",
-      attrs: { scene: EMPTY_SCENE },
-    }).run();
-    const pos = locateGeometryNearPos(Math.min(at, beforeSize));
+    const here = locateGeometryExactlyAtPos(at);
+    if (here != null) { selectGeometryAt(here); return; }
+    const id = `D-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const chain = editor.chain().focus();
+    const $from = editor.state.selection.$from;
+    // Caret inside a line: split it so the text before stays above the region
+    // and the rest flows below it — the line itself is never moved.
+    const midBlock = $from.parent.isTextblock
+      && $from.parentOffset > 0
+      && $from.parentOffset < $from.parent.content.size;
+    if (midBlock) chain.splitBlock();
+    chain.insertContent({ type: "geometryDiagram", attrs: { scene: EMPTY_SCENE, diagramId: id } }).run();
+    geometryRegionRef.current = { id };
+    const pos = findGeometryPosById(id);
     if (pos != null) selectGeometryAt(pos);
-  }, [editor, locateGeometryNearPos, selectGeometryAt]);
+  }, [editor, findGeometryPosById, locateGeometryExactlyAtPos, selectGeometryAt]);
 
   const findGeometryAtDomPoint = useCallback((clientX: number, clientY: number): number | null => {
     const el = document.elementFromPoint(clientX, clientY) as Element | null;
@@ -3631,6 +3679,7 @@ function DocumentEditorInner({
               if (geometryMode) {
                 setGeometryMode(false);
                 geometryDraftRef.current = null;
+                discardEmptyGeometryRegion();
                 setDiagramTabsOpen(false);
                 return;
               }
@@ -3656,7 +3705,10 @@ function DocumentEditorInner({
                   if (geometryMode) {
                     setGeometryMode(false);
                     geometryDraftRef.current = null;
+                    discardEmptyGeometryRegion();
                   } else {
+                    // Points start clean on every 2D entry.
+                    setGeometryShowPoints(false);
                     setGeometryMode(true);
                     ensureGeometryRegion();
                   }
@@ -3674,6 +3726,7 @@ function DocumentEditorInner({
                 onClick={() => {
                   setGeometryMode(false);
                   geometryDraftRef.current = null;
+                  discardEmptyGeometryRegion();
                   open3DWorkspace();
                 }}
                 className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"

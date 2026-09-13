@@ -385,7 +385,8 @@ function GeometryDiagramView({
 
 
 
-        {selected ? (
+        {/* Geometry is editable only while 2D is on; otherwise it is view-only. */}
+        {barriersOn ? (
           <LiveEditor
             instanceId={instanceId}
             scene={scene}
@@ -461,15 +462,7 @@ function GeometryDiagramView({
           </div>
         )}
 
-        {/* Grow / shrink the diagram's own document region. No frame, no
-            border — only this small grip appears while the diagram is active. */}
-        {selected && (
-          <div
-            onPointerDown={startResize}
-            title="Drag to give the diagram more room"
-            className="absolute left-1/2 -translate-x-1/2 -bottom-2 h-1.5 w-16 cursor-ns-resize rounded-full bg-foreground/25 hover:bg-foreground/40"
-          />
-        )}
+        {/* Resizing lives on the lower barrier only — no second grip. */}
       </div>
 
     </NodeViewWrapper>
