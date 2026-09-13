@@ -3726,6 +3726,7 @@ function DocumentEditorInner({
                 onClick={() => {
                   setGeometryMode(false);
                   geometryDraftRef.current = null;
+                  discardEmptyGeometryRegion();
                   open3DWorkspace();
                 }}
                 className="px-2 py-1 text-xs border-l border-foreground/15 hover:bg-foreground/10 transition-colors"
