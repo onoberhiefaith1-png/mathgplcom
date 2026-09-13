@@ -385,7 +385,8 @@ function GeometryDiagramView({
 
 
 
-        {selected ? (
+        {/* Geometry is editable only while 2D is on; otherwise it is view-only. */}
+        {barriersOn ? (
           <LiveEditor
             instanceId={instanceId}
             scene={scene}
