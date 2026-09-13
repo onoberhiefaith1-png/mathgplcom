@@ -53,6 +53,18 @@ const splitList = (s: string | undefined, sep = "|") =>
     .map((x) => x.trim())
     .filter((x) => x.length > 0);
 
+/**
+ * Table cells keep their position: an intentionally blank cell must NOT collapse
+ * the row, or every following column shifts left.
+ */
+const splitCells = (s: string | undefined, sep = "|") => {
+  const cells = (s ?? "").split(sep).map((x) => x.trim());
+  while (cells.length && cells[cells.length - 1] === "") cells.pop();
+  while (cells.length > 1 && cells[0] === "") cells.shift();
+  return cells;
+};
+
+
 const num = (v: string | undefined, d: number) =>
   Number.isFinite(Number(v)) ? Number(v) : d;
 
