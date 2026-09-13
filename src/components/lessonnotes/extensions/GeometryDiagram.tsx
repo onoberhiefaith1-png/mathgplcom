@@ -424,7 +424,7 @@ function GeometryDiagramView({
           />
 
         ) : (
-          <StudentGuideDiagram scene={scene} zoom={diagramZoom} />
+          <StudentGuideDiagram scene={applyPointVisibility(scene, showPointsForView)} zoom={diagramZoom} />
         )}
 
         {(selected || aiVisible) && (
