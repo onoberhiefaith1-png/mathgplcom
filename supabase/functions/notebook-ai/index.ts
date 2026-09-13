@@ -23,6 +23,12 @@ import {
   workspaceCorrection,
 } from "./workspaceStandard.ts";
 import {
+  TABLE_RECOGNITION_STANDARD,
+  convertHandTables,
+  tableViolations,
+  tableCorrection,
+} from "./tableStandard.ts";
+import {
   runValidationPipeline,
   firstFailingStage,
   formatViolations,
