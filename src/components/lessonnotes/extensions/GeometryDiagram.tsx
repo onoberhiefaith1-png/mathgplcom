@@ -26,6 +26,7 @@ import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useG
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
 import { applyPointVisibility } from "@/lib/geometry/pointVisibility";
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
+import { DiagramToolsPanel } from "@/components/lessonnotes/geometry-editor/DiagramToolsPanel";
 import { GeometryPropertiesWorkspace } from "@/components/lessonnotes/geometry-editor/GeometryPropertiesWorkspace";
 import { GeometryGuideView } from "@/components/lessonnotes/geometry-editor/GeometryGuideView";
 import { SmartboardPropertyTest } from "@/components/lessonnotes/geometry-editor/SmartboardPropertyTest";
