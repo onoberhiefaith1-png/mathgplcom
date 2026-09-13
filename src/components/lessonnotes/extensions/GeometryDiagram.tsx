@@ -24,6 +24,7 @@ import { useDiagramZoom } from "@/lib/geometry/useDiagramZoom";
 import { GeometryCanvas } from "@/components/lessonnotes/geometry-editor/GeometryCanvas";
 import { useGeometryEditor } from "@/components/lessonnotes/geometry-editor/useGeometryEditor";
 import { useGeometryMode } from "@/components/lessonnotes/geometry-editor/GeometryModeContext";
+import { applyPointVisibility } from "@/lib/geometry/pointVisibility";
 import { SelectionInspector } from "@/components/lessonnotes/geometry-editor/SelectionInspector";
 import { GeometryPropertiesWorkspace } from "@/components/lessonnotes/geometry-editor/GeometryPropertiesWorkspace";
 import { GeometryGuideView } from "@/components/lessonnotes/geometry-editor/GeometryGuideView";
@@ -227,7 +228,7 @@ function GeometryDiagramView({
   // lines, circles, annotations) because the whole scene travels with the node.
   // Geometry Mode ON  → unchanged Diagram 2D behaviour: select and edit.
   // A press without movement still activates the diagram, as before.
-  const { mode: geometryModeOn } = useGeometryMode();
+  const { mode: geometryModeOn, showPoints: showPointsForView } = useGeometryMode();
 
   // A diagram is a DOCUMENT BLOCK. It never leaves the flow, so it can never
   // be dragged over text: pressing it simply activates it for drawing.
