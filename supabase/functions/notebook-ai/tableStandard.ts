@@ -193,7 +193,7 @@ export function convertHandTables(text: string): string {
     if (rows.length >= 2 && width >= 2 && rows.every((r) => r.length === width)) {
       return `\n${tableDirective({ headers: rows[0]!, rows: rows.slice(1) })}\n`;
     }
-    return t ? `\n${tableDirective(t)}\n` : whole;
+    return whole;
   });
 
   // 2. contiguous pipe-row blocks.
