@@ -1007,7 +1007,18 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
     >
 
       <div className="absolute inset-0">
-        <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} stroke={stroke} minViewW={minViewW} minViewH={minViewH} />
+        {/* ONE FRAME: the renderer is handed this canvas's exact viewBox and
+            origin, so painted shapes and clicked coordinates cannot diverge. */}
+        <GeometryDiagram
+          scene={displayScene}
+          explicitWidth={W}
+          explicitHeight={H}
+          frameW={W}
+          frameH={H}
+          frameMinX={minX}
+          frameMinY={minY}
+          stroke={stroke}
+        />
       </div>
       {annotationHint && (
         <div className="absolute left-2 top-2 z-10 px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] shadow-sm pointer-events-none">
