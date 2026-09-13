@@ -1601,6 +1601,7 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         RENDERING_STANDARD,
         STRUCTURAL_STANDARD,
         WORKSPACE_STANDARD,
+        TABLE_RECOGNITION_STANDARD,
         includeBenchmark ? BENCHMARK_STANDARD : "",
         includePedagogy ? PEDAGOGY_RULES : "",
       ].filter(Boolean).join("\n\n");
