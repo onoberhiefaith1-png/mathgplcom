@@ -1793,7 +1793,14 @@ Return STRICT JSON only, no markdown, exactly this shape:
   "diagramRequired": false, "diagramDescription": "", "labels": [],
   "answerFormat": "", "sourceQuestion": "", "notes": ""
 }
+
+${TABLE_RECOGNITION_STANDARD}
+When the mathematics of this section is naturally rows and columns (frequency
+work, a table of values, sequence terms, log/antilog lookup, factors, outcomes,
+conversions, financial working …), say so in "notes" so the build stage emits a
+real Smart Table. Never draw the table here.
 `.trim();
+
 
       const content: any[] = [{ type: "text", text: instruction }];
       if (String(material.text ?? "").trim()) {
