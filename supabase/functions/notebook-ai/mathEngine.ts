@@ -167,6 +167,7 @@ export function buildEnginePrompt(input: EnginePromptInput): string {
     );
   }
 
+  lines.push("", TABLE_RECOGNITION_STANDARD);
   lines.push("", SHAPE);
   return lines.join("\n");
 }
