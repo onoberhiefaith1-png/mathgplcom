@@ -299,7 +299,8 @@ ${cleaned}`;
         model,
       );
       draft = correction;
-      cleaned = sanitizePresentation(sanitizeMath(stripFences(correction)));
+      tableIssues = tableViolations(stripFences(correction));
+      cleaned = clean1(correction);
       const recheck = runValidationPipeline(cleaned, opts.kind);
       const stillFailing = firstFailingStage(recheck);
       if (!stillFailing || stillFailing.stage > failing.stage) {
