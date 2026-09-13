@@ -1070,8 +1070,9 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
         {/* Match GeometryDiagram's translate so halos, hover ring and
             previews sit exactly on the rendered shapes. */}
         <g transform={`translate(${-minX}, ${-minY})`}>
-          {/* Snap hint */}
-          {hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
+          {/* Snap hint — only when Point activation is ON, so drawing with
+              points off stays completely clean. */}
+          {showPoints && hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
             <circle
               cx={hover.snap.x + PAD}
               cy={hover.snap.y + PAD}
