@@ -6,6 +6,7 @@ import { useRef, useState, useMemo, useEffect } from "react";
 import type { GeometryScene, GeoPoint, GeoId } from "@/lib/geometry/scene";
 import { pointById } from "@/lib/geometry/scene";
 import { emitGeoPick } from "@/lib/geometry/pickBus";
+import { applyPointVisibility } from "@/lib/geometry/pointVisibility";
 import { GeometryDiagram, computeSceneViewBox } from "@/components/lessonnotes/GeometryDiagram";
 import { snap, pickObject, pickHit, pointsOnCircle, pointsOnArc, type SnapTarget, type Hit } from "@/lib/geometry/editor/snap";
 import { sampleCatmullRomBetween } from "@/lib/geometry/editor/snap";
@@ -161,6 +162,9 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
   const regionViewH = regionH && regionH > 0 ? regionH / zf : 0;
   const W = Math.max(vbox.W, minViewW ?? 0, regionViewW);
   const H = Math.max(vbox.H, minViewH ?? 0, regionViewH);
+
+  // Point activation decides what is SEEN, never what exists.
+  const displayScene = useMemo(() => applyPointVisibility(scene, showPoints), [scene, showPoints]);
 
   const toLogical = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current;
@@ -912,7 +916,8 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
     // part, then everything the relationship also involves.
     (emphasisIds ?? []).forEach((id) => once(id, "#e11d48", 0.5));
     selectedIds.forEach((id) => once(id, "#2563eb"));
-    pendingIds.forEach((id) => once(id, "#10b981"));
+    // Clicked-point markers are deliberately NOT painted: the dashed
+    // in-progress preview is the only feedback while a shape is being drawn.
     flashIds.forEach((id) => once(id, "#f59e0b"));
     (highlightIds ?? []).forEach((id) => once(id, "#a855f7"));
     (relatedIds ?? []).forEach((id) => once(id, "#f59e0b", 0.45));
@@ -973,10 +978,6 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
           stroke="#10b981" strokeWidth={1.4} strokeDasharray="4 3" strokeLinecap="round" />,
       );
     }
-    // Show anchors as small dots for feedback
-    anchors.forEach((a, i) => previews.push(
-      <circle key={`cv-a${i}`} cx={a.x + PAD} cy={a.y + PAD} r={2.4} fill="#10b981" />,
-    ));
   }
   if (circleDrag) {
     previews.push(
@@ -1007,7 +1008,18 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
     >
 
       <div className="absolute inset-0">
-        <GeometryDiagram scene={scene} explicitWidth={W} explicitHeight={H} stroke={stroke} minViewW={minViewW} minViewH={minViewH} />
+        {/* ONE FRAME: the renderer is handed this canvas's exact viewBox and
+            origin, so painted shapes and clicked coordinates cannot diverge. */}
+        <GeometryDiagram
+          scene={displayScene}
+          explicitWidth={W}
+          explicitHeight={H}
+          frameW={W}
+          frameH={H}
+          frameMinX={minX}
+          frameMinY={minY}
+          stroke={stroke}
+        />
       </div>
       {annotationHint && (
         <div className="absolute left-2 top-2 z-10 px-2 py-1 rounded bg-primary text-primary-foreground text-[11px] shadow-sm pointer-events-none">
@@ -1058,8 +1070,9 @@ export function GeometryCanvas({ editor, stroke, minViewW, minViewH, highlightId
         {/* Match GeometryDiagram's translate so halos, hover ring and
             previews sit exactly on the rendered shapes. */}
         <g transform={`translate(${-minX}, ${-minY})`}>
-          {/* Snap hint */}
-          {hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
+          {/* Snap hint — only when Point activation is ON, so drawing with
+              points off stays completely clean. */}
+          {showPoints && hover && tool !== "select" && tool !== "move" && tool !== "erase" && (
             <circle
               cx={hover.snap.x + PAD}
               cy={hover.snap.y + PAD}
