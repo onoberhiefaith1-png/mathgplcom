@@ -3679,6 +3679,7 @@ function DocumentEditorInner({
               if (geometryMode) {
                 setGeometryMode(false);
                 geometryDraftRef.current = null;
+                discardEmptyGeometryRegion();
                 setDiagramTabsOpen(false);
                 return;
               }
