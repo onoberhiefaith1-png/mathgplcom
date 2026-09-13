@@ -833,6 +833,8 @@ ${CONTINUITY_STANDARD}
 
 ${WORKSPACE_STANDARD}
 
+${TABLE_RECOGNITION_STANDARD}
+
 ${workspaceManifestBlock(b.workspaceManifest)}
 ${isSolutionBlock ? `\n${BENCHMARK_STANDARD}\n\n${PEDAGOGY_RULES}\n\n${SOLUTION_COMPLETENESS_STANDARD}\n` : ""}
 ${b.blockKind === "problem" ? `\n${QUESTION_TASK_STANDARD}\n` : ""}
