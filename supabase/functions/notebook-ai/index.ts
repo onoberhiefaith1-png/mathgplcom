@@ -885,28 +885,38 @@ Output ONLY the requested content. No headings like "Solution:", no markdown, no
         { role: "user", content: parts.join("\n\n") },
       ];
 
-      let { content, warnings } = await generateValidated({
+      let { content, warnings, tableIssues } = await generateValidated({
         messages: baseMessages,
         kind: validationKind,
       });
 
       // WORKSPACE GUARD — hand-typed tables / ASCII figures / described graphs
-      // must be re-emitted as real workspace tool directives. One round.
+      // must be re-emitted as real workspace tool directives. A table that is
+      // still typed by hand is binding: correct it in up to two rounds.
       {
-        const violations = workspaceViolations(content);
-        if (violations.length) {
+        let rounds = 0;
+        let problems = [...workspaceViolations(content), ...tableIssues];
+        while (problems.length && rounds < 2) {
+          rounds++;
+          const instruction = tableIssues.length
+            ? tableCorrection(problems)
+            : workspaceCorrection(problems);
           const retry = await generateValidated({
             messages: [
               ...baseMessages,
               { role: "assistant", content },
-              { role: "user", content: workspaceCorrection(violations) },
+              { role: "user", content: instruction },
             ],
             kind: validationKind,
           });
-          if (workspaceViolations(retry.content).length <= violations.length) {
+          const retryProblems = [...workspaceViolations(retry.content), ...retry.tableIssues];
+          if (retryProblems.length <= problems.length) {
             content = retry.content;
             warnings = retry.warnings;
-          }
+            tableIssues = retry.tableIssues;
+            problems = retryProblems;
+          } else break;
+          if (!problems.length) break;
         }
       }
 
