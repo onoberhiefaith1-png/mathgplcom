@@ -3705,7 +3705,10 @@ function DocumentEditorInner({
                   if (geometryMode) {
                     setGeometryMode(false);
                     geometryDraftRef.current = null;
+                    discardEmptyGeometryRegion();
                   } else {
+                    // Points start clean on every 2D entry.
+                    setGeometryShowPoints(false);
                     setGeometryMode(true);
                     ensureGeometryRegion();
                   }
