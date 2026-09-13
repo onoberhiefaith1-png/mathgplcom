@@ -129,20 +129,23 @@ export function computeSceneViewBox(scene: GeometryScene, pad = 24) {
   return { minX, minY, maxX, maxY, W, H, pad };
 }
 
-export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, presentation = false, crop = false, highlightIds, onPickObject, zoom }: Props) {
+export function GeometryDiagram({ scene, diff, large, className, explicitWidth, explicitHeight, stroke, minViewW, minViewH, presentation = false, crop = false, highlightIds, onPickObject, zoom, frameW, frameH, frameMinX, frameMinY }: Props) {
   const baseStroke = stroke ?? STROKE;
   const pad = 24;
-  const cropped = presentation || crop;
+  // A supplied frame is authoritative: the caller (the live 2D canvas) already
+  // owns the coordinate system and the click layer reads the very same numbers.
+  const framed = Number.isFinite(frameW) && Number.isFinite(frameH) && (frameW as number) > 0 && (frameH as number) > 0;
+  const cropped = !framed && (presentation || crop);
   // Grow the viewBox to fit any object that extends past scene.bounds so
   // nothing gets clipped — the whole lesson note is the drawing paper.
   const vb = computeSceneViewBox(scene, pad);
   const occupied = computeSceneExtent(scene);
-  const minX = cropped ? occupied.minX : vb.minX;
-  const minY = cropped ? occupied.minY : vb.minY;
+  const minX = framed ? (frameMinX ?? 0) : cropped ? occupied.minX : vb.minX;
+  const minY = framed ? (frameMinY ?? 0) : cropped ? occupied.minY : vb.minY;
   const occupiedW = Math.max(1, occupied.maxX - occupied.minX);
   const occupiedH = Math.max(1, occupied.maxY - occupied.minY);
-  const W = cropped ? occupiedW + pad * 2 : Math.max(vb.W, minViewW ?? 0);
-  const H = cropped ? occupiedH + pad * 2 : Math.max(vb.H, minViewH ?? 0);
+  const W = framed ? (frameW as number) : cropped ? occupiedW + pad * 2 : Math.max(vb.W, minViewW ?? 0);
+  const H = framed ? (frameH as number) : cropped ? occupiedH + pad * 2 : Math.max(vb.H, minViewH ?? 0);
   const baseW = explicitWidth ?? (presentation ? Math.min(Math.max(W * 1.35, 420), 860) : large ? Math.min(W * 1.4, 720) : Math.min(W, 520));
   const baseH = explicitHeight ?? (baseW / W) * H;
   // Board zoom multiplies width AND height by the same factor, so the figure
