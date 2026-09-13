@@ -245,13 +245,20 @@ async function generateValidated(opts: {
   kind: ValidationKind;
   model?: string;
   maxRoundsPerStage?: number;
-}): Promise<{ content: string; warnings: string[]; lastStage: number }> {
+}): Promise<{ content: string; warnings: string[]; lastStage: number; tableIssues: string[] }> {
   const model = opts.model ?? "google/gemini-2.5-flash";
   const maxRounds = opts.maxRoundsPerStage ?? 2;
   const messages = [...opts.messages];
   const deadline = Date.now() + VALIDATION_BUDGET_MS;
+  // TABLE LAW — a hand-typed table must be turned into the real Smart Table
+  // directive on the RAW draft. The markdown cleaner flattens pipe rows into
+  // space-separated text, so any table not rescued here is lost before the
+  // workspace guard can ever see it.
+  const clean1 = (raw: string) =>
+    sanitizePresentation(sanitizeMath(convertHandTables(stripFences(raw))));
   let draft = await callAIComplete(messages, model);
-  let cleaned = sanitizePresentation(sanitizeMath(stripFences(draft)));
+  let tableIssues = tableViolations(stripFences(draft));
+  let cleaned = clean1(draft);
   let lastStage = 1;
 
   // Run the pipeline; on the first failing stage, correct in a loop until
