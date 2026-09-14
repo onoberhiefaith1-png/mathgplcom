@@ -907,13 +907,75 @@ function DocumentEditorInner({
     }
   };
 
-  /** Problem Check panel state. `askProblemCheck` resolves true when the
-   *  teacher chooses to generate anyway. */
-  const [problemCheck, setProblemCheck] = useState<{
-    report: ProblemReport; heading?: string; resolve: (ok: boolean) => void;
+  /** Mathematical referee panel state. Resolves with the chosen action id, or
+   *  `null` when the teacher cancels. */
+  const [problemReview, setProblemReview] = useState<{
+    issue: ReviewIssue; heading?: string; resolve: (id: string | null) => void;
   } | null>(null);
-  const askProblemCheck = (report: ProblemReport, heading?: string) =>
-    new Promise<boolean>((resolve) => setProblemCheck({ report, heading, resolve }));
+  const askProblemReview = (issue: ReviewIssue, heading?: string) =>
+    new Promise<string | null>((resolve) => setProblemReview({ issue, heading, resolve }));
+
+  /** Tables, graphs and floating lines that belong to ONE question block.
+   *  Mathematics stored inside a table or a graph IS the question's data. */
+  const collectMathObjects = (from: number, to: number) => {
+    const tables: string[] = [];
+    const graphs: string[] = [];
+    if (!editor || to <= from) return { tables: "", graphs: "" };
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      const attrs = (node.attrs ?? {}) as any;
+      if (node.type.name === "mathVisual" && String(attrs.family ?? "") === "smarttable") {
+        const inner = (attrs.attrs ?? {}) as { headers?: string[]; cells?: string[][] };
+        const lines: string[] = [];
+        if (Array.isArray(inner.headers) && inner.headers.some((h) => String(h ?? "").trim())) {
+          lines.push(inner.headers.map((h) => String(h ?? "").trim()).join(" | "));
+        }
+        for (const row of inner.cells ?? []) {
+          lines.push((row ?? []).map((c) => String(c ?? "").trim()).join(" | "));
+        }
+        if (lines.length) tables.push(lines.join("\n"));
+        return false;
+      }
+      if (node.type.name === "mathTable") {
+        const gen = attrs.generated as any;
+        if (gen) tables.push(`${String(attrs.tableName ?? "table")}: ${JSON.stringify(gen).slice(0, 1500)}`);
+        return false;
+      }
+      if (node.type.name === "smartGraph") {
+        const parts = [
+          attrs.xLabel ? `x-axis ${attrs.xLabel}` : "",
+          attrs.yLabel ? `y-axis ${attrs.yLabel}` : "",
+          Array.isArray(attrs.functions) && attrs.functions.length
+            ? `functions: ${attrs.functions.map((f: any) => String(f?.expression ?? "")).filter(Boolean).join(", ")}`
+            : "",
+          Array.isArray(attrs.points) && attrs.points.length
+            ? `points: ${attrs.points.map((p: any) => `(${p?.x}, ${p?.y})`).join(" ")}`
+            : "",
+        ].filter(Boolean);
+        if (parts.length) graphs.push(parts.join("; "));
+        return false;
+      }
+      return true;
+    });
+    return { tables: tables.join("\n\n"), graphs: graphs.join("\n") };
+  };
+
+  /** Floating Number lines already saved for this question, as plain text. */
+  const collectFloatingLines = (from: number, to: number): string => {
+    if (!editor || to <= from) return "";
+    const out: string[] = [];
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      const attrs = (node.attrs ?? {}) as any;
+      const eq = attrs?.equation ?? attrs?.line ?? attrs?.text;
+      if (node.type.name === "solutionRow" && typeof eq === "string" && eq.trim()) {
+        out.push(eq.trim());
+        return false;
+      }
+      return true;
+    });
+    return out.join("\n");
+  };
+
+
 
 
   const getSolutionSource = (headingPos: number, session?: SessionContextPackage | null) => {
