@@ -6,7 +6,7 @@ const CompletionBar = ({
   showValue = true,
 }: {
   percent: number;
-  tone?: "fg" | "assignment" | "adventure";
+  tone?: "fg" | "assignment" | "adventure" | "game";
   showValue?: boolean;
 }) => {
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
@@ -15,6 +15,8 @@ const CompletionBar = ({
       ? "hsl(var(--rp-assignment))"
       : tone === "adventure"
       ? "hsl(var(--rp-adventure))"
+      : tone === "game"
+      ? "hsl(var(--rp-game))"
       : "hsl(var(--rp-fg))";
   return (
     <div className="flex items-center gap-2">
