@@ -1374,13 +1374,21 @@ function DocumentEditorInner({
     const isSolutionBlock = info.kind === "solution";
     const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, session) : null;
 
-    // TWO-STAGE PIPELINE — stage 1: identify + validate, stage 2: generate.
-    // A non-valid report never silently blocks the teacher: the Problem Check
-    // panel states exactly what was inspected and offers "Generate anyway".
-    if (isSolutionBlock && solutionSource && solutionSource.report.status !== "valid") {
-      const heading = editor.state.doc.nodeAt(solutionSource.parentPos)?.textContent?.trim();
-      const proceed = await askProblemCheck(solutionSource.report, heading);
-      if (!proceed) return;
+    // MATHEMATICAL REFEREE. The complete problem — question, instruction,
+    // tables, diagram, graphs, Floating Numbers, referenced items and any
+    // existing solution — is reasoned over once. A question waiting for its
+    // solution, a question whose data lives in a table or diagram, and a
+    // teacher-edited question all pass silently. Only a GENUINE mathematical
+    // problem opens the panel, and its actions belong to that problem.
+    if (isSolutionBlock && solutionSource) {
+      const verdict = await reviewProblem(solutionSource.problemContext);
+      if (!verdict.ok) {
+        const heading = editor.state.doc.nodeAt(solutionSource.parentPos)?.textContent?.trim();
+        const chosen = await askProblemReview(verdict.issue, heading);
+        if (!chosen) return;
+        const directive = decisionDirective(verdict.issue, chosen);
+        if (directive) finalPrompt = `${finalPrompt}\n\n${directive}`;
+      }
     }
 
     // The Solution references the question's EXISTING diagram. We hand the
