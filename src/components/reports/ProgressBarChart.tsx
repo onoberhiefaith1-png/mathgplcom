@@ -113,7 +113,11 @@ const ProgressBarChart = ({ bars, title, subtitle, settings, filter }: ProgressB
               <div className="absolute inset-0 flex items-end" style={{ paddingLeft: barGap, gap: barGap }}>
                 {shown.map((b) => {
                   const height = Math.max(3, (b.percent / 100) * PLOT_HEIGHT);
-                  const color = b.mode === "adventure" ? "hsl(var(--rp-adventure))" : "hsl(var(--rp-assignment))";
+                  const color = b.mode === "adventure"
+                    ? "hsl(var(--rp-adventure))"
+                    : b.mode === "game"
+                      ? "hsl(var(--rp-game))"
+                      : "hsl(var(--rp-assignment))";
                   const open = openId === b.taskId;
                   return (
                     <button
@@ -147,7 +151,7 @@ const ProgressBarChart = ({ bars, title, subtitle, settings, filter }: ProgressB
                             className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
                             style={{ background: color, color: "hsl(var(--rp-on-accent))" }}
                           >
-                            {b.mode === "adventure" ? "Adventure" : "Assignment"}
+                            {b.mode === "adventure" ? "Adventure" : b.mode === "game" ? "Game" : "Assignment"}
                           </span>
                           <span className="mt-2 block space-y-1">
                             <Row
