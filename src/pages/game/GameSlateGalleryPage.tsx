@@ -224,11 +224,41 @@ export default function GameSlateGalleryPage() {
           </section>
         ) : null}
 
+        {pending > 0 ? (
+          <section className="mb-8 rounded-xl border border-amber-200/20 bg-[#130e08]/70 p-5">
+            <p className="text-sm text-amber-100/80">
+              {pending} game{pending === 1 ? "" : "s"} were saved only in this browser. Bring them
+              into your account so they are safe and can be used on any device.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={async () => {
+                  await importLocalGames();
+                  setPending(0);
+                  setGames(await listGames());
+                }}
+                className="rounded border border-amber-300/60 bg-amber-300/20 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-amber-100"
+              >
+                Bring them in
+              </button>
+              <button
+                onClick={() => {
+                  dismissLocalGames();
+                  setPending(0);
+                }}
+                className="rounded border border-amber-200/20 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-amber-100/60"
+              >
+                Not now
+              </button>
+            </div>
+          </section>
+        ) : null}
+
         <section>
           <h2 className="text-xs uppercase tracking-[0.25em] text-amber-200/60">Saved slates</h2>
           {games.length === 0 ? (
             <p className="mt-4 text-sm text-amber-100/40">
-              Nothing saved in this browser yet. Create a game to begin.
+              Nothing saved yet. Create a game to begin.
             </p>
           ) : (
             <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -258,9 +288,9 @@ export default function GameSlateGalleryPage() {
                     </button>
                     <div className="flex justify-end border-t border-amber-200/10 px-3 py-2">
                       <button
-                        onClick={() => {
-                          deleteGame(g.id);
-                          setGames(listGames());
+                        onClick={async () => {
+                          await deleteGame(g.id);
+                          setGames(await listGames());
                         }}
                         className="text-[11px] uppercase tracking-wider text-red-200/60 hover:text-red-200"
                       >
