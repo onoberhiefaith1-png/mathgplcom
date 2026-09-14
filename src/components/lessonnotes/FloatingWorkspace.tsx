@@ -338,18 +338,12 @@ export const FloatingWorkspace = ({
               {/* One time value for this line only. In a Game this single value
                   is what creates the line's Timer Reward, so it can never
                   duplicate. Leave it empty for no time on this line. */}
-              <input
-                type="number"
-                min={0}
+              <DurationInput
+                value={line.timerSeconds ?? null}
+                onChange={(seconds) => onChange({ ...line, timerSeconds: seconds ?? undefined })}
                 placeholder="—"
-                value={line.timerSeconds ?? ""}
-                onChange={(e) => {
-                  const raw = e.target.value.trim();
-                  const n = Math.max(0, Math.floor(Number(raw) || 0));
-                  onChange({ ...line, timerSeconds: raw === "" || n === 0 ? undefined : n });
-                }}
-                title="Time for this line only (seconds). Leave empty for none."
-                className="w-14 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-hidden"
+                title="Time for this line only (MM:SS). Leave empty for none."
+                className="w-16 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-hidden"
                 style={{
                   background: "hsl(200 60% 50% / 0.12)",
                   border: "1px solid hsl(200 60% 40% / 0.45)",

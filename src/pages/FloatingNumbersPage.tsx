@@ -1651,16 +1651,13 @@ const FloatingNumbersPage = () => {
           </label>
           {scoring.timerEnabled && (
             <label className="inline-flex items-center gap-1.5 text-sm">
-              <input
-                type="number"
-                min={1}
+              <DurationInput
                 value={scoring.timerSeconds ?? 60}
-                onChange={(e) =>
-                  updateScoring({ timerSeconds: Math.max(1, Math.floor(Number(e.target.value) || 0)) })
-                }
+                onChange={(seconds) => updateScoring({ timerSeconds: seconds ?? 60 })}
+                title="Time for the whole question (MM:SS)"
                 className="w-16 text-center text-sm rounded-md px-1.5 py-0.5 border border-foreground/20 bg-transparent tabular-nums"
               />
-              <span className="text-foreground/60">seconds</span>
+              <span className="text-foreground/60">mm:ss</span>
             </label>
           )}
 
