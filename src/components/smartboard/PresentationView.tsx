@@ -545,7 +545,10 @@ const PresentationView = ({
     if (field === "permanent_achievement_color") setPermanentAchievementColor(next);
     else setCurrentAttemptColor(next);
     if (!assessmentId || !isTeacher) return;
-    const { error } = await supabase.from("assessments").update({ [field]: next }).eq("id", assessmentId);
+    const update = field === "permanent_achievement_color"
+      ? { permanent_achievement_color: next }
+      : { current_attempt_color: next };
+    const { error } = await supabase.from("assessments").update(update).eq("id", assessmentId);
     if (error) toast({ title: "Could not save progress colour", description: error.message, variant: "destructive" });
   }, [assessmentId, isTeacher, permanentAchievementColor, currentAttemptColor, toast]);
 
