@@ -1640,6 +1640,30 @@ const FloatingNumbersPage = () => {
             </label>
           )}
 
+          {/* Question time lives with the question — never with a Game. */}
+          <label className="inline-flex items-center gap-1.5 text-sm">
+            <input
+              type="checkbox"
+              checked={Boolean(scoring.timerEnabled)}
+              onChange={(e) => updateScoring({ timerEnabled: e.target.checked })}
+            />
+            <span className="text-foreground/60">Time this question</span>
+          </label>
+          {scoring.timerEnabled && (
+            <label className="inline-flex items-center gap-1.5 text-sm">
+              <input
+                type="number"
+                min={1}
+                value={scoring.timerSeconds ?? 60}
+                onChange={(e) =>
+                  updateScoring({ timerSeconds: Math.max(1, Math.floor(Number(e.target.value) || 0)) })
+                }
+                className="w-16 text-center text-sm rounded-md px-1.5 py-0.5 border border-foreground/20 bg-transparent tabular-nums"
+              />
+              <span className="text-foreground/60">seconds</span>
+            </label>
+          )}
+
           <div className="ml-auto text-sm font-semibold tabular-nums">
             Total Available = {total} {scoring.label}
           </div>

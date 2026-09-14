@@ -6,6 +6,7 @@ import { ClientOnly } from "@tanstack/react-router";
 
 const WorldStage = lazy(() => import("@/components/gameslate/world/WorldStage"));
 import { ControlPanel } from "@/components/slate/ControlPanel";
+import { QuestionsPanel } from "@/components/slate/QuestionsPanel";
 import { RewardStatusBar } from "@/components/slate/RewardStatusBar";
 import { getReward } from "@/lib/slate/rewards";
 import { getSurface } from "@/lib/slate/surfaces";
@@ -21,15 +22,22 @@ export default function GameSlateEditorPage() {
   const [mode, setMode] = useState<EditorMode>("edit");
   const [panelOpen, setPanelOpen] = useState(true);
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
+  const [questionsOpen, setQuestionsOpen] = useState(false);
 
   useEffect(() => {
-    const g = loadGame(gameId);
-    if (!g) {
-      toast.error("That game is not saved in this browser.");
-      navigate({ to: "/game" });
-      return;
-    }
-    setGame(g);
+    let cancelled = false;
+    loadGame(gameId).then((g) => {
+      if (cancelled) return;
+      if (!g) {
+        toast.error("That game could not be found in your account.");
+        navigate({ to: "/game" });
+        return;
+      }
+      setGame(g);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [gameId, navigate]);
 
   const patchGame = useCallback(
@@ -139,10 +147,10 @@ export default function GameSlateEditorPage() {
   };
 
 
-  const save = () => {
-    const ok = saveGame(game);
+  const save = async () => {
+    const ok = await saveGame(game);
     toast[ok ? "success" : "error"](
-      ok ? "Draft saved in this browser." : "Could not save — the background may be too large.",
+      ok ? "Game saved to your account." : "Could not save — the background may be too large.",
     );
   };
 
@@ -195,6 +203,19 @@ export default function GameSlateEditorPage() {
               View
             </button>
             <button
+              onClick={() => {
+                setQuestionsOpen((open) => !open);
+                setPanelOpen(false);
+              }}
+              className={`rounded border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
+                questionsOpen
+                  ? "border-amber-300 bg-amber-300/15 text-amber-100"
+                  : "border-amber-200/20 text-amber-100/60 hover:bg-amber-200/10"
+              }`}
+            >
+              Questions
+            </button>
+            <button
               onClick={save}
               className="rounded border border-amber-200/20 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-amber-100/70 hover:bg-amber-200/10"
             >
@@ -228,6 +249,12 @@ export default function GameSlateEditorPage() {
       </div>
 
       {/* RIGHT — the one control room, a real 20% column (slide-over on phones) */}
+      {questionsOpen ? (
+        <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[24%] md:min-w-[300px] md:max-w-[440px] md:shrink-0">
+          <QuestionsPanel game={game} onClose={() => setQuestionsOpen(false)} />
+        </div>
+      ) : null}
+
       {panelOpen ? (
         <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[20%] md:min-w-[280px] md:max-w-[420px] md:shrink-0">
           <ControlPanel

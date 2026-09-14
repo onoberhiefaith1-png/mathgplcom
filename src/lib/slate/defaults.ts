@@ -61,7 +61,7 @@ export const makeGame = (input: {
   background: Game["background"];
   roomId?: string;
 }): Game => ({
-  id: uid(),
+  id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : uid(),
   name: input.name.trim() || "Untitled Game",
   topic: input.topic.trim(),
   subtopic: input.subtopic.trim(),
@@ -69,6 +69,7 @@ export const makeGame = (input: {
   roomId: input.roomId ?? roomForSurface(input.surfaceId).id,
   background: input.background,
   slots: Array.from({ length: Math.max(1, input.lines) }, (_, index) => makeSlot(index)),
+  patternLength: Math.max(1, input.lines),
   settings: defaultSettings(),
   status: defaultGameStatus(),
   updatedAt: Date.now(),

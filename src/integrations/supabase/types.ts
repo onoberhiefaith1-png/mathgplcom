@@ -7959,6 +7959,95 @@ export type Database = {
         }
         Relationships: []
       }
+      slate_game_questions: {
+        Row: {
+          created_at: string
+          game_id: string
+          id: string
+          notebook_id: string
+          position: number
+          subsection_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          id?: string
+          notebook_id: string
+          position?: number
+          subsection_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          id?: string
+          notebook_id?: string
+          position?: number
+          subsection_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slate_game_questions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "slate_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slate_games: {
+        Row: {
+          background: Json
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          pattern_length: number
+          room_id: string
+          settings: Json
+          slots: Json
+          status: Json
+          subtopic: string
+          surface_id: string
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          background?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          pattern_length?: number
+          room_id: string
+          settings?: Json
+          slots?: Json
+          status?: Json
+          subtopic?: string
+          surface_id: string
+          topic?: string
+          updated_at?: string
+        }
+        Update: {
+          background?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          pattern_length?: number
+          room_id?: string
+          settings?: Json
+          slots?: Json
+          status?: Json
+          subtopic?: string
+          surface_id?: string
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       smart_card_attempts: {
         Row: {
           card_id: string
