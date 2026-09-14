@@ -17,10 +17,16 @@ import { videoLinesFromQuestion, videoReady, type QuestionVideoConfig } from "@/
 import { fetchGuestAttempts, fetchGuestVideo, sendGuestHeartbeat } from "@/lib/guests/guestApi";
 import { guestLinkDisplayName, guestLinkName } from "@/lib/guests/guestSession";
 
+type GuestAssessment = AssessmentLike & {
+  timer_enabled?: boolean;
+  permanent_achievement_color?: string;
+  current_attempt_color?: string;
+};
+
 interface Props {
   code: string;
   token: string;
-  assessment: AssessmentLike;
+  assessment: GuestAssessment;
   /** Exercise Card id — only a course exercise can carry teaching videos. */
   blockId?: string | null;
   backLabel: string;
@@ -124,6 +130,8 @@ const GuestBoard = ({ code, token, assessment, blockId = null, backLabel, onBack
       participantKey={token}
       guestName={guestLinkName()}
       timerEnabled={!!(assessment as { timer_enabled?: boolean }).timer_enabled}
+      permanentAchievementColor={assessment.permanent_achievement_color}
+      currentAttemptColor={assessment.current_attempt_color}
       onLineContext={videoReady(video) ? setLineCtx : undefined}
        touchSession={phone ? {
         questionIndex: qIndex,

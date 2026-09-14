@@ -13,7 +13,15 @@ import { fetchGuestExercise, fetchGuestMediaUrl, fetchGuestPayload, type GuestCo
 import { guestLinkDisplayName, guestLinkToken } from "@/lib/guests/guestSession";
 import { GuestLoading, GuestNameGate, GuestUnavailable } from "./GuestGate";
 
-type OpenBoard = { assessmentId: string; title: string; questions: any[]; blockId: string } | null;
+type OpenBoard = {
+  assessmentId: string;
+  title: string;
+  questions: any[];
+  blockId: string;
+  timerEnabled?: boolean;
+  permanentAchievementColor?: string;
+  currentAttemptColor?: string;
+} | null;
 
 const GuestCoursePage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -57,6 +65,9 @@ const GuestCoursePage = () => {
       title: res.assessment.title,
       questions: res.assessment.questions ?? [],
       blockId,
+      timerEnabled: res.assessment.timer_enabled,
+      permanentAchievementColor: res.assessment.permanent_achievement_color,
+      currentAttemptColor: res.assessment.current_attempt_color,
     });
   }, [code]);
 
@@ -69,7 +80,14 @@ const GuestCoursePage = () => {
         code={code}
         token={token}
         blockId={board.blockId}
-        assessment={{ id: board.assessmentId, title: board.title, questions: board.questions as never }}
+        assessment={{
+          id: board.assessmentId,
+          title: board.title,
+          questions: board.questions as never,
+          timer_enabled: board.timerEnabled,
+          permanent_achievement_color: board.permanentAchievementColor,
+          current_attempt_color: board.currentAttemptColor,
+        }}
         backLabel="Back to course"
         onBack={() => setBoard(null)}
       />

@@ -23,7 +23,12 @@ export interface GuestAssignmentPayload {
   title: string;
   subject: string | null;
   subtopic: string | null;
-  assessments: (AssessmentLike & { total_marks: number; timer_enabled?: boolean })[];
+  assessments: (AssessmentLike & {
+    total_marks: number;
+    timer_enabled?: boolean;
+    permanent_achievement_color?: string;
+    current_attempt_color?: string;
+  })[];
 }
 
 export type GuestPayload = GuestCoursePayload | GuestAssignmentPayload;
@@ -51,7 +56,12 @@ const get = async <T>(url: string): Promise<T | null> => {
 export const fetchGuestPayload = (code: string) => get<GuestPayload>(base(code));
 
 export const fetchGuestExercise = (code: string, blockId: string) =>
-  get<{ assessment: AssessmentLike & { total_marks: number; timer_enabled?: boolean } }>(
+  get<{ assessment: AssessmentLike & {
+    total_marks: number;
+    timer_enabled?: boolean;
+    permanent_achievement_color?: string;
+    current_attempt_color?: string;
+  } }>(
     `${base(code)}?action=exercise&blockId=${encodeURIComponent(blockId)}`,
   );
 

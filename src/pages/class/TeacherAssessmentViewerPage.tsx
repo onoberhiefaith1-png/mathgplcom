@@ -51,7 +51,10 @@ const TeacherAssessmentViewerPage = () => {
   const [siblingIds, setSiblingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [assessment, setAssessment] = useState<AssessmentLike | null>(null);
+  const [assessment, setAssessment] = useState<(AssessmentLike & {
+    permanent_achievement_color?: string;
+    current_attempt_color?: string;
+  }) | null>(null);
   const [studentName, setStudentName] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
   const [reasoningOpen, setReasoningOpen] = useState(false);
@@ -204,7 +207,7 @@ const TeacherAssessmentViewerPage = () => {
       if (redirect) { navigate(redirect, { replace: true }); return; }
 
       const [{ data: a }, { data: mem }] = await Promise.all([
-        supabase.from("assessments").select("id, title, questions, notebook_id").eq("id", assessmentId).maybeSingle(),
+        supabase.from("assessments").select("id, title, questions, notebook_id, permanent_achievement_color, current_attempt_color").eq("id", assessmentId).maybeSingle(),
         supabase.rpc("get_class_member_names", { _class_id: classId }),
       ]);
       if (!a) { navigate(returnTo, { replace: true }); return; }
@@ -302,6 +305,8 @@ const TeacherAssessmentViewerPage = () => {
             boardStudentId={studentId ?? null}
             boardQuestionId={questionId}
             viewOnly={!editMode}
+            permanentAchievementColor={assessment?.permanent_achievement_color}
+            currentAttemptColor={assessment?.current_attempt_color}
           />
         </div>
         {reasoningOpen && assessmentId && studentId && (

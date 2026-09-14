@@ -1046,12 +1046,14 @@ export type Database = {
           class_id: string
           closes_at: string | null
           created_at: string
+          current_attempt_color: string
           due_at: string | null
           id: string
           kind: string
           notebook_id: string | null
           opens_at: string | null
           owner_id: string
+          permanent_achievement_color: string
           question_key: string | null
           questions: Json
           score_label: string
@@ -1068,12 +1070,14 @@ export type Database = {
           class_id: string
           closes_at?: string | null
           created_at?: string
+          current_attempt_color?: string
           due_at?: string | null
           id?: string
           kind?: string
           notebook_id?: string | null
           opens_at?: string | null
           owner_id: string
+          permanent_achievement_color?: string
           question_key?: string | null
           questions?: Json
           score_label?: string
@@ -1090,12 +1094,14 @@ export type Database = {
           class_id?: string
           closes_at?: string | null
           created_at?: string
+          current_attempt_color?: string
           due_at?: string | null
           id?: string
           kind?: string
           notebook_id?: string | null
           opens_at?: string | null
           owner_id?: string
+          permanent_achievement_color?: string
           question_key?: string | null
           questions?: Json
           score_label?: string

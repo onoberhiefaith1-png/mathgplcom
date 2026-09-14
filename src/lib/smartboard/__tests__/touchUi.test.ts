@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fasterTime, getQuestionWindow, lineCarriesMarkState, resetAttemptMarkers } from "../touchUi";
+import { fasterTime, getQuestionWindow, lineCarriesMarkState, questionTabState, resetAttemptMarkers } from "../touchUi";
 
 describe("phone Smartboard question window", () => {
   it("keeps the first three stable at the start", () => {
@@ -24,6 +24,15 @@ describe("timer attempt state", () => {
     expect(resetAttemptMarkers({ q1: { permanent: true, attempt: true } })).toEqual({
       q1: { permanent: true, attempt: false },
     });
+  });
+
+  it("shows only permanent achievement when the timer is off", () => {
+    expect(questionTabState({ carries: true, marked: true, confirmedNow: true, timerActive: false })).toBe("blue");
+  });
+
+  it("overlays the current attempt only while the timer is active", () => {
+    expect(questionTabState({ carries: true, marked: true, confirmedNow: true, timerActive: true })).toBe("brown");
+    expect(questionTabState({ carries: true, marked: true, confirmedNow: false, timerActive: true })).toBe("blue");
   });
 
   it("never replaces a faster best time with a slower one", () => {

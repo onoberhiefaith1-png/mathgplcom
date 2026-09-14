@@ -72,6 +72,7 @@ import {
   resolvePlaceholderColor,
   sanitizePlaceholderColorId,
 } from "@/lib/smartboard/placeholderColor";
+import { resolveProgressColors } from "@/lib/smartboard/progressColors";
 import { WritingSurface, WritingFilterDefs } from "./WritingSurface";
 import { Inked } from "./Inked";
 import { SettingsSheet } from "./SettingsSheet";
@@ -396,6 +397,8 @@ const PresentationView = ({
 
   testMode = false,
   timerEnabled = false,
+  permanentAchievementColor: permanentAchievementColorProp,
+  currentAttemptColor: currentAttemptColorProp,
   onLineContext,
   touchSession,
 }: {
@@ -421,6 +424,8 @@ const PresentationView = ({
   viewOnly?: boolean;
   /** Teacher enabled the Assignment timer for this assessment. */
   timerEnabled?: boolean;
+  permanentAchievementColor?: string | null;
+  currentAttemptColor?: string | null;
   /** Public Smart Card challenge — grading runs without an account. */
   smartCardSlug?: string | null;
   /** Public Guest Link (Course / Assignment Card) — graded without an account
@@ -506,6 +511,46 @@ const PresentationView = ({
   // Teacher chrome (Presenter Preview / Normal mode) is available whenever the
   // viewer is a teacher — including while reviewing a student's assessment.
   const isTeacher = role === "teacher";
+  const initialProgressColors = resolveProgressColors({
+    permanentAchievementColor: permanentAchievementColorProp,
+    currentAttemptColor: currentAttemptColorProp,
+  });
+  const [permanentAchievementColor, setPermanentAchievementColor] = useState(
+    initialProgressColors.permanentAchievementColor,
+  );
+  const [currentAttemptColor, setCurrentAttemptColor] = useState(
+    initialProgressColors.currentAttemptColor,
+  );
+
+  useEffect(() => {
+    const next = resolveProgressColors({
+      permanentAchievementColor: permanentAchievementColorProp,
+      currentAttemptColor: currentAttemptColorProp,
+    });
+    setPermanentAchievementColor(next.permanentAchievementColor);
+    setCurrentAttemptColor(next.currentAttemptColor);
+  }, [permanentAchievementColorProp, currentAttemptColorProp]);
+
+  const saveProgressColor = useCallback(async (
+    field: "permanent_achievement_color" | "current_attempt_color",
+    value: string,
+  ) => {
+    const resolved = resolveProgressColors({
+      permanentAchievementColor: field === "permanent_achievement_color" ? value : permanentAchievementColor,
+      currentAttemptColor: field === "current_attempt_color" ? value : currentAttemptColor,
+    });
+    const next = field === "permanent_achievement_color"
+      ? resolved.permanentAchievementColor
+      : resolved.currentAttemptColor;
+    if (field === "permanent_achievement_color") setPermanentAchievementColor(next);
+    else setCurrentAttemptColor(next);
+    if (!assessmentId || !isTeacher) return;
+    const update = field === "permanent_achievement_color"
+      ? { permanent_achievement_color: next }
+      : { current_attempt_color: next };
+    const { error } = await supabase.from("assessments").update(update).eq("id", assessmentId);
+    if (error) toast({ title: "Could not save progress colour", description: error.message, variant: "destructive" });
+  }, [assessmentId, isTeacher, permanentAchievementColor, currentAttemptColor, toast]);
 
   // MOBILE STUDENT MODE — phone/tablet student session. The board keeps its
   // full size; the device becomes a viewport that pans across it. Desktop and
@@ -2296,7 +2341,6 @@ const PresentationView = ({
   //   BROWN → that position is being solved/re-solved in the live timed attempt
   // The permanent and attempt layers are still tracked separately internally,
   // but the student never sees a green state and never a second number row.
-  const PROGRESS_BROWN = "hsl(26 55% 38%)";
   const progressLayers = useMemo(() => {
     const blue = new Set<string>();
     const brown = new Set<string>();
@@ -6305,6 +6349,14 @@ const PresentationView = ({
         textScale={textScale}
         setTextScale={setTextScale}
         compactPhone={phoneLayout}
+        permanentAchievementColor={permanentAchievementColor}
+        currentAttemptColor={currentAttemptColor}
+        onPermanentAchievementColorChange={assessmentMode && isTeacher
+          ? (color) => { void saveProgressColor("permanent_achievement_color", color); }
+          : undefined}
+        onCurrentAttemptColorChange={assessmentMode && isTeacher
+          ? (color) => { void saveProgressColor("current_attempt_color", color); }
+          : undefined}
       />
 
       {/* Board body — pure surface, fills edge-to-edge. Tapping anywhere
@@ -7857,7 +7909,7 @@ const PresentationView = ({
                   const active = i != null && i === (byLine ? activeLineIdx : touchQuestionIndex);
                   // Brown wins while the line is in the live attempt; blue is
                   // what remains once Reset clears that temporary layer.
-                  const fill = brown ? PROGRESS_BROWN : blue ? palette.accent : null;
+                  const fill = brown ? currentAttemptColor : blue ? permanentAchievementColor : null;
                   const style = fill
                     ? { background: fill, color: palette.chromeBg, borderColor: fill }
                     : active
