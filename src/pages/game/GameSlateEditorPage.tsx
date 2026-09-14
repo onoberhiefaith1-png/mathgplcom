@@ -6,6 +6,7 @@ import { ClientOnly } from "@tanstack/react-router";
 
 const WorldStage = lazy(() => import("@/components/gameslate/world/WorldStage"));
 import { ControlPanel } from "@/components/slate/ControlPanel";
+import { QuestionsPanel } from "@/components/slate/QuestionsPanel";
 import { RewardStatusBar } from "@/components/slate/RewardStatusBar";
 import { getReward } from "@/lib/slate/rewards";
 import { getSurface } from "@/lib/slate/surfaces";
@@ -21,6 +22,7 @@ export default function GameSlateEditorPage() {
   const [mode, setMode] = useState<EditorMode>("edit");
   const [panelOpen, setPanelOpen] = useState(true);
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
+  const [questionsOpen, setQuestionsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
