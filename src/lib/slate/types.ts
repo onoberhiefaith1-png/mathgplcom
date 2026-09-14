@@ -161,7 +161,10 @@ export interface Game {
   /** The 3D room this slate physically lives in. */
   roomId: string;
   background: BackgroundSettings;
+  /** The Lines that make up the repeating reward pattern. */
   slots: Slot[];
+  /** How many Lines the reward pattern is long. Defaults to slots.length. */
+  patternLength?: number;
   settings: GameSettings;
   status: GameStatus;
   updatedAt: number;
