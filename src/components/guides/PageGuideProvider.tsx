@@ -139,6 +139,9 @@ export const PageGuideProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const showCompanion = open && Boolean(session);
+  // "Page" shows the live page alone: no split wrapper at all, so the page keeps
+  // its own layout, height and scrolling while the player stays parked.
+  const showSplit = showCompanion && view !== "board";
 
   return (
     <PageGuideContext.Provider value={value}>
@@ -147,19 +150,20 @@ export const PageGuideProvider = ({ children }: { children: ReactNode }) => {
       <div
         data-page-guide-root=""
         className={cn(
-          showCompanion &&
+          showSplit &&
             "grid h-screen min-h-0 grid-cols-1 grid-rows-[minmax(0,1.1fr)_minmax(0,1fr)] gap-px overflow-hidden bg-border lg:grid-cols-[1.5fr_1fr] lg:grid-rows-1",
-          showCompanion && view === "video" && "grid-rows-1 lg:grid-cols-1",
+          showSplit && view === "video" && "grid-rows-1 lg:grid-cols-1",
         )}
       >
         <div
           className={cn(
-            showCompanion && "relative min-h-0 min-w-0 overflow-auto bg-background",
-            showCompanion && view === "video" && "hidden",
+            showSplit && "relative min-h-0 min-w-0 overflow-auto bg-background",
+            showSplit && view === "video" && "hidden",
           )}
         >
           {children}
         </div>
+
 
         {session && (
           <div
