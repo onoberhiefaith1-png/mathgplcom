@@ -84,6 +84,56 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmUnassign, setConfirmUnassign] = useState<{ classId: string; className: string } | null>(null);
+  /* ── Game target ─────────────────────────────────────────────────────────
+     A Game is a container: this question is added to an existing Game, and the
+     Game itself is what the class receives. */
+  const [games, setGames] = useState<Game[]>([]);
+  const [gameId, setGameId] = useState<string>("");
+  const [passPercentage, setPassPercentage] = useState<number>(70);
+  const [gameStats, setGameStats] = useState<{ count: number; marks: number; hasThis: boolean }>({
+    count: 0, marks: 0, hasThis: false,
+  });
+
+  // Teacher's own Games — never re-authored here, only chosen.
+  useEffect(() => {
+    if (!open || target !== "game") return;
+    (async () => {
+      const list = await listGames();
+      setGames(list);
+      setGameId((prev) => (prev && list.some((g) => g.id === prev) ? prev : list[0]?.id ?? ""));
+    })();
+  }, [open, target]);
+
+  // Live Game facts + which classes already have this Game.
+  useEffect(() => {
+    if (!open || target !== "game" || !gameId) {
+      if (target === "game") setGameStats({ count: 0, marks: 0, hasThis: false });
+      return;
+    }
+    (async () => {
+      const [questions, byClass] = await Promise.all([
+        listGameQuestions(gameId),
+        loadGameAssignmentState(gameId),
+      ]);
+      setGameStats({
+        count: questions.length,
+        marks: questions.reduce((sum, q) => sum + q.totalMarks, 0),
+        hasThis: subsectionId ? questions.some((q) => q.subsectionId === subsectionId) : false,
+      });
+      const first = byClass.values().next().value;
+      if (first) setPassPercentage(first.passPercentage);
+      setClasses((prev) => prev.map((c) => ({
+        ...c,
+        gameAssignmentId: byClass.get(c.id)?.id ?? null,
+      })));
+      const pre = new Set(
+        Array.from(byClass.keys()),
+      );
+      setSelected(new Set(pre));
+      setInitiallySelected(new Set(pre));
+    })();
+  }, [open, target, gameId, subsectionId]);
+
 
   useEffect(() => {
     if (!open) return;
