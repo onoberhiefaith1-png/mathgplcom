@@ -1,7 +1,14 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { SURFACES } from "@/lib/slate/surfaces";
-import { deleteGame, listGames, saveGame } from "@/lib/slate/storage";
+import {
+  deleteGame,
+  dismissLocalGames,
+  importLocalGames,
+  listGames,
+  listLocalGames,
+  saveGame,
+} from "@/lib/slate/storage";
 import { makeGame } from "@/lib/slate/defaults";
 import type { Game } from "@/lib/slate/types";
 import cavern from "@/assets/slate/backgrounds/cavern.jpg";
@@ -32,9 +39,14 @@ export default function GameSlateGalleryPage() {
     kind: "image",
   });
 
-  useEffect(() => setGames(listGames()), []);
+  const [pending, setPending] = useState(0);
 
-  const create = () => {
+  useEffect(() => {
+    listGames().then(setGames);
+    setPending(listLocalGames().length);
+  }, []);
+
+  const create = async () => {
     const game = makeGame({
       name,
       topic,
@@ -43,7 +55,7 @@ export default function GameSlateGalleryPage() {
       lines,
       background: { ...background, scale: 1, x: 0, y: 0, opacity: 1 },
     });
-    saveGame(game);
+    await saveGame(game);
     navigate({ to: "/game/slate/$gameId", params: { gameId: game.id } });
   };
 
