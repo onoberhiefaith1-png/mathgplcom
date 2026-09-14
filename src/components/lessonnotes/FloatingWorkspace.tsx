@@ -9,6 +9,7 @@ import {
   RotateCcw, Shuffle, Trash2, X,
 } from "lucide-react";
 
+import DurationInput from "@/components/common/DurationInput";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,

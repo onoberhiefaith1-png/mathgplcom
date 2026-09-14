@@ -55,6 +55,7 @@ import {
   type TableOrientation,
 } from "@/lib/floating/tableGrid";
 import { isEmptyMatrixLatex, splitMatrixChip } from "@/lib/floating/matrixChips";
+import DurationInput from "@/components/common/DurationInput";
 
 /** One item of the highlight stream: a text line, or a whole table workspace. */
 type Entry =
