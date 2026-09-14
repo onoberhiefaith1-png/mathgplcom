@@ -108,7 +108,7 @@ export function checkSolutionCompleteness(
     );
   }
   for (const l of lines) {
-    if (ABBREVIATION.test(l)) {
+    if (ABBREVIATION.test(stripDecimalEllipsis(l))) {
       defects.push(`The working is abbreviated instead of written out: "${l}".`);
       break;
     }
