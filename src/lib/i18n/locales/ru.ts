@@ -10,6 +10,7 @@ export const ru: Catalogue = {
   nav_smartboard: "Интерактивная доска",
   nav_classes: "Классы",
   nav_my_classes: "Мои классы",
+  nav_game: "Игра",
   nav_adventure: "Приключение",
   nav_skill_builder: "Курсы",
   nav_live: "MathGPL Live",

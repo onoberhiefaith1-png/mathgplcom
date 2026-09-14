@@ -15,6 +15,7 @@ export const en = {
   nav_smartboard: "SmartBoard",
   nav_classes: "Classes",
   nav_my_classes: "My Classes",
+  nav_game: "Game",
   nav_adventure: "Adventure",
   nav_skill_builder: "Courses",
   nav_live: "MathGPL Live",

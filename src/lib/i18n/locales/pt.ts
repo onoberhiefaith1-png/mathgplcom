@@ -10,6 +10,7 @@ export const pt: Catalogue = {
   nav_smartboard: "Lousa digital",
   nav_classes: "Turmas",
   nav_my_classes: "Minhas turmas",
+  nav_game: "Jogo",
   nav_adventure: "Aventura",
   nav_skill_builder: "Cursos",
   nav_live: "MathGPL ao vivo",
