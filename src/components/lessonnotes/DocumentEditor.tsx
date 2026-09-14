@@ -23,8 +23,14 @@ import { CanvasFrame } from "./extensions/CanvasFrame";
 import { SessionSpacer } from "./extensions/SessionSpacer";
 import { attachSessionLayout } from "@/lib/lessonnotes/sessionLayout";
 import { startObjectDrag } from "@/lib/lessonnotes/objectDrag";
-import { analyzeProblem, isStructuralLabelLine, type ProblemReport } from "@/lib/lessonnotes/problemDetect";
-import { ProblemCheckDialog } from "./ProblemCheckDialog";
+import {
+  isStructuralLabelLine, stripLeadingStructuralLabel,
+} from "@/lib/lessonnotes/problemDetect";
+import {
+  reviewProblem, decisionDirective, detectRequestedMethod,
+  type ProblemContext, type ReviewIssue,
+} from "@/lib/lessonnotes/ai/problemReview";
+import { ProblemReviewDialog } from "./ProblemReviewDialog";
 
 import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionRow";
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
@@ -903,13 +909,75 @@ function DocumentEditorInner({
     }
   };
 
-  /** Problem Check panel state. `askProblemCheck` resolves true when the
-   *  teacher chooses to generate anyway. */
-  const [problemCheck, setProblemCheck] = useState<{
-    report: ProblemReport; heading?: string; resolve: (ok: boolean) => void;
+  /** Mathematical referee panel state. Resolves with the chosen action id, or
+   *  `null` when the teacher cancels. */
+  const [problemReview, setProblemReview] = useState<{
+    issue: ReviewIssue; heading?: string; resolve: (id: string | null) => void;
   } | null>(null);
-  const askProblemCheck = (report: ProblemReport, heading?: string) =>
-    new Promise<boolean>((resolve) => setProblemCheck({ report, heading, resolve }));
+  const askProblemReview = (issue: ReviewIssue, heading?: string) =>
+    new Promise<string | null>((resolve) => setProblemReview({ issue, heading, resolve }));
+
+  /** Tables, graphs and floating lines that belong to ONE question block.
+   *  Mathematics stored inside a table or a graph IS the question's data. */
+  const collectMathObjects = (from: number, to: number) => {
+    const tables: string[] = [];
+    const graphs: string[] = [];
+    if (!editor || to <= from) return { tables: "", graphs: "" };
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      const attrs = (node.attrs ?? {}) as any;
+      if (node.type.name === "mathVisual" && String(attrs.family ?? "") === "smarttable") {
+        const inner = (attrs.attrs ?? {}) as { headers?: string[]; cells?: string[][] };
+        const lines: string[] = [];
+        if (Array.isArray(inner.headers) && inner.headers.some((h) => String(h ?? "").trim())) {
+          lines.push(inner.headers.map((h) => String(h ?? "").trim()).join(" | "));
+        }
+        for (const row of inner.cells ?? []) {
+          lines.push((row ?? []).map((c) => String(c ?? "").trim()).join(" | "));
+        }
+        if (lines.length) tables.push(lines.join("\n"));
+        return false;
+      }
+      if (node.type.name === "mathTable") {
+        const gen = attrs.generated as any;
+        if (gen) tables.push(`${String(attrs.tableName ?? "table")}: ${JSON.stringify(gen).slice(0, 1500)}`);
+        return false;
+      }
+      if (node.type.name === "smartGraph") {
+        const parts = [
+          attrs.xLabel ? `x-axis ${attrs.xLabel}` : "",
+          attrs.yLabel ? `y-axis ${attrs.yLabel}` : "",
+          Array.isArray(attrs.functions) && attrs.functions.length
+            ? `functions: ${attrs.functions.map((f: any) => String(f?.expression ?? "")).filter(Boolean).join(", ")}`
+            : "",
+          Array.isArray(attrs.points) && attrs.points.length
+            ? `points: ${attrs.points.map((p: any) => `(${p?.x}, ${p?.y})`).join(" ")}`
+            : "",
+        ].filter(Boolean);
+        if (parts.length) graphs.push(parts.join("; "));
+        return false;
+      }
+      return true;
+    });
+    return { tables: tables.join("\n\n"), graphs: graphs.join("\n") };
+  };
+
+  /** Floating Number lines already saved for this question, as plain text. */
+  const collectFloatingLines = (from: number, to: number): string => {
+    if (!editor || to <= from) return "";
+    const out: string[] = [];
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      const attrs = (node.attrs ?? {}) as any;
+      const eq = attrs?.equation ?? attrs?.line ?? attrs?.text;
+      if (node.type.name === "solutionRow" && typeof eq === "string" && eq.trim()) {
+        out.push(eq.trim());
+        return false;
+      }
+      return true;
+    });
+    return out.join("\n");
+  };
+
+
 
 
   const getSolutionSource = (headingPos: number, session?: SessionContextPackage | null) => {
@@ -953,24 +1021,43 @@ function DocumentEditorInner({
     // Content belonging to the SAME question (its diagram, its Solution) and to
     // the rest of the session counts as found mathematics.
     const pkg = session ?? collectSessionContext(headingPos);
-    const report = analyzeProblem(scoped, {
-      hasDiagram: editor
-        ? diagramsOwnedByQuestion(editor.state.doc, parentPos, isSolutionLabel).length > 0
-        : false,
-      related: pkg ? relatedContentFor(pkg) : undefined,
-    });
-
+    // Structural labels are set aside; the mathematics is always kept, even
+    // when it shares a line with the label.
+    const questionOnly = scoped
+      .split("\n")
+      .map((l) => stripLeadingStructuralLabel(l).rest)
+      .filter((l) => l.trim())
+      .join("\n")
+      .trim();
 
     // ACTIVE_QUESTION: the block's own text when it has any, otherwise the
     // question read from the session package (the question may have been typed
     // into a free frame, or exist only as the diagram belonging to it).
     const ownerQuestion = pkg?.owner?.questionText?.trim() ?? "";
     const ownerDiagram = pkg?.owner?.diagramSummary ?? "";
+    const related = pkg ? relatedContentFor(pkg) : null;
+    const objects = collectMathObjects(parentPos, headingPos);
     const problemText =
-      report.problem ||
+      questionOnly ||
       ownerQuestion ||
       (ownerDiagram ? `See the diagram belonging to this question (${ownerDiagram}).` : "");
 
+    // THE COMPLETE PROBLEM handed to the mathematical referee. Data living in a
+    // table, graph, diagram or Floating Number belongs to the question exactly
+    // as if it had been typed as text.
+    const problemContext: ProblemContext = {
+      heading: editor?.state.doc.nodeAt(parentPos)?.textContent?.trim() ?? "",
+      questionText: problemText,
+      instruction: "",
+      tables: objects.tables,
+      diagramSummary: ownerDiagram || related?.diagramSummary || "",
+      graphs: objects.graphs,
+      floatingLines: collectFloatingLines(parentPos, headingPos),
+      existingSolution: related?.solutionText ?? "",
+      referenced: related?.sessionText ?? "",
+      requestedMethod: detectRequestedMethod(problemText),
+      sessionContext: pkg?.sessionTitle ?? "",
+    };
 
     return {
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
@@ -979,7 +1066,7 @@ function DocumentEditorInner({
       // Solution itself.
       parentPos,
       problemText,
-      report,
+      problemContext,
       hasInheritedQuestion: Boolean(problemText),
     };
   };
@@ -1289,13 +1376,21 @@ function DocumentEditorInner({
     const isSolutionBlock = info.kind === "solution";
     const solutionSource = isSolutionBlock ? getSolutionSource(info.headingPos, session) : null;
 
-    // TWO-STAGE PIPELINE — stage 1: identify + validate, stage 2: generate.
-    // A non-valid report never silently blocks the teacher: the Problem Check
-    // panel states exactly what was inspected and offers "Generate anyway".
-    if (isSolutionBlock && solutionSource && solutionSource.report.status !== "valid") {
-      const heading = editor.state.doc.nodeAt(solutionSource.parentPos)?.textContent?.trim();
-      const proceed = await askProblemCheck(solutionSource.report, heading);
-      if (!proceed) return;
+    // MATHEMATICAL REFEREE. The complete problem — question, instruction,
+    // tables, diagram, graphs, Floating Numbers, referenced items and any
+    // existing solution — is reasoned over once. A question waiting for its
+    // solution, a question whose data lives in a table or diagram, and a
+    // teacher-edited question all pass silently. Only a GENUINE mathematical
+    // problem opens the panel, and its actions belong to that problem.
+    if (isSolutionBlock && solutionSource) {
+      const verdict = await reviewProblem(solutionSource.problemContext);
+      if (!verdict.ok) {
+        const heading = editor.state.doc.nodeAt(solutionSource.parentPos)?.textContent?.trim();
+        const chosen = await askProblemReview(verdict.issue, heading);
+        if (!chosen) return;
+        const directive = decisionDirective(verdict.issue, chosen);
+        if (directive) finalPrompt = `${finalPrompt}\n\n${directive}`;
+      }
     }
 
     // The Solution references the question's EXISTING diagram. We hand the
@@ -4000,12 +4095,11 @@ function DocumentEditorInner({
         </Suspense>
       )}
 
-      <ProblemCheckDialog
-        open={Boolean(problemCheck)}
-        report={problemCheck?.report ?? null}
-        heading={problemCheck?.heading}
-        onCancel={() => { problemCheck?.resolve(false); setProblemCheck(null); }}
-        onProceed={() => { problemCheck?.resolve(true); setProblemCheck(null); }}
+      <ProblemReviewDialog
+        open={Boolean(problemReview)}
+        issue={problemReview?.issue ?? null}
+        heading={problemReview?.heading}
+        onChoose={(id) => { problemReview?.resolve(id); setProblemReview(null); }}
       />
 
       <ConversionPanel open={conversionOpen} onOpenChange={setConversionOpen} onInsert={insertSymbolText} />

@@ -22,6 +22,7 @@ import {
   workspaceViolations,
   workspaceCorrection,
 } from "./workspaceStandard.ts";
+import { buildReviewPrompt, parseReviewVerdict } from "./reviewStandard.ts";
 import {
   TABLE_RECOGNITION_STANDARD,
   convertHandTables,
@@ -1846,6 +1847,45 @@ real Smart Table. Never draw the table here.
       if (b.diagramRequired === true) blueprint.diagramRequired = true;
       if (b.diagramRequired === false) blueprint.diagramRequired = false;
       return new Response(JSON.stringify({ blueprint }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MODE: review  (MATHEMATICAL REFEREE)
+    // Reasons over the COMPLETE problem — question + instruction + tables +
+    // diagram + graphs + floating numbers + referenced items + any existing
+    // solution — and only reports a GENUINE mathematical problem. Never
+    // complains that a solution, diagram or table is simply absent.
+    // ─────────────────────────────────────────────────────────────
+    if (body.mode === "review") {
+      const b = body as {
+        mode: "review";
+        heading?: string;
+        questionText?: string;
+        instruction?: string;
+        tables?: string;
+        diagramSummary?: string;
+        graphs?: string;
+        floatingLines?: string;
+        existingSolution?: string;
+        referenced?: string;
+        requestedMethod?: string;
+        sessionContext?: string;
+      };
+      let verdict: any = { ok: true };
+      try {
+        const out = await callAI(
+          [{ role: "user", content: buildReviewPrompt(b) }],
+          "google/gemini-2.5-flash",
+        );
+        verdict = parseReviewVerdict(out);
+      } catch (err) {
+        // A referee outage must never block the teacher.
+        console.warn("[review] referee unavailable", String(err));
+        verdict = { ok: true };
+      }
+      return new Response(JSON.stringify(verdict), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
