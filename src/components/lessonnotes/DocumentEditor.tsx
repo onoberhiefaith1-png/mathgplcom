@@ -23,7 +23,9 @@ import { CanvasFrame } from "./extensions/CanvasFrame";
 import { SessionSpacer } from "./extensions/SessionSpacer";
 import { attachSessionLayout } from "@/lib/lessonnotes/sessionLayout";
 import { startObjectDrag } from "@/lib/lessonnotes/objectDrag";
-import { isStructuralLabelLine } from "@/lib/lessonnotes/problemDetect";
+import {
+  isStructuralLabelLine, stripLeadingStructuralLabel,
+} from "@/lib/lessonnotes/problemDetect";
 import {
   reviewProblem, decisionDirective, detectRequestedMethod,
   type ProblemContext, type ReviewIssue,
