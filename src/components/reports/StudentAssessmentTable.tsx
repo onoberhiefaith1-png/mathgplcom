@@ -6,6 +6,7 @@ import type { StudentAssessmentRow } from "@/lib/reports/studentReport";
 const TYPE_LABEL: Record<StudentAssessmentRow["mode"], string> = {
   assignment: "Assignment",
   adventure: "Adventure",
+  game: "Game",
 };
 
 const StudentAssessmentTable = ({

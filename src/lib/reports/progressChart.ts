@@ -9,7 +9,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-export type TaskMode = "assignment" | "adventure";
+export type TaskMode = "assignment" | "adventure" | "game";
 
 export interface TaskBar {
   taskId: string;
@@ -246,6 +246,49 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
     }
   }
 
+
+  // ── Game tasks (Game Slate) ───────────────────────────────────────────────
+  // A Game assignment is one task. Its marks come from the student's saved
+  // per-question Game results, which themselves come from Floating Numbers.
+  const { data: gameRows } = (await supabase
+    .from("slate_game_assignments" as never)
+    .select("id, game_id, title, created_at, slate_games(name, topic, subtopic)")
+    .eq("class_id" as never, classId as never)
+    .is("unassigned_at" as never, null as never)) as any;
+  const gameAssignments = ((gameRows ?? []) as any[]);
+  if (gameAssignments.length) {
+    const { data: resultRows } = (await supabase
+      .from("slate_game_results" as never)
+      .select("assignment_id, student_id, marks_earned, marks_total, completed_at")
+      .in("assignment_id" as never, gameAssignments.map((g) => g.id) as never)) as any;
+    const results = ((resultRows ?? []) as any[]);
+    for (const g of gameAssignments) {
+      const mine = results.filter((r) => r.assignment_id === g.id);
+      const inner = new Map<string, number>();
+      const totals = new Map<string, number>();
+      let lastCompleted: string | null = null;
+      for (const r of mine) {
+        inner.set(r.student_id as string, (inner.get(r.student_id as string) ?? 0) + Number(r.marks_earned ?? 0));
+        totals.set(r.student_id as string, (totals.get(r.student_id as string) ?? 0) + Number(r.marks_total ?? 0));
+        if (r.completed_at) lastCompleted = r.completed_at as string;
+      }
+      scores.set(g.id as string, inner);
+      const target = Math.max(0, ...Array.from(totals.values()));
+      tasks.push({
+        id: g.id as string,
+        mode: "game",
+        title: (g.title as string) || (g.slate_games?.name as string) || "Game",
+        notebookId: "",
+        gameId: (g.game_id as string) ?? null,
+        startedAt: (g.created_at as string | null) ?? null,
+        dueAt: lastCompleted,
+        assessmentIds: [g.id as string],
+        target,
+        topic: (g.slate_games?.topic as string) || "",
+        subtopic: (g.slate_games?.subtopic as string) || "",
+      });
+    }
+  }
 
   // Frozen historical results win over live maths (pass-mark changes must never
   // rewrite a finished task).

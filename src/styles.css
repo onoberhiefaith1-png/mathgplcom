@@ -1129,6 +1129,7 @@ input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent b
   --rp-muted: 220 10% 44%;
   --rp-assignment: 24 92% 52%;
   --rp-adventure: 212 90% 50%;
+  --rp-game: 158 72% 38%;
   --rp-on-accent: 0 0% 100%;
   --rp-tooltip-bg: 0 0% 100%;
   --rp-tooltip-fg: 222 30% 14%;
@@ -1143,6 +1144,7 @@ input[type="range"].input-panel { @apply p-0 h-6 accent-primary bg-transparent b
   --rp-muted: 220 12% 66%;
   --rp-assignment: 28 92% 58%;
   --rp-adventure: 205 92% 60%;
+  --rp-game: 158 68% 48%;
   --rp-on-accent: 224 30% 10%;
   --rp-tooltip-bg: 224 26% 16%;
   --rp-tooltip-fg: 210 20% 96%;

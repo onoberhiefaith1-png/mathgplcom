@@ -93,7 +93,7 @@ export function typeSummary(
   rowsByStudent: Map<string, StudentAssessmentRow[]>,
 ): TypeSummaryRow[] {
   const rows = allRows(rowsByStudent);
-  return (["assignment", "adventure"] as TaskMode[]).map((mode) => {
+  return (["assignment", "game", "adventure"] as TaskMode[]).map((mode) => {
     const mine = rows.filter((r) => r.mode === mode);
     const earned = mine.reduce((s, r) => s + r.earned, 0);
     const available = mine.reduce((s, r) => s + r.available, 0);

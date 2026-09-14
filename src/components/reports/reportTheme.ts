@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 export type ReportBackground = "white" | "dark";
-export type ReportFilter = "both" | "assignment" | "adventure";
+export type ReportFilter = "both" | "assignment" | "adventure" | "game";
 export type TrendGrouping = "week" | "month" | "year";
 
 /** Trend Report colours — these affect the trend chart only. */

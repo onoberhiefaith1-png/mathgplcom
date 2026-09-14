@@ -7959,6 +7959,57 @@ export type Database = {
         }
         Relationships: []
       }
+      slate_game_assignments: {
+        Row: {
+          class_id: string
+          created_at: string
+          created_by: string
+          game_id: string
+          id: string
+          pass_percentage: number
+          title: string | null
+          unassigned_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          created_by?: string
+          game_id: string
+          id?: string
+          pass_percentage?: number
+          title?: string | null
+          unassigned_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          created_by?: string
+          game_id?: string
+          id?: string
+          pass_percentage?: number
+          title?: string | null
+          unassigned_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slate_game_assignments_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slate_game_assignments_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "slate_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slate_game_questions: {
         Row: {
           created_at: string
@@ -7993,6 +8044,57 @@ export type Database = {
             columns: ["game_id"]
             isOneToOne: false
             referencedRelation: "slate_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slate_game_results: {
+        Row: {
+          assignment_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          marks_earned: number
+          marks_total: number
+          question_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          marks_earned?: number
+          marks_total?: number
+          question_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          marks_earned?: number
+          marks_total?: number
+          question_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slate_game_results_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "slate_game_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slate_game_results_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "slate_game_questions"
             referencedColumns: ["id"]
           },
         ]
