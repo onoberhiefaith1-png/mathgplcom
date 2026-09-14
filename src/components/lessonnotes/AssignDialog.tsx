@@ -37,8 +37,14 @@ import {
   type QuestionRef,
 } from "@/lib/assignments/pipeline";
 import { autoArchiveExpired } from "@/lib/assignments/instances";
+import { listGames } from "@/lib/slate/storage";
+import type { Game } from "@/lib/slate/types";
+import { listGameQuestions, assignQuestion } from "@/lib/slate/gameQuestions";
+import {
+  assignGameToClass, loadGameAssignmentState, unassignGame,
+} from "@/lib/slate/gameAssignments";
 
-type AssignTarget = "assignment" | "adventure" | "course";
+type AssignTarget = "assignment" | "game" | "adventure" | "course";
 type ClassRow = {
   id: string;
   name: string;
@@ -46,6 +52,8 @@ type ClassRow = {
   assignmentId: string | null;
   /** Existing active adventure row id if any. */
   adventureId: string | null;
+  /** Existing active Game assignment id for the chosen Game, if any. */
+  gameAssignmentId: string | null;
 };
 
 interface Props {
