@@ -1019,24 +1019,43 @@ function DocumentEditorInner({
     // Content belonging to the SAME question (its diagram, its Solution) and to
     // the rest of the session counts as found mathematics.
     const pkg = session ?? collectSessionContext(headingPos);
-    const report = analyzeProblem(scoped, {
-      hasDiagram: editor
-        ? diagramsOwnedByQuestion(editor.state.doc, parentPos, isSolutionLabel).length > 0
-        : false,
-      related: pkg ? relatedContentFor(pkg) : undefined,
-    });
-
+    // Structural labels are set aside; the mathematics is always kept, even
+    // when it shares a line with the label.
+    const questionOnly = scoped
+      .split("\n")
+      .map((l) => stripLeadingStructuralLabel(l).rest)
+      .filter((l) => l.trim())
+      .join("\n")
+      .trim();
 
     // ACTIVE_QUESTION: the block's own text when it has any, otherwise the
     // question read from the session package (the question may have been typed
     // into a free frame, or exist only as the diagram belonging to it).
     const ownerQuestion = pkg?.owner?.questionText?.trim() ?? "";
     const ownerDiagram = pkg?.owner?.diagramSummary ?? "";
+    const related = pkg ? relatedContentFor(pkg) : null;
+    const objects = collectMathObjects(parentPos, headingPos);
     const problemText =
-      report.problem ||
+      questionOnly ||
       ownerQuestion ||
       (ownerDiagram ? `See the diagram belonging to this question (${ownerDiagram}).` : "");
 
+    // THE COMPLETE PROBLEM handed to the mathematical referee. Data living in a
+    // table, graph, diagram or Floating Number belongs to the question exactly
+    // as if it had been typed as text.
+    const problemContext: ProblemContext = {
+      heading: editor?.state.doc.nodeAt(parentPos)?.textContent?.trim() ?? "",
+      questionText: problemText,
+      instruction: "",
+      tables: objects.tables,
+      diagramSummary: ownerDiagram || related?.diagramSummary || "",
+      graphs: objects.graphs,
+      floatingLines: collectFloatingLines(parentPos, headingPos),
+      existingSolution: related?.solutionText ?? "",
+      referenced: related?.sessionText ?? "",
+      requestedMethod: detectRequestedMethod(problemText),
+      sessionContext: pkg?.sessionTitle ?? "",
+    };
 
     return {
       parentKind: isQuestionSectionKind(parentKind) ? parentKind : "example",
@@ -1045,7 +1064,7 @@ function DocumentEditorInner({
       // Solution itself.
       parentPos,
       problemText,
-      report,
+      problemContext,
       hasInheritedQuestion: Boolean(problemText),
     };
   };
