@@ -23,8 +23,12 @@ import { CanvasFrame } from "./extensions/CanvasFrame";
 import { SessionSpacer } from "./extensions/SessionSpacer";
 import { attachSessionLayout } from "@/lib/lessonnotes/sessionLayout";
 import { startObjectDrag } from "@/lib/lessonnotes/objectDrag";
-import { analyzeProblem, isStructuralLabelLine, type ProblemReport } from "@/lib/lessonnotes/problemDetect";
-import { ProblemCheckDialog } from "./ProblemCheckDialog";
+import { isStructuralLabelLine } from "@/lib/lessonnotes/problemDetect";
+import {
+  reviewProblem, decisionDirective, detectRequestedMethod,
+  type ProblemContext, type ReviewIssue,
+} from "@/lib/lessonnotes/ai/problemReview";
+import { ProblemReviewDialog } from "./ProblemReviewDialog";
 
 import { SolutionRow, SolutionMath, SolutionProse } from "./extensions/SolutionRow";
 import { SectionHeading, type SectionAiCallContext, type SectionAction } from "./extensions/SectionHeading";
