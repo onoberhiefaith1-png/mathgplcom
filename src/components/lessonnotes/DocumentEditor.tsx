@@ -4095,12 +4095,11 @@ function DocumentEditorInner({
         </Suspense>
       )}
 
-      <ProblemCheckDialog
-        open={Boolean(problemCheck)}
-        report={problemCheck?.report ?? null}
-        heading={problemCheck?.heading}
-        onCancel={() => { problemCheck?.resolve(false); setProblemCheck(null); }}
-        onProceed={() => { problemCheck?.resolve(true); setProblemCheck(null); }}
+      <ProblemReviewDialog
+        open={Boolean(problemReview)}
+        issue={problemReview?.issue ?? null}
+        heading={problemReview?.heading}
+        onChoose={(id) => { problemReview?.resolve(id); setProblemReview(null); }}
       />
 
       <ConversionPanel open={conversionOpen} onOpenChange={setConversionOpen} onInsert={insertSymbolText} />
