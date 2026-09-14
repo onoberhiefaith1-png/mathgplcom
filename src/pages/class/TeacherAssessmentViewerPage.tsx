@@ -305,8 +305,8 @@ const TeacherAssessmentViewerPage = () => {
             boardStudentId={studentId ?? null}
             boardQuestionId={questionId}
             viewOnly={!editMode}
-            permanentAchievementColor={assessment.permanent_achievement_color}
-            currentAttemptColor={assessment.current_attempt_color}
+            permanentAchievementColor={assessment?.permanent_achievement_color}
+            currentAttemptColor={assessment?.current_attempt_color}
           />
         </div>
         {reasoningOpen && assessmentId && studentId && (
