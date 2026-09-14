@@ -203,6 +203,19 @@ export default function GameSlateEditorPage() {
               View
             </button>
             <button
+              onClick={() => {
+                setQuestionsOpen((open) => !open);
+                setPanelOpen(false);
+              }}
+              className={`rounded border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
+                questionsOpen
+                  ? "border-amber-300 bg-amber-300/15 text-amber-100"
+                  : "border-amber-200/20 text-amber-100/60 hover:bg-amber-200/10"
+              }`}
+            >
+              Questions
+            </button>
+            <button
               onClick={save}
               className="rounded border border-amber-200/20 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-amber-100/70 hover:bg-amber-200/10"
             >
@@ -236,6 +249,12 @@ export default function GameSlateEditorPage() {
       </div>
 
       {/* RIGHT — the one control room, a real 20% column (slide-over on phones) */}
+      {questionsOpen ? (
+        <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[24%] md:min-w-[300px] md:max-w-[440px] md:shrink-0">
+          <QuestionsPanel game={game} onClose={() => setQuestionsOpen(false)} />
+        </div>
+      ) : null}
+
       {panelOpen ? (
         <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[20%] md:min-w-[280px] md:max-w-[420px] md:shrink-0">
           <ControlPanel
