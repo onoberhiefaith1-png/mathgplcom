@@ -96,7 +96,7 @@ export function checkSolutionCompleteness(
   }
 
   const last = lines[lines.length - 1] ?? "";
-  if (OPEN_ENDED_TAIL.test(last)) {
+  if (OPEN_ENDED_TAIL.test(stripDecimalEllipsis(last))) {
     defects.push(`The last line "${last}" is unfinished — it ends mid-step.`);
   }
   if (!balanced(last)) {
