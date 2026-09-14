@@ -111,14 +111,18 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
         ...c,
         assignmentId: assignmentByClass.get(c.id) ?? null,
         adventureId: adventureByClass.get(c.id) ?? null,
+        gameAssignmentId: null,
       }));
       setClasses(enriched);
 
-      const preSelected = new Set(
-        enriched
-          .filter((c) => (target === "assignment" ? c.assignmentId : c.adventureId))
-          .map((c) => c.id),
-      );
+      // The Game target derives its own checked classes from the chosen Game.
+      const preSelected = target === "game"
+        ? new Set<string>()
+        : new Set(
+            enriched
+              .filter((c) => (target === "assignment" ? c.assignmentId : c.adventureId))
+              .map((c) => c.id),
+          );
       setSelected(new Set(preSelected));
       setInitiallySelected(new Set(preSelected));
 
