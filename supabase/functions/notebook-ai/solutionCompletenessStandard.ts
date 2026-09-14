@@ -121,7 +121,7 @@ export function checkSolutionCompleteness(
   if (!balanced(last)) {
     defects.push(`The last line "${last}" has an unclosed bracket.`);
   }
-  if (!ANSWER_LINE.test(last)) {
+  if (!hasAnswerLine(lines)) {
     defects.push(
       "There is no explicit final answer line — the solution stops before stating the answer.",
     );
