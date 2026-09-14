@@ -119,6 +119,10 @@ export interface FloatingScoring {
   mode: ScoringMode;
   /** Used in equal mode — applied to every line. */
   marksPerLine: number;
+  /** Question timer, OFF by default. Belongs to the question, never the Game. */
+  timerEnabled?: boolean;
+  /** Seconds for the whole question when the timer is on. */
+  timerSeconds?: number;
 }
 
 export const SCORE_LABELS = ["Marks", "Points", "Score", "Credits", "Reward"] as const;
