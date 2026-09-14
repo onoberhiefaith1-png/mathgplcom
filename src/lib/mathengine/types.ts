@@ -22,7 +22,8 @@ export type EngineOperation =
 export type CurriculumLevel = "KS3" | "GCSE" | "IGCSE" | "A-level" | "";
 
 /** Difficulty is a REASONING demand, never a digit-size setting. */
-export type ReasoningDemand = "single-step" | "multi-step" | "method-choice" | "reverse" | "";
+export type ReasoningDemand =
+  "single-step" | "multi-step" | "method-choice" | "reverse" | "";
 
 export interface EngineRequest {
   operation: EngineOperation;
@@ -81,8 +82,20 @@ export interface EngineQuestion {
 export type EngineClaim =
   | { kind: "factorisable_quadratic"; a: number; b: number; c: number }
   | { kind: "linear_root"; a: number; b: number; root: string }
-  | { kind: "quadratic_roots"; a: number; b: number; c: number; roots: string[] }
+  | {
+      kind: "quadratic_roots";
+      a: number;
+      b: number;
+      c: number;
+      roots: string[];
+    }
   | { kind: "arithmetic"; expression: string; value: string }
+  | {
+      kind: "equation_solution";
+      equation: string;
+      variable: string;
+      value: string;
+    }
   | { kind: "none" };
 
 export interface EngineVerification {
@@ -114,7 +127,11 @@ export interface EngineResult {
 export class EngineError extends Error {
   operation: EngineOperation;
   problems: string[];
-  constructor(operation: EngineOperation, message: string, problems: string[] = []) {
+  constructor(
+    operation: EngineOperation,
+    message: string,
+    problems: string[] = [],
+  ) {
     super(message);
     this.name = "EngineError";
     this.operation = operation;

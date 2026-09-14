@@ -472,11 +472,19 @@ export const aiLayers: RequirementDomain = {
       category: "AI",
       source: "Approved: 'Do not use Lovable AI's mathematical reasoning. The mathematical engine must be independently grounded.'",
       requirement:
-        "Mathematics is produced and checked deterministically in src/lib/mathengine and the notebook-ai verifiers; a claim is displayed only if it verifies.",
-      behaviour: ["Surd and superscript handling is explicit", "Unverifiable output is regenerated, not shown"],
+        "Mathematics is produced and checked deterministically in src/lib/mathengine and the notebook-ai verifiers; a claim is displayed only if it verifies. The claim vocabulary (factorisable_quadratic, linear_root, quadratic_roots, arithmetic, equation_solution) is exact-first — mathjs symbolic simplification to literal 0, numeric sampling only as a fallback for genuinely irrational results — not float-plus-tolerance, and \"none\" is reserved for content with no checkable numeric result at all.",
+      behaviour: [
+        "Surd and superscript handling is explicit",
+        "Unverifiable output is regenerated, not shown",
+        "A stated root/value that is only numerically (not symbolically) zero, and is written as a rounded decimal rather than a surd/fraction/π-expression, is rejected as inexact",
+      ],
       implementation: {
         files: [
           "src/lib/mathengine/verify.ts",
+          "src/lib/mathengine/exactEval.ts",
+          "supabase/functions/notebook-ai/mathEngine.ts",
+          "supabase/functions/_shared/exactEval.ts",
+          "supabase/functions/_shared/mathEquivalence.ts",
           "supabase/functions/notebook-ai/completenessVerifier.ts",
           "supabase/functions/notebook-ai/floatingVerifier.ts",
           "supabase/functions/floating-reason/verifier.ts",

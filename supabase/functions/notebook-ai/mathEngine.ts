@@ -7,6 +7,7 @@
 // re-compute the mathematics before anything is displayed.
 
 import { CONSTRUCTION_STANDARD } from "./constructionStandard.ts";
+import { evaluatesToZero, evaluatesEqual, substituteVariable, looksLikeUnroundedDecimal } from "../_shared/exactEval.ts";
 import { TABLE_RECOGNITION_STANDARD } from "./tableStandard.ts";
 
 export type EngineOperation =
@@ -45,11 +46,33 @@ your mathematics without trusting your prose:
   {"kind":"linear_root","a":2,"b":-7,"root":"3.5"}
   {"kind":"quadratic_roots","a":1,"b":-5,"c":6,"roots":["2","3"]}
   {"kind":"arithmetic","expression":"(3+4)×5","value":"35"}
+  {"kind":"equation_solution","equation":"x^{3}-8=0","variable":"x","value":"2"}
   {"kind":"none"}
 Claims are ALWAYS stated for the equation rearranged to zero. For 2x + 5 = 17
 that is 2x − 12 = 0, so the claim is {"kind":"linear_root","a":2,"b":-12,"root":"6"}
-— never {"a":2,"b":5}. If the mathematics does not fit one of the kinds above,
-use {"kind":"none"} rather than a claim that will fail.
+— never {"a":2,"b":5}.
+
+USE "equation_solution" FOR ANYTHING THAT ISN'T A PLAIN LINEAR/QUADRATIC
+EQUATION OR A SINGLE ARITHMETIC SUM — cubics, trigonometric equations,
+exponential/log equations, a single equation drawn from a geometry or word
+problem, one equation of a simultaneous pair checked against the stated
+solution, and so on. "equation" is the full equation (either side of "=" may
+carry the variable), "variable" names the unknown solved for, "value" is the
+final answer substituted back in. This is checked by substitution — state
+{"kind":"none"} ONLY for content with no checkable numeric/algebraic result
+at all (pure explanation prose, a proof with no numeric target). A claim of
+"none" is NOT a safe default for a question that actually has a final
+answer — it means the platform will show that answer without checking it.
+
+EXACT VALUES, NEVER ROUNDED DECIMALS — when the true answer is irrational
+(a surd, a multiple of π, a non-special-angle trig value), state and display
+it in exact form (√12 → 2√3, π/3, etc.), never as a truncated decimal like
+"1.7320508" or "0.523598...". A rounded decimal is only acceptable when the
+question itself explicitly asks for an answer "to n decimal places" or "to n
+significant figures" — and even then, the claim's "value"/"root" should
+still carry enough precision to be checked, not a further-truncated display
+form.
+
 A claim that fails re-computation causes the whole generation to be discarded,
 so only state one you have actually verified.
 `.trim();
@@ -413,11 +436,15 @@ export function parseEngineJson(raw: string): any {
 
 
 
-const near = (a: number, b: number, eps = 1e-4) => Math.abs(a - b) <= eps * Math.max(1, Math.abs(a), Math.abs(b));
-
-const num = (raw: unknown): number | null => {
-  try { return evalArithmetic(String(raw)); } catch { return null; }
-};
+// A root/value that only checks out via the numeric fallback (never exact
+// symbolic zero) is genuinely irrational — flag a rounded-decimal answer for
+// one of those the same way a wrong answer is flagged, per ENGINE_IDENTITY's
+// "exact values, never rounded decimals" rule.
+function exactnessProblem(check: { exact: boolean }, stated: string): string | null {
+  return !check.exact && looksLikeUnroundedDecimal(stated)
+    ? `"${stated}" is a rounded decimal for a value that is not exact — state it as a surd, fraction, or π-expression instead.`
+    : null;
+}
 
 // deno-lint-ignore no-explicit-any
 export function checkClaim(claim: any): string | null {
@@ -435,26 +462,37 @@ export function checkClaim(claim: any): string | null {
     return null;
   }
   if (claim.kind === "linear_root") {
-    const root = num(claim.root);
-    if (root === null) return `The stated root "${claim.root}" is not a number.`;
-    const v = claim.a * root + claim.b;
-    return near(v, 0) ? null : `Substituting x = ${claim.root} gives ${v}, not 0.`;
+    const check = evaluatesToZero(`${claim.a}*(${claim.root})+(${claim.b})`);
+    if (!check.ok) return check.detail ?? `Substituting x = ${claim.root} does not give 0.`;
+    return exactnessProblem(check, String(claim.root));
   }
   if (claim.kind === "quadratic_roots") {
     for (const r of claim.roots ?? []) {
-      const x = num(r);
-      if (x === null) return `The stated root "${r}" is not a number.`;
-      const v = claim.a * x * x + claim.b * x + claim.c;
-      if (!near(v, 0)) return `Substituting x = ${r} back into the equation gives ${v}, not 0.`;
+      const check = evaluatesToZero(`${claim.a}*(${r})^2+${claim.b}*(${r})+(${claim.c})`);
+      if (!check.ok) return check.detail ?? `Substituting x = ${r} back into the equation does not give 0.`;
+      const problem = exactnessProblem(check, String(r));
+      if (problem) return problem;
     }
     return null;
   }
   if (claim.kind === "arithmetic") {
-    const left = num(claim.expression);
-    const right = num(claim.value);
-    if (left === null) return `Could not re-compute ${claim.expression}.`;
-    if (right === null) return `The stated value "${claim.value}" is not a number.`;
-    return near(left, right) ? null : `${claim.expression} evaluates to ${left}, not ${claim.value}.`;
+    const check = evaluatesEqual(String(claim.expression ?? ""), String(claim.value ?? ""));
+    if (!check.ok) return check.detail ?? `${claim.expression} does not evaluate to ${claim.value}.`;
+    return exactnessProblem(check, String(claim.value));
+  }
+  if (claim.kind === "equation_solution") {
+    const { equation, variable, value } = claim;
+    if (!equation || !variable || value === undefined) {
+      return "The equation_solution claim is missing equation, variable, or value.";
+    }
+    const sides = String(equation).split("=");
+    if (sides.length !== 2) return `"${equation}" is not a single equation (expected exactly one "=").`;
+    const substituted = sides.map((side) => substituteVariable(side, String(variable), String(value)));
+    const check = evaluatesToZero(`(${substituted[0]})-(${substituted[1]})`);
+    if (!check.ok) {
+      return check.detail ?? `Substituting ${variable} = ${value} into "${equation}" does not balance the equation.`;
+    }
+    return exactnessProblem(check, String(value));
   }
   return null;
 }

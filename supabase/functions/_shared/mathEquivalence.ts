@@ -6,7 +6,7 @@
 
 import { create, all } from "npm:mathjs@12";
 
-const math = create(all, {});
+export const math = create(all, {});
 
 export type Verdict = "equal" | "not_equal" | "unknown";
 
@@ -136,11 +136,11 @@ function splitEq(s: string): { lhs: string; rhs: string | null } {
   return { lhs: s.slice(0, i).trim(), rhs: s.slice(i + 1).trim() };
 }
 
-function tryParse(expr: string): any | null {
+export function tryParse(expr: string): any | null {
   try { return math.parse(expr); } catch { return null; }
 }
 
-function simplifiesToZero(a: any, b: any): boolean | null {
+export function simplifiesToZero(a: any, b: any): boolean | null {
   try {
     const diff = math.simplify(math.parse(`(${a.toString()}) - (${b.toString()})`));
     const v = diff.evaluate?.();
@@ -170,7 +170,7 @@ function collectSymbols(node: any, out: Set<string>) {
 
 }
 
-function numericEqual(a: any, b: any): Verdict {
+export function numericEqual(a: any, b: any): Verdict {
   const vars = new Set<string>();
   collectSymbols(a, vars);
   collectSymbols(b, vars);
