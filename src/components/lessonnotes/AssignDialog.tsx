@@ -226,7 +226,11 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
 
   const toggle = (row: ClassRow) => {
     const currentlyOn = selected.has(row.id);
-    const wasAlreadyAssigned = target === "assignment" ? !!row.assignmentId : !!row.adventureId;
+    const wasAlreadyAssigned = target === "assignment"
+      ? !!row.assignmentId
+      : target === "game"
+        ? !!row.gameAssignmentId
+        : !!row.adventureId;
 
     if (currentlyOn && wasAlreadyAssigned) {
       // Ask before removing an existing assignment.
