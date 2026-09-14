@@ -10,6 +10,7 @@ export const es: Catalogue = {
   nav_smartboard: "Pizarra digital",
   nav_classes: "Clases",
   nav_my_classes: "Mis clases",
+  nav_game: "Juego",
   nav_adventure: "Aventura",
   nav_skill_builder: "Cursos",
   nav_live: "MathGPL en directo",

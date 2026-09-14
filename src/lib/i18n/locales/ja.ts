@@ -10,6 +10,7 @@ export const ja: Catalogue = {
   nav_smartboard: "スマートボード",
   nav_classes: "クラス",
   nav_my_classes: "マイクラス",
+  nav_game: "ゲーム",
   nav_adventure: "アドベンチャー",
   nav_skill_builder: "コース",
   nav_live: "MathGPL ライブ",

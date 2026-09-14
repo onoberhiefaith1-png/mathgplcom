@@ -10,6 +10,7 @@ export const bn: Catalogue = {
   nav_smartboard: "স্মার্টবোর্ড",
   nav_classes: "শ্রেণি",
   nav_my_classes: "আমার শ্রেণি",
+  nav_game: "গেম",
   nav_adventure: "অভিযান",
   nav_skill_builder: "কোর্স",
   nav_live: "MathGPL লাইভ",

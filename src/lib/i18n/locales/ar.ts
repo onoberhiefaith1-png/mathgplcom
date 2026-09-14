@@ -10,6 +10,7 @@ export const ar: Catalogue = {
   nav_smartboard: "السبورة الذكية",
   nav_classes: "الصفوف",
   nav_my_classes: "صفوفي",
+  nav_game: "لعبة",
   nav_adventure: "المهمة",
   nav_skill_builder: "الدورات",
   nav_live: "MathGPL المباشر",

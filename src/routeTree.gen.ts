@@ -51,6 +51,7 @@ import { Route as CourseEditEngineRouteImport } from './routes/course-edit/engin
 import { Route as CourseEditGalleryRouteImport } from './routes/course-edit/gallery'
 import { Route as FamilyIndexRouteImport } from './routes/family/index'
 import { Route as GHandleRouteImport } from './routes/g/$handle'
+import { Route as GameIndexRouteImport } from './routes/game/index'
 import { Route as HelpConnectionRouteImport } from './routes/help/connection'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as JoinIndexRouteImport } from './routes/join/index'
@@ -186,6 +187,7 @@ import { Route as CommunityAdventureIdIndexRouteImport } from './routes/communit
 import { Route as CommunityCourseIdIndexRouteImport } from './routes/community/course/$id/index'
 import { Route as CommunityNoteIdIndexRouteImport } from './routes/community/note/$id/index'
 import { Route as FamilyChildrenChildIdIndexRouteImport } from './routes/family/children/$childId/index'
+import { Route as GameSlateGameIdIndexRouteImport } from './routes/game/slate/$gameId/index'
 import { Route as GamesAbacusModeIndexRouteImport } from './routes/games/abacus/$mode/index'
 import { Route as GamesAbacusRepresentIndexRouteImport } from './routes/games/abacus/represent/index'
 import { Route as GamesAdditionDifficultyIndexRouteImport } from './routes/games/addition/$difficulty/index'
@@ -536,6 +538,11 @@ const FamilyIndexRoute = FamilyIndexRouteImport.update({
 const GHandleRoute = GHandleRouteImport.update({
   id: '/g/$handle',
   path: '/g/$handle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GameIndexRoute = GameIndexRouteImport.update({
+  id: '/game/',
+  path: '/game/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HelpConnectionRoute = HelpConnectionRouteImport.update({
@@ -1232,6 +1239,11 @@ const FamilyChildrenChildIdIndexRoute =
     path: '/children/$childId/',
     getParentRoute: () => FamilyRouteRoute,
   } as any)
+const GameSlateGameIdIndexRoute = GameSlateGameIdIndexRouteImport.update({
+  id: '/game/slate/$gameId/',
+  path: '/game/slate/$gameId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GamesAbacusModeIndexRoute = GamesAbacusModeIndexRouteImport.update({
   id: '/games/abacus/$mode/',
   path: '/games/abacus/$mode/',
@@ -2121,6 +2133,7 @@ export interface FileRoutesByFullPath {
   '/course-builder/': typeof CourseBuilderIndexRoute
   '/course-edit/': typeof CourseEditIndexRoute
   '/family/': typeof FamilyIndexRoute
+  '/game/': typeof GameIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
   '/lesson-notes/': typeof LessonNotesIndexRoute
@@ -2264,6 +2277,7 @@ export interface FileRoutesByFullPath {
   '/community/course/$id/': typeof CommunityCourseIdIndexRoute
   '/community/note/$id/': typeof CommunityNoteIdIndexRoute
   '/family/children/$childId/': typeof FamilyChildrenChildIdIndexRoute
+  '/game/slate/$gameId/': typeof GameSlateGameIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent/': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty/': typeof GamesAdditionDifficultyIndexRoute
@@ -2429,6 +2443,7 @@ export interface FileRoutesByTo {
   '/course-builder': typeof CourseBuilderIndexRoute
   '/course-edit': typeof CourseEditIndexRoute
   '/family': typeof FamilyIndexRoute
+  '/game': typeof GameIndexRoute
   '/home': typeof HomeIndexRoute
   '/join': typeof JoinIndexRoute
   '/lesson-notes': typeof LessonNotesIndexRoute
@@ -2572,6 +2587,7 @@ export interface FileRoutesByTo {
   '/community/course/$id': typeof CommunityCourseIdIndexRoute
   '/community/note/$id': typeof CommunityNoteIdIndexRoute
   '/family/children/$childId': typeof FamilyChildrenChildIdIndexRoute
+  '/game/slate/$gameId': typeof GameSlateGameIdIndexRoute
   '/games/abacus/$mode': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty': typeof GamesAdditionDifficultyIndexRoute
@@ -2750,6 +2766,7 @@ export interface FileRoutesById {
   '/course-builder/': typeof CourseBuilderIndexRoute
   '/course-edit/': typeof CourseEditIndexRoute
   '/family/': typeof FamilyIndexRoute
+  '/game/': typeof GameIndexRoute
   '/home/': typeof HomeIndexRoute
   '/join/': typeof JoinIndexRoute
   '/lesson-notes/': typeof LessonNotesIndexRoute
@@ -2893,6 +2910,7 @@ export interface FileRoutesById {
   '/community/course/$id/': typeof CommunityCourseIdIndexRoute
   '/community/note/$id/': typeof CommunityNoteIdIndexRoute
   '/family/children/$childId/': typeof FamilyChildrenChildIdIndexRoute
+  '/game/slate/$gameId/': typeof GameSlateGameIdIndexRoute
   '/games/abacus/$mode/': typeof GamesAbacusModeIndexRoute
   '/games/abacus/represent/': typeof GamesAbacusRepresentIndexRoute
   '/games/addition/$difficulty/': typeof GamesAdditionDifficultyIndexRoute
@@ -3072,6 +3090,7 @@ export interface FileRouteTypes {
     | '/course-builder/'
     | '/course-edit/'
     | '/family/'
+    | '/game/'
     | '/home/'
     | '/join/'
     | '/lesson-notes/'
@@ -3215,6 +3234,7 @@ export interface FileRouteTypes {
     | '/community/course/$id/'
     | '/community/note/$id/'
     | '/family/children/$childId/'
+    | '/game/slate/$gameId/'
     | '/games/abacus/$mode/'
     | '/games/abacus/represent/'
     | '/games/addition/$difficulty/'
@@ -3380,6 +3400,7 @@ export interface FileRouteTypes {
     | '/course-builder'
     | '/course-edit'
     | '/family'
+    | '/game'
     | '/home'
     | '/join'
     | '/lesson-notes'
@@ -3523,6 +3544,7 @@ export interface FileRouteTypes {
     | '/community/course/$id'
     | '/community/note/$id'
     | '/family/children/$childId'
+    | '/game/slate/$gameId'
     | '/games/abacus/$mode'
     | '/games/abacus/represent'
     | '/games/addition/$difficulty'
@@ -3700,6 +3722,7 @@ export interface FileRouteTypes {
     | '/course-builder/'
     | '/course-edit/'
     | '/family/'
+    | '/game/'
     | '/home/'
     | '/join/'
     | '/lesson-notes/'
@@ -3843,6 +3866,7 @@ export interface FileRouteTypes {
     | '/community/course/$id/'
     | '/community/note/$id/'
     | '/family/children/$childId/'
+    | '/game/slate/$gameId/'
     | '/games/abacus/$mode/'
     | '/games/abacus/represent/'
     | '/games/addition/$difficulty/'
@@ -4013,6 +4037,7 @@ export interface RootRouteChildren {
   AssetsIndexRoute: typeof AssetsIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   BackgroundsIndexRoute: typeof BackgroundsIndexRoute
+  GameIndexRoute: typeof GameIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
   JoinIndexRoute: typeof JoinIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
@@ -4080,6 +4105,7 @@ export interface RootRouteChildren {
   CardSlugSolveIndexRoute: typeof CardSlugSolveIndexRoute
   ChallengeSlugGameIndexRoute: typeof ChallengeSlugGameIndexRoute
   ChallengeSlugSolveIndexRoute: typeof ChallengeSlugSolveIndexRoute
+  GameSlateGameIdIndexRoute: typeof GameSlateGameIdIndexRoute
   GamesAbacusModeIndexRoute: typeof GamesAbacusModeIndexRoute
   GamesAbacusRepresentIndexRoute: typeof GamesAbacusRepresentIndexRoute
   GamesAdditionDifficultyIndexRoute: typeof GamesAdditionDifficultyIndexRoute
@@ -4411,6 +4437,13 @@ declare module '@tanstack/react-router' {
       path: '/g/$handle'
       fullPath: '/g/$handle'
       preLoaderRoute: typeof GHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/game/': {
+      id: '/game/'
+      path: '/game'
+      fullPath: '/game/'
+      preLoaderRoute: typeof GameIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/help/connection': {
@@ -5357,6 +5390,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/family/children/$childId/'
       preLoaderRoute: typeof FamilyChildrenChildIdIndexRouteImport
       parentRoute: typeof FamilyRouteRoute
+    }
+    '/game/slate/$gameId/': {
+      id: '/game/slate/$gameId/'
+      path: '/game/slate/$gameId'
+      fullPath: '/game/slate/$gameId/'
+      preLoaderRoute: typeof GameSlateGameIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/games/abacus/$mode/': {
       id: '/games/abacus/$mode/'
@@ -6938,6 +6978,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssetsIndexRoute: AssetsIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   BackgroundsIndexRoute: BackgroundsIndexRoute,
+  GameIndexRoute: GameIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
   JoinIndexRoute: JoinIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
@@ -7006,6 +7047,7 @@ const rootRouteChildren: RootRouteChildren = {
   CardSlugSolveIndexRoute: CardSlugSolveIndexRoute,
   ChallengeSlugGameIndexRoute: ChallengeSlugGameIndexRoute,
   ChallengeSlugSolveIndexRoute: ChallengeSlugSolveIndexRoute,
+  GameSlateGameIdIndexRoute: GameSlateGameIdIndexRoute,
   GamesAbacusModeIndexRoute: GamesAbacusModeIndexRoute,
   GamesAbacusRepresentIndexRoute: GamesAbacusRepresentIndexRoute,
   GamesAdditionDifficultyIndexRoute: GamesAdditionDifficultyIndexRoute,
