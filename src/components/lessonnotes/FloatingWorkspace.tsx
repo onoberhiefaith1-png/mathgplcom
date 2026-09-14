@@ -351,7 +351,7 @@ export const FloatingWorkspace = ({
                   color: "hsl(220 35% 18%)",
                 }}
               />
-              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">sec</span>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">mm:ss</span>
             </>
           )}
         </div>
