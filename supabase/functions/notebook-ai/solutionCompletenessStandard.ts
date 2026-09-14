@@ -43,9 +43,28 @@ const ABBREVIATION = /(?:and so on|continue similarly|steps omitted|etc\.?$|…|
 const stripDecimalEllipsis = (s: string): string =>
   s.replace(/(\d)\s*(?:\.\.\.|…)/g, "$1");
 
-/** Final-answer shapes we accept: "name = value", "≈", "Answer:", a bare value. */
-const ANSWER_LINE =
-  /(?:=|≈|≡|:)\s*[^=\s][^=]*$|^\s*(?:answer|therefore|hence|∴|the\s)/i;
+/**
+ * Final-answer shapes we accept. Classroom solutions state the answer in many
+ * legitimate ways — "x = 4", "σ ≈ 1.02", "Standard deviation = 0.96 hours",
+ * "Therefore the mean height is 34.6 cm", "∴ Area = 24 cm²", or simply a
+ * finished value with its unit. All of these are answers, so the gate accepts
+ * them rather than demanding one house style.
+ */
+const isAnswerLine = (line: string): boolean => {
+  const t = line.trim();
+  if (!t) return false;
+  // A statement carrying a relation and a value on its right-hand side.
+  if (/[=≈≡]\s*[^\s=]/.test(t)) return true;
+  // A concluding statement ("Therefore …", "∴ …", "Answer: …", "The mean is …").
+  if (/^(?:answer|therefore|hence|thus|so|∴|the\b|final\b)/i.test(t)) return true;
+  // A finished value, optionally with a unit or a rounding note.
+  if (/\d\s*(?:[a-zA-Z°%µ][a-zA-Z0-9²³/·^.\s]*)?[).\]]?\s*$/.test(t)) return true;
+  return false;
+};
+
+/** The answer may sit on the last line, or just above a closing remark. */
+const hasAnswerLine = (lines: string[]): boolean =>
+  lines.slice(-3).some(isAnswerLine);
 
 export interface SolutionCompletenessResult {
   ok: boolean;
@@ -102,7 +121,7 @@ export function checkSolutionCompleteness(
   if (!balanced(last)) {
     defects.push(`The last line "${last}" has an unclosed bracket.`);
   }
-  if (!ANSWER_LINE.test(last)) {
+  if (!hasAnswerLine(lines)) {
     defects.push(
       "There is no explicit final answer line — the solution stops before stating the answer.",
     );
