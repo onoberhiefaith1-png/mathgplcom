@@ -404,9 +404,10 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
                 <Label>Assign to</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {([
                     { value: "assignment", label: "Assignment", hint: "Solve on the smartboard" },
+                    { value: "game", label: "Game", hint: "Play on a Game slate" },
                     { value: "adventure", label: "Adventure", hint: "Play inside a game" },
                     { value: "course", label: "Course", hint: "Add to an Exercise Card" },
                   ] as const).map((opt) => (
@@ -457,7 +458,11 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                 <div className="max-h-48 overflow-y-auto rounded-md border border-input">
                   {classes.map((c) => {
                     const checked = selected.has(c.id);
-                    const wasAssigned = target === "assignment" ? !!c.assignmentId : !!c.adventureId;
+                    const wasAssigned = target === "assignment"
+                      ? !!c.assignmentId
+                      : target === "game"
+                        ? !!c.gameAssignmentId
+                        : !!c.adventureId;
                     return (
                       <label
                         key={c.id}
@@ -481,6 +486,71 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                 </div>
               </div>
 
+              {target === "game" ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Game</Label>
+                    {games.length === 0 ? (
+                      <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                        You have no Games yet. Create one in Game first, then assign this question to it.
+                      </div>
+                    ) : (
+                      <Select value={gameId} onValueChange={setGameId}>
+                        <SelectTrigger><SelectValue placeholder="Choose a Game" /></SelectTrigger>
+                        <SelectContent>
+                          {games.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>
+                              {g.name}{g.subtopic ? ` — ${g.subtopic}` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <p className="text-[11px] text-muted-foreground">
+                      A Game holds many questions. This question joins the Game
+                      {gameStats.hasThis ? " — it is already part of it." : "."}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <Label>Questions in this Game</Label>
+                      <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                        {gameStats.count + (gameStats.hasThis || !subsectionId ? 0 : 1)}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Total {scoreLabel.toLowerCase()}</Label>
+                      <div className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                        {gameStats.marks + (gameStats.hasThis ? 0 : totalMarks)} {scoreLabel}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Pass mark</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={passPercentage}
+                        onChange={(e) =>
+                          setPassPercentage(Math.min(100, Math.max(0, Math.floor(Number(e.target.value) || 0))))
+                        }
+                        className="w-20 rounded-md border border-input bg-transparent px-2 py-1.5 text-sm tabular-nums"
+                      />
+                      <span className="text-sm text-muted-foreground">% of the Game total</span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Students play the Game's questions in order. The mathematics, marks and
+                    times come from Floating Numbers — the Game only supplies the slate and rewards.
+                  </p>
+                </>
+              ) : (
+                <>
               <div className="space-y-1.5">
                 <Label>Type</Label>
                 {target === "assignment" ? (
@@ -527,6 +597,9 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                   <>Adds this question to each selected class's <span className="font-medium text-foreground">Adventures</span>. Link it to a progress bar from there.</>
                 )}
               </p>
+                </>
+              )}
+
               </>
               )}
             </div>
