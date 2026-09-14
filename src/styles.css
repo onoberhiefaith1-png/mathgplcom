@@ -11,6 +11,8 @@
  */
 
 @theme inline {
+  /* Game Slate keeps its own display face, exactly as it was designed. */
+  --font-display: "DM Serif Display", Georgia, serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
