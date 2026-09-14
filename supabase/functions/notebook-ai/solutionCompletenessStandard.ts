@@ -35,6 +35,14 @@ const OPEN_ENDED_TAIL =
 
 const ABBREVIATION = /(?:and so on|continue similarly|steps omitted|etc\.?$|…|\.\.\.)/i;
 
+/**
+ * A non-terminating decimal ("σ = 1.024695076…") is real mathematics, not an
+ * abbreviation of the working. Strip that trailing ellipsis before the
+ * abbreviation / dangling-tail tests so it can never be read as a cut-off step.
+ */
+const stripDecimalEllipsis = (s: string): string =>
+  s.replace(/(\d)\s*(?:\.\.\.|…)/g, "$1");
+
 /** Final-answer shapes we accept: "name = value", "≈", "Answer:", a bare value. */
 const ANSWER_LINE =
   /(?:=|≈|≡|:)\s*[^=\s][^=]*$|^\s*(?:answer|therefore|hence|∴|the\s)/i;
