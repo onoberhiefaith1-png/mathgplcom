@@ -43,14 +43,14 @@ describe("requested method detection", () => {
 
 describe("teacher decision directives", () => {
   const issue: ReviewIssue = {
-    type: "unsuitable_method",
+    type: "method_unsuitable",
     title: "This question cannot be solved by the named method",
     detail: "x² + x + 1 does not factorise over the integers.",
     affected: "Example 3",
     recommendation: "Use the quadratic formula.",
     actions: [
-      { id: "use_correct_method", label: "Use the correct method" },
-      { id: "cancel", label: "Cancel" },
+      { id: "use_correct_method", label: "Use the correct method", directive: "Solve it with the quadratic formula." },
+      { id: "cancel", label: "Cancel", directive: "" },
     ],
   };
 
