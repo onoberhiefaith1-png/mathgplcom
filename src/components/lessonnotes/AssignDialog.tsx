@@ -284,6 +284,8 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
           await unassignAssessmentQuestion(c.assignmentId);
         } else if (target === "adventure" && c.adventureId) {
           await unassignAdventureQuestion(c.adventureId);
+        } else if (target === "game" && c.gameAssignmentId) {
+          await unassignGame(c.gameAssignmentId);
         }
         touchedClasses.add(c.id);
       }
@@ -292,8 +294,28 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       let ok = 0;
       const errors: string[] = [];
       const assignedIds = new Map<string, string>();
+
+      // The question joins the Game once; the Game is what the class receives.
+      if (target === "game" && gameId && subsectionId && notebookId && !gameStats.hasThis) {
+        await assignQuestion(gameId, notebookId, subsectionId);
+        setGameStats((prev) => ({ ...prev, hasThis: true, count: prev.count + 1 }));
+      }
+
       for (const c of toAssign) {
         try {
+          if (target === "game") {
+            if (!gameId) throw new Error("no_game");
+            const id = await assignGameToClass({
+              classId: c.id,
+              gameId,
+              passPercentage,
+              title: games.find((g) => g.id === gameId)?.name ?? null,
+            });
+            assignedIds.set(c.id, id);
+            touchedClasses.add(c.id);
+            ok += 1;
+            continue;
+          }
           if (!notebookId || !questionRef.sectionId) throw new Error("no_question");
           const id = target === "adventure"
             ? await assignAdventureQuestion({ classId: c.id, notebookId, ref: questionRef })
@@ -314,7 +336,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       }
 
       // Keep every linked progress bar in step with what is now assigned.
-      if (notebookId) {
+      if (notebookId && target !== "game") {
         for (const cid of touchedClasses) {
           try { await syncAdventureBoards(cid, notebookId); } catch { /* non-fatal */ }
         }
@@ -323,20 +345,20 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
 
       if (ok > 0 || toUnassign.length > 0) {
         const unassignedIds = new Set(toUnassign.map((c) => c.id));
+        const field = target === "assignment"
+          ? "assignmentId" as const
+          : target === "game"
+            ? "gameAssignmentId" as const
+            : "adventureId" as const;
         setClasses((prev) => prev.map((c) => {
-          if (unassignedIds.has(c.id)) {
-            return target === "assignment"
-              ? { ...c, assignmentId: null }
-              : { ...c, adventureId: null };
-          }
+          if (unassignedIds.has(c.id)) return { ...c, [field]: null };
           const assignedId = assignedIds.get(c.id);
           if (!assignedId) return c;
-          return target === "assignment"
-            ? { ...c, assignmentId: assignedId }
-            : { ...c, adventureId: assignedId };
+          return { ...c, [field]: assignedId };
         }));
         setInitiallySelected(new Set(selected));
       }
+
 
       const parts: string[] = [];
       if (ok > 0) parts.push(`Assigned to ${ok}`);
