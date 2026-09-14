@@ -27,7 +27,13 @@ import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestio
 
 type Meta = AssessmentLike & { due_at: string | null };
 
-type TimerSettings = { timer_enabled: boolean; opens_at: string | null; closes_at: string | null };
+type TimerSettings = {
+  timer_enabled: boolean;
+  opens_at: string | null;
+  closes_at: string | null;
+  permanent_achievement_color: string;
+  current_attempt_color: string;
+};
 
 // Timer columns ship with this change, so the generated types don't know them.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,6 +62,7 @@ const AssessmentBoardPage = () => {
   const [videoView, setVideoView] = useBoardVideoView();
   const [timerSettings, setTimerSettings] = useState<TimerSettings>({
     timer_enabled: false, opens_at: null, closes_at: null,
+    permanent_achievement_color: "#2563eb", current_attempt_color: "#7c3f20",
   });
 
   useEffect(() => {
@@ -101,7 +108,7 @@ const AssessmentBoardPage = () => {
 
       const { data: t } = await db
         .from("assessments")
-        .select("timer_enabled, opens_at, closes_at")
+        .select("timer_enabled, opens_at, closes_at, permanent_achievement_color, current_attempt_color")
         .eq("id", assessmentId)
         .maybeSingle();
       if (!cancelled && t) {
@@ -109,6 +116,8 @@ const AssessmentBoardPage = () => {
           timer_enabled: !!t.timer_enabled,
           opens_at: t.opens_at ?? null,
           closes_at: t.closes_at ?? null,
+          permanent_achievement_color: t.permanent_achievement_color ?? "#2563eb",
+          current_attempt_color: t.current_attempt_color ?? "#7c3f20",
         });
       }
 
@@ -321,6 +330,8 @@ const AssessmentBoardPage = () => {
       boardQuestionId={questionId}
       viewOnly={readOnly}
       timerEnabled={timerSettings.timer_enabled}
+      permanentAchievementColor={timerSettings.permanent_achievement_color}
+      currentAttemptColor={timerSettings.current_attempt_color}
       onLineContext={videoReady(video) ? setLineCtx : undefined}
       touchSession={bpAssess === "phone" ? {
         questionIndex: Math.max(0, (assessment?.questions ?? []).findIndex((q) => q.id === questionId)),

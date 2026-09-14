@@ -48,6 +48,10 @@ interface Props {
   setTextScale?: (v: number) => void;
   /** Phones use one purpose-built compact Floating Number layout. */
   compactPhone?: boolean;
+  permanentAchievementColor?: string;
+  currentAttemptColor?: string;
+  onPermanentAchievementColorChange?: (color: string) => void;
+  onCurrentAttemptColorChange?: (color: string) => void;
 }
 
 const SAMPLE_SRC = "x = \\frac{\\sl{}}{\\sl{}}";
@@ -72,6 +76,10 @@ export const SettingsSheet = ({
   textScale = 1,
   setTextScale,
   compactPhone = false,
+  permanentAchievementColor,
+  currentAttemptColor,
+  onPermanentAchievementColorChange,
+  onCurrentAttemptColorChange,
 }: Props) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -265,6 +273,40 @@ export const SettingsSheet = ({
               })}
             </div>
           </section>
+
+          {(onPermanentAchievementColorChange || onCurrentAttemptColorChange) && (
+            <section>
+              <p className="mb-2 text-[10px] uppercase tracking-[0.25em] opacity-60">Line Progress Colours</p>
+              <div className="space-y-3">
+                {onPermanentAchievementColorChange && permanentAchievementColor && (
+                  <label className="flex items-center justify-between gap-3 text-xs">
+                    <span>Permanent Achievement Colour</span>
+                    <input
+                      type="color"
+                      aria-label="Permanent Achievement Colour"
+                      value={permanentAchievementColor}
+                      onChange={(event) => onPermanentAchievementColorChange(event.target.value)}
+                      className="h-9 w-12 cursor-pointer rounded-md border p-1"
+                      style={{ borderColor: chromeBorder, background: "transparent" }}
+                    />
+                  </label>
+                )}
+                {onCurrentAttemptColorChange && currentAttemptColor && (
+                  <label className="flex items-center justify-between gap-3 text-xs">
+                    <span>Current Timed/Repeat Attempt Colour</span>
+                    <input
+                      type="color"
+                      aria-label="Current Timed/Repeat Attempt Colour"
+                      value={currentAttemptColor}
+                      onChange={(event) => onCurrentAttemptColorChange(event.target.value)}
+                      className="h-9 w-12 cursor-pointer rounded-md border p-1"
+                      style={{ borderColor: chromeBorder, background: "transparent" }}
+                    />
+                  </label>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* ── Row Spacing ─────────────────────────── */}
           {setRowSpacing && (
