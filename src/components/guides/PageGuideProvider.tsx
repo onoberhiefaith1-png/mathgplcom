@@ -168,11 +168,12 @@ export const PageGuideProvider = ({ children }: { children: ReactNode }) => {
         {session && (
           <div
             className={cn(
-              showCompanion && view !== "board"
+              showSplit
                 ? "min-h-0 min-w-0 bg-background p-2"
                 : "pointer-events-none fixed h-px w-px overflow-hidden opacity-0",
             )}
-            aria-hidden={!showCompanion}
+            aria-hidden={!showSplit}
+
           >
             <TutorialPlayer
               tutorial={session.tutorial}
