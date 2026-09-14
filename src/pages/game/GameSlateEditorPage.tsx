@@ -23,13 +23,19 @@ export default function GameSlateEditorPage() {
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
 
   useEffect(() => {
-    const g = loadGame(gameId);
-    if (!g) {
-      toast.error("That game is not saved in this browser.");
-      navigate({ to: "/game" });
-      return;
-    }
-    setGame(g);
+    let cancelled = false;
+    loadGame(gameId).then((g) => {
+      if (cancelled) return;
+      if (!g) {
+        toast.error("That game could not be found in your account.");
+        navigate({ to: "/game" });
+        return;
+      }
+      setGame(g);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [gameId, navigate]);
 
   const patchGame = useCallback(
@@ -139,10 +145,10 @@ export default function GameSlateEditorPage() {
   };
 
 
-  const save = () => {
-    const ok = saveGame(game);
+  const save = async () => {
+    const ok = await saveGame(game);
     toast[ok ? "success" : "error"](
-      ok ? "Draft saved in this browser." : "Could not save — the background may be too large.",
+      ok ? "Game saved to your account." : "Could not save — the background may be too large.",
     );
   };
 
