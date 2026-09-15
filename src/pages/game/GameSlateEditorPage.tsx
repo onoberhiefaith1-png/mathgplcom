@@ -221,6 +221,14 @@ export default function GameSlateEditorPage() {
             >
               Save
             </button>
+            {/* Same runtime students get; nothing is recorded for the teacher. */}
+            <Link
+              to="/game/play/$gameId"
+              params={{ gameId: game.id }}
+              className="rounded border border-emerald-300/40 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-emerald-100/80 hover:bg-emerald-300/10"
+            >
+              Play
+            </Link>
             <button
               onClick={() => {
                 if (mode === "edit" && panelOpen) {

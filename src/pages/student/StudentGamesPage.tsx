@@ -62,7 +62,7 @@ const StudentGamesPage = () => {
                         </p>
                       </div>
                       <Link
-                        to={`/game/slate/${g.gameId}`}
+                        to={`/game/play/${g.gameId}`}
                         className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
                       >
                         Play
