@@ -7096,7 +7096,7 @@ const PresentationView = ({
                   reservoirs={reservoirs}
                   viewIdx={viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx)}
                   activeIdx={activeReservoirIdx}
-                  visible={activeAssistant === "numbers" && reservoirs.length > 0}
+                  visible={(activeAssistant === "numbers" || (gameChrome && activeAssistant === null)) && reservoirs.length > 0}
                   onInsert={(t) => {
                     // Flex-nudge: if the sensor is parked on a locked or
                     // already-inked row (very common right after a
@@ -8165,6 +8165,21 @@ const PresentationView = ({
           teacher-exclusive controls hidden. */}
       {((role === "student" && canEdit) || assessmentMode) && (
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
+      )}
+
+      {/* GAME CHROME. Inside a Game the physical Game Slate IS the board, so
+          everything except the Floating Numbers control panel is hidden.
+          `visibility` keeps the board mounted and its geometry intact (the
+          sensor, rows and marking all still work) while removing it from
+          sight and from pointer interaction. */}
+      {gameChrome && (
+        <style>{`
+          #sb-root{background:transparent !important;}
+          #sb-root, #sb-root *{visibility:hidden !important;}
+          #sb-root [data-floating-halo], #sb-root [data-floating-halo] *{visibility:visible !important;}
+          #sb-root [data-sb-sensor-dpad]{display:none !important;}
+          #sb-root [data-board-chrome="top"]{display:none !important;}
+        `}</style>
       )}
       </div>
       {/* BOARD B — the interactive mathematics board for the SAME active
