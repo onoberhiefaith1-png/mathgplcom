@@ -6,13 +6,17 @@
 //
 // Two existing systems are placed together, unchanged:
 //   • the 3D Game Slate world (WorldStage) — the physical world and rewards
-//   • the Floating Numbers / Smartboard student board (PresentationView) —
-//     the mathematics, marking and timing
-// Nothing mathematical is re-implemented here.
+//   • the student/mobile Floating Numbers control panel, taken from the
+//     Smartboard (PresentationView with chrome="game") — the mathematics,
+//     marking and timing
+//
+// The Game Slate is the ONLY board: the student's working is engraved on the
+// physical Game Lines as they write. The Smartboard surface itself is not
+// shown. Nothing mathematical is re-implemented here.
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Coins, Heart, Hourglass, Layers } from "lucide-react";
+import { ArrowLeft, Coins, Heart, Hourglass } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGame } from "@/lib/slate/storage";
 import { loadGameAssignmentState } from "@/lib/slate/gameAssignments";
@@ -40,7 +44,8 @@ const GamePlayPage = () => {
   const [testMode, setTestMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showSlate, setShowSlate] = useState(true);
+  /** Live working per Floating Numbers line (0-based) → plain text. */
+  const [lineText, setLineText] = useState<Record<number, string>>({});
 
   useEffect(() => {
     if (!gameId) return;
@@ -102,21 +107,36 @@ const GamePlayPage = () => {
 
   const runtime = useGameRuntime({ game, boards, studentId: uid, assignmentId, testMode });
 
+  // A new question starts on a clean slate — no test or previous working.
+  useEffect(() => { setLineText({}); }, [runtime.question?.questionRowId]);
+
   /** The physical slate for THIS question: Line 0 plus one Line per solving line. */
   const displayGame = useMemo<Game | null>(() => {
     if (!game || runtime.lines.length === 0 || !runtime.question) return game;
     const patternLength = patternLengthOf(game);
+    const question = runtime.question;
     const slots: Slot[] = runtime.lines.map((row) => {
       const base = game.slots[row.isQuestion ? 0 : Math.max(0, row.patternSlot - 1)]
         ?? game.slots[0];
+      // Line 0 is the question, read-only and outside rewards and marks.
+      // Every other Game Line carries the student's own live working, and its
+      // teaching note only once the line has actually earned its marks.
+      const working = row.isQuestion ? "" : (lineText[row.line - 1] ?? "");
+      const note = row.isQuestion
+        ? null
+        : runtime.completedLines.includes(row.line)
+          ? question.lineNotes[row.line - 1]
+          : null;
       return {
         ...base,
         id: `line-${row.line}`,
-        text: row.isQuestion ? runtime.question!.questionText : "",
+        text: row.isQuestion
+          ? question.questionText
+          : [note, working].filter(Boolean).join("\n"),
         hiddenContent: "",
         contentState: "visible",
         rewards: row.rewards.map((reward) => {
-          const key = `${runtime.question!.questionRowId}:${row.line}:${reward.id}`;
+          const key = `${question.questionRowId}:${row.line}:${reward.id}`;
           const used = runtime.consumedRewardKeys.includes(key);
           return {
             ...reward,
@@ -128,7 +148,15 @@ const GamePlayPage = () => {
       };
     });
     return { ...game, slots, patternLength };
-  }, [game, runtime.lines, runtime.question, runtime.consumedRewardKeys, runtime.currentLine]);
+  }, [
+    game,
+    runtime.lines,
+    runtime.question,
+    runtime.consumedRewardKeys,
+    runtime.currentLine,
+    runtime.completedLines,
+    lineText,
+  ]);
 
   const questionRemaining = secondsLeft(runtime.questionDeadline);
   const lineRemaining = secondsLeft(runtime.lineDeadline);
@@ -159,7 +187,7 @@ const GamePlayPage = () => {
     );
   }
 
-  const board = runtime.question ? (
+  const controls = runtime.question ? (
     <PresentationView
       key={buildBoardScope({
         studentId: uid,
@@ -180,19 +208,28 @@ const GamePlayPage = () => {
       boardQuestionId={runtime.question.boardQuestionId}
       testMode={testMode}
       onLineContext={runtime.onLineContext}
+      // Only the Floating Numbers control panel is shown; the Game Slate is
+      // the board, and Game Lines own line selection.
+      chrome="game"
+      activeLine={Math.max(0, runtime.currentLine - 1)}
+      onLineText={setLineText}
     />
   ) : null;
 
   return (
-    <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background">
-      {/* The physical Game Slate world, behind the mathematics. */}
-      <div className={showSlate ? "absolute inset-0 z-0" : "absolute inset-0 z-0 opacity-30"}>
+    <div className="relative h-screen w-full overflow-hidden bg-background">
+      {/* THE BOARD. The Game Slate world is the whole screen. */}
+      <div className="absolute inset-0 z-0">
         {displayGame && (
           <WorldStage
             game={displayGame}
             mode="view"
             selection={{ kind: "none" }}
-            onSelect={() => {}}
+            onSelect={(selection) => {
+              if (selection.kind !== "slot") return;
+              const line = Number(String(selection.id).replace("line-", ""));
+              if (Number.isFinite(line)) runtime.selectLine(line);
+            }}
             onSlotChange={() => {}}
             onRewardMove={() => {}}
             onRewardActivate={() => {}}
@@ -202,7 +239,7 @@ const GamePlayPage = () => {
       </div>
 
       {/* HUD */}
-      <header className="relative z-20 flex flex-wrap items-center gap-3 border-b border-border/40 bg-background/70 px-4 py-2 backdrop-blur">
+      <header className="absolute inset-x-0 top-0 z-20 flex flex-wrap items-center gap-3 bg-background/70 px-4 py-2 backdrop-blur">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -237,19 +274,15 @@ const GamePlayPage = () => {
           )}
           <span className="inline-flex items-center gap-1" title="Marks">
             {runtime.earnedMarks} / {runtime.totalMarks}
+            {runtime.totalMarks > 0
+              ? ` · ${Math.round((runtime.earnedMarks / runtime.totalMarks) * 100)}%`
+              : ""}
           </span>
-          <button
-            type="button"
-            onClick={() => setShowSlate((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs hover:bg-accent"
-          >
-            <Layers className="h-3.5 w-3.5" /> {showSlate ? "Focus board" : "Show slate"}
-          </button>
         </div>
       </header>
 
       {runtime.message && (
-        <div className="relative z-20 flex items-center justify-between gap-3 bg-primary/10 px-4 py-1.5 text-xs">
+        <div className="absolute inset-x-0 top-12 z-20 mx-auto flex w-fit items-center gap-3 rounded-full bg-primary/90 px-4 py-1.5 text-xs text-primary-foreground">
           <span>{runtime.message}</span>
           <button type="button" onClick={runtime.dismissMessage} className="underline">
             Dismiss
@@ -257,39 +290,35 @@ const GamePlayPage = () => {
         </div>
       )}
 
-      {/* The mathematics: the existing student Floating Numbers board, in front. */}
-      <div className="relative z-10 min-h-0 flex-1 overflow-hidden">
-        <div
-          className={`h-full overflow-hidden ${showSlate ? "bg-background/90" : "bg-background"} backdrop-blur-sm`}
-        >
-          {runtime.status === "complete" ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <h2 className="text-lg font-semibold">Game complete</h2>
-              <p className="text-sm text-muted-foreground">
-                {runtime.earnedMarks} / {runtime.totalMarks} marks · {runtime.coins} coins
-              </p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={runtime.restartGame}
-                  className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
-                >
-                  Play again
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate(-1)}
-                  className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
-                >
-                  Finish
-                </button>
-              </div>
-            </div>
-          ) : (
-            board
-          )}
+      {/* THE CONTROLS. The existing student Floating Numbers panel, docked at
+          the front of the Game. Everything else the Smartboard renders is
+          hidden by its game chrome. */}
+      {runtime.status === "complete" ? (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-background/85 text-center backdrop-blur">
+          <h2 className="text-lg font-semibold">Game complete</h2>
+          <p className="text-sm text-muted-foreground">
+            {runtime.earnedMarks} / {runtime.totalMarks} marks · {runtime.coins} coins
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={runtime.restartGame}
+              className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
+            >
+              Play again
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
+            >
+              Finish
+            </button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="pointer-events-none absolute inset-0 z-10">{controls}</div>
+      )}
     </div>
   );
 };
