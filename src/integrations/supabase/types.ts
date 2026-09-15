@@ -8010,6 +8010,69 @@ export type Database = {
           },
         ]
       }
+      slate_game_progress: {
+        Row: {
+          assignment_id: string | null
+          coins: number
+          completed_question_ids: string[]
+          consumed_reward_keys: string[]
+          created_at: string
+          current_line: number
+          game_id: string
+          id: string
+          lives: number
+          question_index: number
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_id?: string | null
+          coins?: number
+          completed_question_ids?: string[]
+          consumed_reward_keys?: string[]
+          created_at?: string
+          current_line?: number
+          game_id: string
+          id?: string
+          lives?: number
+          question_index?: number
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string | null
+          coins?: number
+          completed_question_ids?: string[]
+          consumed_reward_keys?: string[]
+          created_at?: string
+          current_line?: number
+          game_id?: string
+          id?: string
+          lives?: number
+          question_index?: number
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slate_game_progress_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "slate_game_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slate_game_progress_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "slate_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       slate_game_questions: {
         Row: {
           created_at: string

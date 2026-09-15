@@ -13,7 +13,7 @@
 // This module produces the one string every per-board cache key is built from,
 // so no storage bucket can be coarser than the board identity itself.
 
-export type BoardWorkspace = "assignment" | "adventure" | "notebook" | "floating_test";
+export type BoardWorkspace = "assignment" | "adventure" | "notebook" | "floating_test" | "game";
 
 export type BoardScopeInput = {
   studentId?: string | null;
