@@ -8179,8 +8179,8 @@ const PresentationView = ({
       {gameChrome && (
         <style>{`
           #sb-root{background:transparent !important;}
-          #sb-root, #sb-root *{visibility:hidden !important;}
-          #sb-root [data-floating-halo], #sb-root [data-floating-halo] *{visibility:visible !important;}
+          #sb-root, #sb-root *{visibility:hidden !important;pointer-events:none !important;}
+          #sb-root [data-floating-halo], #sb-root [data-floating-halo] *{visibility:visible !important;pointer-events:auto !important;}
           #sb-root [data-sb-sensor-dpad]{display:none !important;}
           #sb-root [data-board-chrome="top"]{display:none !important;}
         `}</style>
