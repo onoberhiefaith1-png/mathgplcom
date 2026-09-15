@@ -5882,7 +5882,10 @@ const PresentationView = ({
 
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (
-    <div className="absolute inset-0 flex overflow-hidden" style={{ background: palette.background }}>
+    <div
+      className="absolute inset-0 flex overflow-hidden"
+      style={{ background: gameChrome ? "transparent" : palette.background }}
+    >
 
 
 
@@ -7838,7 +7841,8 @@ const PresentationView = ({
 
       {/* Permanent Sensor Controller (D-pad). Visible whenever the
           Floating Number workspace is active. Only moves the sensor. */}
-      {canEdit && solvingMode && (
+      {/* No sensor pad in a Game: Game Lines own line navigation. */}
+      {canEdit && solvingMode && !gameChrome && (
         <SensorDPad
           onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
           onDown={() => { nudgeCursor(1); revealLeftTools(); }}
