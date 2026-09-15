@@ -227,7 +227,7 @@ const GamePlayPage = () => {
             selection={{ kind: "none" }}
             onSelect={(selection) => {
               if (selection.kind !== "slot") return;
-              const line = Number(String(selection.id).replace("line-", ""));
+              const line = Number(String(selection.slotId).replace("line-", ""));
               if (Number.isFinite(line)) runtime.selectLine(line);
             }}
             onSlotChange={() => {}}
