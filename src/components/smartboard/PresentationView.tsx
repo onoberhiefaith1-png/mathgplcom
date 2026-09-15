@@ -401,6 +401,9 @@ const PresentationView = ({
   currentAttemptColor: currentAttemptColorProp,
   onLineContext,
   touchSession,
+  chrome = "board",
+  activeLine = null,
+  onLineText,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -470,6 +473,18 @@ const PresentationView = ({
     fullscreen: boolean;
     onFullscreenChange: (active: boolean) => void;
   };
+
+  /**
+   * GAME CHROME. `"game"` renders ONLY the student/mobile Floating Numbers
+   * control panel: the board surface, its chrome, the sensor pad and the
+   * assessment strip are all hidden, because inside a Game the physical Game
+   * Slate is the board. Every other gateway keeps `"board"` and is untouched.
+   */
+  chrome?: "board" | "game";
+  /** Controlled active line (0-based). Game Lines own line selection. */
+  activeLine?: number | null;
+  /** Live per-line working, 0-based line index → plain text. */
+  onLineText?: (texts: Record<number, string>) => void;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
