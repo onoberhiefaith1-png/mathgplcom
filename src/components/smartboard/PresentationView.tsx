@@ -571,9 +571,12 @@ const PresentationView = ({
   // full size; the device becomes a viewport that pans across it. Desktop and
   // every teacher surface are untouched because all branches read this flag.
   const mobileBoard = useMobileStudentBoard(role);
-  const mobileStudent = mobileBoard.active;
+  // GAME CHROME — the Game Slate is the board, so only the compact student
+  // Floating Numbers panel is rendered, at every screen size.
+  const gameChrome = chrome === "game";
+  const mobileStudent = mobileBoard.active || gameChrome;
   const breakpoint = useBreakpoint();
-  const phoneLayout = mobileStudent && breakpoint === "phone";
+  const phoneLayout = gameChrome || (mobileStudent && breakpoint === "phone");
   // PHONE/TABLET + SMARTBOARD = no native keyboard, for every role. Layout and
   // chrome still follow `mobileStudent`; only keyboard raising reads this flag.
   const noNativeKeyboard = useBoardNativeKeyboard();
