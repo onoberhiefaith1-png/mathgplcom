@@ -30,6 +30,8 @@ export interface GameRuntime {
   /** 1-based Game Line the student is working on. */
   currentLine: number;
   completedQuestionIds: string[];
+  /** 1-based Game Lines whose mark has been awarded in this question. */
+  completedLines: number[];
   consumedRewardKeys: string[];
   coins: number;
   lives: number;
@@ -41,6 +43,8 @@ export interface GameRuntime {
   totalMarks: number;
   message: string | null;
   onLineContext: (ctx: LineContext) => void;
+  /** Game Lines own line navigation — a tapped Game Line calls this. */
+  selectLine: (line: number) => void;
   goToQuestion: (index: number) => void;
   restartQuestion: () => void;
   restartGame: () => void;
@@ -68,6 +72,7 @@ export const useGameRuntime = (params: {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [currentLine, setCurrentLine] = useState(1);
   const [completedQuestionIds, setCompletedQuestionIds] = useState<string[]>([]);
+  const [completedLines, setCompletedLines] = useState<number[]>([]);
   const [consumed, setConsumed] = useState<string[]>([]);
   const [coins, setCoins] = useState(0);
   const [lives, setLives] = useState(3);
@@ -256,6 +261,7 @@ export const useGameRuntime = (params: {
         awarded.current.add(key);
         const index = question.lineIds.indexOf(awardedId);
         if (index >= 0) {
+          setCompletedLines((prev) => (prev.includes(index + 1) ? prev : [...prev, index + 1]));
           consumeLine(index + 1);
           setEarnedMarks((prev) => prev + (question.lineMarks[index] ?? 0));
         }
@@ -278,6 +284,7 @@ export const useGameRuntime = (params: {
     if (questionIndex + 1 < boards.length) {
       setQuestionIndex(questionIndex + 1);
       setCurrentLine(1);
+      setCompletedLines([]);
       setMessage("Question complete — next question.");
     } else {
       setStatus("complete");
@@ -304,18 +311,30 @@ export const useGameRuntime = (params: {
     if (index < 0 || index >= boards.length) return;
     setQuestionIndex(index);
     setCurrentLine(1);
+    setCompletedLines([]);
   }, [boards.length]);
+
+  /** A tapped Game Line. Never jumps past the line the student has reached. */
+  const selectLine = useCallback((line: number) => {
+    if (!Number.isFinite(line)) return;
+    const target = Math.floor(line);
+    if (target < 1) return;
+    const reached = Math.max(1, ...completedLines.map((l) => l + 1), currentLine);
+    setCurrentLine(Math.min(target, reached));
+  }, [completedLines, currentLine]);
 
   const restartQuestion = useCallback(() => {
     startQuestionTimer(question?.questionTimerSeconds ?? null);
     setLineDeadline(null);
     setCurrentLine(1);
+    setCompletedLines([]);
   }, [question, startQuestionTimer]);
 
   const restartGame = useCallback(() => {
     setQuestionIndex(0);
     setCurrentLine(1);
     setCompletedQuestionIds([]);
+    setCompletedLines([]);
     setConsumed([]);
     setCoins(0);
     setLives(game?.status?.lives ?? 3);
@@ -332,6 +351,7 @@ export const useGameRuntime = (params: {
     lines,
     currentLine,
     completedQuestionIds,
+    completedLines,
     consumedRewardKeys: consumed,
     coins,
     lives,
@@ -342,6 +362,7 @@ export const useGameRuntime = (params: {
     totalMarks,
     message,
     onLineContext,
+    selectLine,
     goToQuestion,
     restartQuestion,
     restartGame,

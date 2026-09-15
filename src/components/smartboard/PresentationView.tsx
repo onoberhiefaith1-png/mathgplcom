@@ -401,6 +401,9 @@ const PresentationView = ({
   currentAttemptColor: currentAttemptColorProp,
   onLineContext,
   touchSession,
+  chrome = "board",
+  activeLine = null,
+  onLineText,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -470,6 +473,18 @@ const PresentationView = ({
     fullscreen: boolean;
     onFullscreenChange: (active: boolean) => void;
   };
+
+  /**
+   * GAME CHROME. `"game"` renders ONLY the student/mobile Floating Numbers
+   * control panel: the board surface, its chrome, the sensor pad and the
+   * assessment strip are all hidden, because inside a Game the physical Game
+   * Slate is the board. Every other gateway keeps `"board"` and is untouched.
+   */
+  chrome?: "board" | "game";
+  /** Controlled active line (0-based). Game Lines own line selection. */
+  activeLine?: number | null;
+  /** Live per-line working, 0-based line index → plain text. */
+  onLineText?: (texts: Record<number, string>) => void;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -556,9 +571,12 @@ const PresentationView = ({
   // full size; the device becomes a viewport that pans across it. Desktop and
   // every teacher surface are untouched because all branches read this flag.
   const mobileBoard = useMobileStudentBoard(role);
-  const mobileStudent = mobileBoard.active;
+  // GAME CHROME — the Game Slate is the board, so only the compact student
+  // Floating Numbers panel is rendered, at every screen size.
+  const gameChrome = chrome === "game";
+  const mobileStudent = mobileBoard.active || gameChrome;
   const breakpoint = useBreakpoint();
-  const phoneLayout = mobileStudent && breakpoint === "phone";
+  const phoneLayout = gameChrome || (mobileStudent && breakpoint === "phone");
   // PHONE/TABLET + SMARTBOARD = no native keyboard, for every role. Layout and
   // chrome still follow `mobileStudent`; only keyboard raising reads this flag.
   const noNativeKeyboard = useBoardNativeKeyboard();
@@ -3490,6 +3508,44 @@ const PresentationView = ({
   // current ownership map (render-time assignment is intentional).
   rowOwnersRef.current = rowOwners;
   const seededOwnersRef = useRef<number>(-1);
+
+  // GAME CHROME — the Floating Numbers panel is the whole interface, so it is
+  // open from the start instead of waiting for the # button.
+  useEffect(() => {
+    if (!gameChrome) return;
+    setActiveAssistant((prev) => prev ?? "numbers");
+  }, [gameChrome]);
+
+  // GAME LINES OWN LINE SELECTION. When the Game sets the active line, the
+  // panel follows it — one shared line state, never a second cursor.
+  useEffect(() => {
+    if (!gameChrome || activeLine == null) return;
+    const k = Math.max(0, Math.floor(activeLine));
+    setActiveLineIdx((cur) => (cur === k ? cur : k));
+  }, [gameChrome, activeLine, setActiveLineIdx]);
+
+  // LIVE WORKING → GAME SLATE. Report each line's plain working so the Game
+  // can engrave it on the matching physical Game Line as the student writes.
+  useEffect(() => {
+    if (!onLineText) return;
+    const byLine: Record<number, string[]> = {};
+    for (const [rowKey, owner] of Object.entries(rowOwners)) {
+      const row = Number(rowKey);
+      if (!Number.isFinite(row)) continue;
+      const whole = freeLines[row];
+      const half = freeLines[row + 0.5];
+      const text =
+        (whole && whole.length > 0 ? rowToAscii(whole) : "") +
+        (half && half.length > 0 ? rowToAscii(half) : "");
+      if (!text.trim()) continue;
+      (byLine[owner] ??= []).push(text);
+    }
+    const out: Record<number, string> = {};
+    for (const [line, parts] of Object.entries(byLine)) {
+      out[Number(line)] = parts.join(" ").replace(/\s+/g, " ").trim();
+    }
+    onLineText(out);
+  }, [onLineText, rowOwners, freeLines]);
   useEffect(() => {
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
@@ -5826,7 +5882,10 @@ const PresentationView = ({
 
   const presenterSplitOpen = showPresenterChrome && presenterPanelOpen;
   return (
-    <div className="absolute inset-0 flex overflow-hidden" style={{ background: palette.background }}>
+    <div
+      className="absolute inset-0 flex overflow-hidden"
+      style={{ background: gameChrome ? "transparent" : palette.background }}
+    >
 
 
 
@@ -7040,7 +7099,7 @@ const PresentationView = ({
                   reservoirs={reservoirs}
                   viewIdx={viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx)}
                   activeIdx={activeReservoirIdx}
-                  visible={activeAssistant === "numbers" && reservoirs.length > 0}
+                  visible={(activeAssistant === "numbers" || (gameChrome && activeAssistant === null)) && reservoirs.length > 0}
                   onInsert={(t) => {
                     // Flex-nudge: if the sensor is parked on a locked or
                     // already-inked row (very common right after a
@@ -7782,7 +7841,8 @@ const PresentationView = ({
 
       {/* Permanent Sensor Controller (D-pad). Visible whenever the
           Floating Number workspace is active. Only moves the sensor. */}
-      {canEdit && solvingMode && (
+      {/* No sensor pad in a Game: Game Lines own line navigation. */}
+      {canEdit && solvingMode && !gameChrome && (
         <SensorDPad
           onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
           onDown={() => { nudgeCursor(1); revealLeftTools(); }}
@@ -8109,6 +8169,21 @@ const PresentationView = ({
           teacher-exclusive controls hidden. */}
       {((role === "student" && canEdit) || assessmentMode) && (
         <style>{`[data-sb-teacher-only]{display:none !important;}`}</style>
+      )}
+
+      {/* GAME CHROME. Inside a Game the physical Game Slate IS the board, so
+          everything except the Floating Numbers control panel is hidden.
+          `visibility` keeps the board mounted and its geometry intact (the
+          sensor, rows and marking all still work) while removing it from
+          sight and from pointer interaction. */}
+      {gameChrome && (
+        <style>{`
+          #sb-root{background:transparent !important;}
+          #sb-root, #sb-root *{visibility:hidden !important;pointer-events:none !important;}
+          #sb-root [data-floating-halo], #sb-root [data-floating-halo] *{visibility:visible !important;pointer-events:auto !important;}
+          #sb-root [data-sb-sensor-dpad]{display:none !important;}
+          #sb-root [data-board-chrome="top"]{display:none !important;}
+        `}</style>
       )}
       </div>
       {/* BOARD B — the interactive mathematics board for the SAME active
