@@ -3508,6 +3508,44 @@ const PresentationView = ({
   // current ownership map (render-time assignment is intentional).
   rowOwnersRef.current = rowOwners;
   const seededOwnersRef = useRef<number>(-1);
+
+  // GAME CHROME — the Floating Numbers panel is the whole interface, so it is
+  // open from the start instead of waiting for the # button.
+  useEffect(() => {
+    if (!gameChrome) return;
+    setActiveAssistant((prev) => prev ?? "numbers");
+  }, [gameChrome]);
+
+  // GAME LINES OWN LINE SELECTION. When the Game sets the active line, the
+  // panel follows it — one shared line state, never a second cursor.
+  useEffect(() => {
+    if (!gameChrome || activeLine == null) return;
+    const k = Math.max(0, Math.floor(activeLine));
+    setActiveLineIdx((cur) => (cur === k ? cur : k));
+  }, [gameChrome, activeLine, setActiveLineIdx]);
+
+  // LIVE WORKING → GAME SLATE. Report each line's plain working so the Game
+  // can engrave it on the matching physical Game Line as the student writes.
+  useEffect(() => {
+    if (!onLineText) return;
+    const byLine: Record<number, string[]> = {};
+    for (const [rowKey, owner] of Object.entries(rowOwners)) {
+      const row = Number(rowKey);
+      if (!Number.isFinite(row)) continue;
+      const whole = freeLines[row];
+      const half = freeLines[row + 0.5];
+      const text =
+        (whole && whole.length > 0 ? rowToAscii(whole) : "") +
+        (half && half.length > 0 ? rowToAscii(half) : "");
+      if (!text.trim()) continue;
+      (byLine[owner] ??= []).push(text);
+    }
+    const out: Record<number, string> = {};
+    for (const [line, parts] of Object.entries(byLine)) {
+      out[Number(line)] = parts.join(" ").replace(/\s+/g, " ").trim();
+    }
+    onLineText(out);
+  }, [onLineText, rowOwners, freeLines]);
   useEffect(() => {
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
