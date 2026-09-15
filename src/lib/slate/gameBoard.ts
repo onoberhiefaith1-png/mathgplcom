@@ -43,6 +43,8 @@ export interface GameQuestionBoard {
   /** Board line ids in Game Line order (Game Line N = lineIds[N - 1]). */
   lineIds: string[];
   lineMarks: number[];
+  /** Teaching note per line — revealed only after that line's mark. */
+  lineNotes: (string | null)[];
 }
 
 const beatIdFor = (subsectionId: string) => `${subsectionId}-q`;
@@ -154,6 +156,7 @@ export const ensureGameBoards = async (params: {
       lineTimers: (q.lines as FloatingLine[]).map((line) => lineTimer(line)),
       lineIds: question.lines.map((line) => line.lineId),
       lineMarks: question.lines.map((line) => Number(line.marks) || 0),
+      lineNotes: question.lines.map((line) => line.note?.trim() || null),
     });
   }
 
@@ -206,6 +209,7 @@ export const loadGameBoards = async (params: {
       lineTimers: (q.lines as FloatingLine[]).map((line) => lineTimer(line)),
       lineIds: question.lines.map((line) => line.lineId),
       lineMarks: question.lines.map((line) => Number(line.marks) || 0),
+      lineNotes: question.lines.map((line) => line.note?.trim() || null),
     });
   }
   return out;
