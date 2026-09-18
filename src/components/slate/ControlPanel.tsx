@@ -6,7 +6,7 @@ import { SURFACES, getSurface } from "@/lib/slate/surfaces";
 import { PRESET_COLOURS, resolveTextStyle } from "@/lib/slate/textPresets";
 import { TextPresetPicker } from "./TextPresetPicker";
 import { NO_ROOM_ID, ROOMS } from "@/lib/slate/rooms";
-import { REWARDS, getReward } from "@/lib/slate/rewards";
+import { PLACEABLE_REWARDS, getReward } from "@/lib/slate/rewards";
 import {
   INTEGRATIONS,
   RELIEFS,
