@@ -6,6 +6,7 @@
 // the Floating Numbers line id — never by position, never by a second id.
 
 import { canonical, canonicalEqual } from "@/lib/smartboard/canonical";
+import { rewardsForLine } from "./pattern";
 import type { Game, LineSurfaceConfig, TimeFraction } from "./types";
 
 export const TIME_FRACTIONS: { id: TimeFraction; label: string; value: number }[] = [
@@ -129,4 +130,27 @@ export const vaultMatches = (
     if (flatten(piece).includes(flatten(wanted))) return true;
   }
   return false;
+};
+
+/* ── Editor preview ─────────────────────────────────────────────────────────
+ * Selecting an attached question in the Game editor shows that exercise's real
+ * mathematics on the chosen material: one writing surface per Floating Numbers
+ * line, with the pattern's objects. It is a PREVIEW — the mathematics is still
+ * owned and edited in Floating Numbers, never here.
+ */
+export const previewSlots = (
+  game: Game,
+  lineEquations: string[],
+): Game["slots"] => {
+  if (lineEquations.length === 0) return game.slots;
+  return lineEquations.map((equation, i) => {
+    const line = i + 1;
+    const source = game.slots[(line - 1) % Math.max(1, game.slots.length)]!;
+    return {
+      ...source,
+      id: `preview-${line}`,
+      text: equation ?? "",
+      rewards: rewardsForLine(game, line),
+    };
+  });
 };
