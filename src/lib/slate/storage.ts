@@ -7,7 +7,12 @@ import type { Game } from "./types";
 import { defaultScene } from "./environments";
 import { roomForSurface } from "./rooms";
 import { defaultTextSettings } from "./text3d";
-import { defaultGameStatus, defaultNumberSettings, defaultSettings } from "./defaults";
+import {
+  defaultAssetSettings,
+  defaultGameStatus,
+  defaultNumberSettings,
+  defaultSettings,
+} from "./defaults";
 
 const LOCAL_KEY = "game-slate:games";
 const IMPORTED_KEY = "game-slate:imported";
@@ -15,13 +20,25 @@ const IMPORTED_KEY = "game-slate:imported";
 /** Fill in anything an older draft is missing. Never drops teacher work. */
 export const normalizeGame = (game: Game): Game => ({
   ...game,
+  surfaceColour: game.surfaceColour ?? "#f4ead7",
   roomId: game.roomId ?? roomForSurface(game.surfaceId).id,
+  background: {
+    src: game.background?.src ?? null,
+    assetId: game.background?.assetId ?? null,
+    kind: game.background?.kind === "video" ? "video" : "image",
+    scale: game.background?.scale ?? 1,
+    x: game.background?.x ?? 0,
+    y: game.background?.y ?? 0,
+    opacity: game.background?.opacity ?? 1,
+  },
   status: { ...defaultGameStatus(), ...(game.status ?? {}) },
   settings: {
     ...defaultSettings(),
     ...(game.settings ?? {}),
     text: { ...defaultTextSettings(), ...(game.settings?.text ?? {}) },
     numbers: { ...defaultNumberSettings(), ...(game.settings?.numbers ?? {}) },
+    assets: { ...defaultAssetSettings(), ...(game.settings?.assets ?? {}) },
+    effects: { ...defaultSettings().effects, ...(game.settings?.effects ?? {}) },
   },
   patternLength:
     Number(game.patternLength) > 0 ? Math.floor(Number(game.patternLength)) : game.slots.length,
@@ -32,6 +49,8 @@ export const normalizeGame = (game: Game): Game => ({
       z: 0, scale: 1, rotation: 0, lighting: 1, animation: 1,
       effectIntensity: 1, material: "metal" as const, colour: "natural" as const,
       relief: "raised" as const, ...reward,
+      // the Math Coin has been replaced by the Math Vault
+      type: reward.type === "math-coin" ? "math-vault" : reward.type,
     })),
   })),
 });

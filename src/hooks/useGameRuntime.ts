@@ -51,7 +51,7 @@ export interface GameRuntime {
   dismissMessage: () => void;
 }
 
-const REWARD_COINS: Record<string, number> = { "math-coin": 1, "mark-seal": 1 };
+const REWARD_COINS: Record<string, number> = { "math-vault": 1, "mark-seal": 1 };
 const REWARD_LIVES: Record<string, number> = { "retry-heart": 1, "math-core": -1 };
 const REWARD_SECONDS: Record<string, number> = { "time-shard": 30 };
 

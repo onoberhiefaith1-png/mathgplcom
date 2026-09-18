@@ -101,10 +101,13 @@ const FLAME_FRAG = /* glsl */ `
     float y = uv.y;
     float x = uv.x - 0.5;
 
-    // rising, domain-warped turbulence
+    // rising, domain-warped turbulence, with a second faster layer so the
+    // silhouette never settles into one repeating shape
     vec2 q = vec2(uv.x * 3.0, uv.y * 2.2 - uTime * 1.35 + uSeed);
     float warp = fbm(q + fbm(q * 1.7) * 0.6);
-    float lick = (warp - 0.5) * (0.16 + y * 0.5);
+    vec2 q2 = vec2(uv.x * 6.4 + uSeed, uv.y * 4.1 - uTime * 2.6);
+    float fine = fbm(q2);
+    float lick = (warp - 0.5) * (0.16 + y * 0.5) + (fine - 0.5) * 0.09 * y;
 
     // tapering flame profile, widest just above the fuel
     float width = 0.30 * (1.0 - pow(abs(y - 0.22) / 0.82, 1.5));
@@ -115,17 +118,25 @@ const FLAME_FRAG = /* glsl */ `
     float tip = smoothstep(1.02, 0.55, y);
     float base = smoothstep(0.0, 0.10, y);
     float heat = body * tip * base;
-    heat *= 0.75 + 0.5 * warp;
+    // tongues of differing size break off toward the top
+    heat *= 0.62 + 0.62 * warp;
+    heat *= 0.84 + 0.30 * fine * smoothstep(0.25, 1.0, y);
     heat *= 0.85 + 0.3 * uFlicker * sin(uTime * 11.0 + uSeed * 5.0);
     heat = clamp(heat, 0.0, 1.0);
     if (heat < 0.02) discard;
 
+    // small secondary flamelets flaring beside the main body
+    float side = 1.0 - smoothstep(0.9, 1.9, d);
+    heat = max(heat, side * smoothstep(0.05, 0.3, y) * tip * pow(fine, 2.6) * 0.75);
+
     float depthIn = heat * (1.0 - y * 0.55);
-    vec3 edge = vec3(0.85, 0.14, 0.02);
-    vec3 mid  = vec3(1.0, 0.52, 0.07);
-    vec3 core = vec3(1.0, 0.96, 0.82);
-    vec3 col = mix(edge, mid, smoothstep(0.08, 0.42, depthIn));
-    col = mix(col, core, smoothstep(0.52, 0.86, depthIn));
+    vec3 soot = vec3(0.42, 0.05, 0.01);
+    vec3 edge = vec3(0.92, 0.16, 0.02);
+    vec3 mid  = vec3(1.0, 0.55, 0.08);
+    vec3 core = vec3(1.0, 0.98, 0.92);
+    vec3 col = mix(soot, edge, smoothstep(0.0, 0.14, depthIn));
+    col = mix(col, mid, smoothstep(0.10, 0.44, depthIn));
+    col = mix(col, core, smoothstep(0.50, 0.80, depthIn));
     col *= uTint;
 
     gl_FragColor = vec4(col, heat * 0.95);

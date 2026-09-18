@@ -26,7 +26,8 @@ export type PbrFamily =
   | "rust-metal"
   | "metal-plate"
   | "ice"
-  | "parchment";
+  | "parchment"
+  | "silk-satin";
 
 export interface PbrSet {
   map: string;
@@ -68,6 +69,7 @@ export const PBR_SETS: Record<PbrFamily, PbrSet> = {
   "metal-plate": set("metal-plate", 1, 0.95, 0.8),
   ice: set("ice", 1, 0, 0.55, "#eef6fb"),
   parchment: set("parchment", 1, 0, 0.7, "#e8dcc0"),
+  "silk-satin": set("silk-satin", 0.42, 0, 0.48, "#d93664"),
 };
 
 /** Slate surface id -> scanned material family. */
@@ -82,6 +84,23 @@ export const SURFACE_FAMILY: Record<string, PbrFamily> = {
   shield: "rust-metal",
   glass: "ice",
   ice: "ice",
+  "royal-paper": "parchment",
+  "leaf-frame": "parchment",
+  "magical-aura": "ice",
+  cloud: "ice",
+  "silk-ribbon": "parchment",
+  none: "ice",
+  plain: "parchment",
+  "new-parchment-scroll": "parchment",
+  "new-royal-plaque": "parchment",
+  "new-crystal-glass": "ice",
+  "new-wooden-sign": "wood",
+  "new-stone-tablet": "tablet-stone",
+  "new-leaf-frame": "parchment",
+  "new-magical-aura": "ice",
+  "new-cloud-panel": "ice",
+  "new-metal-plate": "metal-plate",
+  "new-silk-ribbon": "silk-satin",
 };
 
 export const surfaceFamily = (surfaceId: string): PbrFamily =>

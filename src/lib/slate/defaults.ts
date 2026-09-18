@@ -1,6 +1,6 @@
-import type { Game, GameSettings, GameStatus, NumberSettings, Slot } from "./types";
+import type { AssetSettings, Game, GameSettings, GameStatus, NumberSettings, Slot } from "./types";
 import { defaultScene } from "./environments";
-import { roomForSurface } from "./rooms";
+import { NO_ROOM_ID } from "./rooms";
 import { defaultTextSettings } from "./text3d";
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -20,6 +20,13 @@ export const defaultNumberSettings = (): NumberSettings => ({
   swatches: [],
 });
 
+export const defaultAssetSettings = (): AssetSettings => ({
+  sun: null,
+  audio: [],
+  activeTrackId: null,
+  roomTrackIds: {},
+});
+
 export const defaultSettings = (): GameSettings => ({
   slate: { scale: 1, width: 860, slotSpacing: 22, slotMinHeight: 96, slotPadding: 22 },
   text: defaultTextSettings(),
@@ -34,11 +41,19 @@ export const defaultSettings = (): GameSettings => ({
     style: "material",
   },
   rewards: { visible: true, opacity: 0.45, glow: 0.35, scale: 1 },
-  effects: { speed: 1, glow: 1, particles: 1, duration: 3.5, testMode: true },
+  effects: {
+    speed: 1,
+    glow: 1,
+    particles: 1,
+    duration: 3.5,
+    testMode: true,
+    premiumBombStyle: "radiant-chain",
+  },
+  assets: defaultAssetSettings(),
 });
 
 export const defaultGameStatus = (): GameStatus => ({
-  coins: 0,
+  vaultsOpened: 0,
   lives: 3,
   timerEndsAt: null,
 });
@@ -60,17 +75,23 @@ export const makeGame = (input: {
   lines: number;
   background: Game["background"];
   roomId?: string;
+  /** MathGPL: Game Lines the repeating reward pattern covers. */
+  patternLength?: number;
 }): Game => ({
-  id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : uid(),
+  id: uid(),
   name: input.name.trim() || "Untitled Game",
   topic: input.topic.trim(),
   subtopic: input.subtopic.trim(),
   surfaceId: input.surfaceId,
-  roomId: input.roomId ?? roomForSurface(input.surfaceId).id,
+  surfaceColour: "#f4ead7",
+  roomId: input.roomId ?? NO_ROOM_ID,
   background: input.background,
   slots: Array.from({ length: Math.max(1, input.lines) }, (_, index) => makeSlot(index)),
-  patternLength: Math.max(1, input.lines),
   settings: defaultSettings(),
   status: defaultGameStatus(),
+  patternLength:
+    Number(input.patternLength) > 0
+      ? Math.floor(Number(input.patternLength))
+      : Math.max(1, input.lines),
   updatedAt: Date.now(),
 });

@@ -323,8 +323,30 @@ export const ROOMS: RoomDef[] = [
 
 const FALLBACK = ROOMS[0] as RoomDef;
 
-export const getRoom = (id: string | undefined): RoomDef =>
-  ROOMS.find((room) => room.id === id) ?? FALLBACK;
+/** No room at all: the uploaded background becomes the environment. */
+export const NO_ROOM_ID = "none";
+
+/**
+ * Neutral lighting values used when no room is rendered. Only the slate
+ * consumes these — nothing of the room shell is drawn.
+ */
+export const NEUTRAL_ROOM: RoomDef = {
+  ...FALLBACK,
+  id: NO_ROOM_ID,
+  label: "None (background only)",
+  accent: "#ffd9a3",
+  env: { mood: "neutral", intensity: 0.9 },
+  exposure: 1.05,
+  fog: { colour: "#000000", near: 60, far: 120 },
+  ambient: { colour: "#cfd4da", intensity: 1.0 },
+  key: { colour: "#fff2df", intensity: 1.4, position: [2.5, 5.2, 4] },
+  lights: [],
+  particles: { ...FALLBACK.particles, count: 0, opacity: 0 },
+};
+
+/** Returns null when the game is in background mode (Room = None). */
+export const getRoom = (id: string | undefined): RoomDef | null =>
+  !id || id === NO_ROOM_ID ? null : (ROOMS.find((room) => room.id === id) ?? FALLBACK);
 
 export const roomForSurface = (surfaceId: string): RoomDef =>
   ROOMS.find((room) => room.surfaceId === surfaceId) ?? FALLBACK;

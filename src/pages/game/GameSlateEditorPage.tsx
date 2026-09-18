@@ -12,6 +12,8 @@ import { getReward } from "@/lib/slate/rewards";
 import { getSurface } from "@/lib/slate/surfaces";
 import { loadGame, saveGame } from "@/lib/slate/storage";
 import { makeSlot, uid } from "@/lib/slate/defaults";
+import { isMuted, setMuted } from "@/lib/slate/audio";
+import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 
 
@@ -23,6 +25,25 @@ export default function GameSlateEditorPage() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
   const [questionsOpen, setQuestionsOpen] = useState(false);
+  const [muted, setMutedState] = useState(false);
+
+  useEffect(() => setMutedState(isMuted()), []);
+
+  // background music: the room's own track wins, otherwise the chosen one
+  const assets = game?.settings.assets;
+  const roomTrackId = assets?.roomTrackIds?.[game?.roomId ?? ""] ?? null;
+  const trackId = roomTrackId ?? assets?.activeTrackId ?? null;
+  const track = assets?.audio.find((item) => item.id === trackId) ?? null;
+
+  useEffect(() => {
+    if (!track) {
+      stopTrack();
+      return;
+    }
+    void playTrack(track.assetId, { volume: track.volume, loop: track.loop });
+  }, [track?.assetId, track?.volume, track?.loop]);
+
+  useEffect(() => () => stopTrack(), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,10 +104,14 @@ export default function GameSlateEditorPage() {
       if (!reward || reward.state !== "dormant") return current;
 
       const status = { ...current.status };
-      if (type === "math-coin") status.coins += 1;
+      if (type === "math-vault") status.vaultsOpened += 1;
       if (type === "retry-heart") status.lives += 1;
-      if (type === "time-shard" && status.timerEndsAt && status.timerEndsAt > Date.now()) {
-        status.timerEndsAt += 30_000;
+      if (type === "time-shard") {
+        // the hourglass gives exactly the time the teacher stored in it
+        const bonus = Math.max(1000, reward.durationMs ?? 15_000);
+        const base =
+          status.timerEndsAt && status.timerEndsAt > Date.now() ? status.timerEndsAt : Date.now();
+        status.timerEndsAt = base + bonus;
       }
 
       const next = {
@@ -129,6 +154,13 @@ export default function GameSlateEditorPage() {
 
   const surface = getSurface(game.surfaceId);
   const editing = mode === "edit";
+  const vaultsTotal =
+    game.status.vaultsOpened +
+    game.slots.reduce(
+      (total, slot) =>
+        total + slot.rewards.filter((reward) => reward.type === "math-vault").length,
+      0,
+    );
 
 
   const addReward = (typeId: string) => {
@@ -186,8 +218,20 @@ export default function GameSlateEditorPage() {
               {[game.topic, game.subtopic].filter(Boolean).join(" · ")}
             </span>
           </div>
-          <RewardStatusBar status={game.status} />
+          <RewardStatusBar status={game.status} vaultsTotal={vaultsTotal} />
           <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
+            <button
+              onClick={() => {
+                const next = !muted;
+                setMutedState(next);
+                setMuted(next);
+                applyMute(next, track?.volume ?? 0.6);
+              }}
+              aria-label={muted ? "Turn sound on" : "Turn sound off"}
+              className="rounded border border-amber-200/20 px-2 py-1.5 text-xs text-amber-100/70 hover:bg-amber-200/10"
+            >
+              {muted ? "🔇" : "🔊"}
+            </button>
             <button
               onClick={() => {
                 setMode("view");

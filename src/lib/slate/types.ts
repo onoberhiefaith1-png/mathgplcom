@@ -59,6 +59,14 @@ export interface RewardInstance {
   material?: SceneMaterial;
   colour?: SceneColour;
   relief?: ReliefMode;
+  /** Math Vault only: the teacher's short expression, kept obscured on the slate. */
+  expression?: string;
+  /** Math Vault only: the mathematical components that should open it. */
+  targets?: string;
+  /** Hidden effect code: what this effect reveals while it plays. */
+  script?: string;
+  /** Hourglass only: the time it holds, in milliseconds. */
+  durationMs?: number;
 }
 
 export interface Slot {
@@ -73,8 +81,10 @@ export interface Slot {
 }
 
 export interface BackgroundSettings {
-  /** Data URL or bundled asset URL. */
+  /** Bundled preset URL, or a legacy data URL from older saves. */
   src: string | null;
+  /** Uploaded file kept in IndexedDB — saved games only store this id. */
+  assetId?: string | null;
   kind: "image" | "video";
   scale: number;
   x: number;
@@ -131,11 +141,54 @@ export interface EffectSettings {
   particles: number;
   duration: number;
   testMode: boolean;
+  /** Saved visual package for the separate Premium Spherical Chain Bomb. */
+  premiumBombStyle: PremiumBombStyle;
+}
+
+export type PremiumBombStyle =
+  | "solar-burst"
+  | "golden-comet"
+  | "rainbow-energy"
+  | "royal-magic"
+  | "crystal-pulse"
+  | "firestorm"
+  | "plasma-burst"
+  | "star-explosion"
+  | "arcane-spiral"
+  | "radiant-chain";
+
+/** The user's own sun / light effect, uploaded in the editor. */
+export interface SunAsset {
+  assetId: string;
+  name: string;
+  colour: string;
+  intensity: number;
+  glow: number;
+  scale: number;
+  loop: boolean;
+}
+
+/** One uploaded background music track. */
+export interface AudioTrack {
+  id: string;
+  assetId: string;
+  name: string;
+  volume: number;
+  loop: boolean;
+}
+
+export interface AssetSettings {
+  sun: SunAsset | null;
+  audio: AudioTrack[];
+  activeTrackId: string | null;
+  /** Optional per-room track choice, keyed by room id. */
+  roomTrackIds: Record<string, string>;
 }
 
 /** Values the student keeps while playing this saved slate. */
 export interface GameStatus {
-  coins: number;
+  /** Math Vaults opened in this slate. */
+  vaultsOpened: number;
   lives: number;
   /** Absolute timestamp; null means no timer is currently running. */
   timerEndsAt: number | null;
@@ -150,6 +203,8 @@ export interface GameSettings {
   numbers: NumberSettings;
   rewards: RewardSettings;
   effects: EffectSettings;
+  /** Uploaded sun and background music. */
+  assets: AssetSettings;
 }
 
 export interface Game {
@@ -158,15 +213,16 @@ export interface Game {
   topic: string;
   subtopic: string;
   surfaceId: string;
+  /** Teacher-selected colour for the Plain writing surface. */
+  surfaceColour?: string;
   /** The 3D room this slate physically lives in. */
   roomId: string;
   background: BackgroundSettings;
-  /** The Lines that make up the repeating reward pattern. */
   slots: Slot[];
-  /** How many Lines the reward pattern is long. Defaults to slots.length. */
-  patternLength?: number;
   settings: GameSettings;
   status: GameStatus;
+  /** MathGPL: how many Game Lines the repeating reward pattern covers. */
+  patternLength: number;
   updatedAt: number;
 }
 
