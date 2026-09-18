@@ -3256,6 +3256,28 @@ function DocumentEditorInner({
     aiEditBridgeApplyRef.current = null;
   };
 
+  /** What surrounds the highlighted fragment: the lesson the edit lives in.
+   *  AI Edit reasons with this (title, explanation, question, existing
+   *  solution, tables) instead of only the highlighted characters. */
+  const buildEditContext = (): string => {
+    const range = aiEditRangeRef.current;
+    if (!editor) return "";
+    const leaf = (l: any) => {
+      const v = l?.attrs?.value;
+      return typeof v === "string" && v.length ? v : "";
+    };
+    const doc = editor.state.doc;
+    const size = doc.content.size;
+    const from = range?.from ?? 0;
+    const to = range?.to ?? 0;
+    const before = doc.textBetween(Math.max(0, from - 6000), Math.max(0, from), "\n", leaf);
+    const after = range ? doc.textBetween(Math.min(size, to), Math.min(size, to + 2000), "\n", leaf) : "";
+    const parts: string[] = [];
+    if (before.trim()) parts.push(`BEFORE THE SELECTION:\n${before.trim()}`);
+    if (after.trim()) parts.push(`AFTER THE SELECTION:\n${after.trim()}`);
+    return parts.join("\n\n");
+  };
+
   const runAiEdit = async (instruction: string, target: AiEditTarget): Promise<string> => {
     const selectionText = (target.text ?? "").trim();
     if (!selectionText) {
@@ -3273,10 +3295,10 @@ function DocumentEditorInner({
         topic: activeContext()?.topic ?? "",
         subtopic: activeContext()?.subtopic ?? "",
         workspaceManifest: buildWorkspaceManifest(),
-
+        lessonContext: buildEditContext(),
         forceAllStandards: instructionTriggersStandards(instruction),
       },
-    }), 35_000, "AI editing took too long. Please try again.");
+    }), 60_000, "AI editing took too long. Please try again.");
     if (error) throw error;
     return String((data as any)?.content ?? "").trim();
   };
