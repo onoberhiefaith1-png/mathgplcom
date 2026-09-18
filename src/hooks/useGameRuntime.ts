@@ -65,8 +65,12 @@ export const useGameRuntime = (params: {
   assignmentId?: string | null;
   /** Teacher's Play / Test sitting — nothing is recorded. */
   testMode?: boolean;
+  /** The student's live working per Floating Numbers line (0-based index). */
+  lineText?: Record<number, string>;
 }): GameRuntime => {
-  const { game, boards, studentId, assignmentId = null, testMode = false } = params;
+  const {
+    game, boards, studentId, assignmentId = null, testMode = false, lineText = {},
+  } = params;
 
   const [ready, setReady] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -91,7 +95,7 @@ export const useGameRuntime = (params: {
   );
 
   const lines = useMemo(
-    () => (game && question ? mapQuestionLines(game, question.lineTimers) : []),
+    () => (game && question ? mapQuestionLines(game, question.lineTimers, question.lineIds) : []),
     [game, question],
   );
 
