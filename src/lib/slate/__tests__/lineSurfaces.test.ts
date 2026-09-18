@@ -8,7 +8,15 @@ import {
 import { mapQuestionLines } from "../pattern";
 import { makeGame } from "../defaults";
 
-const game = () => makeGame("Test");
+const game = () =>
+  makeGame({
+    name: "Test",
+    topic: "",
+    subtopic: "",
+    surfaceId: "stone-wall",
+    lines: 4,
+    background: { src: null, assetId: null, kind: "image", scale: 1, x: 0, y: 0, opacity: 1 },
+  });
 
 describe("line time fractions", () => {
   it("never invents a bonus of its own", () => {

@@ -87,11 +87,14 @@ const flatten = (text: string): string =>
     .replace(/\s+/g, "")
     .toLowerCase();
 
+/** The canonical engine reads equations, so a bare side is compared against 0. */
+const asEquation = (text: string): string => (text.includes("=") ? text : `${text}=0`);
+
 const sameMath = (a: string, b: string): boolean => {
   if (!a || !b) return false;
   if (flatten(a) === flatten(b)) return true;
-  const ca = canonical(a);
-  const cb = canonical(b);
+  const ca = canonical(asEquation(a));
+  const cb = canonical(asEquation(b));
   return Boolean(ca && cb && canonicalEqual(ca, cb));
 };
 
