@@ -305,7 +305,7 @@ export default function GameSlateEditorPage() {
         <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[24%] md:min-w-[300px] md:max-w-[440px] md:shrink-0">
           <QuestionsPanel
             game={game}
-            onChange={(settings) => update({ settings })}
+            onChange={(settings) => patchGame({ settings })}
             onClose={() => setQuestionsOpen(false)}
           />
         </div>
