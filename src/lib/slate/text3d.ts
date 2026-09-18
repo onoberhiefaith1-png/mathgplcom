@@ -200,7 +200,7 @@ export const defaultTextSettings = (): TextSettings => ({
   highlight: 1,
   glow: "subtle",
   glowIntensity: 1,
-  align: "left",
+  align: "center",
   lineSpacing: 1.45,
   letterSpacing: 0.01,
   colour: null,

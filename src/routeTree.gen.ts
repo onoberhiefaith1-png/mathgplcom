@@ -124,6 +124,7 @@ import { Route as CommunityStudentsIndexRouteImport } from './routes/community/s
 import { Route as CommunityTagTagRouteImport } from './routes/community/tag/$tag'
 import { Route as CommunityTeachersIndexRouteImport } from './routes/community/teachers/index'
 import { Route as CourseBuilderCourseIdIndexRouteImport } from './routes/course-builder/$courseId/index'
+import { Route as DevSurfacesIndexRouteImport } from './routes/dev/surfaces/index'
 import { Route as FamilyTeachersIndexRouteImport } from './routes/family/teachers/index'
 import { Route as GameSlugIndexRouteImport } from './routes/game/$slug/index'
 import { Route as GamesAdditionIndexRouteImport } from './routes/games/addition/index'
@@ -912,6 +913,11 @@ const CourseBuilderCourseIdIndexRoute =
     path: '/$courseId/',
     getParentRoute: () => CourseBuilderRouteRoute,
   } as any)
+const DevSurfacesIndexRoute = DevSurfacesIndexRouteImport.update({
+  id: '/dev/surfaces/',
+  path: '/dev/surfaces/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FamilyTeachersIndexRoute = FamilyTeachersIndexRouteImport.update({
   id: '/teachers/',
   path: '/teachers/',
@@ -2210,6 +2216,7 @@ export interface FileRoutesByFullPath {
   '/community/students/': typeof CommunityStudentsIndexRoute
   '/community/teachers/': typeof CommunityTeachersIndexRoute
   '/course-builder/$courseId/': typeof CourseBuilderCourseIdIndexRoute
+  '/dev/surfaces/': typeof DevSurfacesIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -2521,6 +2528,7 @@ export interface FileRoutesByTo {
   '/community/students': typeof CommunityStudentsIndexRoute
   '/community/teachers': typeof CommunityTeachersIndexRoute
   '/course-builder/$courseId': typeof CourseBuilderCourseIdIndexRoute
+  '/dev/surfaces': typeof DevSurfacesIndexRoute
   '/family/teachers': typeof FamilyTeachersIndexRoute
   '/game/$slug': typeof GameSlugIndexRoute
   '/games/addition': typeof GamesAdditionIndexRoute
@@ -2845,6 +2853,7 @@ export interface FileRoutesById {
   '/community/students/': typeof CommunityStudentsIndexRoute
   '/community/teachers/': typeof CommunityTeachersIndexRoute
   '/course-builder/$courseId/': typeof CourseBuilderCourseIdIndexRoute
+  '/dev/surfaces/': typeof DevSurfacesIndexRoute
   '/family/teachers/': typeof FamilyTeachersIndexRoute
   '/game/$slug/': typeof GameSlugIndexRoute
   '/games/addition/': typeof GamesAdditionIndexRoute
@@ -3170,6 +3179,7 @@ export interface FileRouteTypes {
     | '/community/students/'
     | '/community/teachers/'
     | '/course-builder/$courseId/'
+    | '/dev/surfaces/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -3481,6 +3491,7 @@ export interface FileRouteTypes {
     | '/community/students'
     | '/community/teachers'
     | '/course-builder/$courseId'
+    | '/dev/surfaces'
     | '/family/teachers'
     | '/game/$slug'
     | '/games/addition'
@@ -3804,6 +3815,7 @@ export interface FileRouteTypes {
     | '/community/students/'
     | '/community/teachers/'
     | '/course-builder/$courseId/'
+    | '/dev/surfaces/'
     | '/family/teachers/'
     | '/game/$slug/'
     | '/games/addition/'
@@ -4077,6 +4089,7 @@ export interface RootRouteChildren {
   CSlugIndexRoute: typeof CSlugIndexRoute
   CardSlugIndexRoute: typeof CardSlugIndexRoute
   ChallengeSlugIndexRoute: typeof ChallengeSlugIndexRoute
+  DevSurfacesIndexRoute: typeof DevSurfacesIndexRoute
   GameSlugIndexRoute: typeof GameSlugIndexRoute
   GamesAdditionIndexRoute: typeof GamesAdditionIndexRoute
   GamesBidmasIndexRoute: typeof GamesBidmasIndexRoute
@@ -4962,6 +4975,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/course-builder/$courseId/'
       preLoaderRoute: typeof CourseBuilderCourseIdIndexRouteImport
       parentRoute: typeof CourseBuilderRouteRoute
+    }
+    '/dev/surfaces/': {
+      id: '/dev/surfaces/'
+      path: '/dev/surfaces'
+      fullPath: '/dev/surfaces/'
+      preLoaderRoute: typeof DevSurfacesIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/family/teachers/': {
       id: '/family/teachers/'
@@ -7026,6 +7046,7 @@ const rootRouteChildren: RootRouteChildren = {
   CSlugIndexRoute: CSlugIndexRoute,
   CardSlugIndexRoute: CardSlugIndexRoute,
   ChallengeSlugIndexRoute: ChallengeSlugIndexRoute,
+  DevSurfacesIndexRoute: DevSurfacesIndexRoute,
   GameSlugIndexRoute: GameSlugIndexRoute,
   GamesAdditionIndexRoute: GamesAdditionIndexRoute,
   GamesBidmasIndexRoute: GamesBidmasIndexRoute,
