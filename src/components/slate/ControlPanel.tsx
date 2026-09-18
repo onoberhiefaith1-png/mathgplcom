@@ -643,7 +643,7 @@ export function ControlPanel({
 
         <Section title="Rewards">
           <div className="grid grid-cols-5 gap-1">
-            {REWARDS.map((r) => (
+            {PLACEABLE_REWARDS.map((r) => (
               <button
                 key={r.id}
                 onClick={() => {
