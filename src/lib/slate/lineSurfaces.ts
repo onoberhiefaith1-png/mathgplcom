@@ -6,8 +6,7 @@
 // the Floating Numbers line id — never by position, never by a second id.
 
 import { canonical, canonicalEqual } from "@/lib/smartboard/canonical";
-import { rewardsForLine } from "./pattern";
-import type { Game, LineSurfaceConfig, TimeFraction } from "./types";
+import type { Game, LineSurfaceConfig, RewardInstance, TimeFraction } from "./types";
 
 export const TIME_FRACTIONS: { id: TimeFraction; label: string; value: number }[] = [
   { id: "full", label: "Full time", value: 1 },
@@ -141,6 +140,7 @@ export const vaultMatches = (
 export const previewSlots = (
   game: Game,
   lineEquations: string[],
+  rewardsFor: (line: number) => RewardInstance[],
 ): Game["slots"] => {
   if (lineEquations.length === 0) return game.slots;
   return lineEquations.map((equation, i) => {
@@ -150,7 +150,7 @@ export const previewSlots = (
       ...source,
       id: `preview-${line}`,
       text: equation ?? "",
-      rewards: rewardsForLine(game, line),
+      rewards: rewardsFor(line),
     };
   });
 };
