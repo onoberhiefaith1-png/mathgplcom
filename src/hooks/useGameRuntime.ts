@@ -200,6 +200,8 @@ export const useGameRuntime = (params: {
     if (!question) return;
     startQuestionTimer(question.questionTimerSeconds);
     setLineDeadline(null);
+    timedLine.current = null;
+    expiredLines.current = new Set();
   }, [question, startQuestionTimer]);
 
   /** A Life gives back a teacher-set fraction of the ORIGINAL question time. */
@@ -384,6 +386,8 @@ export const useGameRuntime = (params: {
   const restartQuestion = useCallback(() => {
     startQuestionTimer(question?.questionTimerSeconds ?? null);
     setLineDeadline(null);
+    timedLine.current = null;
+    expiredLines.current = new Set();
     setCurrentLine(1);
     setCompletedLines([]);
   }, [question, startQuestionTimer]);
@@ -399,6 +403,8 @@ export const useGameRuntime = (params: {
     setEarnedMarks(0);
     setStatus("in_progress");
     awarded.current = new Set();
+    expiredLines.current = new Set();
+    timedLine.current = null;
     startQuestionTimer(boards[0]?.questionTimerSeconds ?? null);
   }, [game, boards, startQuestionTimer]);
 
