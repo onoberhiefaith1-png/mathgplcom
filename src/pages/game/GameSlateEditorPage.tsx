@@ -303,7 +303,16 @@ export default function GameSlateEditorPage() {
           </div>
         </header>
 
-        {!editing ? (
+        {previewLines ? (
+          <button
+            onClick={() => setPreviewLines(null)}
+            className="absolute inset-x-0 bottom-4 z-20 mx-auto w-fit rounded border border-amber-300/40 bg-black/70 px-3 py-1.5 text-[11px] uppercase tracking-[0.2em] text-amber-100"
+          >
+            Showing the question's lines · exit preview
+          </button>
+        ) : null}
+
+        {!editing && !previewLines ? (
           <p className="pointer-events-none absolute inset-x-0 bottom-4 z-20 text-center text-[11px] uppercase tracking-[0.22em] text-amber-100/40">
             Click a section and write · {surface.label}
           </p>
