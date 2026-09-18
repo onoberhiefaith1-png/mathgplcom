@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { mapQuestionLines, type MappedLine } from "@/lib/slate/pattern";
+import { fractionSeconds, vaultMatches } from "@/lib/slate/lineSurfaces";
 import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
@@ -51,9 +52,8 @@ export interface GameRuntime {
   dismissMessage: () => void;
 }
 
-const REWARD_COINS: Record<string, number> = { "math-vault": 1, "mark-seal": 1 };
+const REWARD_COINS: Record<string, number> = { "mark-seal": 1 };
 const REWARD_LIVES: Record<string, number> = { "retry-heart": 1, "math-core": -1 };
-const REWARD_SECONDS: Record<string, number> = { "time-shard": 30 };
 
 const rewardKey = (questionId: string, line: number, rewardId: string) =>
   `${questionId}:${line}:${rewardId}`;
