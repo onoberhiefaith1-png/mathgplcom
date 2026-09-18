@@ -222,9 +222,10 @@ export default function GameSlateGalleryPage() {
             <div className="mt-8 flex gap-2">
               <button
                 onClick={create}
-                className="rounded border border-amber-300/60 bg-amber-300/20 px-5 py-2 text-xs uppercase tracking-[0.22em] text-amber-100 hover:bg-amber-300/30"
+                disabled={busy}
+                className="rounded border border-amber-300/60 bg-amber-300/20 px-5 py-2 text-xs uppercase tracking-[0.22em] text-amber-100 hover:bg-amber-300/30 disabled:opacity-50"
               >
-                Create game
+                {busy ? "Creating…" : "Create game"}
               </button>
               <button
                 onClick={() => setCreating(false)}
