@@ -29,6 +29,7 @@ export default function GameSlateGalleryPage() {
   const navigate = useNavigate();
   const [games, setGames] = useState<Game[]>([]);
   const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
