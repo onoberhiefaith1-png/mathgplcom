@@ -356,8 +356,11 @@ export const useGameRuntime = (params: {
     const tick = window.setInterval(() => {
       if (Date.now() < lineDeadline) return;
       window.clearInterval(tick);
+      // The Hourglass dissolves: no time reward, and no penalty either.
+      if (timedLine.current) expiredLines.current.add(timedLine.current);
+      timedLine.current = null;
       setLineDeadline(null);
-      setMessage("Line time ran out — the Line's Timer Reward was lost.");
+      setMessage("Line time ran out — the Hourglass dissolved. Keep solving.");
     }, 500);
     return () => window.clearInterval(tick);
   }, [lineDeadline]);
