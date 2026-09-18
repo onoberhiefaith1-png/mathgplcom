@@ -18,18 +18,27 @@ import {
 } from "@/lib/slate/gameQuestions";
 import { mapQuestionLines, patternLengthOf } from "@/lib/slate/pattern";
 import { getReward } from "@/lib/slate/rewards";
+import {
+  TIME_FRACTIONS,
+  fractionSeconds,
+  lineConfigOf,
+  lineSurfacesInSync,
+  syncLineSurfaces,
+} from "@/lib/slate/lineSurfaces";
 import { questionTimer } from "@/lib/lessonnotes/floatingCompile";
-import type { Game } from "@/lib/slate/types";
+import type { Game, LineSurfaceConfig, TimeFraction } from "@/lib/slate/types";
 
 interface Props {
   game: Game;
+  /** Saves the Game-side configuration of the attached exercise's lines. */
+  onChange: (settings: Game["settings"]) => void;
   onClose: () => void;
 }
 
 const rowClass =
   "rounded border border-amber-200/15 bg-black/30 px-3 py-2 text-[12px] text-amber-100/80";
 
-export function QuestionsPanel({ game, onClose }: Props) {
+export function QuestionsPanel({ game, onChange, onClose }: Props) {
   const [questions, setQuestions] = useState<GameQuestion[]>([]);
   const [picker, setPicker] = useState<PickableQuestion[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -43,6 +52,23 @@ export function QuestionsPanel({ game, onClose }: Props) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  /* Attaching or re-reading an exercise creates one writing surface per
+     Floating Numbers line. Surviving lines keep everything the teacher set. */
+  useEffect(() => {
+    if (loading) return;
+    const lineIds = questions.flatMap((q) => q.lines.map((line) => line.lineId));
+    if (lineSurfacesInSync(game.settings.lines, lineIds)) return;
+    onChange({ ...game.settings, lines: syncLineSurfaces(game.settings.lines, lineIds) });
+  }, [loading, questions, game.settings, onChange]);
+
+  const setLine = (lineId: string, patch: Partial<LineSurfaceConfig>) => {
+    const current = lineConfigOf(game, lineId);
+    onChange({
+      ...game.settings,
+      lines: { ...game.settings.lines, [lineId]: { ...current, ...patch } },
+    });
+  };
 
   const move = async (index: number, delta: number) => {
     const next = [...questions];
@@ -84,6 +110,7 @@ export function QuestionsPanel({ game, onClose }: Props) {
           const rows = mapQuestionLines(
             game,
             q.lines.map((line) => line.timerSeconds ?? null),
+            q.lines.map((line) => line.lineId),
           );
           return (
             <div key={q.id} className={rowClass}>
@@ -123,25 +150,83 @@ export function QuestionsPanel({ game, onClose }: Props) {
               </div>
 
               {openId === q.id ? (
-                <ul className="mt-3 space-y-1 border-t border-amber-200/10 pt-2 font-mono text-[11px]">
-                  {rows.map((row) => (
-                    <li key={row.line} className="flex items-baseline gap-2">
-                      <span className="w-14 shrink-0 text-amber-200/50">
-                        {row.isQuestion ? "Line 0" : `Line ${row.line}`}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-amber-100/70">
-                        {row.isQuestion
-                          ? `${q.questionText || "Question"} (read-only)`
-                          : q.lines[row.line - 1]?.equation ?? ""}
-                      </span>
-                      <span className="shrink-0 text-amber-100/50">
-                        {row.rewards.length === 0
-                          ? "—"
-                          : row.rewards.map((r) => getReward(r.type).label).join(", ")}
-                        {row.timerSeconds ? ` + Timer Reward ${row.timerSeconds}s` : ""}
-                      </span>
-                    </li>
-                  ))}
+                <ul className="mt-3 space-y-2 border-t border-amber-200/10 pt-2 text-[11px]">
+                  {rows.map((row) => {
+                    const config = row.lineId ? lineConfigOf(game, row.lineId) : null;
+                    return (
+                      <li key={row.line} className="space-y-1">
+                        <div className="flex items-baseline gap-2 font-mono">
+                          <span className="w-14 shrink-0 text-amber-200/50">
+                            {row.isQuestion ? "Line 0" : `Line ${row.line}`}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-amber-100/70">
+                            {row.isQuestion
+                              ? `${q.questionText || "Question"} (read-only)`
+                              : q.lines[row.line - 1]?.equation ?? ""}
+                          </span>
+                          <span className="shrink-0 text-amber-100/50">
+                            {row.rewards.length === 0
+                              ? "—"
+                              : row.rewards.map((r) => getReward(r.type).label).join(", ")}
+                          </span>
+                        </div>
+
+                        {row.lineId && config ? (
+                          <div className="ml-14 space-y-1">
+                            {row.timerSeconds ? (
+                              <label className="flex items-center gap-2 text-amber-100/60">
+                                <span className="w-24 shrink-0">
+                                  Hourglass ({row.timerSeconds}s line)
+                                </span>
+                                <select
+                                  value={config.hourglassReward}
+                                  onChange={(e) =>
+                                    setLine(row.lineId!, {
+                                      hourglassReward: e.target.value as TimeFraction,
+                                    })
+                                  }
+                                  className="rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 text-amber-50"
+                                >
+                                  {TIME_FRACTIONS.map((f) => (
+                                    <option key={f.id} value={f.id}>{f.label}</option>
+                                  ))}
+                                </select>
+                                <span className="text-amber-100/40">
+                                  +{fractionSeconds(row.timerSeconds, config.hourglassReward)}s
+                                </span>
+                              </label>
+                            ) : (
+                              <p className="text-amber-100/35">
+                                No line time in Floating Numbers — no Hourglass on this line.
+                              </p>
+                            )}
+
+                            <label className="flex items-center gap-2 text-amber-100/60">
+                              <span className="w-24 shrink-0">Vault opens for</span>
+                              <input
+                                value={config.vaultExpression ?? ""}
+                                onChange={(e) =>
+                                  setLine(row.lineId!, { vaultExpression: e.target.value })
+                                }
+                                placeholder="e.g. x + 7"
+                                className="min-w-0 flex-1 rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 font-mono text-amber-50"
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                value={config.vaultCoins}
+                                onChange={(e) =>
+                                  setLine(row.lineId!, { vaultCoins: Number(e.target.value) })
+                                }
+                                title="Coins the Vault pays"
+                                className="w-14 rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 text-amber-50"
+                              />
+                            </label>
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : null}
             </div>
