@@ -3238,6 +3238,73 @@ function DocumentEditorInner({
     setAiEditOpen(true);
   };
 
+  /** SESSION — turn the highlighted content into a real MathGPL session
+   *  (Example, Solution, Classwork, Exercise, Explanation, Summary,
+   *  Conclusion, or a general session) using the SAME structural heading the
+   *  rest of the system reads: Lesson Notes, Present, Smartboard, navigation
+   *  and the notebook sync all pick it up from the stamped heading. The
+   *  conversion happens in place — no second copy, nothing is dropped. */
+  const makeSession = (snap: SelectionSnapshot) => {
+    if (!editor) return;
+    const raw = snap.json as any;
+    const nodes: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.content) ? raw.content : [];
+    if (!nodes.length) {
+      toast({ title: "Select the content first" });
+      return;
+    }
+
+    // A selection made inside one paragraph arrives as inline nodes: keep them
+    // together as one paragraph so no character is lost.
+    const body: any[] = nodes.some((n) => n?.type === "text" || n?.marks)
+      && !nodes.some((n) => n?.type === "paragraph" || n?.type === "heading")
+      ? [{ type: "paragraph", content: nodes }]
+      : [...nodes];
+
+    // A heading already inside the selection names the session — consume it
+    // instead of creating a duplicate one.
+    let title = "";
+    let kind: SectionKind | null = null;
+    const first = body[0];
+    if (first?.type === "heading") {
+      title = (first.content ?? []).map((c: any) => c?.text ?? "").join("").trim();
+      kind = detectSectionKind(title);
+      body.shift();
+    }
+    if (!kind) {
+      const firstLine = (snap.text ?? "").split("\n").map((l) => l.trim()).find(Boolean) ?? "";
+      kind = detectSectionKind(firstLine);
+    }
+    const sessionKind: SectionKind = kind ?? "explanation";
+    const heading = title || SECTION_LABELS[sessionKind];
+    const qid = isQuestionSectionKind(sessionKind) && sessionKind !== "game_questions"
+      ? newQuestionId()
+      : null;
+
+    if (!body.length) body.push({ type: "paragraph" });
+
+    const ok = editor
+      .chain()
+      .focus()
+      .insertContentAt(
+        { from: snap.from, to: snap.to },
+        [
+          {
+            type: "heading",
+            attrs: { level: 2, ...(qid ? { sectionId: qid } : {}) },
+            content: [{ type: "text", text: heading }],
+          },
+          ...body,
+        ],
+      )
+      .run();
+
+    toast(
+      ok
+        ? { title: `Converted to ${SECTION_LABELS[sessionKind]}` }
+        : { title: "Could not convert this selection", variant: "destructive" },
+    );
+  };
+
   /** Asset-driven AI Edit (Smart Table cells, …) — same panel, own apply. */
   const requestAiEdit = useCallback((req: AiEditRequest) => {
     aiEditRangeRef.current = null;
