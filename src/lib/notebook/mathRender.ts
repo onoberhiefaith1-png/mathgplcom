@@ -137,6 +137,7 @@ const MACRO_GLYPH: Record<string, string> = {
   in: "∈", notin: "∉", ni: "∋",
   subset: "⊂", supset: "⊃", subseteq: "⊆", supseteq: "⊇",
   cap: "∩", cup: "∪", setminus: "∖",
+  mid: "|", vert: "|", Vert: "‖", colon: ":",
   land: "∧", lor: "∨", lnot: "¬", neg: "¬",
   implies: "⇒", impliedby: "⇐", iff: "⇔",
   therefore: "∴", because: "∵",
@@ -166,6 +167,8 @@ export const normalizeMath = (raw: string): string => {
   s = s.replace(/\\left\./g, "").replace(/\\right\./g, "");
   s = s.replace(/\\,|\\;|\\:|\\!|\\quad|\\qquad/g, " ");
   s = s.replace(/\\displaystyle\b/g, "").replace(/\\text\s*\{([^{}]*)\}/g, "$1");
+  // Escaped set braces are ordinary braces on the board: \{1,2,3\} → {1, 2, 3}.
+  s = s.replace(/\\([{}])/g, "$1");
   s = s.replace(/\\times\b/g, "×");
   s = s.replace(/\\cdot\b/g, "·");
   s = s.replace(/\\pm\b/g, "±");
