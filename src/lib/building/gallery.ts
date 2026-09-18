@@ -6,26 +6,26 @@
  * Samples are bundled app assets resolved through the `builtin:<key>` texture
  * path convention — storage paths keep the existing signed-URL flow.
  */
-import surfaceModernAcademy from "@/assets/slate/surfaces/surface-modern-academy.jpg";
-import surfaceMathematics from "@/assets/slate/surfaces/surface-mathematics.jpg";
-import surfacePremiumDark from "@/assets/slate/surfaces/surface-premium-dark.jpg";
-import surfaceBrightClassroom from "@/assets/slate/surfaces/surface-bright-classroom.jpg";
-import surfaceScience from "@/assets/slate/surfaces/surface-science.jpg";
-import surfaceMinimal from "@/assets/slate/surfaces/surface-minimal.jpg";
-import surfaceFuturistic from "@/assets/slate/surfaces/surface-futuristic.jpg";
-import surfaceSchoolBranding from "@/assets/slate/surfaces/surface-school-branding.jpg";
-import panelReception from "@/assets/slate/surfaces/panel-reception.png.asset.json";
-import panelCreamBlue from "@/assets/slate/surfaces/panel-cream-blue.png.asset.json";
-import panelSlattedWarm from "@/assets/slate/surfaces/panel-slatted-warm.png.asset.json";
-import panelWalnutSlat from "@/assets/slate/surfaces/panel-walnut-slat.png.asset.json";
-import floorScifiBlue from "@/assets/slate/surfaces/floor-scifi-blue-lighting.png.asset.json";
-import floorScifiGrid from "@/assets/slate/surfaces/floor-scifi-grid.png.asset.json";
-import floorMetalPanel from "@/assets/slate/surfaces/floor-metal-panel.png.asset.json";
-import floorNavyBrass from "@/assets/slate/surfaces/floor-navy-brass.png.asset.json";
-import ceilingWhiteGold from "@/assets/slate/surfaces/ceiling-white-gold.png.asset.json";
-import ceilingSpaceshipWhite from "@/assets/slate/surfaces/ceiling-spaceship-white.png.asset.json";
-import ceilingDarkAmberGrid from "@/assets/slate/surfaces/ceiling-dark-amber-grid.png.asset.json";
-import ceilingDarkBlueGrid from "@/assets/slate/surfaces/ceiling-dark-blue-grid.png.asset.json";
+import surfaceModernAcademy from "@/assets/surfaces/surface-modern-academy.jpg";
+import surfaceMathematics from "@/assets/surfaces/surface-mathematics.jpg";
+import surfacePremiumDark from "@/assets/surfaces/surface-premium-dark.jpg";
+import surfaceBrightClassroom from "@/assets/surfaces/surface-bright-classroom.jpg";
+import surfaceScience from "@/assets/surfaces/surface-science.jpg";
+import surfaceMinimal from "@/assets/surfaces/surface-minimal.jpg";
+import surfaceFuturistic from "@/assets/surfaces/surface-futuristic.jpg";
+import surfaceSchoolBranding from "@/assets/surfaces/surface-school-branding.jpg";
+import panelReception from "@/assets/surfaces/panel-reception.png.asset.json";
+import panelCreamBlue from "@/assets/surfaces/panel-cream-blue.png.asset.json";
+import panelSlattedWarm from "@/assets/surfaces/panel-slatted-warm.png.asset.json";
+import panelWalnutSlat from "@/assets/surfaces/panel-walnut-slat.png.asset.json";
+import floorScifiBlue from "@/assets/surfaces/floor-scifi-blue-lighting.png.asset.json";
+import floorScifiGrid from "@/assets/surfaces/floor-scifi-grid.png.asset.json";
+import floorMetalPanel from "@/assets/surfaces/floor-metal-panel.png.asset.json";
+import floorNavyBrass from "@/assets/surfaces/floor-navy-brass.png.asset.json";
+import ceilingWhiteGold from "@/assets/surfaces/ceiling-white-gold.png.asset.json";
+import ceilingSpaceshipWhite from "@/assets/surfaces/ceiling-spaceship-white.png.asset.json";
+import ceilingDarkAmberGrid from "@/assets/surfaces/ceiling-dark-amber-grid.png.asset.json";
+import ceilingDarkBlueGrid from "@/assets/surfaces/ceiling-dark-blue-grid.png.asset.json";
 
 export interface SurfaceSample {
   key: string;
