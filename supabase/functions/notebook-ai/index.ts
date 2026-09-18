@@ -1573,6 +1573,8 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         subject?: string; topic?: string; subtopic?: string;
         workspaceManifest?: string;
         forceAllStandards?: boolean;
+        /** Surrounding lesson context so a missing solution can be completed. */
+        lessonContext?: string;
       };
       const selection = String(b.selectionText ?? "").trim();
       const instruction = String(b.instruction ?? "").trim();
@@ -1585,6 +1587,10 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         });
       }
 
+      // SOLUTION INTENT — "generate the solution", "complete this", "solve it".
+      // AI Edit then loads exactly the knowledge Co-Pilot uses for solutions.
+      const solutionIntent = wantsSolution(instruction, selection);
+
       const kindToValidation: Record<string, ValidationKind> = {
         solution: "solution",
         fraction: "problem",
@@ -1593,18 +1599,18 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         paragraph: "text",
         lesson_section: "text",
       };
-      const validationKind: ValidationKind = kindToValidation[b.kind] ?? "text";
+      const validationKind: ValidationKind =
+        solutionIntent ? "solution" : (kindToValidation[b.kind] ?? "text");
 
-      const includeBenchmark = b.forceAllStandards || b.kind === "solution";
-      const includePedagogy = b.forceAllStandards || b.kind === "solution" || b.kind === "lesson_section";
-
+      // ONE shared knowledge layer with Co-Pilot — never a weaker set of rules.
       const standardBlocks = [
-        RENDERING_STANDARD,
-        STRUCTURAL_STANDARD,
-        WORKSPACE_STANDARD,
-        TABLE_RECOGNITION_STANDARD,
-        includeBenchmark ? BENCHMARK_STANDARD : "",
-        includePedagogy ? PEDAGOGY_RULES : "",
+        ...editKnowledgeBlocks({
+          pedagogyRules: PEDAGOGY_RULES,
+          solutionIntent,
+          kind: b.kind,
+          forceAll: b.forceAllStandards,
+        }),
+        solutionIntent || b.kind === "solution" ? SOLUTION_SHAPE_DIRECTIVE : "",
       ].filter(Boolean).join("\n\n");
 
       const sys = `${VALIDATION_DIRECTIVE}
