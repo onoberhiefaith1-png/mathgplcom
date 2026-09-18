@@ -7,6 +7,8 @@ import { ClientOnly } from "@tanstack/react-router";
 const WorldStage = lazy(() => import("@/components/gameslate/world/WorldStage"));
 import { ControlPanel } from "@/components/slate/ControlPanel";
 import { QuestionsPanel } from "@/components/slate/QuestionsPanel";
+import { previewSlots } from "@/lib/slate/lineSurfaces";
+import { rewardsForLine } from "@/lib/slate/pattern";
 import { RewardStatusBar } from "@/components/slate/RewardStatusBar";
 import { getReward } from "@/lib/slate/rewards";
 import { getSurface } from "@/lib/slate/surfaces";
@@ -24,6 +26,8 @@ export default function GameSlateEditorPage() {
   const [mode, setMode] = useState<EditorMode>("edit");
   const [panelOpen, setPanelOpen] = useState(true);
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
+  /** Attached-exercise preview: the question's real lines on this material. */
+  const [previewLines, setPreviewLines] = useState<string[] | null>(null);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [muted, setMutedState] = useState(false);
 
@@ -185,6 +189,12 @@ export default function GameSlateEditorPage() {
       ok ? "Game saved to your account." : "Could not save — the background may be too large.",
     );
   };
+
+  // preview never touches the saved game
+  const stageGame =
+    previewLines && previewLines.length > 0
+      ? { ...game, slots: previewSlots(game, previewLines, (line) => rewardsForLine(game, line)) }
+      : game;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#0b0906] text-amber-50">
