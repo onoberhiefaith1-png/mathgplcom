@@ -270,7 +270,11 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
   }, [classes, selected, initiallySelected]);
 
   const apply = async () => {
-    if (toAssign.length === 0 && toUnassign.length === 0) {
+    // Adding the question to the Game is a change in its own right, even when
+    // no class selection moved — the Game is the container.
+    const joinsGame =
+      target === "game" && !!gameId && !!subsectionId && !!notebookId && !gameStats.hasThis;
+    if (toAssign.length === 0 && toUnassign.length === 0 && !joinsGame) {
       toast({ title: "No changes", variant: "destructive" });
       return;
     }
@@ -296,8 +300,10 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       const assignedIds = new Map<string, string>();
 
       // The question joins the Game once; the Game is what the class receives.
-      if (target === "game" && gameId && subsectionId && notebookId && !gameStats.hasThis) {
-        await assignQuestion(gameId, notebookId, subsectionId);
+      let joinedGame = false;
+      if (joinsGame) {
+        joinedGame = await assignQuestion(gameId, notebookId, subsectionId);
+        if (!joinedGame) throw new Error("This question could not be added to the Game.");
         setGameStats((prev) => ({ ...prev, hasThis: true, count: prev.count + 1 }));
       }
 
@@ -361,6 +367,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
 
 
       const parts: string[] = [];
+      if (joinedGame) parts.push("Added to the Game");
       if (ok > 0) parts.push(`Assigned to ${ok}`);
       if (toUnassign.length > 0) parts.push(`Unassigned ${toUnassign.length}`);
       toast({
