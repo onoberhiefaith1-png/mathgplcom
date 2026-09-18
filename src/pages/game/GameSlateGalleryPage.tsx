@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { SURFACES } from "@/lib/slate/surfaces";
 import {
   deleteGame,
@@ -7,7 +8,7 @@ import {
   importLocalGames,
   listGames,
   listLocalGames,
-  saveGame,
+  saveGameResult,
 } from "@/lib/slate/storage";
 import { makeGame } from "@/lib/slate/defaults";
 import type { Game } from "@/lib/slate/types";
