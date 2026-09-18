@@ -194,6 +194,27 @@ export interface GameStatus {
   timerEndsAt: number | null;
 }
 
+/** Time rewards are always a fraction of a time that already exists. */
+export type TimeFraction = "full" | "half" | "third" | "quarter";
+
+/**
+ * Configuration owned by ONE Floating Numbers line. The mathematics itself
+ * always stays in Floating Numbers — this is only how that line looks and
+ * behaves inside the Game world.
+ */
+export interface LineSurfaceConfig {
+  /** Floating Numbers line id. The one and only shared identity. */
+  lineId: string;
+  /** Writing surface for this line; null = the Game's own surface. */
+  surfaceId: string | null;
+  /** How much of THIS line's own timer its Hourglass awards. */
+  hourglassReward: TimeFraction;
+  /** Expected method, written as mathematics. Empty = no Vault on this line. */
+  vaultExpression: string | null;
+  /** Coins the Vault releases when the method is followed. */
+  vaultCoins: number;
+}
+
 export interface GameSettings {
   slate: SlateSettings;
   writing: WritingSettings;
@@ -205,6 +226,10 @@ export interface GameSettings {
   effects: EffectSettings;
   /** Uploaded sun and background music. */
   assets: AssetSettings;
+  /** Per-Floating-Numbers-line configuration, keyed by line id. */
+  lines: Record<string, LineSurfaceConfig>;
+  /** How much of the original question time a Life gives back. */
+  life: { fraction: TimeFraction };
 }
 
 export interface Game {

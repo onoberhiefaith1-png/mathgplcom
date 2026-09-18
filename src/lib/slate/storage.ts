@@ -7,6 +7,7 @@ import type { Game } from "./types";
 import { defaultScene } from "./environments";
 import { roomForSurface } from "./rooms";
 import { defaultTextSettings } from "./text3d";
+import { normalizeLineConfig } from "./lineSurfaces";
 import {
   defaultAssetSettings,
   defaultGameStatus,
@@ -39,6 +40,14 @@ export const normalizeGame = (game: Game): Game => ({
     numbers: { ...defaultNumberSettings(), ...(game.settings?.numbers ?? {}) },
     assets: { ...defaultAssetSettings(), ...(game.settings?.assets ?? {}) },
     effects: { ...defaultSettings().effects, ...(game.settings?.effects ?? {}) },
+    // Per-Floating-Numbers-line configuration, keyed by line id.
+    lines: Object.fromEntries(
+      Object.entries(game.settings?.lines ?? {}).map(([lineId, config]) => [
+        lineId,
+        normalizeLineConfig(lineId, config),
+      ]),
+    ),
+    life: { fraction: game.settings?.life?.fraction ?? "full" },
   },
   patternLength:
     Number(game.patternLength) > 0 ? Math.floor(Number(game.patternLength)) : game.slots.length,

@@ -1,15 +1,23 @@
-// The Game's Lines are a REPEATING REWARD PATTERN, nothing more.
+// The Game's Lines come from FLOATING NUMBERS, one for one.
 //
 //   Question Line (Line 0) — read-only, outside the pattern, no rewards.
-//   Game Line N (N >= 1)   — Floating Numbers Line N, reward pattern slot
-//                            ((N - 1) mod patternLength) + 1.
+//   Game Line N (N >= 1)   — Floating Numbers Line N. Its physical objects are
+//                            the teacher's repeating reward pattern slot
+//                            ((N - 1) mod patternLength) + 1, PLUS the two
+//                            derived objects the line itself owns:
+//                              • the Hourglass, when the line has its own time
+//                              • the Vault, when the line has an expected method
 //
 // Empty pattern positions stay empty: nothing is ever auto-inserted.
 
-import type { Game, RewardInstance } from "./types";
+import { fractionSeconds, lineConfigOf } from "./lineSurfaces";
+import type { Game, LineSurfaceConfig, RewardInstance } from "./types";
 
 /** The Question Line always sits at index 0 and never takes a pattern slot. */
 export const QUESTION_LINE = 0;
+
+/** Objects a teacher can no longer place by hand: the line owns them. */
+const DERIVED_TYPES = new Set(["time-shard", "math-vault"]);
 
 /** How many Lines the teacher's reward pattern is long. */
 export const patternLengthOf = (game: Pick<Game, "slots" | "patternLength">): number => {
@@ -40,36 +48,101 @@ export interface MappedLine {
   /** 0 = the Question Line, 1..n = solving Lines. */
   line: number;
   isQuestion: boolean;
+  /** Floating Numbers line id — the shared identity between both systems. */
+  lineId: string | null;
   /** Which pattern position this Line borrows, 1-based. 0 for the Question. */
   patternSlot: number;
   rewards: RewardInstance[];
   /** Seconds on this Floating Numbers line, when the teacher set one. */
   timerSeconds: number | null;
+  /** Seconds this line's Hourglass awards when the line is solved in time. */
+  hourglassSeconds: number;
+  /** The expected method this line's Vault opens for, when configured. */
+  vaultExpression: string | null;
+  vaultCoins: number;
 }
+
+/** One Floating Numbers line, as far as the Game needs to know. */
+export type LineTimerInput = number | null | undefined;
 
 /**
  * The complete Line map a question produces inside this Game: Line 0 plus one
- * Line per Floating Numbers line, each carrying its pattern rewards and any
- * Timer Reward the Floating Numbers line itself declares.
+ * Line per Floating Numbers line. Each Line carries its pattern rewards and the
+ * objects the line itself owns (Hourglass from its time, Vault from its method).
  */
 export const mapQuestionLines = (
-  game: Pick<Game, "slots" | "patternLength">,
-  lineTimers: (number | null | undefined)[],
+  game: Pick<Game, "slots" | "patternLength"> & Partial<Pick<Game, "settings">>,
+  lineTimers: LineTimerInput[],
+  lineIds: (string | null | undefined)[] = [],
 ): MappedLine[] => {
   const patternLength = patternLengthOf(game);
+  const settings = game.settings;
   const rows: MappedLine[] = [
-    { line: QUESTION_LINE, isQuestion: true, patternSlot: 0, rewards: [], timerSeconds: null },
+    {
+      line: QUESTION_LINE,
+      isQuestion: true,
+      lineId: null,
+      patternSlot: 0,
+      rewards: [],
+      timerSeconds: null,
+      hourglassSeconds: 0,
+      vaultExpression: null,
+      vaultCoins: 0,
+    },
   ];
+
   lineTimers.forEach((seconds, i) => {
     const line = i + 1;
     const raw = Number(seconds);
+    const timerSeconds = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : null;
+    const lineId = lineIds[i] ?? null;
+    const config: LineSurfaceConfig | null =
+      settings && lineId ? lineConfigOf({ settings }, lineId) : null;
+
+    // the pattern never supplies a line-owned object
+    const placed = rewardsForLine(game, line).filter((reward) => !DERIVED_TYPES.has(reward.type));
+    const derived: RewardInstance[] = [];
+
+    const hourglassSeconds = timerSeconds
+      ? fractionSeconds(timerSeconds, config?.hourglassReward ?? "full")
+      : 0;
+    if (timerSeconds) {
+      derived.push({
+        id: "hourglass",
+        type: "time-shard",
+        state: "dormant",
+        hidden: false,
+        x: 12,
+        y: 30,
+        durationMs: hourglassSeconds * 1000,
+      });
+    }
+
+    const vaultExpression = (config?.vaultExpression ?? "").trim() || null;
+    if (vaultExpression) {
+      derived.push({
+        id: "vault",
+        type: "math-vault",
+        state: "dormant",
+        hidden: false,
+        x: 82,
+        y: 62,
+        expression: vaultExpression,
+      });
+    }
+
     rows.push({
       line,
       isQuestion: false,
+      lineId,
       patternSlot: patternSlotIndex(line, patternLength) + 1,
-      rewards: rewardsForLine(game, line),
-      timerSeconds: Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : null,
+      rewards: [...placed, ...derived],
+      timerSeconds,
+      hourglassSeconds,
+      vaultExpression,
+      vaultCoins: Math.max(0, Math.floor(Number(config?.vaultCoins ?? 1)) || 0),
     });
   });
+
   return rows;
 };

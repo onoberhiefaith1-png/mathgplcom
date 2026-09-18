@@ -819,7 +819,11 @@ export function SlateColumn({
           premiumTargets = [];
           rewardNodes.current.forEach((entry, id) => {
             const other = entry.reward;
-            if (id === reward.id || other.type === "time-shard" || other.hidden || other.state !== "dormant") return;
+            // never the Hourglass (the line owns its time) and never another
+            // Premium Bomb
+            if (id === reward.id || other.hidden || other.state !== "dormant") return;
+            if (other.type === "time-shard") return;
+            if (getReward(other.type).profile === "chain-bomb") return;
             entry.node.updateWorldMatrix(true, false);
             const world = entry.node.getWorldPosition(new THREE.Vector3());
             if (!frustum.containsPoint(world)) return;
@@ -852,7 +856,8 @@ export function SlateColumn({
             if (y > VIEW_TOP + 0.4 || y < VIEW_BOTTOM - 0.4) return;
             region.slot.rewards.forEach((other) => {
               if (other.id === reward.id || other.hidden || other.state === "archived") return;
-              if (other.type === "math-vault") return;
+              // the Vault is opened by mathematics and the Hourglass by time
+              if (other.type === "math-vault" || other.type === "time-shard") return;
               fire(region.slot.id, other);
             });
           });

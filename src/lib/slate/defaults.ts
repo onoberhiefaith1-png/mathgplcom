@@ -56,6 +56,11 @@ export const defaultSettings = (): GameSettings => ({
     premiumBombStyle: "radiant-chain",
   },
   assets: defaultAssetSettings(),
+  // Filled from the attached Floating Numbers exercise, keyed by line id.
+  lines: {},
+  // A Life gives back the whole original question time unless the teacher
+  // chooses a smaller fraction.
+  life: { fraction: "full" },
 });
 
 export const defaultGameStatus = (): GameStatus => ({

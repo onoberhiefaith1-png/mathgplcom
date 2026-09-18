@@ -32,12 +32,27 @@ export interface RewardDef {
   profile: ActivationProfile;
   /** Natural aspect ratio of the art, width / height. */
   ratio: number;
+  /**
+   * Can the teacher place this object by hand? The Hourglass and the Vault are
+   * DERIVED from the attached Floating Numbers line (its own timer, its own
+   * expected method), so they are never placed from the generic palette.
+   */
+  placeable?: boolean;
 }
 
 export const REWARDS: RewardDef[] = [
   { id: "mark-seal", label: "Mark Seal", art: markSeal, glow: "#ffc857", profile: "seal", ratio: 1 },
   { id: "retry-heart", label: "Retry Heart", art: retryHeart, glow: "#ff5470", profile: "heart", ratio: 1 },
-  { id: "time-shard", label: "Time Shard", art: timeShard, glow: "#54d8ff", profile: "shard", ratio: 1 },
+  // Derived from the Floating Numbers line timer — never placed by hand.
+  {
+    id: "time-shard",
+    label: "Hourglass (line timer)",
+    art: timeShard,
+    glow: "#54d8ff",
+    profile: "shard",
+    ratio: 1,
+    placeable: false,
+  },
   {
     id: "math-vault",
     label: "Math Vault",
@@ -46,6 +61,8 @@ export const REWARDS: RewardDef[] = [
     glow: "#4ea8ff",
     profile: "vault",
     ratio: 2.25,
+    // Derived from the line's own Vault expression — never placed by hand.
+    placeable: false,
   },
   { id: "math-core", label: "Math Core / Bomb", art: mathCore, glow: "#ff7a18", profile: "core", ratio: 1 },
   {
@@ -73,6 +90,9 @@ export const REWARDS: RewardDef[] = [
     ratio: 1,
   },
 ];
+
+/** Objects the teacher places by hand in the Game editor. */
+export const PLACEABLE_REWARDS: RewardDef[] = REWARDS.filter((r) => r.placeable !== false);
 
 export const getReward = (id: string): RewardDef =>
   REWARDS.find((r) => r.id === id) ?? {
