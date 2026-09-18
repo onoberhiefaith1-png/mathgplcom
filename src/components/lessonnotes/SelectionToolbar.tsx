@@ -8,7 +8,7 @@
 
 import { BubbleMenu } from "@tiptap/react/menus";
 import type { Editor } from "@tiptap/react";
-import { Copy, Scissors, Trash2, CopyPlus, MessageSquare, Sparkles } from "lucide-react";
+import { Copy, Scissors, Trash2, CopyPlus, MessageSquare, Sparkles, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -34,9 +34,11 @@ interface Props {
   /** Hide the bubble while the AI panel is open. */
   suppressed?: boolean;
   onAiEdit: (snap: SelectionSnapshot) => void;
+  /** Convert the highlighted content into a real MathGPL Session in place. */
+  onMakeSession?: (snap: SelectionSnapshot) => void;
 }
 
-export function SelectionToolbar({ editor, suppressed, onAiEdit }: Props) {
+export function SelectionToolbar({ editor, suppressed, onAiEdit, onMakeSession }: Props) {
   if (!editor) return null;
 
   const captureSnapshot = (): SelectionSnapshot | null => {
