@@ -8175,6 +8175,7 @@ export type Database = {
           slots: Json
           status: Json
           subtopic: string
+          surface_colour: string
           surface_id: string
           topic: string
           updated_at: string
@@ -8191,6 +8192,7 @@ export type Database = {
           slots?: Json
           status?: Json
           subtopic?: string
+          surface_colour?: string
           surface_id: string
           topic?: string
           updated_at?: string
@@ -8207,6 +8209,7 @@ export type Database = {
           slots?: Json
           status?: Json
           subtopic?: string
+          surface_colour?: string
           surface_id?: string
           topic?: string
           updated_at?: string
