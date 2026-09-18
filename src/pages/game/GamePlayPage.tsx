@@ -191,6 +191,37 @@ const GamePlayPage = () => {
     );
   }
 
+  // No question attached yet: say so plainly instead of an empty world.
+  if (boards.length === 0) {
+    return (
+      <div className="mx-auto flex max-w-lg flex-col items-start gap-3 p-8">
+        <h1 className="text-xl font-semibold">{game.name}</h1>
+        <p className="text-sm text-muted-foreground">
+          This Game has no question yet. Open the Game Board, press Questions, then Add question —
+          the mathematics, marks and timing come with it.
+        </p>
+        <div className="flex gap-2">
+          {testMode && (
+            <button
+              type="button"
+              onClick={() => navigate(`/game/slate/${gameId}`)}
+              className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
+            >
+              Open Game Board
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
+          >
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const controls = runtime.question ? (
     <PresentationView
       key={buildBoardScope({
