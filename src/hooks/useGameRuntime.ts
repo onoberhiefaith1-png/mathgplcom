@@ -202,6 +202,16 @@ export const useGameRuntime = (params: {
     setLineDeadline(null);
   }, [question, startQuestionTimer]);
 
+  /** A Life gives back a teacher-set fraction of the ORIGINAL question time. */
+  const lifeSeconds = useCallback(
+    () =>
+      fractionSeconds(
+        question?.questionTimerSeconds ?? null,
+        game?.settings.life?.fraction ?? "full",
+      ),
+    [question, game],
+  );
+
   useEffect(() => {
     if (!questionDeadline) return;
     const tick = window.setInterval(() => {
@@ -217,31 +227,53 @@ export const useGameRuntime = (params: {
           setCurrentLine(1);
           return 0;
         }
-        setMessage("Time ran out — one life used. The question timer restarts.");
-        startQuestionTimer(question?.questionTimerSeconds ?? null);
+        // completed lines stay completed; the life buys more time, nothing else
+        const seconds = lifeSeconds();
+        setMessage(
+          seconds
+            ? `Time ran out — one life used, ${Math.round(seconds / 60) || 1} more minute(s) of question time.`
+            : "Time ran out — one life used.",
+        );
+        startQuestionTimer(seconds || null);
         return next;
       });
     }, 500);
     return () => window.clearInterval(tick);
-  }, [questionDeadline, question, startQuestionTimer]);
+  }, [questionDeadline, lifeSeconds, startQuestionTimer]);
 
   /* ---- line rewards -------------------------------------------------- */
+  // Resolved ONCE per completed line. The Hourglass pays only when the line's
+  // own timer was still running; the Vault opens only when the student actually
+  // followed the teacher's expected method.
   const consumeLine = useCallback((lineNumber: number) => {
     if (!question) return;
     const row = lines.find((l) => l.line === lineNumber);
     if (!row || row.rewards.length === 0) return;
+    const work = workRef.current[lineNumber - 1] ?? "";
+    const inTime = !expiredLines.current.has(lineNumber);
     const keys: string[] = [];
     let coinGain = 0;
     let lifeGain = 0;
     let secondsGain = 0;
+
     for (const reward of row.rewards) {
       const key = rewardKey(question.questionRowId, lineNumber, reward.id);
       if (consumed.includes(key)) continue;
       keys.push(key);
+
+      if (reward.type === "time-shard") {
+        // solved inside the line's own time → the configured share of it
+        if (inTime) secondsGain += row.hourglassSeconds;
+        continue;
+      }
+      if (reward.type === "math-vault") {
+        if (vaultMatches(row.vaultExpression, work)) coinGain += row.vaultCoins;
+        continue;
+      }
       coinGain += REWARD_COINS[reward.type] ?? 0;
       lifeGain += REWARD_LIVES[reward.type] ?? 0;
-      secondsGain += REWARD_SECONDS[reward.type] ?? 0;
     }
+
     if (keys.length === 0) return;
     setConsumed((prev) => [...prev, ...keys]);
     if (coinGain) setCoins((prev) => prev + coinGain);
@@ -257,12 +289,24 @@ export const useGameRuntime = (params: {
     const lineNumber = ctx.index + 1;
     setCurrentLine(lineNumber);
 
-    // Line timer from Floating Numbers — this is the Timer Reward.
+    // The line's own time comes from Floating Numbers and starts on the first
+    // mathematical input on that line — never on seeing or scrolling to it.
     const row = lines.find((l) => l.line === lineNumber);
-    if (ctx.lineEngaged && row?.timerSeconds && !ctx.completed) {
-      setLineDeadline((prev) => prev ?? Date.now() + row.timerSeconds! * 1000);
+    const started = ctx.lineEngaged
+      && Boolean(row?.timerSeconds)
+      && !ctx.completed
+      && !expiredLines.current.has(lineNumber);
+    if (started) {
+      setLineDeadline((prev) => {
+        if (prev && timedLine.current === lineNumber) return prev;
+        timedLine.current = lineNumber;
+        return Date.now() + row!.timerSeconds! * 1000;
+      });
     } else if (!row?.timerSeconds || ctx.completed) {
-      setLineDeadline(null);
+      if (timedLine.current === lineNumber || !row?.timerSeconds) {
+        timedLine.current = null;
+        setLineDeadline(null);
+      }
     }
 
     const awardedId = ctx.lastAwardedLineId;
