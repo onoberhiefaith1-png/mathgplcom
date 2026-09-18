@@ -19,6 +19,7 @@ import StructureCard from "./StructureCard";
 import MaterialIntake from "./MaterialIntake";
 import BlueprintCard from "./BlueprintCard";
 import BuildProgress from "./BuildProgress";
+import { CoPilotText } from "./CoPilotText";
 
 interface Props {
   bridgeRef: React.MutableRefObject<CoPilotBridge | null>;
@@ -48,7 +49,7 @@ const StepRow = ({ label, state, detail }: { label: string; state: string; detai
     {/* Status is carried by the icon — the label itself is always full-contrast
         ink so the section inventory stays readable. */}
     <span className="font-medium text-slate-900">
-      {label}{detail ? ` — ${detail}` : ""}
+      <CoPilotText text={`${label}${detail ? ` — ${detail}` : ""}`} />
     </span>
   </li>
 );
@@ -68,7 +69,7 @@ function MessageBubble({
             : "bg-white text-slate-800 border border-slate-200",
         ].join(" ")}
       >
-        {m.text}
+        <CoPilotText text={m.text} />
 
         {m.proposal && (
           <div className="mt-2.5 rounded-xl border border-slate-200 bg-slate-50 p-2.5 space-y-2">
@@ -77,7 +78,7 @@ function MessageBubble({
                 <p className="text-[9px] uppercase tracking-[0.28em] text-slate-400">Preserved</p>
                 <ul className="mt-1 space-y-0.5">
                   {m.proposal.preserves.map((p, i) => (
-                    <li key={i} className="text-[11.5px] text-slate-600">• {p}</li>
+                    <li key={i} className="text-[11.5px] text-slate-600">• <CoPilotText text={p} /></li>
                   ))}
                 </ul>
               </div>
