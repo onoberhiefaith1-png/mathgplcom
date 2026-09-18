@@ -160,6 +160,21 @@ export function SelectionToolbar({ editor, suppressed, onAiEdit, onMakeSession }
         >
           <Sparkles className="h-3.5 w-3.5" /> AI Edit
         </button>
+        {/* Session — converts the highlighted content into a real lesson
+            session (Example, Solution, Classwork, …) in place. */}
+        {onMakeSession && (
+          <button
+            type="button"
+            onClick={() => {
+              const snap = captureSnapshot();
+              if (snap) onMakeSession(snap);
+            }}
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-foreground/5 hover:bg-foreground/10"
+            title="Make this a Session"
+          >
+            <BookOpen className="h-3.5 w-3.5" /> Session
+          </button>
+        )}
       </div>
     </BubbleMenu>
   );
