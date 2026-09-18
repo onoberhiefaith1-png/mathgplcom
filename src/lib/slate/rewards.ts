@@ -1,14 +1,14 @@
 // Reward registry. Rewards are purely visual objects at this stage.
 
-import markSeal from "@/assets/rewards/mark-seal.png";
-import retryHeart from "@/assets/rewards/retry-heart.png";
-import timeShard from "@/assets/rewards/time-shard.png";
-import mathVault from "@/assets/rewards/math-vault.png";
-import mathVaultOpen from "@/assets/rewards/math-vault-open.png";
-import mathCore from "@/assets/rewards/math-core.png";
-import horizontalCollector from "@/assets/rewards/horizontal-collector.png";
-import verticalCollector from "@/assets/rewards/vertical-collector.png";
-import premiumChainBomb from "@/assets/rewards/premium-chain-bomb.png";
+import markSeal from "@/assets/slate/rewards/mark-seal.png";
+import retryHeart from "@/assets/slate/rewards/retry-heart.png";
+import timeShard from "@/assets/slate/rewards/time-shard.png";
+import mathVault from "@/assets/slate/rewards/math-vault.png";
+import mathVaultOpen from "@/assets/slate/rewards/math-vault-open.png";
+import mathCore from "@/assets/slate/rewards/math-core.png";
+import horizontalCollector from "@/assets/slate/rewards/horizontal-collector.png";
+import verticalCollector from "@/assets/slate/rewards/vertical-collector.png";
+import premiumChainBomb from "@/assets/slate/rewards/premium-chain-bomb.png";
 
 /** Activation profile names are consumed by the VFX engine (phase two). */
 export type ActivationProfile =

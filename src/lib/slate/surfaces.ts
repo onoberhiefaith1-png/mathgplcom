@@ -1,16 +1,16 @@
 // Surface registry. Adding a new physical surface = adding one entry here.
 // Nothing else in the slate engine changes.
 
-import stoneWall from "@/assets/surfaces/stone-wall.jpg";
-import stoneTablet from "@/assets/surfaces/stone-tablet.jpg";
-import wood from "@/assets/surfaces/wood.jpg";
-import door from "@/assets/surfaces/door.jpg";
-import metalPlate from "@/assets/surfaces/metal-plate.jpg";
-import scroll from "@/assets/surfaces/scroll.jpg";
-import chest from "@/assets/surfaces/chest.jpg";
-import shield from "@/assets/surfaces/shield.jpg";
-import glass from "@/assets/surfaces/glass.jpg";
-import ice from "@/assets/surfaces/ice.jpg";
+import stoneWall from "@/assets/slate/surfaces/stone-wall.jpg";
+import stoneTablet from "@/assets/slate/surfaces/stone-tablet.jpg";
+import wood from "@/assets/slate/surfaces/wood.jpg";
+import door from "@/assets/slate/surfaces/door.jpg";
+import metalPlate from "@/assets/slate/surfaces/metal-plate.jpg";
+import scroll from "@/assets/slate/surfaces/scroll.jpg";
+import chest from "@/assets/slate/surfaces/chest.jpg";
+import shield from "@/assets/slate/surfaces/shield.jpg";
+import glass from "@/assets/slate/surfaces/glass.jpg";
+import ice from "@/assets/slate/surfaces/ice.jpg";
 
 export type TextTreatment = "carved" | "raised";
 

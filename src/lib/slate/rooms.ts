@@ -4,12 +4,12 @@
 // Colour comes from the scanned material and from the lights. Tints are
 // gentle multipliers only — never a flat wash of one hue over the room.
 
-import stoneWall from "@/assets/surfaces/stone-wall.jpg";
-import stoneTablet from "@/assets/surfaces/stone-tablet.jpg";
-import wood from "@/assets/surfaces/wood.jpg";
-import metalPlate from "@/assets/surfaces/metal-plate.jpg";
-import glass from "@/assets/surfaces/glass.jpg";
-import ice from "@/assets/surfaces/ice.jpg";
+import stoneWall from "@/assets/slate/surfaces/stone-wall.jpg";
+import stoneTablet from "@/assets/slate/surfaces/stone-tablet.jpg";
+import wood from "@/assets/slate/surfaces/wood.jpg";
+import metalPlate from "@/assets/slate/surfaces/metal-plate.jpg";
+import glass from "@/assets/slate/surfaces/glass.jpg";
+import ice from "@/assets/slate/surfaces/ice.jpg";
 import type { EnvMood, PbrFamily } from "./pbr";
 
 export type RoomProps =
