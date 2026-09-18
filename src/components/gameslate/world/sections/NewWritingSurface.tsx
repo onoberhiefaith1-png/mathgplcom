@@ -238,10 +238,10 @@ function Cloud({ width, height }: Pick<Props, "width" | "height">) {
     const y = lane === 0 ? height * 0.34 : lane === 1 ? -height * 0.33 : Math.sin(index * 1.91) * height * 0.2;
     const edgeFade = Math.sin(Math.PI * Math.max(0.08, t));
     const radius = Math.max(0.095, height * (0.24 + (index % 4) * 0.035) * (0.78 + edgeFade * 0.3));
-    return { x, y, radius, z: -0.02 + (index % 4) * 0.022, shade: index % 4 };
+    return { x, y, radius, z: -0.03 - radius * 0.7, shade: index % 4 };
   }), [count, width, height]);
   useExpansion(width, height, (w, h) => { if (cloud.current) cloud.current.scale.set(w / width, h / height, 1); });
-  return <group ref={cloud}><mesh position-z={-0.2} rotation-z={Math.PI / 2} scale={[1, 0.82, 1]} receiveShadow><capsuleGeometry args={[height * 0.33, Math.max(0.08, width - height * 0.66), 8, 24]} /><meshPhysicalMaterial color="#edf7ff" roughness={0.94} sheen={0.28} sheenColor="#bfe4ff" /></mesh>{lobes.map((lobe, index) => <mesh key={index} position={[lobe.x, lobe.y, lobe.z - 0.18]} scale={[1.28, 0.9, 0.7]} castShadow receiveShadow><sphereGeometry args={[lobe.radius, 18, 12]} /><meshPhysicalMaterial color={lobe.shade === 0 ? "#d3e8fb" : lobe.shade === 1 ? "#f7fbff" : "#e8f4ff"} roughness={0.9} transmission={0.04} thickness={0.2} sheen={0.25} sheenColor="#bfe4ff" /></mesh>)}</group>;
+  return <group ref={cloud}><mesh position-z={-0.03 - height * 0.33} rotation-z={Math.PI / 2} scale={[1, 0.82, 1]} receiveShadow><capsuleGeometry args={[height * 0.33, Math.max(0.08, width - height * 0.66), 8, 24]} /><meshPhysicalMaterial color="#edf7ff" roughness={0.94} sheen={0.28} sheenColor="#bfe4ff" /></mesh>{lobes.map((lobe, index) => <mesh key={index} position={[lobe.x, lobe.y, lobe.z]} scale={[1.28, 0.9, 0.7]} castShadow receiveShadow><sphereGeometry args={[lobe.radius, 18, 12]} /><meshPhysicalMaterial color={lobe.shade === 0 ? "#d3e8fb" : lobe.shade === 1 ? "#f7fbff" : "#e8f4ff"} roughness={0.9} transmission={0.04} thickness={0.2} sheen={0.25} sheenColor="#bfe4ff" /></mesh>)}</group>;
 }
 
 function Metal({ width, height, maps }: Omit<Props, "kind" | "accent" | "colour">) { return <RoundedBox args={[width, height, 0.18]} radius={0.055} smoothness={4} position-z={-0.09} castShadow receiveShadow><StandardMaterial maps={maps} colour="#a8adb1" roughness={0.31} metalness={0.94} /></RoundedBox>; }

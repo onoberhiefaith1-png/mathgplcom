@@ -179,12 +179,15 @@ export function SlateSection({
         [-0.38, 0.34, 0.24], [-0.13, 0.42, 0.3], [0.16, 0.4, 0.27], [0.4, 0.31, 0.22],
         [-0.42, -0.32, 0.21], [-0.12, -0.4, 0.28], [0.18, -0.39, 0.25], [0.42, -0.28, 0.2],
       ] as const;
-      return puffs.map(([nx, ny, radius], i) => (
-        <mesh key={i} position={[nx * width, ny * bodyH, 0.015]} scale={[1.35, 0.8, 0.45]}>
-          <sphereGeometry args={[Math.min(radius, bodyH * 0.34), 18, 12]} />
-          <meshStandardMaterial color="#eef8ff" roughness={0.72} transparent opacity={0.86} />
-        </mesh>
-      ));
+      return puffs.map(([nx, ny, radius], i) => {
+        const r = Math.min(radius, bodyH * 0.34);
+        return (
+          <mesh key={i} position={[nx * width, ny * bodyH, -(r * 0.45) - 0.01]} scale={[1.35, 0.8, 0.45]}>
+            <sphereGeometry args={[r, 18, 12]} />
+            <meshStandardMaterial color="#eef8ff" roughness={0.72} transparent opacity={0.86} />
+          </mesh>
+        );
+      });
     }
     if (ornament === "leaf") {
       return [-1, 1].flatMap((side) =>
