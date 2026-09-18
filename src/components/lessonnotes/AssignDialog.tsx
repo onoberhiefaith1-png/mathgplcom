@@ -300,8 +300,10 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       const assignedIds = new Map<string, string>();
 
       // The question joins the Game once; the Game is what the class receives.
-      if (target === "game" && gameId && subsectionId && notebookId && !gameStats.hasThis) {
-        await assignQuestion(gameId, notebookId, subsectionId);
+      let joinedGame = false;
+      if (joinsGame) {
+        joinedGame = await assignQuestion(gameId, notebookId, subsectionId);
+        if (!joinedGame) throw new Error("This question could not be added to the Game.");
         setGameStats((prev) => ({ ...prev, hasThis: true, count: prev.count + 1 }));
       }
 
