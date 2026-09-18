@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { SURFACES } from "@/lib/slate/surfaces";
 import {
   deleteGame,
@@ -7,7 +8,7 @@ import {
   importLocalGames,
   listGames,
   listLocalGames,
-  saveGame,
+  saveGameResult,
 } from "@/lib/slate/storage";
 import { makeGame } from "@/lib/slate/defaults";
 import type { Game } from "@/lib/slate/types";
@@ -28,6 +29,7 @@ export default function GameSlateGalleryPage() {
   const navigate = useNavigate();
   const [games, setGames] = useState<Game[]>([]);
   const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
@@ -47,6 +49,8 @@ export default function GameSlateGalleryPage() {
   }, []);
 
   const create = async () => {
+    if (busy) return;
+    setBusy(true);
     const game = makeGame({
       name,
       topic,
@@ -55,7 +59,15 @@ export default function GameSlateGalleryPage() {
       lines,
       background: { ...background, scale: 1, x: 0, y: 0, opacity: 1 },
     });
-    await saveGame(game);
+    const result = await saveGameResult(game);
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.message ?? "The game could not be created. Please try again.");
+      if (/signed out/i.test(result.message ?? "")) {
+        navigate({ to: "/login", search: { redirect: "/game" } as never });
+      }
+      return;
+    }
     navigate({ to: "/game/slate/$gameId", params: { gameId: game.id } });
   };
 
@@ -210,9 +222,10 @@ export default function GameSlateGalleryPage() {
             <div className="mt-8 flex gap-2">
               <button
                 onClick={create}
-                className="rounded border border-amber-300/60 bg-amber-300/20 px-5 py-2 text-xs uppercase tracking-[0.22em] text-amber-100 hover:bg-amber-300/30"
+                disabled={busy}
+                className="rounded border border-amber-300/60 bg-amber-300/20 px-5 py-2 text-xs uppercase tracking-[0.22em] text-amber-100 hover:bg-amber-300/30 disabled:opacity-50"
               >
-                Create game
+                {busy ? "Creating…" : "Create game"}
               </button>
               <button
                 onClick={() => setCreating(false)}

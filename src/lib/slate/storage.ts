@@ -118,10 +118,28 @@ export const loadGame = async (id: string): Promise<Game | null> => {
   return toGame(data as unknown as Row);
 };
 
-export const saveGame = async (game: Game): Promise<boolean> => {
+/** Saves a game and explains, in plain words, why it could not be saved. */
+export const saveGameResult = async (
+  game: Game,
+): Promise<{ ok: boolean; message?: string }> => {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    return { ok: false, message: "You are signed out. Sign in again to create a game." };
+  }
   const { error } = await supabase.from("slate_games").upsert(toRow(game) as never);
-  return !error;
+  if (!error) return { ok: true };
+  console.error("[slate] save failed", error);
+  const denied = error.code === "42501" || /row-level security|permission/i.test(error.message);
+  return {
+    ok: false,
+    message: denied
+      ? "This game could not be saved to your account. Sign out and sign in again, then try once more."
+      : error.message,
+  };
 };
+
+export const saveGame = async (game: Game): Promise<boolean> =>
+  (await saveGameResult(game)).ok;
 
 export const deleteGame = async (id: string): Promise<boolean> => {
   const { error } = await supabase.from("slate_games").delete().eq("id", id);
