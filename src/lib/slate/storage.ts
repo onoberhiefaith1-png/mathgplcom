@@ -7,6 +7,7 @@ import type { Game } from "./types";
 import { defaultScene } from "./environments";
 import { roomForSurface } from "./rooms";
 import { defaultTextSettings } from "./text3d";
+import { normalizeLineConfig } from "./lineSurfaces";
 import {
   defaultAssetSettings,
   defaultGameStatus,
