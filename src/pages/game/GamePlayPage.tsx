@@ -105,7 +105,11 @@ const GamePlayPage = () => {
     return () => { cancelled = true; };
   }, [gameId]);
 
-  const runtime = useGameRuntime({ game, boards, studentId: uid, assignmentId, testMode });
+  const runtime = useGameRuntime({
+    game, boards, studentId: uid, assignmentId, testMode,
+    // the Vault compares the student's own working against the wanted method
+    lineText,
+  });
 
   // A new question starts on a clean slate — no test or previous working.
   useEffect(() => { setLineText({}); }, [runtime.question?.questionRowId]);
