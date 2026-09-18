@@ -1673,7 +1673,7 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
       if (solutionIntent || b.kind === "solution") {
         let completeness = checkSolutionCompleteness(content);
         let rounds = 0;
-        while (!completeness.complete && rounds < 2) {
+        while (!completeness.ok && rounds < 2) {
           rounds++;
           const retried = await generateValidated({
             messages: [
@@ -1690,7 +1690,7 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
             completeness = retryCheck;
           } else break;
         }
-        if (!completeness.complete) warnings = [...warnings, ...completeness.defects];
+        if (!completeness.ok) warnings = [...warnings, ...completeness.defects];
       }
 
       return new Response(JSON.stringify({ content, warnings }), {
