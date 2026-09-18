@@ -55,6 +55,11 @@ import {
   parseEngineJson,
   type EngineOperation,
 } from "./mathEngine.ts";
+import {
+  editKnowledgeBlocks,
+  wantsSolution,
+  SOLUTION_SHAPE_DIRECTIVE,
+} from "./sharedKnowledge.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -1645,7 +1650,8 @@ EDIT RULES:
 - Directives must be on their own lines. Do not explain or print the directive.
 - Keep one micro-step per line when the fragment is a worked solution.`;
 
-      const user = `SELECTED FRAGMENT (kind: ${b.kind}):
+      const lessonContext = String(b.lessonContext ?? "").trim().slice(0, 8_000);
+      const user = `${lessonContext ? `SURROUNDING LESSON CONTEXT (read it, but edit ONLY the selected fragment):\n${lessonContext}\n\n` : ""}SELECTED FRAGMENT (kind: ${b.kind}):
 ${selection}
 
 SELECTED DOCUMENT STRUCTURE (authoritative when present):
@@ -1654,13 +1660,39 @@ ${selectionJson || "plain text selection"}
 TEACHER INSTRUCTION:
 ${instruction || "Improve the selected fragment while keeping its meaning."}`;
 
-      const { content, warnings } = await generateValidated({
-        messages: [
-          { role: "system", content: sys },
-          { role: "user", content: user },
-        ],
+      const editMessages = [
+        { role: "system", content: sys },
+        { role: "user", content: user },
+      ];
+      let { content, warnings } = await generateValidated({
+        messages: editMessages,
         kind: validationKind,
       });
+
+      // A generated solution must be complete — the same gate Co-Pilot passes.
+      if (solutionIntent || b.kind === "solution") {
+        let completeness = checkSolutionCompleteness(content);
+        let rounds = 0;
+        while (!completeness.complete && rounds < 2) {
+          rounds++;
+          const retried = await generateValidated({
+            messages: [
+              ...editMessages,
+              { role: "assistant", content },
+              { role: "user", content: completenessCorrector(completeness, content) },
+            ],
+            kind: validationKind,
+          });
+          const retryCheck = checkSolutionCompleteness(retried.content);
+          if (retryCheck.defects.length <= completeness.defects.length) {
+            content = retried.content;
+            warnings = retried.warnings;
+            completeness = retryCheck;
+          } else break;
+        }
+        if (!completeness.complete) warnings = [...warnings, ...completeness.defects];
+      }
+
       return new Response(JSON.stringify({ content, warnings }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
