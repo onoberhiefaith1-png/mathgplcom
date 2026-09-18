@@ -6,7 +6,7 @@
 
 type Pointer = { url: string };
 
-const pointers = import.meta.glob<Pointer>("../../assets/pbr/*.asset.json", {
+const pointers = import.meta.glob<Pointer>("../../assets/slate/pbr/*.asset.json", {
   eager: true,
   import: "default",
 });
@@ -110,7 +110,7 @@ export const surfaceFamily = (surfaceId: string): PbrFamily =>
 
 const hdr = (name: string): string => {
   const entry = Object.entries(
-    import.meta.glob<Pointer>("../../assets/hdr/*.asset.json", { eager: true, import: "default" }),
+    import.meta.glob<Pointer>("../../assets/slate/hdr/*.asset.json", { eager: true, import: "default" }),
   ).find(([path]) => path.endsWith(`/${name}.hdr.asset.json`));
   if (!entry) throw new Error(`missing HDRI pointer: ${name}`);
   return entry[1].url;
