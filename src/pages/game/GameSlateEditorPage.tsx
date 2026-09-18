@@ -12,6 +12,8 @@ import { getReward } from "@/lib/slate/rewards";
 import { getSurface } from "@/lib/slate/surfaces";
 import { loadGame, saveGame } from "@/lib/slate/storage";
 import { makeSlot, uid } from "@/lib/slate/defaults";
+import { isMuted, setMuted } from "@/lib/slate/audio";
+import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 
 
@@ -23,6 +25,25 @@ export default function GameSlateEditorPage() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
   const [questionsOpen, setQuestionsOpen] = useState(false);
+  const [muted, setMutedState] = useState(false);
+
+  useEffect(() => setMutedState(isMuted()), []);
+
+  // background music: the room's own track wins, otherwise the chosen one
+  const assets = game?.settings.assets;
+  const roomTrackId = assets?.roomTrackIds?.[game?.roomId ?? ""] ?? null;
+  const trackId = roomTrackId ?? assets?.activeTrackId ?? null;
+  const track = assets?.audio.find((item) => item.id === trackId) ?? null;
+
+  useEffect(() => {
+    if (!track) {
+      stopTrack();
+      return;
+    }
+    void playTrack(track.assetId, { volume: track.volume, loop: track.loop });
+  }, [track?.assetId, track?.volume, track?.loop]);
+
+  useEffect(() => () => stopTrack(), []);
 
   useEffect(() => {
     let cancelled = false;
