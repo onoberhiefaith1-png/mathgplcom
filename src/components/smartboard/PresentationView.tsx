@@ -7099,7 +7099,16 @@ const PresentationView = ({
                   reservoirs={reservoirs}
                   viewIdx={viewReservoirIdx >= 0 ? viewReservoirIdx : Math.max(0, activeReservoirIdx)}
                   activeIdx={activeReservoirIdx}
-                  visible={(activeAssistant === "numbers" || (gameChrome && activeAssistant === null)) && reservoirs.length > 0}
+                  visible={
+                    // Game Play: the docked Mobile Floating Numbers panel is
+                    // the student's only mathematical control, so it must
+                    // mount the moment Play is pressed — even before the
+                    // question has produced any reservoirs. Elsewhere the
+                    // panel still waits for a reservoir before appearing.
+                    gameChrome
+                      ? true
+                      : activeAssistant === "numbers" && reservoirs.length > 0
+                  }
                   onInsert={(t) => {
                     // Flex-nudge: if the sensor is parked on a locked or
                     // already-inked row (very common right after a
