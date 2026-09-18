@@ -61,6 +61,7 @@ interface Row {
   topic: string;
   subtopic: string;
   surface_id: string;
+  surface_colour: string | null;
   room_id: string;
   background: unknown;
   slots: unknown;
@@ -77,6 +78,7 @@ const toGame = (row: Row): Game =>
     topic: row.topic ?? "",
     subtopic: row.subtopic ?? "",
     surfaceId: row.surface_id,
+    surfaceColour: row.surface_colour ?? "#f4ead7",
     roomId: row.room_id,
     background: row.background as Game["background"],
     slots: (row.slots ?? []) as Game["slots"],
@@ -92,6 +94,7 @@ const toRow = (game: Game) => ({
   topic: game.topic,
   subtopic: game.subtopic,
   surface_id: game.surfaceId,
+  surface_colour: game.surfaceColour ?? "#f4ead7",
   room_id: game.roomId,
   background: game.background as unknown,
   slots: game.slots as unknown,
