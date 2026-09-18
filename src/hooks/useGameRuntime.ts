@@ -87,6 +87,13 @@ export const useGameRuntime = (params: {
   const [message, setMessage] = useState<string | null>(null);
   const rowId = useRef<string | null>(null);
   const awarded = useRef<Set<string>>(new Set());
+  /** Which Game Line the running line timer belongs to. */
+  const timedLine = useRef<number | null>(null);
+  /** Game Lines whose own timer ran out: their Hourglass has dissolved. */
+  const expiredLines = useRef<Set<number>>(new Set());
+  /** Live working, read at award time without re-creating callbacks. */
+  const workRef = useRef<Record<number, string>>({});
+  workRef.current = lineText;
 
   const question = boards[questionIndex] ?? null;
   const totalMarks = useMemo(
