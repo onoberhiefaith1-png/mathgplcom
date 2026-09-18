@@ -32,13 +32,15 @@ interface Props {
   game: Game;
   /** Saves the Game-side configuration of the attached exercise's lines. */
   onChange: (settings: Game["settings"]) => void;
+  /** Shows this question's real lines on the slate — preview only. */
+  onPreview: (lineEquations: string[] | null) => void;
   onClose: () => void;
 }
 
 const rowClass =
   "rounded border border-amber-200/15 bg-black/30 px-3 py-2 text-[12px] text-amber-100/80";
 
-export function QuestionsPanel({ game, onChange, onClose }: Props) {
+export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
   const [questions, setQuestions] = useState<GameQuestion[]>([]);
   const [picker, setPicker] = useState<PickableQuestion[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -138,6 +140,15 @@ export function QuestionsPanel({ game, onChange, onClose }: Props) {
                     <ArrowDown className="h-3 w-3" />
                   </button>
                 </div>
+                <button
+                  onClick={() =>
+                    onPreview(q.lines.map((line) => line.equation ?? ""))
+                  }
+                  title="Show these lines on the slate (preview only)"
+                  className="shrink-0 text-[10px] uppercase tracking-wider text-amber-200/60 hover:text-amber-100"
+                >
+                  Preview
+                </button>
                 <button
                   onClick={async () => {
                     await removeQuestion(q.id);

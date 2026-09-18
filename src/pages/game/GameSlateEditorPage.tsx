@@ -193,7 +193,7 @@ export default function GameSlateEditorPage() {
         <ClientOnly fallback={<div className="absolute inset-0 bg-[#0b0906]" />}>
           <Suspense fallback={<div className="absolute inset-0 bg-[#0b0906]" />}>
             <WorldStage
-              game={game}
+              game={stageGame}
               mode={mode}
               selection={selection}
               onSelect={setSelection}
@@ -306,6 +306,7 @@ export default function GameSlateEditorPage() {
           <QuestionsPanel
             game={game}
             onChange={(settings) => patchGame({ settings })}
+            onPreview={setPreviewLines}
             onClose={() => setQuestionsOpen(false)}
           />
         </div>
