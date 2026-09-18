@@ -78,7 +78,8 @@ export const makeGame = (input: {
   /** MathGPL: Game Lines the repeating reward pattern covers. */
   patternLength?: number;
 }): Game => ({
-  id: uid(),
+  // The game itself is stored in the account, so its id must be a real record id.
+  id: gameUid(),
   name: input.name.trim() || "Untitled Game",
   topic: input.topic.trim(),
   subtopic: input.subtopic.trim(),
