@@ -5,6 +5,12 @@ import { defaultTextSettings } from "./text3d";
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
+/** Record id for a saved game (stored in the account, so it must be a UUID). */
+export const gameUid = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${uid()}${uid()}-${uid().slice(0, 4)}-4${uid().slice(0, 3)}-8${uid().slice(0, 3)}-${uid()}${uid()}`;
+
 export const defaultNumberSettings = (): NumberSettings => ({
   visible: true,
   colour: null,
