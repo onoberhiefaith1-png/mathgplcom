@@ -222,6 +222,18 @@ export default function GameSlateEditorPage() {
           <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
             <button
               onClick={() => {
+                const next = !muted;
+                setMutedState(next);
+                setMuted(next);
+                applyMute(next, track?.volume ?? 0.6);
+              }}
+              aria-label={muted ? "Turn sound on" : "Turn sound off"}
+              className="rounded border border-amber-200/20 px-2 py-1.5 text-xs text-amber-100/70 hover:bg-amber-200/10"
+            >
+              {muted ? "🔇" : "🔊"}
+            </button>
+            <button
+              onClick={() => {
                 setMode("view");
                 setSelection({ kind: "none" });
                 setPanelOpen(false);
