@@ -1,20 +1,23 @@
 // Reward registry. Rewards are purely visual objects at this stage.
 
-import markSeal from "@/assets/slate/rewards/mark-seal.png";
-import retryHeart from "@/assets/slate/rewards/retry-heart.png";
-import timeShard from "@/assets/slate/rewards/time-shard.png";
-import mathCoin from "@/assets/slate/rewards/math-coin.png";
-import mathCore from "@/assets/slate/rewards/math-core.png";
-import horizontalCollector from "@/assets/slate/rewards/horizontal-collector.png";
-import verticalCollector from "@/assets/slate/rewards/vertical-collector.png";
+import markSeal from "@/assets/rewards/mark-seal.png";
+import retryHeart from "@/assets/rewards/retry-heart.png";
+import timeShard from "@/assets/rewards/time-shard.png";
+import mathVault from "@/assets/rewards/math-vault.png";
+import mathVaultOpen from "@/assets/rewards/math-vault-open.png";
+import mathCore from "@/assets/rewards/math-core.png";
+import horizontalCollector from "@/assets/rewards/horizontal-collector.png";
+import verticalCollector from "@/assets/rewards/vertical-collector.png";
+import premiumChainBomb from "@/assets/rewards/premium-chain-bomb.png";
 
 /** Activation profile names are consumed by the VFX engine (phase two). */
 export type ActivationProfile =
   | "seal"
   | "heart"
   | "shard"
-  | "coin"
+  | "vault"
   | "core"
+  | "chain-bomb"
   | "sweep-horizontal"
   | "sweep-vertical";
 
@@ -22,6 +25,8 @@ export interface RewardDef {
   id: string;
   label: string;
   art: string;
+  /** Optional second presentation used once the object has opened. */
+  openArt?: string;
   /** Ambient colour used for dormant tint and activation glow. */
   glow: string;
   profile: ActivationProfile;
@@ -33,8 +38,24 @@ export const REWARDS: RewardDef[] = [
   { id: "mark-seal", label: "Mark Seal", art: markSeal, glow: "#ffc857", profile: "seal", ratio: 1 },
   { id: "retry-heart", label: "Retry Heart", art: retryHeart, glow: "#ff5470", profile: "heart", ratio: 1 },
   { id: "time-shard", label: "Time Shard", art: timeShard, glow: "#54d8ff", profile: "shard", ratio: 1 },
-  { id: "math-coin", label: "Math Coin", art: mathCoin, glow: "#ffd33d", profile: "coin", ratio: 1 },
+  {
+    id: "math-vault",
+    label: "Math Vault",
+    art: mathVault,
+    openArt: mathVaultOpen,
+    glow: "#4ea8ff",
+    profile: "vault",
+    ratio: 2.25,
+  },
   { id: "math-core", label: "Math Core / Bomb", art: mathCore, glow: "#ff7a18", profile: "core", ratio: 1 },
+  {
+    id: "premium-chain-bomb",
+    label: "Premium Spherical Chain Bomb",
+    art: premiumChainBomb,
+    glow: "#ffe56b",
+    profile: "chain-bomb",
+    ratio: 1,
+  },
   {
     id: "horizontal-collector",
     label: "Horizontal Collector",

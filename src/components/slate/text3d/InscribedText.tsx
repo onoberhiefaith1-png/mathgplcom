@@ -123,7 +123,7 @@ export function InscribedText({
     anchorY: "top" as const,
     whiteSpace: "normal" as const,
     overflowWrap: "break-word" as const,
-    sdfGlyphSize: 64,
+    sdfGlyphSize: settings.size > 120 ? 128 : 64,
   };
 
   const caretRect = (() => {

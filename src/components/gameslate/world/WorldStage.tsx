@@ -1,8 +1,10 @@
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { HDRI } from "@/lib/slate/pbr";
+import { EffectPerfOverlay } from "@/components/dev/EffectPerfOverlay";
+import { PerfProbe } from "@/components/dev/PerfProbe";
 
 /** Per-room camera exposure — the grade lives here, not in saturated colours. */
 function Exposure({ value }: { value: number }) {
@@ -10,9 +12,11 @@ function Exposure({ value }: { value: number }) {
   gl.toneMappingExposure = value;
   return null;
 }
-import { getRoom } from "@/lib/slate/rooms";
+import { getRoom, NEUTRAL_ROOM } from "@/lib/slate/rooms";
+import { BackgroundLayer } from "./BackgroundLayer";
 import { RoomShell } from "./RoomShell";
 import { SlateColumn } from "./SlateColumn";
+import { SunLight } from "./SunLight";
 import type { ScrollState } from "./SlateColumn";
 import { WorldBoundary } from "./WorldBoundary";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
@@ -34,6 +38,7 @@ interface Props {
  */
 export default function WorldStage(props: Props) {
   const room = getRoom(props.game.roomId);
+  const stage = room ?? NEUTRAL_ROOM;
   const host = useRef<HTMLDivElement>(null);
   const scroll = useRef<ScrollState & { locked: boolean }>({
     target: 0,
@@ -41,6 +46,13 @@ export default function WorldStage(props: Props) {
     max: 0,
     locked: false,
   });
+
+  // performance readout, development only, opt in with ?perf=1
+  const [showPerf, setShowPerf] = useState(false);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    setShowPerf(new URLSearchParams(window.location.search).has("perf"));
+  }, []);
 
   useEffect(() => {
     const node = host.current;
@@ -86,33 +98,65 @@ export default function WorldStage(props: Props) {
 
   return (
     <div ref={host} className="absolute inset-0 touch-none">
+      {/* Background is always the bottom layer; a room, if any, paints over it. */}
+      <BackgroundLayer background={props.game.background} />
       <WorldBoundary>
         <Canvas
           shadows
           dpr={[1, 1.8]}
-          gl={{ antialias: true }}
+          gl={{ antialias: true, alpha: !room }}
           camera={{ position: [0, 0.4, 5.4], fov: 42, near: 0.1, far: 60 }}
           onCreated={({ gl }) => {
             // linear working space in, sRGB out, filmic grade on the way there
             gl.outputColorSpace = THREE.SRGBColorSpace;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
+            if (!room) gl.setClearColor(0x000000, 0); // let the uploaded background show through
           }}
         >
-          <Exposure value={room.exposure} />
-          <color attach="background" args={[room.fog.colour]} />
-          <fog attach="fog" args={[room.fog.colour, room.fog.near, room.fog.far]} />
+          <Exposure value={stage.exposure} />
+          {showPerf ? <PerfProbe /> : null}
+          {room ? (
+            <>
+              <color attach="background" args={[room.fog.colour]} />
+              <fog attach="fog" args={[room.fog.colour, room.fog.near, room.fog.far]} />
+            </>
+          ) : null}
           <Suspense fallback={null}>
-            {/* photographed interior lighting: real reflections and ambient bounce */}
-            <Environment
-              files={HDRI[room.env.mood]}
-              environmentIntensity={room.env.intensity}
-              resolution={256}
-            />
-            <RoomShell key={room.id} room={room} />
-            <SlateColumn room={room} scroll={scroll} {...props} />
+            <Suspense fallback={null}>
+            {room ? (
+              <>
+                {/* photographed interior lighting: real reflections and ambient bounce */}
+                <Environment
+                  files={HDRI[room.env.mood]}
+                  environmentIntensity={room.env.intensity}
+                  resolution={256}
+                />
+                <RoomShell key={room.id} room={room} />
+              </>
+            ) : (
+              <>
+                {/* lighting only — the uploaded background stays visible behind */}
+                <Environment
+                  files={HDRI[stage.env.mood]}
+                  environmentIntensity={stage.env.intensity}
+                  background={false}
+                  resolution={256}
+                />
+                <ambientLight color={stage.ambient.colour} intensity={stage.ambient.intensity} />
+                <directionalLight
+                  position={stage.key.position}
+                  color={stage.key.colour}
+                  intensity={stage.key.intensity}
+                />
+              </>
+            )}
+            </Suspense>
+            <SunLight sun={props.game.settings.assets?.sun ?? null} />
+            <SlateColumn room={stage} roomless={!room} scroll={scroll} {...props} />
           </Suspense>
         </Canvas>
       </WorldBoundary>
+      {showPerf ? <EffectPerfOverlay /> : null}
     </div>
   );
 }

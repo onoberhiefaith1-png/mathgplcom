@@ -83,10 +83,14 @@ export default function GameSlateEditorPage() {
       if (!reward || reward.state !== "dormant") return current;
 
       const status = { ...current.status };
-      if (type === "math-coin") status.coins += 1;
+      if (type === "math-vault") status.vaultsOpened += 1;
       if (type === "retry-heart") status.lives += 1;
-      if (type === "time-shard" && status.timerEndsAt && status.timerEndsAt > Date.now()) {
-        status.timerEndsAt += 30_000;
+      if (type === "time-shard") {
+        // the hourglass gives exactly the time the teacher stored in it
+        const bonus = Math.max(1000, reward.durationMs ?? 15_000);
+        const base =
+          status.timerEndsAt && status.timerEndsAt > Date.now() ? status.timerEndsAt : Date.now();
+        status.timerEndsAt = base + bonus;
       }
 
       const next = {
@@ -129,6 +133,13 @@ export default function GameSlateEditorPage() {
 
   const surface = getSurface(game.surfaceId);
   const editing = mode === "edit";
+  const vaultsTotal =
+    game.status.vaultsOpened +
+    game.slots.reduce(
+      (total, slot) =>
+        total + slot.rewards.filter((reward) => reward.type === "math-vault").length,
+      0,
+    );
 
 
   const addReward = (typeId: string) => {
@@ -186,7 +197,7 @@ export default function GameSlateEditorPage() {
               {[game.topic, game.subtopic].filter(Boolean).join(" · ")}
             </span>
           </div>
-          <RewardStatusBar status={game.status} />
+          <RewardStatusBar status={game.status} vaultsTotal={vaultsTotal} />
           <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
             <button
               onClick={() => {

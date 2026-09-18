@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Html } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { SurfaceDef } from "@/lib/slate/surfaces";
-import type { RegionTextData, TextSettings } from "@/lib/slate/text3d";
+import type { RegionTextData, TextBounds, TextSettings } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
-import { InscribedText } from "./InscribedText";
 import type { InscribedTextApi } from "./InscribedText";
+import { TileText } from "./TileText";
+import { DimensionalText } from "./DimensionalText";
 
 interface Props {
   slotId: string;
@@ -25,7 +26,7 @@ interface Props {
   placeholder?: string | undefined;
   onChange: (text: string) => void;
   onActivate: () => void;
-  onMeasure: (height: number) => void;
+  onMeasure: (bounds: TextBounds) => void;
   onReport?: (data: RegionTextData) => void;
 }
 
@@ -56,12 +57,19 @@ export function WritingRegion({
   onReport,
 }: Props) {
   const api = useRef<InscribedTextApi>(null);
+  // the preset chooses the material treatment — layout, caret and growth stay
+  const Renderer =
+    settings.style === "tiles"
+      ? TileText
+      : DimensionalText;
   const input = useRef<HTMLTextAreaElement>(null);
   const [caret, setCaret] = useState<number | null>(null);
   const [selection, setSelection] = useState<[number, number] | null>(null);
   const dragging = useRef(false);
   const anchor = useRef(0);
-  const measuredHeight = useRef(0);
+  const measuredBounds = useRef<TextBounds>({
+    left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0,
+  });
 
   const top = height / 2 - pad;
   const left = -width / 2;
@@ -114,9 +122,18 @@ export function WritingRegion({
   );
 
   const report = useCallback(
-    (h: number) => {
-      measuredHeight.current = h;
-      onMeasure(h);
+    (bounds: TextBounds) => {
+      const originX = settings.align === "left" ? 0 : settings.align === "right" ? width : width / 2;
+      const placed = {
+        left: left + originX + bounds.left,
+        right: left + originX + bounds.right,
+        top: top + bounds.top,
+        bottom: top + bounds.bottom,
+        width: bounds.width,
+        height: bounds.height,
+      };
+      measuredBounds.current = placed;
+      onMeasure(placed);
       onReport?.({
         slotId,
         text,
@@ -125,12 +142,12 @@ export function WritingRegion({
         selection,
         position: { x: left, y: top, z },
         width,
-        height: h,
+        height: placed.height,
         material: surface.id,
         style: settings.style,
       });
     },
-    [caret, height, left, onMeasure, onReport, selection, settings.style, slotId, surface.id, text, top, width, z],
+    [caret, left, onMeasure, onReport, selection, settings.align, settings.style, slotId, surface.id, text, top, width, z],
   );
 
   const show = text || (!editable ? "" : "");
@@ -168,7 +185,7 @@ export function WritingRegion({
       </mesh>
 
       <group position={[left, top, z + 0.004]}>
-        <InscribedText
+        <Renderer
           apiRef={api}
           text={show}
           width={width}
@@ -179,7 +196,7 @@ export function WritingRegion({
           onMeasure={report}
         />
         {!text && placeholder ? (
-          <InscribedText
+          <Renderer
             text={placeholder}
             width={width}
             surface={surface}
@@ -225,7 +242,7 @@ export function WritingRegion({
               background: "transparent",
               color: "transparent",
               caretColor: "transparent",
-              fontSize: settings.size,
+              fontSize: Math.min(64, settings.size),
               lineHeight: settings.lineSpacing,
             }}
           />

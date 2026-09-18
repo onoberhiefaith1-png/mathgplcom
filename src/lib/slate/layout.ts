@@ -27,7 +27,7 @@ export const PX_PER_UNIT = 220;
 export const INNER_W = SLATE_W - 0.9;
 export const TEXT_W_PX = Math.round(INNER_W * PX_PER_UNIT);
 
-const ROW_H = 0.3;
+
 const REGION_PAD = 0.36;
 
 export interface RegionLayout {
@@ -65,11 +65,14 @@ export const buildLayout = (
   measured: Record<string, number> = {},
 ): SlateLayout => {
   let cursor = 0.5;
+  // one line of text, in world units — scales with the chosen size so a very
+  // large equation reserves the right space before it has been measured
+  const rowH = Math.max(0.16, (fontSize * 1.25) / PX_PER_UNIT);
   const regions = slots.map((slot, index) => {
     const lines = Math.max(1, countLines(slot.text || slot.hiddenContent || "", fontSize));
-    const estimate = lines * ROW_H;
+    const estimate = lines * rowH;
     const real = measured[slot.id];
-    const height = REGION_PAD * 2 + Math.max(ROW_H, real !== undefined && real > 0 ? real : estimate);
+    const height = REGION_PAD * 2 + Math.max(rowH, real !== undefined && real > 0 ? real : estimate);
     const region: RegionLayout = {
       slot,
       index,

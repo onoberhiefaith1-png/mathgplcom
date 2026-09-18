@@ -174,6 +174,23 @@ export const SURFACE_MATERIALS: Record<string, MaterialRecipe> = {
   shield: { roughness: 0.38, metalness: 0.8, normalScale: 0.6, normalKey: "slate-shield", grain: 44, scratches: 0.85 },
   glass: { roughness: 0.08, metalness: 0.05, normalScale: 0.25, normalKey: "slate-glass", grain: 100, physical: "glass" },
   ice: { roughness: 0.16, metalness: 0.03, normalScale: 0.7, normalKey: "slate-ice", grain: 56, physical: "ice", scratches: 0.6 },
+  "royal-paper": { roughness: 0.68, metalness: 0.08, normalScale: 0.38, normalKey: "royal-paper", grain: 145 },
+  "leaf-frame": { roughness: 0.86, metalness: 0.01, normalScale: 0.42, normalKey: "leaf-paper", grain: 155 },
+  "magical-aura": { roughness: 0.1, metalness: 0.08, normalScale: 0.22, normalKey: "magic-glass", grain: 90, physical: "glass" },
+  cloud: { roughness: 0.72, metalness: 0, normalScale: 0.28, normalKey: "cloud", grain: 46 },
+  "silk-ribbon": { roughness: 0.34, metalness: 0.04, normalScale: 0.22, normalKey: "silk", grain: 180 },
+  none: { roughness: 1, metalness: 0, normalScale: 0, normalKey: "none", grain: 1 },
+  plain: { roughness: 0.56, metalness: 0.02, normalScale: 0.16, normalKey: "plain", grain: 170 },
+  "new-parchment-scroll": { roughness: 0.92, metalness: 0.01, normalScale: 0.54, normalKey: "new-parchment", grain: 170 },
+  "new-royal-plaque": { roughness: 0.66, metalness: 0.08, normalScale: 0.4, normalKey: "new-royal", grain: 150 },
+  "new-crystal-glass": { roughness: 0.06, metalness: 0.02, normalScale: 0.2, normalKey: "new-crystal", grain: 90, physical: "glass" },
+  "new-wooden-sign": { roughness: 0.76, metalness: 0.01, normalScale: 0.72, normalKey: "new-wood", grain: 135 },
+  "new-stone-tablet": { roughness: 0.94, metalness: 0.01, normalScale: 1.08, normalKey: "new-stone", grain: 46 },
+  "new-leaf-frame": { roughness: 0.84, metalness: 0.01, normalScale: 0.48, normalKey: "new-leaf", grain: 155 },
+  "new-magical-aura": { roughness: 0.08, metalness: 0.05, normalScale: 0.18, normalKey: "new-magic", grain: 100, physical: "glass" },
+  "new-cloud-panel": { roughness: 0.76, metalness: 0, normalScale: 0.32, normalKey: "new-cloud", grain: 50 },
+  "new-metal-plate": { roughness: 0.3, metalness: 0.92, normalScale: 0.48, normalKey: "new-metal", grain: 18, scratches: 0.95 },
+  "new-silk-ribbon": { roughness: 0.3, metalness: 0.02, normalScale: 0.32, normalKey: "new-silk", grain: 190 },
 };
 
 export const surfaceMaterial = (surfaceId: string): MaterialRecipe =>

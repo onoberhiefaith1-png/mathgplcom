@@ -91,6 +91,12 @@ interface Props {
   physical?: "glass" | "ice" | undefined;
   accent: string;
   numbers?: NumberSettings;
+  /** Transparent slate: no material at all, only a faint outline. */
+  transparent?: boolean;
+  none?: boolean;
+  ornament?: "royal" | "leaf" | "magic" | "cloud" | "silk" | undefined;
+  /** Keeps the line marker tied to the Game Line when the material is offset. */
+  numberOffsetX?: number;
 }
 
 /**
@@ -107,19 +113,18 @@ export function SlateSection({
   physical,
   accent,
   numbers,
+  transparent,
+  none,
+  ornament,
+  numberOffsetX,
 }: Props) {
   const numberStyle = numbers ?? defaultNumberSettings();
-  const bodyH = Math.max(0.3, height - build.gap);
+  const bodyH = Math.max(0.3, height);
   const bedW = width - build.inset * 2;
   const bedH = Math.max(0.2, bodyH - build.inset * 0.85);
   const tone = build.tones[index % build.tones.length] ?? 1;
   const tilt = (seeded(index, 7) - 0.5) * 0.012 * build.jitter;
   const shift = (seeded(index, 11) - 0.5) * 0.03 * build.jitter;
-
-  const slab = useMemo(
-    () => brokenBox(width, bodyH, build.depth, build.jitter, index * 3.3),
-    [width, bodyH, build.depth, build.jitter, index],
-  );
 
   const colour = useMemo(() => new THREE.Color(maps.color).multiplyScalar(tone), [maps.color, tone]);
   const bedColour = useMemo(() => colour.clone().multiplyScalar(0.64), [colour]);
@@ -146,10 +151,120 @@ export function SlateSection({
     </mesh>
   );
 
+  const numberPlate = numberStyle.visible ? (
+    <mesh
+      position={[
+        numberOffsetX ?? (numberStyle.align === "right" ? 1 : -1) * (width / 2 - build.inset * 0.48),
+        numberStyle.vertical === "middle" ? 0 : bodyH / 2 - build.inset * 0.5,
+        0.006,
+      ]}
+    >
+      <planeGeometry args={[0.3 * numberStyle.size, 0.3 * numberStyle.size]} />
+      <meshBasicMaterial
+        map={numeralPlate(index, numberStyle)}
+        transparent
+        opacity={numberStyle.opacity}
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </mesh>
+  ) : null;
+
+  if (none) return numberPlate;
+
+  const ornamentLayer = (() => {
+    if (!ornament) return null;
+    if (ornament === "cloud") {
+      const puffs = [
+        [-0.38, 0.34, 0.24], [-0.13, 0.42, 0.3], [0.16, 0.4, 0.27], [0.4, 0.31, 0.22],
+        [-0.42, -0.32, 0.21], [-0.12, -0.4, 0.28], [0.18, -0.39, 0.25], [0.42, -0.28, 0.2],
+      ] as const;
+      return puffs.map(([nx, ny, radius], i) => (
+        <mesh key={i} position={[nx * width, ny * bodyH, 0.015]} scale={[1.35, 0.8, 0.45]}>
+          <sphereGeometry args={[Math.min(radius, bodyH * 0.34), 18, 12]} />
+          <meshStandardMaterial color="#eef8ff" roughness={0.72} transparent opacity={0.86} />
+        </mesh>
+      ));
+    }
+    if (ornament === "leaf") {
+      return [-1, 1].flatMap((side) =>
+        [-0.34, 0, 0.34].map((ny, i) => (
+          <mesh
+            key={`${side}:${i}`}
+            position={[side * (width / 2 + 0.025), ny * bodyH, 0.04]}
+            rotation={[0, 0, side * (0.5 + i * 0.35)]}
+            scale={[1, 1.65, 1]}
+          >
+            <sphereGeometry args={[Math.min(0.075, bodyH * 0.11), 12, 8]} />
+            <meshStandardMaterial color={i % 2 ? "#497c35" : "#6e9f40"} roughness={0.82} />
+          </mesh>
+        )),
+      );
+    }
+    if (ornament === "royal") {
+      return (
+        <>
+          {[-1, 1].map((side) => (
+            <mesh key={side} position={[side * (width / 2 + 0.035), 0, 0.035]}>
+              <boxGeometry args={[0.075, bodyH * 0.88, 0.07]} />
+              <meshStandardMaterial color="#d7a72f" metalness={0.72} roughness={0.25} />
+            </mesh>
+          ))}
+          <mesh position={[0, bodyH / 2 + 0.03, 0.04]}>
+            <boxGeometry args={[width * 0.38, 0.065, 0.075]} />
+            <meshStandardMaterial color="#e7b83c" metalness={0.78} roughness={0.22} />
+          </mesh>
+        </>
+      );
+    }
+    if (ornament === "silk") {
+      return [-1, 1].map((side) => (
+        <mesh key={side} position={[side * (width / 2 + 0.09), -bodyH * 0.08, -0.015]} rotation={[0, 0, side * 0.22]}>
+          <boxGeometry args={[0.22, bodyH * 0.7, 0.055]} />
+          <meshStandardMaterial color="#b31746" roughness={0.3} metalness={0.04} />
+        </mesh>
+      ));
+    }
+    return (
+      <mesh position={[0, 0, 0.045]}>
+        <boxGeometry args={[width + 0.1, bodyH + 0.1, 0.025]} />
+        <meshBasicMaterial color={accent} transparent opacity={0.2} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </mesh>
+    );
+  })();
+
+  // Transparent slate: nothing physical is built. The world behind stays fully
+  // visible; only a faint outline says where this writing area begins and ends.
+  if (transparent) {
+    const edge = 0.012;
+    const line = (w: number, h: number, x: number, y: number, key: string) => (
+      <mesh key={key} position={[x, y, 0]}>
+        <planeGeometry args={[w, h]} />
+        <meshBasicMaterial
+          color="#ffffff"
+          transparent
+          opacity={0.16}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+    );
+    return (
+      <group>
+        {line(bedW, edge, 0, bedH / 2, "top")}
+        {line(bedW, edge, 0, -bedH / 2, "bottom")}
+        {line(edge, bedH, -bedW / 2, 0, "left")}
+        {line(edge, bedH, bedW / 2, 0, "right")}
+        {numberPlate}
+      </group>
+    );
+  }
+
   return (
     <group position={[shift, 0, 0]} rotation={[0, 0, tilt]}>
       {/* the physical slab */}
-      <mesh geometry={slab} position={[0, 0, -build.depth / 2]} castShadow receiveShadow>
+      <mesh position={[0, 0, -build.depth / 2]} receiveShadow>
+        <boxGeometry args={[width, bodyH, Math.max(0.02, build.depth), 3, 2, 1]} />
         {physical ? (
           <meshPhysicalMaterial
             map={maps.map}
@@ -200,17 +315,11 @@ export function SlateSection({
       {rim(build.bevel, bedH, -bedW / 2 - build.bevel / 2, 0)}
       {rim(build.bevel, bedH, bedW / 2 + build.bevel / 2, 0)}
 
-      {/* contact darkening inside the recess */}
-      <mesh position={[0, 0, -build.recess + 0.004]}>
-        <ringGeometry args={[Math.min(bedW, bedH) * 0.48, Math.max(bedW, bedH) * 0.72, 4, 1]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.16} depthWrite={false} />
-      </mesh>
-
       {/* section number, cut into the margin of the material itself */}
       {numberStyle.visible ? (
         <mesh
           position={[
-            (numberStyle.align === "right" ? 1 : -1) * (width / 2 - build.inset * 0.48),
+            numberOffsetX ?? (numberStyle.align === "right" ? 1 : -1) * (width / 2 - build.inset * 0.48),
             numberStyle.vertical === "middle" ? 0 : bodyH / 2 - build.inset * 0.5,
             0.006,
           ]}
@@ -225,12 +334,6 @@ export function SlateSection({
           />
         </mesh>
       ) : null}
-
-      {/* the dark physical gap below this section */}
-      <mesh position={[0, -bodyH / 2 - build.gap / 2, -build.depth * 0.55]}>
-        <planeGeometry args={[width * 1.02, build.gap * 1.3]} />
-        <meshBasicMaterial color="#050403" transparent opacity={0.88} depthWrite={false} />
-      </mesh>
 
       {build.joints ? (
         <>
@@ -268,23 +371,6 @@ export function SlateSection({
           )
         : null}
 
-      {build.curve ? (
-        <mesh position={[0, 0, -0.34]} rotation={[0, 0, Math.PI / 2]} receiveShadow>
-          <cylinderGeometry
-            args={[1.9, 1.9, width * 1.02, 28, 1, true, Math.PI / 2 - build.curve / 2, build.curve]}
-          />
-          <meshStandardMaterial
-            map={maps.map}
-            normalMap={maps.normalMap}
-            roughnessMap={maps.roughnessMap}
-            roughness={maps.roughness}
-            metalness={maps.metalness}
-            color={colour}
-            side={THREE.DoubleSide}
-          />
-        </mesh>
-      ) : null}
-
       {build.frost ? (
         <mesh position={[0, 0, -build.recess + 0.002]}>
           <ringGeometry args={[Math.min(bedW, bedH) * 0.5, Math.max(bedW, bedH) * 0.68, 4, 1]} />
@@ -297,6 +383,7 @@ export function SlateSection({
           />
         </mesh>
       ) : null}
+      {ornamentLayer}
     </group>
   );
 }

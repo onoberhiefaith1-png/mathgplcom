@@ -4,6 +4,7 @@
 // string should be physically inscribed into a given material.
 
 import type { SurfaceDef } from "./surfaces";
+import type { ResolvedTextStyle, TextPresetId } from "./textPresets";
 
 export type TextStyleId =
   | "inscription"
@@ -15,7 +16,18 @@ export type TextStyleId =
   | "chalk"
   | "royal"
   | "mechanical"
-  | "glow";
+  | "glow"
+  | "tiles"
+  | "dimensional";
+
+/** Character treatments offered by the 3D Mathematical Text style. */
+export type DimensionalSubstyle =
+  | "classic"
+  | "bold"
+  | "rounded"
+  | "soft"
+  | "heavy"
+  | "inscribed";
 export type TextRelief = "engraved" | "carved" | "embossed" | "raised";
 export type GlowLevel = "off" | "subtle" | "medium";
 export type TextAlign = "left" | "center" | "right";
@@ -51,6 +63,28 @@ export interface TextSettings {
   integration: Integration;
   /** Colours the user saved from the picker. Older drafts may omit this. */
   swatches?: string[];
+  /** Character treatment, used by the 3D Mathematical Text style only. */
+  substyle?: DimensionalSubstyle;
+  /** Premium visual treatment. Older drafts fall back to Royal 3D. */
+  preset?: TextPresetId;
+  /** The colour the whole object is derived from. */
+  baseColour?: string;
+  /** High-level strength of the front-face colour, from delicate to vivid. */
+  mainTextColourStrength?: number;
+  /** Independent physical colour of the bevel and extruded sides. */
+  depthColour?: string;
+  /** High-level strength of the physical depth colour, from subtle to rich. */
+  depthColourStrength?: number;
+  /** Slow whole-expression motion that reveals the physical depth. */
+  animate?: boolean;
+  /** Advanced Living 3D controls. */
+  livingAngle?: number;
+  livingDrift?: number;
+  livingLift?: number;
+  livingScale?: number;
+  livingDuration?: number;
+  /** Explicit overrides made in Advanced, on top of the preset. */
+  advanced?: Partial<ResolvedTextStyle>;
 }
 
 export const TEXT_STYLES: { id: TextStyleId; label: string; blurb: string }[] = [
@@ -64,6 +98,16 @@ export const TEXT_STYLES: { id: TextStyleId; label: string; blurb: string }[] = 
   { id: "royal", label: "H — Royal / Adventure", blurb: "Premium fantasy lettering" },
   { id: "mechanical", label: "I — Mechanical / Engraved", blurb: "Precise industrial engraving" },
   { id: "glow", label: "J — Crystal Glow", blurb: "Bright dimensional glow" },
+  {
+    id: "tiles",
+    label: "K — Mathematical Game Tiles",
+    blurb: "Every character a physical game tile",
+  },
+  {
+    id: "dimensional",
+    label: "L — 3D Mathematical Text",
+    blurb: "True extruded characters, one colour",
+  },
 ];
 
 export const FONTS: Record<TextStyleId, string> = {
@@ -77,6 +121,69 @@ export const FONTS: Record<TextStyleId, string> = {
   royal: "/fonts/royal.ttf",
   mechanical: "/fonts/mechanical.ttf",
   glow: "/fonts/glow.ttf",
+  tiles: "/fonts/hero.ttf",
+  dimensional: "/fonts/hero.ttf",
+};
+
+/** Per-substyle character treatment for the 3D Mathematical Text style. */
+export const DIMENSIONAL_SUBSTYLES: {
+  id: DimensionalSubstyle;
+  label: string;
+  /** Extrusion multiplier. */
+  extrude: number;
+  /** Bevel lip multiplier. */
+  bevel: number;
+  /** Edge softness (0 = crisp, 1 = soft). */
+  softness: number;
+  /** Weight added to the face, as an outline in em. */
+  weight: number;
+  font: string;
+}[] = [
+  { id: "classic", label: "3D Classic", extrude: 1, bevel: 1, softness: 0.2, weight: 0, font: "/fonts/hero.ttf" },
+  { id: "bold", label: "3D Bold", extrude: 1.25, bevel: 1.1, softness: 0.15, weight: 0.035, font: "/fonts/hero.ttf" },
+  { id: "rounded", label: "3D Rounded", extrude: 1.05, bevel: 1.4, softness: 0.55, weight: 0.02, font: "/fonts/royal.ttf" },
+  { id: "soft", label: "3D Soft", extrude: 0.8, bevel: 1.2, softness: 0.85, weight: 0.012, font: "/fonts/royal.ttf" },
+  { id: "heavy", label: "3D Heavy", extrude: 1.7, bevel: 1.25, softness: 0.1, weight: 0.055, font: "/fonts/hero.ttf" },
+  { id: "inscribed", label: "3D Inscribed", extrude: 1.15, bevel: 0.8, softness: 0.05, weight: 0, font: "/fonts/inscription.ttf" },
+];
+
+export const getSubstyle = (id: DimensionalSubstyle | undefined) =>
+  DIMENSIONAL_SUBSTYLES.find((s) => s.id === id) ?? DIMENSIONAL_SUBSTYLES[0]!;
+
+/** What kind of mathematical object a character is — drives tile identity. */
+export type GlyphClass =
+  | "digit"
+  | "variable"
+  | "operator"
+  | "relation"
+  | "root"
+  | "bracket"
+  | "other";
+
+const OPERATORS = "+-−×÷·±*/";
+const RELATIONS = "=≠<>≤≥≈≡∝";
+const ROOTS = "√∛∜∫∂∇∑∏Σ";
+const BRACKETS = "()[]{}|";
+
+export const classifyGlyph = (ch: string): GlyphClass => {
+  if (/[0-9.,]/.test(ch)) return "digit";
+  if (OPERATORS.includes(ch)) return "operator";
+  if (RELATIONS.includes(ch)) return "relation";
+  if (ROOTS.includes(ch)) return "root";
+  if (BRACKETS.includes(ch)) return "bracket";
+  if (/[A-Za-zα-ωΑ-Ω]/.test(ch)) return "variable";
+  return "other";
+};
+
+/** One controlled game palette: each object type has its own tile identity. */
+export const TILE_PALETTE: Record<GlyphClass, { face: string; edge: string; symbol: string }> = {
+  digit: { face: "#2f7fd6", edge: "#1a4f8c", symbol: "#f4fbff" },
+  variable: { face: "#d9483f", edge: "#8e2a24", symbol: "#fff2ef" },
+  operator: { face: "#e5a021", edge: "#9a6408", symbol: "#3a2402" },
+  relation: { face: "#3fa564", edge: "#22643b", symbol: "#f2fff6" },
+  root: { face: "#7d55c7", edge: "#4a2e80", symbol: "#f6f0ff" },
+  bracket: { face: "#c9803a", edge: "#7d4a18", symbol: "#fff5e8" },
+  other: { face: "#5c6b7a", edge: "#2f3a45", symbol: "#eef4f9" },
 };
 
 export const RELIEFS: TextRelief[] = ["engraved", "carved", "embossed", "raised"];
@@ -99,7 +206,19 @@ export const defaultTextSettings = (): TextSettings => ({
   colour: null,
   opacity: 1,
   integration: "medium",
+  substyle: "classic",
   swatches: [],
+  preset: "royal3d",
+  baseColour: "#2f7fd6",
+  mainTextColourStrength: 1,
+  depthColour: "#e5a021",
+  depthColourStrength: 1,
+  animate: false,
+  livingAngle: 4,
+  livingDrift: 0.012,
+  livingLift: 0.008,
+  livingScale: 0.008,
+  livingDuration: 7.5,
 });
 
 /** Preset inks that sit convincingly on the ten materials. */
@@ -207,10 +326,12 @@ export const textRecipe = (surface: SurfaceDef, t: TextSettings): TextRecipe => 
   };
 
   // a chosen ink still has to behave like a cut: shade sinks, lip catches light
-  if (t.colour) {
-    base.ink = t.colour;
-    base.shade = shift(t.colour, -0.72);
-    base.lip = shift(t.colour, 0.62);
+  const chosen = t.colour ?? t.baseColour ?? null;
+  if (chosen) {
+    base.ink = chosen;
+    const depth = t.depthColour ?? chosen;
+    base.shade = shift(depth, -0.35);
+    base.lip = shift(depth, 0.42);
   }
 
   // Each style reacts to light differently, so switching identity is visible
@@ -303,4 +424,14 @@ export interface RegionTextData {
   height: number;
   material: string;
   style: TextStyleId;
+}
+
+/** Actual visible bounds reported by Troika, in local writing coordinates. */
+export interface TextBounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  width: number;
+  height: number;
 }

@@ -1,16 +1,16 @@
 // Surface registry. Adding a new physical surface = adding one entry here.
 // Nothing else in the slate engine changes.
 
-import stoneWall from "@/assets/slate/surfaces/stone-wall.jpg";
-import stoneTablet from "@/assets/slate/surfaces/stone-tablet.jpg";
-import wood from "@/assets/slate/surfaces/wood.jpg";
-import door from "@/assets/slate/surfaces/door.jpg";
-import metalPlate from "@/assets/slate/surfaces/metal-plate.jpg";
-import scroll from "@/assets/slate/surfaces/scroll.jpg";
-import chest from "@/assets/slate/surfaces/chest.jpg";
-import shield from "@/assets/slate/surfaces/shield.jpg";
-import glass from "@/assets/slate/surfaces/glass.jpg";
-import ice from "@/assets/slate/surfaces/ice.jpg";
+import stoneWall from "@/assets/surfaces/stone-wall.jpg";
+import stoneTablet from "@/assets/surfaces/stone-tablet.jpg";
+import wood from "@/assets/surfaces/wood.jpg";
+import door from "@/assets/surfaces/door.jpg";
+import metalPlate from "@/assets/surfaces/metal-plate.jpg";
+import scroll from "@/assets/surfaces/scroll.jpg";
+import chest from "@/assets/surfaces/chest.jpg";
+import shield from "@/assets/surfaces/shield.jpg";
+import glass from "@/assets/surfaces/glass.jpg";
+import ice from "@/assets/surfaces/ice.jpg";
 
 export type TextTreatment = "carved" | "raised";
 
@@ -39,6 +39,30 @@ export interface SurfaceDef {
   frame: string;
   /** Ambient light of the material, used by reward glow and focus. */
   accent: string;
+  /**
+   * No material at all: the writing area is an invisible spatial surface and
+   * the world behind it stays fully visible. Only a faint outline remains.
+   */
+  transparent?: boolean;
+  /** A true absence of writing material; unlike transparent, no outline exists. */
+  none?: boolean;
+  /** Optional compact silhouette treatment layered over the base material. */
+  ornament?: "royal" | "leaf" | "magic" | "cloud" | "silk";
+  /** Selector grouping only; original entries intentionally omit this. */
+  collection?: "new";
+  /** Dedicated adaptive physical renderer for the reference collection. */
+  newKind?:
+    | "plain"
+    | "parchment"
+    | "royal"
+    | "crystal"
+    | "wood"
+    | "stone"
+    | "leaf"
+    | "magic"
+    | "cloud"
+    | "metal"
+    | "silk";
 }
 
 export const SURFACES: SurfaceDef[] = [
@@ -242,7 +266,189 @@ export const SURFACES: SurfaceDef[] = [
     frame: "rgba(200,240,255,0.4)",
     accent: "#7fd8ff",
   },
+  {
+    id: "royal-paper",
+    label: "Royal Paper / Plaque",
+    texture: scroll,
+    tile: 300,
+    ink: "#173f91",
+    inkHighlight: "rgba(255,245,200,0.9)",
+    inkShadow: "rgba(58,24,8,0.72)",
+    treatment: "raised",
+    panel: { background: "#f3dba4", border: "#d7a72f", inset: "none", radius: "8px" },
+    frame: "#d7a72f",
+    accent: "#ffd466",
+    ornament: "royal",
+  },
+  {
+    id: "leaf-frame",
+    label: "Leaf Frame",
+    texture: scroll,
+    tile: 300,
+    ink: "#244d25",
+    inkHighlight: "rgba(244,255,221,0.82)",
+    inkShadow: "rgba(22,52,20,0.72)",
+    treatment: "raised",
+    panel: { background: "#eee1bd", border: "#4f853b", inset: "none", radius: "12px" },
+    frame: "#4f853b",
+    accent: "#8ed35a",
+    ornament: "leaf",
+  },
+  {
+    id: "magical-aura",
+    label: "Magical Material / Aura",
+    texture: glass,
+    tile: 340,
+    ink: "#fff0ff",
+    inkHighlight: "rgba(255,255,255,0.95)",
+    inkShadow: "rgba(55,16,90,0.78)",
+    treatment: "raised",
+    panel: { background: "rgba(160,82,220,0.18)", border: "rgba(225,166,255,0.75)", inset: "none", radius: "10px" },
+    frame: "rgba(218,145,255,0.8)",
+    accent: "#d886ff",
+    ornament: "magic",
+  },
+  {
+    id: "cloud",
+    label: "Cloud",
+    texture: ice,
+    tile: 300,
+    ink: "#173f91",
+    inkHighlight: "rgba(255,255,255,0.95)",
+    inkShadow: "rgba(44,78,116,0.6)",
+    treatment: "raised",
+    panel: { background: "rgba(240,248,255,0.82)", border: "rgba(210,235,255,0.8)", inset: "none", radius: "18px" },
+    frame: "rgba(225,244,255,0.9)",
+    accent: "#dff4ff",
+    ornament: "cloud",
+  },
+  {
+    id: "silk-ribbon",
+    label: "Silk Ribbon",
+    texture: scroll,
+    tile: 300,
+    ink: "#fff3c4",
+    inkHighlight: "rgba(255,255,255,0.9)",
+    inkShadow: "rgba(92,4,30,0.7)",
+    treatment: "raised",
+    panel: { background: "#c82052", border: "#efbd49", inset: "none", radius: "10px" },
+    frame: "#efbd49",
+    accent: "#ffcf58",
+    ornament: "silk",
+  },
+  {
+    id: "transparent",
+    label: "Transparent Slate",
+    texture: glass,
+    tile: 340,
+    ink: "#ffffff",
+    inkHighlight: "rgba(255,255,255,0.9)",
+    inkShadow: "rgba(0,0,0,0.85)",
+    treatment: "raised",
+    panel: {
+      background: "transparent",
+      border: "rgba(255,255,255,0.18)",
+      inset: "none",
+      radius: "4px",
+    },
+    frame: "rgba(255,255,255,0.14)",
+    accent: "#cfe6ff",
+    transparent: true,
+  },
+  {
+    id: "none",
+    label: "None",
+    texture: glass,
+    tile: 340,
+    ink: "#ffffff",
+    inkHighlight: "rgba(255,255,255,0.9)",
+    inkShadow: "rgba(0,0,0,0.85)",
+    treatment: "raised",
+    panel: { background: "transparent", border: "transparent", inset: "none", radius: "0" },
+    frame: "transparent",
+    accent: "#ffffff",
+    none: true,
+    collection: "new",
+  },
+  {
+    id: "plain",
+    label: "Plain",
+    texture: glass,
+    tile: 340,
+    ink: "#172033",
+    inkHighlight: "rgba(255,255,255,0.82)",
+    inkShadow: "rgba(0,0,0,0.62)",
+    treatment: "raised",
+    panel: { background: "#f4ead7", border: "rgba(255,255,255,0.4)", inset: "none", radius: "6px" },
+    frame: "rgba(255,255,255,0.28)",
+    accent: "#f4ead7",
+    collection: "new",
+    newKind: "plain",
+  },
+  {
+    id: "new-parchment-scroll", label: "Parchment Scroll", texture: scroll, tile: 320,
+    ink: "#4a2f16", inkHighlight: "rgba(255,248,224,0.7)", inkShadow: "rgba(60,36,14,0.5)", treatment: "carved",
+    panel: { background: "#e7c98e", border: "#9a5a22", inset: "none", radius: "4px" }, frame: "#9a5a22", accent: "#ffd96b",
+    collection: "new", newKind: "parchment",
+  },
+  {
+    id: "new-royal-plaque", label: "Royal Plaque", texture: scroll, tile: 300,
+    ink: "#173f91", inkHighlight: "rgba(255,245,200,0.9)", inkShadow: "rgba(58,24,8,0.72)", treatment: "raised",
+    panel: { background: "#f1dfb9", border: "#e4aa29", inset: "none", radius: "8px" }, frame: "#e4aa29", accent: "#ffd96b",
+    collection: "new", newKind: "royal",
+  },
+  {
+    id: "new-crystal-glass", label: "Crystal Glass", texture: glass, tile: 340,
+    ink: "#dff6ff", inkHighlight: "rgba(255,255,255,0.9)", inkShadow: "rgba(0,20,30,0.72)", treatment: "raised",
+    panel: { background: "rgba(219,234,255,0.16)", border: "rgba(168,239,255,0.9)", inset: "none", radius: "8px" }, frame: "rgba(222,239,255,0.82)", accent: "#64e9ff",
+    collection: "new", newKind: "crystal",
+  },
+  {
+    id: "new-wooden-sign", label: "Wooden Sign", texture: wood, tile: 230,
+    ink: "#ffd89a", inkHighlight: "rgba(255,236,190,0.8)", inkShadow: "rgba(28,14,4,0.95)", treatment: "raised",
+    panel: { background: "#6f3919", border: "#9d6031", inset: "none", radius: "6px" }, frame: "#6a3518", accent: "#d48b42",
+    collection: "new", newKind: "wood",
+  },
+  {
+    id: "new-stone-tablet", label: "Stone Tablet", texture: stoneTablet, tile: 300,
+    ink: "#3d3226", inkHighlight: "rgba(255,248,230,0.55)", inkShadow: "rgba(30,22,12,0.85)", treatment: "carved",
+    panel: { background: "#78736c", border: "#4b4742", inset: "none", radius: "10px" }, frame: "#5a554e", accent: "#aaa39a",
+    collection: "new", newKind: "stone",
+  },
+  {
+    id: "new-leaf-frame", label: "Leaf Frame", texture: scroll, tile: 300,
+    ink: "#244d25", inkHighlight: "rgba(244,255,221,0.82)", inkShadow: "rgba(22,52,20,0.72)", treatment: "raised",
+    panel: { background: "#eee1bd", border: "#4f853b", inset: "none", radius: "12px" }, frame: "#4f853b", accent: "#8ed35a",
+    collection: "new", newKind: "leaf",
+  },
+  {
+    id: "new-magical-aura", label: "Magical Aura", texture: glass, tile: 340,
+    ink: "#3c2458", inkHighlight: "rgba(255,250,224,0.95)", inkShadow: "rgba(55,16,90,0.7)", treatment: "raised",
+    panel: { background: "#eed8aa", border: "rgba(100,233,255,0.86)", inset: "none", radius: "10px" }, frame: "rgba(165,60,255,0.88)", accent: "#64e9ff",
+    collection: "new", newKind: "magic",
+  },
+  {
+    id: "new-cloud-panel", label: "Cloud Panel", texture: ice, tile: 300,
+    ink: "#173f91", inkHighlight: "rgba(255,255,255,0.95)", inkShadow: "rgba(44,78,116,0.6)", treatment: "raised",
+    panel: { background: "rgba(247,251,255,0.9)", border: "rgba(191,228,255,0.9)", inset: "none", radius: "18px" }, frame: "rgba(211,232,251,0.94)", accent: "#f7fbff",
+    collection: "new", newKind: "cloud",
+  },
+  {
+    id: "new-metal-plate", label: "Metal Plate", texture: metalPlate, tile: 260,
+    ink: "#172033", inkHighlight: "rgba(255,255,255,0.85)", inkShadow: "rgba(0,0,0,0.82)", treatment: "carved",
+    panel: { background: "#7f858b", border: "#c7ccd0", inset: "none", radius: "5px" }, frame: "#656a70", accent: "#d9dde1",
+    collection: "new", newKind: "metal",
+  },
+  {
+    id: "new-silk-ribbon", label: "Silk Ribbon", texture: scroll, tile: 300,
+    ink: "#fff3c4", inkHighlight: "rgba(255,255,255,0.9)", inkShadow: "rgba(92,4,30,0.7)", treatment: "raised",
+    panel: { background: "#c80d35", border: "#e4aa29", inset: "none", radius: "10px" }, frame: "#e4aa29", accent: "#ffd96b",
+    collection: "new", newKind: "silk",
+  },
 ];
+
+export const EXISTING_SURFACES = SURFACES.filter((surface) => !surface.collection);
+export const NEW_SURFACES = SURFACES.filter((surface) => surface.collection === "new");
 
 export const getSurface = (id: string): SurfaceDef =>
   SURFACES.find((s) => s.id === id) ?? {
