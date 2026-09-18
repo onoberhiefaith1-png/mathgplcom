@@ -47,6 +47,8 @@ export default function GameSlateGalleryPage() {
   }, []);
 
   const create = async () => {
+    if (busy) return;
+    setBusy(true);
     const game = makeGame({
       name,
       topic,
@@ -55,7 +57,15 @@ export default function GameSlateGalleryPage() {
       lines,
       background: { ...background, scale: 1, x: 0, y: 0, opacity: 1 },
     });
-    await saveGame(game);
+    const result = await saveGameResult(game);
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.message ?? "The game could not be created. Please try again.");
+      if (/signed out/i.test(result.message ?? "")) {
+        navigate({ to: "/login", search: { redirect: "/game" } as never });
+      }
+      return;
+    }
     navigate({ to: "/game/slate/$gameId", params: { gameId: game.id } });
   };
 
