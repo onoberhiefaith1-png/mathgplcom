@@ -4168,6 +4168,7 @@ function DocumentEditorInner({
         editor={editor}
         suppressed={aiEditOpen}
         onAiEdit={openAiEdit}
+        onMakeSession={makeSession}
       />
       <AiEditPanel
         open={aiEditOpen}
