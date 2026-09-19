@@ -147,6 +147,15 @@ describe("derived line objects", () => {
     expect(vaults.map((v) => v.id)).toEqual(["vault-method-a", "vault-method-b"]);
     expect(vaults.map((v) => v.coins)).toEqual([1, 1]);
   });
+
+  it("treats a saved empty Floating Numbers Vault list as authoritative", () => {
+    const g = game();
+    g.settings.lines = {
+      L1: normalizeLineConfig("L1", { vaultExpression: "legacy method", vaultCoins: 3 }),
+    };
+    const rows = mapQuestionLines(g, [null], ["L1"], [[]]);
+    expect(rows[1]!.rewards.some((reward) => reward.type === "math-vault")).toBe(false);
+  });
 });
 
 describe("the Vault recognises the teacher's consecutive method sequence", () => {
