@@ -23,6 +23,7 @@ import { loadGameAssignmentState } from "@/lib/slate/gameAssignments";
 import { ensureGameBoards, loadGameBoards, type GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { ensureTestClass } from "@/lib/floating/testBoard";
 import { patternLengthOf } from "@/lib/slate/pattern";
+import { lineConfigOf } from "@/lib/slate/lineSurfaces";
 import { buildBoardScope } from "@/lib/smartboard/boardScope";
 import { formatMmSs } from "@/lib/time/mmss";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
