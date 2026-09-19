@@ -6,15 +6,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Trash2, X } from "lucide-react";
 import {
-  assignQuestion,
   listGameQuestions,
-  listPickableQuestions,
   removeQuestion,
   reorderQuestions,
   type GameQuestion,
-  type PickableQuestion,
 } from "@/lib/slate/gameQuestions";
 import { mapQuestionLines, patternLengthOf } from "@/lib/slate/pattern";
 import { getReward } from "@/lib/slate/rewards";
