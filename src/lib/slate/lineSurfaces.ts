@@ -179,6 +179,44 @@ export interface PreviewLine {
   lineId?: string | null;
 }
 
+export interface RenderedLineInput {
+  line: number;
+  isQuestion: boolean;
+  lineId: string | null;
+  patternSlot: number;
+  text: string;
+  rewards: RewardInstance[];
+}
+
+/**
+ * One canonical Edit/Play resolver. The saved pattern slot remains the visual
+ * source of truth; a line-specific surface replaces it only when the teacher
+ * explicitly chose one. Runtime mathematics may replace text and reward state,
+ * but never scene, scale, material, or the saved reward coordinates.
+ */
+export const resolveRenderedLineSlot = (
+  game: Game,
+  row: RenderedLineInput,
+): Game["slots"][number] => {
+  const patternIndex = row.isQuestion ? 0 : Math.max(0, row.patternSlot - 1);
+  const base = game.slots[patternIndex] ?? game.slots[0];
+  if (!base) {
+    throw new Error("A saved Game must contain at least one pattern slot.");
+  }
+  const explicitSurface = row.lineId
+    ? game.settings.lines?.[row.lineId]?.surfaceId
+    : undefined;
+  return {
+    ...base,
+    id: `line-${row.line}`,
+    surfaceId: explicitSurface ?? base.surfaceId ?? null,
+    text: row.text,
+    hiddenContent: "",
+    contentState: "visible",
+    rewards: row.rewards,
+  };
+};
+
 export const previewSlots = (
   game: Game,
   lines: PreviewLine[],
@@ -187,15 +225,15 @@ export const previewSlots = (
   if (lines.length === 0) return game.slots;
   return lines.map((row, i) => {
     const line = i + 1;
-    const source = game.slots[(line - 1) % Math.max(1, game.slots.length)]!;
-    // the preview shows the line's OWN saved surface, exactly as Play will
-    const surfaceId = row.lineId ? lineConfigOf(game, row.lineId).surfaceId : null;
-    return {
-      ...source,
-      id: `preview-${line}`,
-      surfaceId,
+    const patternSlot = ((line - 1) % Math.max(1, game.slots.length)) + 1;
+    const resolved = resolveRenderedLineSlot(game, {
+      line,
+      isQuestion: false,
+      lineId: row.lineId ?? null,
+      patternSlot,
       text: row.equation ?? "",
       rewards: rewardsFor(line),
-    };
+    });
+    return { ...resolved, id: `preview-${line}` };
   });
 };

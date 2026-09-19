@@ -1,5 +1,12 @@
 # Junction finishing
 
+# Game Edit → Play parity
+
+- [x] Preserve saved pattern-slot surfaces, scene settings, text treatment, and reward coordinates in Play.
+- [x] Use one canonical line-slot resolver for Edit question preview and Play.
+- [x] Add a top RESET control that clears only the current player's Game run and Floating Numbers work.
+- [ ] Verify Cloud + Royal 3D parity and Reset in the authenticated live Game.
+
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.
 - [x] Suppress near-zero merged corridor shells and resolve merge chains to stability.
