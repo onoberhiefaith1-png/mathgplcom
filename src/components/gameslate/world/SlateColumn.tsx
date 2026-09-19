@@ -558,6 +558,7 @@ function RegionSurface({
   numbers,
   selected,
   colour,
+  displayNumber,
 }: {
   surface: ReturnType<typeof getSurface>;
   build: ReturnType<typeof getConstruction>;
@@ -568,6 +569,7 @@ function RegionSurface({
   numbers: NumberSettings;
   selected: boolean;
   colour: string | undefined;
+  displayNumber: number;
 }) {
   const pbr = usePbr(
     surfaceFamily(surface.id),
@@ -597,7 +599,7 @@ function RegionSurface({
             anchorY="middle"
             fillOpacity={numbers.opacity}
           >
-            {index + 1}
+            {displayNumber}
           </Text>
         ) : null}
       </>
@@ -614,6 +616,7 @@ function RegionSurface({
       accent={selected ? "#ffe9bd" : surface.accent}
       numbers={numbers}
       numberOffsetX={numberX}
+      displayNumber={displayNumber}
       transparent={surface.transparent ?? false}
       none={surface.none ?? false}
       ornament={surface.ornament}
@@ -1175,6 +1178,7 @@ export function SlateColumn({
                   numbers={numberSettings}
                   selected={selected}
                   colour={lineSurface.newKind === "plain" ? game.surfaceColour : undefined}
+                  displayNumber={readOnlyWriting ? region.index : region.index + 1}
                 />
               </group>
 
