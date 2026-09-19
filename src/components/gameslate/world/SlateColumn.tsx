@@ -695,6 +695,10 @@ export function SlateColumn({
   const renderedTextSettings = readOnlyWriting
     ? { ...textSettings, align: "left" as const }
     : textSettings;
+  const viewport = useThree((state) => state.viewport);
+  const camera = useThree((state) => state.camera);
+  const visibleAtSlate = viewport.getCurrentViewport(camera, new THREE.Vector3(0, 0, SLATE_Z));
+  const playWritingWidth = gameWritingWidth(visibleAtSlate.width);
   const writingWidth = readOnlyWriting
     ? playWritingWidth
     : SLATE_W - build.inset * 2 - 0.3;
@@ -721,10 +725,6 @@ export function SlateColumn({
 
   const group = useRef<THREE.Group>(null);
   const clock = useThree((state) => state.clock);
-  const viewport = useThree((state) => state.viewport);
-  const camera = useThree((state) => state.camera);
-  const visibleAtSlate = viewport.getCurrentViewport(camera, new THREE.Vector3(0, 0, SLATE_Z));
-  const playWritingWidth = gameWritingWidth(visibleAtSlate.width);
   const [scrollTick, setScrollTick] = useState(0);
   const lastTick = useRef(0);
   const lastCount = useRef(0);
