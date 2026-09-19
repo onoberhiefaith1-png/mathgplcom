@@ -1115,6 +1115,10 @@ export function SlateColumn({
       <group ref={group}>
         {visible.map((region) => {
           const slot = region.slot;
+          // This Line's OWN saved surface, when the teacher gave it one.
+          const lineSurface = slot.surfaceId ? getSurface(slot.surfaceId) : surface;
+          const lineRecipe = lineSurface.id === surface.id ? recipe : surfaceMaterial(lineSurface.id);
+          const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
           const bounds = textBounds[slot.id];
           const padX = Math.max(0.18, Math.min(0.34, textSettings.size / 520));
           const padY = Math.max(0.13, Math.min(0.26, textSettings.size / 650));
