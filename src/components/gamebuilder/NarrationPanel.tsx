@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Mic, Play, Plus, Square, Trash2, Upload, X } from "lucide-react";
+import { Mic, Pause, Play, Plus, Square, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { uploadNarration } from "@/lib/games/narration";
 import { getSignedUrl } from "@/lib/games/urls";
-import type { Narration } from "@/lib/games/types";
+import type { Narration, Scene } from "@/lib/games/types";
 import { cn } from "@/lib/utils";
 import { fmtTime } from "./CheckpointTimeline";
 
@@ -14,6 +14,8 @@ interface NarrationPanelProps {
   narrations: Narration[];
   /** Blue playhead — the activation point for "Assign Narration". */
   playhead: number;
+  /** Learning Points, so an assigned clip can name the stage it belongs to. */
+  scenes?: Scene[];
   onChange: (next: Narration[]) => void;
   onClose: () => void;
 }
@@ -24,22 +26,42 @@ const uid = () => Math.random().toString(36).slice(2, 10);
  * Narration library for a Video Adventure. Teachers pick or add a clip, then
  * assign it to the exact timestamp the blue playhead sits on.
  */
-const NarrationPanel = ({ narrations, playhead, onChange, onClose }: NarrationPanelProps) => {
-  const [selectedId, setSelectedId] = useState<string | null>(narrations[0]?.id ?? null);
+const NarrationPanel = ({ narrations, playhead, scenes, onChange, onClose }: NarrationPanelProps) => {
+  // Selected library audio is a separate state from assigned narration: a
+  // freshly uploaded clip is dormant until the teacher explicitly clicks it.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** Library clip currently sounding — only ever one at a time. */
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => () => { recRef.current?.stream.getTracks().forEach((t) => t.stop()); }, []);
+  useEffect(() => () => { audioRef.current?.pause(); }, []);
+
+  /** Stage a clip's timestamp falls inside, if any. */
+  const stageOf = (at: number): { title: string; index: number } | null => {
+    const list = scenes ?? [];
+    const i = list.findIndex(
+      (s) =>
+        typeof s.loopStart === "number" &&
+        typeof s.loopEnd === "number" &&
+        at >= (s.loopStart as number) - 0.45 &&
+        at <= (s.loopEnd as number) + 0.45,
+    );
+    if (i < 0) return null;
+    return { title: (list[i]?.title ?? "").trim() || `Learning Point ${i + 1}`, index: i };
+  };
 
   const addClip = (path: string, title: string) => {
     const clip: Narration = { id: uid(), title, path, source: "storage", at: -1, mode: "once" };
+    // Dormant on arrival — nothing is selected or opened for editing.
     onChange([...narrations, clip]);
-    setSelectedId(clip.id);
   };
+
 
   const handleFile = async (file: File | null) => {
     if (!file) return;
@@ -91,12 +113,27 @@ const NarrationPanel = ({ narrations, playhead, onChange, onClose }: NarrationPa
     setRecording(false);
   };
 
-  const preview = async (n: Narration) => {
+  /**
+   * Library listening: Play starts, Pause holds the position, Play resumes from
+   * there. Starting another clip stops this one — only one ever sounds.
+   */
+  const toggleListen = async (n: Narration) => {
+    if (!audioRef.current) audioRef.current = new Audio();
+    const el = audioRef.current;
+    if (playingId === n.id) {
+      if (el.paused) { void el.play().catch(() => {}); setPlayingId(n.id); }
+      else { el.pause(); setPlayingId(null); }
+      return;
+    }
     const url = n.source === "url" ? n.path : await getSignedUrl(n.path);
     if (!url) return;
-    if (!audioRef.current) audioRef.current = new Audio();
-    audioRef.current.src = url;
-    void audioRef.current.play().catch(() => {});
+    el.pause();
+    el.src = url;
+    el.currentTime = 0;
+    el.onended = () => setPlayingId(null);
+    el.onpause = () => setPlayingId((cur) => (cur === n.id ? null : cur));
+    void el.play().catch(() => {});
+    setPlayingId(n.id);
   };
 
   const patch = (id: string, p: Partial<Narration>) =>
@@ -105,16 +142,34 @@ const NarrationPanel = ({ narrations, playhead, onChange, onClose }: NarrationPa
   const remove = (id: string) => {
     onChange(narrations.filter((n) => n.id !== id));
     if (selectedId === id) setSelectedId(null);
+    if (playingId === id) { audioRef.current?.pause(); setPlayingId(null); }
   };
 
+  const selected = narrations.find((n) => n.id === selectedId) ?? null;
+  const selectedAssigned = (selected?.at ?? -1) >= 0;
+
   const assign = () => {
-    if (!selectedId) {
+    if (!selected) {
       toast({ title: "Select a narration first" });
       return;
     }
-    patch(selectedId, { at: Math.max(0, playhead) });
+    // One clip, one place. Reassigning is deliberate: remove it first.
+    if (selectedAssigned) {
+      toast({
+        title: "Already assigned",
+        description: `This narration plays at ${fmtTime(selected.at)}. Remove the assignment to move it.`,
+      });
+      return;
+    }
+    patch(selected.id, { at: Math.max(0, playhead) });
     toast({ title: `Narration assigned at ${fmtTime(playhead)}` });
   };
+
+  const unassign = (id: string) => {
+    patch(id, { at: -1 });
+    toast({ title: "Assignment removed" });
+  };
+
 
   return (
     <div className="absolute left-3 top-full z-40 mt-1 w-72 rounded-lg border border-border/60 bg-background/98 p-2 shadow-xl backdrop-blur">
@@ -152,8 +207,14 @@ const NarrationPanel = ({ narrations, playhead, onChange, onClose }: NarrationPa
               <span className="tabular-nums text-[10px] text-muted-foreground">
                 {n.at >= 0 ? fmtTime(n.at) : "unassigned"}
               </span>
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => preview(n)} title="Preview">
-                <Play className="h-3 w-3" />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={() => void toggleListen(n)}
+                title={playingId === n.id ? "Pause" : "Listen"}
+              >
+                {playingId === n.id ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
               </Button>
               <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => remove(n.id)} title="Delete">
                 <Trash2 className="h-3 w-3" />
@@ -167,6 +228,22 @@ const NarrationPanel = ({ narrations, playhead, onChange, onClose }: NarrationPa
                   className="h-6 text-[11px]"
                   placeholder="Narration name"
                 />
+                {n.at >= 0 && (
+                  <div className="flex items-center justify-between gap-1 rounded bg-muted/60 px-1.5 py-1">
+                    <span className="truncate text-[10px] text-muted-foreground">
+                      Plays at {fmtTime(n.at)}
+                      {stageOf(n.at) ? ` · ${stageOf(n.at)?.title}` : ""}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 px-1 text-[10px]"
+                      onClick={() => unassign(n.id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
                 <div className="flex gap-1">
                   <Button
                     size="sm"
@@ -187,6 +264,7 @@ const NarrationPanel = ({ narrations, playhead, onChange, onClose }: NarrationPa
                 </div>
               </div>
             )}
+
           </div>
         ))}
       </div>
@@ -195,7 +273,13 @@ const NarrationPanel = ({ narrations, playhead, onChange, onClose }: NarrationPa
         <Label className="text-[10px] text-muted-foreground">
           Playhead at {fmtTime(playhead)}
         </Label>
-        <Button size="sm" className="h-7 w-full gap-1 text-[11px]" onClick={assign} disabled={!selectedId}>
+        <Button
+          size="sm"
+          className="h-7 w-full gap-1 text-[11px]"
+          onClick={assign}
+          disabled={!selectedId || selectedAssigned}
+          title={selectedAssigned ? "Remove the current assignment first" : undefined}
+        >
           <Plus className="h-3.5 w-3.5" /> Assign Narration
         </Button>
         <div className="flex gap-1">

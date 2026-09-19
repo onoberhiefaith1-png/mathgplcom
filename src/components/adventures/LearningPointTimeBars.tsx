@@ -168,6 +168,9 @@ export function LearningPointTimeBars({
         </label>
 
 
+        {/* While a Learning Point is live the panel shows only that region's
+            controls — no stepping to other Time Bars mid-challenge. */}
+        {!live && (
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
@@ -186,6 +189,7 @@ export function LearningPointTimeBars({
             <ChevronDown className="h-3 w-3" /> Next Time Bar
           </button>
         </div>
+        )}
       </div>
 
       {!editable && (

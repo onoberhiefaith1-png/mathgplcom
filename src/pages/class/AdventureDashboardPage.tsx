@@ -342,18 +342,24 @@ const AdventureDashboardPage = () => {
     narrations,
     isVideo && runtime.started,
     runtime.run?.started_at ?? "idle",
+    learningPoints,
   );
-  const gameAudio = useAdventureAudio(canvas, stageScene?.id ?? null, runtime.started);
+  // The live environment: a Learning Point handing back (exiting) is already
+  // left, so its narration, music and effects stop the moment it is passed.
+  const liveStageId = exitingSceneId ? null : activeScene?.id ?? null;
+  const gameAudio = useAdventureAudio(canvas, liveStageId ?? stageScene?.id ?? null, runtime.started);
 
   const stageAudioRef = useRef<string | null>(null);
   useEffect(() => {
-    const id = activeScene?.id ?? null;
     if (!runtime.started) { stageAudioRef.current = null; return; }
-    if (!id || stageAudioRef.current === id) return;
-    stageAudioRef.current = id;
+    narrationRuntime.onStageChange(liveStageId);
+    if (!liveStageId) { stageAudioRef.current = null; return; }
+    if (stageAudioRef.current === liveStageId) return;
+    stageAudioRef.current = liveStageId;
     narrationRuntime.onLoopStart(activeScene);
     gameAudio.effect("loop_start");
-  }, [runtime.started, activeScene, narrationRuntime, gameAudio]);
+  }, [runtime.started, liveStageId, activeScene, narrationRuntime, gameAudio]);
+
 
   const onVideoTime = useCallback(
     (t: number) => {

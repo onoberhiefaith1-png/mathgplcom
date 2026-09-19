@@ -75,6 +75,7 @@ import {
   type BarRole,
 } from "@/lib/games/types";
 import { getOrCreateClassGallery, saveClassGalleryCanvas } from "@/lib/games/classGallery";
+
 import { ensureGameQuestionNotebook } from "@/lib/games/gameQuestions";
 import { supabase } from "@/integrations/supabase/client";
 import { importUrlAsGameAsset, renderPathOf } from "@/lib/games/assets";
@@ -1007,29 +1008,53 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     setVideoTime(t);
   }, []);
   const preview = useLoopRuntime(checkpoints, seekVideo);
-  // Narration fires only while the adventure is running (Preview), never while
-  // the teacher scrubs the authoring timeline. Every Start Preview is a brand
-  // new run (`preview.runId`), so Play Once clips speak again — Play Once /
-  // Repeat only shape behaviour *inside* one run.
-  const narrationRuntime = useNarrationPlayback(narrations, preview.active, preview.runId);
-  // Preview owns the audio exactly like real gameplay: the platform soundtrack
-  // steps aside, ambience loops, and the active stage's music plays.
+  /**
+   * The one stage id every media surface answers to. A Learning Point is an
+   * environment: while it laps, the id is unchanged and its narration, music
+   * and effects run on. The instant it is completed (exiting) or left, the id
+   * becomes null and everything belonging to it stops.
+   */
+  const timelineStageId = useMemo(() => {
+    if (preview.active) return preview.exitingLoopId ? null : preview.activeLoopId;
+    if (!video || !videoPlaying) return null;
+    return checkpointAt(checkpoints, videoTime)?.id ?? null;
+  }, [
+    preview.active,
+    preview.exitingLoopId,
+    preview.activeLoopId,
+    video,
+    videoPlaying,
+    checkpoints,
+    videoTime,
+  ]);
+
+  // One playback engine: the ordinary Play button drives narration, stage music
+  // and effects exactly as Preview does. Every Start Preview is a fresh run, so
+  // Play Once clips speak again — Play Once / Repeat only shape behaviour
+  // *inside* one run.
+  const mediaLive = preview.active || videoPlaying;
+  const narrationRunId = preview.active ? `preview:${preview.runId}` : "play";
+  const narrationRuntime = useNarrationPlayback(narrations, mediaLive, narrationRunId, scenes);
+  // Play and Preview share the adventure audio: the platform soundtrack steps
+  // aside, ambience loops, and the active stage's music plays.
   const previewAudio = useAdventureAudio(
     { mode: adventureMode, scenes, video, narrations, sounds },
-    preview.active ? preview.activeLoopId ?? activeSceneId : null,
-    preview.active,
+    mediaLive ? timelineStageId ?? (preview.active ? activeSceneId : null) : null,
+    mediaLive,
   );
 
   // A Learning Point just opened: speak its narration and fire its effect.
+  // Leaving it cuts whatever the stage owned, mid-clip if need be.
   const previewLoopRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!preview.active) { previewLoopRef.current = null; return; }
-    const id = preview.activeLoopId;
-    if (!id || previewLoopRef.current === id) return;
-    previewLoopRef.current = id;
-    narrationRuntime.onLoopStart(checkpoints.find((c) => c.id === id) ?? null);
+    narrationRuntime.onStageChange(timelineStageId);
+    if (!timelineStageId) { previewLoopRef.current = null; return; }
+    if (previewLoopRef.current === timelineStageId) return;
+    previewLoopRef.current = timelineStageId;
+    narrationRuntime.onLoopStart(checkpoints.find((c) => c.id === timelineStageId) ?? null);
     previewAudio.effect("loop_start");
-  }, [preview.active, preview.activeLoopId, checkpoints, narrationRuntime, previewAudio]);
+  }, [timelineStageId, checkpoints, narrationRuntime, previewAudio]);
+
 
   const previewFinalLoop =
     preview.activeLoopId != null &&
@@ -1046,6 +1071,20 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
     [video, checkpoints, videoTime],
   );
   const insideActiveLoop = !video || (playheadLoop != null && playheadLoop.id === activeSceneId);
+
+  /**
+   * Region-owned controls (Reward, Progress Bar, Timer, Add Effect) are only
+   * live while the playhead sits inside a Learning Point — the timeline says
+   * which region is being edited.
+   */
+  const regionEditing = !video || (!preview.active && playheadLoop != null);
+  const activeRegionLabel = useMemo(() => {
+    if (!playheadLoop) return "this Learning Point";
+    const i = checkpoints.findIndex((c) => c.id === playheadLoop.id);
+    return playheadLoop.title || `Learning Point ${i >= 0 ? i + 1 : ""}`.trim();
+  }, [playheadLoop, checkpoints]);
+  const outsideRegionHint =
+    "Move the playhead into a Learning Point to edit its reward, bars and effects";
 
   // Entering a loop selects it; leaving every loop drops the selection so no
   // stale settings panel stays open on a hidden object.
@@ -1907,22 +1946,66 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
 
             {slots.map((s) => {
               const Icon = s.icon;
+              // Reward belongs to the Learning Point the playhead is inside.
+              const regionOwned = s.kind === "reward";
               return (
-                <Button key={s.kind} size="sm" className={cmpBtn} variant="secondary" onClick={() => openAsset(s.kind)}>
+                <Button
+                  key={s.kind}
+                  size="sm"
+                  className={cmpBtn}
+                  variant="secondary"
+                  disabled={regionOwned && !regionEditing}
+                  title={regionOwned && !regionEditing ? outsideRegionHint : undefined}
+                  onClick={() => openAsset(s.kind)}
+                >
                   <Icon className={cmpIcon} />
                   {s.label}
                 </Button>
               );
             })}
-            <Button size="sm" className={cmpBtn} variant="secondary" onClick={() => addProgressTower("learning")}>
+            <Button
+              size="sm"
+              className={cmpBtn}
+              variant="secondary"
+              disabled={!regionEditing}
+              title={regionEditing ? undefined : outsideRegionHint}
+              onClick={() => addProgressTower("learning")}
+            >
               <TowerControl className={cmpIcon} /> Progress Bar
             </Button>
-            <Button size="sm" className={cmpBtn} variant="secondary" onClick={() => addProgressTower("time")}>
+            <Button
+              size="sm"
+              className={cmpBtn}
+              variant="secondary"
+              disabled={!regionEditing}
+              title={regionEditing ? undefined : outsideRegionHint}
+              onClick={() => addProgressTower("time")}
+            >
               <Timer className={cmpIcon} /> Timer
             </Button>
-            <Button size="sm" className={cmpBtn} onClick={() => openAsset("effect")}>
+            <Button
+              size="sm"
+              className={cmpBtn}
+              disabled={!regionEditing}
+              title={regionEditing ? undefined : outsideRegionHint}
+              onClick={() => openAsset("effect")}
+            >
               <Layers className={cmpIcon} /> Add Effect
             </Button>
+
+            {/* The timeline is the conductor: the toolbar always states which
+                Learning Point its region-owned controls belong to. */}
+            {video && !preview.active && (
+              <span
+                className={
+                  regionEditing
+                    ? "ml-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                    : "ml-1 rounded-full border border-border/60 bg-muted/60 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+                }
+              >
+                {regionEditing ? `Editing ${activeRegionLabel}` : outsideRegionHint}
+              </span>
+            )}
 
             <div className="mx-0.5 h-5 w-px bg-border/60" />
 
@@ -1991,8 +2074,20 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
           checkpoints={checkpoints}
           activeId={activeSceneId}
 
-          onTogglePlay={() => setVideoPlaying((v) => !v)}
+          onTogglePlay={() => {
+            // Play is a real gesture: it authorises sound exactly as Preview
+            // does, and pausing holds the clip instead of losing it.
+            unlockAudio();
+            setVideoPlaying((v) => {
+              if (v) narrationRuntime.pause();
+              else narrationRuntime.resume();
+              return !v;
+            });
+          }}
           onSeek={(t) => {
+            // Seeking recalculates the active region: whatever was speaking at
+            // the old position stops instead of running on.
+            narrationRuntime.stop();
             videoRef.current?.seek(t);
             setVideoTime(t);
           }}
@@ -2014,9 +2109,11 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                 <NarrationPanel
                   narrations={narrations}
                   playhead={videoTime}
+                  scenes={checkpoints}
                   onChange={setNarrations}
                   onClose={() => setNarrationOpen(false)}
                 />
+
               ) : null}
               {soundOpen ? (
                 <SoundPanel
@@ -2112,11 +2209,12 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                       }
                       onTime={(t) => {
                         setVideoTime(t);
-                        if (preview.active) {
-                          preview.onTime(t);
-                          narrationRuntime.onTime(t);
-                        }
+                        if (preview.active) preview.onTime(t);
+                        // Play and Preview feed the same conductor; the runtime
+                        // is inert while nothing is playing.
+                        narrationRuntime.onTime(t);
                       }}
+
                       onLoaded={(meta) =>
                         setVideo((v) =>
                           v ? { ...v, duration: meta.duration, width: meta.width, height: meta.height } : v,
@@ -2169,11 +2267,21 @@ const GameEditorPage = ({ mode = "game" }: GameEditorPageProps = {}) => {
                         </span>
 
                         {preview.playing ? (
-                          <Button size="sm" variant="secondary" className={cmpBtn} onClick={preview.pause}>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className={cmpBtn}
+                            onClick={() => { narrationRuntime.pause(); preview.pause(); }}
+                          >
                             <Minus className={cmpIcon} /> Pause
                           </Button>
                         ) : (
-                          <Button size="sm" variant="secondary" className={cmpBtn} onClick={preview.play}>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className={cmpBtn}
+                            onClick={() => { unlockAudio(); narrationRuntime.resume(); preview.play(); }}
+                          >
                             <Play className={cmpIcon} /> Play
                           </Button>
                         )}
