@@ -6,7 +6,13 @@
 // the Floating Numbers line id — never by position, never by a second id.
 
 import { canonical, canonicalEqual } from "@/lib/smartboard/canonical";
-import type { Game, LineSurfaceConfig, RewardInstance, TimeFraction } from "./types";
+import type {
+  Game,
+  LineSurfaceConfig,
+  RewardInstance,
+  TimeFraction,
+  VaultCode,
+} from "./types";
 
 export const TIME_FRACTIONS: { id: TimeFraction; label: string; value: number }[] = [
   { id: "full", label: "Full time", value: 1 },
@@ -28,18 +34,46 @@ export const fractionSeconds = (
   return Math.max(1, Math.round(base * fractionValue(fraction)));
 };
 
+/** A line may own at most ten Vault Codes. */
+export const MAX_VAULT_CODES = 10;
+
 export const defaultLineConfig = (lineId: string): LineSurfaceConfig => ({
   lineId,
   surfaceId: null,
   hourglassReward: "full",
-  vaultExpression: null,
-  vaultCoins: 1,
+  vaultCodes: [],
 });
+
+/**
+ * Only the Vault Codes the teacher actually wrote exist. A configuration saved
+ * before Vault Codes existed is read as that line's first code, so nothing the
+ * teacher already set is lost.
+ */
+const readVaultCodes = (raw: Partial<LineSurfaceConfig> | undefined): VaultCode[] => {
+  const listed = Array.isArray(raw?.vaultCodes) ? raw!.vaultCodes : [];
+  const codes = listed
+    .map((code) => ({
+      expression: String(code?.expression ?? "").trim(),
+      reward: Number.isFinite(Number(code?.reward)) ? Math.max(0, Number(code.reward)) : 1,
+    }))
+    .filter((code) => code.expression.length > 0);
+  const legacy = String(raw?.vaultExpression ?? "").trim();
+  if (codes.length === 0 && legacy) {
+    const reward = Number(raw?.vaultCoins);
+    codes.push({ expression: legacy, reward: Number.isFinite(reward) ? Math.max(0, reward) : 1 });
+  }
+  return codes.slice(0, MAX_VAULT_CODES);
+};
 
 export const normalizeLineConfig = (
   lineId: string,
   raw: Partial<LineSurfaceConfig> | undefined,
-): LineSurfaceConfig => ({ ...defaultLineConfig(lineId), ...(raw ?? {}), lineId });
+): LineSurfaceConfig => ({
+  ...defaultLineConfig(lineId),
+  ...(raw ?? {}),
+  lineId,
+  vaultCodes: readVaultCodes(raw),
+});
 
 export const lineConfigOf = (
   game: Pick<Game, "settings">,
