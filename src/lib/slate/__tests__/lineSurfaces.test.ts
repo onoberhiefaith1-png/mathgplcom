@@ -47,7 +47,7 @@ describe("one line, one surface", () => {
     const g = game();
     g.settings.text = {
       ...g.settings.text,
-      preset: "royal-3d",
+      preset: "royal3d",
       faceColour: "#123456",
       depthColour: "#654321",
     };
@@ -63,7 +63,7 @@ describe("one line, one surface", () => {
     expect(resolved.surfaceId).toBe("cloud");
     expect(resolved.scene).toBe(g.slots[0]!.scene);
     expect(resolved.text).toBe("x + 1 = 3");
-    expect(g.settings.text.preset).toBe("royal-3d");
+    expect(g.settings.text.preset).toBe("royal3d");
   });
 
   it("uses an explicit line surface without changing saved slot appearance", () => {
