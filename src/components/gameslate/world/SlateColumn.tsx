@@ -550,6 +550,9 @@ export function SlateColumn({
   onRewardMove,
   onRewardActivate,
   onRewardConsume,
+  focusSlotId = null,
+  onFocusSlot,
+  readOnlyWriting = false,
 }: Props) {
   const surface = getSurface(game.surfaceId);
   const recipe = surfaceMaterial(surface.id);
