@@ -75,6 +75,12 @@ interface Props {
   onRewardMove: (slotId: string, rewardId: string, x: number, y: number) => void;
   onRewardActivate: (slotId: string, rewardId: string, type: string) => void;
   onRewardConsume: (slotId: string, rewardId: string) => void;
+  /** Game Play: the slate glides until this region sits in the middle of view. */
+  focusSlotId?: string | null;
+  /** Game Play: the region the slate has settled on, reported once per change. */
+  onFocusSlot?: (slotId: string) => void;
+  /** Game Play: the mathematics comes from Floating Numbers, not the keyboard. */
+  readOnlyWriting?: boolean;
 }
 
 interface ActiveEffect {
