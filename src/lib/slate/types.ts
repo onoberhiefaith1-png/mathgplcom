@@ -61,6 +61,8 @@ export interface RewardInstance {
   relief?: ReliefMode;
   /** Math Vault only: the teacher's short expression, kept obscured on the slate. */
   expression?: string;
+  /** Math Vault only: what this particular Vault Code pays when it opens. */
+  coins?: number;
   /** Math Vault only: the mathematical components that should open it. */
   targets?: string;
   /** Hidden effect code: what this effect reveals while it plays. */
@@ -71,6 +73,8 @@ export interface RewardInstance {
 
 export interface Slot {
   id: string;
+  /** Writing surface for THIS line only; absent = the Game's own surface. */
+  surfaceId?: string | null;
   /** Live player writing. Plain text today, external content provider later. */
   text: string;
   /** Pre-authored content that is concealed, never destroyed. */
@@ -202,6 +206,14 @@ export type TimeFraction = "full" | "half" | "third" | "quarter";
  * always stays in Floating Numbers — this is only how that line looks and
  * behaves inside the Game world.
  */
+/** One Vault Code: a piece of mathematics that opens a Vault on this line. */
+export interface VaultCode {
+  /** The mathematics the Vault recognises, e.g. "x + 7". */
+  expression: string;
+  /** What this Vault pays when it opens. */
+  reward: number;
+}
+
 export interface LineSurfaceConfig {
   /** Floating Numbers line id. The one and only shared identity. */
   lineId: string;
@@ -209,10 +221,11 @@ export interface LineSurfaceConfig {
   surfaceId: string | null;
   /** How much of THIS line's own timer its Hourglass awards. */
   hourglassReward: TimeFraction;
-  /** Expected method, written as mathematics. Empty = no Vault on this line. */
-  vaultExpression: string | null;
-  /** Coins the Vault releases when the method is followed. */
-  vaultCoins: number;
+  /** Up to ten Vault Codes owned by this line. */
+  vaultCodes: VaultCode[];
+  /** Legacy single-code configuration; read into vaultCodes on load. */
+  vaultExpression?: string | null;
+  vaultCoins?: number;
 }
 
 export interface GameSettings {
