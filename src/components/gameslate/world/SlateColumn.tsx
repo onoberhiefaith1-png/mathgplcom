@@ -1107,7 +1107,7 @@ export function SlateColumn({
                 z={0.012}
                 surface={surface}
                 settings={textSettings}
-                editable
+                editable={!readOnlyWriting}
                 active={selection.kind === "slot" && selection.slotId === slot.id}
                 placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
                 onChange={(text) => onSlotChange(slot.id, { text })}
