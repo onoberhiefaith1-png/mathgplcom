@@ -1157,13 +1157,13 @@ export function SlateColumn({
               <WritingRegion
                 slotId={slot.id}
                 text={slot.text}
-                width={SLATE_W - build.inset * 2 - 0.3}
+                width={SLATE_W - lineBuild.inset * 2 - 0.3}
                 height={region.height}
-                pad={build.gap + 0.18}
+                pad={lineBuild.gap + 0.18}
                 /* the slab body is solid, so the inscription sits just proud of
                    its face; depth comes from the shading, not from hiding it */
                 z={0.012}
-                surface={surface}
+                surface={lineSurface}
                 settings={textSettings}
                 editable={!readOnlyWriting}
                 active={selection.kind === "slot" && selection.slotId === slot.id}
