@@ -30,6 +30,12 @@ interface Props {
   onRewardMove: (slotId: string, rewardId: string, x: number, y: number) => void;
   onRewardActivate: (slotId: string, rewardId: string, type: string) => void;
   onRewardConsume: (slotId: string, rewardId: string) => void;
+  /** Game Play: bring this writing surface into the middle of the view. */
+  focusSlotId?: string | null;
+  /** Game Play: the writing surface the slate has settled on. */
+  onFocusSlot?: (slotId: string) => void;
+  /** Game Play: writing comes from Floating Numbers, not the keyboard. */
+  readOnlyWriting?: boolean;
 }
 
 /**
