@@ -3533,14 +3533,24 @@ const PresentationView = ({
 
   // GAME LINES OWN LINE SELECTION. When the Game sets the active line, the
   // panel follows it — one shared line state, never a second cursor.
+  const incomingGameLineRef = useRef<number | null>(null);
   useEffect(() => {
     if (!gameChrome || activeLine == null) return;
     const k = Math.max(0, Math.floor(activeLine));
+    incomingGameLineRef.current = k;
     setActiveLineIdxState((cur) => (cur === k ? cur : k));
   }, [gameChrome, activeLine]);
 
   useEffect(() => {
-    if (!gameChrome || !onActiveLineChange || activeLineIdx === activeLine) return;
+    if (!gameChrome || !onActiveLineChange) return;
+    if (activeLineIdx === activeLine) {
+      incomingGameLineRef.current = null;
+      return;
+    }
+    // A surface selection updates the Game first and then feeds that line into
+    // this mounted panel. Do not publish the panel's previous line back during
+    // the single render before its local state catches up.
+    if (incomingGameLineRef.current !== null) return;
     onActiveLineChange(activeLineIdx + 1);
   }, [gameChrome, activeLine, activeLineIdx, onActiveLineChange]);
 
