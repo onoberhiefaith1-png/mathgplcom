@@ -1155,7 +1155,7 @@ export function SlateColumn({
                   height={surfaceHeight}
                   numbers={numberSettings}
                   selected={selected}
-                  colour={game.surfaceColour}
+                  colour={lineSurface.newKind === "plain" ? game.surfaceColour : undefined}
                 />
               </group>
 
