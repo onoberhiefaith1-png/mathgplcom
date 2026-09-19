@@ -153,8 +153,10 @@ export default function GameSlateEditorPage() {
     });
   }, []);
 
+  const [saving, setSaving] = useState(false);
 
   if (!game) return <div className="min-h-screen bg-[#0b0906]" />;
+
 
   const surface = getSurface(game.surfaceId);
   const editing = mode === "edit";
@@ -182,8 +184,6 @@ export default function GameSlateEditorPage() {
     toast.success(`${getReward(typeId).label} placed on slot ${game.slots.indexOf(slot) + 1}`);
   };
 
-
-  const [saving, setSaving] = useState(false);
 
   const save = async () => {
     if (!game || saving) return;
