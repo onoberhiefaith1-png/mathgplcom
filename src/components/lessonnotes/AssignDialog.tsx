@@ -454,7 +454,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label>Classes</Label>
+                  <Label>{target === "game" ? "Classes (optional)" : "Classes"}</Label>
                   <button
                     type="button"
                     onClick={selectAll}
