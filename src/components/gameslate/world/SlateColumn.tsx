@@ -53,7 +53,15 @@ import {
   VIEW_TOP,
   buildLayout,
 } from "@/lib/slate/layout";
-import type { EditorMode, Game, PremiumBombStyle, RewardInstance, Selection, Slot } from "@/lib/slate/types";
+import type {
+  EditorMode,
+  Game,
+  NumberSettings,
+  PremiumBombStyle,
+  RewardInstance,
+  Selection,
+  Slot,
+} from "@/lib/slate/types";
 
 export interface ScrollState {
   target: number;
