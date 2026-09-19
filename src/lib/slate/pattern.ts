@@ -11,7 +11,7 @@
 // Empty pattern positions stay empty: nothing is ever auto-inserted.
 
 import { fractionSeconds, lineConfigOf } from "./lineSurfaces";
-import type { Game, LineSurfaceConfig, RewardInstance } from "./types";
+import type { Game, LineSurfaceConfig, RewardInstance, VaultCode } from "./types";
 
 /** The Question Line always sits at index 0 and never takes a pattern slot. */
 export const QUESTION_LINE = 0;
@@ -89,6 +89,7 @@ export const mapQuestionLines = (
       timerSeconds: null,
       hourglassSeconds: 0,
       vaultExpression: null,
+      vaultCodes: [],
       vaultCoins: 0,
     },
   ];
