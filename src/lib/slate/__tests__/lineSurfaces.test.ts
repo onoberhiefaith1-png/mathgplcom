@@ -162,4 +162,10 @@ describe("the Vault recognises the teacher's consecutive method sequence", () =>
     expect(vaultMatches("x + 7", "")).toBe(false);
     expect(vaultMatches(null, "x + 7")).toBe(false);
   });
+
+  it("allows overlapping Vault sequences to open independently", () => {
+    const work = "x + 7 = 12";
+    expect(vaultMatches("x + 7", work)).toBe(true);
+    expect(vaultMatches("7 = 12", work)).toBe(true);
+  });
 });

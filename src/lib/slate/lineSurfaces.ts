@@ -145,9 +145,8 @@ const sequenceOf = (text: string): string[] =>
 
 /**
  * Does the student's work on this line contain the teacher's expected method?
- * Mathematical meaning only. A partial character sequence must never open a
- * Vault; exact normalisation handles notation while canonical comparison
- * handles equivalent mathematical structure.
+ * A partial character sequence must never open a Vault. Notation is normalized,
+ * but equivalent rearrangements remain different because ordering is the key.
  */
 export const vaultMatches = (
   expression: string | null | undefined,
