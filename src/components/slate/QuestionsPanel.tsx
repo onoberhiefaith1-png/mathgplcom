@@ -241,8 +241,9 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
         })}
 
         <p className="pt-2 text-[10px] leading-relaxed text-amber-100/35">
-          Timing is part of the question: set the question time and any single-line time in
-          Floating Numbers. A line with its own time automatically becomes a Timer Reward here.
+          Questions arrive from Lesson Notes — they are never written here. Timing is part of the
+          question: set the question time and any single-line time in Floating Numbers. A line with
+          its own time automatically becomes a Timer Reward here.
         </p>
       </div>
     </aside>
