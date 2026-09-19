@@ -48,7 +48,7 @@ export interface GameRuntime {
   selectLine: (line: number) => void;
   goToQuestion: (index: number) => void;
   restartQuestion: () => void;
-  restartGame: () => void;
+  restartGame: () => Promise<void>;
   dismissMessage: () => void;
 }
 
@@ -398,7 +398,22 @@ export const useGameRuntime = (params: {
     setCompletedLines([]);
   }, [question, startQuestionTimer]);
 
-  const restartGame = useCallback(() => {
+  const restartGame = useCallback(async () => {
+    // Remove only this student's saved run. The zeroed state below may create
+    // a fresh progress row later; the teacher's Game and questions are untouched.
+    if (!testMode && studentId && game) {
+      let query = supabase
+        .from("slate_game_progress")
+        .delete()
+        .eq("game_id", game.id)
+        .eq("student_id", studentId);
+      query = assignmentId
+        ? query.eq("assignment_id", assignmentId)
+        : query.is("assignment_id", null);
+      const { error } = await query;
+      if (error) throw new Error(error.message);
+      rowId.current = null;
+    }
     setQuestionIndex(0);
     setCurrentLine(1);
     setCompletedQuestionIds([]);
@@ -411,8 +426,10 @@ export const useGameRuntime = (params: {
     awarded.current = new Set();
     expiredLines.current = new Set();
     timedLine.current = null;
+    setLineDeadline(null);
+    setMessage(null);
     startQuestionTimer(boards[0]?.questionTimerSeconds ?? null);
-  }, [game, boards, startQuestionTimer]);
+  }, [game, boards, startQuestionTimer, testMode, studentId, assignmentId]);
 
   return {
     ready,

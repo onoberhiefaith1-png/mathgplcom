@@ -3,6 +3,8 @@ import {
   fractionSeconds,
   lineSurfacesInSync,
   normalizeLineConfig,
+  previewSlots,
+  resolveRenderedLineSlot,
   syncLineSurfaces,
   vaultMatches,
 } from "../lineSurfaces";
@@ -39,6 +41,43 @@ describe("one line, one surface", () => {
     expect(next.b!.vaultExpression).toBe("x + 7");
     expect(lineSurfacesInSync(next, ["b", "d"])).toBe(true);
     expect(lineSurfacesInSync(next, ["b"])).toBe(false);
+  });
+
+  it("inherits the saved pattern surface and scene when no line override exists", () => {
+    const g = game();
+    g.settings.text = {
+      ...g.settings.text,
+      preset: "royal3d",
+      baseColour: "#123456",
+      depthColour: "#654321",
+    };
+    g.slots[0] = { ...g.slots[0]!, surfaceId: "cloud", scene: { ...g.slots[0]!.scene, scale: 1.7 } };
+    const resolved = resolveRenderedLineSlot(g, {
+      line: 1,
+      isQuestion: false,
+      lineId: "L1",
+      patternSlot: 1,
+      text: "x + 1 = 3",
+      rewards: g.slots[0]!.rewards,
+    });
+    expect(resolved.surfaceId).toBe("cloud");
+    expect(resolved.scene).toBe(g.slots[0]!.scene);
+    expect(resolved.text).toBe("x + 1 = 3");
+    expect(g.settings.text.preset).toBe("royal3d");
+  });
+
+  it("uses an explicit line surface without changing saved slot appearance", () => {
+    const g = game();
+    g.slots[0] = { ...g.slots[0]!, surfaceId: "cloud" };
+    g.settings.lines = {
+      L1: { lineId: "L1", surfaceId: "glass", hourglassReward: "full", vaultCodes: [] },
+    };
+    const resolved = previewSlots(g, [{ equation: "2x = 8", lineId: "L1" }], () => [
+      { id: "saved", type: "retry-heart", state: "dormant", hidden: false, x: 27, y: 63 },
+    ])[0]!;
+    expect(resolved.surfaceId).toBe("glass");
+    expect(resolved.scene).toBe(g.slots[0]!.scene);
+    expect(resolved.rewards[0]).toMatchObject({ x: 27, y: 63 });
   });
 });
 

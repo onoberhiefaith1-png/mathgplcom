@@ -1048,16 +1048,22 @@ export function SlateColumn({
   }, [activate, game.slots]);
 
   // Pause freezes the playhead exactly where it is; Play resumes from there;
-  // Reset replays the last previewed effect from its first frame.
+  // Editor Reset replays the last preview. Game Reset clears every live effect.
   useEffect(() => {
     const onTransport = (event: Event) => {
-      const action = (event as CustomEvent<{ action: "play" | "pause" | "reset" }>).detail?.action;
+      const action = (event as CustomEvent<{ action: "play" | "pause" | "reset" | "clear" }>).detail?.action;
       if (action === "pause") {
         setEffectsPaused(true);
         return;
       }
       if (action === "play") {
         setEffectsPaused(false);
+        return;
+      }
+      if (action === "clear") {
+        setEffectsPaused(false);
+        setActive({});
+        lastPreview.current = null;
         return;
       }
       if (action === "reset") {
@@ -1149,7 +1155,7 @@ export function SlateColumn({
                   height={surfaceHeight}
                   numbers={numberSettings}
                   selected={selected}
-                  colour={game.surfaceColour}
+                  colour={lineSurface.newKind === "plain" ? game.surfaceColour : undefined}
                 />
               </group>
 

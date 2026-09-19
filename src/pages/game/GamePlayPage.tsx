@@ -16,20 +16,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Heart, Hourglass, Vault } from "lucide-react";
+import { ArrowLeft, Heart, Hourglass, RotateCcw, Vault } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGame } from "@/lib/slate/storage";
 import { loadGameAssignmentState } from "@/lib/slate/gameAssignments";
 import { ensureGameBoards, loadGameBoards, type GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { ensureTestClass } from "@/lib/floating/testBoard";
 import { patternLengthOf } from "@/lib/slate/pattern";
-import { lineConfigOf } from "@/lib/slate/lineSurfaces";
-import { buildBoardScope } from "@/lib/smartboard/boardScope";
+import { resolveRenderedLineSlot } from "@/lib/slate/lineSurfaces";
+import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { formatMmSs } from "@/lib/time/mmss";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
-import type { Game, Slot } from "@/lib/slate/types";
+import type { Game, RewardInstance, Slot } from "@/lib/slate/types";
 
 const secondsLeft = (deadline: number | null) =>
   deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : 0;
@@ -47,6 +47,8 @@ const GamePlayPage = () => {
   const [error, setError] = useState<string | null>(null);
   /** Live working per Floating Numbers line (0-based) → plain text. */
   const [lineText, setLineText] = useState<Record<number, string>>({});
+  const [resetEpoch, setResetEpoch] = useState(0);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (!gameId) return;
@@ -144,8 +146,6 @@ const GamePlayPage = () => {
     const patternLength = patternLengthOf(game);
     const question = runtime.question;
     const slots: Slot[] = runtime.lines.map((row) => {
-      const base = game.slots[row.isQuestion ? 0 : Math.max(0, row.patternSlot - 1)]
-        ?? game.slots[0];
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
       // teaching note only once the line has actually earned its marks.
@@ -155,17 +155,10 @@ const GamePlayPage = () => {
         : runtime.completedLines.includes(row.line)
           ? question.lineNotes[row.line - 1]
           : null;
-      return {
-        ...base,
-        id: `line-${row.line}`,
-        // exactly the surface the teacher saved for this line
-        surfaceId: row.lineId ? lineConfigOf(game, row.lineId).surfaceId : null,
-        text: row.isQuestion
+      const text = row.isQuestion
           ? question.questionText
-          : [note, working].filter(Boolean).join("\n"),
-        hiddenContent: "",
-        contentState: "visible",
-        rewards: row.rewards.map((reward) => {
+          : [note, working].filter(Boolean).join("\n");
+      const rewards: RewardInstance[] = row.rewards.map((reward) => {
           const key = `${question.questionRowId}:${row.line}:${reward.id}`;
           const used = runtime.consumedRewardKeys.includes(key);
           // it stays on the slate while its own effect is still playing
@@ -178,8 +171,8 @@ const GamePlayPage = () => {
               ? "archived"
               : row.line === runtime.currentLine || playing ? "active" : "dormant",
           };
-        }),
-      };
+        });
+      return resolveRenderedLineSlot(game, { ...row, text, rewards });
     });
     return { ...game, slots, patternLength };
   }, [
@@ -192,6 +185,46 @@ const GamePlayPage = () => {
     lineText,
     celebrating,
   ]);
+
+  const resetGame = async () => {
+    if (resetting || !uid) return;
+    if (!window.confirm("Reset this run? Your working and progress will be cleared. The saved Game design will stay unchanged.")) return;
+    setResetting(true);
+    try {
+      for (const board of boards) {
+        clearBoardScope(buildBoardScope({
+          studentId: uid,
+          classId,
+          workspace: "game",
+          gameId,
+          assessmentId: board.assessmentId,
+          questionId: board.boardQuestionId,
+        }));
+      }
+      if (!testMode) {
+        for (const board of boards) {
+          await Promise.all([
+            supabase.from("assessment_question_board_state").delete()
+              .eq("assessment_id", board.assessmentId).eq("student_id", uid),
+            supabase.from("assessment_board_state").delete()
+              .eq("assessment_id", board.assessmentId).eq("student_id", uid),
+            supabase.from("assessment_progress").delete()
+              .eq("assessment_id", board.assessmentId).eq("student_id", uid),
+            supabase.from("assessment_timer_attempts").delete()
+              .eq("assessment_id", board.assessmentId).eq("student_id", uid),
+          ]);
+        }
+      }
+      await runtime.restartGame();
+      seenRewards.current = new Set();
+      setCelebrating([]);
+      setLineText({});
+      setResetEpoch((value) => value + 1);
+      window.dispatchEvent(new CustomEvent("slate:effect-transport", { detail: { action: "clear" } }));
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const questionRemaining = secondsLeft(runtime.questionDeadline);
   const lineRemaining = secondsLeft(runtime.lineDeadline);
@@ -256,14 +289,14 @@ const GamePlayPage = () => {
 
   const controls = runtime.question ? (
     <PresentationView
-      key={buildBoardScope({
+      key={`${buildBoardScope({
         studentId: uid,
         classId,
         workspace: "game",
         gameId,
         assessmentId: runtime.question.assessmentId,
         questionId: runtime.question.boardQuestionId,
-      })}
+      })}:${resetEpoch}`}
       role="student"
       source={runtime.question.boardSource}
       notebookId={runtime.question.notebookId}
@@ -332,15 +365,9 @@ const GamePlayPage = () => {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
-          <span className="inline-flex items-center gap-1" title="Vault">
-            <Vault className="h-4 w-4 text-amber-500" /> {runtime.coins}
-          </span>
-          <span className="inline-flex items-center gap-1" title="Lives">
-            <Heart className="h-4 w-4 text-rose-500" /> {runtime.lives}
-          </span>
           {questionRemaining > 0 && (
             <span className="inline-flex items-center gap-1" title="Question time">
-              <Hourglass className="h-4 w-4 text-sky-500" /> {formatMmSs(questionRemaining)}
+              <Hourglass className="h-4 w-4 text-sky-500" /> TIME {formatMmSs(questionRemaining)}
             </span>
           )}
           {lineRemaining > 0 && (
@@ -348,12 +375,27 @@ const GamePlayPage = () => {
               <Hourglass className="h-4 w-4 text-emerald-500" /> {formatMmSs(lineRemaining)}
             </span>
           )}
+          <span className="inline-flex items-center gap-1" title="Lives">
+            <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
+          </span>
+          <span className="inline-flex items-center gap-1" title="Vault">
+            <Vault className="h-4 w-4 text-amber-500" /> VAULT {runtime.coins}
+          </span>
           <span className="inline-flex items-center gap-1" title="Marks">
             {runtime.earnedMarks} / {runtime.totalMarks}
             {runtime.totalMarks > 0
               ? ` · ${Math.round((runtime.earnedMarks / runtime.totalMarks) * 100)}%`
               : ""}
           </span>
+          <button
+            type="button"
+            onClick={() => void resetGame()}
+            disabled={resetting}
+            title="Reset this run"
+            className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide hover:bg-accent disabled:opacity-50"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> {resetting ? "RESETTING" : "RESET"}
+          </button>
         </div>
       </header>
 
@@ -378,7 +420,7 @@ const GamePlayPage = () => {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={runtime.restartGame}
+              onClick={() => void resetGame()}
               className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
             >
               Play again
