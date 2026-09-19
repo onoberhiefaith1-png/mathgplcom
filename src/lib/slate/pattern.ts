@@ -11,7 +11,7 @@
 // Empty pattern positions stay empty: nothing is ever auto-inserted.
 
 import { fractionSeconds, lineConfigOf } from "./lineSurfaces";
-import type { Game, LineSurfaceConfig, RewardInstance } from "./types";
+import type { Game, LineSurfaceConfig, RewardInstance, VaultCode } from "./types";
 
 /** The Question Line always sits at index 0 and never takes a pattern slot. */
 export const QUESTION_LINE = 0;
@@ -57,8 +57,10 @@ export interface MappedLine {
   timerSeconds: number | null;
   /** Seconds this line's Hourglass awards when the line is solved in time. */
   hourglassSeconds: number;
-  /** The expected method this line's Vault opens for, when configured. */
+  /** The expected method this line's first Vault opens for, when configured. */
   vaultExpression: string | null;
+  /** Every Vault Code owned by this line. */
+  vaultCodes: VaultCode[];
   vaultCoins: number;
 }
 
@@ -87,6 +89,7 @@ export const mapQuestionLines = (
       timerSeconds: null,
       hourglassSeconds: 0,
       vaultExpression: null,
+      vaultCodes: [],
       vaultCoins: 0,
     },
   ];
@@ -107,29 +110,35 @@ export const mapQuestionLines = (
       ? fractionSeconds(timerSeconds, config?.hourglassReward ?? "full")
       : 0;
     if (timerSeconds) {
+      // the Hourglass belongs on the RIGHT-HAND side of its own line
       derived.push({
         id: "hourglass",
         type: "time-shard",
         state: "dormant",
         hidden: false,
-        x: 12,
-        y: 30,
+        x: 88,
+        y: 26,
         durationMs: hourglassSeconds * 1000,
       });
     }
 
-    const vaultExpression = (config?.vaultExpression ?? "").trim() || null;
-    if (vaultExpression) {
+    // One Vault per Vault Code the teacher wrote on this line. Nothing else.
+    const vaultCodes = config?.vaultCodes ?? [];
+    vaultCodes.forEach((code, index) => {
+      const expression = (code?.expression ?? "").trim();
+      if (!expression) return;
       derived.push({
-        id: "vault",
+        id: `vault-${index + 1}`,
         type: "math-vault",
         state: "dormant",
         hidden: false,
-        x: 82,
-        y: 62,
-        expression: vaultExpression,
+        x: 14 + (index % 5) * 16,
+        y: 62 + Math.floor(index / 5) * 22,
+        expression,
+        coins: Math.max(0, Math.floor(Number(code.reward ?? 1)) || 0),
       });
-    }
+    });
+    const vaultExpression = vaultCodes[0]?.expression?.trim() || null;
 
     rows.push({
       line,
@@ -140,7 +149,8 @@ export const mapQuestionLines = (
       timerSeconds,
       hourglassSeconds,
       vaultExpression,
-      vaultCoins: Math.max(0, Math.floor(Number(config?.vaultCoins ?? 1)) || 0),
+      vaultCodes,
+      vaultCoins: Math.max(0, Math.floor(Number(vaultCodes[0]?.reward ?? 1)) || 0),
     });
   });
 

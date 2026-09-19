@@ -53,7 +53,15 @@ import {
   VIEW_TOP,
   buildLayout,
 } from "@/lib/slate/layout";
-import type { EditorMode, Game, PremiumBombStyle, RewardInstance, Selection, Slot } from "@/lib/slate/types";
+import type {
+  EditorMode,
+  Game,
+  NumberSettings,
+  PremiumBombStyle,
+  RewardInstance,
+  Selection,
+  Slot,
+} from "@/lib/slate/types";
 
 export interface ScrollState {
   target: number;
@@ -532,6 +540,80 @@ function glyphShimmer() {
   texture.wrapT = THREE.ClampToEdgeWrapping;
   shimmer = texture;
   return texture;
+}
+
+/**
+ * ONE writing surface, built out of its OWN saved material. A Game Line may
+ * carry its own surface; when it does not, it uses the Game's surface. The line
+ * number is part of this physical object: same material, depth and light.
+ */
+function RegionSurface({
+  surface,
+  build,
+  recipe,
+  index,
+  width,
+  height,
+  numbers,
+  selected,
+  colour,
+}: {
+  surface: ReturnType<typeof getSurface>;
+  build: ReturnType<typeof getConstruction>;
+  recipe: ReturnType<typeof surfaceMaterial>;
+  index: number;
+  width: number;
+  height: number;
+  numbers: NumberSettings;
+  selected: boolean;
+  colour: string | undefined;
+}) {
+  const pbr = usePbr(surfaceFamily(surface.id), 3.1, 0.72);
+  // the marker rides on the surface's own left edge, never in a far-off column
+  const numberX = -width / 2 + Math.max(0.12, build.inset * 0.5);
+  if (surface.newKind) {
+    return (
+      <>
+        <NewWritingSurface
+          kind={surface.newKind}
+          width={width}
+          height={height}
+          maps={pbr}
+          accent={selected ? "#ffe9bd" : surface.accent}
+          colour={colour}
+        />
+        {numbers.visible ? (
+          <Text
+            position={[numberX, height / 2 - Math.max(0.12, build.inset * 0.5), 0.025]}
+            fontSize={0.18 * numbers.size}
+            font="/fonts/technical.ttf"
+            color={numbers.colour ?? surface.ink}
+            anchorX="center"
+            anchorY="middle"
+            fillOpacity={numbers.opacity}
+          >
+            {index + 1}
+          </Text>
+        ) : null}
+      </>
+    );
+  }
+  return (
+    <SlateSection
+      index={index}
+      width={width}
+      height={height}
+      maps={pbr}
+      build={build}
+      physical={recipe.physical}
+      accent={selected ? "#ffe9bd" : surface.accent}
+      numbers={numbers}
+      numberOffsetX={numberX}
+      transparent={surface.transparent ?? false}
+      none={surface.none ?? false}
+      ornament={surface.ornament}
+    />
+  );
 }
 
 /**
@@ -1033,6 +1115,10 @@ export function SlateColumn({
       <group ref={group}>
         {visible.map((region) => {
           const slot = region.slot;
+          // This Line's OWN saved surface, when the teacher gave it one.
+          const lineSurface = slot.surfaceId ? getSurface(slot.surfaceId) : surface;
+          const lineRecipe = lineSurface.id === surface.id ? recipe : surfaceMaterial(lineSurface.id);
+          const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
           const bounds = textBounds[slot.id];
           const padX = Math.max(0.18, Math.min(0.34, textSettings.size / 520));
           const padY = Math.max(0.13, Math.min(0.26, textSettings.size / 650));
@@ -1054,58 +1140,30 @@ export function SlateColumn({
             <group key={slot.id} position={[0, -region.centre, SLATE_FRONT]}>
               {/* the section is built out of the material itself */}
               <group position={[surfaceX, surfaceY, 0]}>
-                {surface.newKind ? (
-                  <>
-                    <NewWritingSurface
-                      kind={surface.newKind}
-                      width={surfaceWidth}
-                      height={surfaceHeight}
-                      maps={pbr}
-                      accent={selected ? "#ffe9bd" : surface.accent}
-                      colour={game.surfaceColour}
-                    />
-                    {numberSettings.visible ? (
-                      <Text
-                        position={[-SLATE_W / 2 + build.inset * 0.48 - surfaceX, surfaceHeight / 2 - build.inset * 0.5, 0.025]}
-                        fontSize={0.18 * numberSettings.size}
-                        font="/fonts/technical.ttf"
-                        color={numberSettings.colour ?? surface.ink}
-                        anchorX="center"
-                        anchorY="middle"
-                        fillOpacity={numberSettings.opacity}
-                      >
-                        {region.index + 1}
-                      </Text>
-                    ) : null}
-                  </>
-                ) : (
-                  <SlateSection
-                    index={region.index}
-                    width={surfaceWidth}
-                    height={surfaceHeight}
-                    maps={pbr}
-                    build={build}
-                    physical={recipe.physical}
-                    accent={selected ? "#ffe9bd" : surface.accent}
-                    numbers={numberSettings}
-                    numberOffsetX={-SLATE_W / 2 + build.inset * 0.48 - surfaceX}
-                    transparent={surface.transparent ?? false}
-                    none={surface.none ?? false}
-                    ornament={surface.ornament}
-                  />
-                )}
+                <RegionSurface
+                  surface={lineSurface}
+                  build={lineBuild}
+                  recipe={lineRecipe}
+                  index={region.index}
+                  width={surfaceWidth}
+                  height={surfaceHeight}
+                  numbers={numberSettings}
+                  selected={selected}
+                  colour={game.surfaceColour}
+                />
               </group>
+
 
               <WritingRegion
                 slotId={slot.id}
                 text={slot.text}
-                width={SLATE_W - build.inset * 2 - 0.3}
+                width={SLATE_W - lineBuild.inset * 2 - 0.3}
                 height={region.height}
-                pad={build.gap + 0.18}
+                pad={lineBuild.gap + 0.18}
                 /* the slab body is solid, so the inscription sits just proud of
                    its face; depth comes from the shading, not from hiding it */
                 z={0.012}
-                surface={surface}
+                surface={lineSurface}
                 settings={textSettings}
                 editable={!readOnlyWriting}
                 active={selection.kind === "slot" && selection.slotId === slot.id}

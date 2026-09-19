@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   fractionSeconds,
   lineSurfacesInSync,
+  normalizeLineConfig,
   syncLineSurfaces,
   vaultMatches,
 } from "../lineSurfaces";
@@ -45,25 +46,50 @@ describe("derived line objects", () => {
   it("gives a line with its own time an Hourglass worth the chosen share", () => {
     const g = game();
     g.settings.lines = {
-      L1: { lineId: "L1", surfaceId: null, hourglassReward: "half", vaultExpression: null, vaultCoins: 1 },
+      L1: { lineId: "L1", surfaceId: null, hourglassReward: "half", vaultCodes: [] },
     };
     const rows = mapQuestionLines(g, [60, null], ["L1", "L2"]);
     expect(rows[0]!.isQuestion).toBe(true);
     expect(rows[0]!.rewards).toHaveLength(0);
-    expect(rows[1]!.rewards.some((r) => r.type === "time-shard")).toBe(true);
+    const hourglass = rows[1]!.rewards.find((r) => r.type === "time-shard");
+    expect(hourglass).toBeTruthy();
+    // the Hourglass sits on the right-hand side of its own line
+    expect(hourglass!.x).toBeGreaterThan(50);
     expect(rows[1]!.hourglassSeconds).toBe(30);
     expect(rows[2]!.rewards.some((r) => r.type === "time-shard")).toBe(false);
   });
 
-  it("gives a line with an expected method a Vault", () => {
+  it("reads a legacy single expression as the line's first Vault Code", () => {
     const g = game();
     g.settings.lines = {
-      L1: { lineId: "L1", surfaceId: null, hourglassReward: "full", vaultExpression: "x + 7", vaultCoins: 3 },
+      L1: normalizeLineConfig("L1", {
+        lineId: "L1",
+        surfaceId: null,
+        hourglassReward: "full",
+        vaultExpression: "x + 7",
+        vaultCoins: 3,
+      }),
     };
     const rows = mapQuestionLines(g, [null], ["L1"]);
     const vault = rows[1]!.rewards.find((r) => r.type === "math-vault");
     expect(vault?.expression).toBe("x + 7");
-    expect(rows[1]!.vaultCoins).toBe(3);
+    expect(vault?.coins).toBe(3);
+  });
+
+  it("gives a line one Vault per Vault Code", () => {
+    const g = game();
+    g.settings.lines = {
+      L1: normalizeLineConfig("L1", {
+        vaultCodes: [
+          { expression: "x + 7", reward: 2 },
+          { expression: "2x + 6", reward: 5 },
+        ],
+      }),
+    };
+    const rows = mapQuestionLines(g, [null], ["L1"]);
+    const vaults = rows[1]!.rewards.filter((r) => r.type === "math-vault");
+    expect(vaults.map((v) => v.expression)).toEqual(["x + 7", "2x + 6"]);
+    expect(vaults.map((v) => v.coins)).toEqual([2, 5]);
   });
 });
 
