@@ -106,7 +106,7 @@ export const useGameRuntime = (params: {
   );
 
   const lines = useMemo(
-    () => (game && question ? mapQuestionLines(game, question.lineTimers, question.lineIds) : []),
+    () => (game && question ? mapQuestionLines(game, question.lineTimers, question.lineIds, question.lineVaults) : []),
     [game, question],
   );
 
@@ -329,14 +329,11 @@ export const useGameRuntime = (params: {
       ? renderedRewardId.slice(prefix.length)
       : renderedRewardId;
     const reward = row?.rewards.find((item) => item.id === originalId);
-    if (!reward || reward.type === "time-shard") return;
+    if (!reward || reward.type === "time-shard" || reward.type === "math-vault") return;
     const key = rewardKey(question.questionRowId, lineNumber, reward.id);
     if (consumed.includes(key)) return;
     setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
     if (reward.type === "retry-heart") setLives((prev) => prev + 1);
-    if (reward.type === "math-vault") {
-      setVaultReward((prev) => prev + Math.max(0, reward.coins ?? row?.vaultCoins ?? 0));
-    }
   }, [question, lines, consumed]);
 
   /* ---- board bridge -------------------------------------------------- */

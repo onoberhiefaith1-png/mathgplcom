@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Heart, Hourglass, RotateCcw, Vault } from "lucide-react";
+import { ArrowLeft, Heart, Hourglass, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGame } from "@/lib/slate/storage";
 import { loadGameAssignmentState } from "@/lib/slate/gameAssignments";
@@ -403,7 +403,7 @@ const GamePlayPage = () => {
             <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
           </span>
           <span className="inline-flex items-center gap-1" title="Vault reward">
-            <Vault className="h-4 w-4 text-amber-500" /> VAULT {runtime.vaultReward}
+            <img className="h-4 w-8 object-contain" src={getReward("math-vault").art} alt="" /> VAULT {runtime.vaultReward}
           </span>
           <span key={runtime.completionCount} className="inline-flex items-center gap-1 animate-in zoom-in" title="Completed lines">
             <img className="h-4 w-4 object-contain" src={getReward("mark-seal").art} alt="" />

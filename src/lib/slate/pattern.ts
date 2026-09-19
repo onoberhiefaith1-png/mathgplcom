@@ -11,6 +11,7 @@
 // Empty pattern positions stay empty: nothing is ever auto-inserted.
 
 import { fractionSeconds, lineConfigOf } from "./lineSurfaces";
+import type { FloatingVault } from "@/lib/lessonnotes/floatingCompile";
 import type { Game, LineSurfaceConfig, RewardInstance, VaultCode } from "./types";
 
 /** The Question Line always sits at index 0 and never takes a pattern slot. */
@@ -76,6 +77,7 @@ export const mapQuestionLines = (
   game: Pick<Game, "slots" | "patternLength"> & Partial<Pick<Game, "settings">>,
   lineTimers: LineTimerInput[],
   lineIds: (string | null | undefined)[] = [],
+  lineVaults: (FloatingVault[] | null | undefined)[] = [],
 ): MappedLine[] => {
   const patternLength = patternLengthOf(game);
   const settings = game.settings;
@@ -130,12 +132,15 @@ export const mapQuestionLines = (
     }
 
     // One Vault per Vault Code the teacher wrote on this line. Nothing else.
-    const vaultCodes = config?.vaultCodes ?? [];
+    const floatingVaults = lineVaults[i];
+    const vaultCodes = floatingVaults !== null && floatingVaults !== undefined
+      ? floatingVaults.map((vault) => ({ id: vault.id, expression: vault.expression, reward: 1 }))
+      : (config?.vaultCodes ?? []);
     vaultCodes.forEach((code, index) => {
       const expression = (code?.expression ?? "").trim();
       if (!expression) return;
       derived.push({
-        id: `vault-${index + 1}`,
+        id: `vault-${code.id ?? index + 1}`,
         type: "math-vault",
         state: "dormant",
         hidden: false,

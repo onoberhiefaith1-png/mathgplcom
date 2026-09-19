@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import {
-  ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, CopyPlus,
+  ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, CopyPlus, Plus,
   RotateCcw, Shuffle, Trash2, X,
 } from "lucide-react";
 
@@ -28,6 +28,10 @@ import EquationAtoms from "@/components/floating/EquationAtoms";
 import { parseAtoms, reconstructAtomIds } from "@/lib/floating/atoms";
 import { buildChip as buildAtomChip, swapChips, type Chip } from "@/lib/floating/highlightEngine";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
+
+const newVaultId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto
+  ? crypto.randomUUID()
+  : `vault-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 interface Props {
   line: FloatingLine;
@@ -174,15 +178,25 @@ export const FloatingWorkspace = ({
     onChange({ ...line, containersSelected: next });
   };
 
-  const addContainer = (raw: string) => {
-    const k = parseContainerKind(raw);
-    if (!k) return;
-    if (line.containers.includes(k)) return;
-    onChange({
-      ...line,
-      containers: [...line.containers, k],
-      containersSelected: [...padSel(line.containersSelected, line.containers.length), false],
-    });
+  const vaults = line.vaults ?? [];
+  const addVault = () => onChange({
+    ...line,
+    vaults: [...vaults, { id: newVaultId(), expression: "" }],
+  });
+  const updateVault = (vaultId: string, expression: string) => onChange({
+    ...line,
+    vaults: vaults.map((vault) => vault.id === vaultId ? { ...vault, expression } : vault),
+  });
+  const removeVault = (vaultId: string) => onChange({
+    ...line,
+    vaults: vaults.filter((vault) => vault.id !== vaultId),
+  });
+  const moveVault = (index: number, delta: number) => {
+    const target = index + delta;
+    if (target < 0 || target >= vaults.length) return;
+    const next = vaults.slice();
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    onChange({ ...line, vaults: next });
   };
 
   /* ───────── Highlight Mode (Teacher Intent) ─────────
@@ -468,7 +482,7 @@ export const FloatingWorkspace = ({
         </button>
       </div>
 
-      {/* Symbols / structures row — always rendered, always ends with empty entry box */}
+      {/* Symbols / structures generated for the existing Floating Numbers system. */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/40 w-20 shrink-0">
           Symbols
@@ -487,13 +501,51 @@ export const FloatingWorkspace = ({
             onRemove={() => removeContainer(i)}
           />
         ))}
-        <EmptyEntryBox
-          lineNo={lineNo}
-          placeholder="fraction, bracket…"
-          onCommit={addContainer}
-          variant="symbol"
-          widthClass="w-36"
-        />
+      </div>
+
+      <div className="mt-3 border-t border-foreground/10 pt-3" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/50">Vault data</span>
+          <button
+            type="button"
+            onClick={addVault}
+            className="inline-flex items-center gap-1 rounded-md border border-foreground/20 px-2 py-1 text-[11px] font-medium text-foreground/70 hover:bg-foreground/5"
+          >
+            <Plus className="h-3 w-3" /> Add Vault
+          </button>
+        </div>
+        {vaults.length === 0 ? (
+          <p className="text-[11px] text-foreground/40">No hidden method sequence on this line.</p>
+        ) : (
+          <div className="space-y-2">
+            {vaults.map((vault, vaultIndex) => (
+              <div key={vault.id} className="flex items-center gap-2">
+                <span className="w-14 shrink-0 text-[10px] uppercase tracking-wider text-foreground/45">
+                  Vault {vaultIndex + 1}
+                </span>
+                <input
+                  value={vault.expression}
+                  onChange={(event) => updateVault(vault.id, event.target.value)}
+                  placeholder="e.g. x + 7"
+                  aria-label={`Vault ${vaultIndex + 1} expression`}
+                  className="min-w-0 flex-1 rounded-md border border-foreground/20 bg-transparent px-2.5 py-1.5 text-[14px] outline-hidden focus:border-foreground/45"
+                />
+                <div className="min-w-20 text-[14px] text-foreground/70">
+                  {vault.expression.trim() ? renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`) : null}
+                </div>
+                <button type="button" onClick={() => moveVault(vaultIndex, -1)} disabled={vaultIndex === 0} className={ctrlClass} title="Move Vault up">
+                  <ArrowUp className="h-3 w-3" />
+                </button>
+                <button type="button" onClick={() => moveVault(vaultIndex, 1)} disabled={vaultIndex === vaults.length - 1} className={ctrlClass} title="Move Vault down">
+                  <ArrowDown className="h-3 w-3" />
+                </button>
+                <button type="button" onClick={() => removeVault(vault.id)} className="rounded-md border border-red-300/70 p-1 text-red-700/80 hover:bg-red-50" title="Delete Vault">
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

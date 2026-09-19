@@ -1,5 +1,13 @@
 # Junction finishing
 
+# Floating Numbers Vault ownership
+
+- [x] Move unlimited add/edit/delete/reorder Vault data onto each Floating Numbers line.
+- [x] Derive the existing physical cylinder Vaults from the matching saved line.
+- [x] Match only consecutive teacher-defined mathematical sequences, separately from AI equivalence.
+- [x] Verify authoring renders live and focused tests cover transfer, stable identity, ordered matching, overlap, and alternate-method rejection.
+- [ ] Verify authenticated Play reveal, collection, HUD increment, and reset after saving a teacher Vault.
+
 # Final Game reward architecture
 
 - [x] Separate universal line completion from teacher-configurable rewards.

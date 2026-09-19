@@ -5,7 +5,7 @@
 // This module holds only the Game-side configuration of those lines, keyed by
 // the Floating Numbers line id — never by position, never by a second id.
 
-import { canonical, canonicalEqual } from "@/lib/smartboard/canonical";
+import { tokensFromEquation } from "@/lib/lessonnotes/floatingCompile";
 import type {
   Game,
   LineSurfaceConfig,
@@ -49,9 +49,6 @@ export const lifeSeconds = (
   return Math.max(1, Math.round(total * lifeMultiplier(multiplier)));
 };
 
-/** A line may own at most ten Vault Codes. */
-export const MAX_VAULT_CODES = 10;
-
 export const defaultLineConfig = (lineId: string): LineSurfaceConfig => ({
   lineId,
   surfaceId: null,
@@ -60,9 +57,8 @@ export const defaultLineConfig = (lineId: string): LineSurfaceConfig => ({
 });
 
 /**
- * Only the Vault Codes the teacher actually wrote exist. A configuration saved
- * before Vault Codes existed is read as that line's first code, so nothing the
- * teacher already set is lost.
+ * Legacy Game-side codes remain readable only until the corresponding Floating
+ * Numbers line saves its own `vaults` array.
  */
 const readVaultCodes = (raw: Partial<LineSurfaceConfig> | undefined): VaultCode[] => {
   const listed = Array.isArray(raw?.vaultCodes) ? raw!.vaultCodes : [];
@@ -77,7 +73,7 @@ const readVaultCodes = (raw: Partial<LineSurfaceConfig> | undefined): VaultCode[
     const reward = Number(raw?.vaultCoins);
     codes.push({ expression: legacy, reward: Number.isFinite(reward) ? Math.max(0, reward) : 1 });
   }
-  return codes.slice(0, MAX_VAULT_CODES);
+  return codes;
 };
 
 export const normalizeLineConfig = (
@@ -123,12 +119,12 @@ export const lineSurfacesInSync = (
 };
 
 /* ── Vault matching ─────────────────────────────────────────────────────────
- * The Vault rewards the teacher's intended METHOD, so it compares mathematics,
- * not strings. Text is normalised first, then the existing canonical engine
- * decides equality where it can parse both sides.
+ * The Vault rewards the teacher's intended METHOD. It compares an ordered,
+ * consecutive mathematical token sequence and deliberately does not use the
+ * AI/canonical equivalence engine.
  */
 
-const flatten = (text: string): string =>
+const normalizeToken = (text: string): string =>
   text
     .replace(/[−–—]/g, "-")
     .replace(/[×·∙*]/g, "*")
@@ -136,37 +132,21 @@ const flatten = (text: string): string =>
     .replace(/\s+/g, "")
     .toLowerCase();
 
-/** The canonical engine reads equations, so a bare side is compared against 0. */
-const asEquation = (text: string): string => (text.includes("=") ? text : `${text}=0`);
-
-const sameMath = (a: string, b: string): boolean => {
-  if (!a || !b) return false;
-  if (flatten(a) === flatten(b)) return true;
-  const ca = canonical(asEquation(a));
-  const cb = canonical(asEquation(b));
-  return Boolean(ca && cb && canonicalEqual(ca, cb));
-};
-
-/** Every comparable piece of one written line: the whole line and each side. */
-const piecesOf = (text: string): string[] => {
-  const out: string[] = [];
-  for (const row of text.split(/\n+/)) {
-    const line = row.trim();
-    if (!line) continue;
-    out.push(line);
-    for (const side of line.split(/=/)) {
-      const part = side.trim();
-      if (part) out.push(part);
-    }
-  }
-  return out;
-};
+const sequenceOf = (text: string): string[] =>
+  tokensFromEquation(text)
+    .flatMap((token) => {
+      const normalized = normalizeToken(token);
+      if (/^\\(?:frac|dfrac|tfrac|sqrt|root|begin|left|sum|prod|int|oint|lim)\b/.test(normalized)) {
+        return [normalized];
+      }
+      return normalized.split(/([+\-=<>*/])/).filter(Boolean);
+    })
+    .filter(Boolean);
 
 /**
  * Does the student's work on this line contain the teacher's expected method?
- * Mathematical meaning only. A partial character sequence must never open a
- * Vault; exact normalisation handles notation while canonical comparison
- * handles equivalent mathematical structure.
+ * A partial character sequence must never open a Vault. Notation is normalized,
+ * but equivalent rearrangements remain different because ordering is the key.
  */
 export const vaultMatches = (
   expression: string | null | undefined,
@@ -175,10 +155,12 @@ export const vaultMatches = (
   const wanted = (expression ?? "").trim();
   const written = (work ?? "").trim();
   if (!wanted || !written) return false;
-  const wantedPieces = piecesOf(wanted);
-  for (const piece of piecesOf(written)) {
-    for (const target of wantedPieces) {
-      if (sameMath(piece, target)) return true;
+  const target = sequenceOf(wanted);
+  if (target.length === 0) return false;
+  for (const row of written.split(/\n+/)) {
+    const sequence = sequenceOf(row);
+    for (let start = 0; start <= sequence.length - target.length; start += 1) {
+      if (target.every((token, offset) => sequence[start + offset] === token)) return true;
     }
   }
   return false;

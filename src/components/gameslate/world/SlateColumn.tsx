@@ -1243,7 +1243,7 @@ export function SlateColumn({
                           }}
                           onActivate={() => {
                             if (editable) onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
-                            else if (reward.state === "dormant")
+                            else if (reward.state === "dormant" && reward.type !== "math-vault")
                               activate(slot.id, reward, effects.testMode);
                           }}
                           onExpire={() => onRewardConsume(slot.id, reward.id)}

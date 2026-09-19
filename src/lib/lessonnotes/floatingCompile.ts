@@ -87,6 +87,8 @@ export interface FloatingLine {
    *  creates the Timer Reward on the matching Game Line — never Game settings.
    *  One line carries at most one value, so it can never duplicate. */
   timerSeconds?: number;
+  /** Hidden teacher-method rewards owned by this exact Floating Numbers line. */
+  vaults?: FloatingVault[];
   /** Set when this line was generated from a highlighted table workspace. */
   table?: FloatingTableRef;
   /** Notes-layer objects (diagrams) that belong to this line's NOTE. Never
@@ -101,6 +103,23 @@ export interface FloatingLine {
   /** ISO timestamp of the last teacher edit. */
   editedAt?: string;
 }
+
+export interface FloatingVault {
+  /** Stable identity used to persist one collection state per Game attempt. */
+  id: string;
+  /** Ordered mathematical sequence that opens this Vault. */
+  expression: string;
+}
+
+export const normalizeFloatingVaults = (
+  vaults: FloatingVault[] | null | undefined,
+): FloatingVault[] =>
+  (Array.isArray(vaults) ? vaults : [])
+    .map((vault, index) => ({
+      id: String(vault?.id ?? `vault-${index + 1}`),
+      expression: String(vault?.expression ?? "").trim(),
+    }))
+    .filter((vault) => vault.expression.length > 0);
 
 /** Stamp a line as teacher-owned. Every manual mutation goes through this. */
 export const markTeacherEdited = (line: FloatingLine): FloatingLine => ({

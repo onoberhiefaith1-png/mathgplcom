@@ -128,7 +128,7 @@ describe("derived line objects", () => {
     expect(vault?.coins).toBe(3);
   });
 
-  it("gives a line one Vault per Vault Code", () => {
+  it("gives a line one Vault per Floating Numbers Vault entry", () => {
     const g = game();
     g.settings.lines = {
       L1: normalizeLineConfig("L1", {
@@ -138,21 +138,43 @@ describe("derived line objects", () => {
         ],
       }),
     };
-    const rows = mapQuestionLines(g, [null], ["L1"]);
+    const rows = mapQuestionLines(g, [null], ["L1"], [[
+      { id: "method-a", expression: "x + 7" },
+      { id: "method-b", expression: "2x + 6" },
+    ]]);
     const vaults = rows[1]!.rewards.filter((r) => r.type === "math-vault");
     expect(vaults.map((v) => v.expression)).toEqual(["x + 7", "2x + 6"]);
-    expect(vaults.map((v) => v.coins)).toEqual([2, 5]);
+    expect(vaults.map((v) => v.id)).toEqual(["vault-method-a", "vault-method-b"]);
+    expect(vaults.map((v) => v.coins)).toEqual([1, 1]);
+  });
+
+  it("treats a saved empty Floating Numbers Vault list as authoritative", () => {
+    const g = game();
+    g.settings.lines = {
+      L1: normalizeLineConfig("L1", { vaultExpression: "legacy method", vaultCoins: 3 }),
+    };
+    const rows = mapQuestionLines(g, [null], ["L1"], [[]]);
+    expect(rows[1]!.rewards.some((reward) => reward.type === "math-vault")).toBe(false);
   });
 });
 
-describe("the Vault compares mathematics", () => {
-  it("opens for the same method written differently", () => {
-    expect(vaultMatches("x + 7", "7 + x")).toBe(true);
+describe("the Vault recognises the teacher's consecutive method sequence", () => {
+  it("opens only when the ordered token sequence appears", () => {
+    expect(vaultMatches("x + 7", "x + 7 = 12")).toBe(true);
+    expect(vaultMatches("7 = 12", "x + 7 = 12")).toBe(true);
+    expect(vaultMatches("x + 7", "7 + x")).toBe(false);
+    expect(vaultMatches("x + 7", "x = 12 - 7")).toBe(false);
     expect(vaultMatches("2x = 8", "2x=8")).toBe(true);
     expect(vaultMatches("x + 7", "x - 7")).toBe(false);
     expect(vaultMatches("x + 7", "x + 70")).toBe(false);
     expect(vaultMatches("2 × x", "first line\n2*x\nnext line")).toBe(true);
     expect(vaultMatches("x + 7", "")).toBe(false);
     expect(vaultMatches(null, "x + 7")).toBe(false);
+  });
+
+  it("allows overlapping Vault sequences to open independently", () => {
+    const work = "x + 7 = 12";
+    expect(vaultMatches("x + 7", work)).toBe(true);
+    expect(vaultMatches("7 = 12", work)).toBe(true);
   });
 });
