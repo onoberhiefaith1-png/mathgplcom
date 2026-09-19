@@ -391,7 +391,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
     }
   };
 
-  const changeCount = toAssign.length + toUnassign.length;
+  const changeCount = toAssign.length + toUnassign.length + (joinsGame ? 1 : 0);
 
   return (
     <>
