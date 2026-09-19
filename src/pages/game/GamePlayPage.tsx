@@ -29,7 +29,7 @@ import { formatMmSs } from "@/lib/time/mmss";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
-import type { Game, Slot } from "@/lib/slate/types";
+import type { Game, RewardInstance, Slot } from "@/lib/slate/types";
 
 const secondsLeft = (deadline: number | null) =>
   deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : 0;
@@ -146,8 +146,6 @@ const GamePlayPage = () => {
     const patternLength = patternLengthOf(game);
     const question = runtime.question;
     const slots: Slot[] = runtime.lines.map((row) => {
-      const base = game.slots[row.isQuestion ? 0 : Math.max(0, row.patternSlot - 1)]
-        ?? game.slots[0];
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
       // teaching note only once the line has actually earned its marks.
@@ -160,7 +158,7 @@ const GamePlayPage = () => {
       const text = row.isQuestion
           ? question.questionText
           : [note, working].filter(Boolean).join("\n");
-      const rewards = row.rewards.map((reward) => {
+      const rewards: RewardInstance[] = row.rewards.map((reward) => {
           const key = `${question.questionRowId}:${row.line}:${reward.id}`;
           const used = runtime.consumedRewardKeys.includes(key);
           // it stays on the slate while its own effect is still playing
