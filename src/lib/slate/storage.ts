@@ -3,6 +3,7 @@
 // simply asynchronous now.
 
 import { supabase } from "@/integrations/supabase/client";
+import { putAsset } from "./assets";
 import type { Game } from "./types";
 import { defaultScene } from "./environments";
 import { roomForSurface } from "./rooms";
@@ -135,7 +136,24 @@ export const saveGameResult = async (
   if (!data.session) {
     return { ok: false, message: "You are signed out. Sign in again to create a game." };
   }
-  const { error } = await supabase.from("slate_games").upsert(toRow(game) as never);
+  // A background still living in this browser (data/blob URL) is uploaded to
+  // the account first, so the saved row only ever stores a small storage path.
+  let toSave = game;
+  const src = game.background?.src ?? "";
+  if (!game.background?.assetId && /^(data|blob):/.test(src)) {
+    try {
+      const blob = await (await fetch(src)).blob();
+      const file = new File([blob], "background", { type: blob.type || "image/png" });
+      const assetId = await putAsset(file);
+      toSave = {
+        ...game,
+        background: { ...game.background, src: null, assetId, kind: file.type.startsWith("video") ? "video" : "image" },
+      };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "The background could not be uploaded." };
+    }
+  }
+  const { error } = await supabase.from("slate_games").upsert(toRow(toSave) as never);
   if (!error) return { ok: true };
   console.error("[slate] save failed", error);
   const denied = error.code === "42501" || /row-level security|permission/i.test(error.message);
