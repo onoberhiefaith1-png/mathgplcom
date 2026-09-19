@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   fractionSeconds,
   lineSurfacesInSync,
+  normalizeLineConfig,
   syncLineSurfaces,
   vaultMatches,
 } from "../lineSurfaces";
