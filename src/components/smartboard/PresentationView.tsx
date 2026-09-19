@@ -7028,6 +7028,14 @@ const PresentationView = ({
               if (line == null) return;
               stepTo(line);
             };
+            // GAME PLAY: one arrow press = one writing surface. The lesson
+            // step domain (which collapses tables and notes) must never remap
+            // a Game Line, so Previous/Next walk the lines themselves.
+            const stepGameLine = (delta: number) => {
+              const target = curLineIdx + delta;
+              if (target < 0 || target >= lineCount) return;
+              stepTo(target);
+            };
             const goPrev = () => {
               if (!hasGuidedLines) return;
               if (notebookRevealIdx != null) {
@@ -7035,10 +7043,16 @@ const PresentationView = ({
                 setNotebookRevealIdx(null);
                 return;
               }
+              if (gameChrome) { stepGameLine(-1); return; }
               stepToCounter(counterNumber - 2);
             };
             const goNext = () => {
               if (!hasGuidedLines) return;
+              if (gameChrome && notebookRevealIdx == null) {
+                activateNoteOnce(curLineIdx);
+                stepGameLine(1);
+                return;
+              }
               if (notebookRevealIdx != null) {
                 // Commit reveal: mark notebook shown and advance to its line.
                 const k = notebookRevealIdx;
