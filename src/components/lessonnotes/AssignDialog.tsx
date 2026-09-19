@@ -444,7 +444,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                   totalMarks={totalMarks}
                   onDone={() => onOpenChange(false)}
                 />
-              ) : classes.length === 0 ? (
+              ) : classes.length === 0 && target !== "game" ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   You have no classes yet. Create a class first, then assign.
                 </div>
