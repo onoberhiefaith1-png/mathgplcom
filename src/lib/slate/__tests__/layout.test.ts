@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GAME_WRITING_WIDTH, buildLayout, gameWritingWidth } from "../layout";
+import { GAME_WRITING_WIDTH, buildLayout, gameSurfaceWidth, gameWritingWidth } from "../layout";
 import { makeSlot } from "../defaults";
 import type { Slot } from "../types";
 
@@ -10,6 +10,13 @@ describe("Game writing-surface layout", () => {
     expect(GAME_WRITING_WIDTH).toBeCloseTo(6.6 * 0.9);
     expect(gameWritingWidth(4)).toBeCloseTo(3.6);
     expect(gameWritingWidth(20)).toBeCloseTo(18);
+  });
+
+  it("fills the band on laptop and desktop without changing compact mobile surfaces", () => {
+    expect(gameSurfaceWidth(12, 3, 1440)).toBe(12);
+    expect(gameSurfaceWidth(12, 3, 1024)).toBe(12);
+    expect(gameSurfaceWidth(7, 3, 834)).toBe(3);
+    expect(gameSurfaceWidth(7, 9, 834)).toBe(7);
   });
 
   it("starts every unmeasured Play surface at its own minimum height", () => {

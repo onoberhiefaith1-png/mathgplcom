@@ -52,6 +52,7 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
+  gameSurfaceWidth,
   gameWritingWidth,
 } from "@/lib/slate/layout";
 import type {
@@ -699,6 +700,7 @@ export function SlateColumn({
     ? { ...textSettings, align: "left" as const }
     : textSettings;
   const viewport = useThree((state) => state.viewport);
+  const canvasWidth = useThree((state) => state.size.width);
   const camera = useThree((state) => state.camera);
   const visibleAtSlate = viewport.getCurrentViewport(camera, new THREE.Vector3(0, 0, SLATE_Z));
   const playWritingWidth = gameWritingWidth(visibleAtSlate.width);
@@ -1149,10 +1151,10 @@ export function SlateColumn({
           const padY = Math.max(0.13, Math.min(0.26, textSettings.size / 650));
           const emptyWidth = Math.max(0.9, textSettings.size / 145);
           const minimumWidth = Math.max(lineBuild.inset * 2 + 0.32, emptyWidth);
-          const surfaceWidth = Math.min(
-            readOnlyWriting ? writingWidth : SLATE_W,
-            Math.max(minimumWidth, (bounds?.width ?? 0) + padX * 2),
-          );
+          const contentSurfaceWidth = Math.max(minimumWidth, (bounds?.width ?? 0) + padX * 2);
+          const surfaceWidth = readOnlyWriting
+            ? gameSurfaceWidth(writingWidth, contentSurfaceWidth, canvasWidth)
+            : Math.min(SLATE_W, contentSurfaceWidth);
           const surfaceHeight = Math.max(
             Math.max(0.42, textSettings.size / 175),
             (bounds?.height ?? 0) + padY * 2,

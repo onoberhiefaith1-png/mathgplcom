@@ -34,6 +34,13 @@ export const GAME_WRITING_WIDTH = SLATE_W * 0.9;
 export const gameWritingWidth = (visibleWorldWidth: number) =>
   Math.max(0.8, visibleWorldWidth * 0.9);
 
+/** Desktop Play surfaces fill the writable band; mobile keeps its current compact sizing. */
+export const gameSurfaceWidth = (
+  writingWidth: number,
+  contentWidth: number,
+  viewportPixels: number,
+) => viewportPixels >= 1024 ? writingWidth : Math.min(writingWidth, contentWidth);
+
 
 const REGION_PAD = 0.36;
 
