@@ -269,7 +269,9 @@ export const useGameRuntime = (params: {
         continue;
       }
       if (reward.type === "math-vault") {
-        if (vaultMatches(row.vaultExpression, work)) coinGain += row.vaultCoins;
+        // each Vault Code opens on its own mathematics, and pays its own reward
+        const wanted = reward.expression ?? row.vaultExpression;
+        if (vaultMatches(wanted, work)) coinGain += reward.coins ?? row.vaultCoins;
         continue;
       }
       coinGain += REWARD_COINS[reward.type] ?? 0;
