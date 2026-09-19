@@ -365,7 +365,7 @@ const GamePlayPage = () => {
             /* …and scrolling to a surface makes that its Game Line */
             onFocusSlot={(slotId) => {
               const line = Number(String(slotId).replace("line-", ""));
-              setActiveLine(line);
+              focusSettledLine(line);
             }}
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting
