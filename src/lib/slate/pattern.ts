@@ -57,8 +57,10 @@ export interface MappedLine {
   timerSeconds: number | null;
   /** Seconds this line's Hourglass awards when the line is solved in time. */
   hourglassSeconds: number;
-  /** The expected method this line's Vault opens for, when configured. */
+  /** The expected method this line's first Vault opens for, when configured. */
   vaultExpression: string | null;
+  /** Every Vault Code owned by this line. */
+  vaultCodes: VaultCode[];
   vaultCoins: number;
 }
 
@@ -146,7 +148,8 @@ export const mapQuestionLines = (
       timerSeconds,
       hourglassSeconds,
       vaultExpression,
-      vaultCoins: Math.max(0, Math.floor(Number(config?.vaultCoins ?? 1)) || 0),
+      vaultCodes,
+      vaultCoins: Math.max(0, Math.floor(Number(vaultCodes[0]?.reward ?? 1)) || 0),
     });
   });
 
