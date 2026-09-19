@@ -269,11 +269,12 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
     return { toAssign: add, toUnassign: rem };
   }, [classes, selected, initiallySelected]);
 
+  // Adding the question to the Game is a change in its own right, even when no
+  // class selection moved — the Game is the container the question joins.
+  const joinsGame =
+    target === "game" && !!gameId && !!subsectionId && !!notebookId && !gameStats.hasThis;
+
   const apply = async () => {
-    // Adding the question to the Game is a change in its own right, even when
-    // no class selection moved — the Game is the container.
-    const joinsGame =
-      target === "game" && !!gameId && !!subsectionId && !!notebookId && !gameStats.hasThis;
     if (toAssign.length === 0 && toUnassign.length === 0 && !joinsGame) {
       toast({ title: "No changes", variant: "destructive" });
       return;
