@@ -117,11 +117,20 @@ const GamePlayPage = () => {
   });
 
   /** One selector shared by surfaces, scrolling and Floating Numbers. */
+  const chosenAtRef = useRef(0);
   const setActiveLine = (line: number, focusInput = false) => {
     if (!Number.isFinite(line) || line < 1 || line >= runtime.lines.length) return;
+    chosenAtRef.current = Date.now();
     runtime.selectLine(line);
     setSurfaceSelection({ kind: "slot", slotId: `line-${line}` });
     if (focusInput) window.dispatchEvent(new CustomEvent("game:focus-floating-input"));
+  };
+
+  /** The slate glides to the chosen line; that glide must never re-choose a
+   *  different line. Only a settled glide the student started may select. */
+  const focusSettledLine = (line: number) => {
+    if (Date.now() - chosenAtRef.current < 2500) return;
+    setActiveLine(line);
   };
 
   useEffect(() => {
