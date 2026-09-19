@@ -183,11 +183,21 @@ export default function GameSlateEditorPage() {
   };
 
 
+  const [saving, setSaving] = useState(false);
+
   const save = async () => {
-    const ok = await saveGame(game);
-    toast[ok ? "success" : "error"](
-      ok ? "Game saved to your account." : "Could not save — the background may be too large.",
-    );
+    if (!game || saving) return;
+    setSaving(true);
+    try {
+      const result = await saveGameResult(game);
+      if (result.ok) {
+        toast.success("Game saved to your account.");
+      } else {
+        toast.error(result.message ?? "The game could not be saved.");
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   // preview never touches the saved game
@@ -271,9 +281,10 @@ export default function GameSlateEditorPage() {
             </button>
             <button
               onClick={save}
-              className="rounded border border-amber-200/20 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-amber-100/70 hover:bg-amber-200/10"
+              disabled={saving}
+              className="rounded border border-amber-200/20 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-amber-100/70 hover:bg-amber-200/10 disabled:opacity-50"
             >
-              Save
+              {saving ? "Saving…" : "Save"}
             </button>
             {/* Same runtime students get; nothing is recorded for the teacher. */}
             <Link
