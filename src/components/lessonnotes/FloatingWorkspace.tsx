@@ -29,6 +29,10 @@ import { parseAtoms, reconstructAtomIds } from "@/lib/floating/atoms";
 import { buildChip as buildAtomChip, swapChips, type Chip } from "@/lib/floating/highlightEngine";
 import { gridFromMatrixLatex } from "@/lib/floating/tableGrid";
 
+const newVaultId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto
+  ? crypto.randomUUID()
+  : `vault-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
 interface Props {
   line: FloatingLine;
   index: number;
@@ -177,7 +181,7 @@ export const FloatingWorkspace = ({
   const vaults = line.vaults ?? [];
   const addVault = () => onChange({
     ...line,
-    vaults: [...vaults, { id: newId(), expression: "" }],
+    vaults: [...vaults, { id: newVaultId(), expression: "" }],
   });
   const updateVault = (vaultId: string, expression: string) => onChange({
     ...line,
