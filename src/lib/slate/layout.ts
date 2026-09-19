@@ -30,6 +30,10 @@ export const TEXT_W_PX = Math.round(INNER_W * PX_PER_UNIT);
 /** Game Play writes from 5% to 95% of the full slate width. */
 export const GAME_WRITING_WIDTH = SLATE_W * 0.9;
 
+/** Keeps a Game Play surface inside 5% margins of the live viewport. */
+export const gameWritingWidth = (visibleWorldWidth: number) =>
+  Math.max(0.8, Math.min(GAME_WRITING_WIDTH, visibleWorldWidth * 0.9));
+
 
 const REGION_PAD = 0.36;
 
@@ -68,6 +72,8 @@ export const buildLayout = (
   measured: Record<string, number> = {},
   /** Exact renderer width, so estimated and measured wrapping share edges. */
   writingWidth = INNER_W,
+  /** Play starts at minimum size and waits for exact renderer bounds. */
+  estimateUnmeasured = true,
 ): SlateLayout => {
   let cursor = 0.5;
   // one line of text, in world units — scales with the chosen size so a very
@@ -75,7 +81,7 @@ export const buildLayout = (
   const rowH = Math.max(0.16, (fontSize * 1.25) / PX_PER_UNIT);
   const regions = slots.map((slot, index) => {
     const lines = Math.max(1, countLines(slot.text || slot.hiddenContent || "", fontSize, writingWidth));
-    const estimate = lines * rowH;
+    const estimate = estimateUnmeasured ? lines * rowH : rowH;
     const real = measured[slot.id];
     const height = REGION_PAD * 2 + Math.max(rowH, real !== undefined && real > 0 ? real : estimate);
     const region: RegionLayout = {

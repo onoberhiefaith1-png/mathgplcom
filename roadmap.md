@@ -13,6 +13,8 @@
 - [x] Let direct surface clicks and slate scrolling select the matching Floating Numbers line.
 - [x] Render revealed notes below working and keep Game text inside a left-aligned 5%–95% writing band.
 - [x] Grow each surface with wrapped content while preserving the gap to the following surface.
+- [x] Size each Play surface independently from its own rendered content within responsive 5% viewport margins.
+- [x] Route surface, scroll, and Floating Numbers navigation through one Game line selector.
 - [ ] Verify Surface 0, direct Surface 7 selection, note order, wrapping, and non-overlap in the authenticated live Game.
 
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.

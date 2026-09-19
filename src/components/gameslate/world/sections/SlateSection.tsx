@@ -18,10 +18,10 @@ const tintOf = (hex: string, t: number) => {
  * with the chosen colour rendered faithfully as the body.
  */
 const plateCache = new Map<string, THREE.Texture>();
-function numeralPlate(index: number, n: NumberSettings): THREE.Texture {
+function numeralPlate(index: number, n: NumberSettings, displayNumber = index + 1): THREE.Texture {
   const ink = n.colour ?? "#e6d7b4";
   const sunk = n.relief !== "raised";
-  const key = [index, ink, n.depth, n.bevel, n.shadow, n.contrast, n.relief].join("|");
+  const key = [index, displayNumber, ink, n.depth, n.bevel, n.shadow, n.contrast, n.relief].join("|");
   const hit = plateCache.get(key);
   if (hit) return hit;
 
@@ -34,7 +34,7 @@ function numeralPlate(index: number, n: NumberSettings): THREE.Texture {
   ctx.font = "700 92px Georgia, serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  const label = String(index + 1);
+  const label = String(displayNumber);
   const dir = sunk ? 1 : -1;
   const cut = 3.2 * Math.max(0.15, n.depth);
   const lip = 2.6 * Math.max(0.15, n.bevel);
@@ -97,6 +97,8 @@ interface Props {
   ornament?: "royal" | "leaf" | "magic" | "cloud" | "silk" | undefined;
   /** Keeps the line marker tied to the Game Line when the material is offset. */
   numberOffsetX?: number;
+  /** Play includes the question as Surface 0; Edit keeps its existing numbering. */
+  displayNumber?: number;
 }
 
 /**
@@ -117,6 +119,7 @@ export function SlateSection({
   none,
   ornament,
   numberOffsetX,
+  displayNumber,
 }: Props) {
   const numberStyle = numbers ?? defaultNumberSettings();
   const bodyH = Math.max(0.3, height);
@@ -161,7 +164,7 @@ export function SlateSection({
     >
       <planeGeometry args={[0.3 * numberStyle.size, 0.3 * numberStyle.size]} />
       <meshBasicMaterial
-        map={numeralPlate(index, numberStyle)}
+        map={numeralPlate(index, numberStyle, displayNumber)}
         transparent
         opacity={numberStyle.opacity}
         depthWrite={false}
@@ -329,7 +332,7 @@ export function SlateSection({
         >
           <planeGeometry args={[0.3 * numberStyle.size, 0.3 * numberStyle.size]} />
           <meshBasicMaterial
-            map={numeralPlate(index, numberStyle)}
+            map={numeralPlate(index, numberStyle, displayNumber)}
             transparent
             opacity={numberStyle.opacity}
             depthWrite={false}

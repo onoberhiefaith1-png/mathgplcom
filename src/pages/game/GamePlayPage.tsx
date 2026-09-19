@@ -115,6 +115,19 @@ const GamePlayPage = () => {
     lineText,
   });
 
+  /** One selector shared by surfaces, scrolling and Floating Numbers. */
+  const setActiveLine = (line: number, focusInput = false) => {
+    if (!Number.isFinite(line) || line < 1 || line >= runtime.lines.length) return;
+    runtime.selectLine(line);
+    setSurfaceSelection({ kind: "slot", slotId: `line-${line}` });
+    if (focusInput) window.dispatchEvent(new CustomEvent("game:focus-floating-input"));
+  };
+
+  useEffect(() => {
+    if (runtime.currentLine < 1) return;
+    setSurfaceSelection({ kind: "slot", slotId: `line-${runtime.currentLine}` });
+  }, [runtime.currentLine]);
+
   // A new question starts on a clean slate — no test or previous working.
   useEffect(() => { setLineText({}); }, [runtime.question?.questionRowId]);
 
@@ -313,6 +326,7 @@ const GamePlayPage = () => {
       // the board, and Game Lines own line selection.
       chrome="game"
       activeLine={Math.max(0, runtime.currentLine - 1)}
+      onActiveLineChange={(line) => setActiveLine(line)}
       onLineText={setLineText}
     />
   ) : null;
@@ -329,10 +343,7 @@ const GamePlayPage = () => {
             onSelect={(selection) => {
               if (selection.kind !== "slot") return;
               const line = Number(String(selection.slotId).replace("line-", ""));
-              if (!Number.isFinite(line) || line < 1) return;
-              setSurfaceSelection(selection);
-              runtime.selectLine(line);
-              window.dispatchEvent(new CustomEvent("game:focus-floating-input"));
+              setActiveLine(line, true);
             }}
             onSlotChange={() => {}}
             onRewardMove={() => {}}
@@ -343,10 +354,7 @@ const GamePlayPage = () => {
             /* …and scrolling to a surface makes that its Game Line */
             onFocusSlot={(slotId) => {
               const line = Number(String(slotId).replace("line-", ""));
-              if (Number.isFinite(line) && line >= 1) {
-                setSurfaceSelection({ kind: "slot", slotId });
-                runtime.selectLine(line);
-              }
+              setActiveLine(line);
             }}
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting

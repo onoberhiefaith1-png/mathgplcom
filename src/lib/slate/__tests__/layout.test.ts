@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GAME_WRITING_WIDTH, buildLayout } from "../layout";
+import { GAME_WRITING_WIDTH, buildLayout, gameWritingWidth } from "../layout";
 import { makeSlot } from "../defaults";
 import type { Slot } from "../types";
 
@@ -8,6 +8,25 @@ const slot = (id: string, text: string): Slot => ({ ...makeSlot(), id, text });
 describe("Game writing-surface layout", () => {
   it("reserves the 5% to 95% writing band", () => {
     expect(GAME_WRITING_WIDTH).toBeCloseTo(6.6 * 0.9);
+    expect(gameWritingWidth(4)).toBeCloseTo(3.6);
+    expect(gameWritingWidth(20)).toBeCloseTo(GAME_WRITING_WIDTH);
+  });
+
+  it("starts every unmeasured Play surface at its own minimum height", () => {
+    const layout = buildLayout(
+      [slot("short", "x = 5"), slot("long", "Subtract 7 from both sides and simplify carefully")],
+      96, 0.2, {}, GAME_WRITING_WIDTH, false,
+    );
+    expect(layout.regions[0]?.height).toBeCloseTo(layout.regions[1]?.height ?? 0);
+  });
+
+  it("grows only the surface whose rendered content is taller", () => {
+    const layout = buildLayout(
+      [slot("short-1", "x = 5"), slot("long", "long"), slot("short-2", "y = 2")],
+      96, 0.2, { "short-1": 0.45, long: 1.8, "short-2": 0.42 }, GAME_WRITING_WIDTH, false,
+    );
+    expect(layout.regions[1]?.height).toBeGreaterThan(layout.regions[0]?.height ?? Infinity);
+    expect(layout.regions[2]?.height).toBeLessThan(layout.regions[1]?.height ?? 0);
   });
 
   it("moves following surfaces down while preserving their gap", () => {
