@@ -107,29 +107,35 @@ export const mapQuestionLines = (
       ? fractionSeconds(timerSeconds, config?.hourglassReward ?? "full")
       : 0;
     if (timerSeconds) {
+      // the Hourglass belongs on the RIGHT-HAND side of its own line
       derived.push({
         id: "hourglass",
         type: "time-shard",
         state: "dormant",
         hidden: false,
-        x: 12,
-        y: 30,
+        x: 88,
+        y: 26,
         durationMs: hourglassSeconds * 1000,
       });
     }
 
-    const vaultExpression = (config?.vaultExpression ?? "").trim() || null;
-    if (vaultExpression) {
+    // One Vault per Vault Code the teacher wrote on this line. Nothing else.
+    const vaultCodes = config?.vaultCodes ?? [];
+    vaultCodes.forEach((code, index) => {
+      const expression = (code?.expression ?? "").trim();
+      if (!expression) return;
       derived.push({
-        id: "vault",
+        id: `vault-${index + 1}`,
         type: "math-vault",
         state: "dormant",
         hidden: false,
-        x: 82,
-        y: 62,
-        expression: vaultExpression,
+        x: 14 + (index % 5) * 16,
+        y: 62 + Math.floor(index / 5) * 22,
+        expression,
+        coins: Math.max(0, Math.floor(Number(code.reward ?? 1)) || 0),
       });
-    }
+    });
+    const vaultExpression = vaultCodes[0]?.expression?.trim() || null;
 
     rows.push({
       line,
