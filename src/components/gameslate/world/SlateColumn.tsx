@@ -42,7 +42,6 @@ import {
   type PremiumTarget,
 } from "./EffectsPremium";
 import {
-  GAME_WRITING_WIDTH,
   INNER_W,
   SLATE_D,
   SLATE_FRONT,
@@ -53,6 +52,7 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
+  gameWritingWidth,
 } from "@/lib/slate/layout";
 import type {
   EditorMode,
@@ -569,7 +569,11 @@ function RegionSurface({
   selected: boolean;
   colour: string | undefined;
 }) {
-  const pbr = usePbr(surfaceFamily(surface.id), 3.1, 0.72);
+  const pbr = usePbr(
+    surfaceFamily(surface.id),
+    Math.max(0.5, width * 0.52),
+    Math.max(0.35, height * 0.52),
+  );
   // the marker rides on the surface's own left edge, never in a far-off column
   const numberX = -width / 2 + Math.max(0.12, build.inset * 0.5);
   if (surface.newKind) {
@@ -692,7 +696,7 @@ export function SlateColumn({
     ? { ...textSettings, align: "left" as const }
     : textSettings;
   const writingWidth = readOnlyWriting
-    ? GAME_WRITING_WIDTH
+    ? playWritingWidth
     : SLATE_W - build.inset * 2 - 0.3;
 
   const layout = useMemo(
@@ -702,6 +706,7 @@ export function SlateColumn({
       build.gap + 0.05,
       Object.fromEntries(Object.entries(textBounds).map(([id, bounds]) => [id, bounds.height])),
       writingWidth,
+      !readOnlyWriting,
     ),
     [game.slots, textSettings.size, build.gap, textBounds, writingWidth],
   );
@@ -716,12 +721,15 @@ export function SlateColumn({
 
   const group = useRef<THREE.Group>(null);
   const clock = useThree((state) => state.clock);
+  const viewport = useThree((state) => state.viewport);
+  const camera = useThree((state) => state.camera);
+  const visibleAtSlate = viewport.getCurrentViewport(camera, new THREE.Vector3(0, 0, SLATE_Z));
+  const playWritingWidth = gameWritingWidth(visibleAtSlate.width);
   const [scrollTick, setScrollTick] = useState(0);
   const lastTick = useRef(0);
   const lastCount = useRef(0);
   const [active, setActive] = useState<Record<string, ActiveEffect>>({});
   const rewardNodes = useRef(new Map<string, { node: THREE.Group; slotId: string; reward: RewardInstance }>());
-  const camera = useThree((state) => state.camera);
   /** Every effect texture is resident before anything can play. */
   useVfxTextures();
   /** The last previewed effect, so Reset can replay it from the beginning. */
@@ -1137,19 +1145,18 @@ export function SlateColumn({
           const padX = Math.max(0.18, Math.min(0.34, textSettings.size / 520));
           const padY = Math.max(0.13, Math.min(0.26, textSettings.size / 650));
           const emptyWidth = Math.max(0.9, textSettings.size / 145);
-          const surfaceWidth = readOnlyWriting
-            ? GAME_WRITING_WIDTH
-            : Math.min(
-                SLATE_W,
-                Math.max(build.inset * 2 + 0.32, emptyWidth, (bounds?.width ?? 0) + padX * 2),
-              );
-          const surfaceHeight = readOnlyWriting
-            ? region.height
-            : Math.max(
-                Math.max(0.42, textSettings.size / 175),
-                (bounds?.height ?? 0) + padY * 2,
-              );
-          const surfaceX = readOnlyWriting ? 0 : bounds ? (bounds.left + bounds.right) / 2 : 0;
+          const minimumWidth = Math.max(lineBuild.inset * 2 + 0.32, emptyWidth);
+          const surfaceWidth = Math.min(
+            readOnlyWriting ? writingWidth : SLATE_W,
+            Math.max(minimumWidth, (bounds?.width ?? 0) + padX * 2),
+          );
+          const surfaceHeight = Math.max(
+            Math.max(0.42, textSettings.size / 175),
+            (bounds?.height ?? 0) + padY * 2,
+          );
+          const surfaceX = bounds
+            ? (bounds.left + bounds.right) / 2
+            : readOnlyWriting ? -writingWidth / 2 + surfaceWidth / 2 : 0;
           const surfaceY = readOnlyWriting ? 0 : bounds ? (bounds.top + bounds.bottom) / 2 : 0;
           const selected =
             selection.kind !== "none" && "slotId" in selection && selection.slotId === slot.id;

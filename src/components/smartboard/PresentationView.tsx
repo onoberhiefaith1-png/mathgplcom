@@ -403,6 +403,7 @@ const PresentationView = ({
   touchSession,
   chrome = "board",
   activeLine = null,
+  onActiveLineChange,
   onLineText,
 }: {
   notebookId?: string | null;
@@ -483,6 +484,8 @@ const PresentationView = ({
   chrome?: "board" | "game";
   /** Controlled active line (0-based). Game Lines own line selection. */
   activeLine?: number | null;
+  /** Reports a 1-based Game Line selected by the existing panel controls. */
+  onActiveLineChange?: (line: number) => void;
   /** Live per-line working, 0-based line index → plain text. */
   onLineText?: (texts: Record<number, string>) => void;
 
@@ -3533,8 +3536,13 @@ const PresentationView = ({
   useEffect(() => {
     if (!gameChrome || activeLine == null) return;
     const k = Math.max(0, Math.floor(activeLine));
-    setActiveLineIdx((cur) => (cur === k ? cur : k));
-  }, [gameChrome, activeLine, setActiveLineIdx]);
+    setActiveLineIdxState((cur) => (cur === k ? cur : k));
+  }, [gameChrome, activeLine]);
+
+  useEffect(() => {
+    if (!gameChrome || !onActiveLineChange || activeLineIdx === activeLine) return;
+    onActiveLineChange(activeLineIdx + 1);
+  }, [gameChrome, activeLine, activeLineIdx, onActiveLineChange]);
 
   // LIVE WORKING → GAME SLATE. Report each line's plain working so the Game
   // can engrave it on the matching physical Game Line as the student writes.

@@ -295,7 +295,6 @@ export const useGameRuntime = (params: {
   const onLineContext = useCallback((ctx: LineContext) => {
     if (!question) return;
     const lineNumber = ctx.index + 1;
-    setCurrentLine(lineNumber);
 
     // The line's own time comes from Floating Numbers and starts on the first
     // mathematical input on that line — never on seeing or scrolling to it.
