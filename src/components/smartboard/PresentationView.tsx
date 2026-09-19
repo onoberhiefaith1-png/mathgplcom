@@ -1574,7 +1574,7 @@ const PresentationView = ({
     if (incoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(incoming.placeholderColorId));
     // SAME floating number, not a copy: the active line activates on every
     // board at the same instant, even while its panel is hidden.
-    if (typeof incoming.activeLineIdx === "number") setActiveLineIdxState(incoming.activeLineIdx);
+    if (typeof incoming.activeLineIdx === "number") { console.log("[LINETRACE] remote-incoming", incoming.activeLineIdx); setActiveLineIdxState(incoming.activeLineIdx); }
     if (typeof incoming.lineEngaged === "boolean") setLineEngaged(incoming.lineEngaged);
     // The shared floating arrangement and its per-chip state, addressed by id.
     if (incoming.floating !== undefined) setRemoteFloating(incoming.floating ?? null);
@@ -2907,6 +2907,7 @@ const PresentationView = ({
   const [playbackResetGeneration, setPlaybackResetGeneration] = useState(0);
   /** Every real activation funnels here, so engagement is never guessed. */
   const setActiveLineIdx = useCallback<React.Dispatch<React.SetStateAction<number>>>((v) => {
+    console.log("[LINETRACE] setActiveLineIdx", v, new Error().stack?.split("\n").slice(1,5).join(" <- "));
     setLineEngaged(true);
     setActiveLineIdxState(v);
   }, []);
@@ -3537,6 +3538,7 @@ const PresentationView = ({
   useEffect(() => {
     if (!gameChrome || activeLine == null) return;
     const k = Math.max(0, Math.floor(activeLine));
+    console.log("[LINETRACE] from-game", k);
     incomingGameLineRef.current = k;
     setActiveLineIdxState((cur) => (cur === k ? cur : k));
   }, [gameChrome, activeLine]);
@@ -3551,6 +3553,7 @@ const PresentationView = ({
     // this mounted panel. Do not publish the panel's previous line back during
     // the single render before its local state catches up.
     if (incomingGameLineRef.current !== null) return;
+    console.log("[LINETRACE] publish-to-game", activeLineIdx + 1);
     onActiveLineChange(activeLineIdx + 1);
   }, [gameChrome, activeLine, activeLineIdx, onActiveLineChange]);
 
@@ -4913,6 +4916,7 @@ const PresentationView = ({
     if (boardIncoming.placeholderColorId) setPlaceholderColorId(sanitizePlaceholderColorId(boardIncoming.placeholderColorId));
     if (typeof boardIncoming.activeLineIdx === "number") {
       // Mirrored from another device — not this student's own activation.
+      console.log("[LINETRACE] board-snapshot", boardIncoming.activeLineIdx);
       setActiveLineIdxState(boardIncoming.activeLineIdx);
 
     }
