@@ -126,12 +126,10 @@ const GamePlayPage = () => {
     if (focusInput) window.dispatchEvent(new CustomEvent("game:focus-floating-input"));
   };
 
-  /** The slate glides to the chosen line; that glide must never re-choose a
-   *  different line. Only a settled glide the student started may select. */
-  const focusSettledLine = (line: number) => {
-    if (Date.now() - chosenAtRef.current < 2500) return;
-    setActiveLine(line);
-  };
+  /** The slate glides to the chosen line. A glide NEVER chooses a line: the
+   *  student chooses by touching a writing surface or using the line arrows,
+   *  otherwise the glide could drag the chosen line back to a neighbour. */
+  const focusSettledLine = (_line: number) => {};
 
   useEffect(() => {
     if (runtime.currentLine < 1) return;
@@ -362,7 +360,7 @@ const GamePlayPage = () => {
             }}
             /* the slate glides so the active Game Line is the surface in view */
             focusSlotId={`line-${runtime.currentLine}`}
-            /* …and scrolling to a surface makes that its Game Line */
+            /* scrolling only moves the view — it never re-chooses the line */
             onFocusSlot={(slotId) => {
               const line = Number(String(slotId).replace("line-", ""));
               focusSettledLine(line);
