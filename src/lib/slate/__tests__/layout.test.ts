@@ -1,15 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { GAME_WRITING_WIDTH, buildLayout } from "../layout";
+import { makeSlot } from "../defaults";
 import type { Slot } from "../types";
 
-const slot = (id: string, text: string): Slot => ({
-  id,
-  text,
-  hiddenContent: "",
-  contentState: "visible",
-  rewards: [],
-  scene: {},
-});
+const slot = (id: string, text: string): Slot => ({ ...makeSlot(), id, text });
 
 describe("Game writing-surface layout", () => {
   it("reserves the 5% to 95% writing band", () => {
