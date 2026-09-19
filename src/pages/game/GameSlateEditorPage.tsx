@@ -7,7 +7,7 @@ import { ClientOnly } from "@tanstack/react-router";
 const WorldStage = lazy(() => import("@/components/gameslate/world/WorldStage"));
 import { ControlPanel } from "@/components/slate/ControlPanel";
 import { QuestionsPanel } from "@/components/slate/QuestionsPanel";
-import { previewSlots } from "@/lib/slate/lineSurfaces";
+import { previewSlots, type PreviewLine } from "@/lib/slate/lineSurfaces";
 import { rewardsForLine } from "@/lib/slate/pattern";
 import { RewardStatusBar } from "@/components/slate/RewardStatusBar";
 import { getReward } from "@/lib/slate/rewards";
@@ -27,7 +27,7 @@ export default function GameSlateEditorPage() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
   /** Attached-exercise preview: the question's real lines on this material. */
-  const [previewLines, setPreviewLines] = useState<string[] | null>(null);
+  const [previewLines, setPreviewLines] = useState<PreviewLine[] | null>(null);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [muted, setMutedState] = useState(false);
 

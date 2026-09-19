@@ -15,11 +15,13 @@ import {
 import { mapQuestionLines, patternLengthOf } from "@/lib/slate/pattern";
 import { getReward } from "@/lib/slate/rewards";
 import {
+  MAX_VAULT_CODES,
   TIME_FRACTIONS,
   fractionSeconds,
   lineConfigOf,
   lineSurfacesInSync,
   syncLineSurfaces,
+  type PreviewLine,
 } from "@/lib/slate/lineSurfaces";
 import { questionTimer } from "@/lib/lessonnotes/floatingCompile";
 import type { Game, LineSurfaceConfig, TimeFraction } from "@/lib/slate/types";
@@ -29,7 +31,7 @@ interface Props {
   /** Saves the Game-side configuration of the attached exercise's lines. */
   onChange: (settings: Game["settings"]) => void;
   /** Shows this question's real lines on the slate — preview only. */
-  onPreview: (lineEquations: string[] | null) => void;
+  onPreview: (lines: PreviewLine[] | null) => void;
   onClose: () => void;
 }
 
@@ -138,7 +140,12 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
                 </div>
                 <button
                   onClick={() =>
-                    onPreview(q.lines.map((line) => line.equation ?? ""))
+                    onPreview(
+                      q.lines.map((line) => ({
+                        equation: line.equation ?? "",
+                        lineId: line.lineId,
+                      })),
+                    )
                   }
                   title="Show these lines on the slate (preview only)"
                   className="shrink-0 text-[10px] uppercase tracking-wider text-amber-200/60 hover:text-amber-100"
