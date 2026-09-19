@@ -48,7 +48,7 @@ describe("one line, one surface", () => {
     g.settings.text = {
       ...g.settings.text,
       preset: "royal3d",
-      faceColour: "#123456",
+      baseColour: "#123456",
       depthColour: "#654321",
     };
     g.slots[0] = { ...g.slots[0]!, surfaceId: "cloud", scene: { ...g.slots[0]!.scene, scale: 1.7 } };
