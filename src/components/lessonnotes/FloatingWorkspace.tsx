@@ -177,7 +177,7 @@ export const FloatingWorkspace = ({
   const vaults = line.vaults ?? [];
   const addVault = () => onChange({
     ...line,
-    vaults: [...vaults, { id: crypto.randomUUID(), expression: "" }],
+    vaults: [...vaults, { id: newId(), expression: "" }],
   });
   const updateVault = (vaultId: string, expression: string) => onChange({
     ...line,
