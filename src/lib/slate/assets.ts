@@ -17,7 +17,7 @@ const extension = (name: string) => {
 
 /** Uploads one file and returns the stored path, which is the asset id. */
 export async function putAsset(file: File): Promise<string> {
-  if (file.size > MAX_ASSET_BYTES) throw new Error("That file is too large (12 MB maximum).");
+  if (file.size > MAX_ASSET_BYTES) throw new Error("That file is too large (1 GB maximum).");
   const { data: auth } = await supabase.auth.getUser();
   const owner = auth.user?.id;
   if (!owner) throw new Error("Please sign in before uploading.");

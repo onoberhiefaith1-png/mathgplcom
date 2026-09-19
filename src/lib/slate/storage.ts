@@ -3,6 +3,7 @@
 // simply asynchronous now.
 
 import { supabase } from "@/integrations/supabase/client";
+import { putAsset } from "./assets";
 import type { Game } from "./types";
 import { defaultScene } from "./environments";
 import { roomForSurface } from "./rooms";
