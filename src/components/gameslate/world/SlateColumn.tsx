@@ -671,6 +671,22 @@ export function SlateColumn({
     // heavy physical object: exponential settle, never a snap
     state.current += (state.target - state.current) * (1 - Math.exp(-11 * dt));
     if (group.current) group.current.position.y = VIEW_TOP + state.current;
+    // the surface nearest the middle of the view IS the active Game Line
+    if (onFocusSlot && Math.abs(state.target - state.current) < 0.04) {
+      let best: string | null = null;
+      let bestDistance = Infinity;
+      for (const region of layout.regions) {
+        const distance = Math.abs(VIEW_TOP + state.current - region.centre);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = region.slot.id;
+        }
+      }
+      if (best && best !== focused.current) {
+        focused.current = best;
+        onFocusSlot(best);
+      }
+    }
     const count = Object.keys(activeRef.current).length;
     const running = count > 0;
     if (count !== lastCount.current) {
