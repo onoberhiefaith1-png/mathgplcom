@@ -49,6 +49,7 @@ import {
   SLATE_Z,
   
   VIEW_BOTTOM,
+  VIEW_H,
   VIEW_TOP,
   buildLayout,
 } from "@/lib/slate/layout";
