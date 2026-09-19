@@ -639,6 +639,22 @@ export function SlateColumn({
 
   scroll.current.max = layout.maxScroll;
 
+  // GAME PLAY. One physical writing surface per Floating Numbers line: the
+  // active Game Line is brought into the middle of the view by moving the
+  // slate itself, exactly as a hand scroll would. The region the slate settles
+  // on is reported back, so scrolling to surface 9 selects Line 9.
+  const focused = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusSlotId) return;
+    const region = layout.regions.find((item) => item.slot.id === focusSlotId);
+    if (!region) return;
+    focused.current = focusSlotId;
+    scroll.current.target = Math.min(
+      layout.maxScroll,
+      Math.max(0, region.centre - VIEW_H / 2),
+    );
+  }, [focusSlotId, layout, scroll]);
+
   // leaving the world never leaves the clock paused
   useEffect(() => () => setEffectsPaused(false), []);
 
