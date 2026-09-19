@@ -7,6 +7,14 @@
 - [x] Add a top RESET control that clears only the current player's Game run and Floating Numbers work.
 - [ ] Verify Cloud + Royal 3D parity and Reset in the authenticated live Game.
 
+# Game Play line and writing layout
+
+- [x] Make the immutable question Surface 0 and keep solving Surface N mapped to Floating Numbers Line N.
+- [x] Let direct surface clicks and slate scrolling select the matching Floating Numbers line.
+- [x] Render revealed notes below working and keep Game text inside a left-aligned 5%–95% writing band.
+- [x] Grow each surface with wrapped content while preserving the gap to the following surface.
+- [ ] Verify Surface 0, direct Surface 7 selection, note order, wrapping, and non-overlap in the authenticated live Game.
+
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.
 - [x] Suppress near-zero merged corridor shells and resolve merge chains to stability.

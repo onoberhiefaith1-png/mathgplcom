@@ -42,6 +42,7 @@ import {
   type PremiumTarget,
 } from "./EffectsPremium";
 import {
+  GAME_WRITING_WIDTH,
   INNER_W,
   SLATE_D,
   SLATE_FRONT,
@@ -687,6 +688,12 @@ export function SlateColumn({
 
   // how this material is physically built into writing sections
   const build = useMemo(() => getConstruction(surface.id), [surface.id]);
+  const renderedTextSettings = readOnlyWriting
+    ? { ...textSettings, align: "left" as const }
+    : textSettings;
+  const writingWidth = readOnlyWriting
+    ? GAME_WRITING_WIDTH
+    : SLATE_W - build.inset * 2 - 0.3;
 
   const layout = useMemo(
     () => buildLayout(
@@ -694,8 +701,9 @@ export function SlateColumn({
       textSettings.size,
       build.gap + 0.05,
       Object.fromEntries(Object.entries(textBounds).map(([id, bounds]) => [id, bounds.height])),
+      writingWidth,
     ),
-    [game.slots, textSettings.size, build.gap, textBounds],
+    [game.slots, textSettings.size, build.gap, textBounds, writingWidth],
   );
 
   // the slate is made of a real scanned material, lit by the room
@@ -1129,16 +1137,20 @@ export function SlateColumn({
           const padX = Math.max(0.18, Math.min(0.34, textSettings.size / 520));
           const padY = Math.max(0.13, Math.min(0.26, textSettings.size / 650));
           const emptyWidth = Math.max(0.9, textSettings.size / 145);
-          const surfaceWidth = Math.min(
-            SLATE_W,
-            Math.max(build.inset * 2 + 0.32, emptyWidth, (bounds?.width ?? 0) + padX * 2),
-          );
-          const surfaceHeight = Math.max(
-            Math.max(0.42, textSettings.size / 175),
-            (bounds?.height ?? 0) + padY * 2,
-          );
-          const surfaceX = bounds ? (bounds.left + bounds.right) / 2 : 0;
-          const surfaceY = bounds ? (bounds.top + bounds.bottom) / 2 : 0;
+          const surfaceWidth = readOnlyWriting
+            ? GAME_WRITING_WIDTH
+            : Math.min(
+                SLATE_W,
+                Math.max(build.inset * 2 + 0.32, emptyWidth, (bounds?.width ?? 0) + padX * 2),
+              );
+          const surfaceHeight = readOnlyWriting
+            ? region.height
+            : Math.max(
+                Math.max(0.42, textSettings.size / 175),
+                (bounds?.height ?? 0) + padY * 2,
+              );
+          const surfaceX = readOnlyWriting ? 0 : bounds ? (bounds.left + bounds.right) / 2 : 0;
+          const surfaceY = readOnlyWriting ? 0 : bounds ? (bounds.top + bounds.bottom) / 2 : 0;
           const selected =
             selection.kind !== "none" && "slotId" in selection && selection.slotId === slot.id;
           const revealed = slot.contentState === "visible" || slot.contentState === "revealed";
@@ -1163,14 +1175,14 @@ export function SlateColumn({
               <WritingRegion
                 slotId={slot.id}
                 text={slot.text}
-                width={SLATE_W - lineBuild.inset * 2 - 0.3}
+                width={writingWidth}
                 height={region.height}
                 pad={lineBuild.gap + 0.18}
                 /* the slab body is solid, so the inscription sits just proud of
                    its face; depth comes from the shading, not from hiding it */
                 z={0.012}
                 surface={lineSurface}
-                settings={textSettings}
+                settings={renderedTextSettings}
                 editable={!readOnlyWriting}
                 active={selection.kind === "slot" && selection.slotId === slot.id}
                 placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}

@@ -29,7 +29,7 @@ import { formatMmSs } from "@/lib/time/mmss";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
-import type { Game, RewardInstance, Slot } from "@/lib/slate/types";
+import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 
 const secondsLeft = (deadline: number | null) =>
   deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : 0;
@@ -49,6 +49,7 @@ const GamePlayPage = () => {
   const [lineText, setLineText] = useState<Record<number, string>>({});
   const [resetEpoch, setResetEpoch] = useState(0);
   const [resetting, setResetting] = useState(false);
+  const [surfaceSelection, setSurfaceSelection] = useState<Selection>({ kind: "slot", slotId: "line-1" });
 
   useEffect(() => {
     if (!gameId) return;
@@ -157,7 +158,7 @@ const GamePlayPage = () => {
           : null;
       const text = row.isQuestion
           ? question.questionText
-          : [note, working].filter(Boolean).join("\n");
+          : [working, note].filter(Boolean).join("\n");
       const rewards: RewardInstance[] = row.rewards.map((reward) => {
           const key = `${question.questionRowId}:${row.line}:${reward.id}`;
           const used = runtime.consumedRewardKeys.includes(key);
@@ -324,11 +325,14 @@ const GamePlayPage = () => {
           <WorldStage
             game={displayGame}
             mode="view"
-            selection={{ kind: "none" }}
+            selection={surfaceSelection}
             onSelect={(selection) => {
               if (selection.kind !== "slot") return;
               const line = Number(String(selection.slotId).replace("line-", ""));
-              if (Number.isFinite(line)) runtime.selectLine(line);
+              if (!Number.isFinite(line) || line < 1) return;
+              setSurfaceSelection(selection);
+              runtime.selectLine(line);
+              window.dispatchEvent(new CustomEvent("game:focus-floating-input"));
             }}
             onSlotChange={() => {}}
             onRewardMove={() => {}}
@@ -339,7 +343,10 @@ const GamePlayPage = () => {
             /* …and scrolling to a surface makes that its Game Line */
             onFocusSlot={(slotId) => {
               const line = Number(String(slotId).replace("line-", ""));
-              if (Number.isFinite(line) && line >= 1) runtime.selectLine(line);
+              if (Number.isFinite(line) && line >= 1) {
+                setSurfaceSelection({ kind: "slot", slotId });
+                runtime.selectLine(line);
+              }
             }}
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting
