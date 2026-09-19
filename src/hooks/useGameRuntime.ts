@@ -261,17 +261,21 @@ export const useGameRuntime = (params: {
     for (const reward of row.rewards) {
       const key = rewardKey(question.questionRowId, lineNumber, reward.id);
       if (consumed.includes(key)) continue;
-      keys.push(key);
 
+      if (reward.type === "math-vault") {
+        // A Vault Code opens only on its own mathematics, recognised inside the
+        // student's work, and pays its own reward. Unrecognised codes stay shut.
+        const wanted = reward.expression ?? row.vaultExpression;
+        if (!vaultMatches(wanted, work)) continue;
+        keys.push(key);
+        coinGain += reward.coins ?? row.vaultCoins;
+        continue;
+      }
+
+      keys.push(key);
       if (reward.type === "time-shard") {
         // solved inside the line's own time → the configured share of it
         if (inTime) secondsGain += row.hourglassSeconds;
-        continue;
-      }
-      if (reward.type === "math-vault") {
-        // each Vault Code opens on its own mathematics, and pays its own reward
-        const wanted = reward.expression ?? row.vaultExpression;
-        if (vaultMatches(wanted, work)) coinGain += reward.coins ?? row.vaultCoins;
         continue;
       }
       coinGain += REWARD_COINS[reward.type] ?? 0;
