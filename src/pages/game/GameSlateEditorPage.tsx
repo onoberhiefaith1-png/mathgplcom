@@ -185,8 +185,6 @@ export default function GameSlateEditorPage() {
   };
 
 
-  const [saving, setSaving] = useState(false);
-
   const save = async () => {
     if (!game || saving) return;
     setSaving(true);
