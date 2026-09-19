@@ -12,7 +12,7 @@ import { rewardsForLine } from "@/lib/slate/pattern";
 import { RewardStatusBar } from "@/components/slate/RewardStatusBar";
 import { getReward } from "@/lib/slate/rewards";
 import { getSurface } from "@/lib/slate/surfaces";
-import { loadGame, saveGame } from "@/lib/slate/storage";
+import { loadGame, saveGame, saveGameResult } from "@/lib/slate/storage";
 import { makeSlot, uid } from "@/lib/slate/defaults";
 import { isMuted, setMuted } from "@/lib/slate/audio";
 import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
