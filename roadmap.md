@@ -16,6 +16,7 @@
 - [x] Size each Play surface independently from its own rendered content within responsive 5% viewport margins.
 - [x] Route surface, scroll, and Floating Numbers navigation through one Game line selector.
 - [x] Verify the 5%–95% desktop viewport band, preserve compact mobile layout, and confirm direct numbered-surface activation in the authenticated Game; the shared mapping applies identically to every solving surface.
+- [x] Treat 5%–95% as the maximum writing range while every desktop surface keeps its own content-driven width.
 
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.

@@ -12,11 +12,10 @@ describe("Game writing-surface layout", () => {
     expect(gameWritingWidth(20)).toBeCloseTo(18);
   });
 
-  it("fills the band on laptop and desktop without changing compact mobile surfaces", () => {
-    expect(gameSurfaceWidth(12, 3, 1440)).toBe(12);
-    expect(gameSurfaceWidth(12, 3, 1024)).toBe(12);
-    expect(gameSurfaceWidth(7, 3, 834)).toBe(3);
-    expect(gameSurfaceWidth(7, 9, 834)).toBe(7);
+  it("grows every surface with its own content up to the writing-band maximum", () => {
+    expect(gameSurfaceWidth(12, 3)).toBe(3);
+    expect(gameSurfaceWidth(12, 8)).toBe(8);
+    expect(gameSurfaceWidth(7, 9)).toBe(7);
   });
 
   it("starts every unmeasured Play surface at its own minimum height", () => {
