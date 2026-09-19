@@ -48,7 +48,13 @@ export const normalizeGame = (game: Game): Game => ({
         normalizeLineConfig(lineId, config),
       ]),
     ),
-    life: { fraction: game.settings?.life?.fraction ?? "full" },
+    life: {
+      multiplier: Math.min(10, Math.max(0.1,
+        Number(game.settings?.life?.multiplier)
+        || ({ full: 1, half: 0.5, third: 1 / 3, quarter: 0.25 } as const)[game.settings?.life?.fraction ?? "full"]
+        || 1,
+      )),
+    },
   },
   patternLength:
     Number(game.patternLength) > 0 ? Math.floor(Number(game.patternLength)) : game.slots.length,

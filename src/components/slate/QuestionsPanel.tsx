@@ -19,6 +19,7 @@ import {
   MAX_VAULT_CODES,
   TIME_FRACTIONS,
   fractionSeconds,
+  lifeMultiplier,
   lineConfigOf,
   lineSurfacesInSync,
   syncLineSurfaces,
@@ -96,6 +97,26 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
       </header>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        <label className={`${rowClass} flex items-center gap-3`}>
+          <span className="min-w-0 flex-1">
+            <span className="block text-amber-50">Life time value</span>
+            <span className="block text-[10px] text-amber-100/40">Multiplier of total Game time</span>
+          </span>
+          <input
+            aria-label="Life time multiplier"
+            type="number"
+            min={0.1}
+            max={10}
+            step={0.1}
+            value={lifeMultiplier(game.settings.life?.multiplier)}
+            onChange={(event) => onChange({
+              ...game.settings,
+              life: { multiplier: lifeMultiplier(Number(event.target.value)) },
+            })}
+            className="w-20 rounded border border-amber-200/20 bg-black/40 px-2 py-1 text-right text-amber-50"
+          />
+          <span className="text-amber-100/60">×</span>
+        </label>
         {loading ? <p className="text-[12px] text-amber-100/40">Loading…</p> : null}
 
         {!loading && questions.length === 0 ? (

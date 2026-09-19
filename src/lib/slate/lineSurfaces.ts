@@ -34,6 +34,21 @@ export const fractionSeconds = (
   return Math.max(1, Math.round(base * fractionValue(fraction)));
 };
 
+export const lifeMultiplier = (value: number | undefined): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.min(10, Math.max(0.1, Math.round(parsed * 10) / 10));
+};
+
+export const lifeSeconds = (
+  totalSeconds: number | null | undefined,
+  multiplier: number | undefined,
+): number => {
+  const total = Number(totalSeconds);
+  if (!Number.isFinite(total) || total <= 0) return 0;
+  return Math.max(1, Math.round(total * lifeMultiplier(multiplier)));
+};
+
 /** A line may own at most ten Vault Codes. */
 export const MAX_VAULT_CODES = 10;
 
@@ -149,7 +164,9 @@ const piecesOf = (text: string): string[] => {
 
 /**
  * Does the student's work on this line contain the teacher's expected method?
- * Mathematical meaning first, normalised text as the fallback.
+ * Mathematical meaning only. A partial character sequence must never open a
+ * Vault; exact normalisation handles notation while canonical comparison
+ * handles equivalent mathematical structure.
  */
 export const vaultMatches = (
   expression: string | null | undefined,
@@ -163,7 +180,6 @@ export const vaultMatches = (
     for (const target of wantedPieces) {
       if (sameMath(piece, target)) return true;
     }
-    if (flatten(piece).includes(flatten(wanted))) return true;
   }
   return false;
 };

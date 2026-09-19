@@ -8014,7 +8014,9 @@ export type Database = {
         Row: {
           assignment_id: string | null
           coins: number
+          completed_line_keys: string[]
           completed_question_ids: string[]
+          completion_count: number
           consumed_reward_keys: string[]
           created_at: string
           current_line: number
@@ -8025,11 +8027,14 @@ export type Database = {
           status: string
           student_id: string
           updated_at: string
+          vault_reward: number
         }
         Insert: {
           assignment_id?: string | null
           coins?: number
+          completed_line_keys?: string[]
           completed_question_ids?: string[]
+          completion_count?: number
           consumed_reward_keys?: string[]
           created_at?: string
           current_line?: number
@@ -8040,11 +8045,14 @@ export type Database = {
           status?: string
           student_id: string
           updated_at?: string
+          vault_reward?: number
         }
         Update: {
           assignment_id?: string | null
           coins?: number
+          completed_line_keys?: string[]
           completed_question_ids?: string[]
+          completion_count?: number
           consumed_reward_keys?: string[]
           created_at?: string
           current_line?: number
@@ -8055,6 +8063,7 @@ export type Database = {
           status?: string
           student_id?: string
           updated_at?: string
+          vault_reward?: number
         }
         Relationships: [
           {

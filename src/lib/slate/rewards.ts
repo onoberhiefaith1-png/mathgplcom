@@ -1,4 +1,5 @@
-// Reward registry. Rewards are purely visual objects at this stage.
+// Reward registry. Completion, Hourglass and Vault are system-owned; the
+// teacher's general picker contains only optional physical Game mechanics.
 
 import markSeal from "@/assets/slate/rewards/mark-seal.png";
 import retryHeart from "@/assets/slate/rewards/retry-heart.png";
@@ -41,7 +42,7 @@ export interface RewardDef {
 }
 
 export const REWARDS: RewardDef[] = [
-  { id: "mark-seal", label: "Mark Seal", art: markSeal, glow: "#ffc857", profile: "seal", ratio: 1 },
+  { id: "mark-seal", label: "Completion", art: markSeal, glow: "#ffc857", profile: "seal", ratio: 1, placeable: false },
   { id: "retry-heart", label: "Retry Heart", art: retryHeart, glow: "#ff5470", profile: "heart", ratio: 1 },
   // Derived from the Floating Numbers line timer — never placed by hand.
   {
@@ -93,6 +94,16 @@ export const REWARDS: RewardDef[] = [
 
 /** Objects the teacher places by hand in the Game editor. */
 export const PLACEABLE_REWARDS: RewardDef[] = REWARDS.filter((r) => r.placeable !== false);
+
+export const PROTECTED_REWARD_TYPES = new Set([
+  "mark-seal",
+  "time-shard",
+  "math-core",
+  "premium-chain-bomb",
+]);
+
+export const isWorldInteractionEligible = (type: string): boolean =>
+  !PROTECTED_REWARD_TYPES.has(type);
 
 export const getReward = (id: string): RewardDef =>
   REWARDS.find((r) => r.id === id) ?? {

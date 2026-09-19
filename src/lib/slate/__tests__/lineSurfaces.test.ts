@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   fractionSeconds,
+  lifeMultiplier,
+  lifeSeconds,
   lineSurfacesInSync,
   normalizeLineConfig,
   previewSlots,
@@ -28,6 +30,15 @@ describe("line time fractions", () => {
     expect(fractionSeconds(60, "half")).toBe(30);
     expect(fractionSeconds(60, "third")).toBe(20);
     expect(fractionSeconds(60, "quarter")).toBe(15);
+  });
+});
+
+describe("Life time multiplier", () => {
+  it("uses total time and clamps the teacher value from 0.1× to 10×", () => {
+    expect(lifeSeconds(600, 0.5)).toBe(300);
+    expect(lifeSeconds(240, 2)).toBe(480);
+    expect(lifeMultiplier(0)).toBe(0.1);
+    expect(lifeMultiplier(12)).toBe(10);
   });
 });
 
@@ -96,6 +107,8 @@ describe("derived line objects", () => {
     expect(hourglass!.x).toBeGreaterThan(50);
     expect(rows[1]!.hourglassSeconds).toBe(30);
     expect(rows[2]!.rewards.some((r) => r.type === "time-shard")).toBe(false);
+    expect(rows[1]!.rewards.some((r) => r.type === "mark-seal")).toBe(true);
+    expect(rows[2]!.rewards.some((r) => r.type === "mark-seal")).toBe(true);
   });
 
   it("reads a legacy single expression as the line's first Vault Code", () => {
@@ -137,6 +150,8 @@ describe("the Vault compares mathematics", () => {
     expect(vaultMatches("x + 7", "7 + x")).toBe(true);
     expect(vaultMatches("2x = 8", "2x=8")).toBe(true);
     expect(vaultMatches("x + 7", "x - 7")).toBe(false);
+    expect(vaultMatches("x + 7", "x + 70")).toBe(false);
+    expect(vaultMatches("2 × x", "first line\n2*x\nnext line")).toBe(true);
     expect(vaultMatches("x + 7", "")).toBe(false);
     expect(vaultMatches(null, "x + 7")).toBe(false);
   });
