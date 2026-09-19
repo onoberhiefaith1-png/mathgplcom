@@ -97,8 +97,9 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
 
         {!loading && questions.length === 0 ? (
           <p className="text-[12px] leading-relaxed text-amber-100/50">
-            No questions yet. Add a question you already prepared in Lesson Notes — its
-            mathematics, marks and timing travel with it.
+            No questions yet. Questions are sent here from Lesson Notes: open the lesson note,
+            press the 👥 button on the solution, choose Game and pick this Game. Its mathematics,
+            marks and timing travel with it — one writing surface per line.
           </p>
         ) : null}
 
