@@ -9,7 +9,7 @@ describe("Game writing-surface layout", () => {
   it("reserves the 5% to 95% writing band", () => {
     expect(GAME_WRITING_WIDTH).toBeCloseTo(6.6 * 0.9);
     expect(gameWritingWidth(4)).toBeCloseTo(3.6);
-    expect(gameWritingWidth(20)).toBeCloseTo(GAME_WRITING_WIDTH);
+    expect(gameWritingWidth(20)).toBeCloseTo(18);
   });
 
   it("starts every unmeasured Play surface at its own minimum height", () => {

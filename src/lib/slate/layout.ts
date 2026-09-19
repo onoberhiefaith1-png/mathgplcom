@@ -27,12 +27,12 @@ export const PX_PER_UNIT = 220;
 export const INNER_W = SLATE_W - 0.9;
 export const TEXT_W_PX = Math.round(INNER_W * PX_PER_UNIT);
 
-/** Game Play writes from 5% to 95% of the full slate width. */
+/** Legacy editor-width reference; Game Play uses the live viewport instead. */
 export const GAME_WRITING_WIDTH = SLATE_W * 0.9;
 
 /** Keeps a Game Play surface inside 5% margins of the live viewport. */
 export const gameWritingWidth = (visibleWorldWidth: number) =>
-  Math.max(0.8, Math.min(GAME_WRITING_WIDTH, visibleWorldWidth * 0.9));
+  Math.max(0.8, visibleWorldWidth * 0.9);
 
 
 const REGION_PAD = 0.36;
