@@ -1140,47 +1140,19 @@ export function SlateColumn({
             <group key={slot.id} position={[0, -region.centre, SLATE_FRONT]}>
               {/* the section is built out of the material itself */}
               <group position={[surfaceX, surfaceY, 0]}>
-                {surface.newKind ? (
-                  <>
-                    <NewWritingSurface
-                      kind={surface.newKind}
-                      width={surfaceWidth}
-                      height={surfaceHeight}
-                      maps={pbr}
-                      accent={selected ? "#ffe9bd" : surface.accent}
-                      colour={game.surfaceColour}
-                    />
-                    {numberSettings.visible ? (
-                      <Text
-                        position={[-SLATE_W / 2 + build.inset * 0.48 - surfaceX, surfaceHeight / 2 - build.inset * 0.5, 0.025]}
-                        fontSize={0.18 * numberSettings.size}
-                        font="/fonts/technical.ttf"
-                        color={numberSettings.colour ?? surface.ink}
-                        anchorX="center"
-                        anchorY="middle"
-                        fillOpacity={numberSettings.opacity}
-                      >
-                        {region.index + 1}
-                      </Text>
-                    ) : null}
-                  </>
-                ) : (
-                  <SlateSection
-                    index={region.index}
-                    width={surfaceWidth}
-                    height={surfaceHeight}
-                    maps={pbr}
-                    build={build}
-                    physical={recipe.physical}
-                    accent={selected ? "#ffe9bd" : surface.accent}
-                    numbers={numberSettings}
-                    numberOffsetX={-SLATE_W / 2 + build.inset * 0.48 - surfaceX}
-                    transparent={surface.transparent ?? false}
-                    none={surface.none ?? false}
-                    ornament={surface.ornament}
-                  />
-                )}
+                <RegionSurface
+                  surface={lineSurface}
+                  build={lineBuild}
+                  recipe={lineRecipe}
+                  index={region.index}
+                  width={surfaceWidth}
+                  height={surfaceHeight}
+                  numbers={numberSettings}
+                  selected={selected}
+                  colour={game.surfaceColour}
+                />
               </group>
+
 
               <WritingRegion
                 slotId={slot.id}
