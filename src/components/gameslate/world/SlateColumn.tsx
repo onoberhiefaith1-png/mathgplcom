@@ -535,6 +535,80 @@ function glyphShimmer() {
 }
 
 /**
+ * ONE writing surface, built out of its OWN saved material. A Game Line may
+ * carry its own surface; when it does not, it uses the Game's surface. The line
+ * number is part of this physical object: same material, depth and light.
+ */
+function RegionSurface({
+  surface,
+  build,
+  recipe,
+  index,
+  width,
+  height,
+  numbers,
+  selected,
+  colour,
+}: {
+  surface: ReturnType<typeof getSurface>;
+  build: ReturnType<typeof getConstruction>;
+  recipe: ReturnType<typeof surfaceMaterial>;
+  index: number;
+  width: number;
+  height: number;
+  numbers: NumberSettings;
+  selected: boolean;
+  colour: string | undefined;
+}) {
+  const pbr = usePbr(surfaceFamily(surface.id), 3.1, 0.72);
+  // the marker rides on the surface's own left edge, never in a far-off column
+  const numberX = -width / 2 + Math.max(0.12, build.inset * 0.5);
+  if (surface.newKind) {
+    return (
+      <>
+        <NewWritingSurface
+          kind={surface.newKind}
+          width={width}
+          height={height}
+          maps={pbr}
+          accent={selected ? "#ffe9bd" : surface.accent}
+          colour={colour}
+        />
+        {numbers.visible ? (
+          <Text
+            position={[numberX, height / 2 - Math.max(0.12, build.inset * 0.5), 0.025]}
+            fontSize={0.18 * numbers.size}
+            font="/fonts/technical.ttf"
+            color={numbers.colour ?? surface.ink}
+            anchorX="center"
+            anchorY="middle"
+            fillOpacity={numbers.opacity}
+          >
+            {index + 1}
+          </Text>
+        ) : null}
+      </>
+    );
+  }
+  return (
+    <SlateSection
+      index={index}
+      width={width}
+      height={height}
+      maps={pbr}
+      build={build}
+      physical={recipe.physical}
+      accent={selected ? "#ffe9bd" : surface.accent}
+      numbers={numbers}
+      numberOffsetX={numberX}
+      transparent={surface.transparent ?? false}
+      none={surface.none ?? false}
+      ornament={surface.ornament}
+    />
+  );
+}
+
+/**
  * The slate: one long physical object in the room. The camera and the room
  * never move — this object slides vertically through the fixed viewpoint,
  * carrying its writing regions, its live text and its rewards with it.
