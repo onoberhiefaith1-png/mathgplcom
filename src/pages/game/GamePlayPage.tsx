@@ -14,7 +14,7 @@
 // physical Game Lines as they write. The Smartboard surface itself is not
 // shown. Nothing mathematical is re-implemented here.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Coins, Heart, Hourglass } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
