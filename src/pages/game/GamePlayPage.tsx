@@ -298,6 +298,15 @@ const GamePlayPage = () => {
             onRewardMove={() => {}}
             onRewardActivate={() => {}}
             onRewardConsume={() => {}}
+            /* the slate glides so the active Game Line is the surface in view */
+            focusSlotId={`line-${runtime.currentLine}`}
+            /* …and scrolling to a surface makes that its Game Line */
+            onFocusSlot={(slotId) => {
+              const line = Number(String(slotId).replace("line-", ""));
+              if (Number.isFinite(line) && line >= 1) runtime.selectLine(line);
+            }}
+            /* the mathematics is written by Floating Numbers, never typed here */
+            readOnlyWriting
           />
         )}
       </div>
