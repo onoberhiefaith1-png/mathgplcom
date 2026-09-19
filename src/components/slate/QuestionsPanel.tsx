@@ -215,27 +215,93 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
                               </p>
                             )}
 
+                            {/* This line's own writing surface. Empty = the
+                                Game's surface, exactly as saved. */}
                             <label className="flex items-center gap-2 text-amber-100/60">
-                              <span className="w-24 shrink-0">Vault opens for</span>
-                              <input
-                                value={config.vaultExpression ?? ""}
+                              <span className="w-24 shrink-0">Writing surface</span>
+                              <select
+                                value={config.surfaceId ?? ""}
                                 onChange={(e) =>
-                                  setLine(row.lineId!, { vaultExpression: e.target.value })
+                                  setLine(row.lineId!, { surfaceId: e.target.value || null })
                                 }
-                                placeholder="e.g. x + 7"
-                                className="min-w-0 flex-1 rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 font-mono text-amber-50"
-                              />
-                              <input
-                                type="number"
-                                min={0}
-                                value={config.vaultCoins}
-                                onChange={(e) =>
-                                  setLine(row.lineId!, { vaultCoins: Number(e.target.value) })
-                                }
-                                title="Coins the Vault pays"
-                                className="w-14 rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 text-amber-50"
-                              />
+                                className="min-w-0 flex-1 rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 text-amber-50"
+                              >
+                                <option value="">Game surface</option>
+                                {SURFACES.map((s) => (
+                                  <option key={s.id} value={s.id}>{s.label}</option>
+                                ))}
+                              </select>
                             </label>
+
+                            {/* Vault Codes: the mathematics this line's Vaults
+                                recognise. Only what the teacher writes exists. */}
+                            <div className="space-y-1">
+                              <p className="text-amber-200/50">
+                                Vault codes ({config.vaultCodes.length}/{MAX_VAULT_CODES})
+                              </p>
+                              {config.vaultCodes.map((code, codeIndex) => (
+                                <div key={codeIndex} className="flex items-center gap-2">
+                                  <input
+                                    value={code.expression}
+                                    onChange={(e) =>
+                                      setLine(row.lineId!, {
+                                        vaultCodes: config.vaultCodes.map((item, i) =>
+                                          i === codeIndex
+                                            ? { ...item, expression: e.target.value }
+                                            : item,
+                                        ),
+                                      })
+                                    }
+                                    placeholder="e.g. x + 7"
+                                    className="min-w-0 flex-1 rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 font-mono text-amber-50"
+                                  />
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={code.reward}
+                                    onChange={(e) =>
+                                      setLine(row.lineId!, {
+                                        vaultCodes: config.vaultCodes.map((item, i) =>
+                                          i === codeIndex
+                                            ? { ...item, reward: Number(e.target.value) }
+                                            : item,
+                                        ),
+                                      })
+                                    }
+                                    title="What this Vault pays"
+                                    className="w-14 rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 text-amber-50"
+                                  />
+                                  <button
+                                    onClick={() =>
+                                      setLine(row.lineId!, {
+                                        vaultCodes: config.vaultCodes.filter(
+                                          (_, i) => i !== codeIndex,
+                                        ),
+                                      })
+                                    }
+                                    title="Remove this Vault code"
+                                    className="shrink-0 text-red-200/50 hover:text-red-200"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                              {config.vaultCodes.length < MAX_VAULT_CODES ? (
+                                <button
+                                  onClick={() =>
+                                    setLine(row.lineId!, {
+                                      vaultCodes: [
+                                        ...config.vaultCodes,
+                                        { expression: "", reward: 1 },
+                                      ],
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-amber-200/60 hover:text-amber-100"
+                                >
+                                  <Plus className="h-3 w-3" /> Vault code
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
                         ) : null}
                       </li>
