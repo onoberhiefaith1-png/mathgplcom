@@ -187,6 +187,7 @@ const GamePlayPage = () => {
     runtime.currentLine,
     runtime.completedLines,
     lineText,
+    celebrating,
   ]);
 
   const questionRemaining = secondsLeft(runtime.questionDeadline);
