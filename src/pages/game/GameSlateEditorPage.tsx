@@ -153,8 +153,10 @@ export default function GameSlateEditorPage() {
     });
   }, []);
 
+  const [saving, setSaving] = useState(false);
 
   if (!game) return <div className="min-h-screen bg-[#0b0906]" />;
+
 
   const surface = getSurface(game.surfaceId);
   const editing = mode === "edit";
