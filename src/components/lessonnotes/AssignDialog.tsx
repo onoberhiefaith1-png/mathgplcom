@@ -269,11 +269,12 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
     return { toAssign: add, toUnassign: rem };
   }, [classes, selected, initiallySelected]);
 
+  // Adding the question to the Game is a change in its own right, even when no
+  // class selection moved — the Game is the container the question joins.
+  const joinsGame =
+    target === "game" && !!gameId && !!subsectionId && !!notebookId && !gameStats.hasThis;
+
   const apply = async () => {
-    // Adding the question to the Game is a change in its own right, even when
-    // no class selection moved — the Game is the container.
-    const joinsGame =
-      target === "game" && !!gameId && !!subsectionId && !!notebookId && !gameStats.hasThis;
     if (toAssign.length === 0 && toUnassign.length === 0 && !joinsGame) {
       toast({ title: "No changes", variant: "destructive" });
       return;
@@ -390,7 +391,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
     }
   };
 
-  const changeCount = toAssign.length + toUnassign.length;
+  const changeCount = toAssign.length + toUnassign.length + (joinsGame ? 1 : 0);
 
   return (
     <>
@@ -443,7 +444,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                   totalMarks={totalMarks}
                   onDone={() => onOpenChange(false)}
                 />
-              ) : classes.length === 0 ? (
+              ) : classes.length === 0 && target !== "game" ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   You have no classes yet. Create a class first, then assign.
                 </div>
@@ -453,7 +454,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label>Classes</Label>
+                  <Label>{target === "game" ? "Classes (optional)" : "Classes"}</Label>
                   <button
                     type="button"
                     onClick={selectAll}

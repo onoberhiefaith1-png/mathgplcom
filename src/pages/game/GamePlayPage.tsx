@@ -197,8 +197,9 @@ const GamePlayPage = () => {
       <div className="mx-auto flex max-w-lg flex-col items-start gap-3 p-8">
         <h1 className="text-xl font-semibold">{game.name}</h1>
         <p className="text-sm text-muted-foreground">
-          This Game has no question yet. Open the Game Board, press Questions, then Add question —
-          the mathematics, marks and timing come with it.
+          This Game has no question yet. Questions come from your lesson notes: open the lesson
+          note, press the 👥 button on the solution, choose Game and pick this Game. Every line of
+          the question becomes its own writing surface here.
         </p>
         <div className="flex gap-2">
           {testMode && (
