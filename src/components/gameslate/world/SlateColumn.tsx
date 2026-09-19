@@ -1154,9 +1154,9 @@ export function SlateColumn({
             Math.max(0.42, textSettings.size / 175),
             (bounds?.height ?? 0) + padY * 2,
           );
-          const surfaceX = bounds
-            ? (bounds.left + bounds.right) / 2
-            : readOnlyWriting ? -writingWidth / 2 + surfaceWidth / 2 : 0;
+          const surfaceX = readOnlyWriting
+            ? -writingWidth / 2 + surfaceWidth / 2
+            : bounds ? (bounds.left + bounds.right) / 2 : 0;
           const surfaceY = readOnlyWriting ? 0 : bounds ? (bounds.top + bounds.bottom) / 2 : 0;
           const selected =
             selection.kind !== "none" && "slotId" in selection && selection.slotId === slot.id;
