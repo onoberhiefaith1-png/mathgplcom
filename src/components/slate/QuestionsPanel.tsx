@@ -5,7 +5,7 @@
 // Line 0 is the Question Line: read-only, outside the reward pattern.
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
 import {
   listGameQuestions,
   removeQuestion,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/slate/gameQuestions";
 import { mapQuestionLines, patternLengthOf } from "@/lib/slate/pattern";
 import { getReward } from "@/lib/slate/rewards";
+import { SURFACES } from "@/lib/slate/surfaces";
 import {
   MAX_VAULT_CODES,
   TIME_FRACTIONS,
