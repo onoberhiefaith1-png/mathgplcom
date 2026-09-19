@@ -117,12 +117,19 @@ const GamePlayPage = () => {
   });
 
   /** One selector shared by surfaces, scrolling and Floating Numbers. */
+  const chosenAtRef = useRef(0);
   const setActiveLine = (line: number, focusInput = false) => {
     if (!Number.isFinite(line) || line < 1 || line >= runtime.lines.length) return;
+    chosenAtRef.current = Date.now();
     runtime.selectLine(line);
     setSurfaceSelection({ kind: "slot", slotId: `line-${line}` });
     if (focusInput) window.dispatchEvent(new CustomEvent("game:focus-floating-input"));
   };
+
+  /** The slate glides to the chosen line. A glide NEVER chooses a line: the
+   *  student chooses by touching a writing surface or using the line arrows,
+   *  otherwise the glide could drag the chosen line back to a neighbour. */
+  const focusSettledLine = (_line: number) => {};
 
   useEffect(() => {
     if (runtime.currentLine < 1) return;
@@ -353,10 +360,10 @@ const GamePlayPage = () => {
             }}
             /* the slate glides so the active Game Line is the surface in view */
             focusSlotId={`line-${runtime.currentLine}`}
-            /* …and scrolling to a surface makes that its Game Line */
+            /* scrolling only moves the view — it never re-chooses the line */
             onFocusSlot={(slotId) => {
               const line = Number(String(slotId).replace("line-", ""));
-              setActiveLine(line);
+              focusSettledLine(line);
             }}
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting
