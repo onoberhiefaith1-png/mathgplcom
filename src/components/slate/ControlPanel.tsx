@@ -221,13 +221,6 @@ export function ControlPanel({
     }
   };
 
-  /** Vaults are numbered in slate order: Vault 1, Vault 2, Vault 3... */
-  const vaultNumber = (rewardId: string) =>
-    game.slots
-      .flatMap((slot) => slot.rewards)
-      .filter((reward) => reward.type === "math-vault")
-      .findIndex((reward) => reward.id === rewardId) + 1;
-
   const patchReward = (key: string, value: unknown) => {
     if (!activeSlot || !activeReward) return;
     onSlotChange(activeSlot.id, {
@@ -682,38 +675,10 @@ export function ControlPanel({
                   className="h-8 w-8 shrink-0 object-contain"
                 />
                 <span className="min-w-0 truncate text-[11px] text-amber-100/85">
-                  {activeReward.type === "math-vault"
-                    ? `Vault ${vaultNumber(activeReward.id)}`
-                    : getReward(activeReward.type).label}{" "}
+                  {getReward(activeReward.type).label}{" "}
                   · {activeReward.state}
                 </span>
               </div>
-              {activeReward.type === "math-vault" ? (
-                <div className="space-y-2 rounded border border-sky-300/20 bg-sky-400/5 p-2">
-                  <Label className="text-[10px] uppercase tracking-wider text-sky-100/70">
-                    Expression
-                  </Label>
-                  <Input
-                    value={activeReward.expression ?? ""}
-                    placeholder="2x + 1"
-                    onChange={(e) => patchReward("expression", e.target.value)}
-                    className="h-8 border-sky-200/20 bg-black/40 text-[12px] text-amber-50"
-                  />
-                  <Label className="text-[10px] uppercase tracking-wider text-sky-100/70">
-                    Target components
-                  </Label>
-                  <Input
-                    value={activeReward.targets ?? ""}
-                    placeholder="2x, +1"
-                    onChange={(e) => patchReward("targets", e.target.value)}
-                    className="h-8 border-sky-200/20 bg-black/40 text-[12px] text-amber-50"
-                  />
-                  <p className="text-[10px] leading-snug text-amber-100/45">
-                    Shown on the vault only while it is being edited. It stays saved and hidden
-                    the rest of the time.
-                  </p>
-                </div>
-              ) : null}
               {activeReward.type === "time-shard" ? (
                 <div className="space-y-2 rounded border border-cyan-300/20 bg-cyan-400/5 p-2">
                   <Label className="text-[10px] uppercase tracking-wider text-cyan-100/70">

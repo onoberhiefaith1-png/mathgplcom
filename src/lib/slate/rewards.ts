@@ -98,6 +98,7 @@ export const PLACEABLE_REWARDS: RewardDef[] = REWARDS.filter((r) => r.placeable 
 export const PROTECTED_REWARD_TYPES = new Set([
   "mark-seal",
   "time-shard",
+  "math-vault",
   "math-core",
   "premium-chain-bomb",
 ]);

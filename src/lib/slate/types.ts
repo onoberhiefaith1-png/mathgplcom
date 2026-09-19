@@ -208,6 +208,7 @@ export type TimeFraction = "full" | "half" | "third" | "quarter";
  */
 /** One Vault Code: a piece of mathematics that opens a Vault on this line. */
 export interface VaultCode {
+  id?: string;
   /** The mathematics the Vault recognises, e.g. "x + 7". */
   expression: string;
   /** What this Vault pays when it opens. */
@@ -221,7 +222,7 @@ export interface LineSurfaceConfig {
   surfaceId: string | null;
   /** How much of THIS line's own timer its Hourglass awards. */
   hourglassReward: TimeFraction;
-  /** Up to ten Vault Codes owned by this line. */
+  /** Legacy Game-side Vault Codes, read only for backward compatibility. */
   vaultCodes: VaultCode[];
   /** Legacy single-code configuration; read into vaultCodes on load. */
   vaultExpression?: string | null;

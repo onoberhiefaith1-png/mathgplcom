@@ -18,7 +18,7 @@ import {
   type AssessmentBoardSource,
 } from "@/lib/assessments/assessmentBoardSource";
 import { ensureTestClass } from "@/lib/floating/testBoard";
-import { questionTimer, lineTimer, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
+import { normalizeFloatingVaults, questionTimer, lineTimer, type FloatingLine, type FloatingVault } from "@/lib/lessonnotes/floatingCompile";
 import { listGameQuestions, type GameQuestion } from "./gameQuestions";
 
 export const GAME_ASSESSMENT_KIND = "game";
@@ -42,6 +42,8 @@ export interface GameQuestionBoard {
   lineTimers: (number | null)[];
   /** Board line ids in Game Line order (Game Line N = lineIds[N - 1]). */
   lineIds: string[];
+  /** null means a legacy line that has never saved Floating Numbers-owned Vault data. */
+  lineVaults: (FloatingVault[] | null)[];
   lineMarks: number[];
   /** Teaching note per line — revealed only after that line's mark. */
   lineNotes: (string | null)[];
@@ -155,6 +157,11 @@ export const ensureGameBoards = async (params: {
       questionTimerSeconds: questionTimer(q.scoring),
       lineTimers: (q.lines as FloatingLine[]).map((line) => lineTimer(line)),
       lineIds: question.lines.map((line) => line.lineId),
+      lineVaults: q.lines.map((line) =>
+        Object.prototype.hasOwnProperty.call(line, "vaults")
+          ? normalizeFloatingVaults(line.vaults)
+          : null,
+      ),
       lineMarks: question.lines.map((line) => Number(line.marks) || 0),
       lineNotes: question.lines.map((line) => line.note?.trim() || null),
     });
@@ -208,6 +215,11 @@ export const loadGameBoards = async (params: {
       questionTimerSeconds: questionTimer(q.scoring),
       lineTimers: (q.lines as FloatingLine[]).map((line) => lineTimer(line)),
       lineIds: question.lines.map((line) => line.lineId),
+      lineVaults: q.lines.map((line) =>
+        Object.prototype.hasOwnProperty.call(line, "vaults")
+          ? normalizeFloatingVaults(line.vaults)
+          : null,
+      ),
       lineMarks: question.lines.map((line) => Number(line.marks) || 0),
       lineNotes: question.lines.map((line) => line.note?.trim() || null),
     });

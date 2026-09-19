@@ -118,6 +118,10 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
     containers,
     containersSelected,
     arrangement,
+    vaults: (line.vaults ?? []).map((vault, index) => ({
+      id: String(vault?.id ?? `vault-${index + 1}`),
+      expression: String(vault?.expression ?? "").trim(),
+    })).filter((vault) => vault.expression.length > 0),
   };
 };
 
