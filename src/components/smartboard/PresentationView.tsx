@@ -4013,6 +4013,9 @@ const PresentationView = ({
   useEffect(() => {
     const before = prevFreeLinesRef.current;
     prevFreeLinesRef.current = freeLines;
+    // GAME PLAY: the Game owns the active line. A student may answer any line
+    // in any order, so the guided rewind must never pull the cursor backwards.
+    if (gameChrome) return;
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
     // Only the LATEST completed line can ever rewind. Older lines are
     // locked history; notebook prose lines have no ink to lose.
@@ -4864,8 +4867,12 @@ const PresentationView = ({
       if (back !== null && back !== activeLineIdx) {
         reasoningRef.current.clearFreeze(back);
         delete frozenByLineRef.current[back];
-        setActiveLineIdx(back);
-        setFloatingLineIdx(back);
+        // GAME PLAY: free line choice — release the freeze but leave the
+        // student exactly on the line the Game selected.
+        if (!gameChrome) {
+          setActiveLineIdx(back);
+          setFloatingLineIdx(back);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
