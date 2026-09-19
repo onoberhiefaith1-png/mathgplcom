@@ -174,19 +174,27 @@ export const vaultMatches = (
  * line, with the pattern's objects. It is a PREVIEW — the mathematics is still
  * owned and edited in Floating Numbers, never here.
  */
+export interface PreviewLine {
+  equation: string;
+  lineId?: string | null;
+}
+
 export const previewSlots = (
   game: Game,
-  lineEquations: string[],
+  lines: PreviewLine[],
   rewardsFor: (line: number) => RewardInstance[],
 ): Game["slots"] => {
-  if (lineEquations.length === 0) return game.slots;
-  return lineEquations.map((equation, i) => {
+  if (lines.length === 0) return game.slots;
+  return lines.map((row, i) => {
     const line = i + 1;
     const source = game.slots[(line - 1) % Math.max(1, game.slots.length)]!;
+    // the preview shows the line's OWN saved surface, exactly as Play will
+    const surfaceId = row.lineId ? lineConfigOf(game, row.lineId).surfaceId : null;
     return {
       ...source,
       id: `preview-${line}`,
-      text: equation ?? "",
+      surfaceId,
+      text: row.equation ?? "",
       rewards: rewardsFor(line),
     };
   });
