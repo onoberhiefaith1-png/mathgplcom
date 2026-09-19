@@ -158,7 +158,13 @@ export function WritingRegion({
       <mesh
         position={[0, 0, z + 0.002]}
         onPointerDown={(event) => {
-          if (!editable) return;
+          if (!editable) {
+            // Game Play: the surface is written by Floating Numbers, but
+            // touching it still makes its own Game Line the active one.
+            event.stopPropagation();
+            onActivate();
+            return;
+          }
           event.stopPropagation();
           dragging.current = true;
           onActivate();

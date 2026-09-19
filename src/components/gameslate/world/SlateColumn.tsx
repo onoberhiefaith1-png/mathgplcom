@@ -49,6 +49,7 @@ import {
   SLATE_Z,
   
   VIEW_BOTTOM,
+  VIEW_H,
   VIEW_TOP,
   buildLayout,
 } from "@/lib/slate/layout";
@@ -75,6 +76,12 @@ interface Props {
   onRewardMove: (slotId: string, rewardId: string, x: number, y: number) => void;
   onRewardActivate: (slotId: string, rewardId: string, type: string) => void;
   onRewardConsume: (slotId: string, rewardId: string) => void;
+  /** Game Play: the slate glides until this region sits in the middle of view. */
+  focusSlotId?: string | null;
+  /** Game Play: the region the slate has settled on, reported once per change. */
+  onFocusSlot?: (slotId: string) => void;
+  /** Game Play: the mathematics comes from Floating Numbers, not the keyboard. */
+  readOnlyWriting?: boolean;
 }
 
 interface ActiveEffect {
@@ -544,6 +551,9 @@ export function SlateColumn({
   onRewardMove,
   onRewardActivate,
   onRewardConsume,
+  focusSlotId = null,
+  onFocusSlot,
+  readOnlyWriting = false,
 }: Props) {
   const surface = getSurface(game.surfaceId);
   const recipe = surfaceMaterial(surface.id);
@@ -630,6 +640,22 @@ export function SlateColumn({
 
   scroll.current.max = layout.maxScroll;
 
+  // GAME PLAY. One physical writing surface per Floating Numbers line: the
+  // active Game Line is brought into the middle of the view by moving the
+  // slate itself, exactly as a hand scroll would. The region the slate settles
+  // on is reported back, so scrolling to surface 9 selects Line 9.
+  const focused = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusSlotId) return;
+    const region = layout.regions.find((item) => item.slot.id === focusSlotId);
+    if (!region) return;
+    focused.current = focusSlotId;
+    scroll.current.target = Math.min(
+      layout.maxScroll,
+      Math.max(0, region.centre - VIEW_H / 2),
+    );
+  }, [focusSlotId, layout, scroll]);
+
   // leaving the world never leaves the clock paused
   useEffect(() => () => setEffectsPaused(false), []);
 
@@ -645,6 +671,22 @@ export function SlateColumn({
     // heavy physical object: exponential settle, never a snap
     state.current += (state.target - state.current) * (1 - Math.exp(-11 * dt));
     if (group.current) group.current.position.y = VIEW_TOP + state.current;
+    // the surface nearest the middle of the view IS the active Game Line
+    if (onFocusSlot && Math.abs(state.target - state.current) < 0.04) {
+      let best: string | null = null;
+      let bestDistance = Infinity;
+      for (const region of layout.regions) {
+        const distance = Math.abs(VIEW_TOP + state.current - region.centre);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = region.slot.id;
+        }
+      }
+      if (best && best !== focused.current) {
+        focused.current = best;
+        onFocusSlot(best);
+      }
+    }
     const count = Object.keys(activeRef.current).length;
     const running = count > 0;
     if (count !== lastCount.current) {
@@ -1065,7 +1107,7 @@ export function SlateColumn({
                 z={0.012}
                 surface={surface}
                 settings={textSettings}
-                editable
+                editable={!readOnlyWriting}
                 active={selection.kind === "slot" && selection.slotId === slot.id}
                 placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
                 onChange={(text) => onSlotChange(slot.id, { text })}

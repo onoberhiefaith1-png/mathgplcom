@@ -14,7 +14,7 @@
 // physical Game Lines as they write. The Smartboard surface itself is not
 // shown. Nothing mathematical is re-implemented here.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Coins, Heart, Hourglass } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,6 +114,29 @@ const GamePlayPage = () => {
   // A new question starts on a clean slate — no test or previous working.
   useEffect(() => { setLineText({}); }, [runtime.question?.questionRowId]);
 
+  /* ---- reward celebration -------------------------------------------- */
+  // A finished line pays its rewards. The physical object plays its own
+  // existing effect where it stands, and only disappears once it has finished.
+  const [celebrating, setCelebrating] = useState<string[]>([]);
+  const seenRewards = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const fresh = runtime.consumedRewardKeys.filter((key) => !seenRewards.current.has(key));
+    if (fresh.length === 0) return;
+    fresh.forEach((key) => seenRewards.current.add(key));
+    setCelebrating((prev) => [...prev, ...fresh]);
+    fresh.forEach((key) => {
+      const [, line, ...rest] = key.split(":");
+      const rewardId = rest.join(":");
+      window.dispatchEvent(new CustomEvent("slate:activate-reward", {
+        detail: { slotId: `line-${line}`, rewardId: `${line}-${rewardId}`, preview: false },
+      }));
+    });
+    const handle = window.setTimeout(() => {
+      setCelebrating((prev) => prev.filter((key) => !fresh.includes(key)));
+    }, 2600);
+    return () => window.clearTimeout(handle);
+  }, [runtime.consumedRewardKeys]);
+
   /** The physical slate for THIS question: Line 0 plus one Line per solving line. */
   const displayGame = useMemo<Game | null>(() => {
     if (!game || runtime.lines.length === 0 || !runtime.question) return game;
@@ -142,11 +165,15 @@ const GamePlayPage = () => {
         rewards: row.rewards.map((reward) => {
           const key = `${question.questionRowId}:${row.line}:${reward.id}`;
           const used = runtime.consumedRewardKeys.includes(key);
+          // it stays on the slate while its own effect is still playing
+          const playing = celebrating.includes(key);
           return {
             ...reward,
             id: `${row.line}-${reward.id}`,
-            hidden: used,
-            state: used ? "archived" : row.line === runtime.currentLine ? "active" : "dormant",
+            hidden: used && !playing,
+            state: used && !playing
+              ? "archived"
+              : row.line === runtime.currentLine || playing ? "active" : "dormant",
           };
         }),
       };
@@ -160,6 +187,7 @@ const GamePlayPage = () => {
     runtime.currentLine,
     runtime.completedLines,
     lineText,
+    celebrating,
   ]);
 
   const questionRemaining = secondsLeft(runtime.questionDeadline);
@@ -270,6 +298,15 @@ const GamePlayPage = () => {
             onRewardMove={() => {}}
             onRewardActivate={() => {}}
             onRewardConsume={() => {}}
+            /* the slate glides so the active Game Line is the surface in view */
+            focusSlotId={`line-${runtime.currentLine}`}
+            /* …and scrolling to a surface makes that its Game Line */
+            onFocusSlot={(slotId) => {
+              const line = Number(String(slotId).replace("line-", ""));
+              if (Number.isFinite(line) && line >= 1) runtime.selectLine(line);
+            }}
+            /* the mathematics is written by Floating Numbers, never typed here */
+            readOnlyWriting
           />
         )}
       </div>
