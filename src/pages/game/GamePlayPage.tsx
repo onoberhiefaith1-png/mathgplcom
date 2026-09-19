@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Coins, Heart, Hourglass } from "lucide-react";
+import { ArrowLeft, Heart, Hourglass, Vault } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGame } from "@/lib/slate/storage";
 import { loadGameAssignmentState } from "@/lib/slate/gameAssignments";
@@ -157,6 +157,8 @@ const GamePlayPage = () => {
       return {
         ...base,
         id: `line-${row.line}`,
+        // exactly the surface the teacher saved for this line
+        surfaceId: row.lineId ? lineConfigOf(game, row.lineId).surfaceId : null,
         text: row.isQuestion
           ? question.questionText
           : [note, working].filter(Boolean).join("\n"),
@@ -329,8 +331,8 @@ const GamePlayPage = () => {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
-          <span className="inline-flex items-center gap-1" title="Coins">
-            <Coins className="h-4 w-4 text-amber-500" /> {runtime.coins}
+          <span className="inline-flex items-center gap-1" title="Vault">
+            <Vault className="h-4 w-4 text-amber-500" /> {runtime.coins}
           </span>
           <span className="inline-flex items-center gap-1" title="Lives">
             <Heart className="h-4 w-4 text-rose-500" /> {runtime.lives}
@@ -370,7 +372,7 @@ const GamePlayPage = () => {
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-background/85 text-center backdrop-blur">
           <h2 className="text-lg font-semibold">Game complete</h2>
           <p className="text-sm text-muted-foreground">
-            {runtime.earnedMarks} / {runtime.totalMarks} marks · {runtime.coins} coins
+            {runtime.earnedMarks} / {runtime.totalMarks} marks · {runtime.coins} vault
           </p>
           <div className="flex gap-2">
             <button
