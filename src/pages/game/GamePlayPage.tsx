@@ -29,6 +29,7 @@ import { formatMmSs } from "@/lib/time/mmss";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
+import { getReward } from "@/lib/slate/rewards";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 
 const secondsLeft = (deadline: number | null) =>
@@ -181,9 +182,7 @@ const GamePlayPage = () => {
             ...reward,
             id: `${row.line}-${reward.id}`,
             hidden: used && !playing,
-            state: used && !playing
-              ? "archived"
-              : row.line === runtime.currentLine || playing ? "active" : "dormant",
+            state: used && !playing ? "archived" : "dormant",
           };
         });
       return resolveRenderedLineSlot(game, { ...row, text, rewards });
@@ -348,7 +347,10 @@ const GamePlayPage = () => {
             onSlotChange={() => {}}
             onRewardMove={() => {}}
             onRewardActivate={() => {}}
-            onRewardConsume={() => {}}
+            onRewardConsume={(slotId, rewardId) => {
+              const line = Number(String(slotId).replace("line-", ""));
+              if (Number.isFinite(line)) runtime.consumeWorldReward(line, rewardId);
+            }}
             /* the slate glides so the active Game Line is the surface in view */
             focusSlotId={`line-${runtime.currentLine}`}
             /* …and scrolling to a surface makes that its Game Line */
@@ -393,8 +395,12 @@ const GamePlayPage = () => {
           <span className="inline-flex items-center gap-1" title="Lives">
             <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
           </span>
-          <span className="inline-flex items-center gap-1" title="Vault">
-            <Vault className="h-4 w-4 text-amber-500" /> VAULT {runtime.coins}
+          <span className="inline-flex items-center gap-1" title="Vault reward">
+            <Vault className="h-4 w-4 text-amber-500" /> VAULT {runtime.vaultReward}
+          </span>
+          <span key={runtime.completionCount} className="inline-flex items-center gap-1 animate-in zoom-in" title="Completed lines">
+            <img className="h-4 w-4 object-contain" src={getReward("mark-seal").art} alt="" />
+            COMPLETION {runtime.completionCount}
           </span>
           <span className="inline-flex items-center gap-1" title="Marks">
             {runtime.earnedMarks} / {runtime.totalMarks}
@@ -430,7 +436,7 @@ const GamePlayPage = () => {
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-background/85 text-center backdrop-blur">
           <h2 className="text-lg font-semibold">Game complete</h2>
           <p className="text-sm text-muted-foreground">
-            {runtime.earnedMarks} / {runtime.totalMarks} marks · {runtime.coins} vault
+             {runtime.earnedMarks} / {runtime.totalMarks} marks · {runtime.vaultReward} vault · {runtime.completionCount} completed
           </p>
           <div className="flex gap-2">
             <button

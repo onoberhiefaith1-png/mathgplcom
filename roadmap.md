@@ -1,5 +1,14 @@
 # Junction finishing
 
+# Final Game reward architecture
+
+- [x] Separate universal line completion from teacher-configurable rewards.
+- [x] Keep only Life, both Bombs, and Horizontal/Vertical Collectors in the general reward picker.
+- [x] Add a 0.1×–10.0× Life time multiplier and preserve legacy saved values.
+- [x] Keep Hourglasses timer-derived and Vaults line-code-derived with structural math matching.
+- [x] Persist separate Vault and Completion totals and clear both on run reset.
+- [x] Verify visible-only Bomb/Collector targeting, protected Hourglasses, separated four-part HUD, and Play loading in the authenticated Game.
+
 # Game Edit → Play parity
 
 - [x] Preserve saved pattern-slot surfaces, scene settings, text treatment, and reward coordinates in Play.

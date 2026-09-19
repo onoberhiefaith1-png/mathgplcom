@@ -241,8 +241,8 @@ export interface GameSettings {
   assets: AssetSettings;
   /** Per-Floating-Numbers-line configuration, keyed by line id. */
   lines: Record<string, LineSurfaceConfig>;
-  /** How much of the original question time a Life gives back. */
-  life: { fraction: TimeFraction };
+  /** How much of the total Game/question time one Life gives back (0.1×–10×). */
+  life: { multiplier: number; fraction?: TimeFraction };
 }
 
 export interface Game {

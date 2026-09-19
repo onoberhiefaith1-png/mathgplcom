@@ -104,7 +104,14 @@ export const mapQuestionLines = (
 
     // the pattern never supplies a line-owned object
     const placed = rewardsForLine(game, line).filter((reward) => !DERIVED_TYPES.has(reward.type));
-    const derived: RewardInstance[] = [];
+    const derived: RewardInstance[] = [{
+      id: "completion",
+      type: "mark-seal",
+      state: "dormant",
+      hidden: false,
+      x: 50,
+      y: 50,
+    }];
 
     const hourglassSeconds = timerSeconds
       ? fractionSeconds(timerSeconds, config?.hourglassReward ?? "full")

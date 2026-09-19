@@ -58,9 +58,8 @@ export const defaultSettings = (): GameSettings => ({
   assets: defaultAssetSettings(),
   // Filled from the attached Floating Numbers exercise, keyed by line id.
   lines: {},
-  // A Life gives back the whole original question time unless the teacher
-  // chooses a smaller fraction.
-  life: { fraction: "full" },
+  // One Life gives back one complete Game/question time by default.
+  life: { multiplier: 1 },
 });
 
 export const defaultGameStatus = (): GameStatus => ({

@@ -5,7 +5,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { RoomDef } from "@/lib/slate/rooms";
 import { getSurface } from "@/lib/slate/surfaces";
-import { REWARDS, getReward } from "@/lib/slate/rewards";
+import { REWARDS, getReward, isWorldInteractionEligible } from "@/lib/slate/rewards";
 import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
 import { defaultTextSettings } from "@/lib/slate/text3d";
 import type { TextBounds } from "@/lib/slate/text3d";
@@ -874,8 +874,8 @@ export function SlateColumn({
     [],
   );
 
-  /** Vaults the energy can reach: dormant, visible in the room, inside the path. */
-  const reachVaults = useCallback(
+  /** Eligible rewards the energy can physically reach while visible. */
+  const reachRewards = useCallback(
     (
       sourceId: string,
       inPath: (x: number, regionY: number) => boolean,
@@ -897,7 +897,7 @@ export function SlateColumn({
         if (y > VIEW_TOP + 0.4 || y < VIEW_BOTTOM - 0.4) return;
         region.slot.rewards.forEach((other) => {
           if (other.id === sourceId || other.hidden || other.state !== "dormant") return;
-          if (other.type !== "math-vault") return;
+          if (!isWorldInteractionEligible(other.type)) return;
           if (!inPath(other.x, y)) return;
           const local = localOf(other, region);
           // how far along its own axis the collector must travel to arrive
@@ -963,11 +963,8 @@ export function SlateColumn({
           premiumTargets = [];
           rewardNodes.current.forEach((entry, id) => {
             const other = entry.reward;
-            // never the Hourglass (the line owns its time) and never another
-            // Premium Bomb
             if (id === reward.id || other.hidden || other.state !== "dormant") return;
-            if (other.type === "time-shard") return;
-            if (getReward(other.type).profile === "chain-bomb") return;
+            if (!isWorldInteractionEligible(other.type)) return;
             entry.node.updateWorldMatrix(true, false);
             const world = entry.node.getWorldPosition(new THREE.Vector3());
             if (!frustum.containsPoint(world)) return;
@@ -993,18 +990,7 @@ export function SlateColumn({
       if (profile === "core") {
         // the blast reaches only objects currently inside the fixed viewport
         window.setTimeout(() => {
-          reachVaults(reward.id, () => true, null, preview);
-          const offset = scroll.current.current;
-          layout.regions.forEach((region) => {
-            const y = VIEW_TOP + offset - region.centre;
-            if (y > VIEW_TOP + 0.4 || y < VIEW_BOTTOM - 0.4) return;
-            region.slot.rewards.forEach((other) => {
-              if (other.id === reward.id || other.hidden || other.state === "archived") return;
-              // the Vault is opened by mathematics and the Hourglass by time
-              if (other.type === "math-vault" || other.type === "time-shard") return;
-              fire(region.slot.id, other);
-            });
-          });
+          reachRewards(reward.id, () => true, null, preview);
         }, 1700);
         return;
       }
@@ -1016,10 +1002,10 @@ export function SlateColumn({
       const direction = reward.x < 50 ? 1 : -1;
 
       if (profile === "sweep-horizontal") {
-        // energy crosses this band: every vault on the same row is drawn in
+        // energy crosses this band: each eligible reward is claimed on contact
         const centre = sourceRegion ? VIEW_TOP + scroll.current.current - sourceRegion.centre : 0;
         const c = choreography("sweep-horizontal");
-        reachVaults(reward.id, (_x, y) => Math.abs(y - centre) < 0.9, collector, preview, {
+        reachRewards(reward.id, (_x, y) => Math.abs(y - centre) < 0.9, collector, preview, {
           axis: "x",
           direction,
           span: c.travel?.span ?? 4.4,
@@ -1030,9 +1016,9 @@ export function SlateColumn({
       }
 
       if (profile === "sweep-vertical") {
-        // energy travels the column: vaults on the same vertical path are drawn in
+        // energy travels the column: each eligible reward is claimed on contact
         const c = choreography("sweep-vertical");
-        reachVaults(reward.id, (x) => Math.abs(x - reward.x) < 14, collector, preview, {
+        reachRewards(reward.id, (x) => Math.abs(x - reward.x) < 14, collector, preview, {
           axis: "y",
           direction,
           span: c.travel?.span ?? 2.6,
@@ -1042,7 +1028,7 @@ export function SlateColumn({
       }
 
     },
-    [active, camera, effects.speed, fire, layout.regions, localOf, onRewardActivate, onRewardConsume, reachVaults, run, scroll],
+    [active, camera, effects.speed, fire, layout.regions, localOf, onRewardActivate, onRewardConsume, reachRewards, run, scroll],
   );
 
   const onPremiumImpact = useCallback((target: PremiumTarget, preview: boolean) => {

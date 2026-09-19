@@ -6,6 +6,7 @@ import {
   rewardsForLine,
 } from "../pattern";
 import type { Game, RewardInstance, Slot } from "../types";
+import { isWorldInteractionEligible, PLACEABLE_REWARDS } from "../rewards";
 
 const reward = (type: string): RewardInstance => ({
   id: `${type}-${Math.random()}`,
@@ -32,6 +33,26 @@ const game = {
 } as Pick<Game, "slots" | "patternLength">;
 
 describe("reward pattern", () => {
+  it("keeps system-owned rewards out of the teacher picker", () => {
+    expect(PLACEABLE_REWARDS.map((item) => item.id)).toEqual([
+      "retry-heart",
+      "math-core",
+      "premium-chain-bomb",
+      "horizontal-collector",
+      "vertical-collector",
+    ]);
+  });
+
+  it("protects completion, Hourglass and both Bombs from world interactions", () => {
+    expect(isWorldInteractionEligible("retry-heart")).toBe(true);
+    expect(isWorldInteractionEligible("horizontal-collector")).toBe(true);
+    expect(isWorldInteractionEligible("vertical-collector")).toBe(true);
+    expect(isWorldInteractionEligible("math-vault")).toBe(true);
+    expect(isWorldInteractionEligible("mark-seal")).toBe(false);
+    expect(isWorldInteractionEligible("time-shard")).toBe(false);
+    expect(isWorldInteractionEligible("math-core")).toBe(false);
+    expect(isWorldInteractionEligible("premium-chain-bomb")).toBe(false);
+  });
   it("uses the declared pattern length", () => {
     expect(patternLengthOf(game)).toBe(5);
     expect(patternLengthOf({ slots: game.slots, patternLength: 0 })).toBe(5);

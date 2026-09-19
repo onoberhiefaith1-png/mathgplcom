@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { mapQuestionLines, type MappedLine } from "@/lib/slate/pattern";
-import { fractionSeconds, vaultMatches } from "@/lib/slate/lineSurfaces";
+import { lifeSeconds, vaultMatches } from "@/lib/slate/lineSurfaces";
 import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
@@ -34,7 +34,8 @@ export interface GameRuntime {
   /** 1-based Game Lines whose mark has been awarded in this question. */
   completedLines: number[];
   consumedRewardKeys: string[];
-  coins: number;
+  vaultReward: number;
+  completionCount: number;
   lives: number;
   /** Epoch ms the question timer runs out, or null when there is no timer. */
   questionDeadline: number | null;
@@ -44,6 +45,8 @@ export interface GameRuntime {
   totalMarks: number;
   message: string | null;
   onLineContext: (ctx: LineContext) => void;
+  /** A Bomb or Collector physically reached this visible reward. */
+  consumeWorldReward: (line: number, rewardId: string) => void;
   /** Game Lines own line navigation — a tapped Game Line calls this. */
   selectLine: (line: number) => void;
   goToQuestion: (index: number) => void;
@@ -52,8 +55,7 @@ export interface GameRuntime {
   dismissMessage: () => void;
 }
 
-const REWARD_COINS: Record<string, number> = { "mark-seal": 1 };
-const REWARD_LIVES: Record<string, number> = { "retry-heart": 1, "math-core": -1 };
+const REWARD_LIVES: Record<string, number> = { "retry-heart": 1 };
 
 const rewardKey = (questionId: string, line: number, rewardId: string) =>
   `${questionId}:${line}:${rewardId}`;
@@ -78,7 +80,9 @@ export const useGameRuntime = (params: {
   const [completedQuestionIds, setCompletedQuestionIds] = useState<string[]>([]);
   const [completedLines, setCompletedLines] = useState<number[]>([]);
   const [consumed, setConsumed] = useState<string[]>([]);
-  const [coins, setCoins] = useState(0);
+  const [vaultReward, setVaultReward] = useState(0);
+  const [completionCount, setCompletionCount] = useState(0);
+  const [completedLineKeys, setCompletedLineKeys] = useState<string[]>([]);
   const [lives, setLives] = useState(3);
   const [questionDeadline, setQuestionDeadline] = useState<number | null>(null);
   const [lineDeadline, setLineDeadline] = useState<number | null>(null);
@@ -121,7 +125,7 @@ export const useGameRuntime = (params: {
       }
       let query = supabase
         .from("slate_game_progress")
-        .select("id, question_index, current_line, completed_question_ids, consumed_reward_keys, coins, lives, status")
+        .select("id, question_index, current_line, completed_question_ids, completed_line_keys, consumed_reward_keys, coins, vault_reward, completion_count, lives, status")
         .eq("game_id", game.id)
         .eq("student_id", studentId);
       query = assignmentId
@@ -136,6 +140,9 @@ export const useGameRuntime = (params: {
         completed_question_ids: string[] | null;
         consumed_reward_keys: string[] | null;
         coins: number;
+        vault_reward: number;
+        completion_count: number;
+        completed_line_keys: string[] | null;
         lives: number;
         status: string;
       } | null;
@@ -145,7 +152,10 @@ export const useGameRuntime = (params: {
         setCurrentLine(Math.max(1, row.current_line));
         setCompletedQuestionIds(row.completed_question_ids ?? []);
         setConsumed(row.consumed_reward_keys ?? []);
-        setCoins(row.coins);
+        setVaultReward(row.vault_reward ?? row.coins ?? 0);
+        setCompletionCount(row.completion_count ?? row.completed_line_keys?.length ?? 0);
+        setCompletedLineKeys(row.completed_line_keys ?? []);
+        awarded.current = new Set(row.completed_line_keys ?? []);
         setLives(row.lives);
         setStatus(row.status === "complete" ? "complete" : "in_progress");
       } else {
@@ -169,7 +179,10 @@ export const useGameRuntime = (params: {
           current_line: currentLine,
           completed_question_ids: completedQuestionIds,
           consumed_reward_keys: consumed,
-          coins,
+          coins: vaultReward,
+          vault_reward: vaultReward,
+          completion_count: completionCount,
+          completed_line_keys: completedLineKeys,
           lives,
           status,
         };
@@ -188,7 +201,7 @@ export const useGameRuntime = (params: {
     return () => window.clearTimeout(handle);
   }, [
     ready, testMode, studentId, game, assignmentId, questionIndex, currentLine,
-    completedQuestionIds, consumed, coins, lives, status,
+    completedQuestionIds, completedLineKeys, consumed, vaultReward, completionCount, lives, status,
   ]);
 
   /* ---- question timer ------------------------------------------------ */
@@ -204,12 +217,12 @@ export const useGameRuntime = (params: {
     expiredLines.current = new Set();
   }, [question, startQuestionTimer]);
 
-  /** A Life gives back a teacher-set fraction of the ORIGINAL question time. */
-  const lifeSeconds = useCallback(
+  /** A Life gives back the teacher-set multiple of the total Game/question time. */
+  const lifeTimeSeconds = useCallback(
     () =>
-      fractionSeconds(
+      lifeSeconds(
         question?.questionTimerSeconds ?? null,
-        game?.settings.life?.fraction ?? "full",
+        game?.settings.life?.multiplier ?? 1,
       ),
     [question, game],
   );
@@ -230,7 +243,7 @@ export const useGameRuntime = (params: {
           return 0;
         }
         // completed lines stay completed; the life buys more time, nothing else
-        const seconds = lifeSeconds();
+        const seconds = lifeTimeSeconds();
         setMessage(
           seconds
             ? `Time ran out — one life used, ${Math.round(seconds / 60) || 1} more minute(s) of question time.`
@@ -241,7 +254,7 @@ export const useGameRuntime = (params: {
       });
     }, 500);
     return () => window.clearInterval(tick);
-  }, [questionDeadline, lifeSeconds, startQuestionTimer]);
+  }, [questionDeadline, lifeTimeSeconds, startQuestionTimer]);
 
   /* ---- line rewards -------------------------------------------------- */
   // Resolved ONCE per completed line. The Hourglass pays only when the line's
@@ -254,7 +267,7 @@ export const useGameRuntime = (params: {
     const work = workRef.current[lineNumber - 1] ?? "";
     const inTime = !expiredLines.current.has(lineNumber);
     const keys: string[] = [];
-    let coinGain = 0;
+    let vaultGain = 0;
     let lifeGain = 0;
     let secondsGain = 0;
 
@@ -268,7 +281,7 @@ export const useGameRuntime = (params: {
         const wanted = reward.expression ?? row.vaultExpression;
         if (!vaultMatches(wanted, work)) continue;
         keys.push(key);
-        coinGain += reward.coins ?? row.vaultCoins;
+        vaultGain += reward.coins ?? row.vaultCoins;
         continue;
       }
 
@@ -278,16 +291,51 @@ export const useGameRuntime = (params: {
         if (inTime) secondsGain += row.hourglassSeconds;
         continue;
       }
-      coinGain += REWARD_COINS[reward.type] ?? 0;
       lifeGain += REWARD_LIVES[reward.type] ?? 0;
     }
 
     if (keys.length === 0) return;
     setConsumed((prev) => [...prev, ...keys]);
-    if (coinGain) setCoins((prev) => prev + coinGain);
+    if (vaultGain) setVaultReward((prev) => prev + vaultGain);
     if (lifeGain) setLives((prev) => Math.max(0, prev + lifeGain));
     if (secondsGain) {
       setQuestionDeadline((prev) => (prev ? prev + secondsGain * 1000 : prev));
+    }
+  }, [question, lines, consumed]);
+
+  /* Vault Codes listen to live mathematical work. They are independent of the
+     final-answer completion event and each opens at most once. */
+  useEffect(() => {
+    if (!question) return;
+    for (const row of lines) {
+      if (row.isQuestion) continue;
+      const work = lineText[row.line - 1] ?? "";
+      if (!work) continue;
+      for (const reward of row.rewards) {
+        if (reward.type !== "math-vault") continue;
+        const key = rewardKey(question.questionRowId, row.line, reward.id);
+        if (consumed.includes(key) || !vaultMatches(reward.expression, work)) continue;
+        setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
+        setVaultReward((prev) => prev + Math.max(0, reward.coins ?? row.vaultCoins));
+      }
+    }
+  }, [question, lines, lineText, consumed]);
+
+  const consumeWorldReward = useCallback((lineNumber: number, renderedRewardId: string) => {
+    if (!question) return;
+    const row = lines.find((item) => item.line === lineNumber);
+    const prefix = `${lineNumber}-`;
+    const originalId = renderedRewardId.startsWith(prefix)
+      ? renderedRewardId.slice(prefix.length)
+      : renderedRewardId;
+    const reward = row?.rewards.find((item) => item.id === originalId);
+    if (!reward || reward.type === "time-shard") return;
+    const key = rewardKey(question.questionRowId, lineNumber, reward.id);
+    if (consumed.includes(key)) return;
+    setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
+    if (reward.type === "retry-heart") setLives((prev) => prev + 1);
+    if (reward.type === "math-vault") {
+      setVaultReward((prev) => prev + Math.max(0, reward.coins ?? row?.vaultCoins ?? 0));
     }
   }, [question, lines, consumed]);
 
@@ -323,6 +371,9 @@ export const useGameRuntime = (params: {
         awarded.current.add(key);
         const index = question.lineIds.indexOf(awardedId);
         if (index >= 0) {
+          const lineKey = `${question.questionRowId}:${awardedId}`;
+          setCompletedLineKeys((prev) => prev.includes(lineKey) ? prev : [...prev, lineKey]);
+          setCompletionCount((prev) => prev + 1);
           setCompletedLines((prev) => (prev.includes(index + 1) ? prev : [...prev, index + 1]));
           consumeLine(index + 1);
           setEarnedMarks((prev) => prev + (question.lineMarks[index] ?? 0));
@@ -418,7 +469,9 @@ export const useGameRuntime = (params: {
     setCompletedQuestionIds([]);
     setCompletedLines([]);
     setConsumed([]);
-    setCoins(0);
+    setVaultReward(0);
+    setCompletionCount(0);
+    setCompletedLineKeys([]);
     setLives(game?.status?.lives ?? 3);
     setEarnedMarks(0);
     setStatus("in_progress");
@@ -439,7 +492,8 @@ export const useGameRuntime = (params: {
     completedQuestionIds,
     completedLines,
     consumedRewardKeys: consumed,
-    coins,
+    vaultReward,
+    completionCount,
     lives,
     questionDeadline,
     lineDeadline,
@@ -448,6 +502,7 @@ export const useGameRuntime = (params: {
     totalMarks,
     message,
     onLineContext,
+    consumeWorldReward,
     selectLine,
     goToQuestion,
     restartQuestion,
