@@ -39,7 +39,6 @@ const rowClass =
 
 export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
   const [questions, setQuestions] = useState<GameQuestion[]>([]);
-  const [picker, setPicker] = useState<PickableQuestion[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
