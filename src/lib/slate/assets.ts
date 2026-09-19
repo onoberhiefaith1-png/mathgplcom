@@ -8,7 +8,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 const BUCKET = "game-assets";
-export const MAX_ASSET_BYTES = 12 * 1024 * 1024;
+export const MAX_ASSET_BYTES = 1000 * 1024 * 1024; // 1 GB
 
 const extension = (name: string) => {
   const dot = name.lastIndexOf(".");
