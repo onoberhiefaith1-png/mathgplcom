@@ -1167,7 +1167,14 @@ export function SlateColumn({
           return (
             <group key={slot.id} position={[0, -region.centre, SLATE_FRONT]}>
               {/* the section is built out of the material itself */}
-              <group position={[surfaceX, surfaceY, 0]}>
+              <group
+                position={[surfaceX, surfaceY, 0]}
+                onPointerDown={(event) => {
+                  if (!readOnlyWriting) return;
+                  event.stopPropagation();
+                  onSelect({ kind: "slot", slotId: slot.id });
+                }}
+              >
                 <RegionSurface
                   surface={lineSurface}
                   build={lineBuild}

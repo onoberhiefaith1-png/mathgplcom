@@ -15,7 +15,7 @@
 - [x] Grow each surface with wrapped content while preserving the gap to the following surface.
 - [x] Size each Play surface independently from its own rendered content within responsive 5% viewport margins.
 - [x] Route surface, scroll, and Floating Numbers navigation through one Game line selector.
-- [ ] Verify Surface 0, direct Surface 7 selection, note order, wrapping, and non-overlap in the authenticated live Game.
+- [ ] Verify the exact 5%–95% live viewport band and direct Surface 1/2/4/7 activation in the authenticated Game.
 
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.
