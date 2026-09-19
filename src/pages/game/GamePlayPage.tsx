@@ -165,11 +165,15 @@ const GamePlayPage = () => {
         rewards: row.rewards.map((reward) => {
           const key = `${question.questionRowId}:${row.line}:${reward.id}`;
           const used = runtime.consumedRewardKeys.includes(key);
+          // it stays on the slate while its own effect is still playing
+          const playing = celebrating.includes(key);
           return {
             ...reward,
             id: `${row.line}-${reward.id}`,
-            hidden: used,
-            state: used ? "archived" : row.line === runtime.currentLine ? "active" : "dormant",
+            hidden: used && !playing,
+            state: used && !playing
+              ? "archived"
+              : row.line === runtime.currentLine || playing ? "active" : "dormant",
           };
         }),
       };
