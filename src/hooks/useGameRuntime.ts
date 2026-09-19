@@ -380,14 +380,14 @@ export const useGameRuntime = (params: {
     setCompletedLines([]);
   }, [boards.length]);
 
-  /** A tapped Game Line. Never jumps past the line the student has reached. */
+  /** A tapped Game surface selects its one-to-one Floating Numbers Line. */
   const selectLine = useCallback((line: number) => {
     if (!Number.isFinite(line)) return;
     const target = Math.floor(line);
     if (target < 1) return;
-    const reached = Math.max(1, ...completedLines.map((l) => l + 1), currentLine);
-    setCurrentLine(Math.min(target, reached));
-  }, [completedLines, currentLine]);
+    const lastLine = Math.max(1, lines.length - 1);
+    setCurrentLine(Math.min(target, lastLine));
+  }, [lines.length]);
 
   const restartQuestion = useCallback(() => {
     startQuestionTimer(question?.questionTimerSeconds ?? null);

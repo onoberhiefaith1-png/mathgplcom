@@ -27,6 +27,9 @@ export const PX_PER_UNIT = 220;
 export const INNER_W = SLATE_W - 0.9;
 export const TEXT_W_PX = Math.round(INNER_W * PX_PER_UNIT);
 
+/** Game Play writes from 5% to 95% of the full slate width. */
+export const GAME_WRITING_WIDTH = SLATE_W * 0.9;
+
 
 const REGION_PAD = 0.36;
 
@@ -49,8 +52,8 @@ export interface SlateLayout {
   maxScroll: number;
 }
 
-const countLines = (text: string, fontSize: number) => {
-  const perLine = Math.max(12, Math.floor(TEXT_W_PX / (fontSize * 0.58)));
+const countLines = (text: string, fontSize: number, width: number) => {
+  const perLine = Math.max(12, Math.floor((width * PX_PER_UNIT) / (fontSize * 0.58)));
   return text
     .split("\n")
     .reduce((sum, line) => sum + Math.max(1, Math.ceil(line.length / perLine)), 0);
@@ -63,13 +66,15 @@ export const buildLayout = (
   spacing = 0.12,
   /** Measured height of the rendered 3D text, per slot id, in world units. */
   measured: Record<string, number> = {},
+  /** Exact renderer width, so estimated and measured wrapping share edges. */
+  writingWidth = INNER_W,
 ): SlateLayout => {
   let cursor = 0.5;
   // one line of text, in world units — scales with the chosen size so a very
   // large equation reserves the right space before it has been measured
   const rowH = Math.max(0.16, (fontSize * 1.25) / PX_PER_UNIT);
   const regions = slots.map((slot, index) => {
-    const lines = Math.max(1, countLines(slot.text || slot.hiddenContent || "", fontSize));
+    const lines = Math.max(1, countLines(slot.text || slot.hiddenContent || "", fontSize, writingWidth));
     const estimate = lines * rowH;
     const real = measured[slot.id];
     const height = REGION_PAD * 2 + Math.max(rowH, real !== undefined && real > 0 ? real : estimate);

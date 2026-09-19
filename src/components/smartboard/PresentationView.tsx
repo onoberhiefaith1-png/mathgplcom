@@ -3516,6 +3516,18 @@ const PresentationView = ({
     setActiveAssistant((prev) => prev ?? "numbers");
   }, [gameChrome]);
 
+  // Clicking a Game writing surface returns keyboard input to the existing
+  // Floating Numbers capture after the canvas receives the pointer event.
+  useEffect(() => {
+    if (!gameChrome) return;
+    const focusFloatingInput = () => {
+      setActiveAssistant("numbers");
+      requestAnimationFrame(() => focusCapture());
+    };
+    window.addEventListener("game:focus-floating-input", focusFloatingInput);
+    return () => window.removeEventListener("game:focus-floating-input", focusFloatingInput);
+  }, [gameChrome, focusCapture]);
+
   // GAME LINES OWN LINE SELECTION. When the Game sets the active line, the
   // panel follows it — one shared line state, never a second cursor.
   useEffect(() => {
