@@ -244,55 +244,6 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
           );
         })}
 
-        {picker ? (
-          <div className="rounded border border-amber-200/20 bg-black/40 p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-[0.2em] text-amber-200/60">
-                Choose a question
-              </span>
-              <button onClick={() => setPicker(null)} className="text-amber-100/40">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            {picker.length === 0 ? (
-              <p className="mt-2 text-[11px] text-amber-100/50">
-                No prepared questions found. Create Floating Numbers for a question in Lesson
-                Notes first.
-              </p>
-            ) : (
-              <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto">
-                {picker.map((p) => (
-                  <li key={p.subsectionId}>
-                    <button
-                      onClick={async () => {
-                        const ok = await assignQuestion(game.id, p.notebookId, p.subsectionId);
-                        toast[ok ? "success" : "error"](
-                          ok ? "Question added to this game." : "That question is already added.",
-                        );
-                        setPicker(null);
-                        refresh();
-                      }}
-                      className="w-full rounded px-2 py-1.5 text-left text-[11px] text-amber-100/70 hover:bg-amber-200/10"
-                    >
-                      <span className="block truncate">{p.notebookTitle}</span>
-                      <span className="block text-[10px] uppercase tracking-wider text-amber-100/40">
-                        {p.label} · {p.lineCount} lines
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : (
-          <button
-            onClick={async () => setPicker(await listPickableQuestions())}
-            className="flex w-full items-center justify-center gap-1.5 rounded border border-amber-300/50 bg-amber-300/10 px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-amber-100 hover:bg-amber-300/20"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add question
-          </button>
-        )}
-
         <p className="pt-2 text-[10px] leading-relaxed text-amber-100/35">
           Timing is part of the question: set the question time and any single-line time in
           Floating Numbers. A line with its own time automatically becomes a Timer Reward here.
