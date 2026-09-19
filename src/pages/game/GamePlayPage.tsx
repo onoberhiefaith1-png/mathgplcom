@@ -114,6 +114,29 @@ const GamePlayPage = () => {
   // A new question starts on a clean slate — no test or previous working.
   useEffect(() => { setLineText({}); }, [runtime.question?.questionRowId]);
 
+  /* ---- reward celebration -------------------------------------------- */
+  // A finished line pays its rewards. The physical object plays its own
+  // existing effect where it stands, and only disappears once it has finished.
+  const [celebrating, setCelebrating] = useState<string[]>([]);
+  const seenRewards = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const fresh = runtime.consumedRewardKeys.filter((key) => !seenRewards.current.has(key));
+    if (fresh.length === 0) return;
+    fresh.forEach((key) => seenRewards.current.add(key));
+    setCelebrating((prev) => [...prev, ...fresh]);
+    fresh.forEach((key) => {
+      const [, line, ...rest] = key.split(":");
+      const rewardId = rest.join(":");
+      window.dispatchEvent(new CustomEvent("slate:activate-reward", {
+        detail: { slotId: `line-${line}`, rewardId: `${line}-${rewardId}`, preview: false },
+      }));
+    });
+    const handle = window.setTimeout(() => {
+      setCelebrating((prev) => prev.filter((key) => !fresh.includes(key)));
+    }, 2600);
+    return () => window.clearTimeout(handle);
+  }, [runtime.consumedRewardKeys]);
+
   /** The physical slate for THIS question: Line 0 plus one Line per solving line. */
   const displayGame = useMemo<Game | null>(() => {
     if (!game || runtime.lines.length === 0 || !runtime.question) return game;
