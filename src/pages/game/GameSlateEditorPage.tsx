@@ -32,6 +32,7 @@ export default function GameSlateEditorPage() {
   const [muted, setMutedState] = useState(false);
   const [saving, setSaving] = useState(false);
   const loadedRef = useRef(false);
+  const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
 
   useEffect(() => setMutedState(isMuted()), []);
@@ -70,11 +71,15 @@ export default function GameSlateEditorPage() {
   }, [gameId, navigate]);
 
   const patchGame = useCallback(
-    (patch: Partial<Game>) => setGame((g) => (g ? { ...g, ...patch } : g)),
+    (patch: Partial<Game>) => {
+      dirtyRef.current = true;
+      setGame((g) => (g ? { ...g, ...patch } : g));
+    },
     [],
   );
 
   const patchSlot = useCallback((slotId: string, patch: Partial<Slot>) => {
+    dirtyRef.current = true;
     setGame((g) =>
       g
         ? { ...g, slots: g.slots.map((s) => (s.id === slotId ? { ...s, ...patch } : s)) }
@@ -166,7 +171,8 @@ export default function GameSlateEditorPage() {
       setSaving(true);
       const result = await saveGameResult(game);
       setSaving(false);
-      if (!result.ok) toast.error(result.message ?? "Your latest Game change could not be saved.");
+      if (result.ok) dirtyRef.current = false;
+      else toast.error(result.message ?? "Your latest Game change could not be saved.");
     }, 900);
     return () => {
       if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
@@ -175,7 +181,7 @@ export default function GameSlateEditorPage() {
 
   useEffect(() => {
     const protect = (event: BeforeUnloadEvent) => {
-      if (!saving) return;
+      if (!dirtyRef.current && !saving) return;
       event.preventDefault();
     };
     window.addEventListener("beforeunload", protect);

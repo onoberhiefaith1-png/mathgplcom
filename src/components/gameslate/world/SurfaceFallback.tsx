@@ -1,5 +1,6 @@
 import type { Game } from "@/lib/slate/types";
 import { SLATE_FRONT, SLATE_Z, VIEW_TOP, buildLayout } from "@/lib/slate/layout";
+import { defaultScene } from "@/lib/slate/environments";
 
 /**
  * Asset-free first paint for the Game slate.
@@ -17,7 +18,7 @@ export function SurfaceFallback({ game }: { game: Game }) {
       hiddenContent: "hiddenContent" in slot ? slot.hiddenContent : "",
       contentState: "hidden" as const,
       rewards: [],
-      scene: "scene" in slot ? slot.scene : {},
+      scene: "scene" in slot ? slot.scene : defaultScene(0),
     })),
     game.settings.text?.size ?? 30,
   );
