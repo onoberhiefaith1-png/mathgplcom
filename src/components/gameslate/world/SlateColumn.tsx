@@ -66,6 +66,12 @@ import type {
   Slot,
 } from "@/lib/slate/types";
 
+// The universal completion object appears on every board, so its image is
+// warmed as soon as this module loads — off the render path.
+preloadTextures(REWARDS.filter((r) => r.id === "mark-seal").map((r) => r.art));
+
+
+
 export interface ScrollState {
   target: number;
   current: number;
