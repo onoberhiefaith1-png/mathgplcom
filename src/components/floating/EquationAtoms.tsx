@@ -228,11 +228,18 @@ export const EquationAtoms = ({
 
   const commit = useCallback(() => {
     if (selected.size === 0) return;
-    const next = applySelection(tree, atoms, chips, selected, clickOrder);
-    onApply(next, atoms);
+    if (destination === "vault" && onApplyVault) {
+      // Same engine, empty chip set: the result is purely this selection.
+      const built = applySelection(tree, atoms, [], selected, clickOrder);
+      const expression = built.map((c) => c.value).join(" ").trim();
+      if (expression) onApplyVault(expression);
+    } else {
+      const next = applySelection(tree, atoms, chips, selected, clickOrder);
+      onApply(next, atoms);
+    }
     setSelected(new Set());
     setClickOrder([]);
-  }, [tree, atoms, chips, selected, clickOrder, onApply]);
+  }, [tree, atoms, chips, selected, clickOrder, onApply, destination, onApplyVault]);
 
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
