@@ -15,6 +15,8 @@ export function SurfaceFallback({ game }: { game: Game }) {
   if (typeof console !== "undefined") {
     console.info("[slate] placeholder surfaces on screen — real surfaces still mounting");
   }
+  const slots = game.slots.length > 0 ? game.slots : [{ id: "surface-fallback" }];
+
 
   const layout = buildLayout(
     slots.map((slot) => ({
