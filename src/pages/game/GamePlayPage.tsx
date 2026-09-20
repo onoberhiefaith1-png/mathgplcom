@@ -25,15 +25,13 @@ import { ensureTestClass } from "@/lib/floating/testBoard";
 import { patternLengthOf } from "@/lib/slate/pattern";
 import { resolveRenderedLineSlot } from "@/lib/slate/lineSurfaces";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
-import { formatMmSs } from "@/lib/time/mmss";
+import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { getReward } from "@/lib/slate/rewards";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 
-const secondsLeft = (deadline: number | null) =>
-  deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : 0;
 
 const GamePlayPage = () => {
   const { gameId } = useParams<{ gameId: string }>();
@@ -50,7 +48,6 @@ const GamePlayPage = () => {
   const [lineText, setLineText] = useState<Record<number, string>>({});
   const [resetEpoch, setResetEpoch] = useState(0);
   const [resetting, setResetting] = useState(false);
-  const [surfaceSelection, setSurfaceSelection] = useState<Selection>({ kind: "slot", slotId: "line-1" });
 
   useEffect(() => {
     if (!gameId) return;
@@ -116,13 +113,14 @@ const GamePlayPage = () => {
     lineText,
   });
 
-  /** One selector shared by surfaces, scrolling and Floating Numbers. */
+  /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
+   *  There is no second copy of the active line: the world's selection is
+   *  derived from the runtime, so a tap can never be reversed by a sync. */
   const chosenAtRef = useRef(0);
   const setActiveLine = (line: number, focusInput = false) => {
     if (!Number.isFinite(line) || line < 1 || line >= runtime.lines.length) return;
     chosenAtRef.current = Date.now();
     runtime.selectLine(line);
-    setSurfaceSelection({ kind: "slot", slotId: `line-${line}` });
     if (focusInput) window.dispatchEvent(new CustomEvent("game:focus-floating-input"));
   };
 
@@ -131,10 +129,10 @@ const GamePlayPage = () => {
    *  otherwise the glide could drag the chosen line back to a neighbour. */
   const focusSettledLine = (_line: number) => {};
 
-  useEffect(() => {
-    if (runtime.currentLine < 1) return;
-    setSurfaceSelection({ kind: "slot", slotId: `line-${runtime.currentLine}` });
-  }, [runtime.currentLine]);
+  const surfaceSelection = useMemo<Selection>(
+    () => ({ kind: "slot", slotId: `line-${Math.max(1, runtime.currentLine)}` }),
+    [runtime.currentLine],
+  );
 
   // A new question starts on a clean slate — no test or previous working.
   useEffect(() => { setLineText({}); }, [runtime.question?.questionRowId]);
@@ -246,14 +244,6 @@ const GamePlayPage = () => {
     }
   };
 
-  const questionRemaining = secondsLeft(runtime.questionDeadline);
-  const lineRemaining = secondsLeft(runtime.lineDeadline);
-  const [, forceTick] = useState(0);
-  useEffect(() => {
-    if (!runtime.questionDeadline && !runtime.lineDeadline) return;
-    const tick = window.setInterval(() => forceTick((n) => n + 1), 500);
-    return () => window.clearInterval(tick);
-  }, [runtime.questionDeadline, runtime.lineDeadline]);
 
   if (loading) {
     return <div className="p-8 text-sm text-muted-foreground">Loading Game…</div>;
@@ -389,16 +379,20 @@ const GamePlayPage = () => {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
-          {questionRemaining > 0 && (
-            <span className="inline-flex items-center gap-1" title="Question time">
-              <Hourglass className="h-4 w-4 text-sky-500" /> TIME {formatMmSs(questionRemaining)}
-            </span>
-          )}
-          {lineRemaining > 0 && (
-            <span className="inline-flex items-center gap-1" title="Line time">
-              <Hourglass className="h-4 w-4 text-emerald-500" /> {formatMmSs(lineRemaining)}
-            </span>
-          )}
+          <GameClockDisplay deadline={runtime.questionDeadline}>
+            {(label) => (
+              <span className="inline-flex items-center gap-1" title="Question time">
+                <Hourglass className="h-4 w-4 text-sky-500" /> TIME {label}
+              </span>
+            )}
+          </GameClockDisplay>
+          <GameClockDisplay deadline={runtime.lineDeadline}>
+            {(label) => (
+              <span className="inline-flex items-center gap-1" title="Line time">
+                <Hourglass className="h-4 w-4 text-emerald-500" /> {label}
+              </span>
+            )}
+          </GameClockDisplay>
           <span className="inline-flex items-center gap-1" title="Lives">
             <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
           </span>

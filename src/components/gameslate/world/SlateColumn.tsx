@@ -27,6 +27,7 @@ import {
   VaultEffect,
 } from "./Effects";
 import { playSfx } from "@/lib/slate/audio";
+import { subscribeGameClock } from "@/lib/game/runtime/clock";
 import { ensureEffectReady } from "@/lib/slate/vfx/prepare";
 import { setPerf } from "@/lib/slate/vfx/perf";
 import { ScriptStage } from "./ScriptStage";
@@ -194,15 +195,18 @@ function RewardObject({
   // hourglass: its stored time runs down while it waits to be collected
   const total = hourglass ? Math.max(1000, reward.durationMs ?? 15_000) : 0;
   const started = useRef<number | null>(null);
+  /** Guards against a duplicated pointer/click pair firing one reward twice. */
+  const lastTap = useRef(0);
   const [left, setLeft] = useState(total);
   const fading = useRef(false);
   useEffect(() => {
     if (!hourglass || editable || reward.state !== "dormant") return;
     started.current = Date.now();
-    const id = window.setInterval(() => {
-      const remaining = total - (Date.now() - (started.current ?? Date.now()));
-      // only re-render when the displayed second actually changes: a tenth-second
-      // rebuild of the slate is a visible hitch inside a running effect
+    // ONE clock drives every hourglass: no per-reward interval.
+    const stop = subscribeGameClock((now) => {
+      const remaining = total - (now - (started.current ?? now));
+      // only re-render when the displayed second actually changes: a rebuild of
+      // the slate mid-effect is a visible hitch
       setLeft((previous) =>
         Math.ceil(previous / 1000) === Math.ceil(Math.max(0, remaining) / 1000) && remaining > 400
           ? previous
@@ -210,12 +214,12 @@ function RewardObject({
       );
       if (remaining <= 0 && !fading.current) {
         fading.current = true;
-        window.clearInterval(id);
+        stop();
         // its stored energy expires: a last glow, then it dissolves
         window.setTimeout(() => onExpire?.(), 900);
       }
-    }, 100);
-    return () => window.clearInterval(id);
+    });
+    return stop;
   }, [editable, hourglass, onExpire, reward.state, total]);
 
   useFrame(({ clock }) => {
@@ -311,6 +315,11 @@ function RewardObject({
         onPointerDown={onDown}
         onClick={(event) => {
           event.stopPropagation();
+          // ONE interaction per tap: a rapid double tap or a duplicated pointer
+          // event can never activate the same reward twice.
+          const now = Date.now();
+          if (now - lastTap.current < 260) return;
+          lastTap.current = now;
           onActivate();
         }}
       >

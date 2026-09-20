@@ -12,6 +12,7 @@ import { lifeSeconds, vaultMatches } from "@/lib/slate/lineSurfaces";
 import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
+import { subscribeGameClock } from "@/lib/game/runtime/clock";
 
 export interface LineContext {
   questionId: string | null;
@@ -229,9 +230,10 @@ export const useGameRuntime = (params: {
 
   useEffect(() => {
     if (!questionDeadline) return;
-    const tick = window.setInterval(() => {
-      if (Date.now() < questionDeadline) return;
-      window.clearInterval(tick);
+    let done = false;
+    const stop = subscribeGameClock((now) => {
+      if (done || now < questionDeadline) return;
+      done = true;
       setQuestionDeadline(null);
       setLives((prev) => {
         const next = prev - 1;
@@ -252,8 +254,8 @@ export const useGameRuntime = (params: {
         startQuestionTimer(seconds || null);
         return next;
       });
-    }, 500);
-    return () => window.clearInterval(tick);
+    });
+    return stop;
   }, [questionDeadline, lifeTimeSeconds, startQuestionTimer]);
 
   /* ---- line rewards -------------------------------------------------- */
@@ -408,16 +410,17 @@ export const useGameRuntime = (params: {
   /* ---- line timer expiry --------------------------------------------- */
   useEffect(() => {
     if (!lineDeadline) return;
-    const tick = window.setInterval(() => {
-      if (Date.now() < lineDeadline) return;
-      window.clearInterval(tick);
+    let done = false;
+    const stop = subscribeGameClock((now) => {
+      if (done || now < lineDeadline) return;
+      done = true;
       // The Hourglass dissolves: no time reward, and no penalty either.
       if (timedLine.current) expiredLines.current.add(timedLine.current);
       timedLine.current = null;
       setLineDeadline(null);
       setMessage("Line time ran out — the Hourglass dissolved. Keep solving.");
-    }, 500);
-    return () => window.clearInterval(tick);
+    });
+    return stop;
   }, [lineDeadline]);
 
   const goToQuestion = useCallback((index: number) => {
