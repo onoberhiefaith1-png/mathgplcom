@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   fractionSeconds,
+  floatingTextForGameLine,
+  gameLineFromSlotId,
+  gameLineSlotId,
   lifeMultiplier,
   lifeSeconds,
   lineSurfacesInSync,
@@ -43,6 +46,16 @@ describe("Life time multiplier", () => {
 });
 
 describe("one line, one surface", () => {
+  it("keeps the physical slot and Floating Numbers index correspondence exact", () => {
+    expect(gameLineSlotId(0)).toBe("line-0");
+    expect(gameLineSlotId(4)).toBe("line-4");
+    expect(gameLineFromSlotId("line-4")).toBe(4);
+    expect(gameLineFromSlotId("preview-4")).toBeNull();
+    expect(floatingTextForGameLine({ 0: "x + 7 = 12", 3: "x = 5" }, 1)).toBe("x + 7 = 12");
+    expect(floatingTextForGameLine({ 0: "x + 7 = 12", 3: "x = 5" }, 4)).toBe("x = 5");
+    expect(floatingTextForGameLine({ 0: "working" }, 0)).toBe("");
+  });
+
   it("creates a surface per line and removes orphans", () => {
     const first = syncLineSurfaces(undefined, ["a", "b", "c"]);
     expect(Object.keys(first)).toEqual(["a", "b", "c"]);

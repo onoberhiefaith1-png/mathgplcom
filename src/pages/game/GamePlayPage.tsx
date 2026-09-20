@@ -23,7 +23,12 @@ import { loadGameAssignmentState } from "@/lib/slate/gameAssignments";
 import { ensureGameBoards, loadGameBoards, type GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { ensureTestClass } from "@/lib/floating/testBoard";
 import { patternLengthOf } from "@/lib/slate/pattern";
-import { resolveRenderedLineSlot } from "@/lib/slate/lineSurfaces";
+import {
+  floatingTextForGameLine,
+  gameLineFromSlotId,
+  gameLineSlotId,
+  resolveRenderedLineSlot,
+} from "@/lib/slate/lineSurfaces";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -134,7 +139,7 @@ const GamePlayPage = () => {
   const focusSettledLine = (_line: number) => {};
 
   const surfaceSelection = useMemo<Selection>(
-    () => ({ kind: "slot", slotId: `line-${Math.max(1, runtime.currentLine)}` }),
+    () => ({ kind: "slot", slotId: gameLineSlotId(Math.max(1, runtime.currentLine)) }),
     [runtime.currentLine],
   );
 
@@ -155,7 +160,7 @@ const GamePlayPage = () => {
       const [, line, ...rest] = key.split(":");
       const rewardId = rest.join(":");
       window.dispatchEvent(new CustomEvent("slate:activate-reward", {
-        detail: { slotId: `line-${line}`, rewardId: `${line}-${rewardId}`, preview: false },
+        detail: { slotId: gameLineSlotId(Number(line)), rewardId: `${line}-${rewardId}`, preview: false },
       }));
     });
     const handle = window.setTimeout(() => {
@@ -173,7 +178,7 @@ const GamePlayPage = () => {
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
       // teaching note only once the line has actually earned its marks.
-      const working = row.isQuestion ? "" : (lineText[row.line - 1] ?? "");
+      const working = row.isQuestion ? "" : floatingTextForGameLine(lineText, row.line);
       const note = row.isQuestion
         ? null
         : runtime.completedLines.includes(row.line)
@@ -342,22 +347,23 @@ const GamePlayPage = () => {
             selection={surfaceSelection}
             onSelect={(selection) => {
               if (selection.kind !== "slot") return;
-              const line = Number(String(selection.slotId).replace("line-", ""));
+              const line = gameLineFromSlotId(selection.slotId);
+              if (line === null) return;
               setActiveLine(line, true);
             }}
             onSlotChange={() => {}}
             onRewardMove={() => {}}
             onRewardActivate={() => {}}
             onRewardConsume={(slotId, rewardId) => {
-              const line = Number(String(slotId).replace("line-", ""));
-              if (Number.isFinite(line)) runtime.consumeWorldReward(line, rewardId);
+              const line = gameLineFromSlotId(slotId);
+              if (line !== null) runtime.consumeWorldReward(line, rewardId);
             }}
             /* the slate glides so the active Game Line is the surface in view */
-            focusSlotId={`line-${runtime.currentLine}`}
+            focusSlotId={gameLineSlotId(runtime.currentLine)}
             /* scrolling only moves the view — it never re-chooses the line */
             onFocusSlot={(slotId) => {
-              const line = Number(String(slotId).replace("line-", ""));
-              focusSettledLine(line);
+              const line = gameLineFromSlotId(slotId);
+              if (line !== null) focusSettledLine(line);
             }}
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting

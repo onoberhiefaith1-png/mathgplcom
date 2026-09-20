@@ -1287,8 +1287,13 @@ export function SlateColumn({
                             selection.kind === "reward" && selection.rewardId === reward.id
                           }
                           onDown={(event) => {
-                            if (!editable) return;
                             event.stopPropagation();
+                            if (!editable) {
+                              // A reward is part of its physical writing surface.
+                              // Select that line before the reward performs its own action.
+                              onSelect({ kind: "slot", slotId: slot.id });
+                              return;
+                            }
                             onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
                             scroll.current.locked = true;
                             setDragging({ slotId: slot.id, rewardId: reward.id });

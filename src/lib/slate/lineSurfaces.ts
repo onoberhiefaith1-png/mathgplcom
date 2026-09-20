@@ -186,6 +186,24 @@ export interface RenderedLineInput {
   rewards: RewardInstance[];
 }
 
+/** Stable physical identity for a Game line. Never derive this from array position. */
+export const gameLineSlotId = (line: number): string =>
+  `line-${Math.max(0, Math.floor(line))}`;
+
+/** Reads only canonical Game line slot ids. Decorative/editor ids are ignored. */
+export const gameLineFromSlotId = (slotId: string): number | null => {
+  const match = /^line-(\d+)$/.exec(slotId);
+  if (!match) return null;
+  const line = Number(match[1]);
+  return Number.isSafeInteger(line) ? line : null;
+};
+
+/** Floating Numbers stores solving lines zero-based; Game surfaces are one-based. */
+export const floatingTextForGameLine = (
+  lineText: Readonly<Record<number, string>>,
+  gameLine: number,
+): string => gameLine > 0 ? (lineText[gameLine - 1] ?? "") : "";
+
 /**
  * One canonical Edit/Play resolver. The saved pattern slot remains the visual
  * source of truth; a line-specific surface replaces it only when the teacher
@@ -206,7 +224,7 @@ export const resolveRenderedLineSlot = (
     : undefined;
   return {
     ...base,
-    id: `line-${row.line}`,
+    id: gameLineSlotId(row.line),
     surfaceId: explicitSurface ?? base.surfaceId ?? null,
     text: row.text,
     hiddenContent: "",
