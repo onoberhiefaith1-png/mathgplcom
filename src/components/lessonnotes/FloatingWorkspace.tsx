@@ -310,10 +310,36 @@ export const FloatingWorkspace = ({
             lineId={line.lineId}
             chips={chipsForLine}
             onApply={onAtomApply}
+            destination={gameMode ? destination : "floating"}
+            onApplyVault={onVaultApply}
             highlightedAtomIds={highlightedAtomIds}
             onAtomHover={setHoveredAtomId}
           />
         </div>
+
+        {/* GAME only: the SAME selection engine, two destinations. */}
+        {gameMode && (
+          <div
+            className="flex items-center gap-1 shrink-0"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">Destination</span>
+            {(["floating", "vault"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDestination(d)}
+                aria-pressed={destination === d}
+                className="rounded-md px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] border"
+                style={destination === d
+                  ? { background: "hsl(40 85% 42%)", borderColor: "hsl(40 85% 42%)", color: "hsl(38 38% 96%)" }
+                  : { background: "transparent", borderColor: "hsl(220 35% 18% / 0.2)", color: "hsl(220 35% 18% / 0.6)" }}
+              >
+                {d === "floating" ? "Floating Numbers" : "Vault"}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {/* The Enter, AI Edit, and Reason & Verify buttons were removed in
               favour of the always-on Floating Number AI Assistant on the
