@@ -397,12 +397,15 @@ export const EquationAtoms = ({
           onClick={(e) => { e.stopPropagation(); commit(); }}
           className="ml-2 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md"
           style={{
-            background: "hsl(220 35% 18%)",
+            background: destination === "vault" ? "hsl(40 85% 42%)" : "hsl(220 35% 18%)",
             color: "hsl(38 38% 96%)",
           }}
-          title="Apply selection (Enter)"
+          title={destination === "vault"
+            ? "Apply selection to Vault (Enter)"
+            : "Apply selection (Enter)"}
         >
-          <CornerDownLeft className="h-3 w-3" /> Apply
+          <CornerDownLeft className="h-3 w-3" />
+          {destination === "vault" ? "Apply → Vault" : "Apply"}
         </button>
       )}
     </div>
