@@ -1647,26 +1647,34 @@ const FloatingNumbersPage = () => {
             </label>
           )}
 
-          {/* Question time lives with the question — never with a Game. */}
-          <label className="inline-flex items-center gap-1.5 text-sm">
-            <input
-              type="checkbox"
-              checked={Boolean(scoring.timerEnabled)}
-              onChange={(e) => updateScoring({ timerEnabled: e.target.checked })}
-            />
-            <span className="text-foreground/60">Time this question</span>
-          </label>
-          {scoring.timerEnabled && (
-            <label className="inline-flex items-center gap-1.5 text-sm">
-              <DurationInput
-                value={scoring.timerSeconds ?? 60}
-                onChange={(seconds) => updateScoring({ timerSeconds: seconds ?? 60 })}
-                title="Time for the whole question (MM:SS)"
-                className="w-16 text-center text-sm rounded-md px-1.5 py-0.5 border border-foreground/20 bg-transparent tabular-nums"
-              />
-              <span className="text-foreground/60">mm:ss</span>
-            </label>
+          {/* GAME only: overall time. Hidden entirely when GAME is off. */}
+          {scoring.gameMode && (
+            <>
+              <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/55">
+                Game settings
+              </span>
+              <label className="inline-flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(scoring.timerEnabled)}
+                  onChange={(e) => updateScoring({ timerEnabled: e.target.checked })}
+                />
+                <span className="text-foreground/60">Overall game time</span>
+              </label>
+              {scoring.timerEnabled && (
+                <label className="inline-flex items-center gap-1.5 text-sm">
+                  <DurationInput
+                    value={scoring.timerSeconds ?? 60}
+                    onChange={(seconds) => updateScoring({ timerSeconds: seconds ?? 60 })}
+                    title="Overall time for the whole question (MM:SS)"
+                    className="w-16 text-center text-sm rounded-md px-1.5 py-0.5 border border-foreground/20 bg-transparent tabular-nums"
+                  />
+                  <span className="text-foreground/60">mm:ss</span>
+                </label>
+              )}
+            </>
           )}
+
 
           <div className="ml-auto text-sm font-semibold tabular-nums">
             Total Available = {total} {scoring.label}
