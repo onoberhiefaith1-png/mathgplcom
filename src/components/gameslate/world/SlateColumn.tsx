@@ -12,6 +12,8 @@ import type { TextBounds } from "@/lib/slate/text3d";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
 import { noiseNormalMap, surfaceMaterial } from "./materials";
 import { usePbr } from "./pbr";
+import { useAsyncTextures, preloadTextures } from "./loadTexture";
+
 import { SlateSection } from "./sections/SlateSection";
 import { NewWritingSurface } from "./sections/NewWritingSurface";
 import { getConstruction } from "./sections/construction";
