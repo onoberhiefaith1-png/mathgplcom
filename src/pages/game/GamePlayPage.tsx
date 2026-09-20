@@ -32,8 +32,6 @@ import PresentationView from "@/components/smartboard/PresentationView";
 import { getReward } from "@/lib/slate/rewards";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 
-const secondsLeft = (deadline: number | null) =>
-  deadline ? Math.max(0, Math.ceil((deadline - Date.now()) / 1000)) : 0;
 
 const GamePlayPage = () => {
   const { gameId } = useParams<{ gameId: string }>();
