@@ -96,7 +96,6 @@ const Index = () => {
         showAds={building.adsEnabled}
         routeFor={() => "/academy"}
       />
-      {building.canCustomize && <HomepageSettingsButton />}
 
       {/* Everything except the dashboard door lives at the top of the screen. */}
       <div className="fixed left-4 top-4 z-50 flex flex-col items-start gap-2 sm:left-6 sm:top-6">
