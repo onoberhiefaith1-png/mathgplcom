@@ -1565,6 +1565,19 @@ const FloatingNumbersPage = () => {
             >
               <Shuffle className="h-3.5 w-3.5" /> Shuffle
             </button>
+            {/* GAME mode. OFF by default: the generator stays clean. */}
+            <button
+              onClick={() => updateScoring({ gameMode: !scoring.gameMode })}
+              disabled={loading}
+              aria-pressed={Boolean(scoring.gameMode)}
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border disabled:opacity-40"
+              style={scoring.gameMode
+                ? { background: "hsl(40 85% 42%)", borderColor: "hsl(40 85% 42%)", color: "hsl(38 38% 96%)" }
+                : { borderColor: "hsl(220 35% 18% / 0.2)", color: "hsl(220 35% 18%)" }}
+              title="Game mode: show game times, the destination switch and Vault creation"
+            >
+              <Gamepad2 className="h-3.5 w-3.5" /> GAME {scoring.gameMode ? "✓" : ""}
+            </button>
             <button
               onClick={() => void testOnSmartboard()}
               disabled={loading || openingTest || lines.every((l) => l.fillers.length === 0)}
