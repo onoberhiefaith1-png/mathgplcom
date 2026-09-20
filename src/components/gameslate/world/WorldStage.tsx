@@ -169,6 +169,13 @@ export default function WorldStage(props: Props) {
           </Suspense>
         </Canvas>
       </WorldBoundary>
+      {gpu.alive ? null : (
+        <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
+          <div className="rounded-full border border-amber-200/25 bg-black/70 px-4 py-1.5 text-xs tracking-wide text-amber-100/80">
+            Restoring the board…
+          </div>
+        </div>
+      )}
       {showPerf ? <EffectPerfOverlay /> : null}
     </div>
   );
