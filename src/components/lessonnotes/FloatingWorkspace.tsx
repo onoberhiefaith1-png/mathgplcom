@@ -91,7 +91,11 @@ export const FloatingWorkspace = ({
   line, index, onChange, scoreLabel, scoringMode, onAiEdit, tag,
   onDeleteLine, onDuplicateLine, onCopyLine, onPasteLine,
   onMoveUp, onMoveDown, canMoveUp, canMoveDown, onRegenerateLine,
+  gameMode = false,
 }: Props) => {
+  // Where an applied selection goes. Session-only: never persisted.
+  const [destination, setDestination] = useState<"floating" | "vault">("floating");
+
 
   const fillers = applyArrangement(line.fillers, line.arrangement);
   const lineNo = tag ?? String(index + 1);
