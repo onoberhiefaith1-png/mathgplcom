@@ -94,13 +94,15 @@ export const lineConfigOf = (
 
 /**
  * Attaching or re-reading an exercise. Lines that still exist keep everything
- * the teacher configured; new lines gain a surface; removed lines lose theirs.
+ * the teacher configured; new lines gain a surface. Previously configured
+ * lines remain until an explicit teacher deletion, so a partial refresh can
+ * never silently erase a surface.
  */
 export const syncLineSurfaces = (
   current: Record<string, LineSurfaceConfig> | undefined,
   lineIds: string[],
 ): Record<string, LineSurfaceConfig> => {
-  const next: Record<string, LineSurfaceConfig> = {};
+  const next: Record<string, LineSurfaceConfig> = { ...(current ?? {}) };
   for (const id of lineIds) {
     if (!id) continue;
     next[id] = normalizeLineConfig(id, current?.[id]);
@@ -108,14 +110,13 @@ export const syncLineSurfaces = (
   return next;
 };
 
-/** True when the saved configuration already matches these lines exactly. */
+/** True when every reported line already has saved configuration. */
 export const lineSurfacesInSync = (
   current: Record<string, LineSurfaceConfig> | undefined,
   lineIds: string[],
 ): boolean => {
   const wanted = lineIds.filter(Boolean);
-  const have = Object.keys(current ?? {});
-  return have.length === wanted.length && wanted.every((id) => Boolean(current?.[id]));
+  return wanted.every((id) => Boolean(current?.[id]));
 };
 
 /* ── Vault matching ─────────────────────────────────────────────────────────

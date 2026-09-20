@@ -67,6 +67,8 @@ export default function WorldStage(props: Props) {
     setShowPerf(new URLSearchParams(window.location.search).has("perf"));
   }, []);
 
+  useEffect(() => setStageReady(false), [gpu.resetKey]);
+
   useEffect(() => {
     const node = host.current;
     if (!node) return;
@@ -137,8 +139,7 @@ export default function WorldStage(props: Props) {
               <fog attach="fog" args={[room.fog.colour, room.fog.near, room.fog.far]} />
             </>
           ) : null}
-          <Suspense fallback={<SurfaceFallback game={props.game} />}>
-            <Suspense fallback={<SurfaceFallback game={props.game} />}>
+          <Suspense fallback={null}>
             {room ? (
               <>
                 {/* photographed interior lighting: real reflections and ambient bounce */}
@@ -166,8 +167,11 @@ export default function WorldStage(props: Props) {
                 />
               </>
             )}
-            </Suspense>
+          </Suspense>
+          <Suspense fallback={null}>
             <SunLight sun={props.game.settings.assets?.sun ?? null} />
+          </Suspense>
+          <Suspense fallback={<SurfaceFallback game={props.game} />}>
             <SlateColumn room={stage} roomless={!room} scroll={scroll} {...props} />
           </Suspense>
         </Canvas>

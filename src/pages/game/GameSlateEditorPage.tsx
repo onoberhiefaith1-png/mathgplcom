@@ -165,7 +165,7 @@ export default function GameSlateEditorPage() {
   // Every teacher change is account-backed. Navigation, refresh, or opening
   // Play can no longer discard a surface change made since the last button save.
   useEffect(() => {
-    if (!game || !loadedRef.current) return;
+    if (!game || !loadedRef.current || !dirtyRef.current) return;
     if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(async () => {
       setSaving(true);
@@ -228,6 +228,7 @@ export default function GameSlateEditorPage() {
     try {
       const result = await saveGameResult(game);
       if (result.ok) {
+        dirtyRef.current = false;
         toast.success("Game saved to your account.");
       } else {
         toast.error(result.message ?? "The game could not be saved.");
@@ -247,8 +248,8 @@ export default function GameSlateEditorPage() {
     <div className="flex h-screen w-full overflow-hidden bg-[#0b0906] text-amber-50">
       {/* LEFT — the live 3D world */}
       <div className="relative min-w-0 flex-1">
-        <ClientOnly fallback={<div className="absolute inset-0 bg-[#0b0906]" />}>
-          <Suspense fallback={<div className="absolute inset-0 bg-[#0b0906]" />}>
+        <ClientOnly fallback={<BoardLoadingShell />}>
+          <Suspense fallback={<BoardLoadingShell />}>
             <WorldStage
               game={stageGame}
               mode={mode}
