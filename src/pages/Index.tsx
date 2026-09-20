@@ -121,6 +121,7 @@ const Index = () => {
             ))}
           </div>
         )}
+        {building.canCustomize && <HomepageSettingsButton />}
         {/* Same door for every account type — one shared Academy world. */}
         <Link
           to="/academy"
