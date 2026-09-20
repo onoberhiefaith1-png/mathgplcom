@@ -10,7 +10,12 @@ import { defaultScene } from "@/lib/slate/environments";
  * failed, so the writing surfaces never collapse into an unexplained blank.
  */
 export function SurfaceFallback({ game }: { game: Game }) {
-  const slots = game.slots.length > 0 ? game.slots : [{ id: "surface-fallback" }];
+  // A visible placeholder is always a first-frame state, never a resting one.
+  // Saying so out loud means a stuck board can never be mistaken for a design.
+  if (typeof console !== "undefined") {
+    console.info("[slate] placeholder surfaces on screen — real surfaces still mounting");
+  }
+
   const layout = buildLayout(
     slots.map((slot) => ({
       id: slot.id,
