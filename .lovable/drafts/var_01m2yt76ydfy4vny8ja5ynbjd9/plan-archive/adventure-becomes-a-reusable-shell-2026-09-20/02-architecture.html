@@ -1,0 +1,67 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: var(--fg-secondary); }
+    .tag { font-size: 11px; fill: var(--fg-secondary); text-transform: lowercase; }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .zone { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: var(--fg-secondary); stroke-width: 1; fill: none; }
+    .acc { fill: var(--bg-accent-translucent); stroke: var(--fg-accent); stroke-width: 1; }
+    .accink { font-size: 14px; font-weight: 480; fill: var(--fg-accent); }
+  </style>
+  <defs>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6 z" fill="var(--fg-secondary)"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="16" y="18" width="150" height="52" rx="8"/>
+  <text class="lbl" x="91" y="42" text-anchor="middle">Lesson Note</text>
+  <text class="sm" x="91" y="59" text-anchor="middle">Q1 Q2 Q3 Q4 …</text>
+
+  <rect class="box" x="245" y="18" width="150" height="52" rx="8"/>
+  <text class="lbl" x="320" y="42" text-anchor="middle">Class A</text>
+  <text class="sm" x="320" y="59" text-anchor="middle">assignment context</text>
+
+  <rect class="box" x="474" y="18" width="150" height="52" rx="8"/>
+  <text class="lbl" x="549" y="42" text-anchor="middle">Runtown</text>
+  <text class="sm" x="549" y="59" text-anchor="middle">reusable shell</text>
+
+  <line class="wire" x1="166" y1="44" x2="239" y2="44" marker-end="url(#ar)"/>
+  <line class="wire" x1="395" y1="44" x2="468" y2="44" marker-end="url(#ar)"/>
+  <text class="tag" x="202" y="36" text-anchor="middle">supplies</text>
+  <text class="tag" x="431" y="36" text-anchor="middle">link</text>
+
+  <rect class="zone" x="16" y="100" width="608" height="212" rx="8"/>
+  <text class="tag" x="28" y="118">class a · runtown</text>
+
+  <rect class="acc" x="36" y="132" width="168" height="46" rx="8"/>
+  <text class="accink" x="120" y="160" text-anchor="middle">Progress Bar A</text>
+  <rect class="box" x="236" y="132" width="168" height="46" rx="8"/>
+  <text class="lbl" x="320" y="160" text-anchor="middle">Progress Bar B</text>
+  <rect class="box" x="436" y="132" width="168" height="46" rx="8"/>
+  <text class="lbl" x="520" y="160" text-anchor="middle">Progress Bar C</text>
+
+  <line class="wire" x1="120" y1="178" x2="120" y2="204" marker-end="url(#ar)"/>
+  <line class="wire" x1="320" y1="178" x2="320" y2="204" marker-end="url(#ar)"/>
+  <line class="wire" x1="520" y1="178" x2="520" y2="204" marker-end="url(#ar)"/>
+
+  <rect class="box" x="36" y="210" width="168" height="40" rx="8"/>
+  <text class="lbl" x="120" y="235" text-anchor="middle">Q1, Q3, Q6</text>
+  <rect class="box" x="236" y="210" width="168" height="40" rx="8"/>
+  <text class="lbl" x="320" y="235" text-anchor="middle">Q2, Q5</text>
+  <rect class="box" x="436" y="210" width="168" height="40" rx="8"/>
+  <text class="lbl" x="520" y="235" text-anchor="middle">Q4, Q7</text>
+
+  <line class="wire" x1="120" y1="250" x2="120" y2="272" marker-end="url(#ar)"/>
+  <line class="wire" x1="320" y1="250" x2="320" y2="272" marker-end="url(#ar)"/>
+  <line class="wire" x1="520" y1="250" x2="520" y2="272" marker-end="url(#ar)"/>
+
+  <rect style="fill: var(--bg-muted);" x="36" y="278" width="168" height="24" rx="8"/>
+  <text class="sm" x="120" y="294" text-anchor="middle">own marks · own pass %</text>
+  <rect style="fill: var(--bg-muted);" x="236" y="278" width="168" height="24" rx="8"/>
+  <text class="sm" x="320" y="294" text-anchor="middle">own marks · own pass %</text>
+  <rect style="fill: var(--bg-muted);" x="436" y="278" width="168" height="24" rx="8"/>
+  <text class="sm" x="520" y="294" text-anchor="middle">own marks · own pass %</text>
+</svg>

@@ -48,8 +48,6 @@ export async function resolveQuestionRef(subsectionId: string | null): Promise<Q
 export interface AssignmentState {
   /** class_id → active assessment id */
   assignmentByClass: Map<string, string>;
-  /** class_id → active class_adventure_notes id */
-  adventureByClass: Map<string, string>;
 }
 
 /** Which classes currently hold this exact question, per target. */
@@ -58,9 +56,8 @@ export async function loadAssignmentState(
   ref: QuestionRef,
 ): Promise<AssignmentState> {
   const assignmentByClass = new Map<string, string>();
-  const adventureByClass = new Map<string, string>();
   if (!notebookId || (!ref.questionKey && !ref.sectionId)) {
-    return { assignmentByClass, adventureByClass };
+    return { assignmentByClass };
   }
 
   // Expired children are historical rows, not active checkbox state.
@@ -76,27 +73,17 @@ export async function loadAssignmentState(
     (ref.questionKey && row.question_key === ref.questionKey) ||
     (!row.question_key && ref.sectionId && row.section_id === ref.sectionId);
 
-  const [{ data: assessments }, { data: adventures }] = await Promise.all([
-    supabase
-      .from("assessments")
-      .select("id, class_id, kind, section_id, question_key")
-      .eq("notebook_id", notebookId)
-      .neq("kind", "adventure")
-      .is("unassigned_at", null),
-    supabase
-      .from("class_adventure_notes")
-      .select("id, class_id, section_id, question_key")
-      .eq("notebook_id", notebookId)
-      .is("unassigned_at", null),
-  ]);
+  const { data: assessments } = await supabase
+    .from("assessments")
+    .select("id, class_id, kind, section_id, question_key")
+    .eq("notebook_id", notebookId)
+    .neq("kind", "adventure")
+    .is("unassigned_at", null);
 
   for (const r of (assessments ?? []) as any[]) {
     if (matches(r)) assignmentByClass.set(r.class_id as string, r.id as string);
   }
-  for (const r of (adventures ?? []) as any[]) {
-    if (matches(r)) adventureByClass.set(r.class_id as string, r.id as string);
-  }
-  return { assignmentByClass, adventureByClass };
+  return { assignmentByClass };
 }
 
 /** Ids of archived instances for a class — rows under them are history and

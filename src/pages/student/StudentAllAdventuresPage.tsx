@@ -37,7 +37,7 @@ const StudentAllAdventuresPage = () => {
                   .map((row) => (
                     <li key={row.id}>
                       <Link
-                        to={`/student/class/${row.classId}/assignment/${row.notebookId}`}
+                        to={`/student/class/${row.classId}/game/${row.gameId}`}
                         className="grid min-h-[64px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-4 transition hover:border-primary/40"
                       >
                         <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary">

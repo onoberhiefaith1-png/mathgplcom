@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { classRoot } from "@/lib/product/workspaceRoutes";
 import { Link, useNavigate, useParams } from "@/lib/router-compat";
 import {
-  ArrowLeft, Plus, EyeOff, Eye, Trash2, Check, Compass, Settings2, ChevronRight, Folder, FolderPlus, X,
+  ArrowLeft, Plus, EyeOff, Eye, Trash2, Check, Settings2, ChevronRight, Folder, FolderPlus, X,
   Pencil, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,11 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 import NotebookCover, { NotebookCoverData } from "@/components/lessonnotes/NotebookCover";
 import { ensureClassOwner } from "@/lib/classes/ensureClassOwner";
 import { checkoutForEditing, copyIntoClassStorage } from "@/lib/lessonnotes/notebookCopy";
-import {
-  assignAdventureNote,
-  listAdventureNotes,
-  unassignAdventureNote,
-} from "@/lib/adventures/classAdventures";
 import {
   ContentNode, HierarchyLevel, LEVEL_LABEL, LEVEL_ORDER,
   createNode, deleteNode, getClassLevels, listNodes, setClassLevels, setNoteNode, toggleLevel,
@@ -41,7 +36,6 @@ const ClassLessonNotesPage = () => {
   const [available, setAvailable] = useState<Notebook[]>([]);
   const [picker, setPicker] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [adventures, setAdventures] = useState<Map<string, string>>(new Map());
 
   // Organisation hierarchy
   const [levels, setLevels] = useState<HierarchyLevel[]>([]);
@@ -81,12 +75,6 @@ const ClassLessonNotesPage = () => {
       })),
     );
 
-    const advRows = await listAdventureNotes(classId);
-    const map = new Map<string, string>();
-    for (const row of advRows) {
-      if (row.section_id === null) map.set(row.notebook_id, row.id);
-    }
-    setAdventures(map);
   }, [classId]);
 
   useEffect(() => {
@@ -206,19 +194,6 @@ const ClassLessonNotesPage = () => {
     if (!window.confirm("Remove this stored note from the class? The stored copy is deleted.")) return;
     await supabase.from("class_lesson_notes").delete().eq("id", row.id);
     await supabase.from("notebooks").delete().eq("id", row.notebook_id);
-    load();
-  };
-
-  const toggleAdventure = async (row: Attached) => {
-    if (!classId) return;
-    const existing = adventures.get(row.notebook_id);
-    if (existing) {
-      await unassignAdventureNote(existing);
-      toast({ title: "Adventure removed" });
-    } else {
-      await assignAdventureNote({ classId, notebookId: row.notebook_id, sectionId: null });
-      toast({ title: "Assigned as Adventure" });
-    }
     load();
   };
 
@@ -364,7 +339,6 @@ const ClassLessonNotesPage = () => {
             {visibleNotes.map((row) => {
               if (!row.notebook) return null;
               const enabled = row.visibility === "student_access_enabled";
-              const isAdventure = adventures.has(row.notebook_id);
               return (
                 <div key={row.id} className="relative">
                   <NotebookCover notebook={row.notebook} />
@@ -377,16 +351,6 @@ const ClassLessonNotesPage = () => {
                     >
                       {enabled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                       {enabled ? "Visible" : "Teacher Only"}
-                    </button>
-                    <button
-                      onClick={() => toggleAdventure(row)}
-                      className={`inline-flex items-center justify-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium ${
-                        isAdventure ? "bg-primary text-primary-foreground" : "bg-white/10 text-white/80"
-                      }`}
-                      aria-label={isAdventure ? "Unassign Adventure" : "Assign as Adventure"}
-                    >
-                      <Compass className="h-3 w-3" />
-                      {isAdventure ? "Adventure" : "Assign"}
                     </button>
                     <button
                       onClick={() => editInWorkspace(row)}

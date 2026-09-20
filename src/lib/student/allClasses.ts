@@ -17,7 +17,7 @@ import {
   unlockedFlags,
   type LearningMode,
 } from "@/lib/courses/classCourses";
-import { listAdventureNotes, type ClassAdventureNoteRow } from "@/lib/adventures/classAdventures";
+import { listStudentAdventures } from "@/lib/adventures/classAdventureLinks";
 import { grantedWorkspaces } from "./workspaceAccess";
 
 
@@ -186,7 +186,7 @@ export type GlobalAdventure = {
   classId: string;
   className: string;
   id: string;
-  notebookId: string;
+  gameId: string;
   title: string;
   detail: string | null;
   dueAt: string | null;
@@ -196,17 +196,21 @@ export type GlobalAdventure = {
 export async function myAdventures(): Promise<GlobalAdventure[]> {
   const classes = await myClasses();
   if (classes.length === 0) return [];
-  const lists = await Promise.all(classes.map((c) => listAdventureNotes(c.id)));
+  const lists = await Promise.all(classes.map((c) => listStudentAdventures(c.id)));
 
   return classes.flatMap((c, i) =>
-    (lists[i] as ClassAdventureNoteRow[]).map((row) => ({
+    lists[i].map((row) => ({
       classId: c.id,
       className: c.name,
       id: row.id,
-      notebookId: row.notebook_id,
-      title: row.notebook?.title ?? "Adventure",
-      detail: row.section?.title ?? row.notebook?.subtopic ?? row.notebook?.subject ?? null,
-      dueAt: row.due_at,
+      gameId: row.gameId,
+      title: row.title,
+      detail:
+        row.subtopic ??
+        (row.questionCount > 0
+          ? `${row.questionCount} question${row.questionCount === 1 ? "" : "s"}`
+          : null),
+      dueAt: null,
     })),
   );
 }

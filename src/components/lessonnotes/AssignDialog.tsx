@@ -23,17 +23,15 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import AddToCoursePicker from "./AddToCoursePicker";
+import AssignQuestionToBarDialog from "@/components/adventures/AssignQuestionToBarDialog";
 import { toast } from "@/hooks/use-toast";
 import { type AssessmentKind } from "@/lib/assessments/createAssessment";
 import { totalMarks as computeTotalMarks, type FloatingLine } from "@/lib/lessonnotes/floatingCompile";
 import {
   resolveQuestionRef,
   loadAssignmentState,
-  assignAdventureQuestion,
-  unassignAdventureQuestion,
   assignAssessmentQuestion,
   unassignAssessmentQuestion,
-  syncAdventureBoards,
   type QuestionRef,
 } from "@/lib/assignments/pipeline";
 import { autoArchiveExpired } from "@/lib/assignments/instances";
@@ -50,8 +48,6 @@ type ClassRow = {
   name: string;
   /** Existing active assignment id (assignment target) if any. */
   assignmentId: string | null;
-  /** Existing active adventure row id if any. */
-  adventureId: string | null;
   /** Existing active Game assignment id for the chosen Game, if any. */
   gameAssignmentId: string | null;
 };
@@ -84,6 +80,8 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmUnassign, setConfirmUnassign] = useState<{ classId: string; className: string } | null>(null);
+  /** Adventure target — question → class → linked adventure → progress bar. */
+  const [barPickerOpen, setBarPickerOpen] = useState(false);
   /* ── Game target ─────────────────────────────────────────────────────────
      A Game is a container: this question is added to an existing Game, and the
      Game itself is what the class receives. */
@@ -155,22 +153,21 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       const ref = await resolveQuestionRef(subsectionId);
       setQuestionRef(ref);
 
-      const { assignmentByClass, adventureByClass } = await loadAssignmentState(notebookId, ref);
+      const { assignmentByClass } = await loadAssignmentState(notebookId, ref);
 
       const enriched: ClassRow[] = classList.map((c) => ({
         ...c,
         assignmentId: assignmentByClass.get(c.id) ?? null,
-        adventureId: adventureByClass.get(c.id) ?? null,
         gameAssignmentId: null,
       }));
       setClasses(enriched);
 
       // The Game target derives its own checked classes from the chosen Game.
-      const preSelected = target === "game"
+      const preSelected = target === "game" || target === "adventure"
         ? new Set<string>()
         : new Set(
             enriched
-              .filter((c) => (target === "assignment" ? c.assignmentId : c.adventureId))
+              .filter((c) => c.assignmentId)
               .map((c) => c.id),
           );
       setSelected(new Set(preSelected));
@@ -226,11 +223,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
 
   const toggle = (row: ClassRow) => {
     const currentlyOn = selected.has(row.id);
-    const wasAlreadyAssigned = target === "assignment"
-      ? !!row.assignmentId
-      : target === "game"
-        ? !!row.gameAssignmentId
-        : !!row.adventureId;
+    const wasAlreadyAssigned = target === "game" ? !!row.gameAssignmentId : !!row.assignmentId;
 
     if (currentlyOn && wasAlreadyAssigned) {
       // Ask before removing an existing assignment.
@@ -287,8 +280,6 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       for (const c of toUnassign) {
         if (target === "assignment" && c.assignmentId) {
           await unassignAssessmentQuestion(c.assignmentId);
-        } else if (target === "adventure" && c.adventureId) {
-          await unassignAdventureQuestion(c.adventureId);
         } else if (target === "game" && c.gameAssignmentId) {
           await unassignGame(c.gameAssignmentId);
         }
@@ -324,9 +315,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
             continue;
           }
           if (!notebookId || !questionRef.sectionId) throw new Error("no_question");
-          const id = target === "adventure"
-            ? await assignAdventureQuestion({ classId: c.id, notebookId, ref: questionRef })
-            : await assignAssessmentQuestion({
+          const id = await assignAssessmentQuestion({
                 classId: c.id,
                 notebookId,
                 ref: questionRef,
@@ -342,21 +331,13 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
         }
       }
 
-      // Keep every linked progress bar in step with what is now assigned.
-      if (notebookId && target !== "game") {
-        for (const cid of touchedClasses) {
-          try { await syncAdventureBoards(cid, notebookId); } catch { /* non-fatal */ }
-        }
-      }
-
-
       if (ok > 0 || toUnassign.length > 0) {
         const unassignedIds = new Set(toUnassign.map((c) => c.id));
         const field = target === "assignment"
           ? "assignmentId" as const
           : target === "game"
             ? "gameAssignmentId" as const
-            : "adventureId" as const;
+            : "assignmentId" as const;
         setClasses((prev) => prev.map((c) => {
           if (unassignedIds.has(c.id)) return { ...c, [field]: null };
           const assignedId = assignedIds.get(c.id);
@@ -444,6 +425,22 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                   totalMarks={totalMarks}
                   onDone={() => onOpenChange(false)}
                 />
+              ) : target === "adventure" ? (
+                <div className="space-y-3 rounded-md border border-input p-4 text-sm">
+                  <p className="text-muted-foreground">
+                    An Adventure is reusable. Choose the class, the Adventure linked to it, and the
+                    progress bar this question should sit on. One bar can hold questions from many
+                    lesson notes, and the same question can sit on more than one bar.
+                  </p>
+                  <Button type="button" onClick={() => setBarPickerOpen(true)} disabled={!questionRef.sectionId}>
+                    Choose Adventure &amp; Progress Bar
+                  </Button>
+                  {!questionRef.sectionId && (
+                    <p className="text-[11px] text-muted-foreground">
+                      This question has no saved content yet.
+                    </p>
+                  )}
+                </div>
               ) : classes.length === 0 && target !== "game" ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   You have no classes yet. Create a class first, then assign.
@@ -466,11 +463,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                 <div className="max-h-48 overflow-y-auto rounded-md border border-input">
                   {classes.map((c) => {
                     const checked = selected.has(c.id);
-                    const wasAssigned = target === "assignment"
-                      ? !!c.assignmentId
-                      : target === "game"
-                        ? !!c.gameAssignmentId
-                        : !!c.adventureId;
+                    const wasAssigned = target === "game" ? !!c.gameAssignmentId : !!c.assignmentId;
                     return (
                       <label
                         key={c.id}
@@ -614,7 +607,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
           )}
           </div>
 
-          <DialogFooter>
+          {target !== "adventure" && <DialogFooter>
             <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
             <Button onClick={apply} disabled={busy || loading || changeCount === 0}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Users className="h-4 w-4 mr-1.5" />}
@@ -622,7 +615,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
                 ? `Unassign (${toUnassign.length})`
                 : `Apply${changeCount > 0 ? ` (${changeCount})` : ""}`}
             </Button>
-          </DialogFooter>
+          </DialogFooter>}
         </DialogContent>
       </Dialog>
 
@@ -640,6 +633,15 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AssignQuestionToBarDialog
+        open={barPickerOpen}
+        onOpenChange={setBarPickerOpen}
+        notebookId={notebookId}
+        sectionId={questionRef.sectionId}
+        questionKey={questionRef.questionKey}
+        questionLabel={title || defaultTitle}
+      />
     </>
   );
 }
