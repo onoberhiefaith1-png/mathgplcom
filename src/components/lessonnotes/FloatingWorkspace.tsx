@@ -186,13 +186,10 @@ export const FloatingWorkspace = ({
   };
 
   const vaults = line.vaults ?? [];
-  const addVault = () => onChange({
+  /** A Vault is only ever created from the shared selection engine. */
+  const addVaultExpression = (expression: string) => onChange({
     ...line,
-    vaults: [...vaults, { id: newVaultId(), expression: "" }],
-  });
-  const updateVault = (vaultId: string, expression: string) => onChange({
-    ...line,
-    vaults: vaults.map((vault) => vault.id === vaultId ? { ...vault, expression } : vault),
+    vaults: [...vaults, { id: newVaultId(), expression }],
   });
   const removeVault = (vaultId: string) => onChange({
     ...line,
