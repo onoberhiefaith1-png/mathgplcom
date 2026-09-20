@@ -1,8 +1,3 @@
--- Adventure becomes a reusable shell.
---   class_adventures        : the Class -> Adventure link (reusable across classes)
---   adventure_bar_questions : questions placed on one progress bar of one class adventure
---   class_game_boards.pass_pct : per-bar pass percentage
-
 create table if not exists public.class_adventures (
   id uuid primary key default gen_random_uuid(),
   class_id uuid not null references public.classes(id) on delete cascade,
@@ -96,13 +91,11 @@ alter table public.class_game_boards
   add column if not exists pass_pct integer
   check (pass_pct is null or pass_pct between 0 and 100);
 
--- Preserve existing class/adventure boards by registering their shell link.
 insert into public.class_adventures (class_id, game_id, created_at)
 select distinct b.class_id, b.game_id, min(b.created_at) over (partition by b.class_id, b.game_id)
 from public.class_game_boards b
 on conflict (class_id, game_id) do nothing;
 
--- Preserve old board question assignments as class/adventure/bar placements.
 insert into public.adventure_bar_questions (
   class_id, game_id, progress_element_id, notebook_id, section_id, question_key, created_at
 )
@@ -135,7 +128,6 @@ join public.notebook_sections s on s.id = b.section_id
 where cardinality(b.question_keys) = 0
 on conflict do nothing;
 
--- Ensure Realtime can invalidate the Class Adventures screen immediately.
 do $$
 begin
   if not exists (
