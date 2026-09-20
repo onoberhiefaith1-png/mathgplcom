@@ -245,7 +245,8 @@ export function ControlPanel({
         </button>
       </div>
 
-      <div className="slate-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+      {/* every setting must be reachable: nothing hides behind the Save bar */}
+      <div className="slate-scroll min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 pb-10">
         <Section title="Game">
           <div className="space-y-2">
             <Label className="text-[11px] text-amber-100/60">Game name</Label>
