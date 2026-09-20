@@ -113,15 +113,17 @@ export default function WorldStage(props: Props) {
       <BackgroundLayer background={props.game.background} />
       <WorldBoundary>
         <Canvas
+          key={gpu.resetKey}
           shadows
           dpr={[1, 1.8]}
-          gl={{ antialias: true, alpha: !room }}
+          gl={{ antialias: true, alpha: !room, powerPreference: "high-performance" }}
           camera={{ position: [0, 0.4, 5.4], fov: 42, near: 0.1, far: 60 }}
           onCreated={({ gl }) => {
             // linear working space in, sRGB out, filmic grade on the way there
             gl.outputColorSpace = THREE.SRGBColorSpace;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             if (!room) gl.setClearColor(0x000000, 0); // let the uploaded background show through
+            gpu.attach(gl.domElement);
           }}
         >
           <Exposure value={stage.exposure} />
