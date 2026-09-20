@@ -1,19 +1,18 @@
 import { useState } from "react";
-import { Link, useNavigate } from "@/lib/router-compat";
-import { DoorOpen, GraduationCap, Globe2, Image, LogOut, Package, ShieldCheck, Users } from "lucide-react";
+import { Link } from "@/lib/router-compat";
+import { DoorOpen, LogOut } from "lucide-react";
 
 import AcademyTopBar from "@/components/academy/AcademyTopBar";
 import { RotatingAdventureScene } from "@/components/adventure/RotatingAdventureScene";
-import LevelNavPanel from "@/components/academy/LevelNavPanel";
+import DashboardEntryCard from "@/components/homepage/DashboardEntryCard";
 import HomepageSettingsButton from "@/components/homepage/HomepageSettingsButton";
 import LegalLinkStrip from "@/components/common/LegalLinkStrip";
 import { useAccount } from "@/lib/accounts/useAccount";
-import { WORKSPACE_LABEL, WORKSPACE_PATH } from "@/lib/accounts/roles";
+import { WORKSPACE_PATH } from "@/lib/accounts/roles";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSignOut } from "@/lib/auth/signOutEverywhere";
 import PlanInviteBanner from "@/components/plans/PlanInviteBanner";
 import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
-import { supabase } from "@/integrations/supabase/client";
 
 
 
