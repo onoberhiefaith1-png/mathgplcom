@@ -27,6 +27,7 @@ import {
   VaultEffect,
 } from "./Effects";
 import { playSfx } from "@/lib/slate/audio";
+import { subscribeGameClock } from "@/lib/game/runtime/clock";
 import { ensureEffectReady } from "@/lib/slate/vfx/prepare";
 import { setPerf } from "@/lib/slate/vfx/perf";
 import { ScriptStage } from "./ScriptStage";
