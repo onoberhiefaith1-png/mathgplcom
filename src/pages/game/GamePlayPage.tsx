@@ -379,16 +379,20 @@ const GamePlayPage = () => {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
-          {questionRemaining > 0 && (
-            <span className="inline-flex items-center gap-1" title="Question time">
-              <Hourglass className="h-4 w-4 text-sky-500" /> TIME {formatMmSs(questionRemaining)}
-            </span>
-          )}
-          {lineRemaining > 0 && (
-            <span className="inline-flex items-center gap-1" title="Line time">
-              <Hourglass className="h-4 w-4 text-emerald-500" /> {formatMmSs(lineRemaining)}
-            </span>
-          )}
+          <GameClockDisplay deadline={runtime.questionDeadline}>
+            {(label) => (
+              <span className="inline-flex items-center gap-1" title="Question time">
+                <Hourglass className="h-4 w-4 text-sky-500" /> TIME {label}
+              </span>
+            )}
+          </GameClockDisplay>
+          <GameClockDisplay deadline={runtime.lineDeadline}>
+            {(label) => (
+              <span className="inline-flex items-center gap-1" title="Line time">
+                <Hourglass className="h-4 w-4 text-emerald-500" /> {label}
+              </span>
+            )}
+          </GameClockDisplay>
           <span className="inline-flex items-center gap-1" title="Lives">
             <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
           </span>
