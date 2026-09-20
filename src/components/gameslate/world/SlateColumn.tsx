@@ -704,7 +704,7 @@ export function SlateColumn({
     () => REWARDS.filter((r) => r.openArt && usedRewardIds.has(r.id)),
     [usedRewardIds],
   );
-  const openArt = useTexture(openDefs.map((r) => r.openArt as string));
+  const openArt = useAsyncTextures(openDefs.map((r) => r.openArt as string));
   const openArtById = useMemo(() => {
     const map: Record<string, THREE.Texture> = {};
     openDefs.forEach((r, index) => {
