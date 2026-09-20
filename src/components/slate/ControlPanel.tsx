@@ -1154,7 +1154,10 @@ export function ControlPanel({
         </Section>
       </div>
 
-      <div className="border-t border-amber-200/10 p-4">
+      <div
+        className="shrink-0 border-t border-amber-200/10 p-4"
+        style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+      >
         <button
           onClick={onSave}
           className="w-full rounded border border-amber-300/60 bg-amber-300/15 px-3 py-2 text-xs uppercase tracking-[0.2em] text-amber-100 hover:bg-amber-300/25"
