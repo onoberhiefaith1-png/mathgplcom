@@ -27,6 +27,12 @@ interface Props {
   chips: Chip[];
   /** Called after Enter / Apply with the next chip set. */
   onApply: (nextChips: Chip[], atoms: Atom[]) => void;
+  /** Game mode: where an applied selection is sent. Defaults to floating. */
+  destination?: "floating" | "vault";
+  /** Called instead of onApply when destination is "vault". The expression is
+   *  built by the SAME selection engine, so structure (fractions, roots,
+   *  exponents) is preserved exactly as a Floating Number would be. */
+  onApplyVault?: (expression: string) => void;
   /** Optional: external chip-hover index — atoms of that chip get a ring. */
   hoveredChipIndex?: number | null;
   onAtomHover?: (atomId: string | null) => void;
