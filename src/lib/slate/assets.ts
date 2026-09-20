@@ -33,6 +33,12 @@ export async function putAsset(file: File): Promise<string> {
 const urls = new Map<string, string>();
 const pending = new Map<string, Promise<string | null>>();
 
+/** The already-resolved URL, if any. Lets a player use a media element on the
+ *  first render instead of flipping from empty to loaded (which restarts a
+ *  background video). */
+export const cachedAssetUrl = (id: string | null | undefined): string | null =>
+  (id ? urls.get(id) : null) ?? null;
+
 /** A usable URL for a stored asset, cached for the lifetime of the page. */
 export async function assetUrl(id: string): Promise<string | null> {
   const cached = urls.get(id);
