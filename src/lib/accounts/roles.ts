@@ -102,12 +102,16 @@ export const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { to: "/admin?tab=parents", label: "Parents" },
     { to: "/admin?tab=students", label: "Students" },
     { to: "/admin?tab=admins", label: "Co-Administrators" },
+    { to: "/assets", label: "Assets" },
+    { to: "/backgrounds", label: "Backgrounds" },
     { to: "/community", label: "MathGPL Community" },
   ],
   co_admin: [
     { to: "/admin", label: "Overview" },
     { to: "/admin?tab=schools", label: "Schools" },
     { to: "/admin?tab=teachers", label: "Teachers" },
+    { to: "/assets", label: "Assets" },
+    { to: "/backgrounds", label: "Backgrounds" },
     { to: "/community", label: "MathGPL Community" },
   ],
   // School administration is administrative only — the Teaching Hub belongs
