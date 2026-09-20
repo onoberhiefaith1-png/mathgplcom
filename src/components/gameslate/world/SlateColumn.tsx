@@ -11,7 +11,6 @@ import { defaultTextSettings } from "@/lib/slate/text3d";
 import type { TextBounds } from "@/lib/slate/text3d";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
 import { noiseNormalMap, surfaceMaterial } from "./materials";
-import { useTextureMap } from "./textures";
 import { usePbr } from "./pbr";
 import { SlateSection } from "./sections/SlateSection";
 import { NewWritingSurface } from "./sections/NewWritingSurface";
@@ -29,13 +28,12 @@ import {
 import { playSfx } from "@/lib/slate/audio";
 import { subscribeGameClock } from "@/lib/game/runtime/clock";
 import { ensureEffectReady } from "@/lib/slate/vfx/prepare";
-import { setPerf } from "@/lib/slate/vfx/perf";
+import { perfSnapshot, setPerf } from "@/lib/slate/vfx/perf";
 import { ScriptStage } from "./ScriptStage";
 import { compileScript } from "@/lib/slate/vfx/script";
 import { choreography, objectMotion } from "@/lib/slate/vfx/profiles";
 import { FragmentBurst, OrbitRings } from "./RewardBody";
 import { PremiumBombBody } from "./PremiumBombBody";
-import { useVfxTextures } from "./vfxTextures";
 import { advanceEffectClock, effectNow, effectsPaused, setEffectsPaused } from "@/lib/slate/vfx/clock";
 import {
   CHAIN_BOMB_DURATION,
@@ -680,19 +678,29 @@ export function SlateColumn({
     });
   }, []);
 
-  const textures = useTextureMap();
-  const rewardArt = useTexture(REWARDS.map((r) => r.art));
+  // PERFORMANCE: only the reward artwork this Game actually places is fetched
+  // and uploaded to the GPU. Loading the whole catalogue delayed first paint.
+  const usedRewardIds = useMemo(() => {
+    const ids = new Set<string>(["mark-seal"]); // universal completion object
+    game.slots.forEach((slot) => slot.rewards.forEach((r) => ids.add(r.type)));
+    return ids;
+  }, [game.slots]);
+  const artDefs = useMemo(() => REWARDS.filter((r) => usedRewardIds.has(r.id)), [usedRewardIds]);
+  const rewardArt = useTexture(artDefs.map((r) => r.art));
   const artById = useMemo(() => {
     const map: Record<string, THREE.Texture> = {};
-    REWARDS.forEach((r, index) => {
+    artDefs.forEach((r, index) => {
       const texture = rewardArt[index];
       if (texture) map[r.id] = texture;
     });
     return map;
-  }, [rewardArt]);
+  }, [rewardArt, artDefs]);
 
   // the opened presentation, for objects that physically unlock
-  const openDefs = useMemo(() => REWARDS.filter((r) => r.openArt), []);
+  const openDefs = useMemo(
+    () => REWARDS.filter((r) => r.openArt && usedRewardIds.has(r.id)),
+    [usedRewardIds],
+  );
   const openArt = useTexture(openDefs.map((r) => r.openArt as string));
   const openArtById = useMemo(() => {
     const map: Record<string, THREE.Texture> = {};
@@ -743,8 +751,9 @@ export function SlateColumn({
   const lastCount = useRef(0);
   const [active, setActive] = useState<Record<string, ActiveEffect>>({});
   const rewardNodes = useRef(new Map<string, { node: THREE.Group; slotId: string; reward: RewardInstance }>());
-  /** Every effect texture is resident before anything can play. */
-  useVfxTextures();
+  // PERFORMANCE: effect textures are warmed in the background (module-scope
+  // preload in vfxTextures) instead of suspending the writing surfaces here.
+  // The effect components read them when an effect actually mounts.
   /** The last previewed effect, so Reset can replay it from the beginning. */
   const lastPreview = useRef<{ slotId: string; rewardId: string; style?: PremiumBombStyle } | null>(null);
   const [dragging, setDragging] = useState<{ slotId: string; rewardId: string } | null>(null);
@@ -1128,6 +1137,10 @@ export function SlateColumn({
     return y < VIEW_TOP + region.height + 2.4 && y > VIEW_BOTTOM - region.height - 2.4;
   });
   void scrollTick;
+  if (import.meta.env.DEV) {
+    const label = `${visible.length}/${layout.regions.length}`;
+    if (perfSnapshot().surfaces !== label) setPerf({ surfaces: label });
+  }
 
   return (
     <group position={[0, 0, SLATE_Z]}>

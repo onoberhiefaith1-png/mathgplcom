@@ -1,15 +1,15 @@
 // Reward registry. Completion, Hourglass and Vault are system-owned; the
 // teacher's general picker contains only optional physical Game mechanics.
 
-import markSeal from "@/assets/slate/rewards/mark-seal.png";
-import retryHeart from "@/assets/slate/rewards/retry-heart.png";
-import timeShard from "@/assets/slate/rewards/time-shard.png";
-import mathVault from "@/assets/slate/rewards/math-vault.png";
-import mathVaultOpen from "@/assets/slate/rewards/math-vault-open.png";
-import mathCore from "@/assets/slate/rewards/math-core.png";
-import horizontalCollector from "@/assets/slate/rewards/horizontal-collector.png";
-import verticalCollector from "@/assets/slate/rewards/vertical-collector.png";
-import premiumChainBomb from "@/assets/slate/rewards/premium-chain-bomb.png";
+import markSeal from "@/assets/slate/rewards/mark-seal.webp";
+import retryHeart from "@/assets/slate/rewards/retry-heart.webp";
+import timeShard from "@/assets/slate/rewards/time-shard.webp";
+import mathVault from "@/assets/slate/rewards/math-vault.webp";
+import mathVaultOpen from "@/assets/slate/rewards/math-vault-open.webp";
+import mathCore from "@/assets/slate/rewards/math-core.webp";
+import horizontalCollector from "@/assets/slate/rewards/horizontal-collector.webp";
+import verticalCollector from "@/assets/slate/rewards/vertical-collector.webp";
+import premiumChainBomb from "@/assets/slate/rewards/premium-chain-bomb.webp";
 
 /** Activation profile names are consumed by the VFX engine (phase two). */
 export type ActivationProfile =
