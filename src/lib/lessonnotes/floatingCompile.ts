@@ -155,6 +155,7 @@ export const DEFAULT_SCORING: FloatingScoring = {
   marksPerLine: 1,
   timerEnabled: false,
   timerSeconds: 60,
+  gameMode: false,
 };
 
 /** The whole question's time, or null when the teacher left the timer off.
