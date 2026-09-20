@@ -3,6 +3,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { HDRI } from "@/lib/slate/pbr";
+import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
 import { EffectPerfOverlay } from "@/components/dev/EffectPerfOverlay";
 import { PerfProbe } from "@/components/dev/PerfProbe";
 
