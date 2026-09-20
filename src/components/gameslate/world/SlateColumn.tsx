@@ -686,7 +686,10 @@ export function SlateColumn({
     return ids;
   }, [game.slots]);
   const artDefs = useMemo(() => REWARDS.filter((r) => usedRewardIds.has(r.id)), [usedRewardIds]);
-  const rewardArt = useTexture(artDefs.map((r) => r.art));
+  // Reward art loads beside the render. A slow or missing piece can no longer
+  // withhold the writing surfaces themselves.
+  const rewardArt = useAsyncTextures(artDefs.map((r) => r.art));
+
   const artById = useMemo(() => {
     const map: Record<string, THREE.Texture> = {};
     artDefs.forEach((r, index) => {
