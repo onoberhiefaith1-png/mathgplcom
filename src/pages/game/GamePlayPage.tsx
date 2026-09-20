@@ -244,14 +244,6 @@ const GamePlayPage = () => {
     }
   };
 
-  const questionRemaining = secondsLeft(runtime.questionDeadline);
-  const lineRemaining = secondsLeft(runtime.lineDeadline);
-  const [, forceTick] = useState(0);
-  useEffect(() => {
-    if (!runtime.questionDeadline && !runtime.lineDeadline) return;
-    const tick = window.setInterval(() => forceTick((n) => n + 1), 500);
-    return () => window.clearInterval(tick);
-  }, [runtime.questionDeadline, runtime.lineDeadline]);
 
   if (loading) {
     return <div className="p-8 text-sm text-muted-foreground">Loading Game…</div>;
