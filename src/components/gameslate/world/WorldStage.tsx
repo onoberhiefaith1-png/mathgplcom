@@ -3,6 +3,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import * as THREE from "three";
 import { HDRI } from "@/lib/slate/pbr";
+import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
 import { EffectPerfOverlay } from "@/components/dev/EffectPerfOverlay";
 import { PerfProbe } from "@/components/dev/PerfProbe";
 
@@ -46,6 +47,10 @@ export default function WorldStage(props: Props) {
   const room = getRoom(props.game.roomId);
   const stage = room ?? NEUTRAL_ROOM;
   const host = useRef<HTMLDivElement>(null);
+  // A lost graphics context used to leave the board permanently black. Recovery
+  // keeps the SAME context when the browser restores it, and rebuilds the view
+  // exactly once if it never does.
+  const gpu = useWebglRecovery("game-slate");
   const scroll = useRef<ScrollState & { locked: boolean }>({
     target: 0,
     current: 0,
@@ -108,15 +113,17 @@ export default function WorldStage(props: Props) {
       <BackgroundLayer background={props.game.background} />
       <WorldBoundary>
         <Canvas
+          key={gpu.resetKey}
           shadows
           dpr={[1, 1.8]}
-          gl={{ antialias: true, alpha: !room }}
+          gl={{ antialias: true, alpha: !room, powerPreference: "high-performance" }}
           camera={{ position: [0, 0.4, 5.4], fov: 42, near: 0.1, far: 60 }}
           onCreated={({ gl }) => {
             // linear working space in, sRGB out, filmic grade on the way there
             gl.outputColorSpace = THREE.SRGBColorSpace;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             if (!room) gl.setClearColor(0x000000, 0); // let the uploaded background show through
+            gpu.attach(gl.domElement);
           }}
         >
           <Exposure value={stage.exposure} />
@@ -162,6 +169,13 @@ export default function WorldStage(props: Props) {
           </Suspense>
         </Canvas>
       </WorldBoundary>
+      {gpu.alive ? null : (
+        <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
+          <div className="rounded-full border border-amber-200/25 bg-black/70 px-4 py-1.5 text-xs tracking-wide text-amber-100/80">
+            Restoring the board…
+          </div>
+        </div>
+      )}
       {showPerf ? <EffectPerfOverlay /> : null}
     </div>
   );
