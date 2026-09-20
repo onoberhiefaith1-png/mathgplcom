@@ -113,13 +113,14 @@ const GamePlayPage = () => {
     lineText,
   });
 
-  /** One selector shared by surfaces, scrolling and Floating Numbers. */
+  /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
+   *  There is no second copy of the active line: the world's selection is
+   *  derived from the runtime, so a tap can never be reversed by a sync. */
   const chosenAtRef = useRef(0);
   const setActiveLine = (line: number, focusInput = false) => {
     if (!Number.isFinite(line) || line < 1 || line >= runtime.lines.length) return;
     chosenAtRef.current = Date.now();
     runtime.selectLine(line);
-    setSurfaceSelection({ kind: "slot", slotId: `line-${line}` });
     if (focusInput) window.dispatchEvent(new CustomEvent("game:focus-floating-input"));
   };
 
@@ -128,10 +129,10 @@ const GamePlayPage = () => {
    *  otherwise the glide could drag the chosen line back to a neighbour. */
   const focusSettledLine = (_line: number) => {};
 
-  useEffect(() => {
-    if (runtime.currentLine < 1) return;
-    setSurfaceSelection({ kind: "slot", slotId: `line-${runtime.currentLine}` });
-  }, [runtime.currentLine]);
+  const surfaceSelection = useMemo<Selection>(
+    () => ({ kind: "slot", slotId: `line-${Math.max(1, runtime.currentLine)}` }),
+    [runtime.currentLine],
+  );
 
   // A new question starts on a clean slate — no test or previous working.
   useEffect(() => { setLineText({}); }, [runtime.question?.questionRowId]);
