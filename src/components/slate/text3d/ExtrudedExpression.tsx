@@ -3,6 +3,7 @@ import * as opentype from "opentype.js";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { cachedGeometry, q } from "@/lib/slate/vfx/geometryCache";
+import { glyphSolid } from "./glyphSolids";
 import type { GlyphBox } from "./glyphLayout";
 import type { ResolvedTextStyle } from "@/lib/slate/textPresets";
 
@@ -22,19 +23,6 @@ function loadFont(url: string) {
   return pending;
 }
 
-function pathToShapes(path: opentype.Path) {
-  const drawing = new THREE.ShapePath();
-  for (const command of path.commands) {
-    if (command.type === "M") drawing.moveTo(command.x, command.y);
-    if (command.type === "L") drawing.lineTo(command.x, command.y);
-    if (command.type === "Q") drawing.quadraticCurveTo(command.x1, command.y1, command.x, command.y);
-    if (command.type === "C") {
-      drawing.bezierCurveTo(command.x1, command.y1, command.x2, command.y2, command.x, command.y);
-    }
-    if (command.type === "Z") drawing.currentPath?.closePath();
-  }
-  return drawing.toShapes(false);
-}
 
 interface Props {
   boxes: GlyphBox[];
@@ -81,7 +69,7 @@ export function ExtrudedExpression({ boxes, fontUrl, fontSize, style, opacity }:
 
   const geometry = useMemo(() => {
     if (!font || failed || boxes.length === 0 || boxes.length > 120) return null;
-    return cachedGeometry(key, () => buildExpression(font, boxes, fontSize, style));
+    return cachedGeometry(key, () => buildExpression(font, fontUrl, boxes, fontSize, style));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [font, failed, key]);
 
@@ -91,6 +79,7 @@ export function ExtrudedExpression({ boxes, fontUrl, fontSize, style, opacity }:
 
 function buildExpression(
   font: opentype.Font,
+  fontKey: string,
   boxes: GlyphBox[],
   fontSize: number,
   style: ResolvedTextStyle,
@@ -105,20 +94,18 @@ function buildExpression(
     const bevelSize = Math.min(fontSize * 0.035, Math.max(0.001, style.bevel * fontSize * 0.55));
 
     for (const box of boxes) {
-      if (!font.hasChar(box.char)) continue;
-      const path = font.getPath(box.char, 0, 0, fontSize);
-      const bounds = path.getBoundingBox();
-      const sourceW = Math.max(0.0001, bounds.x2 - bounds.x1);
-      const sourceH = Math.max(0.0001, bounds.y2 - bounds.y1);
-      const geometryForGlyph = new THREE.ExtrudeGeometry(pathToShapes(path), {
+      // Cached per character: the same glyph solid is never extruded twice.
+      const solid = glyphSolid(font, fontKey, box.char, fontSize, {
         depth: physicalDepth,
-        bevelEnabled: true,
-        bevelThickness: bevelSize * 0.65,
         bevelSize,
         bevelSegments: style.preset === "bubble" ? 3 : 2,
         curveSegments: boxes.length > 50 ? 3 : 5,
-        steps: 1,
       });
+      if (!solid) continue;
+      const bounds = solid.bounds;
+      const sourceW = Math.max(0.0001, bounds.x2 - bounds.x1);
+      const sourceH = Math.max(0.0001, bounds.y2 - bounds.y1);
+      const geometryForGlyph = solid.geometry.clone();
       const fit = Math.min(1.18, (box.w * 0.98) / sourceW, (box.h * 1.02) / sourceH);
       // OpenType and Troika use opposite vertical axes. Flip the completed
       // solid while preserving the font's original contour/hole winding.
@@ -173,36 +160,73 @@ function ExpressionMesh({ geometry, style, fontSize, opacity }: {
   const stone = style.preset === "stone";
   const bubble = style.preset === "bubble";
 
-  return (
-    <mesh geometry={geometry} castShadow>
-      <meshPhysicalMaterial
-        attach="material-0"
-        color={style.face}
-        side={THREE.DoubleSide}
-        transparent={opacity < 1 || crystal}
-        opacity={crystal ? opacity * 0.78 : opacity}
-        roughness={stone ? 0.82 : bubble ? 0.24 : crystal ? 0.12 : 0.28}
-        metalness={stone || crystal || bubble ? 0.04 : 0.12}
-        clearcoat={stone ? 0 : 0.75}
-        clearcoatRoughness={bubble ? 0.2 : 0.12}
-        transmission={crystal ? 0.22 : 0}
-        thickness={crystal ? fontSize * 0.12 : 0}
-        emissive={neon ? style.glow : style.face}
-        emissiveIntensity={neon ? 0.55 : crystal ? 0.22 : stone ? 0.16 : 0.3}
-      />
-      <meshPhysicalMaterial
-        attach="material-1"
-        color={style.side}
-        side={THREE.DoubleSide}
-        transparent={opacity < 1 || crystal}
-        opacity={crystal ? opacity * 0.86 : opacity}
-        roughness={stone ? 0.88 : bubble ? 0.3 : crystal ? 0.14 : 0.32}
-        metalness={stone || crystal || bubble ? 0.03 : 0.34}
-        clearcoat={stone ? 0 : 0.68}
-        clearcoatRoughness={0.16}
-        emissive={neon ? style.side : "#000000"}
-        emissiveIntensity={neon ? 0.28 : 0}
-      />
-    </mesh>
+  // PERFORMANCE: every line used to own two physical materials of its own, so a
+  // 50-line Game carried a hundred identical materials and the renderer uploaded
+  // each one separately. Lines that share a text style now share one pair.
+  const materials = useMemo(
+    () =>
+      cachedTextMaterials(
+        [
+          style.preset,
+          style.face,
+          style.side,
+          style.glow,
+          q(fontSize),
+          q(opacity, 2),
+        ].join("~"),
+        () => {
+          const face = new THREE.MeshPhysicalMaterial({
+            color: style.face,
+            side: THREE.DoubleSide,
+            transparent: opacity < 1 || crystal,
+            opacity: crystal ? opacity * 0.78 : opacity,
+            roughness: stone ? 0.82 : bubble ? 0.24 : crystal ? 0.12 : 0.28,
+            metalness: stone || crystal || bubble ? 0.04 : 0.12,
+            clearcoat: stone ? 0 : 0.75,
+            clearcoatRoughness: bubble ? 0.2 : 0.12,
+            transmission: crystal ? 0.22 : 0,
+            thickness: crystal ? fontSize * 0.12 : 0,
+            emissive: new THREE.Color(neon ? style.glow : style.face),
+            emissiveIntensity: neon ? 0.55 : crystal ? 0.22 : stone ? 0.16 : 0.3,
+          });
+          const side = new THREE.MeshPhysicalMaterial({
+            color: style.side,
+            side: THREE.DoubleSide,
+            transparent: opacity < 1 || crystal,
+            opacity: crystal ? opacity * 0.86 : opacity,
+            roughness: stone ? 0.88 : bubble ? 0.3 : crystal ? 0.14 : 0.32,
+            metalness: stone || crystal || bubble ? 0.03 : 0.34,
+            clearcoat: stone ? 0 : 0.68,
+            clearcoatRoughness: 0.16,
+            emissive: new THREE.Color(neon ? style.side : "#000000"),
+            emissiveIntensity: neon ? 0.28 : 0,
+          });
+          return [face, side];
+        },
+      ),
+    [bubble, crystal, fontSize, neon, opacity, stone, style],
   );
+
+  return <mesh geometry={geometry} material={materials} castShadow />;
+}
+
+const materialCache = new Map<string, THREE.MeshPhysicalMaterial[]>();
+
+function cachedTextMaterials(key: string, build: () => THREE.MeshPhysicalMaterial[]) {
+  const hit = materialCache.get(key);
+  if (hit) {
+    materialCache.delete(key);
+    materialCache.set(key, hit);
+    return hit;
+  }
+  const built = build();
+  materialCache.set(key, built);
+  if (materialCache.size > 48) {
+    const oldest = materialCache.keys().next().value;
+    if (oldest !== undefined) {
+      materialCache.get(oldest)?.forEach((material) => material.dispose());
+      materialCache.delete(oldest);
+    }
+  }
+  return built;
 }

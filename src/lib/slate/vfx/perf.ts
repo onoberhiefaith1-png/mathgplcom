@@ -9,6 +9,14 @@ export interface PerfSnapshot {
   worstMs: number;
   drawCalls: number;
   triangles: number;
+  /** Compiled shader programs — a tap that compiles a new one always stutters. */
+  programs: number;
+  meshes: number;
+  materials: number;
+  textures: number;
+  geometries: number;
+  /** JS heap in MB where the browser reports it. */
+  heapMb: number;
   activeEffects: number;
   /** Render loops currently running. One canvas = one loop, always. */
   loops: number;
@@ -23,6 +31,12 @@ let snapshot: PerfSnapshot = {
   worstMs: 0,
   drawCalls: 0,
   triangles: 0,
+  programs: 0,
+  meshes: 0,
+  materials: 0,
+  textures: 0,
+  geometries: 0,
+  heapMb: 0,
   activeEffects: 0,
   loops: 0,
   readyMs: 0,
