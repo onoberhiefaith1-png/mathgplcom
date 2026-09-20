@@ -185,6 +185,8 @@ export const EquationAtoms = ({
   lineId,
   chips,
   onApply,
+  destination = "floating",
+  onApplyVault,
   onAtomHover,
   highlightedAtomIds,
 }: Props) => {
