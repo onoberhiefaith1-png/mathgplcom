@@ -250,6 +250,33 @@ export default function GameSlateEditorPage() {
     }
   };
 
+  // One set of board actions, shared by the desktop row and the phone menu.
+  const toggleSound = () => {
+    const next = !muted;
+    setMutedState(next);
+    setMuted(next);
+    applyMute(next, track?.volume ?? 0.6);
+  };
+  const showView = () => {
+    setMode("view");
+    setSelection({ kind: "none" });
+    setPanelOpen(false);
+    setQuestionsOpen(false);
+  };
+  const toggleQuestions = () => {
+    setQuestionsOpen((open) => !open);
+    setPanelOpen(false);
+  };
+  const toggleEdit = () => {
+    if (mode === "edit" && panelOpen) {
+      setPanelOpen(false);
+      return;
+    }
+    setMode("edit");
+    setQuestionsOpen(false);
+    setPanelOpen(true);
+  };
+
   // preview never touches the saved game
   const stageGame =
     previewLines && previewLines.length > 0
