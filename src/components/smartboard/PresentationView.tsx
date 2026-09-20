@@ -4500,6 +4500,7 @@ const PresentationView = ({
     mode: "manual" | "auto",
     frozenAscii?: string,
     signal?: AbortSignal,
+    automaticRequestKey?: string,
   ) => {
     // A table line is graded by its cells, never by board ink.
     if (groupForLine(tableGroups, k)) {
@@ -4591,6 +4592,19 @@ const PresentationView = ({
         diagnosis?: { code: string; label: string; detail: string };
         score: number; solvedLines: Record<string, number>;
       } | null;
+
+      // A request for an earlier partial expression must never publish a
+      // verdict after newer work on this same line has replaced it. Leaving a
+      // line is safe: its bound row still resolves to the frozen expression.
+      if (mode === "auto" && automaticRequestKey) {
+        const latestAscii = resolveGradableLineRef.current(k)?.ascii ?? "";
+        if (!current?.id || !isCurrentAutomaticGrade({
+          requestKey: automaticRequestKey,
+          questionId: current.id,
+          lineIndex: k,
+          ascii: latestAscii,
+        })) return false;
+      }
 
       broadcastCheckResultRef.current?.({
         questionId: current.id,
@@ -4738,7 +4752,7 @@ const PresentationView = ({
   // the line open, without ever blocking a changed expression.
   const autoGradedKeyRef = useRef<string>("");
   const autoGradingKeyRef = useRef<string>("");
-  const autoGradeControllerRef = useRef<AbortController | null>(null);
+  const autoGradeControllersRef = useRef<Map<string, AbortController>>(new Map());
   const silentAutoCheckLine = useCallback(
     async (k: number, frozenAscii?: string) => {
       const ascii = typeof frozenAscii === "string"
@@ -4749,12 +4763,14 @@ const PresentationView = ({
       if (!ascii.trim() || autoGradingKeyRef.current === key) return;
       // Only the latest live expression owns the automatic request. This
       // prevents a slow partial-expression check from delaying the completed
-      // line or reporting after newer work has replaced it.
-      autoGradeControllerRef.current?.abort();
+      // line or reporting after newer work has replaced it. Controllers are
+      // per line so selecting another line never cancels the one just ended.
+      const lineRequestId = `${current?.id ?? ""}:${k}`;
+      autoGradeControllersRef.current.get(lineRequestId)?.abort();
       const controller = new AbortController();
-      autoGradeControllerRef.current = controller;
+      autoGradeControllersRef.current.set(lineRequestId, controller);
       autoGradingKeyRef.current = key;
-      let completed = await gradeLineThroughEngine(k, "auto", frozenAscii, controller.signal);
+      let completed = await gradeLineThroughEngine(k, "auto", frozenAscii, controller.signal, key);
       if (controller.signal.aborted) return;
       // One bounded retry repairs a transient function/network interruption.
       // The key is committed only after an authoritative response arrives.
@@ -4765,17 +4781,22 @@ const PresentationView = ({
           current?.id &&
           isCurrentAutomaticGrade({ requestKey: key, questionId: current.id, lineIndex: k, ascii: latest })
         ) {
-          completed = await gradeLineThroughEngine(k, "auto", frozenAscii, controller.signal);
+          completed = await gradeLineThroughEngine(k, "auto", frozenAscii, controller.signal, key);
         }
       }
       if (completed) autoGradedKeyRef.current = key;
       if (autoGradingKeyRef.current === key) autoGradingKeyRef.current = "";
-      if (autoGradeControllerRef.current === controller) autoGradeControllerRef.current = null;
+      if (autoGradeControllersRef.current.get(lineRequestId) === controller) {
+        autoGradeControllersRef.current.delete(lineRequestId);
+      }
     },
     [gradeLineThroughEngine, current?.id],
   );
 
-  useEffect(() => () => autoGradeControllerRef.current?.abort(), []);
+  useEffect(() => () => {
+    autoGradeControllersRef.current.forEach((controller) => controller.abort());
+    autoGradeControllersRef.current.clear();
+  }, []);
 
 
   // ── EDITING SESSION: Start Point / End Point ─────────────────────────
