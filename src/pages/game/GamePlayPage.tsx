@@ -25,7 +25,7 @@ import { ensureTestClass } from "@/lib/floating/testBoard";
 import { patternLengthOf } from "@/lib/slate/pattern";
 import { resolveRenderedLineSlot } from "@/lib/slate/lineSurfaces";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
-import { formatMmSs } from "@/lib/time/mmss";
+import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
