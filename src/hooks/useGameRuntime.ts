@@ -12,6 +12,7 @@ import { lifeSeconds, vaultMatches } from "@/lib/slate/lineSurfaces";
 import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
+import { subscribeGameClock } from "@/lib/game/runtime/clock";
 
 export interface LineContext {
   questionId: string | null;
