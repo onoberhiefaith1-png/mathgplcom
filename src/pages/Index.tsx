@@ -19,7 +19,6 @@ import { useBuildingContext } from "@/lib/homepage/useBuildingContext";
 const Index = () => {
   const { role, roles, isPlatformOwner } = useAccount();
 
-  const navigate = useNavigate();
   const signOutEverywhere = useSignOut();
   const { user, ready } = useAuth();
   // Anything other than a plain student account keeps the full homepage: the
@@ -60,7 +59,7 @@ const Index = () => {
         <Link
           to="/academy"
           aria-label="Enter the Academy"
-          className="fixed bottom-26 left-1/2 z-50 inline-flex min-h-[48px] -translate-x-1/2 items-center gap-2 rounded-full border border-sky-300/60 bg-background/80 px-7 py-3 text-sm font-semibold text-sky-200 shadow-[0_0_28px_hsl(205_90%_60%/0.35)] backdrop-blur transition hover:bg-sky-500/25"
+          className="fixed left-4 top-4 z-50 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-300/60 bg-background/80 px-5 py-2 text-sm font-semibold text-sky-200 shadow-[0_0_28px_hsl(205_90%_60%/0.35)] backdrop-blur transition hover:bg-sky-500/25 sm:left-6 sm:top-6"
         >
           <DoorOpen className="h-5 w-5" />
           Enter the Academy
@@ -77,14 +76,7 @@ const Index = () => {
             Log out
           </button>
         )}
-        <Link
-          to="/student"
-          aria-label="Open my dashboard"
-          className="fixed bottom-10 left-1/2 z-50 inline-flex min-h-[52px] -translate-x-1/2 items-center gap-2 rounded-full border border-amber-300/60 bg-background/80 px-8 py-3 text-base font-semibold text-amber-200 shadow-[0_0_32px_hsl(40_90%_60%/0.35)] backdrop-blur transition hover:bg-amber-500/25"
-        >
-          <Users className="h-5 w-5" />
-          My Dashboard
-        </Link>
+        <DashboardEntryCard role="student" to="/student" />
       </>
     );
   }
