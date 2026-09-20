@@ -195,6 +195,8 @@ function RewardObject({
   // hourglass: its stored time runs down while it waits to be collected
   const total = hourglass ? Math.max(1000, reward.durationMs ?? 15_000) : 0;
   const started = useRef<number | null>(null);
+  /** Guards against a duplicated pointer/click pair firing one reward twice. */
+  const lastTap = useRef(0);
   const [left, setLeft] = useState(total);
   const fading = useRef(false);
   useEffect(() => {
