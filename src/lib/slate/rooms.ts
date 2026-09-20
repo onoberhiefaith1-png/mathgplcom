@@ -348,5 +348,32 @@ export const NEUTRAL_ROOM: RoomDef = {
 export const getRoom = (id: string | undefined): RoomDef | null =>
   !id || id === NO_ROOM_ID ? null : (ROOMS.find((room) => room.id === id) ?? FALLBACK);
 
+/**
+ * The pair of standing props that can physically stand in front of the writing
+ * surface. `x` is the inner edge of the prop, `z` its distance from the camera
+ * plane; writing must stop before that edge once it is projected onto the
+ * slate. Rooms with no side-standing props return null.
+ */
+export interface RoomOcclusion {
+  x: number;
+  z: number;
+}
+
+export const roomOcclusion = (room: RoomDef | null): RoomOcclusion | null => {
+  if (!room) return null;
+  switch (room.props) {
+    case "pillars":
+    case "door-frame":
+    case "tablet-stands":
+      // pillar cap is 1.6 wide, centred on x = 5.1
+      return { x: 5.1 - 0.8, z: -4.4 };
+    case "timber":
+      // upright posts, 0.5 wide, centred on x = 5.4
+      return { x: 5.4 - 0.25, z: -3.6 };
+    default:
+      return null;
+  }
+};
+
 export const roomForSurface = (surfaceId: string): RoomDef =>
   ROOMS.find((room) => room.surfaceId === surfaceId) ?? FALLBACK;

@@ -3,7 +3,7 @@ import { Text, useTexture } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
-import type { RoomDef } from "@/lib/slate/rooms";
+import { roomOcclusion, type RoomDef } from "@/lib/slate/rooms";
 import { getSurface } from "@/lib/slate/surfaces";
 import { REWARDS, getReward, isWorldInteractionEligible } from "@/lib/slate/rewards";
 import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
@@ -719,7 +719,23 @@ export function SlateColumn({
   const viewport = useThree((state) => state.viewport);
   const camera = useThree((state) => state.camera);
   const visibleAtSlate = viewport.getCurrentViewport(camera, new THREE.Vector3(0, 0, SLATE_Z));
-  const playWritingWidth = gameWritingWidth(visibleAtSlate.width);
+  // ROOM SAFETY. Standing props (pillars, posts) sit between the camera and the
+  // slate, so their silhouette widens at slate depth. Writing stops before that
+  // silhouette: the surface starts after one pillar and ends before the next.
+  const roomSafeWidth = useMemo(() => {
+    const block = roomless ? null : roomOcclusion(room);
+    if (!block) return Infinity;
+    const eye = camera.position.z;
+    const toProp = eye - block.z;
+    const toSlate = eye - SLATE_Z;
+    if (toProp <= 0.01 || toSlate <= 0.01) return Infinity;
+    const edge = Math.abs(block.x) * (toSlate / toProp);
+    return Math.max(1.2, (edge - 0.12) * 2);
+  }, [room, roomless, camera.position.z]);
+  const playWritingWidth = Math.min(
+    gameWritingWidth(visibleAtSlate.width),
+    roomSafeWidth,
+  );
   const writingWidth = readOnlyWriting
     ? playWritingWidth
     : SLATE_W - build.inset * 2 - 0.3;
@@ -1184,6 +1200,18 @@ export function SlateColumn({
                   onSelect({ kind: "slot", slotId: slot.id });
                 }}
               >
+                {/* the whole drawn panel is the target: tapping surface N
+                    activates Floating Numbers line N, empty panels included */}
+                <mesh
+                  position={[0, 0, 0.02]}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    onSelect({ kind: "slot", slotId: slot.id });
+                  }}
+                >
+                  <planeGeometry args={[surfaceWidth + 0.12, surfaceHeight + 0.12]} />
+                  <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                </mesh>
                 <RegionSurface
                   surface={lineSurface}
                   build={lineBuild}
