@@ -240,6 +240,15 @@ export const FloatingWorkspace = ({
     });
   };
 
+  const onVaultApply = (expression: string) => {
+    addVaultExpression(expression);
+    toast({
+      title: "Vault saved",
+      description: `Hidden method for Line ${lineNo}.`,
+      duration: 1400,
+    });
+  };
+
   // Compute which atoms in the equation should glow based on chip hover.
   const highlightedAtomIds = (() => {
     const ids = new Set<string>();
