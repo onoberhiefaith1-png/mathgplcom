@@ -15,6 +15,7 @@
 - [x] Make repeated graphics-context recovery possible and bound prepared material variants.
 - [x] Reject empty-surface saves and autosave teacher changes before navigation can discard them.
 - [x] Verify cold open, repeated reopen, repeated context loss, and Edit/Play parity in the live Game.
+- [x] Remove overlapping graphics warmups and keep live symbol input lightweight while physical lettering settles.
 
 # Floating Numbers Vault ownership
 

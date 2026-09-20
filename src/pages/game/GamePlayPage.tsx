@@ -52,11 +52,30 @@ const GamePlayPage = () => {
   const [error, setError] = useState<string | null>(null);
   /** Live working per Floating Numbers line (0-based) → plain text. */
   const [lineText, setLineText] = useState<Record<number, string>>({});
+  const pendingLineText = useRef<Record<number, string> | null>(null);
+  const lineTextFrame = useRef<number | null>(null);
   const [resetEpoch, setResetEpoch] = useState(0);
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
   const [menuOpen, setMenuOpen] = useState(false);
   const phone = useBreakpoint() === "phone";
+
+  // Floating Numbers remains immediate. Its mirror onto the 3D slate is
+  // coalesced to one update per painted frame, so a burst of taps cannot queue
+  // several complete scene reconciliations ahead of the timer or next input.
+  const mirrorLineText = (next: Record<number, string>) => {
+    pendingLineText.current = next;
+    if (lineTextFrame.current !== null) return;
+    lineTextFrame.current = window.requestAnimationFrame(() => {
+      lineTextFrame.current = null;
+      const latest = pendingLineText.current;
+      pendingLineText.current = null;
+      if (latest) setLineText(latest);
+    });
+  };
+  useEffect(() => () => {
+    if (lineTextFrame.current !== null) window.cancelAnimationFrame(lineTextFrame.current);
+  }, []);
 
   useEffect(() => {
     if (!gameId) return;
@@ -332,7 +351,7 @@ const GamePlayPage = () => {
       chrome="game"
       activeLine={Math.max(0, runtime.currentLine - 1)}
       onActiveLineChange={(line) => setActiveLine(line)}
-      onLineText={setLineText}
+      onLineText={mirrorLineText}
     />
   ) : null;
 

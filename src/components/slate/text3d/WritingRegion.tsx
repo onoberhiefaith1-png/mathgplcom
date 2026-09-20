@@ -217,6 +217,7 @@ export function WritingRegion({
           caret={active ? caret : null}
           selection={active ? selection : null}
           onMeasure={report}
+          responsive={active}
         />
         {!text && placeholder ? (
           <Renderer
