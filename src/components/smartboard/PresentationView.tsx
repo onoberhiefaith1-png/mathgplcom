@@ -166,7 +166,6 @@ import {
 } from "@/lib/smartboard/floatingShared";
 
 import { useAssessmentBoardSession, type AssessBoardState } from "@/hooks/useAssessmentBoardSession";
-import { studentGradingKey } from "@/lib/assessments/studentGrading";
 import { useQuestionTimerAttempt, formatAttemptTime } from "@/hooks/useQuestionTimerAttempt";
 import { getQuestionWindow, lineCarriesMarkState, questionTabState } from "@/lib/smartboard/touchUi";
 
