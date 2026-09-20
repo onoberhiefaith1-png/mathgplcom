@@ -199,10 +199,11 @@ function RewardObject({
   useEffect(() => {
     if (!hourglass || editable || reward.state !== "dormant") return;
     started.current = Date.now();
-    const id = window.setInterval(() => {
-      const remaining = total - (Date.now() - (started.current ?? Date.now()));
-      // only re-render when the displayed second actually changes: a tenth-second
-      // rebuild of the slate is a visible hitch inside a running effect
+    // ONE clock drives every hourglass: no per-reward interval.
+    const stop = subscribeGameClock((now) => {
+      const remaining = total - (now - (started.current ?? now));
+      // only re-render when the displayed second actually changes: a rebuild of
+      // the slate mid-effect is a visible hitch
       setLeft((previous) =>
         Math.ceil(previous / 1000) === Math.ceil(Math.max(0, remaining) / 1000) && remaining > 400
           ? previous
@@ -210,12 +211,12 @@ function RewardObject({
       );
       if (remaining <= 0 && !fading.current) {
         fading.current = true;
-        window.clearInterval(id);
+        stop();
         // its stored energy expires: a last glow, then it dissolves
         window.setTimeout(() => onExpire?.(), 900);
       }
-    }, 100);
-    return () => window.clearInterval(id);
+    });
+    return stop;
   }, [editable, hourglass, onExpire, reward.state, total]);
 
   useFrame(({ clock }) => {
