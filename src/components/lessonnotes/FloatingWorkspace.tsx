@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import {
-  ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, CopyPlus, Plus,
+  ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, CopyPlus,
   RotateCcw, Shuffle, Trash2, X,
 } from "lucide-react";
 
