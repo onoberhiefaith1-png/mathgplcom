@@ -2,12 +2,37 @@
 // colour-space handling: base colour is sRGB, every other map is raw data.
 
 import { useMemo } from "react";
-import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { PBR_SETS, type PbrFamily } from "@/lib/slate/pbr";
+import { useAsyncTextures } from "./loadTexture";
 
 const cache = new Map<string, THREE.Texture>();
 const MAX_PREPARED_TEXTURES = 256;
+
+/**
+ * Stand-in map used only while a scanned image is still arriving. It keeps the
+ * surface lit and writable; the real map replaces it without any visual jump.
+ */
+const flats = new Map<string, THREE.Texture>();
+const flatTexture = (colour: string, srgb: boolean): THREE.Texture => {
+  const id = `${colour}:${srgb}`;
+  const hit = flats.get(id);
+  if (hit) return hit;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 2;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = colour;
+    ctx.fillRect(0, 0, 2, 2);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.needsUpdate = true;
+  flats.set(id, texture);
+  return texture;
+};
+
 
 const stableRepeat = (value: number) => Math.round(Math.max(0.25, value) * 4) / 4;
 
