@@ -254,8 +254,8 @@ export const useGameRuntime = (params: {
         startQuestionTimer(seconds || null);
         return next;
       });
-    }, 500);
-    return () => window.clearInterval(tick);
+    });
+    return stop;
   }, [questionDeadline, lifeTimeSeconds, startQuestionTimer]);
 
   /* ---- line rewards -------------------------------------------------- */
