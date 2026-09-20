@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { lazy, Suspense } from "react";
 import { ClientOnly } from "@tanstack/react-router";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
+import { PanelSheet } from "@/components/slate/PanelSheet";
 
 const WorldStage = lazy(() => import("@/components/gameslate/world/WorldStage"));
 import { ControlPanel } from "@/components/slate/ControlPanel";
@@ -38,6 +40,9 @@ export default function GameSlateEditorPage() {
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [muted, setMutedState] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** Phone only: the board menu holding every control that used to overflow. */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const phone = useBreakpoint() === "phone";
   const loadedRef = useRef(false);
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
