@@ -313,6 +313,11 @@ function RewardObject({
         onPointerDown={onDown}
         onClick={(event) => {
           event.stopPropagation();
+          // ONE interaction per tap: a rapid double tap or a duplicated pointer
+          // event can never activate the same reward twice.
+          const now = Date.now();
+          if (now - lastTap.current < 260) return;
+          lastTap.current = now;
           onActivate();
         }}
       >
