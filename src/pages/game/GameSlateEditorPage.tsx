@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { lazy, Suspense } from "react";
 import { ClientOnly } from "@tanstack/react-router";
@@ -30,6 +30,9 @@ export default function GameSlateEditorPage() {
   const [previewLines, setPreviewLines] = useState<PreviewLine[] | null>(null);
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [muted, setMutedState] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const loadedRef = useRef(false);
+  const saveTimerRef = useRef<number | null>(null);
 
   useEffect(() => setMutedState(isMuted()), []);
 
@@ -59,6 +62,7 @@ export default function GameSlateEditorPage() {
         return;
       }
       setGame(g);
+      loadedRef.current = true;
     });
     return () => {
       cancelled = true;
@@ -153,9 +157,36 @@ export default function GameSlateEditorPage() {
     });
   }, []);
 
-  const [saving, setSaving] = useState(false);
+  // Every teacher change is account-backed. Navigation, refresh, or opening
+  // Play can no longer discard a surface change made since the last button save.
+  useEffect(() => {
+    if (!game || !loadedRef.current) return;
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(async () => {
+      setSaving(true);
+      const result = await saveGameResult(game);
+      setSaving(false);
+      if (!result.ok) toast.error(result.message ?? "Your latest Game change could not be saved.");
+    }, 900);
+    return () => {
+      if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current);
+    };
+  }, [game]);
 
-  if (!game) return <div className="min-h-screen bg-[#0b0906]" />;
+  useEffect(() => {
+    const protect = (event: BeforeUnloadEvent) => {
+      if (!saving) return;
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", protect);
+    return () => window.removeEventListener("beforeunload", protect);
+  }, [saving]);
+
+  if (!game) return (
+    <div className="flex min-h-screen items-center justify-center bg-[#0b0906] text-sm text-amber-100/70">
+      Loading your Game…
+    </div>
+  );
 
 
   const surface = getSurface(game.surfaceId);

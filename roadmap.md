@@ -1,5 +1,13 @@
 # Junction finishing
 
+# Game writing-surface reliability
+
+- [x] Confirm the affected saved Game still contains its writing surfaces and full configuration.
+- [x] Give the board an asset-free first paint so optional artwork cannot create a blank stage.
+- [x] Make repeated graphics-context recovery possible and bound prepared material variants.
+- [x] Reject empty-surface saves and autosave teacher changes before navigation can discard them.
+- [ ] Verify cold open, repeated reopen, repeated context loss, and Edit/Play parity in the live Game.
+
 # Floating Numbers Vault ownership
 
 - [x] Move unlimited add/edit/delete/reorder Vault data onto each Floating Numbers line.
