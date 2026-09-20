@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { Archive, ArrowLeft, ChevronRight, Loader2, MonitorPlay, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
+import { Archive, ArrowLeft, ChevronRight, Gamepad2, Loader2, MonitorPlay, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { withTimeout } from "@/lib/async/withTimeout";
