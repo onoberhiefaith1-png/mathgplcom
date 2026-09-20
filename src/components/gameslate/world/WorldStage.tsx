@@ -117,6 +117,10 @@ export default function WorldStage(props: Props) {
   }, []);
 
   useEffect(() => setStageReady(false), [gpu.resetKey]);
+  // Boot order: surfaces and input first, environment lighting next, premium
+  // effects last. A later phase can never delay an earlier one.
+  const phase = useBootPhase(stageReady, gpu.resetKey);
+
 
   useEffect(() => {
     const node = host.current;
