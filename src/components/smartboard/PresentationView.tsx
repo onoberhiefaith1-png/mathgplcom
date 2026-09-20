@@ -49,6 +49,11 @@ import { buildLessonBoardSource, beatNeedsFloatingMath, type Beat, type Reservoi
 import { applyPlan, loadPlan } from "@/lib/smartboard/presentationPlan";
 import { startSession, freezeSession, cancelSession, type EditingSession } from "@/lib/smartboard/editingSession";
 import { ReasoningEngine, introducedTerms as introducedTermsOf } from "@/lib/smartboard/reasoningEngine";
+import {
+  isCurrentAutomaticGrade,
+  PROACTIVE_GRADING_DELAY_MS,
+  studentGradingKey,
+} from "@/lib/assessments/studentGrading";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
@@ -4495,6 +4500,7 @@ const PresentationView = ({
     k: number,
     mode: "manual" | "auto",
     frozenAscii?: string,
+    signal?: AbortSignal,
   ) => {
     // A table line is graded by its cells, never by board ink.
     if (groupForLine(tableGroups, k)) {
@@ -4557,6 +4563,7 @@ const PresentationView = ({
           ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
           ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
         },
+        signal,
       });
       if (error) {
         if (mode === "manual") throw error;
@@ -4673,6 +4680,7 @@ const PresentationView = ({
       }
       return true;
     } catch (e: any) {
+      if (signal?.aborted || e?.name === "AbortError") return false;
       if (mode === "manual") {
         toast({ title: "Could not check", description: String(e?.message ?? e), variant: "destructive" });
       } else {
@@ -4731,6 +4739,7 @@ const PresentationView = ({
   // the line open, without ever blocking a changed expression.
   const autoGradedKeyRef = useRef<string>("");
   const autoGradingKeyRef = useRef<string>("");
+  const autoGradeControllerRef = useRef<AbortController | null>(null);
   const silentAutoCheckLine = useCallback(
     async (k: number, frozenAscii?: string) => {
       const ascii = typeof frozenAscii === "string"
@@ -4739,22 +4748,35 @@ const PresentationView = ({
       const key = studentGradingKey(current?.id ?? "", k, ascii);
       if (ascii.trim() && autoGradedKeyRef.current === key) return;
       if (!ascii.trim() || autoGradingKeyRef.current === key) return;
+      // Only the latest live expression owns the automatic request. This
+      // prevents a slow partial-expression check from delaying the completed
+      // line or reporting after newer work has replaced it.
+      autoGradeControllerRef.current?.abort();
+      const controller = new AbortController();
+      autoGradeControllerRef.current = controller;
       autoGradingKeyRef.current = key;
-      let completed = await gradeLineThroughEngine(k, "auto", frozenAscii);
+      let completed = await gradeLineThroughEngine(k, "auto", frozenAscii, controller.signal);
+      if (controller.signal.aborted) return;
       // One bounded retry repairs a transient function/network interruption.
       // The key is committed only after an authoritative response arrives.
       if (!completed) {
         await new Promise((resolve) => window.setTimeout(resolve, 800));
         const latest = resolveGradableLineRef.current(k)?.ascii ?? "";
-        if (latest === ascii && current?.id) {
-          completed = await gradeLineThroughEngine(k, "auto", frozenAscii);
+        if (
+          current?.id &&
+          isCurrentAutomaticGrade({ requestKey: key, questionId: current.id, lineIndex: k, ascii: latest })
+        ) {
+          completed = await gradeLineThroughEngine(k, "auto", frozenAscii, controller.signal);
         }
       }
       if (completed) autoGradedKeyRef.current = key;
       if (autoGradingKeyRef.current === key) autoGradingKeyRef.current = "";
+      if (autoGradeControllerRef.current === controller) autoGradeControllerRef.current = null;
     },
     [gradeLineThroughEngine, current?.id],
   );
+
+  useEffect(() => () => autoGradeControllerRef.current?.abort(), []);
 
 
   // ── EDITING SESSION: Start Point / End Point ─────────────────────────
@@ -4878,19 +4900,19 @@ const PresentationView = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeLines, activeLineIdx, guidedLines]);
 
-  // Idle silent auto-check — a line that is finished but never left would
-  // otherwise never be graded. Debounced; the grader itself skips dangling
-  // lines and already-solved slots, so this never disturbs the student.
-  // INSIDE THE GAME the mark is what moves the game forward, so the check is
-  // armed almost immediately: the student must never have to leave a finished
-  // line to see it marked and its reward fire.
+  // Proactive silent auto-check. Each meaningful edit re-arms one very short
+  // coalescing window; the latest expression is then checked while the student
+  // remains on the line. No navigation or explicit End Point is required.
   useEffect(() => {
     if (!assessmentMode || role !== "student") return;
-    const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, gameChrome ? 220 : 900);
+    const id = window.setTimeout(
+      () => { void silentAutoCheckLine(activeLineIdx); },
+      PROACTIVE_GRADING_DELAY_MS,
+    );
     return () => window.clearTimeout(id);
     // `tableEntries` is here so a cell edit re-arms the debounce: a completed
     // final row/column is never left unmarked just because the student stayed.
-  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, silentAutoCheckLine, gameChrome]);
+  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, silentAutoCheckLine]);
 
 
 
