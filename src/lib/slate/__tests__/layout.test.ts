@@ -18,6 +18,14 @@ describe("Game writing-surface layout", () => {
     expect(gameSurfaceWidth(7, 9)).toBe(7);
   });
 
+  it("keeps empty, short, and long surfaces independently sized", () => {
+    const minimum = 0.9;
+    expect(gameSurfaceWidth(10, minimum)).toBe(minimum);
+    expect(gameSurfaceWidth(10, 2.8)).toBe(2.8);
+    expect(gameSurfaceWidth(10, 14)).toBe(10);
+    expect(gameSurfaceWidth(10, minimum)).toBe(minimum);
+  });
+
   it("starts every unmeasured Play surface at its own minimum height", () => {
     const layout = buildLayout(
       [slot("short", "x = 5"), slot("long", "Subtract 7 from both sides and simplify carefully")],
