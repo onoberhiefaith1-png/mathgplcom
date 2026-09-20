@@ -1202,16 +1202,18 @@ export function SlateColumn({
               >
                 {/* the whole drawn panel is the target: tapping surface N
                     activates Floating Numbers line N, empty panels included */}
-                <mesh
-                  position={[0, 0, 0.02]}
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                    onSelect({ kind: "slot", slotId: slot.id });
-                  }}
-                >
-                  <planeGeometry args={[surfaceWidth + 0.12, surfaceHeight + 0.12]} />
-                  <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-                </mesh>
+                {readOnlyWriting ? (
+                  <mesh
+                    position={[0, 0, 0.02]}
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      onSelect({ kind: "slot", slotId: slot.id });
+                    }}
+                  >
+                    <planeGeometry args={[surfaceWidth + 0.12, surfaceHeight + 0.12]} />
+                    <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                  </mesh>
+                ) : null}
                 <RegionSurface
                   surface={lineSurface}
                   build={lineBuild}
