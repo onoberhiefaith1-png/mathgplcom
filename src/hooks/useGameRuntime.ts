@@ -229,9 +229,10 @@ export const useGameRuntime = (params: {
 
   useEffect(() => {
     if (!questionDeadline) return;
-    const tick = window.setInterval(() => {
-      if (Date.now() < questionDeadline) return;
-      window.clearInterval(tick);
+    let done = false;
+    const stop = subscribeGameClock((now) => {
+      if (done || now < questionDeadline) return;
+      done = true;
       setQuestionDeadline(null);
       setLives((prev) => {
         const next = prev - 1;
