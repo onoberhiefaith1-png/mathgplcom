@@ -1,5 +1,13 @@
 # Junction finishing
 
+# Reusable Adventure linking
+
+- [ ] Apply the dedicated Class-to-Adventure relationship with class-scoped question placements.
+- [ ] Preserve Adventure bar configuration and student work across unlink/relink.
+- [ ] Remove the active note-centric Adventure assignment path.
+- [ ] Verify linking, bar assignment, class isolation, persistence, and security after draft acceptance.
+
+
 # Game writing-surface reliability
 
 - [x] Confirm the affected saved Game still contains its writing surfaces and full configuration.
