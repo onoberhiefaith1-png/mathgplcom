@@ -11,6 +11,8 @@ export interface PerfSnapshot {
   triangles: number;
   /** Compiled shader programs — a tap that compiles a new one always stutters. */
   programs: number;
+  /** Writing surfaces currently drawn, out of the Game's total. */
+  surfaces: string;
   meshes: number;
   materials: number;
   textures: number;
@@ -32,6 +34,7 @@ let snapshot: PerfSnapshot = {
   drawCalls: 0,
   triangles: 0,
   programs: 0,
+  surfaces: "—",
   meshes: 0,
   materials: 0,
   textures: 0,

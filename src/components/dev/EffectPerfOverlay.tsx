@@ -12,6 +12,7 @@ export function EffectPerfOverlay() {
     ["Worst (p95)", `${perf.worstMs} ms`],
     ["Draw calls", String(perf.drawCalls)],
     ["Programs", String(perf.programs)],
+    ["Surfaces", perf.surfaces],
     ["Meshes", String(perf.meshes)],
     ["Materials", String(perf.materials)],
     ["Textures", String(perf.textures)],

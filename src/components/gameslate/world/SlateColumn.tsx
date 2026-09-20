@@ -28,7 +28,7 @@ import {
 import { playSfx } from "@/lib/slate/audio";
 import { subscribeGameClock } from "@/lib/game/runtime/clock";
 import { ensureEffectReady } from "@/lib/slate/vfx/prepare";
-import { setPerf } from "@/lib/slate/vfx/perf";
+import { perfSnapshot, setPerf } from "@/lib/slate/vfx/perf";
 import { ScriptStage } from "./ScriptStage";
 import { compileScript } from "@/lib/slate/vfx/script";
 import { choreography, objectMotion } from "@/lib/slate/vfx/profiles";
@@ -1137,6 +1137,10 @@ export function SlateColumn({
     return y < VIEW_TOP + region.height + 2.4 && y > VIEW_BOTTOM - region.height - 2.4;
   });
   void scrollTick;
+  if (import.meta.env.DEV) {
+    const label = `${visible.length}/${layout.regions.length}`;
+    if (perfSnapshot().surfaces !== label) setPerf({ surfaces: label });
+  }
 
   return (
     <group position={[0, 0, SLATE_Z]}>
