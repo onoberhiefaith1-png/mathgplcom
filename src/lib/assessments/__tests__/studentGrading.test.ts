@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  isCurrentAutomaticGrade,
+  PROACTIVE_GRADING_DELAY_MS,
   resultMatchesStudentLine,
   studentGradingKey,
   studentProgressSlot,
@@ -12,6 +14,17 @@ describe("student-owned grading identity", () => {
     expect(resultMatchesStudentLine({ expectedKey: key, questionId: "q1", lineIndex: 0, ascii: "5+5=10" })).toBe(true);
     expect(resultMatchesStudentLine({ expectedKey: key, questionId: "q2", lineIndex: 0, ascii: "5+5=10" })).toBe(false);
     expect(resultMatchesStudentLine({ expectedKey: key, questionId: "q1", lineIndex: 0, ascii: "5+5=9" })).toBe(false);
+  });
+
+  it("accepts only the latest exact line expression", () => {
+    const requestKey = studentGradingKey("q1", 2, "4x+y");
+    expect(isCurrentAutomaticGrade({ requestKey, questionId: "q1", lineIndex: 2, ascii: "4x+y" })).toBe(true);
+    expect(isCurrentAutomaticGrade({ requestKey, questionId: "q1", lineIndex: 1, ascii: "4x+y" })).toBe(false);
+    expect(isCurrentAutomaticGrade({ requestKey, questionId: "q1", lineIndex: 2, ascii: "4x+y+1" })).toBe(false);
+  });
+
+  it("coalesces input for less than one tenth of a second", () => {
+    expect(PROACTIVE_GRADING_DELAY_MS).toBeLessThan(100);
   });
 
   it("keeps two questions independent while aggregating one assignment total", () => {

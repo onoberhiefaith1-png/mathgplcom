@@ -18,3 +18,23 @@ export function resultMatchesStudentLine(input: {
 }): boolean {
   return input.expectedKey === studentGradingKey(input.questionId, input.lineIndex, input.ascii);
 }
+
+/** Keep proactive marking perceptually immediate while coalescing one burst of
+ * taps/keystrokes into a single authoritative request. */
+export const PROACTIVE_GRADING_DELAY_MS = 60;
+
+/** A late automatic response may update the board only when it still belongs
+ * to the exact question, line and expression currently being considered. */
+export function isCurrentAutomaticGrade(input: {
+  requestKey: string;
+  questionId: string;
+  lineIndex: number;
+  ascii: string;
+}): boolean {
+  return resultMatchesStudentLine({
+    expectedKey: input.requestKey,
+    questionId: input.questionId,
+    lineIndex: input.lineIndex,
+    ascii: input.ascii,
+  });
+}

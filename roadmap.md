@@ -1,5 +1,12 @@
 # Junction finishing
 
+# Instant Smartboard and Game feedback
+
+- [x] Proactively submit the active bound line for marking without waiting for line navigation.
+- [x] Cancel superseded automatic checks and reject stale retry results by question, line, and exact expression.
+- [x] Keep Game rewards on the shared awarded-line event so completion and configured rewards activate together.
+- [ ] Verify rapid correct-line awards and reward activation in authenticated Smartboard and Game sessions on desktop and phone.
+
 # Reusable Adventure linking
 
 - [ ] Apply the dedicated Class-to-Adventure relationship with class-scoped question placements.
