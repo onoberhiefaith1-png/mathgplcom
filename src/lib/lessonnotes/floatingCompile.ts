@@ -142,6 +142,9 @@ export interface FloatingScoring {
   timerEnabled?: boolean;
   /** Seconds for the whole question when the timer is on. */
   timerSeconds?: number;
+  /** GAME mode. OFF by default: the generator then shows no Game control at
+   *  all (no question/line time, no destination switch, no Vault list). */
+  gameMode?: boolean;
 }
 
 export const SCORE_LABELS = ["Marks", "Points", "Score", "Credits", "Reward"] as const;
@@ -152,6 +155,7 @@ export const DEFAULT_SCORING: FloatingScoring = {
   marksPerLine: 1,
   timerEnabled: false,
   timerSeconds: 60,
+  gameMode: false,
 };
 
 /** The whole question's time, or null when the teacher left the timer off.

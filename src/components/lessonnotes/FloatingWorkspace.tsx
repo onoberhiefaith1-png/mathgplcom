@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import {
-  ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, CopyPlus, Plus,
+  ArrowDown, ArrowUp, ClipboardCopy, ClipboardPaste, CopyPlus,
   RotateCcw, Shuffle, Trash2, X,
 } from "lucide-react";
 
@@ -56,6 +56,9 @@ interface Props {
   canMoveDown?: boolean;
   /** Clears the teacher-owned flag so AI Generate may rewrite this line. */
   onRegenerateLine?: () => void;
+  /** GAME mode. When false (default) no Game control is rendered: no line
+   *  time, no destination switch, no Vault list. */
+  gameMode?: boolean;
 }
 
 
@@ -88,7 +91,11 @@ export const FloatingWorkspace = ({
   line, index, onChange, scoreLabel, scoringMode, onAiEdit, tag,
   onDeleteLine, onDuplicateLine, onCopyLine, onPasteLine,
   onMoveUp, onMoveDown, canMoveUp, canMoveDown, onRegenerateLine,
+  gameMode = false,
 }: Props) => {
+  // Where an applied selection goes. Session-only: never persisted.
+  const [destination, setDestination] = useState<"floating" | "vault">("floating");
+
 
   const fillers = applyArrangement(line.fillers, line.arrangement);
   const lineNo = tag ?? String(index + 1);
@@ -179,13 +186,10 @@ export const FloatingWorkspace = ({
   };
 
   const vaults = line.vaults ?? [];
-  const addVault = () => onChange({
+  /** A Vault is only ever created from the shared selection engine. */
+  const addVaultExpression = (expression: string) => onChange({
     ...line,
-    vaults: [...vaults, { id: newVaultId(), expression: "" }],
-  });
-  const updateVault = (vaultId: string, expression: string) => onChange({
-    ...line,
-    vaults: vaults.map((vault) => vault.id === vaultId ? { ...vault, expression } : vault),
+    vaults: [...vaults, { id: newVaultId(), expression }],
   });
   const removeVault = (vaultId: string) => onChange({
     ...line,
@@ -232,6 +236,15 @@ export const FloatingWorkspace = ({
     toast({
       title: "Floating Numbers updated",
       description: `${nextFillers.length} chip${nextFillers.length === 1 ? "" : "s"}.`,
+      duration: 1400,
+    });
+  };
+
+  const onVaultApply = (expression: string) => {
+    addVaultExpression(expression);
+    toast({
+      title: "Vault saved",
+      description: `Hidden method for Line ${lineNo}.`,
       duration: 1400,
     });
   };
@@ -306,10 +319,36 @@ export const FloatingWorkspace = ({
             lineId={line.lineId}
             chips={chipsForLine}
             onApply={onAtomApply}
+            destination={gameMode ? destination : "floating"}
+            onApplyVault={onVaultApply}
             highlightedAtomIds={highlightedAtomIds}
             onAtomHover={setHoveredAtomId}
           />
         </div>
+
+        {/* GAME only: the SAME selection engine, two destinations. */}
+        {gameMode && (
+          <div
+            className="flex items-center gap-1 shrink-0"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">Destination</span>
+            {(["floating", "vault"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDestination(d)}
+                aria-pressed={destination === d}
+                className="rounded-md px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] border"
+                style={destination === d
+                  ? { background: "hsl(40 85% 42%)", borderColor: "hsl(40 85% 42%)", color: "hsl(38 38% 96%)" }
+                  : { background: "transparent", borderColor: "hsl(220 35% 18% / 0.2)", color: "hsl(220 35% 18% / 0.6)" }}
+              >
+                {d === "floating" ? "Floating Numbers" : "Vault"}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {/* The Enter, AI Edit, and Reason & Verify buttons were removed in
               favour of the always-on Floating Number AI Assistant on the
@@ -350,22 +389,29 @@ export const FloatingWorkspace = ({
                 }}
               />
               <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">{scoreLabel}</span>
-              {/* One time value for this line only. In a Game this single value
-                  is what creates the line's Timer Reward, so it can never
+              {/* GAME only: one time value for this line. In a Game this single
+                  value is what creates the line's Timer Reward, so it can never
                   duplicate. Leave it empty for no time on this line. */}
-              <DurationInput
-                value={line.timerSeconds ?? null}
-                onChange={(seconds) => onChange({ ...line, timerSeconds: seconds ?? undefined })}
-                placeholder="—"
-                title="Time for this line only (MM:SS). Leave empty for none."
-                className="w-16 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-hidden"
-                style={{
-                  background: "hsl(200 60% 50% / 0.12)",
-                  border: "1px solid hsl(200 60% 40% / 0.45)",
-                  color: "hsl(220 35% 18%)",
-                }}
-              />
-              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">mm:ss</span>
+              {gameMode && (
+                <>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">
+                    Line {lineNo} time
+                  </span>
+                  <DurationInput
+                    value={line.timerSeconds ?? null}
+                    onChange={(seconds) => onChange({ ...line, timerSeconds: seconds ?? undefined })}
+                    placeholder="—"
+                    title="Time for this line only (MM:SS). Leave empty for none."
+                    className="w-16 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-hidden"
+                    style={{
+                      background: "hsl(200 60% 50% / 0.12)",
+                      border: "1px solid hsl(200 60% 40% / 0.45)",
+                      color: "hsl(220 35% 18%)",
+                    }}
+                  />
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">mm:ss</span>
+                </>
+              )}
             </>
           )}
         </div>
@@ -503,50 +549,41 @@ export const FloatingWorkspace = ({
         ))}
       </div>
 
-      <div className="mt-3 border-t border-foreground/10 pt-3" onClick={(event) => event.stopPropagation()}>
-        <div className="mb-2 flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/50">Vault data</span>
-          <button
-            type="button"
-            onClick={addVault}
-            className="inline-flex items-center gap-1 rounded-md border border-foreground/20 px-2 py-1 text-[11px] font-medium text-foreground/70 hover:bg-foreground/5"
-          >
-            <Plus className="h-3 w-3" /> Add Vault
-          </button>
-        </div>
-        {vaults.length === 0 ? (
-          <p className="text-[11px] text-foreground/40">No hidden method sequence on this line.</p>
-        ) : (
-          <div className="space-y-2">
-            {vaults.map((vault, vaultIndex) => (
-              <div key={vault.id} className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-[10px] uppercase tracking-wider text-foreground/45">
-                  Vault {vaultIndex + 1}
-                </span>
-                <input
-                  value={vault.expression}
-                  onChange={(event) => updateVault(vault.id, event.target.value)}
-                  placeholder="e.g. x + 7"
-                  aria-label={`Vault ${vaultIndex + 1} expression`}
-                  className="min-w-0 flex-1 rounded-md border border-foreground/20 bg-transparent px-2.5 py-1.5 text-[14px] outline-hidden focus:border-foreground/45"
-                />
-                <div className="min-w-20 text-[14px] text-foreground/70">
-                  {vault.expression.trim() ? renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`) : null}
-                </div>
-                <button type="button" onClick={() => moveVault(vaultIndex, -1)} disabled={vaultIndex === 0} className={ctrlClass} title="Move Vault up">
-                  <ArrowUp className="h-3 w-3" />
-                </button>
-                <button type="button" onClick={() => moveVault(vaultIndex, 1)} disabled={vaultIndex === vaults.length - 1} className={ctrlClass} title="Move Vault down">
-                  <ArrowDown className="h-3 w-3" />
-                </button>
-                <button type="button" onClick={() => removeVault(vault.id)} className="rounded-md border border-red-300/70 p-1 text-red-700/80 hover:bg-red-50" title="Delete Vault">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+      {gameMode && (
+        <div className="mt-3 border-t border-foreground/10 pt-3" onClick={(event) => event.stopPropagation()}>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/50">Vault</span>
+            <span className="text-[10px] text-foreground/40">
+              Set destination to VAULT, tap the equation, then Apply
+            </span>
           </div>
-        )}
-      </div>
+          {vaults.length === 0 ? (
+            <p className="text-[11px] text-foreground/40">No hidden method sequence on this line.</p>
+          ) : (
+            <div className="space-y-2">
+              {vaults.map((vault, vaultIndex) => (
+                <div key={vault.id} className="flex items-center gap-2">
+                  <span className="w-14 shrink-0 text-[10px] uppercase tracking-wider text-foreground/45">
+                    Vault {vaultIndex + 1}
+                  </span>
+                  <div className="min-w-0 flex-1 text-[15px] text-foreground/80">
+                    {renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`)}
+                  </div>
+                  <button type="button" onClick={() => moveVault(vaultIndex, -1)} disabled={vaultIndex === 0} className={ctrlClass} title="Move Vault up">
+                    <ArrowUp className="h-3 w-3" />
+                  </button>
+                  <button type="button" onClick={() => moveVault(vaultIndex, 1)} disabled={vaultIndex === vaults.length - 1} className={ctrlClass} title="Move Vault down">
+                    <ArrowDown className="h-3 w-3" />
+                  </button>
+                  <button type="button" onClick={() => removeVault(vault.id)} className="rounded-md border border-red-300/70 p-1 text-red-700/80 hover:bg-red-50" title="Delete Vault">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

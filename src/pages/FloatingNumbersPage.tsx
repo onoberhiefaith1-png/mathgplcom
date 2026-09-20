@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
-import { Archive, ArrowLeft, ChevronRight, Loader2, MonitorPlay, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
+import { Archive, ArrowLeft, ChevronRight, Gamepad2, Loader2, MonitorPlay, RotateCcw, Shuffle, Sparkles, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { withTimeout } from "@/lib/async/withTimeout";
@@ -1565,6 +1565,19 @@ const FloatingNumbersPage = () => {
             >
               <Shuffle className="h-3.5 w-3.5" /> Shuffle
             </button>
+            {/* GAME mode. OFF by default: the generator stays clean. */}
+            <button
+              onClick={() => updateScoring({ gameMode: !scoring.gameMode })}
+              disabled={loading}
+              aria-pressed={Boolean(scoring.gameMode)}
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border disabled:opacity-40"
+              style={scoring.gameMode
+                ? { background: "hsl(40 85% 42%)", borderColor: "hsl(40 85% 42%)", color: "hsl(38 38% 96%)" }
+                : { borderColor: "hsl(220 35% 18% / 0.2)", color: "hsl(220 35% 18%)" }}
+              title="Game mode: show game times, the destination switch and Vault creation"
+            >
+              <Gamepad2 className="h-3.5 w-3.5" /> GAME {scoring.gameMode ? "✓" : ""}
+            </button>
             <button
               onClick={() => void testOnSmartboard()}
               disabled={loading || openingTest || lines.every((l) => l.fillers.length === 0)}
@@ -1647,26 +1660,34 @@ const FloatingNumbersPage = () => {
             </label>
           )}
 
-          {/* Question time lives with the question — never with a Game. */}
-          <label className="inline-flex items-center gap-1.5 text-sm">
-            <input
-              type="checkbox"
-              checked={Boolean(scoring.timerEnabled)}
-              onChange={(e) => updateScoring({ timerEnabled: e.target.checked })}
-            />
-            <span className="text-foreground/60">Time this question</span>
-          </label>
-          {scoring.timerEnabled && (
-            <label className="inline-flex items-center gap-1.5 text-sm">
-              <DurationInput
-                value={scoring.timerSeconds ?? 60}
-                onChange={(seconds) => updateScoring({ timerSeconds: seconds ?? 60 })}
-                title="Time for the whole question (MM:SS)"
-                className="w-16 text-center text-sm rounded-md px-1.5 py-0.5 border border-foreground/20 bg-transparent tabular-nums"
-              />
-              <span className="text-foreground/60">mm:ss</span>
-            </label>
+          {/* GAME only: overall time. Hidden entirely when GAME is off. */}
+          {scoring.gameMode && (
+            <>
+              <span className="text-[10px] uppercase tracking-[0.3em] text-foreground/55">
+                Game settings
+              </span>
+              <label className="inline-flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(scoring.timerEnabled)}
+                  onChange={(e) => updateScoring({ timerEnabled: e.target.checked })}
+                />
+                <span className="text-foreground/60">Overall game time</span>
+              </label>
+              {scoring.timerEnabled && (
+                <label className="inline-flex items-center gap-1.5 text-sm">
+                  <DurationInput
+                    value={scoring.timerSeconds ?? 60}
+                    onChange={(seconds) => updateScoring({ timerSeconds: seconds ?? 60 })}
+                    title="Overall time for the whole question (MM:SS)"
+                    className="w-16 text-center text-sm rounded-md px-1.5 py-0.5 border border-foreground/20 bg-transparent tabular-nums"
+                  />
+                  <span className="text-foreground/60">mm:ss</span>
+                </label>
+              )}
+            </>
           )}
+
 
           <div className="ml-auto text-sm font-semibold tabular-nums">
             Total Available = {total} {scoring.label}
@@ -1743,6 +1764,7 @@ const FloatingNumbersPage = () => {
                         tag={numbering.lineTags[i]}
                         scoreLabel={scoring.label}
                         scoringMode={scoring.mode}
+                        gameMode={Boolean(scoring.gameMode)}
                         onChange={(next) => {
                           dirtyRef.current = true;
                           // Every workspace mutation is a TEACHER edit.
