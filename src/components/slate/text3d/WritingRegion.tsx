@@ -244,12 +244,14 @@ export function WritingRegion({
         >
           <textarea
             ref={input}
-            value={text}
+            defaultValue={text}
             spellCheck={false}
             onChange={(e) => {
+              emitted.current = e.target.value;
               onChange(e.target.value);
               requestAnimationFrame(syncFromInput);
             }}
+
             onKeyUp={syncFromInput}
             onSelect={syncFromInput}
             onFocus={syncFromInput}
