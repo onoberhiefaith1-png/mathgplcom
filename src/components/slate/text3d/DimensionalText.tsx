@@ -24,6 +24,8 @@ interface Props {
   onMeasure: (bounds: TextBounds) => void;
   apiRef?: Ref<InscribedTextApi>;
   opacity?: number;
+  /** Keep live entry lightweight; physical extrusion catches up after input settles. */
+  responsive?: boolean;
 }
 
 type TroikaText = THREE.Object3D & { textRenderInfo?: TroikaTextRenderInfo | null };
@@ -42,6 +44,7 @@ export function DimensionalText({
   onMeasure,
   apiRef,
   opacity = 1,
+  responsive = false,
 }: Props) {
   const r = resolveTextStyle(surface, settings);
   const sub = getSubstyle(settings.substyle);
@@ -50,6 +53,7 @@ export function DimensionalText({
   const caretMesh = useRef<THREE.Mesh>(null);
   const livingGroup = useRef<THREE.Group>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [settledText, setSettledText] = useState(text);
 
   const fontSize = settings.size / PX_PER_UNIT;
   const fade = opacity * Math.max(0, Math.min(1, settings.opacity));
@@ -134,6 +138,15 @@ export function DimensionalText({
     }
   }, [text, onMeasure]);
 
+  useEffect(() => {
+    if (!responsive) {
+      setSettledText(text);
+      return;
+    }
+    const timer = window.setTimeout(() => setSettledText(text), 220);
+    return () => window.clearTimeout(timer);
+  }, [responsive, text]);
+
   const anchorX: "left" | "right" | "center" =
     settings.align === "left" ? "left" : settings.align === "right" ? "right" : "center";
   const originX = settings.align === "left" ? 0 : settings.align === "right" ? width : width / 2;
@@ -170,6 +183,7 @@ export function DimensionalText({
       ? (getSelectionRects(info, Math.min(...selection), Math.max(...selection)) ?? [])
       : [];
   const boxes = useMemo(() => glyphBoxes(text, info), [text, info]);
+  const extrusionSettled = !responsive || settledText === text;
   const bounds = info?.blockBounds;
   const pivotX = bounds ? (bounds[0] + bounds[2]) / 2 : width / 2;
   const pivotY = bounds ? (bounds[1] + bounds[3]) / 2 : -fontSize / 2;
@@ -177,14 +191,22 @@ export function DimensionalText({
   return (
     <group position={[originX, 0, 0]}>
       {/* Invisible layout authority: wrapping, measurement, caret and selection. */}
-      <Text {...shared} fillOpacity={0} outlineOpacity={0} onSync={onSync}>
+      <Text
+        {...shared}
+        color={r.face}
+        fillOpacity={extrusionSettled ? 0 : fade}
+        outlineOpacity={0}
+        onSync={onSync}
+      >
         {text}
       </Text>
 
       <group ref={livingGroup} position={[0, 0, 0]}>
       <group position={[pivotX, pivotY, 0]}>
       <group position={[-pivotX, -pivotY, 0]}>
-      <ExtrudedExpression boxes={boxes} fontUrl={font} fontSize={fontSize} style={r} opacity={fade} />
+      {extrusionSettled ? (
+        <ExtrudedExpression boxes={boxes} fontUrl={font} fontSize={fontSize} style={r} opacity={fade} />
+      ) : null}
       </group>
       </group>
       </group>

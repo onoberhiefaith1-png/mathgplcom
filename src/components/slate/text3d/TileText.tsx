@@ -1,4 +1,4 @@
-import { useCallback, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { Ref } from "react";
 import { RoundedBox, Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -24,6 +24,8 @@ interface Props {
   onMeasure: (bounds: TextBounds) => void;
   apiRef?: Ref<InscribedTextApi>;
   opacity?: number;
+  /** Keep live entry lightweight; physical tiles catch up after input settles. */
+  responsive?: boolean;
 }
 
 type TroikaText = THREE.Object3D & { textRenderInfo?: TroikaTextRenderInfo | null };
@@ -181,11 +183,13 @@ export function TileText({
   onMeasure,
   apiRef,
   opacity = 1,
+  responsive = false,
 }: Props) {
   const recipe = textRecipe(surface, settings);
   const [info, setInfo] = useState<TroikaTextRenderInfo | null>(null);
   const measured = useRef({ width: 0, height: 0 });
   const caretMesh = useRef<THREE.Mesh>(null);
+  const [settledText, setSettledText] = useState(text);
 
   const fontSize = settings.size / PX_PER_UNIT;
   const fade = opacity * Math.max(0, Math.min(1, settings.opacity));
@@ -234,7 +238,17 @@ export function TileText({
     if (node) node.visible = caret !== null && Math.floor(clock.elapsedTime * 1.6) % 2 === 0;
   });
 
+  useEffect(() => {
+    if (!responsive) {
+      setSettledText(text);
+      return;
+    }
+    const timer = window.setTimeout(() => setSettledText(text), 220);
+    return () => window.clearTimeout(timer);
+  }, [responsive, text]);
+
   const boxes = useMemo(() => glyphBoxes(text, info), [text, info]);
+  const tilesSettled = !responsive || settledText === text;
 
   const anchorX: "left" | "right" | "center" =
     settings.align === "left" ? "left" : settings.align === "right" ? "right" : "center";
@@ -275,7 +289,8 @@ export function TileText({
         whiteSpace="normal"
         overflowWrap="break-word"
         sdfGlyphSize={64}
-        fillOpacity={0}
+        color={recipe.ink}
+        fillOpacity={tilesSettled ? 0 : fade}
         onSync={onSync}
       >
         {text}
@@ -294,7 +309,7 @@ export function TileText({
         </mesh>
       ))}
 
-      {boxes.map((box) => (
+      {tilesSettled ? boxes.map((box) => (
         <Tile
           key={box.index}
           box={box}
@@ -303,7 +318,7 @@ export function TileText({
           fade={fade}
           bounds={{ w: width, h: blockH }}
         />
-      ))}
+      )) : null}
 
       {caretRect ? (
         <mesh ref={caretMesh} position={[caretRect.x, caretRect.y, depth + 0.01]}>

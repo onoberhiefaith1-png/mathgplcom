@@ -15,54 +15,6 @@ function Exposure({ value }: { value: number }) {
   return null;
 }
 
-/**
- * PERFORMANCE: shader programs are compiled the first time a material is drawn,
- * and compiling one physical material costs hundreds of milliseconds. Left
- * alone, that bill lands on the frame the player taps a surface or fires a
- * reward. Compiling the whole scene while the board is still opening moves the
- * whole cost into the loading moment, where nobody is waiting on a tap.
- */
-function ShaderWarmup({ signature }: { signature: string }) {
-  const gl = useThree((state) => state.gl);
-  const scene = useThree((state) => state.scene);
-  const camera = useThree((state) => state.camera);
-  useEffect(() => {
-    let cancelled = false;
-    const warm = () => {
-      if (cancelled) return;
-      const compileAsync = (gl as { compileAsync?: (s: unknown, c: unknown) => Promise<unknown> })
-        .compileAsync;
-      if (compileAsync) void compileAsync.call(gl, scene, camera);
-      else gl.compile(scene, camera);
-    };
-    // once the first content is mounted, then again once lazy layers arrive
-    const first = window.setTimeout(warm, 120);
-    const second = window.setTimeout(warm, 1800);
-    // Anything that appears later — a selected surface, a reward, an effect —
-    // brings its own materials. Warm those up as soon as they exist, in an idle
-    // slot, so the next tap on them never pays for the compile.
-    let objects = -1;
-    const watch = window.setInterval(() => {
-      let count = 0;
-      scene.traverse(() => {
-        count += 1;
-      });
-      if (count === objects) return;
-      objects = count;
-      const idle = (window as { requestIdleCallback?: (cb: () => void) => number })
-        .requestIdleCallback;
-      if (idle) idle(warm);
-      else window.setTimeout(warm, 0);
-    }, 700);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(first);
-      window.clearTimeout(second);
-      window.clearInterval(watch);
-    };
-  }, [camera, gl, scene, signature]);
-  return null;
-}
 import { getRoom, NEUTRAL_ROOM } from "@/lib/slate/rooms";
 import { BackgroundLayer } from "./BackgroundLayer";
 import { RoomShell } from "./RoomShell";
@@ -186,7 +138,6 @@ export default function WorldStage(props: Props) {
           }}
         >
           <Exposure value={stage.exposure} />
-          <ShaderWarmup signature={`${props.game.id}:${props.mode}:${stage.id}`} />
           {showPerf ? <PerfProbe /> : null}
           {room ? (
             <>
