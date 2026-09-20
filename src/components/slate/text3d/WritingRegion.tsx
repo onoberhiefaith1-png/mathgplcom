@@ -83,6 +83,23 @@ export function WritingRegion({
     setSelection(start === end ? null : [start, end]);
   }, []);
 
+  // TYPING INTEGRITY.
+  //
+  // The 3D board is heavy, so a fully controlled field could be re-rendered
+  // with a value from an earlier keystroke; the field then reverted and the
+  // next key composed on top of stale text, silently dropping characters.
+  // The field now owns the keystrokes and is only re-synced when the text
+  // changes from outside (another line, a reset, Floating Numbers).
+  const emitted = useRef(text);
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    if (text === emitted.current) return;
+    emitted.current = text;
+    if (el.value !== text) el.value = text;
+  }, [text]);
+
+
   useEffect(() => {
     if (!active) {
       setCaret(null);
