@@ -56,6 +56,9 @@ interface Props {
   canMoveDown?: boolean;
   /** Clears the teacher-owned flag so AI Generate may rewrite this line. */
   onRegenerateLine?: () => void;
+  /** GAME mode. When false (default) no Game control is rendered: no line
+   *  time, no destination switch, no Vault list. */
+  gameMode?: boolean;
 }
 
 
