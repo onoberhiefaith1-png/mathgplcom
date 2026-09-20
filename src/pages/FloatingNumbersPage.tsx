@@ -1764,6 +1764,7 @@ const FloatingNumbersPage = () => {
                         tag={numbering.lineTags[i]}
                         scoreLabel={scoring.label}
                         scoringMode={scoring.mode}
+                        gameMode={Boolean(scoring.gameMode)}
                         onChange={(next) => {
                           dirtyRef.current = true;
                           // Every workspace mutation is a TEACHER edit.
