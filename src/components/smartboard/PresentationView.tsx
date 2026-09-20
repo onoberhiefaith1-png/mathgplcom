@@ -4881,13 +4881,16 @@ const PresentationView = ({
   // Idle silent auto-check — a line that is finished but never left would
   // otherwise never be graded. Debounced; the grader itself skips dangling
   // lines and already-solved slots, so this never disturbs the student.
+  // INSIDE THE GAME the mark is what moves the game forward, so the check is
+  // armed almost immediately: the student must never have to leave a finished
+  // line to see it marked and its reward fire.
   useEffect(() => {
     if (!assessmentMode || role !== "student") return;
-    const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, 900);
+    const id = window.setTimeout(() => { void silentAutoCheckLine(activeLineIdx); }, gameChrome ? 220 : 900);
     return () => window.clearTimeout(id);
     // `tableEntries` is here so a cell edit re-arms the debounce: a completed
     // final row/column is never left unmarked just because the student stayed.
-  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, silentAutoCheckLine]);
+  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, silentAutoCheckLine, gameChrome]);
 
 
 
