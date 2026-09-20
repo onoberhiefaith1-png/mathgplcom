@@ -507,50 +507,41 @@ export const FloatingWorkspace = ({
         ))}
       </div>
 
-      <div className="mt-3 border-t border-foreground/10 pt-3" onClick={(event) => event.stopPropagation()}>
-        <div className="mb-2 flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/50">Vault data</span>
-          <button
-            type="button"
-            onClick={addVault}
-            className="inline-flex items-center gap-1 rounded-md border border-foreground/20 px-2 py-1 text-[11px] font-medium text-foreground/70 hover:bg-foreground/5"
-          >
-            <Plus className="h-3 w-3" /> Add Vault
-          </button>
-        </div>
-        {vaults.length === 0 ? (
-          <p className="text-[11px] text-foreground/40">No hidden method sequence on this line.</p>
-        ) : (
-          <div className="space-y-2">
-            {vaults.map((vault, vaultIndex) => (
-              <div key={vault.id} className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-[10px] uppercase tracking-wider text-foreground/45">
-                  Vault {vaultIndex + 1}
-                </span>
-                <input
-                  value={vault.expression}
-                  onChange={(event) => updateVault(vault.id, event.target.value)}
-                  placeholder="e.g. x + 7"
-                  aria-label={`Vault ${vaultIndex + 1} expression`}
-                  className="min-w-0 flex-1 rounded-md border border-foreground/20 bg-transparent px-2.5 py-1.5 text-[14px] outline-hidden focus:border-foreground/45"
-                />
-                <div className="min-w-20 text-[14px] text-foreground/70">
-                  {vault.expression.trim() ? renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`) : null}
-                </div>
-                <button type="button" onClick={() => moveVault(vaultIndex, -1)} disabled={vaultIndex === 0} className={ctrlClass} title="Move Vault up">
-                  <ArrowUp className="h-3 w-3" />
-                </button>
-                <button type="button" onClick={() => moveVault(vaultIndex, 1)} disabled={vaultIndex === vaults.length - 1} className={ctrlClass} title="Move Vault down">
-                  <ArrowDown className="h-3 w-3" />
-                </button>
-                <button type="button" onClick={() => removeVault(vault.id)} className="rounded-md border border-red-300/70 p-1 text-red-700/80 hover:bg-red-50" title="Delete Vault">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+      {gameMode && (
+        <div className="mt-3 border-t border-foreground/10 pt-3" onClick={(event) => event.stopPropagation()}>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.25em] text-foreground/50">Vault</span>
+            <span className="text-[10px] text-foreground/40">
+              Set destination to VAULT, tap the equation, then Apply
+            </span>
           </div>
-        )}
-      </div>
+          {vaults.length === 0 ? (
+            <p className="text-[11px] text-foreground/40">No hidden method sequence on this line.</p>
+          ) : (
+            <div className="space-y-2">
+              {vaults.map((vault, vaultIndex) => (
+                <div key={vault.id} className="flex items-center gap-2">
+                  <span className="w-14 shrink-0 text-[10px] uppercase tracking-wider text-foreground/45">
+                    Vault {vaultIndex + 1}
+                  </span>
+                  <div className="min-w-0 flex-1 text-[15px] text-foreground/80">
+                    {renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`)}
+                  </div>
+                  <button type="button" onClick={() => moveVault(vaultIndex, -1)} disabled={vaultIndex === 0} className={ctrlClass} title="Move Vault up">
+                    <ArrowUp className="h-3 w-3" />
+                  </button>
+                  <button type="button" onClick={() => moveVault(vaultIndex, 1)} disabled={vaultIndex === vaults.length - 1} className={ctrlClass} title="Move Vault down">
+                    <ArrowDown className="h-3 w-3" />
+                  </button>
+                  <button type="button" onClick={() => removeVault(vault.id)} className="rounded-md border border-red-300/70 p-1 text-red-700/80 hover:bg-red-50" title="Delete Vault">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
