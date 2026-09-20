@@ -26,6 +26,7 @@ import { patternLengthOf } from "@/lib/slate/pattern";
 import { resolveRenderedLineSlot } from "@/lib/slate/lineSurfaces";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
@@ -48,6 +49,9 @@ const GamePlayPage = () => {
   const [lineText, setLineText] = useState<Record<number, string>>({});
   const [resetEpoch, setResetEpoch] = useState(0);
   const [resetting, setResetting] = useState(false);
+  /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const phone = useBreakpoint() === "phone";
 
   useEffect(() => {
     if (!gameId) return;
