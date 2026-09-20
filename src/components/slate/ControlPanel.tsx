@@ -231,7 +231,7 @@ export function ControlPanel({
   };
 
   return (
-    <aside className="flex h-full w-full flex-col border-l border-amber-200/15 bg-[#120d07]/95 backdrop-blur-md">
+    <aside className="flex h-full min-h-0 w-full flex-col border-l border-amber-200/15 bg-[#120d07]/95 backdrop-blur-md">
       <div className="flex items-center justify-between gap-2 border-b border-amber-200/10 px-4 py-3">
         <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.22em] text-amber-100">
           Edit &amp; Settings

@@ -445,31 +445,58 @@ export default function GameSlateEditorPage() {
         ) : null}
       </div>
 
-      {/* RIGHT — the one control room, a real 20% column (slide-over on phones) */}
+      {/* RIGHT — the one control room, a real 20% column. On a phone the same
+          panel becomes a resizable bottom sheet so the board stays visible. */}
       {questionsOpen ? (
-        <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[24%] md:min-w-[300px] md:max-w-[440px] md:shrink-0">
-          <QuestionsPanel
-            game={game}
-            onChange={(settings) => patchGame({ settings })}
-            onPreview={setPreviewLines}
-            onClose={() => setQuestionsOpen(false)}
-          />
-        </div>
+        phone ? (
+          <PanelSheet>
+            <QuestionsPanel
+              game={game}
+              onChange={(settings) => patchGame({ settings })}
+              onPreview={setPreviewLines}
+              onClose={() => setQuestionsOpen(false)}
+            />
+          </PanelSheet>
+        ) : (
+          <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[24%] md:min-w-[300px] md:max-w-[440px] md:shrink-0">
+            <QuestionsPanel
+              game={game}
+              onChange={(settings) => patchGame({ settings })}
+              onPreview={setPreviewLines}
+              onClose={() => setQuestionsOpen(false)}
+            />
+          </div>
+        )
       ) : null}
 
       {panelOpen ? (
-        <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[20%] md:min-w-[280px] md:max-w-[420px] md:shrink-0">
-          <ControlPanel
-            game={game}
-            selection={selection}
-            onSelect={setSelection}
-            onChange={patchGame}
-            onSlotChange={patchSlot}
-            onAddReward={addReward}
-            onClose={() => setPanelOpen(false)}
-            onSave={save}
-          />
-        </div>
+        phone ? (
+          <PanelSheet>
+            <ControlPanel
+              game={game}
+              selection={selection}
+              onSelect={setSelection}
+              onChange={patchGame}
+              onSlotChange={patchSlot}
+              onAddReward={addReward}
+              onClose={() => setPanelOpen(false)}
+              onSave={save}
+            />
+          </PanelSheet>
+        ) : (
+          <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[20%] md:min-w-[280px] md:max-w-[420px] md:shrink-0">
+            <ControlPanel
+              game={game}
+              selection={selection}
+              onSelect={setSelection}
+              onChange={patchGame}
+              onSlotChange={patchSlot}
+              onAddReward={addReward}
+              onClose={() => setPanelOpen(false)}
+              onSave={save}
+            />
+          </div>
+        )
       ) : null}
     </div>
   );
