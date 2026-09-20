@@ -48,7 +48,6 @@ const GamePlayPage = () => {
   const [lineText, setLineText] = useState<Record<number, string>>({});
   const [resetEpoch, setResetEpoch] = useState(0);
   const [resetting, setResetting] = useState(false);
-  const [surfaceSelection, setSurfaceSelection] = useState<Selection>({ kind: "slot", slotId: "line-1" });
 
   useEffect(() => {
     if (!gameId) return;
