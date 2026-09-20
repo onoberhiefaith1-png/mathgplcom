@@ -444,6 +444,81 @@ export type Database = {
         }
         Relationships: []
       }
+      adventure_bar_questions: {
+        Row: {
+          assigned_by: string | null
+          class_id: string
+          created_at: string
+          game_id: string
+          id: string
+          notebook_id: string
+          progress_element_id: string
+          question_key: string | null
+          section_id: string
+          unassigned_at: string | null
+        }
+        Insert: {
+          assigned_by?: string | null
+          class_id: string
+          created_at?: string
+          game_id: string
+          id?: string
+          notebook_id: string
+          progress_element_id: string
+          question_key?: string | null
+          section_id: string
+          unassigned_at?: string | null
+        }
+        Update: {
+          assigned_by?: string | null
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          notebook_id?: string
+          progress_element_id?: string
+          question_key?: string | null
+          section_id?: string
+          unassigned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adventure_bar_questions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_bar_questions_class_id_game_id_fkey"
+            columns: ["class_id", "game_id"]
+            isOneToOne: false
+            referencedRelation: "class_adventures"
+            referencedColumns: ["class_id", "game_id"]
+          },
+          {
+            foreignKeyName: "adventure_bar_questions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_bar_questions_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adventure_bar_questions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "notebook_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       adventure_games: {
         Row: {
           created_at: string
@@ -2015,6 +2090,48 @@ export type Database = {
           },
         ]
       }
+      class_adventures: {
+        Row: {
+          class_id: string
+          created_at: string
+          game_id: string
+          id: string
+          linked_by: string | null
+          unlinked_at: string | null
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          game_id: string
+          id?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          game_id?: string
+          id?: string
+          linked_by?: string | null
+          unlinked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_adventures_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_adventures_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_content_nodes: {
         Row: {
           class_id: string
@@ -2288,6 +2405,7 @@ export type Database = {
           game_id: string
           id: string
           notebook_id: string | null
+          pass_pct: number | null
           progress_element_id: string
           question_keys: string[]
           required_marks: number | null
@@ -2301,6 +2419,7 @@ export type Database = {
           game_id: string
           id?: string
           notebook_id?: string | null
+          pass_pct?: number | null
           progress_element_id: string
           question_keys?: string[]
           required_marks?: number | null
@@ -2314,6 +2433,7 @@ export type Database = {
           game_id?: string
           id?: string
           notebook_id?: string | null
+          pass_pct?: number | null
           progress_element_id?: string
           question_keys?: string[]
           required_marks?: number | null
