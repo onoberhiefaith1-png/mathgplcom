@@ -88,7 +88,7 @@ export const SURFACE_FAMILY: Record<string, PbrFamily> = {
   "leaf-frame": "parchment",
   "magical-aura": "ice",
   cloud: "ice",
-  "silk-ribbon": "parchment",
+  "silk-ribbon": "silk-satin",
   none: "ice",
   plain: "parchment",
   "new-parchment-scroll": "parchment",

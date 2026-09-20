@@ -279,6 +279,8 @@ export const SURFACES: SurfaceDef[] = [
     frame: "#d7a72f",
     accent: "#ffd466",
     ornament: "royal",
+    // the decorated style is built as real geometry, not a flat slab
+    newKind: "royal",
   },
   {
     id: "leaf-frame",
@@ -293,6 +295,8 @@ export const SURFACES: SurfaceDef[] = [
     frame: "#4f853b",
     accent: "#8ed35a",
     ornament: "leaf",
+    // the decorated style is built as real geometry, not a flat slab
+    newKind: "leaf",
   },
   {
     id: "magical-aura",
@@ -307,6 +311,8 @@ export const SURFACES: SurfaceDef[] = [
     frame: "rgba(218,145,255,0.8)",
     accent: "#d886ff",
     ornament: "magic",
+    // the decorated style is built as real geometry, not a flat slab
+    newKind: "magic",
   },
   {
     id: "cloud",
@@ -321,6 +327,8 @@ export const SURFACES: SurfaceDef[] = [
     frame: "rgba(225,244,255,0.9)",
     accent: "#dff4ff",
     ornament: "cloud",
+    // the decorated style is built as real geometry, not a flat slab
+    newKind: "cloud",
   },
   {
     id: "silk-ribbon",
@@ -335,6 +343,8 @@ export const SURFACES: SurfaceDef[] = [
     frame: "#efbd49",
     accent: "#ffcf58",
     ornament: "silk",
+    // the decorated style is built as real geometry, not a flat slab
+    newKind: "silk",
   },
   {
     id: "transparent",
