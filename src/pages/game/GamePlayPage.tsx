@@ -26,6 +26,7 @@ import { patternLengthOf } from "@/lib/slate/pattern";
 import { resolveRenderedLineSlot } from "@/lib/slate/lineSurfaces";
 import { buildBoardScope, clearBoardScope } from "@/lib/smartboard/boardScope";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
@@ -48,6 +49,9 @@ const GamePlayPage = () => {
   const [lineText, setLineText] = useState<Record<number, string>>({});
   const [resetEpoch, setResetEpoch] = useState(0);
   const [resetting, setResetting] = useState(false);
+  /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const phone = useBreakpoint() === "phone";
 
   useEffect(() => {
     if (!gameId) return;
@@ -362,64 +366,143 @@ const GamePlayPage = () => {
       </div>
 
       {/* HUD */}
-      <header className="absolute inset-x-0 top-0 z-20 flex flex-wrap items-center gap-3 bg-background/70 px-4 py-2 backdrop-blur">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-sm hover:bg-accent"
-        >
-          <ArrowLeft className="h-4 w-4" /> Exit
-        </button>
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold">{game.name}</h1>
-          <p className="text-xs text-muted-foreground">
-            Question {Math.min(runtime.questionIndex + 1, Math.max(1, boards.length))} of {boards.length}
-            {" · "}Game Line {runtime.currentLine}
-            {testMode ? " · Test play (nothing recorded)" : ""}
-          </p>
-        </div>
-        <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
-          <GameClockDisplay deadline={runtime.questionDeadline}>
-            {(label) => (
-              <span className="inline-flex items-center gap-1" title="Question time">
-                <Hourglass className="h-4 w-4 text-sky-500" /> TIME {label}
-              </span>
-            )}
-          </GameClockDisplay>
-          <GameClockDisplay deadline={runtime.lineDeadline}>
-            {(label) => (
-              <span className="inline-flex items-center gap-1" title="Line time">
-                <Hourglass className="h-4 w-4 text-emerald-500" /> {label}
-              </span>
-            )}
-          </GameClockDisplay>
-          <span className="inline-flex items-center gap-1" title="Lives">
-            <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
+      {/* HUD — one short strip on a phone, the full row on larger screens. */}
+      {phone ? (
+        <header className="absolute inset-x-0 top-0 z-20 flex h-10 items-center gap-2 overflow-hidden bg-background/80 px-2 text-[11px] tabular-nums backdrop-blur">
+          <span className="inline-flex shrink-0 items-center gap-0.5" title="Question time">
+            <Hourglass className="h-3.5 w-3.5 text-sky-500" />
+            <GameClockDisplay deadline={runtime.questionDeadline}>
+              {(label) => <span>{label}</span>}
+            </GameClockDisplay>
           </span>
-          <span className="inline-flex items-center gap-1" title="Vault reward">
-            <img className="h-4 w-8 object-contain" src={getReward("math-vault").art} alt="" /> VAULT {runtime.vaultReward}
+          <span className="inline-flex shrink-0 items-center gap-0.5" title="Line time">
+            <Hourglass className="h-3.5 w-3.5 text-emerald-500" />
+            <GameClockDisplay deadline={runtime.lineDeadline}>
+              {(label) => <span>{label}</span>}
+            </GameClockDisplay>
           </span>
-          <span key={runtime.completionCount} className="inline-flex items-center gap-1 animate-in zoom-in" title="Completed lines">
-            <img className="h-4 w-4 object-contain" src={getReward("mark-seal").art} alt="" />
-            COMPLETION {runtime.completionCount}
+          <span className="inline-flex shrink-0 items-center gap-0.5" title="Lives">
+            <Heart className="h-3.5 w-3.5 text-rose-500" /> {runtime.lives}
           </span>
-          <span className="inline-flex items-center gap-1" title="Marks">
-            {runtime.earnedMarks} / {runtime.totalMarks}
-            {runtime.totalMarks > 0
-              ? ` · ${Math.round((runtime.earnedMarks / runtime.totalMarks) * 100)}%`
-              : ""}
+          <span className="inline-flex shrink-0 items-center gap-0.5" title="Vault reward">
+            <img className="h-3 w-6 object-contain" src={getReward("math-vault").art} alt="" />
+            {runtime.vaultReward}
+          </span>
+          <span
+            key={runtime.completionCount}
+            className="inline-flex shrink-0 items-center gap-0.5 animate-in zoom-in"
+            title="Completed lines"
+          >
+            <img className="h-3.5 w-3.5 object-contain" src={getReward("mark-seal").art} alt="" />
+            {runtime.completionCount}
+          </span>
+          <span className="shrink-0" title="Marks">
+            {runtime.earnedMarks}/{runtime.totalMarks}
+          </span>
+          <span className="ml-auto shrink-0 truncate opacity-70" title="Current line">
+            L{runtime.currentLine}
           </span>
           <button
             type="button"
-            onClick={() => void resetGame()}
-            disabled={resetting}
-            title="Reset this run"
-            className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide hover:bg-accent disabled:opacity-50"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label="Game menu"
+            aria-expanded={menuOpen}
+            className="shrink-0 rounded border border-border/60 px-2 py-1 text-xs"
           >
-            <RotateCcw className="h-3.5 w-3.5" /> {resetting ? "RESETTING" : "RESET"}
+            ☰
+          </button>
+        </header>
+      ) : (
+        <header className="absolute inset-x-0 top-0 z-20 flex flex-wrap items-center gap-3 bg-background/70 px-4 py-2 backdrop-blur">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-sm hover:bg-accent"
+          >
+            <ArrowLeft className="h-4 w-4" /> Exit
+          </button>
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-semibold">{game.name}</h1>
+            <p className="text-xs text-muted-foreground">
+              Question {Math.min(runtime.questionIndex + 1, Math.max(1, boards.length))} of {boards.length}
+              {" · "}Game Line {runtime.currentLine}
+              {testMode ? " · Test play (nothing recorded)" : ""}
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-3 text-sm tabular-nums">
+            <GameClockDisplay deadline={runtime.questionDeadline}>
+              {(label) => (
+                <span className="inline-flex items-center gap-1" title="Question time">
+                  <Hourglass className="h-4 w-4 text-sky-500" /> TIME {label}
+                </span>
+              )}
+            </GameClockDisplay>
+            <GameClockDisplay deadline={runtime.lineDeadline}>
+              {(label) => (
+                <span className="inline-flex items-center gap-1" title="Line time">
+                  <Hourglass className="h-4 w-4 text-emerald-500" /> {label}
+                </span>
+              )}
+            </GameClockDisplay>
+            <span className="inline-flex items-center gap-1" title="Lives">
+              <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
+            </span>
+            <span className="inline-flex items-center gap-1" title="Vault reward">
+              <img className="h-4 w-8 object-contain" src={getReward("math-vault").art} alt="" /> VAULT {runtime.vaultReward}
+            </span>
+            <span key={runtime.completionCount} className="inline-flex items-center gap-1 animate-in zoom-in" title="Completed lines">
+              <img className="h-4 w-4 object-contain" src={getReward("mark-seal").art} alt="" />
+              COMPLETION {runtime.completionCount}
+            </span>
+            <span className="inline-flex items-center gap-1" title="Marks">
+              {runtime.earnedMarks} / {runtime.totalMarks}
+              {runtime.totalMarks > 0
+                ? ` · ${Math.round((runtime.earnedMarks / runtime.totalMarks) * 100)}%`
+                : ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => void resetGame()}
+              disabled={resetting}
+              title="Reset this run"
+              className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide hover:bg-accent disabled:opacity-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> {resetting ? "RESETTING" : "RESET"}
+            </button>
+          </div>
+        </header>
+      )}
+
+      {phone && menuOpen ? (
+        <div className="absolute right-2 top-11 z-30 w-48 overflow-hidden rounded-lg border border-border/70 bg-background text-sm shadow-xl">
+          <div className="border-b border-border/60 px-3 py-2 text-xs text-muted-foreground">
+            {game.name} · Question{" "}
+            {Math.min(runtime.questionIndex + 1, Math.max(1, boards.length))} of {boards.length}
+            {testMode ? " · Test play" : ""}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              void resetGame();
+            }}
+            disabled={resetting}
+            className="block w-full border-b border-border/60 px-3 py-2.5 text-left disabled:opacity-50"
+          >
+            {resetting ? "Resetting…" : "Reset this run"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              navigate(-1);
+            }}
+            className="block w-full px-3 py-2.5 text-left"
+          >
+            Exit Game
           </button>
         </div>
-      </header>
+      ) : null}
 
       {runtime.message && (
         <div className="absolute inset-x-0 top-12 z-20 mx-auto flex w-fit items-center gap-3 rounded-full bg-primary/90 px-4 py-1.5 text-xs text-primary-foreground">

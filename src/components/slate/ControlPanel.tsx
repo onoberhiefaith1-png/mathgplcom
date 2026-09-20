@@ -231,7 +231,7 @@ export function ControlPanel({
   };
 
   return (
-    <aside className="flex h-full w-full flex-col border-l border-amber-200/15 bg-[#120d07]/95 backdrop-blur-md">
+    <aside className="flex h-full min-h-0 w-full flex-col border-l border-amber-200/15 bg-[#120d07]/95 backdrop-blur-md">
       <div className="flex items-center justify-between gap-2 border-b border-amber-200/10 px-4 py-3">
         <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.22em] text-amber-100">
           Edit &amp; Settings
@@ -245,7 +245,8 @@ export function ControlPanel({
         </button>
       </div>
 
-      <div className="slate-scroll min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+      {/* every setting must be reachable: nothing hides behind the Save bar */}
+      <div className="slate-scroll min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 pb-10">
         <Section title="Game">
           <div className="space-y-2">
             <Label className="text-[11px] text-amber-100/60">Game name</Label>
@@ -1153,7 +1154,10 @@ export function ControlPanel({
         </Section>
       </div>
 
-      <div className="border-t border-amber-200/10 p-4">
+      <div
+        className="shrink-0 border-t border-amber-200/10 p-4"
+        style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+      >
         <button
           onClick={onSave}
           className="w-full rounded border border-amber-300/60 bg-amber-300/15 px-3 py-2 text-xs uppercase tracking-[0.2em] text-amber-100 hover:bg-amber-300/25"

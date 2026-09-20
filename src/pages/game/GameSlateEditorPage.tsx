@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { lazy, Suspense } from "react";
 import { ClientOnly } from "@tanstack/react-router";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
+import { PanelSheet } from "@/components/slate/PanelSheet";
 
 const WorldStage = lazy(() => import("@/components/gameslate/world/WorldStage"));
 import { ControlPanel } from "@/components/slate/ControlPanel";
@@ -38,6 +40,9 @@ export default function GameSlateEditorPage() {
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [muted, setMutedState] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** Phone only: the board menu holding every control that used to overflow. */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const phone = useBreakpoint() === "phone";
   const loadedRef = useRef(false);
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
@@ -245,6 +250,33 @@ export default function GameSlateEditorPage() {
     }
   };
 
+  // One set of board actions, shared by the desktop row and the phone menu.
+  const toggleSound = () => {
+    const next = !muted;
+    setMutedState(next);
+    setMuted(next);
+    applyMute(next, track?.volume ?? 0.6);
+  };
+  const showView = () => {
+    setMode("view");
+    setSelection({ kind: "none" });
+    setPanelOpen(false);
+    setQuestionsOpen(false);
+  };
+  const toggleQuestions = () => {
+    setQuestionsOpen((open) => !open);
+    setPanelOpen(false);
+  };
+  const toggleEdit = () => {
+    if (mode === "edit" && panelOpen) {
+      setPanelOpen(false);
+      return;
+    }
+    setMode("edit");
+    setQuestionsOpen(false);
+    setPanelOpen(true);
+  };
+
   // preview never touches the saved game
   const stageGame =
     previewLines && previewLines.length > 0
@@ -270,94 +302,132 @@ export default function GameSlateEditorPage() {
           </Suspense>
         </ClientOnly>
 
-        <header className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 bg-gradient-to-b from-black/80 to-transparent px-3 py-3 sm:gap-3 sm:px-5">
-          <div className="pointer-events-auto flex min-w-0 items-baseline gap-3">
+        {/* PHONE — a compact bar: nothing may ever sit off the screen edge. */}
+        {phone ? (
+          <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 bg-gradient-to-b from-black/85 to-transparent px-3 py-2">
             <Link
               to="/game"
-              className="shrink-0 text-xs uppercase tracking-[0.2em] text-amber-200/50 hover:text-amber-200"
+              aria-label="Back to Games"
+              className="shrink-0 rounded border border-amber-200/20 px-2 py-1.5 text-xs text-amber-100/70"
             >
-              ← Games
+              ←
             </Link>
-            <h1 className="hidden truncate text-lg font-semibold tracking-wide sm:block">{game.name}</h1>
-            <span className="hidden truncate text-xs uppercase tracking-[0.18em] text-amber-200/50 lg:block">
-              {[game.topic, game.subtopic].filter(Boolean).join(" · ")}
-            </span>
-          </div>
-          <RewardStatusBar status={game.status} vaultsTotal={vaultsTotal} />
-          <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
+            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold">{game.name}</h1>
+            <RewardStatusBar status={game.status} vaultsTotal={vaultsTotal} />
             <button
-              onClick={() => {
-                const next = !muted;
-                setMutedState(next);
-                setMuted(next);
-                applyMute(next, track?.volume ?? 0.6);
-              }}
-              aria-label={muted ? "Turn sound on" : "Turn sound off"}
-              className="rounded border border-amber-200/20 px-2 py-1.5 text-xs text-amber-100/70 hover:bg-amber-200/10"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-label="Board menu"
+              aria-expanded={menuOpen}
+              className="shrink-0 rounded border border-amber-200/25 px-2.5 py-1.5 text-xs text-amber-100"
             >
-              {muted ? "🔇" : "🔊"}
+              ☰
             </button>
-            <button
-              onClick={() => {
-                setMode("view");
-                setSelection({ kind: "none" });
-                setPanelOpen(false);
-              }}
-              className={`rounded border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
-                mode === "view"
-                  ? "border-amber-300 bg-amber-300/15 text-amber-100"
-                  : "border-amber-200/20 text-amber-100/60 hover:bg-amber-200/10"
-              }`}
-            >
-              View
-            </button>
-            <button
-              onClick={() => {
-                setQuestionsOpen((open) => !open);
-                setPanelOpen(false);
-              }}
-              className={`rounded border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
-                questionsOpen
-                  ? "border-amber-300 bg-amber-300/15 text-amber-100"
-                  : "border-amber-200/20 text-amber-100/60 hover:bg-amber-200/10"
-              }`}
-            >
-              Questions
-            </button>
-            <button
-              onClick={save}
-              disabled={saving}
-              className="rounded border border-amber-200/20 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-amber-100/70 hover:bg-amber-200/10 disabled:opacity-50"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-            {/* Same runtime students get; nothing is recorded for the teacher. */}
+          </header>
+        ) : (
+          <header className="pointer-events-none absolute inset-x-0 top-0 z-20 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 bg-gradient-to-b from-black/80 to-transparent px-3 py-3 sm:gap-3 sm:px-5">
+            <div className="pointer-events-auto flex min-w-0 items-baseline gap-3">
+              <Link
+                to="/game"
+                className="shrink-0 text-xs uppercase tracking-[0.2em] text-amber-200/50 hover:text-amber-200"
+              >
+                ← Games
+              </Link>
+              <h1 className="hidden truncate text-lg font-semibold tracking-wide sm:block">{game.name}</h1>
+              <span className="hidden truncate text-xs uppercase tracking-[0.18em] text-amber-200/50 lg:block">
+                {[game.topic, game.subtopic].filter(Boolean).join(" · ")}
+              </span>
+            </div>
+            <RewardStatusBar status={game.status} vaultsTotal={vaultsTotal} />
+            <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
+              <button
+                onClick={toggleSound}
+                aria-label={muted ? "Turn sound on" : "Turn sound off"}
+                className="rounded border border-amber-200/20 px-2 py-1.5 text-xs text-amber-100/70 hover:bg-amber-200/10"
+              >
+                {muted ? "🔇" : "🔊"}
+              </button>
+              <button
+                onClick={showView}
+                className={`rounded border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
+                  mode === "view"
+                    ? "border-amber-300 bg-amber-300/15 text-amber-100"
+                    : "border-amber-200/20 text-amber-100/60 hover:bg-amber-200/10"
+                }`}
+              >
+                View
+              </button>
+              <button
+                onClick={toggleQuestions}
+                className={`rounded border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
+                  questionsOpen
+                    ? "border-amber-300 bg-amber-300/15 text-amber-100"
+                    : "border-amber-200/20 text-amber-100/60 hover:bg-amber-200/10"
+                }`}
+              >
+                Questions
+              </button>
+              <button
+                onClick={save}
+                disabled={saving}
+                className="rounded border border-amber-200/20 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-amber-100/70 hover:bg-amber-200/10 disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+              {/* Same runtime students get; nothing is recorded for the teacher. */}
+              <Link
+                to="/game/play/$gameId"
+                params={{ gameId: game.id }}
+                className="rounded border border-emerald-300/40 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-emerald-100/80 hover:bg-emerald-300/10"
+              >
+                Play
+              </Link>
+              <button
+                onClick={toggleEdit}
+                className={`rounded border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
+                  mode === "edit" && panelOpen
+                    ? "border-amber-300 bg-amber-300/15 text-amber-100"
+                    : "border-amber-200/20 text-amber-100/60 hover:bg-amber-200/10"
+                }`}
+              >
+                Edit
+              </button>
+            </div>
+          </header>
+        )}
+
+        {phone && menuOpen ? (
+          <div className="absolute right-3 top-14 z-30 w-44 overflow-hidden rounded-lg border border-amber-200/25 bg-[#140f08] text-sm shadow-xl">
+            {[
+              {
+                label: mode === "edit" && panelOpen ? "Close settings" : "Edit & settings",
+                run: toggleEdit,
+              },
+              { label: "View board", run: showView },
+              { label: questionsOpen ? "Close questions" : "Questions", run: toggleQuestions },
+              { label: saving ? "Saving…" : "Save", run: () => void save() },
+              { label: muted ? "Sound on" : "Sound off", run: toggleSound },
+            ].map((item) => (
+              <button
+                key={item.label}
+                onClick={() => {
+                  setMenuOpen(false);
+                  item.run();
+                }}
+                className="block w-full border-b border-amber-200/10 px-3 py-2.5 text-left text-amber-100/85 last:border-b-0 active:bg-amber-200/10"
+              >
+                {item.label}
+              </button>
+            ))}
             <Link
               to="/game/play/$gameId"
               params={{ gameId: game.id }}
-              className="rounded border border-emerald-300/40 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-emerald-100/80 hover:bg-emerald-300/10"
+              onClick={() => setMenuOpen(false)}
+              className="block px-3 py-2.5 text-left text-emerald-200/90 active:bg-emerald-300/10"
             >
               Play
             </Link>
-            <button
-              onClick={() => {
-                if (mode === "edit" && panelOpen) {
-                  setPanelOpen(false);
-                  return;
-                }
-                setMode("edit");
-                setPanelOpen(true);
-              }}
-              className={`rounded border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
-                mode === "edit" && panelOpen
-                  ? "border-amber-300 bg-amber-300/15 text-amber-100"
-                  : "border-amber-200/20 text-amber-100/60 hover:bg-amber-200/10"
-              }`}
-            >
-              Edit
-            </button>
           </div>
-        </header>
+        ) : null}
 
         {previewLines ? (
           <button
@@ -375,31 +445,58 @@ export default function GameSlateEditorPage() {
         ) : null}
       </div>
 
-      {/* RIGHT — the one control room, a real 20% column (slide-over on phones) */}
+      {/* RIGHT — the one control room, a real 20% column. On a phone the same
+          panel becomes a resizable bottom sheet so the board stays visible. */}
       {questionsOpen ? (
-        <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[24%] md:min-w-[300px] md:max-w-[440px] md:shrink-0">
-          <QuestionsPanel
-            game={game}
-            onChange={(settings) => patchGame({ settings })}
-            onPreview={setPreviewLines}
-            onClose={() => setQuestionsOpen(false)}
-          />
-        </div>
+        phone ? (
+          <PanelSheet>
+            <QuestionsPanel
+              game={game}
+              onChange={(settings) => patchGame({ settings })}
+              onPreview={setPreviewLines}
+              onClose={() => setQuestionsOpen(false)}
+            />
+          </PanelSheet>
+        ) : (
+          <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[24%] md:min-w-[300px] md:max-w-[440px] md:shrink-0">
+            <QuestionsPanel
+              game={game}
+              onChange={(settings) => patchGame({ settings })}
+              onPreview={setPreviewLines}
+              onClose={() => setQuestionsOpen(false)}
+            />
+          </div>
+        )
       ) : null}
 
       {panelOpen ? (
-        <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[20%] md:min-w-[280px] md:max-w-[420px] md:shrink-0">
-          <ControlPanel
-            game={game}
-            selection={selection}
-            onSelect={setSelection}
-            onChange={patchGame}
-            onSlotChange={patchSlot}
-            onAddReward={addReward}
-            onClose={() => setPanelOpen(false)}
-            onSave={save}
-          />
-        </div>
+        phone ? (
+          <PanelSheet>
+            <ControlPanel
+              game={game}
+              selection={selection}
+              onSelect={setSelection}
+              onChange={patchGame}
+              onSlotChange={patchSlot}
+              onAddReward={addReward}
+              onClose={() => setPanelOpen(false)}
+              onSave={save}
+            />
+          </PanelSheet>
+        ) : (
+          <div className="fixed inset-y-0 right-0 z-30 w-[86vw] max-w-[420px] md:static md:w-[20%] md:min-w-[280px] md:max-w-[420px] md:shrink-0">
+            <ControlPanel
+              game={game}
+              selection={selection}
+              onSelect={setSelection}
+              onChange={patchGame}
+              onSlotChange={patchSlot}
+              onAddReward={addReward}
+              onClose={() => setPanelOpen(false)}
+              onSave={save}
+            />
+          </div>
+        )
       ) : null}
     </div>
   );
