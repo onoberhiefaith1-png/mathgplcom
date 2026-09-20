@@ -2,12 +2,37 @@
 // colour-space handling: base colour is sRGB, every other map is raw data.
 
 import { useMemo } from "react";
-import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { PBR_SETS, type PbrFamily } from "@/lib/slate/pbr";
+import { useAsyncTextures } from "./loadTexture";
 
 const cache = new Map<string, THREE.Texture>();
 const MAX_PREPARED_TEXTURES = 256;
+
+/**
+ * Stand-in map used only while a scanned image is still arriving. It keeps the
+ * surface lit and writable; the real map replaces it without any visual jump.
+ */
+const flats = new Map<string, THREE.Texture>();
+const flatTexture = (colour: string, srgb: boolean): THREE.Texture => {
+  const id = `${colour}:${srgb}`;
+  const hit = flats.get(id);
+  if (hit) return hit;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 2;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = colour;
+    ctx.fillRect(0, 0, 2, 2);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.needsUpdate = true;
+  flats.set(id, texture);
+  return texture;
+};
+
 
 const stableRepeat = (value: number) => Math.round(Math.max(0.25, value) * 4) / 4;
 
@@ -65,20 +90,26 @@ export function usePbr(
   offset = 0,
 ): PbrMaps {
   const definition = PBR_SETS[family];
-  const [map, normalMap, roughnessMap, aoMap] = useTexture([
+  // Loading happens beside the render, never in front of it: the writing
+  // surfaces appear straight away and each scanned map attaches on arrival.
+  const [map, normalMap, roughnessMap, aoMap] = useAsyncTextures([
     definition.map,
     definition.normalMap,
     definition.roughnessMap,
     definition.aoMap,
-  ]) as THREE.Texture[];
+  ]);
 
   return useMemo(() => {
     const key = family;
     return {
-      map: prepare(map!, `${key}:c`, true, rx, ry, offset),
-      normalMap: prepare(normalMap!, `${key}:n`, false, rx, ry, offset),
-      roughnessMap: prepare(roughnessMap!, `${key}:r`, false, rx, ry, offset),
-      aoMap: prepare(aoMap!, `${key}:a`, false, rx, ry, offset),
+      map: map ? prepare(map, `${key}:c`, true, rx, ry, offset) : flatTexture("#cfc6b4", true),
+      normalMap: normalMap
+        ? prepare(normalMap, `${key}:n`, false, rx, ry, offset)
+        : flatTexture("#8080ff", false),
+      roughnessMap: roughnessMap
+        ? prepare(roughnessMap, `${key}:r`, false, rx, ry, offset)
+        : flatTexture("#ffffff", false),
+      aoMap: aoMap ? prepare(aoMap, `${key}:a`, false, rx, ry, offset) : flatTexture("#ffffff", false),
       normalScale: new THREE.Vector2(definition.normalScale, definition.normalScale),
       roughness: definition.roughness,
       metalness: definition.metalness,
@@ -86,3 +117,4 @@ export function usePbr(
     };
   }, [family, map, normalMap, roughnessMap, aoMap, rx, ry, offset, definition]);
 }
+

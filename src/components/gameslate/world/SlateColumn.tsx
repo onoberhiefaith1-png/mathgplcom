@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Text, useTexture } from "@react-three/drei";
+import { Text } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
@@ -12,6 +12,8 @@ import type { TextBounds } from "@/lib/slate/text3d";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
 import { noiseNormalMap, surfaceMaterial } from "./materials";
 import { usePbr } from "./pbr";
+import { useAsyncTextures, preloadTextures } from "./loadTexture";
+
 import { SlateSection } from "./sections/SlateSection";
 import { NewWritingSurface } from "./sections/NewWritingSurface";
 import { getConstruction } from "./sections/construction";
@@ -63,6 +65,12 @@ import type {
   Selection,
   Slot,
 } from "@/lib/slate/types";
+
+// The universal completion object appears on every board, so its image is
+// warmed as soon as this module loads — off the render path.
+preloadTextures(REWARDS.filter((r) => r.id === "mark-seal").map((r) => r.art));
+
+
 
 export interface ScrollState {
   target: number;
@@ -686,7 +694,10 @@ export function SlateColumn({
     return ids;
   }, [game.slots]);
   const artDefs = useMemo(() => REWARDS.filter((r) => usedRewardIds.has(r.id)), [usedRewardIds]);
-  const rewardArt = useTexture(artDefs.map((r) => r.art));
+  // Reward art loads beside the render. A slow or missing piece can no longer
+  // withhold the writing surfaces themselves.
+  const rewardArt = useAsyncTextures(artDefs.map((r) => r.art));
+
   const artById = useMemo(() => {
     const map: Record<string, THREE.Texture> = {};
     artDefs.forEach((r, index) => {
@@ -701,7 +712,7 @@ export function SlateColumn({
     () => REWARDS.filter((r) => r.openArt && usedRewardIds.has(r.id)),
     [usedRewardIds],
   );
-  const openArt = useTexture(openDefs.map((r) => r.openArt as string));
+  const openArt = useAsyncTextures(openDefs.map((r) => r.openArt as string));
   const openArtById = useMemo(() => {
     const map: Record<string, THREE.Texture> = {};
     openDefs.forEach((r, index) => {
