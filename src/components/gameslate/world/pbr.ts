@@ -65,20 +65,26 @@ export function usePbr(
   offset = 0,
 ): PbrMaps {
   const definition = PBR_SETS[family];
-  const [map, normalMap, roughnessMap, aoMap] = useTexture([
+  // Loading happens beside the render, never in front of it: the writing
+  // surfaces appear straight away and each scanned map attaches on arrival.
+  const [map, normalMap, roughnessMap, aoMap] = useAsyncTextures([
     definition.map,
     definition.normalMap,
     definition.roughnessMap,
     definition.aoMap,
-  ]) as THREE.Texture[];
+  ]);
 
   return useMemo(() => {
     const key = family;
     return {
-      map: prepare(map!, `${key}:c`, true, rx, ry, offset),
-      normalMap: prepare(normalMap!, `${key}:n`, false, rx, ry, offset),
-      roughnessMap: prepare(roughnessMap!, `${key}:r`, false, rx, ry, offset),
-      aoMap: prepare(aoMap!, `${key}:a`, false, rx, ry, offset),
+      map: map ? prepare(map, `${key}:c`, true, rx, ry, offset) : flatTexture("#cfc6b4", true),
+      normalMap: normalMap
+        ? prepare(normalMap, `${key}:n`, false, rx, ry, offset)
+        : flatTexture("#8080ff", false),
+      roughnessMap: roughnessMap
+        ? prepare(roughnessMap, `${key}:r`, false, rx, ry, offset)
+        : flatTexture("#ffffff", false),
+      aoMap: aoMap ? prepare(aoMap, `${key}:a`, false, rx, ry, offset) : flatTexture("#ffffff", false),
       normalScale: new THREE.Vector2(definition.normalScale, definition.normalScale),
       roughness: definition.roughness,
       metalness: definition.metalness,
@@ -86,3 +92,4 @@ export function usePbr(
     };
   }, [family, map, normalMap, roughnessMap, aoMap, rx, ry, offset, definition]);
 }
+
