@@ -6,7 +6,7 @@
 - [x] Give the board an asset-free first paint so optional artwork cannot create a blank stage.
 - [x] Make repeated graphics-context recovery possible and bound prepared material variants.
 - [x] Reject empty-surface saves and autosave teacher changes before navigation can discard them.
-- [ ] Verify cold open, repeated reopen, repeated context loss, and Edit/Play parity in the live Game.
+- [x] Verify cold open, repeated reopen, repeated context loss, and Edit/Play parity in the live Game.
 
 # Floating Numbers Vault ownership
 

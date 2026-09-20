@@ -18,6 +18,13 @@ import { isMuted, setMuted } from "@/lib/slate/audio";
 import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 
+function BoardLoadingShell() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-[#0b0906] text-sm text-amber-100/70">
+      Loading your Game…
+    </div>
+  );
+}
 
 export default function GameSlateEditorPage() {
   const { gameId } = useParams({ from: "/game/slate/$gameId/" });
