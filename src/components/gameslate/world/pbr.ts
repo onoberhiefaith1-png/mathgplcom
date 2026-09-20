@@ -7,6 +7,9 @@ import * as THREE from "three";
 import { PBR_SETS, type PbrFamily } from "@/lib/slate/pbr";
 
 const cache = new Map<string, THREE.Texture>();
+const MAX_PREPARED_TEXTURES = 256;
+
+const stableRepeat = (value: number) => Math.round(Math.max(0.25, value) * 4) / 4;
 
 function prepare(
   texture: THREE.Texture,
@@ -16,12 +19,14 @@ function prepare(
   ry: number,
   offset: number,
 ): THREE.Texture {
-  const id = `${key}:${rx}:${ry}:${offset}`;
+  const repeatX = stableRepeat(rx);
+  const repeatY = stableRepeat(ry);
+  const id = `${key}:${repeatX}:${repeatY}:${offset}`;
   const hit = cache.get(id);
   if (hit) return hit;
   const clone = texture.clone();
   clone.wrapS = clone.wrapT = THREE.RepeatWrapping;
-  clone.repeat.set(rx, ry);
+  clone.repeat.set(repeatX, repeatY);
   clone.offset.set(offset, offset * 0.37);
   clone.colorSpace = colour ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   clone.anisotropy = 8;
@@ -29,6 +34,12 @@ function prepare(
   clone.channel = 0;
   clone.needsUpdate = true;
   cache.set(id, clone);
+  // Keep repeat variants bounded across repeated Game visits. The generous cap
+  // avoids evicting the small active set while preventing session-long growth.
+  if (cache.size > MAX_PREPARED_TEXTURES) {
+    const oldest = cache.keys().next().value as string | undefined;
+    if (oldest && oldest !== id) cache.delete(oldest);
+  }
   return clone;
 }
 

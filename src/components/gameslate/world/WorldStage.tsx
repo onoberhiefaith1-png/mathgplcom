@@ -20,6 +20,7 @@ import { SlateColumn } from "./SlateColumn";
 import { SunLight } from "./SunLight";
 import type { ScrollState } from "./SlateColumn";
 import { WorldBoundary } from "./WorldBoundary";
+import { SurfaceFallback } from "./SurfaceFallback";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 
 interface Props {
@@ -60,10 +61,13 @@ export default function WorldStage(props: Props) {
 
   // performance readout, development only, opt in with ?perf=1
   const [showPerf, setShowPerf] = useState(false);
+  const [stageReady, setStageReady] = useState(false);
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     setShowPerf(new URLSearchParams(window.location.search).has("perf"));
   }, []);
+
+  useEffect(() => setStageReady(false), [gpu.resetKey]);
 
   useEffect(() => {
     const node = host.current;
@@ -124,6 +128,7 @@ export default function WorldStage(props: Props) {
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             if (!room) gl.setClearColor(0x000000, 0); // let the uploaded background show through
             gpu.attach(gl.domElement);
+            setStageReady(true);
           }}
         >
           <Exposure value={stage.exposure} />
@@ -135,7 +140,6 @@ export default function WorldStage(props: Props) {
             </>
           ) : null}
           <Suspense fallback={null}>
-            <Suspense fallback={null}>
             {room ? (
               <>
                 {/* photographed interior lighting: real reflections and ambient bounce */}
@@ -163,12 +167,22 @@ export default function WorldStage(props: Props) {
                 />
               </>
             )}
-            </Suspense>
+          </Suspense>
+          <Suspense fallback={null}>
             <SunLight sun={props.game.settings.assets?.sun ?? null} />
+          </Suspense>
+          <Suspense fallback={<SurfaceFallback game={props.game} />}>
             <SlateColumn room={stage} roomless={!room} scroll={scroll} {...props} />
           </Suspense>
         </Canvas>
       </WorldBoundary>
+      {!stageReady ? (
+        <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
+          <div className="rounded border border-amber-200/25 bg-black/70 px-4 py-2 text-xs tracking-wide text-amber-100/80">
+            Loading your Game…
+          </div>
+        </div>
+      ) : null}
       {gpu.alive ? null : (
         <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
           <div className="rounded-full border border-amber-200/25 bg-black/70 px-4 py-1.5 text-xs tracking-wide text-amber-100/80">

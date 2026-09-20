@@ -20,7 +20,7 @@ export type WebglRecovery = {
 export function useWebglRecovery(label = "scene", restoreGraceMs = 3_000): WebglRecovery {
   const [alive, setAlive] = useState(true);
   const [resetKey, setResetKey] = useState(0);
-  const remountedRef = useRef(false);
+  const attemptsRef = useRef(0);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   const attach = useCallback(
@@ -32,16 +32,19 @@ export function useWebglRecovery(label = "scene", restoreGraceMs = 3_000): Webgl
         event.preventDefault(); // Keep the canvas so the browser can restore it.
         setAlive(false);
         console.warn(`[webgl:${label}] context lost — waiting for restore`);
-        if (remountedRef.current) return;
         window.clearTimeout(restoreTimer);
         restoreTimer = window.setTimeout(() => {
-          remountedRef.current = true; // Once only: never loss → remount → loss.
+          // Recovery must remain available after a later context loss. Cap only
+          // consecutive failures; a successful restore resets the allowance.
+          if (attemptsRef.current >= 3) return;
+          attemptsRef.current += 1;
           setAlive(true);
           setResetKey((key) => key + 1);
         }, restoreGraceMs);
       };
       const onRestored = () => {
         window.clearTimeout(restoreTimer);
+        attemptsRef.current = 0;
         setAlive(true);
       };
 

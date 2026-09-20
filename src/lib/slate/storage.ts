@@ -58,7 +58,16 @@ export const normalizeGame = (game: Game): Game => ({
   },
   patternLength:
     Number(game.patternLength) > 0 ? Math.floor(Number(game.patternLength)) : game.slots.length,
-  slots: (game.slots ?? []).map((slot, index) => ({
+  slots: (Array.isArray(game.slots) && game.slots.length > 0 ? game.slots : [
+    {
+      id: `recovery-${game.id}`,
+      text: "",
+      hiddenContent: "",
+      contentState: "hidden" as const,
+      rewards: [],
+      scene: defaultScene(0),
+    },
+  ]).map((slot, index) => ({
     ...slot,
     scene: { ...defaultScene(index), ...(slot.scene ?? {}) },
     rewards: (slot.rewards ?? []).map((reward) => ({
@@ -141,6 +150,12 @@ export const saveGameResult = async (
   const { data } = await supabase.auth.getSession();
   if (!data.session) {
     return { ok: false, message: "You are signed out. Sign in again to create a game." };
+  }
+  if (!Array.isArray(game.slots) || game.slots.length === 0) {
+    return {
+      ok: false,
+      message: "The writing surfaces are still loading. Your existing Game was not overwritten.",
+    };
   }
   // A background still living in this browser (data/blob URL) is uploaded to
   // the account first, so the saved row only ever stores a small storage path.

@@ -58,6 +58,9 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
   useEffect(() => {
     if (loading) return;
     const lineIds = questions.flatMap((q) => q.lines.map((line) => line.lineId));
+    // An empty response can be a transient refresh failure. Never interpret it
+    // as permission to clear a teacher's saved line/surface configuration.
+    if (lineIds.length === 0) return;
     if (lineSurfacesInSync(game.settings.lines, lineIds)) return;
     onChange({ ...game.settings, lines: syncLineSurfaces(game.settings.lines, lineIds) });
   }, [loading, questions, game.settings, onChange]);
