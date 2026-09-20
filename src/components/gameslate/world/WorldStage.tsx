@@ -190,34 +190,29 @@ export default function WorldStage(props: Props) {
             </>
           ) : null}
           <Suspense fallback={null}>
-            {room ? (
-              <>
-                {/* photographed interior lighting: real reflections and ambient bounce */}
-                <Environment
-                  files={HDRI[room.env.mood]}
-                  environmentIntensity={room.env.intensity}
-                  resolution={256}
-                />
-                <RoomShell key={room.id} room={room} />
-              </>
-            ) : (
-              <>
-                {/* lighting only — the uploaded background stays visible behind */}
-                <Environment
-                  files={HDRI[stage.env.mood]}
-                  environmentIntensity={stage.env.intensity}
-                  background={false}
-                  resolution={256}
-                />
-                <ambientLight color={stage.ambient.colour} intensity={stage.ambient.intensity} />
-                <directionalLight
-                  position={stage.key.position}
-                  color={stage.key.colour}
-                  intensity={stage.key.intensity}
-                />
-              </>
-            )}
+            {/* PHASE 1 — simple lights, always present, nothing to download.
+                The board is lit and tappable from the first frame. */}
+            <ambientLight color={stage.ambient.colour} intensity={stage.ambient.intensity} />
+            <directionalLight
+              position={stage.key.position}
+              color={stage.key.colour}
+              intensity={stage.key.intensity}
+            />
+            {room ? <RoomShell key={room.id} room={room} /> : null}
           </Suspense>
+          {/* PHASE 2 — photographed environment lighting. A download, so it is
+              admitted only after the board has painted; the simple lights above
+              hold the look until it lands. */}
+          {phase >= 2 ? (
+            <Suspense fallback={null}>
+              <Environment
+                files={HDRI[room ? room.env.mood : stage.env.mood]}
+                environmentIntensity={room ? room.env.intensity : stage.env.intensity}
+                background={false}
+                resolution={256}
+              />
+            </Suspense>
+          ) : null}
           <Suspense fallback={null}>
             <SunLight sun={props.game.settings.assets?.sun ?? null} />
           </Suspense>
