@@ -25,6 +25,7 @@ import { ensureTestClass } from "@/lib/floating/testBoard";
 import { patternLengthOf } from "@/lib/slate/pattern";
 import {
   floatingTextForGameLine,
+  gameLineDisplayText,
   gameLineFromSlotId,
   gameLineSlotId,
   resolveRenderedLineSlot,
@@ -244,14 +245,13 @@ const GamePlayPage = () => {
       // Every other Game Line carries the student's own live working, and its
       // teaching note only once the line has actually earned its marks.
       const working = row.isQuestion ? "" : floatingTextForGameLine(renderedLineText, row.line);
-      const note = row.isQuestion
-        ? null
-        : runtime.completedLines.includes(row.line)
-          ? question.lineNotes[row.line - 1]
-          : null;
-      const text = row.isQuestion
-          ? question.questionText
-          : [working, note].filter(Boolean).join("\n");
+      const text = gameLineDisplayText({
+        isQuestion: row.isQuestion,
+        questionText: question.questionText,
+        working,
+        note: question.lineNotes[row.line - 1],
+        awarded: runtime.completedLines.includes(row.line),
+      });
       const rewards: RewardInstance[] = row.rewards.map((reward) => {
           const key = `${question.questionRowId}:${row.line}:${reward.id}`;
           const used = runtime.consumedRewardKeys.includes(key);

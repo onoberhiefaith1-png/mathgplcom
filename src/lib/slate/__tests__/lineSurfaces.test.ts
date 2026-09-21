@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   fractionSeconds,
   floatingTextForGameLine,
+  gameLineDisplayText,
   gameLineFromSlotId,
   gameLineSlotId,
   hourglassMultiplierOf,
@@ -69,6 +70,30 @@ describe("one line, one surface", () => {
     expect(floatingTextForGameLine({ 0: "x + 7 = 12", 3: "x = 5" }, 1)).toBe("x + 7 = 12");
     expect(floatingTextForGameLine({ 0: "x + 7 = 12", 3: "x = 5" }, 4)).toBe("x = 5");
     expect(floatingTextForGameLine({ 0: "working" }, 0)).toBe("");
+  });
+
+  it("keeps teaching notes hidden until that exact line has been awarded", () => {
+    expect(gameLineDisplayText({
+      isQuestion: true,
+      questionText: "x + 7 = 12",
+      working: "",
+      note: "Subtract 7 from both sides.",
+      awarded: false,
+    })).toBe("x + 7 = 12");
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 7 = 12",
+      working: "x = 4",
+      note: "Subtract 7 from both sides.",
+      awarded: false,
+    })).toBe("x = 4");
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 7 = 12",
+      working: "x = 5",
+      note: "Subtract 7 from both sides.",
+      awarded: true,
+    })).toBe("x = 5\nSubtract 7 from both sides.");
   });
 
   it("creates a surface per line and removes orphans", () => {

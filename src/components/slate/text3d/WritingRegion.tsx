@@ -9,6 +9,7 @@ import type { InscribedTextApi } from "./InscribedText";
 import { InscribedText } from "./InscribedText";
 import { TileText } from "./TileText";
 import { DimensionalText } from "./DimensionalText";
+import { visibleTestRenderer } from "./displayMode";
 
 interface Props {
   slotId: string;
@@ -61,12 +62,11 @@ export function WritingRegion({
   onReport,
 }: Props) {
   const api = useRef<InscribedTextApi>(null);
-  // the preset chooses the material treatment — layout, caret and growth stay
-  const RaisedRenderer =
-    settings.style === "tiles"
-      ? TileText
-      : DimensionalText;
-  const surfaceTest = testDisplay === "surface";
+  // The selector changes visibility only: the same hidden input, text state,
+  // caret, measurement and report path stay alive for both implementations.
+  const visibleRenderer = visibleTestRenderer(testDisplay, settings.style);
+  const surfaceTest = visibleRenderer === "surface";
+  const RaisedRenderer = visibleRenderer === "tiles" ? TileText : DimensionalText;
   const input = useRef<HTMLTextAreaElement>(null);
   const [caret, setCaret] = useState<number | null>(null);
   const [selection, setSelection] = useState<[number, number] | null>(null);

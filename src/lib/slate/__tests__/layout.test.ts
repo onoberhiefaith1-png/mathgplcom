@@ -5,6 +5,7 @@ import {
   gameEstimatedTextWidth,
   gameEstimatedTextHeight,
   gameInnerWritingWidth,
+  gameSurfaceBox,
   gameSurfaceWidth,
   gameWritingWidth,
 } from "../layout";
@@ -84,5 +85,42 @@ describe("Game writing-surface layout", () => {
     expect(second).toBeTruthy();
     if (!first || !second) return;
     expect(second.top - (first.top + first.height)).toBeCloseTo(spacing);
+  });
+
+  it("uses actual rendered surface height when preserving gaps", () => {
+    const spacing = 0.24;
+    const layout = buildLayout(
+      [slot("line-2", "x = 5"), slot("line-3", "y = 2")],
+      96,
+      spacing,
+      { "line-2": 0.2, "line-3": 0.2 },
+      GAME_WRITING_WIDTH,
+      true,
+      1.25,
+      { "line-2": 2.4, "line-3": 0.8 },
+    );
+    const first = layout.regions[0];
+    const second = layout.regions[1];
+    expect(first).toBeTruthy();
+    expect(second).toBeTruthy();
+    if (!first || !second) return;
+    expect(first.height).toBe(2.4);
+    expect(second.top - (first.top + first.height)).toBeCloseTo(spacing);
+  });
+
+  it("calculates the same local writing box for rendering and layout", () => {
+    const box = gameSurfaceBox({
+      text: "a".repeat(180),
+      fontSize: 96,
+      writingWidth: 4,
+      readOnlyWriting: true,
+      inset: 0.4,
+      measuredWidth: 4,
+      measuredHeight: 1.7,
+    });
+
+    expect(box.surfaceWidth).toBeLessThanOrEqual(4);
+    expect(box.innerWritingWidth).toBeLessThan(box.surfaceWidth);
+    expect(box.surfaceHeight).toBeGreaterThan(1.7);
   });
 });
