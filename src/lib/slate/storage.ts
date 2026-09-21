@@ -38,7 +38,18 @@ export const normalizeGame = (game: Game): Game => ({
     ...defaultSettings(),
     ...(game.settings ?? {}),
     testDisplay: game.settings?.testDisplay === "surface" ? "surface" : "threeD",
-    text: { ...defaultTextSettings(), ...(game.settings?.text ?? {}) },
+    text: (() => {
+      const saved = game.settings?.text;
+      const legacySize = Number.isFinite(saved?.size) ? Number(saved?.size) : defaultTextSettings().size;
+      return {
+        ...defaultTextSettings(),
+        ...(saved ?? {}),
+        size: legacySize,
+        desktopSize: Number.isFinite(saved?.desktopSize) ? Number(saved?.desktopSize) : legacySize,
+        tabletSize: Number.isFinite(saved?.tabletSize) ? Number(saved?.tabletSize) : legacySize,
+        mobileSize: Number.isFinite(saved?.mobileSize) ? Number(saved?.mobileSize) : legacySize,
+      };
+    })(),
     numbers: { ...defaultNumberSettings(), ...(game.settings?.numbers ?? {}) },
     assets: { ...defaultAssetSettings(), ...(game.settings?.assets ?? {}) },
     effects: { ...defaultSettings().effects, ...(game.settings?.effects ?? {}) },

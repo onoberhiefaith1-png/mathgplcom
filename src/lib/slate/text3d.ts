@@ -33,12 +33,17 @@ export type GlowLevel = "off" | "subtle" | "medium";
 export type TextAlign = "left" | "center" | "right";
 
 export type Integration = "low" | "medium" | "high";
+export type GameTextViewport = "mobile" | "tablet" | "desktop";
 
 export interface TextSettings {
   /** A / B / C visual identity. */
   style: TextStyleId;
   /** Nominal size in CSS px (converted to world units by the renderer). */
   size: number;
+  /** Responsive sizes for the same Game text. Legacy Games fall back to size. */
+  desktopSize?: number;
+  tabletSize?: number;
+  mobileSize?: number;
   /** Apparent extrusion / recess depth. */
   depth: number;
   /** Edge softness of the bevel lip. */
@@ -191,6 +196,9 @@ export const RELIEFS: TextRelief[] = ["engraved", "carved", "embossed", "raised"
 export const defaultTextSettings = (): TextSettings => ({
   style: "inscription",
   size: 30,
+  desktopSize: 30,
+  tabletSize: 30,
+  mobileSize: 30,
   depth: 1,
   bevel: 1,
   relief: "engraved",
@@ -220,6 +228,20 @@ export const defaultTextSettings = (): TextSettings => ({
   livingScale: 0.008,
   livingDuration: 7.5,
 });
+
+/** Select only the size for this viewport; every other text setting stays shared. */
+export const responsiveTextSize = (
+  settings: TextSettings,
+  viewport: GameTextViewport,
+): number => {
+  const legacySize = Number.isFinite(settings.size) ? settings.size : 30;
+  const responsiveSize = viewport === "mobile"
+    ? settings.mobileSize
+    : viewport === "tablet"
+      ? settings.tabletSize
+      : settings.desktopSize;
+  return Number.isFinite(responsiveSize) ? Number(responsiveSize) : legacySize;
+};
 
 /** Preset inks that sit convincingly on the ten materials. */
 export const TEXT_COLOURS: { label: string; value: string }[] = [

@@ -10,9 +10,10 @@ import { REWARDS, getReward, isWorldInteractionEligible } from "@/lib/slate/rewa
 import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
 import { PlainText } from "@/components/slate/text3d/PlainText";
 
-import { defaultTextSettings } from "@/lib/slate/text3d";
+import { defaultTextSettings, responsiveTextSize } from "@/lib/slate/text3d";
 import type { TextBounds } from "@/lib/slate/text3d";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
+import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { surfaceMaterial } from "./materials";
 import { usePbr } from "./pbr";
 import { useAsyncTextures, preloadTextures } from "./loadTexture";
@@ -721,7 +722,15 @@ export function SlateColumn({
   const surface = getSurface(game.surfaceId);
   const recipe = surfaceMaterial(surface.id);
   const { rewards: rewardSettings, effects } = game.settings;
-  const textSettings = game.settings.text ?? defaultTextSettings();
+  const savedTextSettings = game.settings.text ?? defaultTextSettings();
+  const breakpoint = useBreakpoint();
+  const textSettings = useMemo(
+    () => ({
+      ...savedTextSettings,
+      size: responsiveTextSize(savedTextSettings, breakpoint === "phone" ? "mobile" : breakpoint),
+    }),
+    [breakpoint, savedTextSettings],
+  );
   const numberSettings = game.settings.numbers ?? defaultNumberSettings();
   // authoring = arranging the world (edit mode only). Writing is always live:
   // the surface exists to be written on, in view mode as much as in edit mode.
