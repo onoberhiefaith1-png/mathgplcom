@@ -269,6 +269,7 @@ const GamePlayPage = () => {
       return resolveRenderedLineSlot(game, { ...row, text, rewards });
     });
     return { ...game, slots, patternLength };
+
   }, [
     game,
     runtime.lines,
