@@ -632,7 +632,19 @@ export function RoomShell({ room }: { room: RoomDef }) {
       {/* WorldStage owns the shared ambient/key lights. Keeping one lighting
           rig avoids duplicate shadow work competing with live writing. */}
       {room.lights.map((light, index) => (
-        <LightSource key={index} light={light} />
+        <group key={index} position={light.position}>
+          <pointLight
+            color={light.colour}
+            intensity={light.intensity}
+            distance={12}
+            decay={2}
+            castShadow={false}
+          />
+          <mesh>
+            <sphereGeometry args={[light.emitter === "orb" ? 0.16 : 0.1, 10, 8]} />
+            <meshBasicMaterial color={light.colour} toneMapped={false} />
+          </mesh>
+        </group>
       ))}
 
       {/* back wall */}
@@ -699,7 +711,6 @@ export function RoomShell({ room }: { room: RoomDef }) {
       </mesh>
 
       <Props room={room} />
-      <Dust room={room} />
     </group>
   );
 }

@@ -81,7 +81,7 @@
 - [x] Make Edit use Play's safe left edge, pillar clearance, content growth, and rendered-height gaps.
 - [x] Give every room a projected wall-and-prop-safe writing opening shared by Edit and Play.
 - [x] Replace rusty/distressed metal writing finishes with clean premium metal and soften excessive material wear.
-- [x] Keep duplicate room lighting and high-frequency dust work off the immediate writing path.
+- [x] Keep duplicate lighting and animated flame, smoke, ember, and dust work off the room writing path.
 
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.
