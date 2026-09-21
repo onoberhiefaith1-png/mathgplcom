@@ -341,12 +341,36 @@ export const useGameRuntime = (params: {
       ? renderedRewardId.slice(prefix.length)
       : renderedRewardId;
     const reward = row?.rewards.find((item) => item.id === originalId);
-    if (!reward || reward.type === "time-shard" || reward.type === "math-vault") return;
+    if (!reward) return;
+    // The Vault and the Completion coin answer only to the student's own
+    // mathematics: no Bomb and no Collector can ever open them.
+    if (reward.type === "math-vault" || reward.type === "mark-seal") return;
     const key = rewardKey(question.questionRowId, lineNumber, reward.id);
     if (consumed.includes(key)) return;
+    // An Hourglass arriving here has run out: it dissolves for good, unpaid.
+    if (reward.type === "time-shard") {
+      expiredLines.current.add(lineNumber);
+      setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
+      return;
+    }
     setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
-    if (reward.type === "retry-heart") setLives((prev) => prev + 1);
-  }, [question, lines, consumed]);
+    if (reward.type === "retry-heart") {
+      setLives((prev) => prev + 1);
+      const seconds = lifeTimeSeconds();
+      if (seconds) setQuestionDeadline((prev) => (prev ? prev + seconds * 1000 : prev));
+    }
+  }, [question, lines, consumed, lifeTimeSeconds]);
+
+  /* Vault totals for the strip: opened against everything this question holds. */
+  const vaultsTotal = useMemo(
+    () => lines.reduce((sum, row) => sum + row.rewards.filter((r) => r.type === "math-vault").length, 0),
+    [lines],
+  );
+  const vaultsOpened = useMemo(() => {
+    if (!question) return 0;
+    const prefix = `${question.questionRowId}:`;
+    return consumed.filter((key) => key.startsWith(prefix) && key.includes(":vault-")).length;
+  }, [consumed, question]);
 
   /* ---- board bridge -------------------------------------------------- */
   const onLineContext = useCallback((ctx: LineContext) => {
