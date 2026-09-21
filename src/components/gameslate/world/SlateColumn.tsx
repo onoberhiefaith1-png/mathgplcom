@@ -738,9 +738,10 @@ export function SlateColumn({
 
   // how this material is physically built into writing sections
   const build = useMemo(() => getConstruction(surface.id), [surface.id]);
-  const renderedTextSettings = readOnlyWriting
-    ? { ...textSettings, align: "left" as const }
-    : textSettings;
+  // Play uses the teacher's saved alignment too. The panel is positioned from
+  // these same rendered bounds below, so left/centre/right can never separate
+  // the writing from its physical surface.
+  const renderedTextSettings = textSettings;
   const viewport = useThree((state) => state.viewport);
   const camera = useThree((state) => state.camera);
   const visibleAtSlate = viewport.getCurrentViewport(camera, new THREE.Vector3(0, 0, SLATE_Z));
@@ -1210,10 +1211,18 @@ export function SlateColumn({
             Math.max(0.42, textSettings.size / 175),
             (bounds?.height ?? 0) + padY * 2,
           );
+          const measuredX = bounds ? (bounds.left + bounds.right) / 2 : 0;
+          const measuredY = bounds ? (bounds.top + bounds.bottom) / 2 : 0;
+          // The text renderer reports bounds in this region's coordinates.
+          // Build the surface around that exact box rather than anchoring the
+          // surface at one place and moving the writing by an unrelated offset.
           const surfaceX = readOnlyWriting
-            ? -writingWidth / 2 + surfaceWidth / 2
-            : bounds ? (bounds.left + bounds.right) / 2 : 0;
-          const surfaceY = readOnlyWriting ? 0 : bounds ? (bounds.top + bounds.bottom) / 2 : 0;
+            ? Math.max(
+                -writingWidth / 2 + surfaceWidth / 2,
+                Math.min(writingWidth / 2 - surfaceWidth / 2, measuredX),
+              )
+            : measuredX;
+          const surfaceY = measuredY;
           const selected =
             selection.kind !== "none" && "slotId" in selection && selection.slotId === slot.id;
           const revealed = slot.contentState === "visible" || slot.contentState === "revealed";
@@ -1258,21 +1267,6 @@ export function SlateColumn({
               </group>
 
 
-              {/* In Play the panel is grown from this line's own content, so the
-                  writing is inset by the same padding the panel was grown with:
-                  the mathematics always sits inside its slab, never over its
-                  edge. */}
-              <group
-                position={
-                  readOnlyWriting
-                    ? [
-                        padX,
-                        surfaceY + surfaceHeight / 2 - padY - (region.height / 2 - (lineBuild.gap + 0.18)),
-                        0,
-                      ]
-                    : [0, 0, 0]
-                }
-              >
               <Suspense
                 fallback={(
                   <group position={[-writingWidth / 2, region.height / 2 - (lineBuild.gap + 0.18), 0.012]}>
@@ -1304,7 +1298,6 @@ export function SlateColumn({
                   onMeasure={(bounds) => measure(slot.id, bounds)}
                 />
               </Suspense>
-              </group>
 
 
 
