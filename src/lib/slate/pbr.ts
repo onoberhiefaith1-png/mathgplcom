@@ -81,7 +81,7 @@ export const SURFACE_FAMILY: Record<string, PbrFamily> = {
   "metal-plate": "metal-plate",
   scroll: "parchment",
   chest: "dark-wood",
-  shield: "rust-metal",
+  shield: "metal-plate",
   glass: "ice",
   ice: "ice",
   "royal-paper": "parchment",

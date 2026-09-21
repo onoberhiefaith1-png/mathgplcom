@@ -256,7 +256,13 @@ function Cloud({ width, height }: Pick<Props, "width" | "height">) {
   return <group ref={cloud}><mesh position-z={-0.03 - bodyRadius} rotation-z={Math.PI / 2} scale={[1, 0.82, 1]} receiveShadow><capsuleGeometry args={[bodyRadius, Math.max(0.08, width - bodyRadius * 2), 8, 24]} /><meshPhysicalMaterial color="#edf7ff" roughness={0.94} sheen={0.28} sheenColor="#bfe4ff" /></mesh>{/* flat writing plate: the working stays legible instead of sitting on lumps */}<mesh position-z={-0.012} receiveShadow><planeGeometry args={[Math.max(0.2, width * 0.97), Math.max(0.18, height * 0.9)]} /><meshPhysicalMaterial color="#f7fbff" roughness={0.92} sheen={0.2} sheenColor="#cfe8ff" /></mesh>{lobes.map((lobe, index) => <mesh key={index} position={[lobe.x, lobe.y, lobe.z]} scale={[1.28, 0.9, 0.7]} castShadow receiveShadow><sphereGeometry args={[lobe.radius, 18, 12]} /><meshPhysicalMaterial color={lobe.shade === 0 ? "#d3e8fb" : lobe.shade === 1 ? "#f7fbff" : "#e8f4ff"} roughness={0.9} transmission={0.04} thickness={0.2} sheen={0.25} sheenColor="#bfe4ff" /></mesh>)}</group>;
 }
 
-function Metal({ width, height, maps }: Omit<Props, "kind" | "accent" | "colour">) { return <RoundedBox args={[width, height, 0.18]} radius={0.055} smoothness={4} position-z={-0.09} castShadow receiveShadow><StandardMaterial maps={maps} colour="#a8adb1" roughness={0.31} metalness={0.94} /></RoundedBox>; }
+function Metal({ width, height }: Omit<Props, "kind" | "accent" | "colour">) {
+  return (
+    <RoundedBox args={[width, height, 0.18]} radius={0.055} smoothness={4} position-z={-0.09} castShadow receiveShadow>
+      <meshPhysicalMaterial color="#b9c0c6" roughness={0.28} metalness={0.92} clearcoat={0.24} clearcoatRoughness={0.18} />
+    </RoundedBox>
+  );
+}
 
 function RibbonEnd({ side, height, maps }: { side: Side; height: number; maps: PbrMaps }) {
   const spiral = useMemo(() => tubeGeometry(`ribbon-curl:${side}:${height.toFixed(2)}`, Array.from({ length: 12 }, (_, index) => { const t = index / 11; const angle = t * Math.PI * 1.85; const radius = 0.035 + t * 0.055; return new THREE.Vector3(side * Math.sin(angle) * radius, height * 0.32 - t * height * 0.24, Math.cos(angle) * radius); }), 0.022), [side, height]);

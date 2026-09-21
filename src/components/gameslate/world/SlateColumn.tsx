@@ -4,7 +4,7 @@ import { Text } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
-import { roomOcclusion, type RoomDef } from "@/lib/slate/rooms";
+import { roomWritingSafeWidth, type RoomDef } from "@/lib/slate/rooms";
 import { getSurface } from "@/lib/slate/surfaces";
 import { REWARDS, getReward, isWorldInteractionEligible } from "@/lib/slate/rewards";
 import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
@@ -691,6 +691,7 @@ function RegionSurface({
       transparent={surface.transparent ?? false}
       none={surface.none ?? false}
       ornament={surface.ornament}
+      cleanMetal={surface.id === "metal-plate" || surface.id === "shield"}
     />
   );
 }
@@ -791,14 +792,8 @@ export function SlateColumn({
   // slate, so their silhouette widens at slate depth. Writing stops before that
   // silhouette: the surface starts after one pillar and ends before the next.
   const roomSafeWidth = useMemo(() => {
-    const block = roomless ? null : roomOcclusion(room);
-    if (!block) return Infinity;
-    const eye = camera.position.z;
-    const toProp = eye - block.z;
-    const toSlate = eye - SLATE_Z;
-    if (toProp <= 0.01 || toSlate <= 0.01) return Infinity;
-    const edge = Math.abs(block.x) * (toSlate / toProp);
-    return Math.max(1.2, (edge - 0.12) * 2);
+    if (roomless) return Infinity;
+    return roomWritingSafeWidth(room, camera.position.z, SLATE_Z);
   }, [room, roomless, camera.position.z]);
   // Edit is the teacher's exact preview of Play. Both modes use the same
   // viewport band and the same room-safe span rather than centring Edit on the

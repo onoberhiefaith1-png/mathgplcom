@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ROOMS, NEUTRAL_ROOM, roomOcclusion } from "../rooms";
+import { ROOMS, NEUTRAL_ROOM, roomOcclusion, roomWritingOcclusions, roomWritingSafeWidth } from "../rooms";
 import { SLATE_Z, gameWritingWidth } from "../layout";
 
 /** Same projection the board uses: prop silhouette measured at slate depth. */
@@ -16,7 +16,28 @@ describe("room-safe writing span", () => {
 
   it("has no blockers when there is no room", () => {
     expect(roomOcclusion(null)).toBeNull();
-    expect(roomOcclusion({ ...NEUTRAL_ROOM, props: "forge" })).toBeNull();
+    expect(roomWritingOcclusions(null)).toEqual([]);
+  });
+
+  it("defines a wall-safe opening for every room", () => {
+    ROOMS.forEach((room) => {
+      const blockers = roomWritingOcclusions(room);
+      expect(blockers.length).toBeGreaterThan(0);
+      expect(roomWritingSafeWidth(room, 5.4, SLATE_Z)).toBeGreaterThanOrEqual(1.2);
+      expect(roomWritingSafeWidth(room, 5.4, SLATE_Z)).toBeLessThan(11.8);
+    });
+  });
+
+  it("keeps the old single-obstruction API safe for every room", () => {
+    ROOMS.forEach((room) => expect(roomOcclusion(room)).toBeTruthy());
+  });
+
+  it("keeps foreground-heavy rooms narrower than the room shell", () => {
+    for (const props of ["forge", "shelves", "chests", "armour", "crystals", "ice-formations"] as const) {
+      const room = ROOMS.find((candidate) => candidate.props === props);
+      expect(room).toBeTruthy();
+      expect(roomWritingSafeWidth(room ?? NEUTRAL_ROOM, 5.4, SLATE_Z)).toBeLessThan(10);
+    }
   });
 
   it("keeps writing inside the pillars on a wide screen", () => {
