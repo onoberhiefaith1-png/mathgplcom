@@ -6,6 +6,7 @@ import { ClientOnly } from "@tanstack/react-router";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { PanelSheet } from "@/components/slate/PanelSheet";
+import { GAME_STARTUP_DEADLINE_MS } from "@/lib/game/runtime/startup";
 
 const WorldStage = lazy(() => import("@/components/gameslate/world/WorldStage"));
 import { ControlPanel } from "@/components/slate/ControlPanel";
@@ -22,7 +23,7 @@ import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 
 function BoardLoadingShell() {
-  return <GameLoadingScreen />;
+  return <GameLoadingScreen progress={30} />;
 }
 
 export default function GameSlateEditorPage() {
@@ -38,12 +39,31 @@ export default function GameSlateEditorPage() {
   const [muted, setMutedState] = useState(false);
   const [saving, setSaving] = useState(false);
   const [worldReady, setWorldReady] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(10);
+  const gameRef = useRef<Game | null>(null);
+  const worldReadyRef = useRef(false);
   /** Phone only: the board menu holding every control that used to overflow. */
   const [menuOpen, setMenuOpen] = useState(false);
   const phone = useBreakpoint() === "phone";
   const loadedRef = useRef(false);
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
+
+  useEffect(() => { gameRef.current = game; }, [game]);
+  useEffect(() => { worldReadyRef.current = worldReady; }, [worldReady]);
+  useEffect(() => {
+    const deadline = window.setTimeout(() => {
+      if (worldReadyRef.current) return;
+      if (gameRef.current) {
+        setLoadingProgress(100);
+        setWorldReady(true);
+        return;
+      }
+      toast.error("This Game took too long to open. Please try again.");
+      navigate({ to: "/game" });
+    }, GAME_STARTUP_DEADLINE_MS);
+    return () => window.clearTimeout(deadline);
+  }, [navigate]);
 
   useEffect(() => setMutedState(isMuted()), []);
 
@@ -198,7 +218,7 @@ export default function GameSlateEditorPage() {
     return () => window.removeEventListener("beforeunload", protect);
   }, [saving]);
 
-  if (!game) return <GameLoadingScreen className="fixed" />;
+  if (!game) return <GameLoadingScreen className="fixed" progress={10} />;
 
 
   const surface = getSurface(game.surfaceId);
@@ -293,10 +313,11 @@ export default function GameSlateEditorPage() {
               onRewardActivate={activateReward}
               onRewardConsume={consumeReward}
               onReadyChange={setWorldReady}
+              onProgressChange={setLoadingProgress}
             />
           </Suspense>
         </ClientOnly>
-        {!worldReady ? <GameLoadingScreen /> : null}
+        {!worldReady ? <GameLoadingScreen progress={loadingProgress} /> : null}
 
         {/* PHONE — a compact bar: nothing may ever sit off the screen edge. */}
         {phone ? (

@@ -37,6 +37,7 @@ import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { getReward } from "@/lib/slate/rewards";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
+import { GAME_STARTUP_DEADLINE_MS } from "@/lib/game/runtime/startup";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 
 
@@ -51,6 +52,9 @@ const GamePlayPage = () => {
   const [testMode, setTestMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [worldReady, setWorldReady] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(10);
+  const gameRef = useRef<Game | null>(null);
+  const worldReadyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   /** Live working per Floating Numbers line (0-based) → plain text. */
   const [lineText, setLineText] = useState<Record<number, string>>({});
@@ -61,6 +65,24 @@ const GamePlayPage = () => {
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
   const [menuOpen, setMenuOpen] = useState(false);
   const phone = useBreakpoint() === "phone";
+
+  useEffect(() => { gameRef.current = game; }, [game]);
+  useEffect(() => { worldReadyRef.current = worldReady; }, [worldReady]);
+  useEffect(() => {
+    const deadline = window.setTimeout(() => {
+      if (worldReadyRef.current) return;
+      if (gameRef.current) {
+        // The saved Game is present. Expose its core world now; optional visual
+        // detail continues behind it instead of extending the loading screen.
+        setLoadingProgress(100);
+        setWorldReady(true);
+        return;
+      }
+      setLoading(false);
+      setError("This Game took too long to open. Please try again.");
+    }, GAME_STARTUP_DEADLINE_MS);
+    return () => window.clearTimeout(deadline);
+  }, []);
 
   // Floating Numbers remains immediate. Its mirror onto the 3D slate is
   // coalesced to one update per painted frame, so a burst of taps cannot queue
@@ -276,7 +298,7 @@ const GamePlayPage = () => {
 
 
   if (loading) {
-    return <GameLoadingScreen className="fixed" />;
+    return <GameLoadingScreen className="fixed" progress={10} />;
   }
 
   if (error || !game) {
@@ -389,10 +411,11 @@ const GamePlayPage = () => {
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting
             onReadyChange={setWorldReady}
+            onProgressChange={setLoadingProgress}
           />
         )}
       </div>
-      {!worldReady ? <GameLoadingScreen className="fixed" /> : null}
+      {!worldReady ? <GameLoadingScreen className="fixed" progress={loadingProgress} /> : null}
 
       {/* HUD */}
       {/* HUD — one short strip on a phone, the full row on larger screens. */}

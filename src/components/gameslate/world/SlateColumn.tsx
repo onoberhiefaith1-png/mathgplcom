@@ -613,6 +613,7 @@ function RegionSurface({
           colour={colour}
         />
         {numbers.visible ? (
+          <Suspense fallback={null}>
           <Text
             position={[numberX, height / 2 - Math.max(0.12, build.inset * 0.5), 0.025]}
             fontSize={0.18 * numbers.size}
@@ -624,6 +625,7 @@ function RegionSurface({
           >
             {displayNumber}
           </Text>
+          </Suspense>
         ) : null}
       </>
     );
@@ -1290,6 +1292,7 @@ export function SlateColumn({
                           else rewardNodes.current.delete(reward.id);
                         }}
                       >
+                        <Suspense fallback={null}>
                         <RewardObject
                           reward={reward}
                           texture={texture}
@@ -1329,6 +1332,7 @@ export function SlateColumn({
                           premiumStyle={effects.premiumBombStyle ?? "radiant-chain"}
                           onPremiumImpact={onPremiumImpact}
                         />
+                        </Suspense>
                       </group>
                     );
                   })
