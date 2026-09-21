@@ -40,6 +40,11 @@ export const gameInnerWritingWidth = (
   horizontalPadding: number,
 ) => Math.max(0.2, surfaceMaxWidth - Math.max(0, horizontalPadding) * 2);
 
+export const gameSurfacePadding = (fontSize: number) => ({
+  x: Math.max(0.18, Math.min(0.34, fontSize / 520)),
+  y: Math.max(0.13, Math.min(0.26, fontSize / 650)),
+});
+
 /** Each Play surface follows its own content, capped by the 5%–95% writing band. */
 export const gameSurfaceWidth = (
   writingWidth: number,
@@ -77,6 +82,77 @@ export const gameEstimatedTextHeight = (
 ): number => {
   const rowH = Math.max(0.16, (fontSize * Math.max(1, lineSpacing)) / PX_PER_UNIT);
   return Math.max(rowH, gameEstimatedTextLineCount(text, fontSize, width) * rowH);
+};
+
+export interface GameSurfaceBoxInput {
+  text: string;
+  hiddenContent?: string;
+  fontSize: number;
+  lineSpacing?: number;
+  writingWidth: number;
+  readOnlyWriting: boolean;
+  inset: number;
+  measuredWidth?: number;
+  measuredHeight?: number;
+}
+
+export interface GameSurfaceBox {
+  padX: number;
+  padY: number;
+  surfaceWidth: number;
+  innerWritingWidth: number;
+  surfaceHeight: number;
+}
+
+/**
+ * One calculation for the physical panel and its local writing box. The same
+ * result is used for rendering and layout, so a growing panel cannot visually
+ * collide with the next line while the layout still thinks the old height fits.
+ */
+export const gameSurfaceBox = ({
+  text,
+  hiddenContent = "",
+  fontSize,
+  lineSpacing = 1.25,
+  writingWidth,
+  readOnlyWriting,
+  inset,
+  measuredWidth = 0,
+  measuredHeight = 0,
+}: GameSurfaceBoxInput): GameSurfaceBox => {
+  const { x: padX, y: padY } = gameSurfacePadding(fontSize);
+  const content = text || hiddenContent || "";
+  const emptyWidth = Math.max(0.9, fontSize / 145);
+  const minimumWidth = Math.max(inset * 2 + 0.32, emptyWidth);
+  const estimatedTextWidth = gameEstimatedTextWidth(
+    content,
+    fontSize,
+    gameInnerWritingWidth(writingWidth, padX),
+  );
+  const contentSurfaceWidth = Math.max(
+    minimumWidth,
+    estimatedTextWidth + padX * 2,
+    Math.max(0, measuredWidth) + padX * 2,
+  );
+  const surfaceWidth = readOnlyWriting
+    ? gameSurfaceWidth(writingWidth, contentSurfaceWidth)
+    : Math.min(SLATE_W, contentSurfaceWidth);
+  const innerWritingWidth = readOnlyWriting
+    ? gameInnerWritingWidth(surfaceWidth, padX)
+    : writingWidth;
+  const estimatedTextHeight = gameEstimatedTextHeight(
+    content,
+    fontSize,
+    innerWritingWidth,
+    lineSpacing,
+  );
+  const surfaceHeight = Math.max(
+    Math.max(0.42, fontSize / 175),
+    estimatedTextHeight + padY * 2,
+    Math.max(0, measuredHeight) + padY * 2,
+  );
+
+  return { padX, padY, surfaceWidth, innerWritingWidth, surfaceHeight };
 };
 
 
@@ -120,6 +196,8 @@ export const buildLayout = (
   /** Play starts at minimum size and waits for exact renderer bounds. */
   estimateUnmeasured = true,
   lineSpacing = 1.25,
+  /** Minimum actual rendered surface heights, keyed by slot id. */
+  renderedSurfaceHeights: Record<string, number> = {},
 ): SlateLayout => {
   let cursor = 0.5;
   // one line of text, in world units — scales with the chosen size so a very
@@ -130,7 +208,8 @@ export const buildLayout = (
       ? gameEstimatedTextHeight(slot.text || slot.hiddenContent || "", fontSize, writingWidth, lineSpacing)
       : rowH;
     const real = measured[slot.id];
-    const height = REGION_PAD * 2 + Math.max(rowH, real !== undefined && real > 0 ? real : estimate);
+    const textHeight = REGION_PAD * 2 + Math.max(rowH, real !== undefined && real > 0 ? real : estimate);
+    const height = Math.max(textHeight, renderedSurfaceHeights[slot.id] ?? 0);
     const region: RegionLayout = {
       slot,
       index,

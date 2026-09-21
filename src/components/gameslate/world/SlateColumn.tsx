@@ -56,10 +56,7 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
-  gameEstimatedTextHeight,
-  gameEstimatedTextWidth,
-  gameInnerWritingWidth,
-  gameSurfaceWidth,
+  gameSurfaceBox,
   gameWritingWidth,
 } from "@/lib/slate/layout";
 import type {
@@ -813,6 +810,27 @@ export function SlateColumn({
 
   const testDisplay = game.settings.testDisplay ?? "threeD";
 
+  const surfaceBoxes = useMemo(() => {
+    const boxes: Record<string, ReturnType<typeof gameSurfaceBox>> = {};
+    game.slots.forEach((slot) => {
+      const lineSurface = slot.surfaceId ? getSurface(slot.surfaceId) : surface;
+      const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
+      const bounds = textBounds[slot.id];
+      boxes[slot.id] = gameSurfaceBox({
+        text: slot.text,
+        hiddenContent: slot.hiddenContent,
+        fontSize: textSettings.size,
+        lineSpacing: textSettings.lineSpacing,
+        writingWidth,
+        readOnlyWriting,
+        inset: lineBuild.inset,
+        measuredWidth: bounds?.width ?? 0,
+        measuredHeight: bounds?.height ?? 0,
+      });
+    });
+    return boxes;
+  }, [game.slots, surface, build, textBounds, textSettings.size, textSettings.lineSpacing, writingWidth, readOnlyWriting]);
+
   const layout = useMemo(
     () => buildLayout(
       game.slots,
@@ -822,8 +840,9 @@ export function SlateColumn({
       writingWidth,
       true,
       textSettings.lineSpacing,
+      Object.fromEntries(Object.entries(surfaceBoxes).map(([id, box]) => [id, box.surfaceHeight])),
     ),
-    [game.slots, textSettings.size, textSettings.lineSpacing, build.gap, textBounds, writingWidth],
+    [game.slots, textSettings.size, textSettings.lineSpacing, build.gap, textBounds, writingWidth, surfaceBoxes],
   );
 
   const group = useRef<THREE.Group>(null);
@@ -1247,37 +1266,20 @@ export function SlateColumn({
           const lineRecipe = lineSurface.id === surface.id ? recipe : surfaceMaterial(lineSurface.id);
           const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
           const bounds = textBounds[slot.id];
-          const padX = Math.max(0.18, Math.min(0.34, textSettings.size / 520));
-          const padY = Math.max(0.13, Math.min(0.26, textSettings.size / 650));
-          const emptyWidth = Math.max(0.9, textSettings.size / 145);
-          const minimumWidth = Math.max(lineBuild.inset * 2 + 0.32, emptyWidth);
-          const estimatedTextWidth = gameEstimatedTextWidth(
-            slot.text || slot.hiddenContent || "",
-            textSettings.size,
-            gameInnerWritingWidth(writingWidth, padX),
-          );
-          const contentSurfaceWidth = Math.max(
-            minimumWidth,
-            estimatedTextWidth + padX * 2,
-            (bounds?.width ?? 0) + padX * 2,
-          );
-          const surfaceWidth = readOnlyWriting
-            ? gameSurfaceWidth(writingWidth, contentSurfaceWidth)
-            : Math.min(SLATE_W, contentSurfaceWidth);
-          const innerWritingWidth = readOnlyWriting
-            ? gameInnerWritingWidth(surfaceWidth, padX)
-            : writingWidth;
-          const estimatedTextHeight = gameEstimatedTextHeight(
-            slot.text || slot.hiddenContent || "",
-            textSettings.size,
-            innerWritingWidth,
-            textSettings.lineSpacing,
-          );
-          const surfaceHeight = Math.max(
-            Math.max(0.42, textSettings.size / 175),
-            estimatedTextHeight + padY * 2,
-            (bounds?.height ?? 0) + padY * 2,
-          );
+          const surfaceBox = surfaceBoxes[slot.id] ?? gameSurfaceBox({
+            text: slot.text,
+            hiddenContent: slot.hiddenContent,
+            fontSize: textSettings.size,
+            lineSpacing: textSettings.lineSpacing,
+            writingWidth,
+            readOnlyWriting,
+            inset: lineBuild.inset,
+            measuredWidth: bounds?.width ?? 0,
+            measuredHeight: bounds?.height ?? 0,
+          });
+          const surfaceWidth = surfaceBox.surfaceWidth;
+          const innerWritingWidth = surfaceBox.innerWritingWidth;
+          const surfaceHeight = surfaceBox.surfaceHeight;
           // Every Play surface starts on the same safe left edge and grows
           // rightward. In a room, writingWidth already represents the clear
           // span between the projected inner faces of the pillars/posts.

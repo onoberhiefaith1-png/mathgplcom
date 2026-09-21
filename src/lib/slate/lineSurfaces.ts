@@ -231,6 +231,23 @@ export const floatingTextForGameLine = (
   gameLine: number,
 ): string => gameLine > 0 ? (lineText[gameLine - 1] ?? "") : "";
 
+export const gameLineDisplayText = ({
+  isQuestion,
+  questionText,
+  working,
+  note,
+  awarded,
+}: {
+  isQuestion: boolean;
+  questionText: string;
+  working: string;
+  note?: string | null;
+  awarded: boolean;
+}): string => {
+  if (isQuestion) return questionText;
+  return [working, awarded ? note : null].filter(Boolean).join("\n");
+};
+
 /**
  * One canonical Edit/Play resolver. The saved pattern slot remains the visual
  * source of truth; a line-specific surface replaces it only when the teacher
