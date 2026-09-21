@@ -43,15 +43,17 @@ describe("reward pattern", () => {
     ]);
   });
 
-  it("protects completion, Hourglass, Vault and both Bombs from world interactions", () => {
+  it("protects only completion, Hourglass and Vault from world interactions", () => {
     expect(isWorldInteractionEligible("retry-heart")).toBe(true);
     expect(isWorldInteractionEligible("horizontal-collector")).toBe(true);
     expect(isWorldInteractionEligible("vertical-collector")).toBe(true);
+    // a Collector chains through every bomb it reaches
+    expect(isWorldInteractionEligible("math-core")).toBe(true);
+    expect(isWorldInteractionEligible("premium-chain-bomb")).toBe(true);
+    // these three answer only to the student's own mathematics
     expect(isWorldInteractionEligible("math-vault")).toBe(false);
     expect(isWorldInteractionEligible("mark-seal")).toBe(false);
     expect(isWorldInteractionEligible("time-shard")).toBe(false);
-    expect(isWorldInteractionEligible("math-core")).toBe(false);
-    expect(isWorldInteractionEligible("premium-chain-bomb")).toBe(false);
   });
   it("uses the declared pattern length", () => {
     expect(patternLengthOf(game)).toBe(5);
