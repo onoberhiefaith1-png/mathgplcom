@@ -8,6 +8,7 @@
 - [x] Remove unused synchronous procedural surface work from first render.
 - [x] Deprioritize 3D line mirroring behind immediate Floating Numbers input and reduce dormant reward frame work.
 - [x] Verify the cold full-screen loading transition on desktop and phone with no substitute white surfaces.
+- [x] Remove optional font loading from the opening gate, show real milestone progress, and guarantee loader exit within 10 seconds.
 - [ ] Re-run saved-surface clicks, rapid input, timers, grading, rewards, and recovery when an accessible test Game is available in the signed-in account.
 
 # Instant Smartboard and Game feedback

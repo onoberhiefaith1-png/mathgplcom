@@ -1290,6 +1290,7 @@ export function SlateColumn({
                           else rewardNodes.current.delete(reward.id);
                         }}
                       >
+                        <Suspense fallback={null}>
                         <RewardObject
                           reward={reward}
                           texture={texture}
@@ -1329,6 +1330,7 @@ export function SlateColumn({
                           premiumStyle={effects.premiumBombStyle ?? "radiant-chain"}
                           onPremiumImpact={onPremiumImpact}
                         />
+                        </Suspense>
                       </group>
                     );
                   })

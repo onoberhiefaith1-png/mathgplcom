@@ -22,7 +22,7 @@ import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 
 function BoardLoadingShell() {
-  return <GameLoadingScreen />;
+  return <GameLoadingScreen progress={30} />;
 }
 
 export default function GameSlateEditorPage() {
@@ -38,6 +38,7 @@ export default function GameSlateEditorPage() {
   const [muted, setMutedState] = useState(false);
   const [saving, setSaving] = useState(false);
   const [worldReady, setWorldReady] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(10);
   /** Phone only: the board menu holding every control that used to overflow. */
   const [menuOpen, setMenuOpen] = useState(false);
   const phone = useBreakpoint() === "phone";
@@ -198,7 +199,7 @@ export default function GameSlateEditorPage() {
     return () => window.removeEventListener("beforeunload", protect);
   }, [saving]);
 
-  if (!game) return <GameLoadingScreen className="fixed" />;
+  if (!game) return <GameLoadingScreen className="fixed" progress={10} />;
 
 
   const surface = getSurface(game.surfaceId);
@@ -293,10 +294,11 @@ export default function GameSlateEditorPage() {
               onRewardActivate={activateReward}
               onRewardConsume={consumeReward}
               onReadyChange={setWorldReady}
+              onProgressChange={setLoadingProgress}
             />
           </Suspense>
         </ClientOnly>
-        {!worldReady ? <GameLoadingScreen /> : null}
+        {!worldReady ? <GameLoadingScreen progress={loadingProgress} /> : null}
 
         {/* PHONE — a compact bar: nothing may ever sit off the screen edge. */}
         {phone ? (

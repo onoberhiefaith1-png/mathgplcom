@@ -5,9 +5,9 @@ import * as THREE from "three";
 import { HDRI } from "@/lib/slate/pbr";
 import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
 import { useBootPhase } from "@/lib/game/runtime/bootStage";
+import { GAME_STARTUP_DEADLINE_MS, gameStartupProgress } from "@/lib/game/runtime/startup";
 import { EffectPerfOverlay } from "@/components/dev/EffectPerfOverlay";
 import { PerfProbe } from "@/components/dev/PerfProbe";
-import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { FONTS, getSubstyle } from "@/lib/slate/text3d";
 import { preloadFont } from "troika-three-text";
 
@@ -44,6 +44,8 @@ interface Props {
   readOnlyWriting?: boolean;
   /** Fires only after the real saved surfaces have mounted and painted. */
   onReadyChange?: (ready: boolean) => void;
+  /** Reports completed startup milestones to the full-screen loader. */
+  onProgressChange?: (progress: number) => void;
 }
 
 /**
@@ -69,7 +71,8 @@ export default function WorldStage(props: Props) {
   const [showPerf, setShowPerf] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
   const [surfacesReady, setSurfacesReady] = useState(false);
-  const [fontReady, setFontReady] = useState(false);
+  const [paintedReady, setPaintedReady] = useState(false);
+  const [deadlineReached, setDeadlineReached] = useState(false);
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     setShowPerf(new URLSearchParams(window.location.search).has("perf"));
@@ -78,13 +81,14 @@ export default function WorldStage(props: Props) {
   useEffect(() => {
     setCanvasReady(false);
     setSurfacesReady(false);
+    setPaintedReady(false);
+    setDeadlineReached(false);
     props.onReadyChange?.(false);
   }, [gpu.resetKey, props.onReadyChange]);
 
   useEffect(() => {
     let live = true;
     let settled = false;
-    setFontReady(false);
     const style = props.game.settings.text?.style ?? "inscription";
     const font = style === "dimensional"
       ? getSubstyle(props.game.settings.text?.substyle).font
@@ -93,7 +97,6 @@ export default function WorldStage(props: Props) {
     const finish = () => {
       if (!live || settled) return;
       settled = true;
-      setFontReady(true);
     };
     preloadFont({ font, characters, sdfGlyphSize: 64 }, finish);
     preloadFont({ font: FONTS.technical, characters: "0123456789:+-", sdfGlyphSize: 64 }, () => {});
@@ -104,7 +107,30 @@ export default function WorldStage(props: Props) {
     };
   }, [props.game.settings.text?.style, props.game.settings.text?.substyle]);
 
-  const stageReady = canvasReady && surfacesReady && fontReady && gpu.alive;
+  useEffect(() => {
+    if (!surfacesReady) return;
+    let first = 0;
+    let second = 0;
+    first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => setPaintedReady(true));
+    });
+    return () => {
+      window.cancelAnimationFrame(first);
+      window.cancelAnimationFrame(second);
+    };
+  }, [surfacesReady, gpu.resetKey]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDeadlineReached(true), GAME_STARTUP_DEADLINE_MS);
+    return () => window.clearTimeout(timeout);
+  }, [gpu.resetKey]);
+
+  const progress = gameStartupProgress({ dataReady: true, canvasReady, surfacesReady, paintedReady });
+  useEffect(() => props.onProgressChange?.(progress), [progress, props.onProgressChange]);
+
+  // Fonts, artwork, lighting and effects are optional presentation layers. They
+  // may continue loading after reveal and can never hold the saved board shut.
+  const stageReady = gpu.alive && (paintedReady || deadlineReached);
   useEffect(() => props.onReadyChange?.(stageReady), [props.onReadyChange, stageReady]);
   // Boot order: surfaces and input first, environment lighting next, premium
   // effects last. A later phase can never delay an earlier one.
@@ -219,7 +245,6 @@ export default function WorldStage(props: Props) {
           </Suspense>
         </Canvas>
       </WorldBoundary>
-      {!stageReady ? <GameLoadingScreen restoring={!gpu.alive} /> : null}
       {showPerf ? <EffectPerfOverlay /> : null}
     </div>
   );

@@ -51,6 +51,7 @@ const GamePlayPage = () => {
   const [testMode, setTestMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [worldReady, setWorldReady] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(10);
   const [error, setError] = useState<string | null>(null);
   /** Live working per Floating Numbers line (0-based) → plain text. */
   const [lineText, setLineText] = useState<Record<number, string>>({});
@@ -276,7 +277,7 @@ const GamePlayPage = () => {
 
 
   if (loading) {
-    return <GameLoadingScreen className="fixed" />;
+    return <GameLoadingScreen className="fixed" progress={10} />;
   }
 
   if (error || !game) {
@@ -389,10 +390,11 @@ const GamePlayPage = () => {
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting
             onReadyChange={setWorldReady}
+            onProgressChange={setLoadingProgress}
           />
         )}
       </div>
-      {!worldReady ? <GameLoadingScreen className="fixed" /> : null}
+      {!worldReady ? <GameLoadingScreen className="fixed" progress={loadingProgress} /> : null}
 
       {/* HUD */}
       {/* HUD — one short strip on a phone, the full row on larger screens. */}

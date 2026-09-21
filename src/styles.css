@@ -92,7 +92,6 @@
   --animate-soft-pulse: soft-pulse 2.4s ease-in-out infinite;
   --animate-game-seal-spin: game-seal-spin 12s linear infinite;
   --animate-game-seal-reverse: game-seal-reverse 8s linear infinite;
-  --animate-game-loading-shimmer: game-loading-shimmer 1.8s ease-in-out infinite;
   --animate-game-loading-dots: game-loading-dots 1.2s steps(4, end) infinite;
 
   @keyframes accordion-down {
@@ -158,10 +157,6 @@
   }
   @keyframes game-seal-spin { to { transform: rotate(360deg); } }
   @keyframes game-seal-reverse { to { transform: rotate(-360deg); } }
-  @keyframes game-loading-shimmer {
-    0% { transform: translateX(-115%); }
-    55%, 100% { transform: translateX(270%); }
-  }
   @keyframes game-loading-dots {
     0% { content: ""; }
     25% { content: "."; }
@@ -222,16 +217,20 @@
 .game-loading-copy { text-align: center; }
 .game-loading-copy h2 { margin: 0; font-family: var(--font-display); font-size: clamp(1.65rem, 7vw, 2.35rem); font-weight: 700; letter-spacing: 0.16em; color: hsl(var(--foreground)); }
 .game-loading-copy p { margin-top: 0.6rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: hsl(var(--primary) / 0.72); }
+.game-loading-percentage { display: block; margin-top: 0.45rem; font-size: 1rem; letter-spacing: 0; color: hsl(var(--foreground)); }
 .game-loading-dots::after { content: "..."; display: inline-block; width: 1.5em; text-align: left; animation: var(--animate-game-loading-dots); }
-.game-loading-track { position: relative; width: 100%; height: 0.35rem; margin-top: 2rem; overflow: hidden; border: 1px solid hsl(var(--primary) / 0.2); border-radius: 9999px; background: hsl(244 35% 8% / 0.9); }
-.game-loading-progress { position: absolute; inset-block: 0; left: 0; width: 42%; border-radius: inherit; background: linear-gradient(90deg, hsl(var(--primary) / 0.2), hsl(var(--primary)), hsl(var(--primary) / 0.35)); box-shadow: 0 0 0.8rem hsl(var(--primary) / 0.5); animation: var(--animate-game-loading-shimmer); }
+.game-loading-track { width: 100%; height: 0.45rem; margin-top: 1.5rem; overflow: hidden; border: 1px solid hsl(var(--primary) / 0.2); border-radius: 9999px; background: hsl(244 35% 8% / 0.9); appearance: none; }
+.game-loading-track::-webkit-progress-bar { border-radius: inherit; background: hsl(244 35% 8% / 0.9); }
+.game-loading-track::-webkit-progress-value { border-radius: inherit; background: linear-gradient(90deg, hsl(var(--primary) / 0.35), hsl(var(--primary))); box-shadow: 0 0 0.8rem hsl(var(--primary) / 0.5); transition: width 180ms ease-out; }
+.game-loading-track::-moz-progress-bar { border-radius: inherit; background: linear-gradient(90deg, hsl(var(--primary) / 0.35), hsl(var(--primary))); box-shadow: 0 0 0.8rem hsl(var(--primary) / 0.5); transition: width 180ms ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
   .game-loading-ring,
   .game-loading-glow,
   .game-loading-rune,
-  .game-loading-progress,
   .game-loading-dots::after { animation: none; }
+  .game-loading-track::-webkit-progress-value,
+  .game-loading-track::-moz-progress-bar { transition: none; }
 }
 
 /* Container behaviour ported from tailwind.config.ts (center + 2rem padding,

@@ -4,10 +4,12 @@ import { cn } from "@/lib/utils";
 interface Props {
   className?: string;
   restoring?: boolean;
+  progress?: number;
 }
 
 /** The Game stays sealed until its real saved surfaces are ready to use. */
-export function GameLoadingScreen({ className, restoring = false }: Props) {
+export function GameLoadingScreen({ className, restoring = false, progress = 10 }: Props) {
+  const safeProgress = Math.max(0, Math.min(100, Math.round(progress)));
   return (
     <div
       className={cn("game-loading-screen", className)}
@@ -32,12 +34,18 @@ export function GameLoadingScreen({ className, restoring = false }: Props) {
 
         <div className="game-loading-copy">
           <h2>{restoring ? "RESTORING" : "LOADING"}<span className="game-loading-dots" aria-hidden="true" /></h2>
-          <p>{restoring ? "Rebuilding your writing surfaces" : "Preparing your writing surfaces"}</p>
+          <p>
+            {restoring ? "Rebuilding your writing surfaces" : "Preparing your writing surfaces"}
+            <strong className="game-loading-percentage">{safeProgress}%</strong>
+          </p>
         </div>
 
-        <div className="game-loading-track" aria-hidden="true">
-          <span className="game-loading-progress" />
-        </div>
+        <progress
+          className="game-loading-track"
+          max={100}
+          value={safeProgress}
+          aria-label={`Game loading progress: ${safeProgress}%`}
+        />
       </div>
     </div>
   );
