@@ -69,6 +69,11 @@ export interface RewardInstance {
   script?: string;
   /** Hourglass only: the time it holds, in milliseconds. */
   durationMs?: number;
+  /**
+   * Hourglass only: its own line is engaged, so its stored time is running.
+   * An hourglass on any other line stays exactly where it is.
+   */
+  armed?: boolean;
 }
 
 export interface Slot {
@@ -220,8 +225,10 @@ export interface LineSurfaceConfig {
   lineId: string;
   /** Writing surface for this line; null = the Game's own surface. */
   surfaceId: string | null;
-  /** How much of THIS line's own timer its Hourglass awards. */
+  /** Legacy fixed share of THIS line's own timer. Read as a multiplier. */
   hourglassReward: TimeFraction;
+  /** How many times THIS line's own time its Hourglass awards (0.1×–10×). */
+  hourglassMultiplier?: number;
   /** Legacy Game-side Vault Codes, read only for backward compatibility. */
   vaultCodes: VaultCode[];
   /** Legacy single-code configuration; read into vaultCodes on load. */
