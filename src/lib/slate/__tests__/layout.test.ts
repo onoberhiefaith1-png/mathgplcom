@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { GAME_WRITING_WIDTH, buildLayout, gameSurfaceWidth, gameWritingWidth } from "../layout";
+import {
+  GAME_WRITING_WIDTH,
+  buildLayout,
+  gameInnerWritingWidth,
+  gameSurfaceWidth,
+  gameWritingWidth,
+} from "../layout";
 import { makeSlot } from "../defaults";
 import type { Slot } from "../types";
 
@@ -16,6 +22,11 @@ describe("Game writing-surface layout", () => {
     expect(gameSurfaceWidth(12, 3)).toBe(3);
     expect(gameSurfaceWidth(12, 8)).toBe(8);
     expect(gameSurfaceWidth(7, 9)).toBe(7);
+  });
+
+  it("keeps text inside the surface padding at the maximum width", () => {
+    expect(gameInnerWritingWidth(9, 0.3)).toBeCloseTo(8.4);
+    expect(gameInnerWritingWidth(0.4, 0.3)).toBe(0.2);
   });
 
   it("keeps empty, short, and long surfaces independently sized", () => {

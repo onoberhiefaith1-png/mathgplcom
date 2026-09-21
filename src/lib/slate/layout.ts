@@ -34,6 +34,12 @@ export const GAME_WRITING_WIDTH = SLATE_W * 0.9;
 export const gameWritingWidth = (visibleWorldWidth: number) =>
   Math.max(0.8, visibleWorldWidth * 0.9);
 
+/** Inner text width after reserving the physical surface's left/right padding. */
+export const gameInnerWritingWidth = (
+  surfaceMaxWidth: number,
+  horizontalPadding: number,
+) => Math.max(0.2, surfaceMaxWidth - Math.max(0, horizontalPadding) * 2);
+
 /** Each Play surface follows its own content, capped by the 5%–95% writing band. */
 export const gameSurfaceWidth = (
   writingWidth: number,
