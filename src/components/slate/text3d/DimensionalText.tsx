@@ -11,7 +11,7 @@ import { FONTS, getSubstyle } from "@/lib/slate/text3d";
 import { resolveTextStyle } from "@/lib/slate/textPresets";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
 import type { InscribedTextApi } from "./InscribedText";
-import { glyphBoxes } from "./glyphLayout";
+import { glyphBoxes, glyphBoxesInsideWidth, visualTextLines } from "./glyphLayout";
 import { ExtrudedExpression } from "./ExtrudedExpression";
 
 interface Props {
@@ -56,15 +56,9 @@ export function DimensionalText({
   const [settledText, setSettledText] = useState(text);
 
   const rawFontSize = settings.size / PX_PER_UNIT;
-  // Preserve the teacher's saved size until it would cross the safe writing
-  // edge. Only then fit the line enough to remain readable on its own panel.
-  const longestLine = text.split("\n").reduce((n, line) => Math.max(n, line.length), 0);
-  const fontSize = (() => {
-    if (!longestLine || width <= 0) return rawFontSize;
-    const estimated = longestLine * rawFontSize * 0.58;
-    if (estimated <= width) return rawFontSize;
-    return Math.max(rawFontSize * 0.45, (width / estimated) * rawFontSize);
-  })();
+  // Preserve the teacher's saved size. Long text wraps onto more rows instead
+  // of shrinking or escaping its matching writing surface.
+  const fontSize = rawFontSize;
   const fade = opacity * Math.max(0, Math.min(1, settings.opacity));
   const dimensional = settings.style === "dimensional";
   // the writing style chooses the letterforms, the preset chooses the material
@@ -206,28 +200,14 @@ export function DimensionalText({
       : [];
   const boxes = useMemo(() => glyphBoxes(text, info), [text, info]);
   // Every visual line gets its own single-line mesh so wrapped text can never
-  // collapse onto one row or lose all but the last line.
-  const visualLines = useMemo(() => {
-    const caretPositions = info?.caretPositions;
-    if (!caretPositions || caretPositions.length < 4) {
-      return text ? [{ text, top: 0 }] : [];
-    }
-    const out: { text: string; top: number }[] = [];
-    let start = 0;
-    let currentTop = caretPositions[3] ?? 0;
-    const count = Math.min(text.length, Math.floor(caretPositions.length / 4));
-    for (let i = 0; i < count; i += 1) {
-      const top = caretPositions[i * 4 + 3] ?? currentTop;
-      if (Math.abs(top - currentTop) > 0.0001) {
-        out.push({ text: text.slice(start, i).replace(/\s+$/, ""), top: currentTop });
-        start = i;
-        currentTop = top;
-      }
-    }
-    out.push({ text: text.slice(start, count), top: currentTop });
-    return out.filter((line) => line.text.length > 0);
-  }, [info, text]);
+  // collapse onto one row or lose all but the last line. Extra guards split
+  // long unbroken entries so they remain inside the surface on every device.
+  const visualLines = useMemo(
+    () => visualTextLines(text, info, fontSize, width, settings.lineSpacing),
+    [fontSize, info, settings.lineSpacing, text, width],
+  );
   const extrusionSettled = !responsive || settledText === text;
+  const drawExtrusion = extrusionSettled && glyphBoxesInsideWidth(boxes, width, settings.align);
   const bounds = info?.blockBounds;
   const pivotX = bounds ? (bounds[0] + bounds[2]) / 2 : width / 2;
   const pivotY = bounds ? (bounds[1] + bounds[3]) / 2 : -fontSize / 2;
@@ -261,7 +241,7 @@ export function DimensionalText({
       <group ref={livingGroup} position={[0, 0, 0]}>
       <group position={[pivotX, pivotY, 0]}>
       <group position={[-pivotX, -pivotY, 0]}>
-      {extrusionSettled ? (
+      {drawExtrusion ? (
         <ExtrudedExpression boxes={boxes} fontUrl={font} fontSize={fontSize} style={r} opacity={fade} />
       ) : null}
       </group>
