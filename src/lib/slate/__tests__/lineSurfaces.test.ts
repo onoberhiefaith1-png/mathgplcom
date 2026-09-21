@@ -230,4 +230,29 @@ describe("the Vault recognises the teacher's consecutive method sequence", () =>
     expect(vaultMatches("x + 7", work)).toBe(true);
     expect(vaultMatches("7 = 12", work)).toBe(true);
   });
+
+  it("opens on the exact order only, while the mark stays a separate question", () => {
+    // The teacher's Vault is x + 1.
+    expect(vaultMatches("x + 1", "x + 1")).toBe(true);
+    // A mathematically equivalent rearrangement never opens the Vault …
+    expect(vaultMatches("x + 1", "1 + x")).toBe(false);
+    // … and an open Vault never reveals the line's teaching note, because the
+    // note follows the awarded mark and nothing else.
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 1 = 4",
+      working: "x + 1",
+      note: "Subtract 1 from both sides.",
+      awarded: false,
+    })).toBe("x + 1");
+    // The equivalent form can still earn the mark, and only then the note.
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 1 = 4",
+      working: "1 + x = 4",
+      note: "Subtract 1 from both sides.",
+      awarded: true,
+    })).toBe("1 + x = 4\nSubtract 1 from both sides.");
+  });
 });
+

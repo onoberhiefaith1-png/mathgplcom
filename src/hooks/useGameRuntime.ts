@@ -265,11 +265,24 @@ export const useGameRuntime = (params: {
     return stop;
   }, [questionDeadline, lifeTimeSeconds, startQuestionTimer]);
 
+  /* ---- Vault: the ONE way a Vault may ever pay ------------------------
+   * A Vault is a reward attached to a line, opened by the teacher's exact
+   * ordered sequence. Opening it may only record its own consumed key and add
+   * its own reward value. It must NEVER write completed lines, completed line
+   * keys, completion count, earned marks, or a saved question result — the
+   * mathematical mark belongs solely to the authoritative awarded-line path.
+   */
+  const openVaultOnly = useCallback((key: string, value: number) => {
+    setConsumed((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    setVaultReward((prev) => prev + Math.max(0, value));
+  }, []);
+
   /* ---- line rewards -------------------------------------------------- */
   // Resolved ONCE per completed line. The Hourglass pays only when the line's
   // own timer was still running; the Vault opens only when the student actually
   // followed the teacher's expected method.
   const consumeLine = useCallback((lineNumber: number) => {
+
     if (!question) return;
     const row = lines.find((l) => l.line === lineNumber);
     if (!row || row.rewards.length === 0) return;
@@ -316,7 +329,9 @@ export const useGameRuntime = (params: {
   }, [question, lines, consumed, lifeTimeSeconds]);
 
   /* Vault Codes listen to live mathematical work. They are independent of the
-     final-answer completion event and each opens at most once. */
+     final-answer completion event, pay only through openVaultOnly (never any
+     mark), and each opens at most once. A Vault may therefore open on a line
+     that is still unfinished, and a line may be marked with no Vault open. */
   useEffect(() => {
     if (!question) return;
     for (const row of lines) {
@@ -327,11 +342,11 @@ export const useGameRuntime = (params: {
         if (reward.type !== "math-vault") continue;
         const key = rewardKey(question.questionRowId, row.line, reward.id);
         if (consumed.includes(key) || !vaultMatches(reward.expression, work)) continue;
-        setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
-        setVaultReward((prev) => prev + Math.max(0, reward.coins ?? row.vaultCoins));
+        openVaultOnly(key, reward.coins ?? row.vaultCoins);
       }
     }
-  }, [question, lines, lineText, consumed]);
+  }, [question, lines, lineText, consumed, openVaultOnly]);
+
 
   const consumeWorldReward = useCallback((lineNumber: number, renderedRewardId: string) => {
     if (!question) return;
