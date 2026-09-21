@@ -56,15 +56,9 @@ export function DimensionalText({
   const [settledText, setSettledText] = useState(text);
 
   const rawFontSize = settings.size / PX_PER_UNIT;
-  // Fit to the panel: a question or a line of working shrinks (never below 45%)
-  // rather than wrapping into pieces the student cannot read.
-  const longestLine = text.split("\n").reduce((n, line) => Math.max(n, line.length), 0);
-  const fontSize = (() => {
-    if (!longestLine || width <= 0) return rawFontSize;
-    const estimated = longestLine * rawFontSize * 0.58;
-    if (estimated <= width) return rawFontSize;
-    return Math.max(rawFontSize * 0.45, (width / estimated) * rawFontSize);
-  })();
+  // Keep the teacher's saved size. The physical surface grows with the line,
+  // then Troika wraps it at the safe right edge instead of restyling it.
+  const fontSize = rawFontSize;
   const fade = opacity * Math.max(0, Math.min(1, settings.opacity));
   const dimensional = settings.style === "dimensional";
   // the writing style chooses the letterforms, the preset chooses the material

@@ -71,6 +71,7 @@
 - [x] Treat 5%–95% as the maximum writing range while every desktop surface keeps its own content-driven width.
 - [x] Centralize stable `line-N` identity, preserve exact Floating Numbers correspondence, and make reward-area taps select their owning surface line.
 - [x] Keep each Play surface and its rendered text on one measured coordinate box, preserve saved text alignment, and verify notes remain award-gated.
+- [ ] Anchor each Play surface and its text in one pillar-safe local box, preserve teacher styling, and verify desktop plus phone.
 
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.
