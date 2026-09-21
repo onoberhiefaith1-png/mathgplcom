@@ -1273,37 +1273,39 @@ export function SlateColumn({
                   colour={lineSurface.newKind === "plain" ? game.surfaceColour : undefined}
                   displayNumber={readOnlyWriting ? region.index : region.index + 1}
                 />
-                <Suspense
-                  fallback={(
-                    <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - (lineBuild.gap + 0.18), 0.012]}>
-                      <PlainText
-                        text={slot.text}
-                        width={innerWritingWidth}
-                        surface={lineSurface}
-                        settings={renderedTextSettings}
-                      />
-                    </group>
-                  )}
-                >
-                  <WritingRegion
-                    slotId={slot.id}
-                    text={slot.text}
-                    width={innerWritingWidth}
-                    height={surfaceHeight}
-                    pad={lineBuild.gap + 0.18}
-                    /* the slab body is solid, so the inscription sits just proud of
-                       its face; depth comes from the shading, not from hiding it */
-                    z={0.012}
-                    surface={lineSurface}
-                    settings={renderedTextSettings}
-                    editable={!readOnlyWriting}
-                    active={selection.kind === "slot" && selection.slotId === slot.id}
-                    placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
-                    onChange={(text) => onSlotChange(slot.id, { text })}
-                    onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
-                    onMeasure={(nextBounds) => measure(slot.id, nextBounds)}
-                  />
-                </Suspense>
+                {readOnlyWriting ? (
+                  <Suspense
+                    fallback={(
+                      <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - (lineBuild.gap + 0.18), 0.012]}>
+                        <PlainText
+                          text={slot.text}
+                          width={innerWritingWidth}
+                          surface={lineSurface}
+                          settings={renderedTextSettings}
+                        />
+                      </group>
+                    )}
+                  >
+                    <WritingRegion
+                      slotId={slot.id}
+                      text={slot.text}
+                      width={innerWritingWidth}
+                      height={surfaceHeight}
+                      pad={lineBuild.gap + 0.18}
+                      /* the slab body is solid, so the inscription sits just proud of
+                         its face; depth comes from the shading, not from hiding it */
+                      z={0.012}
+                      surface={lineSurface}
+                      settings={renderedTextSettings}
+                      editable={false}
+                      active={selection.kind === "slot" && selection.slotId === slot.id}
+                      placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
+                      onChange={(text) => onSlotChange(slot.id, { text })}
+                      onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
+                      onMeasure={(nextBounds) => measure(slot.id, nextBounds)}
+                    />
+                  </Suspense>
+                ) : null}
               </group>
 
 
