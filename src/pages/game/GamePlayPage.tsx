@@ -508,8 +508,13 @@ const GamePlayPage = () => {
             <span className="inline-flex items-center gap-1" title="Lives">
               <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
             </span>
-            <span className="inline-flex items-center gap-1" title="Vault reward">
-              <img className="h-4 w-8 object-contain" src={getReward("math-vault").art} alt="" /> VAULT {runtime.vaultReward}
+            <span
+              className="inline-flex items-center gap-1"
+              title={`${runtime.vaultsOpened} of ${runtime.vaultsTotal} vaults opened · ${runtime.vaultReward} reward`}
+            >
+              <img className="h-4 w-8 object-contain" src={getReward("math-vault").art} alt="" /> VAULT{" "}
+              {runtime.vaultsOpened}
+              <span className="opacity-50">/{runtime.vaultsTotal}</span>
             </span>
             <span key={runtime.completionCount} className="inline-flex items-center gap-1 animate-in zoom-in" title="Completed lines">
               <img className="h-4 w-4 object-contain" src={getReward("mark-seal").art} alt="" />
