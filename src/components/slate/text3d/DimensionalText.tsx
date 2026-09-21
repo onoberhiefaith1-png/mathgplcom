@@ -13,6 +13,7 @@ import { PX_PER_UNIT } from "@/lib/slate/layout";
 import type { InscribedTextApi } from "./InscribedText";
 import { glyphBoxes, glyphBoxesInsideWidth, visualTextLines } from "./glyphLayout";
 import { ExtrudedExpression } from "./ExtrudedExpression";
+import { HIDDEN_3D_LAYOUT_TEXT } from "./displayMode";
 
 interface Props {
   text: string;
@@ -217,7 +218,7 @@ export function DimensionalText({
       {/* READABILITY FIRST. This is the real mathematics and it is always
           drawn: a missing font file, a long line or a failed carve can only
           remove the depth on top of it, never the text itself. */}
-      <Text {...shared} fillOpacity={0} outlineOpacity={0} onSync={onSync}>
+      <Text {...shared} {...HIDDEN_3D_LAYOUT_TEXT} onSync={onSync}>
         {text}
       </Text>
       {visualLines.map((line, i) => (
@@ -227,11 +228,7 @@ export function DimensionalText({
           maxWidth={undefined}
           whiteSpace="nowrap"
           position={[0, line.top, 0.002]}
-          color={r.face}
-          fillOpacity={fade}
-          outlineWidth={fontSize * 0.03}
-          outlineColor={r.side}
-          outlineOpacity={fade * 0.85}
+          {...HIDDEN_3D_LAYOUT_TEXT}
         >
           {line.text}
         </Text>

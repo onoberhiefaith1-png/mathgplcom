@@ -13,6 +13,7 @@ import { PX_PER_UNIT } from "@/lib/slate/layout";
 import { glyphBoxes, glyphBoxesInsideWidth } from "./glyphLayout";
 import type { GlyphBox } from "./glyphLayout";
 import type { InscribedTextApi } from "./InscribedText";
+import { HIDDEN_3D_LAYOUT_TEXT } from "./displayMode";
 
 interface Props {
   text: string;
@@ -288,7 +289,8 @@ export function TileText({
 
   return (
     <group position={[originX, 0, 0]}>
-      {/* readable text first; the physical tiles are laid on top of it */}
+      {/* Layout-only text stays mounted for wrapping, measurement and caret
+          hit-testing. It is intentionally invisible beneath the physical tiles. */}
       <Text
         font={FONTS.tiles}
         fontSize={fontSize}
@@ -301,8 +303,7 @@ export function TileText({
         whiteSpace="normal"
         overflowWrap="break-word"
         sdfGlyphSize={64}
-        color={recipe.ink}
-        fillOpacity={fade}
+        {...HIDDEN_3D_LAYOUT_TEXT}
 
         onSync={onSync}
       >
