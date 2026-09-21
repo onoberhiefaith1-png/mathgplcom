@@ -55,6 +55,7 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
+  gameEstimatedTextWidth,
   gameInnerWritingWidth,
   gameSurfaceWidth,
   gameWritingWidth,
@@ -73,7 +74,8 @@ import type {
 // warmed as soon as this module loads — off the render path.
 preloadTextures(REWARDS.filter((r) => r.id === "mark-seal").map((r) => r.art));
 
-
+/** Keeps Play writing in front of every premium surface face and ornament. */
+const PLAY_TEXT_Z = 0.16;
 
 export interface ScrollState {
   target: number;
@@ -1204,29 +1206,33 @@ export function SlateColumn({
           const padY = Math.max(0.13, Math.min(0.26, textSettings.size / 650));
           const emptyWidth = Math.max(0.9, textSettings.size / 145);
           const minimumWidth = Math.max(lineBuild.inset * 2 + 0.32, emptyWidth);
-          const innerWritingWidth = readOnlyWriting
-            ? gameInnerWritingWidth(writingWidth, padX)
-            : writingWidth;
-          const contentSurfaceWidth = Math.max(minimumWidth, (bounds?.width ?? 0) + padX * 2);
+          const estimatedTextWidth = gameEstimatedTextWidth(
+            slot.text || slot.hiddenContent || "",
+            textSettings.size,
+            gameInnerWritingWidth(writingWidth, padX),
+          );
+          const contentSurfaceWidth = Math.max(
+            minimumWidth,
+            estimatedTextWidth + padX * 2,
+            (bounds?.width ?? 0) + padX * 2,
+          );
           const surfaceWidth = readOnlyWriting
             ? gameSurfaceWidth(writingWidth, contentSurfaceWidth)
             : Math.min(SLATE_W, contentSurfaceWidth);
+          const innerWritingWidth = readOnlyWriting
+            ? gameInnerWritingWidth(surfaceWidth, padX)
+            : writingWidth;
           const surfaceHeight = Math.max(
             Math.max(0.42, textSettings.size / 175),
             (bounds?.height ?? 0) + padY * 2,
           );
-          const measuredX = bounds ? (bounds.left + bounds.right) / 2 : 0;
-          const measuredY = bounds ? (bounds.top + bounds.bottom) / 2 : 0;
-          // The text renderer reports bounds in this region's coordinates.
-          // Build the surface around that exact box rather than anchoring the
-          // surface at one place and moving the writing by an unrelated offset.
+          // Every Play surface starts on the same safe left edge and grows
+          // rightward. In a room, writingWidth already represents the clear
+          // span between the projected inner faces of the pillars/posts.
           const surfaceX = readOnlyWriting
-            ? Math.max(
-                -writingWidth / 2 + surfaceWidth / 2,
-                Math.min(writingWidth / 2 - surfaceWidth / 2, measuredX),
-              )
-            : measuredX;
-          const surfaceY = measuredY;
+            ? -writingWidth / 2 + surfaceWidth / 2
+            : bounds ? (bounds.left + bounds.right) / 2 : 0;
+          const surfaceY = readOnlyWriting ? 0 : bounds ? (bounds.top + bounds.bottom) / 2 : 0;
           const selected =
             selection.kind !== "none" && "slotId" in selection && selection.slotId === slot.id;
           const revealed = slot.contentState === "visible" || slot.contentState === "revealed";
@@ -1268,11 +1274,44 @@ export function SlateColumn({
                   colour={lineSurface.newKind === "plain" ? game.surfaceColour : undefined}
                   displayNumber={readOnlyWriting ? region.index : region.index + 1}
                 />
+                {readOnlyWriting ? (
+                  <Suspense
+                    fallback={(
+                      <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - (lineBuild.gap + 0.18), PLAY_TEXT_Z]}>
+                        <PlainText
+                          text={slot.text}
+                          width={innerWritingWidth}
+                          surface={lineSurface}
+                          settings={renderedTextSettings}
+                        />
+                      </group>
+                    )}
+                  >
+                    <WritingRegion
+                      slotId={slot.id}
+                      text={slot.text}
+                      width={innerWritingWidth}
+                      height={surfaceHeight}
+                      pad={lineBuild.gap + 0.18}
+                      /* the slab body is solid, so the inscription sits just proud of
+                         its face; depth comes from the shading, not from hiding it */
+                      z={PLAY_TEXT_Z}
+                      surface={lineSurface}
+                      settings={renderedTextSettings}
+                      editable={false}
+                      active={selection.kind === "slot" && selection.slotId === slot.id}
+                      placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
+                      onChange={(text) => onSlotChange(slot.id, { text })}
+                      onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
+                      onMeasure={(nextBounds) => measure(slot.id, nextBounds)}
+                    />
+                  </Suspense>
+                ) : null}
               </group>
 
 
-              <Suspense
-                fallback={(
+              {!readOnlyWriting ? (
+                <Suspense fallback={(
                   <group position={[-innerWritingWidth / 2, region.height / 2 - (lineBuild.gap + 0.18), 0.012]}>
                     <PlainText
                       text={slot.text}
@@ -1281,27 +1320,25 @@ export function SlateColumn({
                       settings={renderedTextSettings}
                     />
                   </group>
-                )}
-              >
-                <WritingRegion
-                  slotId={slot.id}
-                  text={slot.text}
-                  width={innerWritingWidth}
-                  height={region.height}
-                  pad={lineBuild.gap + 0.18}
-                  /* the slab body is solid, so the inscription sits just proud of
-                     its face; depth comes from the shading, not from hiding it */
-                  z={0.012}
-                  surface={lineSurface}
-                  settings={renderedTextSettings}
-                  editable={!readOnlyWriting}
-                  active={selection.kind === "slot" && selection.slotId === slot.id}
-                  placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
-                  onChange={(text) => onSlotChange(slot.id, { text })}
-                  onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
-                  onMeasure={(bounds) => measure(slot.id, bounds)}
-                />
-              </Suspense>
+                )}>
+                  <WritingRegion
+                    slotId={slot.id}
+                    text={slot.text}
+                    width={innerWritingWidth}
+                    height={region.height}
+                    pad={lineBuild.gap + 0.18}
+                    z={0.012}
+                    surface={lineSurface}
+                    settings={renderedTextSettings}
+                    editable
+                    active={selection.kind === "slot" && selection.slotId === slot.id}
+                    placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
+                    onChange={(text) => onSlotChange(slot.id, { text })}
+                    onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
+                    onMeasure={(nextBounds) => measure(slot.id, nextBounds)}
+                  />
+                </Suspense>
+              ) : null}
 
 
 

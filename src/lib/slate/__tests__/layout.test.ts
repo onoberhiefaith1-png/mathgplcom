@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GAME_WRITING_WIDTH,
   buildLayout,
+  gameEstimatedTextWidth,
   gameInnerWritingWidth,
   gameSurfaceWidth,
   gameWritingWidth,
@@ -35,6 +36,12 @@ describe("Game writing-surface layout", () => {
     expect(gameSurfaceWidth(10, 2.8)).toBe(2.8);
     expect(gameSurfaceWidth(10, 14)).toBe(10);
     expect(gameSurfaceWidth(10, minimum)).toBe(minimum);
+  });
+
+  it("lets live text grow a compact surface before wrapping at the safe edge", () => {
+    expect(gameEstimatedTextWidth("x = 5", 96, 10)).toBeGreaterThan(1);
+    expect(gameEstimatedTextWidth("", 96, 10)).toBe(0);
+    expect(gameEstimatedTextWidth("a".repeat(200), 96, 7)).toBe(7);
   });
 
   it("starts every unmeasured Play surface at its own minimum height", () => {

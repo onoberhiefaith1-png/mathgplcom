@@ -46,6 +46,23 @@ export const gameSurfaceWidth = (
   contentWidth: number,
 ) => Math.min(writingWidth, contentWidth);
 
+/**
+ * Stable first-pass width for live Game text. This breaks the measurement
+ * cycle where a compact panel forced the renderer to wrap before it could
+ * report that the panel needed to grow.
+ */
+export const gameEstimatedTextWidth = (
+  text: string,
+  fontSize: number,
+  maximumWidth: number,
+) => {
+  const longestLine = text
+    .split("\n")
+    .reduce((longest, line) => Math.max(longest, Array.from(line).length), 0);
+  const estimatedGlyphWidth = (Math.max(1, fontSize) / PX_PER_UNIT) * 0.58;
+  return Math.min(Math.max(0, maximumWidth), longestLine * estimatedGlyphWidth);
+};
+
 
 const REGION_PAD = 0.36;
 

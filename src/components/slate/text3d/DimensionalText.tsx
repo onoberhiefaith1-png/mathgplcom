@@ -56,8 +56,8 @@ export function DimensionalText({
   const [settledText, setSettledText] = useState(text);
 
   const rawFontSize = settings.size / PX_PER_UNIT;
-  // Fit to the panel: a question or a line of working shrinks (never below 45%)
-  // rather than wrapping into pieces the student cannot read.
+  // Preserve the teacher's saved size until it would cross the safe writing
+  // edge. Only then fit the line enough to remain readable on its own panel.
   const longestLine = text.split("\n").reduce((n, line) => Math.max(n, line.length), 0);
   const fontSize = (() => {
     if (!longestLine || width <= 0) return rawFontSize;
