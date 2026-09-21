@@ -35,7 +35,7 @@ import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
-import { getReward } from "@/lib/slate/rewards";
+import { getReward, rewardMayFire } from "@/lib/slate/rewards";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { GAME_STARTUP_DEADLINE_MS } from "@/lib/game/runtime/startup";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
