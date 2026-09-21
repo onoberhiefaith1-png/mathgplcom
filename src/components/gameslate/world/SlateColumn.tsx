@@ -961,10 +961,12 @@ export function SlateColumn({
           // how far along its own axis the collector must travel to arrive
           let reach = 0;
           if (sweep && collector) {
+            // A Collector reaches BOTH boundaries of its own axis, so distance
+            // alone decides when each object on its path is claimed.
             const along =
               sweep.axis === "x"
-                ? (local.x - collector.x) * sweep.direction
-                : (local.y - collector.y) * sweep.direction;
+                ? Math.abs(local.x - collector.x)
+                : Math.abs(local.y - collector.y);
             const fraction = Math.min(1, Math.max(0, along / Math.max(0.001, sweep.span)));
             // invert the travel easing (easeIn = k^2.4) to get the moment
             const k = Math.pow(fraction, 1 / 2.4);
@@ -1326,9 +1328,16 @@ export function SlateColumn({
                             setDragging({ slotId: slot.id, rewardId: reward.id });
                           }}
                           onActivate={() => {
-                            if (editable) onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
-                            else if (reward.state === "dormant" && reward.type !== "math-vault")
-                              activate(slot.id, reward, effects.testMode);
+                            if (editable) {
+                              onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
+                              return;
+                            }
+                            // NOTHING is activated by touching it. A reward answers
+                            // only to its own condition; a tap just chooses the line.
+                            // The editor's own Test mode still replays an object in place.
+                            if (effects.testMode && reward.state === "dormant" && reward.type !== "math-vault") {
+                              activate(slot.id, reward, true);
+                            }
                           }}
                           onExpire={() => onRewardConsume(slot.id, reward.id)}
                           premiumStyle={effects.premiumBombStyle ?? "radiant-chain"}
