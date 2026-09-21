@@ -216,21 +216,23 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
                                 <span className="w-24 shrink-0">
                                   Hourglass ({row.timerSeconds}s line)
                                 </span>
-                                <select
-                                  value={config.hourglassReward}
+                                <input
+                                  aria-label={`Hourglass time multiplier for line ${row.line}`}
+                                  type="number"
+                                  min={0.1}
+                                  max={10}
+                                  step={0.1}
+                                  value={hourglassMultiplierOf(config)}
                                   onChange={(e) =>
                                     setLine(row.lineId!, {
-                                      hourglassReward: e.target.value as TimeFraction,
+                                      hourglassMultiplier: Number(e.target.value),
                                     })
                                   }
-                                  className="rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 text-amber-50"
-                                >
-                                  {TIME_FRACTIONS.map((f) => (
-                                    <option key={f.id} value={f.id}>{f.label}</option>
-                                  ))}
-                                </select>
+                                  className="w-16 rounded border border-amber-200/20 bg-black/40 px-1.5 py-0.5 text-right text-amber-50"
+                                />
+                                <span className="text-amber-100/60">×</span>
                                 <span className="text-amber-100/40">
-                                  +{fractionSeconds(row.timerSeconds, config.hourglassReward)}s
+                                  +{hourglassSecondsFor(row.timerSeconds, config)}s
                                 </span>
                               </label>
                             ) : (
