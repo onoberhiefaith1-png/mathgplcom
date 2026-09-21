@@ -124,7 +124,7 @@ export const buildLayout = (
   let cursor = 0.5;
   // one line of text, in world units — scales with the chosen size so a very
   // large equation reserves the right space before it has been measured
-  const rowH = Math.max(0.16, (fontSize * 1.25) / PX_PER_UNIT);
+  const rowH = Math.max(0.16, (fontSize * Math.max(1, lineSpacing)) / PX_PER_UNIT);
   const regions = slots.map((slot, index) => {
     const estimate = estimateUnmeasured
       ? gameEstimatedTextHeight(slot.text || slot.hiddenContent || "", fontSize, writingWidth, lineSpacing)

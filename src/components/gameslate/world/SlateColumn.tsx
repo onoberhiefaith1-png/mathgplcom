@@ -1,4 +1,5 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import { Text } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
@@ -123,6 +124,46 @@ interface ActiveEffect {
   targets?: PremiumTarget[];
   preview?: boolean;
   style?: PremiumBombStyle;
+}
+
+type RewardVisualBoundaryProps = {
+  children: ReactNode;
+  label: string;
+  resetKey: string;
+};
+
+type RewardVisualBoundaryState = { failed: boolean; resetKey: string };
+
+/**
+ * Reward visuals are decorative. If a texture, shader, or effect component
+ * fails, the writing surface, line switching, grading bridge, timers, and notes
+ * must keep running. The failed visual simply disappears until its next reset.
+ */
+class RewardVisualBoundary extends Component<RewardVisualBoundaryProps, RewardVisualBoundaryState> {
+  override state: RewardVisualBoundaryState = {
+    failed: false,
+    resetKey: this.props.resetKey,
+  };
+
+  static getDerivedStateFromError(): Partial<RewardVisualBoundaryState> {
+    return { failed: true };
+  }
+
+  static getDerivedStateFromProps(
+    props: RewardVisualBoundaryProps,
+    state: RewardVisualBoundaryState,
+  ): Partial<RewardVisualBoundaryState> | null {
+    if (props.resetKey === state.resetKey) return null;
+    return { failed: false, resetKey: props.resetKey };
+  }
+
+  override componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn(`[slate reward visual:${this.props.label}]`, error, info.componentStack);
+  }
+
+  override render() {
+    return this.state.failed ? null : this.props.children;
+  }
 }
 
 const baseLife = (profile: string) =>
@@ -1375,52 +1416,57 @@ export function SlateColumn({
                           else rewardNodes.current.delete(reward.id);
                         }}
                       >
-                        <Suspense fallback={null}>
-                        <RewardObject
-                          reward={reward}
-                          texture={texture}
-                          openTexture={openArtById[reward.type]}
-                          size={size}
-                          opacity={rewardSettings.opacity}
-                          glow={rewardSettings.glow}
-                          editable={editable}
-                          speed={effects.speed}
-                          showExpression={
-                            editable &&
-                            selection.kind === "reward" &&
-                            selection.rewardId === reward.id
-                          }
-                          effect={active[reward.id]}
-                          selected={
-                            selection.kind === "reward" && selection.rewardId === reward.id
-                          }
-                          onDown={(event) => {
-                            event.stopPropagation();
-                            if (!editable) {
-                              // A reward is part of its physical writing surface.
-                              // Select that line before the reward performs its own action.
-                              onSelect({ kind: "slot", slotId: slot.id });
-                              return;
-                            }
-                            onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
-                            scroll.current.locked = true;
-                            setDragging({ slotId: slot.id, rewardId: reward.id });
-                          }}
-                          onActivate={() => {
-                            if (editable) {
-                              onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
-                              return;
-                            }
-                            // NOTHING is activated by touching it. A reward answers
-                            // only to its own condition; a tap just chooses the line.
-                            // The editor's own Test mode still replays an object in place.
-                            onSelect({ kind: "slot", slotId: slot.id });
-                          }}
-                          onExpire={() => onRewardConsume(slot.id, reward.id)}
-                          premiumStyle={effects.premiumBombStyle ?? "radiant-chain"}
-                          onPremiumImpact={onPremiumImpact}
-                        />
-                        </Suspense>
+                        <RewardVisualBoundary
+                          label={reward.id}
+                          resetKey={`${reward.id}:${reward.state}:${active[reward.id]?.start ?? "idle"}`}
+                        >
+                          <Suspense fallback={null}>
+                            <RewardObject
+                              reward={reward}
+                              texture={texture}
+                              openTexture={openArtById[reward.type]}
+                              size={size}
+                              opacity={rewardSettings.opacity}
+                              glow={rewardSettings.glow}
+                              editable={editable}
+                              speed={effects.speed}
+                              showExpression={
+                                editable &&
+                                selection.kind === "reward" &&
+                                selection.rewardId === reward.id
+                              }
+                              effect={active[reward.id]}
+                              selected={
+                                selection.kind === "reward" && selection.rewardId === reward.id
+                              }
+                              onDown={(event) => {
+                                event.stopPropagation();
+                                if (!editable) {
+                                  // A reward is part of its physical writing surface.
+                                  // Select that line before the reward performs its own action.
+                                  onSelect({ kind: "slot", slotId: slot.id });
+                                  return;
+                                }
+                                onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
+                                scroll.current.locked = true;
+                                setDragging({ slotId: slot.id, rewardId: reward.id });
+                              }}
+                              onActivate={() => {
+                                if (editable) {
+                                  onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
+                                  return;
+                                }
+                                // NOTHING is activated by touching it. A reward answers
+                                // only to its own condition; a tap just chooses the line.
+                                // The editor's own Test mode still replays an object in place.
+                                onSelect({ kind: "slot", slotId: slot.id });
+                              }}
+                              onExpire={() => onRewardConsume(slot.id, reward.id)}
+                              premiumStyle={effects.premiumBombStyle ?? "radiant-chain"}
+                              onPremiumImpact={onPremiumImpact}
+                            />
+                          </Suspense>
+                        </RewardVisualBoundary>
                       </group>
                     );
                   })
