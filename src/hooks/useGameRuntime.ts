@@ -92,6 +92,8 @@ export const useGameRuntime = (params: {
   const [lives, setLives] = useState(3);
   const [questionDeadline, setQuestionDeadline] = useState<number | null>(null);
   const [lineDeadline, setLineDeadline] = useState<number | null>(null);
+  /** The Game Line whose own Hourglass is running, for the world to read. */
+  const [runningLine, setRunningLine] = useState<number | null>(null);
   const [status, setStatus] = useState<"in_progress" | "complete" | "failed">("in_progress");
   const [earnedMarks, setEarnedMarks] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
@@ -298,7 +300,10 @@ export const useGameRuntime = (params: {
         if (inTime) secondsGain += row.hourglassSeconds;
         continue;
       }
-      lifeGain += REWARD_LIVES[reward.type] ?? 0;
+      const gainedLives = REWARD_LIVES[reward.type] ?? 0;
+      lifeGain += gainedLives;
+      // A Life is worth the teacher's share of the whole question time.
+      if (gainedLives) secondsGain += gainedLives * lifeTimeSeconds();
     }
 
     if (keys.length === 0) return;
@@ -308,7 +313,7 @@ export const useGameRuntime = (params: {
     if (secondsGain) {
       setQuestionDeadline((prev) => (prev ? prev + secondsGain * 1000 : prev));
     }
-  }, [question, lines, consumed]);
+  }, [question, lines, consumed, lifeTimeSeconds]);
 
   /* Vault Codes listen to live mathematical work. They are independent of the
      final-answer completion event and each opens at most once. */
