@@ -1,5 +1,14 @@
 # Junction finishing
 
+# Instant Game startup and response
+
+- [x] Replace temporary white writing-surface geometry with the centered ancient-temple loading screen.
+- [x] Keep loading active until the real saved surfaces have mounted and painted.
+- [x] Warm Game fonts and isolate writing text so font loading cannot remove the physical board.
+- [x] Remove unused synchronous procedural surface work from first render.
+- [ ] Stabilize per-line Play updates and reduce dormant reward frame work.
+- [ ] Verify cold Edit/Play loading, rapid input, timers, grading, rewards, and recovery on desktop and phone.
+
 # Instant Smartboard and Game feedback
 
 - [x] Proactively submit the active bound line for marking without waiting for line navigation.

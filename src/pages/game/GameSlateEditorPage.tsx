@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { lazy, Suspense } from "react";
 import { ClientOnly } from "@tanstack/react-router";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
+import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { PanelSheet } from "@/components/slate/PanelSheet";
 
 const WorldStage = lazy(() => import("@/components/gameslate/world/WorldStage"));
@@ -21,11 +22,7 @@ import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 
 function BoardLoadingShell() {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center bg-[#0b0906] text-sm text-amber-100/70">
-      Loading your Game…
-    </div>
-  );
+  return <GameLoadingScreen />;
 }
 
 export default function GameSlateEditorPage() {
@@ -40,6 +37,7 @@ export default function GameSlateEditorPage() {
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [muted, setMutedState] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [worldReady, setWorldReady] = useState(false);
   /** Phone only: the board menu holding every control that used to overflow. */
   const [menuOpen, setMenuOpen] = useState(false);
   const phone = useBreakpoint() === "phone";
@@ -200,11 +198,7 @@ export default function GameSlateEditorPage() {
     return () => window.removeEventListener("beforeunload", protect);
   }, [saving]);
 
-  if (!game) return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0b0906] text-sm text-amber-100/70">
-      Loading your Game…
-    </div>
-  );
+  if (!game) return <GameLoadingScreen className="fixed" />;
 
 
   const surface = getSurface(game.surfaceId);
@@ -298,9 +292,11 @@ export default function GameSlateEditorPage() {
               onRewardMove={moveReward}
               onRewardActivate={activateReward}
               onRewardConsume={consumeReward}
+              onReadyChange={setWorldReady}
             />
           </Suspense>
         </ClientOnly>
+        {!worldReady ? <GameLoadingScreen /> : null}
 
         {/* PHONE — a compact bar: nothing may ever sit off the screen edge. */}
         {phone ? (

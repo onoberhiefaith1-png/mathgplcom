@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
@@ -10,7 +10,7 @@ import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
 import { defaultTextSettings } from "@/lib/slate/text3d";
 import type { TextBounds } from "@/lib/slate/text3d";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
-import { noiseNormalMap, surfaceMaterial } from "./materials";
+import { surfaceMaterial } from "./materials";
 import { usePbr } from "./pbr";
 import { useAsyncTextures, preloadTextures } from "./loadTexture";
 
@@ -99,6 +99,7 @@ interface Props {
   onFocusSlot?: (slotId: string) => void;
   /** Game Play: the mathematics comes from Floating Numbers, not the keyboard. */
   readOnlyWriting?: boolean;
+  onReady?: () => void;
 }
 
 interface ActiveEffect {
@@ -660,6 +661,7 @@ export function SlateColumn({
   focusSlotId = null,
   onFocusSlot,
   readOnlyWriting = false,
+  onReady,
 }: Props) {
   const surface = getSurface(game.surfaceId);
   const recipe = surfaceMaterial(surface.id);
@@ -763,19 +765,13 @@ export function SlateColumn({
     [game.slots, textSettings.size, build.gap, textBounds, writingWidth],
   );
 
-  // the slate is made of a real scanned material, lit by the room
-  const pbr = usePbr(surfaceFamily(surface.id), 3.1, 0.72);
-  const normal = useMemo(
-    () => noiseNormalMap(recipe.normalKey, recipe.normalScale, recipe.grain),
-    [recipe],
-  );
-  void normal;
-
   const group = useRef<THREE.Group>(null);
   const clock = useThree((state) => state.clock);
   const [scrollTick, setScrollTick] = useState(0);
   const lastTick = useRef(0);
   const lastCount = useRef(0);
+  const readyFrames = useRef(0);
+  const reportedReady = useRef(false);
   const [active, setActive] = useState<Record<string, ActiveEffect>>({});
   const rewardNodes = useRef(new Map<string, { node: THREE.Group; slotId: string; reward: RewardInstance }>());
   // PERFORMANCE: effect textures are warmed in the background (module-scope
@@ -810,6 +806,13 @@ export function SlateColumn({
   activeRef.current = active;
 
   useFrame(({ clock: frameClock }, raw) => {
+    if (!reportedReady.current && group.current) {
+      readyFrames.current += 1;
+      if (readyFrames.current >= 2) {
+        reportedReady.current = true;
+        onReady?.();
+      }
+    }
     // one authoritative clock for every effect on screen
     advanceEffectClock(frameClock.elapsedTime);
     const dt = Math.min(raw, 0.05);
@@ -1240,24 +1243,26 @@ export function SlateColumn({
               </group>
 
 
-              <WritingRegion
-                slotId={slot.id}
-                text={slot.text}
-                width={writingWidth}
-                height={region.height}
-                pad={lineBuild.gap + 0.18}
-                /* the slab body is solid, so the inscription sits just proud of
-                   its face; depth comes from the shading, not from hiding it */
-                z={0.012}
-                surface={lineSurface}
-                settings={renderedTextSettings}
-                editable={!readOnlyWriting}
-                active={selection.kind === "slot" && selection.slotId === slot.id}
-                placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
-                onChange={(text) => onSlotChange(slot.id, { text })}
-                onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
-                onMeasure={(bounds) => measure(slot.id, bounds)}
-              />
+              <Suspense fallback={null}>
+                <WritingRegion
+                  slotId={slot.id}
+                  text={slot.text}
+                  width={writingWidth}
+                  height={region.height}
+                  pad={lineBuild.gap + 0.18}
+                  /* the slab body is solid, so the inscription sits just proud of
+                     its face; depth comes from the shading, not from hiding it */
+                  z={0.012}
+                  surface={lineSurface}
+                  settings={renderedTextSettings}
+                  editable={!readOnlyWriting}
+                  active={selection.kind === "slot" && selection.slotId === slot.id}
+                  placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
+                  onChange={(text) => onSlotChange(slot.id, { text })}
+                  onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
+                  onMeasure={(bounds) => measure(slot.id, bounds)}
+                />
+              </Suspense>
 
               {rewardSettings.visible
                 ? slot.rewards.map((reward) => {

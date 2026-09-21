@@ -90,6 +90,10 @@
   --animate-pop-in: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
   --animate-collapse-out: collapse-out 0.35s ease-in forwards;
   --animate-soft-pulse: soft-pulse 2.4s ease-in-out infinite;
+  --animate-game-seal-spin: game-seal-spin 12s linear infinite;
+  --animate-game-seal-reverse: game-seal-reverse 8s linear infinite;
+  --animate-game-loading-shimmer: game-loading-shimmer 1.8s ease-in-out infinite;
+  --animate-game-loading-dots: game-loading-dots 1.2s steps(4, end) infinite;
 
   @keyframes accordion-down {
     from { height: 0; }
@@ -152,6 +156,81 @@
     0%, 100% { opacity: 0.85; }
     50% { opacity: 1; }
   }
+  @keyframes game-seal-spin { to { transform: rotate(360deg); } }
+  @keyframes game-seal-reverse { to { transform: rotate(-360deg); } }
+  @keyframes game-loading-shimmer {
+    0% { transform: translateX(-115%); }
+    55%, 100% { transform: translateX(270%); }
+  }
+  @keyframes game-loading-dots {
+    0% { content: ""; }
+    25% { content: "."; }
+    50% { content: ".."; }
+    75%, 100% { content: "..."; }
+  }
+}
+
+.game-loading-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: hsl(24 25% 3% / 0.9);
+  color: hsl(39 100% 94%);
+  backdrop-filter: saturate(0.55) brightness(0.52);
+}
+.game-loading-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 0 24%, hsl(24 28% 3% / 0.88) 88%);
+}
+.game-loading-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(82vw, 20rem);
+  flex-direction: column;
+  align-items: center;
+}
+.game-loading-seal { position: relative; width: 11rem; height: 11rem; margin-bottom: 2.5rem; }
+.game-loading-ring { position: absolute; border-radius: 9999px; }
+.game-loading-ring-outer { inset: 0; border: 3px dashed hsl(var(--primary) / 0.34); animation: var(--animate-game-seal-spin); }
+.game-loading-ring-inner { inset: 0.55rem; border: 2px solid hsl(var(--primary) / 0.2); animation: var(--animate-game-seal-reverse); }
+.game-loading-relic {
+  position: absolute;
+  inset: 2.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid hsl(var(--primary) / 0.42);
+  border-radius: 9999px;
+  background: hsl(24 24% 8% / 0.94);
+  box-shadow: 0 0 3rem hsl(var(--primary) / 0.2), inset 0 0 1.5rem hsl(var(--primary) / 0.08);
+}
+.game-loading-glow { position: absolute; width: 3rem; height: 3rem; border-radius: 9999px; background: hsl(var(--primary) / 0.35); filter: blur(18px); animation: var(--animate-soft-pulse); }
+.game-loading-icon { position: relative; width: 3.8rem; height: 3.8rem; color: hsl(var(--primary)); filter: drop-shadow(0 0 10px hsl(var(--primary) / 0.45)); }
+.game-loading-rune { position: absolute; color: hsl(var(--primary) / 0.68); font-family: Georgia, serif; font-size: 0.75rem; animation: var(--animate-soft-pulse); }
+.game-loading-rune-top { top: -0.55rem; left: 50%; transform: translateX(-50%); }
+.game-loading-rune-right { right: -0.45rem; top: 50%; transform: translateY(-50%); }
+.game-loading-rune-bottom { bottom: -0.55rem; left: 50%; transform: translateX(-50%); }
+.game-loading-rune-left { left: -0.45rem; top: 50%; transform: translateY(-50%); }
+.game-loading-copy { text-align: center; }
+.game-loading-copy h2 { margin: 0; font-family: var(--font-display); font-size: clamp(1.65rem, 7vw, 2.35rem); font-weight: 700; letter-spacing: 0.16em; color: hsl(var(--foreground)); }
+.game-loading-copy p { margin-top: 0.6rem; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: hsl(var(--primary) / 0.72); }
+.game-loading-dots::after { content: "..."; display: inline-block; width: 1.5em; text-align: left; animation: var(--animate-game-loading-dots); }
+.game-loading-track { position: relative; width: 100%; height: 0.35rem; margin-top: 2rem; overflow: hidden; border: 1px solid hsl(var(--primary) / 0.2); border-radius: 9999px; background: hsl(244 35% 8% / 0.9); }
+.game-loading-progress { position: absolute; inset-block: 0; left: 0; width: 42%; border-radius: inherit; background: linear-gradient(90deg, hsl(var(--primary) / 0.2), hsl(var(--primary)), hsl(var(--primary) / 0.35)); box-shadow: 0 0 0.8rem hsl(var(--primary) / 0.5); animation: var(--animate-game-loading-shimmer); }
+
+@media (prefers-reduced-motion: reduce) {
+  .game-loading-ring,
+  .game-loading-glow,
+  .game-loading-rune,
+  .game-loading-progress,
+  .game-loading-dots::after { animation: none; }
 }
 
 /* Container behaviour ported from tailwind.config.ts (center + 2rem padding,

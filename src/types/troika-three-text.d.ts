@@ -31,4 +31,9 @@ declare module "troika-three-text" {
     start: number,
     end: number,
   ): SelectionRect[] | null;
+
+  export function preloadFont(
+    options: { font: string; characters?: string | string[]; sdfGlyphSize?: number },
+    callback: () => void,
+  ): void;
 }

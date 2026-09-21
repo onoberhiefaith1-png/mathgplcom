@@ -36,6 +36,7 @@ import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { getReward } from "@/lib/slate/rewards";
+import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 
 
@@ -49,6 +50,7 @@ const GamePlayPage = () => {
   const [assignmentId, setAssignmentId] = useState<string | null>(null);
   const [testMode, setTestMode] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [worldReady, setWorldReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Live working per Floating Numbers line (0-based) → plain text. */
   const [lineText, setLineText] = useState<Record<number, string>>({});
@@ -274,7 +276,7 @@ const GamePlayPage = () => {
 
 
   if (loading) {
-    return <div className="p-8 text-sm text-muted-foreground">Loading Game…</div>;
+    return <GameLoadingScreen className="fixed" />;
   }
 
   if (error || !game) {
@@ -386,9 +388,11 @@ const GamePlayPage = () => {
             }}
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting
+            onReadyChange={setWorldReady}
           />
         )}
       </div>
+      {!worldReady ? <GameLoadingScreen className="fixed" /> : null}
 
       {/* HUD */}
       {/* HUD — one short strip on a phone, the full row on larger screens. */}
