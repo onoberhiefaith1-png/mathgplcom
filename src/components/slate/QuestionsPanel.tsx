@@ -16,8 +16,8 @@ import { mapQuestionLines, patternLengthOf } from "@/lib/slate/pattern";
 import { getReward } from "@/lib/slate/rewards";
 import { SURFACES } from "@/lib/slate/surfaces";
 import {
-  TIME_FRACTIONS,
-  fractionSeconds,
+  hourglassMultiplierOf,
+  hourglassSecondsFor,
   lifeMultiplier,
   lineConfigOf,
   lineSurfacesInSync,
@@ -25,7 +25,7 @@ import {
   type PreviewLine,
 } from "@/lib/slate/lineSurfaces";
 import { questionTimer } from "@/lib/lessonnotes/floatingCompile";
-import type { Game, LineSurfaceConfig, TimeFraction } from "@/lib/slate/types";
+import type { Game, LineSurfaceConfig } from "@/lib/slate/types";
 
 interface Props {
   game: Game;
