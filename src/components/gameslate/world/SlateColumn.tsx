@@ -613,6 +613,7 @@ function RegionSurface({
           colour={colour}
         />
         {numbers.visible ? (
+          <Suspense fallback={null}>
           <Text
             position={[numberX, height / 2 - Math.max(0.12, build.inset * 0.5), 0.025]}
             fontSize={0.18 * numbers.size}
@@ -624,6 +625,7 @@ function RegionSurface({
           >
             {displayNumber}
           </Text>
+          </Suspense>
         ) : null}
       </>
     );

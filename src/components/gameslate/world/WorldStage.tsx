@@ -131,7 +131,16 @@ export default function WorldStage(props: Props) {
   // Fonts, artwork, lighting and effects are optional presentation layers. They
   // may continue loading after reveal and can never hold the saved board shut.
   const stageReady = gpu.alive && (paintedReady || deadlineReached);
-  useEffect(() => props.onReadyChange?.(stageReady), [props.onReadyChange, stageReady]);
+  useEffect(() => {
+    if (!stageReady) {
+      props.onReadyChange?.(false);
+      return;
+    }
+    // Show the completed milestone for one painted frame, then expose controls.
+    props.onProgressChange?.(100);
+    const frame = window.requestAnimationFrame(() => props.onReadyChange?.(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [props.onProgressChange, props.onReadyChange, stageReady]);
   // Boot order: surfaces and input first, environment lighting next, premium
   // effects last. A later phase can never delay an earlier one.
   const phase = useBootPhase(stageReady, gpu.resetKey);

@@ -6,6 +6,7 @@ import { ClientOnly } from "@tanstack/react-router";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { PanelSheet } from "@/components/slate/PanelSheet";
+import { GAME_STARTUP_DEADLINE_MS } from "@/lib/game/runtime/startup";
 
 const WorldStage = lazy(() => import("@/components/gameslate/world/WorldStage"));
 import { ControlPanel } from "@/components/slate/ControlPanel";
@@ -39,12 +40,30 @@ export default function GameSlateEditorPage() {
   const [saving, setSaving] = useState(false);
   const [worldReady, setWorldReady] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(10);
+  const gameRef = useRef<Game | null>(null);
+  const worldReadyRef = useRef(false);
   /** Phone only: the board menu holding every control that used to overflow. */
   const [menuOpen, setMenuOpen] = useState(false);
   const phone = useBreakpoint() === "phone";
   const loadedRef = useRef(false);
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
+
+  useEffect(() => { gameRef.current = game; }, [game]);
+  useEffect(() => { worldReadyRef.current = worldReady; }, [worldReady]);
+  useEffect(() => {
+    const deadline = window.setTimeout(() => {
+      if (worldReadyRef.current) return;
+      if (gameRef.current) {
+        setLoadingProgress(100);
+        setWorldReady(true);
+        return;
+      }
+      toast.error("This Game took too long to open. Please try again.");
+      navigate({ to: "/game" });
+    }, GAME_STARTUP_DEADLINE_MS);
+    return () => window.clearTimeout(deadline);
+  }, [navigate]);
 
   useEffect(() => setMutedState(isMuted()), []);
 
