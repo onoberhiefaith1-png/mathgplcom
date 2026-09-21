@@ -75,6 +75,9 @@
 - [x] Preserve Surface Test and 3D Test as saved display choices without deleting either renderer.
 - [x] Keep long live entries inside their matching surface by wrapping visible 3D faces before decoration can escape.
 - [x] Isolate reward visuals behind a non-blocking boundary while keeping notes and rewards gated by completion events.
+- [x] Make the inactive test renderer completely invisible while preserving its state path.
+- [x] Preserve gaps from actual rendered surface height, not only estimated text height.
+- [x] Keep Game notes behind authoritative completed-line awards only.
 
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.
