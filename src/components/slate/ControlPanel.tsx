@@ -516,9 +516,24 @@ export function ControlPanel({
             />
           </div>
 
-          <Row label="Text size" value={t.size} min={5} max={1000}
-            step={t.size < 100 ? 1 : 5}
-            onChange={(v) => setText({ size: v })} />
+          {([
+            ["Desktop Text Size", "desktopSize"],
+            ["Tablet Text Size", "tabletSize"],
+            ["Mobile Text Size", "mobileSize"],
+          ] as const).map(([label, key]) => {
+            const value = t[key] ?? t.size;
+            return (
+              <Row
+                key={key}
+                label={label}
+                value={value}
+                min={5}
+                max={1000}
+                step={value < 100 ? 1 : 5}
+                onChange={(next) => setText({ [key]: next })}
+              />
+            );
+          })}
 
           <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-amber-100/60">
             <span>Animate</span>
