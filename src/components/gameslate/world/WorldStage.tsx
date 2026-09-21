@@ -84,11 +84,12 @@ export default function WorldStage(props: Props) {
   useEffect(() => {
     let live = true;
     let settled = false;
+    setFontReady(false);
     const style = props.game.settings.text?.style ?? "inscription";
     const font = style === "dimensional"
       ? getSubstyle(props.game.settings.text?.substyle).font
       : FONTS[style];
-    const characters = `${props.game.slots.map((slot) => slot.text).join("\n")}\n0123456789:+-=×÷xy`;
+    const characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-−×÷=()[]{}.,:;<>≤≥√ ";
     const finish = () => {
       if (!live || settled) return;
       settled = true;
@@ -101,7 +102,7 @@ export default function WorldStage(props: Props) {
       live = false;
       window.clearTimeout(timeout);
     };
-  }, [props.game.settings.text, props.game.slots]);
+  }, [props.game.settings.text?.style, props.game.settings.text?.substyle]);
 
   const stageReady = canvasReady && surfacesReady && fontReady && gpu.alive;
   useEffect(() => props.onReadyChange?.(stageReady), [props.onReadyChange, stageReady]);

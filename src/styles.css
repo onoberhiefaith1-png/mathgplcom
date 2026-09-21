@@ -182,6 +182,7 @@
   color: hsl(39 100% 94%);
   backdrop-filter: saturate(0.55) brightness(0.52);
 }
+.game-loading-screen.fixed { position: fixed; }
 .game-loading-vignette {
   position: absolute;
   inset: 0;

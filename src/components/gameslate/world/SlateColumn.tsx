@@ -204,6 +204,7 @@ function RewardObject({
   const started = useRef<number | null>(null);
   /** Guards against a duplicated pointer/click pair firing one reward twice. */
   const lastTap = useRef(0);
+  const lastIdleFrame = useRef(0);
   const [left, setLeft] = useState(total);
   const fading = useRef(false);
   useEffect(() => {
@@ -232,18 +233,23 @@ function RewardObject({
   useFrame(({ clock }) => {
     const node = group.current;
     if (!node) return;
+    const now = effectNow(clock);
+    // Dormant objects need only their gentle idle motion. Keep that inexpensive
+    // on phones while active effects, hover and timers remain full-frame.
+    if (!active && !hovered && !hourglass && now - lastIdleFrame.current < 1 / 24) return;
+    lastIdleFrame.current = now;
     const life = 0.4 + (reward.animation ?? 1) * 0.6;
     // idle motion rides the same clock, so Pause holds the whole object still
-    const bob = Math.sin(effectNow(clock) * 1.3 + reward.x) * 0.012 * life;
+    const bob = Math.sin(now * 1.3 + reward.x) * 0.012 * life;
     const lift = hovered ? 0.09 : 0;
     node.position.z = THREE.MathUtils.lerp(node.position.z, 0.06 + lift, 0.18);
 
-    const t = effect ? (effectNow(clock) - effect.start) * rate : 0;
+    const t = effect ? (now - effect.start) * rate : 0;
     const motion = effect ? objectMotion(chor, t, effect.direction ?? 1) : null;
 
     // a collector claims this object: it accelerates along a curved path
     if (effect?.pull) {
-      const age = effectNow(clock) - effect.start;
+      const age = now - effect.start;
       const k = Math.min(1, Math.pow(Math.max(0, age) / 0.42, 2.2));
       node.position.x = effect.pull.x * k;
       node.position.y = bob + effect.pull.y * k + Math.sin(k * Math.PI) * 0.22;
@@ -262,8 +268,8 @@ function RewardObject({
     // the sealed band: something is inside, but it stays unreadable
     if (band.current) {
       const material = band.current.material as THREE.MeshBasicMaterial;
-      if (material.map) material.map.offset.x = (effectNow(clock) * 0.09) % 1;
-      material.opacity = active ? 0 : 0.32 + Math.sin(effectNow(clock) * 2.1 + reward.x) * 0.1;
+      if (material.map) material.map.offset.x = (now * 0.09) % 1;
+      material.opacity = active ? 0 : 0.32 + Math.sin(now * 2.1 + reward.x) * 0.1;
     }
 
     // clarity: dormant objects are faint, activation sharpens them first

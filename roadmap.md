@@ -6,7 +6,7 @@
 - [x] Keep loading active until the real saved surfaces have mounted and painted.
 - [x] Warm Game fonts and isolate writing text so font loading cannot remove the physical board.
 - [x] Remove unused synchronous procedural surface work from first render.
-- [ ] Stabilize per-line Play updates and reduce dormant reward frame work.
+- [x] Deprioritize 3D line mirroring behind immediate Floating Numbers input and reduce dormant reward frame work.
 - [ ] Verify cold Edit/Play loading, rapid input, timers, grading, rewards, and recovery on desktop and phone.
 
 # Instant Smartboard and Game feedback

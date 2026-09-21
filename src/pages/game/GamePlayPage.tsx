@@ -14,7 +14,7 @@
 // physical Game Lines as they write. The Smartboard surface itself is not
 // shown. Nothing mathematical is re-implemented here.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Heart, Hourglass, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,7 +72,7 @@ const GamePlayPage = () => {
       lineTextFrame.current = null;
       const latest = pendingLineText.current;
       pendingLineText.current = null;
-      if (latest) setLineText(latest);
+      if (latest) startTransition(() => setLineText(latest));
     });
   };
   useEffect(() => () => {
@@ -84,14 +84,14 @@ const GamePlayPage = () => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data: userData } = await supabase.auth.getUser();
+      const [userResult, loaded, ownerResult] = await Promise.all([
+        supabase.auth.getUser(),
+        loadGame(gameId),
+        supabase.from("slate_games").select("owner_id").eq("id", gameId).maybeSingle(),
+      ]);
+      const { data: userData } = userResult;
       const userId = userData.user?.id ?? null;
-      const loaded = await loadGame(gameId);
-      const { data: ownerRow } = await supabase
-        .from("slate_games")
-        .select("owner_id")
-        .eq("id", gameId)
-        .maybeSingle();
+      const { data: ownerRow } = ownerResult;
       const isOwner = Boolean(userId) && (ownerRow as { owner_id?: string } | null)?.owner_id === userId;
       if (cancelled) return;
       if (!loaded || !userId) {
@@ -142,6 +142,7 @@ const GamePlayPage = () => {
     // the Vault compares the student's own working against the wanted method
     lineText,
   });
+  const renderedLineText = useDeferredValue(lineText);
 
   /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
    *  There is no second copy of the active line: the world's selection is
@@ -199,7 +200,7 @@ const GamePlayPage = () => {
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
       // teaching note only once the line has actually earned its marks.
-      const working = row.isQuestion ? "" : floatingTextForGameLine(lineText, row.line);
+      const working = row.isQuestion ? "" : floatingTextForGameLine(renderedLineText, row.line);
       const note = row.isQuestion
         ? null
         : runtime.completedLines.includes(row.line)
@@ -228,9 +229,8 @@ const GamePlayPage = () => {
     runtime.lines,
     runtime.question,
     runtime.consumedRewardKeys,
-    runtime.currentLine,
     runtime.completedLines,
-    lineText,
+    renderedLineText,
     celebrating,
   ]);
 
