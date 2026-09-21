@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { memo, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { RoomDef, RoomLight } from "@/lib/slate/rooms";
+import type { RoomDef } from "@/lib/slate/rooms";
 import { usePbr } from "./pbr";
+
 
 const WIDTH = 13;
 const HEIGHT = 7.6;
@@ -56,356 +56,12 @@ function Contact({
   );
 }
 
-/** Shader for a real flame: domain-warped noise carves irregular tongues out of
- *  a tapering profile, and three emissive bands (white core, orange body, red
- *  edge) are mixed by how deep inside the flame a fragment sits. */
-const FLAME_VERT = /* glsl */ `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const FLAME_FRAG = /* glsl */ `
-  precision mediump float;
-  varying vec2 vUv;
-  uniform float uTime;
-  uniform float uSeed;
-  uniform float uFlicker;
-  uniform vec3 uTint;
-
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-  }
-  float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-               mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
-  }
-  float fbm(vec2 p) {
-    float v = 0.0;
-    float a = 0.5;
-    for (int i = 0; i < 4; i++) {
-      v += a * noise(p);
-      p *= 2.03;
-      a *= 0.5;
-    }
-    return v;
-  }
-
-  void main() {
-    vec2 uv = vUv;
-    float y = uv.y;
-    float x = uv.x - 0.5;
-
-    // rising, domain-warped turbulence, with a second faster layer so the
-    // silhouette never settles into one repeating shape
-    vec2 q = vec2(uv.x * 3.0, uv.y * 2.2 - uTime * 1.35 + uSeed);
-    float warp = fbm(q + fbm(q * 1.7) * 0.6);
-    vec2 q2 = vec2(uv.x * 6.4 + uSeed, uv.y * 4.1 - uTime * 2.6);
-    float fine = fbm(q2);
-    float lick = (warp - 0.5) * (0.16 + y * 0.5) + (fine - 0.5) * 0.09 * y;
-
-    // tapering flame profile, widest just above the fuel
-    float width = 0.30 * (1.0 - pow(abs(y - 0.22) / 0.82, 1.5));
-    width = max(width, 0.0);
-    float d = abs(x + lick * 0.9) / max(width, 0.001);
-
-    float body = 1.0 - smoothstep(0.55, 1.0, d);
-    float tip = smoothstep(1.02, 0.55, y);
-    float base = smoothstep(0.0, 0.10, y);
-    float heat = body * tip * base;
-    // tongues of differing size break off toward the top
-    heat *= 0.62 + 0.62 * warp;
-    heat *= 0.84 + 0.30 * fine * smoothstep(0.25, 1.0, y);
-    heat *= 0.85 + 0.3 * uFlicker * sin(uTime * 11.0 + uSeed * 5.0);
-    heat = clamp(heat, 0.0, 1.0);
-    if (heat < 0.02) discard;
-
-    // small secondary flamelets flaring beside the main body
-    float side = 1.0 - smoothstep(0.9, 1.9, d);
-    heat = max(heat, side * smoothstep(0.05, 0.3, y) * tip * pow(fine, 2.6) * 0.75);
-
-    float depthIn = heat * (1.0 - y * 0.55);
-    vec3 soot = vec3(0.42, 0.05, 0.01);
-    vec3 edge = vec3(0.92, 0.16, 0.02);
-    vec3 mid  = vec3(1.0, 0.55, 0.08);
-    vec3 core = vec3(1.0, 0.98, 0.92);
-    vec3 col = mix(soot, edge, smoothstep(0.0, 0.14, depthIn));
-    col = mix(col, mid, smoothstep(0.10, 0.44, depthIn));
-    col = mix(col, core, smoothstep(0.50, 0.80, depthIn));
-    col *= uTint;
-
-    gl_FragColor = vec4(col, heat * 0.95);
-  }
-`;
-
-/**
- * A torch / lantern. The flame is shader-driven: irregular tongues that change
- * shape every frame, a white-hot core inside an orange body and red edge, with
- * rising embers, thin smoke and a light whose brightness, colour and position
- * are driven by the same noise, so the stone around it breathes with the fire.
- */
-function LightSource({ light }: { light: RoomLight }) {
-  const ref = useRef<THREE.PointLight>(null);
-  const core = useRef<THREE.Mesh>(null);
-  const body = useRef<THREE.Mesh>(null);
-  const outer = useRef<THREE.Mesh>(null);
-  const glow = useRef<THREE.Mesh>(null);
-  const smoke = useRef<THREE.Points>(null);
-  const embers = useRef<THREE.Points>(null);
-  const seed = useMemo(() => Math.random() * 100, []);
-
-  const flameMaterial = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        vertexShader: FLAME_VERT,
-        fragmentShader: FLAME_FRAG,
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        toneMapped: false,
-        fog: false,
-        side: THREE.DoubleSide,
-        uniforms: {
-          uTime: { value: 0 },
-          uSeed: { value: Math.random() * 10 },
-          uFlicker: { value: light.flicker },
-          uTint: { value: new THREE.Color(1, 1, 1) },
-        },
-      }),
-    [light.flicker],
-  );
-
-  const baseColour = useMemo(() => new THREE.Color(light.colour), [light.colour]);
-  const hotColour = useMemo(() => new THREE.Color(light.colour).lerp(new THREE.Color("#fff3d0"), 0.45), [light.colour]);
-  const lightColour = useMemo(() => new THREE.Color(light.colour), [light.colour]);
-
-  useEffect(() => () => flameMaterial.dispose(), [flameMaterial]);
-
-  const puffs = useMemo(() => {
-    const count = 24;
-    return { count, positions: new Float32Array(count * 3), phase: Float32Array.from({ length: count }, () => Math.random()) };
-  }, []);
-  const sparks = useMemo(() => {
-    const count = 26;
-    return { count, positions: new Float32Array(count * 3), phase: Float32Array.from({ length: count }, () => Math.random()) };
-  }, []);
+/* The room is scenery only. It deliberately owns NO per-frame loop: the old
+ * shader-flame light and drifting-dust passes were removed so nothing in the
+ * environment competes with writing, selection or marking for a frame. */
 
 
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    const noise =
-      Math.sin(t * 9.4 + seed) * 0.45 +
-      Math.sin(t * 17.3 + seed * 2) * 0.3 +
-      Math.sin(t * 31.7 + seed * 3) * 0.15 +
-      Math.sin(t * 3.1) * 0.1;
-    const f = 1 + noise * 0.28 * light.flicker;
-    if (ref.current) {
-      ref.current.intensity = light.intensity * f;
-      // hotter flares read slightly whiter, and the source jitters a little
-      lightColour.copy(baseColour).lerp(hotColour, Math.max(0, noise) * 0.5);
-      ref.current.color.copy(lightColour);
-      ref.current.position.set(noise * 0.03, 0.12 + noise * 0.035, noise * 0.02);
-    }
-    if (light.emitter === "flame") {
-      flameMaterial.uniforms["uTime"]!.value = t + seed;
-      (flameMaterial.uniforms["uTint"]!.value as THREE.Color)
-        .copy(baseColour)
-        .lerp(new THREE.Color(1, 1, 1), 0.55);
-      const stretch = 1 + noise * 0.16 * light.flicker;
-      if (body.current) body.current.scale.set(1 + noise * 0.05, stretch, 1);
-      if (outer.current) outer.current.scale.set(1 + noise * 0.07, stretch * 0.94, 1);
-    }
-    if (core.current && light.emitter === "orb") core.current.scale.setScalar(1 + noise * 0.07);
-    if (glow.current) {
-      glow.current.scale.setScalar(1 + noise * 0.13);
-      (glow.current.material as THREE.MeshBasicMaterial).opacity = 0.15 + noise * 0.05;
-    }
-    const advance = (
-      points: THREE.Points | null,
-      data: { count: number; phase: Float32Array },
-      speed: number,
-      rise: number,
-      spread: number,
-      base: number,
-    ) => {
-      const array = points?.geometry.attributes["position"]?.array as Float32Array | undefined;
-      if (!array) return;
-      for (let i = 0; i < data.count; i++) {
-        const p = (t * speed + (data.phase[i] ?? 0)) % 1;
-        array[i * 3] = Math.sin((data.phase[i] ?? 0) * 30 + t * 0.9) * p * spread;
-        array[i * 3 + 1] = base + p * rise;
-        array[i * 3 + 2] = Math.cos((data.phase[i] ?? 0) * 21 + t * 0.7) * p * spread * 0.7;
-      }
-      points!.geometry.attributes["position"]!.needsUpdate = true;
-    };
-    if (light.emitter === "flame") {
-      advance(smoke.current, puffs, 0.2, 1.6, 0.2, 0.34);
-      advance(embers.current, sparks, 0.55, 1.1, 0.12, 0.2);
-    }
-  });
 
-  return (
-    <group position={light.position}>
-      <pointLight
-        ref={ref}
-        color={light.colour}
-        intensity={light.intensity}
-        distance={12}
-        decay={2}
-        castShadow={false}
-      />
-      {light.emitter === "flame" ? (
-        <>
-          {/* wall bracket + fuel: real geometry, not a pasted sprite */}
-          <mesh position={[0, -0.62, -0.34]} castShadow receiveShadow>
-            <boxGeometry args={[0.16, 0.5, 0.12]} />
-            <meshStandardMaterial color="#2e2a26" metalness={0.75} roughness={0.62} />
-          </mesh>
-          <mesh position={[0, -0.42, -0.18]} rotation={[0.5, 0, 0]} castShadow>
-            <cylinderGeometry args={[0.035, 0.035, 0.4, 8]} />
-            <meshStandardMaterial color="#38322c" metalness={0.8} roughness={0.5} />
-          </mesh>
-          <mesh position={[0, -0.4, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.06, 0.09, 0.72, 12]} />
-            <meshStandardMaterial color="#2b1e13" roughness={0.95} />
-          </mesh>
-          <mesh position={[0, -0.05, 0]} castShadow>
-            <torusGeometry args={[0.115, 0.024, 8, 20]} />
-            <meshStandardMaterial color="#463629" metalness={0.72} roughness={0.48} />
-          </mesh>
-          {/* contact darkening where the bracket meets the wall */}
-          <Contact position={[0, -0.5, -0.42]} size={[0.9, 1.2]} rotation={[0, 0, 0]} opacity={0.5} />
-
-          {/* two crossed shader sheets give the flame volume from any angle */}
-          <mesh ref={body} position={[0, 0.33, 0]} material={flameMaterial}>
-            <planeGeometry args={[0.62, 0.9]} />
-          </mesh>
-          <mesh
-            ref={outer}
-            position={[0, 0.33, 0]}
-            rotation={[0, Math.PI / 2, 0]}
-            material={flameMaterial}
-          >
-            <planeGeometry args={[0.62, 0.9]} />
-          </mesh>
-          {/* soft heat halo, no hard bulb edge */}
-          <mesh ref={glow} position={[0, 0.2, 0]}>
-            <sphereGeometry args={[0.34, 16, 16]} />
-            <meshBasicMaterial
-              color={light.colour}
-              transparent
-              opacity={0.12}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-              toneMapped={false}
-              fog={false}
-            />
-          </mesh>
-          <points ref={embers} frustumCulled={false}>
-            <bufferGeometry>
-              <bufferAttribute attach="attributes-position" args={[sparks.positions, 3]} />
-            </bufferGeometry>
-            <pointsMaterial
-              color="#ff9b3d"
-              size={0.035}
-              transparent
-              opacity={0.7}
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-              toneMapped={false}
-              fog={false}
-            />
-          </points>
-          <points ref={smoke} frustumCulled={false}>
-            <bufferGeometry>
-              <bufferAttribute attach="attributes-position" args={[puffs.positions, 3]} />
-            </bufferGeometry>
-            <pointsMaterial color="#241d16" size={0.2} transparent opacity={0.16} depthWrite={false} />
-          </points>
-        </>
-      ) : null}
-      {light.emitter === "orb" ? (
-        <>
-          <mesh position={[0, -0.34, -0.1]} castShadow>
-            <cylinderGeometry args={[0.03, 0.03, 0.6, 8]} />
-            <meshStandardMaterial color="#39332c" metalness={0.8} roughness={0.45} />
-          </mesh>
-          <mesh ref={core}>
-            <sphereGeometry args={[0.1, 16, 16]} />
-            <meshBasicMaterial color="#fff6de" toneMapped={false} fog={false} />
-          </mesh>
-          <mesh ref={glow}>
-            <sphereGeometry args={[0.3, 16, 16]} />
-            <meshBasicMaterial
-              color={light.colour}
-              transparent
-              opacity={0.18}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-              toneMapped={false}
-              fog={false}
-            />
-          </mesh>
-        </>
-      ) : null}
-    </group>
-  );
-}
-
-function Dust({ room }: { room: RoomDef }) {
-  const ref = useRef<THREE.Points>(null);
-  const lastUpdate = useRef(0);
-  const { positions, speeds } = useMemo(() => {
-    const count = room.particles.count;
-    const positions = new Float32Array(count * 3);
-    const speeds = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * WIDTH;
-      positions[i * 3 + 1] = FLOOR_Y + Math.random() * HEIGHT;
-      positions[i * 3 + 2] = BACK_Z + Math.random() * (DEPTH - 3);
-      speeds[i] = 0.4 + Math.random();
-    }
-    return { positions, speeds };
-  }, [room.particles.count]);
-
-  useFrame((_, raw) => {
-    const now = performance.now();
-    if (now - lastUpdate.current < 50) return;
-    lastUpdate.current = now;
-    const dt = Math.min(raw, 0.05);
-    const geo = ref.current?.geometry;
-    if (!geo) return;
-    const array = geo.attributes["position"]?.array as Float32Array | undefined;
-    if (!array) return;
-    for (let i = 0; i < speeds.length; i++) {
-      array[i * 3 + 1] = (array[i * 3 + 1] ?? 0) + dt * room.particles.drift * (speeds[i] ?? 1);
-      array[i * 3] = (array[i * 3] ?? 0) + dt * 0.05 * Math.sin(i + performance.now() / 4000);
-      if ((array[i * 3 + 1] ?? 0) > CEIL_Y) array[i * 3 + 1] = FLOOR_Y;
-    }
-    geo.attributes["position"]!.needsUpdate = true;
-  });
-
-  return (
-    <points ref={ref} frustumCulled={false}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-      </bufferGeometry>
-      <pointsMaterial
-        color={room.particles.colour}
-        size={room.particles.size}
-        transparent
-        opacity={room.particles.opacity}
-        depthWrite={false}
-        sizeAttenuation
-      />
-    </points>
-  );
-}
 
 function Props({ room }: { room: RoomDef }) {
   const accent = room.accent;
@@ -608,7 +264,7 @@ function Props({ room }: { room: RoomDef }) {
   }
 }
 
-export function RoomShell({ room }: { room: RoomDef }) {
+function RoomShellScene({ room }: { room: RoomDef }) {
   const shell = useRef<THREE.Group>(null);
   const wall = usePbr(room.wallFamily, room.wallTiling[0], room.wallTiling[1]);
   const side = usePbr(room.wallFamily, room.wallTiling[0] * 1.1, room.wallTiling[1], 0.43);
@@ -621,11 +277,16 @@ export function RoomShell({ room }: { room: RoomDef }) {
     const root = shell.current;
     if (!root) return;
     // The room is scenery. Its nearer walls and props must never win the
-    // raycast over a writing surface or delay line selection.
+    // raycast over a writing surface or delay line selection, and nothing in
+    // it moves, so its matrices are computed once instead of every frame.
     root.traverse((object) => {
       object.raycast = () => {};
+      object.updateMatrix();
+      object.matrixAutoUpdate = false;
     });
+    root.updateMatrixWorld(true);
   }, [room.id]);
+
 
   return (
     <group ref={shell}>
@@ -651,19 +312,20 @@ export function RoomShell({ room }: { room: RoomDef }) {
       <mesh position={[0, FLOOR_Y + HEIGHT / 2, BACK_Z]} receiveShadow>
         <planeGeometry args={[WIDTH, HEIGHT]} />
         {icy ? (
-          <meshPhysicalMaterial
+          // Ice keeps its cold sheen through cheap reflectivity. Real
+          // transmission costs an extra full-scene pass every frame, which is
+          // what made writing lag inside a room.
+          <meshStandardMaterial
             {...wall}
             color={room.wallTint}
-            roughness={0.24}
-            transmission={0.18}
-            thickness={0.8}
-            ior={1.31}
-            clearcoat={0.7}
-            clearcoatRoughness={0.2}
+            roughness={0.22}
+            metalness={0.12}
+            envMapIntensity={1.35}
           />
         ) : (
           <meshStandardMaterial {...wall} color={room.wallTint} />
         )}
+
       </mesh>
       {/* side walls */}
       {[-1, 1].map((sign) => (
@@ -681,18 +343,17 @@ export function RoomShell({ room }: { room: RoomDef }) {
       <mesh position={[0, FLOOR_Y, BACK_Z + DEPTH / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[WIDTH, DEPTH]} />
         {icy ? (
-          <meshPhysicalMaterial
+          <meshStandardMaterial
             {...floor}
             color={room.floorTint}
-            roughness={0.3}
-            transmission={0.12}
-            thickness={0.6}
-            ior={1.31}
-            clearcoat={0.6}
+            roughness={0.28}
+            metalness={0.1}
+            envMapIntensity={1.25}
           />
         ) : (
           <meshStandardMaterial {...floor} color={room.floorTint} />
         )}
+
       </mesh>
       {/* contact darkening where the walls meet the floor */}
       <Contact position={[0, FLOOR_Y + 0.01, BACK_Z + 1.4]} size={[WIDTH, 4.4]} opacity={0.75} />
@@ -714,5 +375,14 @@ export function RoomShell({ room }: { room: RoomDef }) {
     </group>
   );
 }
+
+/**
+ * The room is a BACKGROUND layer. It re-renders only when the room itself
+ * changes, so nothing about writing, line selection, marking or rewards can
+ * ever rebuild the environment — or be delayed by it.
+ */
+export const RoomShell = memo(RoomShellScene, (a, b) => a.room.id === b.room.id);
+
+
 
 export const ROOM_GEOMETRY = { WIDTH, HEIGHT, DEPTH, FLOOR_Y, CEIL_Y, BACK_Z };

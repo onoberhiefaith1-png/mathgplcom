@@ -238,21 +238,29 @@ export default function WorldStage(props: Props) {
               color={stage.key.colour}
               intensity={stage.key.intensity}
             />
+            {/* A room carries its own lamps plus this cheap static fill, so the
+                environment never needs a photographed probe: that probe costs a
+                download and per-frame sampling that made writing lag. */}
+            {room ? (
+              <hemisphereLight
+                args={[room.fog.colour, room.ambient.colour, room.env.intensity * 0.7]}
+              />
+            ) : null}
             {room ? <RoomShell key={room.id} room={room} /> : null}
           </Suspense>
-          {/* PHASE 2 — photographed environment lighting. A download, so it is
-              admitted only after the board has painted; the simple lights above
-              hold the look until it lands. */}
-          {phase >= 2 ? (
+          {/* PHASE 2 — photographed environment lighting, roomless stages only.
+              A download, so it is admitted only after the board has painted. */}
+          {phase >= 2 && !room ? (
             <Suspense fallback={null}>
               <Environment
-                files={HDRI[room ? room.env.mood : stage.env.mood]}
-                environmentIntensity={room ? room.env.intensity : stage.env.intensity}
+                files={HDRI[stage.env.mood]}
+                environmentIntensity={stage.env.intensity}
                 background={false}
                 resolution={256}
               />
             </Suspense>
           ) : null}
+
           <Suspense fallback={null}>
             <SunLight sun={props.game.settings.assets?.sun ?? null} />
           </Suspense>
