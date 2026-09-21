@@ -469,7 +469,7 @@ export const useGameRuntime = (params: {
       setMessage("Line time ran out — the Hourglass dissolved. Keep solving.");
     });
     return stop;
-  }, [lineDeadline]);
+  }, [lineDeadline, question]);
 
   const goToQuestion = useCallback((index: number) => {
     if (index < 0 || index >= boards.length) return;
@@ -490,6 +490,7 @@ export const useGameRuntime = (params: {
   const restartQuestion = useCallback(() => {
     startQuestionTimer(question?.questionTimerSeconds ?? null);
     setLineDeadline(null);
+    setRunningLine(null);
     timedLine.current = null;
     expiredLines.current = new Set();
     setCurrentLine(1);
