@@ -527,6 +527,7 @@ export const useGameRuntime = (params: {
     awarded.current = new Set();
     expiredLines.current = new Set();
     timedLine.current = null;
+    setRunningLine(null);
     setLineDeadline(null);
     setMessage(null);
     startQuestionTimer(boards[0]?.questionTimerSeconds ?? null);
@@ -542,6 +543,9 @@ export const useGameRuntime = (params: {
     completedLines,
     consumedRewardKeys: consumed,
     vaultReward,
+    vaultsOpened,
+    vaultsTotal,
+    timedLine: runningLine,
     completionCount,
     lives,
     questionDeadline,
