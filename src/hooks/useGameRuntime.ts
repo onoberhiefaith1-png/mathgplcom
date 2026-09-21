@@ -36,6 +36,11 @@ export interface GameRuntime {
   completedLines: number[];
   consumedRewardKeys: string[];
   vaultReward: number;
+  /** Vaults opened in this question, and how many it holds in total. */
+  vaultsOpened: number;
+  vaultsTotal: number;
+  /** The Game Line whose own Hourglass is counting, if any. */
+  timedLine: number | null;
   completionCount: number;
   lives: number;
   /** Epoch ms the question timer runs out, or null when there is no timer. */
