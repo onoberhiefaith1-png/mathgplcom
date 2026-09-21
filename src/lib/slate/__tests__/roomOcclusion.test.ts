@@ -28,6 +28,10 @@ describe("room-safe writing span", () => {
     });
   });
 
+  it("keeps the old single-obstruction API safe for every room", () => {
+    ROOMS.forEach((room) => expect(roomOcclusion(room)).toBeTruthy());
+  });
+
   it("keeps foreground-heavy rooms narrower than the room shell", () => {
     for (const props of ["forge", "shelves", "chests", "armour", "crystals", "ice-formations"] as const) {
       const room = ROOMS.find((candidate) => candidate.props === props);

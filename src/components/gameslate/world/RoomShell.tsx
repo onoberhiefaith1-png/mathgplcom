@@ -609,6 +609,7 @@ function Props({ room }: { room: RoomDef }) {
 }
 
 export function RoomShell({ room }: { room: RoomDef }) {
+  const shell = useRef<THREE.Group>(null);
   const wall = usePbr(room.wallFamily, room.wallTiling[0], room.wallTiling[1]);
   const side = usePbr(room.wallFamily, room.wallTiling[0] * 1.1, room.wallTiling[1], 0.43);
   const floor = usePbr(room.floorFamily, room.floorTiling[0], room.floorTiling[1], 0.11);
@@ -616,8 +617,18 @@ export function RoomShell({ room }: { room: RoomDef }) {
 
   const icy = room.wallFamily === "ice";
 
+  useEffect(() => {
+    const root = shell.current;
+    if (!root) return;
+    // The room is scenery. Its nearer walls and props must never win the
+    // raycast over a writing surface or delay line selection.
+    root.traverse((object) => {
+      object.raycast = () => {};
+    });
+  }, [room.id]);
+
   return (
-    <group>
+    <group ref={shell}>
       {/* WorldStage owns the shared ambient/key lights. Keeping one lighting
           rig avoids duplicate shadow work competing with live writing. */}
       {room.lights.map((light, index) => (
