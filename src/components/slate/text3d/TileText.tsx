@@ -10,7 +10,7 @@ import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { TextBounds, TextSettings } from "@/lib/slate/text3d";
 import { FONTS, TILE_PALETTE, classifyGlyph, textRecipe } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
-import { glyphBoxes } from "./glyphLayout";
+import { glyphBoxes, glyphBoxesInsideWidth } from "./glyphLayout";
 import type { GlyphBox } from "./glyphLayout";
 import type { InscribedTextApi } from "./InscribedText";
 
@@ -259,6 +259,7 @@ export function TileText({
 
   const boxes = useMemo(() => glyphBoxes(text, info), [text, info]);
   const tilesSettled = !responsive || settledText === text;
+  const drawTiles = tilesSettled && glyphBoxesInsideWidth(boxes, width, settings.align);
 
 
   const anchorX: "left" | "right" | "center" =
@@ -321,7 +322,7 @@ export function TileText({
         </mesh>
       ))}
 
-      {tilesSettled ? boxes.map((box) => (
+      {drawTiles ? boxes.map((box) => (
         <Tile
           key={box.index}
           box={box}

@@ -17,6 +17,78 @@ export interface GlyphBox {
   h: number;
 }
 
+export interface VisualTextLine {
+  text: string;
+  top: number;
+}
+
+const estimatedCharsPerLine = (fontSize: number, width: number) =>
+  Math.max(1, Math.floor(Math.max(0.001, width) / Math.max(0.001, fontSize * 0.58)));
+
+const splitVisualLine = (
+  out: VisualTextLine[],
+  text: string,
+  top: number,
+  charsPerLine: number,
+  rowStep: number,
+) => {
+  const clean = text.replace(/\s+$/u, "");
+  if (!clean) return;
+  for (let start = 0, row = 0; start < clean.length; start += charsPerLine, row += 1) {
+    out.push({ text: clean.slice(start, start + charsPerLine), top: top - row * rowStep });
+  }
+};
+
+/**
+ * Visible 3D faces must never draw past their writing surface. Troika's hidden
+ * layout pass remains the source for caret and wrapping, but this guard also
+ * splits long unbroken strings when a browser/font combination reports them as
+ * one visual row.
+ */
+export function visualTextLines(
+  text: string,
+  info: TroikaTextRenderInfo | null,
+  fontSize: number,
+  width: number,
+  lineSpacing = 1.25,
+): VisualTextLine[] {
+  if (!text) return [];
+  const charsPerLine = estimatedCharsPerLine(fontSize, width);
+  const rowStep = Math.max(fontSize, fontSize * Math.max(1, lineSpacing));
+  const out: VisualTextLine[] = [];
+  const caret = info?.caretPositions;
+  if (!caret || caret.length < 4) {
+    text.split("\n").forEach((line, index) => {
+      splitVisualLine(out, line, -index * rowStep, charsPerLine, rowStep);
+    });
+    return out;
+  }
+
+  let start = 0;
+  let currentTop = caret[3] ?? 0;
+  const count = Math.min(text.length, Math.floor(caret.length / 4));
+  for (let i = 0; i < count; i += 1) {
+    const top = caret[i * 4 + 3] ?? currentTop;
+    if (Math.abs(top - currentTop) > 0.0001 || text[i - 1] === "\n") {
+      splitVisualLine(out, text.slice(start, i), currentTop, charsPerLine, rowStep);
+      start = i;
+      currentTop = top;
+    }
+  }
+  splitVisualLine(out, text.slice(start, count), currentTop, charsPerLine, rowStep);
+  return out;
+}
+
+export function glyphBoxesInsideWidth(
+  boxes: GlyphBox[],
+  width: number,
+  align: "left" | "center" | "right",
+) {
+  const leftEdge = align === "left" ? 0 : align === "right" ? -width : -width / 2;
+  const rightEdge = align === "left" ? width : align === "right" ? 0 : width / 2;
+  return boxes.every((box) => box.x - box.w / 2 >= leftEdge - 0.04 && box.x + box.w / 2 <= rightEdge + 0.04);
+}
+
 export function glyphBoxes(text: string, info: TroikaTextRenderInfo | null): GlyphBox[] {
   const caret = info?.caretPositions;
   if (!caret) return [];
