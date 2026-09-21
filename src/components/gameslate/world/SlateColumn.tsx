@@ -1257,6 +1257,21 @@ export function SlateColumn({
               </group>
 
 
+              {/* In Play the panel is grown from this line's own content, so the
+                  writing is inset by the same padding the panel was grown with:
+                  the mathematics always sits inside its slab, never over its
+                  edge. */}
+              <group
+                position={
+                  readOnlyWriting
+                    ? [
+                        padX,
+                        surfaceY + surfaceHeight / 2 - padY - (region.height / 2 - (lineBuild.gap + 0.18)),
+                        0,
+                      ]
+                    : [0, 0, 0]
+                }
+              >
               <Suspense
                 fallback={(
                   <group position={[-writingWidth / 2, region.height / 2 - (lineBuild.gap + 0.18), 0.012]}>
@@ -1288,6 +1303,8 @@ export function SlateColumn({
                   onMeasure={(bounds) => measure(slot.id, bounds)}
                 />
               </Suspense>
+              </group>
+
 
 
               {rewardSettings.visible
