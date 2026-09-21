@@ -4,6 +4,8 @@ import {
   floatingTextForGameLine,
   gameLineFromSlotId,
   gameLineSlotId,
+  hourglassMultiplierOf,
+  hourglassSecondsFor,
   lifeMultiplier,
   lifeSeconds,
   lineSurfacesInSync,
@@ -33,6 +35,19 @@ describe("line time fractions", () => {
     expect(fractionSeconds(60, "half")).toBe(30);
     expect(fractionSeconds(60, "third")).toBe(20);
     expect(fractionSeconds(60, "quarter")).toBe(15);
+  });
+});
+
+describe("Hourglass time multiplier", () => {
+  it("awards the teacher's multiple of the line's own time, clamped 0.1×–10×", () => {
+    expect(hourglassSecondsFor(60, { hourglassMultiplier: 1, hourglassReward: "full" })).toBe(60);
+    expect(hourglassSecondsFor(60, { hourglassMultiplier: 2, hourglassReward: "full" })).toBe(120);
+    expect(hourglassSecondsFor(60, { hourglassMultiplier: 0.5, hourglassReward: "full" })).toBe(30);
+    expect(hourglassMultiplierOf({ hourglassMultiplier: 99, hourglassReward: "full" })).toBe(10);
+    expect(hourglassMultiplierOf({ hourglassMultiplier: 0, hourglassReward: "full" })).toBe(1);
+    // a Game saved before the scale keeps its exact old share
+    expect(hourglassSecondsFor(60, { hourglassReward: "quarter" })).toBe(15);
+    expect(hourglassSecondsFor(null, { hourglassMultiplier: 3, hourglassReward: "full" })).toBe(0);
   });
 });
 
