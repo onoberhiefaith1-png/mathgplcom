@@ -3,6 +3,7 @@ import {
   GAME_WRITING_WIDTH,
   buildLayout,
   gameEstimatedTextWidth,
+  gameEstimatedTextHeight,
   gameInnerWritingWidth,
   gameSurfaceWidth,
   gameWritingWidth,
@@ -44,12 +45,19 @@ describe("Game writing-surface layout", () => {
     expect(gameEstimatedTextWidth("a".repeat(200), 96, 7)).toBe(7);
   });
 
-  it("starts every unmeasured Play surface at its own minimum height", () => {
+  it("uses text estimates before renderer measurement so lines never overlap", () => {
     const layout = buildLayout(
       [slot("short", "x = 5"), slot("long", "Subtract 7 from both sides and simplify carefully")],
-      96, 0.2, {}, GAME_WRITING_WIDTH, false,
+      96, 0.2, {}, 1.2, true,
     );
-    expect(layout.regions[0]?.height).toBeCloseTo(layout.regions[1]?.height ?? 0);
+    expect(layout.regions[1]?.height).toBeGreaterThan(layout.regions[0]?.height ?? Infinity);
+  });
+
+  it("estimates wrapped text height from the same writing width", () => {
+    expect(gameEstimatedTextHeight("x = 5", 96, 4)).toBeGreaterThan(0);
+    expect(gameEstimatedTextHeight("a".repeat(200), 96, 1.2)).toBeGreaterThan(
+      gameEstimatedTextHeight("a".repeat(20), 96, 1.2),
+    );
   });
 
   it("grows only the surface whose rendered content is taller", () => {

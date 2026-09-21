@@ -221,9 +221,11 @@ const GamePlayPage = () => {
       // because its own line was marked correct, or because it is a Vault the
       // student's own mathematics opened.
       if (!rewardMayFire({ line: lineNumber, rewardId, completedLines: runtime.completedLines })) return;
-      window.dispatchEvent(new CustomEvent("slate:activate-reward", {
-        detail: { slotId: gameLineSlotId(lineNumber), rewardId: `${line}-${rewardId}`, preview: false },
-      }));
+      window.requestAnimationFrame(() => {
+        window.dispatchEvent(new CustomEvent("slate:activate-reward", {
+          detail: { slotId: gameLineSlotId(lineNumber), rewardId: `${line}-${rewardId}`, preview: false, force: true },
+        }));
+      });
     });
     const handle = window.setTimeout(() => {
       setCelebrating((prev) => prev.filter((key) => !fresh.includes(key)));

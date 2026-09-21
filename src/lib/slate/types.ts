@@ -154,6 +154,8 @@ export interface EffectSettings {
   premiumBombStyle: PremiumBombStyle;
 }
 
+export type GameTestDisplay = "surface" | "threeD";
+
 export type PremiumBombStyle =
   | "solar-burst"
   | "golden-comet"
@@ -238,6 +240,8 @@ export interface LineSurfaceConfig {
 
 export interface GameSettings {
   slate: SlateSettings;
+  /** Which existing Game text test renderer is visible. */
+  testDisplay: GameTestDisplay;
   writing: WritingSettings;
   /** Live 3D text renderer settings. */
   text: TextSettings;

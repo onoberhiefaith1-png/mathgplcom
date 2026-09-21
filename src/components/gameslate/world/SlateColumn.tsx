@@ -55,6 +55,7 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
+  gameEstimatedTextHeight,
   gameEstimatedTextWidth,
   gameInnerWritingWidth,
   gameSurfaceWidth,
@@ -769,6 +770,8 @@ export function SlateColumn({
     ? playWritingWidth
     : SLATE_W - build.inset * 2 - 0.3;
 
+  const testDisplay = game.settings.testDisplay ?? "threeD";
+
   const layout = useMemo(
     () => buildLayout(
       game.slots,
@@ -776,9 +779,10 @@ export function SlateColumn({
       build.gap + 0.05,
       Object.fromEntries(Object.entries(textBounds).map(([id, bounds]) => [id, bounds.height])),
       writingWidth,
-      !readOnlyWriting,
+      true,
+      textSettings.lineSpacing,
     ),
-    [game.slots, textSettings.size, build.gap, textBounds, writingWidth],
+    [game.slots, textSettings.size, textSettings.lineSpacing, build.gap, textBounds, writingWidth],
   );
 
   const group = useRef<THREE.Group>(null);
@@ -1013,8 +1017,8 @@ export function SlateColumn({
 
 
   const activate = useCallback(
-    (slotId: string, reward: RewardInstance, preview = false, style?: PremiumBombStyle) => {
-      if (reward.state !== "dormant" || active[reward.id]) return;
+    (slotId: string, reward: RewardInstance, preview = false, style?: PremiumBombStyle, force = false) => {
+      if ((!force && reward.state !== "dormant") || active[reward.id]) return;
       // preview replays the whole sequence without consuming anything
       const def = getReward(reward.type);
       let premiumTargets: PremiumTarget[] | undefined;
@@ -1154,12 +1158,12 @@ export function SlateColumn({
 
   useEffect(() => {
     const onActivate = (event: Event) => {
-      const detail = (event as CustomEvent<{ slotId: string; rewardId: string; preview: boolean }>).detail;
+      const detail = (event as CustomEvent<{ slotId: string; rewardId: string; preview: boolean; force?: boolean; style?: PremiumBombStyle }>).detail;
       if (!detail) return;
       const slot = game.slots.find((item) => item.id === detail.slotId);
       const reward = slot?.rewards.find((item) => item.id === detail.rewardId);
-      if (!slot || !reward || reward.type === "time-shard") return;
-      activate(slot.id, reward, detail.preview);
+      if (!slot || !reward || (reward.type === "time-shard" && !detail.force)) return;
+      window.requestAnimationFrame(() => activate(slot.id, reward, detail.preview, detail.style, Boolean(detail.force)));
     };
     window.addEventListener("slate:activate-reward", onActivate as EventListener);
     return () => window.removeEventListener("slate:activate-reward", onActivate as EventListener);
@@ -1222,8 +1226,15 @@ export function SlateColumn({
           const innerWritingWidth = readOnlyWriting
             ? gameInnerWritingWidth(surfaceWidth, padX)
             : writingWidth;
+          const estimatedTextHeight = gameEstimatedTextHeight(
+            slot.text || slot.hiddenContent || "",
+            textSettings.size,
+            innerWritingWidth,
+            textSettings.lineSpacing,
+          );
           const surfaceHeight = Math.max(
             Math.max(0.42, textSettings.size / 175),
+            estimatedTextHeight + padY * 2,
             (bounds?.height ?? 0) + padY * 2,
           );
           // Every Play surface starts on the same safe left edge and grows
@@ -1298,6 +1309,7 @@ export function SlateColumn({
                       z={PLAY_TEXT_Z}
                       surface={lineSurface}
                       settings={renderedTextSettings}
+                      testDisplay={testDisplay}
                       editable={false}
                       active={selection.kind === "slot" && selection.slotId === slot.id}
                       placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
@@ -1330,6 +1342,7 @@ export function SlateColumn({
                     z={0.012}
                     surface={lineSurface}
                     settings={renderedTextSettings}
+                    testDisplay={testDisplay}
                     editable
                     active={selection.kind === "slot" && selection.slotId === slot.id}
                     placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
@@ -1401,9 +1414,7 @@ export function SlateColumn({
                             // NOTHING is activated by touching it. A reward answers
                             // only to its own condition; a tap just chooses the line.
                             // The editor's own Test mode still replays an object in place.
-                            if (effects.testMode && reward.state === "dormant" && reward.type !== "math-vault") {
-                              activate(slot.id, reward, true);
-                            }
+                            onSelect({ kind: "slot", slotId: slot.id });
                           }}
                           onExpire={() => onRewardConsume(slot.id, reward.id)}
                           premiumStyle={effects.premiumBombStyle ?? "radiant-chain"}

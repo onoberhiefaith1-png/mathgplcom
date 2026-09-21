@@ -37,6 +37,7 @@ export const normalizeGame = (game: Game): Game => ({
   settings: {
     ...defaultSettings(),
     ...(game.settings ?? {}),
+    testDisplay: game.settings?.testDisplay === "surface" ? "surface" : "threeD",
     text: { ...defaultTextSettings(), ...(game.settings?.text ?? {}) },
     numbers: { ...defaultNumberSettings(), ...(game.settings?.numbers ?? {}) },
     assets: { ...defaultAssetSettings(), ...(game.settings?.assets ?? {}) },
