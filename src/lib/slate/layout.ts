@@ -34,6 +34,12 @@ export const GAME_WRITING_WIDTH = SLATE_W * 0.9;
 export const gameWritingWidth = (visibleWorldWidth: number) =>
   Math.max(0.8, visibleWorldWidth * 0.9);
 
+/** Shared Edit/Play writing span after room architecture restricts the viewport band. */
+export const gameSafeWritingWidth = (
+  visibleWorldWidth: number,
+  roomSafeWidth = Infinity,
+) => Math.min(gameWritingWidth(visibleWorldWidth), roomSafeWidth);
+
 /** Inner text width after reserving the physical surface's left/right padding. */
 export const gameInnerWritingWidth = (
   surfaceMaxWidth: number,

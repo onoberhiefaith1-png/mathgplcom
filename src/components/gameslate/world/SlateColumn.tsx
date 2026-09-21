@@ -56,8 +56,8 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
+  gameSafeWritingWidth,
   gameSurfaceBox,
-  gameWritingWidth,
 } from "@/lib/slate/layout";
 import type {
   EditorMode,
@@ -800,13 +800,10 @@ export function SlateColumn({
     const edge = Math.abs(block.x) * (toSlate / toProp);
     return Math.max(1.2, (edge - 0.12) * 2);
   }, [room, roomless, camera.position.z]);
-  const playWritingWidth = Math.min(
-    gameWritingWidth(visibleAtSlate.width),
-    roomSafeWidth,
-  );
-  const writingWidth = readOnlyWriting
-    ? playWritingWidth
-    : SLATE_W - build.inset * 2 - 0.3;
+  // Edit is the teacher's exact preview of Play. Both modes use the same
+  // viewport band and the same room-safe span rather than centring Edit on the
+  // legacy fixed slate width.
+  const writingWidth = gameSafeWritingWidth(visibleAtSlate.width, roomSafeWidth);
 
   const testDisplay = game.settings.testDisplay ?? "threeD";
 
@@ -822,14 +819,14 @@ export function SlateColumn({
         fontSize: textSettings.size,
         lineSpacing: textSettings.lineSpacing,
         writingWidth,
-        readOnlyWriting,
+        readOnlyWriting: true,
         inset: lineBuild.inset,
         measuredWidth: bounds?.width ?? 0,
         measuredHeight: bounds?.height ?? 0,
       });
     });
     return boxes;
-  }, [game.slots, surface, build, textBounds, textSettings.size, textSettings.lineSpacing, writingWidth, readOnlyWriting]);
+  }, [game.slots, surface, build, textBounds, textSettings.size, textSettings.lineSpacing, writingWidth]);
 
   const layout = useMemo(
     () => buildLayout(
@@ -1272,7 +1269,7 @@ export function SlateColumn({
             fontSize: textSettings.size,
             lineSpacing: textSettings.lineSpacing,
             writingWidth,
-            readOnlyWriting,
+            readOnlyWriting: true,
             inset: lineBuild.inset,
             measuredWidth: bounds?.width ?? 0,
             measuredHeight: bounds?.height ?? 0,
@@ -1280,13 +1277,10 @@ export function SlateColumn({
           const surfaceWidth = surfaceBox.surfaceWidth;
           const innerWritingWidth = surfaceBox.innerWritingWidth;
           const surfaceHeight = surfaceBox.surfaceHeight;
-          // Every Play surface starts on the same safe left edge and grows
-          // rightward. In a room, writingWidth already represents the clear
-          // span between the projected inner faces of the pillars/posts.
-          const surfaceX = readOnlyWriting
-            ? -writingWidth / 2 + surfaceWidth / 2
-            : bounds ? (bounds.left + bounds.right) / 2 : 0;
-          const surfaceY = readOnlyWriting ? 0 : bounds ? (bounds.top + bounds.bottom) / 2 : 0;
+          // Edit and Play share the exact safe left edge. In a room,
+          // writingWidth is already the clear span between pillars/posts.
+          const surfaceX = -writingWidth / 2 + surfaceWidth / 2;
+          const surfaceY = 0;
           const selected =
             selection.kind !== "none" && "slotId" in selection && selection.slotId === slot.id;
           const revealed = slot.contentState === "visible" || slot.contentState === "revealed";
@@ -1328,65 +1322,31 @@ export function SlateColumn({
                   colour={lineSurface.newKind === "plain" ? game.surfaceColour : undefined}
                   displayNumber={readOnlyWriting ? region.index : region.index + 1}
                 />
-                {readOnlyWriting ? (
-                  <Suspense
-                    fallback={(
-                      <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - (lineBuild.gap + 0.18), PLAY_TEXT_Z]}>
-                        <PlainText
-                          text={slot.text}
-                          width={innerWritingWidth}
-                          surface={lineSurface}
-                          settings={renderedTextSettings}
-                        />
-                      </group>
-                    )}
-                  >
-                    <WritingRegion
-                      slotId={slot.id}
-                      text={slot.text}
-                      width={innerWritingWidth}
-                      height={surfaceHeight}
-                      pad={lineBuild.gap + 0.18}
-                      /* the slab body is solid, so the inscription sits just proud of
-                         its face; depth comes from the shading, not from hiding it */
-                      z={PLAY_TEXT_Z}
-                      surface={lineSurface}
-                      settings={renderedTextSettings}
-                      testDisplay={testDisplay}
-                      editable={false}
-                      active={selection.kind === "slot" && selection.slotId === slot.id}
-                      placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
-                      onChange={(text) => onSlotChange(slot.id, { text })}
-                      onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
-                      onMeasure={(nextBounds) => measure(slot.id, nextBounds)}
-                    />
-                  </Suspense>
-                ) : null}
-              </group>
-
-
-              {!readOnlyWriting ? (
-                <Suspense fallback={(
-                  <group position={[-innerWritingWidth / 2, region.height / 2 - (lineBuild.gap + 0.18), 0.012]}>
-                    <PlainText
-                      text={slot.text}
-                      width={innerWritingWidth}
-                      surface={lineSurface}
-                      settings={renderedTextSettings}
-                    />
-                  </group>
-                )}>
+                <Suspense
+                  fallback={(
+                    <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - (lineBuild.gap + 0.18), PLAY_TEXT_Z]}>
+                      <PlainText
+                        text={slot.text}
+                        width={innerWritingWidth}
+                        surface={lineSurface}
+                        settings={renderedTextSettings}
+                      />
+                    </group>
+                  )}
+                >
                   <WritingRegion
                     slotId={slot.id}
                     text={slot.text}
                     width={innerWritingWidth}
-                    height={region.height}
+                    height={surfaceHeight}
                     pad={lineBuild.gap + 0.18}
-                    z={0.012}
+                    /* The inscription shares its surface's local box in both
+                       Edit and Play, just proud of the physical face. */
+                    z={PLAY_TEXT_Z}
                     surface={lineSurface}
                     settings={renderedTextSettings}
                     testDisplay={testDisplay}
-                    editable
+                    editable={!readOnlyWriting}
                     active={selection.kind === "slot" && selection.slotId === slot.id}
                     placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
                     onChange={(text) => onSlotChange(slot.id, { text })}
@@ -1394,7 +1354,7 @@ export function SlateColumn({
                     onMeasure={(nextBounds) => measure(slot.id, nextBounds)}
                   />
                 </Suspense>
-              ) : null}
+              </group>
 
 
 

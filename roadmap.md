@@ -78,6 +78,7 @@
 - [x] Make the inactive test renderer completely invisible while preserving its state path.
 - [x] Preserve gaps from actual rendered surface height, not only estimated text height.
 - [x] Keep Game notes behind authoritative completed-line awards only.
+- [x] Make Edit use Play's safe left edge, pillar clearance, content growth, and rendered-height gaps.
 
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.
