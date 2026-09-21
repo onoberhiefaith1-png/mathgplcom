@@ -1217,6 +1217,7 @@ export function SlateColumn({
           const selected =
             selection.kind !== "none" && "slotId" in selection && selection.slotId === slot.id;
           const revealed = slot.contentState === "visible" || slot.contentState === "revealed";
+
           return (
             <group key={slot.id} position={[0, -region.centre, SLATE_FRONT]}>
               {/* the section is built out of the material itself */}

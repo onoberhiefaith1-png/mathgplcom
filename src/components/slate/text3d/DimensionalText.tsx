@@ -55,7 +55,16 @@ export function DimensionalText({
   const [reduceMotion, setReduceMotion] = useState(false);
   const [settledText, setSettledText] = useState(text);
 
-  const fontSize = settings.size / PX_PER_UNIT;
+  const rawFontSize = settings.size / PX_PER_UNIT;
+  // Fit to the panel: a question or a line of working shrinks (never below 45%)
+  // rather than wrapping into pieces the student cannot read.
+  const longestLine = text.split("\n").reduce((n, line) => Math.max(n, line.length), 0);
+  const fontSize = (() => {
+    if (!longestLine || width <= 0) return rawFontSize;
+    const estimated = longestLine * rawFontSize * 0.58;
+    if (estimated <= width) return rawFontSize;
+    return Math.max(rawFontSize * 0.45, (width / estimated) * rawFontSize);
+  })();
   const fade = opacity * Math.max(0, Math.min(1, settings.opacity));
   const dimensional = settings.style === "dimensional";
   // the writing style chooses the letterforms, the preset chooses the material
@@ -70,6 +79,7 @@ export function DimensionalText({
       setInfo(render);
       const bounds = render.blockBounds;
       const width = Math.abs(bounds[2] - bounds[0]);
+
       const height = Math.abs(bounds[3] - bounds[1]);
       if (
         Math.abs(height - measured.current.height) > 0.004 ||
@@ -168,13 +178,13 @@ export function DimensionalText({
     fontSize,
     maxWidth: width,
     lineHeight: settings.lineSpacing,
-    letterSpacing: settings.letterSpacing,
+    letterSpacing: settings.letterSpacing ?? 0,
     textAlign: settings.align,
     anchorX,
     anchorY: "top" as const,
     whiteSpace: "normal" as const,
     overflowWrap: "break-word" as const,
-    sdfGlyphSize: settings.size > 120 ? 128 : 64,
+    sdfGlyphSize: rawFontSize > 1.4 ? 128 : 64,
   };
 
   const caretRect = (() => {
@@ -195,6 +205,28 @@ export function DimensionalText({
       ? (getSelectionRects(info, Math.min(...selection), Math.max(...selection)) ?? [])
       : [];
   const boxes = useMemo(() => glyphBoxes(text, info), [text, info]);
+  // Every visual line gets its own single-line mesh so wrapped text can never
+  // collapse onto one row or lose all but the last line.
+  const visualLines = useMemo(() => {
+    const caretPositions = info?.caretPositions;
+    if (!caretPositions || caretPositions.length < 4) {
+      return text ? [{ text, top: 0 }] : [];
+    }
+    const out: { text: string; top: number }[] = [];
+    let start = 0;
+    let currentTop = caretPositions[3] ?? 0;
+    const count = Math.min(text.length, Math.floor(caretPositions.length / 4));
+    for (let i = 0; i < count; i += 1) {
+      const top = caretPositions[i * 4 + 3] ?? currentTop;
+      if (Math.abs(top - currentTop) > 0.0001) {
+        out.push({ text: text.slice(start, i).replace(/\s+$/, ""), top: currentTop });
+        start = i;
+        currentTop = top;
+      }
+    }
+    out.push({ text: text.slice(start, count), top: currentTop });
+    return out.filter((line) => line.text.length > 0);
+  }, [info, text]);
   const extrusionSettled = !responsive || settledText === text;
   const bounds = info?.blockBounds;
   const pivotX = bounds ? (bounds[0] + bounds[2]) / 2 : width / 2;
@@ -205,17 +237,25 @@ export function DimensionalText({
       {/* READABILITY FIRST. This is the real mathematics and it is always
           drawn: a missing font file, a long line or a failed carve can only
           remove the depth on top of it, never the text itself. */}
-      <Text
-        {...shared}
-        color={r.face}
-        fillOpacity={fade}
-        outlineWidth={fontSize * 0.035}
-        outlineColor={r.side}
-        outlineOpacity={fade}
-        onSync={onSync}
-      >
+      <Text {...shared} fillOpacity={0} outlineOpacity={0} onSync={onSync}>
         {text}
       </Text>
+      {visualLines.map((line, i) => (
+        <Text
+          key={`${i}-${line.text}`}
+          {...shared}
+          maxWidth={undefined}
+          whiteSpace="nowrap"
+          position={[0, line.top, 0.002]}
+          color={r.face}
+          fillOpacity={fade}
+          outlineWidth={fontSize * 0.03}
+          outlineColor={r.side}
+          outlineOpacity={fade * 0.85}
+        >
+          {line.text}
+        </Text>
+      ))}
 
 
       <group ref={livingGroup} position={[0, 0, 0]}>
