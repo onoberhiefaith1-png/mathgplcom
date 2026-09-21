@@ -56,11 +56,7 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
-  gameEstimatedTextHeight,
-  gameEstimatedTextWidth,
-  gameInnerWritingWidth,
   gameSurfaceBox,
-  gameSurfaceWidth,
   gameWritingWidth,
 } from "@/lib/slate/layout";
 import type {
