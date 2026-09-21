@@ -33,3 +33,9 @@ export function cachedGeometry<T extends THREE.BufferGeometry>(key: string, buil
 
 /** Stable short key for a float, so near-identical sizes reuse one build. */
 export const q = (value: number, places = 3) => value.toFixed(places);
+
+/** A lost graphics context invalidates every uploaded buffer: start clean. */
+export function clearGeometryCache() {
+  cache.forEach((geometry) => geometry.dispose());
+  cache.clear();
+}

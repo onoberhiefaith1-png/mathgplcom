@@ -117,3 +117,20 @@ export const getReward = (id: string): RewardDef =>
   REWARDS.find((r) => r.id === id) ?? {
     id: "mark-seal", label: "Mark Seal", art: markSeal, glow: "#ffc857", profile: "seal", ratio: 1,
   };
+
+/**
+ * THE ONE GATE.
+ *
+ * Nothing on the slate performs its effect because it was touched. An object
+ * acts only because the student's own mathematics earned it: its line was
+ * marked correct, or it is a Vault its line's working opened. Chains started by
+ * a bomb or collector are played by the world itself, never by this gate.
+ */
+export function rewardMayFire(input: {
+  line: number;
+  rewardId: string;
+  completedLines: readonly number[];
+}): boolean {
+  if (input.rewardId.startsWith("vault-")) return true;
+  return input.completedLines.includes(input.line);
+}

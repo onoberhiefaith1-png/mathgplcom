@@ -17,11 +17,18 @@ function loadFont(url: string) {
         if (!response.ok) throw new Error(`Font could not be loaded: ${url}`);
         return response.arrayBuffer();
       })
-      .then((buffer) => opentype.parse(buffer));
+      .then((buffer) => opentype.parse(buffer))
+      .catch((error) => {
+        // A failed download must not poison the cache: the depth layer is
+        // optional, so the next mount is allowed one more attempt.
+        fontCache.delete(url);
+        throw error;
+      });
     fontCache.set(url, pending);
   }
   return pending;
 }
+
 
 
 interface Props {
@@ -229,4 +236,9 @@ function cachedTextMaterials(key: string, build: () => THREE.MeshPhysicalMateria
     }
   }
   return built;
+}
+/** Dropped after a lost graphics context, so nothing dead is reused. */
+export function clearTextMaterialCache() {
+  materialCache.forEach((materials) => materials.forEach((material) => material.dispose()));
+  materialCache.clear();
 }

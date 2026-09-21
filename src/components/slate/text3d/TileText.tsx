@@ -238,17 +238,28 @@ export function TileText({
     if (node) node.visible = caret !== null && Math.floor(clock.elapsedTime * 1.6) % 2 === 0;
   });
 
+  // Tiles are decoration scheduled on idle time; the readable text underneath
+  // is drawn immediately and never removed.
   useEffect(() => {
     if (!responsive) {
       setSettledText(text);
       return;
     }
-    const timer = window.setTimeout(() => setSettledText(text), 220);
+    const idle = (window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    });
+    if (idle.requestIdleCallback) {
+      const handle = idle.requestIdleCallback(() => setSettledText(text), { timeout: 400 });
+      return () => idle.cancelIdleCallback?.(handle);
+    }
+    const timer = window.setTimeout(() => setSettledText(text), 180);
     return () => window.clearTimeout(timer);
   }, [responsive, text]);
 
   const boxes = useMemo(() => glyphBoxes(text, info), [text, info]);
   const tilesSettled = !responsive || settledText === text;
+
 
   const anchorX: "left" | "right" | "center" =
     settings.align === "left" ? "left" : settings.align === "right" ? "right" : "center";
@@ -276,7 +287,7 @@ export function TileText({
 
   return (
     <group position={[originX, 0, 0]}>
-      {/* invisible layout pass: the single source of wrapping and caret data */}
+      {/* readable text first; the physical tiles are laid on top of it */}
       <Text
         font={FONTS.tiles}
         fontSize={fontSize}
@@ -290,7 +301,8 @@ export function TileText({
         overflowWrap="break-word"
         sdfGlyphSize={64}
         color={recipe.ink}
-        fillOpacity={tilesSettled ? 0 : fade}
+        fillOpacity={fade}
+
         onSync={onSync}
       >
         {text}

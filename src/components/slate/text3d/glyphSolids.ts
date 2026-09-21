@@ -100,3 +100,9 @@ export function glyphSolid(
 
 /** Test/diagnostic helper. */
 export const glyphSolidCacheSize = () => cache.size;
+
+/** Dropped after a lost graphics context, so nothing dead is reused. */
+export function clearGlyphSolidCache() {
+  cache.forEach((solid) => solid.geometry.dispose());
+  cache.clear();
+}

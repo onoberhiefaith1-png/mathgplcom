@@ -138,14 +138,26 @@ export function DimensionalText({
     }
   }, [text, onMeasure]);
 
+  // The carved depth is decoration. It is scheduled on idle time so a
+  // keystroke never waits for glyph solids to be extruded, and the readable
+  // text below it is already on the surface either way.
   useEffect(() => {
     if (!responsive) {
       setSettledText(text);
       return;
     }
-    const timer = window.setTimeout(() => setSettledText(text), 220);
+    const idle = (window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    });
+    if (idle.requestIdleCallback) {
+      const handle = idle.requestIdleCallback(() => setSettledText(text), { timeout: 400 });
+      return () => idle.cancelIdleCallback?.(handle);
+    }
+    const timer = window.setTimeout(() => setSettledText(text), 180);
     return () => window.clearTimeout(timer);
   }, [responsive, text]);
+
 
   const anchorX: "left" | "right" | "center" =
     settings.align === "left" ? "left" : settings.align === "right" ? "right" : "center";
@@ -190,16 +202,21 @@ export function DimensionalText({
 
   return (
     <group position={[originX, 0, 0]}>
-      {/* Invisible layout authority: wrapping, measurement, caret and selection. */}
+      {/* READABILITY FIRST. This is the real mathematics and it is always
+          drawn: a missing font file, a long line or a failed carve can only
+          remove the depth on top of it, never the text itself. */}
       <Text
         {...shared}
         color={r.face}
-        fillOpacity={extrusionSettled ? 0 : fade}
-        outlineOpacity={0}
+        fillOpacity={fade}
+        outlineWidth={fontSize * 0.035}
+        outlineColor={r.side}
+        outlineOpacity={fade}
         onSync={onSync}
       >
         {text}
       </Text>
+
 
       <group ref={livingGroup} position={[0, 0, 0]}>
       <group position={[pivotX, pivotY, 0]}>
