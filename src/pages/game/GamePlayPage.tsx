@@ -73,11 +73,14 @@ const GamePlayPage = () => {
       if (worldReadyRef.current) return;
       if (gameRef.current) {
         // The saved Game is present. Expose its core world now; optional visual
-        // detail continues behind it instead of extending the loading screen.
+        // detail and question preparation continue behind it instead of
+        // extending the loading screen past its promise.
+        setLoading(false);
         setLoadingProgress(100);
         setWorldReady(true);
         return;
       }
+
       setLoading(false);
       setError("This Game took too long to open. Please try again.");
     }, GAME_STARTUP_DEADLINE_MS);
