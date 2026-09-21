@@ -217,11 +217,10 @@ const GamePlayPage = () => {
       const [, line, ...rest] = key.split(":");
       const rewardId = rest.join(":");
       const lineNumber = Number(line);
-      // ONE GATE. An object performs its effect only because its own line was
-      // marked correct, or because it is a Vault the student's own mathematics
-      // opened. Chains started by those are played by the world itself.
-      const earned = runtime.completedLines.includes(lineNumber) || rewardId.startsWith("vault-");
-      if (!earned) return;
+      // ONE GATE, shared with the tests: an object performs its effect only
+      // because its own line was marked correct, or because it is a Vault the
+      // student's own mathematics opened.
+      if (!rewardMayFire({ line: lineNumber, rewardId, completedLines: runtime.completedLines })) return;
       window.dispatchEvent(new CustomEvent("slate:activate-reward", {
         detail: { slotId: gameLineSlotId(lineNumber), rewardId: `${line}-${rewardId}`, preview: false },
       }));
