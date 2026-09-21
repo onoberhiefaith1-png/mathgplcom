@@ -14,7 +14,7 @@
 // physical Game Lines as they write. The Smartboard surface itself is not
 // shown. Nothing mathematical is re-implemented here.
 
-import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Heart, Hourglass, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -94,7 +94,7 @@ const GamePlayPage = () => {
       lineTextFrame.current = null;
       const latest = pendingLineText.current;
       pendingLineText.current = null;
-      if (latest) startTransition(() => setLineText(latest));
+      if (latest) setLineText(latest);
     });
   };
   useEffect(() => () => {
@@ -164,7 +164,9 @@ const GamePlayPage = () => {
     // the Vault compares the student's own working against the wanted method
     lineText,
   });
-  const renderedLineText = useDeferredValue(lineText);
+  // The working reaches the slab on the next painted frame — no further
+  // deferral layers sit between a tap and the letters appearing.
+  const renderedLineText = lineText;
 
   /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
    *  There is no second copy of the active line: the world's selection is
@@ -195,7 +197,15 @@ const GamePlayPage = () => {
   // existing effect where it stands, and only disappears once it has finished.
   const [celebrating, setCelebrating] = useState<string[]>([]);
   const seenRewards = useRef<Set<string>>(new Set());
+  /** Rewards already paid in an earlier sitting must never replay on opening. */
+  const primed = useRef(false);
   useEffect(() => {
+    if (!runtime.ready || primed.current) return;
+    primed.current = true;
+    runtime.consumedRewardKeys.forEach((key) => seenRewards.current.add(key));
+  }, [runtime.ready, runtime.consumedRewardKeys]);
+  useEffect(() => {
+    if (!primed.current) return;
     const fresh = runtime.consumedRewardKeys.filter((key) => !seenRewards.current.has(key));
     if (fresh.length === 0) return;
     fresh.forEach((key) => seenRewards.current.add(key));
@@ -203,15 +213,22 @@ const GamePlayPage = () => {
     fresh.forEach((key) => {
       const [, line, ...rest] = key.split(":");
       const rewardId = rest.join(":");
+      const lineNumber = Number(line);
+      // ONE GATE. An object performs its effect only because its own line was
+      // marked correct, or because it is a Vault the student's own mathematics
+      // opened. Chains started by those are played by the world itself.
+      const earned = runtime.completedLines.includes(lineNumber) || rewardId.startsWith("vault-");
+      if (!earned) return;
       window.dispatchEvent(new CustomEvent("slate:activate-reward", {
-        detail: { slotId: gameLineSlotId(Number(line)), rewardId: `${line}-${rewardId}`, preview: false },
+        detail: { slotId: gameLineSlotId(lineNumber), rewardId: `${line}-${rewardId}`, preview: false },
       }));
     });
     const handle = window.setTimeout(() => {
       setCelebrating((prev) => prev.filter((key) => !fresh.includes(key)));
     }, 2600);
     return () => window.clearTimeout(handle);
-  }, [runtime.consumedRewardKeys]);
+  }, [runtime.consumedRewardKeys, runtime.completedLines]);
+
 
   /** The physical slate for THIS question: Line 0 plus one Line per solving line. */
   const displayGame = useMemo<Game | null>(() => {

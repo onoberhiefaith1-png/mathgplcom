@@ -10,6 +10,10 @@ import { EffectPerfOverlay } from "@/components/dev/EffectPerfOverlay";
 import { PerfProbe } from "@/components/dev/PerfProbe";
 import { FONTS, getSubstyle } from "@/lib/slate/text3d";
 import { preloadFont } from "troika-three-text";
+import { clearGeometryCache } from "@/lib/slate/vfx/geometryCache";
+import { clearGlyphSolidCache } from "@/components/slate/text3d/glyphSolids";
+import { clearTextMaterialCache } from "@/components/slate/text3d/ExtrudedExpression";
+
 
 /** Per-room camera exposure — the grade lives here, not in saturated colours. */
 function Exposure({ value }: { value: number }) {
@@ -84,7 +88,16 @@ export default function WorldStage(props: Props) {
     setPaintedReady(false);
     setDeadlineReached(false);
     props.onReadyChange?.(false);
+    if (gpu.resetKey > 0) {
+      // Cached geometry and materials belong to the context that just died.
+      // Reusing them would rebuild the board out of dead buffers — blank
+      // surfaces with no text. Start the caches clean instead.
+      clearGeometryCache();
+      clearGlyphSolidCache();
+      clearTextMaterialCache();
+    }
   }, [gpu.resetKey, props.onReadyChange]);
+
 
   useEffect(() => {
     let live = true;

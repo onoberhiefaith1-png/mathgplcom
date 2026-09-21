@@ -7,6 +7,8 @@ import { roomOcclusion, type RoomDef } from "@/lib/slate/rooms";
 import { getSurface } from "@/lib/slate/surfaces";
 import { REWARDS, getReward, isWorldInteractionEligible } from "@/lib/slate/rewards";
 import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
+import { PlainText } from "@/components/slate/text3d/PlainText";
+
 import { defaultTextSettings } from "@/lib/slate/text3d";
 import type { TextBounds } from "@/lib/slate/text3d";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
@@ -1255,7 +1257,18 @@ export function SlateColumn({
               </group>
 
 
-              <Suspense fallback={null}>
+              <Suspense
+                fallback={(
+                  <group position={[-writingWidth / 2, region.height / 2 - (lineBuild.gap + 0.18), 0.012]}>
+                    <PlainText
+                      text={slot.text}
+                      width={writingWidth}
+                      surface={lineSurface}
+                      settings={renderedTextSettings}
+                    />
+                  </group>
+                )}
+              >
                 <WritingRegion
                   slotId={slot.id}
                   text={slot.text}
@@ -1275,6 +1288,7 @@ export function SlateColumn({
                   onMeasure={(bounds) => measure(slot.id, bounds)}
                 />
               </Suspense>
+
 
               {rewardSettings.visible
                 ? slot.rewards.map((reward) => {
