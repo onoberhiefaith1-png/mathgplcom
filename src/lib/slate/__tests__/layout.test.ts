@@ -5,6 +5,7 @@ import {
   gameEstimatedTextWidth,
   gameEstimatedTextHeight,
   gameInnerWritingWidth,
+  gameSafeWritingWidth,
   gameSurfaceBox,
   gameSurfaceWidth,
   gameWritingWidth,
@@ -19,6 +20,11 @@ describe("Game writing-surface layout", () => {
     expect(GAME_WRITING_WIDTH).toBeCloseTo(6.6 * 0.9);
     expect(gameWritingWidth(4)).toBeCloseTo(3.6);
     expect(gameWritingWidth(20)).toBeCloseTo(18);
+  });
+
+  it("uses the same pillar-safe writing span in Edit and Play", () => {
+    expect(gameSafeWritingWidth(20)).toBeCloseTo(18);
+    expect(gameSafeWritingWidth(20, 7.4)).toBeCloseTo(7.4);
   });
 
   it("grows every surface with its own content up to the writing-band maximum", () => {
@@ -122,5 +128,20 @@ describe("Game writing-surface layout", () => {
     expect(box.surfaceWidth).toBeLessThanOrEqual(4);
     expect(box.innerWritingWidth).toBeLessThan(box.surfaceWidth);
     expect(box.surfaceHeight).toBeGreaterThan(1.7);
+  });
+
+  it("gives editable surfaces the same content-driven box as Play", () => {
+    const input = {
+      text: "A teacher-authored line that grows from the safe left edge",
+      fontSize: 96,
+      writingWidth: 4.8,
+      readOnlyWriting: true,
+      inset: 0.4,
+    } as const;
+    const playBox = gameSurfaceBox(input);
+    const editBox = gameSurfaceBox(input);
+
+    expect(editBox).toEqual(playBox);
+    expect(editBox.surfaceWidth).toBeLessThanOrEqual(input.writingWidth);
   });
 });
