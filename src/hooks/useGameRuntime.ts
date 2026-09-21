@@ -36,6 +36,11 @@ export interface GameRuntime {
   completedLines: number[];
   consumedRewardKeys: string[];
   vaultReward: number;
+  /** Vaults opened in this question, and how many it holds in total. */
+  vaultsOpened: number;
+  vaultsTotal: number;
+  /** The Game Line whose own Hourglass is counting, if any. */
+  timedLine: number | null;
   completionCount: number;
   lives: number;
   /** Epoch ms the question timer runs out, or null when there is no timer. */
@@ -87,6 +92,8 @@ export const useGameRuntime = (params: {
   const [lives, setLives] = useState(3);
   const [questionDeadline, setQuestionDeadline] = useState<number | null>(null);
   const [lineDeadline, setLineDeadline] = useState<number | null>(null);
+  /** The Game Line whose own Hourglass is running, for the world to read. */
+  const [runningLine, setRunningLine] = useState<number | null>(null);
   const [status, setStatus] = useState<"in_progress" | "complete" | "failed">("in_progress");
   const [earnedMarks, setEarnedMarks] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
@@ -293,7 +300,10 @@ export const useGameRuntime = (params: {
         if (inTime) secondsGain += row.hourglassSeconds;
         continue;
       }
-      lifeGain += REWARD_LIVES[reward.type] ?? 0;
+      const gainedLives = REWARD_LIVES[reward.type] ?? 0;
+      lifeGain += gainedLives;
+      // A Life is worth the teacher's share of the whole question time.
+      if (gainedLives) secondsGain += gainedLives * lifeTimeSeconds();
     }
 
     if (keys.length === 0) return;
@@ -303,7 +313,7 @@ export const useGameRuntime = (params: {
     if (secondsGain) {
       setQuestionDeadline((prev) => (prev ? prev + secondsGain * 1000 : prev));
     }
-  }, [question, lines, consumed]);
+  }, [question, lines, consumed, lifeTimeSeconds]);
 
   /* Vault Codes listen to live mathematical work. They are independent of the
      final-answer completion event and each opens at most once. */
@@ -331,12 +341,36 @@ export const useGameRuntime = (params: {
       ? renderedRewardId.slice(prefix.length)
       : renderedRewardId;
     const reward = row?.rewards.find((item) => item.id === originalId);
-    if (!reward || reward.type === "time-shard" || reward.type === "math-vault") return;
+    if (!reward) return;
+    // The Vault and the Completion coin answer only to the student's own
+    // mathematics: no Bomb and no Collector can ever open them.
+    if (reward.type === "math-vault" || reward.type === "mark-seal") return;
     const key = rewardKey(question.questionRowId, lineNumber, reward.id);
     if (consumed.includes(key)) return;
+    // An Hourglass arriving here has run out: it dissolves for good, unpaid.
+    if (reward.type === "time-shard") {
+      expiredLines.current.add(lineNumber);
+      setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
+      return;
+    }
     setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
-    if (reward.type === "retry-heart") setLives((prev) => prev + 1);
-  }, [question, lines, consumed]);
+    if (reward.type === "retry-heart") {
+      setLives((prev) => prev + 1);
+      const seconds = lifeTimeSeconds();
+      if (seconds) setQuestionDeadline((prev) => (prev ? prev + seconds * 1000 : prev));
+    }
+  }, [question, lines, consumed, lifeTimeSeconds]);
+
+  /* Vault totals for the strip: opened against everything this question holds. */
+  const vaultsTotal = useMemo(
+    () => lines.reduce((sum, row) => sum + row.rewards.filter((r) => r.type === "math-vault").length, 0),
+    [lines],
+  );
+  const vaultsOpened = useMemo(() => {
+    if (!question) return 0;
+    const prefix = `${question.questionRowId}:`;
+    return consumed.filter((key) => key.startsWith(prefix) && key.includes(":vault-")).length;
+  }, [consumed, question]);
 
   /* ---- board bridge -------------------------------------------------- */
   const onLineContext = useCallback((ctx: LineContext) => {
@@ -346,7 +380,11 @@ export const useGameRuntime = (params: {
     // The line's own time comes from Floating Numbers and starts on the first
     // mathematical input on that line — never on seeing or scrolling to it.
     const row = lines.find((l) => l.line === lineNumber);
+    // Two mathematical entries on THIS line start its own Hourglass. Nothing
+    // else does: not seeing the line, not scrolling to it, not one stray tap.
+    const entries = (workRef.current[lineNumber - 1] ?? "").replace(/\s+/g, "").length;
     const started = ctx.lineEngaged
+      && entries >= 2
       && Boolean(row?.timerSeconds)
       && !ctx.completed
       && !expiredLines.current.has(lineNumber);
@@ -354,11 +392,13 @@ export const useGameRuntime = (params: {
       setLineDeadline((prev) => {
         if (prev && timedLine.current === lineNumber) return prev;
         timedLine.current = lineNumber;
+        setRunningLine(lineNumber);
         return Date.now() + row!.timerSeconds! * 1000;
       });
     } else if (!row?.timerSeconds || ctx.completed) {
       if (timedLine.current === lineNumber || !row?.timerSeconds) {
         timedLine.current = null;
+        setRunningLine(null);
         setLineDeadline(null);
       }
     }
@@ -414,14 +454,22 @@ export const useGameRuntime = (params: {
     const stop = subscribeGameClock((now) => {
       if (done || now < lineDeadline) return;
       done = true;
-      // The Hourglass dissolves: no time reward, and no penalty either.
-      if (timedLine.current) expiredLines.current.add(timedLine.current);
+      // The Hourglass dissolves for good: no time reward, and no penalty.
+      const line = timedLine.current;
+      if (line) {
+        expiredLines.current.add(line);
+        if (question) {
+          const key = rewardKey(question.questionRowId, line, "hourglass");
+          setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
+        }
+      }
       timedLine.current = null;
+      setRunningLine(null);
       setLineDeadline(null);
       setMessage("Line time ran out — the Hourglass dissolved. Keep solving.");
     });
     return stop;
-  }, [lineDeadline]);
+  }, [lineDeadline, question]);
 
   const goToQuestion = useCallback((index: number) => {
     if (index < 0 || index >= boards.length) return;
@@ -442,6 +490,7 @@ export const useGameRuntime = (params: {
   const restartQuestion = useCallback(() => {
     startQuestionTimer(question?.questionTimerSeconds ?? null);
     setLineDeadline(null);
+    setRunningLine(null);
     timedLine.current = null;
     expiredLines.current = new Set();
     setCurrentLine(1);
@@ -478,6 +527,7 @@ export const useGameRuntime = (params: {
     awarded.current = new Set();
     expiredLines.current = new Set();
     timedLine.current = null;
+    setRunningLine(null);
     setLineDeadline(null);
     setMessage(null);
     startQuestionTimer(boards[0]?.questionTimerSeconds ?? null);
@@ -493,6 +543,9 @@ export const useGameRuntime = (params: {
     completedLines,
     consumedRewardKeys: consumed,
     vaultReward,
+    vaultsOpened,
+    vaultsTotal,
+    timedLine: runningLine,
     completionCount,
     lives,
     questionDeadline,

@@ -241,6 +241,10 @@ const GamePlayPage = () => {
             id: `${row.line}-${reward.id}`,
             hidden: used && !playing,
             state: used && !playing ? "archived" : "dormant",
+            // An Hourglass runs ONLY while its own line is the engaged line.
+            ...(reward.type === "time-shard"
+              ? { armed: runtime.timedLine === row.line }
+              : {}),
           };
         });
       return resolveRenderedLineSlot(game, { ...row, text, rewards });
@@ -252,6 +256,7 @@ const GamePlayPage = () => {
     runtime.question,
     runtime.consumedRewardKeys,
     runtime.completedLines,
+    runtime.timedLine,
     renderedLineText,
     celebrating,
   ]);
@@ -436,9 +441,13 @@ const GamePlayPage = () => {
           <span className="inline-flex shrink-0 items-center gap-0.5" title="Lives">
             <Heart className="h-3.5 w-3.5 text-rose-500" /> {runtime.lives}
           </span>
-          <span className="inline-flex shrink-0 items-center gap-0.5" title="Vault reward">
+          <span
+            className="inline-flex shrink-0 items-center gap-0.5"
+            title={`${runtime.vaultsOpened} of ${runtime.vaultsTotal} vaults opened`}
+          >
             <img className="h-3 w-6 object-contain" src={getReward("math-vault").art} alt="" />
-            {runtime.vaultReward}
+            {runtime.vaultsOpened}
+            <span className="opacity-50">/{runtime.vaultsTotal}</span>
           </span>
           <span
             key={runtime.completionCount}
@@ -499,8 +508,13 @@ const GamePlayPage = () => {
             <span className="inline-flex items-center gap-1" title="Lives">
               <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
             </span>
-            <span className="inline-flex items-center gap-1" title="Vault reward">
-              <img className="h-4 w-8 object-contain" src={getReward("math-vault").art} alt="" /> VAULT {runtime.vaultReward}
+            <span
+              className="inline-flex items-center gap-1"
+              title={`${runtime.vaultsOpened} of ${runtime.vaultsTotal} vaults opened · ${runtime.vaultReward} reward`}
+            >
+              <img className="h-4 w-8 object-contain" src={getReward("math-vault").art} alt="" /> VAULT{" "}
+              {runtime.vaultsOpened}
+              <span className="opacity-50">/{runtime.vaultsTotal}</span>
             </span>
             <span key={runtime.completionCount} className="inline-flex items-center gap-1 animate-in zoom-in" title="Completed lines">
               <img className="h-4 w-4 object-contain" src={getReward("mark-seal").art} alt="" />

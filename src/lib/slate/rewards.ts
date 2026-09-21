@@ -95,12 +95,19 @@ export const REWARDS: RewardDef[] = [
 /** Objects the teacher places by hand in the Game editor. */
 export const PLACEABLE_REWARDS: RewardDef[] = REWARDS.filter((r) => r.placeable !== false);
 
+/**
+ * Objects no world interaction may ever open. These three answer ONLY to the
+ * student's own mathematics:
+ *   • the Completion coin — the line being marked correct
+ *   • the Hourglass      — its own line's time
+ *   • the Vault          — its own encrypted code, in order
+ * Bombs and Collectors are deliberately NOT protected: a Collector sweeping its
+ * axis must chain through every bomb, heart and collector it reaches.
+ */
 export const PROTECTED_REWARD_TYPES = new Set([
   "mark-seal",
   "time-shard",
   "math-vault",
-  "math-core",
-  "premium-chain-bomb",
 ]);
 
 export const isWorldInteractionEligible = (type: string): boolean =>
