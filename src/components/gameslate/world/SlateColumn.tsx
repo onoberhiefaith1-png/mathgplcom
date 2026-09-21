@@ -55,6 +55,7 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
+  gameInnerWritingWidth,
   gameSurfaceWidth,
   gameWritingWidth,
 } from "@/lib/slate/layout";
@@ -1203,6 +1204,9 @@ export function SlateColumn({
           const padY = Math.max(0.13, Math.min(0.26, textSettings.size / 650));
           const emptyWidth = Math.max(0.9, textSettings.size / 145);
           const minimumWidth = Math.max(lineBuild.inset * 2 + 0.32, emptyWidth);
+          const innerWritingWidth = readOnlyWriting
+            ? gameInnerWritingWidth(writingWidth, padX)
+            : writingWidth;
           const contentSurfaceWidth = Math.max(minimumWidth, (bounds?.width ?? 0) + padX * 2);
           const surfaceWidth = readOnlyWriting
             ? gameSurfaceWidth(writingWidth, contentSurfaceWidth)
@@ -1269,10 +1273,10 @@ export function SlateColumn({
 
               <Suspense
                 fallback={(
-                  <group position={[-writingWidth / 2, region.height / 2 - (lineBuild.gap + 0.18), 0.012]}>
+                  <group position={[-innerWritingWidth / 2, region.height / 2 - (lineBuild.gap + 0.18), 0.012]}>
                     <PlainText
                       text={slot.text}
-                      width={writingWidth}
+                      width={innerWritingWidth}
                       surface={lineSurface}
                       settings={renderedTextSettings}
                     />
@@ -1282,7 +1286,7 @@ export function SlateColumn({
                 <WritingRegion
                   slotId={slot.id}
                   text={slot.text}
-                  width={writingWidth}
+                  width={innerWritingWidth}
                   height={region.height}
                   pad={lineBuild.gap + 0.18}
                   /* the slab body is solid, so the inscription sits just proud of
