@@ -74,7 +74,8 @@ import type {
 // warmed as soon as this module loads — off the render path.
 preloadTextures(REWARDS.filter((r) => r.id === "mark-seal").map((r) => r.art));
 
-
+/** Keeps Play writing in front of every premium surface face and ornament. */
+const PLAY_TEXT_Z = 0.16;
 
 export interface ScrollState {
   target: number;
@@ -1276,7 +1277,7 @@ export function SlateColumn({
                 {readOnlyWriting ? (
                   <Suspense
                     fallback={(
-                      <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - (lineBuild.gap + 0.18), 0.012]}>
+                      <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - (lineBuild.gap + 0.18), PLAY_TEXT_Z]}>
                         <PlainText
                           text={slot.text}
                           width={innerWritingWidth}
@@ -1294,7 +1295,7 @@ export function SlateColumn({
                       pad={lineBuild.gap + 0.18}
                       /* the slab body is solid, so the inscription sits just proud of
                          its face; depth comes from the shading, not from hiding it */
-                      z={0.012}
+                      z={PLAY_TEXT_Z}
                       surface={lineSurface}
                       settings={renderedTextSettings}
                       editable={false}
