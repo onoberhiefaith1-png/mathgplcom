@@ -56,9 +56,15 @@ export function DimensionalText({
   const [settledText, setSettledText] = useState(text);
 
   const rawFontSize = settings.size / PX_PER_UNIT;
-  // Keep the teacher's saved size. The physical surface grows with the line,
-  // then Troika wraps it at the safe right edge instead of restyling it.
-  const fontSize = rawFontSize;
+  // Preserve the teacher's saved size until it would cross the safe writing
+  // edge. Only then fit the line enough to remain readable on its own panel.
+  const longestLine = text.split("\n").reduce((n, line) => Math.max(n, line.length), 0);
+  const fontSize = (() => {
+    if (!longestLine || width <= 0) return rawFontSize;
+    const estimated = longestLine * rawFontSize * 0.58;
+    if (estimated <= width) return rawFontSize;
+    return Math.max(rawFontSize * 0.45, (width / estimated) * rawFontSize);
+  })();
   const fade = opacity * Math.max(0, Math.min(1, settings.opacity));
   const dimensional = settings.style === "dimensional";
   // the writing style chooses the letterforms, the preset chooses the material
