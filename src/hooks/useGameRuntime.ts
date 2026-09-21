@@ -380,7 +380,11 @@ export const useGameRuntime = (params: {
     // The line's own time comes from Floating Numbers and starts on the first
     // mathematical input on that line — never on seeing or scrolling to it.
     const row = lines.find((l) => l.line === lineNumber);
+    // Two mathematical entries on THIS line start its own Hourglass. Nothing
+    // else does: not seeing the line, not scrolling to it, not one stray tap.
+    const entries = (workRef.current[lineNumber - 1] ?? "").replace(/\s+/g, "").length;
     const started = ctx.lineEngaged
+      && entries >= 2
       && Boolean(row?.timerSeconds)
       && !ctx.completed
       && !expiredLines.current.has(lineNumber);
@@ -388,11 +392,13 @@ export const useGameRuntime = (params: {
       setLineDeadline((prev) => {
         if (prev && timedLine.current === lineNumber) return prev;
         timedLine.current = lineNumber;
+        setRunningLine(lineNumber);
         return Date.now() + row!.timerSeconds! * 1000;
       });
     } else if (!row?.timerSeconds || ctx.completed) {
       if (timedLine.current === lineNumber || !row?.timerSeconds) {
         timedLine.current = null;
+        setRunningLine(null);
         setLineDeadline(null);
       }
     }
@@ -448,9 +454,17 @@ export const useGameRuntime = (params: {
     const stop = subscribeGameClock((now) => {
       if (done || now < lineDeadline) return;
       done = true;
-      // The Hourglass dissolves: no time reward, and no penalty either.
-      if (timedLine.current) expiredLines.current.add(timedLine.current);
+      // The Hourglass dissolves for good: no time reward, and no penalty.
+      const line = timedLine.current;
+      if (line) {
+        expiredLines.current.add(line);
+        if (question) {
+          const key = rewardKey(question.questionRowId, line, "hourglass");
+          setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
+        }
+      }
       timedLine.current = null;
+      setRunningLine(null);
       setLineDeadline(null);
       setMessage("Line time ran out — the Hourglass dissolved. Keep solving.");
     });
