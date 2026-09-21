@@ -241,6 +241,10 @@ const GamePlayPage = () => {
             id: `${row.line}-${reward.id}`,
             hidden: used && !playing,
             state: used && !playing ? "archived" : "dormant",
+            // An Hourglass runs ONLY while its own line is the engaged line.
+            ...(reward.type === "time-shard"
+              ? { armed: runtime.timedLine === row.line }
+              : {}),
           };
         });
       return resolveRenderedLineSlot(game, { ...row, text, rewards });
@@ -252,6 +256,7 @@ const GamePlayPage = () => {
     runtime.question,
     runtime.consumedRewardKeys,
     runtime.completedLines,
+    runtime.timedLine,
     renderedLineText,
     celebrating,
   ]);
