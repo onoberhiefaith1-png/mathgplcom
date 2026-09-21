@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Text } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
@@ -10,7 +10,7 @@ import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
 import { defaultTextSettings } from "@/lib/slate/text3d";
 import type { TextBounds } from "@/lib/slate/text3d";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
-import { noiseNormalMap, surfaceMaterial } from "./materials";
+import { surfaceMaterial } from "./materials";
 import { usePbr } from "./pbr";
 import { useAsyncTextures, preloadTextures } from "./loadTexture";
 
@@ -99,6 +99,7 @@ interface Props {
   onFocusSlot?: (slotId: string) => void;
   /** Game Play: the mathematics comes from Floating Numbers, not the keyboard. */
   readOnlyWriting?: boolean;
+  onReady?: () => void;
 }
 
 interface ActiveEffect {
@@ -203,6 +204,7 @@ function RewardObject({
   const started = useRef<number | null>(null);
   /** Guards against a duplicated pointer/click pair firing one reward twice. */
   const lastTap = useRef(0);
+  const lastIdleFrame = useRef(0);
   const [left, setLeft] = useState(total);
   const fading = useRef(false);
   useEffect(() => {
@@ -231,18 +233,23 @@ function RewardObject({
   useFrame(({ clock }) => {
     const node = group.current;
     if (!node) return;
+    const now = effectNow(clock);
+    // Dormant objects need only their gentle idle motion. Keep that inexpensive
+    // on phones while active effects, hover and timers remain full-frame.
+    if (!active && !hovered && !hourglass && now - lastIdleFrame.current < 1 / 24) return;
+    lastIdleFrame.current = now;
     const life = 0.4 + (reward.animation ?? 1) * 0.6;
     // idle motion rides the same clock, so Pause holds the whole object still
-    const bob = Math.sin(effectNow(clock) * 1.3 + reward.x) * 0.012 * life;
+    const bob = Math.sin(now * 1.3 + reward.x) * 0.012 * life;
     const lift = hovered ? 0.09 : 0;
     node.position.z = THREE.MathUtils.lerp(node.position.z, 0.06 + lift, 0.18);
 
-    const t = effect ? (effectNow(clock) - effect.start) * rate : 0;
+    const t = effect ? (now - effect.start) * rate : 0;
     const motion = effect ? objectMotion(chor, t, effect.direction ?? 1) : null;
 
     // a collector claims this object: it accelerates along a curved path
     if (effect?.pull) {
-      const age = effectNow(clock) - effect.start;
+      const age = now - effect.start;
       const k = Math.min(1, Math.pow(Math.max(0, age) / 0.42, 2.2));
       node.position.x = effect.pull.x * k;
       node.position.y = bob + effect.pull.y * k + Math.sin(k * Math.PI) * 0.22;
@@ -261,8 +268,8 @@ function RewardObject({
     // the sealed band: something is inside, but it stays unreadable
     if (band.current) {
       const material = band.current.material as THREE.MeshBasicMaterial;
-      if (material.map) material.map.offset.x = (effectNow(clock) * 0.09) % 1;
-      material.opacity = active ? 0 : 0.32 + Math.sin(effectNow(clock) * 2.1 + reward.x) * 0.1;
+      if (material.map) material.map.offset.x = (now * 0.09) % 1;
+      material.opacity = active ? 0 : 0.32 + Math.sin(now * 2.1 + reward.x) * 0.1;
     }
 
     // clarity: dormant objects are faint, activation sharpens them first
@@ -660,6 +667,7 @@ export function SlateColumn({
   focusSlotId = null,
   onFocusSlot,
   readOnlyWriting = false,
+  onReady,
 }: Props) {
   const surface = getSurface(game.surfaceId);
   const recipe = surfaceMaterial(surface.id);
@@ -763,19 +771,13 @@ export function SlateColumn({
     [game.slots, textSettings.size, build.gap, textBounds, writingWidth],
   );
 
-  // the slate is made of a real scanned material, lit by the room
-  const pbr = usePbr(surfaceFamily(surface.id), 3.1, 0.72);
-  const normal = useMemo(
-    () => noiseNormalMap(recipe.normalKey, recipe.normalScale, recipe.grain),
-    [recipe],
-  );
-  void normal;
-
   const group = useRef<THREE.Group>(null);
   const clock = useThree((state) => state.clock);
   const [scrollTick, setScrollTick] = useState(0);
   const lastTick = useRef(0);
   const lastCount = useRef(0);
+  const readyFrames = useRef(0);
+  const reportedReady = useRef(false);
   const [active, setActive] = useState<Record<string, ActiveEffect>>({});
   const rewardNodes = useRef(new Map<string, { node: THREE.Group; slotId: string; reward: RewardInstance }>());
   // PERFORMANCE: effect textures are warmed in the background (module-scope
@@ -810,6 +812,13 @@ export function SlateColumn({
   activeRef.current = active;
 
   useFrame(({ clock: frameClock }, raw) => {
+    if (!reportedReady.current && group.current) {
+      readyFrames.current += 1;
+      if (readyFrames.current >= 2) {
+        reportedReady.current = true;
+        onReady?.();
+      }
+    }
     // one authoritative clock for every effect on screen
     advanceEffectClock(frameClock.elapsedTime);
     const dt = Math.min(raw, 0.05);
@@ -1240,24 +1249,26 @@ export function SlateColumn({
               </group>
 
 
-              <WritingRegion
-                slotId={slot.id}
-                text={slot.text}
-                width={writingWidth}
-                height={region.height}
-                pad={lineBuild.gap + 0.18}
-                /* the slab body is solid, so the inscription sits just proud of
-                   its face; depth comes from the shading, not from hiding it */
-                z={0.012}
-                surface={lineSurface}
-                settings={renderedTextSettings}
-                editable={!readOnlyWriting}
-                active={selection.kind === "slot" && selection.slotId === slot.id}
-                placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
-                onChange={(text) => onSlotChange(slot.id, { text })}
-                onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
-                onMeasure={(bounds) => measure(slot.id, bounds)}
-              />
+              <Suspense fallback={null}>
+                <WritingRegion
+                  slotId={slot.id}
+                  text={slot.text}
+                  width={writingWidth}
+                  height={region.height}
+                  pad={lineBuild.gap + 0.18}
+                  /* the slab body is solid, so the inscription sits just proud of
+                     its face; depth comes from the shading, not from hiding it */
+                  z={0.012}
+                  surface={lineSurface}
+                  settings={renderedTextSettings}
+                  editable={!readOnlyWriting}
+                  active={selection.kind === "slot" && selection.slotId === slot.id}
+                  placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
+                  onChange={(text) => onSlotChange(slot.id, { text })}
+                  onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
+                  onMeasure={(bounds) => measure(slot.id, bounds)}
+                />
+              </Suspense>
 
               {rewardSettings.visible
                 ? slot.rewards.map((reward) => {

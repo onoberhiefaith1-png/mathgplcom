@@ -7,6 +7,9 @@ import { useWebglRecovery } from "@/lib/stability/useWebglRecovery";
 import { useBootPhase } from "@/lib/game/runtime/bootStage";
 import { EffectPerfOverlay } from "@/components/dev/EffectPerfOverlay";
 import { PerfProbe } from "@/components/dev/PerfProbe";
+import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
+import { FONTS, getSubstyle } from "@/lib/slate/text3d";
+import { preloadFont } from "troika-three-text";
 
 /** Per-room camera exposure — the grade lives here, not in saturated colours. */
 function Exposure({ value }: { value: number }) {
@@ -22,7 +25,6 @@ import { SlateColumn } from "./SlateColumn";
 import { SunLight } from "./SunLight";
 import type { ScrollState } from "./SlateColumn";
 import { WorldBoundary } from "./WorldBoundary";
-import { SurfaceFallback } from "./SurfaceFallback";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 
 interface Props {
@@ -40,6 +42,8 @@ interface Props {
   onFocusSlot?: (slotId: string) => void;
   /** Game Play: writing comes from Floating Numbers, not the keyboard. */
   readOnlyWriting?: boolean;
+  /** Fires only after the real saved surfaces have mounted and painted. */
+  onReadyChange?: (ready: boolean) => void;
 }
 
 /**
@@ -63,13 +67,45 @@ export default function WorldStage(props: Props) {
 
   // performance readout, development only, opt in with ?perf=1
   const [showPerf, setShowPerf] = useState(false);
-  const [stageReady, setStageReady] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
+  const [surfacesReady, setSurfacesReady] = useState(false);
+  const [fontReady, setFontReady] = useState(false);
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     setShowPerf(new URLSearchParams(window.location.search).has("perf"));
   }, []);
 
-  useEffect(() => setStageReady(false), [gpu.resetKey]);
+  useEffect(() => {
+    setCanvasReady(false);
+    setSurfacesReady(false);
+    props.onReadyChange?.(false);
+  }, [gpu.resetKey, props.onReadyChange]);
+
+  useEffect(() => {
+    let live = true;
+    let settled = false;
+    setFontReady(false);
+    const style = props.game.settings.text?.style ?? "inscription";
+    const font = style === "dimensional"
+      ? getSubstyle(props.game.settings.text?.substyle).font
+      : FONTS[style];
+    const characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-−×÷=()[]{}.,:;<>≤≥√ ";
+    const finish = () => {
+      if (!live || settled) return;
+      settled = true;
+      setFontReady(true);
+    };
+    preloadFont({ font, characters, sdfGlyphSize: 64 }, finish);
+    preloadFont({ font: FONTS.technical, characters: "0123456789:+-", sdfGlyphSize: 64 }, () => {});
+    const timeout = window.setTimeout(finish, 4000);
+    return () => {
+      live = false;
+      window.clearTimeout(timeout);
+    };
+  }, [props.game.settings.text?.style, props.game.settings.text?.substyle]);
+
+  const stageReady = canvasReady && surfacesReady && fontReady && gpu.alive;
+  useEffect(() => props.onReadyChange?.(stageReady), [props.onReadyChange, stageReady]);
   // Boot order: surfaces and input first, environment lighting next, premium
   // effects last. A later phase can never delay an earlier one.
   const phase = useBootPhase(stageReady, gpu.resetKey);
@@ -134,7 +170,7 @@ export default function WorldStage(props: Props) {
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             if (!room) gl.setClearColor(0x000000, 0); // let the uploaded background show through
             gpu.attach(gl.domElement);
-            setStageReady(true);
+            setCanvasReady(true);
           }}
         >
           <Exposure value={stage.exposure} />
@@ -172,25 +208,18 @@ export default function WorldStage(props: Props) {
           <Suspense fallback={null}>
             <SunLight sun={props.game.settings.assets?.sun ?? null} />
           </Suspense>
-          <Suspense fallback={<SurfaceFallback game={props.game} />}>
-            <SlateColumn room={stage} roomless={!room} scroll={scroll} {...props} />
+          <Suspense fallback={null}>
+            <SlateColumn
+              room={stage}
+              roomless={!room}
+              scroll={scroll}
+              {...props}
+              onReady={() => setSurfacesReady(true)}
+            />
           </Suspense>
         </Canvas>
       </WorldBoundary>
-      {!stageReady ? (
-        <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
-          <div className="rounded border border-amber-200/25 bg-black/70 px-4 py-2 text-xs tracking-wide text-amber-100/80">
-            Loading your Game…
-          </div>
-        </div>
-      ) : null}
-      {gpu.alive ? null : (
-        <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
-          <div className="rounded-full border border-amber-200/25 bg-black/70 px-4 py-1.5 text-xs tracking-wide text-amber-100/80">
-            Restoring the board…
-          </div>
-        </div>
-      )}
+      {!stageReady ? <GameLoadingScreen restoring={!gpu.alive} /> : null}
       {showPerf ? <EffectPerfOverlay /> : null}
     </div>
   );

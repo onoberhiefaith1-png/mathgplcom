@@ -14,7 +14,7 @@
 // physical Game Lines as they write. The Smartboard surface itself is not
 // shown. Nothing mathematical is re-implemented here.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { ArrowLeft, Heart, Hourglass, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,7 @@ import { useGameRuntime } from "@/hooks/useGameRuntime";
 import WorldStage from "@/components/gameslate/world/WorldStage";
 import PresentationView from "@/components/smartboard/PresentationView";
 import { getReward } from "@/lib/slate/rewards";
+import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 
 
@@ -49,6 +50,7 @@ const GamePlayPage = () => {
   const [assignmentId, setAssignmentId] = useState<string | null>(null);
   const [testMode, setTestMode] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [worldReady, setWorldReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Live working per Floating Numbers line (0-based) → plain text. */
   const [lineText, setLineText] = useState<Record<number, string>>({});
@@ -70,7 +72,7 @@ const GamePlayPage = () => {
       lineTextFrame.current = null;
       const latest = pendingLineText.current;
       pendingLineText.current = null;
-      if (latest) setLineText(latest);
+      if (latest) startTransition(() => setLineText(latest));
     });
   };
   useEffect(() => () => {
@@ -82,14 +84,14 @@ const GamePlayPage = () => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data: userData } = await supabase.auth.getUser();
+      const [userResult, loaded, ownerResult] = await Promise.all([
+        supabase.auth.getUser(),
+        loadGame(gameId),
+        supabase.from("slate_games").select("owner_id").eq("id", gameId).maybeSingle(),
+      ]);
+      const { data: userData } = userResult;
       const userId = userData.user?.id ?? null;
-      const loaded = await loadGame(gameId);
-      const { data: ownerRow } = await supabase
-        .from("slate_games")
-        .select("owner_id")
-        .eq("id", gameId)
-        .maybeSingle();
+      const { data: ownerRow } = ownerResult;
       const isOwner = Boolean(userId) && (ownerRow as { owner_id?: string } | null)?.owner_id === userId;
       if (cancelled) return;
       if (!loaded || !userId) {
@@ -140,6 +142,7 @@ const GamePlayPage = () => {
     // the Vault compares the student's own working against the wanted method
     lineText,
   });
+  const renderedLineText = useDeferredValue(lineText);
 
   /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
    *  There is no second copy of the active line: the world's selection is
@@ -197,7 +200,7 @@ const GamePlayPage = () => {
       // Line 0 is the question, read-only and outside rewards and marks.
       // Every other Game Line carries the student's own live working, and its
       // teaching note only once the line has actually earned its marks.
-      const working = row.isQuestion ? "" : floatingTextForGameLine(lineText, row.line);
+      const working = row.isQuestion ? "" : floatingTextForGameLine(renderedLineText, row.line);
       const note = row.isQuestion
         ? null
         : runtime.completedLines.includes(row.line)
@@ -226,9 +229,8 @@ const GamePlayPage = () => {
     runtime.lines,
     runtime.question,
     runtime.consumedRewardKeys,
-    runtime.currentLine,
     runtime.completedLines,
-    lineText,
+    renderedLineText,
     celebrating,
   ]);
 
@@ -274,7 +276,7 @@ const GamePlayPage = () => {
 
 
   if (loading) {
-    return <div className="p-8 text-sm text-muted-foreground">Loading Game…</div>;
+    return <GameLoadingScreen className="fixed" />;
   }
 
   if (error || !game) {
@@ -386,9 +388,11 @@ const GamePlayPage = () => {
             }}
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting
+            onReadyChange={setWorldReady}
           />
         )}
       </div>
+      {!worldReady ? <GameLoadingScreen className="fixed" /> : null}
 
       {/* HUD */}
       {/* HUD — one short strip on a phone, the full row on larger screens. */}
