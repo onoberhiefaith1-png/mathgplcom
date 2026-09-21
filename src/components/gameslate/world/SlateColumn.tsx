@@ -1,4 +1,5 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import { Text } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
@@ -55,6 +56,7 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
+  gameEstimatedTextHeight,
   gameEstimatedTextWidth,
   gameInnerWritingWidth,
   gameSurfaceWidth,
@@ -122,6 +124,46 @@ interface ActiveEffect {
   targets?: PremiumTarget[];
   preview?: boolean;
   style?: PremiumBombStyle;
+}
+
+type RewardVisualBoundaryProps = {
+  children: ReactNode;
+  label: string;
+  resetKey: string;
+};
+
+type RewardVisualBoundaryState = { failed: boolean; resetKey: string };
+
+/**
+ * Reward visuals are decorative. If a texture, shader, or effect component
+ * fails, the writing surface, line switching, grading bridge, timers, and notes
+ * must keep running. The failed visual simply disappears until its next reset.
+ */
+class RewardVisualBoundary extends Component<RewardVisualBoundaryProps, RewardVisualBoundaryState> {
+  override state: RewardVisualBoundaryState = {
+    failed: false,
+    resetKey: this.props.resetKey,
+  };
+
+  static getDerivedStateFromError(): Partial<RewardVisualBoundaryState> {
+    return { failed: true };
+  }
+
+  static getDerivedStateFromProps(
+    props: RewardVisualBoundaryProps,
+    state: RewardVisualBoundaryState,
+  ): Partial<RewardVisualBoundaryState> | null {
+    if (props.resetKey === state.resetKey) return null;
+    return { failed: false, resetKey: props.resetKey };
+  }
+
+  override componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn(`[slate reward visual:${this.props.label}]`, error, info.componentStack);
+  }
+
+  override render() {
+    return this.state.failed ? null : this.props.children;
+  }
 }
 
 const baseLife = (profile: string) =>
@@ -769,6 +811,8 @@ export function SlateColumn({
     ? playWritingWidth
     : SLATE_W - build.inset * 2 - 0.3;
 
+  const testDisplay = game.settings.testDisplay ?? "threeD";
+
   const layout = useMemo(
     () => buildLayout(
       game.slots,
@@ -776,9 +820,10 @@ export function SlateColumn({
       build.gap + 0.05,
       Object.fromEntries(Object.entries(textBounds).map(([id, bounds]) => [id, bounds.height])),
       writingWidth,
-      !readOnlyWriting,
+      true,
+      textSettings.lineSpacing,
     ),
-    [game.slots, textSettings.size, build.gap, textBounds, writingWidth],
+    [game.slots, textSettings.size, textSettings.lineSpacing, build.gap, textBounds, writingWidth],
   );
 
   const group = useRef<THREE.Group>(null);
@@ -1013,8 +1058,8 @@ export function SlateColumn({
 
 
   const activate = useCallback(
-    (slotId: string, reward: RewardInstance, preview = false, style?: PremiumBombStyle) => {
-      if (reward.state !== "dormant" || active[reward.id]) return;
+    (slotId: string, reward: RewardInstance, preview = false, style?: PremiumBombStyle, force = false) => {
+      if ((!force && reward.state !== "dormant") || active[reward.id]) return;
       // preview replays the whole sequence without consuming anything
       const def = getReward(reward.type);
       let premiumTargets: PremiumTarget[] | undefined;
@@ -1154,12 +1199,12 @@ export function SlateColumn({
 
   useEffect(() => {
     const onActivate = (event: Event) => {
-      const detail = (event as CustomEvent<{ slotId: string; rewardId: string; preview: boolean }>).detail;
+      const detail = (event as CustomEvent<{ slotId: string; rewardId: string; preview: boolean; force?: boolean; style?: PremiumBombStyle }>).detail;
       if (!detail) return;
       const slot = game.slots.find((item) => item.id === detail.slotId);
       const reward = slot?.rewards.find((item) => item.id === detail.rewardId);
-      if (!slot || !reward || reward.type === "time-shard") return;
-      activate(slot.id, reward, detail.preview);
+      if (!slot || !reward || (reward.type === "time-shard" && !detail.force)) return;
+      window.requestAnimationFrame(() => activate(slot.id, reward, detail.preview, detail.style, Boolean(detail.force)));
     };
     window.addEventListener("slate:activate-reward", onActivate as EventListener);
     return () => window.removeEventListener("slate:activate-reward", onActivate as EventListener);
@@ -1222,8 +1267,15 @@ export function SlateColumn({
           const innerWritingWidth = readOnlyWriting
             ? gameInnerWritingWidth(surfaceWidth, padX)
             : writingWidth;
+          const estimatedTextHeight = gameEstimatedTextHeight(
+            slot.text || slot.hiddenContent || "",
+            textSettings.size,
+            innerWritingWidth,
+            textSettings.lineSpacing,
+          );
           const surfaceHeight = Math.max(
             Math.max(0.42, textSettings.size / 175),
+            estimatedTextHeight + padY * 2,
             (bounds?.height ?? 0) + padY * 2,
           );
           // Every Play surface starts on the same safe left edge and grows
@@ -1298,6 +1350,7 @@ export function SlateColumn({
                       z={PLAY_TEXT_Z}
                       surface={lineSurface}
                       settings={renderedTextSettings}
+                      testDisplay={testDisplay}
                       editable={false}
                       active={selection.kind === "slot" && selection.slotId === slot.id}
                       placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
@@ -1330,6 +1383,7 @@ export function SlateColumn({
                     z={0.012}
                     surface={lineSurface}
                     settings={renderedTextSettings}
+                    testDisplay={testDisplay}
                     editable
                     active={selection.kind === "slot" && selection.slotId === slot.id}
                     placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
@@ -1362,54 +1416,57 @@ export function SlateColumn({
                           else rewardNodes.current.delete(reward.id);
                         }}
                       >
-                        <Suspense fallback={null}>
-                        <RewardObject
-                          reward={reward}
-                          texture={texture}
-                          openTexture={openArtById[reward.type]}
-                          size={size}
-                          opacity={rewardSettings.opacity}
-                          glow={rewardSettings.glow}
-                          editable={editable}
-                          speed={effects.speed}
-                          showExpression={
-                            editable &&
-                            selection.kind === "reward" &&
-                            selection.rewardId === reward.id
-                          }
-                          effect={active[reward.id]}
-                          selected={
-                            selection.kind === "reward" && selection.rewardId === reward.id
-                          }
-                          onDown={(event) => {
-                            event.stopPropagation();
-                            if (!editable) {
-                              // A reward is part of its physical writing surface.
-                              // Select that line before the reward performs its own action.
-                              onSelect({ kind: "slot", slotId: slot.id });
-                              return;
-                            }
-                            onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
-                            scroll.current.locked = true;
-                            setDragging({ slotId: slot.id, rewardId: reward.id });
-                          }}
-                          onActivate={() => {
-                            if (editable) {
-                              onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
-                              return;
-                            }
-                            // NOTHING is activated by touching it. A reward answers
-                            // only to its own condition; a tap just chooses the line.
-                            // The editor's own Test mode still replays an object in place.
-                            if (effects.testMode && reward.state === "dormant" && reward.type !== "math-vault") {
-                              activate(slot.id, reward, true);
-                            }
-                          }}
-                          onExpire={() => onRewardConsume(slot.id, reward.id)}
-                          premiumStyle={effects.premiumBombStyle ?? "radiant-chain"}
-                          onPremiumImpact={onPremiumImpact}
-                        />
-                        </Suspense>
+                        <RewardVisualBoundary
+                          label={reward.id}
+                          resetKey={`${reward.id}:${reward.state}:${active[reward.id]?.start ?? "idle"}`}
+                        >
+                          <Suspense fallback={null}>
+                            <RewardObject
+                              reward={reward}
+                              texture={texture}
+                              openTexture={openArtById[reward.type]}
+                              size={size}
+                              opacity={rewardSettings.opacity}
+                              glow={rewardSettings.glow}
+                              editable={editable}
+                              speed={effects.speed}
+                              showExpression={
+                                editable &&
+                                selection.kind === "reward" &&
+                                selection.rewardId === reward.id
+                              }
+                              effect={active[reward.id]}
+                              selected={
+                                selection.kind === "reward" && selection.rewardId === reward.id
+                              }
+                              onDown={(event) => {
+                                event.stopPropagation();
+                                if (!editable) {
+                                  // A reward is part of its physical writing surface.
+                                  // Select that line before the reward performs its own action.
+                                  onSelect({ kind: "slot", slotId: slot.id });
+                                  return;
+                                }
+                                onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
+                                scroll.current.locked = true;
+                                setDragging({ slotId: slot.id, rewardId: reward.id });
+                              }}
+                              onActivate={() => {
+                                if (editable) {
+                                  onSelect({ kind: "reward", slotId: slot.id, rewardId: reward.id });
+                                  return;
+                                }
+                                // NOTHING is activated by touching it. A reward answers
+                                // only to its own condition; a tap just chooses the line.
+                                // The editor's own Test mode still replays an object in place.
+                                onSelect({ kind: "slot", slotId: slot.id });
+                              }}
+                              onExpire={() => onRewardConsume(slot.id, reward.id)}
+                              premiumStyle={effects.premiumBombStyle ?? "radiant-chain"}
+                              onPremiumImpact={onPremiumImpact}
+                            />
+                          </Suspense>
+                        </RewardVisualBoundary>
                       </group>
                     );
                   })

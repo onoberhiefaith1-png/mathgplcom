@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Html } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { SurfaceDef } from "@/lib/slate/surfaces";
+import type { GameTestDisplay } from "@/lib/slate/types";
 import type { RegionTextData, TextBounds, TextSettings } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
 import type { InscribedTextApi } from "./InscribedText";
+import { InscribedText } from "./InscribedText";
 import { TileText } from "./TileText";
 import { DimensionalText } from "./DimensionalText";
 
@@ -21,6 +23,7 @@ interface Props {
   z: number;
   surface: SurfaceDef;
   settings: TextSettings;
+  testDisplay?: GameTestDisplay;
   editable: boolean;
   active: boolean;
   placeholder?: string | undefined;
@@ -48,6 +51,7 @@ export function WritingRegion({
   z,
   surface,
   settings,
+  testDisplay = "threeD",
   editable,
   active,
   placeholder,
@@ -58,10 +62,11 @@ export function WritingRegion({
 }: Props) {
   const api = useRef<InscribedTextApi>(null);
   // the preset chooses the material treatment — layout, caret and growth stay
-  const Renderer =
+  const RaisedRenderer =
     settings.style === "tiles"
       ? TileText
       : DimensionalText;
+  const surfaceTest = testDisplay === "surface";
   const input = useRef<HTMLTextAreaElement>(null);
   const [caret, setCaret] = useState<number | null>(null);
   const [selection, setSelection] = useState<[number, number] | null>(null);
@@ -208,28 +213,54 @@ export function WritingRegion({
       </mesh>
 
       <group position={[left, top, z + 0.004]}>
-        <Renderer
-          apiRef={api}
-          text={show}
-          width={width}
-          surface={surface}
-          settings={settings}
-          caret={active ? caret : null}
-          selection={active ? selection : null}
-          onMeasure={report}
-          responsive={active}
-        />
-        {!text && placeholder ? (
-          <Renderer
-            text={placeholder}
+        {surfaceTest ? (
+          <InscribedText
+            apiRef={api}
+            text={show}
             width={width}
             surface={surface}
             settings={settings}
-            caret={null}
-            selection={null}
-            onMeasure={() => {}}
-            opacity={0.22}
+            caret={active ? caret : null}
+            selection={active ? selection : null}
+            onMeasure={report}
           />
+        ) : (
+          <RaisedRenderer
+            apiRef={api}
+            text={show}
+            width={width}
+            surface={surface}
+            settings={settings}
+            caret={active ? caret : null}
+            selection={active ? selection : null}
+            onMeasure={report}
+            responsive={active}
+          />
+        )}
+        {!text && placeholder ? (
+          surfaceTest ? (
+            <InscribedText
+              text={placeholder}
+              width={width}
+              surface={surface}
+              settings={settings}
+              caret={null}
+              selection={null}
+              onMeasure={() => {}}
+              opacity={0.22}
+            />
+          ) : (
+            <RaisedRenderer
+              text={placeholder}
+              width={width}
+              surface={surface}
+              settings={settings}
+              caret={null}
+              selection={null}
+              onMeasure={() => {}}
+              opacity={0.22}
+            />
+          )
         ) : null}
       </group>
 

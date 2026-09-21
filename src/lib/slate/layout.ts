@@ -63,6 +63,22 @@ export const gameEstimatedTextWidth = (
   return Math.min(Math.max(0, maximumWidth), longestLine * estimatedGlyphWidth);
 };
 
+export const gameEstimatedTextLineCount = (
+  text: string,
+  fontSize: number,
+  width: number,
+): number => countLines(text, fontSize, width);
+
+export const gameEstimatedTextHeight = (
+  text: string,
+  fontSize: number,
+  width: number,
+  lineSpacing = 1.25,
+): number => {
+  const rowH = Math.max(0.16, (fontSize * Math.max(1, lineSpacing)) / PX_PER_UNIT);
+  return Math.max(rowH, gameEstimatedTextLineCount(text, fontSize, width) * rowH);
+};
+
 
 const REGION_PAD = 0.36;
 
@@ -103,14 +119,16 @@ export const buildLayout = (
   writingWidth = INNER_W,
   /** Play starts at minimum size and waits for exact renderer bounds. */
   estimateUnmeasured = true,
+  lineSpacing = 1.25,
 ): SlateLayout => {
   let cursor = 0.5;
   // one line of text, in world units — scales with the chosen size so a very
   // large equation reserves the right space before it has been measured
-  const rowH = Math.max(0.16, (fontSize * 1.25) / PX_PER_UNIT);
+  const rowH = Math.max(0.16, (fontSize * Math.max(1, lineSpacing)) / PX_PER_UNIT);
   const regions = slots.map((slot, index) => {
-    const lines = Math.max(1, countLines(slot.text || slot.hiddenContent || "", fontSize, writingWidth));
-    const estimate = estimateUnmeasured ? lines * rowH : rowH;
+    const estimate = estimateUnmeasured
+      ? gameEstimatedTextHeight(slot.text || slot.hiddenContent || "", fontSize, writingWidth, lineSpacing)
+      : rowH;
     const real = measured[slot.id];
     const height = REGION_PAD * 2 + Math.max(rowH, real !== undefined && real > 0 ? real : estimate);
     const region: RegionLayout = {

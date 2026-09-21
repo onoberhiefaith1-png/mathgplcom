@@ -35,6 +35,8 @@ export const defaultAssetSettings = (): AssetSettings => ({
 
 export const defaultSettings = (): GameSettings => ({
   slate: { scale: 1, width: 860, slotSpacing: 22, slotMinHeight: 96, slotPadding: 22 },
+  // Keep existing Games on the current raised/3D presentation until the teacher changes it.
+  testDisplay: "threeD",
   text: defaultTextSettings(),
   numbers: defaultNumberSettings(),
   writing: {

@@ -6,7 +6,7 @@ import { getCaretAtPoint, getSelectionRects } from "troika-three-text";
 import type { SelectionRect, TroikaTextRenderInfo } from "troika-three-text";
 import * as THREE from "three";
 import type { SurfaceDef } from "@/lib/slate/surfaces";
-import type { TextSettings } from "@/lib/slate/text3d";
+import type { TextBounds, TextSettings } from "@/lib/slate/text3d";
 import { integrationFactor, textRecipe } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
 
@@ -24,8 +24,8 @@ interface Props {
   /** Caret character index, or null when this region is not being written in. */
   caret: number | null;
   selection: [number, number] | null;
-  /** Reports the rendered block height in world units. */
-  onMeasure: (height: number) => void;
+  /** Reports the rendered block bounds in world units. */
+  onMeasure: (bounds: TextBounds) => void;
   apiRef?: Ref<InscribedTextApi>;
   /** Dimming for concealed pre-authored content. */
   opacity?: number;
@@ -56,7 +56,7 @@ export function InscribedText({
   const main = useRef<TroikaText>(null);
   const caretMesh = useRef<THREE.Mesh>(null);
   const [info, setInfo] = useState<TroikaTextRenderInfo | null>(null);
-  const measured = useRef(0);
+  const measured = useRef({ width: 0, height: 0 });
 
   const fontSize = settings.size / PX_PER_UNIT;
   // how strongly the letters read as cut into the material
@@ -74,10 +74,21 @@ export function InscribedText({
       if (!render) return;
       setInfo(render);
       const bounds = render.blockBounds;
+      const width = Math.abs(bounds[2] - bounds[0]);
       const height = Math.abs(bounds[3] - bounds[1]);
-      if (Math.abs(height - measured.current) > 0.004) {
-        measured.current = height;
-        onMeasure(height);
+      if (
+        Math.abs(height - measured.current.height) > 0.004 ||
+        Math.abs(width - measured.current.width) > 0.004
+      ) {
+        measured.current = { width, height };
+        onMeasure({
+          left: bounds[0],
+          right: bounds[2],
+          bottom: bounds[1],
+          top: bounds[3],
+          width,
+          height,
+        });
       }
     },
     [onMeasure],
@@ -103,8 +114,8 @@ export function InscribedText({
 
   useEffect(() => {
     if (!text) {
-      measured.current = 0;
-      onMeasure(0);
+      measured.current = { width: 0, height: 0 };
+      onMeasure({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 });
     }
   }, [text, onMeasure]);
 

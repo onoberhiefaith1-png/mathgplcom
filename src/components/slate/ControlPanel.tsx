@@ -447,6 +447,32 @@ export function ControlPanel({
         <Section title="Text appearance">
           <div className="space-y-1.5">
             <span className="block text-[11px] uppercase tracking-wider text-amber-100/60">
+              Test display
+            </span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {([
+                { id: "surface", label: "Surface Test" },
+                { id: "threeD", label: "3D Test" },
+              ] as const).map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => set({ testDisplay: option.id })}
+                  aria-pressed={(s.testDisplay ?? "threeD") === option.id}
+                  className={`rounded border px-2 py-1.5 text-[10px] uppercase tracking-wider ${
+                    (s.testDisplay ?? "threeD") === option.id
+                      ? "border-amber-300 bg-amber-300/10 text-amber-100"
+                      : "border-amber-200/15 text-amber-100/60 hover:border-amber-200/40"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="block text-[11px] uppercase tracking-wider text-amber-100/60">
               Writing style
             </span>
             <select
