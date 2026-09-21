@@ -34,6 +34,33 @@ export const fractionSeconds = (
   return Math.max(1, Math.round(base * fractionValue(fraction)));
 };
 
+/** Clamped 0.1×–10× multiplier, one step of a tenth. */
+const clampMultiplier = (value: unknown): number | null => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.min(10, Math.max(0.1, Math.round(parsed * 10) / 10));
+};
+
+/**
+ * How many times its own line's time an Hourglass awards. The teacher sets a
+ * number from 0.1 to 10; 1 awards the same time again. Older Games saved one of
+ * four fixed shares, and those keep their exact value.
+ */
+export const hourglassMultiplierOf = (
+  config: Pick<LineSurfaceConfig, "hourglassMultiplier" | "hourglassReward"> | null | undefined,
+): number =>
+  clampMultiplier(config?.hourglassMultiplier) ?? fractionValue(config?.hourglassReward);
+
+/** Seconds this line's Hourglass awards when the line is solved in time. */
+export const hourglassSecondsFor = (
+  lineSeconds: number | null | undefined,
+  config: Pick<LineSurfaceConfig, "hourglassMultiplier" | "hourglassReward"> | null | undefined,
+): number => {
+  const base = Number(lineSeconds);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  return Math.max(1, Math.round(base * hourglassMultiplierOf(config)));
+};
+
 export const lifeMultiplier = (value: number | undefined): number => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 1;

@@ -10,7 +10,7 @@
 //
 // Empty pattern positions stay empty: nothing is ever auto-inserted.
 
-import { fractionSeconds, lineConfigOf } from "./lineSurfaces";
+import { hourglassSecondsFor, lineConfigOf } from "./lineSurfaces";
 import type { FloatingVault } from "@/lib/lessonnotes/floatingCompile";
 import type { Game, LineSurfaceConfig, RewardInstance, VaultCode } from "./types";
 
@@ -115,9 +115,7 @@ export const mapQuestionLines = (
       y: 50,
     }];
 
-    const hourglassSeconds = timerSeconds
-      ? fractionSeconds(timerSeconds, config?.hourglassReward ?? "full")
-      : 0;
+    const hourglassSeconds = timerSeconds ? hourglassSecondsFor(timerSeconds, config) : 0;
     if (timerSeconds) {
       // the Hourglass belongs on the RIGHT-HAND side of its own line
       derived.push({
