@@ -208,7 +208,9 @@ function RewardObject({
   const [left, setLeft] = useState(total);
   const fading = useRef(false);
   useEffect(() => {
-    if (!hourglass || editable || reward.state !== "dormant") return;
+    // An Hourglass counts ONLY while its own line is engaged. Every other
+    // line's Hourglass holds its stored time exactly where it is.
+    if (!hourglass || editable || reward.state !== "dormant" || reward.armed === false) return;
     started.current = Date.now();
     // ONE clock drives every hourglass: no per-reward interval.
     const stop = subscribeGameClock((now) => {
@@ -228,7 +230,7 @@ function RewardObject({
       }
     });
     return stop;
-  }, [editable, hourglass, onExpire, reward.state, total]);
+  }, [editable, hourglass, onExpire, reward.armed, reward.state, total]);
 
   useFrame(({ clock }) => {
     const node = group.current;
