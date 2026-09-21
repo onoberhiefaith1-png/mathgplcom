@@ -209,7 +209,7 @@ export default function WorldStage(props: Props) {
         <Canvas
           key={gpu.resetKey}
           shadows
-          dpr={[1, 1.8]}
+          dpr={[1, 1.35]}
           gl={{ antialias: true, alpha: !room, powerPreference: "high-performance" }}
           camera={{ position: [0, 0.4, 5.4], fov: 42, near: 0.1, far: 60 }}
           onCreated={({ gl }) => {

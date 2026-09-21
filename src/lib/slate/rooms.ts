@@ -359,20 +359,52 @@ export interface RoomOcclusion {
   z: number;
 }
 
+/**
+ * Every room has a hard architectural opening, even when it has no pillars.
+ * Extra entries describe foreground scenery whose silhouette narrows that
+ * opening at the slate depth. Keeping this data beside the room registry makes
+ * it impossible for a newly added room to silently fall back to screen width.
+ */
+const ROOM_WALL_INNER_EDGE = 5.85;
+const ROOM_OCCLUSIONS: Record<RoomProps, RoomOcclusion[]> = {
+  pillars: [{ x: 4.3, z: -4.4 }],
+  "door-frame": [{ x: 4.3, z: -4.4 }],
+  "tablet-stands": [{ x: 4.3, z: -4.4 }, { x: 2.8, z: -3.2 }],
+  timber: [{ x: 5.15, z: -3.6 }],
+  forge: [{ x: 3.25, z: -2.4 }],
+  shelves: [{ x: 3.4, z: -3.4 }],
+  chests: [{ x: 3.35, z: -2.6 }],
+  armour: [{ x: 3.25, z: -3 }],
+  crystals: [{ x: 2.65, z: -3.6 }],
+  "ice-formations": [{ x: 2.65, z: -3.6 }],
+};
+
+export const roomWritingOcclusions = (room: RoomDef | null): RoomOcclusion[] =>
+  room
+    ? [{ x: ROOM_WALL_INNER_EDGE, z: -5.55 }, ...(ROOM_OCCLUSIONS[room.props] ?? [])]
+    : [];
+
+/** Full visible room opening projected to the writing plane. */
+export const roomWritingSafeWidth = (
+  room: RoomDef | null,
+  eyeZ: number,
+  slateZ: number,
+): number => {
+  if (!room) return Infinity;
+  const widths = roomWritingOcclusions(room).map((block) => {
+    const toBlock = eyeZ - block.z;
+    const toSlate = eyeZ - slateZ;
+    if (toBlock <= 0.01 || toSlate <= 0.01) return Infinity;
+    const projectedInnerEdge = Math.abs(block.x) * (toSlate / toBlock);
+    // Clearance covers the panel edge, raised lettering and line marker.
+    return Math.max(1.2, (projectedInnerEdge - 0.28) * 2);
+  });
+  return Math.min(...widths);
+};
+
 export const roomOcclusion = (room: RoomDef | null): RoomOcclusion | null => {
   if (!room) return null;
-  switch (room.props) {
-    case "pillars":
-    case "door-frame":
-    case "tablet-stands":
-      // pillar cap is 1.6 wide, centred on x = 5.1
-      return { x: 5.1 - 0.8, z: -4.4 };
-    case "timber":
-      // upright posts, 0.5 wide, centred on x = 5.4
-      return { x: 5.4 - 0.25, z: -3.6 };
-    default:
-      return null;
-  }
+  return ROOM_OCCLUSIONS[room.props]?.[0] ?? { x: ROOM_WALL_INNER_EDGE, z: -5.55 };
 };
 
 export const roomForSurface = (surfaceId: string): RoomDef =>

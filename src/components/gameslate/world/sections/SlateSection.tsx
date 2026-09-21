@@ -99,6 +99,8 @@ interface Props {
   numberOffsetX?: number;
   /** Play includes the question as Surface 0; Edit keeps its existing numbering. */
   displayNumber?: number;
+  /** Clean metal keeps physical response without using a corroded colour scan. */
+  cleanMetal?: boolean;
 }
 
 /**
@@ -120,6 +122,7 @@ export function SlateSection({
   ornament,
   numberOffsetX,
   displayNumber,
+  cleanMetal = false,
 }: Props) {
   const numberStyle = numbers ?? defaultNumberSettings();
   const bodyH = Math.max(0.3, height);
@@ -136,13 +139,13 @@ export function SlateSection({
     <mesh position={[x, y, -build.recess / 2]} castShadow receiveShadow>
       <boxGeometry args={[w, h, build.recess]} />
       <meshStandardMaterial
-        map={maps.map}
-        normalMap={maps.normalMap}
-        roughnessMap={maps.roughnessMap}
+        map={cleanMetal ? undefined : maps.map}
+        normalMap={cleanMetal ? undefined : maps.normalMap}
+        roughnessMap={cleanMetal ? undefined : maps.roughnessMap}
         normalScale={maps.normalScale}
         roughness={Math.min(1, maps.roughness * 1.05)}
         metalness={maps.metalness}
-        color={colour}
+        color={cleanMetal ? "#b9c0c6" : colour}
       />
     </mesh>
   );
@@ -289,14 +292,14 @@ export function SlateSection({
           />
         ) : (
           <meshStandardMaterial
-            map={maps.map}
-            normalMap={maps.normalMap}
-            roughnessMap={maps.roughnessMap}
-            aoMap={maps.aoMap}
-            normalScale={maps.normalScale}
-            roughness={maps.roughness}
-            metalness={maps.metalness}
-            color={colour}
+            map={cleanMetal ? undefined : maps.map}
+            normalMap={cleanMetal ? undefined : maps.normalMap}
+            roughnessMap={cleanMetal ? undefined : maps.roughnessMap}
+            aoMap={cleanMetal ? undefined : maps.aoMap}
+            normalScale={cleanMetal ? new THREE.Vector2(0.12, 0.12) : maps.normalScale}
+            roughness={cleanMetal ? 0.3 : maps.roughness}
+            metalness={cleanMetal ? 0.9 : maps.metalness}
+            color={cleanMetal ? "#b9c0c6" : colour}
           />
         )}
       </mesh>
@@ -305,13 +308,13 @@ export function SlateSection({
       <mesh position={[0, 0, -build.recess]} receiveShadow>
         <planeGeometry args={[bedW, bedH]} />
         <meshStandardMaterial
-          map={maps.map}
-          normalMap={maps.normalMap}
-          roughnessMap={maps.roughnessMap}
-          normalScale={maps.normalScale}
-          roughness={Math.min(1, maps.roughness * 1.12)}
-          metalness={maps.metalness * 0.8}
-          color={bedColour}
+          map={cleanMetal ? undefined : maps.map}
+          normalMap={cleanMetal ? undefined : maps.normalMap}
+          roughnessMap={cleanMetal ? undefined : maps.roughnessMap}
+          normalScale={cleanMetal ? new THREE.Vector2(0.1, 0.1) : maps.normalScale}
+          roughness={cleanMetal ? 0.38 : Math.min(1, maps.roughness * 1.12)}
+          metalness={cleanMetal ? 0.82 : maps.metalness * 0.8}
+          color={cleanMetal ? "#969da3" : bedColour}
         />
       </mesh>
 

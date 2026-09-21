@@ -359,6 +359,7 @@ function LightSource({ light }: { light: RoomLight }) {
 
 function Dust({ room }: { room: RoomDef }) {
   const ref = useRef<THREE.Points>(null);
+  const lastUpdate = useRef(0);
   const { positions, speeds } = useMemo(() => {
     const count = room.particles.count;
     const positions = new Float32Array(count * 3);
@@ -373,6 +374,9 @@ function Dust({ room }: { room: RoomDef }) {
   }, [room.particles.count]);
 
   useFrame((_, raw) => {
+    const now = performance.now();
+    if (now - lastUpdate.current < 50) return;
+    lastUpdate.current = now;
     const dt = Math.min(raw, 0.05);
     const geo = ref.current?.geometry;
     if (!geo) return;
@@ -614,27 +618,8 @@ export function RoomShell({ room }: { room: RoomDef }) {
 
   return (
     <group>
-      <ambientLight color={room.ambient.colour} intensity={room.ambient.intensity} />
-      <hemisphereLight
-        color={room.key.colour}
-        groundColor={room.floorTint}
-        intensity={0.18}
-      />
-      <directionalLight
-        color={room.key.colour}
-        intensity={room.key.intensity}
-        position={room.key.position}
-        castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.02}
-        shadow-radius={4}
-        shadow-camera-left={-9}
-        shadow-camera-right={9}
-        shadow-camera-top={9}
-        shadow-camera-bottom={-9}
-      />
+      {/* WorldStage owns the shared ambient/key lights. Keeping one lighting
+          rig avoids duplicate shadow work competing with live writing. */}
       {room.lights.map((light, index) => (
         <LightSource key={index} light={light} />
       ))}

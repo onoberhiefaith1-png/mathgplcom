@@ -34,35 +34,35 @@ export interface Construction {
 const CONSTRUCTION: Record<string, Construction> = {
   "stone-wall": {
     gap: 0.16, recess: 0.11, bevel: 0.1, depth: 0.42, inset: 0.42,
-    jitter: 1, tones: [1, 0.9, 1.08, 0.94],
+    jitter: 0.16, tones: [1, 0.98, 1.02],
   },
   "stone-tablet": {
     gap: 0.13, recess: 0.095, bevel: 0.09, depth: 0.36, inset: 0.4,
-    jitter: 0.8, tones: [1, 0.95, 1.05],
+    jitter: 0.14, tones: [1, 0.98, 1.02],
   },
   wood: {
     gap: 0.1, recess: 0.085, bevel: 0.08, depth: 0.32, inset: 0.34,
-    jitter: 0.45, tones: [1, 0.86, 1.12, 0.93, 1.05], joints: true,
+    jitter: 0.1, tones: [1, 0.98, 1.02], joints: true,
   },
   door: {
     gap: 0.12, recess: 0.055, bevel: 0.07, depth: 0.4, inset: 0.46,
-    jitter: 0.5, tones: [1, 0.92, 1.06], joints: true, bands: true, rivets: true,
+    jitter: 0.08, tones: [1, 0.98, 1.02], joints: true, bands: true, rivets: true,
   },
   "metal-plate": {
     gap: 0.11, recess: 0.045, bevel: 0.05, depth: 0.26, inset: 0.38,
-    jitter: 0.25, tones: [1, 0.95, 1.04], rivets: true,
+    jitter: 0, tones: [1], rivets: true,
   },
   scroll: {
     gap: 0.08, recess: 0.02, bevel: 0.03, depth: 0.1, inset: 0.3,
-    jitter: 0.7, tones: [1, 0.97, 1.03],
+    jitter: 0.1, tones: [1, 0.99, 1.01],
   },
   chest: {
     gap: 0.12, recess: 0.05, bevel: 0.065, depth: 0.38, inset: 0.42,
-    jitter: 0.5, tones: [1, 0.9, 1.08], joints: true, bands: true, rivets: true,
+    jitter: 0.1, tones: [1, 0.98, 1.02], joints: true, bands: true, rivets: true,
   },
   shield: {
     gap: 0.12, recess: 0.04, bevel: 0.055, depth: 0.24, inset: 0.4,
-    jitter: 0.3, tones: [1, 0.96, 1.05], rivets: true, curve: 0.5,
+    jitter: 0, tones: [1], rivets: true, curve: 0.5,
   },
   glass: {
     gap: 0.14, recess: 0.03, bevel: 0.04, depth: 0.22, inset: 0.34,
@@ -70,7 +70,7 @@ const CONSTRUCTION: Record<string, Construction> = {
   },
   ice: {
     gap: 0.15, recess: 0.07, bevel: 0.08, depth: 0.44, inset: 0.4,
-    jitter: 0.95, tones: [1, 0.94, 1.07, 0.9], frost: 1,
+    jitter: 0.14, tones: [1, 0.98, 1.02], frost: 1,
   },
   "royal-paper": {
     gap: 0.1, recess: 0.025, bevel: 0.055, depth: 0.12, inset: 0.24,

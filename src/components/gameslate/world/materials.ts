@@ -168,10 +168,10 @@ export const SURFACE_MATERIALS: Record<string, MaterialRecipe> = {
   "stone-tablet": { roughness: 0.92, metalness: 0.02, normalScale: 1, normalKey: "slate-tablet", grain: 50 },
   wood: { roughness: 0.78, metalness: 0.02, normalScale: 0.65, normalKey: "slate-wood", grain: 130 },
   door: { roughness: 0.8, metalness: 0.06, normalScale: 0.8, normalKey: "slate-door", grain: 96 },
-  "metal-plate": { roughness: 0.34, metalness: 0.88, normalScale: 0.5, normalKey: "slate-metal", grain: 20, scratches: 0.95 },
+  "metal-plate": { roughness: 0.3, metalness: 0.9, normalScale: 0.22, normalKey: "slate-metal", grain: 20, scratches: 0 },
   scroll: { roughness: 0.92, metalness: 0.01, normalScale: 0.45, normalKey: "slate-scroll", grain: 160 },
   chest: { roughness: 0.66, metalness: 0.35, normalScale: 0.7, normalKey: "slate-chest", grain: 70 },
-  shield: { roughness: 0.38, metalness: 0.8, normalScale: 0.6, normalKey: "slate-shield", grain: 44, scratches: 0.85 },
+  shield: { roughness: 0.32, metalness: 0.88, normalScale: 0.22, normalKey: "slate-shield", grain: 44, scratches: 0 },
   glass: { roughness: 0.08, metalness: 0.05, normalScale: 0.25, normalKey: "slate-glass", grain: 100, physical: "glass" },
   ice: { roughness: 0.16, metalness: 0.03, normalScale: 0.7, normalKey: "slate-ice", grain: 56, physical: "ice", scratches: 0.6 },
   "royal-paper": { roughness: 0.68, metalness: 0.08, normalScale: 0.38, normalKey: "royal-paper", grain: 145 },
@@ -189,7 +189,7 @@ export const SURFACE_MATERIALS: Record<string, MaterialRecipe> = {
   "new-leaf-frame": { roughness: 0.84, metalness: 0.01, normalScale: 0.48, normalKey: "new-leaf", grain: 155 },
   "new-magical-aura": { roughness: 0.08, metalness: 0.05, normalScale: 0.18, normalKey: "new-magic", grain: 100, physical: "glass" },
   "new-cloud-panel": { roughness: 0.76, metalness: 0, normalScale: 0.32, normalKey: "new-cloud", grain: 50 },
-  "new-metal-plate": { roughness: 0.3, metalness: 0.92, normalScale: 0.48, normalKey: "new-metal", grain: 18, scratches: 0.95 },
+  "new-metal-plate": { roughness: 0.28, metalness: 0.92, normalScale: 0.2, normalKey: "new-metal", grain: 18, scratches: 0 },
   "new-silk-ribbon": { roughness: 0.3, metalness: 0.02, normalScale: 0.32, normalKey: "new-silk", grain: 190 },
 };
 
