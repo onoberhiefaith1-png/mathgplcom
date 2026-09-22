@@ -4539,7 +4539,7 @@ const PresentationView = ({
       studentAscii: ascii,
     });
     if (!proof.complete) {
-      return trace("incomplete", { ascii, frags: expectedFrags, status: proof.status }), false;
+      return trace("incomplete", { ascii, frags: expectedFrags.join(" | "), expected: expectedFrags.join(" "), status: proof.status }), false;
     }
     predictiveAwardedRef.current[slotKey] = true;
     const awardedNow = Number(target.marks ?? 0);
