@@ -4514,33 +4514,29 @@ const PresentationView = ({
   // tick — no delay, no request. The marking service still runs afterwards and
   // remains the authority that reconciles the record.
   const awardIfPredictivelyComplete = useCallback((k: number, asciiOverride?: string): boolean => {
-    const trace = (stage: string, extra?: Record<string, unknown>) => {
-      if (typeof window !== "undefined" && (window as unknown as { __predictiveTrace?: boolean }).__predictiveTrace) {
-        console.debug("[predictive]", stage, extra ?? {});
-      }
-    };
-    if (!current || !assessmentId) return trace("no-question"), false;
+    if (!current || !assessmentId) return false;
     if (groupForLine(tableGroups, k)) return false;
     const resolved = resolveGradableLine(k);
-    if (!resolved) return trace("unresolved", { k }), false;
+    if (!resolved) return false;
     const { target, expectedFrags, rowNum } = resolved;
     const ascii = typeof asciiOverride === "string" ? asciiOverride : resolved.ascii;
-    if (!ascii.trim() || expectedFrags.length === 0) {
-      return trace("nothing-to-prove", { ascii, frags: expectedFrags }), false;
-    }
+    if (!ascii.trim() || expectedFrags.length === 0) return false;
+    // The predictive engine can only prove a line when the expected line is
+    // known on this device. In assessment mode the answer key is deliberately
+    // server-side only, so there is nothing local to prove against.
+    const expectedAscii = (target as { equation?: string }).equation?.trim() ?? "";
+    if (!expectedAscii) return false;
     const slotKey = `${current.id}:${target.lineId}`;
     if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) return false;
     const proof = predict({
       routeMap: routeMapFor({
-        expectedAscii: expectedFrags.join(" "),
+        expectedAscii,
         atoms: expectedFrags,
         keyPrefix: `${current.id}:${target.lineId ?? ""}`,
       }),
       studentAscii: ascii,
     });
-    if (!proof.complete) {
-      return trace("incomplete", { ascii, frags: expectedFrags.join(" | "), expected: expectedFrags.join(" "), equation: (target as { equation?: string }).equation ?? "(none)", status: proof.status }), false;
-    }
+    if (!proof.complete) return false;
     predictiveAwardedRef.current[slotKey] = true;
     const awardedNow = Number(target.marks ?? 0);
     awardedExpressionBySlotRef.current[slotKey] = awardProofExpression(ascii);
