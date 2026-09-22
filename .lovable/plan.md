@@ -1,81 +1,86 @@
-# Assigning several questions to the same class + game
+# Game writing surface: movable sensor + visible placeholders
 
-## What is actually wrong
+## Where things stand
 
-Your Game currently holds questions in **two different places**:
+The Game already writes through the Smartboard's own mathematics: the same
+tokens, the same brackets, the same structures. The Game surface shows a
+flattened copy of that line, and the sensor pad currently shows only ◀ and ▶.
 
-- `x + 7 = 12` — filed under **no class** (the Game's old shared pool)
-- `2(x + 3) - 4x = 8` — filed under the class **Year5**
-- `3x - 5 = 10` and `7m - 12 = 3m + 8` — filed under the class **camk**
+What is missing:
 
-Play only ever reads one of those lists. So when the newer question arrived
-under a class, the older one stopped appearing — it was never deleted, just
-left behind in the other list. That is the "it removed my first question"
-effect.
+1. **No up / down.** The pad's vertical keys are hidden inside the Game, so the
+   sensor cannot step into an exponent or a subscript slot at all.
+2. **Vertical keys are unsafe as written.** Outside the Game, up/down fall back
+   to moving between physical lines when there is no structure to enter. In the
+   Game that would jump the student off the line, which must never happen.
+3. **Placeholders read poorly.** An empty exponent currently reaches the surface
+   as `12^(□)` — the box is there but buried in brackets, and nothing is raised,
+   so it does not look like the exponent cell it is.
 
-Two further faults make it worse:
+## What you will get
 
-1. When you send a question to a class that **already has this Game**, the
-   assign screen skips the step that files the question — so the question can
-   appear to do nothing at all.
-2. The assign screen checks "is this question already in the Game?" against the
-   shared pool instead of the class you are assigning to, so it reports the
-   wrong state.
-3. The hidden per-class play records have piled up (13 copies of one question,
-   50 of another), because the lookup that should find the existing one fails
-   when duplicates exist and then creates another.
-
-## What will happen after this
-
-- Sending a question to a class + game **always adds a level**. Q1 stays Level 1,
-  Q2 becomes Level 2, Q3 becomes Level 3 — nothing is ever replaced.
-- The assign screen lists the levels already in the chosen class + game, and
-  shows the new question as the level it will become.
-- `x + 7 = 12` moves into a class of your choosing as a level, so it stops
-  living outside every class. The one-off move offers Year5 and camk; you pick.
-- Removing a class from the Game keeps that class's questions and their order,
-  ready if you give the Game back.
-- Level numbering is always tidy (1, 2, 3…) even after removals — camk currently
-  starts at 2 because of an earlier removal; that is repaired.
-- Deleting a question from a class stays available and affects only that class.
+- A four-key sensor control on the writing surface: ← → always live, ↑ ↓ live
+  only when the sensor is somewhere with a real vertical destination, and dimmed
+  otherwise.
+- ← → walk the sensor through every insertion position of the current line,
+  including inside brackets: `2 | (S + 3)` → `2( | S + 3)` → `2(S | + 3)` → …
+- ↑ steps into an exponent cell, ↓ into a subscript cell, and the opposite key
+  steps back to the baseline. They only move the sensor — they never add a
+  number, a symbol or a new structure.
+- The keys never change line, question, level or surface. Game Lines keep owning
+  that.
+- Placeholder cells are visible on the surface and raised where they belong:
+  `12²`, `12` with an empty exponent shows the raised empty cell right after the
+  12, `x` with an empty subscript shows a lowered cell. The cell always travels
+  with the number it belongs to, because it is read from the same structure each
+  time it is drawn.
+- The mathematics that marking, Vault matching and evaluation read stays the
+  clean line (`2(x+3)`), unchanged — the sensor mark and placeholder cells are
+  drawing only.
 
 ## Steps
 
-1. **Assign always adds.** In the assign screen, file the question into every
-   ticked class's collection, not only classes newly ticked, and test "already
-   present" against that class instead of the shared pool. Appending keeps the
-   existing levels untouched.
-2. **Show the levels.** Under the Game picker, list the chosen class's current
-   levels and the position the new question will take, so the outcome is visible
-   before you press Assign.
-3. **Move the homeless question.** Offer a one-time "Move into class" action for
-   any question sitting outside every class, in the Questions list where those
-   are already shown. Choosing a class appends it as that class's next level and
-   removes it from the shared pool.
-4. **Tidy level numbers.** Renumber a class's questions 0…n-1 whenever one is
-   added, moved or removed.
-5. **Repair the duplicate play records.** Keep the oldest hidden record per
-   class + question, delete the surplus, and make the builder tolerant of
-   duplicates so it reuses rather than adds. This is why a level sometimes
-   opened stale content.
-6. **Verify.** Assign a second and third question to one class, confirm three
-   levels in the class list, the journey map and Play; confirm the other class is
-   untouched; confirm the moved question appears as a level; confirm marking,
-   rewards, Vault, timers and sounds are unchanged.
+1. **Vertical sensor movement, Game-safe.** Add a Game-only sensor move that
+   uses the Smartboard's own structure movement and does nothing at all when
+   there is no structure above/below — no line change, no fallback.
+2. **Report what is possible.** Compute "can go up" / "can go down" from that
+   same movement returning nothing, and feed it to the pad so the keys dim
+   exactly when they cannot act.
+3. **Four keys in the Game.** Show the full pad inside Game chrome (currently
+   horizontal-only), keeping it clear of the Floating Numbers strip and the HUD
+   and reachable on a phone.
+4. **Raised placeholders in the surface mirror.** Extend the Game mirror so
+   exponents and subscripts are written with raised/lowered characters where
+   every character has one, and an empty script cell shows a raised/lowered box
+   attached to its base instead of `^(□)`. Brackets, fractions and roots keep
+   their visible boxes as now.
+5. **Verify on the Game surface.** `S + 7` — ← → reach every position; `2(S + 3)`
+   — the sensor enters and walks the bracket; an exponent cell — ↑ activates only
+   at the right position and ↓ returns; a plain position — both vertical keys
+   dimmed and inert; repeated ← → never leave the line; save, exit, reopen and
+   the structures, cells and sensor state are still correct.
+6. **Tests.** Extend the existing mirror tests with raised scripts, empty script
+   cells, and vertical-move availability.
 
 ## Technical notes
 
-- `src/components/lessonnotes/AssignDialog.tsx`: join inside the loop over all
-  selected classes (currently only `toAssign`); per-class `listGameQuestions(gameId, classId)`
-  for the presence check; render the class's level list.
-- `src/lib/slate/gameQuestions.ts`: `assignQuestion` computes the next position
-  per class scope; add `moveQuestionToClass(id, classId)` and a `normalisePositions(gameId, classId)`
-  used after add/remove/reorder.
-- `src/lib/slate/gameBoard.ts`: replace `maybeSingle()` on the hidden
-  `kind='game'` assessment lookup with an ordered `limit(1)`, so duplicates can
-  never cause a fresh insert.
-- Migration: delete surplus `assessments` rows where `kind='game'` keeping the
-  oldest per `(class_id, question_key)`; add a unique index on that pair for
-  `kind='game'` so duplicates cannot return.
-- Unchanged: Slate Artisan, Floating Numbers, grading, predictive evaluation,
-  rewards, Vault rules, sounds, rooms, camera, saved stage design.
+- Reuse `moveUp` / `moveDown` / `moveLeft` / `moveRight` and `SLOT_GLYPH` from
+  `src/lib/smartboard/mathTree.ts`. No second cursor model, no second
+  placeholder model.
+- `src/components/smartboard/PresentationView.tsx`: a game branch for the pad's
+  `onUp`/`onDown` that calls `treeMoveUp`/`treeMoveDown` only (the existing
+  `nudgeCursor` keeps its line fallback for the Smartboard); pass
+  `canUp`/`canDown` from those functions returning `null`; drop
+  `horizontalOnly` for game chrome.
+- `src/lib/smartboard/rowCaret.ts`: script-aware mirroring — Unicode
+  superscript/subscript glyph mapping with `^(…)` / `_(…)` as fallback, and a
+  raised placeholder box for an empty script slot. Keeps emitting the decorated
+  string only through `onLineDisplayText`; `onLineText` stays plain.
+- Untouched: Smartboard UI and behaviour, Floating Numbers logic, grading,
+  predictive evaluation, rewards, Vault rules, sounds, surfaces, rooms, camera.
+
+## Still open from before
+
+The approved question-assignment work (a second question assigned to the same
+class + game must become Level 2, plus moving `x + 7 = 12` into a class) has not
+been built yet. I will do that straight after this fix unless you want it first.
