@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendEvent, buildLineReport, deriveMathStatus, looksIncomplete } from "../inspector";
+import { appendEvent, buildLineReport, deriveMathStatus, groupRewards, looksIncomplete } from "../inspector";
 import type { MappedLine } from "@/lib/slate/pattern";
 
 const row = (over: Partial<MappedLine> = {}): MappedLine => ({
