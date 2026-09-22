@@ -560,8 +560,21 @@ export const FloatingWorkspace = ({
                   <span className="w-14 shrink-0 text-[10px] uppercase tracking-wider text-foreground/45">
                     Vault {vaultIndex + 1}
                   </span>
-                  <div className="min-w-0 flex-1 text-[15px] text-foreground/80">
-                    {renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`)}
+                  {/* VALUE SLOT. The stored selection is drawn in the page's own
+                      dark ink at equation size — never in theme-dependent
+                      colour, which is how a saved value could end up invisible.
+                      Empty slot shows the placeholder instead. */}
+                  <div
+                    className="min-w-0 flex-1 rounded-md px-2 py-1 text-[17px] break-words"
+                    style={{
+                      background: "hsl(40 85% 42% / 0.08)",
+                      border: "1px solid hsl(40 85% 42% / 0.4)",
+                      color: "hsl(220 35% 18%)",
+                    }}
+                  >
+                    {vault.expression.trim()
+                      ? renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`)
+                      : <span className="text-[12px]" style={{ color: "hsl(220 35% 18% / 0.4)" }}>value</span>}
                   </div>
                   <button type="button" onClick={() => moveVault(vaultIndex, -1)} disabled={vaultIndex === 0} className={ctrlClass} title="Move Vault up">
                     <ArrowUp className="h-3 w-3" />
