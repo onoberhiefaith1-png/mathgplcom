@@ -147,14 +147,24 @@ export function WritingRegion({
     (bounds: TextBounds) => {
       const originX = settings.align === "left" ? 0 : settings.align === "right" ? width : width / 2;
       const placed = {
-        left: left + originX + bounds.left,
-        right: left + originX + bounds.right,
-        top: top + bounds.top,
-        bottom: top + bounds.bottom,
+        left: left + originX + bounds.left + shift.x,
+        right: left + originX + bounds.right + shift.x,
+        top: top + bounds.top + shift.y,
+        bottom: top + bounds.bottom + shift.y,
         width: bounds.width,
         height: bounds.height,
       };
       measuredBounds.current = placed;
+      // TEXT-IN-SURFACE. The surface is the boundary: a body that reports
+      // itself outside is corrected to the nearest valid place inside, every
+      // time it is created, loaded, reopened or played.
+      const inner = surfaceInnerBox(width, height, pad);
+      if (!textInsideSurface(placed, inner)) {
+        const { dx, dy } = containTextInSurface(placed, inner);
+        if (Math.abs(dx) > TEXT_INSIDE_TOLERANCE || Math.abs(dy) > TEXT_INSIDE_TOLERANCE) {
+          setShift((previous) => ({ x: previous.x + dx, y: previous.y + dy }));
+        }
+      }
       onMeasure(placed);
       onReport?.({
         slotId,
@@ -162,14 +172,14 @@ export function WritingRegion({
         lines: text.split("\n"),
         cursorPosition: caret ?? 0,
         selection,
-        position: { x: left, y: top, z },
+        position: { x: left + shift.x, y: top + shift.y, z },
         width,
         height: placed.height,
         material: surface.id,
         style: settings.style,
       });
     },
-    [caret, left, onMeasure, onReport, selection, settings.align, settings.style, slotId, surface.id, text, top, width, z],
+    [caret, height, left, onMeasure, onReport, pad, selection, settings.align, settings.style, shift.x, shift.y, slotId, surface.id, text, top, width, z],
   );
 
   const show = text || (!editable ? "" : "");
