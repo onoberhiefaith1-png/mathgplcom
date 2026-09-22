@@ -348,7 +348,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
 
 
       const parts: string[] = [];
-      if (joinedGame) parts.push("Added to the Game");
+      if (joinsGame && ok > 0) parts.push("Added to the Game");
       if (ok > 0) parts.push(`Assigned to ${ok}`);
       if (toUnassign.length > 0) parts.push(`Unassigned ${toUnassign.length}`);
       toast({
