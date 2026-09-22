@@ -1,5 +1,12 @@
 # Junction finishing
 
+# Game control and reward visuals
+
+- [x] Give the Game sensor controller the supplied gold-and-navy 3D treatment while preserving its four-way mathematics behavior.
+- [x] Make the premium spherical bomb obey the shared Reward visibility and opacity settings.
+- [x] Replace the TIME and LIFE line icons with the existing physical Hourglass and Life reward artwork.
+- [ ] Verify the three visual changes in the authenticated Game on desktop and phone.
+
 # Instant Game startup and response
 
 - [x] Replace temporary white writing-surface geometry with the centered ancient-temple loading screen.

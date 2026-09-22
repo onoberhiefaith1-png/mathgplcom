@@ -8201,6 +8201,7 @@ const PresentationView = ({
           touchLayout={touchLayout}
           topInsetPx={mobileStudent ? mobileChromeH + 12 : 0}
           bottomInsetPx={phoneLayout ? (floatingBox?.height ?? 48) + 8 : 0}
+          gameStyle={gameChrome}
         />
       )}
 

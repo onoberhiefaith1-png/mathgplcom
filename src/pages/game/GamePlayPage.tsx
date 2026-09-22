@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, Heart, Hourglass, ListOrdered, Map, RotateCcw } from "lucide-react";
+import { ArrowLeft, ListOrdered, Map, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGame } from "@/lib/slate/storage";
 import {
@@ -733,19 +733,19 @@ const GamePlayPage = () => {
       {phone ? (
         <header className="absolute inset-x-0 top-0 z-20 flex h-10 items-center gap-2 overflow-hidden bg-background/80 px-2 text-[11px] tabular-nums backdrop-blur">
           <span className="inline-flex shrink-0 items-center gap-0.5" title="Question time">
-            <Hourglass className="h-3.5 w-3.5 text-sky-500" />
+            <img className="h-3.5 w-3.5 object-contain" src={getReward("time-shard").art} alt="" />
             <GameClockDisplay deadline={runtime.questionDeadline}>
               {(label) => <span>{label}</span>}
             </GameClockDisplay>
           </span>
           <span className="inline-flex shrink-0 items-center gap-0.5" title="Line time">
-            <Hourglass className="h-3.5 w-3.5 text-emerald-500" />
+            <img className="h-3.5 w-3.5 object-contain" src={getReward("time-shard").art} alt="" />
             <GameClockDisplay deadline={runtime.lineDeadline}>
               {(label) => <span>{label}</span>}
             </GameClockDisplay>
           </span>
           <span className="inline-flex shrink-0 items-center gap-0.5" title="Lives">
-            <Heart className="h-3.5 w-3.5 text-rose-500" /> {runtime.lives}
+            <img className="h-3.5 w-3.5 object-contain" src={getReward("retry-heart").art} alt="" /> {runtime.lives}
           </span>
           <span
             className="inline-flex shrink-0 items-center gap-0.5"
@@ -800,19 +800,19 @@ const GamePlayPage = () => {
             <GameClockDisplay deadline={runtime.questionDeadline}>
               {(label) => (
                 <span className="inline-flex items-center gap-1" title="Question time">
-                  <Hourglass className="h-4 w-4 text-sky-500" /> TIME {label}
+                  <img className="h-4 w-4 object-contain" src={getReward("time-shard").art} alt="" /> TIME {label}
                 </span>
               )}
             </GameClockDisplay>
             <GameClockDisplay deadline={runtime.lineDeadline}>
               {(label) => (
                 <span className="inline-flex items-center gap-1" title="Line time">
-                  <Hourglass className="h-4 w-4 text-emerald-500" /> {label}
+                  <img className="h-4 w-4 object-contain" src={getReward("time-shard").art} alt="" /> {label}
                 </span>
               )}
             </GameClockDisplay>
             <span className="inline-flex items-center gap-1" title="Lives">
-              <Heart className="h-4 w-4 text-rose-500" /> LIFE {runtime.lives}
+              <img className="h-4 w-4 object-contain" src={getReward("retry-heart").art} alt="" /> LIFE {runtime.lives}
             </span>
             <span
               className="inline-flex items-center gap-1"

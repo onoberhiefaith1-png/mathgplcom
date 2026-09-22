@@ -94,6 +94,18 @@
   --animate-game-seal-reverse: game-seal-reverse 8s linear infinite;
   --animate-game-loading-dots: game-loading-dots 1.2s steps(4, end) infinite;
 
+  /* Physical Game sensor controller */
+  --color-sensor-shell: hsl(218 52% 11%);
+  --color-sensor-shell-raised: hsl(218 44% 18%);
+  --color-sensor-gold: hsl(39 88% 57%);
+  --color-sensor-gold-bright: hsl(44 96% 76%);
+  --color-sensor-light: hsl(196 100% 62%);
+  --color-sensor-shadow: hsl(218 60% 3%);
+  --color-sensor-gold-dark: hsl(31 76% 31%);
+  --color-sensor-gold-edge: hsl(34 74% 25%);
+  --color-sensor-gold-inner: hsl(29 74% 18%);
+  --color-sensor-shell-highlight: hsl(216 36% 42%);
+
   @keyframes accordion-down {
     from { height: 0; }
     to { height: var(--radix-accordion-content-height); }
@@ -164,6 +176,59 @@
     75%, 100% { content: "..."; }
   }
 }
+
+[data-sb-sensor-dpad][data-game-style="true"] {
+  filter: drop-shadow(0 12px 18px color-mix(in oklab, var(--color-sensor-shadow) 72%, transparent));
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-grid {
+  position: relative;
+  padding: 8px;
+  border: 3px solid var(--color-sensor-gold);
+  border-radius: 44%;
+  background:
+    radial-gradient(circle at 50% 46%, var(--color-sensor-shell-raised) 0 29%, transparent 30%),
+    linear-gradient(145deg, var(--color-sensor-gold-bright), var(--color-sensor-gold) 42%, var(--color-sensor-gold-dark));
+  box-shadow:
+    inset 0 2px 2px color-mix(in oklab, var(--color-sensor-gold-bright) 80%, transparent),
+    inset 0 -5px 8px color-mix(in oklab, var(--color-sensor-gold-inner) 80%, transparent),
+    0 0 0 2px var(--color-sensor-gold-edge),
+    0 0 18px color-mix(in oklab, var(--color-sensor-light) 28%, transparent);
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-key {
+  border: 2px solid var(--color-sensor-gold);
+  background: linear-gradient(145deg, var(--color-sensor-shell-highlight), var(--color-sensor-shell) 70%);
+  box-shadow:
+    inset 0 2px 3px color-mix(in oklab, var(--color-sensor-shell-highlight) 72%, transparent),
+    inset 0 -4px 6px color-mix(in oklab, var(--color-sensor-shadow) 88%, transparent),
+    0 0 0 2px color-mix(in oklab, var(--color-sensor-light) 45%, transparent),
+    0 5px 8px color-mix(in oklab, var(--color-sensor-shadow) 66%, transparent);
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-key svg polygon {
+  fill: var(--color-sensor-gold-bright);
+  stroke: var(--color-sensor-gold);
+  filter: drop-shadow(0 2px 1px color-mix(in oklab, var(--color-sensor-shadow) 80%, transparent));
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-center {
+  border: 3px solid var(--color-sensor-gold);
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 35%, var(--color-sensor-shell-highlight), var(--color-sensor-shell) 72%);
+  box-shadow:
+    inset 0 0 12px color-mix(in oklab, var(--color-sensor-shadow) 90%, transparent),
+    0 0 0 3px color-mix(in oklab, var(--color-sensor-light) 58%, transparent),
+    0 0 16px color-mix(in oklab, var(--color-sensor-light) 70%, transparent);
+}
+
+[data-sb-sensor-dpad][data-game-style="true"] .sensor-dpad-mark {
+  background: linear-gradient(90deg, transparent 0 42%, var(--color-sensor-light) 43% 57%, transparent 58%);
+  border-left: 2px solid var(--color-sensor-gold-bright);
+  border-right: 2px solid var(--color-sensor-gold-bright);
+  box-shadow: 0 0 10px var(--color-sensor-light);
+}
+
 
 .game-loading-screen {
   position: absolute;

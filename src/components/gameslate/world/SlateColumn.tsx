@@ -340,7 +340,7 @@ function RewardObject({
 
     // its own light spills onto the surface around it
     if (aura.current) {
-      aura.current.intensity = motion ? 26 * motion.emission * (effect?.power ?? 1) : 0;
+      aura.current.intensity = motion ? 26 * motion.emission * (effect?.power ?? 1) * opacity : 0;
     }
 
     // hourglass: the sand falls as its stored time runs down
@@ -401,6 +401,7 @@ function RewardObject({
               startedAt={effect?.start ?? 0}
               speed={rate}
               lighting={reward.lighting ?? 1}
+              opacity={reward.hidden ? 0.16 : opacity}
             />
           ) : (
           <mesh ref={sprite} rotation={[0, 0, ((reward.rotation ?? 0) * Math.PI) / 180]}>
