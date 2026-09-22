@@ -389,29 +389,23 @@ export const FloatingWorkspace = ({
                 }}
               />
               <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">{scoreLabel}</span>
-              {/* GAME only: one time value for this line. In a Game this single
-                  value is what creates the line's Timer Reward, so it can never
-                  duplicate. Leave it empty for no time on this line. */}
-              {gameMode && (
-                <>
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">
-                    Line {lineNo} time
-                  </span>
-                  <DurationInput
-                    value={line.timerSeconds ?? null}
-                    onChange={(seconds) => onChange({ ...line, timerSeconds: seconds ?? undefined })}
-                    placeholder="—"
-                    title="Time for this line only (MM:SS). Leave empty for none."
-                    className="w-16 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-hidden"
-                    style={{
-                      background: "hsl(200 60% 50% / 0.12)",
-                      border: "1px solid hsl(200 60% 40% / 0.45)",
-                      color: "hsl(220 35% 18%)",
-                    }}
-                  />
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">mm:ss</span>
-                </>
-              )}
+            </>
+          )}
+          {/* GAME only: one time value for this line, shown on every line and
+              never only where a score box is. It always reads a value (00:00 =
+              no time) and every adjustment is persisted with the line, so it is
+              the line's own saved duration that the Hourglass later uses. */}
+          {gameMode && (
+            <>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">
+                Line {lineNo} time
+              </span>
+              <MinuteSecondInput
+                value={line.timerSeconds ?? 0}
+                onChange={(seconds) => onChange({ ...line, timerSeconds: seconds })}
+                title={`Time for Line ${lineNo} only (MM:SS), up to 60:00. 00:00 = no time.`}
+              />
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">mm:ss</span>
             </>
           )}
         </div>
