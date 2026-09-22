@@ -27,6 +27,15 @@ export interface LineContext {
   lineEngaged?: boolean;
 }
 
+export interface GameLineAward {
+  /** Canonical board question identity. */
+  questionId: string;
+  lineId: string;
+  /** Exact immutable input snapshot proved equivalent by the board. */
+  studentAscii: string;
+  marks: number;
+}
+
 export interface GameRuntime {
   ready: boolean;
   questionIndex: number;
@@ -54,6 +63,8 @@ export interface GameRuntime {
   totalMarks: number;
   message: string | null;
   onLineContext: (ctx: LineContext) => void;
+  /** Atomic proved-line handoff from the existing Smartboard engine. */
+  onLineAward: (award: GameLineAward) => void;
   /** A Bomb or Collector physically reached this visible reward. */
   consumeWorldReward: (line: number, rewardId: string) => void;
   /** Game Lines own line navigation — a tapped Game Line calls this. */
@@ -422,6 +433,27 @@ export const useGameRuntime = (params: {
   }, [consumed, question]);
 
   /* ---- board bridge -------------------------------------------------- */
+  const acceptLineAward = useCallback((event: GameLineAward) => {
+    if (!question || event.questionId !== question.boardQuestionId) return;
+    const awardedExpression = event.studentAscii.trim();
+    const index = question.lineIds.indexOf(event.lineId);
+    if (index < 0 || !awardedExpression) return;
+
+    const key = `${question.questionRowId}:${event.lineId}`;
+    if (awarded.current.has(key)) return;
+    awarded.current.add(key);
+
+    const lineKey = `${question.questionRowId}:${event.lineId}`;
+    setCompletedLineKeys((prev) => prev.includes(lineKey) ? prev : [...prev, lineKey]);
+    setCompletionCount((prev) => prev + 1);
+    convertCompletionToLife(1);
+    setCompletedLines((prev) => (prev.includes(index + 1) ? prev : [...prev, index + 1]));
+    consumeLine(index + 1);
+    // The Game's configured marks remain authoritative. Never trust a caller
+    // to invent a different score, even though the board supplies its value.
+    setEarnedMarks((prev) => prev + (question.lineMarks[index] ?? 0));
+  }, [question, consumeLine, convertCompletionToLife]);
+
   const onLineContext = useCallback((ctx: LineContext) => {
     if (!question) return;
     const lineNumber = ctx.index + 1;
@@ -454,29 +486,13 @@ export const useGameRuntime = (params: {
 
     const awardedId = ctx.lastAwardedLineId;
     if (awardedId) {
-      const key = `${question.questionRowId}:${awardedId}`;
-      if (!awarded.current.has(key)) {
-        awarded.current.add(key);
-        const index = question.lineIds.indexOf(awardedId);
-        if (index >= 0) {
-          // Defense in depth: the board must name the exact non-empty working
-          // that received this award. Vault events never carry this proof.
-          const awardedExpression = ctx.lastAwardedExpression?.trim() ?? "";
-          const currentExpression = workRef.current[index]?.trim() ?? "";
-          if (!awardedExpression || awardedExpression !== currentExpression) {
-            awarded.current.delete(key);
-            return;
-          }
-          const lineKey = `${question.questionRowId}:${awardedId}`;
-          setCompletedLineKeys((prev) => prev.includes(lineKey) ? prev : [...prev, lineKey]);
-          setCompletionCount((prev) => prev + 1);
-          // Completion Coin -> Life: automatic and instant.
-          convertCompletionToLife(1);
-          setCompletedLines((prev) => (prev.includes(index + 1) ? prev : [...prev, index + 1]));
-          consumeLine(index + 1);
-          setEarnedMarks((prev) => prev + (question.lineMarks[index] ?? 0));
-        }
-      }
+      const awardedExpression = ctx.lastAwardedExpression?.trim() ?? "";
+      if (awardedExpression) acceptLineAward({
+        questionId: question.boardQuestionId,
+        lineId: awardedId,
+        studentAscii: awardedExpression,
+        marks: question.lineMarks[question.lineIds.indexOf(awardedId)] ?? 0,
+      });
     }
 
     const finished = ctx.total > 0 && ctx.index >= ctx.total - 1 && ctx.completed;
@@ -503,7 +519,7 @@ export const useGameRuntime = (params: {
     }
   }, [
     question, lines, consumeLine, completedQuestionIds, testMode, assignmentId,
-    studentId, questionIndex, boards.length, convertCompletionToLife,
+    studentId, questionIndex, boards.length, acceptLineAward,
   ]);
 
 
@@ -617,6 +633,7 @@ export const useGameRuntime = (params: {
     totalMarks,
     message,
     onLineContext,
+    onLineAward: acceptLineAward,
     consumeWorldReward,
     selectLine,
     goToQuestion,

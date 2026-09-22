@@ -407,6 +407,7 @@ const PresentationView = ({
   permanentAchievementColor: permanentAchievementColorProp,
   currentAttemptColor: currentAttemptColorProp,
   onLineContext,
+  onLineAward,
   touchSession,
   chrome = "board",
   activeLine = null,
@@ -468,6 +469,15 @@ const PresentationView = ({
     lineEngaged?: boolean;
     /** Increments when Reset begins a fresh video sequence. */
     playbackResetGeneration?: number;
+  }) => void;
+  /** Immediate, proved award emitted from the exact input snapshot that
+   * completed the line. Game Play consumes this directly; it never re-reads
+   * board layout state to reconstruct the awarded expression. */
+  onLineAward?: (award: {
+    questionId: string;
+    lineId: string;
+    studentAscii: string;
+    marks: number;
   }) => void;
   /** Optional phone/tablet session controls owned by an outer guest surface. */
   touchSession?: {
@@ -4559,9 +4569,15 @@ const PresentationView = ({
       marks: awardedNow,
       ascii,
     }));
+    onLineAward?.({
+      questionId: current.id,
+      lineId: target.lineId ?? "",
+      studentAscii: awardProofExpression(ascii),
+      marks: awardedNow,
+    });
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, assessmentId, tableGroups, resolveGradableLine, solvedSlots]);
+  }, [current, assessmentId, tableGroups, resolveGradableLine, solvedSlots, onLineAward]);
 
   const gradeLineThroughEngine = useCallback(async (
     k: number,
@@ -4725,6 +4741,14 @@ const PresentationView = ({
           setAssessScore(Number(res.score ?? 0));
         }
         setWrongLine((w) => (w === rowNum ? null : w));
+        if (!confirmOnly && !predictiveAwardedRef.current[slotKey]) {
+          onLineAward?.({
+            questionId: current.id,
+            lineId: target.lineId ?? "",
+            studentAscii: awardProofExpression(ascii),
+            marks: awarded,
+          });
+        }
       }
 
       if (mode !== "manual") return true;

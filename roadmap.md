@@ -16,6 +16,7 @@
 - [x] Proactively submit the active bound line for marking without waiting for line navigation.
 - [x] Cancel superseded automatic checks and reject stale retry results by question, line, and exact expression.
 - [x] Keep Game rewards on the shared awarded-line event so completion and configured rewards activate together.
+- [x] Hand the exact proved expression directly to Game scoring in the same input action; remove the visible pending-score state.
 - [ ] Verify rapid correct-line awards and reward activation in authenticated Smartboard and Game sessions on desktop and phone.
 
 # Reusable Adventure linking
