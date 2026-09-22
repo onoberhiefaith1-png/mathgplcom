@@ -54,7 +54,7 @@ const BLOCK_KINDS = ["problem", "solution", "reasoning", "text"] as const;
 
 const classCode = () => `CLS-${Math.floor(1000 + Math.random() * 9000)}`;
 
-type Executor = (ctx: AgentToolContext, args: Args) => Promise<{ data: AgentJson; summary: string; navigateTo?: string }>;
+type Executor = (ctx: AgentToolContext, args: Args) => Promise<{ data: unknown; summary: string; navigateTo?: string }>;
 
 const executors: Record<string, Executor> = {
   workspace_snapshot: async ({ supabase, userId }) => {
@@ -348,7 +348,7 @@ export async function executeAgentTool(
   }
   try {
     const { data, summary, navigateTo } = await run(ctx, args);
-    return { ok: true, toolId, data, summary, ...(navigateTo ? { navigateTo } : {}) };
+    return { ok: true, toolId, data: data as AgentJson, summary, ...(navigateTo ? { navigateTo } : {}) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { ok: false, toolId, error: message };
