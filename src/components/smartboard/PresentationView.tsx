@@ -2866,6 +2866,22 @@ const PresentationView = ({
   // caret through the equation (into and out of fractions, radicals,
   // powers…) instead of shifting the row offset, so the sensor can never be
   // trapped inside a structure slot.
+  /* GAME SENSOR — inside a Game the pad's ▲ ▼ are pure in-line navigation:
+     they enter an exponent / subscript / fraction slot that really exists at
+     the sensor, step between the slots of the structure it is inside, and step
+     back out onto the baseline. They never change Game Line, question or
+     level, so they are dimmed whenever the maths offers no destination. */
+  const gameSensorRow = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+  const gameVertical = useCallback((dir: -1 | 1) => {
+    const row = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    const next = gameMoveVertical(row, cursorRef.current, dir);
+    if (!next) return;
+    setLiveCursor(next);
+    focusCapture();
+  }, [freeLines, sensor.line, setLiveCursor, focusCapture]);
+  const canGameUp = gameChrome && canGameMoveVertical(gameSensorRow, cursor, -1);
+  const canGameDown = gameChrome && canGameMoveVertical(gameSensorRow, cursor, 1);
+
   const canCursorLeft = (() => {
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
