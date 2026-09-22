@@ -202,9 +202,9 @@ export interface AssetSettings {
  */
 
 /** Where a chosen sound comes from. */
-export type SoundSource = "official" | "user";
+export type SoundSource = "builtin" | "official" | "user";
 
-/** A chosen sound file. `path` is the stored object path, never a URL. */
+/** A chosen sound file. Built-in paths are app asset URLs; uploads store object paths. */
 export interface GameSoundRef {
   source: SoundSource;
   path: string;

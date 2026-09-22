@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BUILT_IN_REWARD_SOUNDS } from "./builtInRewardSounds";
 import {
   REWARD_SOUND_KEYS,
   defaultSoundSettings,
@@ -46,5 +47,29 @@ describe("game sound settings", () => {
     expect(rewardSoundKeyForType("vertical-collector")).toBe("collector");
     expect(rewardSoundKeyForType("mark-seal")).toBe("completion");
     expect(rewardSoundKeyForType("something-else")).toBeNull();
+  });
+
+  it("offers two built-in premium options for every reward type", () => {
+    for (const key of REWARD_SOUND_KEYS) {
+      const sounds = BUILT_IN_REWARD_SOUNDS[key];
+      expect(sounds).toHaveLength(2);
+      expect(new Set(sounds.map((sound) => sound.path)).size).toBe(2);
+      for (const sound of sounds) {
+        expect(sound.key).toBe(key);
+        expect(sound.title.length).toBeGreaterThan(3);
+        expect(sound.description.length).toBeGreaterThan(12);
+        expect(sound.path).toMatch(/^\/__l5e\/assets-v1\//);
+      }
+    }
+  });
+
+  it("keeps built-in reward choices through normalisation", () => {
+    const chosen = BUILT_IN_REWARD_SOUNDS.vault[0];
+    const s = normalizeSoundSettings({
+      rewards: { vault: { ref: { source: "builtin", path: chosen.path, title: chosen.title }, volume: 0.65 } },
+    });
+    expect(s.rewards.vault.ref?.source).toBe("builtin");
+    expect(s.rewards.vault.ref?.path).toBe(chosen.path);
+    expect(s.rewards.vault.volume).toBe(0.65);
   });
 });

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { putAsset } from "@/lib/slate/assets";
+import { builtInRewardSoundsFor } from "@/lib/slate/builtInRewardSounds";
 import { previewSound, stopPreview } from "@/lib/slate/gameSound";
 import { soundName } from "@/lib/slate/sound";
 import {
@@ -21,7 +22,7 @@ import {
   type SoundPurpose,
 } from "@/lib/slate/soundGallery";
 import type { GplAsset } from "@/lib/gpl/assetLibrary";
-import type { SoundSlot } from "@/lib/slate/types";
+import type { GameSoundRef, RewardSoundKey, SoundSlot } from "@/lib/slate/types";
 
 interface Props {
   label: string;
@@ -111,7 +112,7 @@ function SoundGalleryDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   purpose: SoundPurpose;
-  onPick: (ref: { source: "official" | "user"; path: string; title: string }) => void;
+  onPick: (ref: GameSoundRef) => void;
 }) {
   const [sounds, setSounds] = useState<GplAsset[]>([]);
   const [admin, setAdmin] = useState(false);
@@ -139,6 +140,7 @@ function SoundGalleryDialog({
   const refresh = async () => {
     setSounds(await listOfficialSounds(purpose).catch(() => [] as GplAsset[]));
   };
+  const builtIns = purpose === "background" ? [] : builtInRewardSoundsFor(purpose as RewardSoundKey);
 
   /** Administrator: add one or many sounds to the platform's own library. */
   const uploadOfficial = async (files: FileList | null) => {
@@ -185,6 +187,36 @@ function SoundGalleryDialog({
         </DialogHeader>
 
         <div className="space-y-3">
+          {builtIns.length ? (
+            <div className="space-y-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-amber-100/55">
+                Built-in premium sounds
+              </p>
+              {builtIns.map((sound) => (
+                <div
+                  key={sound.id}
+                  className="flex items-center gap-1.5 rounded border border-amber-200/12 p-1.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] text-amber-100/90">{sound.title}</p>
+                    <p className="truncate text-[9px] text-amber-100/45">{sound.description}</p>
+                  </div>
+                  <button className={btn} onClick={() => previewSound(sound.path)}>
+                    ▶
+                  </button>
+                  <button
+                    className={btn}
+                    onClick={() =>
+                      onPick({ source: "builtin", path: sound.path, title: sound.title })
+                    }
+                  >
+                    Use
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           {admin ? (
             <label className={`${btn} block cursor-pointer text-center`}>
               {busy ? "Adding…" : "Add sounds to the official gallery"}

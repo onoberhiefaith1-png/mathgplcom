@@ -42,8 +42,14 @@ if (typeof window !== "undefined") {
 
 const resolved = new Map<string, string>();
 
+const directSoundUrl = (path: string): string | null => {
+  if (path.startsWith("/__l5e/")) return path;
+  if (/^https?:\/\//i.test(path)) return path;
+  return null;
+};
+
 const urlFor = (path: string): string | null =>
-  resolved.get(path) ?? cachedAssetUrl(path) ?? null;
+  directSoundUrl(path) ?? resolved.get(path) ?? cachedAssetUrl(path) ?? null;
 
 /** Resolves and remembers a sound's URL. Never throws. */
 export const prepareSound = async (path: string | null | undefined): Promise<string | null> => {
