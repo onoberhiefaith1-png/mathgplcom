@@ -172,9 +172,20 @@ export function WritingRegion({
       // TEXT-IN-SURFACE. The surface is the boundary: a body that reports
       // itself outside is corrected to the nearest valid place inside, every
       // time it is created, loaded, reopened or played.
+      //
+      // Raised letters stand above the typographic box (ascenders, bevel and
+      // extrusion), so the body is inflated a little before it is compared
+      // with the surface. That keeps the physical glyph inside the material.
+      const relief = Math.max(0.02, placed.height * 0.2);
+      const body = {
+        left: placed.left,
+        right: placed.right,
+        top: placed.top + relief,
+        bottom: placed.bottom,
+      };
       const inner = surfaceInnerBox(width, height, pad);
-      if (!textInsideSurface(placed, inner)) {
-        const { dx, dy } = containTextInSurface(placed, inner);
+      if (!textInsideSurface(body, inner)) {
+        const { dx, dy } = containTextInSurface(body, inner);
         if (Math.abs(dx) > TEXT_INSIDE_TOLERANCE || Math.abs(dy) > TEXT_INSIDE_TOLERANCE) {
           setShift((previous) => ({ x: previous.x + dx, y: previous.y + dy }));
         }
