@@ -791,6 +791,24 @@ const GamePlayPage = () => {
             </span>
             <button
               type="button"
+              onClick={() => setMapOpen(true)}
+              title="Your journey"
+              className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide hover:bg-accent"
+            >
+              <Map className="h-3.5 w-3.5" /> LEVEL {runtime.questionIndex + 1}
+            </button>
+            {testMode && classId ? (
+              <button
+                type="button"
+                onClick={() => setArrangeOpen(true)}
+                title="Arrange Levels"
+                className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2 py-1 text-xs hover:bg-accent"
+              >
+                <ListOrdered className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+            <button
+              type="button"
               onClick={() => void resetGame()}
               disabled={resetting}
               title="Reset this run"
@@ -813,6 +831,16 @@ const GamePlayPage = () => {
             type="button"
             onClick={() => {
               setMenuOpen(false);
+              setMapOpen(true);
+            }}
+            className="block w-full border-b border-border/60 px-3 py-2.5 text-left"
+          >
+            Your journey
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
               void resetGame();
             }}
             disabled={resetting}
@@ -831,6 +859,29 @@ const GamePlayPage = () => {
             Exit Game
           </button>
         </div>
+      ) : null}
+
+      {mapOpen ? (
+        <GameLevelMap
+          nodes={levelNodes}
+          currentIndex={runtime.questionIndex}
+          style={assignment?.levelMapStyle ?? "path"}
+          onOpen={(index) => {
+            runtime.goToQuestion(index);
+            setMapOpen(false);
+          }}
+          onClose={() => setMapOpen(false)}
+        />
+      ) : null}
+
+      {arrangeOpen && classId && gameId ? (
+        <LevelArrangeDialog
+          gameId={gameId}
+          classId={classId}
+          assignment={assignment}
+          onClose={() => setArrangeOpen(false)}
+          onSaved={() => setBoardsEpoch((n) => n + 1)}
+        />
       ) : null}
 
       {/* GAME EVALUATION — the teacher's live inspector for the active line. */}
