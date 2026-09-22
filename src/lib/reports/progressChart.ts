@@ -259,7 +259,7 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
   if (gameAssignments.length) {
     const { data: resultRows } = (await supabase
       .from("slate_game_results" as never)
-      .select("assignment_id, student_id, marks_earned, marks_total, completed_at")
+      .select("assignment_id, student_id, marks_earned, best_marks_earned, marks_total, completed_at")
       .in("assignment_id" as never, gameAssignments.map((g) => g.id) as never)) as any;
     const results = ((resultRows ?? []) as any[]);
     for (const g of gameAssignments) {
@@ -268,7 +268,13 @@ async function loadDataset(classId: string): Promise<TaskDataset> {
       const totals = new Map<string, number>();
       let lastCompleted: string | null = null;
       for (const r of mine) {
-        inner.set(r.student_id as string, (inner.get(r.student_id as string) ?? 0) + Number(r.marks_earned ?? 0));
+        // The report keeps the BEST marks ever earned, so replaying a Game can
+        // neither erase them nor award the same marks twice.
+        const best = Math.min(
+          Number(r.marks_total ?? 0),
+          Math.max(Number(r.best_marks_earned ?? 0), Number(r.marks_earned ?? 0)),
+        );
+        inner.set(r.student_id as string, (inner.get(r.student_id as string) ?? 0) + best);
         totals.set(r.student_id as string, (totals.get(r.student_id as string) ?? 0) + Number(r.marks_total ?? 0));
         if (r.completed_at) lastCompleted = r.completed_at as string;
       }
