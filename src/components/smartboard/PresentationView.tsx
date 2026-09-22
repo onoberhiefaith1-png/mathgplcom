@@ -5030,7 +5030,6 @@ const PresentationView = ({
       atoms: expectedFrags,
       limit: MAX_PRECLEAR_CANDIDATES,
     });
-    console.debug("[preclear] candidates", candidates.length, "ascii", ascii);
     const ask = preClearedRef.current.unasked(slotKey, candidates);
     if (ask.length === 0) return;
     preClearedRef.current.markAsked(slotKey, ask);
@@ -5049,7 +5048,6 @@ const PresentationView = ({
         });
         const cleared = (data as { accepted?: string[] } | null)?.accepted ?? [];
         if (cancelled || cleared.length === 0) return;
-        console.debug("[preclear] cleared", cleared.length, "of", ask.length);
         preClearedRef.current.accept(slotKey, cleared);
         // The student may already have written one of them.
         awardIfPredictivelyComplete(activeLineIdx);
