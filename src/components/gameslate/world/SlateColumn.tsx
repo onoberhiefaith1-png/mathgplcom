@@ -47,7 +47,6 @@ import {
   type PremiumTarget,
 } from "./EffectsPremium";
 import {
-  INNER_W,
   SLATE_D,
   SLATE_FRONT,
   SLATE_W,
@@ -57,8 +56,10 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
-  gameSafeWritingWidth,
+  gameBandPosition,
+  gameBandTravel,
   gameSurfaceBox,
+  gameWritingBand,
 } from "@/lib/slate/layout";
 import type {
   EditorMode,
@@ -119,6 +120,8 @@ interface ActiveEffect {
   pull?: { x: number; y: number };
   /** Travel direction for objects that launch along an axis. */
   direction?: number;
+  /** Band-bounded travel for collector bodies and their visual trail. */
+  travelSpan?: number;
   targets?: PremiumTarget[];
   preview?: boolean;
   style?: PremiumBombStyle;
@@ -197,6 +200,7 @@ function RewardObject({
   showExpression,
   speed,
   effect,
+  writingBandWidth,
   onDown,
   onActivate,
   onExpire,
@@ -216,6 +220,7 @@ function RewardObject({
   /** Global effect speed, so scripted content keeps pace with its effect. */
   speed: number;
   effect: ActiveEffect | undefined;
+  writingBandWidth: number;
   onDown: (event: ThreeEvent<PointerEvent>) => void;
   onActivate: () => void;
   /** Hourglass only: its stored time ran out before it was collected. */
@@ -292,7 +297,9 @@ function RewardObject({
     node.position.z = THREE.MathUtils.lerp(node.position.z, 0.06 + lift, 0.18);
 
     const t = effect ? (now - effect.start) * rate : 0;
-    const motion = effect ? objectMotion(chor, t, effect.direction ?? 1) : null;
+    const motion = effect
+      ? objectMotion(chor, t, effect.direction ?? 1, effect.travelSpan)
+      : null;
 
     // a collector claims this object: it accelerates along a curved path
     if (effect?.pull) {
@@ -536,7 +543,7 @@ function RewardObject({
                 colour={def.glow}
                 power={effect.power}
                 axis={chor.travel?.axis ?? "x"}
-                span={chor.travel?.span ?? 4.4}
+                span={effect.travelSpan ?? chor.travel?.span ?? writingBandWidth}
                 direction={effect.direction ?? 1}
                 rate={rate}
                 timing={{
@@ -807,7 +814,11 @@ export function SlateColumn({
   // Edit is the teacher's exact preview of Play. Both modes use the same
   // viewport band and the same room-safe span rather than centring Edit on the
   // legacy fixed slate width.
-  const writingWidth = gameSafeWritingWidth(visibleAtSlate.width, roomSafeWidth);
+  const writingBand = useMemo(
+    () => gameWritingBand(visibleAtSlate.width, roomSafeWidth),
+    [roomSafeWidth, visibleAtSlate.width],
+  );
+  const writingWidth = writingBand.width;
 
   const testDisplay = game.settings.testDisplay ?? "threeD";
 
@@ -955,6 +966,12 @@ export function SlateColumn({
       if (def.profile === "seal") playSfx("seal");
       // a collector launches away from the edge it sits closest to
       const direction = reward.x < 50 ? 1 : -1;
+      const rewardDef = getReward(reward.type);
+      const visualWidth = 0.42 * rewardSettings.scale * (reward.scale ?? 1) * rewardDef.ratio;
+      const origin = gameBandPosition(reward.x, writingBand, visualWidth);
+      const travelSpan = def.profile.startsWith("sweep")
+        ? gameBandTravel(origin, direction, writingBand, visualWidth)
+        : undefined;
       // playing again always starts from the beginning, unpaused
       setEffectsPaused(false);
       const start = effectNow(clock);
@@ -969,6 +986,7 @@ export function SlateColumn({
           end: start + life,
           slotId,
           direction,
+          ...(travelSpan !== undefined ? { travelSpan } : {}),
           ...(pull ? { pull } : {}),
           ...(targets ? { targets } : {}),
           preview,
@@ -977,7 +995,7 @@ export function SlateColumn({
       }));
       return def.profile;
     },
-    [clock, effects.glow, effects.speed],
+    [clock, effects.glow, effects.speed, rewardSettings.scale, writingBand],
   );
 
   /** Open one object: effect, status update, then it is consumed. */
@@ -996,11 +1014,15 @@ export function SlateColumn({
 
   /** Where an object physically sits on the slate, in slate-local units. */
   const localOf = useCallback(
-    (reward: RewardInstance, region: { centre: number; height: number }) => ({
-      x: (reward.x / 100 - 0.5) * INNER_W,
+    (reward: RewardInstance, region: { centre: number; height: number }) => {
+      const def = getReward(reward.type);
+      const visualWidth = 0.42 * rewardSettings.scale * (reward.scale ?? 1) * def.ratio;
+      return {
+      x: gameBandPosition(reward.x, writingBand, visualWidth),
       y: -region.centre + region.height / 2 - (reward.y / 100) * region.height,
-    }),
-    [],
+      };
+    },
+    [rewardSettings.scale, writingBand],
   );
 
   /** Eligible rewards the energy can physically reach while visible. */
@@ -1139,7 +1161,7 @@ export function SlateColumn({
         reachRewards(reward.id, (_x, y) => Math.abs(y - centre) < 0.9, collector, preview, {
           axis: "x",
           direction,
-          span: c.travel?.span ?? 4.4,
+          span: active[reward.id]?.travelSpan ?? c.travel?.span ?? writingWidth,
           anticipation: c.anticipation,
           transform: c.transform,
         });
@@ -1159,7 +1181,7 @@ export function SlateColumn({
       }
 
     },
-    [active, camera, effects.speed, fire, layout.regions, localOf, onRewardActivate, onRewardConsume, reachRewards, run, scroll],
+    [active, camera, effects.speed, fire, layout.regions, localOf, onRewardActivate, onRewardConsume, reachRewards, run, scroll, writingWidth],
   );
 
   const onPremiumImpact = useCallback((target: PremiumTarget, preview: boolean) => {
@@ -1237,11 +1259,11 @@ export function SlateColumn({
       const region = layout.regions.find((r) => r.slot.id === dragging.slotId);
       if (!region) return;
       const down = -local.y;
-      const x = Math.min(97, Math.max(3, (local.x / INNER_W + 0.5) * 100));
+      const x = Math.min(100, Math.max(0, ((local.x - writingBand.left) / writingBand.width) * 100));
       const y = Math.min(94, Math.max(6, ((down - region.top) / region.height) * 100));
       onRewardMove(dragging.slotId, dragging.rewardId, x, y);
     },
-    [dragging, layout.regions, onRewardMove],
+    [dragging, layout.regions, onRewardMove, writingBand],
   );
 
   const offset = scroll.current.current;
@@ -1310,7 +1332,7 @@ export function SlateColumn({
                       onSelect({ kind: "slot", slotId: slot.id });
                     }}
                   >
-                    <planeGeometry args={[surfaceWidth + 0.12, surfaceHeight + 0.12]} />
+                    <planeGeometry args={[surfaceWidth, surfaceHeight]} />
                     <meshBasicMaterial transparent opacity={0} depthWrite={false} />
                   </mesh>
                 ) : null}
@@ -1369,11 +1391,12 @@ export function SlateColumn({
                     const texture = artById[reward.type];
                     if (!texture) return null;
                     const size = 0.42 * rewardSettings.scale * (reward.scale ?? 1);
+                     const rewardWidth = size * getReward(reward.type).ratio;
                     return (
                       <group
                         key={reward.id}
                         position={[
-                          (reward.x / 100 - 0.5) * INNER_W,
+                          gameBandPosition(reward.x, writingBand, rewardWidth),
                           region.height / 2 - (reward.y / 100) * region.height,
                           0.06 + (reward.z ?? 0) / 400,
                         ]}
@@ -1402,6 +1425,7 @@ export function SlateColumn({
                                 selection.rewardId === reward.id
                               }
                               effect={active[reward.id]}
+                              writingBandWidth={writingWidth}
                               selected={
                                 selection.kind === "reward" && selection.rewardId === reward.id
                               }

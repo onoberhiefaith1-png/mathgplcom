@@ -208,7 +208,7 @@ export function WritingRegion({
           if (editable) document.body.style.cursor = "";
         }}
       >
-        <planeGeometry args={[width, Math.max(0.2, height - pad)]} />
+        <planeGeometry args={[width, Math.max(0.2, height - pad * 2)]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
