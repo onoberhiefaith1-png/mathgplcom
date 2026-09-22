@@ -568,6 +568,30 @@ const GamePlayPage = () => {
     return <GameLoadingScreen className="fixed" progress={10} />;
   }
 
+  // CLASS + GAME is the playable instance, so the owner of a Game used by
+  // several classes says which one before anything is compiled.
+  if (!error && game && classChoices.length > 1 && !classId) {
+    return (
+      <SelectClassDialog
+        options={classChoices}
+        onPick={(option) => setChosenClassId(option.classId)}
+        onPickTest={async () => {
+          if (!uid || !gameId) return;
+          const testClass = await ensureTestClass(uid);
+          const built = await ensureGameBoards({
+            gameId, classId: testClass, questionClassId: null,
+          });
+          setTestMode(true);
+          setClassId(testClass);
+          setAssignment(null);
+          setAssignmentId(null);
+          setBoards(built);
+        }}
+        onClose={() => navigate(-1)}
+      />
+    );
+  }
+
   if (error || !game) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-start gap-3 p-8">
