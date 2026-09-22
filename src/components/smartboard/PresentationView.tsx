@@ -459,6 +459,7 @@ const PresentationView = ({
     completed: boolean;
     /** The line whose mark was awarded most recently (a marking event). */
     lastAwardedLineId?: string | null;
+    lastAwardedExpression?: string | null;
     /** False until the student really activates a line (#, chip, Present,
      *  Next, Previous, table cell) — the Introduction owns the board until then. */
     lineEngaged?: boolean;
@@ -4185,6 +4186,8 @@ const PresentationView = ({
   // diffing the awarded-slot map, so it fires once per award and never again
   // on a re-render or on a revisit of an already-correct line.
   const [lastAwardedLineId, setLastAwardedLineId] = useState<string | null>(null);
+  const [lastAwardedExpression, setLastAwardedExpression] = useState<string | null>(null);
+  const awardedExpressionBySlotRef = useRef<Record<string, string>>({});
   const seenSlotsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const keys = Object.keys(solvedSlots);
@@ -4195,7 +4198,9 @@ const PresentationView = ({
     const prefix = `${current.id}:`;
     const mine = added.filter((k) => k.startsWith(prefix));
     if (!mine.length) return;
-    setLastAwardedLineId(mine[mine.length - 1].slice(prefix.length));
+    const awardedSlot = mine[mine.length - 1];
+    setLastAwardedLineId(awardedSlot.slice(prefix.length));
+    setLastAwardedExpression(awardedExpressionBySlotRef.current[awardedSlot] ?? null);
   }, [solvedSlots, current]);
 
   useEffect(() => {
@@ -4206,12 +4211,13 @@ const PresentationView = ({
       total: guidedLines.length,
       completed: activeLineSolved,
       lastAwardedLineId,
+      lastAwardedExpression,
       lineEngaged,
       playbackResetGeneration,
     });
   }, [
     onLineContext, current?.id, activeLineId, activeLineIdx, guidedLines.length,
-    activeLineSolved, lastAwardedLineId, lineEngaged, playbackResetGeneration,
+    activeLineSolved, lastAwardedLineId, lastAwardedExpression, lineEngaged, playbackResetGeneration,
   ]);
 
 
@@ -4625,6 +4631,7 @@ const PresentationView = ({
 
       if (res?.correct) {
         const awarded = Number(res?.marks ?? target.marks ?? 0);
+        awardedExpressionBySlotRef.current[slotKey] = ascii.trim();
         timerRef.current.confirmLine(slotKey, confirmOnly ? (solvedSlots[slotKey] ?? 0) : awarded);
         if (confirmOnly) {
           setWrongLine((w) => (w === rowNum ? null : w));
@@ -5770,6 +5777,8 @@ const PresentationView = ({
     setActiveLineIdxState(0);
     setLineEngaged(false);
     setLastAwardedLineId(null);
+    setLastAwardedExpression(null);
+    awardedExpressionBySlotRef.current = {};
     setPlaybackResetGeneration((generation) => generation + 1);
 
     await timer.reset();
