@@ -4,7 +4,13 @@ import type { ThreeEvent } from "@react-three/fiber";
 import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { GameTestDisplay } from "@/lib/slate/types";
 import type { RegionTextData, TextBounds, TextSettings } from "@/lib/slate/text3d";
-import { PX_PER_UNIT } from "@/lib/slate/layout";
+import {
+  PX_PER_UNIT,
+  TEXT_INSIDE_TOLERANCE,
+  containTextInSurface,
+  surfaceInnerBox,
+  textInsideSurface,
+} from "@/lib/slate/layout";
 import type { InscribedTextApi } from "./InscribedText";
 import { InscribedText } from "./InscribedText";
 import { TileText } from "./TileText";
@@ -75,9 +81,17 @@ export function WritingRegion({
   const measuredBounds = useRef<TextBounds>({
     left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0,
   });
+  /** Live correction that keeps the text body inside its own surface. */
+  const [shift, setShift] = useState({ x: 0, y: 0 });
 
   const top = height / 2 - pad;
   const left = -width / 2;
+
+  // A fresh body (new question, new line, new text size, new surface) starts
+  // from the surface's own geometry, never from an earlier correction.
+  useEffect(() => {
+    setShift({ x: 0, y: 0 });
+  }, [slotId, text, settings.size, settings.align, surface.id, width, height]);
 
   const syncFromInput = useCallback(() => {
     const el = input.current;
@@ -130,7 +144,7 @@ export function WritingRegion({
       // screen -> camera -> surface -> local text space -> character index
       const local = event.object.worldToLocal(event.point.clone());
       const index = api.current
-        ? api.current.indexAt(local.x - left, local.y - top)
+        ? api.current.indexAt(local.x - (left + shift.x), local.y - (top + shift.y))
         : text.length;
       if (!extend) anchor.current = index;
       const start = Math.min(anchor.current, index);
@@ -140,21 +154,42 @@ export function WritingRegion({
       setCaret(index);
       setSelection(start === end ? null : [start, end]);
     },
-    [left, top],
+    [left, shift.x, shift.y, top],
   );
 
   const report = useCallback(
     (bounds: TextBounds) => {
       const originX = settings.align === "left" ? 0 : settings.align === "right" ? width : width / 2;
       const placed = {
-        left: left + originX + bounds.left,
-        right: left + originX + bounds.right,
-        top: top + bounds.top,
-        bottom: top + bounds.bottom,
+        left: left + originX + bounds.left + shift.x,
+        right: left + originX + bounds.right + shift.x,
+        top: top + bounds.top + shift.y,
+        bottom: top + bounds.bottom + shift.y,
         width: bounds.width,
         height: bounds.height,
       };
       measuredBounds.current = placed;
+      // TEXT-IN-SURFACE. The surface is the boundary: a body that reports
+      // itself outside is corrected to the nearest valid place inside, every
+      // time it is created, loaded, reopened or played.
+      //
+      // Raised letters stand above the typographic box (ascenders, bevel and
+      // extrusion), so the body is inflated a little before it is compared
+      // with the surface. That keeps the physical glyph inside the material.
+      const relief = Math.max(0.02, placed.height * 0.2);
+      const body = {
+        left: placed.left,
+        right: placed.right,
+        top: placed.top + relief,
+        bottom: placed.bottom,
+      };
+      const inner = surfaceInnerBox(width, height, pad);
+      if (!textInsideSurface(body, inner)) {
+        const { dx, dy } = containTextInSurface(body, inner);
+        if (Math.abs(dx) > TEXT_INSIDE_TOLERANCE || Math.abs(dy) > TEXT_INSIDE_TOLERANCE) {
+          setShift((previous) => ({ x: previous.x + dx, y: previous.y + dy }));
+        }
+      }
       onMeasure(placed);
       onReport?.({
         slotId,
@@ -162,14 +197,14 @@ export function WritingRegion({
         lines: text.split("\n"),
         cursorPosition: caret ?? 0,
         selection,
-        position: { x: left, y: top, z },
+        position: { x: left + shift.x, y: top + shift.y, z },
         width,
         height: placed.height,
         material: surface.id,
         style: settings.style,
       });
     },
-    [caret, left, onMeasure, onReport, selection, settings.align, settings.style, slotId, surface.id, text, top, width, z],
+    [caret, height, left, onMeasure, onReport, pad, selection, settings.align, settings.style, shift.x, shift.y, slotId, surface.id, text, top, width, z],
   );
 
   const show = text || (!editable ? "" : "");
@@ -212,7 +247,7 @@ export function WritingRegion({
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      <group position={[left, top, z + 0.004]}>
+      <group position={[left + shift.x, top + shift.y, z + 0.004]}>
         {surfaceTest ? (
           <InscribedText
             apiRef={api}
