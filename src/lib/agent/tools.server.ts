@@ -6,7 +6,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { AGENT_TOOL_MANIFEST, findAgentTool, type AgentToolResult } from "./toolTypes";
+import { AGENT_TOOL_MANIFEST, findAgentTool, type AgentJson, type AgentToolResult } from "./toolTypes";
 
 type Db = SupabaseClient<never, "public", never>;
 // The agent bridge writes through loosely typed payloads; generated types stay
@@ -54,7 +54,7 @@ const BLOCK_KINDS = ["problem", "solution", "reasoning", "text"] as const;
 
 const classCode = () => `CLS-${Math.floor(1000 + Math.random() * 9000)}`;
 
-type Executor = (ctx: AgentToolContext, args: Args) => Promise<{ data: unknown; summary: string; navigateTo?: string }>;
+type Executor = (ctx: AgentToolContext, args: Args) => Promise<{ data: AgentJson; summary: string; navigateTo?: string }>;
 
 const executors: Record<string, Executor> = {
   workspace_snapshot: async ({ supabase, userId }) => {

@@ -196,6 +196,14 @@ export function agentManifestPrompt(): string {
   }).join("\n");
 }
 
+export type AgentJson =
+  | string
+  | number
+  | boolean
+  | null
+  | AgentJson[]
+  | { [key: string]: AgentJson };
+
 export type AgentToolResult =
-  | { ok: true; toolId: string; data: unknown; summary: string; navigateTo?: string }
+  | { ok: true; toolId: string; data: AgentJson; summary: string; navigateTo?: string }
   | { ok: false; toolId: string; error: string };
