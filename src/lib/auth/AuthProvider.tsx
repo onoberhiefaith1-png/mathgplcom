@@ -72,6 +72,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     let restored = false;
+    // The whole platform waits behind this flag, so it must always flip. If
+    // session restoration is slow or stalls, the app opens signed-out rather
+    // than sitting on a loading screen; a late session still arrives through
+    // onAuthStateChange and the screen updates itself.
+    const guard = setTimeout(() => {
+      if (active && !restored) {
+        console.warn("[auth] session restoration slow — opening the app");
+        setReady(true);
+      }
+    }, 4_000);
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       if (!active) return;
       restored = true;
