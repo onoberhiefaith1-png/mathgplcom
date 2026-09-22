@@ -7,7 +7,7 @@
 // This module only describes and normalises the teacher's choices. Playback
 // lives in `gameSound.ts`; nothing here ever touches mathematics or rewards.
 
-import type { GameSoundSettings, RewardSoundKey, SoundSlot } from "./types";
+import type { GameSoundSettings, RewardSoundKey, SoundSlot, SoundSource } from "./types";
 
 /** Every reward family that can carry its own sound. */
 export const REWARD_SOUND_KEYS: RewardSoundKey[] = [
@@ -58,7 +58,7 @@ const clampVolume = (value: unknown, fallback: number): number => {
 
 const normalizeSlot = (slot: unknown, fallbackVolume: number): SoundSlot => {
   const raw = (slot ?? {}) as Partial<SoundSlot>;
-  const source = raw.ref?.source === "builtin" || raw.ref?.source === "official" ? raw.ref.source : "user";
+  const source: SoundSource = raw.ref?.source === "builtin" || raw.ref?.source === "official" ? raw.ref.source : "user";
   const ref = raw.ref && typeof raw.ref.path === "string" && raw.ref.path
     ? {
         source,
