@@ -51,6 +51,9 @@ interface Props {
   /** Measured phone chrome insets used to keep the movable pad in the canvas. */
   topInsetPx?: number;
   bottomInsetPx?: number;
+  /** Hide the up/down keys. Used inside a Game, where the Game Lines own line
+   *  navigation and the pad only walks the sensor along the line. */
+  horizontalOnly?: boolean;
 }
 
 const HOLD_DELAY_MS = 350;
@@ -68,6 +71,7 @@ export const SensorDPad = ({
   touchLayout = false,
   topInsetPx = 0,
   bottomInsetPx = 0,
+  horizontalOnly = false,
 }: Props) => {
   const sbRoot = useSmartboardRoot();
   const holdRef = useRef<{ timer: number | null; interval: number | null }>({ timer: null, interval: null });
@@ -207,6 +211,7 @@ export const SensorDPad = ({
     <div
       ref={wrapRef}
       data-sb-chrome
+      data-sb-sensor-dpad
       aria-label="Sensor controller"
       className="absolute z-40"
       style={{
@@ -224,15 +229,19 @@ export const SensorDPad = ({
         className="grid gap-1"
         style={{
           gridTemplateColumns: "40px 40px 40px",
-          gridTemplateRows: "40px 40px 40px",
+          gridTemplateRows: horizontalOnly ? "40px" : "40px 40px 40px",
           background: "transparent",
         }}
       >
-        <div />
-        <div className="grid place-items-center">
-          {btn(canUp, onUp, <Triangle dir="up" color={ink ?? chromeFg} />, "Sensor up")}
-        </div>
-        <div />
+        {!horizontalOnly && (
+          <>
+            <div />
+            <div className="grid place-items-center">
+              {btn(canUp, onUp, <Triangle dir="up" color={ink ?? chromeFg} />, "Sensor up")}
+            </div>
+            <div />
+          </>
+        )}
         <div className="grid place-items-center">
           {btn(canLeft, onLeft, <Triangle dir="left" color={ink ?? chromeFg} />, "Sensor left")}
         </div>
@@ -294,11 +303,15 @@ export const SensorDPad = ({
         <div className="grid place-items-center">
           {btn(canRight, onRight, <Triangle dir="right" color={ink ?? chromeFg} />, "Sensor right")}
         </div>
-        <div />
-        <div className="grid place-items-center">
-          {btn(canDown, onDown, <Triangle dir="down" color={ink ?? chromeFg} />, "Sensor down")}
-        </div>
-        <div />
+        {!horizontalOnly && (
+          <>
+            <div />
+            <div className="grid place-items-center">
+              {btn(canDown, onDown, <Triangle dir="down" color={ink ?? chromeFg} />, "Sensor down")}
+            </div>
+            <div />
+          </>
+        )}
       </div>
     </div>
   );

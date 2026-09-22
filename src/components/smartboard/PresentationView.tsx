@@ -134,6 +134,7 @@ import {
 } from "@/lib/smartboard/boardWriter/floatingChannel";
 import { noteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
+import { rowToGameMirror } from "@/lib/smartboard/rowCaret";
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
@@ -413,6 +414,7 @@ const PresentationView = ({
   activeLine = null,
   onActiveLineChange,
   onLineText,
+  onLineDisplayText,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -504,8 +506,12 @@ const PresentationView = ({
   activeLine?: number | null;
   /** Reports a 1-based Game Line selected by the existing panel controls. */
   onActiveLineChange?: (line: number) => void;
-  /** Live per-line working, 0-based line index → plain text. */
+  /** Live per-line working, 0-based line index → plain text. Mathematical
+   *  consumers (Vault matching, marking) read this: it is never decorated. */
   onLineText?: (texts: Record<number, string>) => void;
+  /** The same working for DISPLAY only, with the sensor mark and placeholder
+   *  boxes the Smartboard shows. Never used for mathematics. */
+  onLineDisplayText?: (texts: Record<number, string>) => void;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -3577,26 +3583,45 @@ const PresentationView = ({
 
   // LIVE WORKING → GAME SLATE. Report each line's plain working so the Game
   // can engrave it on the matching physical Game Line as the student writes.
+  //
+  // TWO mirrors, one source of truth:
+  //   • onLineText — the plain mathematics. Vault matching, marking and every
+  //     other mathematical consumer read this, so it carries NO decoration.
+  //   • onLineDisplayText — the same working with the two read-only reading
+  //     marks the Smartboard shows: the sensor, and a placeholder box for an
+  //     empty bracket / fraction / exponent slot. Display only.
+  const sensorRow = Math.floor(sensor.line);
   useEffect(() => {
-    if (!onLineText) return;
-    const byLine: Record<number, string[]> = {};
+    if (!onLineText && !onLineDisplayText) return;
+    const plainByLine: Record<number, string[]> = {};
+    const shownByLine: Record<number, string[]> = {};
+    const flattenRow = (row: Row | undefined): string =>
+      !row || row.length === 0 ? "" : rowToAscii(row);
+    const decorateRow = (row: Row | undefined, rowKey: number): string => {
+      if (!row || row.length === 0) return "";
+      const onSensorRow = rowKey === sensor.line || rowKey === sensorRow;
+      return rowToGameMirror(row, onSensorRow ? cursor : null);
+    };
     for (const [rowKey, owner] of Object.entries(rowOwners)) {
       const row = Number(rowKey);
       if (!Number.isFinite(row)) continue;
-      const whole = freeLines[row];
-      const half = freeLines[row + 0.5];
-      const text =
-        (whole && whole.length > 0 ? rowToAscii(whole) : "") +
-        (half && half.length > 0 ? rowToAscii(half) : "");
-      if (!text.trim()) continue;
-      (byLine[owner] ??= []).push(text);
+      const plain = flattenRow(freeLines[row]) + flattenRow(freeLines[row + 0.5]);
+      if (!plain.trim()) continue;
+      (plainByLine[owner] ??= []).push(plain);
+      (shownByLine[owner] ??= []).push(
+        decorateRow(freeLines[row], row) + decorateRow(freeLines[row + 0.5], row + 0.5),
+      );
     }
-    const out: Record<number, string> = {};
-    for (const [line, parts] of Object.entries(byLine)) {
-      out[Number(line)] = parts.join(" ").replace(/\s+/g, " ").trim();
-    }
-    onLineText(out);
-  }, [onLineText, rowOwners, freeLines]);
+    const collapse = (source: Record<number, string[]>): Record<number, string> => {
+      const out: Record<number, string> = {};
+      for (const [line, parts] of Object.entries(source)) {
+        out[Number(line)] = parts.join(" ").replace(/\s+/g, " ").trim();
+      }
+      return out;
+    };
+    onLineText?.(collapse(plainByLine));
+    onLineDisplayText?.(collapse(shownByLine));
+  }, [onLineText, onLineDisplayText, rowOwners, freeLines, cursor, sensor.line, sensorRow]);
   useEffect(() => {
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);
@@ -8136,9 +8161,12 @@ const PresentationView = ({
 
 
       {/* Permanent Sensor Controller (D-pad). Visible whenever the
-          Floating Number workspace is active. Only moves the sensor. */}
-      {/* No sensor pad in a Game: Game Lines own line navigation. */}
-      {canEdit && solvingMode && !gameChrome && (
+          Floating Number workspace is active. Only moves the sensor.
+          Inside a Game only ◀ ▶ are shown: they walk the sensor through the
+          line — into an empty bracket, fraction or exponent slot and back out
+          again, exactly as on the Smartboard — while the Game Lines keep
+          owning which line is active. */}
+      {canEdit && solvingMode && (
         <SensorDPad
           onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
           onDown={() => { nudgeCursor(1); revealLeftTools(); }}
@@ -8152,8 +8180,9 @@ const PresentationView = ({
           canDown={canCursorDown}
           canLeft={canCursorLeft}
           canRight={canCursorRight}
-          bottomPx={16}
+          bottomPx={gameChrome ? 96 : 16}
           touchLayout={touchLayout}
+          horizontalOnly={gameChrome}
           topInsetPx={mobileStudent ? mobileChromeH + 12 : 0}
           bottomInsetPx={phoneLayout ? (floatingBox?.height ?? 48) + 8 : 0}
         />
@@ -8468,16 +8497,16 @@ const PresentationView = ({
       )}
 
       {/* GAME CHROME. Inside a Game the physical Game Slate IS the board, so
-          everything except the Floating Numbers control panel is hidden.
-          `visibility` keeps the board mounted and its geometry intact (the
-          sensor, rows and marking all still work) while removing it from
-          sight and from pointer interaction. */}
+          everything except the Floating Numbers control panel and the sensor
+          controller is hidden. `visibility` keeps the board mounted and its
+          geometry intact (the sensor, rows and marking all still work) while
+          removing it from sight and from pointer interaction. */}
       {gameChrome && (
         <style>{`
           #sb-root{background:transparent !important;}
           #sb-root, #sb-root *{visibility:hidden !important;pointer-events:none !important;}
           #sb-root [data-floating-halo], #sb-root [data-floating-halo] *{visibility:visible !important;pointer-events:auto !important;}
-          #sb-root [data-sb-sensor-dpad]{display:none !important;}
+          #sb-root [data-sb-sensor-dpad], #sb-root [data-sb-sensor-dpad] *{visibility:visible !important;pointer-events:auto !important;}
           #sb-root [data-board-chrome="top"]{display:none !important;}
         `}</style>
       )}
