@@ -4,11 +4,14 @@ import {
   buildLayout,
   gameEstimatedTextWidth,
   gameEstimatedTextHeight,
+  gameBandPosition,
+  gameBandTravel,
   gameInnerWritingWidth,
   gameSafeWritingWidth,
   gameSurfaceBox,
   gameSurfaceWidth,
   gameWritingWidth,
+  gameWritingBand,
 } from "../layout";
 import { makeSlot } from "../defaults";
 import type { Slot } from "../types";
@@ -25,6 +28,21 @@ describe("Game writing-surface layout", () => {
   it("uses the same pillar-safe writing span in Edit and Play", () => {
     expect(gameSafeWritingWidth(20)).toBeCloseTo(18);
     expect(gameSafeWritingWidth(20, 7.4)).toBeCloseTo(7.4);
+  });
+
+  it("uses one canonical 5%-95% band for every attached object", () => {
+    const band = gameWritingBand(20);
+    expect(band).toEqual({ width: 18, left: -9, right: 9, centre: 0 });
+    expect(gameBandPosition(0, band, 1)).toBe(-8.5);
+    expect(gameBandPosition(100, band, 1)).toBe(8.5);
+    expect(gameBandPosition(50, band, 1)).toBe(0);
+  });
+
+  it("stops a moving reward before its visible edge leaves the band", () => {
+    const band = gameWritingBand(10);
+    const origin = gameBandPosition(20, band, 1);
+    expect(gameBandTravel(origin, 1, band, 1)).toBeCloseTo(6.7);
+    expect(origin + gameBandTravel(origin, 1, band, 1) + 0.5).toBeCloseTo(band.right);
   });
 
   it("grows every surface with its own content up to the writing-band maximum", () => {
@@ -135,11 +153,10 @@ describe("Game writing-surface layout", () => {
       text: "A teacher-authored line that grows from the safe left edge",
       fontSize: 96,
       writingWidth: 4.8,
-      readOnlyWriting: true,
       inset: 0.4,
-    } as const;
-    const playBox = gameSurfaceBox(input);
-    const editBox = gameSurfaceBox(input);
+    };
+    const playBox = gameSurfaceBox({ ...input, readOnlyWriting: true });
+    const editBox = gameSurfaceBox({ ...input, readOnlyWriting: false });
 
     expect(editBox).toEqual(playBox);
     expect(editBox.surfaceWidth).toBeLessThanOrEqual(input.writingWidth);

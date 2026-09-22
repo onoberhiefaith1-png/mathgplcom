@@ -1788,15 +1788,18 @@ const PresentationView = ({
       activeSensorPhysicalLineRef.current = t;
       requestAnimationFrame(() => scrollBoardToRow(t));
     }
-    setFreeLines((prev) => {
-      const row = prev[writeLine] ?? [];
-      const res = fn(row, relocated ? { path: [], index: 0 } : cursorRef.current);
-      setLiveCursor(res.cursor);
-      const next = { ...prev };
-      if (res.root.length === 0) delete next[writeLine];
-      else next[writeLine] = res.root;
-      return next;
-    });
+    // Resolve one complete edit from the live snapshot, then publish both
+    // state changes separately. Calling setLiveCursor from inside a
+    // setFreeLines updater caused nested React updates under rapid input.
+    const previous = freeLinesRef.current;
+    const row = previous[writeLine] ?? [];
+    const res = fn(row, relocated ? { path: [], index: 0 } : cursorRef.current);
+    const next = { ...previous };
+    if (res.root.length === 0) delete next[writeLine];
+    else next[writeLine] = res.root;
+    freeLinesRef.current = next;
+    setFreeLines(next);
+    setLiveCursor(res.cursor);
     focusCapture();
   };
 

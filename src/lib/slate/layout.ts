@@ -40,6 +40,50 @@ export const gameSafeWritingWidth = (
   roomSafeWidth = Infinity,
 ) => Math.min(gameWritingWidth(visibleWorldWidth), roomSafeWidth);
 
+/**
+ * The one horizontal coordinate system used by Game surfaces, text, hit areas,
+ * rewards and their travel. It is centred on the fixed camera axis; room
+ * projection may narrow it, but no child is allowed to invent another span.
+ */
+export interface GameWritingBand {
+  width: number;
+  left: number;
+  right: number;
+  centre: number;
+}
+
+export const gameWritingBand = (
+  visibleWorldWidth: number,
+  roomSafeWidth = Infinity,
+): GameWritingBand => {
+  const width = gameSafeWritingWidth(visibleWorldWidth, roomSafeWidth);
+  return { width, left: -width / 2, right: width / 2, centre: 0 };
+};
+
+/** Places a percentage-positioned object's complete visible body in the band. */
+export const gameBandPosition = (
+  percent: number,
+  band: GameWritingBand,
+  visualWidth = 0,
+) => {
+  const half = Math.min(band.width / 2, Math.max(0, visualWidth) / 2);
+  const requested = band.left + (Math.min(100, Math.max(0, percent)) / 100) * band.width;
+  return Math.min(band.right - half, Math.max(band.left + half, requested));
+};
+
+/** Maximum travel before a moving object's visible edge reaches the band. */
+export const gameBandTravel = (
+  origin: number,
+  direction: number,
+  band: GameWritingBand,
+  visualWidth = 0,
+) => {
+  const half = Math.min(band.width / 2, Math.max(0, visualWidth) / 2);
+  return direction >= 0
+    ? Math.max(0, band.right - half - origin)
+    : Math.max(0, origin - (band.left + half));
+};
+
 /** Inner text width after reserving the physical surface's left/right padding. */
 export const gameInnerWritingWidth = (
   surfaceMaxWidth: number,
@@ -140,12 +184,12 @@ export const gameSurfaceBox = ({
     estimatedTextWidth + padX * 2,
     Math.max(0, measuredWidth) + padX * 2,
   );
-  const surfaceWidth = readOnlyWriting
-    ? gameSurfaceWidth(writingWidth, contentSurfaceWidth)
-    : Math.min(SLATE_W, contentSurfaceWidth);
-  const innerWritingWidth = readOnlyWriting
-    ? gameInnerWritingWidth(surfaceWidth, padX)
-    : writingWidth;
+  // Edit and Play are deliberately identical here. `readOnlyWriting` remains
+  // in the input for saved-call compatibility, but can never open a second,
+  // screen-wide text box that escapes the physical surface.
+  void readOnlyWriting;
+  const surfaceWidth = gameSurfaceWidth(writingWidth, contentSurfaceWidth);
+  const innerWritingWidth = gameInnerWritingWidth(surfaceWidth, padX);
   const estimatedTextHeight = gameEstimatedTextHeight(
     content,
     fontSize,

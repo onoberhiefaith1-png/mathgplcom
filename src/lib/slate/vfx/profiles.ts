@@ -188,7 +188,12 @@ const compressDip = (k: number) => {
  * source of truth for "the reward is the actor inside its effect".
  */
 
-export const objectMotion = (c: Choreography, t: number, direction = 1): ObjectMotion => {
+export const objectMotion = (
+  c: Choreography,
+  t: number,
+  direction = 1,
+  travelSpan?: number,
+): ObjectMotion => {
   const reveal = clamp01(t / Math.max(0.0001, c.reveal));
   const anticipation = clamp01((t - c.reveal) / Math.max(0.0001, c.anticipation - c.reveal));
   const transform = clamp01((t - c.anticipation) / Math.max(0.0001, c.transform - c.anticipation));
@@ -209,7 +214,7 @@ export const objectMotion = (c: Choreography, t: number, direction = 1): ObjectM
   let y = 0;
   if (c.travel) {
     const k = easeIn(transform);
-    const dist = c.travel.span * k * direction;
+    const dist = Math.min(c.travel.span, Math.max(0, travelSpan ?? c.travel.span)) * k * direction;
     if (c.travel.axis === "x") x = dist;
     else y = dist;
   }
