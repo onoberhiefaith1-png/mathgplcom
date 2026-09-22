@@ -340,7 +340,7 @@ function RewardObject({
 
     // its own light spills onto the surface around it
     if (aura.current) {
-      aura.current.intensity = motion ? 26 * motion.emission * (effect?.power ?? 1) : 0;
+      aura.current.intensity = motion ? 26 * motion.emission * (effect?.power ?? 1) * opacity : 0;
     }
 
     // hourglass: the sand falls as its stored time runs down
