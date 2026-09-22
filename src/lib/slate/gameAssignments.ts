@@ -173,9 +173,15 @@ export interface GameSummary {
   totalMarks: number;
 }
 
-/** Live question count and mark total for a Game, from Floating Numbers. */
-export const summariseGame = async (gameId: string): Promise<GameSummary> => {
-  const questions = await listGameQuestions(gameId);
+/**
+ * Live question count and mark total for ONE playable instance, from Floating
+ * Numbers. `classId` omitted → the Game's own unscoped pool.
+ */
+export const summariseGame = async (
+  gameId: string,
+  classId?: string | null,
+): Promise<GameSummary> => {
+  const questions = await listGameQuestions(gameId, classId);
   return {
     questions,
     questionCount: questions.length,
