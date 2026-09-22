@@ -135,6 +135,7 @@ import {
 import { noteForLine, noteObjectsForLine } from "@/lib/smartboard/boardWriter/noteSource";
 import { rowToAscii, rowHasVisibleInk, equationsMatch, equationsEquivalent } from "@/lib/smartboard/rowAscii";
 import { rowToGameMirror } from "@/lib/smartboard/rowCaret";
+import { canGameMoveVertical, gameMoveVertical } from "@/lib/smartboard/gameSensor";
 import { type LineBulb } from "./LineStatusRail";
 import { SmartLineLayer, type SmartLine, newSmartLine } from "./SmartLineLayer";
 import { BoxLayer, type MagnetBox, newMagnetBox } from "./BoxLayer";
@@ -2866,6 +2867,22 @@ const PresentationView = ({
   // caret through the equation (into and out of fractions, radicals,
   // powers…) instead of shifting the row offset, so the sensor can never be
   // trapped inside a structure slot.
+  /* GAME SENSOR — inside a Game the pad's ▲ ▼ are pure in-line navigation:
+     they enter an exponent / subscript / fraction slot that really exists at
+     the sensor, step between the slots of the structure it is inside, and step
+     back out onto the baseline. They never change Game Line, question or
+     level, so they are dimmed whenever the maths offers no destination. */
+  const gameSensorRow = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+  const gameVertical = useCallback((dir: -1 | 1) => {
+    const row = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
+    const next = gameMoveVertical(row, cursorRef.current, dir);
+    if (!next) return;
+    setLiveCursor(next);
+    focusCapture();
+  }, [freeLines, sensor.line, setLiveCursor, focusCapture]);
+  const canGameUp = gameChrome && canGameMoveVertical(gameSensorRow, cursor, -1);
+  const canGameDown = gameChrome && canGameMoveVertical(gameSensorRow, cursor, 1);
+
   const canCursorLeft = (() => {
     if (notebookRowLines.has(Math.floor(sensor.line))) return false;
     const rowInk = freeLines[sensor.line] ?? freeLines[Math.floor(sensor.line)] ?? [];
@@ -8168,21 +8185,20 @@ const PresentationView = ({
           owning which line is active. */}
       {canEdit && solvingMode && (
         <SensorDPad
-          onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
-          onDown={() => { nudgeCursor(1); revealLeftTools(); }}
+          onUp={() => { gameChrome ? gameVertical(-1) : nudgeCursor(-1); revealLeftTools(); }}
+          onDown={() => { gameChrome ? gameVertical(1) : nudgeCursor(1); revealLeftTools(); }}
           onLeft={() => { nudgeCursorHoriz(-1); revealLeftTools(); }}
           onRight={() => { nudgeCursorHoriz(1); revealLeftTools(); }}
           chromeBg={palette.chromeBg}
           chromeFg={palette.chromeFg}
           chromeBorder={palette.chromeBorder}
           ink={ink}
-          canUp={canCursorUp}
-          canDown={canCursorDown}
+          canUp={gameChrome ? canGameUp : canCursorUp}
+          canDown={gameChrome ? canGameDown : canCursorDown}
           canLeft={canCursorLeft}
           canRight={canCursorRight}
           bottomPx={gameChrome ? 96 : 16}
           touchLayout={touchLayout}
-          horizontalOnly={gameChrome}
           topInsetPx={mobileStudent ? mobileChromeH + 12 : 0}
           bottomInsetPx={phoneLayout ? (floatingBox?.height ?? 48) + 8 : 0}
         />
