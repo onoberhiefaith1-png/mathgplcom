@@ -154,6 +154,37 @@ export interface GameSurfaceBox {
   surfaceHeight: number;
 }
 
+export interface WritingSurfaceFrame extends GameSurfaceBox {
+  slotId: string;
+  x: number;
+  outerLeft: number;
+  outerRight: number;
+  innerLeft: number;
+  innerRight: number;
+  innerTop: number;
+  innerBottom: number;
+}
+
+/** One authoritative frame consumed by panel, text, pointer bed and diagnostics. */
+export const writingSurfaceFrame = (
+  slotId: string,
+  box: GameSurfaceBox,
+  band: GameWritingBand,
+): WritingSurfaceFrame => {
+  const x = band.left + box.surfaceWidth / 2;
+  return {
+    ...box,
+    slotId,
+    x,
+    outerLeft: band.left,
+    outerRight: band.left + box.surfaceWidth,
+    innerLeft: band.left + box.padX,
+    innerRight: band.left + box.surfaceWidth - box.padX,
+    innerTop: box.surfaceHeight / 2 - box.padY,
+    innerBottom: -box.surfaceHeight / 2 + box.padY,
+  };
+};
+
 /**
  * One calculation for the physical panel and its local writing box. The same
  * result is used for rendering and layout, so a growing panel cannot visually

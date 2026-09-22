@@ -12,6 +12,7 @@ import {
   gameSurfaceWidth,
   gameWritingWidth,
   gameWritingBand,
+  writingSurfaceFrame,
 } from "../layout";
 import { makeSlot } from "../defaults";
 import type { Slot } from "../types";
@@ -160,5 +161,23 @@ describe("Game writing-surface layout", () => {
 
     expect(editBox).toEqual(playBox);
     expect(editBox.surfaceWidth).toBeLessThanOrEqual(input.writingWidth);
+  });
+
+  it("locks panel, text and pointer target to one room-safe frame", () => {
+    const band = gameWritingBand(12, 7.4);
+    const box = gameSurfaceBox({
+      text: "x + 7 = 12",
+      fontSize: 96,
+      writingWidth: band.width,
+      readOnlyWriting: true,
+      inset: 0.42,
+    });
+    const frame = writingSurfaceFrame("line-0", box, band);
+
+    expect(frame.outerLeft).toBe(band.left);
+    expect(frame.x - frame.surfaceWidth / 2).toBe(frame.outerLeft);
+    expect(frame.innerLeft).toBeGreaterThan(frame.outerLeft);
+    expect(frame.innerRight).toBeLessThan(frame.outerRight);
+    expect(frame.innerRight - frame.innerLeft).toBeCloseTo(frame.innerWritingWidth);
   });
 });

@@ -9,6 +9,7 @@ import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { TextBounds, TextSettings } from "@/lib/slate/text3d";
 import { integrationFactor, textRecipe } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
+import { containHorizontalSpan } from "./glyphLayout";
 
 export interface InscribedTextApi {
   /** Local surface coordinates -> character index. */
@@ -52,10 +53,12 @@ export function InscribedText({
   apiRef,
   opacity = 1,
 }: Props) {
+  const writingWidth = width;
   const recipe = textRecipe(surface, settings);
   const main = useRef<TroikaText>(null);
   const caretMesh = useRef<THREE.Mesh>(null);
   const [info, setInfo] = useState<TroikaTextRenderInfo | null>(null);
+  const [containmentX, setContainmentX] = useState(0);
   const measured = useRef({ width: 0, height: 0 });
 
   const fontSize = settings.size / PX_PER_UNIT;
@@ -76,14 +79,16 @@ export function InscribedText({
       const bounds = render.blockBounds;
       const width = Math.abs(bounds[2] - bounds[0]);
       const height = Math.abs(bounds[3] - bounds[1]);
+      const repaired = containHorizontalSpan(bounds[0], bounds[2], writingWidth, settings.align);
+      setContainmentX((current) => Math.abs(current - repaired.shiftX) > 0.001 ? repaired.shiftX : current);
       if (
         Math.abs(height - measured.current.height) > 0.004 ||
         Math.abs(width - measured.current.width) > 0.004
       ) {
         measured.current = { width, height };
         onMeasure({
-          left: bounds[0],
-          right: bounds[2],
+          left: repaired.left,
+          right: repaired.right,
           bottom: bounds[1],
           top: bounds[3],
           width,
@@ -91,7 +96,7 @@ export function InscribedText({
         });
       }
     },
-    [onMeasure],
+    [onMeasure, settings.align, writingWidth],
   );
 
   useImperativeHandle(
@@ -156,7 +161,7 @@ export function InscribedText({
       : [];
 
   return (
-    <group position={[originX, 0, 0]}>
+    <group position={[originX + containmentX, 0, 0]}>
       {/* selection band, physically sitting in the recess */}
       {rects.map((r, i) => (
         <mesh

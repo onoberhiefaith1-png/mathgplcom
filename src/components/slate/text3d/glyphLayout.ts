@@ -84,9 +84,64 @@ export function glyphBoxesInsideWidth(
   width: number,
   align: "left" | "center" | "right",
 ) {
-  const leftEdge = align === "left" ? 0 : align === "right" ? -width : -width / 2;
-  const rightEdge = align === "left" ? width : align === "right" ? 0 : width / 2;
+  const { left: leftEdge, right: rightEdge } = textLocalHorizontalBounds(width, align);
   return boxes.every((box) => box.x - box.w / 2 >= leftEdge - 0.04 && box.x + box.w / 2 <= rightEdge + 0.04);
+}
+
+export interface HorizontalContainment {
+  /** Translation in the renderer's local text coordinates. */
+  shiftX: number;
+  /** False only when the visible glyph span cannot fit at the saved size. */
+  fits: boolean;
+  left: number;
+  right: number;
+}
+
+export function containHorizontalSpan(
+  left: number,
+  right: number,
+  width: number,
+  align: "left" | "center" | "right",
+): HorizontalContainment {
+  const legal = textLocalHorizontalBounds(width, align);
+  const span = Math.max(0, right - left);
+  if (span > legal.right - legal.left + 0.001) {
+    return { shiftX: 0, fits: false, left, right };
+  }
+  let shiftX = 0;
+  if (left < legal.left) shiftX += legal.left - left;
+  if (right + shiftX > legal.right) shiftX -= right + shiftX - legal.right;
+  return { shiftX, fits: true, left: left + shiftX, right: right + shiftX };
+}
+
+/**
+ * Final raised-object guard. Troika's anchor determines the legal local range;
+ * physical glyphs are translated back into that exact range when a font or
+ * alignment reports a shifted caret box. If their span is genuinely too wide,
+ * the caller keeps the physical pass invisible and uses its wrapped safe pass.
+ */
+export function containGlyphBoxes(
+  boxes: GlyphBox[],
+  width: number,
+  align: "left" | "center" | "right",
+): HorizontalContainment {
+  const legal = textLocalHorizontalBounds(width, align);
+  if (boxes.length === 0) return { shiftX: 0, fits: true, ...legal };
+  const left = Math.min(...boxes.map((box) => box.x - box.w / 2));
+  const right = Math.max(...boxes.map((box) => box.x + box.w / 2));
+  return containHorizontalSpan(left, right, width, align);
+}
+
+export function textLocalHorizontalBounds(
+  width: number,
+  align: "left" | "center" | "right",
+) {
+  const safeWidth = Math.max(0.001, width);
+  return align === "left"
+    ? { left: 0, right: safeWidth }
+    : align === "right"
+      ? { left: -safeWidth, right: 0 }
+      : { left: -safeWidth / 2, right: safeWidth / 2 };
 }
 
 export function glyphBoxes(text: string, info: TroikaTextRenderInfo | null): GlyphBox[] {
