@@ -31,10 +31,17 @@ export const getSignedUrl = async (path: string): Promise<string | null> => {
   const now = Date.now();
   if (hit && hit.expires > now + 60_000) return hit.url;
 
+  const gone = missing.get(path);
+  if (gone && gone > now) return null;
+
   const { data, error } = await supabase.storage
     .from(GAME_ASSETS_BUCKET)
     .createSignedUrl(path, SIGN_TTL);
-  if (error || !data?.signedUrl) return null;
+  if (error || !data?.signedUrl) {
+    missing.set(path, now + MISSING_TTL_MS);
+    return null;
+  }
+
 
   cache.set(path, { url: data.signedUrl, expires: now + SIGN_TTL * 1000 });
   return data.signedUrl;
