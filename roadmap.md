@@ -83,6 +83,9 @@
 - [x] Replace rusty/distressed metal writing finishes with clean premium metal and soften excessive material wear.
 - [x] Keep duplicate lighting and animated flame, smoke, ember, and dust work off the room writing path.
 - [x] Lower room-only pixel and shadow cost so Floating Numbers input remains the rendering priority.
+- [x] Make one canonical room-safe writing band own surfaces, text, hit areas, rewards, and collector travel.
+- [x] Remove the Edit sizing bypass so every renderer wraps inside its physical surface.
+- [x] Remove nested writing-state updates that could interrupt rapid input.
 
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.

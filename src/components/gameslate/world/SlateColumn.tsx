@@ -1158,10 +1158,13 @@ export function SlateColumn({
         // energy crosses this band: each eligible reward is claimed on contact
         const centre = sourceRegion ? VIEW_TOP + scroll.current.current - sourceRegion.centre : 0;
         const c = choreography("sweep-horizontal");
+        const def = getReward(reward.type);
+        const visualWidth = 0.42 * rewardSettings.scale * (reward.scale ?? 1) * def.ratio;
+        const origin = gameBandPosition(reward.x, writingBand, visualWidth);
         reachRewards(reward.id, (_x, y) => Math.abs(y - centre) < 0.9, collector, preview, {
           axis: "x",
           direction,
-          span: active[reward.id]?.travelSpan ?? c.travel?.span ?? writingWidth,
+          span: gameBandTravel(origin, direction, writingBand, visualWidth),
           anticipation: c.anticipation,
           transform: c.transform,
         });
@@ -1181,7 +1184,7 @@ export function SlateColumn({
       }
 
     },
-    [active, camera, effects.speed, fire, layout.regions, localOf, onRewardActivate, onRewardConsume, reachRewards, run, scroll, writingWidth],
+    [active, camera, effects.speed, fire, layout.regions, localOf, onRewardActivate, onRewardConsume, reachRewards, rewardSettings.scale, run, scroll, writingBand],
   );
 
   const onPremiumImpact = useCallback((target: PremiumTarget, preview: boolean) => {
@@ -1391,7 +1394,7 @@ export function SlateColumn({
                     const texture = artById[reward.type];
                     if (!texture) return null;
                     const size = 0.42 * rewardSettings.scale * (reward.scale ?? 1);
-                     const rewardWidth = size * getReward(reward.type).ratio;
+                    const rewardWidth = size * getReward(reward.type).ratio;
                     return (
                       <group
                         key={reward.id}
@@ -1475,7 +1478,7 @@ export function SlateColumn({
               setDragging(null);
             }}
           >
-            <planeGeometry args={[SLATE_W * 2, layout.total + 8]} />
+            <planeGeometry args={[writingWidth, layout.total + 8]} />
             <meshBasicMaterial transparent opacity={0} depthWrite={false} />
           </mesh>
         ) : null}
