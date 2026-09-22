@@ -4311,6 +4311,29 @@ const PresentationView = ({
       .slice(target.fragmentStart, target.fragmentEnd)
       .filter(Boolean);
 
+    // Game Play already owns an exact line → row map. Read that map first so
+    // grading uses the same immutable expression that is painted on the Game
+    // surface, rather than the historic overlap guess below. A line may own
+    // several physical rows, including half rows used by structured maths.
+    if (gameChrome) {
+      const ownedRows = Object.entries(rowOwners)
+        .filter(([, owner]) => owner === k)
+        .map(([row]) => Number(row))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+      if (ownedRows.length > 0) {
+        const parts = ownedRows.flatMap((row) => {
+          const whole = freeLines[row];
+          const half = freeLines[row + 0.5];
+          return [
+            whole && whole.length > 0 ? rowToAscii(whole) : "",
+            half && half.length > 0 ? rowToAscii(half) : "",
+          ].filter((part) => part.trim().length > 0);
+        });
+        return { target, expectedFrags, rowNum: ownedRows[0], ascii: parts.join(" ").trim() };
+      }
+    }
+
     const writtenRows = Object.keys(freeLines)
       .map(Number)
       .filter((n) => Number.isInteger(n) && !!freeLines[n] && freeLines[n].length > 0)
@@ -4348,7 +4371,7 @@ const PresentationView = ({
     const row = freeLines[rowNum];
     const ascii = row && row.length > 0 ? rowToAscii(row) : "";
     return { target, expectedFrags, rowNum, ascii };
-  }, [assessmentMode, assessmentId, current, activeLayout, guidedLines, activeReservoir, freeLines, sensor.line]);
+  }, [assessmentMode, assessmentId, current, activeLayout, guidedLines, activeReservoir, freeLines, sensor.line, gameChrome, rowOwners]);
 
   /** Grade one line through the shared equivalence engine.
    *  `mode: "manual"` shows feedback + advances; `mode: "auto"` is silent.
@@ -4822,7 +4845,7 @@ const PresentationView = ({
     resolveGradableLine, current, assessmentId, solvedSlots, activeLineIdx,
     tableGroups, gradeTableTrackThroughCells,
 
-    guidedLines.length, activeLayout, toast, testMode, smartCardSlug, guestSlug, participantKey,
+    guidedLines.length, activeLayout, toast, testMode, smartCardSlug, guestSlug, participantKey, onLineAward,
   ]);
 
   // CHECK IS AN END POINT. Pressing Check closes the active session exactly
