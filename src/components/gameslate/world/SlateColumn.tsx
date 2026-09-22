@@ -1400,7 +1400,7 @@ export function SlateColumn({
                     placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
                     onChange={(text) => onSlotChange(slot.id, { text })}
                     onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
-                    onMeasure={(nextBounds) => measure(slot.id, nextBounds)}
+                    onMeasure={(nextBounds) => measure(slot.id, nextBounds, boundsKey(slot.id, slot.text))}
                   />
                 </Suspense>
               </group>
