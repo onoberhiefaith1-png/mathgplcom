@@ -56,6 +56,7 @@ import {
 } from "@/lib/assessments/studentGrading";
 import { predict, routeMapFor } from "@/lib/predictive/predictiveLine";
 import { buildInstantAward, awardProofExpression } from "@/lib/predictive/instantAward";
+import { completionCandidates, PreClearedLines, MAX_PRECLEAR_CANDIDATES } from "@/lib/predictive/preClear";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
@@ -4193,6 +4194,9 @@ const PresentationView = ({
   /** Lines the shared Predictive Line Engine already proved complete, so the
    *  service answer that follows reconciles instead of awarding twice. */
   const predictiveAwardedRef = useRef<Record<string, boolean>>({});
+  /** Lines the marking service pre-cleared as correct BEFORE the student
+   *  finished writing them, so the mark lands on the finishing keystroke. */
+  const preClearedRef = useRef(new PreClearedLines());
   const seenSlotsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const keys = Object.keys(solvedSlots);
@@ -4521,22 +4525,27 @@ const PresentationView = ({
     const { target, expectedFrags, rowNum } = resolved;
     const ascii = typeof asciiOverride === "string" ? asciiOverride : resolved.ascii;
     if (!ascii.trim() || expectedFrags.length === 0) return false;
-    // The predictive engine can only prove a line when the expected line is
-    // known on this device. In assessment mode the answer key is deliberately
-    // server-side only, so there is nothing local to prove against.
-    const expectedAscii = (target as { equation?: string }).equation?.trim() ?? "";
-    if (!expectedAscii) return false;
     const slotKey = `${current.id}:${target.lineId}`;
     if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) return false;
-    const proof = predict({
-      routeMap: routeMapFor({
-        expectedAscii,
-        atoms: expectedFrags,
-        keyPrefix: `${current.id}:${target.lineId ?? ""}`,
-      }),
-      studentAscii: ascii,
-    });
-    if (!proof.complete) return false;
+    // The predictive engine proves the line locally when the expected line is
+    // known on this device (teacher test play). In assessment mode the answer
+    // key is deliberately server-side only, so the proof instead comes from the
+    // marking service's PRE-CLEARANCE of this exact line, obtained before the
+    // student finished it — see the pre-clearance effect below.
+    const expectedAscii = (target as { equation?: string }).equation?.trim() ?? "";
+    let proved = preClearedRef.current.isCleared(slotKey, ascii);
+    if (!proved) {
+      if (!expectedAscii) return false;
+      proved = predict({
+        routeMap: routeMapFor({
+          expectedAscii,
+          atoms: expectedFrags,
+          keyPrefix: `${current.id}:${target.lineId ?? ""}`,
+        }),
+        studentAscii: ascii,
+      }).complete;
+    }
+    if (!proved) return false;
     predictiveAwardedRef.current[slotKey] = true;
     const awardedNow = Number(target.marks ?? 0);
     awardedExpressionBySlotRef.current[slotKey] = awardProofExpression(ascii);
@@ -4997,6 +5006,59 @@ const PresentationView = ({
     if (!assessmentMode || role !== "student") return;
     awardIfPredictivelyComplete(activeLineIdx);
   }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, awardIfPredictivelyComplete]);
+
+  // PRE-CLEARANCE — the board runs AHEAD of the student. While the line is
+  // still unfinished, the completions its remaining Floating Numbers could
+  // still produce are sent to the marking service, which replies only with the
+  // ones that would be correct. The expected line never leaves the server, and
+  // nothing is written. When the student places the final piece the answer is
+  // already here, so the mark lands instantly instead of waiting for a check.
+  useEffect(() => {
+    if (!assessmentMode || role !== "student") return;
+    if (!current || !assessmentId) return;
+    if (groupForLine(tableGroups, activeLineIdx)) return;
+    const resolved = resolveGradableLine(activeLineIdx);
+    if (!resolved) return;
+    const { target, expectedFrags, ascii } = resolved;
+    if (!ascii.trim() || expectedFrags.length === 0) return;
+    const slotKey = `${current.id}:${target.lineId}`;
+    if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) return;
+    // A board that already knows the expected line proves it locally.
+    if ((target as { equation?: string }).equation?.trim()) return;
+    const candidates = completionCandidates({
+      studentAscii: ascii,
+      atoms: expectedFrags,
+      limit: MAX_PRECLEAR_CANDIDATES,
+    });
+    const ask = preClearedRef.current.unasked(slotKey, candidates);
+    if (ask.length === 0) return;
+    preClearedRef.current.markAsked(slotKey, ask);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data } = await supabase.functions.invoke("grade-line", {
+          body: {
+            assessmentId,
+            questionId: current.id,
+            lineId: target.lineId,
+            candidates: ask,
+            ...(smartCardSlug && participantKey ? { smartCardSlug, participantKey } : {}),
+            ...(guestSlug && participantKey ? { guestSlug, participantKey, guestName } : {}),
+          },
+        });
+        const cleared = (data as { accepted?: string[] } | null)?.accepted ?? [];
+        if (cancelled || cleared.length === 0) return;
+        preClearedRef.current.accept(slotKey, cleared);
+        // The student may already have written one of them.
+        awardIfPredictivelyComplete(activeLineIdx);
+      } catch {
+        // Pre-clearance is an accelerator only: on failure the normal
+        // authoritative check still marks the line.
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, current, assessmentId, solvedSlots, resolveGradableLine, awardIfPredictivelyComplete]);
 
   // Proactive silent auto-check. Each meaningful edit re-arms one very short
   // coalescing window; the latest expression is then checked while the student
@@ -5848,6 +5910,7 @@ const PresentationView = ({
     setLastAwardedExpression(null);
     awardedExpressionBySlotRef.current = {};
     predictiveAwardedRef.current = {};
+    preClearedRef.current.reset();
     setPlaybackResetGeneration((generation) => generation + 1);
 
     await timer.reset();
