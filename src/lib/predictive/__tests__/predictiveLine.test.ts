@@ -95,3 +95,38 @@ describe("predictive line engine", () => {
     expect(provesEquivalent(complex.expected, p.predictive)).toBe(true);
   });
 });
+
+describe("predictive line re-routes from the student's own writing", () => {
+  const atoms = ["x", "+7", "-7", "=", "12", "-7"];
+  const step = buildRouteMap({ expectedAscii: "x + 7 - 7 = 12 - 7", atoms });
+
+  it("starts as the expected line", () => {
+    const p = predict({ routeMap: step, studentAscii: "" });
+    expect(p.predictive.replace(/\s+/g, "")).toBe("x+7-7=12-7");
+  });
+
+  it("stays on the expected route while the student follows it", () => {
+    const p = predict({ routeMap: step, studentAscii: "x + 7 - 7" });
+    expect(p.predictive.replace(/\s+/g, "").startsWith("x+7-7")).toBe(true);
+    expect(provesEquivalent(step.expected, p.predictive)).toBe(true);
+  });
+
+  it("recalculates but keeps the student's writing at the front", () => {
+    const p = predict({ routeMap: step, studentAscii: "12 -7" });
+    expect(p.status).toBe("incomplete");
+    expect(p.predictive.replace(/\s+/g, "").startsWith("12-7")).toBe(true);
+    expect(provesEquivalent(step.expected, p.predictive)).toBe(true);
+  });
+
+  it("keeps re-routing as the student writes more", () => {
+    const p = predict({ routeMap: step, studentAscii: "12 -7 =" });
+    expect(p.predictive.replace(/\s+/g, "").startsWith("12-7=")).toBe(true);
+    expect(provesEquivalent(step.expected, p.predictive)).toBe(true);
+  });
+
+  it("reports a dead end instead of inventing another line", () => {
+    const p = predict({ routeMap: step, studentAscii: "99" });
+    expect(p.status).toBe("no_route");
+    expect(p.predictive).toBe("");
+  });
+});
