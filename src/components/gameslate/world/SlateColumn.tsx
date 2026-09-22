@@ -60,6 +60,7 @@ import {
   gameBandTravel,
   gameSurfaceBox,
   gameWritingBand,
+  writingSurfaceFrame,
 } from "@/lib/slate/layout";
 import type {
   EditorMode,
@@ -1306,9 +1307,10 @@ export function SlateColumn({
           const surfaceWidth = surfaceBox.surfaceWidth;
           const innerWritingWidth = surfaceBox.innerWritingWidth;
           const surfaceHeight = surfaceBox.surfaceHeight;
-          // Edit and Play share the exact safe left edge. In a room,
-          // writingWidth is already the clear span between pillars/posts.
-          const surfaceX = -writingWidth / 2 + surfaceWidth / 2;
+          const frame = writingSurfaceFrame(slot.id, surfaceBox, writingBand);
+          // Edit and Play consume this same immutable frame. No text, pointer
+          // target or panel branch is allowed to invent a second origin.
+          const surfaceX = frame.x;
           const surfaceY = 0;
           const selected =
             selection.kind !== "none" && "slotId" in selection && selection.slotId === slot.id;

@@ -9,6 +9,7 @@ import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { TextBounds, TextSettings } from "@/lib/slate/text3d";
 import { integrationFactor, textRecipe } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
+import { containHorizontalSpan, wrapUnbrokenText } from "./glyphLayout";
 
 export interface InscribedTextApi {
   /** Local surface coordinates -> character index. */
@@ -52,10 +53,13 @@ export function InscribedText({
   apiRef,
   opacity = 1,
 }: Props) {
+  const writingWidth = width;
   const recipe = textRecipe(surface, settings);
   const main = useRef<TroikaText>(null);
   const caretMesh = useRef<THREE.Mesh>(null);
   const [info, setInfo] = useState<TroikaTextRenderInfo | null>(null);
+  const [containmentX, setContainmentX] = useState(0);
+  const [forceWrap, setForceWrap] = useState(false);
   const measured = useRef({ width: 0, height: 0 });
 
   const fontSize = settings.size / PX_PER_UNIT;
@@ -76,14 +80,17 @@ export function InscribedText({
       const bounds = render.blockBounds;
       const width = Math.abs(bounds[2] - bounds[0]);
       const height = Math.abs(bounds[3] - bounds[1]);
+      const repaired = containHorizontalSpan(bounds[0], bounds[2], writingWidth, settings.align);
+      setContainmentX((current) => Math.abs(current - repaired.shiftX) > 0.001 ? repaired.shiftX : current);
+      if (!repaired.fits) setForceWrap(true);
       if (
         Math.abs(height - measured.current.height) > 0.004 ||
         Math.abs(width - measured.current.width) > 0.004
       ) {
         measured.current = { width, height };
         onMeasure({
-          left: bounds[0],
-          right: bounds[2],
+          left: repaired.left,
+          right: repaired.right,
           bottom: bounds[1],
           top: bounds[3],
           width,
@@ -91,7 +98,7 @@ export function InscribedText({
         });
       }
     },
-    [onMeasure],
+    [onMeasure, settings.align, writingWidth],
   );
 
   useImperativeHandle(
@@ -122,6 +129,7 @@ export function InscribedText({
   const anchorX: "left" | "right" | "center" =
     settings.align === "left" ? "left" : settings.align === "right" ? "right" : "center";
   const originX = settings.align === "left" ? 0 : settings.align === "right" ? width : width / 2;
+  const visibleText = forceWrap ? wrapUnbrokenText(text, fontSize, writingWidth) : text;
 
   const shared = {
     font: recipe.font,
@@ -156,7 +164,7 @@ export function InscribedText({
       : [];
 
   return (
-    <group position={[originX, 0, 0]}>
+    <group position={[originX + containmentX, 0, 0]}>
       {/* selection band, physically sitting in the recess */}
       {rects.map((r, i) => (
         <mesh
@@ -188,7 +196,7 @@ export function InscribedText({
         outlineOpacity={0.5 * bind * fade}
         renderOrder={2}
       >
-        {text}
+        {visibleText}
       </Text>
 
       {/* shadow sunk into the cut */}
@@ -200,7 +208,7 @@ export function InscribedText({
           fillOpacity={Math.min(1, 0.85 * settings.shadowStrength) * fade}
           renderOrder={3}
         >
-          {text}
+          {visibleText}
         </Text>
       ) : null}
 
@@ -214,7 +222,7 @@ export function InscribedText({
           fillOpacity={0.55 * fade}
           renderOrder={4 + i}
         >
-          {text}
+          {visibleText}
         </Text>
       ))}
 
@@ -226,20 +234,20 @@ export function InscribedText({
         fillOpacity={Math.min(1, 0.7 * settings.highlight) * fade}
         renderOrder={12}
       >
-        {text}
+        {visibleText}
       </Text>
 
       {/* the letter body: the chosen colour exactly, unlit and untonemapped so
           #000000 is black and a picked red is that red */}
       <Text ref={main} {...shared} position={[0, 0, -0.002]} onSync={onSync} renderOrder={14}>
-        {text}
+        {visibleText}
         <meshBasicMaterial color={recipe.ink} transparent opacity={fade} toneMapped={false} />
       </Text>
 
       {/* a light touch of the real material on top, so the letters still react
           to the room without shifting the chosen colour */}
       <Text {...shared} position={[0, 0, -0.0018]} renderOrder={15}>
-        {text}
+        {visibleText}
         <meshStandardMaterial
           color={recipe.ink}
           roughness={recipe.roughness}
@@ -264,7 +272,7 @@ export function InscribedText({
           outlineOpacity={recipe.glowOpacity * 0.8 * fade}
           renderOrder={16}
         >
-          {text}
+          {visibleText}
         </Text>
       ) : null}
 

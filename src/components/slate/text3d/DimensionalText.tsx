@@ -11,7 +11,7 @@ import { FONTS, getSubstyle } from "@/lib/slate/text3d";
 import { resolveTextStyle } from "@/lib/slate/textPresets";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
 import type { InscribedTextApi } from "./InscribedText";
-import { glyphBoxes, glyphBoxesInsideWidth, visualTextLines } from "./glyphLayout";
+import { containGlyphBoxes, glyphBoxes, visualTextLines } from "./glyphLayout";
 import { ExtrudedExpression } from "./ExtrudedExpression";
 import { HIDDEN_3D_LAYOUT_TEXT } from "./displayMode";
 
@@ -208,7 +208,11 @@ export function DimensionalText({
     [fontSize, info, settings.lineSpacing, text, width],
   );
   const extrusionSettled = !responsive || settledText === text;
-  const drawExtrusion = extrusionSettled && glyphBoxesInsideWidth(boxes, width, settings.align);
+  const containment = useMemo(
+    () => containGlyphBoxes(boxes, width, settings.align),
+    [boxes, settings.align, width],
+  );
+  const drawExtrusion = extrusionSettled && containment.fits && boxes.length > 0;
   const bounds = info?.blockBounds;
   const pivotX = bounds ? (bounds[0] + bounds[2]) / 2 : width / 2;
   const pivotY = bounds ? (bounds[1] + bounds[3]) / 2 : -fontSize / 2;
@@ -239,10 +243,22 @@ export function DimensionalText({
       <group position={[pivotX, pivotY, 0]}>
       <group position={[-pivotX, -pivotY, 0]}>
       {drawExtrusion ? (
-        <ExtrudedExpression boxes={boxes} fontUrl={font} fontSize={fontSize} style={r} opacity={fade} />
+        <group position={[containment.shiftX, 0, 0]}>
+          <ExtrudedExpression boxes={boxes} fontUrl={font} fontSize={fontSize} style={r} opacity={fade} />
+        </group>
       ) : null}
       </group>
       </group>
+
+      {/* FINAL BACKUP. The physical pass is never allowed to escape. While its
+          boxes are absent, stale or wider than the committed writing frame,
+          draw the same wrapped mathematics inside that frame instead. */}
+      {!drawExtrusion && text ? (
+        <Text {...shared} position={[0, 0, 0.003]} renderOrder={18}>
+          {text}
+          <meshBasicMaterial color={r.face} transparent opacity={fade} toneMapped={false} />
+        </Text>
+      ) : null}
       </group>
 
       {rects.map((rect, i) => (

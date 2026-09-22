@@ -10,7 +10,7 @@ import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { TextBounds, TextSettings } from "@/lib/slate/text3d";
 import { FONTS, TILE_PALETTE, classifyGlyph, textRecipe } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
-import { glyphBoxes, glyphBoxesInsideWidth } from "./glyphLayout";
+import { containGlyphBoxes, glyphBoxes } from "./glyphLayout";
 import type { GlyphBox } from "./glyphLayout";
 import type { InscribedTextApi } from "./InscribedText";
 import { HIDDEN_3D_LAYOUT_TEXT } from "./displayMode";
@@ -260,7 +260,11 @@ export function TileText({
 
   const boxes = useMemo(() => glyphBoxes(text, info), [text, info]);
   const tilesSettled = !responsive || settledText === text;
-  const drawTiles = tilesSettled && glyphBoxesInsideWidth(boxes, width, settings.align);
+  const containment = useMemo(
+    () => containGlyphBoxes(boxes, width, settings.align),
+    [boxes, settings.align, width],
+  );
+  const drawTiles = tilesSettled && containment.fits && boxes.length > 0;
 
 
   const anchorX: "left" | "right" | "center" =
@@ -323,16 +327,40 @@ export function TileText({
         </mesh>
       ))}
 
-      {drawTiles ? boxes.map((box) => (
-        <Tile
-          key={box.index}
-          box={box}
-          depth={depth}
+      {drawTiles ? (
+        <group position={[containment.shiftX, 0, 0]}>
+          {boxes.map((box) => (
+            <Tile
+              key={box.index}
+              box={box}
+              depth={depth}
+              font={FONTS.tiles}
+              fade={fade}
+              bounds={{ w: width, h: blockH }}
+            />
+          ))}
+        </group>
+      ) : null}
+
+      {!drawTiles && text ? (
+        <Text
           font={FONTS.tiles}
-          fade={fade}
-          bounds={{ w: width, h: blockH }}
-        />
-      )) : null}
+          fontSize={fontSize}
+          maxWidth={width}
+          lineHeight={settings.lineSpacing}
+          letterSpacing={settings.letterSpacing}
+          textAlign={settings.align}
+          anchorX={anchorX}
+          anchorY="top"
+          whiteSpace="normal"
+          overflowWrap="break-word"
+          position={[0, 0, 0.003]}
+          renderOrder={18}
+        >
+          {text}
+          <meshBasicMaterial color={recipe.ink} transparent opacity={fade} toneMapped={false} />
+        </Text>
+      ) : null}
 
       {caretRect ? (
         <mesh ref={caretMesh} position={[caretRect.x, caretRect.y, depth + 0.01]}>
