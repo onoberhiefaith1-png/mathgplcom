@@ -144,7 +144,7 @@ export function WritingRegion({
       // screen -> camera -> surface -> local text space -> character index
       const local = event.object.worldToLocal(event.point.clone());
       const index = api.current
-        ? api.current.indexAt(local.x - left, local.y - top)
+        ? api.current.indexAt(local.x - (left + shift.x), local.y - (top + shift.y))
         : text.length;
       if (!extend) anchor.current = index;
       const start = Math.min(anchor.current, index);
@@ -154,7 +154,7 @@ export function WritingRegion({
       setCaret(index);
       setSelection(start === end ? null : [start, end]);
     },
-    [left, top],
+    [left, shift.x, shift.y, top],
   );
 
   const report = useCallback(
