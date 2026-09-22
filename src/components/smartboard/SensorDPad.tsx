@@ -54,6 +54,8 @@ interface Props {
   /** Hide the up/down keys. Used inside a Game, where the Game Lines own line
    *  navigation and the pad only walks the sensor along the line. */
   horizontalOnly?: boolean;
+  /** Premium connected control treatment used by the physical Game surface. */
+  gameStyle?: boolean;
 }
 
 const HOLD_DELAY_MS = 350;
@@ -72,6 +74,7 @@ export const SensorDPad = ({
   topInsetPx = 0,
   bottomInsetPx = 0,
   horizontalOnly = false,
+  gameStyle = false,
 }: Props) => {
   const sbRoot = useSmartboardRoot();
   const holdRef = useRef<{ timer: number | null; interval: number | null }>({ timer: null, interval: null });
@@ -192,14 +195,15 @@ export const SensorDPad = ({
       onPointerUp={(e) => { e.stopPropagation(); clearHold(); }}
       onPointerCancel={() => clearHold()}
       onPointerLeave={() => clearHold()}
-      className="grid place-items-center rounded-full transition-all"
+      className="sensor-dpad-key grid place-items-center rounded-full transition-all"
+      data-game-key={gameStyle || undefined}
       style={{
-        width: 40, height: 40,
-        background: `${chromeBg}`,
+        width: gameStyle ? 54 : 40, height: gameStyle ? 54 : 40,
+        background: gameStyle ? undefined : `${chromeBg}`,
         color: chromeFg,
-        border: `1px solid ${chromeBorder}`,
-        boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-        opacity: enabled ? 0.7 : 0.22,
+        border: gameStyle ? undefined : `1px solid ${chromeBorder}`,
+        boxShadow: gameStyle ? undefined : "0 1px 4px rgba(0,0,0,0.08)",
+        opacity: enabled ? (gameStyle ? 1 : 0.7) : (gameStyle ? 0.34 : 0.22),
         cursor: "default",
       }}
     >
@@ -212,6 +216,7 @@ export const SensorDPad = ({
       ref={wrapRef}
       data-sb-chrome
       data-sb-sensor-dpad
+      data-game-style={gameStyle || undefined}
       aria-label="Sensor controller"
       className="absolute z-40"
       style={{
@@ -226,10 +231,12 @@ export const SensorDPad = ({
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div
-        className="grid gap-1"
+        className="sensor-dpad-grid grid gap-1"
         style={{
-          gridTemplateColumns: "40px 40px 40px",
-          gridTemplateRows: horizontalOnly ? "40px" : "40px 40px 40px",
+          gridTemplateColumns: gameStyle ? "54px 54px 54px" : "40px 40px 40px",
+          gridTemplateRows: horizontalOnly
+            ? (gameStyle ? "54px" : "40px")
+            : (gameStyle ? "54px 54px 54px" : "40px 40px 40px"),
           background: "transparent",
         }}
       >
@@ -250,8 +257,8 @@ export const SensorDPad = ({
           tabIndex={-1}
           aria-label="Drag sensor controller"
           title="Drag to move"
-          className="grid place-items-center"
-          style={{ opacity: 0.35, touchAction: "none", cursor: "default" }}
+          className="sensor-dpad-center grid place-items-center"
+          style={{ opacity: gameStyle ? 1 : 0.35, touchAction: "none", cursor: "default" }}
           onPointerDown={(e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -294,9 +301,11 @@ export const SensorDPad = ({
           }}
         >
           <span
+            className="sensor-dpad-mark"
             style={{
-              width: 6, height: 6, borderRadius: "50%",
-              background: ink ?? chromeFg,
+              width: gameStyle ? 22 : 6, height: gameStyle ? 28 : 6,
+              borderRadius: gameStyle ? 3 : "50%",
+              background: gameStyle ? undefined : (ink ?? chromeFg),
             }}
           />
         </div>

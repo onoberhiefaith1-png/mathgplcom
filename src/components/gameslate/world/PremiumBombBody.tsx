@@ -9,6 +9,7 @@ interface Props {
   startedAt?: number;
   speed: number;
   lighting: number;
+  opacity: number;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
@@ -18,7 +19,7 @@ const smooth = (value: number) => {
 };
 
 /** A real, lit spherical reward body. This is never used by the original Bomb. */
-export function PremiumBombBody({ size, active, startedAt = 0, speed, lighting }: Props) {
+export function PremiumBombBody({ size, active, startedAt = 0, speed, lighting, opacity }: Props) {
   const root = useRef<THREE.Group>(null);
   const shell = useRef<THREE.Group>(null);
   const core = useRef<THREE.MeshStandardMaterial>(null);
@@ -45,7 +46,7 @@ export function PremiumBombBody({ size, active, startedAt = 0, speed, lighting }
       : 1.6 - critical * 0.18;
     root.current.scale.setScalar(exploded ? 0.001 : growth);
     root.current.visible = !exploded;
-    if (core.current) core.current.emissiveIntensity = (0.55 + reveal * 0.7 + charge * 2.8) * lighting;
+    if (core.current) core.current.emissiveIntensity = (0.55 + reveal * 0.7 + charge * 2.8) * lighting * opacity;
   });
 
   const r = size * 0.48;
@@ -54,24 +55,24 @@ export function PremiumBombBody({ size, active, startedAt = 0, speed, lighting }
       <group ref={shell}>
         <mesh castShadow receiveShadow>
           <sphereGeometry args={[r, 48, 32]} />
-          <meshPhysicalMaterial color="#101722" metalness={0.86} roughness={0.18} clearcoat={1} clearcoatRoughness={0.1} envMapIntensity={2.2 * lighting} />
+          <meshPhysicalMaterial color="#101722" metalness={0.86} roughness={0.18} clearcoat={1} clearcoatRoughness={0.1} envMapIntensity={2.2 * lighting} transparent opacity={opacity} depthWrite={opacity >= 0.98} />
         </mesh>
         <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
           <torusGeometry args={[r * 0.88, r * 0.105, 12, 64]} />
-          <meshPhysicalMaterial color="#ffc51b" metalness={0.88} roughness={0.16} clearcoat={1} emissive="#8b4e00" emissiveIntensity={0.4} />
+          <meshPhysicalMaterial color="#ffc51b" metalness={0.88} roughness={0.16} clearcoat={1} emissive="#8b4e00" emissiveIntensity={0.4 * opacity} transparent opacity={opacity} depthWrite={opacity >= 0.98} />
         </mesh>
         <mesh rotation={[0, Math.PI / 2, 0]} castShadow>
           <torusGeometry args={[r * 0.88, r * 0.075, 10, 64]} />
-          <meshPhysicalMaterial color="#ffc51b" metalness={0.9} roughness={0.14} clearcoat={1} emissive="#8b4e00" emissiveIntensity={0.35} />
+          <meshPhysicalMaterial color="#ffc51b" metalness={0.9} roughness={0.14} clearcoat={1} emissive="#8b4e00" emissiveIntensity={0.35 * opacity} transparent opacity={opacity} depthWrite={opacity >= 0.98} />
         </mesh>
         <mesh position={[0, 0, r * 0.91]}>
           <octahedronGeometry args={[r * 0.24, 1]} />
-          <meshStandardMaterial ref={core} color="#ffffff" emissive="#36e9ff" emissiveIntensity={0.7} toneMapped={false} />
+          <meshStandardMaterial ref={core} color="#ffffff" emissive="#36e9ff" emissiveIntensity={0.7 * opacity} toneMapped={false} transparent opacity={opacity} depthWrite={opacity >= 0.98} />
         </mesh>
         {[-1, 1].map((side) => (
           <mesh key={side} position={[side * r * 0.54, 0, r * 0.78]} rotation={[0, 0, Math.PI / 2]}>
             <capsuleGeometry args={[r * 0.065, r * 0.28, 5, 10]} />
-            <meshStandardMaterial color="#74f5ff" emissive="#00bfff" emissiveIntensity={2.2} toneMapped={false} />
+            <meshStandardMaterial color="#74f5ff" emissive="#00bfff" emissiveIntensity={2.2 * opacity} toneMapped={false} transparent opacity={opacity} depthWrite={opacity >= 0.98} />
           </mesh>
         ))}
       </group>

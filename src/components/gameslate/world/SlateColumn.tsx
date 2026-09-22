@@ -401,6 +401,7 @@ function RewardObject({
               startedAt={effect?.start ?? 0}
               speed={rate}
               lighting={reward.lighting ?? 1}
+              opacity={reward.hidden ? 0.16 : opacity}
             />
           ) : (
           <mesh ref={sprite} rotation={[0, 0, ((reward.rotation ?? 0) * Math.PI) / 180]}>
