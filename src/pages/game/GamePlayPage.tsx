@@ -194,6 +194,8 @@ const GamePlayPage = () => {
   // The working reaches the slab on the next painted frame — no further
   // deferral layers sit between a tap and the letters appearing.
   const renderedLineText = lineText;
+  /** Only used to decide whether a proved-but-unmarked line is a real fault. */
+  const [awardGrace, setAwardGrace] = useState(false);
 
   /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
    *  There is no second copy of the active line: the world's selection is
@@ -390,6 +392,7 @@ const GamePlayPage = () => {
         })
       : null;
     return buildLineReport({
+      awardGraceElapsed: awardGrace,
       prediction,
       row,
       questionRowId: question.questionRowId,
@@ -409,8 +412,21 @@ const GamePlayPage = () => {
   }, [
     runtime.question, runtime.lines, runtime.currentLine, runtime.completedLines,
     runtime.consumedRewardKeys, runtime.timedLine, renderedLineText, expectedLines, expectedAtoms,
-    verdicts, conversion,
+    verdicts, conversion, awardGrace,
   ]);
+
+  // "Score pending" is an inconsistency warning, not the normal case. A proved
+  // line is marked on the same tick; only if that mark has still not arrived
+  // after this short window is there anything to warn the teacher about.
+  useEffect(() => {
+    if (!lineReport?.predictionComplete || lineReport.scoreAwarded) {
+      setAwardGrace(false);
+      return;
+    }
+    const id = window.setTimeout(() => setAwardGrace(true), 1500);
+    return () => window.clearTimeout(id);
+  }, [lineReport?.predictionComplete, lineReport?.scoreAwarded, lineReport?.line]);
+
 
   // Live activity. Every entry corresponds to a real change in Game state.
   const lastEventRef = useRef({ line: 0, status: "", vaults: -1, completion: -1, timed: -1 });
