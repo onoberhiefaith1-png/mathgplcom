@@ -112,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void restore();
     return () => {
       active = false;
+      clearTimeout(guard);
       sub.subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
