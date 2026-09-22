@@ -8185,21 +8185,20 @@ const PresentationView = ({
           owning which line is active. */}
       {canEdit && solvingMode && (
         <SensorDPad
-          onUp={() => { nudgeCursor(-1); revealLeftTools(); }}
-          onDown={() => { nudgeCursor(1); revealLeftTools(); }}
+          onUp={() => { gameChrome ? gameVertical(-1) : nudgeCursor(-1); revealLeftTools(); }}
+          onDown={() => { gameChrome ? gameVertical(1) : nudgeCursor(1); revealLeftTools(); }}
           onLeft={() => { nudgeCursorHoriz(-1); revealLeftTools(); }}
           onRight={() => { nudgeCursorHoriz(1); revealLeftTools(); }}
           chromeBg={palette.chromeBg}
           chromeFg={palette.chromeFg}
           chromeBorder={palette.chromeBorder}
           ink={ink}
-          canUp={canCursorUp}
-          canDown={canCursorDown}
+          canUp={gameChrome ? canGameUp : canCursorUp}
+          canDown={gameChrome ? canGameDown : canCursorDown}
           canLeft={canCursorLeft}
           canRight={canCursorRight}
           bottomPx={gameChrome ? 96 : 16}
           touchLayout={touchLayout}
-          horizontalOnly={gameChrome}
           topInsetPx={mobileStudent ? mobileChromeH + 12 : 0}
           bottomInsetPx={phoneLayout ? (floatingBox?.height ?? 48) + 8 : 0}
         />
