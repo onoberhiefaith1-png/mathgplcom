@@ -1373,7 +1373,7 @@ export function SlateColumn({
                 />
                 <Suspense
                   fallback={(
-                    <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - (lineBuild.gap + 0.18), PLAY_TEXT_Z]}>
+                    <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - textInset, PLAY_TEXT_Z]}>
                       <PlainText
                         text={slot.text}
                         width={innerWritingWidth}
