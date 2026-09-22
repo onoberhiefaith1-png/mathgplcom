@@ -81,10 +81,11 @@ export const ensureGameBoards = async (params: {
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
 
-  const questions = params.questions ?? (await listGameQuestions(params.gameId));
-  if (questions.length === 0) return [];
-
   const classId = params.classId || (await ensureTestClass(uid));
+  // Questions belong to this Class + Game playable instance only.
+  const questions =
+    params.questions ?? (await listGameQuestions(params.gameId, params.classId ?? null));
+  if (questions.length === 0) return [];
   const out: GameQuestionBoard[] = [];
 
   for (const q of questions) {
@@ -178,7 +179,7 @@ export const loadGameBoards = async (params: {
   gameId: string;
   classId: string;
 }): Promise<GameQuestionBoard[]> => {
-  const questions = await listGameQuestions(params.gameId);
+  const questions = await listGameQuestions(params.gameId, params.classId);
   if (questions.length === 0) return [];
 
   const { data } = await supabase
