@@ -52,16 +52,24 @@ const StudentGamesPage = () => {
                     <p className="text-xs text-muted-foreground">
                       {[g.topic, g.subtopic].filter(Boolean).join(" · ") || "No topic set"}
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      {g.status === "complete"
+                        ? "Completed"
+                        : g.status === "in_progress"
+                          ? `In progress · Level ${g.currentLevel}`
+                          : "Not started"}
+                    </p>
                   </div>
                   <Link
-                    to={`/game/play/${g.gameId}`}
+                    to={`/game/play/${g.gameId}?classId=${g.classId}`}
                     className="rounded border border-border px-3 py-1.5 text-sm hover:bg-accent"
                   >
-                    Play
+                    {g.status === "in_progress" ? "Continue" : "Play"}
                   </Link>
                 </div>
                 <dl className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                  <div><dt className="inline">Questions: </dt><dd className="inline text-foreground">{g.completedQuestions} / {g.questionCount}</dd></div>
+                  <div><dt className="inline">Level: </dt><dd className="inline text-foreground">{Math.min(g.currentLevel, Math.max(1, g.questionCount))} / {g.questionCount}</dd></div>
+                  <div><dt className="inline">Levels done: </dt><dd className="inline text-foreground">{g.completedQuestions} / {g.questionCount}</dd></div>
                   <div><dt className="inline">Marks: </dt><dd className="inline text-foreground">{g.earnedMarks} / {g.totalMarks}</dd></div>
                   <div><dt className="inline">Pass mark: </dt><dd className="inline text-foreground">{g.passPercentage}%</dd></div>
                   <div><dt className="inline">Score: </dt><dd className="inline text-foreground">{percent}%</dd></div>
