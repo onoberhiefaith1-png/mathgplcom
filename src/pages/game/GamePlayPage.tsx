@@ -15,11 +15,16 @@
 // shown. Nothing mathematical is re-implemented here.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "@/lib/router-compat";
-import { ArrowLeft, Heart, Hourglass, RotateCcw } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
+import { ArrowLeft, Heart, Hourglass, ListOrdered, Map, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGame } from "@/lib/slate/storage";
-import { loadGameAssignmentState } from "@/lib/slate/gameAssignments";
+import {
+  listGameClasses,
+  loadGameAssignmentState,
+  type GameAssignment,
+  type GameClassOption,
+} from "@/lib/slate/gameAssignments";
 import { ensureGameBoards, loadGameBoards, type GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { ensureTestClass } from "@/lib/floating/testBoard";
 import { patternLengthOf } from "@/lib/slate/pattern";
@@ -40,6 +45,9 @@ import { getReward, rewardMayFire } from "@/lib/slate/rewards";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { GAME_STARTUP_DEADLINE_MS } from "@/lib/game/runtime/startup";
 import { GameEvaluationPanel } from "@/components/gameslate/GameEvaluationPanel";
+import GameLevelMap, { type LevelMapNode } from "@/components/gameslate/GameLevelMap";
+import LevelArrangeDialog from "@/components/gameslate/LevelArrangeDialog";
+import SelectClassDialog from "@/components/gameslate/SelectClassDialog";
 import { predict, routeMapFor } from "@/lib/predictive/predictiveLine";
 import {
   appendEvent,
@@ -55,6 +63,9 @@ import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 
 const GamePlayPage = () => {
   const { gameId } = useParams<{ gameId: string }>();
+  const [searchParams] = useSearchParams();
+  // Guest links and Autoplay carry the instance they mean.
+  const requestedClassId = searchParams.get("classId");
   const navigate = useNavigate();
   const [game, setGame] = useState<Game | null>(null);
   const [boards, setBoards] = useState<GameQuestionBoard[]>([]);
@@ -62,6 +73,13 @@ const GamePlayPage = () => {
   const [classId, setClassId] = useState<string | null>(null);
   const [assignmentId, setAssignmentId] = useState<string | null>(null);
   const [testMode, setTestMode] = useState(false);
+  const [assignment, setAssignment] = useState<GameAssignment | null>(null);
+  /** Owner with several classes: which playable instance to open. */
+  const [classChoices, setClassChoices] = useState<GameClassOption[]>([]);
+  const [chosenClassId, setChosenClassId] = useState<string | null>(requestedClassId);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [arrangeOpen, setArrangeOpen] = useState(false);
+  const [boardsEpoch, setBoardsEpoch] = useState(0);
   const [loading, setLoading] = useState(true);
   const [worldReady, setWorldReady] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(10);
@@ -153,17 +171,48 @@ const GamePlayPage = () => {
 
       try {
         if (isOwner) {
-          // Teacher Play / Test: the same runtime, nothing recorded.
-          const testClass = await ensureTestClass(userId);
-          const built = await ensureGameBoards({ gameId, classId: testClass });
+          const byClass = await loadGameAssignmentState(gameId);
+          const classes = await listGameClasses(gameId);
           if (cancelled) return;
+          setClassChoices(classes);
+          // CLASS + GAME is the playable instance. With more than one class and
+          // no choice yet, the teacher picks before anything is compiled.
+          const wanted = chosenClassId && classes.some((c) => c.classId === chosenClassId)
+            ? chosenClassId
+            : classes.length === 1
+              ? classes[0].classId
+              : null;
+          if (!wanted) {
+            if (classes.length === 0) {
+              // Never assigned: the Game's own pool, nothing recorded.
+              const testClass = await ensureTestClass(userId);
+              const built = await ensureGameBoards({
+                gameId, classId: testClass, questionClassId: null,
+              });
+              if (cancelled) return;
+              setTestMode(true);
+              setClassId(testClass);
+              setAssignment(null);
+              setAssignmentId(null);
+              setBoards(built);
+            }
+            return;
+          }
+          const own = byClass.get(wanted) ?? null;
+          const built = await ensureGameBoards({ gameId, classId: wanted });
+          if (cancelled) return;
+          // The teacher plays the real instance, but nothing is recorded.
           setTestMode(true);
-          setClassId(testClass);
+          setClassId(wanted);
+          setAssignment(own);
           setAssignmentId(null);
           setBoards(built);
         } else {
           const byClass = await loadGameAssignmentState(gameId);
-          const assignment = Array.from(byClass.values())[0] ?? null;
+          const assignment =
+            (requestedClassId ? byClass.get(requestedClassId) : null)
+            ?? Array.from(byClass.values())[0]
+            ?? null;
           if (!assignment) {
             if (!cancelled) setError("This Game is not assigned to your class.");
             return;
@@ -171,6 +220,7 @@ const GamePlayPage = () => {
           const loadedBoards = await loadGameBoards({ gameId, classId: assignment.classId });
           if (cancelled) return;
           setClassId(assignment.classId);
+          setAssignment(assignment);
           setAssignmentId(assignment.id);
           setBoards(loadedBoards);
           if (loadedBoards.length === 0) {
@@ -184,13 +234,28 @@ const GamePlayPage = () => {
       }
     })();
     return () => { cancelled = true; };
-  }, [gameId]);
+  }, [gameId, chosenClassId, requestedClassId, boardsEpoch]);
 
   const runtime = useGameRuntime({
     game, boards, studentId: uid, assignmentId, testMode,
     // the Vault compares the student's own working against the wanted method
     lineText,
+    startingLives: assignment?.startingLives ?? 3,
+    lockProgression: assignment?.lockProgression ?? false,
   });
+
+  /** Every assigned Question of this instance is one Level on the map. */
+  const levelNodes = useMemo<LevelMapNode[]>(
+    () => boards.map((board, index) => ({
+      id: board.questionRowId,
+      title: board.questionText || board.title || `Level ${index + 1}`,
+      earned: runtime.completedQuestionIds.includes(board.questionRowId) ? board.totalMarks : 0,
+      total: board.totalMarks,
+      completed: runtime.completedQuestionIds.includes(board.questionRowId),
+      unlocked: runtime.isLevelUnlocked(index),
+    })),
+    [boards, runtime.completedQuestionIds, runtime.isLevelUnlocked],
+  );
   // The working reaches the slab on the next painted frame — no further
   // deferral layers sit between a tap and the letters appearing.
   const renderedLineText = lineText;
@@ -503,6 +568,30 @@ const GamePlayPage = () => {
     return <GameLoadingScreen className="fixed" progress={10} />;
   }
 
+  // CLASS + GAME is the playable instance, so the owner of a Game used by
+  // several classes says which one before anything is compiled.
+  if (!error && game && classChoices.length > 1 && !classId) {
+    return (
+      <SelectClassDialog
+        options={classChoices}
+        onPick={(option) => setChosenClassId(option.classId)}
+        onPickTest={async () => {
+          if (!uid || !gameId) return;
+          const testClass = await ensureTestClass(uid);
+          const built = await ensureGameBoards({
+            gameId, classId: testClass, questionClassId: null,
+          });
+          setTestMode(true);
+          setClassId(testClass);
+          setAssignment(null);
+          setAssignmentId(null);
+          setBoards(built);
+        }}
+        onClose={() => navigate(-1)}
+      />
+    );
+  }
+
   if (error || !game) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-start gap-3 p-8">
@@ -726,6 +815,24 @@ const GamePlayPage = () => {
             </span>
             <button
               type="button"
+              onClick={() => setMapOpen(true)}
+              title="Your journey"
+              className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide hover:bg-accent"
+            >
+              <Map className="h-3.5 w-3.5" /> LEVEL {runtime.questionIndex + 1}
+            </button>
+            {testMode && classId ? (
+              <button
+                type="button"
+                onClick={() => setArrangeOpen(true)}
+                title="Arrange Levels"
+                className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2 py-1 text-xs hover:bg-accent"
+              >
+                <ListOrdered className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+            <button
+              type="button"
               onClick={() => void resetGame()}
               disabled={resetting}
               title="Reset this run"
@@ -748,6 +855,16 @@ const GamePlayPage = () => {
             type="button"
             onClick={() => {
               setMenuOpen(false);
+              setMapOpen(true);
+            }}
+            className="block w-full border-b border-border/60 px-3 py-2.5 text-left"
+          >
+            Your journey
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
               void resetGame();
             }}
             disabled={resetting}
@@ -766,6 +883,29 @@ const GamePlayPage = () => {
             Exit Game
           </button>
         </div>
+      ) : null}
+
+      {mapOpen ? (
+        <GameLevelMap
+          nodes={levelNodes}
+          currentIndex={runtime.questionIndex}
+          style={assignment?.levelMapStyle ?? "path"}
+          onOpen={(index) => {
+            runtime.goToQuestion(index);
+            setMapOpen(false);
+          }}
+          onClose={() => setMapOpen(false)}
+        />
+      ) : null}
+
+      {arrangeOpen && classId && gameId ? (
+        <LevelArrangeDialog
+          gameId={gameId}
+          classId={classId}
+          assignment={assignment}
+          onClose={() => setArrangeOpen(false)}
+          onSaved={() => setBoardsEpoch((n) => n + 1)}
+        />
       ) : null}
 
       {/* GAME EVALUATION — the teacher's live inspector for the active line. */}

@@ -8086,7 +8086,10 @@ export type Database = {
           created_by: string
           game_id: string
           id: string
+          level_map_style: string
+          lock_progression: boolean
           pass_percentage: number
+          starting_lives: number
           title: string | null
           unassigned_at: string | null
           updated_at: string
@@ -8097,7 +8100,10 @@ export type Database = {
           created_by?: string
           game_id: string
           id?: string
+          level_map_style?: string
+          lock_progression?: boolean
           pass_percentage?: number
+          starting_lives?: number
           title?: string | null
           unassigned_at?: string | null
           updated_at?: string
@@ -8108,7 +8114,10 @@ export type Database = {
           created_by?: string
           game_id?: string
           id?: string
+          level_map_style?: string
+          lock_progression?: boolean
           pass_percentage?: number
+          starting_lives?: number
           title?: string | null
           unassigned_at?: string | null
           updated_at?: string
@@ -8146,6 +8155,7 @@ export type Database = {
           question_index: number
           status: string
           student_id: string
+          unlocked_question_ids: string[]
           updated_at: string
           vault_reward: number
         }
@@ -8164,6 +8174,7 @@ export type Database = {
           question_index?: number
           status?: string
           student_id: string
+          unlocked_question_ids?: string[]
           updated_at?: string
           vault_reward?: number
         }
@@ -8182,6 +8193,7 @@ export type Database = {
           question_index?: number
           status?: string
           student_id?: string
+          unlocked_question_ids?: string[]
           updated_at?: string
           vault_reward?: number
         }
@@ -8204,6 +8216,7 @@ export type Database = {
       }
       slate_game_questions: {
         Row: {
+          class_id: string | null
           created_at: string
           game_id: string
           id: string
@@ -8213,6 +8226,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          class_id?: string | null
           created_at?: string
           game_id: string
           id?: string
@@ -8222,6 +8236,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          class_id?: string | null
           created_at?: string
           game_id?: string
           id?: string
@@ -8231,6 +8246,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "slate_game_questions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "slate_game_questions_game_id_fkey"
             columns: ["game_id"]
@@ -8243,6 +8265,7 @@ export type Database = {
       slate_game_results: {
         Row: {
           assignment_id: string
+          best_marks_earned: number
           completed_at: string | null
           created_at: string
           id: string
@@ -8254,6 +8277,7 @@ export type Database = {
         }
         Insert: {
           assignment_id: string
+          best_marks_earned?: number
           completed_at?: string | null
           created_at?: string
           id?: string
@@ -8265,6 +8289,7 @@ export type Database = {
         }
         Update: {
           assignment_id?: string
+          best_marks_earned?: number
           completed_at?: string | null
           created_at?: string
           id?: string

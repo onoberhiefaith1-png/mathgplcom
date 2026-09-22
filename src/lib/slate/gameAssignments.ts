@@ -1,9 +1,14 @@
 // A Game is given to a class as its own assignment type. The Game stays the
 // container: its questions, marks and timing are read live from Floating
 // Numbers, never copied here.
+//
+// CLASS + GAME = ONE PLAYABLE GAME. This row IS that instance: its questions,
+// their order, its play settings and every student's progress hang off it.
 
 import { supabase } from "@/integrations/supabase/client";
 import { listGameQuestions, type GameQuestion } from "./gameQuestions";
+
+export type LevelMapStyle = "path" | "art";
 
 export interface GameAssignment {
   id: string;
@@ -12,9 +17,15 @@ export interface GameAssignment {
   passPercentage: number;
   title: string | null;
   active: boolean;
+  /** Level N unlocks only when Level N-1 is complete. */
+  lockProgression: boolean;
+  /** 1–5, default 3. */
+  startingLives: number;
+  levelMapStyle: LevelMapStyle;
 }
 
-const SELECT = "id, game_id, class_id, pass_percentage, title, unassigned_at";
+const SELECT =
+  "id, game_id, class_id, pass_percentage, title, unassigned_at, lock_progression, starting_lives, level_map_style";
 
 type Row = {
   id: string;
@@ -23,6 +34,15 @@ type Row = {
   pass_percentage: number;
   title: string | null;
   unassigned_at: string | null;
+  lock_progression?: boolean | null;
+  starting_lives?: number | null;
+  level_map_style?: string | null;
+};
+
+export const clampStartingLives = (value: unknown): number => {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 3;
+  return Math.min(5, Math.max(1, n));
 };
 
 const asRow = (row: Row): GameAssignment => ({
@@ -32,7 +52,49 @@ const asRow = (row: Row): GameAssignment => ({
   passPercentage: Number(row.pass_percentage ?? 70),
   title: row.title,
   active: !row.unassigned_at,
+  lockProgression: Boolean(row.lock_progression),
+  startingLives: clampStartingLives(row.starting_lives ?? 3),
+  levelMapStyle: row.level_map_style === "art" ? "art" : "path",
 });
+
+/** Saves the play settings of ONE playable instance (Class + Game). */
+export const updateGameInstanceSettings = async (
+  assignmentId: string,
+  patch: Partial<Pick<GameAssignment, "lockProgression" | "startingLives" | "levelMapStyle">>,
+): Promise<void> => {
+  const payload: Record<string, unknown> = {};
+  if (patch.lockProgression !== undefined) payload.lock_progression = patch.lockProgression;
+  if (patch.startingLives !== undefined) payload.starting_lives = clampStartingLives(patch.startingLives);
+  if (patch.levelMapStyle !== undefined) payload.level_map_style = patch.levelMapStyle;
+  if (Object.keys(payload).length === 0) return;
+  await supabase.from("slate_game_assignments").update(payload as never).eq("id", assignmentId);
+};
+
+export interface GameClassOption {
+  assignmentId: string;
+  classId: string;
+  className: string;
+}
+
+/** The classes this Game is linked to — the Select Class list before Play. */
+export const listGameClasses = async (gameId: string): Promise<GameClassOption[]> => {
+  if (!gameId) return [];
+  const { data } = await supabase
+    .from("slate_game_assignments")
+    .select("id, class_id, classes(name)")
+    .eq("game_id", gameId)
+    .is("unassigned_at", null)
+    .order("created_at", { ascending: true });
+  return ((data ?? []) as unknown as {
+    id: string;
+    class_id: string;
+    classes: { name: string } | null;
+  }[]).map((row) => ({
+    assignmentId: row.id,
+    classId: row.class_id,
+    className: row.classes?.name ?? "Class",
+  }));
+};
 
 /** Active game assignments per class for one Game. */
 export const loadGameAssignmentState = async (
@@ -111,9 +173,15 @@ export interface GameSummary {
   totalMarks: number;
 }
 
-/** Live question count and mark total for a Game, from Floating Numbers. */
-export const summariseGame = async (gameId: string): Promise<GameSummary> => {
-  const questions = await listGameQuestions(gameId);
+/**
+ * Live question count and mark total for ONE playable instance, from Floating
+ * Numbers. `classId` omitted → the Game's own unscoped pool.
+ */
+export const summariseGame = async (
+  gameId: string,
+  classId?: string | null,
+): Promise<GameSummary> => {
+  const questions = await listGameQuestions(gameId, classId);
   return {
     questions,
     questionCount: questions.length,
@@ -127,9 +195,13 @@ export interface StudentGameAssignment extends GameAssignment {
   subtopic: string;
   questionCount: number;
   totalMarks: number;
+  /** Best marks ever earned — a restart can never take these away. */
   earnedMarks: number;
   completedQuestions: number;
   passed: boolean;
+  /** 1-based Level the student is on right now. */
+  currentLevel: number;
+  status: "not_started" | "in_progress" | "complete";
 }
 
 /** Every Game assigned to this class, with the signed-in student's progress. */
@@ -151,26 +223,46 @@ export const listStudentGameAssignments = async (
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id ?? "";
 
-  const { data: results } = await supabase
-    .from("slate_game_results")
-    .select("assignment_id, marks_earned, marks_total, completed_at")
-    .in("assignment_id", rows.map((r) => r.id))
-    .eq("student_id", uid);
+  const [{ data: results }, { data: progressRows }] = await Promise.all([
+    supabase
+      .from("slate_game_results")
+      .select("assignment_id, marks_earned, best_marks_earned, marks_total, completed_at")
+      .in("assignment_id", rows.map((r) => r.id))
+      .eq("student_id", uid),
+    supabase
+      .from("slate_game_progress")
+      .select("assignment_id, question_index, status")
+      .in("assignment_id", rows.map((r) => r.id))
+      .eq("student_id", uid),
+  ]);
 
   const mine = (results ?? []) as unknown as {
     assignment_id: string;
     marks_earned: number;
+    best_marks_earned: number | null;
     marks_total: number;
     completed_at: string | null;
   }[];
+  const progress = new Map(
+    ((progressRows ?? []) as unknown as {
+      assignment_id: string | null;
+      question_index: number | null;
+      status: string | null;
+    }[]).map((row) => [row.assignment_id ?? "", row]),
+  );
 
   return Promise.all(
     rows.map(async (row) => {
       const base = asRow(row);
-      const summary = await summariseGame(row.game_id);
+      // Questions belong to THIS Class + Game instance only.
+      const summary = await summariseGame(row.game_id, row.class_id);
       const own = mine.filter((r) => r.assignment_id === row.id);
-      const earnedMarks = own.reduce((sum, r) => sum + Number(r.marks_earned ?? 0), 0);
+      const earnedMarks = own.reduce(
+        (sum, r) => sum + Math.max(Number(r.best_marks_earned ?? 0), Number(r.marks_earned ?? 0)),
+        0,
+      );
       const percent = summary.totalMarks > 0 ? (earnedMarks / summary.totalMarks) * 100 : 0;
+      const run = progress.get(row.id);
       return {
         ...base,
         gameName: row.slate_games?.name ?? "Game",
@@ -181,12 +273,24 @@ export const listStudentGameAssignments = async (
         earnedMarks,
         completedQuestions: own.filter((r) => r.completed_at).length,
         passed: percent >= base.passPercentage,
+        currentLevel: Math.max(1, Number(run?.question_index ?? 0) + 1),
+        status: !run
+          ? "not_started"
+          : run.status === "complete"
+            ? "complete"
+            : "in_progress",
       } satisfies StudentGameAssignment;
     }),
   );
 };
 
-/** Records (or updates) the student's result for one Game question. */
+/**
+ * Records the student's result for one Game question.
+ *
+ * REPORTING RULE: the report keeps the BEST marks ever earned. A restart may
+ * reset the live run, but it can neither erase nor re-award marks the student
+ * already has, so replaying can never inflate the report past the maximum.
+ */
 export const saveGameQuestionResult = async (params: {
   assignmentId: string;
   questionId: string;
@@ -197,14 +301,36 @@ export const saveGameQuestionResult = async (params: {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return;
+
+  const { data: existing } = await supabase
+    .from("slate_game_results")
+    .select("best_marks_earned, marks_earned, completed_at")
+    .eq("assignment_id", params.assignmentId)
+    .eq("question_id", params.questionId)
+    .eq("student_id", uid)
+    .maybeSingle();
+  const previousBest = Math.max(
+    Number((existing as { best_marks_earned?: number } | null)?.best_marks_earned ?? 0),
+    Number((existing as { marks_earned?: number } | null)?.marks_earned ?? 0),
+  );
+  const bestEver = Math.min(
+    params.marksTotal,
+    Math.max(previousBest, params.marksEarned),
+  );
+  const previouslyCompleted = Boolean(
+    (existing as { completed_at?: string | null } | null)?.completed_at,
+  );
+
   await supabase.from("slate_game_results").upsert(
     {
       assignment_id: params.assignmentId,
       question_id: params.questionId,
       student_id: uid,
       marks_earned: params.marksEarned,
+      best_marks_earned: bestEver,
       marks_total: params.marksTotal,
-      completed_at: params.completed ? new Date().toISOString() : null,
+      completed_at:
+        params.completed || previouslyCompleted ? new Date().toISOString() : null,
     } as never,
     { onConflict: "assignment_id,question_id,student_id" },
   );

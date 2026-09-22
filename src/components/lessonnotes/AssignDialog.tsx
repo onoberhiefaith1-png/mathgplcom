@@ -291,14 +291,6 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
       const errors: string[] = [];
       const assignedIds = new Map<string, string>();
 
-      // The question joins the Game once; the Game is what the class receives.
-      let joinedGame = false;
-      if (joinsGame) {
-        joinedGame = await assignQuestion(gameId, notebookId, subsectionId);
-        if (!joinedGame) throw new Error("This question could not be added to the Game.");
-        setGameStats((prev) => ({ ...prev, hasThis: true, count: prev.count + 1 }));
-      }
-
       for (const c of toAssign) {
         try {
           if (target === "game") {
@@ -309,6 +301,13 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
               passPercentage,
               title: games.find((g) => g.id === gameId)?.name ?? null,
             });
+            // CLASS + GAME is the playable instance, so the question joins
+            // THIS class's collection. SS1's questions never reach SS2.
+            if (joinsGame) {
+              const joined = await assignQuestion(gameId, notebookId, subsectionId, c.id);
+              if (!joined) throw new Error("This question could not be added to the Game.");
+              setGameStats((prev) => ({ ...prev, hasThis: true, count: prev.count + 1 }));
+            }
             assignedIds.set(c.id, id);
             touchedClasses.add(c.id);
             ok += 1;
@@ -349,7 +348,7 @@ export function AssignDialog({ open, onOpenChange, subsectionId, notebookId, def
 
 
       const parts: string[] = [];
-      if (joinedGame) parts.push("Added to the Game");
+      if (joinsGame && ok > 0) parts.push("Added to the Game");
       if (ok > 0) parts.push(`Assigned to ${ok}`);
       if (toUnassign.length > 0) parts.push(`Unassigned ${toUnassign.length}`);
       toast({

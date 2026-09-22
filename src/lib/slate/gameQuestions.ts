@@ -1,6 +1,10 @@
 // Questions are ASSIGNED to a Game, never re-authored inside it. The Game
 // stores a reference only; the mathematics, marks and timing stay in the
 // Lesson Notes / Floating Numbers question.
+//
+// CLASS + GAME = ONE PLAYABLE GAME. A question row belongs to a class-and-game
+// pair, so SS1 + Quest and SS2 + Quest keep completely separate collections and
+// their own order. Rows with no class are the teacher's own legacy/test pool.
 
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -13,6 +17,8 @@ import {
 export interface GameQuestion {
   id: string;
   gameId: string;
+  /** The class this playable instance belongs to. null = teacher's own pool. */
+  classId: string | null;
   position: number;
   notebookId: string;
   subsectionId: string;
@@ -27,6 +33,7 @@ export interface GameQuestion {
 interface QuestionRow {
   id: string;
   game_id: string;
+  class_id: string | null;
   position: number;
   notebook_id: string;
   subsection_id: string;
@@ -43,12 +50,21 @@ const questionTextFor = async (subsectionId: string): Promise<string> => {
   return ((data?.[0] as { content_ascii?: string } | undefined)?.content_ascii ?? "").trim();
 };
 
-export const listGameQuestions = async (gameId: string): Promise<GameQuestion[]> => {
-  const { data, error } = await supabase
+/**
+ * Questions of one playable Game instance.
+ * `classId` given → only that Class + Game collection.
+ * `classId` omitted → the Game's own unscoped pool (teacher legacy/test set).
+ */
+export const listGameQuestions = async (
+  gameId: string,
+  classId?: string | null,
+): Promise<GameQuestion[]> => {
+  let query = supabase
     .from("slate_game_questions")
-    .select("id, game_id, position, notebook_id, subsection_id")
-    .eq("game_id", gameId)
-    .order("position", { ascending: true });
+    .select("id, game_id, class_id, position, notebook_id, subsection_id")
+    .eq("game_id", gameId);
+  query = classId ? query.eq("class_id", classId) : query.is("class_id", null);
+  const { data, error } = await query.order("position", { ascending: true });
   if (error || !data) return [];
 
   const rows = data as unknown as QuestionRow[];
@@ -67,6 +83,7 @@ export const listGameQuestions = async (gameId: string): Promise<GameQuestion[]>
       return {
         id: row.id,
         gameId: row.game_id,
+        classId: row.class_id ?? null,
         position: row.position,
         notebookId: row.notebook_id,
         subsectionId: row.subsection_id,
@@ -79,21 +96,32 @@ export const listGameQuestions = async (gameId: string): Promise<GameQuestion[]>
   );
 };
 
+/**
+ * Question → Class → Game. The row joins ONE playable instance, so the same
+ * question can be given to SS1 without ever reaching SS2.
+ */
 export const assignQuestion = async (
   gameId: string,
   notebookId: string,
   subsectionId: string,
+  classId?: string | null,
 ): Promise<boolean> => {
-  const { count } = await supabase
+  let countQuery = supabase
     .from("slate_game_questions")
     .select("id", { count: "exact", head: true })
     .eq("game_id", gameId);
+  countQuery = classId ? countQuery.eq("class_id", classId) : countQuery.is("class_id", null);
+  const { count } = await countQuery;
+
   const { error } = await supabase.from("slate_game_questions").insert({
     game_id: gameId,
+    class_id: classId ?? null,
     notebook_id: notebookId,
     subsection_id: subsectionId,
     position: count ?? 0,
   } as never);
+  // A repeat of the same question in the same instance is not a failure.
+  if (error && /duplicate key/i.test(error.message)) return true;
   return !error;
 };
 
@@ -102,7 +130,7 @@ export const removeQuestion = async (id: string): Promise<boolean> => {
   return !error;
 };
 
-/** Writes the given order back as positions 0..n-1. */
+/** Writes the given order back as positions 0..n-1. Never duplicates a row. */
 export const reorderQuestions = async (ids: string[]): Promise<void> => {
   await Promise.all(
     ids.map((id, index) =>
