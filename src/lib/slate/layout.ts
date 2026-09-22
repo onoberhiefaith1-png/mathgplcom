@@ -185,6 +185,67 @@ export const writingSurfaceFrame = (
   };
 };
 
+/* ── Text-In-Surface Layout ──────────────────────────────────────────────
+ * THE one rule for where mathematical text is allowed to sit. The writing
+ * surface is the authoritative boundary; a text body that reports itself
+ * outside its surface is moved to the nearest valid place inside it. Edit,
+ * Teacher Play, Student Play, reload and preview all run this same rule on
+ * every measurement, so no stale or legacy placement can survive a frame.
+ */
+export interface TextBox {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+export interface TextContainment {
+  dx: number;
+  dy: number;
+  /** False when the body is genuinely wider/taller than the usable area. */
+  fits: boolean;
+}
+
+/** Tolerance in world units: below this the body counts as already inside. */
+export const TEXT_INSIDE_TOLERANCE = 0.006;
+
+export const textInsideSurface = (body: TextBox, inner: TextBox) =>
+  body.left >= inner.left - TEXT_INSIDE_TOLERANCE &&
+  body.right <= inner.right + TEXT_INSIDE_TOLERANCE &&
+  body.top <= inner.top + TEXT_INSIDE_TOLERANCE &&
+  body.bottom >= inner.bottom - TEXT_INSIDE_TOLERANCE;
+
+const containAxis = (low: number, high: number, limitLow: number, limitHigh: number) => {
+  if (high - low > limitHigh - limitLow + 0.001) return { shift: limitLow - low, fits: false };
+  let shift = 0;
+  if (low < limitLow) shift = limitLow - low;
+  if (high + shift > limitHigh) shift -= high + shift - limitHigh;
+  return { shift, fits: true };
+};
+
+/** Nearest valid placement of a text body inside its surface's usable area. */
+export const containTextInSurface = (body: TextBox, inner: TextBox): TextContainment => {
+  const horizontal = containAxis(body.left, body.right, inner.left, inner.right);
+  const vertical = containAxis(body.bottom, body.top, inner.bottom, inner.top);
+  return {
+    dx: horizontal.shift,
+    dy: vertical.shift,
+    fits: horizontal.fits && vertical.fits,
+  };
+};
+
+/** Usable inner area of a surface, in that surface's own local coordinates. */
+export const surfaceInnerBox = (
+  innerWritingWidth: number,
+  surfaceHeight: number,
+  padY: number,
+): TextBox => ({
+  left: -innerWritingWidth / 2,
+  right: innerWritingWidth / 2,
+  top: surfaceHeight / 2 - padY,
+  bottom: -surfaceHeight / 2 + padY,
+});
+
 /**
  * One calculation for the physical panel and its local writing box. The same
  * result is used for rendering and layout, so a growing panel cannot visually
