@@ -1,3 +1,4 @@
+import { defaultConversion } from "./conversion";
 import type { AssetSettings, Game, GameSettings, GameStatus, NumberSettings, Slot } from "./types";
 import { defaultScene } from "./environments";
 import { NO_ROOM_ID } from "./rooms";
@@ -62,6 +63,8 @@ export const defaultSettings = (): GameSettings => ({
   lines: {},
   // One Life gives back one complete Game/question time by default.
   life: { multiplier: 1 },
+  // Reward Conversion: Hourglass/Life 1×, Vault and Completion Coin 0.1×.
+  conversion: defaultConversion(),
 });
 
 export const defaultGameStatus = (): GameStatus => ({

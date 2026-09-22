@@ -9,6 +9,7 @@ import { defaultScene } from "./environments";
 import { roomForSurface } from "./rooms";
 import { defaultTextSettings } from "./text3d";
 import { normalizeLineConfig } from "./lineSurfaces";
+import { normalizeConversion } from "./conversion";
 import {
   defaultAssetSettings,
   defaultGameStatus,
@@ -67,6 +68,12 @@ export const normalizeGame = (game: Game): Game => ({
         || 1,
       )),
     },
+    // Reward Conversion. Saved Games keep the Life value the teacher already
+    // set, by reading the older `life.multiplier` when no factor is stored.
+    conversion: normalizeConversion(
+      game.settings?.conversion,
+      Number(game.settings?.life?.multiplier),
+    ),
   },
   patternLength:
     Number(game.patternLength) > 0 ? Math.floor(Number(game.patternLength)) : game.slots.length,

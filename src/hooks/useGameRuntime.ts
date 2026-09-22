@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { mapQuestionLines, type MappedLine } from "@/lib/slate/pattern";
 import { lifeSeconds, vaultMatches } from "@/lib/slate/lineSurfaces";
+import { convertUnitsToLives, normalizeConversion } from "@/lib/slate/conversion";
 import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
@@ -227,14 +228,42 @@ export const useGameRuntime = (params: {
     expiredLines.current = new Set();
   }, [question, startQuestionTimer]);
 
+  /* ---- Reward Conversion ---------------------------------------------
+   * TIME is the main resource. The Hourglass converts straight to Time; the
+   * Vault/Bot and the Completion Coin convert to Life instantly; a Life only
+   * becomes Time at the moment it is actually spent. Bomb and the Collectors
+   * are activation-only and never convert.
+   */
+  const conversion = useMemo(
+    () => normalizeConversion(game?.settings.conversion, game?.settings.life?.multiplier),
+    [game],
+  );
+  /** Leftover fractions of a Life, so ten units at 0.1x give exactly one Life. */
+  const pendingVaultLife = useRef(0);
+  const pendingCompletionLife = useRef(0);
+
+  const convertVaultToLife = useCallback((units: number) => {
+    const out = convertUnitsToLives(pendingVaultLife.current, units, conversion.vaultToLife);
+    pendingVaultLife.current = out.pending;
+    if (out.lives) setLives((prev) => prev + out.lives);
+  }, [conversion]);
+
+  const convertCompletionToLife = useCallback((units: number) => {
+    const out = convertUnitsToLives(
+      pendingCompletionLife.current, units, conversion.completionToLife,
+    );
+    pendingCompletionLife.current = out.pending;
+    if (out.lives) setLives((prev) => prev + out.lives);
+  }, [conversion]);
+
   /** A Life gives back the teacher-set multiple of the total Game/question time. */
   const lifeTimeSeconds = useCallback(
     () =>
       lifeSeconds(
         question?.questionTimerSeconds ?? null,
-        game?.settings.life?.multiplier ?? 1,
+        conversion.lifeToTime,
       ),
-    [question, game],
+    [question, conversion],
   );
 
   useEffect(() => {
@@ -276,8 +305,11 @@ export const useGameRuntime = (params: {
    */
   const openVaultOnly = useCallback((key: string, value: number) => {
     setConsumed((prev) => (prev.includes(key) ? prev : [...prev, key]));
-    setVaultReward((prev) => prev + Math.max(0, value));
-  }, []);
+    const units = Math.max(0, value);
+    setVaultReward((prev) => prev + units);
+    // Vault/Bot -> Life: automatic and instant, never a mathematical mark.
+    convertVaultToLife(units);
+  }, [convertVaultToLife]);
 
   /* ---- line rewards -------------------------------------------------- */
   // Resolved ONCE per completed line. The Hourglass pays only when the line's
@@ -311,24 +343,25 @@ export const useGameRuntime = (params: {
 
       keys.push(key);
       if (reward.type === "time-shard") {
-        // solved inside the line's own time → the configured share of it
-        if (inTime) secondsGain += row.hourglassSeconds;
+        // Hourglass -> Time: the time it holds, times the teacher's factor.
+        if (inTime) secondsGain += Math.round(row.hourglassSeconds * conversion.hourglassToTime);
         continue;
       }
-      const gainedLives = REWARD_LIVES[reward.type] ?? 0;
-      lifeGain += gainedLives;
-      // A Life is worth the teacher's share of the whole question time.
-      if (gainedLives) secondsGain += gainedLives * lifeTimeSeconds();
+      // A Life is STORED as a Life. It becomes Time only when it is spent.
+      lifeGain += REWARD_LIVES[reward.type] ?? 0;
     }
 
     if (keys.length === 0) return;
     setConsumed((prev) => [...prev, ...keys]);
-    if (vaultGain) setVaultReward((prev) => prev + vaultGain);
+    if (vaultGain) {
+      setVaultReward((prev) => prev + vaultGain);
+      convertVaultToLife(vaultGain);
+    }
     if (lifeGain) setLives((prev) => Math.max(0, prev + lifeGain));
     if (secondsGain) {
       setQuestionDeadline((prev) => (prev ? prev + secondsGain * 1000 : prev));
     }
-  }, [question, lines, consumed, lifeTimeSeconds]);
+  }, [question, lines, consumed, conversion, convertVaultToLife]);
 
   /* Vault Codes listen to live mathematical work. They are independent of the
      final-answer completion event, pay only through openVaultOnly (never any
@@ -372,11 +405,10 @@ export const useGameRuntime = (params: {
     }
     setConsumed((prev) => prev.includes(key) ? prev : [...prev, key]);
     if (reward.type === "retry-heart") {
+      // Stored as a Life only: it pays Time when the Game time runs out.
       setLives((prev) => prev + 1);
-      const seconds = lifeTimeSeconds();
-      if (seconds) setQuestionDeadline((prev) => (prev ? prev + seconds * 1000 : prev));
     }
-  }, [question, lines, consumed, lifeTimeSeconds]);
+  }, [question, lines, consumed]);
 
   /* Vault totals for the strip: opened against everything this question holds. */
   const vaultsTotal = useMemo(
@@ -438,6 +470,8 @@ export const useGameRuntime = (params: {
           const lineKey = `${question.questionRowId}:${awardedId}`;
           setCompletedLineKeys((prev) => prev.includes(lineKey) ? prev : [...prev, lineKey]);
           setCompletionCount((prev) => prev + 1);
+          // Completion Coin -> Life: automatic and instant.
+          convertCompletionToLife(1);
           setCompletedLines((prev) => (prev.includes(index + 1) ? prev : [...prev, index + 1]));
           consumeLine(index + 1);
           setEarnedMarks((prev) => prev + (question.lineMarks[index] ?? 0));
@@ -469,8 +503,9 @@ export const useGameRuntime = (params: {
     }
   }, [
     question, lines, consumeLine, completedQuestionIds, testMode, assignmentId,
-    studentId, questionIndex, boards.length,
+    studentId, questionIndex, boards.length, convertCompletionToLife,
   ]);
+
 
   /* ---- line timer expiry --------------------------------------------- */
   useEffect(() => {
@@ -550,6 +585,8 @@ export const useGameRuntime = (params: {
     setEarnedMarks(0);
     setStatus("in_progress");
     awarded.current = new Set();
+    pendingVaultLife.current = 0;
+    pendingCompletionLife.current = 0;
     expiredLines.current = new Set();
     timedLine.current = null;
     setRunningLine(null);

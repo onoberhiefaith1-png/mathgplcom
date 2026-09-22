@@ -24,6 +24,7 @@ import {
   syncLineSurfaces,
   type PreviewLine,
 } from "@/lib/slate/lineSurfaces";
+import { normalizeConversion } from "@/lib/slate/conversion";
 import { questionTimer } from "@/lib/lessonnotes/floatingCompile";
 import type { Game, LineSurfaceConfig } from "@/lib/slate/types";
 
@@ -110,11 +111,21 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
             min={0.1}
             max={10}
             step={0.1}
-            value={lifeMultiplier(game.settings.life?.multiplier)}
-            onChange={(event) => onChange({
-              ...game.settings,
-              life: { multiplier: lifeMultiplier(Number(event.target.value)) },
-            })}
+            value={normalizeConversion(
+              game.settings.conversion, game.settings.life?.multiplier,
+            ).lifeToTime}
+            onChange={(event) => {
+              // Same value as Reward Conversion → Life → Time.
+              const lifeToTime = lifeMultiplier(Number(event.target.value));
+              onChange({
+                ...game.settings,
+                life: { multiplier: lifeToTime },
+                conversion: normalizeConversion({
+                  ...normalizeConversion(game.settings.conversion, game.settings.life?.multiplier),
+                  lifeToTime,
+                }),
+              });
+            }}
             className="w-20 rounded border border-amber-200/20 bg-black/40 px-2 py-1 text-right text-amber-50"
           />
           <span className="text-amber-100/60">×</span>
