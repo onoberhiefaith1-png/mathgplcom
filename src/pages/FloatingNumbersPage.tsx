@@ -56,6 +56,7 @@ import {
 } from "@/lib/floating/tableGrid";
 import { isEmptyMatrixLatex, splitMatrixChip } from "@/lib/floating/matrixChips";
 import DurationInput from "@/components/common/DurationInput";
+import { MAX_LINE_SECONDS } from "@/components/common/MinuteSecondInput";
 
 /** One item of the highlight stream: a text line, or a whole table workspace. */
 type Entry =
