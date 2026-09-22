@@ -10,6 +10,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { mapQuestionLines, type MappedLine } from "@/lib/slate/pattern";
 import { lifeSeconds, vaultMatches } from "@/lib/slate/lineSurfaces";
 import { convertUnitsToLives, normalizeConversion } from "@/lib/slate/conversion";
+import { normalizeSoundSettings, rewardSoundKeyForType } from "@/lib/slate/sound";
+import {
+  applyBackgroundSound,
+  playRewardSound,
+  prepareGameSounds,
+  setBackgroundVolume,
+  stopBackgroundSound,
+} from "@/lib/slate/gameSound";
 import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
