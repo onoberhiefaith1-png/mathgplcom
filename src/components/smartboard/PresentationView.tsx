@@ -5825,6 +5825,7 @@ const PresentationView = ({
     setLastAwardedLineId(null);
     setLastAwardedExpression(null);
     awardedExpressionBySlotRef.current = {};
+    predictiveAwardedRef.current = {};
     setPlaybackResetGeneration((generation) => generation + 1);
 
     await timer.reset();
