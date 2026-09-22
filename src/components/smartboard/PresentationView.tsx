@@ -4521,9 +4521,10 @@ const PresentationView = ({
     if (!current || !assessmentId) return false;
     if (groupForLine(tableGroups, k)) return false;
     const resolved = resolveGradableLine(k);
-    if (!resolved) return false;
+    if (!resolved) { console.debug("[instant] no resolved line", k); return false; }
     const { target, expectedFrags, rowNum } = resolved;
     const ascii = typeof asciiOverride === "string" ? asciiOverride : resolved.ascii;
+    console.debug("[instant] try", { k, ascii, frags: expectedFrags.length, expected: (target as { equation?: string }).equation });
     if (!ascii.trim() || expectedFrags.length === 0) return false;
     const slotKey = `${current.id}:${target.lineId}`;
     if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) return false;
