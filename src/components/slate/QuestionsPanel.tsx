@@ -3,6 +3,9 @@
 // keeps its own mathematics, marks and timing.
 //
 // Line 0 is the Question Line: read-only, outside the reward pattern.
+//
+// Questions are per CLASS: the Game is the reusable container, and each class
+// that plays it has its own collection and its own Level order.
 
 import { useCallback, useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, Trash2, X } from "lucide-react";
@@ -25,6 +28,7 @@ import {
   type PreviewLine,
 } from "@/lib/slate/lineSurfaces";
 import { normalizeConversion } from "@/lib/slate/conversion";
+import { listGameClasses, type GameClassOption } from "@/lib/slate/gameAssignments";
 import { questionTimer } from "@/lib/lessonnotes/floatingCompile";
 import type { Game, LineSurfaceConfig } from "@/lib/slate/types";
 
@@ -44,11 +48,25 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
   const [questions, setQuestions] = useState<GameQuestion[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState<GameClassOption[]>([]);
+  /** null = the Game's own pool (classes that have not been given it yet). */
+  const [classId, setClassId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    listGameClasses(game.id).then((rows) => {
+      if (cancelled) return;
+      setClasses(rows);
+      setClassId((current) => current ?? rows[0]?.classId ?? null);
+    });
+    return () => { cancelled = true; };
+  }, [game.id]);
 
   const refresh = useCallback(async () => {
-    setQuestions(await listGameQuestions(game.id));
+    setLoading(true);
+    setQuestions(await listGameQuestions(game.id, classId));
     setLoading(false);
-  }, [game.id]);
+  }, [game.id, classId]);
 
   useEffect(() => {
     refresh();
@@ -100,6 +118,22 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
       </header>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        {classes.length > 0 ? (
+          <label className={`${rowClass} flex items-center gap-3`}>
+            <span className="shrink-0 text-amber-50">Class</span>
+            <select
+              aria-label="Class whose questions are shown"
+              value={classId ?? ""}
+              onChange={(event) => setClassId(event.target.value || null)}
+              className="min-w-0 flex-1 rounded border border-amber-200/20 bg-black/40 px-2 py-1 text-amber-50"
+            >
+              {classes.map((option) => (
+                <option key={option.classId} value={option.classId}>{option.className}</option>
+              ))}
+              <option value="">Not in a class yet</option>
+            </select>
+          </label>
+        ) : null}
         <label className={`${rowClass} flex items-center gap-3`}>
           <span className="min-w-0 flex-1">
             <span className="block text-amber-50">Life time value</span>
@@ -134,7 +168,7 @@ export function QuestionsPanel({ game, onChange, onPreview, onClose }: Props) {
 
         {!loading && questions.length === 0 ? (
           <p className="text-[12px] leading-relaxed text-amber-100/50">
-            No questions yet. Questions are sent here from Lesson Notes: open the lesson note,
+            No questions in this class yet. Questions are sent here from Lesson Notes: open the lesson note,
             press the 👥 button on the solution, choose Game and pick this Game. Its mathematics,
             marks and timing travel with it — one writing surface per line.
           </p>
