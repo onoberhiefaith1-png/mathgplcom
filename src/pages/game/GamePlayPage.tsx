@@ -88,8 +88,13 @@ const GamePlayPage = () => {
   const [error, setError] = useState<string | null>(null);
   /** Live working per Floating Numbers line (0-based) → plain text. */
   const [lineText, setLineText] = useState<Record<number, string>>({});
+  /** The same working for the writing surfaces, carrying the sensor mark and
+   *  the placeholder box of any empty bracket / fraction / exponent slot. */
+  const [displayLineText, setDisplayLineText] = useState<Record<number, string>>({});
   const pendingLineText = useRef<Record<number, string> | null>(null);
+  const pendingDisplayText = useRef<Record<number, string> | null>(null);
   const lineTextFrame = useRef<number | null>(null);
+  const displayTextFrame = useRef<number | null>(null);
   const [resetEpoch, setResetEpoch] = useState(0);
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
@@ -142,8 +147,19 @@ const GamePlayPage = () => {
       if (latest) setLineText(latest);
     });
   };
+  const mirrorDisplayText = (next: Record<number, string>) => {
+    pendingDisplayText.current = next;
+    if (displayTextFrame.current !== null) return;
+    displayTextFrame.current = window.requestAnimationFrame(() => {
+      displayTextFrame.current = null;
+      const latest = pendingDisplayText.current;
+      pendingDisplayText.current = null;
+      if (latest) setDisplayLineText(latest);
+    });
+  };
   useEffect(() => () => {
     if (lineTextFrame.current !== null) window.cancelAnimationFrame(lineTextFrame.current);
+    if (displayTextFrame.current !== null) window.cancelAnimationFrame(displayTextFrame.current);
   }, []);
 
   useEffect(() => {
@@ -258,7 +274,9 @@ const GamePlayPage = () => {
   );
   // The working reaches the slab on the next painted frame — no further
   // deferral layers sit between a tap and the letters appearing.
-  const renderedLineText = lineText;
+  // The working reaching the slab carries the sensor and slot marks; the plain
+  // `lineText` stays the only mathematical source (Vault, marking, inspector).
+  const renderedLineText = displayLineText;
 
   /** ONE selector shared by surfaces, scrolling, the HUD and Floating Numbers.
    *  There is no second copy of the active line: the world's selection is
@@ -443,7 +461,7 @@ const GamePlayPage = () => {
     const expectedAscii = row.isQuestion ? "" : (lineId ? expectedLines[lineId] ?? "" : "");
     const studentAscii = row.isQuestion
       ? question.questionText
-      : floatingTextForGameLine(renderedLineText, row.line);
+      : floatingTextForGameLine(lineText, row.line);
     const prediction = !row.isQuestion && expectedAscii
       ? predict({
           routeMap: routeMapFor({
@@ -473,7 +491,7 @@ const GamePlayPage = () => {
     });
   }, [
     runtime.question, runtime.lines, runtime.currentLine, runtime.completedLines,
-    runtime.consumedRewardKeys, runtime.timedLine, renderedLineText, expectedLines, expectedAtoms,
+    runtime.consumedRewardKeys, runtime.timedLine, lineText, expectedLines, expectedAtoms,
     verdicts, conversion,
   ]);
 
@@ -668,6 +686,7 @@ const GamePlayPage = () => {
       activeLine={Math.max(0, runtime.currentLine - 1)}
       onActiveLineChange={(line) => setActiveLine(line)}
       onLineText={mirrorLineText}
+      onLineDisplayText={mirrorDisplayText}
     />
   ) : null;
 
