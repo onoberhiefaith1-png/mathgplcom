@@ -16,6 +16,8 @@ import {
 } from "@/lib/slate/text3d";
 import { TextColourPicker } from "./TextColourPicker";
 import type { TextSettings } from "@/lib/slate/text3d";
+import { normalizeConversion } from "@/lib/slate/conversion";
+import type { RewardConversion } from "@/lib/slate/types";
 import { useState } from "react";
 import { toast } from "sonner";
 import { defaultAssetSettings, defaultNumberSettings, makeSlot, uid } from "@/lib/slate/defaults";
@@ -174,6 +176,10 @@ export function ControlPanel({
 }: Props) {
   const s = game.settings;
   const set = (patch: Partial<Game["settings"]>) => onChange({ settings: { ...s, ...patch } });
+  // Reward Conversion: Time is the main resource, Life the intermediate one.
+  const conversion = normalizeConversion(s.conversion, s.life?.multiplier);
+  const setConversion = (patch: Partial<RewardConversion>) =>
+    set({ conversion: normalizeConversion({ ...conversion, ...patch }) });
   const t: TextSettings = s.text ?? defaultTextSettings();
   const setText = (patch: Partial<TextSettings>) => set({ text: { ...t, ...patch } });
   const n: NumberSettings = s.numbers ?? defaultNumberSettings();
@@ -884,6 +890,46 @@ export function ControlPanel({
               </div>
             </div>
           ) : null}
+        </Section>
+
+        <Section title="Reward Conversion">
+          <p className="text-[9px] leading-snug text-amber-100/40">
+            Time is the main resource. The Hourglass becomes Time; the Vault and the
+            Completion Coin become Life; a Life becomes Time only when it is used.
+            The Bomb and the Collectors keep their own effect and never convert.
+          </p>
+          <Row
+            label="Hourglass → Time"
+            value={conversion.hourglassToTime}
+            min={0.1}
+            max={10}
+            step={0.1}
+            onChange={(v) => setConversion({ hourglassToTime: v })}
+          />
+          <Row
+            label="Life → Time"
+            value={conversion.lifeToTime}
+            min={0.1}
+            max={10}
+            step={0.1}
+            onChange={(v) => setConversion({ lifeToTime: v })}
+          />
+          <Row
+            label="Vault → Life"
+            value={conversion.vaultToLife}
+            min={0.1}
+            max={10}
+            step={0.1}
+            onChange={(v) => setConversion({ vaultToLife: v })}
+          />
+          <Row
+            label="Completion Coin → Life"
+            value={conversion.completionToLife}
+            min={0.1}
+            max={10}
+            step={0.1}
+            onChange={(v) => setConversion({ completionToLife: v })}
+          />
         </Section>
 
         <Section title="Effects">

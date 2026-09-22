@@ -253,9 +253,28 @@ export interface GameSettings {
   assets: AssetSettings;
   /** Per-Floating-Numbers-line configuration, keyed by line id. */
   lines: Record<string, LineSurfaceConfig>;
-  /** How much of the total Game/question time one Life gives back (0.1×–10×). */
+  /** Legacy Life time value; read into `conversion.lifeToTime` on load. */
   life: { multiplier: number; fraction?: TimeFraction };
+  /** Reward Conversion: how earned rewards become Life and Time. */
+  conversion: RewardConversion;
 }
+
+/**
+ * Reward Conversion factors, each 0.1×–10×. TIME is the main resource; Life is
+ * the intermediate one. Bomb and the Collectors are activation-only and never
+ * take part in any conversion.
+ */
+export interface RewardConversion {
+  /** Hourglass → Time, as a multiple of the time the Hourglass holds. */
+  hourglassToTime: number;
+  /** Life → Time, as a multiple of the total Game time, paid when a Life is used. */
+  lifeToTime: number;
+  /** Vault/Bot → Life, per opened Vault. */
+  vaultToLife: number;
+  /** Completion Coin → Life, per coin. */
+  completionToLife: number;
+}
+
 
 export interface Game {
   id: string;
