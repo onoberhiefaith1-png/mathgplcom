@@ -84,7 +84,8 @@ function apiKey(): string {
 }
 
 function buildTools(ctx: AgentToolContext, steps: AgentStep[]) {
-  const tools: Record<string, unknown> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tools: Record<string, any> = {};
   for (const spec of AGENT_TOOL_MANIFEST) {
     tools[spec.id] = tool({
       description: spec.description,
@@ -128,7 +129,7 @@ export async function runAgentTurn(
     model: lovable.responses(AGENT_MODEL),
     system: buildAgentSystemPrompt(hint),
     messages,
-    tools: buildTools(ctx, steps) as never,
+    tools: buildTools(ctx, steps),
     stopWhen: stepCountIs(50),
     providerOptions: RESPONSES_OPTIONS as never,
   });
