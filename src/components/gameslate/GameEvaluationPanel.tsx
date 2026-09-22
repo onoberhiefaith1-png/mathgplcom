@@ -149,12 +149,8 @@ export function GameEvaluationPanel({
             <Field label="Score / mark">
               {report?.scoreAwarded ? (
                 <span className="text-emerald-600">✓ Awarded {report.lineMarks}</span>
-              ) : report?.scoreInconsistent ? (
-                <span className="text-amber-600">Equivalent detected / Score pending</span>
-              ) : report?.predictionComplete ? (
-                <span className="text-emerald-600">✓ Awarded {report.lineMarks}</span>
               ) : (
-                <span className="text-muted-foreground">Pending</span>
+                <span className="text-muted-foreground">—</span>
               )}
             </Field>
             <Field label="Note">
