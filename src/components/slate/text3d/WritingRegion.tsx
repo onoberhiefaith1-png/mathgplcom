@@ -4,7 +4,13 @@ import type { ThreeEvent } from "@react-three/fiber";
 import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { GameTestDisplay } from "@/lib/slate/types";
 import type { RegionTextData, TextBounds, TextSettings } from "@/lib/slate/text3d";
-import { PX_PER_UNIT } from "@/lib/slate/layout";
+import {
+  PX_PER_UNIT,
+  TEXT_INSIDE_TOLERANCE,
+  containTextInSurface,
+  surfaceInnerBox,
+  textInsideSurface,
+} from "@/lib/slate/layout";
 import type { InscribedTextApi } from "./InscribedText";
 import { InscribedText } from "./InscribedText";
 import { TileText } from "./TileText";
