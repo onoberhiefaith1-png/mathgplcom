@@ -1,48 +1,42 @@
-# Instant score the moment equivalence is proved — no "Score pending"
+# Instant score the moment equivalence is proved
 
-## What is happening now (checked)
+## What I found (checked in the running app)
 
-- The Predictive Line already proves the line complete locally: in your screenshot Expected, Student and Predictive lines all read `x + 7 = 12` and the panel says "Equivalent detected".
-- But the mark is not handed out by that proof. The proof only runs *inside* the marking request path (`gradeLineThroughEngine`), which is triggered by the delayed grading tick. Until that tick runs and the award reaches the Game, the panel shows the inconsistency warning "Equivalent detected / Score pending" and the score bar stays `0 / 6`.
-- The Game computes its own Predictive Line for the panel only. It deliberately never marks: it waits for the board's award event. So a proof that lands in the Game is currently a display, not a score.
+- The Game panel's "Score pending / Equivalent detected" is real: on a student board the mark cannot be decided on the device, because **the answer key is deliberately never sent to the device** in assessment mode. I traced a live line: the board only receives the shuffled floating pieces (`+7 | 12 | x | =`) and an empty expected line, so the predictive engine has no destination to prove against and the mark still waits for the marking service round trip.
+- The Predictive Line engine itself is correct: given the expected line it proves `x + 7 = 12`, `12 = x + 7` and `7 + x = 12` instantly and in memory, and rejects `x + 12 = 7`.
+- Vault stays exact-order and never awards a mark; that is unchanged.
 
-So the gap is not mathematics. Equivalence is already known instantly; the *award* still travels the slow path.
+So the only thing standing between "equivalence detected" and "score awarded" is that the device is not allowed to know the expected line.
 
-## The rule (unchanged)
+## The fix: a route seal
 
-No equivalence, no mark. Ever. What changes is only the speed of the mark once equivalence is proved.
+When a line becomes active (before the student finishes), the board asks the marking service once for that line's **route seal** — a small set of salted fingerprints of the expected line's canonical mathematical form, plus the line's marks. A fingerprint cannot be read backwards, so the answer stays hidden, exactly as today.
 
-## Build
+Then, on every placement or keystroke:
 
-1. **Award on the same tick as the proof.**
-   Move the predictive proof out of the marking-request path into the line-input path, so it runs the instant the student's line text changes — no delay, no network. When the proof says the line is complete and equivalent:
-   - record the line's marks immediately,
-   - publish the award event with the exact working that earned it,
-   - update the score bar at the top in the same update.
-   The marking service request then fires in the background for the record only.
+1. The engine canonicalises what the student has written, locally.
+2. It fingerprints that canonical form with the same salt.
+3. Match → the line is complete, equivalent is proved, and **the mark is awarded on that same tick**, with no request and no pending state.
+4. No match → the predictive route is recalculated and shown as today.
 
-2. **One shared instant-award helper.**
-   A single small module owns "proof → award payload" (line id, marks, exact expression, reason `predictive_equal`) so the board and the Game consume identical events and no second mathematical engine appears.
+The marking service still runs in the background as the authority and reconciles the record; if it ever disagrees its verdict wins.
 
-3. **Game receives it instantly.**
-   The Game keeps its rule of never grading: it consumes the award event. Because the award now arrives on the same tick as the text, the existing exact-expression safety check passes instead of racing, so completion, the completion coin, notes and line-completion rewards all fire at once.
+## Both surfaces
 
-4. **Panel wording follows reality.**
-   With a complete proof the Score/Mark row reads `✓ Awarded` immediately. The "Equivalent detected / Score pending" warning is kept but becomes what it was meant to be: it only appears if a proved line has still not been marked after a short grace period — a real inconsistency, not the normal case.
+- **Platform (Smartboard / assignments):** identical screen and behaviour, but the mark and the running total appear the instant the final symbol lands.
+- **Game:** the same award event, so score, completion coin, notes and line rewards all fire immediately. The Game Evaluation panel then shows "Awarded" with no pending step; "Equivalent detected / Score pending" becomes a genuine warning that should never normally appear.
+- Teacher test play already knows its own expected line, so it proves locally with no seal request at all.
 
-5. **Background reconciliation stays authoritative.**
-   The marking service still runs. If it ever disagrees with a locally proved line, its verdict wins and the line is corrected — as today.
+## Safeguards kept
 
-6. **Same behaviour on the platform.**
-   The Smartboard/assignment screens get the same instant award through the same path. Their UI, layout and wording are untouched.
-
-## Not changing
-
-Vault stays exact-sequence and never awards a mark. Rewards stay independent of scoring. Floating Numbers generation, room/stage design, Smartboard and assignment evaluation UI, and the grading service's authority all stay as they are.
+- A mark is never awarded without proved equivalence; an incomplete line (for example `x + 7` on its own) still earns nothing.
+- Vault opening never awards the mark.
+- One marking authority, one active line, one mathematics engine — no second grader.
 
 ## Technical notes
 
-- `src/components/smartboard/PresentationView.tsx`: extract the predictive block from `gradeLineThroughEngine` into a synchronous `awardIfPredictivelyComplete(lineIndex, ascii)` called from the writing-update path (the same place that publishes `setFreeLines` / live cursor) and still guarded by `predictiveAwardedRef`, `solvedSlots` and `awardedExpressionBySlotRef`. Route map continues to come from `routeMapFor` keyed by `questionId:lineId`.
-- New `src/lib/predictive/instantAward.ts`: pure `buildInstantAward({ questionId, lineId, marks, ascii })` used by the board broadcast and by the `lastAwardedLineId` / `lastAwardedExpression` context so `useGameRuntime`'s expression gate matches byte-for-byte after trimming.
-- `src/lib/game/inspector.ts`: when `prediction.complete && !awarded`, report a new `awardPending` timestamp instead of setting `scoreInconsistent` straight away; `GameEvaluationPanel.tsx` shows `✓ Awarded` on a complete proof and raises the warning only past the grace window.
-- Tests: instant award fires once per line and never twice; a one-sided fragment (`x + 7`) never awards; a Vault match alone never awards; backend `not_equal` revokes a locally awarded line; Game marks/notes/completion coin land on the same tick as the final symbol. Then a live pass on room Game `29a02610-08c0-4c4a-a083-bccce8ec2354` confirming the top score bar moves to `1 / 6` as the final piece lands, with no "Score pending".
+- New line-seal endpoint on the existing marking service: returns `{ lineId, marks, salt, fingerprints[] }` for the active line; fingerprints are SHA-256 of the canonical form (both equation orientations) with a per-assessment salt. No expected text leaves the server.
+- `src/lib/predictive/predictiveLine.ts` gains a seal mode: `provesEquivalent` can be satisfied either by a known expected line (test play) or by a fingerprint match (student mode). No new mathematics, no second engine.
+- `PresentationView.tsx` prefetches the seal when the active line changes and caches it per `questionId:lineId`; `awardIfPredictivelyComplete` then works in both modes and keeps the existing award path (`lastAwardedExpression`, `confirmLine`, broadcast).
+- Route prediction display in the Game continues to use the teacher's configured line; the student board never receives it.
+- Tests: seal match awards instantly, wrong-but-similar line awards nothing, incomplete fragment awards nothing, reordered equivalent line awards, Vault order unchanged, plus a live pass building a line piece by piece and checking the total moves on the final piece.

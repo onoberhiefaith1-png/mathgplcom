@@ -69,6 +69,7 @@ describe("score and note gating", () => {
     const r = report({
       student: "12 = 7 + x",
       verdict: { lineId: "l1", correct: true, studentAscii: "12 = 7 + x", at: 1 },
+      awardGraceElapsed: true,
     });
     expect(r.scoreAwarded).toBe(false);
     expect(r.scoreInconsistent).toBe(true);
@@ -149,6 +150,7 @@ describe("predictive line in the report", () => {
       hourglassToTime: 1,
       lifeToTime: 1,
       prediction: { status: "complete", predictive: "x + 7 = 12", remaining: [], complete: true },
+      awardGraceElapsed: true,
     });
     expect(report.predictive).toBe("x + 7 = 12");
     expect(report.remaining).toBeNull();

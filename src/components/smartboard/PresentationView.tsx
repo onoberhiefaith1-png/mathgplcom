@@ -55,6 +55,7 @@ import {
   studentGradingKey,
 } from "@/lib/assessments/studentGrading";
 import { predict, routeMapFor } from "@/lib/predictive/predictiveLine";
+import { buildInstantAward, awardProofExpression } from "@/lib/predictive/instantAward";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
@@ -4506,7 +4507,52 @@ const PresentationView = ({
   // reaches the grader through this ref rather than the binding itself.
   gradeTableTrackRef.current = gradeTableTrackThroughCells;
 
-
+  // ── INSTANT SCORE ────────────────────────────────────────────────────────
+  // The shared Predictive Line Engine already knows the shortest valid route
+  // from the Floating Numbers this line was given. The moment the student's
+  // construction completes that route, the mark is awarded on the very same
+  // tick — no delay, no request. The marking service still runs afterwards and
+  // remains the authority that reconciles the record.
+  const awardIfPredictivelyComplete = useCallback((k: number, asciiOverride?: string): boolean => {
+    if (!current || !assessmentId) return false;
+    if (groupForLine(tableGroups, k)) return false;
+    const resolved = resolveGradableLine(k);
+    if (!resolved) return false;
+    const { target, expectedFrags, rowNum } = resolved;
+    const ascii = typeof asciiOverride === "string" ? asciiOverride : resolved.ascii;
+    if (!ascii.trim() || expectedFrags.length === 0) return false;
+    // The predictive engine can only prove a line when the expected line is
+    // known on this device. In assessment mode the answer key is deliberately
+    // server-side only, so there is nothing local to prove against.
+    const expectedAscii = (target as { equation?: string }).equation?.trim() ?? "";
+    if (!expectedAscii) return false;
+    const slotKey = `${current.id}:${target.lineId}`;
+    if (slotKey in solvedSlots || predictiveAwardedRef.current[slotKey]) return false;
+    const proof = predict({
+      routeMap: routeMapFor({
+        expectedAscii,
+        atoms: expectedFrags,
+        keyPrefix: `${current.id}:${target.lineId ?? ""}`,
+      }),
+      studentAscii: ascii,
+    });
+    if (!proof.complete) return false;
+    predictiveAwardedRef.current[slotKey] = true;
+    const awardedNow = Number(target.marks ?? 0);
+    awardedExpressionBySlotRef.current[slotKey] = awardProofExpression(ascii);
+    timerRef.current.confirmLine(slotKey, awardedNow);
+    setSolvedSlots((prev) => (slotKey in prev ? prev : { ...prev, [slotKey]: awardedNow }));
+    setAssessScore((prev) => prev + awardedNow);
+    setWrongLine((w) => (w === rowNum ? null : w));
+    broadcastCheckResultRef.current?.(buildInstantAward({
+      questionId: current.id,
+      lineId: target.lineId ?? "",
+      marks: awardedNow,
+      ascii,
+    }));
+    return true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, assessmentId, tableGroups, resolveGradableLine, solvedSlots]);
 
   const gradeLineThroughEngine = useCallback(async (
     k: number,
@@ -4561,43 +4607,10 @@ const PresentationView = ({
     }
 
     // ── PREDICTIVE LINE ───────────────────────────────────────────────────
-    // The shared route engine works from the very Floating Numbers this line
-    // was given, so a complete, equivalent construction is recognised the
-    // moment the final piece lands — no waiting for the service. The request
-    // below still runs and reconciles the authoritative record.
-    if (!confirmOnly && expectedFrags.length > 0 && !predictiveAwardedRef.current[slotKey]) {
-      const proof = predict({
-        routeMap: routeMapFor({
-          expectedAscii: expectedFrags.join(" "),
-          atoms: expectedFrags,
-          keyPrefix: `${current.id}:${target.lineId ?? ""}`,
-        }),
-        studentAscii: ascii,
-      });
-      if (proof.complete) {
-        predictiveAwardedRef.current[slotKey] = true;
-        const awardedNow = Number(target.marks ?? 0);
-        awardedExpressionBySlotRef.current[slotKey] = ascii.trim();
-        timerRef.current.confirmLine(slotKey, awardedNow);
-        setSolvedSlots((prev) => (slotKey in prev ? prev : { ...prev, [slotKey]: awardedNow }));
-        setAssessScore((prev) => (slotKey in solvedSlots ? prev : prev + awardedNow));
-        setWrongLine((w) => (w === rowNum ? null : w));
-        broadcastCheckResultRef.current?.({
-          questionId: current.id,
-          lineId: target.lineId ?? "",
-          mode,
-          correct: true,
-          verdict: "equal",
-          diagnosis: {
-            code: "predictive_equal",
-            label: "Equivalent",
-            detail: "This line is complete and equivalent to the expected step.",
-          },
-          marks: awardedNow,
-          studentAscii: ascii,
-        });
-      }
-    }
+    // The proof itself now lands with the writing (see awardIfPredictively-
+    // Complete). This call is only the safety net for lines reached through
+    // Check, line exit or a table, so nothing proved complete is left unmarked.
+    if (!confirmOnly) awardIfPredictivelyComplete(k, ascii);
 
     if (mode === "manual") setAssessChecking(true);
     try {
@@ -4975,6 +4988,15 @@ const PresentationView = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeLines, activeLineIdx, guidedLines]);
+
+  // INSTANT SCORE. The moment the writing changes, the shared Predictive Line
+  // Engine is asked whether this line is now complete and equivalent. If it is,
+  // the mark is recorded and published in this same tick — no coalescing window
+  // and no request first. Nothing is ever awarded without proved equivalence.
+  useEffect(() => {
+    if (!assessmentMode || role !== "student") return;
+    awardIfPredictivelyComplete(activeLineIdx);
+  }, [assessmentMode, role, activeLineIdx, freeLines, tableEntries, awardIfPredictivelyComplete]);
 
   // Proactive silent auto-check. Each meaningful edit re-arms one very short
   // coalescing window; the latest expression is then checked while the student

@@ -118,7 +118,11 @@ const joinRoute = (student: string, route: readonly string[]): string =>
  * Floating Numbers so the first hit is always a shortest one. Equal-length
  * routes resolve deterministically by the teacher's atom order.
  */
-const searchRoute = (map: RouteMap, student: string, pool: readonly string[]): string[] | null => {
+const searchRoute = (
+  map: RouteMap,
+  student: string,
+  pool: readonly string[],
+): { route: string[]; predictive: string } | null => {
   if (pool.length === 0) return null;
   let frontier: Array<{ route: string[]; used: number[] }> = [{ route: [], used: [] }];
   let nodes = 0;
@@ -130,8 +134,13 @@ const searchRoute = (map: RouteMap, student: string, pool: readonly string[]): s
         if (state.used.includes(i)) continue;
         if (++nodes > MAX_NODES) return null;
         const route = [...state.route, pool[i]];
-        const candidate = joinRoute(student, route);
-        if (provesEquivalent(map.expected, candidate)) return route;
+        // The student's own construction may sit anywhere on the route: the
+        // remaining pieces are tried after it and before it, so a student who
+        // starts from the middle of the line still gets a valid route.
+        const after = joinRoute(student, route);
+        if (provesEquivalent(map.expected, after)) return { route, predictive: after };
+        const before = joinRoute(route.join(" "), [student]);
+        if (provesEquivalent(map.expected, before)) return { route, predictive: before };
         next.push({ route, used: [...state.used, i] });
       }
     }
@@ -156,12 +165,12 @@ export const predict = (input: {
   }
 
   const pool = remainingAtoms(map.atoms, student);
-  const route = searchRoute(map, student, pool);
-  if (route) {
+  const found = searchRoute(map, student, pool);
+  if (found) {
     return {
       status: student ? "incomplete" : "empty",
-      predictive: joinRoute(student, route),
-      remaining: route,
+      predictive: found.predictive,
+      remaining: found.route,
       complete: false,
     };
   }

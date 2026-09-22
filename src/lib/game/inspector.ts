@@ -81,6 +81,8 @@ export interface LineReport {
   predictive: string | null;
   remaining: string | null;
   noRoute: boolean;
+  /** The shared engine has proved this line complete and equivalent. */
+  predictionComplete: boolean;
 }
 
 /** Exactly what the shared Predictive Line Engine reported for this line. */
@@ -172,6 +174,9 @@ export const buildLineReport = (input: {
   consumedRewardKeys: readonly string[];
   verdict?: InspectVerdict | null;
   prediction?: InspectPrediction | null;
+  /** True once a proved-complete line has still not been marked after the
+   *  short grace window — only then is "score pending" a real inconsistency. */
+  awardGraceElapsed?: boolean;
   /** The Game Line whose Hourglass is counting right now. */
   timedLine: number | null;
   hourglassToTime: number;
@@ -243,7 +248,7 @@ export const buildLineReport = (input: {
     status,
     lineMarks: input.lineMarks,
     scoreAwarded: awarded,
-    scoreInconsistent: status === "equivalent" && !awarded,
+    scoreInconsistent: status === "equivalent" && !awarded && input.awardGraceElapsed === true,
     hasNote: Boolean(clean(input.note)),
     noteUnlocked: awarded && Boolean(clean(input.note)),
     rewards,
@@ -252,6 +257,7 @@ export const buildLineReport = (input: {
       ? null
       : (input.prediction?.remaining?.length ? input.prediction.remaining.join(" ") : null),
     noRoute: !row.isQuestion && input.prediction?.status === "no_route",
+    predictionComplete: !row.isQuestion && input.prediction?.complete === true,
   };
 };
 
