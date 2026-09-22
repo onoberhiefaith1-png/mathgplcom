@@ -117,6 +117,12 @@ const joinRoute = (student: string, route: readonly string[]): string =>
  * Shortest valid remaining route, searched breadth-first over the remaining
  * Floating Numbers so the first hit is always a shortest one. Equal-length
  * routes resolve deterministically by the teacher's atom order.
+ *
+ * The student's own writing is the ANCHOR: a route that continues from what the
+ * student already wrote always wins. Only when no continuation whatsoever can
+ * reach the expected mathematics do we fall back to a route that places the
+ * student's text later in the line — a re-routing map never rewrites the road
+ * already travelled.
  */
 const searchRoute = (
   map: RouteMap,
@@ -127,27 +133,28 @@ const searchRoute = (
   let frontier: Array<{ route: string[]; used: number[] }> = [{ route: [], used: [] }];
   let nodes = 0;
   const depth = Math.min(MAX_ROUTE_ATOMS, pool.length);
+  let fallback: { route: string[]; predictive: string } | null = null;
   for (let d = 0; d < depth; d++) {
     const next: Array<{ route: string[]; used: number[] }> = [];
     for (const state of frontier) {
       for (let i = 0; i < pool.length; i++) {
         if (state.used.includes(i)) continue;
-        if (++nodes > MAX_NODES) return null;
+        if (++nodes > MAX_NODES) return fallback;
         const route = [...state.route, pool[i]];
-        // The student's own construction may sit anywhere on the route: the
-        // remaining pieces are tried after it and before it, so a student who
-        // starts from the middle of the line still gets a valid route.
+        // Preferred: the student keeps writing forward from here.
         const after = joinRoute(student, route);
         if (provesEquivalent(map.expected, after)) return { route, predictive: after };
-        const before = joinRoute(route.join(" "), [student]);
-        if (provesEquivalent(map.expected, before)) return { route, predictive: before };
+        if (!fallback) {
+          const before = joinRoute(route.join(" "), [student]);
+          if (provesEquivalent(map.expected, before)) fallback = { route, predictive: before };
+        }
         next.push({ route, used: [...state.used, i] });
       }
     }
     if (next.length === 0) break;
     frontier = next;
   }
-  return null;
+  return fallback;
 };
 
 export const predict = (input: {
@@ -165,10 +172,16 @@ export const predict = (input: {
   }
 
   const pool = remainingAtoms(map.atoms, student);
+
+  // Nothing written yet: the first prediction is simply the teacher's line.
+  if (!student) {
+    return { status: "empty", predictive: map.expected, remaining: pool, complete: false };
+  }
+
   const found = searchRoute(map, student, pool);
   if (found) {
     return {
-      status: student ? "incomplete" : "empty",
+      status: "incomplete",
       predictive: found.predictive,
       remaining: found.route,
       complete: false,
@@ -178,9 +191,6 @@ export const predict = (input: {
   // No Floating-Number route survives from here. On a keyboard surface the
   // student may still type their way to an equivalent line, so the expected
   // line stays the destination rather than declaring a dead end.
-  if (!student) {
-    return { status: "empty", predictive: map.expected, remaining: [], complete: false };
-  }
   if (input.allowFreeInput) {
     return { status: "incomplete", predictive: map.expected, remaining: [], complete: false };
   }
