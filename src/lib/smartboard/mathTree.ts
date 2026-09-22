@@ -26,6 +26,7 @@ export type Node =
   | { kind: "matrix"; nRows: number; nCols: number; left: string; right: string; fns?: string[]; rows: Row[] }
   | { kind: "accent"; symbol: string; rows: Row[] } // [body]
   | { kind: "binom"; rows: Row[] }      // [top, bot]
+  | { kind: "piecewise"; nRows: number; rows: Row[] } // [expression, condition] per row
   | { kind: "box"; rows: Row[] }        // [body] — single empty slot rendered as outlined cell, top-aligned
   /**
    * GEOMETRY REFERENCE — the box IS the geometry object.
@@ -77,6 +78,11 @@ export const mkMatrix = (
 export const mkAccent = (symbol: string): Node =>
   ({ kind: "accent", symbol, rows: [[]] });
 export const mkBinom = (): Node => ({ kind: "binom", rows: [[], []] });
+export const mkPiecewise = (nRows = 2): Node => ({
+  kind: "piecewise",
+  nRows,
+  rows: Array.from({ length: nRows * 2 }, () => [] as Row),
+});
 export const mkBox = (): Node => ({ kind: "box", rows: [[]] });
 
 /** A geometry reference box. `label` only seeds the visible text — the link is
@@ -389,6 +395,10 @@ const verticalSlot = (node: Node, subIdx: number, dir: 1 | -1): number | null =>
       if (subIdx >= cells) return null; // matrix-power exponent slot
       const target = subIdx + dir * node.nCols;
       return target >= 0 && target < cells ? target : null;
+    }
+    case "piecewise": {
+      const target = subIdx + dir * 2;
+      return target >= 0 && target < node.nRows * 2 ? target : null;
     }
     default:
       // Single-slot containers (bracket, accent, box, georef, sup, sub) have

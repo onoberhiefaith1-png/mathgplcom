@@ -1405,6 +1405,8 @@ export function SlateColumn({
                     editable={!readOnlyWriting}
                     active={selection.kind === "slot" && selection.slotId === slot.id}
                     placeholder={slot.hiddenContent && revealed ? slot.hiddenContent : undefined}
+                    structuredMath={slot.structuredMath}
+                    structuredNote={slot.structuredNote}
                     onChange={(text) => onSlotChange(slot.id, { text })}
                     onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
                     onMeasure={(nextBounds) => measure(slot.id, nextBounds, boundsKey(slot.id, slot.text))}

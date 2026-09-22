@@ -122,6 +122,7 @@ import {
   isPlaceholderOnly,
 } from "@/lib/smartboard/mathTree";
 import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
+import { cloneMathRow, type GameMathLine } from "@/lib/slate/structuredMath";
 import type { ContainerKind } from "@/lib/smartboard/floatingPlan";
 import type { BoardSnapshot } from "@/lib/smartboard/boardWriter/ledger";
 import { parkRowBelow } from "@/lib/smartboard/boardWriter/parkSensor";
@@ -416,6 +417,7 @@ const PresentationView = ({
   onActiveLineChange,
   onLineText,
   onLineDisplayText,
+  onLineStructuredMath,
 }: {
   notebookId?: string | null;
   classId?: string | null;
@@ -513,6 +515,8 @@ const PresentationView = ({
   /** The same working for DISPLAY only, with the sensor mark and placeholder
    *  boxes the Smartboard shows. Never used for mathematics. */
   onLineDisplayText?: (texts: Record<number, string>) => void;
+  /** Game display only: the unflattened tree and its live structural cursor. */
+  onLineStructuredMath?: (lines: Record<number, GameMathLine>) => void;
 
 } = {}) => {
   const params = useParams<{ notebookId: string }>();
@@ -3609,9 +3613,10 @@ const PresentationView = ({
   //     empty bracket / fraction / exponent slot. Display only.
   const sensorRow = Math.floor(sensor.line);
   useEffect(() => {
-    if (!onLineText && !onLineDisplayText) return;
+    if (!onLineText && !onLineDisplayText && !onLineStructuredMath) return;
     const plainByLine: Record<number, string[]> = {};
     const shownByLine: Record<number, string[]> = {};
+    const structuredByLine: Record<number, GameMathLine> = {};
     const flattenRow = (row: Row | undefined): string =>
       !row || row.length === 0 ? "" : rowToAscii(row);
     const decorateRow = (row: Row | undefined, rowKey: number): string => {
@@ -3628,6 +3633,17 @@ const PresentationView = ({
       (shownByLine[owner] ??= []).push(
         decorateRow(freeLines[row], row) + decorateRow(freeLines[row + 0.5], row + 0.5),
       );
+      const appendStructured = (sourceRow: number, source: Row | undefined) => {
+        if (!source || source.length === 0) return;
+        const onSensorRow = sourceRow === sensor.line || sourceRow === sensorRow;
+        (structuredByLine[owner] ??= { rows: [] }).rows.push({
+          sourceRow,
+          row: cloneMathRow(source),
+          cursor: onSensorRow ? { path: [...cursor.path], index: cursor.index } : null,
+        });
+      };
+      appendStructured(row, freeLines[row]);
+      appendStructured(row + 0.5, freeLines[row + 0.5]);
     }
     const collapse = (source: Record<number, string[]>): Record<number, string> => {
       const out: Record<number, string> = {};
@@ -3638,7 +3654,8 @@ const PresentationView = ({
     };
     onLineText?.(collapse(plainByLine));
     onLineDisplayText?.(collapse(shownByLine));
-  }, [onLineText, onLineDisplayText, rowOwners, freeLines, cursor, sensor.line, sensorRow]);
+    onLineStructuredMath?.(structuredByLine);
+  }, [onLineText, onLineDisplayText, onLineStructuredMath, rowOwners, freeLines, cursor, sensor.line, sensorRow]);
   useEffect(() => {
     if (!hasGuidedLines || !activeLayout || activeLayout.bandLines <= 0) return;
     const a = bandStart(activeLayout);

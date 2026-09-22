@@ -30,6 +30,10 @@ const upperSlot = (node: Node): number | null => {
     case "subsup": return 2;  // [base, sub, sup]
     case "frac": return 0;    // numerator
     case "sqrt": return 0;    // radicand sits above the baseline stroke
+    case "bigop": return 2;   // upper bound
+    case "binom": return 0;
+    case "matrix": return 0;
+    case "piecewise": return 0;
     default: return null;
   }
 };
@@ -40,6 +44,10 @@ const lowerSlot = (node: Node): number | null => {
     case "sub": return 0;
     case "subsup": return 1;
     case "frac": return 1;    // denominator
+    case "bigop": return 1;   // lower bound
+    case "binom": return 1;
+    case "matrix": return node.nRows > 1 ? node.nCols : null;
+    case "piecewise": return node.nRows > 1 ? 2 : null;
     default: return null;
   }
 };

@@ -16,6 +16,8 @@ import { InscribedText } from "./InscribedText";
 import { TileText } from "./TileText";
 import { DimensionalText } from "./DimensionalText";
 import { visibleTestRenderer } from "./displayMode";
+import type { GameMathLine } from "@/lib/slate/structuredMath";
+import { StructuredMathText } from "./StructuredMathText";
 
 interface Props {
   slotId: string;
@@ -38,6 +40,8 @@ interface Props {
   onActivate: () => void;
   onMeasure: (bounds: TextBounds) => void;
   onReport?: (data: RegionTextData) => void;
+  structuredMath?: GameMathLine;
+  structuredNote?: string;
 }
 
 /**
@@ -66,6 +70,8 @@ export function WritingRegion({
   onActivate,
   onMeasure,
   onReport,
+  structuredMath,
+  structuredNote,
 }: Props) {
   const api = useRef<InscribedTextApi>(null);
   // The selector changes visibility only: the same hidden input, text state,
@@ -248,31 +254,42 @@ export function WritingRegion({
       </mesh>
 
       <group position={[left + shift.x, top + shift.y, z + 0.004]}>
-        {surfaceTest ? (
-          <InscribedText
-            apiRef={api}
-            text={show}
-            width={width}
-            surface={surface}
-            settings={settings}
-            caret={active ? caret : null}
-            selection={active ? selection : null}
-            onMeasure={report}
-          />
+        {!structuredMath ? (
+          surfaceTest ? (
+            <InscribedText
+              apiRef={api}
+              text={show}
+              width={width}
+              surface={surface}
+              settings={settings}
+              caret={active ? caret : null}
+              selection={active ? selection : null}
+              onMeasure={report}
+            />
+          ) : (
+            <RaisedRenderer
+              apiRef={api}
+              text={show}
+              width={width}
+              surface={surface}
+              settings={settings}
+              caret={active ? caret : null}
+              selection={active ? selection : null}
+              onMeasure={report}
+              responsive={active}
+            />
+          )
         ) : (
-          <RaisedRenderer
-            apiRef={api}
-            text={show}
+          <StructuredMathText
+            math={structuredMath}
+            note={structuredNote}
             width={width}
             surface={surface}
             settings={settings}
-            caret={active ? caret : null}
-            selection={active ? selection : null}
             onMeasure={report}
-            responsive={active}
           />
         )}
-        {!text && placeholder ? (
+        {!structuredMath && !text && placeholder ? (
           surfaceTest ? (
             <InscribedText
               text={placeholder}
