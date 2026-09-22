@@ -14,6 +14,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.72",
     "@ai-sdk/openai-compatible": "^3.0.30",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
