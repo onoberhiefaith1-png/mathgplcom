@@ -5030,6 +5030,7 @@ const PresentationView = ({
       atoms: expectedFrags,
       limit: MAX_PRECLEAR_CANDIDATES,
     });
+    console.debug("[preclear] candidates", candidates.length, "ascii", ascii);
     const ask = preClearedRef.current.unasked(slotKey, candidates);
     if (ask.length === 0) return;
     preClearedRef.current.markAsked(slotKey, ask);
