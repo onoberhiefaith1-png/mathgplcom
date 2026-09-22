@@ -8,9 +8,11 @@ import { PREDICTIVE_NO_ROUTE_LABEL } from "@/lib/predictive/predictiveLine";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import {
   MATH_STATUS_LABEL,
-  REWARD_STAGE_LABEL,
+  REWARD_STAGE_SHORT,
+  groupRewards,
   type InspectEvent,
   type LineReport,
+  type RewardReport,
 } from "@/lib/game/inspector";
 
 export interface GameResourcesView {
