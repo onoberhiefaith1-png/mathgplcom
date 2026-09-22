@@ -9,6 +9,14 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const SIGN_TTL = 60 * 60;
+/**
+ * Art that no longer exists in storage used to be re-requested on every render,
+ * so one deleted background produced an endless stream of failing requests that
+ * slowed the whole page down. A missing object is remembered for a while and
+ * simply treated as "no art".
+ */
+const missing = new Map<string, number>();
+const MISSING_TTL_MS = 5 * 60_000;
 
 export const getCachedSignedUrl = (path?: string | null): string | null => {
   if (!path) return null;
@@ -23,10 +31,17 @@ export const getSignedUrl = async (path: string): Promise<string | null> => {
   const now = Date.now();
   if (hit && hit.expires > now + 60_000) return hit.url;
 
+  const gone = missing.get(path);
+  if (gone && gone > now) return null;
+
   const { data, error } = await supabase.storage
     .from(GAME_ASSETS_BUCKET)
     .createSignedUrl(path, SIGN_TTL);
-  if (error || !data?.signedUrl) return null;
+  if (error || !data?.signedUrl) {
+    missing.set(path, now + MISSING_TTL_MS);
+    return null;
+  }
+
 
   cache.set(path, { url: data.signedUrl, expires: now + SIGN_TTL * 1000 });
   return data.signedUrl;
