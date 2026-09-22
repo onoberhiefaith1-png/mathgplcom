@@ -745,20 +745,38 @@ export function SlateColumn({
   const editable = mode === "edit";
 
   /** Real rendered bounds per slot; Game Line layout uses height, material uses all four edges. */
-  const [textBounds, setTextBounds] = useState<Record<string, TextBounds>>({});
-  const measure = useCallback((slotId: string, bounds: TextBounds) => {
-    setTextBounds((previous) => {
+  const [measuredText, setMeasuredText] = useState<Record<string, { key: string; bounds: TextBounds }>>({});
+  const measure = useCallback((slotId: string, bounds: TextBounds, key: string) => {
+    setMeasuredText((previous) => {
       const current = previous[slotId];
       if (
         current &&
-        Math.abs(current.width - bounds.width) < 0.02 &&
-        Math.abs(current.height - bounds.height) < 0.02 &&
-        Math.abs(current.left - bounds.left) < 0.02 &&
-        Math.abs(current.top - bounds.top) < 0.02
+        current.key === key &&
+        Math.abs(current.bounds.width - bounds.width) < 0.02 &&
+        Math.abs(current.bounds.height - bounds.height) < 0.02 &&
+        Math.abs(current.bounds.left - bounds.left) < 0.02 &&
+        Math.abs(current.bounds.top - bounds.top) < 0.02
       ) return previous;
-      return { ...previous, [slotId]: bounds };
+      return { ...previous, [slotId]: { key, bounds } };
     });
   }, []);
+
+  // A measurement only ever sizes the text it was taken from. A new question,
+  // line, text size or surface therefore cannot be laid out inside a panel
+  // built for earlier content — the recurring "text outside the surface" cause.
+  const boundsKey = useCallback(
+    (slotId: string, text: string) =>
+      `${slotId}|${text}|${textSettings.size}|${textSettings.align}|${textSettings.lineSpacing}`,
+    [textSettings.align, textSettings.lineSpacing, textSettings.size],
+  );
+  const textBounds = useMemo(() => {
+    const out: Record<string, TextBounds> = {};
+    game.slots.forEach((slot) => {
+      const entry = measuredText[slot.id];
+      if (entry && entry.key === boundsKey(slot.id, slot.text)) out[slot.id] = entry.bounds;
+    });
+    return out;
+  }, [boundsKey, game.slots, measuredText]);
 
   // PERFORMANCE: only the reward artwork this Game actually places is fetched
   // and uploaded to the GPU. Loading the whole catalogue delayed first paint.
