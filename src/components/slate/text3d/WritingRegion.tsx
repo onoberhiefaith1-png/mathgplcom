@@ -81,9 +81,17 @@ export function WritingRegion({
   const measuredBounds = useRef<TextBounds>({
     left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0,
   });
+  /** Live correction that keeps the text body inside its own surface. */
+  const [shift, setShift] = useState({ x: 0, y: 0 });
 
   const top = height / 2 - pad;
   const left = -width / 2;
+
+  // A fresh body (new question, new line, new text size, new surface) starts
+  // from the surface's own geometry, never from an earlier correction.
+  useEffect(() => {
+    setShift({ x: 0, y: 0 });
+  }, [slotId, text, settings.size, settings.align, surface.id, width, height]);
 
   const syncFromInput = useCallback(() => {
     const el = input.current;
