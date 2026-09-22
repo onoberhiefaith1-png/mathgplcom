@@ -51,6 +51,15 @@ export const REWARD_STAGE_LABEL: Record<RewardStage, string> = {
   expired: "Expired — dissolved unpaid",
 };
 
+/** GLANCEABLE status. The panel shows the reward's own artwork plus this. */
+export const REWARD_STAGE_SHORT: Record<RewardStage, string> = {
+  waiting: "WAITING",
+  condition_met: "✓ ACTIVATED",
+  activated: "✓ ACTIVATED",
+  awarded: "✓ AWARDED",
+  expired: "EXPIRED",
+};
+
 export interface RewardReport {
   id: string;
   type: string;
@@ -60,7 +69,31 @@ export interface RewardReport {
   stage: RewardStage;
   /** Extra live detail: Vault sequence, hourglass payout, life value. */
   detail?: string;
+  /** The reward's real Game artwork, so the panel shows the object itself. */
+  art: string;
+  openArt?: string;
+  glow: string;
+  /** A Vault's own encrypted code — the one piece of text worth showing. */
+  code?: string | null;
 }
+
+/** One visual group: every reward of the same type on the CURRENT line. */
+export interface RewardGroup {
+  type: string;
+  label: string;
+  items: RewardReport[];
+}
+
+/** Rewards of one type belong together. Order follows the teacher's placement. */
+export const groupRewards = (rewards: readonly RewardReport[]): RewardGroup[] => {
+  const groups: RewardGroup[] = [];
+  for (const reward of rewards) {
+    const existing = groups.find((g) => g.type === reward.type);
+    if (existing) existing.items.push(reward);
+    else groups.push({ type: reward.type, label: reward.label, items: [reward] });
+  }
+  return groups;
+};
 
 export interface LineReport {
   line: number;
@@ -236,6 +269,13 @@ export const buildLineReport = (input: {
       conditionMet,
       stage,
       detail,
+      art: def.art,
+      openArt: def.openArt,
+      glow: def.glow,
+      code:
+        reward.type === "math-vault"
+          ? (reward.expression ?? row.vaultExpression ?? null)
+          : null,
     };
   });
 

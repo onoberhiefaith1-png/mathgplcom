@@ -8,9 +8,11 @@ import { PREDICTIVE_NO_ROUTE_LABEL } from "@/lib/predictive/predictiveLine";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import {
   MATH_STATUS_LABEL,
-  REWARD_STAGE_LABEL,
+  REWARD_STAGE_SHORT,
+  groupRewards,
   type InspectEvent,
   type LineReport,
+  type RewardReport,
 } from "@/lib/game/inspector";
 
 export interface GameResourcesView {
@@ -34,6 +36,56 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
     <div className="text-xs">{children}</div>
   </div>
 );
+
+/** One reward, shown as its own Game artwork plus a short live status. */
+const RewardChip = ({
+  reward,
+  countdown,
+}: {
+  reward: RewardReport;
+  countdown: number | null;
+}) => {
+  const done = reward.stage === "awarded" || reward.stage === "condition_met" || reward.stage === "activated";
+  const complete = reward.type === "mark-seal" && done;
+  const status = complete
+    ? "✓ COMPLETE"
+    : reward.type === "mark-seal" && reward.stage === "waiting"
+      ? "PENDING"
+      : REWARD_STAGE_SHORT[reward.stage];
+  const art = reward.openArt && done ? reward.openArt : reward.art;
+  return (
+    <div className="flex w-14 flex-col items-center gap-0.5" title={`${reward.label} — ${reward.condition}`}>
+      <img
+        src={art}
+        alt={reward.label}
+        loading="lazy"
+        className={`h-9 w-9 object-contain transition ${done ? "" : "opacity-45 grayscale"}`}
+        style={done ? { filter: `drop-shadow(0 0 6px ${reward.glow})` } : undefined}
+      />
+      {reward.code ? (
+        <span className="max-w-full truncate font-mono text-[10px]" title={reward.code}>
+          {reward.code}
+        </span>
+      ) : null}
+      {countdown ? (
+        <GameClockDisplay deadline={countdown}>
+          {(label) => <span className="text-[10px] tabular-nums">{label}</span>}
+        </GameClockDisplay>
+      ) : null}
+      <span
+        className={`text-center text-[9px] font-semibold leading-tight ${
+          reward.stage === "waiting"
+            ? "text-muted-foreground"
+            : reward.stage === "expired"
+              ? "text-rose-600"
+              : "text-emerald-600"
+        }`}
+      >
+        {status}
+      </span>
+    </div>
+  );
+};
 
 export function GameEvaluationPanel({
   open,
@@ -113,50 +165,37 @@ export function GameEvaluationPanel({
                   : <span className="text-muted-foreground">Locked until this line's mark is awarded</span>}
             </Field>
 
+            {/* REWARDS — one visual area for the current line. Every reward of
+                the same type stands together; the artwork is the information and
+                the only text is a short live status (and a Vault's own code). */}
             <div className="space-y-1.5">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Rewards on this line
+                Rewards
               </div>
               {!report || report.rewards.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No rewards configured on this line.</p>
+                <p className="text-xs text-muted-foreground">No rewards on this line.</p>
               ) : (
-                <ul className="space-y-1.5">
-                  {report.rewards.map((reward) => (
-                    <li key={reward.id} className="rounded-lg border border-border/60 px-2 py-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold">{reward.label}</span>
-                        <span
-                          className={`ml-auto text-[10px] ${
-                            reward.stage === "waiting"
-                              ? "text-muted-foreground"
-                              : reward.stage === "expired"
-                                ? "text-rose-600"
-                                : "text-emerald-600"
-                          }`}
-                        >
-                          {REWARD_STAGE_LABEL[reward.stage]}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
-                        CONDITION: {reward.condition}
-                      </p>
-                      {reward.type === "time-shard" && resources.lineDeadline ? (
-                        <p className="text-[11px] tabular-nums">
-                          <GameClockDisplay deadline={resources.lineDeadline}>
-                            {(label) => <span>Countdown {label}</span>}
-                          </GameClockDisplay>
-                        </p>
-                      ) : null}
-                      {reward.detail ? (
-                        <p className="text-[11px] text-muted-foreground">{reward.detail}</p>
-                      ) : null}
-                    </li>
+                <div className="flex flex-wrap items-start gap-2">
+                  {groupRewards(report.rewards).map((group) => (
+                    <div
+                      key={group.type}
+                      className="flex items-start gap-1.5 rounded-lg border border-border/50 bg-muted/20 p-1.5"
+                    >
+                      {group.items.map((reward) => (
+                        <RewardChip
+                          key={reward.id}
+                          reward={reward}
+                          countdown={
+                            reward.type === "time-shard" && reward.stage === "activated"
+                              ? resources.lineDeadline
+                              : null
+                          }
+                        />
+                      ))}
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
-              {report && !report.rewards.some((r) => r.type === "time-shard") ? (
-                <p className="text-[11px] text-muted-foreground">Hourglass — none on this line.</p>
-              ) : null}
             </div>
 
             <div className="space-y-1">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendEvent, buildLineReport, deriveMathStatus, looksIncomplete } from "../inspector";
+import { appendEvent, buildLineReport, deriveMathStatus, groupRewards, looksIncomplete } from "../inspector";
 import type { MappedLine } from "@/lib/slate/pattern";
 
 const row = (over: Partial<MappedLine> = {}): MappedLine => ({
@@ -176,5 +176,20 @@ describe("predictive line in the report", () => {
     });
     expect(report.noRoute).toBe(true);
     expect(report.status).toBe("not_equivalent");
+  });
+});
+
+describe("groupRewards", () => {
+  it("keeps every reward of one type together, in placement order", () => {
+    const make = (id: string, type: string) =>
+      ({ id, type, label: type, condition: "", conditionMet: false, stage: "waiting", art: "a", glow: "#fff" }) as never;
+    const groups = groupRewards([
+      make("v1", "math-vault"),
+      make("b1", "premium-chain-bomb"),
+      make("v2", "math-vault"),
+      make("v3", "math-vault"),
+    ]);
+    expect(groups.map((g) => g.type)).toEqual(["math-vault", "premium-chain-bomb"]);
+    expect(groups[0].items.map((i) => i.id)).toEqual(["v1", "v2", "v3"]);
   });
 });
