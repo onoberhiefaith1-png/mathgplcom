@@ -1,9 +1,14 @@
 // A Game is given to a class as its own assignment type. The Game stays the
 // container: its questions, marks and timing are read live from Floating
 // Numbers, never copied here.
+//
+// CLASS + GAME = ONE PLAYABLE GAME. This row IS that instance: its questions,
+// their order, its play settings and every student's progress hang off it.
 
 import { supabase } from "@/integrations/supabase/client";
 import { listGameQuestions, type GameQuestion } from "./gameQuestions";
+
+export type LevelMapStyle = "path" | "art";
 
 export interface GameAssignment {
   id: string;
@@ -12,9 +17,15 @@ export interface GameAssignment {
   passPercentage: number;
   title: string | null;
   active: boolean;
+  /** Level N unlocks only when Level N-1 is complete. */
+  lockProgression: boolean;
+  /** 1–5, default 3. */
+  startingLives: number;
+  levelMapStyle: LevelMapStyle;
 }
 
-const SELECT = "id, game_id, class_id, pass_percentage, title, unassigned_at";
+const SELECT =
+  "id, game_id, class_id, pass_percentage, title, unassigned_at, lock_progression, starting_lives, level_map_style";
 
 type Row = {
   id: string;
@@ -23,6 +34,15 @@ type Row = {
   pass_percentage: number;
   title: string | null;
   unassigned_at: string | null;
+  lock_progression?: boolean | null;
+  starting_lives?: number | null;
+  level_map_style?: string | null;
+};
+
+export const clampStartingLives = (value: unknown): number => {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 3;
+  return Math.min(5, Math.max(1, n));
 };
 
 const asRow = (row: Row): GameAssignment => ({
@@ -32,7 +52,49 @@ const asRow = (row: Row): GameAssignment => ({
   passPercentage: Number(row.pass_percentage ?? 70),
   title: row.title,
   active: !row.unassigned_at,
+  lockProgression: Boolean(row.lock_progression),
+  startingLives: clampStartingLives(row.starting_lives ?? 3),
+  levelMapStyle: row.level_map_style === "art" ? "art" : "path",
 });
+
+/** Saves the play settings of ONE playable instance (Class + Game). */
+export const updateGameInstanceSettings = async (
+  assignmentId: string,
+  patch: Partial<Pick<GameAssignment, "lockProgression" | "startingLives" | "levelMapStyle">>,
+): Promise<void> => {
+  const payload: Record<string, unknown> = {};
+  if (patch.lockProgression !== undefined) payload.lock_progression = patch.lockProgression;
+  if (patch.startingLives !== undefined) payload.starting_lives = clampStartingLives(patch.startingLives);
+  if (patch.levelMapStyle !== undefined) payload.level_map_style = patch.levelMapStyle;
+  if (Object.keys(payload).length === 0) return;
+  await supabase.from("slate_game_assignments").update(payload as never).eq("id", assignmentId);
+};
+
+export interface GameClassOption {
+  assignmentId: string;
+  classId: string;
+  className: string;
+}
+
+/** The classes this Game is linked to — the Select Class list before Play. */
+export const listGameClasses = async (gameId: string): Promise<GameClassOption[]> => {
+  if (!gameId) return [];
+  const { data } = await supabase
+    .from("slate_game_assignments")
+    .select("id, class_id, classes(name)")
+    .eq("game_id", gameId)
+    .is("unassigned_at", null)
+    .order("created_at", { ascending: true });
+  return ((data ?? []) as unknown as {
+    id: string;
+    class_id: string;
+    classes: { name: string } | null;
+  }[]).map((row) => ({
+    assignmentId: row.id,
+    classId: row.class_id,
+    className: row.classes?.name ?? "Class",
+  }));
+};
 
 /** Active game assignments per class for one Game. */
 export const loadGameAssignmentState = async (
