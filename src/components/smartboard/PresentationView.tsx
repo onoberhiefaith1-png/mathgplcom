@@ -54,6 +54,7 @@ import {
   PROACTIVE_GRADING_DELAY_MS,
   studentGradingKey,
 } from "@/lib/assessments/studentGrading";
+import { predict, routeMapFor } from "@/lib/predictive/predictiveLine";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
@@ -4188,6 +4189,9 @@ const PresentationView = ({
   const [lastAwardedLineId, setLastAwardedLineId] = useState<string | null>(null);
   const [lastAwardedExpression, setLastAwardedExpression] = useState<string | null>(null);
   const awardedExpressionBySlotRef = useRef<Record<string, string>>({});
+  /** Lines the shared Predictive Line Engine already proved complete, so the
+   *  service answer that follows reconciles instead of awarding twice. */
+  const predictiveAwardedRef = useRef<Record<string, boolean>>({});
   const seenSlotsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const keys = Object.keys(solvedSlots);
@@ -4556,6 +4560,45 @@ const PresentationView = ({
       }
     }
 
+    // ── PREDICTIVE LINE ───────────────────────────────────────────────────
+    // The shared route engine works from the very Floating Numbers this line
+    // was given, so a complete, equivalent construction is recognised the
+    // moment the final piece lands — no waiting for the service. The request
+    // below still runs and reconciles the authoritative record.
+    if (!confirmOnly && expectedFrags.length > 0 && !predictiveAwardedRef.current[slotKey]) {
+      const proof = predict({
+        routeMap: routeMapFor({
+          expectedAscii: expectedFrags.join(" "),
+          atoms: expectedFrags,
+          keyPrefix: `${current.id}:${target.lineId ?? ""}`,
+        }),
+        studentAscii: ascii,
+      });
+      if (proof.complete) {
+        predictiveAwardedRef.current[slotKey] = true;
+        const awardedNow = Number(target.marks ?? 0);
+        awardedExpressionBySlotRef.current[slotKey] = ascii.trim();
+        timerRef.current.confirmLine(slotKey, awardedNow);
+        setSolvedSlots((prev) => (slotKey in prev ? prev : { ...prev, [slotKey]: awardedNow }));
+        setAssessScore((prev) => (slotKey in solvedSlots ? prev : prev + awardedNow));
+        setWrongLine((w) => (w === rowNum ? null : w));
+        broadcastCheckResultRef.current?.({
+          questionId: current.id,
+          lineId: target.lineId ?? "",
+          mode,
+          correct: true,
+          verdict: "equal",
+          diagnosis: {
+            code: "predictive_equal",
+            label: "Equivalent",
+            detail: "This line is complete and equivalent to the expected step.",
+          },
+          marks: awardedNow,
+          studentAscii: ascii,
+        });
+      }
+    }
+
     if (mode === "manual") setAssessChecking(true);
     try {
       const { data, error } = await supabase.functions.invoke("grade-line", {
@@ -4649,9 +4692,12 @@ const PresentationView = ({
         }
         if (testMode) {
           // Nothing was persisted, so the sitting accumulates its own total.
+          // A line the Predictive Line already awarded is only reconciled here.
           const slot = `${current.id}:${target.lineId}`;
-          setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
-          setAssessScore((prev) => prev + awarded);
+          if (!predictiveAwardedRef.current[slot]) {
+            setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
+            setAssessScore((prev) => prev + awarded);
+          }
         } else {
           setSolvedSlots(res.solvedLines ?? {});
           setAssessScore(Number(res.score ?? 0));
@@ -5779,6 +5825,7 @@ const PresentationView = ({
     setLastAwardedLineId(null);
     setLastAwardedExpression(null);
     awardedExpressionBySlotRef.current = {};
+    predictiveAwardedRef.current = {};
     setPlaybackResetGeneration((generation) => generation + 1);
 
     await timer.reset();

@@ -133,3 +133,46 @@ describe("activity feed", () => {
     expect(appendEvent(second, "Line 2 started", 3)).toHaveLength(2);
   });
 });
+
+describe("predictive line in the report", () => {
+  it("reports the shortest remaining route and flags a pending score", () => {
+    const report = buildLineReport({
+      row: { line: 1, isQuestion: false, lineId: "l1", patternSlot: 0, rewards: [], timerSeconds: 0, hourglassSeconds: 0, vaultExpression: null, vaultCodes: [], vaultCoins: 0 } as never,
+      questionRowId: "q1",
+      expected: "x + 7 = 12",
+      student: "x + 7 = 12",
+      note: "note",
+      lineMarks: 6,
+      awarded: false,
+      consumedRewardKeys: [],
+      timedLine: null,
+      hourglassToTime: 1,
+      lifeToTime: 1,
+      prediction: { status: "complete", predictive: "x + 7 = 12", remaining: [], complete: true },
+    });
+    expect(report.predictive).toBe("x + 7 = 12");
+    expect(report.remaining).toBeNull();
+    expect(report.noRoute).toBe(false);
+    expect(report.scoreInconsistent).toBe(true);
+    expect(report.noteUnlocked).toBe(false);
+  });
+
+  it("says there is no valid route when the engine finds none", () => {
+    const report = buildLineReport({
+      row: { line: 1, isQuestion: false, lineId: "l1", patternSlot: 0, rewards: [], timerSeconds: 0, hourglassSeconds: 0, vaultExpression: null, vaultCodes: [], vaultCoins: 0 } as never,
+      questionRowId: "q1",
+      expected: "x + 7 = 12",
+      student: "x + 12 = 7",
+      note: null,
+      lineMarks: 6,
+      awarded: false,
+      consumedRewardKeys: [],
+      timedLine: null,
+      hourglassToTime: 1,
+      lifeToTime: 1,
+      prediction: { status: "no_route", predictive: "", remaining: [], complete: false },
+    });
+    expect(report.noRoute).toBe(true);
+    expect(report.status).toBe("not_equivalent");
+  });
+});
