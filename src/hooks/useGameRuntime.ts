@@ -52,6 +52,11 @@ export interface GameRuntime {
   /** 1-based Game Line the student is working on. */
   currentLine: number;
   completedQuestionIds: string[];
+  /** Question row ids the student may open right now. */
+  unlockedQuestionIds: string[];
+  /** Level N (1-based) is playable. */
+  isLevelUnlocked: (index: number) => boolean;
+  lockProgression: boolean;
   /** 1-based Game Lines whose mark has been awarded in this question. */
   completedLines: number[];
   consumedRewardKeys: string[];
@@ -97,15 +102,22 @@ export const useGameRuntime = (params: {
   testMode?: boolean;
   /** The student's live working per Floating Numbers line (0-based index). */
   lineText?: Record<number, string>;
+  /** Lives this playable instance starts with (1-5). */
+  startingLives?: number;
+  /** Level N opens only once Level N-1 is complete. */
+  lockProgression?: boolean;
 }): GameRuntime => {
   const {
     game, boards, studentId, assignmentId = null, testMode = false, lineText = {},
+    lockProgression = false,
   } = params;
+  const configuredLives = Math.min(5, Math.max(1, Math.round(params.startingLives ?? 3)));
 
   const [ready, setReady] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [currentLine, setCurrentLine] = useState(1);
   const [completedQuestionIds, setCompletedQuestionIds] = useState<string[]>([]);
+  const [unlockedQuestionIds, setUnlockedQuestionIds] = useState<string[]>([]);
   const [completedLines, setCompletedLines] = useState<number[]>([]);
   const [consumed, setConsumed] = useState<string[]>([]);
   const [vaultReward, setVaultReward] = useState(0);
@@ -145,7 +157,7 @@ export const useGameRuntime = (params: {
     if (!game) return;
     let cancelled = false;
     (async () => {
-      const startingLives = game.status?.lives ?? 3;
+      const startingLives = configuredLives;
       if (testMode || !studentId) {
         if (!cancelled) {
           setLives(startingLives);
@@ -155,7 +167,7 @@ export const useGameRuntime = (params: {
       }
       let query = supabase
         .from("slate_game_progress")
-        .select("id, question_index, current_line, completed_question_ids, completed_line_keys, consumed_reward_keys, coins, vault_reward, completion_count, lives, status")
+        .select("id, question_index, current_line, completed_question_ids, completed_line_keys, consumed_reward_keys, coins, vault_reward, completion_count, lives, status, unlocked_question_ids")
         .eq("game_id", game.id)
         .eq("student_id", studentId);
       query = assignmentId
@@ -175,12 +187,14 @@ export const useGameRuntime = (params: {
         completed_line_keys: string[] | null;
         lives: number;
         status: string;
+        unlocked_question_ids: string[] | null;
       } | null;
       if (row) {
         rowId.current = row.id;
         setQuestionIndex(Math.min(row.question_index, Math.max(0, boards.length - 1)));
         setCurrentLine(Math.max(1, row.current_line));
         setCompletedQuestionIds(row.completed_question_ids ?? []);
+        setUnlockedQuestionIds(row.unlocked_question_ids ?? []);
         setConsumed(row.consumed_reward_keys ?? []);
         setVaultReward(row.vault_reward ?? row.coins ?? 0);
         setCompletionCount(row.completion_count ?? row.completed_line_keys?.length ?? 0);
@@ -208,6 +222,7 @@ export const useGameRuntime = (params: {
           question_index: questionIndex,
           current_line: currentLine,
           completed_question_ids: completedQuestionIds,
+          unlocked_question_ids: unlockedQuestionIds,
           consumed_reward_keys: consumed,
           coins: vaultReward,
           vault_reward: vaultReward,
@@ -231,7 +246,8 @@ export const useGameRuntime = (params: {
     return () => window.clearTimeout(handle);
   }, [
     ready, testMode, studentId, game, assignmentId, questionIndex, currentLine,
-    completedQuestionIds, completedLineKeys, consumed, vaultReward, completionCount, lives, status,
+    completedQuestionIds, unlockedQuestionIds, completedLineKeys, consumed, vaultReward,
+    completionCount, lives, status,
   ]);
 
   /* ---- question timer ------------------------------------------------ */
@@ -295,10 +311,10 @@ export const useGameRuntime = (params: {
       setLives((prev) => {
         const next = prev - 1;
         if (next < 0) {
+          // No life left: the existing Game-over behaviour, never a silent
+          // automatic restart in the middle of play.
           setStatus("failed");
-          setMessage("Time ran out and no lives were left — the Game restarts.");
-          setQuestionIndex(0);
-          setCurrentLine(1);
+          setMessage("Time ran out and no lives were left. Restart the Game to try again.");
           return 0;
         }
         // completed lines stay completed; the life buys more time, nothing else
@@ -570,6 +586,11 @@ export const useGameRuntime = (params: {
         completed: true,
       });
     }
+    const nextBoard = boards[questionIndex + 1];
+    if (nextBoard) {
+      setUnlockedQuestionIds((prev) =>
+        prev.includes(nextBoard.questionRowId) ? prev : [...prev, nextBoard.questionRowId]);
+    }
     if (questionIndex + 1 < boards.length) {
       setQuestionIndex(questionIndex + 1);
       setCurrentLine(1);
@@ -581,7 +602,7 @@ export const useGameRuntime = (params: {
     }
   }, [
     question, lines, consumeLine, completedQuestionIds, testMode, assignmentId,
-    studentId, questionIndex, boards.length, acceptLineAward,
+    studentId, questionIndex, boards, acceptLineAward,
   ]);
 
 
@@ -609,12 +630,24 @@ export const useGameRuntime = (params: {
     return stop;
   }, [lineDeadline, question]);
 
+  /** Level 1 is always open; a locked Game opens Level N once N-1 is done. */
+  const isLevelUnlocked = useCallback((index: number) => {
+    if (index <= 0) return true;
+    if (!lockProgression) return true;
+    const previous = boards[index - 1];
+    const own = boards[index];
+    if (!previous) return true;
+    if (own && unlockedQuestionIds.includes(own.questionRowId)) return true;
+    return completedQuestionIds.includes(previous.questionRowId);
+  }, [boards, lockProgression, completedQuestionIds, unlockedQuestionIds]);
+
   const goToQuestion = useCallback((index: number) => {
     if (index < 0 || index >= boards.length) return;
+    if (!isLevelUnlocked(index)) return;
     setQuestionIndex(index);
     setCurrentLine(1);
     setCompletedLines([]);
-  }, [boards.length]);
+  }, [boards.length, isLevelUnlocked]);
 
   /** A tapped Game surface selects its one-to-one Floating Numbers Line. */
   const selectLine = useCallback((line: number) => {
@@ -654,12 +687,13 @@ export const useGameRuntime = (params: {
     setQuestionIndex(0);
     setCurrentLine(1);
     setCompletedQuestionIds([]);
+    setUnlockedQuestionIds([]);
     setCompletedLines([]);
     setConsumed([]);
     setVaultReward(0);
     setCompletionCount(0);
     setCompletedLineKeys([]);
-    setLives(game?.status?.lives ?? 3);
+    setLives(configuredLives);
     setEarnedMarks(0);
     setStatus("in_progress");
     awarded.current = new Set();
@@ -671,7 +705,7 @@ export const useGameRuntime = (params: {
     setLineDeadline(null);
     setMessage(null);
     startQuestionTimer(boards[0]?.questionTimerSeconds ?? null);
-  }, [game, boards, startQuestionTimer, testMode, studentId, assignmentId]);
+  }, [game, boards, startQuestionTimer, testMode, studentId, assignmentId, configuredLives]);
 
   return {
     ready,
@@ -680,6 +714,9 @@ export const useGameRuntime = (params: {
     lines,
     currentLine,
     completedQuestionIds,
+    unlockedQuestionIds,
+    isLevelUnlocked,
+    lockProgression,
     completedLines,
     consumedRewardKeys: consumed,
     vaultReward,
