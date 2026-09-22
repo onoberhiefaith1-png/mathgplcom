@@ -86,6 +86,8 @@
 - [x] Make one canonical room-safe writing band own surfaces, text, hit areas, rewards, and collector travel.
 - [x] Remove the Edit sizing bypass so every renderer wraps inside its physical surface.
 - [x] Remove nested writing-state updates that could interrupt rapid input.
+- [x] Reject incomplete expressions when the authoritative answer line is an equation.
+- [x] Require the exact freshly awarded expression before Game completion can reveal a note.
 
 - [x] Identify duplicate floor/ceiling ownership at branch and merge throats.
 - [x] Stop branch decks at the throat boundary and correct merge reveal geometry.

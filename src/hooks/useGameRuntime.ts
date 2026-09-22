@@ -21,6 +21,8 @@ export interface LineContext {
   total: number;
   completed: boolean;
   lastAwardedLineId?: string | null;
+  /** Exact working that received that authoritative award. */
+  lastAwardedExpression?: string | null;
   lineEngaged?: boolean;
 }
 
@@ -425,6 +427,14 @@ export const useGameRuntime = (params: {
         awarded.current.add(key);
         const index = question.lineIds.indexOf(awardedId);
         if (index >= 0) {
+          // Defense in depth: the board must name the exact non-empty working
+          // that received this award. Vault events never carry this proof.
+          const awardedExpression = ctx.lastAwardedExpression?.trim() ?? "";
+          const currentExpression = workRef.current[index]?.trim() ?? "";
+          if (!awardedExpression || awardedExpression !== currentExpression) {
+            awarded.current.delete(key);
+            return;
+          }
           const lineKey = `${question.questionRowId}:${awardedId}`;
           setCompletedLineKeys((prev) => prev.includes(lineKey) ? prev : [...prev, lineKey]);
           setCompletionCount((prev) => prev + 1);
