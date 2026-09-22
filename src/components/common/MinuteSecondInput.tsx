@@ -49,8 +49,15 @@ export const MinuteSecondInput = ({
     color: "hsl(220 35% 18%)",
     ...style,
   };
+  // The steppers carry the page's own ink so they stay clearly visible on the
+  // light paper panel instead of fading into it.
   const stepClass =
-    "flex h-3 w-4 items-center justify-center rounded-[3px] border border-foreground/15 text-foreground/55 hover:bg-foreground/5 disabled:opacity-30";
+    "flex h-3.5 w-4 items-center justify-center rounded-[3px] disabled:opacity-30";
+  const stepStyle: CSSProperties = {
+    background: "hsl(200 60% 50% / 0.16)",
+    border: "1px solid hsl(200 60% 40% / 0.55)",
+    color: "hsl(220 35% 18%)",
+  };
 
   const part = (
     label: string,
