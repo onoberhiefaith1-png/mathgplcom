@@ -9,6 +9,14 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 const SIGN_TTL = 60 * 60;
+/**
+ * Art that no longer exists in storage used to be re-requested on every render,
+ * so one deleted background produced an endless stream of failing requests that
+ * slowed the whole page down. A missing object is remembered for a while and
+ * simply treated as "no art".
+ */
+const missing = new Map<string, number>();
+const MISSING_TTL_MS = 5 * 60_000;
 
 export const getCachedSignedUrl = (path?: string | null): string | null => {
   if (!path) return null;
