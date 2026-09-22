@@ -84,7 +84,7 @@ function apiKey(): string {
 }
 
 function buildTools(ctx: AgentToolContext, steps: AgentStep[]) {
-  const tools: Record<string, ReturnType<typeof tool>> = {};
+  const tools: Record<string, unknown> = {};
   for (const spec of AGENT_TOOL_MANIFEST) {
     tools[spec.id] = tool({
       description: spec.description,
@@ -128,7 +128,7 @@ export async function runAgentTurn(
     model: lovable.responses(AGENT_MODEL),
     system: buildAgentSystemPrompt(hint),
     messages,
-    tools: buildTools(ctx, steps),
+    tools: buildTools(ctx, steps) as never,
     stopWhen: stepCountIs(50),
     providerOptions: RESPONSES_OPTIONS as never,
   });
