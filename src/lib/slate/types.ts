@@ -196,6 +196,43 @@ export interface AssetSettings {
   roomTrackIds: Record<string, string>;
 }
 
+/* ── Game Sound ──────────────────────────────────────────────────────────
+ * Two separate systems: one persistent background sound owned by the Game
+ * session, and one independent event sound per reward type.
+ */
+
+/** Where a chosen sound comes from. */
+export type SoundSource = "official" | "user";
+
+/** A chosen sound file. `path` is the stored object path, never a URL. */
+export interface GameSoundRef {
+  source: SoundSource;
+  path: string;
+  title?: string;
+}
+
+/** One sound choice with its own volume (0–1). */
+export interface SoundSlot {
+  ref: GameSoundRef | null;
+  volume: number;
+}
+
+/** Reward families that can each carry their own sound. */
+export type RewardSoundKey =
+  | "vault"
+  | "bomb"
+  | "life"
+  | "hourglass"
+  | "collector"
+  | "completion";
+
+export interface GameSoundSettings {
+  /** Plays for the whole Game session; never restarted by a line change. */
+  background: SoundSlot & { enabled: boolean };
+  /** One independent slot per reward family. */
+  rewards: Record<RewardSoundKey, SoundSlot>;
+}
+
 /** Values the student keeps while playing this saved slate. */
 export interface GameStatus {
   /** Math Vaults opened in this slate. */
@@ -257,6 +294,8 @@ export interface GameSettings {
   life: { multiplier: number; fraction?: TimeFraction };
   /** Reward Conversion: how earned rewards become Life and Time. */
   conversion: RewardConversion;
+  /** Game Background Sound and the independent reward sounds. */
+  sound: GameSoundSettings;
 }
 
 /**

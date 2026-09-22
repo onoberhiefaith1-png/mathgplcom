@@ -17,7 +17,13 @@ import {
 import { TextColourPicker } from "./TextColourPicker";
 import type { TextSettings } from "@/lib/slate/text3d";
 import { normalizeConversion } from "@/lib/slate/conversion";
-import type { RewardConversion } from "@/lib/slate/types";
+import {
+  REWARD_SOUND_KEYS,
+  REWARD_SOUND_LABEL,
+  normalizeSoundSettings,
+} from "@/lib/slate/sound";
+import { SoundPicker } from "./SoundPicker";
+import type { GameSoundSettings, RewardConversion } from "@/lib/slate/types";
 import { useState } from "react";
 import { toast } from "sonner";
 import { defaultAssetSettings, defaultNumberSettings, makeSlot, uid } from "@/lib/slate/defaults";
@@ -180,6 +186,10 @@ export function ControlPanel({
   const conversion = normalizeConversion(s.conversion, s.life?.multiplier);
   const setConversion = (patch: Partial<RewardConversion>) =>
     set({ conversion: normalizeConversion({ ...conversion, ...patch }) });
+  // Game Sound: the background layer and the independent reward sounds.
+  const sound = normalizeSoundSettings(s.sound);
+  const setSound = (patch: Partial<GameSoundSettings>) =>
+    set({ sound: normalizeSoundSettings({ ...sound, ...patch }) });
   const t: TextSettings = s.text ?? defaultTextSettings();
   const setText = (patch: Partial<TextSettings>) => set({ text: { ...t, ...patch } });
   const n: NumberSettings = s.numbers ?? defaultNumberSettings();
@@ -931,6 +941,51 @@ export function ControlPanel({
             onChange={(v) => setConversion({ completionToLife: v })}
           />
         </Section>
+
+        {/* Game Sound: one persistent background layer, independent reward sounds. */}
+        <Section title="Game Sound">
+          <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-amber-100/60">
+            <span>Background sound on</span>
+            <Switch
+              checked={sound.background.enabled}
+              onCheckedChange={(v) =>
+                setSound({ background: { ...sound.background, enabled: v } })
+              }
+            />
+          </div>
+          <SoundPicker
+            label="Game background sound"
+            purpose="background"
+            slot={sound.background}
+            onChange={(next) =>
+              setSound({ background: { ...sound.background, ...next } })
+            }
+          />
+          <p className="text-[9px] leading-snug text-amber-100/40">
+            Starts when the Game starts and keeps playing for the whole session. Changing line
+            never restarts it.
+          </p>
+        </Section>
+
+        <Section title="Reward Sounds">
+          <p className="text-[9px] leading-snug text-amber-100/40">
+            Each reward has its own sound and its own volume, played at the exact moment that
+            reward activates. A reward simply sitting on the line stays silent.
+          </p>
+          {REWARD_SOUND_KEYS.map((key) => (
+            <SoundPicker
+              key={key}
+              label={REWARD_SOUND_LABEL[key]}
+              purpose={key}
+              slot={sound.rewards[key]}
+              onChange={(next) =>
+                setSound({ rewards: { ...sound.rewards, [key]: next } })
+              }
+            />
+          ))}
+        </Section>
+
+
 
         <Section title="Effects">
           <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-amber-100/60">
