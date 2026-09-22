@@ -1394,7 +1394,7 @@ export function SlateColumn({
                     text={slot.text}
                     width={innerWritingWidth}
                     height={surfaceHeight}
-                    pad={lineBuild.gap + 0.18}
+                    pad={textInset}
                     /* The inscription shares its surface's local box in both
                        Edit and Play, just proud of the physical face. */
                     z={PLAY_TEXT_Z}
