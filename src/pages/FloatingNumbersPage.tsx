@@ -56,6 +56,7 @@ import {
 } from "@/lib/floating/tableGrid";
 import { isEmptyMatrixLatex, splitMatrixChip } from "@/lib/floating/matrixChips";
 import DurationInput from "@/components/common/DurationInput";
+import { MAX_LINE_SECONDS } from "@/components/common/MinuteSecondInput";
 
 /** One item of the highlight stream: a text line, or a whole table workspace. */
 type Entry =
@@ -111,6 +112,13 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
     line.arrangement && line.arrangement.length === fillers.length
       ? line.arrangement
       : identityArrangement(fillers.length);
+  // LINE TIME. Whole seconds, 0 (or absent) = no time on this line, and never
+  // beyond exactly 60:00. Clamping on both save and load corrects a legacy
+  // out-of-range value once instead of carrying it forward.
+  const rawTimer = Number(line.timerSeconds);
+  const timerSeconds = Number.isFinite(rawTimer)
+    ? Math.min(MAX_LINE_SECONDS, Math.max(0, Math.floor(rawTimer)))
+    : undefined;
   return {
     ...line,
     fillers,
@@ -118,6 +126,7 @@ const normalizeFloatingLine = (line: FloatingLine): FloatingLine => {
     containers,
     containersSelected,
     arrangement,
+    timerSeconds,
     vaults: Object.prototype.hasOwnProperty.call(line, "vaults")
       ? (line.vaults ?? []).map((vault, index) => ({
       id: String(vault?.id ?? `vault-${index + 1}`),

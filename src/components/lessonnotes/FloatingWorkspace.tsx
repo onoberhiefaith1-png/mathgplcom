@@ -9,7 +9,7 @@ import {
   RotateCcw, Shuffle, Trash2, X,
 } from "lucide-react";
 
-import DurationInput from "@/components/common/DurationInput";
+import MinuteSecondInput from "@/components/common/MinuteSecondInput";
 import { renderMathInline } from "@/lib/notebook/mathRender";
 import {
   type ContainerKind,
@@ -389,29 +389,23 @@ export const FloatingWorkspace = ({
                 }}
               />
               <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">{scoreLabel}</span>
-              {/* GAME only: one time value for this line. In a Game this single
-                  value is what creates the line's Timer Reward, so it can never
-                  duplicate. Leave it empty for no time on this line. */}
-              {gameMode && (
-                <>
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">
-                    Line {lineNo} time
-                  </span>
-                  <DurationInput
-                    value={line.timerSeconds ?? null}
-                    onChange={(seconds) => onChange({ ...line, timerSeconds: seconds ?? undefined })}
-                    placeholder="—"
-                    title="Time for this line only (MM:SS). Leave empty for none."
-                    className="w-16 text-center text-[14px] tabular-nums rounded-md px-1.5 py-0.5 outline-hidden"
-                    style={{
-                      background: "hsl(200 60% 50% / 0.12)",
-                      border: "1px solid hsl(200 60% 40% / 0.45)",
-                      color: "hsl(220 35% 18%)",
-                    }}
-                  />
-                  <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">mm:ss</span>
-                </>
-              )}
+            </>
+          )}
+          {/* GAME only: one time value for this line, shown on every line and
+              never only where a score box is. It always reads a value (00:00 =
+              no time) and every adjustment is persisted with the line, so it is
+              the line's own saved duration that the Hourglass later uses. */}
+          {gameMode && (
+            <>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">
+                Line {lineNo} time
+              </span>
+              <MinuteSecondInput
+                value={line.timerSeconds ?? 0}
+                onChange={(seconds) => onChange({ ...line, timerSeconds: seconds })}
+                title={`Time for Line ${lineNo} only (MM:SS), up to 60:00. 00:00 = no time.`}
+              />
+              <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">mm:ss</span>
             </>
           )}
         </div>
@@ -566,8 +560,21 @@ export const FloatingWorkspace = ({
                   <span className="w-14 shrink-0 text-[10px] uppercase tracking-wider text-foreground/45">
                     Vault {vaultIndex + 1}
                   </span>
-                  <div className="min-w-0 flex-1 text-[15px] text-foreground/80">
-                    {renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`)}
+                  {/* VALUE SLOT. The stored selection is drawn in the page's own
+                      dark ink at equation size — never in theme-dependent
+                      colour, which is how a saved value could end up invisible.
+                      Empty slot shows the placeholder instead. */}
+                  <div
+                    className="min-w-0 flex-1 rounded-md px-2 py-1 text-[17px] break-words"
+                    style={{
+                      background: "hsl(40 85% 42% / 0.08)",
+                      border: "1px solid hsl(40 85% 42% / 0.4)",
+                      color: "hsl(220 35% 18%)",
+                    }}
+                  >
+                    {vault.expression.trim()
+                      ? renderMathInline(vault.expression, `vault-${line.lineId}-${vault.id}`)
+                      : <span className="text-[12px]" style={{ color: "hsl(220 35% 18% / 0.4)" }}>value</span>}
                   </div>
                   <button type="button" onClick={() => moveVault(vaultIndex, -1)} disabled={vaultIndex === 0} className={ctrlClass} title="Move Vault up">
                     <ArrowUp className="h-3 w-3" />
