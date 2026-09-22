@@ -39,6 +39,16 @@ import PresentationView from "@/components/smartboard/PresentationView";
 import { getReward, rewardMayFire } from "@/lib/slate/rewards";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { GAME_STARTUP_DEADLINE_MS } from "@/lib/game/runtime/startup";
+import { GameEvaluationPanel } from "@/components/gameslate/GameEvaluationPanel";
+import {
+  appendEvent,
+  buildLineReport,
+  MATH_STATUS_LABEL,
+  type InspectEvent,
+  type InspectVerdict,
+} from "@/lib/game/inspector";
+import { localLiveChannel, subscribeLocalLive } from "@/lib/smartboard/localLiveBridge";
+import { normalizeConversion } from "@/lib/slate/conversion";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 
 
@@ -66,6 +76,15 @@ const GamePlayPage = () => {
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
   const [menuOpen, setMenuOpen] = useState(false);
   const phone = useBreakpoint() === "phone";
+
+  /* ---- GAME EVALUATION (teacher Play / Test only) ---------------------
+   * A pure observer: it reads the Game's own state and the verdicts the board
+   * already publishes. It never grades, never selects a line, never writes. */
+  const [evalOpen, setEvalOpen] = useState(false);
+  /** Latest grading verdict per board line id, exactly as the engine reported. */
+  const [verdicts, setVerdicts] = useState<Record<string, InspectVerdict>>({});
+  const [expectedLines, setExpectedLines] = useState<Record<string, string>>({});
+  const [events, setEvents] = useState<InspectEvent[]>([]);
 
   useEffect(() => { gameRef.current = game; }, [game]);
   useEffect(() => { worldReadyRef.current = worldReady; }, [worldReady]);
@@ -283,6 +302,139 @@ const GamePlayPage = () => {
     celebrating,
   ]);
 
+  /* ---- Game Evaluation observers -------------------------------------- */
+  // The expected line is the teacher's own answer key. It is read only in the
+  // owner's Play / Test sitting, where the row's owner-only policy applies.
+  const assessmentId = runtime.question?.assessmentId ?? null;
+  useEffect(() => {
+    if (!testMode || !assessmentId) { setExpectedLines({}); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("assessment_answer_keys")
+        .select("lines")
+        .eq("assessment_id", assessmentId)
+        .maybeSingle();
+      if (cancelled) return;
+      const rows = ((data as { lines?: unknown } | null)?.lines ?? []) as {
+        lineId?: string; equationAscii?: string; tokens?: string[];
+      }[];
+      const map: Record<string, string> = {};
+      for (const row of rows) {
+        if (!row?.lineId) continue;
+        map[row.lineId] = row.equationAscii ?? (row.tokens ?? []).join(" ");
+      }
+      setExpectedLines(map);
+    })();
+    return () => { cancelled = true; };
+  }, [testMode, assessmentId]);
+
+  // Verdicts: the board already publishes every check on its in-page live feed.
+  // Listening changes nothing about grading — it only mirrors what happened.
+  useEffect(() => {
+    if (!testMode || !assessmentId || !uid) return;
+    return subscribeLocalLive(localLiveChannel(assessmentId, uid), "check", (payload) => {
+      const info = payload as {
+        lineId?: string; correct?: boolean; verdict?: string; marks?: number; studentAscii?: string;
+      };
+      if (!info?.lineId) return;
+      setVerdicts((prev) => ({
+        ...prev,
+        [info.lineId as string]: {
+          lineId: info.lineId as string,
+          correct: !!info.correct,
+          verdict: info.verdict,
+          marks: Number(info.marks ?? 0),
+          studentAscii: info.studentAscii ?? "",
+          at: Date.now(),
+        },
+      }));
+    });
+  }, [testMode, assessmentId, uid]);
+
+  const conversion = useMemo(
+    () => normalizeConversion(game?.settings.conversion, game?.settings.life?.multiplier),
+    [game],
+  );
+
+  /** ONE active line feeds the inspector — the very line the Game is on. */
+  const lineReport = useMemo(() => {
+    const question = runtime.question;
+    if (!question) return null;
+    const row = runtime.lines.find((l) => l.line === runtime.currentLine)
+      ?? runtime.lines.find((l) => l.line === 1)
+      ?? null;
+    if (!row) return null;
+    const lineId = row.lineId;
+    return buildLineReport({
+      row,
+      questionRowId: question.questionRowId,
+      expected: row.isQuestion
+        ? question.questionText
+        : (lineId ? expectedLines[lineId] ?? null : null),
+      student: row.isQuestion
+        ? question.questionText
+        : floatingTextForGameLine(renderedLineText, row.line),
+      note: row.isQuestion ? null : question.lineNotes[row.line - 1] ?? null,
+      lineMarks: row.isQuestion ? 0 : question.lineMarks[row.line - 1] ?? 0,
+      awarded: runtime.completedLines.includes(row.line),
+      consumedRewardKeys: runtime.consumedRewardKeys,
+      verdict: lineId ? verdicts[lineId] ?? null : null,
+      timedLine: runtime.timedLine,
+      hourglassToTime: conversion.hourglassToTime,
+      lifeToTime: conversion.lifeToTime,
+    });
+  }, [
+    runtime.question, runtime.lines, runtime.currentLine, runtime.completedLines,
+    runtime.consumedRewardKeys, runtime.timedLine, renderedLineText, expectedLines,
+    verdicts, conversion,
+  ]);
+
+  // Live activity. Every entry corresponds to a real change in Game state.
+  const lastEventRef = useRef({ line: 0, status: "", vaults: -1, completion: -1, timed: -1 });
+  useEffect(() => {
+    if (!testMode || !lineReport) return;
+    const seen = lastEventRef.current;
+    const push = (text: string) => setEvents((prev) => appendEvent(prev, text));
+    if (seen.line !== lineReport.line) {
+      seen.line = lineReport.line;
+      seen.status = "";
+      push(`Line ${lineReport.line} started`);
+    }
+    if (seen.status !== lineReport.status) {
+      seen.status = lineReport.status;
+      push(`Line ${lineReport.line}: ${MATH_STATUS_LABEL[lineReport.status]}`);
+      if (lineReport.scoreAwarded) {
+        push(`Score awarded: ${lineReport.lineMarks} mark(s) on line ${lineReport.line}`);
+        if (lineReport.hasNote) push(`Note unlocked on line ${lineReport.line}`);
+      }
+      if (lineReport.scoreInconsistent) {
+        push(`Equivalent detected but score still pending on line ${lineReport.line}`);
+      }
+    }
+    if (seen.vaults !== runtime.vaultsOpened) {
+      if (seen.vaults >= 0 && runtime.vaultsOpened > seen.vaults) {
+        push(`Vault unlocked — no mark awarded (${runtime.vaultsOpened}/${runtime.vaultsTotal})`);
+      }
+      seen.vaults = runtime.vaultsOpened;
+    }
+    if (seen.completion !== runtime.completionCount) {
+      if (seen.completion >= 0 && runtime.completionCount > seen.completion) {
+        push(`Completion coin collected (${runtime.completionCount})`);
+      }
+      seen.completion = runtime.completionCount;
+    }
+    const timed = runtime.timedLine ?? 0;
+    if (seen.timed !== timed) {
+      seen.timed = timed;
+      if (timed) push(`Hourglass active on line ${timed}`);
+    }
+  }, [
+    testMode, lineReport, runtime.vaultsOpened, runtime.vaultsTotal,
+    runtime.completionCount, runtime.timedLine,
+  ]);
+
+
   const resetGame = async () => {
     if (resetting || !uid) return;
     if (!window.confirm("Reset this run? Your working and progress will be cleared. The saved Game design will stay unchanged.")) return;
@@ -317,6 +469,9 @@ const GamePlayPage = () => {
       setCelebrating([]);
       setLineText({});
       setResetEpoch((value) => value + 1);
+      setVerdicts({});
+      setEvents([]);
+      lastEventRef.current = { line: 0, status: "", vaults: -1, completion: -1, timed: -1 };
       window.dispatchEvent(new CustomEvent("slate:effect-transport", { detail: { action: "clear" } }));
     } finally {
       setResetting(false);
@@ -590,6 +745,30 @@ const GamePlayPage = () => {
             Exit Game
           </button>
         </div>
+      ) : null}
+
+      {/* GAME EVALUATION — the teacher's live inspector for the active line. */}
+      {testMode ? (
+        <GameEvaluationPanel
+          open={evalOpen}
+          onToggle={() => setEvalOpen((open) => !open)}
+          report={lineReport}
+          resources={{
+            questionDeadline: runtime.questionDeadline,
+            lineDeadline: runtime.lineDeadline,
+            lives: runtime.lives,
+            vaultsOpened: runtime.vaultsOpened,
+            vaultsTotal: runtime.vaultsTotal,
+            vaultReward: runtime.vaultReward,
+            completionCount: runtime.completionCount,
+            currentLine: runtime.currentLine,
+            completedLines: runtime.completedLines.length,
+            totalLines: Math.max(0, runtime.lines.length - 1),
+            earnedMarks: runtime.earnedMarks,
+            totalMarks: runtime.totalMarks,
+          }}
+          events={events}
+        />
       ) : null}
 
       {runtime.message && (
