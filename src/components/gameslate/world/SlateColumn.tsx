@@ -1325,6 +1325,12 @@ export function SlateColumn({
           const surfaceWidth = surfaceBox.surfaceWidth;
           const innerWritingWidth = surfaceBox.innerWritingWidth;
           const surfaceHeight = surfaceBox.surfaceHeight;
+          // The writing sits on exactly the padding the surface grew for it, so
+          // the panel the surface built and the box the text is placed in are
+          // the same box. A larger inset used to push long text past the
+          // bottom, which the containment rule then corrected upwards — that is
+          // how writing ended up standing above its own surface.
+          const textInset = surfaceBox.padY;
           const frame = writingSurfaceFrame(slot.id, surfaceBox, writingBand);
           // Edit and Play consume this same immutable frame. No text, pointer
           // target or panel branch is allowed to invent a second origin.
