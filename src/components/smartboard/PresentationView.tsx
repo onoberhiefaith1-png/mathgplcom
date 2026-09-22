@@ -4692,9 +4692,12 @@ const PresentationView = ({
         }
         if (testMode) {
           // Nothing was persisted, so the sitting accumulates its own total.
+          // A line the Predictive Line already awarded is only reconciled here.
           const slot = `${current.id}:${target.lineId}`;
-          setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
-          setAssessScore((prev) => prev + awarded);
+          if (!predictiveAwardedRef.current[slot]) {
+            setSolvedSlots((prev) => (slot in prev ? prev : { ...prev, [slot]: awarded }));
+            setAssessScore((prev) => prev + awarded);
+          }
         } else {
           setSolvedSlots(res.solvedLines ?? {});
           setAssessScore(Number(res.score ?? 0));
