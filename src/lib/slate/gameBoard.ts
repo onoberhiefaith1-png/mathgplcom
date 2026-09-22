@@ -75,6 +75,12 @@ const sectionOf = async (subsectionId: string): Promise<string | null> => {
 export const ensureGameBoards = async (params: {
   gameId: string;
   classId?: string | null;
+  /**
+   * Which question collection to compile. Defaults to `classId`'s own
+   * collection; pass null to compile the Game's unscoped legacy pool into the
+   * teacher's private test class.
+   */
+  questionClassId?: string | null;
   questions?: GameQuestion[];
 }): Promise<GameQuestionBoard[]> => {
   const { data: userData } = await supabase.auth.getUser();
@@ -83,8 +89,9 @@ export const ensureGameBoards = async (params: {
 
   const classId = params.classId || (await ensureTestClass(uid));
   // Questions belong to this Class + Game playable instance only.
-  const questions =
-    params.questions ?? (await listGameQuestions(params.gameId, params.classId ?? null));
+  const questionScope =
+    params.questionClassId !== undefined ? params.questionClassId : params.classId ?? null;
+  const questions = params.questions ?? (await listGameQuestions(params.gameId, questionScope));
   if (questions.length === 0) return [];
   const out: GameQuestionBoard[] = [];
 
@@ -178,8 +185,12 @@ export const ensureGameBoards = async (params: {
 export const loadGameBoards = async (params: {
   gameId: string;
   classId: string;
+  questionClassId?: string | null;
 }): Promise<GameQuestionBoard[]> => {
-  const questions = await listGameQuestions(params.gameId, params.classId);
+  const questions = await listGameQuestions(
+    params.gameId,
+    params.questionClassId !== undefined ? params.questionClassId : params.classId,
+  );
   if (questions.length === 0) return [];
 
   const { data } = await supabase
