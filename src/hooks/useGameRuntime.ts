@@ -10,6 +10,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { mapQuestionLines, type MappedLine } from "@/lib/slate/pattern";
 import { lifeSeconds, vaultMatches } from "@/lib/slate/lineSurfaces";
 import { convertUnitsToLives, normalizeConversion } from "@/lib/slate/conversion";
+import { normalizeSoundSettings, rewardSoundKeyForType } from "@/lib/slate/sound";
+import {
+  applyBackgroundSound,
+  playRewardSound,
+  prepareGameSounds,
+  setBackgroundVolume,
+  stopBackgroundSound,
+} from "@/lib/slate/gameSound";
 import type { Game } from "@/lib/slate/types";
 import type { GameQuestionBoard } from "@/lib/slate/gameBoard";
 import { saveGameQuestionResult } from "@/lib/slate/gameAssignments";
@@ -431,6 +439,60 @@ export const useGameRuntime = (params: {
     const prefix = `${question.questionRowId}:`;
     return consumed.filter((key) => key.startsWith(prefix) && key.includes(":vault-")).length;
   }, [consumed, question]);
+
+  /* ---- sound ----------------------------------------------------------
+   * An extra layer only. A reward sitting on the line is silent; its sound
+   * fires at the exact moment its existing activation is recorded, and never
+   * touches mathematics, marks, timers or progress.
+   */
+  const soundSettings = useMemo(
+    () => normalizeSoundSettings(game?.settings.sound),
+    [game?.settings.sound],
+  );
+  useEffect(() => {
+    prepareGameSounds(soundSettings);
+  }, [soundSettings]);
+  useEffect(() => {
+    applyBackgroundSound(soundSettings.background);
+    return () => stopBackgroundSound();
+    // only the chosen sound and its volume may restart playback — never a line change
+  }, [soundSettings.background.ref?.path, soundSettings.background.enabled]);
+  useEffect(() => {
+    setBackgroundVolume(soundSettings.background.volume);
+  }, [soundSettings.background.volume]);
+
+  const heardRewards = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    // the first pass only remembers what was already activated before this run
+    if (heardRewards.current === null) {
+      heardRewards.current = new Set(consumed);
+      return;
+    }
+    const heard = heardRewards.current;
+    for (const key of consumed) {
+      if (heard.has(key)) continue;
+      heard.add(key);
+      const parts = key.split(":");
+      const lineNumber = Number(parts[1]);
+      const rewardId = parts.slice(2).join(":");
+      const row = lines.find((entry) => entry.line === lineNumber);
+      const reward = row?.rewards.find((entry) => entry.id === rewardId);
+      const soundKey = reward ? rewardSoundKeyForType(reward.type) : null;
+      if (soundKey) playRewardSound(soundSettings, soundKey);
+    }
+  }, [consumed, lines, soundSettings]);
+
+  const heardCompletion = useRef<number | null>(null);
+  useEffect(() => {
+    if (heardCompletion.current === null) {
+      heardCompletion.current = completionCount;
+      return;
+    }
+    if (completionCount > heardCompletion.current) playRewardSound(soundSettings, "completion");
+    heardCompletion.current = completionCount;
+  }, [completionCount, soundSettings]);
+
+
 
   /* ---- board bridge -------------------------------------------------- */
   const acceptLineAward = useCallback((event: GameLineAward) => {

@@ -1,4 +1,5 @@
 import { defaultConversion } from "./conversion";
+import { defaultSoundSettings } from "./sound";
 import type { AssetSettings, Game, GameSettings, GameStatus, NumberSettings, Slot } from "./types";
 import { defaultScene } from "./environments";
 import { NO_ROOM_ID } from "./rooms";
@@ -65,6 +66,8 @@ export const defaultSettings = (): GameSettings => ({
   life: { multiplier: 1 },
   // Reward Conversion: Hourglass/Life 1×, Vault and Completion Coin 0.1×.
   conversion: defaultConversion(),
+  // Game Sound: silent until the teacher chooses sounds.
+  sound: defaultSoundSettings(),
 });
 
 export const defaultGameStatus = (): GameStatus => ({

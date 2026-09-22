@@ -10,6 +10,7 @@ import { roomForSurface } from "./rooms";
 import { defaultTextSettings } from "./text3d";
 import { normalizeLineConfig } from "./lineSurfaces";
 import { normalizeConversion } from "./conversion";
+import { normalizeSoundSettings } from "./sound";
 import {
   defaultAssetSettings,
   defaultGameStatus,
@@ -74,6 +75,8 @@ export const normalizeGame = (game: Game): Game => ({
       game.settings?.conversion,
       Number(game.settings?.life?.multiplier),
     ),
+    // Game Sound: background choice and one slot per reward family.
+    sound: normalizeSoundSettings(game.settings?.sound),
   },
   patternLength:
     Number(game.patternLength) > 0 ? Math.floor(Number(game.patternLength)) : game.slots.length,
