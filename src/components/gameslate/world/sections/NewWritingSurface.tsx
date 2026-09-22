@@ -1,4 +1,4 @@
-import { Component, useMemo, useRef, type ReactNode } from "react";
+import { Component, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
@@ -53,15 +53,11 @@ function GemMaterial({ colour = RUBY }: { colour?: string }) {
 const ratio = (value: number, base: number) => (base > 1e-4 ? value / base : 1);
 
 function useExpansion(width: number, height: number, apply: (w: number, h: number) => void) {
-  const dimensions = useRef({ width, height });
-  const target = useRef({ width, height });
-  target.current = { width, height };
-  useFrame((_, rawDelta) => {
-    const delta = Math.min(rawDelta, 0.05);
-    const blend = 1 - Math.exp(-13 * delta);
-    dimensions.current.width = THREE.MathUtils.lerp(dimensions.current.width, target.current.width, blend);
-    dimensions.current.height = THREE.MathUtils.lerp(dimensions.current.height, target.current.height, blend);
-    apply(dimensions.current.width, dimensions.current.height);
+  // A writing surface is layout, not an effect. It must adopt the text's new
+  // bounds before the frame is painted; easing it over several frames briefly
+  // left the already-updated mathematics outside the old, narrower panel.
+  useLayoutEffect(() => {
+    apply(width, height);
   });
 }
 
