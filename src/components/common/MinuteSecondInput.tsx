@@ -81,6 +81,7 @@ export const MinuteSecondInput = ({
         <button
           type="button"
           className={stepClass}
+          style={stepStyle}
           title={`${label} up`}
           aria-label={`${label} up`}
           onClick={() => commit(partValue + 1)}
@@ -90,6 +91,7 @@ export const MinuteSecondInput = ({
         <button
           type="button"
           className={stepClass}
+          style={stepStyle}
           title={`${label} down`}
           aria-label={`${label} down`}
           disabled={partValue === 0 && label === "Minutes" && seconds === 0}
@@ -108,7 +110,7 @@ export const MinuteSecondInput = ({
       onClick={(event) => event.stopPropagation()}
     >
       {part("Minutes", minutes, 60, setMinutes)}
-      <span className="text-[13px] tabular-nums text-foreground/50">:</span>
+      <span className="text-[14px] tabular-nums" style={{ color: "hsl(220 35% 18%)" }}>:</span>
       {part("Seconds", seconds, 59, setSeconds)}
     </div>
   );
