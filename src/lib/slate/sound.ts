@@ -58,9 +58,10 @@ const clampVolume = (value: unknown, fallback: number): number => {
 
 const normalizeSlot = (slot: unknown, fallbackVolume: number): SoundSlot => {
   const raw = (slot ?? {}) as Partial<SoundSlot>;
+  const source = raw.ref?.source === "builtin" || raw.ref?.source === "official" ? raw.ref.source : "user";
   const ref = raw.ref && typeof raw.ref.path === "string" && raw.ref.path
     ? {
-        source: raw.ref.source === "official" ? ("official" as const) : ("user" as const),
+        source,
         path: raw.ref.path,
         ...(raw.ref.title ? { title: raw.ref.title } : {}),
       }
