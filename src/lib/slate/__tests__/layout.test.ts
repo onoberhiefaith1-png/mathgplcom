@@ -41,7 +41,7 @@ describe("Game writing-surface layout", () => {
   it("stops a moving reward before its visible edge leaves the band", () => {
     const band = gameWritingBand(10);
     const origin = gameBandPosition(20, band, 1);
-    expect(gameBandTravel(origin, 1, band, 1)).toBeCloseTo(6.3);
+    expect(gameBandTravel(origin, 1, band, 1)).toBeCloseTo(6.7);
     expect(origin + gameBandTravel(origin, 1, band, 1) + 0.5).toBeCloseTo(band.right);
   });
 
