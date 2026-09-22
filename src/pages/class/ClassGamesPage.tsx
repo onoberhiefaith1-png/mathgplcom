@@ -16,6 +16,12 @@ interface Row {
   passPercentage: number;
   questionCount: number;
   totalMarks: number;
+  /** Students who have opened this playable instance. */
+  playing: number;
+  /** Students seen in the last five minutes. */
+  activeNow: number;
+  /** Highest Level any student has reached (1-based). */
+  furthestLevel: number;
 }
 
 const ClassGamesPage = () => {
@@ -43,7 +49,16 @@ const ClassGamesPage = () => {
 
     const built = await Promise.all(
       list.map(async (row) => {
-        const summary = await summariseGame(row.game_id);
+        // Questions belong to this Class + Game instance only.
+        const summary = await summariseGame(row.game_id, classId);
+        const { data: progress } = await supabase
+          .from("slate_game_progress")
+          .select("student_id, question_index, updated_at")
+          .eq("assignment_id", row.id);
+        const runs = (progress ?? []) as unknown as {
+          student_id: string; question_index: number | null; updated_at: string | null;
+        }[];
+        const fresh = Date.now() - 5 * 60 * 1000;
         return {
           assignmentId: row.id,
           gameId: row.game_id,
@@ -51,6 +66,13 @@ const ClassGamesPage = () => {
           passPercentage: Number(row.pass_percentage ?? 70),
           questionCount: summary.questionCount,
           totalMarks: summary.totalMarks,
+          playing: new Set(runs.map((r) => r.student_id)).size,
+          activeNow: runs.filter(
+            (r) => r.updated_at && new Date(r.updated_at).getTime() > fresh,
+          ).length,
+          furthestLevel: runs.reduce(
+            (max, r) => Math.max(max, Number(r.question_index ?? 0) + 1), 0,
+          ),
         };
       }),
     );
@@ -104,12 +126,21 @@ const ClassGamesPage = () => {
               <div className="min-w-0">
                 <div className="truncate font-medium">{g.name}</div>
                 <p className="text-xs text-muted-foreground">
-                  {g.questionCount} question{g.questionCount === 1 ? "" : "s"} · {g.totalMarks} marks · pass {g.passPercentage}%
+                  {g.questionCount} Level{g.questionCount === 1 ? "" : "s"} · {g.totalMarks} marks · pass {g.passPercentage}%
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {g.playing} student{g.playing === 1 ? "" : "s"} playing
+                  {g.furthestLevel > 0 ? ` · furthest Level ${g.furthestLevel}` : ""}
+                  {g.activeNow > 0 ? (
+                    <span className="ml-1 font-medium text-emerald-600">
+                      · {g.activeNow} active now
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Link
-                  to={`/game/play/${g.gameId}`}
+                  to={`/game/play/${g.gameId}?classId=${classId}`}
                   className="rounded border border-border px-2 py-1 text-sm hover:bg-accent"
                 >
                   Play
