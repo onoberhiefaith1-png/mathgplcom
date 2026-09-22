@@ -269,6 +269,13 @@ export const buildLineReport = (input: {
       conditionMet,
       stage,
       detail,
+      art: def.art,
+      openArt: def.openArt,
+      glow: def.glow,
+      code:
+        reward.type === "math-vault"
+          ? (reward.expression ?? row.vaultExpression ?? null)
+          : null,
     };
   });
 
