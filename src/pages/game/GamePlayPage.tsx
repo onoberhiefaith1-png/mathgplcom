@@ -40,6 +40,7 @@ import { getReward, rewardMayFire } from "@/lib/slate/rewards";
 import { GameLoadingScreen } from "@/components/gameslate/GameLoadingScreen";
 import { GAME_STARTUP_DEADLINE_MS } from "@/lib/game/runtime/startup";
 import { GameEvaluationPanel } from "@/components/gameslate/GameEvaluationPanel";
+import { predict, routeMapFor } from "@/lib/predictive/predictiveLine";
 import {
   appendEvent,
   buildLineReport,
@@ -84,6 +85,9 @@ const GamePlayPage = () => {
   /** Latest grading verdict per board line id, exactly as the engine reported. */
   const [verdicts, setVerdicts] = useState<Record<string, InspectVerdict>>({});
   const [expectedLines, setExpectedLines] = useState<Record<string, string>>({});
+  // The Floating Numbers the teacher generated for each line — the only pieces
+  // the Predictive Line Engine may use when it plots the remaining route.
+  const [expectedAtoms, setExpectedAtoms] = useState<Record<string, string[]>>({});
   const [events, setEvents] = useState<InspectEvent[]>([]);
 
   useEffect(() => { gameRef.current = game; }, [game]);
@@ -307,7 +311,7 @@ const GamePlayPage = () => {
   // owner's Play / Test sitting, where the row's owner-only policy applies.
   const assessmentId = runtime.question?.assessmentId ?? null;
   useEffect(() => {
-    if (!testMode || !assessmentId) { setExpectedLines({}); return; }
+    if (!testMode || !assessmentId) { setExpectedLines({}); setExpectedAtoms({}); return; }
     let cancelled = false;
     (async () => {
       const { data } = await supabase
@@ -320,11 +324,14 @@ const GamePlayPage = () => {
         lineId?: string; equationAscii?: string; tokens?: string[];
       }[];
       const map: Record<string, string> = {};
+      const atoms: Record<string, string[]> = {};
       for (const row of rows) {
         if (!row?.lineId) continue;
         map[row.lineId] = row.equationAscii ?? (row.tokens ?? []).join(" ");
+        atoms[row.lineId] = (row.tokens ?? []).filter(Boolean);
       }
       setExpectedLines(map);
+      setExpectedAtoms(atoms);
     })();
     return () => { cancelled = true; };
   }, [testMode, assessmentId]);
@@ -366,15 +373,30 @@ const GamePlayPage = () => {
       ?? null;
     if (!row) return null;
     const lineId = row.lineId;
+    // The Predictive Line comes from the ONE shared engine. The Game never
+    // marks with it: it only reports the shortest remaining route.
+    const expectedAscii = row.isQuestion ? "" : (lineId ? expectedLines[lineId] ?? "" : "");
+    const studentAscii = row.isQuestion
+      ? question.questionText
+      : floatingTextForGameLine(renderedLineText, row.line);
+    const prediction = !row.isQuestion && expectedAscii
+      ? predict({
+          routeMap: routeMapFor({
+            expectedAscii,
+            atoms: (lineId ? expectedAtoms[lineId] : undefined) ?? [],
+            keyPrefix: `${question.questionRowId}:${lineId ?? row.line}`,
+          }),
+          studentAscii,
+        })
+      : null;
     return buildLineReport({
+      prediction,
       row,
       questionRowId: question.questionRowId,
       expected: row.isQuestion
         ? question.questionText
         : (lineId ? expectedLines[lineId] ?? null : null),
-      student: row.isQuestion
-        ? question.questionText
-        : floatingTextForGameLine(renderedLineText, row.line),
+      student: studentAscii,
       note: row.isQuestion ? null : question.lineNotes[row.line - 1] ?? null,
       lineMarks: row.isQuestion ? 0 : question.lineMarks[row.line - 1] ?? 0,
       awarded: runtime.completedLines.includes(row.line),
@@ -386,7 +408,7 @@ const GamePlayPage = () => {
     });
   }, [
     runtime.question, runtime.lines, runtime.currentLine, runtime.completedLines,
-    runtime.consumedRewardKeys, runtime.timedLine, renderedLineText, expectedLines,
+    runtime.consumedRewardKeys, runtime.timedLine, renderedLineText, expectedLines, expectedAtoms,
     verdicts, conversion,
   ]);
 

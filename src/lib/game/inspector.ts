@@ -77,6 +77,18 @@ export interface LineReport {
   noteUnlocked: boolean;
   hasNote: boolean;
   rewards: RewardReport[];
+  /** Shortest valid remaining route to a complete, equivalent line. */
+  predictive: string | null;
+  remaining: string | null;
+  noRoute: boolean;
+}
+
+/** Exactly what the shared Predictive Line Engine reported for this line. */
+export interface InspectPrediction {
+  status: "empty" | "incomplete" | "complete" | "no_route";
+  predictive: string;
+  remaining: readonly string[];
+  complete: boolean;
 }
 
 const clean = (value: string | null | undefined) => (value ?? "").trim();
@@ -100,6 +112,7 @@ export const deriveMathStatus = (input: {
   student: string;
   awarded: boolean;
   verdict?: InspectVerdict | null;
+  prediction?: InspectPrediction | null;
 }): MathStatus => {
   if (input.isQuestion) return "question";
   const student = clean(input.student);
@@ -108,6 +121,10 @@ export const deriveMathStatus = (input: {
   const fresh =
     input.verdict && clean(input.verdict.studentAscii) === student ? input.verdict : null;
   if (fresh?.correct) return "equivalent";
+  // The Predictive Line already knows the construction is complete and
+  // equivalent, so the panel says so without waiting for the marking service.
+  if (input.prediction?.complete) return "equivalent";
+  if (input.prediction?.status === "no_route") return "not_equivalent";
   if (looksIncomplete(input.expected, student)) return "incomplete";
   if (fresh && !fresh.correct) {
     return fresh.verdict === "parse_error" ? "incomplete" : "not_equivalent";
@@ -154,6 +171,7 @@ export const buildLineReport = (input: {
   awarded: boolean;
   consumedRewardKeys: readonly string[];
   verdict?: InspectVerdict | null;
+  prediction?: InspectPrediction | null;
   /** The Game Line whose Hourglass is counting right now. */
   timedLine: number | null;
   hourglassToTime: number;
@@ -166,6 +184,7 @@ export const buildLineReport = (input: {
     student,
     awarded,
     verdict: input.verdict,
+    prediction: input.prediction,
   });
   const consumed = (rewardId: string) =>
     input.consumedRewardKeys.includes(`${questionRowId}:${row.line}:${rewardId}`);
@@ -228,6 +247,11 @@ export const buildLineReport = (input: {
     hasNote: Boolean(clean(input.note)),
     noteUnlocked: awarded && Boolean(clean(input.note)),
     rewards,
+    predictive: row.isQuestion ? null : input.prediction?.predictive || null,
+    remaining: row.isQuestion
+      ? null
+      : (input.prediction?.remaining?.length ? input.prediction.remaining.join(" ") : null),
+    noRoute: !row.isQuestion && input.prediction?.status === "no_route",
   };
 };
 

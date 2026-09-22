@@ -4,6 +4,7 @@
 // never writes to the Game, never grades and never selects a line.
 
 import { Brain, X } from "lucide-react";
+import { PREDICTIVE_NO_ROUTE_LABEL } from "@/lib/predictive/predictiveLine";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import {
   MATH_STATUS_LABEL,
@@ -75,6 +76,20 @@ export function GameEvaluationPanel({
             </Field>
             <Field label="Student line">
               <span className="font-mono whitespace-pre-wrap">{report?.student || "—"}</span>
+            </Field>
+            <Field label="Predictive line">
+              {report?.noRoute ? (
+                <span className="text-rose-600">{PREDICTIVE_NO_ROUTE_LABEL}</span>
+              ) : report?.predictive ? (
+                <span className="font-mono">
+                  {report.predictive}
+                  {report.remaining ? (
+                    <span className="ml-1 text-muted-foreground">(remaining {report.remaining})</span>
+                  ) : null}
+                </span>
+              ) : (
+                "—"
+              )}
             </Field>
             <Field label="Mathematical evaluation">
               {report ? MATH_STATUS_LABEL[report.status] : "—"}

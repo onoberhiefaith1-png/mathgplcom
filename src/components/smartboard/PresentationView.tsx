@@ -54,6 +54,7 @@ import {
   PROACTIVE_GRADING_DELAY_MS,
   studentGradingKey,
 } from "@/lib/assessments/studentGrading";
+import { predict, routeMapFor } from "@/lib/predictive/predictiveLine";
 import { buildBoardScope, boardKey, type BoardWorkspace } from "@/lib/smartboard/boardScope";
 
 
@@ -4188,6 +4189,9 @@ const PresentationView = ({
   const [lastAwardedLineId, setLastAwardedLineId] = useState<string | null>(null);
   const [lastAwardedExpression, setLastAwardedExpression] = useState<string | null>(null);
   const awardedExpressionBySlotRef = useRef<Record<string, string>>({});
+  /** Lines the shared Predictive Line Engine already proved complete, so the
+   *  service answer that follows reconciles instead of awarding twice. */
+  const predictiveAwardedRef = useRef<Record<string, boolean>>({});
   const seenSlotsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const keys = Object.keys(solvedSlots);
@@ -4553,6 +4557,45 @@ const PresentationView = ({
           toast({ title: "Already marked", description: `This line has already earned ${solvedSlots[slotKey]} marks.` });
         }
         return true;
+      }
+    }
+
+    // ── PREDICTIVE LINE ───────────────────────────────────────────────────
+    // The shared route engine works from the very Floating Numbers this line
+    // was given, so a complete, equivalent construction is recognised the
+    // moment the final piece lands — no waiting for the service. The request
+    // below still runs and reconciles the authoritative record.
+    if (!confirmOnly && expectedFrags.length > 0 && !predictiveAwardedRef.current[slotKey]) {
+      const proof = predict({
+        routeMap: routeMapFor({
+          expectedAscii: expectedFrags.join(" "),
+          atoms: expectedFrags,
+          keyPrefix: `${current.id}:${target.lineId ?? ""}`,
+        }),
+        studentAscii: ascii,
+      });
+      if (proof.complete) {
+        predictiveAwardedRef.current[slotKey] = true;
+        const awardedNow = Number(target.marks ?? 0);
+        awardedExpressionBySlotRef.current[slotKey] = ascii.trim();
+        timerRef.current.confirmLine(slotKey, awardedNow);
+        setSolvedSlots((prev) => (slotKey in prev ? prev : { ...prev, [slotKey]: awardedNow }));
+        setAssessScore((prev) => (slotKey in solvedSlots ? prev : prev + awardedNow));
+        setWrongLine((w) => (w === rowNum ? null : w));
+        broadcastCheckResultRef.current?.({
+          questionId: current.id,
+          lineId: target.lineId ?? "",
+          mode,
+          correct: true,
+          verdict: "equal",
+          diagnosis: {
+            code: "predictive_equal",
+            label: "Equivalent",
+            detail: "This line is complete and equivalent to the expected step.",
+          },
+          marks: awardedNow,
+          studentAscii: ascii,
+        });
       }
     }
 
