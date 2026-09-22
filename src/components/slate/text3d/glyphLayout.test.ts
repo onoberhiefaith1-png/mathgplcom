@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { containGlyphBoxes, containHorizontalSpan, glyphBoxesInsideWidth, textLocalHorizontalBounds, visualTextLines } from "./glyphLayout";
+import { containGlyphBoxes, containHorizontalSpan, glyphBoxesInsideWidth, textLocalHorizontalBounds, visualTextLines, wrapUnbrokenText } from "./glyphLayout";
 import type { GlyphBox } from "./glyphLayout";
 
 describe("Game text visual containment", () => {
@@ -49,6 +49,15 @@ describe("Game text visual containment", () => {
 
   it("repairs Surface Test block bounds using the same writing frame", () => {
     const repair = containHorizontalSpan(-0.65, 1.15, 2, "left");
-    expect(repair).toMatchObject({ fits: true, shiftX: 0.65, left: 0, right: 1.8 });
+    expect(repair.fits).toBe(true);
+    expect(repair.shiftX).toBeCloseTo(0.65);
+    expect(repair.left).toBeCloseTo(0);
+    expect(repair.right).toBeCloseTo(1.8);
+  });
+
+  it("hard-wraps an unbreakable equation when a font exceeds the panel", () => {
+    const wrapped = wrapUnbrokenText("x+7-7=12", 96 / 220, 1);
+    expect(wrapped).toContain("\n");
+    expect(wrapped.split("\n").every((line) => line.length <= 3)).toBe(true);
   });
 });

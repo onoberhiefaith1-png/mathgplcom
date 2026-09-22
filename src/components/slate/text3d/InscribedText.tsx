@@ -9,7 +9,7 @@ import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { TextBounds, TextSettings } from "@/lib/slate/text3d";
 import { integrationFactor, textRecipe } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
-import { containHorizontalSpan } from "./glyphLayout";
+import { containHorizontalSpan, wrapUnbrokenText } from "./glyphLayout";
 
 export interface InscribedTextApi {
   /** Local surface coordinates -> character index. */
@@ -59,6 +59,7 @@ export function InscribedText({
   const caretMesh = useRef<THREE.Mesh>(null);
   const [info, setInfo] = useState<TroikaTextRenderInfo | null>(null);
   const [containmentX, setContainmentX] = useState(0);
+  const [forceWrap, setForceWrap] = useState(false);
   const measured = useRef({ width: 0, height: 0 });
 
   const fontSize = settings.size / PX_PER_UNIT;
@@ -81,6 +82,7 @@ export function InscribedText({
       const height = Math.abs(bounds[3] - bounds[1]);
       const repaired = containHorizontalSpan(bounds[0], bounds[2], writingWidth, settings.align);
       setContainmentX((current) => Math.abs(current - repaired.shiftX) > 0.001 ? repaired.shiftX : current);
+      if (!repaired.fits) setForceWrap(true);
       if (
         Math.abs(height - measured.current.height) > 0.004 ||
         Math.abs(width - measured.current.width) > 0.004
@@ -127,6 +129,7 @@ export function InscribedText({
   const anchorX: "left" | "right" | "center" =
     settings.align === "left" ? "left" : settings.align === "right" ? "right" : "center";
   const originX = settings.align === "left" ? 0 : settings.align === "right" ? width : width / 2;
+  const visibleText = forceWrap ? wrapUnbrokenText(text, fontSize, writingWidth) : text;
 
   const shared = {
     font: recipe.font,
@@ -193,7 +196,7 @@ export function InscribedText({
         outlineOpacity={0.5 * bind * fade}
         renderOrder={2}
       >
-        {text}
+        {visibleText}
       </Text>
 
       {/* shadow sunk into the cut */}
@@ -205,7 +208,7 @@ export function InscribedText({
           fillOpacity={Math.min(1, 0.85 * settings.shadowStrength) * fade}
           renderOrder={3}
         >
-          {text}
+          {visibleText}
         </Text>
       ) : null}
 
@@ -219,7 +222,7 @@ export function InscribedText({
           fillOpacity={0.55 * fade}
           renderOrder={4 + i}
         >
-          {text}
+          {visibleText}
         </Text>
       ))}
 
@@ -231,13 +234,13 @@ export function InscribedText({
         fillOpacity={Math.min(1, 0.7 * settings.highlight) * fade}
         renderOrder={12}
       >
-        {text}
+        {visibleText}
       </Text>
 
       {/* the letter body: the chosen colour exactly, unlit and untonemapped so
           #000000 is black and a picked red is that red */}
       <Text ref={main} {...shared} position={[0, 0, -0.002]} onSync={onSync} renderOrder={14}>
-        {text}
+        {visibleText}
         <meshBasicMaterial color={recipe.ink} transparent opacity={fade} toneMapped={false} />
       </Text>
 
@@ -269,7 +272,7 @@ export function InscribedText({
           outlineOpacity={recipe.glowOpacity * 0.8 * fade}
           renderOrder={16}
         >
-          {text}
+          {visibleText}
         </Text>
       ) : null}
 

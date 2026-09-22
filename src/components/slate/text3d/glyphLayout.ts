@@ -25,6 +25,20 @@ export interface VisualTextLine {
 const estimatedCharsPerLine = (fontSize: number, width: number) =>
   Math.max(1, Math.floor(Math.max(0.001, width) / Math.max(0.001, fontSize * 0.58)));
 
+/** Hard fallback for fonts that refuse Troika's break-word instruction. */
+export function wrapUnbrokenText(text: string, fontSize: number, width: number): string {
+  const limit = estimatedCharsPerLine(fontSize, width);
+  return text
+    .split("\n")
+    .flatMap((line) => {
+      if (line.length <= limit) return [line];
+      const rows: string[] = [];
+      for (let start = 0; start < line.length; start += limit) rows.push(line.slice(start, start + limit));
+      return rows;
+    })
+    .join("\n");
+}
+
 const splitVisualLine = (
   out: VisualTextLine[],
   text: string,
