@@ -247,7 +247,7 @@ export function InscribedText({
       {/* a light touch of the real material on top, so the letters still react
           to the room without shifting the chosen colour */}
       <Text {...shared} position={[0, 0, -0.0018]} renderOrder={15}>
-        {text}
+        {visibleText}
         <meshStandardMaterial
           color={recipe.ink}
           roughness={recipe.roughness}
