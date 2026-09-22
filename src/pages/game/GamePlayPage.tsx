@@ -59,6 +59,8 @@ import {
 import { localLiveChannel, subscribeLocalLive } from "@/lib/smartboard/localLiveBridge";
 import { normalizeConversion } from "@/lib/slate/conversion";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
+import type { GameMathLine } from "@/lib/slate/structuredMath";
+import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 
 
 const GamePlayPage = () => {
@@ -91,10 +93,14 @@ const GamePlayPage = () => {
   /** The same working for the writing surfaces, carrying the sensor mark and
    *  the placeholder box of any empty bracket / fraction / exponent slot. */
   const [displayLineText, setDisplayLineText] = useState<Record<number, string>>({});
+  /** Structure-preserving display mirror; never used for grading or Vaults. */
+  const [structuredLineMath, setStructuredLineMath] = useState<Record<number, GameMathLine>>({});
   const pendingLineText = useRef<Record<number, string> | null>(null);
   const pendingDisplayText = useRef<Record<number, string> | null>(null);
+  const pendingStructuredMath = useRef<Record<number, GameMathLine> | null>(null);
   const lineTextFrame = useRef<number | null>(null);
   const displayTextFrame = useRef<number | null>(null);
+  const structuredMathFrame = useRef<number | null>(null);
   const [resetEpoch, setResetEpoch] = useState(0);
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
@@ -157,9 +163,20 @@ const GamePlayPage = () => {
       if (latest) setDisplayLineText(latest);
     });
   };
+  const mirrorStructuredMath = (next: Record<number, GameMathLine>) => {
+    pendingStructuredMath.current = next;
+    if (structuredMathFrame.current !== null) return;
+    structuredMathFrame.current = window.requestAnimationFrame(() => {
+      structuredMathFrame.current = null;
+      const latest = pendingStructuredMath.current;
+      pendingStructuredMath.current = null;
+      if (latest) setStructuredLineMath(latest);
+    });
+  };
   useEffect(() => () => {
     if (lineTextFrame.current !== null) window.cancelAnimationFrame(lineTextFrame.current);
     if (displayTextFrame.current !== null) window.cancelAnimationFrame(displayTextFrame.current);
+    if (structuredMathFrame.current !== null) window.cancelAnimationFrame(structuredMathFrame.current);
   }, []);
 
   useEffect(() => {
@@ -300,7 +317,11 @@ const GamePlayPage = () => {
   );
 
   // A new question starts on a clean slate — no test or previous working.
-  useEffect(() => { setLineText({}); }, [runtime.question?.questionRowId]);
+  useEffect(() => {
+    setLineText({});
+    setDisplayLineText({});
+    setStructuredLineMath({});
+  }, [runtime.question?.questionRowId]);
 
   /* ---- reward celebration -------------------------------------------- */
   // A finished line pays its rewards. The physical object plays its own
@@ -374,7 +395,18 @@ const GamePlayPage = () => {
               : {}),
           };
         });
-      return resolveRenderedLineSlot(game, { ...row, text, rewards });
+      const rendered = resolveRenderedLineSlot(game, { ...row, text, rewards });
+      const structuredMath: GameMathLine | undefined = row.isQuestion
+        ? { rows: [{ sourceRow: 0, row: latexToTree(question.questionText), cursor: null }] }
+        : structuredLineMath[row.line - 1];
+      const note = !row.isQuestion && runtime.completedLines.includes(row.line)
+        ? question.lineNotes[row.line - 1] ?? undefined
+        : undefined;
+      return {
+        ...rendered,
+        ...(structuredMath?.rows.length ? { structuredMath } : {}),
+        ...(note ? { structuredNote: note } : {}),
+      };
     });
     return { ...game, slots, patternLength };
 
@@ -386,6 +418,7 @@ const GamePlayPage = () => {
     runtime.completedLines,
     runtime.timedLine,
     renderedLineText,
+    structuredLineMath,
     celebrating,
   ]);
 
@@ -687,6 +720,7 @@ const GamePlayPage = () => {
       onActiveLineChange={(line) => setActiveLine(line)}
       onLineText={mirrorLineText}
       onLineDisplayText={mirrorDisplayText}
+      onLineStructuredMath={mirrorStructuredMath}
     />
   ) : null;
 

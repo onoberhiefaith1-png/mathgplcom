@@ -2,6 +2,7 @@
 // Deliberately engine-agnostic: no mathematics logic lives here.
 
 import type { TextSettings } from "./text3d";
+import type { GameMathLine } from "./structuredMath";
 export type { TextSettings };
 
 export type ContentState = "hidden" | "visible" | "revealed" | "locked";
@@ -82,6 +83,10 @@ export interface Slot {
   surfaceId?: string | null;
   /** Live player writing. Plain text today, external content provider later. */
   text: string;
+  /** Live unflattened Floating Numbers mathematics for this physical surface. */
+  structuredMath?: GameMathLine;
+  /** Awarded teaching note displayed beneath the structured working. */
+  structuredNote?: string;
   /** Pre-authored content that is concealed, never destroyed. */
   hiddenContent: string;
   contentState: ContentState;

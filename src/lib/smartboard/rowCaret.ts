@@ -136,6 +136,10 @@ function mirrorNode(node: Node): string {
       return rows.length > 1
         ? `root(${mirrorRow(rows[1] ?? [])},${mirrorRow(rows[0] ?? [])})`
         : `sqrt(${mirrorRow(rows[0] ?? [])})`;
+    case "piecewise":
+      return `{ ${Array.from({ length: node.nRows }, (_, index) =>
+        `${mirrorRow(rows[index * 2] ?? [])} if ${mirrorRow(rows[index * 2 + 1] ?? [])}`,
+      ).join("; ")} }`;
     case "box":
     case "georef":
     case "accent":

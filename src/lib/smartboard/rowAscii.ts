@@ -97,6 +97,12 @@ const nodeToAscii = (n: Node): string => {
       const exp = n.fns?.includes("power") ? rowToAscii(n.rows[cellCount] || []).trim() : "";
       return exp ? `(${base})^(${exp})` : base;
     }
+    case "piecewise": {
+      const lines = Array.from({ length: n.nRows }, (_, index) =>
+        `${rowToAscii(n.rows[index * 2] || [])} & ${rowToAscii(n.rows[index * 2 + 1] || [])}`,
+      );
+      return `\\begin{cases}${lines.join(" \\\\ ")}\\end{cases}`;
+    }
 
     // A box is a transparent container (an outlined writing cell). It carries
     // no mathematical meaning of its own — flatten its body verbatim so the
