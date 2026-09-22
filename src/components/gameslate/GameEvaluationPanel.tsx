@@ -37,6 +37,56 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
   </div>
 );
 
+/** One reward, shown as its own Game artwork plus a short live status. */
+const RewardChip = ({
+  reward,
+  countdown,
+}: {
+  reward: RewardReport;
+  countdown: number | null;
+}) => {
+  const done = reward.stage === "awarded" || reward.stage === "condition_met" || reward.stage === "activated";
+  const complete = reward.type === "mark-seal" && done;
+  const status = complete
+    ? "✓ COMPLETE"
+    : reward.type === "mark-seal" && reward.stage === "waiting"
+      ? "PENDING"
+      : REWARD_STAGE_SHORT[reward.stage];
+  const art = reward.openArt && done ? reward.openArt : reward.art;
+  return (
+    <div className="flex w-14 flex-col items-center gap-0.5" title={`${reward.label} — ${reward.condition}`}>
+      <img
+        src={art}
+        alt={reward.label}
+        loading="lazy"
+        className={`h-9 w-9 object-contain transition ${done ? "" : "opacity-45 grayscale"}`}
+        style={done ? { filter: `drop-shadow(0 0 6px ${reward.glow})` } : undefined}
+      />
+      {reward.code ? (
+        <span className="max-w-full truncate font-mono text-[10px]" title={reward.code}>
+          {reward.code}
+        </span>
+      ) : null}
+      {countdown ? (
+        <GameClockDisplay deadline={countdown}>
+          {(label) => <span className="text-[10px] tabular-nums">{label}</span>}
+        </GameClockDisplay>
+      ) : null}
+      <span
+        className={`text-center text-[9px] font-semibold leading-tight ${
+          reward.stage === "waiting"
+            ? "text-muted-foreground"
+            : reward.stage === "expired"
+              ? "text-rose-600"
+              : "text-emerald-600"
+        }`}
+      >
+        {status}
+      </span>
+    </div>
+  );
+};
+
 export function GameEvaluationPanel({
   open,
   onToggle,
