@@ -18,7 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import { ArrowLeft, ListOrdered, Map, RotateCcw, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { loadGame } from "@/lib/slate/storage";
+import { loadGame, saveGameResult } from "@/lib/slate/storage";
 import { fitTextToWritingSurface } from "@/lib/slate/restoreText";
 import {
   listGameClasses,
@@ -60,6 +60,8 @@ import {
 import { localLiveChannel, subscribeLocalLive } from "@/lib/smartboard/localLiveBridge";
 import { normalizeConversion } from "@/lib/slate/conversion";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
+import type { SlotTextConfig } from "@/lib/slate/textConfig";
+import { sameTextConfig } from "@/lib/slate/textConfig";
 import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 
@@ -87,6 +89,8 @@ const GamePlayPage = () => {
   const [worldReady, setWorldReady] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(10);
   const gameRef = useRef<Game | null>(null);
+  const ownerRef = useRef(false);
+  const textRepairTimer = useRef<number | null>(null);
   const worldReadyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   /** Live working per Floating Numbers line (0-based) → plain text. */
@@ -179,6 +183,7 @@ const GamePlayPage = () => {
     if (lineTextFrame.current !== null) window.cancelAnimationFrame(lineTextFrame.current);
     if (displayTextFrame.current !== null) window.cancelAnimationFrame(displayTextFrame.current);
     if (structuredMathFrame.current !== null) window.cancelAnimationFrame(structuredMathFrame.current);
+    if (textRepairTimer.current !== null) window.clearTimeout(textRepairTimer.current);
   }, []);
 
   useEffect(() => {
@@ -195,6 +200,7 @@ const GamePlayPage = () => {
       const userId = userData.user?.id ?? null;
       const { data: ownerRow } = ownerResult;
       const isOwner = Boolean(userId) && (ownerRow as { owner_id?: string } | null)?.owner_id === userId;
+      ownerRef.current = isOwner;
       if (cancelled) return;
       if (!loaded || !userId) {
         setError("This Game is not available.");
