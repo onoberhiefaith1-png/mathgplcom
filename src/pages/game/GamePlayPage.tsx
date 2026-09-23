@@ -213,6 +213,17 @@ const GamePlayPage = () => {
       setUid(userId);
       setGame(loaded);
 
+      // A student's own margin, when they have moved it before.
+      if (!isOwner) {
+        const own = await loadStudentContentMargin(gameId, userId);
+        if (!cancelled && own !== null) {
+          setGame((current) =>
+            current ? { ...current, settings: { ...current.settings, contentMargin: own } } : current,
+          );
+        }
+      }
+
+
       try {
         if (isOwner) {
           const byClass = await loadGameAssignmentState(gameId);
