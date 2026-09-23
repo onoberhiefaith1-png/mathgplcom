@@ -168,8 +168,19 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
   {
     id: "list_games",
     domain: "games",
-    title: "List games",
-    description: "List the teacher's 3D Slate games with id, title and topic.",
+    title: "List the 3D Slate games",
+    description:
+      "List the teacher's real 3D Slate games — the ones the Game editor opens and classes play — with their id, name, topic and how many writing surfaces they have.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [],
+  },
+  {
+    id: "list_teaching_hub_games",
+    domain: "games",
+    title: "List the older teaching-hub games",
+    description:
+      "List the separate, older teaching-hub game records (not the 3D Slate games). Only use this when the teacher is asking about that older list.",
     readOnly: true,
     needsConfirmation: false,
     params: [],
@@ -177,15 +188,214 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
   {
     id: "link_game_to_class",
     domain: "games",
-    title: "Assign a game to a class",
-    description: "Add an existing game to a class playlist so the students can play it.",
+    title: "Add an older teaching-hub game to a class playlist",
+    description:
+      "Add one of the older teaching-hub games to a class playlist. This is NOT how a 3D Slate game reaches a class — use slate_publish_game for that.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [
+      p("classId", "string", true, "Class id."),
+      p("gameId", "string", true, "Game id from list_teaching_hub_games."),
+    ],
+  },
+  {
+    id: "agent_capabilities",
+    domain: "workspace",
+    title: "List what you can actually do",
+    description:
+      "List your own abilities, grouped by area, marking which ones write, which need the teacher's confirmation, and which parts of the platform you can only guide rather than operate. Use this whenever anyone asks what you can do, or before promising a piece of work.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [],
+  },
+  {
+    id: "slate_list_rooms",
+    domain: "games",
+    title: "List the rooms a game can be built in",
+    description:
+      "List the real 3D rooms a Slate game can live in. Never offer a room that is not on this list.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [],
+  },
+  {
+    id: "slate_list_rewards",
+    domain: "games",
+    title: "List the real rewards and how each is earned",
+    description:
+      "List the game's actual reward types and their earning rules, including which three are derived from the question itself and can never be placed by hand. A picture is never a reward.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [],
+  },
+  {
+    id: "slate_read_game",
+    domain: "games",
+    title: "Read a Slate game back",
+    description:
+      "Read one Slate game's saved settings, its levels in saved order with their marks, and the classes playing it. Always do this after writing, before telling the teacher anything.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [
+      p("gameId", "string", true, "Game id from list_games."),
+      p("classId", "string", false, "Read the levels of one Class + Game instance. Omit for the teacher's own pool."),
+    ],
+  },
+  {
+    id: "slate_create_game",
+    domain: "games",
+    title: "Create a Slate game draft",
+    description:
+      "Create a new 3D Slate game draft in the teacher's workspace. A draft is invisible to students until it is published to a class. Calling this twice with the same name and topic returns the same game instead of making a second.",
     readOnly: false,
     needsConfirmation: false,
     params: [
-      p("classId", "string", true, "Class id."),
-      p("gameId", "string", true, "Game id from list_games."),
+      p("name", "string", true, "Game name, e.g. 'Indices Quest'."),
+      p("topic", "string", false, "Topic, e.g. 'Indices'."),
+      p("subtopic", "string", false, "Subtopic."),
+      p("roomId", "string", false, "Room id from slate_list_rooms. Default the first room."),
+      p("lines", "number", false, "How many writing surfaces to start with, 1 to 24. Default 6."),
     ],
   },
+  {
+    id: "slate_update_game",
+    domain: "games",
+    title: "Change a Slate game's settings",
+    description:
+      "Change a draft's name, topic, subtopic, room, number of writing surfaces or reward pattern length. Refuses to throw away a surface that already has work or rewards on it.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("gameId", "string", true, "Game id."),
+      p("name", "string", false, "New name."),
+      p("topic", "string", false, "New topic."),
+      p("subtopic", "string", false, "New subtopic."),
+      p("roomId", "string", false, "Room id from slate_list_rooms."),
+      p("lines", "number", false, "New number of writing surfaces, 1 to 24."),
+      p("patternLength", "number", false, "How many lines the repeating reward pattern covers."),
+      p("expectedSavedAt", "string", false, "The savedAt you last read, so a change made elsewhere is not overwritten."),
+    ],
+  },
+  {
+    id: "slate_configure_rewards",
+    domain: "games",
+    title: "Configure a game's reward settings",
+    description:
+      "Set the game's reward visibility, opacity, glow and size, the Life multiplier, and the four conversion factors. These are the only reward settings the game has — never invent another.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("gameId", "string", true, "Game id."),
+      p("visible", "boolean", false, "Are rewards shown on the slate?"),
+      p("opacity", "number", false, "0 to 1."),
+      p("glow", "number", false, "0 to 1."),
+      p("scale", "number", false, "0.2 to 3."),
+      p("lifeMultiplier", "number", false, "What one Life gives back, as a multiple of a question's time."),
+      p("hourglassToTime", "number", false, "0.1 to 10."),
+      p("lifeToTime", "number", false, "0.1 to 10."),
+      p("vaultToLife", "number", false, "0.1 to 10."),
+      p("completionToLife", "number", false, "0.1 to 10."),
+    ],
+  },
+  {
+    id: "slate_place_reward",
+    domain: "games",
+    title: "Place a reward on a game line",
+    description:
+      "Place one placeable reward on a solving line. Line 0 is the question and never carries a reward; solving begins at line 1. Completion, Hourglass and Vault come from the question itself and are refused here.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("gameId", "string", true, "Game id."),
+      p("type", "string", true, "Reward type from slate_list_rewards, e.g. 'retry-heart'."),
+      p("line", "number", false, "Solving line, starting at 1. Default 1."),
+      p("x", "number", false, "Across the surface, 8 to 92 percent. Default 70."),
+      p("y", "number", false, "Down the surface, 8 to 92 percent. Default 50."),
+    ],
+  },
+  {
+    id: "slate_attach_question",
+    domain: "games",
+    title: "Attach a lesson-note question as a game level",
+    description:
+      "Attach one lesson-note question to a game as the next Level. The game only ever references the question, so the mathematics, marks and timing stay in the lesson note. Give the classId to build that class's own ordered set of levels. Existing levels are never moved or hidden.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("gameId", "string", true, "Game id."),
+      p("subsectionId", "string", true, "Question (session) id, which must already have Floating Numbers."),
+      p("classId", "string", false, "The class this playable set belongs to. Omit for the teacher's own pool."),
+    ],
+  },
+  {
+    id: "slate_list_game_questions",
+    domain: "games",
+    title: "List a game's levels",
+    description: "List a game's levels in their saved order, with their question text and marks.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [
+      p("gameId", "string", true, "Game id."),
+      p("classId", "string", false, "Class id for one Class + Game instance."),
+    ],
+  },
+  {
+    id: "slate_reorder_game_questions",
+    domain: "games",
+    title: "Reorder a game's levels",
+    description:
+      "Write a new level order. The list must contain every level of that game exactly once.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("gameId", "string", true, "Game id."),
+      p("questionRowIds", "string[]", true, "Every level's questionRowId, in the new order."),
+      p("classId", "string", false, "Class id for one Class + Game instance."),
+    ],
+  },
+  {
+    id: "slate_remove_game_question",
+    domain: "games",
+    title: "Remove a level from a game",
+    description:
+      "Take one level off a game. The lesson-note question itself is untouched. Destructive: ask the teacher first, then call again with confirmed set to true.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [
+      p("gameId", "string", true, "Game id."),
+      p("questionRowId", "string", true, "The level's questionRowId from slate_list_game_questions."),
+      p("classId", "string", false, "Class id for one Class + Game instance."),
+    ],
+  },
+  {
+    id: "slate_test_game",
+    domain: "games",
+    title: "Inspect and test a game draft",
+    description:
+      "Check a draft properly: that levels are attached and in order, that each has Floating Numbers, that marks exist, that there are enough writing surfaces, and what rewards are placed. Returns each check's result. Nothing is recorded against any student, and opening the preview is not itself a pass — say which checks still need the teacher's eyes.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [
+      p("gameId", "string", true, "Game id."),
+      p("classId", "string", false, "Class id to inspect one Class + Game instance."),
+    ],
+  },
+  {
+    id: "slate_publish_game",
+    domain: "games",
+    title: "Publish a Slate game to a class",
+    description:
+      "Give the game to a real class, so its students can play it. Before calling, show the teacher the game, the class and what the class will receive, and wait for a clear yes. Then call again with confirmed set to true. Refuses when that class has no levels attached.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [
+      p("gameId", "string", true, "Game id."),
+      p("classId", "string", true, "Class id from list_classes."),
+      p("passPercentage", "number", false, "Pass mark, 0 to 100. Default 70."),
+      p("title", "string", false, "Title the class sees. Defaults to the game's name."),
+    ],
+  },
+
   {
     id: "archive_lesson_note",
     domain: "lessonNotes",
