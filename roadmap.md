@@ -141,3 +141,14 @@
 - [x] Remove residual colour from transparent building edges without changing the building artwork.
 - [x] Add independent Remove background actions to the outer and inner master images.
 - [x] Verify the editor controls, cutout tests, and type safety; live application requires the user's selected image.
+
+# AURA teaching agent (six-phase roadmap, approved with amendments)
+
+- [x] Phase 1 — platform tool bridge (12 authenticated tools).
+- [x] Phase 2 — agent brain (reasoning loop, snapshot greeting, self-correction).
+- [ ] Phase 3 — AURA cockpit: side-by-side drawer, streaming text chat, step badges, live navigate sync.
+- [ ] Phase 3a — persisted conversation memory (resume past sessions).
+- [ ] Phase 3b — tool expansion pass: quizzes/assessments, game building, Adventure, enrollment, performance, Smart Cards (before any voice work).
+- [ ] Phase 4 — voice: "Aura" wake word, mic, spoken replies.
+- [ ] Phase 5 — live board teaching: voice + sensor + Floating Numbers in sync.
+- [ ] Phase 6 — guardrails, usage ceilings, mobile/tablet layout, end-to-end testing of all six workflows.
