@@ -50,6 +50,8 @@ interface Props {
   readOnlyWriting?: boolean;
   /** Restore: bumped to put every text back to its saved configuration. */
   restoreKey?: number;
+  /** The Content Margin was moved: where writing begins, 0–0.5 of the band. */
+  onContentMarginChange?: (fraction: number) => void;
   /** Fires only after the real saved surfaces have mounted and painted. */
   onReadyChange?: (ready: boolean) => void;
   /** Reports completed startup milestones to the full-screen loader. */
