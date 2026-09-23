@@ -357,6 +357,16 @@ export function useListening({ onWake, paused }: ListeningOptions) {
     setTranscript("");
   }, []);
 
+  /**
+   * The teacher corrected what was heard: their wording replaces the words the
+   * engine accumulated, so anything they say next is added to their version.
+   */
+  const editTranscript = useCallback((text: string) => {
+    finalText.current = text;
+    awaitingFinal.current = false;
+    setTranscript(text);
+  }, []);
+
   /** Whether the listening engine still owes us the end of the sentence. */
   const finalPending = useCallback(() => awaitingFinal.current, []);
 
