@@ -141,8 +141,10 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
   }, [paused]);
 
   useEffect(() => {
-    setSupported(recognitionConstructor() !== null);
-  }, []);
+    // Either ear counts: recording and transcribing works where the browser's
+    // own listener does not exist at all.
+    setSupported(recognitionConstructor() !== null || (preferTranscribe && transcribeSupported()));
+  }, [preferTranscribe]);
 
   const stopMeter = useCallback(() => {
     if (meter.current !== null) cancelAnimationFrame(meter.current);
