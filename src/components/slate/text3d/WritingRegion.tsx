@@ -18,6 +18,7 @@ import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { StructuredMathText } from "./StructuredMathText";
 import type { SlotTextConfig } from "@/lib/slate/textConfig";
 import { normalizeTextConfig, resolveSurfaceTextPlacement, savedTextOffset } from "@/lib/slate/textConfig";
+import { resolveTextStyle, textVisualInsets } from "@/lib/slate/textPresets";
 
 interface Props {
   slotId: string;
@@ -115,6 +116,10 @@ export function WritingRegion({
     [innerHeight, saved, width],
   );
   const shift = { x: savedOffset.x + guard.x, y: savedOffset.y + guard.y };
+  const visualInsets = useMemo(() => {
+    const fontSize = Math.max(0.001, settings.size / PX_PER_UNIT);
+    return textVisualInsets(resolveTextStyle(surface, settings), fontSize);
+  }, [settings, surface]);
 
   // A fresh body (new question, new line, new text size, new surface) and every
   // Restore start again from the canonical record. If it is invalid, the same
@@ -122,7 +127,7 @@ export function WritingRegion({
   // persists that correction instead of leaving it in this local state.
   useEffect(() => {
     setGuard({ x: 0, y: 0 });
-  }, [slotId, text, settings.size, settings.align, surface.id, width, height, restoreKey, saved.ax, saved.ay]);
+  }, [slotId, text, settings, surface.id, width, height, restoreKey, saved.ax, saved.ay]);
 
   const syncFromInput = useCallback(() => {
     const el = input.current;
@@ -208,12 +213,11 @@ export function WritingRegion({
       // Raised letters stand above the typographic box (ascenders, bevel and
       // extrusion), so the body is inflated a little before it is compared
       // with the surface. That keeps the physical glyph inside the material.
-      const relief = Math.max(0.02, placedFromSaved.height * 0.2);
       const body = {
-        left: placedFromSaved.left,
-        right: placedFromSaved.right,
-        top: placedFromSaved.top + relief,
-        bottom: placedFromSaved.bottom,
+        left: placedFromSaved.left - visualInsets.left,
+        right: placedFromSaved.right + visualInsets.right,
+        top: placedFromSaved.top + visualInsets.top,
+        bottom: placedFromSaved.bottom - visualInsets.bottom,
       };
       const inner = surfaceInnerBox(width, height, pad);
       const placement = resolveSurfaceTextPlacement({
@@ -261,7 +265,7 @@ export function WritingRegion({
         style: settings.style,
       });
     },
-    [caret, guard.x, guard.y, height, innerHeight, left, onMeasure, onReport, onTextConfigCorrection, pad, saved, savedOffset, selection, settings.align, settings.style, slotId, surface.id, text, top, width, z],
+    [caret, guard.x, guard.y, height, innerHeight, left, onMeasure, onReport, onTextConfigCorrection, pad, saved, savedOffset, selection, settings.align, settings.style, slotId, surface.id, text, top, visualInsets, width, z],
   );
 
   const show = text || (!editable ? "" : "");
