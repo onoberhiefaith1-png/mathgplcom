@@ -110,8 +110,8 @@ export function WritingRegion({
   // device, on a reopen, a refresh, or in a student's copy of the Game.
   const saved = normalizeTextConfig(textConfig, settings);
   const innerHeight = Math.max(0, height - pad * 2);
-  const placed = savedTextOffset(saved, width, innerHeight);
-  const shift = { x: placed.x + guard.x, y: placed.y + guard.y };
+  const savedOffset = savedTextOffset(saved, width, innerHeight);
+  const shift = { x: savedOffset.x + guard.x, y: savedOffset.y + guard.y };
 
   // A fresh body (new question, new line, new text size, new surface) and every
   // Restore start again from the saved record, never from an earlier correction.
@@ -213,7 +213,7 @@ export function WritingRegion({
       if (!textInsideSurface(body, inner)) {
         const { dx, dy } = containTextInSurface(body, inner);
         if (Math.abs(dx) > TEXT_INSIDE_TOLERANCE || Math.abs(dy) > TEXT_INSIDE_TOLERANCE) {
-          setShift((previous) => ({ x: previous.x + dx, y: previous.y + dy }));
+          setGuard((previous) => ({ x: previous.x + dx, y: previous.y + dy }));
         }
       }
       onMeasure(placed);
