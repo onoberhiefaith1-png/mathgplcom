@@ -3316,7 +3316,28 @@ function DocumentEditorInner({
     setAiEditOpen(true);
   }, []);
 
+  /** Compose mode: where Accept inserts new content (null = highlight mode). */
+  const aiEditInsertAtRef = useRef<number | null>(null);
+
+  /** Top-bar AI Edit: open EMPTY. Teacher pastes/types; Accept inserts at the
+   *  cursor (if the note had focus) or at the end. Never overwrites. */
+  useEffect(() => {
+    const onOpen = () => {
+      if (!editor) return;
+      const size = editor.state.doc.content.size;
+      const sel = editor.state.selection;
+      aiEditInsertAtRef.current = editor.isFocused || sel.from > 1 ? Math.min(sel.to, size) : size;
+      aiEditRangeRef.current = null;
+      aiEditBridgeApplyRef.current = null;
+      setAiEditTarget({ text: "", kind: "lesson_section", mode: "compose" });
+      setAiEditOpen(true);
+    };
+    window.addEventListener("mathgpl:open-ai-edit", onOpen);
+    return () => window.removeEventListener("mathgpl:open-ai-edit", onOpen);
+  }, [editor]);
+
   const closeAiEdit = () => {
+    aiEditInsertAtRef.current = null;
     setAiEditOpen(false);
     setAiEditTarget(null);
     aiEditRangeRef.current = null;
@@ -3346,6 +3367,29 @@ function DocumentEditorInner({
   };
 
   const runAiEdit = async (instruction: string, target: AiEditTarget): Promise<string> => {
+    if (target.mode === "compose") {
+      const pasted = (target.text ?? "").trim();
+      const ask = instruction.trim();
+      const { data, error } = await withTimeout(supabase.functions.invoke("notebook-ai", {
+        body: {
+          mode: "edit",
+          compose: true,
+          kind: "lesson_section",
+          instruction: pasted
+            ? (ask || "Structure this into clean MathGPL lesson-note content.")
+            : ask,
+          selectionText: pasted || ask,
+          subject: activeContext()?.subject ?? "Mathematics",
+          topic: activeContext()?.topic ?? "",
+          subtopic: activeContext()?.subtopic ?? "",
+          workspaceManifest: buildWorkspaceManifest(),
+          lessonContext: buildEditContext(),
+          forceAllStandards: true,
+        },
+      }), 90_000, "AI editing took too long. Please try again.");
+      if (error) throw error;
+      return String((data as any)?.content ?? "").trim();
+    }
     const selectionText = (target.text ?? "").trim();
     if (!selectionText) {
       toast({ title: "Nothing selected", description: "Highlight some text or a math object first.", variant: "destructive" });
@@ -3375,6 +3419,16 @@ function DocumentEditorInner({
     if (bridgeApply) {
       bridgeApply(sanitizePresentation(proposed));
       return true;
+    }
+    const insertAt = aiEditInsertAtRef.current;
+    if (insertAt != null) {
+      if (!editor) return false;
+      const nodes = aiTextToNodes(proposed);
+      if (!nodes.length) return false;
+      const at = Math.min(insertAt, editor.state.doc.content.size);
+      const ok = editor.chain().focus().insertContentAt(at, nodes as any).run();
+      if (ok) aiEditInsertAtRef.current = null;
+      return ok;
     }
     const range = aiEditRangeRef.current;
     if (!editor || !range) return false;

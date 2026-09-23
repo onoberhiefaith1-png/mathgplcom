@@ -6,7 +6,7 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
@@ -228,6 +228,16 @@ const NotebookEditorPage = () => {
               <span className="hidden lg:inline">Save to class</span>
             </Button>
           )}
+          {!viewOnly && (
+            <Button
+              size="sm" variant="ghost"
+              className="shrink-0 gap-1.5 h-8 px-2 text-foreground/70 hover:text-foreground"
+              onClick={() => window.dispatchEvent(new CustomEvent("mathgpl:open-ai-edit"))}
+              title="AI Edit — paste or type content, AI structures it, Accept inserts it"
+            >
+              <Wand2 className="h-3.5 w-3.5" /> <span className="hidden lg:inline">AI Edit</span>
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -247,16 +257,7 @@ const NotebookEditorPage = () => {
                 <span>
                   <span className="block text-sm">Manual{aiMode === "manual" ? " — Active" : ""}</span>
                   <span className="block text-[11px] text-muted-foreground">
-                    You build the lesson. AI only edits what you select.
-                  </span>
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLessonAiMode("mathengine")} className="gap-2">
-                <Check className={`h-3.5 w-3.5 ${aiMode === "mathengine" ? "opacity-100" : "opacity-0"}`} />
-                <span>
-                  <span className="block text-sm">AI Builder{aiMode === "mathengine" ? " — Active" : ""}</span>
-                  <span className="block text-[11px] text-muted-foreground">
-                    Section tools, each one verified by the Engine
+                    You build the lesson. AI Edit structures what you bring.
                   </span>
                 </span>
               </DropdownMenuItem>
@@ -265,7 +266,7 @@ const NotebookEditorPage = () => {
                 <span>
                   <span className="block text-sm">MathGPL Co-Pilot{aiMode === "copilot" ? " — Active" : ""}</span>
                   <span className="block text-[11px] text-muted-foreground">
-                    Understands the lesson: structure, workflow, editing
+                    Full lesson generation plus every section AI tool
                   </span>
                 </span>
               </DropdownMenuItem>
