@@ -6,6 +6,8 @@
 // short slices from the one microphone she already holds and gets the words back
 // from the platform's own transcription, exactly the way the editor does.
 
+import { looksMisheard } from "@/lib/agent/speechIntent";
+
 const SEGMENT_MS = 1500;
 
 /** The transcription endpoint, or null when the backend is not configured. */
@@ -63,6 +65,9 @@ export async function transcribeSegment(blob: Blob, signal?: AbortSignal): Promi
   const form = new FormData();
   const extension = blob.type.includes("mp4") ? "mp4" : blob.type.includes("ogg") ? "ogg" : "webm";
   form.append("file", new File([blob], `slice.${extension}`, { type: blob.type || "audio/webm" }));
+  // English is the conversation's language: telling the transcriber so stops it
+  // guessing at another language when a word is unclear.
+  form.append("language", "en");
   const response = await fetch(endpoint, {
     method: "POST",
     headers: key ? { apikey: key, Authorization: `Bearer ${key}` } : {},
@@ -71,8 +76,11 @@ export async function transcribeSegment(blob: Blob, signal?: AbortSignal): Promi
   });
   const body = await response.text();
   if (!response.ok) throw new Error(`Transcription failed (${response.status})`);
-  return readTranscriptEvents(body);
+  const heard = readTranscriptEvents(body);
+  // A slice that comes back in another script is a mishearing, not speech.
+  return looksMisheard(heard) ? "" : heard;
 }
+
 
 type ListenerOptions = {
   stream: MediaStream;
