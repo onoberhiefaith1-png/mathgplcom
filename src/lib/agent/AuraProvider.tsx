@@ -862,7 +862,10 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           listening.clearTranscript();
           heardRef.current = "";
           if (voiceLive.current) sendCallRef.current(effect.text);
-          else sendRef.current(effect.text, { spoken: true });
+          else {
+            const spokenMeaning = cleanSpokenText(effect.text);
+            if (spokenMeaning) sendRef.current(spokenMeaning, { spoken: true });
+          }
         }
       }
       // A call left open by accident hangs up itself, and no call runs forever.
