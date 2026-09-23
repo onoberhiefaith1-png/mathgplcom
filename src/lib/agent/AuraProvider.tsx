@@ -289,6 +289,15 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Everyone who arrives is asked once, so Aura is ready to listen from the
+  // start. Never asked again on this device once they have answered.
+  useEffect(() => {
+    if (!hydrated || hasBeenAsked()) return;
+    if (micPermission !== "prompt" && micPermission !== "unknown") return;
+    const timer = window.setTimeout(() => setMicPromptOpen(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, micPermission]);
+
   const requestMic = useCallback(async () => {
     setMicRequesting(true);
     const state = await requestMicAccess();
