@@ -42,15 +42,16 @@ export type Capability =
 /**
  * Where each role lands after signing in.
  *
- * Every account arrives on the Rotating Building homepage first; from there
- * they enter their own workspace. The dashboards below stay directly
- * reachable — only the automatic redirect target is the homepage.
+ * Adults who build things land in the conversation with Aura: they say what they
+ * want and watch it happen, exactly as they would talk to a colleague. Families
+ * and students still arrive on the Rotating Building homepage. Nothing is
+ * hidden either way — the building and every dashboard stay one tap away.
  */
 export const HOME_PATH: Record<AppRole, string> = {
-  platform_owner: "/",
-  co_admin: "/",
-  school: "/",
-  teacher: "/",
+  platform_owner: "/aura",
+  co_admin: "/aura",
+  school: "/aura",
+  teacher: "/aura",
   parent: "/",
   student: "/",
 };

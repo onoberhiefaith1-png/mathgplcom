@@ -1325,12 +1325,14 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           author_id: string
+          control: string | null
           created_at: string
           evidence: string | null
           expected_result: string | null
           failures: string[]
           feature: string
           id: string
+          page: string | null
           preconditions: string[]
           roles: string[]
           scope: string | null
@@ -1344,12 +1346,14 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           author_id: string
+          control?: string | null
           created_at?: string
           evidence?: string | null
           expected_result?: string | null
           failures?: string[]
           feature: string
           id?: string
+          page?: string | null
           preconditions?: string[]
           roles?: string[]
           scope?: string | null
@@ -1363,12 +1367,14 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           author_id?: string
+          control?: string | null
           created_at?: string
           evidence?: string | null
           expected_result?: string | null
           failures?: string[]
           feature?: string
           id?: string
+          page?: string | null
           preconditions?: string[]
           roles?: string[]
           scope?: string | null

@@ -12,10 +12,18 @@ import { buildAgentSystemPrompt, AGENT_GREETING_INSTRUCTION, type AgentSnapshotH
 import { executeAgentTool, type AgentToolContext } from "./tools.server";
 import { learnedKnowledgePrompt } from "./hands.server";
 
+import { turnCost, type TurnUsage } from "./spend";
+
 import type { AuraPlatformContext } from "./context";
 import { parseTeachingScript, type TeachingScript } from "./teachingScript";
 
-export const AGENT_MODEL = "openai/gpt-6-astra";
+/**
+ * Aura's everyday brain. The cheapest model on the gateway that passes the
+ * lesson-note contract and drives the platform tools, so a teacher's whole day
+ * of conversation costs pennies. Heavy mathematics stays with the notebook
+ * generator, which is unchanged.
+ */
+export const AGENT_MODEL = "openai/gpt-5-nano";
 
 export type AgentStep = {
   toolId: string;
@@ -30,6 +38,8 @@ export type AgentTurn = {
   reply: string;
   steps: AgentStep[];
   navigateTo?: string;
+  /** What this turn really cost, measured from the tokens the model reported. */
+  usage?: TurnUsage;
 };
 
 function jsonType(type: AgentToolParam["type"]) {
@@ -75,28 +85,18 @@ export function provider(apiKey: string) {
   });
 }
 
+/**
+ * No hidden thinking tokens are bought on an ordinary turn: nothing is
+ * summarised, nothing is returned encrypted. That removed both the long wait
+ * before she answered and the great majority of what she used to cost.
+ * `store: false` stays because the gateway keeps no conversation state.
+ */
 export const RESPONSES_OPTIONS = {
-  openai: {
-    forceReasoning: true,
-    reasoningEffort: "low",
-    reasoningSummary: "auto",
-    store: false,
-    include: ["reasoning.encrypted_content"],
-  },
+  openai: { store: false },
 } as const;
 
-/**
- * On a call, her private reasoning notes are not requested at all: nothing is
- * summarised and nothing is returned encrypted, so the first written word comes
- * sooner. She still reasons — Astra requires it — at the lightest setting.
- */
-const CALL_RESPONSES_OPTIONS = {
-  openai: {
-    forceReasoning: true,
-    reasoningEffort: "low",
-    store: false,
-  },
-} as const;
+/** A spoken turn uses the same lightweight settings. */
+const CALL_RESPONSES_OPTIONS = RESPONSES_OPTIONS;
 
 /** The everyday abilities a spoken turn almost always needs. */
 const CALL_TOOL_IDS = new Set([
@@ -227,14 +227,30 @@ WHAT YOU ARE HEARING
 `;
 
 
-function turnFrom(reply: string, steps: AgentStep[]): AgentTurn {
+function turnFrom(reply: string, steps: AgentStep[], usage?: TurnUsage): AgentTurn {
   const navigations = steps.filter((s) => s.ok && s.navigateTo);
   const last = navigations[navigations.length - 1];
   return {
     reply: reply.trim() || steps.filter((s) => s.ok).map((s) => s.summary).join(" ") || "Done.",
     steps,
     ...(last?.navigateTo ? { navigateTo: last.navigateTo } : {}),
+    ...(usage ? { usage } : {}),
   };
+}
+
+/** The tokens the model actually reported, priced honestly. Never guessed. */
+async function measured(result: { usage: PromiseLike<unknown> }): Promise<TurnUsage | undefined> {
+  try {
+    const raw = (await result.usage) as
+      | { inputTokens?: number; outputTokens?: number }
+      | undefined;
+    const input = raw?.inputTokens;
+    const output = raw?.outputTokens;
+    if (typeof input !== "number" || typeof output !== "number") return undefined;
+    return turnCost(AGENT_MODEL, input, output);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -304,7 +320,8 @@ export async function runAgentTurn(
   context?: AuraPlatformContext | null,
 ): Promise<AgentTurn> {
   const { result, steps } = await startTurn(ctx, messages, {}, hint, context);
-  return turnFrom(await result.text, steps);
+  const reply = await result.text;
+  return turnFrom(reply, steps, await measured(result));
 }
 
 export type AgentTurnStream = {
@@ -326,7 +343,10 @@ export async function streamAgentTurn(
   const { result, steps } = await startTurn(ctx, messages, options, hint, context);
   return {
     text: result.textStream,
-    finish: async () => turnFrom(await result.text, steps),
+    finish: async () => {
+      const reply = await result.text;
+      return turnFrom(reply, steps, await measured(result));
+    },
     abort: () => {
       /* the reply is abandoned by dropping the stream */
     },

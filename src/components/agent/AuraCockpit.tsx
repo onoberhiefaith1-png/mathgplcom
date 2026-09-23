@@ -61,7 +61,12 @@ const SUGGESTIONS = [
   "Create a class called Grade 9 Algebra and give me the join code.",
 ];
 
-export default function AuraCockpit() {
+/**
+ * "panel" is the side panel that follows the teacher around the platform.
+ * "page" is the same conversation given a whole screen as the front door.
+ */
+export default function AuraCockpit({ variant = "panel" }: { variant?: "panel" | "page" } = {}) {
+  const page = variant === "page";
   const {
     open,
     setOpen,
@@ -170,37 +175,45 @@ export default function AuraCockpit() {
     };
   }, [open, width]);
 
-  if (!open) return null;
+  if (!open && !page) return null;
 
   return (
     <aside
       aria-label="Aura teaching assistant"
       className={cn(
-        "fixed inset-y-0 right-0 z-[70] flex flex-col border-l border-border bg-background shadow-2xl",
-        // Phone and tablet: a full-width sheet over the page. Desktop only gets
-        // the side-by-side split, where there is room for both.
-        "w-full lg:w-[var(--aura-panel-width)]",
+        "flex flex-col bg-background",
+        page
+          ? "h-full w-full"
+          : cn(
+              "fixed inset-y-0 right-0 z-[70] border-l border-border shadow-2xl",
+              // Phone and tablet: a full-width sheet over the page. Desktop only
+              // gets the side-by-side split, where there is room for both.
+              "w-full lg:w-[var(--aura-panel-width)]",
+            ),
       )}
-      style={{ ["--aura-panel-width" as string]: `${width}px` }}
+      style={page ? undefined : { ["--aura-panel-width" as string]: `${width}px` }}
     >
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize the assistant panel"
-        aria-valuenow={width}
-        aria-valuemin={AURA_MIN_WIDTH}
-        aria-valuemax={AURA_MAX_WIDTH}
-        tabIndex={0}
-        onPointerDown={() => {
-          dragging.current = true;
-          document.body.style.userSelect = "none";
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft") setWidth(width + 24);
-          if (event.key === "ArrowRight") setWidth(width - 24);
-        }}
-        className="absolute inset-y-0 -left-1 hidden w-2 cursor-col-resize sm:block hover:bg-primary/20"
-      />
+      {page ? null : (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the assistant panel"
+          aria-valuenow={width}
+          aria-valuemin={AURA_MIN_WIDTH}
+          aria-valuemax={AURA_MAX_WIDTH}
+          tabIndex={0}
+          onPointerDown={() => {
+            dragging.current = true;
+            document.body.style.userSelect = "none";
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft") setWidth(width + 24);
+            if (event.key === "ArrowRight") setWidth(width - 24);
+          }}
+          className="absolute inset-y-0 -left-1 hidden w-2 cursor-col-resize sm:block hover:bg-primary/20"
+        />
+      )}
+
 
       <header className="flex items-center gap-2 border-b border-border px-3 py-2">
         <img src={auraMark} alt="" width={28} height={28} className="size-7 rounded-full" />
@@ -252,9 +265,11 @@ export default function AuraCockpit() {
         <Button variant="ghost" size="icon-sm" aria-label="Start a new conversation" onClick={clear}>
           <Trash2 className="size-4" />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="Close the assistant" onClick={() => setOpen(false)}>
-          <X className="size-4" />
-        </Button>
+        {page ? null : (
+          <Button variant="ghost" size="icon-sm" aria-label="Close the assistant" onClick={() => setOpen(false)}>
+            <X className="size-4" />
+          </Button>
+        )}
       </header>
 
       <Conversation className="min-h-0 flex-1">
