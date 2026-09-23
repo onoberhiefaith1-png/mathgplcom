@@ -27,6 +27,7 @@ import ConnectionIndicator from "@/components/common/ConnectionIndicator";
 import StabilityWatchdog from "@/components/common/StabilityWatchdog";
 import PageGuideProvider from "@/components/guides/PageGuideProvider";
 import QuickActionBar from "@/components/workspace/QuickActionBar";
+import AuraDock from "@/components/agent/AuraDock";
 
 
 import { NavHistoryProvider } from "@/lib/nav/NavHistory";
