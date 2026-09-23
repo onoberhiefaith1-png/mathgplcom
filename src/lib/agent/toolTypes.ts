@@ -853,6 +853,26 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     ],
   },
   {
+    id: "preview_note_cleanup",
+    domain: "lessonNotes",
+    title: "Show what mending the note would change",
+    description:
+      "Read the whole note and list every line that carries a label the page already prints (Problem:, Solution:, Step 3:) or holds a whole worked example in one line. Changes nothing. Use this before clean_lesson_note.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [p("notebookId", "string", true, "Notebook id.")],
+  },
+  {
+    id: "clean_lesson_note",
+    domain: "lessonNotes",
+    title: "Mend the note's lines",
+    description:
+      "Repair the note in place: strip labels the page already prints, split a block holding several steps into one line per step, and drop label-only lines. Mathematics is never rewritten. Save a restore point first with snapshot_lesson_note, and show the teacher preview_note_cleanup before asking for their yes.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [p("notebookId", "string", true, "Notebook id.")],
+  },
+  {
     id: "snapshot_lesson_note",
     domain: "lessonNotes",
     title: "Save a restore point",

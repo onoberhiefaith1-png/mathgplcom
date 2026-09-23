@@ -19,6 +19,7 @@ import { withDb } from "@/lib/db/scope";
 import { resolveQuestionRef, assignAssessmentQuestion } from "@/lib/assignments/pipeline";
 import { getNotebookScoreLabel, type AssessmentKind } from "@/lib/assessments/createAssessment";
 import { checkSolution, retryInstruction } from "./solutionContract";
+import { cleanNoteLines } from "./noteHygiene";
 
 type AnyDb = { from: (table: string) => any; functions: { invoke: (fn: string, opts: any) => any } };
 type Ctx = { supabase: SupabaseClient<never, "public", never>; userId: string };
@@ -304,7 +305,10 @@ export const handsExecutors: Record<string, Executor> = {
     let out = await generate("");
     let content = String(out?.content ?? "").trim();
     if (!content) throw new Error("The generator returned nothing, so nothing was written into the note.");
-    let written = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    // The page prints its own headings, so a label such as "Solution:" can never
+    // reach a line, and one line never holds a whole worked example.
+    let written = cleanNoteLines(content);
+    if (!written.length) throw new Error("The generator returned only labels, so nothing was written into the note.");
 
     // A solution must read like a board: the question restated, then one
     // complete micro-step per line. A failing attempt is rewritten once and, if
@@ -314,7 +318,7 @@ export const handsExecutors: Record<string, Executor> = {
       if (fault) {
         out = await generate(retryInstruction(fault));
         content = String(out?.content ?? "").trim();
-        written = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        written = cleanNoteLines(content);
         fault = checkSolution(activeQuestion, written);
       }
       if (fault) {
@@ -328,7 +332,7 @@ export const handsExecutors: Record<string, Executor> = {
     tail = subsectionId ? tail.eq("subsection_id", subsectionId) : tail.is("subsection_id", null);
     const { data: existing } = await tail.order("order_index", { ascending: false }).limit(1);
     let order = (((existing ?? []) as { order_index: number }[])[0]?.order_index ?? -1) + 1;
-    const rows = written.map((text) => ({
+    const rows = written.map((text: string) => ({
       section_id: sectionId,
       subsection_id: subsectionId,
       kind: blockKind,
