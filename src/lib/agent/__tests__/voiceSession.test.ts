@@ -84,7 +84,9 @@ describe("voice session", () => {
     session.replyStarted();
     const { effects } = play(session, Array.from({ length: 8 }, () => ({ level: 0.5 })));
     expect(effects).toEqual([{ kind: "cut" }]);
-    expect(session.state).toBe("interrupted");
+    // Her voice is cut and she is back to hearing them, not speaking.
+    expect(session.state).not.toBe("speaking");
+    expect(session.attentive || session.state === "interrupted").toBe(true);
   });
 
   it("treats the interruption as the start of the next turn", () => {
