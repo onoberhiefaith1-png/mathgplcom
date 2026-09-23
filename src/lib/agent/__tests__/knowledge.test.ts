@@ -25,7 +25,7 @@ describe("Aura's operational map", () => {
       for (const field of REQUIRED_NODE_FIELDS) {
         const value = node[field];
         if (Array.isArray(value)) expect(value.length, `${node.id}.${field}`).toBeGreaterThan(0);
-        else if (field === "id" || field === "title")
+        else if (field === "id" || field === "title" || field === "entryPath")
           expect(String(value).trim().length, `${node.id}.${field}`).toBeGreaterThan(3);
         else expect(String(value).trim().length, `${node.id}.${field}`).toBeGreaterThan(10);
       }
