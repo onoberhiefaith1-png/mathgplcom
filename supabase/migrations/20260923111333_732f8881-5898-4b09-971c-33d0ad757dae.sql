@@ -1,9 +1,3 @@
--- Restore points for a lesson note.
---
--- Before the assistant repairs a badly arranged note, it stores the whole
--- structure (sections, sessions, lines) here so the teacher can put the note
--- back exactly as it was if the repair goes wrong.
-
 CREATE TABLE IF NOT EXISTS public.notebook_restore_points (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   notebook_id uuid NOT NULL REFERENCES public.notebooks(id) ON DELETE CASCADE,

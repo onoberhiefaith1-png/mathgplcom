@@ -1,7 +1,3 @@
--- Autonomous System Exploration: one mission, with the record the assistant
--- keeps of her own exploration (what she knows, what she does not, what she
--- tried, what failed, her questions and the supervisor's corrections).
-
 CREATE TABLE IF NOT EXISTS public.aura_missions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
