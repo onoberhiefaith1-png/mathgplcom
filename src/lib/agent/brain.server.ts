@@ -302,7 +302,7 @@ async function startTurn(
     const full = callNeedsFullAbilities(messages);
     const result = streamText({
       model: lovable.chat(AGENT_MODEL),
-      system: await callBriefing(ctx, hint, context),
+      system: await callBriefing(ctx, hint, context, full),
       messages,
       tools: buildTools(ctx, steps, full ? undefined : { only: CALL_TOOL_IDS }),
       stopWhen: stepCountIs(full ? 50 : 6),
