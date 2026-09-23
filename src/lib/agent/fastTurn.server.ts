@@ -7,7 +7,7 @@
 
 import { generateText } from "ai";
 
-import { AGENT_MODEL, apiKey, provider, RESPONSES_OPTIONS } from "./brain.server";
+import { apiKey, FAST_MODEL, provider } from "./brain.server";
 import { parseFastTurn, type FastTurn } from "./meaning";
 import { turnCost, type TurnUsage } from "./spend";
 
