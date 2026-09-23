@@ -371,6 +371,9 @@ export default function GameSlateEditorPage() {
               onSelect={setSelection}
               onSlotChange={patchSlot}
               onTextConfigCorrection={persistMeasuredTextConfig}
+              onContentMarginChange={(contentMargin) =>
+                patchGame({ settings: { ...game.settings, contentMargin } })
+              }
               onRewardMove={moveReward}
               onRewardActivate={activateReward}
               onRewardConsume={consumeReward}
