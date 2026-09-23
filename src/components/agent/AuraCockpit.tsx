@@ -57,24 +57,32 @@ export default function AuraCockpit() {
     stopSpeaking,
     wakeEnabled,
     setWakeEnabled,
+    listening,
+    toggleRecorder,
     send,
     clear,
   } = useAura();
 
   const [draft, setDraft] = useState("");
-  const dictation = useDictation((text) => setDraft((previous) => (previous ? `${previous} ${text}` : text)));
   const busy = status === "submitted";
   const dragging = useRef(false);
+  const recording = listening.mode === "capture";
+
+  // While the recorder runs, the words she hears fill the box as they arrive.
+  useEffect(() => {
+    if (recording && listening.transcript) setDraft(listening.transcript);
+  }, [listening.transcript, recording]);
 
   const submit = useCallback(
     (message: PromptInputMessage) => {
       const text = (message.text || draft).trim();
       if (!text || busy) return;
-      send(text, { spoken: dictation.listening });
+      send(text, { spoken: recording });
       setDraft("");
-      dictation.stop();
+      listening.clearTranscript();
+      if (recording) toggleRecorder();
     },
-    [busy, dictation, draft, send],
+    [busy, draft, listening, recording, send, toggleRecorder],
   );
 
   // Dragging the edge resizes the cockpit, exactly like a split workspace.
