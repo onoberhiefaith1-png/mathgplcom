@@ -216,6 +216,29 @@ function turnFrom(reply: string, steps: AgentStep[]): AgentTurn {
   };
 }
 
+/**
+ * Her briefing — who she is, what she can do and everything you have approved —
+ * is identical for every turn of one call, so it is built once and reused for
+ * the life of that call instead of being rebuilt and re-fetched each time.
+ */
+const briefings = new Map<string, { system: string; at: number }>();
+const BRIEFING_LIFE_MS = 15 * 60 * 1000;
+
+async function callBriefing(
+  ctx: AgentToolContext,
+  hint: AgentSnapshotHint | undefined,
+  context: AuraPlatformContext | null | undefined,
+): Promise<string> {
+  const key = `${ctx.userId}|${context?.route ?? ""}`;
+  const cached = briefings.get(key);
+  const now = Date.now();
+  if (cached && now - cached.at < BRIEFING_LIFE_MS) return cached.system;
+  const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
+  const system = `${buildAgentSystemPrompt(hint, context, learned)}${CALL_INSTRUCTION}`;
+  briefings.set(key, { system, at: now });
+  return system;
+}
+
 async function startTurn(
   ctx: AgentToolContext,
   messages: ModelMessage[],
@@ -225,12 +248,24 @@ async function startTurn(
 ) {
   const steps: AgentStep[] = [];
   const lovable = provider(apiKey());
-  const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
-  const system = `${buildAgentSystemPrompt(hint, context, learned)}${options.call ? CALL_INSTRUCTION : ""}`;
 
+  if (options.call) {
+    const full = callNeedsFullAbilities(messages);
+    const result = streamText({
+      model: lovable.responses(AGENT_MODEL),
+      system: await callBriefing(ctx, hint, context),
+      messages,
+      tools: buildTools(ctx, steps, full ? undefined : CALL_TOOL_IDS),
+      stopWhen: stepCountIs(full ? 50 : 6),
+      providerOptions: CALL_RESPONSES_OPTIONS as never,
+    });
+    return { result, steps };
+  }
+
+  const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
   const result = streamText({
     model: lovable.responses(AGENT_MODEL),
-    system,
+    system: buildAgentSystemPrompt(hint, context, learned),
     messages,
     tools: buildTools(ctx, steps),
     stopWhen: stepCountIs(50),
