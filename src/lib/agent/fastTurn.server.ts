@@ -41,17 +41,16 @@ export async function fastTurn(
   try {
     const lovable = provider(apiKey());
     const result = await generateText({
-      model: lovable.responses(AGENT_MODEL),
+      model: lovable.chat(FAST_MODEL),
       system: SYSTEM,
       prompt: `RECENT CONVERSATION:\n${conversation || "(nothing yet)"}\n\nHEARD JUST NOW:\n${heard}`,
       maxOutputTokens: 220,
-      providerOptions: RESPONSES_OPTIONS as never,
     });
     const parsed = parseFastTurn(result.text, heard);
     const input = result.usage?.inputTokens;
     const output = result.usage?.outputTokens;
     return typeof input === "number" && typeof output === "number"
-      ? { ...parsed, usage: turnCost(AGENT_MODEL, input, output) }
+      ? { ...parsed, usage: turnCost(FAST_MODEL, input, output) }
       : parsed;
   } catch {
     // The call must never die because the quick line failed: fall back to the
