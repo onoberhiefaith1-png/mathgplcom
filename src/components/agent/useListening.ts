@@ -430,6 +430,9 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
       /* already stopped */
     }
     recognition.current = null;
+    // The recorder stops; the microphone itself is left open, as always.
+    transcriber.current?.stop();
+    transcriber.current = null;
     finalText.current = "";
     setTranscript("");
     setMode("off");
