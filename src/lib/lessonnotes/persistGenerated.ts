@@ -102,9 +102,11 @@ export async function persistGeneratedExample(opts: {
     .single();
   if (!sub) return null;
 
+  // The page prints its own headings: a "Problem:" or "Solution:" label is
+  // never stored as content.
   await supabase.from("notebook_blocks").insert([
-    { section_id: sectionId, subsection_id: sub.id, kind: "problem" as any, order_index: 0, content_ascii: opts.problem },
-    { section_id: sectionId, subsection_id: sub.id, kind: "solution" as any, order_index: 1, content_ascii: opts.solution },
+    { section_id: sectionId, subsection_id: sub.id, kind: "problem" as any, order_index: 0, content_ascii: cleanNoteLines(opts.problem).join("\n") },
+    { section_id: sectionId, subsection_id: sub.id, kind: "solution" as any, order_index: 1, content_ascii: cleanNoteLines(opts.solution).join("\n") },
     { section_id: sectionId, subsection_id: sub.id, kind: "reasoning" as any, order_index: 2, content_ascii: "" },
   ]);
   return { subsectionId: sub.id as string, sectionId: sectionId! };
