@@ -64,6 +64,8 @@ type Executor = (ctx: AgentToolContext, args: Args) => Promise<{ data: unknown; 
 
 const executors: Record<string, Executor> = {
   ...(handsExecutors as Record<string, Executor>),
+  ...(attachmentExecutors as unknown as Record<string, Executor>),
+
 
   workspace_snapshot: async ({ supabase, userId }) => {
     const db = supabase as unknown as AnyDb;
