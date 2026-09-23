@@ -20,16 +20,34 @@ import { describeMicPermission, rememberAsked } from "./micPermission";
 export default function AuraMicPermission() {
   const { micPromptOpen, setMicPromptOpen, micPermission, requestMic, micRequesting } = useAura();
 
+  // Something is wrong rather than simply unanswered.
   const blocked =
-    micPermission === "denied" ||
-    micPermission === "no-microphone" ||
-    micPermission === "unsupported";
+    micPermission !== "prompt" && micPermission !== "unknown" && micPermission !== "granted";
+  // The device itself is fine, so another attempt can genuinely succeed.
+  const retryable = micPermission === "in-use" || micPermission === "failed";
+  const hopeless =
+    micPermission === "unsupported" ||
+    micPermission === "insecure" ||
+    micPermission === "framed" ||
+    micPermission === "no-microphone";
+
+  const title =
+    micPermission === "in-use"
+      ? "Your microphone is busy"
+      : micPermission === "no-microphone"
+        ? "No microphone detected"
+        : blocked
+          ? "Aura can't hear you yet"
+          : "Let Aura hear you";
+
+  const action = retryable ? "Try again" : blocked ? "Enable microphone" : "Allow microphone";
 
   // Closing counts as answering, so nobody is nagged on every visit.
   const close = (open: boolean) => {
     if (!open) rememberAsked();
     setMicPromptOpen(open);
   };
+
 
   return (
     <Dialog open={micPromptOpen} onOpenChange={close}>
