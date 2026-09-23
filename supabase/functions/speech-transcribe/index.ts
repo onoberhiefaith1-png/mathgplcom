@@ -40,6 +40,16 @@ Deno.serve(async (req) => {
     upstream.append("model", "openai/gpt-4o-mini-transcribe");
     upstream.append("stream", "true");
     upstream.append("file", file, `recording.${ext}`);
+    // The caller's language and vocabulary hint were previously dropped here,
+    // which left the transcriber guessing at unclear words.
+    const language = form.get("language");
+    if (typeof language === "string" && language.trim()) {
+      upstream.append("language", language.trim().slice(0, 10));
+    }
+    const prompt = form.get("prompt");
+    if (typeof prompt === "string" && prompt.trim()) {
+      upstream.append("prompt", prompt.trim().slice(0, 900));
+    }
 
     const res = await fetch(ENDPOINT, {
       method: "POST",

@@ -41,6 +41,7 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
+import { VoiceDiagnostics } from "@/components/agent/VoiceDiagnostics";
 import { cn } from "@/lib/utils";
 import {
   AURA_MAX_WIDTH,
@@ -498,6 +499,13 @@ export default function AuraCockpit({ variant = "panel" }: { variant?: "panel" |
             />
           </PromptInputFooter>
         </PromptInput>
+
+        <VoiceDiagnostics
+          listening={listening}
+          permission={micPermission}
+          speaking={speaking}
+          className="mt-1"
+        />
       </div>
     </aside>
   );

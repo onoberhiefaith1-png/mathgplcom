@@ -5,7 +5,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { classifyMicError, heldMicrophone, requestMicrophoneAccess } from "./micPermission";
-import { TranscriptionListener, transcribeSupported } from "./recognizeStream";
+import {
+  type SegmentReport,
+  TranscriptionListener,
+  transcribeSupported,
+} from "./recognizeStream";
 
 export type ListeningMode = "off" | "wake" | "capture";
 
@@ -102,6 +106,12 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
   const [level, setLevel] = useState(0);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<ListeningError | null>(null);
+  /** The last finished recording, for the voice diagnostics panel. */
+  const [lastSegment, setLastSegment] = useState<SegmentReport | null>(null);
+  /** A transcription failure, shown plainly rather than passed off as silence. */
+  const [hearingError, setHearingError] = useState<string | null>(null);
+  /** The live loudness, readable without waiting for a React render. */
+  const levelRef = useRef(0);
 
   const recognition = useRef<RecognitionLike | null>(null);
   const wanted = useRef<ListeningMode>("off");
@@ -155,6 +165,7 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
     stream.current = null;
     void audio.current?.close().catch(() => undefined);
     audio.current = null;
+    levelRef.current = 0;
     setLevel(0);
   }, []);
 
@@ -199,11 +210,12 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
           sum += sample * sample;
         }
         const rms = Math.sqrt(sum / samples.length);
-        setLevel((previous) => {
-          const next = Math.min(1, rms * 6);
-          // Rise quickly, fall smoothly, the way a voice meter reads.
-          return next > previous ? next : previous * 0.82 + next * 0.18;
-        });
+        const raw = Math.min(1, rms * 6);
+        const previous = levelRef.current;
+        // Rise quickly, fall smoothly, the way a voice meter reads.
+        const next = raw > previous ? raw : previous * 0.82 + raw * 0.18;
+        levelRef.current = next;
+        setLevel(next);
         meter.current = requestAnimationFrame(tick);
       };
       meter.current = requestAnimationFrame(tick);
@@ -269,14 +281,24 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
     if ((wanted.current as ListeningMode) === "off") return true;
     const listener = new TranscriptionListener({
       stream: media,
-      onHeard: (text) => absorb(text, ""),
+      onHeard: (text) => {
+        setHearingError(null);
+        absorb(text, "");
+      },
       onPending: (pending) => {
-        // A slice still out for transcription means the end of the sentence is
-        // still owed, so a turn can never close on the silence timer yet.
+        // A recording still out for transcription means the end of the sentence
+        // is still owed, so a turn can never close on the silence timer yet.
         if (pending) awaitingFinal.current = true;
         else if (!pending) awaitingFinal.current = false;
       },
-      onError: () => {
+      // The real voice level decides where a recording is cut, so the
+      // transcriber is never handed a fragment that starts mid-word.
+      getLevel: () => levelRef.current,
+      getSaid: () => finalText.current,
+      onReport: (report) => setLastSegment(report),
+      onError: (cause) => {
+        // Never passed off as silence: the failure is said plainly.
+        setHearingError(cause instanceof Error ? cause.message : String(cause));
         transcribeFails.current += 1;
         if (transcribeFails.current < 3) return;
         // Transcription is not answering: fall back to the browser's own ear.
@@ -498,6 +520,13 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
     level,
     transcript,
     error,
+    /** Which ear is actually in use, for the diagnostics panel. */
+    ear: (transcriber.current?.active ? "transcribe" : recognition.current ? "recognition" : "none") as
+      | "transcribe"
+      | "recognition"
+      | "none",
+    lastSegment,
+    hearingError,
     errorMessage: error ? describeListeningError(error) : null,
     start,
     stop,
