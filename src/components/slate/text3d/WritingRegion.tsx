@@ -18,6 +18,8 @@ import { DimensionalText } from "./DimensionalText";
 import { visibleTestRenderer } from "./displayMode";
 import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { StructuredMathText } from "./StructuredMathText";
+import type { SlotTextConfig } from "@/lib/slate/textConfig";
+import { normalizeTextConfig, savedTextOffset } from "@/lib/slate/textConfig";
 
 interface Props {
   slotId: string;
@@ -42,6 +44,10 @@ interface Props {
   onReport?: (data: RegionTextData) => void;
   structuredMath?: GameMathLine;
   structuredNote?: string;
+  /** The saved master configuration of this surface's text. */
+  textConfig?: SlotTextConfig;
+  /** Bumped by Restore: drops any live correction and re-reads the saved record. */
+  restoreKey?: number;
 }
 
 /**
