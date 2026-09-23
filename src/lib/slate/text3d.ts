@@ -344,7 +344,7 @@ export const textRecipe = (surface: SurfaceDef, t: TextSettings): TextRecipe => 
     emissive: "#000000",
     emissiveIntensity: 0,
     sunk,
-    layers: Math.max(1, Math.round(mix(1, 5, Math.min(1, t.depth / 2)))),
+    layers: Math.max(0, Math.round(mix(0, 5, Math.min(1, t.depth / 2)))),
   };
 
   // a chosen ink still has to behave like a cut: shade sinks, lip catches light
