@@ -63,6 +63,13 @@ type AuraValue = {
   /** Listening for her name anywhere in the platform. */
   wakeEnabled: boolean;
   setWakeEnabled: (on: boolean) => void;
+  /** Microphone permission, asked once per person and remembered. */
+  micPermission: MicPermission;
+  micRequesting: boolean;
+  micPromptOpen: boolean;
+  setMicPromptOpen: (open: boolean) => void;
+  /** Shows the browser's own permission prompt; resolves with the answer. */
+  requestMic: () => Promise<MicPermission>;
   /** The one shared microphone: wake word and recorder both use it. */
   listening: ListeningEngine;
   /** Turn the recorder on or off; while on, the wave moves with the voice. */
