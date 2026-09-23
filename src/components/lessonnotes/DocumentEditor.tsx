@@ -280,6 +280,7 @@ const announceUpscale = (data: any) => {
   const parts: string[] = [];
   if (r?.kept) parts.push(`kept ${r.kept} problem${r.kept === 1 ? "" : "s"}`);
   if (r?.completed) parts.push(`completed ${r.completed} solution${r.completed === 1 ? "" : "s"}`);
+  if (r?.paired) parts.push(`paired ${r.paired} question${r.paired === 1 ? "" : "s"} with Solution sessions`);
   if (r?.reconstructed) parts.push(`rebuilt ${r.reconstructed} question${r.reconstructed === 1 ? "" : "s"}`);
   if (r?.visuals) parts.push(`added ${r.visuals} diagram/table${r.visuals === 1 ? "" : "s"}`);
   const review = [...(r?.review ?? []), ...warnings].slice(0, 3);
