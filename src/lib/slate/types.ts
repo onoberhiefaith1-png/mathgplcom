@@ -303,6 +303,12 @@ export interface GameSettings {
   assets: AssetSettings;
   /** Per-Floating-Numbers-line configuration, keyed by line id. */
   lines: Record<string, LineSurfaceConfig>;
+  /**
+   * Content Margin: where the writing begins inside every writing surface, as
+   * a share (0–0.5) of the writing band. One value for the whole scroll. It
+   * moves the writing only — the surface's left edge never moves.
+   */
+  contentMargin?: number;
   /** Legacy Life time value; read into `conversion.lifeToTime` on load. */
   life: { multiplier: number; fraction?: TimeFraction };
   /** Reward Conversion: how earned rewards become Life and Time. */
