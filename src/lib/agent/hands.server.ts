@@ -655,7 +655,9 @@ export async function learnedKnowledgePrompt(ctx: Ctx): Promise<string | null> {
   const db = ctx.supabase as unknown as AnyDb;
   const { data } = await db
     .from("aura_knowledge")
-    .select("feature, scope, roles, preconditions, steps, expected_result, verification, failures, status")
+    .select(
+      "feature, scope, page, control, roles, preconditions, steps, expected_result, verification, failures, status",
+    )
     .eq("status", "approved")
     .order("updated_at", { ascending: false })
     .limit(30);
