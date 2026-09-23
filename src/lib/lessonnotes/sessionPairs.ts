@@ -216,7 +216,9 @@ export function applyRestructurePlan(
   });
 
   // Nothing is ever dropped: blocks the plan forgot stay at the end, in order.
-  const leftovers = top.filter((n, idx) => !used.has(idx) && !isStructuralHeading(n) && plainText(n).trim() !== "" || (!used.has(idx) && n.type !== "paragraph" && n.type !== "heading"));
+  const leftovers = top.filter(
+    (n, idx) => !used.has(idx) && !isStructuralHeading(n) && (n.type !== "paragraph" || plainText(n).trim() !== ""),
+  );
   if (leftovers.length) out.push(...leftovers);
 
   return { doc: { ...doc, type: doc.type || "doc", content: out.length ? out : [{ type: "paragraph" }] }, report };
