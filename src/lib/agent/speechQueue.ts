@@ -32,6 +32,8 @@ export type SpeechQueueOptions = {
   onSpeaking?: (speaking: boolean) => void;
   /** Called when a piece could not be fetched, so a fallback voice can speak. */
   onFailed?: (text: string) => void;
+  /** Called the instant the first sound of a reply is actually scheduled. */
+  onFirstAudio?: () => void;
 };
 
 export class SpeechQueue {
@@ -43,6 +45,8 @@ export class SpeechQueue {
   private envelope: { from: number; to: number; level: number }[] = [];
   private speaking = false;
   private options: SpeechQueueOptions;
+  /** True once the first sound of the current reply has been scheduled. */
+  private sounded = false;
 
   constructor(options: SpeechQueueOptions = {}) {
     this.options = options;
@@ -51,6 +55,28 @@ export class SpeechQueue {
   /** Opened on the tap that starts the call, so phones allow sound later. */
   async unlock(): Promise<boolean> {
     return (await unlockSharedAudio()) !== null;
+  }
+
+  /**
+   * Opens the audio device and the speech connection while the call is starting,
+   * so the very first clause does not pay connection time.
+   */
+  async warm(): Promise<void> {
+    const context = await unlockSharedAudio();
+    if (context) this.cached = context;
+    try {
+      await fetch("/api/aura-speech", {
+        method: "HEAD",
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+      /* warming up is a courtesy, never a requirement */
+    }
+  }
+
+  /** A new reply begins: the next sound is "her first sound". */
+  beginReply(): void {
+    this.sounded = false;
   }
 
   /** Add one clause. Its audio is fetched immediately, ahead of playback. */
