@@ -65,6 +65,7 @@ const THREAD_KEY = "mathgpl:aura:thread";
 const OPEN_KEY = "mathgpl:aura:open";
 const WIDTH_KEY = "mathgpl:aura:width";
 const VOICE_KEY = "mathgpl:aura:voice";
+const WAKE_KEY = "mathgpl:aura:wake";
 
 export const AURA_MIN_WIDTH = 320;
 export const AURA_MAX_WIDTH = 720;
