@@ -48,3 +48,23 @@ describe("parseFastTurn", () => {
     expect(parseFastTurn("", "hello there").deep).toBe(false);
   });
 });
+
+describe("questions about real workspace things", () => {
+  it("sends a question about their classes to the worker that can look", () => {
+    expect(looksLikeWork("tell me what classes I have")).toBe(true);
+    expect(looksLikeWork("how many students are in Grade 9")).toBe(true);
+  });
+
+  it("overrides the fast brain when it wrongly calls real work small talk", () => {
+    const parsed = parseFastTurn(
+      '{"meaning":"Tell me what classes I have.","reply":"I can help with that!","deep":false}',
+      "tell me what classes I the the have",
+    );
+    expect(parsed.deep).toBe(true);
+  });
+
+  it("still answers a greeting without the worker", () => {
+    expect(looksLikeWork("hello Aura, are you with me")).toBe(false);
+    expect(looksLikeWork("thanks, that's great")).toBe(false);
+  });
+});
