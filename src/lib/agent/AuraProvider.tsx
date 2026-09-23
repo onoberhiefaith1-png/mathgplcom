@@ -15,6 +15,12 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 
+import {
+  speakWithBrowserVoice,
+  stopBrowserVoice,
+  streamSpeech,
+} from "@/components/agent/streamSpeech";
+
 import { agentChat, agentGreeting } from "./brain.functions";
 import type { AgentStep } from "./brain.server";
 
