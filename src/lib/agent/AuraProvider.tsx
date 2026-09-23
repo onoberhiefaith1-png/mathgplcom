@@ -120,6 +120,8 @@ type AuraValue = {
     start: () => void;
     /** Close it: microphone released, any speech stopped. */
     end: () => void;
+    /** Measured delays for the last turn, for teachers checking the speed. */
+    timing: string | null;
   };
 
   /** Today's allowance: plain words when it is running low, else null. */
