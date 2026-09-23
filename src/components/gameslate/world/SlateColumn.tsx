@@ -1406,7 +1406,7 @@ export function SlateColumn({
                         text={slot.text}
                         width={innerWritingWidth}
                         surface={lineSurface}
-                        settings={renderedTextSettings}
+                        settings={lineTextSettings}
                       />
                     </group>
                   )}
@@ -1421,7 +1421,9 @@ export function SlateColumn({
                        Edit and Play, just proud of the physical face. */
                     z={PLAY_TEXT_Z}
                     surface={lineSurface}
-                    settings={renderedTextSettings}
+                    settings={lineTextSettings}
+                    textConfig={lineTextConfig}
+                    restoreKey={restoreKey}
                     testDisplay={testDisplay}
                     editable={!readOnlyWriting}
                     active={selection.kind === "slot" && selection.slotId === slot.id}
