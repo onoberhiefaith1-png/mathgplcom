@@ -19,6 +19,7 @@ import {
   speakWithBrowserVoice,
   stopBrowserVoice,
   streamSpeech,
+  takeSpokenSeconds,
 } from "@/components/agent/streamSpeech";
 import {
   hasBeenAsked,
@@ -33,7 +34,7 @@ import {
 
 import { useListening, type ListeningEngine } from "@/components/agent/useListening";
 
-import { agentChat, agentGreeting } from "./brain.functions";
+import { agentChat, agentGreeting, noteAuraSpeech } from "./brain.functions";
 import { studyStep } from "./study.functions";
 import { answerQuestion, emptyLedger, type MissionLedger } from "./missionLedger";
 import { CallMetrics, describeCallTiming } from "./callMetrics";
@@ -51,7 +52,7 @@ import {
   readUsage,
   type AuraUsage,
 } from "./usageLimits";
-import { describeSpend, readSpend, recordSpend, type DaySpend } from "./spend";
+import { audioCost, describeSpend, readSpend, recordSpend, type DaySpend } from "./spend";
 import type { TeachingScript } from "./teachingScript";
 import {
   VoiceSession,
@@ -73,6 +74,8 @@ export type AuraMessage = {
   spoken?: boolean;
   /** What she understood a spoken turn to mean; the words above stay as heard. */
   meaning?: string;
+  /** What this one completion cost, measured from the reply itself. */
+  usage?: { pence: number };
 };
 
 export type AuraStatus = "idle" | "submitted" | "error";
@@ -202,6 +205,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const chat = useServerFn(agentChat);
   const greet = useServerFn(agentGreeting);
+  const reportSpeech = useServerFn(noteAuraSpeech);
 
   // Aura sees the page the teacher is on, and whatever that page reports about
   // itself, so "this class" and "this lesson" never need explaining.
@@ -230,6 +234,28 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     if (typeof turn.usage?.pence !== "number") return;
     setSpend(recordSpend(turn.usage.pence));
   }, []);
+  /** The reply the next second of speech belongs to. */
+  const lastReplyId = useRef<string | null>(null);
+  /**
+   * Her voice is billed by the sound it makes, so once she has stopped the
+   * seconds actually played are added to that reply's figure and recorded
+   * against the account.
+   */
+  const settleSpeech = useCallback(() => {
+    const seconds = takeSpokenSeconds();
+    if (seconds <= 0) return;
+    const pence = audioCost(seconds);
+    setSpend(recordSpend(pence, new Date(), false));
+    const id = lastReplyId.current;
+    if (id) {
+      setMessages((previous) =>
+        previous.map((m) =>
+          m.id === id ? { ...m, usage: { pence: (m.usage?.pence ?? 0) + pence } } : m,
+        ),
+      );
+    }
+    void reportSpeech({ data: { seconds } }).catch(() => undefined);
+  }, [reportSpeech]);
   const lastActiveRef = useRef(Date.now());
   const greetedRef = useRef(false);
   const voice = useRef<AbortController | null>(null);
@@ -439,9 +465,17 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         },
       })
         .then((turn) => {
+          const replyId = newId();
+          lastReplyId.current = replyId;
           setMessages((previous) => [
             ...previous,
-            { id: newId(), role: "assistant", content: turn.reply, steps: turn.steps },
+            {
+              id: replyId,
+              role: "assistant",
+              content: turn.reply,
+              steps: turn.steps,
+              ...(turn.usage ? { usage: { pence: turn.usage.pence } } : { usage: { pence: 0 } }),
+            },
           ]);
           setLiveSteps([]);
           setStatus("idle");
@@ -568,9 +602,17 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           buffer = "";
           for (const clause of clauses) say(clause);
           callWriting.current = false;
+          const replyId = newId();
+          lastReplyId.current = replyId;
           setMessages((previous) => [
             ...previous,
-            { id: newId(), role: "assistant", content: turn.reply, steps: turn.steps },
+            {
+              id: replyId,
+              role: "assistant",
+              content: turn.reply,
+              steps: turn.steps,
+              ...(turn.usage ? { usage: { pence: turn.usage.pence } } : { usage: { pence: 0 } }),
+            },
           ]);
           setLiveSteps([]);
           setStatus("idle");
