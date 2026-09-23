@@ -1331,11 +1331,13 @@ export function SlateColumn({
           const lineRecipe = lineSurface.id === surface.id ? recipe : surfaceMaterial(lineSurface.id);
           const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
           const bounds = textBounds[slot.id];
+          const lineTextConfig = configFor(slot);
+          const lineTextSettings = settingsFor(slot);
           const surfaceBox = surfaceBoxes[slot.id] ?? gameSurfaceBox({
             text: slot.text,
             hiddenContent: slot.hiddenContent,
-            fontSize: textSettings.size,
-            lineSpacing: textSettings.lineSpacing,
+            fontSize: lineTextSettings.size,
+            lineSpacing: lineTextSettings.lineSpacing,
             writingWidth,
             readOnlyWriting: true,
             inset: lineBuild.inset,
