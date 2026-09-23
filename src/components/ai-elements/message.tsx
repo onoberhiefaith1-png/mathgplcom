@@ -315,20 +315,25 @@ export const MessageBranchPage = ({
   );
 };
 
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
-
-const streamdownPlugins = { cjk, code, math, mermaid };
+export type MessageResponseProps = Omit<
+  HTMLAttributes<HTMLDivElement>,
+  "children"
+> & {
+  children?: string;
+  isAnimating?: boolean;
+};
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
+  ({ className, children, isAnimating: _isAnimating, ...props }: MessageResponseProps) => (
+    <div
       className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        "size-full whitespace-pre-wrap break-words leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className
       )}
-      plugins={streamdownPlugins}
       {...props}
-    />
+    >
+      {children}
+    </div>
   ),
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children &&
