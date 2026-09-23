@@ -729,6 +729,7 @@ export function SlateColumn({
   focusSlotId = null,
   onFocusSlot,
   readOnlyWriting = false,
+  restoreKey = 0,
   onReady,
 }: Props) {
   const surface = getSurface(game.surfaceId);
@@ -736,12 +737,26 @@ export function SlateColumn({
   const { rewards: rewardSettings, effects } = game.settings;
   const savedTextSettings = game.settings.text ?? defaultTextSettings();
   const breakpoint = useBreakpoint();
+  const viewportKind = breakpoint === "phone" ? "mobile" : breakpoint;
   const textSettings = useMemo(
     () => ({
       ...savedTextSettings,
-      size: responsiveTextSize(savedTextSettings, breakpoint === "phone" ? "mobile" : breakpoint),
+      size: responsiveTextSize(savedTextSettings, viewportKind),
     }),
-    [breakpoint, savedTextSettings],
+    [viewportKind, savedTextSettings],
+  );
+  /**
+   * Each surface's text renders from ITS OWN saved master configuration: the
+   * Game's shared visual identity, with this text's saved size for this
+   * device, alignment, colour and spacing on top.
+   */
+  const configFor = useCallback(
+    (slot: Slot) => normalizeTextConfig(slot.textConfig, savedTextSettings),
+    [savedTextSettings],
+  );
+  const settingsFor = useCallback(
+    (slot: Slot) => textSettingsFromConfig(textSettings, configFor(slot), viewportKind),
+    [configFor, textSettings, viewportKind],
   );
   const numberSettings = game.settings.numbers ?? defaultNumberSettings();
   // authoring = arranging the world (edit mode only). Writing is always live:
