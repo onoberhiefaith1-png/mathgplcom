@@ -3397,6 +3397,7 @@ function DocumentEditorInner({
         },
       }), 90_000, "AI editing took too long. Please try again.");
       if (error) throw error;
+      announceUpscale(data);
       return String((data as any)?.content ?? "").trim();
     }
     const selectionText = (target.text ?? "").trim();
@@ -3421,6 +3422,7 @@ function DocumentEditorInner({
       },
     }), 90_000, "AI editing took too long. Please try again.");
     if (error) throw error;
+    announceUpscale(data);
     return String((data as any)?.content ?? "").trim();
   };
 
