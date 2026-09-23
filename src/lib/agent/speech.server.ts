@@ -2,7 +2,8 @@
 // into natural spoken audio. The key never leaves the server.
 
 const BASE_URL = "https://ai.gateway.lovable.dev";
-const MODEL = "google/gemini-3.1-flash-tts-preview";
+export const SPEECH_MODEL = "google/gemini-3.1-flash-tts-preview";
+const MODEL = SPEECH_MODEL;
 const VOICE = "Kore";
 
 export function speechBody(text: string) {
