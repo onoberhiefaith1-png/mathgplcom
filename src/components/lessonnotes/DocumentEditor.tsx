@@ -272,6 +272,23 @@ interface Props {
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 
+/** Short "what was upscaled" summary + items needing teacher review. */
+const announceUpscale = (data: any) => {
+  const r = data?.upscale;
+  const warnings: string[] = Array.isArray(data?.warnings) ? data.warnings : [];
+  if (!r && !warnings.length) return;
+  const parts: string[] = [];
+  if (r?.kept) parts.push(`kept ${r.kept} problem${r.kept === 1 ? "" : "s"}`);
+  if (r?.completed) parts.push(`completed ${r.completed} solution${r.completed === 1 ? "" : "s"}`);
+  if (r?.reconstructed) parts.push(`rebuilt ${r.reconstructed} question${r.reconstructed === 1 ? "" : "s"}`);
+  if (r?.visuals) parts.push(`added ${r.visuals} diagram/table${r.visuals === 1 ? "" : "s"}`);
+  const review = [...(r?.review ?? []), ...warnings].slice(0, 3);
+  toast({
+    title: parts.length ? `AI Edit upscaled: ${parts.join(", ")}` : "AI Edit — please review",
+    description: review.length ? `Check: ${review.join(" • ")}` : undefined,
+  });
+};
+
 /** Free-position text anchor rendered as an overlay outside the TipTap doc.
  *  Kept separate so flowing AI-generated lesson content can never overlap or
  *  compress with click-anywhere notes. */
@@ -3397,6 +3414,7 @@ function DocumentEditorInner({
         },
       }), 90_000, "AI editing took too long. Please try again.");
       if (error) throw error;
+      announceUpscale(data);
       return String((data as any)?.content ?? "").trim();
     }
     const selectionText = (target.text ?? "").trim();
@@ -3421,6 +3439,7 @@ function DocumentEditorInner({
       },
     }), 90_000, "AI editing took too long. Please try again.");
     if (error) throw error;
+    announceUpscale(data);
     return String((data as any)?.content ?? "").trim();
   };
 
