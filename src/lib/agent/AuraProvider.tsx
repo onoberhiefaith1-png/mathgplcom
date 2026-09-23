@@ -387,8 +387,13 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           setLiveSteps([]);
           setStatus("idle");
           const lesson = turn.steps?.find((step) => step.teach)?.teach;
+          // In a live conversation she always answers out loud.
           if (lesson) void teachRef.current(lesson);
-          else if (speakReplies) void speak(turn.reply);
+          else if (speakReplies || voiceLive.current) void speak(turn.reply);
+          else if (session.current?.state === "thinking") {
+            session.current.replyEnded();
+            setVoiceState(session.current.state);
+          }
           if (turn.navigateTo) {
             void navigate({ to: turn.navigateTo as never }).catch(() => {
               /* a page that refuses to open is reported by the agent itself */
@@ -409,7 +414,13 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           ]);
           setLiveSteps([]);
           setStatus("error");
+          // A failed turn must never leave the session stuck thinking.
+          if (session.current?.state === "thinking") {
+            session.current.replyEnded();
+            setVoiceState(session.current.state);
+          }
         });
+
     },
     [chat, messages, navigate, speak, speakReplies, status],
   );
