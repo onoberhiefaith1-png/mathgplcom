@@ -363,7 +363,7 @@ export const textRecipe = (surface: SurfaceDef, t: TextSettings): TextRecipe => 
       base.roughness = Math.max(0.18, tone.roughness * 0.55);
       base.emissive = base.ink;
       base.emissiveIntensity = 0.12 * t.contrast;
-      base.layers = Math.max(base.layers, 3);
+      base.layers = t.depth > 0 ? Math.max(base.layers, 3) : 0;
       break;
     case "crystal":
       base.roughness = 0.16;
@@ -375,39 +375,39 @@ export const textRecipe = (surface: SurfaceDef, t: TextSettings): TextRecipe => 
     case "handwritten":
       base.roughness = 0.96;
       base.metalness = 0;
-      base.layers = Math.max(1, base.layers - 2);
+      base.layers = t.depth > 0 ? Math.max(1, base.layers - 2) : 0;
       base.shade = shift(base.ink, -0.55);
       break;
     case "runic":
       base.roughness = Math.min(1, tone.roughness + 0.06);
       base.shade = shift(base.shade, -0.25);
-      base.layers = Math.max(base.layers, 4);
+      base.layers = t.depth > 0 ? Math.max(base.layers, 4) : 0;
       break;
     case "technical":
       base.roughness = Math.max(0.25, tone.roughness * 0.7);
       base.metalness = Math.max(tone.metalness, 0.25);
-      base.layers = Math.max(2, base.layers - 1);
+      base.layers = t.depth > 0 ? Math.max(2, base.layers - 1) : 0;
       break;
     case "chalk":
       base.roughness = 1;
       base.metalness = 0;
       base.ink = t.colour ?? shift(base.lip, 0.35);
       base.shade = shift(base.ink, -0.45);
-      base.layers = 1;
+      base.layers = t.depth > 0 ? 1 : 0;
       break;
     case "royal":
       base.roughness = Math.max(0.22, tone.roughness * 0.5);
       base.metalness = Math.max(tone.metalness, 0.6);
       base.emissive = base.ink;
       base.emissiveIntensity = 0.1 * t.contrast;
-      base.layers = Math.max(base.layers, 4);
+      base.layers = t.depth > 0 ? Math.max(base.layers, 4) : 0;
       break;
     case "mechanical":
       base.roughness = 0.3;
       base.metalness = 0.9;
       base.shade = shift(base.shade, -0.3);
       base.lip = shift(base.lip, 0.2);
-      base.layers = Math.max(base.layers, 3);
+      base.layers = t.depth > 0 ? Math.max(base.layers, 3) : 0;
       break;
     case "glow":
       base.roughness = 0.12;
