@@ -189,6 +189,7 @@ export class VoiceSession {
     this.spokenMs = 0;
     this.quietSince = null;
     this.overSince = null;
+    this.pendingSince = null;
   }
 
   /** One microphone reading. Returns whatever must happen because of it. */
