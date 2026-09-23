@@ -72,6 +72,6 @@ export const classifyLessonNote = createServerFn({ method: "POST" })
                 )
               : {},
         }))
-        .filter((s: any) => s.blocks.length > 0 || s.role === "question"),
+        .filter((s: any) => s.blocks.length > 0),
     };
   });
