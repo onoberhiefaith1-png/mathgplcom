@@ -42,16 +42,15 @@ export type Capability =
 /**
  * Where each role lands after signing in.
  *
- * Adults who build things land in the conversation with Aura: they say what they
- * want and watch it happen, exactly as they would talk to a colleague. Families
- * and students still arrive on the Rotating Building homepage. Nothing is
- * hidden either way — the building and every dashboard stay one tap away.
+ * Everybody arrives on the Rotating Building homepage. Aura is archived, so no
+ * account lands in a conversation any more; the building and every dashboard
+ * stay one tap away as before.
  */
 export const HOME_PATH: Record<AppRole, string> = {
-  platform_owner: "/aura",
-  co_admin: "/aura",
-  school: "/aura",
-  teacher: "/aura",
+  platform_owner: "/",
+  co_admin: "/",
+  school: "/",
+  teacher: "/",
   parent: "/",
   student: "/",
 };
