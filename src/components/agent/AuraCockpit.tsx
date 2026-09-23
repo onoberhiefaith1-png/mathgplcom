@@ -3,7 +3,20 @@
 // happens on the other.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AudioLines, Ear, EarOff, Mic, Square, Volume2, VolumeX, Trash2, X } from "lucide-react";
+import {
+  AudioLines,
+  Ear,
+  EarOff,
+  Loader2,
+  Mic,
+  Paperclip,
+  Square,
+  Volume2,
+  VolumeX,
+  Trash2,
+  X,
+} from "lucide-react";
+
 
 
 import auraMark from "@/assets/aura-mark.png";
