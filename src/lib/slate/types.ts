@@ -3,7 +3,9 @@
 
 import type { TextSettings } from "./text3d";
 import type { GameMathLine } from "./structuredMath";
+import type { SlotTextConfig } from "./textConfig";
 export type { TextSettings };
+export type { SlotTextConfig };
 
 export type ContentState = "hidden" | "visible" | "revealed" | "locked";
 
@@ -81,6 +83,12 @@ export interface Slot {
   id: string;
   /** Writing surface for THIS line only; absent = the Game's own surface. */
   surfaceId?: string | null;
+  /**
+   * The saved master configuration of this surface's text: where it sits and
+   * how it looks, expressed as a share of THIS writing surface. Absent on
+   * older saves and filled in on load.
+   */
+  textConfig?: SlotTextConfig;
   /** Live player writing. Plain text today, external content provider later. */
   text: string;
   /** Live unflattened Floating Numbers mathematics for this physical surface. */
