@@ -434,6 +434,31 @@ const GamePlayPage = () => {
 
   const fitText = () => setTextFitEpoch((value) => value + 1);
 
+  /**
+   * Play validates the exact same saved pattern record as Edit. Only an
+   * authenticated owner may persist an automatic repair; student rendering is
+   * contained locally and can never alter a teacher's design.
+   */
+  const persistPlayTextCorrection = (runtimeSlotId: string, textConfig: SlotTextConfig) => {
+    if (!ownerRef.current) return;
+    const line = gameLineFromSlotId(runtimeSlotId);
+    if (line === null) return;
+    setGame((current) => {
+      if (!current) return current;
+      const patternLength = patternLengthOf(current);
+      const patternIndex = line === 0 ? 0 : Math.max(0, (line - 1) % patternLength);
+      const slot = current.slots[patternIndex];
+      if (!slot || (slot.textConfig && sameTextConfig(slot.textConfig, textConfig))) return current;
+      const repaired = {
+        ...current,
+        slots: current.slots.map((item, index) => index === patternIndex ? { ...item, textConfig } : item),
+      };
+      if (textRepairTimer.current !== null) window.clearTimeout(textRepairTimer.current);
+      textRepairTimer.current = window.setTimeout(() => void saveGameResult(repaired), 500);
+      return repaired;
+    });
+  };
+
   /* ---- Game Evaluation observers -------------------------------------- */
   // The expected line is the teacher's own answer key. It is read only in the
   // owner's Play / Test sitting, where the row's owner-only policy applies.
@@ -752,6 +777,7 @@ const GamePlayPage = () => {
               setActiveLine(line, true);
             }}
             onSlotChange={() => {}}
+            onTextConfigCorrection={persistPlayTextCorrection}
             onRewardMove={() => {}}
             onRewardActivate={() => {}}
             onRewardConsume={(slotId, rewardId) => {
