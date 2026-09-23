@@ -175,5 +175,14 @@
 - [x] One microphone request only — the granted stream is kept and reused, never asked for twice.
 - [x] Honest microphone states: blocked, in use by another app, insecure page, embedded window, and "no microphone detected" only when the device list confirms none.
 - [x] Allowing starts her listening immediately, with a status light in her panel (off / requesting / listening / problem).
-- [ ] Phase 5 — Smartboard narration synced with the sensor and Floating Numbers.
+- [x] Phase 5 — Smartboard narration synced with the board's active line.
+
+# AURA Phase 5 — teaching on the board
+
+- [x] She performs a lesson instead of describing it: one spoken micro-step at a time.
+- [x] The board moves to the line she is speaking about while she says it.
+- [x] Her panel shows what she is teaching, which step she is on, and a Stop button.
+- [x] A new lesson or Stop cancels the one running, so only one voice ever teaches.
+- [ ] Floating Number tokens sliding into place in sync with her words.
+- [ ] Phase 6 — confirmations before destructive actions, tablet/mobile polish, usage ceilings.
 
