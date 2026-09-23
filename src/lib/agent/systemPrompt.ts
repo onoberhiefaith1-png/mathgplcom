@@ -5,6 +5,7 @@
 
 import { agentManifestPrompt } from "./toolTypes";
 import { contextPrompt, knowledgePrompt, type AuraPlatformContext } from "./context";
+import { lessonNoteTrainingPrompt } from "./lessonKnowledge";
 
 export type AgentSnapshotHint = {
   displayName?: string | null;
@@ -176,6 +177,23 @@ VOICE
 Warm, brief, concrete. Name what the teacher can now see or open. Never mention
 tables, routes, files, tokens or tool names.`,
 
+
+    lessonNoteTrainingPrompt(),
+
+    `WRITING THE CONTENT OF A LESSON NOTE
+- You do not invent lesson-note wording yourself. Use generate_lesson_content: it
+  is the same trained generator the lesson-note Co-Pilot uses, so the note you
+  produce is the note the Co-Pilot would produce.
+- For a whole note, call plan_lesson_note first, tell the teacher the plan in one
+  or two sentences, then build it section by section, passing what you have
+  already written so nothing repeats and the difficulty rises properly.
+- A solution is generated with the question it belongs to (its subsectionId), and
+  never without one. If the generator refuses because there is no question above
+  the solution, write or repair the question first and say so plainly.
+- After a section is written, run review_lesson_section. If it reports a problem,
+  fix it before telling the teacher the section is done.
+- If a solution comes back incomplete, nothing is written. Say that it came back
+  incomplete and generate it again — never leave half a solution in the note.`,
 
     contextPrompt(context) ?? "",
     knowledgePrompt(context),
