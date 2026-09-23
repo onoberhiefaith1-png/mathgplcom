@@ -731,6 +731,197 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
   },
 
   {
+    id: "write_question",
+    domain: "lessonNotes",
+    title: "Write a question with its solution",
+    description:
+      "Write one complete worked question: creates the session (Example, Exercise, Classwork, Homework or Assessment), writes the question line as the question and the worked steps as its solution beneath it — all belonging to that one session — then reads them back. This is the only correct way to add a worked example; never write 'Example 1: … solved' as a plain line. Two worked examples mean two calls. Returns subsectionId, ready for highlight_solution and generate_floating_numbers.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("notebookId", "string", true, "Notebook id from create_lesson_note or list_lesson_notes."),
+      p("question", "string", true, "The question exactly as the teacher gave it — never reworded."),
+      p(
+        "solution",
+        "string[]",
+        true,
+        "The worked solution, one micro-step per line, in order. The first line restates the question verbatim.",
+      ),
+      p("kind", "string", false, "Session kind: example, exercise, classwork, homework or assessment. Default example."),
+      p("title", "string", false, "Optional session title, e.g. 'Example 2'."),
+    ],
+  },
+  {
+    id: "inspect_lesson_note",
+    domain: "lessonNotes",
+    title: "Inspect a lesson note's structure",
+    description:
+      "Read a whole lesson note as a structure: every section, every session inside it with its id, every line with its id, kind and order, and what each session is still missing (no question, no solution, not highlighted, no Floating Numbers, or chips that no longer match the solution). It also warns about questions written outside a session, which the Smartboard cannot step through. Call this before repairing anything.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [p("notebookId", "string", true, "Notebook id from list_lesson_notes.")],
+  },
+  {
+    id: "edit_lesson_text",
+    domain: "lessonNotes",
+    title: "Change existing text",
+    description:
+      "Change text that is already written: one line (blockId + text), a session heading (sectionId + title), or the lesson note's title (notebookId + title). Never change a teacher's question wording unless they asked for that exact change.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("blockId", "string", false, "Line id from inspect_lesson_note."),
+      p("sectionId", "string", false, "Section or session id, to rename its heading."),
+      p("notebookId", "string", false, "Notebook id, to rename the lesson note."),
+      p("text", "string", false, "The new text for a line."),
+      p("title", "string", false, "The new heading or note title."),
+    ],
+  },
+  {
+    id: "move_lesson_lines",
+    domain: "lessonNotes",
+    title: "Move existing lines",
+    description:
+      "Move lines that already exist into another session or section, keeping their text exactly as written. Use this instead of writing a corrected copy and leaving the original behind.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("blockIds", "string[]", true, "Line ids to move, in the order they should land."),
+      p("toSectionId", "string", false, "Destination section id."),
+      p("toSubsectionId", "string", false, "Destination session id."),
+      p("at", "number", false, "0-based position in the destination. Omit for the end."),
+    ],
+  },
+  {
+    id: "promote_to_session",
+    domain: "lessonNotes",
+    title: "Move a question into its own session",
+    description:
+      "Repair a question that was written as ordinary text: create a proper Example, Exercise, Classwork or Homework session and move the question line and its solution lines into it, word for word. This is how a question written inside an Introduction becomes teachable on the Smartboard. Highlight and generate afterwards.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("kind", "string", false, "example, exercise, classwork or homework. Default example."),
+      p("title", "string", false, "Heading for the new session, e.g. 'Example 2'."),
+      p("questionBlockIds", "string[]", true, "Line ids that form the question."),
+      p("solutionBlockIds", "string[]", false, "Line ids that form its solution, in order."),
+    ],
+  },
+  {
+    id: "reorder_lesson",
+    domain: "lessonNotes",
+    title: "Reorder lines, sessions or sections",
+    description:
+      "Put things in the right order: scope 'blocks' for lines inside one session, 'sessions' for the sessions in a section, or 'sections' for the sections of the note. List every id in that group exactly once, in the new order.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("scope", "string", true, "blocks, sessions or sections."),
+      p("orderedIds", "string[]", true, "All ids in the group, in the new order."),
+      p("notebookId", "string", false, "Required when scope is sections."),
+      p("sectionId", "string", false, "Required when scope is sessions."),
+    ],
+  },
+  {
+    id: "preview_removal",
+    domain: "lessonNotes",
+    title: "Show exactly what would be removed",
+    description:
+      "Read out the exact lines that would disappear before anything is removed. Always call this first and show the teacher the words, then ask for their yes.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [
+      p("blockIds", "string[]", false, "Line ids."),
+      p("subsectionId", "string", false, "Session id."),
+      p("sectionId", "string", false, "Section id."),
+    ],
+  },
+  {
+    id: "delete_lesson_content",
+    domain: "lessonNotes",
+    title: "Remove duplicated lines, a session or a section",
+    description:
+      "Remove leftover lines, an empty session, or a section from a lesson note. Destructive: show the teacher the exact words with preview_removal, get a clear yes, then call this again with confirmed set to true.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [
+      p("blockIds", "string[]", false, "Line ids to remove."),
+      p("subsectionId", "string", false, "Session id to remove, with its lines."),
+      p("sectionId", "string", false, "Section id to remove, with everything in it."),
+    ],
+  },
+  {
+    id: "snapshot_lesson_note",
+    domain: "lessonNotes",
+    title: "Save a restore point",
+    description:
+      "Store the whole note exactly as it is now, so it can be put back if a repair goes wrong. Always do this before moving, reordering or removing anything.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("notebookId", "string", true, "Notebook id."),
+      p("label", "string", false, "Short name for the restore point, e.g. 'Before fixing the Introduction'."),
+    ],
+  },
+  {
+    id: "list_restore_points",
+    domain: "lessonNotes",
+    title: "List the restore points",
+    description: "List the restore points saved for a lesson note, newest first.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [p("notebookId", "string", true, "Notebook id.")],
+  },
+  {
+    id: "restore_lesson_note",
+    domain: "lessonNotes",
+    title: "Put the lesson note back",
+    description:
+      "Restore a lesson note to a saved restore point, replacing its current sections, sessions and lines. Destructive: ask the teacher first, then call again with confirmed set to true.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [
+      p("notebookId", "string", true, "Notebook id."),
+      p("restorePointId", "string", false, "Restore point id. Omit for the newest one."),
+    ],
+  },
+  {
+    id: "inspect_board_state",
+    domain: "lessonNotes",
+    title: "Inspect the board for one question",
+    description:
+      "Read what the board actually holds for one question: its question and solution lines, how much is highlighted, how many chip lines are saved, whether those chips still match the written solution, and the class board's saved state if a classId is given. Opening a test is not the same as verifying it — read this before saying a test works.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [
+      p("subsectionId", "string", true, "Session (question) id."),
+      p("classId", "string", false, "Class id, to also read that class's saved board state."),
+    ],
+  },
+  {
+    id: "edit_highlights",
+    domain: "lessonNotes",
+    title: "Change which solution lines feed the chips",
+    description:
+      "Rebuild the highlighting from chosen solution lines only, keeping the mathematics structure of each line intact. The Floating Numbers must then be generated again — say so, never pretend the old chips still match.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("subsectionId", "string", true, "Session (question) id."),
+      p("lines", "number[]", false, "1-based solution line numbers to highlight. Omit for all of them."),
+    ],
+  },
+  {
+    id: "select_session",
+    domain: "lessonNotes",
+    title: "Open one session on the board",
+    description:
+      "Open a single session's board page, so the teacher can see that question's Floating Numbers. To step through a solution aloud, use teach_lesson — that moves the board's active line as you speak.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [p("subsectionId", "string", true, "Session (question) id.")],
+  },
+  {
 
     id: "navigate",
     domain: "navigation",
