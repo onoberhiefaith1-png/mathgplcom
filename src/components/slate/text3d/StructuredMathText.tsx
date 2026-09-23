@@ -5,7 +5,7 @@ import type { GameMathLine } from "@/lib/slate/structuredMath";
 import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { TextBounds, TextSettings } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
-import { resolveTextStyle } from "@/lib/slate/textPresets";
+import { cssTextEffects, resolveTextStyle } from "@/lib/slate/textPresets";
 
 interface Props {
   math: GameMathLine;
@@ -23,6 +23,8 @@ const noop = () => {};
 export function StructuredMathText({ math, note, width, surface, settings, onMeasure }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const style = resolveTextStyle(surface, settings);
+  const fontSize = Math.max(1, settings.size);
+  const textShadow = cssTextEffects(style, fontSize);
 
   useEffect(() => {
     const element = host.current;
@@ -52,12 +54,11 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [math, note, onMeasure, settings.align, settings.size, width]);
+  }, [math, note, onMeasure, settings.align, settings.size, settings.lineSpacing, settings.letterSpacing, settings.shadow, settings.shadowStrength, settings.glow, settings.glowIntensity, settings.depth, settings.bevel, settings.preset, settings.colour, settings.baseColour, settings.depthColour, width]);
 
   if (math.rows.length === 0 && !note) return null;
 
   const surfacePx = Math.max(24, width * PX_PER_UNIT);
-  const fontSize = Math.max(8, Math.min(settings.size, surfacePx * 0.9));
 
   return (
     <Html
@@ -81,13 +82,12 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
           transform: "translate(50%, 50%)",
           transformOrigin: "center",
           color: style.face,
-          // The teacher's saved size for THIS device, never a fixed cap, and
-          // never larger than the surface it has to sit inside.
           fontSize,
           lineHeight: settings.lineSpacing,
           letterSpacing: `${settings.letterSpacing}em`,
           textAlign: settings.align,
-          textShadow: `0 1px 2px ${style.side}`,
+          opacity: Math.max(0, Math.min(1, settings.opacity)),
+          textShadow: textShadow || undefined,
           pointerEvents: "none",
         }}
       >
