@@ -2,7 +2,7 @@
 // The function names are unchanged from the browser-only version; they are
 // simply asynchronous now.
 
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db/scope";
 import { putAsset } from "./assets";
 import type { Game } from "./types";
 import { defaultScene } from "./environments";
@@ -167,7 +167,7 @@ export const listGames = async (): Promise<Game[]> => {
 };
 
 export const loadGame = async (id: string): Promise<Game | null> => {
-  const { data, error } = await supabase.from("slate_games").select("*").eq("id", id).maybeSingle();
+  const { data, error } = await db().from("slate_games").select("*").eq("id", id).maybeSingle();
   if (error || !data) return null;
   return toGame(data as unknown as Row);
 };
@@ -176,7 +176,7 @@ export const loadGame = async (id: string): Promise<Game | null> => {
 export const saveGameResult = async (
   game: Game,
 ): Promise<{ ok: boolean; message?: string }> => {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await db().auth.getSession();
   if (!data.session) {
     return { ok: false, message: "You are signed out. Sign in again to create a game." };
   }
@@ -203,7 +203,7 @@ export const saveGameResult = async (
       return { ok: false, message: err instanceof Error ? err.message : "The background could not be uploaded." };
     }
   }
-  const { error } = await supabase.from("slate_games").upsert(toRow(toSave) as never);
+  const { error } = await db().from("slate_games").upsert(toRow(toSave) as never);
   if (!error) return { ok: true };
   console.error("[slate] save failed", error);
   const denied = error.code === "42501" || /row-level security|permission/i.test(error.message);
@@ -219,7 +219,7 @@ export const saveGame = async (game: Game): Promise<boolean> =>
   (await saveGameResult(game)).ok;
 
 export const deleteGame = async (id: string): Promise<boolean> => {
-  const { error } = await supabase.from("slate_games").delete().eq("id", id);
+  const { error } = await db().from("slate_games").delete().eq("id", id);
   return !error;
 };
 

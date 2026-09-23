@@ -5,7 +5,7 @@
 // CLASS + GAME = ONE PLAYABLE GAME. This row IS that instance: its questions,
 // their order, its play settings and every student's progress hang off it.
 
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db/scope";
 import { listGameQuestions, type GameQuestion } from "./gameQuestions";
 
 export type LevelMapStyle = "path" | "art";
@@ -67,7 +67,7 @@ export const updateGameInstanceSettings = async (
   if (patch.startingLives !== undefined) payload.starting_lives = clampStartingLives(patch.startingLives);
   if (patch.levelMapStyle !== undefined) payload.level_map_style = patch.levelMapStyle;
   if (Object.keys(payload).length === 0) return;
-  await supabase.from("slate_game_assignments").update(payload as never).eq("id", assignmentId);
+  await db().from("slate_game_assignments").update(payload as never).eq("id", assignmentId);
 };
 
 export interface GameClassOption {
@@ -120,7 +120,7 @@ export const assignGameToClass = async (params: {
   passPercentage: number;
   title?: string | null;
 }): Promise<string> => {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await db().auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
 
@@ -220,7 +220,7 @@ export const listStudentGameAssignments = async (
   })[];
   if (rows.length === 0) return [];
 
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await db().auth.getUser();
   const uid = userData.user?.id ?? "";
 
   const [{ data: results }, { data: progressRows }] = await Promise.all([
@@ -298,7 +298,7 @@ export const saveGameQuestionResult = async (params: {
   marksTotal: number;
   completed: boolean;
 }): Promise<void> => {
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await db().auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return;
 
@@ -321,7 +321,7 @@ export const saveGameQuestionResult = async (params: {
     (existing as { completed_at?: string | null } | null)?.completed_at,
   );
 
-  await supabase.from("slate_game_results").upsert(
+  await db().from("slate_game_results").upsert(
     {
       assignment_id: params.assignmentId,
       question_id: params.questionId,

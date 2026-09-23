@@ -6,7 +6,7 @@
 // pair, so SS1 + Quest and SS2 + Quest keep completely separate collections and
 // their own order. Rows with no class are the teacher's own legacy/test pool.
 
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db/scope";
 import {
   DEFAULT_SCORING,
   markForLine,
@@ -113,7 +113,7 @@ export const assignQuestion = async (
   countQuery = classId ? countQuery.eq("class_id", classId) : countQuery.is("class_id", null);
   const { count } = await countQuery;
 
-  const { error } = await supabase.from("slate_game_questions").insert({
+  const { error } = await db().from("slate_game_questions").insert({
     game_id: gameId,
     class_id: classId ?? null,
     notebook_id: notebookId,
@@ -126,7 +126,7 @@ export const assignQuestion = async (
 };
 
 export const removeQuestion = async (id: string): Promise<boolean> => {
-  const { error } = await supabase.from("slate_game_questions").delete().eq("id", id);
+  const { error } = await db().from("slate_game_questions").delete().eq("id", id);
   return !error;
 };
 
@@ -134,7 +134,7 @@ export const removeQuestion = async (id: string): Promise<boolean> => {
 export const reorderQuestions = async (ids: string[]): Promise<void> => {
   await Promise.all(
     ids.map((id, index) =>
-      supabase.from("slate_game_questions").update({ position: index } as never).eq("id", id),
+      db().from("slate_game_questions").update({ position: index } as never).eq("id", id),
     ),
   );
 };
