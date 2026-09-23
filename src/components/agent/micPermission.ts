@@ -158,28 +158,65 @@ export function watchMicPermission(onChange: (state: MicPermission) => void): ()
 }
 
 /**
+ * The one live microphone for this page. Held for the life of the tab so the
+ * browser is never asked a second time: once permission is given it stays.
+ */
+let kept: MediaStream | null = null;
+/** Two callers arriving at once must share one request, not raise two prompts. */
+let pending: Promise<MicRequest> | null = null;
+
+function keptIsLive(): MediaStream | null {
+  if (kept && kept.getAudioTracks().some((track) => track.readyState === "live")) return kept;
+  kept = null;
+  return null;
+}
+
+/** The live microphone, if the page already holds one. */
+export function heldMicrophone(): MediaStream | null {
+  return keptIsLive();
+}
+
+/**
+ * Give the microphone back to the device. Only ever called deliberately — a
+ * listener stopping or restarting must never do this, or the browser prompts again.
+ */
+export function releaseMicrophone() {
+  kept?.getTracks().forEach((track) => track.stop());
+  kept = null;
+}
+
+/**
  * The single entry point: ask the browser for the microphone and hand back the
  * live stream. The stream is deliberately kept open — Aura listens with this
  * exact one, so nothing is ever requested twice.
  */
 export async function requestMicrophoneAccess(): Promise<MicRequest> {
+  const already = keptIsLive();
+  if (already) return { state: "granted", stream: already };
+  if (pending) return pending;
   const environment = environmentIssue();
   if (environment) return { state: environment };
   rememberAsked();
-  try {
-    // Echo cancellation matters for the live conversation: without it Aura's own
-    // voice comes back through the microphone and she interrupts herself.
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
-    if (stream.getAudioTracks().length === 0) {
-      stream.getTracks().forEach((track) => track.stop());
-      return { state: (await hasAudioInput()) ? "failed" : "no-microphone" };
+  pending = (async (): Promise<MicRequest> => {
+    try {
+      // Echo cancellation matters for the live conversation: without it Aura's own
+      // voice comes back through the microphone and she interrupts herself.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      if (stream.getAudioTracks().length === 0) {
+        stream.getTracks().forEach((track) => track.stop());
+        return { state: (await hasAudioInput()) ? "failed" : "no-microphone" };
+      }
+      kept = stream;
+      return { state: "granted", stream };
+    } catch (cause) {
+      return { state: await classifyMicError(cause) };
+    } finally {
+      pending = null;
     }
-    return { state: "granted", stream };
-  } catch (cause) {
-    return { state: await classifyMicError(cause) };
-  }
+  })();
+  return pending;
 }
 
 export function describeMicPermission(state: MicPermission): string {

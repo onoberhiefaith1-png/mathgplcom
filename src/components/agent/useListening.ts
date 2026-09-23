@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { classifyMicError, requestMicrophoneAccess } from "./micPermission";
+import { classifyMicError, heldMicrophone, requestMicrophoneAccess } from "./micPermission";
 
 export type ListeningMode = "off" | "wake" | "capture";
 
@@ -108,10 +108,11 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   /** The microphone she was granted, kept so it is never asked for twice. */
   const held = useRef<MediaStream | null>(null);
   const liveHeld = useCallback(() => {
-    const kept = held.current;
-    if (kept && kept.getAudioTracks().some((track) => track.readyState === "live")) return kept;
+    const mine = held.current;
+    if (mine && mine.getAudioTracks().some((track) => track.readyState === "live")) return mine;
     held.current = null;
-    return null;
+    // The page-wide microphone, granted once and kept for the whole visit.
+    return heldMicrophone();
   }, []);
 
 
@@ -132,7 +133,8 @@ export function useListening({ onWake, paused }: ListeningOptions) {
     if (meter.current !== null) cancelAnimationFrame(meter.current);
     meter.current = null;
     analyser.current = null;
-    stream.current?.getTracks().forEach((track) => track.stop());
+    // The microphone itself is deliberately left running. Stopping its tracks is
+    // what made the browser ask for permission again every few seconds.
     stream.current = null;
     void audio.current?.close().catch(() => undefined);
     audio.current = null;
@@ -257,13 +259,17 @@ export function useListening({ onWake, paused }: ListeningOptions) {
         }
       };
 
-      // Browsers end long sessions on their own; pick it straight back up.
+      // Browsers end long sessions on their own; pick it straight back up. A
+      // session that ran normally is not a failure — counting those is what made
+      // listening give up and look like lost permission.
+      const startedAt = Date.now();
       instance.onend = () => {
         if (wanted.current === "off") {
           setMode("off");
           return;
         }
-        failures.current += 1;
+        const ranProperly = Date.now() - startedAt > 1000;
+        failures.current = ranProperly ? 0 : failures.current + 1;
         if (failures.current > MAX_CONSECUTIVE_FAILURES) {
           wanted.current = "off";
           setMode("off");
@@ -271,7 +277,7 @@ export function useListening({ onWake, paused }: ListeningOptions) {
           setError((previous) => previous ?? "failed");
           return;
         }
-        restart.current = window.setTimeout(begin, 350 * failures.current);
+        restart.current = window.setTimeout(begin, ranProperly ? 200 : 350 * failures.current);
       };
 
       recognition.current = instance;
