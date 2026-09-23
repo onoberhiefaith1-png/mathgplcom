@@ -154,6 +154,7 @@ import {
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
+import { RestructureLessonButton } from "./RestructureLesson";
 import { toast } from "@/hooks/use-toast";
 import { diagramNode } from "@/lib/lessonnotes/ai/materializeDirectives";
 import { useViewAs } from "@/lib/accounts/viewAs";
@@ -3789,6 +3790,16 @@ function DocumentEditorInner({
           <ChevronsUp className="h-4 w-4" /> Note Shrink
         </button>
         <Divider />
+        {!gameQuestionsOnly && (
+          <RestructureLessonButton
+            editor={editor}
+            notebookId={notebookId}
+            solve={async (label) => {
+              await copilotSolutionAi(label, "Write the full step-by-step solution for this question.");
+            }}
+          />
+        )}
+
 
         <button
           type="button"
