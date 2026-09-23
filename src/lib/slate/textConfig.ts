@@ -14,9 +14,26 @@
  * no independent screen-coordinate position is allowed to overwrite it.
  */
 
-import type { TextAlign, TextSettings, GameTextViewport } from "./text3d";
-import { defaultTextSettings, responsiveTextSize } from "./text3d";
+import type {
+  DimensionalSubstyle,
+  GlowLevel,
+  Integration,
+  TextAlign,
+  TextRelief,
+  TextSettings,
+  GameTextViewport,
+} from "./text3d";
+import {
+  DIMENSIONAL_SUBSTYLES,
+  INTEGRATIONS,
+  RELIEFS,
+  TEXT_STYLES,
+  defaultTextSettings,
+  responsiveTextSize,
+} from "./text3d";
 import { containTextInSurface, textInsideSurface, type TextBox } from "./layout";
+import type { ResolvedTextStyle, TextPresetId } from "./textPresets";
+import { TEXT_PRESETS } from "./textPresets";
 
 export interface SlotTextConfig {
   /** Anchor across the inner writing box (0 = left edge, 1 = right edge). */
@@ -36,6 +53,32 @@ export interface SlotTextConfig {
   colour: string | null;
   lineSpacing: number;
   letterSpacing: number;
+  /** Complete visible style owned by this saved surface text. */
+  style: TextSettings["style"];
+  depth: number;
+  bevel: number;
+  relief: TextRelief;
+  contrast: number;
+  shadow: boolean;
+  shadowStrength: number;
+  highlight: number;
+  glow: GlowLevel;
+  glowIntensity: number;
+  opacity: number;
+  integration: Integration;
+  substyle: DimensionalSubstyle;
+  preset: TextPresetId;
+  baseColour: string;
+  mainTextColourStrength: number;
+  depthColour: string;
+  depthColourStrength: number;
+  animate: boolean;
+  livingAngle: number;
+  livingDrift: number;
+  livingLift: number;
+  livingScale: number;
+  livingDuration: number;
+  advanced?: Partial<ResolvedTextStyle>;
 }
 
 const clamp = (value: unknown, low: number, high: number, fallback: number) => {
@@ -45,6 +88,24 @@ const clamp = (value: unknown, low: number, high: number, fallback: number) => {
 };
 
 const ALIGNS: TextAlign[] = ["left", "center", "right"];
+const GLOWS: GlowLevel[] = ["off", "subtle", "medium"];
+const validStyle = (value: unknown, fallback: TextSettings["style"]) =>
+  TEXT_STYLES.some((item) => item.id === value) ? value as TextSettings["style"] : fallback;
+const validRelief = (value: unknown, fallback: TextRelief) =>
+  (RELIEFS as readonly string[]).includes(String(value)) ? value as TextRelief : fallback;
+const validIntegration = (value: unknown, fallback: Integration) =>
+  (INTEGRATIONS as readonly string[]).includes(String(value)) ? value as Integration : fallback;
+const validGlow = (value: unknown, fallback: GlowLevel) =>
+  GLOWS.includes(value as GlowLevel) ? value as GlowLevel : fallback;
+const validSubstyle = (value: unknown, fallback: DimensionalSubstyle) =>
+  DIMENSIONAL_SUBSTYLES.some((item) => item.id === value) ? value as DimensionalSubstyle : fallback;
+const validPreset = (value: unknown, fallback: TextPresetId) =>
+  TEXT_PRESETS.some((item) => item.id === value) ? value as TextPresetId : fallback;
+const colour = (value: unknown, fallback: string) => typeof value === "string" && value ? value : fallback;
+const advanced = (value: unknown) =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? value as Partial<ResolvedTextStyle>
+    : undefined;
 
 /** Where the chosen alignment naturally places the body inside its surface. */
 export const alignAnchor = (align: TextAlign) =>
@@ -67,6 +128,31 @@ export const defaultTextConfig = (settings?: TextSettings): SlotTextConfig => {
     colour: base.colour ?? null,
     lineSpacing: clamp(base.lineSpacing, 0.8, 3, 1.45),
     letterSpacing: clamp(base.letterSpacing, -0.2, 0.5, 0.01),
+    style: base.style,
+    depth: clamp(base.depth, 0, 4, 1),
+    bevel: clamp(base.bevel, 0, 4, 1),
+    relief: base.relief,
+    contrast: clamp(base.contrast, 0.1, 4, 1),
+    shadow: Boolean(base.shadow),
+    shadowStrength: clamp(base.shadowStrength, 0, 4, 1),
+    highlight: clamp(base.highlight, 0, 4, 1),
+    glow: base.glow,
+    glowIntensity: clamp(base.glowIntensity, 0, 4, 1),
+    opacity: clamp(base.opacity, 0, 1, 1),
+    integration: base.integration,
+    substyle: base.substyle ?? "classic",
+    preset: base.preset ?? "royal3d",
+    baseColour: colour(base.baseColour, "#2f7fd6"),
+    mainTextColourStrength: clamp(base.mainTextColourStrength, 0, 1, 1),
+    depthColour: colour(base.depthColour, "#e5a021"),
+    depthColourStrength: clamp(base.depthColourStrength, 0, 1, 1),
+    animate: Boolean(base.animate),
+    livingAngle: clamp(base.livingAngle, 0, 20, 4),
+    livingDrift: clamp(base.livingDrift, 0, 0.2, 0.012),
+    livingLift: clamp(base.livingLift, 0, 0.2, 0.008),
+    livingScale: clamp(base.livingScale, 0, 0.2, 0.008),
+    livingDuration: clamp(base.livingDuration, 1, 60, 7.5),
+    ...(base.advanced ? { advanced: base.advanced } : {}),
   };
 };
 
@@ -91,6 +177,31 @@ export const normalizeTextConfig = (
     colour: typeof saved.colour === "string" ? saved.colour : saved.colour === null ? null : base.colour,
     lineSpacing: clamp(saved.lineSpacing, 0.8, 3, base.lineSpacing),
     letterSpacing: clamp(saved.letterSpacing, -0.2, 0.5, base.letterSpacing),
+    style: validStyle(saved.style, base.style),
+    depth: clamp(saved.depth, 0, 4, base.depth),
+    bevel: clamp(saved.bevel, 0, 4, base.bevel),
+    relief: validRelief(saved.relief, base.relief),
+    contrast: clamp(saved.contrast, 0.1, 4, base.contrast),
+    shadow: typeof saved.shadow === "boolean" ? saved.shadow : base.shadow,
+    shadowStrength: clamp(saved.shadowStrength, 0, 4, base.shadowStrength),
+    highlight: clamp(saved.highlight, 0, 4, base.highlight),
+    glow: validGlow(saved.glow, base.glow),
+    glowIntensity: clamp(saved.glowIntensity, 0, 4, base.glowIntensity),
+    opacity: clamp(saved.opacity, 0, 1, base.opacity),
+    integration: validIntegration(saved.integration, base.integration),
+    substyle: validSubstyle(saved.substyle, base.substyle),
+    preset: validPreset(saved.preset, base.preset),
+    baseColour: colour(saved.baseColour, base.baseColour),
+    mainTextColourStrength: clamp(saved.mainTextColourStrength, 0, 1, base.mainTextColourStrength),
+    depthColour: colour(saved.depthColour, base.depthColour),
+    depthColourStrength: clamp(saved.depthColourStrength, 0, 1, base.depthColourStrength),
+    animate: typeof saved.animate === "boolean" ? saved.animate : base.animate,
+    livingAngle: clamp(saved.livingAngle, 0, 20, base.livingAngle),
+    livingDrift: clamp(saved.livingDrift, 0, 0.2, base.livingDrift),
+    livingLift: clamp(saved.livingLift, 0, 0.2, base.livingLift),
+    livingScale: clamp(saved.livingScale, 0, 0.2, base.livingScale),
+    livingDuration: clamp(saved.livingDuration, 1, 60, base.livingDuration),
+    ...(advanced(saved.advanced) ? { advanced: advanced(saved.advanced) } : {}),
   };
 };
 
@@ -109,10 +220,35 @@ export const textSettingsFromConfig = (
 ): TextSettings => ({
   ...settings,
   size: configTextSize(config, viewport),
+  style: config.style,
+  depth: config.depth,
+  bevel: config.bevel,
+  relief: config.relief,
+  contrast: config.contrast,
+  shadow: config.shadow,
+  shadowStrength: config.shadowStrength,
+  highlight: config.highlight,
+  glow: config.glow,
+  glowIntensity: config.glowIntensity,
   align: config.align,
   colour: config.colour,
   lineSpacing: config.lineSpacing,
   letterSpacing: config.letterSpacing,
+  opacity: config.opacity,
+  integration: config.integration,
+  substyle: config.substyle,
+  preset: config.preset,
+  baseColour: config.baseColour,
+  mainTextColourStrength: config.mainTextColourStrength,
+  depthColour: config.depthColour,
+  depthColourStrength: config.depthColourStrength,
+  animate: config.animate,
+  livingAngle: config.livingAngle,
+  livingDrift: config.livingDrift,
+  livingLift: config.livingLift,
+  livingScale: config.livingScale,
+  livingDuration: config.livingDuration,
+  advanced: config.advanced,
 });
 
 /**
@@ -195,7 +331,12 @@ export const resolveSurfaceTextPlacement = ({
 
 /** True when two saved records describe the same text placement and look. */
 export const sameTextConfig = (a: SlotTextConfig, b: SlotTextConfig) =>
-  (Object.keys(a) as (keyof SlotTextConfig)[]).every((key) => a[key] === b[key]);
+  (Object.keys(a) as (keyof SlotTextConfig)[]).every((key) => {
+    const left = a[key];
+    const right = b[key];
+    if (left && typeof left === "object") return JSON.stringify(left) === JSON.stringify(right);
+    return left === right;
+  });
 
 /** Also exported for the responsive fallback used by legacy games. */
 export const legacyResponsiveSize = responsiveTextSize;
