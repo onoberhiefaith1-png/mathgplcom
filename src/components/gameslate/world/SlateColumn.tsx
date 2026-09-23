@@ -157,12 +157,14 @@ interface Props {
 }
 
 /**
- * THE CONTENT MARGIN HANDLE.
- *
- * A small grip at the top of the writing surface. Its vertical guide is
- * invisible in normal use and appears only while the handle is being moved.
- * Moving it moves where the writing starts; it never moves the surface.
- */
+  * THE CONTENT MARGIN — a VERTICAL writing boundary.
+  *
+  * A grip sits at the top of a vertical line running down the writing surface.
+  * The line is subtle in normal use and bright while the grip is dragged.
+  * All writing starts at this line and wraps before the right edge; nothing
+  * may sit behind it. Moving it moves the writing, never the surface.
+  * `onMoveTo` receives the pointer X in the PANEL's local coordinates.
+  */
 function MarginHandle({
   x,
   y,
@@ -173,10 +175,11 @@ function MarginHandle({
   x: number;
   y: number;
   height: number;
-  onMoveTo: (worldX: number) => void;
+  onMoveTo: (panelX: number) => void;
   onNudge: (direction: number) => void;
 }) {
   const [dragging, setDragging] = useState(false);
+  const groupRef = useRef<THREE.Group>(null);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") onNudge(-1);
@@ -186,46 +189,69 @@ function MarginHandle({
     };
     if (!dragging) return;
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const stop = () => setDragging(false);
+    window.addEventListener("pointerup", stop);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerup", stop);
+    };
   }, [dragging, onNudge]);
+  const toPanelX = (event: ThreeEvent<PointerEvent>) => {
+    const panel = groupRef.current?.parent;
+    if (!panel) return null;
+    return panel.worldToLocal(event.point.clone()).x;
+  };
+  const move = (event: ThreeEvent<PointerEvent>) => {
+    if (!dragging) return;
+    event.stopPropagation();
+    const px = toPanelX(event);
+    if (px != null) onMoveTo(px);
+  };
+  const end = (event: ThreeEvent<PointerEvent>) => {
+    event.stopPropagation();
+    setDragging(false);
+    document.body.style.cursor = "";
+  };
   return (
-    <group position={[x, y, 0.22]}>
+    <group ref={groupRef} position={[x, y, 0.22]}>
+      {/* The vertical boundary itself. */}
+      <mesh position={[0, -height / 2, 0]} raycast={() => null}>
+        <planeGeometry args={[dragging ? 0.016 : 0.008, height]} />
+        <meshBasicMaterial
+          color={dragging ? "#ffd27d" : "#b08a4a"}
+          transparent
+          opacity={dragging ? 0.75 : 0.28}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* While dragging, a wide invisible catcher keeps the pointer tracked
+          even when it leaves the small grip. */}
       {dragging ? (
-        <mesh position={[0, -height / 2, 0]}>
-          <planeGeometry args={[0.014, height]} />
-          <meshBasicMaterial color="#ffd27d" transparent opacity={0.4} depthWrite={false} />
+        <mesh position={[0, -height / 2, 0.01]} onPointerMove={move} onPointerUp={end}>
+          <planeGeometry args={[400, Math.max(height, 1) * 4]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
       ) : null}
       <mesh
+        position={[0, 0.02, 0.02]}
         onPointerDown={(event: ThreeEvent<PointerEvent>) => {
           event.stopPropagation();
           setDragging(true);
-          (event.target as unknown as { setPointerCapture?: (id: number) => void })
-            .setPointerCapture?.(event.pointerId);
         }}
-        onPointerMove={(event: ThreeEvent<PointerEvent>) => {
-          if (!dragging) return;
-          event.stopPropagation();
-          onMoveTo(event.point.x);
-        }}
-        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
-          event.stopPropagation();
-          setDragging(false);
-          (event.target as unknown as { releasePointerCapture?: (id: number) => void })
-            .releasePointerCapture?.(event.pointerId);
-        }}
+        onPointerMove={move}
+        onPointerUp={end}
         onPointerOver={() => {
           document.body.style.cursor = "ew-resize";
         }}
         onPointerOut={() => {
-          document.body.style.cursor = "";
+          if (!dragging) document.body.style.cursor = "";
         }}
       >
-        <planeGeometry args={[0.2, 0.16]} />
+        <planeGeometry args={[0.16, 0.2]} />
         <meshBasicMaterial
           color={dragging ? "#ffe9bd" : "#d8b578"}
           transparent
-          opacity={dragging ? 0.95 : 0.75}
+          opacity={dragging ? 0.95 : 0.85}
           depthWrite={false}
         />
       </mesh>
