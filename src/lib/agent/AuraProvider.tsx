@@ -287,6 +287,13 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     paused: speaking || status === "submitted",
   });
 
+  /** The microphone she was granted, kept rather than asked for twice. */
+  const granted = useRef<MediaStream | null>(null);
+  const wakeEnabledRef = useRef(wakeEnabled);
+  useEffect(() => {
+    wakeEnabledRef.current = wakeEnabled;
+  }, [wakeEnabled]);
+
   // Whether this person has allowed the microphone yet. Read from the browser,
   // and kept in step if they change it in their browser settings later.
   useEffect(() => {
@@ -296,6 +303,16 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       if (state === "granted") setMicPromptOpen(false);
     });
   }, []);
+
+  // Release the microphone when she is no longer on screen.
+  useEffect(
+    () => () => {
+      granted.current?.getTracks().forEach((track) => track.stop());
+      granted.current = null;
+    },
+    [],
+  );
+
 
   // Everyone who arrives is asked once, so Aura is ready to listen from the
   // start. Never asked again on this device once they have answered.
