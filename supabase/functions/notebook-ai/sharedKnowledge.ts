@@ -14,6 +14,7 @@ import { CONTINUITY_STANDARD } from "./continuityStandard.ts";
 import { INTEGRITY_STANDARD } from "./integrityStandard.ts";
 import { SOLUTION_COMPLETENESS_STANDARD } from "./solutionCompletenessStandard.ts";
 import { COPILOT_TRAINING_STANDARD } from "./copilotTrainingStandard.ts";
+import { SESSION_PAIRING_STANDARD } from "./sessionPairingStandard.ts";
 
 /** Presentation layer: how mathematics must be written and laid out. */
 export function presentationKnowledgeBlocks(): string[] {
@@ -22,6 +23,7 @@ export function presentationKnowledgeBlocks(): string[] {
     STRUCTURAL_STANDARD,
     WORKSPACE_STANDARD,
     TABLE_RECOGNITION_STANDARD,
+    SESSION_PAIRING_STANDARD,
   ];
 }
 
