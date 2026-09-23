@@ -866,11 +866,12 @@ export function SlateColumn({
       const lineSurface = slot.surfaceId ? getSurface(slot.surfaceId) : surface;
       const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
       const bounds = textBounds[slot.id];
+      const lineText = settingsFor(slot);
       boxes[slot.id] = gameSurfaceBox({
         text: slot.text,
         hiddenContent: slot.hiddenContent,
-        fontSize: textSettings.size,
-        lineSpacing: textSettings.lineSpacing,
+        fontSize: lineText.size,
+        lineSpacing: lineText.lineSpacing,
         writingWidth,
         readOnlyWriting: true,
         inset: lineBuild.inset,
@@ -879,7 +880,7 @@ export function SlateColumn({
       });
     });
     return boxes;
-  }, [game.slots, surface, build, textBounds, textSettings.size, textSettings.lineSpacing, writingWidth]);
+  }, [game.slots, surface, build, textBounds, settingsFor, writingWidth]);
 
   const layout = useMemo(
     () => buildLayout(
