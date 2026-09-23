@@ -219,6 +219,9 @@ export function useListening({ onWake, paused }: ListeningOptions) {
           else interim += result[0].transcript;
         }
         failures.current = 0;
+        // A live guess means the engine still owes us the finished words; a turn
+        // must never close on the silence timer while that is outstanding.
+        awaitingFinal.current = interim.trim().length > 0;
         // Her own voice must never become an instruction, not even a stray word
         // of it: while she speaks or works, nothing heard is kept.
         if (pausedRef.current) {
@@ -226,9 +229,13 @@ export function useListening({ onWake, paused }: ListeningOptions) {
           setTranscript("");
           return;
         }
+        // Everything heard in this turn is added together, never replaced, so
+        // "let's go" is still there when "come home" arrives.
         if (finalHeard) finalText.current = `${finalText.current} ${finalHeard}`.trim();
         const heard = `${finalText.current} ${interim}`.trim();
         if (!heard) return;
+
+
 
 
         if (wanted.current === "wake") {
