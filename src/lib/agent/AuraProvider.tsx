@@ -94,20 +94,6 @@ function writeStored(key: string, value: unknown) {
   }
 }
 
-/** Speak a reply with the browser's own voice; Phase 4 replaces this with streamed speech. */
-function speak(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  try {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text.slice(0, 900));
-    utterance.rate = 1.02;
-    utterance.pitch = 1;
-    window.speechSynthesis.speak(utterance);
-  } catch {
-    /* speech is a courtesy, never a requirement */
-  }
-}
-
 export function AuraProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const chat = useServerFn(agentChat);
