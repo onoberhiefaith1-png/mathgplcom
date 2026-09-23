@@ -23,7 +23,7 @@ import { useAsyncTextures, preloadTextures } from "./loadTexture";
 
 import { SlateSection } from "./sections/SlateSection";
 import { NewWritingSurface } from "./sections/NewWritingSurface";
-import { getConstruction } from "./sections/construction";
+import { getConstruction, surfaceFoldInset } from "./sections/construction";
 import { surfaceFamily } from "@/lib/slate/pbr";
 import {
   CORE_DURATION,
@@ -60,6 +60,8 @@ import {
   VIEW_H,
   VIEW_TOP,
   buildLayout,
+  clampContentMargin,
+  contentMarginWorld,
   gameBandPosition,
   gameBandTravel,
   gameSurfaceBox,
