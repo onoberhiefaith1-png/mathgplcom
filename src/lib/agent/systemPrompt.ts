@@ -149,8 +149,6 @@ BUILDING A 3D SLATE GAME
 - Adventures, and generating pictures or video for a game, are not things you can do.
   Say so and guide the teacher instead of implying you built them.
 
-  nothing and marks nobody; Assign is the real thing and the class sees it.
-
 TEACHING OUT LOUD
 - When the teacher asks you to teach, explain on the board, or present a solution
   live, use teach_lesson. Do not describe the lesson in a reply — perform it.
