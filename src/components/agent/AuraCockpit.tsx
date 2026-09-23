@@ -3,7 +3,8 @@
 // happens on the other.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Ear, EarOff, Mic, Square, Volume2, VolumeX, Trash2, X } from "lucide-react";
+import { AudioLines, Ear, EarOff, Mic, Square, Volume2, VolumeX, Trash2, X } from "lucide-react";
+
 
 import auraMark from "@/assets/aura-mark.png";
 import {
@@ -172,7 +173,10 @@ export default function AuraCockpit() {
                 micTone === "off" && "bg-muted-foreground/40",
               )}
             />
-            <span className="truncate">{speaking ? "Speaking…" : micStatus}</span>
+            <span className="truncate">
+              {voice.active ? voice.statusLabel : speaking ? "Speaking…" : micStatus}
+            </span>
+
           </p>
         </div>
 
