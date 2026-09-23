@@ -853,6 +853,7 @@ export function SlateColumn({
   onFocusSlot,
   readOnlyWriting = false,
   restoreKey = 0,
+  onContentMarginChange,
   onReady,
 }: Props) {
   const surface = getSurface(game.surfaceId);
