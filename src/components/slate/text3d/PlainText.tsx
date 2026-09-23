@@ -31,8 +31,11 @@ export function PlainText({ text, width, surface, settings }: Props) {
       style={{ pointerEvents: "none" }}
     >
       <div
+        data-game-plain-text
         style={{
           width: Math.round(width * PX_PER_UNIT),
+          transform: "translate(50%, 50%)",
+          transformOrigin: "center",
           color: style.face,
           fontSize: Math.min(72, settings.size),
           lineHeight: settings.lineSpacing,

@@ -45,7 +45,14 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
   const fontSize = Math.max(8, Math.min(settings.size, surfacePx * 0.9));
 
   return (
-    <Html transform position={[0, 0, 0.025]} scale={40 / PX_PER_UNIT} zIndexRange={[4, 0]} pointerEvents="none" style={{ pointerEvents: "none" }}>
+    <Html
+      transform
+      position={[0, 0, 0.025]}
+      scale={40 / PX_PER_UNIT}
+      zIndexRange={[4, 0]}
+      pointerEvents="none"
+      style={{ pointerEvents: "none" }}
+    >
       <div
         ref={host}
         data-game-structured-math
@@ -53,6 +60,11 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
           width: Math.round(surfacePx),
           maxWidth: Math.round(surfacePx),
           overflow: "hidden",
+          // Html's transform wrapper centres its child on the 3D origin.
+          // WritingRegion's origin is the surface's top-left, so cancel that
+          // centring in CSS: right by half-width, down by half-height.
+          transform: "translate(50%, 50%)",
+          transformOrigin: "center",
           color: style.face,
           // The teacher's saved size for THIS device, never a fixed cap, and
           // never larger than the surface it has to sit inside.
