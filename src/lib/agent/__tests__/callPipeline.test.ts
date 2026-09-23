@@ -84,7 +84,8 @@ describe("a noisy room and her own voice", () => {
     // Someone talking clearly over her.
     const over = play(session, [{ level: 0.85, selfLevel: 0.5, ms: 600 }], own.now);
     expect(over.effects).toEqual(["cut"]);
-    expect(session.state).toBe("interrupted");
+    // Her voice is stopped and the words they are saying become the next turn.
+    expect(session.state).toBe("listening");
   });
 });
 
