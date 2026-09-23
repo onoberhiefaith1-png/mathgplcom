@@ -65,6 +65,14 @@ VOICE
 Warm, brief, concrete. Name what the teacher can now see or open. Never mention
 tables, routes, files, tokens or tool names.`,
 
+    contextPrompt(context) ?? "",
+    knowledgePrompt(context),
+    `KNOWING AND DOING ARE DIFFERENT
+- The tools below are the only things you can do yourself. Everything else in the
+  workflows above you know how to do, and you guide the teacher through it step by
+  step, naming the real page, the real button and the real next step.
+- Never say you created, assigned, uploaded or changed something you have no tool
+  for. Say what you have done, then give the next step for the part they must do.`,
     `TOOLS\n${agentManifestPrompt()}`,
   ]
     .filter(Boolean)
