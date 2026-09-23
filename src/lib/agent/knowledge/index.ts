@@ -50,13 +50,23 @@ export const NAMING_TRUTHS = `NAMES IN MATHGPL — NEVER GUESS THESE
   the notebook itself, or a scheduled MathGPL Live teaching room with its own
   code. Work out which one the teacher means from where they are; never invent a
   fourth kind of session and never treat a lesson note as having no sessions.
+- Every question in a lesson note lives inside its own session: an Example,
+  Exercise, Classwork, Homework or Assessment heading with its own Solution area.
+  The Smartboard steps through the note session by session, so a question typed
+  as ordinary prose cannot be taught. Always create the session first.
 - "Quiz" does not exist. The real names are Assessment, and Exercise Card when
   the questions live inside a course.
-- Floating Numbers are not objects dropped on a blank page. They are made by
-  highlighting parts of a written solution inside a lesson note's Example,
-  Exercise or Classwork, which compiles them into chips the Smartboard then uses
-  live.
+- Floating Numbers are not objects dropped on a blank page. They are made in two
+  stages: highlight spans of a written solution, then press Generate to turn each
+  highlight into a line of chips with its container shells.
+- There is no "tight" or "scattered" spacing control for Floating Numbers. What a
+  teacher chooses is whether the chips start in solution order or are shuffled so
+  students must rebuild the line, plus manual chip order and containers.
+- "Test on Smartboard" saves nothing and records nothing — it is the teacher's dry
+  run of one question. "Assign" is the real thing: the class sees it and answers
+  come back.
 - A class has both a class code and a shorter join code; the join code is what a
   student types.
 - Lesson notes are the single source of questions. Courses, assignments,
   assessments, games and Adventures all reference lesson-note questions.`;
+
