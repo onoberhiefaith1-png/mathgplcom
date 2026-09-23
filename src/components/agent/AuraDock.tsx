@@ -21,8 +21,8 @@ function DockShell({ children }: { children: ReactNode }) {
         style={open ? { paddingRight: `var(--aura-dock, 0px)` } : undefined}
       >
         {/* The reservation is only applied from the small breakpoint up; on a
-            phone the cockpit covers the page as a sheet instead. */}
-        <style>{`@media (min-width:640px){:root{--aura-dock:${open ? width : 0}px}}@media (max-width:639px){:root{--aura-dock:0px}}`}</style>
+            phone and a tablet the cockpit covers the page as a sheet instead. */}
+        <style>{`@media (min-width:1024px){:root{--aura-dock:${open ? width : 0}px}}@media (max-width:1023px){:root{--aura-dock:0px}}`}</style>
         {children}
       </div>
       <AuraCockpit />

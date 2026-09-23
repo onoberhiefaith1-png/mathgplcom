@@ -65,6 +65,7 @@ export default function AuraCockpit() {
     toggleRecorder,
     teaching,
     stopTeaching,
+    usageNote,
 
     send,
     clear,
@@ -128,7 +129,9 @@ export default function AuraCockpit() {
       aria-label="Aura teaching assistant"
       className={cn(
         "fixed inset-y-0 right-0 z-[70] flex flex-col border-l border-border bg-background shadow-2xl",
-        "w-full sm:w-[var(--aura-panel-width)]",
+        // Phone and tablet: a full-width sheet over the page. Desktop only gets
+        // the side-by-side split, where there is room for both.
+        "w-full lg:w-[var(--aura-panel-width)]",
       )}
       style={{ ["--aura-panel-width" as string]: `${width}px` }}
     >
@@ -254,6 +257,10 @@ export default function AuraCockpit() {
       </Conversation>
 
       <div className="border-t border-border p-3">
+        {usageNote ? (
+          <p className="mb-2 text-center text-[11px] text-muted-foreground">{usageNote}</p>
+        ) : null}
+
         {teaching ? (
           <div className="mb-2 rounded-lg border border-primary/50 bg-primary/5 px-3 py-2">
             <div className="flex items-center gap-2">

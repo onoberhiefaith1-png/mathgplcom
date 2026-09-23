@@ -36,6 +36,14 @@ import { useListening, type ListeningEngine } from "@/components/agent/useListen
 import { agentChat, agentGreeting } from "./brain.functions";
 import type { AgentStep } from "./brain.server";
 import { publishTeaching } from "./teachingBus";
+import {
+  ceilingReached,
+  countRequest,
+  describeUsage,
+  IDLE_PAUSE_MS,
+  readUsage,
+  type AuraUsage,
+} from "./usageLimits";
 import type { TeachingScript } from "./teachingScript";
 
 export type AuraRole = "user" | "assistant";
@@ -93,6 +101,8 @@ type AuraValue = {
   listening: ListeningEngine;
   /** Turn the recorder on or off; while on, the wave moves with the voice. */
   toggleRecorder: () => void;
+  /** Today's allowance: plain words when it is running low, else null. */
+  usageNote: string | null;
   /** The lesson she is teaching aloud right now, or null. */
   teaching: AuraTeaching | null;
   stopTeaching: () => void;
@@ -153,6 +163,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const [micPermission, setMicPermission] = useState<MicPermission>("unknown");
   const [micRequesting, setMicRequesting] = useState(false);
   const [micPromptOpen, setMicPromptOpen] = useState(false);
+  const [usage, setUsage] = useState<AuraUsage>({ day: "", used: 0 });
+  const lastActiveRef = useRef(Date.now());
   const greetedRef = useRef(false);
   const voice = useRef<AbortController | null>(null);
 
@@ -232,6 +244,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     setOpenState(readStored<boolean>(OPEN_KEY, false));
     setWidthState(readStored<number>(WIDTH_KEY, AURA_DEFAULT_WIDTH));
     setSpeakRepliesState(readStored<boolean>(VOICE_KEY, false));
+    setUsage(readUsage());
     setHydrated(true);
   }, []);
 
@@ -275,6 +288,26 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     (text: string, options?: { spoken?: boolean }) => {
       const content = text.trim();
       if (!content || status === "submitted") return;
+
+      // Today's ceiling: she says so plainly instead of working on quietly.
+      const counted = countRequest();
+      setUsage(counted);
+      lastActiveRef.current = Date.now();
+      if (ceilingReached(counted)) {
+        setMessages((previous) => [
+          ...previous,
+          { id: newId(), role: "user", content, spoken: options?.spoken },
+          {
+            id: newId(),
+            role: "assistant",
+            content:
+              "That's today's limit for me on this device — I'll be ready again tomorrow.",
+            error: true,
+          },
+        ]);
+        setStatus("idle");
+        return;
+      }
 
       const history = [...messages, { id: newId(), role: "user" as const, content, spoken: options?.spoken }];
       setMessages(history);
@@ -427,6 +460,18 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     if (listening.mode === "off" && !listening.error) listening.start("wake");
   }, [listening, micPermission, wakeEnabled]);
 
+  // Nobody leaves her listening all day by accident: after a long silence the
+  // ear switches itself off, and the teacher can switch it straight back on.
+  useEffect(() => {
+    if (!wakeEnabled) return;
+    const timer = window.setInterval(() => {
+      if (Date.now() - lastActiveRef.current < IDLE_PAUSE_MS) return;
+      setWakeEnabled(false);
+      if (listening.mode === "wake") listening.stop();
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [listening, setWakeEnabled, wakeEnabled]);
+
   const setWakeEnabledGated = useCallback(
     (on: boolean) => {
       if (!on) {
@@ -530,6 +575,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       toggleRecorder,
       teaching,
       stopTeaching,
+      usageNote: describeUsage(usage),
       send,
       clear,
     }),
@@ -557,6 +603,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       stopTeaching,
       teaching,
       toggle,
+      usage,
       wakeEnabled,
       width,
     ],
