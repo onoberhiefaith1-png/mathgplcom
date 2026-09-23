@@ -47,9 +47,13 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
         ref={host}
         data-game-structured-math
         style={{
-          width: Math.round(width * PX_PER_UNIT),
+          width: Math.round(surfacePx),
+          maxWidth: Math.round(surfacePx),
+          overflow: "hidden",
           color: style.face,
-          fontSize: Math.min(72, settings.size),
+          // The teacher's saved size for THIS device, never a fixed cap, and
+          // never larger than the surface it has to sit inside.
+          fontSize,
           lineHeight: settings.lineSpacing,
           letterSpacing: `${settings.letterSpacing}em`,
           textAlign: settings.align,
