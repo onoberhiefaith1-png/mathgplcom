@@ -10,6 +10,8 @@ import { AGENT_TOOL_MANIFEST, findAgentTool, type AgentJson, type AgentToolResul
 import { buildTeachingScript } from "./teachingScript";
 import { findKnowledge, KNOWLEDGE_IDS } from "./knowledge";
 import { handsExecutors } from "./hands.server";
+import { attachmentExecutors } from "./attachments.server";
+
 
 
 type Db = SupabaseClient<never, "public", never>;
@@ -62,6 +64,8 @@ type Executor = (ctx: AgentToolContext, args: Args) => Promise<{ data: unknown; 
 
 const executors: Record<string, Executor> = {
   ...(handsExecutors as Record<string, Executor>),
+  ...(attachmentExecutors as unknown as Record<string, Executor>),
+
 
   workspace_snapshot: async ({ supabase, userId }) => {
     const db = supabase as unknown as AnyDb;

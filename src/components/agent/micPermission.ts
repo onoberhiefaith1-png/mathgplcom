@@ -167,7 +167,11 @@ export async function requestMicrophoneAccess(): Promise<MicRequest> {
   if (environment) return { state: environment };
   rememberAsked();
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Echo cancellation matters for the live conversation: without it Aura's own
+    // voice comes back through the microphone and she interrupts herself.
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
     if (stream.getAudioTracks().length === 0) {
       stream.getTracks().forEach((track) => track.stop());
       return { state: (await hasAudioInput()) ? "failed" : "no-microphone" };

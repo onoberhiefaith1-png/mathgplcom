@@ -209,17 +209,25 @@ export function useListening({ onWake, paused }: ListeningOptions) {
 
       instance.onresult = (event) => {
         let interim = "";
+        let finalHeard = "";
         for (let index = event.resultIndex; index < event.results.length; index += 1) {
           const result = event.results[index];
           if (!result) continue;
-          if (result.isFinal) finalText.current = `${finalText.current} ${result[0].transcript}`.trim();
+          if (result.isFinal) finalHeard = `${finalHeard} ${result[0].transcript}`.trim();
           else interim += result[0].transcript;
         }
+        failures.current = 0;
+        // Her own voice must never become an instruction, not even a stray word
+        // of it: while she speaks or works, nothing heard is kept.
+        if (pausedRef.current) {
+          finalText.current = "";
+          setTranscript("");
+          return;
+        }
+        if (finalHeard) finalText.current = `${finalText.current} ${finalHeard}`.trim();
         const heard = `${finalText.current} ${interim}`.trim();
         if (!heard) return;
-        failures.current = 0;
-        // Her own voice must never become an instruction.
-        if (pausedRef.current) return;
+
 
         if (wanted.current === "wake") {
           const { woke, command } = extractWakeCommand(heard);

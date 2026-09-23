@@ -1290,6 +1290,36 @@ export type Database = {
         }
         Relationships: []
       }
+      aura_attachments: {
+        Row: {
+          created_at: string
+          id: string
+          mime: string
+          name: string
+          owner_id: string
+          path: string
+          size_bytes: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mime: string
+          name: string
+          owner_id: string
+          path: string
+          size_bytes?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mime?: string
+          name?: string
+          owner_id?: string
+          path?: string
+          size_bytes?: number
+        }
+        Relationships: []
+      }
       aura_knowledge: {
         Row: {
           approved_at: string | null

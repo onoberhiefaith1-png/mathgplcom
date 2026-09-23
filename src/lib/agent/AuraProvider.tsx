@@ -46,6 +46,13 @@ import {
   type AuraUsage,
 } from "./usageLimits";
 import type { TeachingScript } from "./teachingScript";
+import {
+  VoiceSession,
+  describeVoiceState,
+  takeSentences,
+  type VoiceState,
+} from "./voiceSession";
+
 
 export type AuraRole = "user" | "assistant";
 
@@ -102,6 +109,17 @@ type AuraValue = {
   listening: ListeningEngine;
   /** Turn the recorder on or off; while on, the wave moves with the voice. */
   toggleRecorder: () => void;
+  /** The live voice conversation behind the blue button. */
+  voice: {
+    state: VoiceState;
+    active: boolean;
+    statusLabel: string;
+    /** Open the session; asks for the microphone once if it has never been given. */
+    start: () => void;
+    /** Close it: microphone released, any speech stopped. */
+    end: () => void;
+  };
+
   /** Today's allowance: plain words when it is running low, else null. */
   usageNote: string | null;
   /** The lesson she is teaching aloud right now, or null. */
@@ -184,27 +202,54 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     setSpeaking(false);
   }, []);
 
-  // Aura's own voice: streamed natural speech, with the browser voice as a
+  // ── THE LIVE CONVERSATION ────────────────────────────────────────────────
+  // One open session: she hears every word, works out when a sentence has ended,
+  // answers out loud, and stops mid-word the moment someone speaks over her.
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const session = useRef<VoiceSession | null>(null);
+  const levelRef = useRef(0);
+  const heardRef = useRef("");
+  const voiceLive = useRef(false);
+
+  // Aura's own voice: streamed natural speech, one sentence at a time so she
+  // starts talking sooner and can be cut off cleanly. The browser voice is a
   // last resort so a reply is never silent.
   const speak = useCallback(
     async (text: string) => {
       const said = text.trim();
       if (!said) return;
+      const { sentences, rest } = takeSentences(said);
+      const parts = [...sentences, rest.trim()].filter(Boolean);
+      if (parts.length === 0) return;
+
       voice.current?.abort();
       const controller = new AbortController();
       voice.current = controller;
       setSpeaking(true);
+      session.current?.replyStarted();
+      setVoiceState(session.current?.state ?? "idle");
       try {
-        await streamSpeech(said, controller.signal);
-      } catch {
-        if (!controller.signal.aborted) await speakWithBrowserVoice(said);
+        for (const part of parts) {
+          if (controller.signal.aborted) break;
+          try {
+            await streamSpeech(part, controller.signal);
+          } catch {
+            if (!controller.signal.aborted) speakWithBrowserVoice(part);
+          }
+        }
       } finally {
         if (voice.current === controller) voice.current = null;
         setSpeaking(false);
+        // A cut has already moved her on; only a finished reply leads to waiting.
+        if (session.current?.state === "speaking") {
+          session.current.replyEnded();
+          setVoiceState(session.current.state);
+        }
       }
     },
     [],
   );
+
 
   // ── TEACHING OUT LOUD ────────────────────────────────────────────────────
   // She says one micro-step, the board moves to that line, then the next. Any
@@ -342,8 +387,13 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           setLiveSteps([]);
           setStatus("idle");
           const lesson = turn.steps?.find((step) => step.teach)?.teach;
+          // In a live conversation she always answers out loud.
           if (lesson) void teachRef.current(lesson);
-          else if (speakReplies) void speak(turn.reply);
+          else if (speakReplies || voiceLive.current) void speak(turn.reply);
+          else if (session.current?.state === "thinking") {
+            session.current.replyEnded();
+            setVoiceState(session.current.state);
+          }
           if (turn.navigateTo) {
             void navigate({ to: turn.navigateTo as never }).catch(() => {
               /* a page that refuses to open is reported by the agent itself */
@@ -364,7 +414,13 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           ]);
           setLiveSteps([]);
           setStatus("error");
+          // A failed turn must never leave the session stuck thinking.
+          if (session.current?.state === "thinking") {
+            session.current.replyEnded();
+            setVoiceState(session.current.state);
+          }
         });
+
     },
     [chat, messages, navigate, speak, speakReplies, status],
   );
@@ -518,6 +574,85 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     listening.start("capture");
   }, [ensureMic, listening, micPermission, wakeEnabled]);
 
+  // ── THE OPEN SESSION ─────────────────────────────────────────────────────
+  // The blue button opens this and nothing closes it but the teacher. A reading
+  // of the microphone every 60ms is all the state machine needs.
+  useEffect(() => {
+    levelRef.current = listening.level;
+    heardRef.current = listening.transcript;
+  }, [listening.level, listening.transcript]);
+
+  const endVoice = useCallback(() => {
+    voiceLive.current = false;
+    session.current?.end();
+    session.current = null;
+    setVoiceState("idle");
+    voice.current?.abort();
+    voice.current = null;
+    stopBrowserVoice();
+    setSpeaking(false);
+    if (wakeEnabledRef.current) listening.start("wake");
+    else listening.stop();
+  }, [listening]);
+
+  const startVoice = useCallback(() => {
+    const open = () => {
+      setOpen(true);
+      listening.clearError();
+      listening.start("capture", granted.current);
+      const machine = new VoiceSession();
+      machine.begin(performance.now());
+      session.current = machine;
+      voiceLive.current = true;
+      setVoiceState(machine.state);
+    };
+    if (micPermission !== "granted") {
+      void ensureMic().then((allowed) => {
+        if (allowed) open();
+      });
+      return;
+    }
+    open();
+  }, [ensureMic, listening, micPermission, setOpen]);
+
+  useEffect(() => {
+    if (voiceState === "idle") return;
+    const timer = window.setInterval(() => {
+      const machine = session.current;
+      if (!machine) return;
+      const effects = machine.feed({
+        now: performance.now(),
+        level: levelRef.current,
+        transcript: heardRef.current,
+      });
+      for (const effect of effects) {
+        if (effect.kind === "cut") {
+          voice.current?.abort();
+          voice.current = null;
+          stopBrowserVoice();
+          setSpeaking(false);
+          listening.clearTranscript();
+          heardRef.current = "";
+        }
+        if (effect.kind === "turn") {
+          listening.clearTranscript();
+          heardRef.current = "";
+          sendRef.current(effect.text, { spoken: true });
+        }
+      }
+      setVoiceState(machine.state);
+    }, 60);
+    return () => window.clearInterval(timer);
+  }, [listening, voiceState]);
+
+  // Leaving the page must never leave the microphone open.
+  useEffect(() => () => {
+    session.current?.end();
+    session.current = null;
+    voiceLive.current = false;
+  }, []);
+
+
   const clear = useCallback(() => {
     setMessages([]);
     setLiveSteps([]);
@@ -586,6 +721,13 @@ export function AuraProvider({ children }: { children: ReactNode }) {
 
       listening,
       toggleRecorder,
+      voice: {
+        state: voiceState,
+        active: voiceState !== "idle",
+        statusLabel: describeVoiceState(voiceState),
+        start: startVoice,
+        end: endVoice,
+      },
       teaching,
       stopTeaching,
       usageNote: describeUsage(usage),
@@ -594,7 +736,11 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     }),
     [
       clear,
+      endVoice,
+      startVoice,
+      voiceState,
       listening,
+
       micPermission,
       micPromptOpen,
       micRequesting,

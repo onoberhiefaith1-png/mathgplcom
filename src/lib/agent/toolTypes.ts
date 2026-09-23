@@ -344,6 +344,36 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     params: [p("feature", "string", false, "Filter by feature name.")],
   },
   {
+    id: "list_attachments",
+    domain: "workspace",
+    title: "List the files given to you",
+    description:
+      "List the photos and PDFs the teacher has handed you through the plus button, newest first, with their ids and names.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [],
+  },
+  {
+    id: "read_attachment",
+    domain: "workspace",
+    title: "Read a file the teacher gave you",
+    description:
+      "Actually look at one photo or PDF the teacher uploaded and report what is written in it. Use this before turning a file into lesson-note work; never guess a file's contents. Word documents cannot be read — ask for a PDF.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [
+      p("attachmentId", "string", false, "The file id from list_attachments. Omit to read the newest file."),
+      p("name", "string", false, "The file name the teacher used, if no id is known."),
+      p(
+        "instruction",
+        "string",
+        false,
+        "What to look for, e.g. 'copy out question 4 only'. Defaults to writing out every question and its topics.",
+      ),
+    ],
+  },
+
+  {
 
     id: "navigate",
     domain: "navigation",

@@ -3,7 +3,21 @@
 // happens on the other.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Ear, EarOff, Mic, Square, Volume2, VolumeX, Trash2, X } from "lucide-react";
+import {
+  AudioLines,
+  Ear,
+  EarOff,
+  Loader2,
+  Mic,
+  Paperclip,
+  Square,
+  Volume2,
+  VolumeX,
+  Trash2,
+  X,
+} from "lucide-react";
+
+
 
 import auraMark from "@/assets/aura-mark.png";
 import {
@@ -34,8 +48,11 @@ import {
   useAura,
 } from "@/lib/agent/AuraProvider";
 
+import { AURA_FILE_TYPES, uploadAuraAttachment } from "@/lib/agent/attachments";
+
 import { AuraStepCard } from "./AuraStepCard";
 import AuraWaveform from "./AuraWaveform";
+
 
 const SUGGESTIONS = [
   "What should I prepare for my next class?",
@@ -63,6 +80,7 @@ export default function AuraCockpit() {
     micPermission,
     requestMic,
     toggleRecorder,
+    voice,
     teaching,
     stopTeaching,
     usageNote,
@@ -72,9 +90,38 @@ export default function AuraCockpit() {
   } = useAura();
 
   const [draft, setDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const filePicker = useRef<HTMLInputElement | null>(null);
   const busy = status === "submitted";
   const dragging = useRef(false);
-  const recording = listening.mode === "capture";
+  // A live conversation uses the same microphone, but it is not a recording.
+  const recording = listening.mode === "capture" && !voice.active;
+
+  // A file the teacher hands over is stored privately, then read — never guessed.
+  const attach = useCallback(
+    async (file: File | null | undefined) => {
+      if (!file) return;
+      setUploadError(null);
+      setUploading(true);
+      try {
+        const saved = await uploadAuraAttachment(file);
+        await send(
+          `I've given you a file called "${saved.name}" (id ${saved.id}). Read it with read_attachment and tell me what's in it, then ask me what I want done with it.`,
+        );
+      } catch (error) {
+        setUploadError(
+          (error as Error)?.message?.trim() || "That file wouldn't upload. Try it again.",
+        );
+      } finally {
+        setUploading(false);
+      }
+    },
+    [send],
+  );
+
+
+
 
   // While the recorder runs, the words she hears fill the box as they arrive.
   useEffect(() => {
@@ -169,7 +216,10 @@ export default function AuraCockpit() {
                 micTone === "off" && "bg-muted-foreground/40",
               )}
             />
-            <span className="truncate">{speaking ? "Speaking…" : micStatus}</span>
+            <span className="truncate">
+              {voice.active ? voice.statusLabel : speaking ? "Speaking…" : micStatus}
+            </span>
+
           </p>
         </div>
 
@@ -305,6 +355,39 @@ export default function AuraCockpit() {
         ) : null}
 
 
+        {voice.active ? (
+          <div className="mb-2 flex items-center gap-3 rounded-xl border border-primary/50 bg-primary/5 px-3 py-2">
+            <AuraWaveform
+              level={listening.level}
+              mood={
+                voice.state === "listening"
+                  ? "level"
+                  : voice.state === "thinking"
+                    ? "thinking"
+                    : voice.state === "speaking"
+                      ? "speaking"
+                      : "waiting"
+              }
+              className="w-24 shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-primary">{voice.statusLabel}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {listening.transcript || "Talk to me — no need to press anything."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 shrink-0 px-2 text-xs"
+              onClick={voice.end}
+            >
+              End
+            </Button>
+          </div>
+        ) : null}
+
         {recording ? (
           <div className="mb-2 flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
             <AuraWaveform level={listening.level} className="w-28 shrink-0" />
@@ -314,14 +397,51 @@ export default function AuraCockpit() {
           </div>
         ) : null}
 
+        {uploadError ? (
+          <p className="mb-2 text-xs text-destructive">{uploadError}</p>
+        ) : null}
+
+        <input
+          ref={filePicker}
+          type="file"
+          accept={AURA_FILE_TYPES}
+          className="hidden"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            void attach(file);
+          }}
+        />
+
         <PromptInput onSubmit={submit}>
           <PromptInputTextarea
             value={draft}
             onChange={(event) => setDraft(event.currentTarget.value)}
-            placeholder={recording ? "Listening…" : "Ask Aura to set something up…"}
+            placeholder={
+              voice.active
+                ? "Talking with Aura…"
+                : recording
+                  ? "Listening…"
+                  : "Ask Aura to set something up…"
+            }
           />
           <PromptInputFooter>
             <PromptInputTools>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Give Aura a photo or PDF"
+                disabled={uploading}
+                onClick={() => filePicker.current?.click()}
+              >
+                {uploading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Paperclip className="size-4" />
+                )}
+              </Button>
+
               {listening.supported ? (
                 <Button
                   type="button"
@@ -333,7 +453,20 @@ export default function AuraCockpit() {
                   {recording ? <Square className="size-4" /> : <Mic className="size-4" />}
                 </Button>
               ) : null}
+              <Button
+                type="button"
+                size="icon-sm"
+                aria-label={voice.active ? "End the voice conversation" : "Talk with Aura"}
+                onClick={voice.active ? voice.end : voice.start}
+                className={cn(
+                  "rounded-full bg-primary text-primary-foreground hover:bg-primary/90",
+                  voice.active && "ring-2 ring-primary/40 ring-offset-1 ring-offset-background",
+                )}
+              >
+                <AudioLines className="size-4" />
+              </Button>
             </PromptInputTools>
+
             <PromptInputSubmit
               status={busy ? "submitted" : undefined}
               disabled={busy || draft.trim().length === 0}
