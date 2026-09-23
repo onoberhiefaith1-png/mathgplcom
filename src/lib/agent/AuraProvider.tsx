@@ -443,6 +443,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           ]);
           setLiveSteps([]);
           setStatus("idle");
+          noteSpend(turn);
           const lesson = turn.steps?.find((step) => step.teach)?.teach;
           // In a live conversation she always answers out loud.
           if (lesson) void teachRef.current(lesson);
@@ -563,6 +564,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           ]);
           setLiveSteps([]);
           setStatus("idle");
+          noteSpend(turn);
           const lesson = turn.steps?.find((step) => step.teach)?.teach;
           if (lesson) void teachRef.current(lesson);
           // Nothing to say out loud: go straight back to listening.
@@ -1176,6 +1178,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       answerMissionQuestion,
       toggle,
       usage,
+      spend,
       wakeEnabled,
       width,
     ],
