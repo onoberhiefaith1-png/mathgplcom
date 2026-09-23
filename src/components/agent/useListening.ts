@@ -4,14 +4,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { classifyMicError, requestMicrophoneAccess } from "./micPermission";
+
 export type ListeningMode = "off" | "wake" | "capture";
 
 export type ListeningError =
   | "unsupported"
   | "blocked"
+  | "in-use"
   | "no-microphone"
   | "unavailable"
   | "failed";
+
 
 type RecognitionResultLike = { 0: { transcript: string }; isFinal: boolean };
 type RecognitionEventLike = { resultIndex: number; results: ArrayLike<RecognitionResultLike> };
