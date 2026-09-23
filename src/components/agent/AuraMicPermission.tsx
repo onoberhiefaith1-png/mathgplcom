@@ -62,7 +62,7 @@ export default function AuraMicPermission() {
         ) : null}
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" onClick={() => setMicPromptOpen(false)}>
+          <Button variant="ghost" onClick={() => close(false)}>
             {blocked ? "Close" : "Not now"}
           </Button>
           {micPermission === "unsupported" ? null : (
