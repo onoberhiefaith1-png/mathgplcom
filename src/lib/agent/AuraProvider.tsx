@@ -109,6 +109,17 @@ type AuraValue = {
   listening: ListeningEngine;
   /** Turn the recorder on or off; while on, the wave moves with the voice. */
   toggleRecorder: () => void;
+  /** The live voice conversation behind the blue button. */
+  voice: {
+    state: VoiceState;
+    active: boolean;
+    statusLabel: string;
+    /** Open the session; asks for the microphone once if it has never been given. */
+    start: () => void;
+    /** Close it: microphone released, any speech stopped. */
+    end: () => void;
+  };
+
   /** Today's allowance: plain words when it is running low, else null. */
   usageNote: string | null;
   /** The lesson she is teaching aloud right now, or null. */
