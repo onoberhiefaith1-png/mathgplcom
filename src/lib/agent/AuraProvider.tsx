@@ -106,7 +106,39 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuraStatus>("idle");
   const [liveSteps, setLiveSteps] = useState<AgentStep[]>([]);
   const [speakReplies, setSpeakRepliesState] = useState(false);
+  const [wakeEnabled, setWakeEnabledState] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const greetedRef = useRef(false);
+  const voice = useRef<AbortController | null>(null);
+
+  const stopSpeaking = useCallback(() => {
+    voice.current?.abort();
+    voice.current = null;
+    stopBrowserVoice();
+    setSpeaking(false);
+  }, []);
+
+  // Aura's own voice: streamed natural speech, with the browser voice as a
+  // last resort so a reply is never silent.
+  const speak = useCallback(
+    (text: string) => {
+      const said = text.trim();
+      if (!said) return;
+      voice.current?.abort();
+      const controller = new AbortController();
+      voice.current = controller;
+      setSpeaking(true);
+      void streamSpeech(said, controller.signal)
+        .catch(() => {
+          if (!controller.signal.aborted) speakWithBrowserVoice(said);
+        })
+        .finally(() => {
+          if (voice.current === controller) voice.current = null;
+          setSpeaking(false);
+        });
+    },
+    [],
+  );
 
   // Browser storage is read after hydration so the server and the first client
   // render agree on an empty, closed cockpit.
