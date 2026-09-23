@@ -751,6 +751,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           // Between clauses of a reply still being written she is not finished.
           if (callWriting.current) return;
           setSpeaking(false);
+          metrics.current.mark("speechEnd", performance.now());
+          setTiming(describeCallTiming(metrics.current.summary()));
           if (session.current?.state === "speaking") {
             session.current.replyEnded();
             setVoiceState(session.current.state);
@@ -759,9 +761,17 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         onFailed: (said) => {
           if (!callMuted.current) speakWithBrowserVoice(said);
         },
+        onFirstAudio: () => {
+          metrics.current.mark("firstAudio", performance.now());
+          setTiming(describeCallTiming(metrics.current.summary()));
+        },
       });
-      void speech.unlock();
+      // The device and the speech connection are opened now, while the call is
+      // starting, so her very first clause does not pay for either.
+      void speech.warm();
       queue.current = speech;
+      metrics.current.reset();
+      setTiming(null);
       callStartedAt.current = performance.now();
       lastVoiceAt.current = performance.now();
       const machine = new VoiceSession();
