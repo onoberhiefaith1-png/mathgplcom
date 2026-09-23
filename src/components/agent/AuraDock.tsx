@@ -5,6 +5,11 @@
 import type { ReactNode } from "react";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useAccount } from "@/lib/accounts/useAccount";
+import { useArchivedFeature } from "@/hooks/useArchivedFeature";
+
+/** The Application Archive key that retires Aura from the teaching side. */
+export const AURA_FEATURE_KEY = "aura_assistant";
 import { AuraProvider, useAura } from "@/lib/agent/AuraProvider";
 
 import AuraCockpit from "./AuraCockpit";
@@ -35,9 +40,17 @@ function DockShell({ children }: { children: ReactNode }) {
 
 export default function AuraDock({ children }: { children: ReactNode }) {
   const { session, ready } = useAuth();
+  const { role, isPlatformOwner } = useAccount();
+  const { archived, loading } = useArchivedFeature(AURA_FEATURE_KEY);
 
   // Visitors and the sign-in screens keep the platform exactly as it was.
   if (!ready || !session) return <>{children}</>;
+
+  // Aura is archived: she is not mounted anywhere on the teaching side. Only
+  // the platform administration account can still reach her, and only while the
+  // archive switch is turned off in the console.
+  const admin = isPlatformOwner || role === "platform_owner" || role === "co_admin";
+  if (!admin || loading || archived !== false) return <>{children}</>;
 
   return (
     <AuraProvider>
