@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { AGENT_TOOL_MANIFEST, findAgentTool, type AgentJson, type AgentToolResult } from "./toolTypes";
+import { buildTeachingScript } from "./teachingScript";
 
 type Db = SupabaseClient<never, "public", never>;
 // The agent bridge writes through loosely typed payloads; generated types stay
@@ -320,6 +321,14 @@ const executors: Record<string, Executor> = {
       .single();
     if (error) throw new Error(error.message);
     return { data, summary: "Game added to the class playlist.", navigateTo: `/class/${classId}` };
+  },
+
+  teach_lesson: async (_ctx, args) => {
+    const script = buildTeachingScript(args["say"], args["lines"], args["title"]);
+    return {
+      data: script as unknown,
+      summary: `Teaching "${script.title}" aloud in ${script.steps.length} steps.`,
+    };
   },
 
   navigate: async (_ctx, args) => {

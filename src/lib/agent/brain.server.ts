@@ -10,6 +10,7 @@ import { streamText, tool, jsonSchema, stepCountIs, type ModelMessage } from "ai
 import { AGENT_TOOL_MANIFEST, type AgentToolParam, type AgentToolResult } from "./toolTypes";
 import { buildAgentSystemPrompt, AGENT_GREETING_INSTRUCTION, type AgentSnapshotHint } from "./systemPrompt";
 import { executeAgentTool, type AgentToolContext } from "./tools.server";
+import { parseTeachingScript, type TeachingScript } from "./teachingScript";
 
 const AGENT_MODEL = "openai/gpt-6-astra";
 
@@ -18,6 +19,8 @@ export type AgentStep = {
   ok: boolean;
   summary: string;
   navigateTo?: string;
+  /** Set by teach_lesson: the spoken lesson the cockpit performs. */
+  teach?: TeachingScript;
 };
 
 export type AgentTurn = {
@@ -34,6 +37,8 @@ function jsonType(type: AgentToolParam["type"]) {
       return { type: "boolean" as const };
     case "string[]":
       return { type: "array" as const, items: { type: "string" as const } };
+    case "number[]":
+      return { type: "array" as const, items: { type: "number" as const } };
     default:
       return { type: "string" as const };
   }
@@ -108,6 +113,12 @@ function buildTools(ctx: AgentToolContext, steps: AgentStep[]) {
           ok: result.ok,
           summary: result.ok ? result.summary : result.error,
           ...(result.ok && result.navigateTo ? { navigateTo: result.navigateTo } : {}),
+          ...(result.ok && spec.id === "teach_lesson"
+            ? (() => {
+                const teach = parseTeachingScript(result.data);
+                return teach ? { teach } : {};
+              })()
+            : {}),
         });
         return result;
       },
