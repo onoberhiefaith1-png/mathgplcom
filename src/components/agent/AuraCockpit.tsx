@@ -308,7 +308,13 @@ export default function AuraCockpit({ variant = "panel" }: { variant?: "panel" |
                     ))}
                   </div>
                 ) : null}
+                {message.role === "assistant" && message.usage ? (
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    {describeTurnCredits(message.usage.pence)}
+                  </p>
+                ) : null}
               </MessageContent>
+
             </Message>
           ))}
 
