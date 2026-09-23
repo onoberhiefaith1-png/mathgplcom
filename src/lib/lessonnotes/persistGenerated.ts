@@ -77,8 +77,11 @@ export async function persistGeneratedExample(opts: {
       const { data, error } = await supabase.functions.invoke("notebook-ai", {
         body: {
           mode: "floating",
-          problem: opts.problem,
-          solution: opts.solution,
+          // Send exactly what will be saved: the raw generator text can still
+          // carry labels/trailing notes after the answer, which the
+          // completeness gate rejects (422 "no explicit final answer line").
+          problem: cleanNoteLines(opts.problem).join("\n"),
+          solution: cleanNoteLines(opts.solution).join("\n"),
           subject: opts.subject ?? "Mathematics",
           subtopic: opts.subtopic ?? "",
           sectionKind: dbKind,
