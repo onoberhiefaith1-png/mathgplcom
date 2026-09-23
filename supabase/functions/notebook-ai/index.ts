@@ -1580,6 +1580,8 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         forceAllStandards?: boolean;
         /** Surrounding lesson context so a missing solution can be completed. */
         lessonContext?: string;
+        /** Top-bar AI Edit: pasted/typed NEW content to structure and insert. */
+        compose?: boolean;
       };
       const selection = String(b.selectionText ?? "").trim();
       const instruction = String(b.instruction ?? "").trim();
@@ -1630,6 +1632,18 @@ ${standardBlocks}
 
 ${workspaceManifestBlock(b.workspaceManifest)}
 
+${b.compose ? `COMPOSE MODE — the teacher pasted or typed NEW content (possibly a
+whole lesson from another AI) or only an instruction. Output complete, clean
+lesson-note content that will be INSERTED into the note. This OVERRIDES the
+"fragment only / no headings" rules below:
+- Each part (Introduction, Explanation, Example 1, Example 2, Classwork,
+  Exercise, Summary...) starts with its own heading line "## <Name>".
+- Under a worked question: the question on one line, then the solution one
+  micro-step per line (the first solution line restates the question). Never
+  write the words "Problem:" or "Solution:" as content.
+- Keep the teacher's mathematics and numbers exactly; fix structure and
+  notation only. If only an instruction was given, write that content.
+` : ""}
 EDIT RULES:
 - Rewrite ONLY the selected fragment. Do not add headings, prefaces, or
   commentary. Output the replacement text exactly as it should appear in
