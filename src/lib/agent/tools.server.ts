@@ -61,6 +61,8 @@ const classCode = () => `CLS-${Math.floor(1000 + Math.random() * 9000)}`;
 type Executor = (ctx: AgentToolContext, args: Args) => Promise<{ data: unknown; summary: string; navigateTo?: string }>;
 
 const executors: Record<string, Executor> = {
+  ...(handsExecutors as Record<string, Executor>),
+
   workspace_snapshot: async ({ supabase, userId }) => {
     const db = supabase as unknown as AnyDb;
     const [profile, classes, notebooks, games] = await Promise.all([
