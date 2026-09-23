@@ -1620,15 +1620,15 @@ export function SlateColumn({
                   />
                 </Suspense>
                 </group>
-                {onContentMarginChange && selected ? (
+                {onContentMarginChange ? (
                   <MarginHandle
                     x={-surfaceWidth / 2 + surfaceBox.padX + surfaceBox.contentMargin}
                     y={surfaceHeight / 2 - surfaceBox.padY * 0.4}
                     height={Math.max(0.3, surfaceHeight - surfaceBox.padY)}
-                    onMoveTo={(worldX) =>
+                    onMoveTo={(panelX) =>
                       onContentMarginChange(
                         clampContentMargin(
-                          (worldX - (frame.outerLeft + surfaceBox.padX)) / Math.max(0.001, writingWidth),
+                          (panelX - (-surfaceWidth / 2 + surfaceBox.padX)) / Math.max(0.001, writingWidth),
                         ),
                       )
                     }
