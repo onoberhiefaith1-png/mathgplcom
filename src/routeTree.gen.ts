@@ -32,6 +32,7 @@ import { Route as AccessIndexRouteImport } from './routes/access/index'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
+import { Route as ApiAuraSpeechRouteImport } from './routes/api/aura-speech'
 import { Route as ApiCourseBackgroundRouteImport } from './routes/api/course-background'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
@@ -446,6 +447,11 @@ const AdventureIndexRoute = AdventureIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdventureRouteRoute,
+} as any)
+const ApiAuraSpeechRoute = ApiAuraSpeechRouteImport.update({
+  id: '/api/aura-speech',
+  path: '/api/aura-speech',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCourseBackgroundRoute = ApiCourseBackgroundRouteImport.update({
   id: '/api/course-background',
@@ -2117,6 +2123,7 @@ export interface FileRoutesByFullPath {
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
+  '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2429,6 +2436,7 @@ export interface FileRoutesByTo {
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
+  '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2754,6 +2762,7 @@ export interface FileRoutesById {
   '/status': typeof StatusRoute
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
+  '/api/aura-speech': typeof ApiAuraSpeechRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -3080,6 +3089,7 @@ export interface FileRouteTypes {
     | '/status'
     | '/welcome'
     | '/academy/edit'
+    | '/api/aura-speech'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3392,6 +3402,7 @@ export interface FileRouteTypes {
     | '/status'
     | '/welcome'
     | '/academy/edit'
+    | '/api/aura-speech'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3716,6 +3727,7 @@ export interface FileRouteTypes {
     | '/status'
     | '/welcome'
     | '/academy/edit'
+    | '/api/aura-speech'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -4041,6 +4053,7 @@ export interface RootRouteChildren {
   StatusRoute: typeof StatusRoute
   WelcomeRoute: typeof WelcomeRoute
   AcademyEditRoute: typeof AcademyEditRoute
+  ApiAuraSpeechRoute: typeof ApiAuraSpeechRoute
   ApiCourseBackgroundRoute: typeof ApiCourseBackgroundRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthAdminRoute: typeof AuthAdminRoute
@@ -4331,6 +4344,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/adventure/'
       preLoaderRoute: typeof AdventureIndexRouteImport
       parentRoute: typeof AdventureRouteRoute
+    }
+    '/api/aura-speech': {
+      id: '/api/aura-speech'
+      path: '/api/aura-speech'
+      fullPath: '/api/aura-speech'
+      preLoaderRoute: typeof ApiAuraSpeechRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/course-background': {
       id: '/api/course-background'
@@ -6998,6 +7018,7 @@ const rootRouteChildren: RootRouteChildren = {
   StatusRoute: StatusRoute,
   WelcomeRoute: WelcomeRoute,
   AcademyEditRoute: AcademyEditRoute,
+  ApiAuraSpeechRoute: ApiAuraSpeechRoute,
   ApiCourseBackgroundRoute: ApiCourseBackgroundRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthAdminRoute: AuthAdminRoute,
