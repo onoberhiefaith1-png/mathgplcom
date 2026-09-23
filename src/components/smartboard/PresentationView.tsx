@@ -2971,6 +2971,20 @@ const PresentationView = ({
     if (typeof v === "number") setActiveLineIdx(v);
   }, [setActiveLineIdx]);
 
+  // ── AURA TEACHING ────────────────────────────────────────────────────────
+  // While Aura teaches a solution out loud, the board sits on the line she is
+  // speaking about. She only ever moves the active line — never the working.
+  useEffect(
+    () =>
+      subscribeTeaching((signal) => {
+        if (signal.kind !== "focus") return;
+        setActiveLineIdx(Math.max(0, signal.line - 1));
+      }),
+    [setActiveLineIdx],
+  );
+
+
+
 
   // ── REASONING ENGINE ────────────────────────────────────────────────────
   // The one brain: it owns the active line, binds it to the board row the
