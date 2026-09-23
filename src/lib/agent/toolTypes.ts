@@ -6,7 +6,7 @@
 
 export type AgentToolParam = {
   name: string;
-  type: "string" | "number" | "boolean" | "string[]";
+  type: "string" | "number" | "boolean" | "string[]" | "number[]";
   required: boolean;
   description: string;
 };
@@ -14,7 +14,8 @@ export type AgentToolParam = {
 export type AgentToolSpec = {
   /** Stable id the agent calls. Never rename once shipped. */
   id: string;
-  domain: "workspace" | "classes" | "lessonNotes" | "games" | "navigation";
+  domain: "workspace" | "classes" | "lessonNotes" | "games" | "navigation" | "teaching";
+
   title: string;
   description: string;
   /** Read-only tools may run without confirmation. */
