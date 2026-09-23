@@ -54,6 +54,18 @@ export const Route = createFileRoute("/api/aura-turn")({
                 quick = fast.reply;
                 deep = fast.deep;
                 quickPence = fast.usage?.pence ?? 0;
+                if (fast.usage) {
+                  const { meterTurn } = await import("@/lib/agent/auraMeter.server");
+                  const { FAST_MODEL } = await import("@/lib/agent/brain.server");
+                  void meterTurn(
+                    actor.userId,
+                    FAST_MODEL,
+                    fast.usage.input,
+                    fast.usage.output,
+                    "aura.fast",
+                  ).catch(() => undefined);
+                }
+
                 // What she reasons from is the meaning; the panel keeps the raw words.
                 last.content = fast.meaning;
                 send({ type: "meaning", text: fast.meaning });
