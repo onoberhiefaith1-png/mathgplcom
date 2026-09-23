@@ -4,6 +4,7 @@ import type { AssetSettings, Game, GameSettings, GameStatus, NumberSettings, Slo
 import { defaultScene } from "./environments";
 import { NO_ROOM_ID } from "./rooms";
 import { defaultTextSettings } from "./text3d";
+import { defaultTextConfig } from "./textConfig";
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
