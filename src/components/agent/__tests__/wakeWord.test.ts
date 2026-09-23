@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { extractWakeCommand } from "../useWakeWord";
+import { extractWakeCommand } from "../useListening";
 
 describe("the Aura wake word", () => {
   it("wakes on the name alone with no instruction", () => {
