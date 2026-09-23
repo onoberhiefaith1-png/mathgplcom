@@ -58,7 +58,12 @@ export default function AuraCockpit() {
     wakeEnabled,
     setWakeEnabled,
     listening,
+    micStatus,
+    micTone,
+    micPermission,
+    requestMic,
     toggleRecorder,
+
     send,
     clear,
   } = useAura();
@@ -257,13 +262,15 @@ export default function AuraCockpit() {
               className="h-7 px-2 text-xs"
               onClick={() => {
                 listening.clearError();
-                listening.start(wakeEnabled ? "wake" : "capture");
+                if (micPermission === "granted") listening.start(wakeEnabled ? "wake" : "capture");
+                else void requestMic();
               }}
             >
               Try again
             </Button>
           </div>
         ) : null}
+
 
         {recording ? (
           <div className="mb-2 flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
