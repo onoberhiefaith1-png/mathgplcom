@@ -1,55 +1,45 @@
-// Phase 4 — say "Aura" anywhere in the platform and she answers. Rendered once,
-// beside the cockpit, so the name works on every page.
+// Say "Aura" anywhere in the platform and this is the proof she heard you: the
+// badge switches from a quiet ear to a live sound wave with the words she picks up.
 
-import { useCallback, useEffect } from "react";
 import { Ear } from "lucide-react";
 
 import { useAura } from "@/lib/agent/AuraProvider";
 import { cn } from "@/lib/utils";
 
-import { useWakeWord } from "./useWakeWord";
+import AuraWaveform from "./AuraWaveform";
 
 export default function AuraWakeWord() {
-  const { wakeEnabled, setWakeEnabled, setOpen, send, status, speaking } = useAura();
+  const { wakeEnabled, listening, open } = useAura();
+  const capturing = listening.mode === "capture";
 
-  const onWake = useCallback(
-    (command: string) => {
-      setOpen(true);
-      if (command) send(command, { spoken: true });
-    },
-    [send, setOpen],
-  );
-
-  // Her own voice, and her working time, must not wake her again.
-  const wake = useWakeWord({ onWake, paused: speaking || status === "submitted" });
-
-  useEffect(() => {
-    if (wakeEnabled && wake.supported) wake.start();
-    else wake.stop();
-  }, [wake, wakeEnabled]);
-
-  useEffect(() => {
-    if (wakeEnabled && !wake.supported) setWakeEnabled(false);
-  }, [setWakeEnabled, wake.supported, wakeEnabled]);
-
-  if (!wakeEnabled || !wake.armed) return null;
+  // While the cockpit is open it shows its own wave; this badge is for the rest
+  // of the platform.
+  if (open) return null;
+  if (!wakeEnabled || listening.mode === "off") return null;
 
   return (
     <div
       role="status"
       aria-live="polite"
       className={cn(
-        "pointer-events-none fixed bottom-20 right-5 z-[68] flex max-w-[16rem] items-center gap-2",
-        "rounded-full border border-primary/40 bg-background/95 px-3 py-1.5 text-xs shadow-lg backdrop-blur",
+        "pointer-events-none fixed bottom-20 right-5 z-[68] flex max-w-[18rem] items-center gap-2",
+        "rounded-full border bg-background/95 px-3 py-1.5 text-xs shadow-lg backdrop-blur",
+        capturing ? "border-primary" : "border-primary/40",
       )}
     >
-      <span className="relative flex size-2.5 shrink-0">
-        <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
-        <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
-      </span>
-      <Ear className="size-3.5 shrink-0 text-muted-foreground" />
+      {capturing ? (
+        <AuraWaveform level={listening.level} className="w-20 shrink-0" height={18} />
+      ) : (
+        <>
+          <span className="relative flex size-2.5 shrink-0">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-primary" />
+          </span>
+          <Ear className="size-3.5 shrink-0 text-muted-foreground" />
+        </>
+      )}
       <span className="truncate text-muted-foreground">
-        {wake.heard ? wake.heard : 'Say "Aura"'}
+        {capturing ? listening.transcript || "I'm listening…" : 'Say "Aura"'}
       </span>
     </div>
   );
