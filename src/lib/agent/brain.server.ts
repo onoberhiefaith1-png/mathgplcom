@@ -339,7 +339,7 @@ export async function runAgentTurn(
 ): Promise<AgentTurn> {
   const { result, steps } = await startTurn(ctx, messages, {}, hint, context);
   const reply = await result.text;
-  return turnFrom(reply, steps, await measured(result));
+  return turnFrom(reply, steps, await measured(result, ctx.userId));
 }
 
 export type AgentTurnStream = {
@@ -363,7 +363,7 @@ export async function streamAgentTurn(
     text: result.textStream,
     finish: async () => {
       const reply = await result.text;
-      return turnFrom(reply, steps, await measured(result));
+      return turnFrom(reply, steps, await measured(result, ctx.userId));
     },
     abort: () => {
       /* the reply is abandoned by dropping the stream */
