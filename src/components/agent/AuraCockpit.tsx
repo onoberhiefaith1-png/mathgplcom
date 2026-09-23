@@ -397,6 +397,22 @@ export default function AuraCockpit() {
           </div>
         ) : null}
 
+        {uploadError ? (
+          <p className="mb-2 text-xs text-destructive">{uploadError}</p>
+        ) : null}
+
+        <input
+          ref={filePicker}
+          type="file"
+          accept={AURA_FILE_TYPES}
+          className="hidden"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            void attach(file);
+          }}
+        />
+
         <PromptInput onSubmit={submit}>
           <PromptInputTextarea
             value={draft}
@@ -411,6 +427,21 @@ export default function AuraCockpit() {
           />
           <PromptInputFooter>
             <PromptInputTools>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Give Aura a photo or PDF"
+                disabled={uploading}
+                onClick={() => filePicker.current?.click()}
+              >
+                {uploading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Paperclip className="size-4" />
+                )}
+              </Button>
+
               {listening.supported ? (
                 <Button
                   type="button"
