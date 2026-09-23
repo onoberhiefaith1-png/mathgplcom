@@ -831,6 +831,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           heardRef.current = "";
         }
         if (effect.kind === "turn") {
+          // The clock for this turn starts the moment their words were closed off.
+          metrics.current.mark("turnClosed", now);
           listening.clearTranscript();
           heardRef.current = "";
           if (voiceLive.current) sendCallRef.current(effect.text);
