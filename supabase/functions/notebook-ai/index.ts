@@ -23,6 +23,8 @@ import {
   workspaceViolations,
   workspaceCorrection,
 } from "./workspaceStandard.ts";
+import { UPSCALING_STANDARD } from "./upscalingStandard.ts";
+import { extractUpscaleReport, upscaleCorrection, verifyUpscale } from "./upscaleVerifier.ts";
 import { buildReviewPrompt, parseReviewVerdict } from "./reviewStandard.ts";
 import {
   TABLE_RECOGNITION_STANDARD,
@@ -1608,7 +1610,7 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
           pedagogyRules: PEDAGOGY_RULES,
           solutionIntent,
           kind: b.kind,
-          forceAll: b.forceAllStandards,
+          forceAll: b.forceAllStandards || b.compose || selection.length > 600,
         }),
         solutionIntent || b.kind === "solution" ? SOLUTION_SHAPE_DIRECTIVE : "",
       ].filter(Boolean).join("\n\n");
@@ -1626,6 +1628,8 @@ ${MATH_MARKUP_RULES}
 ${standardBlocks}
 
 ${WORKSPACE_STANDARD}
+
+${UPSCALING_STANDARD}
 
 ${EDUCATIONAL_RECONSTRUCTION_STANDARD}
 
@@ -1762,7 +1766,33 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
         if (!completeness.ok) warnings = [...warnings, ...completeness.defects];
       }
 
-      return new Response(JSON.stringify({ content, warnings }), {
+      // Educational Upscaling: content-preservation + maths check, one retry.
+      let { content: cleaned, report } = extractUpscaleReport(content);
+      {
+        let defects = verifyUpscale(selection, cleaned, report);
+        if (defects.length) {
+          const retry = await generateValidated({
+            messages: [
+              ...editMessages,
+              { role: "assistant", content },
+              { role: "user", content: upscaleCorrection(defects) },
+            ],
+            kind: validationKind,
+          });
+          const r = extractUpscaleReport(retry.content);
+          const retryDefects = verifyUpscale(selection, r.content, r.report ?? report);
+          if (retryDefects.length <= defects.length) {
+            cleaned = r.content;
+            report = r.report ?? report;
+            warnings = retry.warnings;
+            defects = retryDefects;
+          }
+        }
+        if (defects.length) warnings = [...warnings, ...defects];
+      }
+      content = cleaned;
+
+      return new Response(JSON.stringify({ content, warnings, upscale: report }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
