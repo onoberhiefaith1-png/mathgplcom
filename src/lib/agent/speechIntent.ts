@@ -49,17 +49,20 @@ function dropForeign(text: string): string {
     .join(" ");
 }
 
+/**
+ * Filler leaves with the punctuation that framed it, so "you to, you know, open"
+ * comes out as "you to open" rather than keeping a stray comma.
+ */
 function removeFillers(text: string): string {
   let out = text;
   for (const filler of FILLERS) {
-    const pattern = new RegExp(
-      `(^|[\\s,.;:!?])${filler.replace(/ /g, "\\s+")}(?=$|[\\s,.;:!?])`,
-      "gi",
-    );
-    out = out.replace(pattern, "$1");
+    const pattern = new RegExp(`(^|[^A-Za-z0-9])${filler.replace(/ /g, "\\s+")}(?![A-Za-z0-9])`, "gi");
+    out = out.replace(pattern, "$1\u00a7");
   }
-  return out;
+  // Drop the marker together with the commas that surrounded the filler.
+  return out.replace(/[,;]?\s*\u00a7\s*[,;]?/g, " ");
 }
+
 
 /** "I want, I want you to" → "I want you to"; "the the note" → "the note". */
 function collapseRepeats(text: string): string {
@@ -129,10 +132,14 @@ function tidyPunctuation(text: string): string {
 export function cleanSpokenText(raw: string): string {
   if (!raw) return "";
   let text = dropForeign(raw);
+  // A trailing-off pause is not punctuation: "I want... I want you to" is one
+  // false start, and collapsing it needs the words side by side.
+  text = text.replace(/\.{2,}/g, " ");
   text = removeFillers(text);
   text = collapseRepeats(text);
   text = dropNoise(text);
   text = tidyPunctuation(text);
+
   // A single leftover filler word is not an instruction.
   if (FILLERS.includes(text.toLowerCase())) return "";
   return text;
