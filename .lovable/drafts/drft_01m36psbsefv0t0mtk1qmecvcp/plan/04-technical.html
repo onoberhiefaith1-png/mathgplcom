@@ -1,0 +1,58 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Where each ability is implemented">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .h { font-size: 12px; font-weight: 480; }
+    .m { font-family: var(--font-mono); font-size: 10px; fill: var(--fg-secondary); }
+    .n { font-size: 11px; fill: var(--fg-secondary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .surf { fill: var(--bg-muted); stroke: none; }
+    .rail { stroke: var(--border-translucent); stroke-width: 1; }
+    .wire { stroke: var(--fg-secondary); stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="var(--fg-secondary)" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="surf" x="16" y="24" width="150" height="196" rx="8"/>
+  <text class="h" x="32" y="46">Aura brain</text>
+  <text class="m" x="32" y="66">agent/brain.server.ts</text>
+  <text class="m" x="32" y="82">agent/toolTypes.ts</text>
+  <text class="m" x="32" y="98">agent/tools.server.ts</text>
+  <text class="n" x="32" y="122">confirmation gate</text>
+  <text class="n" x="32" y="140">already central</text>
+  <text class="n" x="32" y="164">new: capability</text>
+  <text class="n" x="32" y="180">discovery + audit</text>
+
+  <rect class="box" x="216" y="24" width="180" height="58" rx="8"/>
+  <text class="h" x="232" y="46">Game hands (new)</text>
+  <text class="m" x="232" y="66">agent/slateGame.server.ts</text>
+
+  <rect class="box" x="216" y="96" width="180" height="58" rx="8"/>
+  <text class="h" x="232" y="118">Media hands (new)</text>
+  <text class="m" x="232" y="138">agent/media.server.ts</text>
+
+  <rect class="box" x="216" y="168" width="180" height="52" rx="8"/>
+  <text class="h" x="232" y="190">Lesson hands</text>
+  <text class="m" x="232" y="209">agent/hands.server.ts</text>
+
+  <rect class="box" x="444" y="24" width="180" height="58" rx="8"/>
+  <text class="h" x="460" y="46">Existing game code</text>
+  <text class="m" x="460" y="66">slate/storage · gameQuestions</text>
+
+  <rect class="box" x="444" y="96" width="180" height="58" rx="8"/>
+  <text class="h" x="460" y="118">Media library (new)</text>
+  <text class="m" x="460" y="138">table + game-assets bucket</text>
+
+  <rect class="box" x="444" y="168" width="180" height="52" rx="8"/>
+  <text class="h" x="460" y="190">notebook-ai · grade-line</text>
+  <text class="m" x="460" y="209">unchanged</text>
+
+  <line class="wire" x1="166" y1="53" x2="212" y2="53" marker-end="url(#b)"/>
+  <line class="wire" x1="166" y1="125" x2="212" y2="125" marker-end="url(#b)"/>
+  <line class="wire" x1="166" y1="194" x2="212" y2="194" marker-end="url(#b)"/>
+  <line class="wire" x1="396" y1="53" x2="440" y2="53" marker-end="url(#b)"/>
+  <line class="wire" x1="396" y1="125" x2="440" y2="125" marker-end="url(#b)"/>
+  <line class="wire" x1="396" y1="194" x2="440" y2="194" marker-end="url(#b)"/>
+</svg>
