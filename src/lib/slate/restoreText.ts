@@ -64,3 +64,36 @@ export const restoreTextToSaved = (game: Game): Game => {
     })),
   };
 };
+
+/**
+ * Text fix. This is deliberately NOT a reset of the Game run or of the words.
+ * It re-attaches the current writing to each physical writing surface and
+ * reapplies the Game's current text settings, so scattered text comes back onto
+ * the material without changing the exercise, rewards, marks or progress.
+ */
+export const fitTextToWritingSurface = (game: Game): Game => {
+  const settings = globalText(game);
+  const shared = defaultTextConfig(settings);
+  return {
+    ...game,
+    slots: game.slots.map((slot) => {
+      const saved = normalizeTextConfig(slot.textConfig, settings);
+      const textConfig: SlotTextConfig = {
+        ...saved,
+        widthFrac: 1,
+        heightFrac: 1,
+        desktopSize: shared.desktopSize,
+        tabletSize: shared.tabletSize,
+        mobileSize: shared.mobileSize,
+        align: shared.align,
+        rotation: 0,
+        colour: shared.colour,
+        lineSpacing: shared.lineSpacing,
+        letterSpacing: shared.letterSpacing,
+        ax: shared.ax,
+        ay: shared.ay,
+      };
+      return { ...slot, textConfig } satisfies Slot;
+    }),
+  };
+};

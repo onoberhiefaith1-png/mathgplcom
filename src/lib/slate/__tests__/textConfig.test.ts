@@ -6,7 +6,7 @@ import {
   textConfigFromPlacement,
   configTextSize,
 } from "../textConfig";
-import { captureTextConfigs, restoreTextToSaved } from "../restoreText";
+import { captureTextConfigs, fitTextToWritingSurface, restoreTextToSaved } from "../restoreText";
 import { makeGame, makeSlot } from "../defaults";
 import { normalizeGame } from "../storage";
 
@@ -72,5 +72,48 @@ describe("saved text configuration", () => {
     const legacy = normalizeGame({ ...gameWithText(), slots: [{ id: "a", text: "y = 2" }] } as never);
     expect(legacy.slots[0]?.text).toBe("y = 2");
     expect(legacy.slots[0]?.textConfig).toBeTruthy();
+  });
+
+  it("fixes scattered text by keeping the words and applying the current text settings", () => {
+    const game = gameWithText();
+    const fixed = fitTextToWritingSurface({
+      ...game,
+      settings: {
+        ...game.settings,
+        text: {
+          ...game.settings.text,
+          desktopSize: 48,
+          tabletSize: 34,
+          mobileSize: 24,
+          align: "left",
+          lineSpacing: 1.8,
+          letterSpacing: 0.05,
+          colour: "#123456",
+        },
+      },
+      slots: [{
+        ...game.slots[0]!,
+        text: "keep my writing",
+        textConfig: {
+          ...defaultTextConfig(),
+          ax: 1,
+          ay: 1,
+          rotation: 32,
+          desktopSize: 9,
+          align: "right",
+        },
+      }],
+    });
+    expect(fixed.slots[0]?.text).toBe("keep my writing");
+    expect(fixed.slots[0]?.textConfig?.ax).toBe(0);
+    expect(fixed.slots[0]?.textConfig?.ay).toBe(0);
+    expect(fixed.slots[0]?.textConfig?.rotation).toBe(0);
+    expect(fixed.slots[0]?.textConfig?.desktopSize).toBe(48);
+    expect(fixed.slots[0]?.textConfig?.tabletSize).toBe(34);
+    expect(fixed.slots[0]?.textConfig?.mobileSize).toBe(24);
+    expect(fixed.slots[0]?.textConfig?.align).toBe("left");
+    expect(fixed.slots[0]?.textConfig?.lineSpacing).toBe(1.8);
+    expect(fixed.slots[0]?.textConfig?.letterSpacing).toBe(0.05);
+    expect(fixed.slots[0]?.textConfig?.colour).toBe("#123456");
   });
 });

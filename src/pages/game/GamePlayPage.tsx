@@ -16,9 +16,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
-import { ArrowLeft, ListOrdered, Map, RotateCcw } from "lucide-react";
+import { ArrowLeft, ListOrdered, Map, RotateCcw, Type } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGame } from "@/lib/slate/storage";
+import { fitTextToWritingSurface } from "@/lib/slate/restoreText";
 import {
   listGameClasses,
   loadGameAssignmentState,
@@ -102,6 +103,7 @@ const GamePlayPage = () => {
   const displayTextFrame = useRef<number | null>(null);
   const structuredMathFrame = useRef<number | null>(null);
   const [resetEpoch, setResetEpoch] = useState(0);
+  const [textFitEpoch, setTextFitEpoch] = useState(0);
   const [resetting, setResetting] = useState(false);
   /** Phone only: Exit and Reset live in a small menu so the strip stays short. */
   const [menuOpen, setMenuOpen] = useState(false);
@@ -408,7 +410,8 @@ const GamePlayPage = () => {
         ...(note ? { structuredNote: note } : {}),
       };
     });
-    return { ...game, slots, patternLength };
+    const renderedGame = { ...game, slots, patternLength };
+    return textFitEpoch > 0 ? fitTextToWritingSurface(renderedGame) : renderedGame;
 
   }, [
     game,
@@ -420,7 +423,10 @@ const GamePlayPage = () => {
     renderedLineText,
     structuredLineMath,
     celebrating,
+    textFitEpoch,
   ]);
+
+  const fitText = () => setTextFitEpoch((value) => value + 1);
 
   /* ---- Game Evaluation observers -------------------------------------- */
   // The expected line is the teacher's own answer key. It is read only in the
@@ -755,6 +761,7 @@ const GamePlayPage = () => {
             }}
             /* the mathematics is written by Floating Numbers, never typed here */
             readOnlyWriting
+            restoreKey={textFitEpoch}
             onReadyChange={setWorldReady}
             onProgressChange={setLoadingProgress}
           />
@@ -803,6 +810,15 @@ const GamePlayPage = () => {
           <span className="ml-auto shrink-0 truncate opacity-70" title="Current line">
             L{runtime.currentLine}
           </span>
+            <button
+              type="button"
+              onClick={fitText}
+              title="Text: fit writing to its surface"
+              aria-label="Text: fit writing to its surface"
+              className="shrink-0 rounded border border-border/60 px-2 py-1 text-xs"
+            >
+              <Type className="h-3.5 w-3.5" aria-hidden />
+            </button>
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
@@ -886,6 +902,14 @@ const GamePlayPage = () => {
             ) : null}
             <button
               type="button"
+              onClick={fitText}
+              title="Text: fit writing to its surface"
+              className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2.5 py-1 text-xs font-semibold tracking-wide hover:bg-accent"
+            >
+              <Type className="h-3.5 w-3.5" /> TEXT
+            </button>
+            <button
+              type="button"
               onClick={() => void resetGame()}
               disabled={resetting}
               title="Reset this run"
@@ -913,6 +937,16 @@ const GamePlayPage = () => {
             className="block w-full border-b border-border/60 px-3 py-2.5 text-left"
           >
             Your journey
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              fitText();
+            }}
+            className="block w-full border-b border-border/60 px-3 py-2.5 text-left"
+          >
+            Text
           </button>
           <button
             type="button"

@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Type } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { ClientOnly } from "@tanstack/react-router";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -19,7 +19,7 @@ import { getReward } from "@/lib/slate/rewards";
 import { getSurface } from "@/lib/slate/surfaces";
 import { loadGame, saveGame, saveGameResult } from "@/lib/slate/storage";
 import { makeSlot, uid } from "@/lib/slate/defaults";
-import { captureTextConfigs, restoreTextToSaved } from "@/lib/slate/restoreText";
+import { captureTextConfigs, fitTextToWritingSurface, restoreTextToSaved } from "@/lib/slate/restoreText";
 import { isMuted, setMuted } from "@/lib/slate/audio";
 import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
@@ -282,6 +282,31 @@ export default function GameSlateEditorPage() {
     toast.success("Text restored to the saved configuration.");
   };
 
+  /**
+   * TEXT icon. Not Reset, and not Restore: it keeps the words, reapplies the
+   * current text settings, forces the writing back onto its physical writing
+   * surface, and saves that correction so reload does not undo it.
+   */
+  const fitText = async () => {
+    if (!game || saving) return;
+    const fixed = fitTextToWritingSurface(game);
+    setGame(fixed);
+    setRestoreKey((key) => key + 1);
+    setSaving(true);
+    try {
+      const result = await saveGameResult(fixed);
+      if (result.ok) {
+        dirtyRef.current = false;
+        toast.success("Text fitted to the writing surface.");
+      } else {
+        dirtyRef.current = true;
+        toast.error(result.message ?? "The text fix could not be saved.");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // One set of board actions, shared by the desktop row and the phone menu.
   const toggleSound = () => {
     const next = !muted;
@@ -391,6 +416,15 @@ export default function GameSlateEditorPage() {
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               </button>
               <button
+                onClick={() => void fitText()}
+                disabled={saving}
+                title="Text: fit writing to its surface and apply text settings"
+                aria-label="Text: fit writing to its surface and apply text settings"
+                className="inline-flex items-center gap-1 rounded border border-amber-300/35 px-2 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-amber-100/85 hover:bg-amber-200/10 disabled:opacity-50"
+              >
+                <Type className="h-3.5 w-3.5" aria-hidden /> Text
+              </button>
+              <button
                 onClick={showView}
                 className={`rounded border px-3 py-1.5 text-xs uppercase tracking-[0.18em] transition ${
                   mode === "view"
@@ -447,6 +481,7 @@ export default function GameSlateEditorPage() {
                 run: toggleEdit,
               },
               { label: "Restore text", run: restoreText },
+              { label: "Text", run: () => void fitText() },
               { label: "View board", run: showView },
               { label: questionsOpen ? "Close questions" : "Questions", run: toggleQuestions },
               { label: saving ? "Saving…" : "Save", run: () => void save() },
