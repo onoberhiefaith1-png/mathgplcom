@@ -49,6 +49,12 @@ type AuraValue = {
   liveSteps: AgentStep[];
   speakReplies: boolean;
   setSpeakReplies: (on: boolean) => void;
+  /** True while Aura's own voice is playing. */
+  speaking: boolean;
+  stopSpeaking: () => void;
+  /** Listening for her name anywhere in the platform. */
+  wakeEnabled: boolean;
+  setWakeEnabled: (on: boolean) => void;
   send: (text: string, options?: { spoken?: boolean }) => void;
   clear: () => void;
 };
