@@ -9,10 +9,38 @@ const RULES: { match: RegExp; ids: string[] }[] = [
   { match: /^\/(home|index)?$/, ids: ["building", "workspaces", "classes"] },
   { match: /^\/(buildings|homepage|backgrounds)/, ids: ["building", "workspaces"] },
   {
-    match: /^\/lesson-notes\/[^/]+\/floating/,
-    ids: ["floating-numbers", "lesson-sections", "lesson-notes", "smartboard"],
+    match: /^\/lesson-notes\/[^/]+\/floating\/[^/]+\/test/,
+    ids: ["floating-test", "floating-numbers", "smartboard", "assign-question", "lesson-sections"],
   },
-  { match: /^\/lesson-notes/, ids: ["lesson-notes", "lesson-sections", "floating-numbers", "smartboard"] },
+  {
+    match: /^\/lesson-notes\/[^/]+\/floating-prep/,
+    ids: ["floating-preparation", "floating-numbers", "lesson-sections", "lesson-notes"],
+  },
+  {
+    match: /^\/lesson-notes\/[^/]+\/floating/,
+    ids: [
+      "floating-numbers",
+      "floating-preparation",
+      "floating-test",
+      "lesson-sections",
+      "lesson-notes",
+      "smartboard",
+      "assign-question",
+    ],
+  },
+  {
+    match: /^\/lesson-notes/,
+    ids: [
+      "lesson-notes",
+      "lesson-sections",
+      "floating-preparation",
+      "floating-numbers",
+      "floating-test",
+      "assign-question",
+      "smartboard",
+    ],
+  },
+
   { match: /^\/(mathboard|smartboard)/, ids: ["smartboard", "floating-numbers", "lesson-notes", "live"] },
   { match: /smartboard/, ids: ["smartboard", "floating-numbers", "lesson-notes", "live"] },
   { match: /^\/live/, ids: ["live", "smartboard", "classes", "lesson-notes"] },
