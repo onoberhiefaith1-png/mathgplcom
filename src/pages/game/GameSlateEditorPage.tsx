@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { RotateCcw } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { ClientOnly } from "@tanstack/react-router";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -18,6 +19,7 @@ import { getReward } from "@/lib/slate/rewards";
 import { getSurface } from "@/lib/slate/surfaces";
 import { loadGame, saveGame, saveGameResult } from "@/lib/slate/storage";
 import { makeSlot, uid } from "@/lib/slate/defaults";
+import { captureTextConfigs, restoreTextToSaved } from "@/lib/slate/restoreText";
 import { isMuted, setMuted } from "@/lib/slate/audio";
 import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
@@ -248,11 +250,17 @@ export default function GameSlateEditorPage() {
   };
 
 
+  /** Bumped on Restore so every surface re-reads its saved record. */
+  const [restoreKey, setRestoreKey] = useState(0);
+
   const save = async () => {
     if (!game || saving) return;
     setSaving(true);
     try {
-      const result = await saveGameResult(game);
+      // Saving makes what is on screen the master configuration of every text.
+      const master = captureTextConfigs(game);
+      setGame(master);
+      const result = await saveGameResult(master);
       if (result.ok) {
         dirtyRef.current = false;
         toast.success("Game saved to your account.");
@@ -262,6 +270,18 @@ export default function GameSlateEditorPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * Restore. Puts every existing text back to the saved teacher configuration:
+   * same words, same place on its own writing surface, same size, same
+   * formatting, inside the surface. No duplicate object is ever created.
+   */
+  const restoreText = () => {
+    if (!game) return;
+    setGame(restoreTextToSaved(game));
+    setRestoreKey((key) => key + 1);
+    toast.success("Text restored to the saved configuration.");
   };
 
   // One set of board actions, shared by the desktop row and the phone menu.
@@ -312,6 +332,7 @@ export default function GameSlateEditorPage() {
               onRewardMove={moveReward}
               onRewardActivate={activateReward}
               onRewardConsume={consumeReward}
+              restoreKey={restoreKey}
               onReadyChange={setWorldReady}
               onProgressChange={setLoadingProgress}
             />
@@ -362,6 +383,14 @@ export default function GameSlateEditorPage() {
                 className="rounded border border-amber-200/20 px-2 py-1.5 text-xs text-amber-100/70 hover:bg-amber-200/10"
               >
                 {muted ? "🔇" : "🔊"}
+              </button>
+              <button
+                onClick={restoreText}
+                title="Restore text to the saved configuration"
+                aria-label="Restore text to the saved configuration"
+                className="rounded border border-amber-200/20 px-2 py-1.5 text-xs text-amber-100/70 hover:bg-amber-200/10"
+              >
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden />
               </button>
               <button
                 onClick={showView}
