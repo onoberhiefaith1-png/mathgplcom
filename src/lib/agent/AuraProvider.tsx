@@ -242,6 +242,49 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     [chat, messages, navigate, speak, speakReplies, status],
   );
 
+  const sendRef = useRef(send);
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
+
+  const onWake = useCallback(
+    (command: string) => {
+      setOpen(true);
+      if (command) sendRef.current(command, { spoken: true });
+    },
+    [setOpen],
+  );
+
+  // One microphone for everything: her name and the recorder share it, so they
+  // can never cancel each other out.
+  const listening = useListening({
+    onWake,
+    paused: speaking || status === "submitted",
+  });
+
+  // Keep the background ear running whenever the teacher has it switched on.
+  useEffect(() => {
+    if (!wakeEnabled) {
+      if (listening.mode === "wake") listening.stop();
+      return;
+    }
+    if (!listening.supported) {
+      setWakeEnabledState(false);
+      return;
+    }
+    if (listening.mode === "off" && !listening.error) listening.start("wake");
+  }, [listening, wakeEnabled]);
+
+  const toggleRecorder = useCallback(() => {
+    if (listening.mode === "capture") {
+      // Hand the microphone back to her name if the ear is on.
+      if (wakeEnabled) listening.start("wake");
+      else listening.stop();
+      return;
+    }
+    listening.start("capture");
+  }, [listening, wakeEnabled]);
+
   const clear = useCallback(() => {
     setMessages([]);
     setLiveSteps([]);
