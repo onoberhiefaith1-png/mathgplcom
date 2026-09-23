@@ -9,6 +9,7 @@ import { AuraProvider, useAura } from "@/lib/agent/AuraProvider";
 
 import AuraCockpit from "./AuraCockpit";
 import AuraLauncher from "./AuraLauncher";
+import AuraWakeWord from "./AuraWakeWord";
 
 function DockShell({ children }: { children: ReactNode }) {
   const { open, width } = useAura();
