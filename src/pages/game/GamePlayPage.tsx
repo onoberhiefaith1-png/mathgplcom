@@ -62,6 +62,7 @@ import { normalizeConversion } from "@/lib/slate/conversion";
 import type { Game, RewardInstance, Selection, Slot } from "@/lib/slate/types";
 import type { SlotTextConfig } from "@/lib/slate/textConfig";
 import { sameTextConfig } from "@/lib/slate/textConfig";
+import { loadStudentContentMargin, saveStudentContentMargin } from "@/lib/slate/studentMargin";
 import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
 
@@ -91,6 +92,7 @@ const GamePlayPage = () => {
   const gameRef = useRef<Game | null>(null);
   const ownerRef = useRef(false);
   const textRepairTimer = useRef<number | null>(null);
+  const marginTimer = useRef<number | null>(null);
   const worldReadyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   /** Live working per Floating Numbers line (0-based) → plain text. */
