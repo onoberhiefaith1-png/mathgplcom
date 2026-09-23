@@ -7,11 +7,18 @@ import {
   configTextSize,
 } from "../textConfig";
 import { captureTextConfigs, restoreTextToSaved } from "../restoreText";
-import { defaultGame, makeSlot } from "../defaults";
+import { makeGame, makeSlot } from "../defaults";
 import { normalizeGame } from "../storage";
 
 const gameWithText = () => {
-  const game = defaultGame();
+  const game = makeGame({
+    name: "Text persistence",
+    topic: "Algebra",
+    subtopic: "Linear equations",
+    surfaceId: "whiteboard",
+    lines: 1,
+    background: "day",
+  });
   return { ...game, slots: [{ ...makeSlot(0), text: "x + 7 = 12" }] };
 };
 
