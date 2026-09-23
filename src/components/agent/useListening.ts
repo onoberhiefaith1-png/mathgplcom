@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { classifyMicError, heldMicrophone, requestMicrophoneAccess } from "./micPermission";
+import { TranscriptionListener, transcribeSupported } from "./recognizeStream";
 
 export type ListeningMode = "off" | "wake" | "capture";
 
