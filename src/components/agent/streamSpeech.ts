@@ -28,7 +28,7 @@ function decodePCM(pending: Uint8Array, incoming: Uint8Array) {
  */
 export async function fetchSpeechChunks(
   text: string,
-  onChunk: (samples: Float32Array) => void,
+  onChunk: (samples: Float32Array<ArrayBuffer>) => void,
   signal?: AbortSignal,
 ): Promise<void> {
   signal?.throwIfAborted();

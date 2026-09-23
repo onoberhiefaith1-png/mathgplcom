@@ -9,7 +9,7 @@ import { fetchSpeechChunks } from "@/components/agent/streamSpeech";
 import { SPEECH_SAMPLE_RATE, unlockSharedAudio } from "@/components/agent/sharedAudio";
 
 /** How loud a block of her own voice is, so barge-in can ignore it. */
-function loudness(samples: Float32Array): number {
+function loudness(samples: Float32Array<ArrayBuffer>): number {
   let sum = 0;
   for (let index = 0; index < samples.length; index += 1) {
     const sample = samples[index] ?? 0;
@@ -20,7 +20,7 @@ function loudness(samples: Float32Array): number {
 
 type Piece = {
   text: string;
-  chunks: Float32Array[];
+  chunks: Float32Array<ArrayBuffer>[];
   done: boolean;
   failed: boolean;
   wake: (() => void) | null;
@@ -125,12 +125,11 @@ export class SpeechQueue {
     this.flush();
   }
 
-  private context() {
-    // The device is shared and never closed, so this is cheap.
-    return typeof window === "undefined" ? null : (window as unknown as { __auraAudio?: AudioContext }).__auraAudio ?? this.cached;
-  }
-
   private cached: AudioContext | null = null;
+
+  private context() {
+    return this.cached;
+  }
 
   private setSpeaking(next: boolean) {
     if (this.speaking === next) return;
@@ -173,7 +172,7 @@ export class SpeechQueue {
     }
   }
 
-  private schedule(context: AudioContext, samples: Float32Array) {
+  private schedule(context: AudioContext, samples: Float32Array<ArrayBuffer>) {
     const buffer = context.createBuffer(1, samples.length, SPEECH_SAMPLE_RATE);
     buffer.copyToChannel(samples, 0);
     const source = context.createBufferSource();
