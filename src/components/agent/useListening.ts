@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { classifyMicError, heldMicrophone, requestMicrophoneAccess } from "./micPermission";
+import { TranscriptionListener, transcribeSupported } from "./recognizeStream";
 
 export type ListeningMode = "off" | "wake" | "capture";
 
@@ -84,11 +85,18 @@ type ListeningOptions = {
   onWake: (command: string) => void;
   /** True while Aura speaks or works, so her own voice can never wake her. */
   paused: boolean;
+  /**
+   * Which ear to use. "transcribe" records slices of the held microphone and has
+   * them transcribed on the platform — the only ear that works reliably on a
+   * phone. "recognition" uses the browser's own listener.
+   */
+  prefer?: "transcribe" | "recognition";
 };
 
 const MAX_CONSECUTIVE_FAILURES = 4;
 
-export function useListening({ onWake, paused }: ListeningOptions) {
+export function useListening({ onWake, paused, prefer = "transcribe" }: ListeningOptions) {
+  const preferTranscribe = prefer === "transcribe";
   const [supported, setSupported] = useState(false);
   const [mode, setMode] = useState<ListeningMode>("off");
   const [level, setLevel] = useState(0);
@@ -102,6 +110,11 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   const finalText = useRef("");
   /** True while a live guess is on screen but its finished words have not landed. */
   const awaitingFinal = useRef(false);
+  /** The recording ear, while it is running. */
+  const transcriber = useRef<TranscriptionListener | null>(null);
+  const transcribeFails = useRef(0);
+  /** Set once transcription has proved unavailable, so the browser ear is used. */
+  const fallback = useRef(false);
 
   const stream = useRef<MediaStream | null>(null);
   const audio = useRef<AudioContext | null>(null);
@@ -128,8 +141,10 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   }, [paused]);
 
   useEffect(() => {
-    setSupported(recognitionConstructor() !== null);
-  }, []);
+    // Either ear counts: recording and transcribing works where the browser's
+    // own listener does not exist at all.
+    setSupported(recognitionConstructor() !== null || (preferTranscribe && transcribeSupported()));
+  }, [preferTranscribe]);
 
   const stopMeter = useCallback(() => {
     if (meter.current !== null) cancelAnimationFrame(meter.current);
@@ -198,13 +213,104 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   }, []);
 
 
+  /**
+   * What was heard, wherever it came from. Finished words are added to the end of
+   * the turn and never replace it; a live guess is only ever shown.
+   */
+  const absorb = useCallback(
+    (finalHeard: string, interim: string) => {
+      awaitingFinal.current = interim.trim().length > 0;
+      // Her own voice must never become an instruction, not even a stray word
+      // of it: while she speaks or works, nothing heard is kept.
+      if (pausedRef.current) {
+        finalText.current = "";
+        setTranscript("");
+        return;
+      }
+      // Everything heard in this turn is added together, never replaced, so
+      // "let's go" is still there when "come home" arrives.
+      if (finalHeard) finalText.current = `${finalText.current} ${finalHeard}`.trim();
+      const heard = `${finalText.current} ${interim}`.trim();
+      if (!heard) return;
+
+      if (wanted.current === "wake") {
+        const { woke, command } = extractWakeCommand(heard);
+        if (!woke) {
+          setTranscript(heard.slice(-90));
+          return;
+        }
+        finalText.current = command;
+        setTranscript(command);
+        wanted.current = "capture";
+        setMode("capture");
+        void startMeter(liveHeld());
+        wake.current(command);
+        return;
+      }
+      setTranscript(heard);
+    },
+    [liveHeld, startMeter],
+  );
+
+  /** So a fallback can restart listening without depending on declaration order. */
+  const beginRef = useRef<(() => void) | null>(null);
+
+  /** Listening by recording short slices and transcribing them on the platform. */
+  const beginTranscribe = useCallback(async () => {
+    if (wanted.current === "off") return false;
+    if (transcriber.current?.active) return true;
+    let media = liveHeld();
+    if (!media) {
+      const result = await requestMicrophoneAccess();
+      if (!result.stream) return false;
+      media = result.stream;
+    }
+    // Permission may have taken a moment; the teacher could have stopped by now.
+    if ((wanted.current as ListeningMode) === "off") return true;
+    const listener = new TranscriptionListener({
+      stream: media,
+      onHeard: (text) => absorb(text, ""),
+      onPending: (pending) => {
+        // A slice still out for transcription means the end of the sentence is
+        // still owed, so a turn can never close on the silence timer yet.
+        if (pending) awaitingFinal.current = true;
+        else if (!pending) awaitingFinal.current = false;
+      },
+      onError: () => {
+        transcribeFails.current += 1;
+        if (transcribeFails.current < 3) return;
+        // Transcription is not answering: fall back to the browser's own ear.
+        listener.stop();
+        transcriber.current = null;
+        fallback.current = true;
+        if (wanted.current !== "off") {
+          restart.current = window.setTimeout(() => beginRef.current?.(), 200);
+        }
+      },
+    });
+    transcriber.current = listener;
+    listener.start();
+    void startMeter(media);
+    setMode(wanted.current);
+    return true;
+  }, [absorb, liveHeld, startMeter]);
+
   const begin = useCallback(() => {
+    if (wanted.current === "off") return;
+    if (!fallback.current && preferTranscribe && transcribeSupported()) {
+      void beginTranscribe().then((ok) => {
+        if (!ok) {
+          fallback.current = true;
+          begin();
+        }
+      });
+      return;
+    }
     const Ctor = recognitionConstructor();
     if (!Ctor) {
       setError("unsupported");
       return;
     }
-    if (wanted.current === "off") return;
     try {
       const instance = new Ctor();
       instance.lang = document.documentElement.lang || "en-US";
@@ -221,40 +327,7 @@ export function useListening({ onWake, paused }: ListeningOptions) {
           else interim += result[0].transcript;
         }
         failures.current = 0;
-        // A live guess means the engine still owes us the finished words; a turn
-        // must never close on the silence timer while that is outstanding.
-        awaitingFinal.current = interim.trim().length > 0;
-        // Her own voice must never become an instruction, not even a stray word
-        // of it: while she speaks or works, nothing heard is kept.
-        if (pausedRef.current) {
-          finalText.current = "";
-          setTranscript("");
-          return;
-        }
-        // Everything heard in this turn is added together, never replaced, so
-        // "let's go" is still there when "come home" arrives.
-        if (finalHeard) finalText.current = `${finalText.current} ${finalHeard}`.trim();
-        const heard = `${finalText.current} ${interim}`.trim();
-        if (!heard) return;
-
-
-
-
-        if (wanted.current === "wake") {
-          const { woke, command } = extractWakeCommand(heard);
-          if (!woke) {
-            setTranscript(heard.slice(-90));
-            return;
-          }
-          finalText.current = command;
-          setTranscript(command);
-          wanted.current = "capture";
-          setMode("capture");
-          void startMeter(liveHeld());
-          wake.current(command);
-          return;
-        }
-        setTranscript(heard);
+        absorb(finalHeard, interim);
       };
 
       instance.onerror = (event) => {
@@ -296,7 +369,11 @@ export function useListening({ onWake, paused }: ListeningOptions) {
       setError("failed");
       setMode("off");
     }
-  }, [liveHeld, startMeter, stopMeter]);
+  }, [absorb, beginTranscribe, preferTranscribe, stopMeter]);
+
+  useEffect(() => {
+    beginRef.current = begin;
+  }, [begin]);
 
   const start = useCallback(
     (next: Exclude<ListeningMode, "off">, granted?: MediaStream | null) => {
@@ -304,16 +381,23 @@ export function useListening({ onWake, paused }: ListeningOptions) {
       finalText.current = "";
       setTranscript("");
       failures.current = 0;
+      transcribeFails.current = 0;
       if (granted && granted.getAudioTracks().some((track) => track.readyState === "live")) {
         held.current = granted;
       }
       const switching = wanted.current !== "off" && wanted.current !== next;
       wanted.current = next;
       if (next === "capture") void startMeter(liveHeld());
-      else stopMeter();
 
       if (restart.current !== null) window.clearTimeout(restart.current);
       restart.current = null;
+
+      // The recording ear does not care which mode it is in: the words are read
+      // the same way, so an already-running recorder simply keeps going.
+      if (transcriber.current?.active) {
+        setMode(next);
+        return;
+      }
 
       if (switching || recognition.current) {
         // One instance only — restart the existing session in the new mode.
@@ -330,8 +414,9 @@ export function useListening({ onWake, paused }: ListeningOptions) {
       }
       begin();
     },
-    [begin, liveHeld, startMeter, stopMeter],
+    [begin, liveHeld, startMeter],
   );
+
 
 
   const stop = useCallback(() => {
@@ -345,6 +430,9 @@ export function useListening({ onWake, paused }: ListeningOptions) {
       /* already stopped */
     }
     recognition.current = null;
+    // The recorder stops; the microphone itself is left open, as always.
+    transcriber.current?.stop();
+    transcriber.current = null;
     finalText.current = "";
     setTranscript("");
     setMode("off");
@@ -378,7 +466,7 @@ export function useListening({ onWake, paused }: ListeningOptions) {
     if (typeof document === "undefined") return;
     const resume = () => {
       if (document.visibilityState !== "visible") return;
-      if (wanted.current === "off" || recognition.current) return;
+      if (wanted.current === "off" || recognition.current || transcriber.current?.active) return;
       failures.current = 0;
       if (restart.current !== null) window.clearTimeout(restart.current);
       restart.current = window.setTimeout(begin, 200);
@@ -397,6 +485,8 @@ export function useListening({ onWake, paused }: ListeningOptions) {
       } catch {
         /* nothing to stop */
       }
+      transcriber.current?.stop();
+      transcriber.current = null;
       stopMeter();
     },
     [stopMeter],
