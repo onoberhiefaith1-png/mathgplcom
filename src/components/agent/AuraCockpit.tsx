@@ -63,6 +63,7 @@ export default function AuraCockpit() {
     micPermission,
     requestMic,
     toggleRecorder,
+    voice,
     teaching,
     stopTeaching,
     usageNote,
@@ -74,7 +75,9 @@ export default function AuraCockpit() {
   const [draft, setDraft] = useState("");
   const busy = status === "submitted";
   const dragging = useRef(false);
-  const recording = listening.mode === "capture";
+  // A live conversation uses the same microphone, but it is not a recording.
+  const recording = listening.mode === "capture" && !voice.active;
+
 
   // While the recorder runs, the words she hears fill the box as they arrive.
   useEffect(() => {
