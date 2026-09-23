@@ -250,6 +250,9 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
     [liveHeld, startMeter],
   );
 
+  /** So a fallback can restart listening without depending on declaration order. */
+  const beginRef = useRef<(() => void) | null>(null);
+
   /** Listening by recording short slices and transcribing them on the platform. */
   const beginTranscribe = useCallback(async () => {
     if (wanted.current === "off") return false;
