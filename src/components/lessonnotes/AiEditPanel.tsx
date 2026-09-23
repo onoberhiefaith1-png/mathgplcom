@@ -27,6 +27,9 @@ export interface AiEditTarget {
   text: string;
   kind: SelectionKind;
   json?: unknown;
+  /** "compose" = opened from the top bar with nothing highlighted: the teacher
+   *  pastes/types content and Accept INSERTS it. Default "replace". */
+  mode?: "replace" | "compose";
 }
 
 interface Props {
@@ -137,6 +140,7 @@ export function AiEditPanel({
   useEffect(() => {
     if (!open) return;
     setInstruction("");
+    setComposeText("");
     setProposed(null);
     setShowSuggestions(false);
     setDiag(null);
@@ -158,8 +162,13 @@ export function AiEditPanel({
     return () => window.clearTimeout(t);
   }, [diag, revealedCount]);
 
+  const compose = target?.mode === "compose";
   const runWith = async (text: string) => {
     if (!target) return;
+    if (compose && !composeText.trim() && !text) {
+      setError("Paste or type some content, or write an instruction, first.");
+      return;
+    }
     // A new request always supersedes the previous one.
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -169,7 +178,7 @@ export function AiEditPanel({
     setDiag(null);
     setRevealedCount(0);
     try {
-      const result = await onGenerate(text, target, ctrl.signal);
+      const result = await onGenerate(text, compose ? { ...target, text: composeText } : target, ctrl.signal);
       if (ctrl.signal.aborted) return;
       setProposed(result);
       const d = getDiagnostics?.() ?? null;
@@ -202,7 +211,7 @@ export function AiEditPanel({
       await runWith(instruction.trim());
       return;
     }
-    if (instruction.trim()) {
+    if (instruction.trim() || compose) {
       setShowSuggestions(false);
       await runWith(instruction.trim());
     } else {
@@ -222,7 +231,7 @@ export function AiEditPanel({
     try {
       const applied = await onApply(proposed);
       if (applied) onClose();
-      else setError("The accepted edit could not replace the highlighted content. Your proposal is still here—highlight the content again and retry.");
+      else setError(compose ? "The content could not be inserted into the note. Your proposal is still here—try again." : "The accepted edit could not replace the highlighted content. Your proposal is still here—highlight the content again and retry.");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg || "The accepted edit could not be applied.");
@@ -254,8 +263,8 @@ export function AiEditPanel({
     >
       <div className="px-4 py-3 border-b flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-primary" />
-        <h2 className="text-sm font-medium">AI Edit</h2>
-        {target && (
+        <h2 className="text-sm font-medium">{compose ? "AI Edit — new content" : "AI Edit"}</h2>
+        {target && !compose && (
           <span className="text-[10px] uppercase tracking-wider text-foreground/55">
             · {SELECTION_KIND_LABELS[target.kind]}
           </span>
@@ -270,8 +279,8 @@ export function AiEditPanel({
         </button>
       </div>
 
-        {/* Selected content preview (always visible). */}
-        {target && (
+        {/* Selected content preview (highlight mode only). */}
+        {target && !compose && (
           <div className="px-4 py-3 border-b bg-foreground/5">
             <p className="text-[10px] uppercase tracking-wider text-foreground/55 mb-1">Selected</p>
             <div className="text-sm max-h-24 overflow-auto whitespace-pre-wrap break-words">
@@ -294,6 +303,24 @@ export function AiEditPanel({
 
         {proposed == null ? (
           <div className="flex-1 overflow-auto p-4 space-y-3">
+            {compose && (
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase tracking-wider text-foreground/55">
+                  Paste or type content (a lesson, question, maths, anything)
+                </p>
+                <AutoTextarea
+                  value={composeText}
+                  onChange={(e) => setComposeText(e.target.value)}
+                  placeholder="Paste a lesson from ChatGPT, a question, a paragraph…"
+                  minRows={8}
+                  maxRows={20}
+                  className="w-full text-sm leading-relaxed bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40"
+                />
+                <p className="text-[10px] uppercase tracking-wider text-foreground/55 pt-2">
+                  Instruction (optional)
+                </p>
+              </div>
+            )}
             {simpleMode && simpleCaption && (
               <p className="text-xs text-foreground/65 leading-snug">{simpleCaption}</p>
             )}
@@ -310,7 +337,7 @@ export function AiEditPanel({
               placeholder={
                 simpleMode
                   ? "Optional: tell AI what to fix or how you want it…"
-                  : "Tell AI what you want to do…"
+                  : compose ? "e.g. structure this as a lesson note, or: write two worked examples on…" : "Tell AI what you want to do…"
               }
               minRows={simpleMode ? 3 : 4}
               maxRows={12}
@@ -502,12 +529,12 @@ export function AiEditPanel({
 
             <p className="text-[10px] uppercase tracking-wider text-foreground/55">Preview changes</p>
             <div className="grid grid-cols-1 gap-3">
-              <div className="rounded-md border border-foreground/15 p-2">
+              {!compose && <div className="rounded-md border border-foreground/15 p-2">
                 <p className="text-[10px] uppercase tracking-wider text-foreground/55 mb-1">Current</p>
                 <div className="text-sm whitespace-pre-wrap break-words">
                   {target ? safePreview(target.text) : null}
                 </div>
-              </div>
+              </div>}
               <div className="rounded-md border border-primary/30 bg-primary/5 p-2">
                 <p className="text-[10px] uppercase tracking-wider text-primary mb-1">Proposed</p>
                 <div className="text-sm whitespace-pre-wrap break-words">
@@ -563,7 +590,7 @@ export function AiEditPanel({
                 onClick={handleApply}
                 className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90"
               >
-                <Check className="h-3 w-3" /> Accept
+                <Check className="h-3 w-3" /> {compose ? "Accept — insert into note" : "Accept"}
               </button>
             </>
           )}
