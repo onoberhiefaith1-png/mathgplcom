@@ -41,6 +41,9 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
 
   if (math.rows.length === 0 && !note) return null;
 
+  const surfacePx = Math.max(24, width * PX_PER_UNIT);
+  const fontSize = Math.max(8, Math.min(settings.size, surfacePx * 0.9));
+
   return (
     <Html transform position={[0, 0, 0.025]} scale={40 / PX_PER_UNIT} zIndexRange={[4, 0]} pointerEvents="none" style={{ pointerEvents: "none" }}>
       <div
