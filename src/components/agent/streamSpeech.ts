@@ -80,8 +80,22 @@ export async function fetchSpeechChunks(
     reader.releaseLock();
   }
 
+  spokenSamples += heard;
   if (!completed || !heard || pending.length) throw new Error("Incomplete speech stream");
 }
+
+// How much sound she has actually made since this was last read. Her voice is
+// billed by the second, so the figure is measured from the audio itself rather
+// than guessed from the length of the text.
+let spokenSamples = 0;
+
+/** Seconds of speech produced since the last read, then reset to zero. */
+export function takeSpokenSeconds(): number {
+  const seconds = spokenSamples / SPEECH_SAMPLE_RATE;
+  spokenSamples = 0;
+  return seconds;
+}
+
 
 /**
  * Speaks one piece of text on the shared device and resolves when it has been
