@@ -289,7 +289,7 @@ async function startTurn(
   if (options.call) {
     const full = callNeedsFullAbilities(messages);
     const result = streamText({
-      model: lovable.responses(AGENT_MODEL),
+      model: lovable.chat(AGENT_MODEL),
       system: await callBriefing(ctx, hint, context),
       messages,
       tools: buildTools(ctx, steps, full ? undefined : { only: CALL_TOOL_IDS }),
@@ -301,7 +301,7 @@ async function startTurn(
 
   const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
   const result = streamText({
-    model: lovable.responses(AGENT_MODEL),
+    model: lovable.chat(AGENT_MODEL),
     system: buildAgentSystemPrompt(hint, context, learned),
     messages,
     tools: buildTools(ctx, steps),
@@ -363,7 +363,7 @@ export async function runAgentGreeting(ctx: AgentToolContext): Promise<{ greetin
 
   const lovable = provider(apiKey());
   const result = streamText({
-    model: lovable.responses(AGENT_MODEL),
+    model: lovable.chat(AGENT_MODEL),
     system: buildAgentSystemPrompt(),
     prompt: `${AGENT_GREETING_INSTRUCTION}\n\nSNAPSHOT:\n${JSON.stringify(snapshot.data)}`,
     providerOptions: RESPONSES_OPTIONS as never,

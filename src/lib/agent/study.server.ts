@@ -322,7 +322,7 @@ export async function runStudyStep(ctx: AgentToolContext, input: StudyStep): Pro
     : [{ role: "user", content: opening } as ModelMessage];
 
   const result = streamText({
-    model: lovable.responses(AGENT_MODEL),
+    model: lovable.chat(AGENT_MODEL),
     system: [
       STUDY_RULES,
       MODEL_LESSON_NOTE,
