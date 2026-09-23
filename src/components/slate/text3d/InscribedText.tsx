@@ -65,8 +65,8 @@ export function InscribedText({
   const fontSize = settings.size / PX_PER_UNIT;
   // how strongly the letters read as cut into the material
   const bind = integrationFactor(settings.integration);
-  const cut = 0.055 * fontSize * Math.max(0.15, settings.depth) * bind;
-  const lip = 0.05 * fontSize * Math.max(0.15, settings.bevel) * bind;
+  const cut = 0.055 * fontSize * Math.max(0, settings.depth) * bind;
+  const lip = 0.05 * fontSize * Math.max(0, settings.bevel) * bind;
   const dir = recipe.sunk ? 1 : -1; // sunk letters catch light on the lower edge
   const short = text.length <= 90;
   const layers = short ? recipe.layers : Math.min(2, recipe.layers);
@@ -188,24 +188,28 @@ export function InscribedText({
       <Text
         {...shared}
         position={[0, 0, -0.007]}
-        color={recipe.shade}
-        fillOpacity={0.34 * bind * fade}
-        outlineWidth={fontSize * 0.035 * bind}
-        outlineBlur={fontSize * 0.11}
-        outlineColor={recipe.shade}
-        outlineOpacity={0.5 * bind * fade}
+        color={recipe.contact}
+        fillOpacity={recipe.contactOpacity * bind * fade}
+        outlineWidth={fontSize * Math.max(0.006, recipe.outlineWidth) * bind}
+        outlineBlur={fontSize * Math.max(0.01, recipe.shadowBlur)}
+        outlineColor={recipe.contact}
+        outlineOpacity={recipe.contactOpacity * bind * fade}
         renderOrder={2}
       >
         {visibleText}
       </Text>
 
       {/* shadow sunk into the cut */}
-      {settings.shadow ? (
+      {recipe.shadowOpacity > 0 ? (
         <Text
           {...shared}
-          position={[0, dir * cut * 1.4, -0.006]}
-          color={recipe.shade}
-          fillOpacity={Math.min(1, 0.85 * settings.shadowStrength) * fade}
+          position={[recipe.shadowOffset[0] * fontSize, recipe.shadowOffset[1] * fontSize + dir * cut * 0.5, -0.006]}
+          color={recipe.shadow}
+          fillOpacity={Math.min(1, recipe.shadowOpacity) * fade}
+          outlineWidth={fontSize * recipe.shadowBlur}
+          outlineBlur={fontSize * recipe.shadowBlur}
+          outlineColor={recipe.shadow}
+          outlineOpacity={Math.min(1, recipe.shadowOpacity) * fade}
           renderOrder={3}
         >
           {visibleText}
@@ -266,8 +270,8 @@ export function InscribedText({
           position={[0, 0, -0.0012]}
           color={recipe.glow}
           fillOpacity={recipe.glowOpacity * fade}
-          outlineWidth={fontSize * 0.05}
-          outlineBlur={fontSize * 0.16}
+          outlineWidth={fontSize * Math.max(0.01, recipe.outlineWidth)}
+          outlineBlur={fontSize * Math.max(0.02, recipe.shadowBlur)}
           outlineColor={recipe.glow}
           outlineOpacity={recipe.glowOpacity * 0.8 * fade}
           renderOrder={16}
