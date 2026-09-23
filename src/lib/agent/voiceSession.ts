@@ -37,6 +37,12 @@ export type VoiceTuning = {
   finalWaitMs: number;
   /** No single turn may run longer than this. */
   maxTurnMs: number;
+  /** The shortest pause she will ever wait, once she knows their rhythm. */
+  minEndOfTurnMs: number;
+  /** How much the pause shortens after each turn that closed cleanly. */
+  rhythmStepMs: number;
+  /** A last look before answering: speech inside this window cancels the turn. */
+  graceMs: number;
 };
 
 export const VOICE_TUNING: VoiceTuning = {
@@ -51,7 +57,37 @@ export const VOICE_TUNING: VoiceTuning = {
   bargeOverSelf: 1.45,
   finalWaitMs: 1800,
   maxTurnMs: 30000,
+  minEndOfTurnMs: 450,
+  rhythmStepMs: 120,
+  graceMs: 140,
 };
+
+/** Little noises that answer her rather than ask her anything. */
+const ACKNOWLEDGEMENTS = new Set([
+  "ok",
+  "okay",
+  "mm",
+  "mmm",
+  "mhm",
+  "mm-hm",
+  "uh huh",
+  "uh-huh",
+  "yeah",
+  "yep",
+  "yes",
+  "right",
+  "sure",
+  "thanks",
+  "thank you",
+  "got it",
+  "i see",
+]);
+
+/** True for a short noise of agreement said straight after she finished. */
+export function isAcknowledgement(heard: string): boolean {
+  const text = heard.toLowerCase().replace(/[.,!?…]/g, "").replace(/\s+/g, " ").trim();
+  return ACKNOWLEDGEMENTS.has(text);
+}
 
 export type VoiceSample = {
   now: number;
