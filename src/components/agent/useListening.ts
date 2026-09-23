@@ -61,19 +61,23 @@ export function extractWakeCommand(heard: string): { woke: boolean; command: str
 export function describeListeningError(error: ListeningError): string {
   if (error === "unsupported") return "This browser can't listen. Type to me instead.";
   if (error === "blocked") return "I need permission to use your microphone.";
-  if (error === "no-microphone") return "I couldn't find a microphone to listen with.";
+  if (error === "in-use") return "Another app is holding your microphone. Close it, then try again.";
+  if (error === "no-microphone") return "No microphone detected on this device.";
   if (error === "unavailable") return "Listening isn't available right now.";
   return "I lost the microphone. Tap to try again.";
 }
 
 export function mapRecognitionError(code: string | undefined): ListeningError | null {
   if (code === "not-allowed" || code === "permission-denied") return "blocked";
-  if (code === "audio-capture") return "no-microphone";
+  // Recognition losing the audio proves nothing about the device existing, so
+  // this is never reported as a missing microphone.
+  if (code === "audio-capture") return "failed";
   if (code === "service-not-allowed" || code === "language-not-supported") return "unavailable";
   // A silence timeout or a deliberate stop is normal, not a failure.
   if (code === "no-speech" || code === "aborted") return null;
   return "failed";
 }
+
 
 type ListeningOptions = {
   /** Called with the words spoken after her name. Empty string means name only. */
