@@ -20,6 +20,7 @@ import {
   stopBrowserVoice,
   streamSpeech,
 } from "@/components/agent/streamSpeech";
+import { useListening, type ListeningEngine } from "@/components/agent/useListening";
 
 import { agentChat, agentGreeting } from "./brain.functions";
 import type { AgentStep } from "./brain.server";
