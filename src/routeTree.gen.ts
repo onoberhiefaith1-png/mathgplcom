@@ -36,6 +36,7 @@ import { Route as ApiAuraSpeechRouteImport } from './routes/api/aura-speech'
 import { Route as ApiAuraTurnRouteImport } from './routes/api/aura-turn'
 import { Route as ApiCourseBackgroundRouteImport } from './routes/api/course-background'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
+import { Route as AuraIndexRouteImport } from './routes/aura/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuthAcceptInviteRouteImport } from './routes/auth/accept-invite'
 import { Route as AuthAdminRouteImport } from './routes/auth/admin'
@@ -468,6 +469,11 @@ const ApiCourseBackgroundRoute = ApiCourseBackgroundRouteImport.update({
 const AssetsIndexRoute = AssetsIndexRouteImport.update({
   id: '/assets/',
   path: '/assets/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuraIndexRoute = AuraIndexRouteImport.update({
+  id: '/aura/',
+  path: '/aura/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
@@ -2159,6 +2165,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
   '/assets/': typeof AssetsIndexRoute
+  '/aura/': typeof AuraIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/backgrounds/': typeof BackgroundsIndexRoute
   '/community/': typeof CommunityIndexRoute
@@ -2474,6 +2481,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/adventure': typeof AdventureIndexRoute
   '/assets': typeof AssetsIndexRoute
+  '/aura': typeof AuraIndexRoute
   '/auth': typeof AuthIndexRoute
   '/backgrounds': typeof BackgroundsIndexRoute
   '/community': typeof CommunityIndexRoute
@@ -2802,6 +2810,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/adventure/': typeof AdventureIndexRoute
   '/assets/': typeof AssetsIndexRoute
+  '/aura/': typeof AuraIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/backgrounds/': typeof BackgroundsIndexRoute
   '/community/': typeof CommunityIndexRoute
@@ -3131,6 +3140,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/adventure/'
     | '/assets/'
+    | '/aura/'
     | '/auth/'
     | '/backgrounds/'
     | '/community/'
@@ -3446,6 +3456,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/adventure'
     | '/assets'
+    | '/aura'
     | '/auth'
     | '/backgrounds'
     | '/community'
@@ -3773,6 +3784,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/adventure/'
     | '/assets/'
+    | '/aura/'
     | '/auth/'
     | '/backgrounds/'
     | '/community/'
@@ -4097,6 +4109,7 @@ export interface RootRouteChildren {
   AccessIndexRoute: typeof AccessIndexRoute
   AccountIndexRoute: typeof AccountIndexRoute
   AssetsIndexRoute: typeof AssetsIndexRoute
+  AuraIndexRoute: typeof AuraIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   BackgroundsIndexRoute: typeof BackgroundsIndexRoute
   GameIndexRoute: typeof GameIndexRoute
@@ -4396,6 +4409,13 @@ declare module '@tanstack/react-router' {
       path: '/assets'
       fullPath: '/assets/'
       preLoaderRoute: typeof AssetsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aura/': {
+      id: '/aura/'
+      path: '/aura'
+      fullPath: '/aura/'
+      preLoaderRoute: typeof AuraIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/': {
@@ -7079,6 +7099,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccessIndexRoute: AccessIndexRoute,
   AccountIndexRoute: AccountIndexRoute,
   AssetsIndexRoute: AssetsIndexRoute,
+  AuraIndexRoute: AuraIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   BackgroundsIndexRoute: BackgroundsIndexRoute,
   GameIndexRoute: GameIndexRoute,
