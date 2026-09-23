@@ -93,17 +93,11 @@ export function provider(apiKey: string) {
 }
 
 /**
- * No hidden thinking tokens are bought on an ordinary turn: nothing is
- * summarised, nothing is returned encrypted. That removed both the long wait
- * before she answered and the great majority of what she used to cost.
- * `store: false` stays because the gateway keeps no conversation state.
+ * No hidden thinking is bought on an ordinary turn: every reply she pays for is
+ * words the teacher actually hears. The gateway keeps no conversation state, so
+ * the short running brief in the prompt is her whole memory of the call.
  */
-export const RESPONSES_OPTIONS = {
-  openai: { store: false },
-} as const;
 
-/** A spoken turn uses the same lightweight settings. */
-const CALL_RESPONSES_OPTIONS = RESPONSES_OPTIONS;
 
 /** The everyday abilities a spoken turn almost always needs. */
 const CALL_TOOL_IDS = new Set([
