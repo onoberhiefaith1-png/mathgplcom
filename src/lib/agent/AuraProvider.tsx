@@ -1192,3 +1192,11 @@ export function useAura(): AuraValue {
   if (!value) throw new Error("useAura must be used inside AuraProvider.");
   return value;
 }
+
+/**
+ * The same conversation, but safe on a page a visitor can reach: before anyone
+ * signs in there is no assistant yet, so this answers null instead of throwing.
+ */
+export function useAuraMaybe(): AuraValue | null {
+  return useContext(AuraContext);
+}
