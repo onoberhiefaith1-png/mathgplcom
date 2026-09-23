@@ -38,6 +38,16 @@ describe("AI Edit rebuilds diagrams as native geometry", () => {
     expect(objs.filter((o: any) => o.type === "angle").map((o: any) => o.value)).toEqual(["110°", "x"]);
   });
 
+  it("normalises AI geometry aliases into native parallel-transversal geometry", () => {
+    const nodes = aiTextToNodes('[[tool:geometry type="parallelLinesTransversal" angle1Label="110°" angle2Label="x" parallel="line1 line2" confidence="high"]]');
+    const g = geo(nodes);
+    expect(g).toBeTruthy();
+    expect(relationsHold(g.attrs.scene)).toBe(true);
+    const objs = g.attrs.scene.objects;
+    expect(objs.filter((o: any) => o.type === "segment")).toHaveLength(3);
+    expect(objs.filter((o: any) => o.type === "angle").map((o: any) => o.value)).toEqual(["110°", "x"]);
+  });
+
   it("graph directives become editable graph objects", () => {
     const graph = aiTextToNodes('[[tool:drawingPlan kind="graph" equation="y = 2*x + 3" xMin="-2" xMax="2"]]')[0];
     expect(graph.type).toBe("smartGraph");
