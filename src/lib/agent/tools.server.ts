@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { AGENT_TOOL_MANIFEST, findAgentTool, type AgentJson, type AgentToolResult } from "./toolTypes";
 import { buildTeachingScript } from "./teachingScript";
+import { findKnowledge, KNOWLEDGE_IDS } from "./knowledge";
 
 type Db = SupabaseClient<never, "public", never>;
 // The agent bridge writes through loosely typed payloads; generated types stay
@@ -355,6 +356,20 @@ const executors: Record<string, Executor> = {
     return {
       data: script as unknown,
       summary: `Teaching "${script.title}" aloud in ${script.steps.length} steps.`,
+    };
+  },
+
+  explain_workflow: async (_ctx, args) => {
+    const id = need(args, "workflow").trim();
+    const node = findKnowledge(id);
+    if (!node) {
+      throw new Error(
+        `There is no MathGPL workflow called "${id}". Known workflows: ${KNOWLEDGE_IDS.join(", ")}.`,
+      );
+    }
+    return {
+      data: node as unknown,
+      summary: `Checked how ${node.title} works in MathGPL.`,
     };
   },
 

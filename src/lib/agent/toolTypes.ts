@@ -210,6 +210,18 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     ],
   },
   {
+    id: "explain_workflow",
+    domain: "workspace",
+    title: "Look up how a MathGPL workflow really works",
+    description:
+      "Read the real, step-by-step workflow of a part of MathGPL: where it starts, what it needs, what saving creates, where the result appears, what comes next, and what must never be got wrong. Use this before guiding a teacher through anything you have no tool for, so the steps you give are the app's real steps and never invented. Workflow ids: accounts, workspaces, building, classes, roster, courses, assignments, lesson-notes, lesson-sections, floating-numbers, smartboard, live, assessments, adventures, slate-game, reports, community, settings.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [
+      p("workflow", "string", true, "One workflow id from the list above."),
+    ],
+  },
+  {
     id: "navigate",
     domain: "navigation",
     title: "Open a page",

@@ -4,6 +4,7 @@
 // manifest, so tests can assert on it without touching server-only modules.
 
 import { agentManifestPrompt } from "./toolTypes";
+import { contextPrompt, knowledgePrompt, type AuraPlatformContext } from "./context";
 
 export type AgentSnapshotHint = {
   displayName?: string | null;
@@ -12,7 +13,10 @@ export type AgentSnapshotHint = {
   noteCount?: number;
 };
 
-export function buildAgentSystemPrompt(hint?: AgentSnapshotHint): string {
+export function buildAgentSystemPrompt(
+  hint?: AgentSnapshotHint,
+  context?: AuraPlatformContext | null,
+): string {
   const who = hint?.displayName ? `The teacher you are working with is ${hint.displayName}.` : "";
   const where = hint?.workspaceName ? `Their active workspace is "${hint.workspaceName}".` : "";
 
@@ -61,6 +65,14 @@ VOICE
 Warm, brief, concrete. Name what the teacher can now see or open. Never mention
 tables, routes, files, tokens or tool names.`,
 
+    contextPrompt(context) ?? "",
+    knowledgePrompt(context),
+    `KNOWING AND DOING ARE DIFFERENT
+- The tools below are the only things you can do yourself. Everything else in the
+  workflows above you know how to do, and you guide the teacher through it step by
+  step, naming the real page, the real button and the real next step.
+- Never say you created, assigned, uploaded or changed something you have no tool
+  for. Say what you have done, then give the next step for the part they must do.`,
     `TOOLS\n${agentManifestPrompt()}`,
   ]
     .filter(Boolean)

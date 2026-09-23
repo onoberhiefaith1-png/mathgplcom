@@ -12,7 +12,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 
 import {
@@ -34,6 +34,7 @@ import {
 import { useListening, type ListeningEngine } from "@/components/agent/useListening";
 
 import { agentChat, agentGreeting } from "./brain.functions";
+import { contextFromPath, mergeContext, readAuraScreenContext } from "./context";
 import type { AgentStep } from "./brain.server";
 import { publishTeaching } from "./teachingBus";
 import {
@@ -150,6 +151,14 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const chat = useServerFn(agentChat);
   const greet = useServerFn(agentGreeting);
+
+  // Aura sees the page the teacher is on, and whatever that page reports about
+  // itself, so "this class" and "this lesson" never need explaining.
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpenState] = useState(false);
@@ -319,6 +328,10 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           messages: history
             .filter((m) => !m.error)
             .map((m) => ({ role: m.role, content: m.content })),
+          context: mergeContext(
+            contextFromPath(pathnameRef.current),
+            readAuraScreenContext(),
+          ),
         },
       })
         .then((turn) => {
