@@ -388,7 +388,7 @@ export const resolveTextStyle = (surface: SurfaceDef, t: TextSettings): Resolved
     t.depthColourStrength ?? 1,
   );
 
-  const depth = Math.max(0.05, t.depth);
+  const depth = Math.max(0, t.depth);
   const contrast = Math.max(0.2, t.contrast);
 
   let resolved: ResolvedTextStyle = {
@@ -396,7 +396,7 @@ export const resolveTextStyle = (surface: SurfaceDef, t: TextSettings): Resolved
     ...palette,
     ...base,
     extrude: base.extrude * depth,
-    bevel: base.bevel * Math.max(0.1, t.bevel),
+    bevel: base.bevel * Math.max(0, t.bevel),
     highlight: base.highlight * Math.max(0, t.highlight),
     shadowOpacity: t.shadow ? base.shadowOpacity * Math.max(0, t.shadowStrength) : 0,
     contactOpacity: t.shadow ? base.contactOpacity * Math.max(0, t.shadowStrength) : 0,
