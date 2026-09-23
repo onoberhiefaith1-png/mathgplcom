@@ -9,9 +9,9 @@
  * another viewer: the surface is the coordinate system, so a share of the
  * surface means the same thing everywhere.
  *
- * Placement is READ from this record. It is never re-derived from whatever
- * the renderer happened to measure first, and a runtime correction can never
- * overwrite it.
+ * Placement is READ from this record. A renderer may validate that placement
+ * against real glyph bounds and persist the smallest required correction, but
+ * no independent screen-coordinate position is allowed to overwrite it.
  */
 
 import type { TextAlign, TextSettings, GameTextViewport } from "./text3d";

@@ -117,7 +117,9 @@ export function WritingRegion({
   const shift = { x: savedOffset.x + guard.x, y: savedOffset.y + guard.y };
 
   // A fresh body (new question, new line, new text size, new surface) and every
-  // Restore start again from the saved record, never from an earlier correction.
+  // Restore start again from the canonical record. If it is invalid, the same
+  // measured rule immediately derives the correction again; owner Edit then
+  // persists that correction instead of leaving it in this local state.
   useEffect(() => {
     setGuard({ x: 0, y: 0 });
   }, [slotId, text, settings.size, settings.align, surface.id, width, height, restoreKey, saved.ax, saved.ay]);
