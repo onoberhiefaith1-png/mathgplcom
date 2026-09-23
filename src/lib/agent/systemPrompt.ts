@@ -4,6 +4,7 @@
 // manifest, so tests can assert on it without touching server-only modules.
 
 import { agentManifestPrompt } from "./toolTypes";
+import { contextPrompt, knowledgePrompt, type AuraPlatformContext } from "./context";
 
 export type AgentSnapshotHint = {
   displayName?: string | null;
