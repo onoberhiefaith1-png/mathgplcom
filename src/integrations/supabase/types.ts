@@ -1380,6 +1380,39 @@ export type Database = {
         }
         Relationships: []
       }
+      aura_missions: {
+        Row: {
+          created_at: string
+          id: string
+          ledger: Json
+          mission: string
+          status: string
+          transcript: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ledger?: Json
+          mission: string
+          status?: string
+          transcript?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ledger?: Json
+          mission?: string
+          status?: string
+          transcript?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       building_assets: {
         Row: {
           config: Json
