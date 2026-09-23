@@ -168,6 +168,25 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     ],
   },
   {
+    id: "teach_lesson",
+    domain: "teaching",
+    title: "Teach out loud on the board",
+    description:
+      "Teach a solution aloud, one micro-step at a time, while the board follows her: each sentence is spoken in order and the board's active line moves to the line that sentence is about. Use this whenever the teacher asks you to TEACH, explain on the board, or present a solution live. Say one micro-step per sentence, exactly as it would be written on a whiteboard, and never skip a transition.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [
+      p("say", "string[]", true, "One short spoken sentence per micro-step, in teaching order."),
+      p(
+        "lines",
+        "number[]",
+        false,
+        "1-based board line for each sentence, same order and length as 'say'. Use 0 or omit for an aside that belongs to no line.",
+      ),
+      p("title", "string", false, "Short name of what is being taught."),
+    ],
+  },
+  {
     id: "navigate",
     domain: "navigation",
     title: "Open a page",
@@ -177,6 +196,7 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     needsConfirmation: false,
     params: [p("path", "string", true, "In-app path starting with '/', e.g. '/teaching-hub/classes'.")],
   },
+
 ];
 
 export const AGENT_TOOL_IDS = AGENT_TOOL_MANIFEST.map((t) => t.id);
