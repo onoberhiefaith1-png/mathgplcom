@@ -5,6 +5,7 @@
 
 import type { SurfaceDef } from "./surfaces";
 import type { ResolvedTextStyle, TextPresetId } from "./textPresets";
+import { resolveTextStyle } from "./textPresets";
 
 export type TextStyleId =
   | "inscription"
@@ -274,6 +275,13 @@ export interface TextRecipe {
   metalness: number;
   emissive: string;
   emissiveIntensity: number;
+  shadow: string;
+  shadowOpacity: number;
+  shadowBlur: number;
+  contact: string;
+  contactOpacity: number;
+  outline: string;
+  outlineWidth: number;
   /** True when the letters sit inside the material rather than on top of it. */
   sunk: boolean;
   /** How many stacked passes simulate the cut depth. */
@@ -330,31 +338,30 @@ const materialTone = (
 
 /** Resolves the full physical treatment for one surface + settings pair. */
 export const textRecipe = (surface: SurfaceDef, t: TextSettings): TextRecipe => {
+  const resolved = resolveTextStyle(surface, t);
   const tone = materialTone(surface.id);
   const sunk = t.relief === "engraved" || t.relief === "carved";
   const base: TextRecipe = {
     font: FONTS[t.style],
-    ink: tone.ink ?? surface.ink,
-    shade: tone.shade ?? surface.inkShadow,
-    lip: tone.lip ?? surface.inkHighlight,
-    glow: null,
-    glowOpacity: 0,
+    ink: resolved.face,
+    shade: resolved.side,
+    lip: resolved.bevelHighlight,
+    glow: resolved.glowOpacity > 0 ? resolved.glow : null,
+    glowOpacity: resolved.glowOpacity,
     roughness: tone.roughness,
     metalness: tone.metalness,
-    emissive: "#000000",
-    emissiveIntensity: 0,
+    emissive: resolved.glowOpacity > 0 ? resolved.glow : "#000000",
+    emissiveIntensity: resolved.glowOpacity * 0.35,
+    shadow: resolved.shadow,
+    shadowOpacity: resolved.shadowOpacity,
+    shadowBlur: resolved.shadowBlur,
+    contact: resolved.contact,
+    contactOpacity: resolved.contactOpacity,
+    outline: resolved.outline,
+    outlineWidth: resolved.outlineWidth,
     sunk,
     layers: Math.max(0, Math.round(mix(0, 5, Math.min(1, t.depth / 2)))),
   };
-
-  // a chosen ink still has to behave like a cut: shade sinks, lip catches light
-  const chosen = t.colour ?? t.baseColour ?? null;
-  if (chosen) {
-    base.ink = chosen;
-    const depth = t.depthColour ?? chosen;
-    base.shade = shift(depth, -0.35);
-    base.lip = shift(depth, 0.42);
-  }
 
   // Each style reacts to light differently, so switching identity is visible
   // even on the same material.
