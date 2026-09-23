@@ -186,6 +186,7 @@ const GamePlayPage = () => {
     if (displayTextFrame.current !== null) window.cancelAnimationFrame(displayTextFrame.current);
     if (structuredMathFrame.current !== null) window.cancelAnimationFrame(structuredMathFrame.current);
     if (textRepairTimer.current !== null) window.clearTimeout(textRepairTimer.current);
+    if (marginTimer.current !== null) window.clearTimeout(marginTimer.current);
   }, []);
 
   useEffect(() => {
