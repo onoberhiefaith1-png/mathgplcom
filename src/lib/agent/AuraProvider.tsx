@@ -328,6 +328,10 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           messages: history
             .filter((m) => !m.error)
             .map((m) => ({ role: m.role, content: m.content })),
+          context: mergeContext(
+            contextFromPath(pathnameRef.current),
+            readAuraScreenContext(),
+          ),
         },
       })
         .then((turn) => {
