@@ -100,6 +100,8 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   const failures = useRef(0);
   const restart = useRef<number | null>(null);
   const finalText = useRef("");
+  /** True while a live guess is on screen but its finished words have not landed. */
+  const awaitingFinal = useRef(false);
 
   const stream = useRef<MediaStream | null>(null);
   const audio = useRef<AudioContext | null>(null);
@@ -351,10 +353,29 @@ export function useListening({ onWake, paused }: ListeningOptions) {
 
   const clearTranscript = useCallback(() => {
     finalText.current = "";
+    awaitingFinal.current = false;
     setTranscript("");
   }, []);
 
+  /** Whether the listening engine still owes us the end of the sentence. */
+  const finalPending = useCallback(() => awaitingFinal.current, []);
+
   const clearError = useCallback(() => setError(null), []);
+
+  // Locking the phone or switching apps ends the engine; coming back resumes it
+  // without touching the microphone and without ever asking again.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const resume = () => {
+      if (document.visibilityState !== "visible") return;
+      if (wanted.current === "off" || recognition.current) return;
+      failures.current = 0;
+      if (restart.current !== null) window.clearTimeout(restart.current);
+      restart.current = window.setTimeout(begin, 200);
+    };
+    document.addEventListener("visibilitychange", resume);
+    return () => document.removeEventListener("visibilitychange", resume);
+  }, [begin]);
 
   useEffect(
     () => () => {
