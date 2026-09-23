@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAura } from "@/lib/agent/AuraProvider";
 
-import { describeMicPermission } from "./micPermission";
+import { describeMicPermission, rememberAsked } from "./micPermission";
 
 export default function AuraMicPermission() {
   const { micPromptOpen, setMicPromptOpen, micPermission, requestMic, micRequesting } = useAura();
