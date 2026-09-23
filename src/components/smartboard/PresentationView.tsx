@@ -196,6 +196,8 @@ import { PresentationGeometryDiagram } from "@/components/lessonnotes/extensions
 import { itemObjectIds } from "@/lib/geometry/map/model";
 import { sortByPlacement } from "@/lib/floating/solutionItems";
 import type { SolutionObject } from "@/lib/floating/solutionItems";
+import { subscribeTeaching } from "@/lib/agent/teachingBus";
+
 
 
 
