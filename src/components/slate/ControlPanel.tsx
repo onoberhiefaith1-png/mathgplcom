@@ -27,6 +27,7 @@ import type { GameSoundSettings, RewardConversion } from "@/lib/slate/types";
 import { useState } from "react";
 import { toast } from "sonner";
 import { defaultAssetSettings, defaultNumberSettings, makeSlot, uid } from "@/lib/slate/defaults";
+import { defaultTextConfig, normalizeTextConfig } from "@/lib/slate/textConfig";
 import { putAsset, removeAsset } from "@/lib/slate/assets";
 import { SCRIPT_HINT, compileScript } from "@/lib/slate/vfx/script";
 import { PREMIUM_BOMB_PROFILES } from "@/lib/slate/vfx/premiumProfiles";
@@ -191,7 +192,54 @@ export function ControlPanel({
   const setSound = (patch: Partial<GameSoundSettings>) =>
     set({ sound: normalizeSoundSettings({ ...sound, ...patch }) });
   const t: TextSettings = s.text ?? defaultTextSettings();
-  const setText = (patch: Partial<TextSettings>) => set({ text: { ...t, ...patch } });
+  const setText = (patch: Partial<TextSettings>) => {
+    const nextText = { ...t, ...patch };
+    const shared = defaultTextConfig(nextText);
+    onChange({
+      settings: { ...s, text: nextText },
+      slots: game.slots.map((slot) => {
+        const saved = normalizeTextConfig(slot.textConfig, nextText);
+        return {
+          ...slot,
+          textConfig: {
+            ...saved,
+            desktopSize: shared.desktopSize,
+            tabletSize: shared.tabletSize,
+            mobileSize: shared.mobileSize,
+            align: shared.align,
+            colour: shared.colour,
+            lineSpacing: shared.lineSpacing,
+            letterSpacing: shared.letterSpacing,
+            style: shared.style,
+            depth: shared.depth,
+            bevel: shared.bevel,
+            relief: shared.relief,
+            contrast: shared.contrast,
+            shadow: shared.shadow,
+            shadowStrength: shared.shadowStrength,
+            highlight: shared.highlight,
+            glow: shared.glow,
+            glowIntensity: shared.glowIntensity,
+            opacity: shared.opacity,
+            integration: shared.integration,
+            substyle: shared.substyle,
+            preset: shared.preset,
+            baseColour: shared.baseColour,
+            mainTextColourStrength: shared.mainTextColourStrength,
+            depthColour: shared.depthColour,
+            depthColourStrength: shared.depthColourStrength,
+            animate: shared.animate,
+            livingAngle: shared.livingAngle,
+            livingDrift: shared.livingDrift,
+            livingLift: shared.livingLift,
+            livingScale: shared.livingScale,
+            livingDuration: shared.livingDuration,
+            ...(shared.advanced ? { advanced: shared.advanced } : {}),
+          },
+        };
+      }),
+    });
+  };
   const n: NumberSettings = s.numbers ?? defaultNumberSettings();
   const setNumbers = (patch: Partial<NumberSettings>) => set({ numbers: { ...n, ...patch } });
   const a: AssetSettings = s.assets ?? defaultAssetSettings();
