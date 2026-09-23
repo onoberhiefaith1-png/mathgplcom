@@ -371,22 +371,33 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
     }
   }, [absorb, beginTranscribe, preferTranscribe, stopMeter]);
 
+  useEffect(() => {
+    beginRef.current = begin;
+  }, [begin]);
+
   const start = useCallback(
     (next: Exclude<ListeningMode, "off">, granted?: MediaStream | null) => {
       setError(null);
       finalText.current = "";
       setTranscript("");
       failures.current = 0;
+      transcribeFails.current = 0;
       if (granted && granted.getAudioTracks().some((track) => track.readyState === "live")) {
         held.current = granted;
       }
       const switching = wanted.current !== "off" && wanted.current !== next;
       wanted.current = next;
       if (next === "capture") void startMeter(liveHeld());
-      else stopMeter();
 
       if (restart.current !== null) window.clearTimeout(restart.current);
       restart.current = null;
+
+      // The recording ear does not care which mode it is in: the words are read
+      // the same way, so an already-running recorder simply keeps going.
+      if (transcriber.current?.active) {
+        setMode(next);
+        return;
+      }
 
       if (switching || recognition.current) {
         // One instance only — restart the existing session in the new mode.
@@ -403,8 +414,9 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
       }
       begin();
     },
-    [begin, liveHeld, startMeter, stopMeter],
+    [begin, liveHeld, startMeter],
   );
+
 
 
   const stop = useCallback(() => {
