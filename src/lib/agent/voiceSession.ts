@@ -238,10 +238,17 @@ export class VoiceSession {
       if (this.speechStart === null) return [];
       this.quietSince ??= now;
       const quietFor = now - this.quietSince;
-      const ready = quietFor >= this.tuning.endOfTurnMs && this.spokenMs >= this.tuning.minSpeechMs;
+      // A noisy room needs the full pause; a quiet, settled one can be quicker.
+      const pause = this.noiseFloor > 0.08 ? this.tuning.endOfTurnMs : this.pauseMs;
+      const ready = quietFor >= pause && this.spokenMs >= this.tuning.minSpeechMs;
       // Never close on the timer alone while the last words are still coming.
       const stillListening = (sample.finalPending ?? false) && quietFor < this.tuning.finalWaitMs;
-      if (ready && !stillListening && heard.length > 0) return this.closeTurn(heard);
+      if (ready && !stillListening && heard.length > 0) {
+        // One last look before she answers, so she never steps on a last syllable.
+        this.pendingSince ??= now;
+        if (now - this.pendingSince >= this.tuning.graceMs) return this.closeTurn(heard);
+        return [];
+      }
       return this.overrunTurn(now, heard);
     }
 
