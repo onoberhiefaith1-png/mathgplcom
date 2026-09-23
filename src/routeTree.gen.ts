@@ -83,6 +83,7 @@ import { Route as AccountCommunityProfileIndexRouteImport } from './routes/accou
 import { Route as AdminAccessCodesIndexRouteImport } from './routes/admin/access-codes/index'
 import { Route as AdminAdvertisementsIndexRouteImport } from './routes/admin/advertisements/index'
 import { Route as AdminAssetsIndexRouteImport } from './routes/admin/assets/index'
+import { Route as AdminAuraTrainingIndexRouteImport } from './routes/admin/aura-training/index'
 import { Route as AdminBillingIndexRouteImport } from './routes/admin/billing/index'
 import { Route as AdminCostAnalyticsIndexRouteImport } from './routes/admin/cost-analytics/index'
 import { Route as AdminCostRevenueIndexRouteImport } from './routes/admin/cost-revenue/index'
@@ -704,6 +705,11 @@ const AdminAdvertisementsIndexRoute =
 const AdminAssetsIndexRoute = AdminAssetsIndexRouteImport.update({
   id: '/assets/',
   path: '/assets/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAuraTrainingIndexRoute = AdminAuraTrainingIndexRouteImport.update({
+  id: '/aura-training/',
+  path: '/aura-training/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminBillingIndexRoute = AdminBillingIndexRouteImport.update({
@@ -2187,6 +2193,7 @@ export interface FileRoutesByFullPath {
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
+  '/admin/aura-training/': typeof AdminAuraTrainingIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
@@ -2500,6 +2507,7 @@ export interface FileRoutesByTo {
   '/admin/access-codes': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements': typeof AdminAdvertisementsIndexRoute
   '/admin/assets': typeof AdminAssetsIndexRoute
+  '/admin/aura-training': typeof AdminAuraTrainingIndexRoute
   '/admin/billing': typeof AdminBillingIndexRoute
   '/admin/cost-analytics': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue': typeof AdminCostRevenueIndexRoute
@@ -2826,6 +2834,7 @@ export interface FileRoutesById {
   '/admin/access-codes/': typeof AdminAccessCodesIndexRoute
   '/admin/advertisements/': typeof AdminAdvertisementsIndexRoute
   '/admin/assets/': typeof AdminAssetsIndexRoute
+  '/admin/aura-training/': typeof AdminAuraTrainingIndexRoute
   '/admin/billing/': typeof AdminBillingIndexRoute
   '/admin/cost-analytics/': typeof AdminCostAnalyticsIndexRoute
   '/admin/cost-revenue/': typeof AdminCostRevenueIndexRoute
@@ -3153,6 +3162,7 @@ export interface FileRouteTypes {
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
+    | '/admin/aura-training/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
@@ -3466,6 +3476,7 @@ export interface FileRouteTypes {
     | '/admin/access-codes'
     | '/admin/advertisements'
     | '/admin/assets'
+    | '/admin/aura-training'
     | '/admin/billing'
     | '/admin/cost-analytics'
     | '/admin/cost-revenue'
@@ -3791,6 +3802,7 @@ export interface FileRouteTypes {
     | '/admin/access-codes/'
     | '/admin/advertisements/'
     | '/admin/assets/'
+    | '/admin/aura-training/'
     | '/admin/billing/'
     | '/admin/cost-analytics/'
     | '/admin/cost-revenue/'
@@ -4700,6 +4712,13 @@ declare module '@tanstack/react-router' {
       path: '/assets'
       fullPath: '/admin/assets/'
       preLoaderRoute: typeof AdminAssetsIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/aura-training/': {
+      id: '/admin/aura-training/'
+      path: '/aura-training'
+      fullPath: '/admin/aura-training/'
+      preLoaderRoute: typeof AdminAuraTrainingIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/billing/': {
@@ -6454,6 +6473,7 @@ interface AdminRouteRouteChildren {
   AdminAccessCodesIndexRoute: typeof AdminAccessCodesIndexRoute
   AdminAdvertisementsIndexRoute: typeof AdminAdvertisementsIndexRoute
   AdminAssetsIndexRoute: typeof AdminAssetsIndexRoute
+  AdminAuraTrainingIndexRoute: typeof AdminAuraTrainingIndexRoute
   AdminBillingIndexRoute: typeof AdminBillingIndexRoute
   AdminCostAnalyticsIndexRoute: typeof AdminCostAnalyticsIndexRoute
   AdminCostRevenueIndexRoute: typeof AdminCostRevenueIndexRoute
@@ -6476,6 +6496,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminAccessCodesIndexRoute: AdminAccessCodesIndexRoute,
   AdminAdvertisementsIndexRoute: AdminAdvertisementsIndexRoute,
   AdminAssetsIndexRoute: AdminAssetsIndexRoute,
+  AdminAuraTrainingIndexRoute: AdminAuraTrainingIndexRoute,
   AdminBillingIndexRoute: AdminBillingIndexRoute,
   AdminCostAnalyticsIndexRoute: AdminCostAnalyticsIndexRoute,
   AdminCostRevenueIndexRoute: AdminCostRevenueIndexRoute,
