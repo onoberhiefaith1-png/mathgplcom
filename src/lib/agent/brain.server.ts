@@ -10,6 +10,7 @@ import { streamText, tool, jsonSchema, stepCountIs, type ModelMessage } from "ai
 import { AGENT_TOOL_MANIFEST, type AgentToolParam, type AgentToolResult } from "./toolTypes";
 import { buildAgentSystemPrompt, AGENT_GREETING_INSTRUCTION, type AgentSnapshotHint } from "./systemPrompt";
 import { executeAgentTool, type AgentToolContext } from "./tools.server";
+import type { AuraPlatformContext } from "./context";
 import { parseTeachingScript, type TeachingScript } from "./teachingScript";
 
 const AGENT_MODEL = "openai/gpt-6-astra";

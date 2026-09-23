@@ -25,14 +25,38 @@ function parseMessages(input: unknown): AgentChatMessage[] {
   return out.slice(-MAX_HISTORY);
 }
 
+/**
+ * Where the teacher is standing when they speak. Kept deliberately permissive:
+ * a screen that reports nothing simply leaves Aura where she was before.
+ */
+function parseContext(input: unknown): AuraPlatformContext | null {
+  const raw = (input as { context?: unknown } | null)?.context;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (value === null || value === undefined || value === "") continue;
+    if (typeof value === "string" || typeof value === "number") out[key] = value;
+    else if (Array.isArray(value)) {
+      const strings = value.filter((v): v is string => typeof v === "string" && v.length > 0);
+      if (strings.length) out[key] = strings.slice(0, 24);
+    }
+  }
+  return Object.keys(out).length ? (out as AuraPlatformContext) : null;
+}
+
 export const agentChat = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => ({ messages: parseMessages(input) }))
+  .inputValidator((input: unknown) => ({
+    messages: parseMessages(input),
+    context: parseContext(input),
+  }))
   .handler(async ({ data, context }): Promise<AgentTurn> => {
     const { runAgentTurn } = await import("./brain.server");
     return runAgentTurn(
       { supabase: context.supabase as never, userId: context.userId },
       data.messages,
+      undefined,
+      data.context,
     );
   });
 
