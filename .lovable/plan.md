@@ -1,46 +1,63 @@
-# Permanent Microphone Access and Mobile Recovery
+# Aura Call: a real live conversation, plus the two microphone faults
 
-## Goal
-After the browser grants microphone access once, MathGPL will remember that consent and will not show its permission request again. Temporary mobile interruptions—silence timeouts, screen changes, travel/network changes, locking the phone, switching apps, or the browser restarting speech recognition—will recover automatically without being presented as lost permission.
+Three problems, one plan.
 
-The browser remains the final authority: MathGPL cannot override a permission the user manually removes, a browser privacy reset, private browsing, or an operating-system restriction. In those cases only, the app will explain how to restore access.
+## 1. Call and Record become genuinely different things
 
-## Confirmed cause
-- Aura uses one microphone stream for listening and the animated voice meter, but several normal stop/restart paths stop that shared stream itself.
-- The speech recognizer commonly ends on mobile even though permission remains granted. These normal endings are currently counted as consecutive microphone failures; after four endings Aura switches off and shows “I lost the microphone.”
-- Recovery can call the permission-request function again when the stored stream is no longer live, conflating “reopen an already-authorized microphone” with “ask the user for permission.”
+Today both buttons use the same browser listening, so "Call" behaves like a recorder. They separate completely:
 
-## Changes
+**Record (microphone button)** — unchanged in spirit: you speak, you stop, she thinks about what you said and answers. One message at a time.
 
-### 1. Separate consent from a live microphone session
-- Keep a durable local record that the user completed the first permission decision.
-- Always check the browser’s current permission before showing MathGPL’s permission explanation.
-- Never reopen MathGPL’s permission dialog merely because recognition or a media track ended.
-- Signing out and back in will not clear the consent record.
+**Call (blue button)** — a real-time conversation run by a dedicated live-voice service:
 
-### 2. Add one shared microphone owner
-- Introduce a single microphone-session controller used by wake listening, recorder mode, live voice, and the waveform meter.
-- Reuse a healthy stream and prevent simultaneous requests.
-- Detaching the waveform meter will close only its audio analyser, not the shared microphone track.
-- Explicitly ending voice or disabling wake listening will stop listening cleanly without changing the saved permission state.
+- You tap once. A call opens and stays open.
+- She hears you continuously and works out when you have finished a sentence.
+- She answers out loud within a fraction of a second of you finishing.
+- The moment you start talking again, her voice stops instantly and she listens.
+- Nothing is sent, nothing is pressed between turns. Only the End button closes the call.
+- Everything said appears in the same conversation, so text and voice share one history, and anything she does while talking (writing a note, creating a class) shows as the same step cards you already see.
 
-### 3. Recover mobile interruptions without prompting
-- Treat the recognizer’s routine `onend`, `no-speech`, and deliberate restart events as lifecycle events, not permission failures.
-- Restart with bounded backoff while live voice or wake listening is still enabled.
-- When a track actually ends, re-check browser permission first. If still granted, silently reacquire the microphone and resume the active mode.
-- Pause safely while the page is backgrounded and resume when it becomes visible again, avoiding duplicate listeners and five-second failure loops.
+During a call, the browser's own listening is switched off entirely. It is the source of both faults below, so on a call it is simply not used.
 
-### 4. Show the permission panel only for real permission states
-- First use: show the existing explanation, then the browser’s permission prompt.
-- Already granted: start or resume directly.
-- Manually revoked or browser/OS blocked: show one clear restore-access message.
-- Device temporarily unavailable or another app is using it: keep consent intact and offer a retry without claiming permission was lost.
+## 2. The microphone never asks again
 
-### 5. Preserve Aura behaviour
-- Keep the existing blue live-conversation button, wake word, recorder, waveform, interruption handling, text conversation, attachments, and explicit End control.
-- Do not change Aura’s AI model, voice model, tools, lesson workflows, or saved conversations.
+The browser's listening engine on phones ends and restarts constantly, and each restart was being read as lost access. Fixes:
+
+- Consent is remembered permanently on the device. Logging out and back in never clears it.
+- Before any permission panel is shown, the browser's current permission is read. If it is already granted, listening simply resumes — no panel, ever.
+- Routine endings, silence timeouts and restarts are treated as normal lifecycle events, never as failures, so "I lost the microphone" cannot appear because of them.
+- One shared microphone owned by one controller, reused by Record, wake word, the call, and the animated meter. Detaching the meter never closes the microphone.
+- Locking the phone, switching apps or changing network pauses cleanly and resumes when you come back.
+- The restore-access message appears only when the browser genuinely blocks or you remove access yourself.
+
+## 3. Whole sentences, never just the last words
+
+Record currently shows only the newest fragment — "let's go" is replaced by "come home". Fixes:
+
+- Everything heard in a turn is added together, never replaced, from the first word to the last.
+- A turn only closes once the listening engine has delivered its final words, so a turn can no longer be cut mid-sentence by the silence timer.
+- Her own voice is filtered out of your words without wiping what you already said.
+- On a call, turn detection comes from the live-voice service itself, which hears whole sentences by design.
+
+## What does not change
+
+The input bar, the plus attachment button, the wake word, spoken-replies toggle, teaching out loud, her platform abilities, the mathematics rules, lesson notes, Smartboard, Floating Numbers and the Game.
+
+## Cost note
+
+A call uses the live-voice service by the minute while it is open, on top of her normal usage. The panel will say plainly when your allowance is running low, and the call ends rather than silently continuing.
+
+## Technical notes
+
+- **Connector.** Link the ElevenLabs connector so `ELEVENLABS_API_KEY` is available server-side. Never exposed to the browser.
+- **Call transport.** A short-lived signed session is minted by a new server route (`src/routes/api/aura-call.ts`) which requests a conversation token from ElevenLabs; the browser opens the realtime socket with that token only. Microphone audio in, agent audio out, with the provider's own turn-taking and barge-in.
+- **Agent brain stays MathGPL's.** The live agent is configured to call back into Aura for every turn, so `openai/gpt-6-astra`, the system prompt, approved `aura_knowledge`, the tool manifest, permissions and usage limits remain the single path. The live service provides ears, voice and turn-taking only — it never answers mathematics itself.
+- **New module** `src/lib/agent/callSession.ts`: connect/disconnect, token refresh, mic handoff, transcript events, agent-speaking events, interruption, error mapping. `voiceSession.ts` is retained for the Record path and as the fallback when the live service is unavailable.
+- **Mic ownership.** `micPermission.ts` gains a durable consent record plus `ensureMicrophone()` that re-reads permission before prompting; `useListening.ts` stops counting `onend`/`no-speech` as failures, keeps its analyser separate from the track, and pauses/resumes on `visibilitychange`. The call suspends `useListening` while connected.
+- **Transcript accumulation.** Turn text is built from accumulated final results plus the current interim, and the end-of-turn gate waits for a final result before closing.
+- **Errors.** Provider 401/403/429 and credit states surface as a plain message in the call strip; the call ends rather than retrying in a loop.
 
 ## Verification
-- Add tests for permission-state restoration, shared-stream reuse, analyser cleanup without track shutdown, normal recognition restarts, true revocation, temporary device loss, background/foreground recovery, and duplicate-request prevention.
-- Test the live panel in a mobile viewport through repeated silence cycles, voice interruption, panel close/reopen, page navigation, background/foreground simulation, and logout/login.
-- Confirm the app never displays its permission request again after browser-granted access unless permission is genuinely revoked or reset outside MathGPL.
+
+- Unit tests for permission restoration, shared-stream reuse, meter cleanup without track shutdown, normal restart handling, transcript accumulation across pauses, and call connect/interrupt/end.
+- Manual mobile check: a two-minute call with repeated silences, talking over her mid-sentence, locking the phone and returning, and logging out and back in — no permission panel, no dropped microphone, no truncated sentences.
