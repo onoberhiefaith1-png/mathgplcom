@@ -8,7 +8,7 @@ import type { SelectionRect, TroikaTextRenderInfo } from "troika-three-text";
 import * as THREE from "three";
 import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { TextBounds, TextSettings } from "@/lib/slate/text3d";
-import { FONTS, TILE_PALETTE, classifyGlyph, textRecipe } from "@/lib/slate/text3d";
+import { FONTS, textRecipe } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
 import { containGlyphBoxes, glyphBoxes } from "./glyphLayout";
 import type { GlyphBox } from "./glyphLayout";
@@ -40,15 +40,26 @@ function Tile({
   font,
   fade,
   bounds,
+  face,
+  edge,
+  symbol,
+  highlight,
+  contact,
+  contactOpacity,
 }: {
   box: GlyphBox;
   depth: number;
   font: string;
   fade: number;
   bounds: { w: number; h: number };
+  face: string;
+  edge: string;
+  symbol: string;
+  highlight: string;
+  contact: string;
+  contactOpacity: number;
 }) {
   const group = useRef<THREE.Group>(null);
-  const palette = TILE_PALETTE[classifyGlyph(box.char)];
   const target = useRef(new THREE.Vector3());
   const offset = useRef(new THREE.Vector3());
   const grabbed = useRef(false);
@@ -131,7 +142,7 @@ function Tile({
     >
       <RoundedBox args={[size, tileH, depth]} radius={Math.min(size, tileH) * 0.22} smoothness={3}>
         <meshStandardMaterial
-          color={palette.face}
+          color={face}
           roughness={0.28}
           metalness={0.08}
           transparent={fade < 1}
@@ -141,17 +152,17 @@ function Tile({
       {/* darker bevel ring so the tile reads as a physical piece */}
       <mesh position={[0, -tileH * 0.02, depth / 2 + 0.001]}>
         <planeGeometry args={[size * 0.96, tileH * 0.9]} />
-        <meshBasicMaterial color={palette.edge} transparent opacity={0.18 * fade} depthWrite={false} />
+        <meshBasicMaterial color={edge} transparent opacity={0.28 * fade} depthWrite={false} />
       </mesh>
       {/* glossy highlight */}
       <mesh position={[0, tileH * 0.22, depth / 2 + 0.002]}>
         <planeGeometry args={[size * 0.82, tileH * 0.3]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.16 * fade} depthWrite={false} />
+        <meshBasicMaterial color={highlight} transparent opacity={0.18 * fade} depthWrite={false} />
       </mesh>
       <Text
         font={font}
         fontSize={tileH * 0.64}
-        color={palette.symbol}
+        color={symbol}
         anchorX="center"
         anchorY="middle"
         position={[0, 0, depth / 2 + 0.004]}
@@ -163,7 +174,7 @@ function Tile({
       {/* soft contact shadow under the tile */}
       <mesh position={[0, -tileH * 0.06, -depth / 2 - 0.002]}>
         <planeGeometry args={[size * 1.1, tileH * 1.1]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.28 * fade} depthWrite={false} />
+        <meshBasicMaterial color={contact} transparent opacity={contactOpacity * fade} depthWrite={false} />
       </mesh>
     </group>
   );
@@ -194,7 +205,7 @@ export function TileText({
 
   const fontSize = settings.size / PX_PER_UNIT;
   const fade = opacity * Math.max(0, Math.min(1, settings.opacity));
-  const depth = Math.max(0.012, fontSize * 0.22 * Math.max(0.3, settings.depth));
+  const depth = Math.max(0.002, fontSize * 0.22 * Math.max(0, settings.depth));
 
   const onSync = useCallback(
     (obj: unknown) => {
@@ -337,6 +348,12 @@ export function TileText({
               font={FONTS.tiles}
               fade={fade}
               bounds={{ w: width, h: blockH }}
+              face={recipe.ink}
+              edge={recipe.shade}
+              symbol={recipe.lip}
+              highlight={recipe.lip}
+              contact={recipe.contact}
+              contactOpacity={recipe.contactOpacity}
             />
           ))}
         </group>
