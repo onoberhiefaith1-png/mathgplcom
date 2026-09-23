@@ -278,6 +278,7 @@ export interface TextRecipe {
   shadow: string;
   shadowOpacity: number;
   shadowBlur: number;
+  shadowOffset: [number, number];
   contact: string;
   contactOpacity: number;
   outline: string;
@@ -355,6 +356,7 @@ export const textRecipe = (surface: SurfaceDef, t: TextSettings): TextRecipe => 
     shadow: resolved.shadow,
     shadowOpacity: resolved.shadowOpacity,
     shadowBlur: resolved.shadowBlur,
+    shadowOffset: resolved.shadowOffset,
     contact: resolved.contact,
     contactOpacity: resolved.contactOpacity,
     outline: resolved.outline,
