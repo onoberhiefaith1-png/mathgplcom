@@ -172,4 +172,8 @@
 - [x] One shared microphone for the wake word and the recorder, so they cannot cancel each other.
 - [x] Live sound wave driven by the real voice level, in the panel and in the floating badge.
 - [x] Words appear as she hears them; blocked or failed microphones say so with a retry.
+- [x] One microphone request only — the granted stream is kept and reused, never asked for twice.
+- [x] Honest microphone states: blocked, in use by another app, insecure page, embedded window, and "no microphone detected" only when the device list confirms none.
+- [x] Allowing starts her listening immediately, with a status light in her panel (off / requesting / listening / problem).
 - [ ] Phase 5 — Smartboard narration synced with the sensor and Floating Numbers.
+
