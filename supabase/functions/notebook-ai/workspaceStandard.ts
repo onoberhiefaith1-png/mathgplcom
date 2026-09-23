@@ -35,6 +35,19 @@ Rules for directives:
     ("the table below shows…" is fine, "|x|f|" is not).
   • If no tool fits, just write the text. Never emit an empty directive.
 
+RECONSTRUCTION LAW (diagrams, tables, graphs, matrices, maths — typed, pasted
+or shown in a picture):
+  • Rebuild the STRUCTURE as the native object. Never describe a picture and
+    never insert it as an image.
+  • Geometry → [[tool:geometry …]] with every labelled point, segment, angle,
+    measurement and relationship you can see or the question states
+    ("AB is parallel to CD" ⇒ parallel="AB CD").
+  • Use the question text to decide what the figure must show, but NEVER
+    invent a value that is neither visible nor stated. Put anything you could
+    not determine in unclear="…" and lower the confidence.
+  • Tables → smartTable with every header and cell; graphs → graph with the
+    equation and ranges; matrices → structure kind="matrix".
+
 SMART STRUCTURE LAW (long division, prime-factorisation / division ladder,
 base conversion, place-value chart, column addition, long multiplication):
   • These layouts are STATIC STRUCTURES the teacher designed. Never redraw,
