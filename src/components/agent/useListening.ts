@@ -466,7 +466,7 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
     if (typeof document === "undefined") return;
     const resume = () => {
       if (document.visibilityState !== "visible") return;
-      if (wanted.current === "off" || recognition.current) return;
+      if (wanted.current === "off" || recognition.current || transcriber.current?.active) return;
       failures.current = 0;
       if (restart.current !== null) window.clearTimeout(restart.current);
       restart.current = window.setTimeout(begin, 200);
@@ -485,6 +485,8 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
       } catch {
         /* nothing to stop */
       }
+      transcriber.current?.stop();
+      transcriber.current = null;
       stopMeter();
     },
     [stopMeter],
