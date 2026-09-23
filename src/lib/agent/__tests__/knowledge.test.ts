@@ -49,15 +49,20 @@ describe("Aura's operational map", () => {
     }
   });
 
-  it("never uses a word the app does not use", () => {
-    const text = KNOWLEDGE_NODES.map((n) => JSON.stringify(n)).join(" ").toLowerCase();
-    // "Quiz" does not exist in MathGPL — except where we warn against it.
-    const quizzes = text.match(/quiz/g) ?? [];
-    const warnings = KNOWLEDGE_NODES.flatMap((n) => n.pitfalls)
+  it("never offers a step in words the app does not use", () => {
+    // "Quiz" is not a MathGPL word: it may only appear where we say so.
+    const offered = KNOWLEDGE_NODES.flatMap((n) => [
+      n.title,
+      n.firstStep,
+      n.onSave,
+      ...n.actions,
+      ...n.inputs,
+      ...n.nextSteps,
+    ])
       .join(" ")
-      .toLowerCase()
-      .match(/quiz/g) ?? [];
-    expect(quizzes.length).toBe(warnings.length);
+      .toLowerCase();
+    expect(offered).not.toContain("quiz");
+    expect(NAMING_TRUTHS.toLowerCase()).toContain('"quiz" does not exist');
   });
 
   it("knows the three meanings of a session and never invents a fourth", () => {
