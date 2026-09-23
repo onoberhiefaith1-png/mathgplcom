@@ -31,13 +31,28 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
       const rect = element.getBoundingClientRect();
       const measuredWidth = Math.min(width, rect.width / PX_PER_UNIT);
       const measuredHeight = rect.height / PX_PER_UNIT;
-      onMeasure({ left: 0, right: measuredWidth, top: 0, bottom: -measuredHeight, width: measuredWidth, height: measuredHeight });
+      // WritingRegion places every renderer at an alignment origin. Report the
+      // DOM body relative to that same origin, rather than always claiming it
+      // begins at zero (which made centred/right equations look out of bounds).
+      const left = settings.align === "left"
+        ? 0
+        : settings.align === "right"
+          ? -measuredWidth
+          : -measuredWidth / 2;
+      onMeasure({
+        left,
+        right: left + measuredWidth,
+        top: 0,
+        bottom: -measuredHeight,
+        width: measuredWidth,
+        height: measuredHeight,
+      });
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [math, note, onMeasure, settings.size, width]);
+  }, [math, note, onMeasure, settings.align, settings.size, width]);
 
   if (math.rows.length === 0 && !note) return null;
 

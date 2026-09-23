@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Html } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import type { SurfaceDef } from "@/lib/slate/surfaces";
@@ -7,9 +7,7 @@ import type { RegionTextData, TextBounds, TextSettings } from "@/lib/slate/text3
 import {
   PX_PER_UNIT,
   TEXT_INSIDE_TOLERANCE,
-  containTextInSurface,
   surfaceInnerBox,
-  textInsideSurface,
 } from "@/lib/slate/layout";
 import type { InscribedTextApi } from "./InscribedText";
 import { InscribedText } from "./InscribedText";
@@ -107,9 +105,15 @@ export function WritingRegion({
   // THE SAVED RECORD IS THE PLACEMENT. It is read before anything is measured,
   // so there is no frame in which the text can appear anywhere else, on any
   // device, on a reopen, a refresh, or in a student's copy of the Game.
-  const saved = normalizeTextConfig(textConfig, settings);
+  const saved = useMemo(
+    () => normalizeTextConfig(textConfig, settings),
+    [settings, textConfig],
+  );
   const innerHeight = Math.max(0, height - pad * 2);
-  const savedOffset = savedTextOffset(saved, width, innerHeight);
+  const savedOffset = useMemo(
+    () => savedTextOffset(saved, width, innerHeight),
+    [innerHeight, saved, width],
+  );
   const shift = { x: savedOffset.x + guard.x, y: savedOffset.y + guard.y };
 
   // A fresh body (new question, new line, new text size, new surface) and every
