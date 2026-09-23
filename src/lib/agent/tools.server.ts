@@ -69,9 +69,6 @@ const executors: Record<string, Executor> = {
   ...(attachmentExecutors as unknown as Record<string, Executor>),
   ...(slateGameExecutors as Record<string, Executor>),
 
-  // The real 3D Slate games — the ones the Game editor opens and classes play.
-  list_games: async (ctx) => slateGameExecutors["slate_list_games"]!(ctx as never, {}),
-
 
 
 

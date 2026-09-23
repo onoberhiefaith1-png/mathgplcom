@@ -138,7 +138,7 @@ export const slateGameExecutors: Record<string, Executor> = {
     };
   },
 
-  slate_list_games: async (ctx) => {
+  list_games: async (ctx) => {
     const games = await withDb(ctx.supabase, () => listGames());
     return {
       data: games.map((g) => ({
