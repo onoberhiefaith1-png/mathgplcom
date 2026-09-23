@@ -448,6 +448,7 @@ export default function GameSlateEditorPage() {
                 label: mode === "edit" && panelOpen ? "Close settings" : "Edit & settings",
                 run: toggleEdit,
               },
+              { label: "Restore text", run: restoreText },
               { label: "View board", run: showView },
               { label: questionsOpen ? "Close questions" : "Questions", run: toggleQuestions },
               { label: saving ? "Saving…" : "Save", run: () => void save() },
