@@ -148,10 +148,21 @@ export default function AuraCockpit() {
         <img src={auraMark} alt="" width={28} height={28} className="size-7 rounded-full" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold leading-tight">Aura</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {speaking ? "Speaking…" : wakeEnabled ? 'Listening for "Aura"' : "Your teaching assistant"}
+          <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+            <span
+              aria-hidden
+              className={cn(
+                "size-2 shrink-0 rounded-full",
+                micTone === "live" && "bg-primary animate-pulse",
+                micTone === "requesting" && "bg-amber-500 animate-pulse",
+                micTone === "error" && "bg-destructive",
+                micTone === "off" && "bg-muted-foreground/40",
+              )}
+            />
+            <span className="truncate">{speaking ? "Speaking…" : micStatus}</span>
           </p>
         </div>
+
         {speaking ? (
           <Button variant="ghost" size="icon-sm" aria-label="Stop speaking" onClick={stopSpeaking}>
             <Square className="size-4" />
