@@ -94,7 +94,20 @@ function buildTools(ctx: AgentToolContext, steps: AgentStep[]) {
   for (const spec of AGENT_TOOL_MANIFEST) {
     tools[spec.id] = tool({
       description: spec.description,
-      inputSchema: toolSchema(spec.params),
+      inputSchema: toolSchema(
+        spec.needsConfirmation
+          ? [
+              ...spec.params,
+              {
+                name: "confirmed",
+                type: "boolean" as const,
+                required: false,
+                description:
+                  "True only after the teacher has clearly agreed to this exact action in the conversation.",
+              },
+            ]
+          : spec.params,
+      ),
       execute: async (raw: unknown) => {
         const args: Record<string, unknown> = {};
         if (raw && typeof raw === "object" && !Array.isArray(raw)) {

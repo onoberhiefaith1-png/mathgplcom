@@ -323,6 +323,33 @@ const executors: Record<string, Executor> = {
     return { data, summary: "Game added to the class playlist.", navigateTo: `/class/${classId}` };
   },
 
+  archive_lesson_note: async ({ supabase, userId }, args) => {
+    const db = supabase as unknown as AnyDb;
+    const notebookId = need(args, "notebookId");
+    const { data, error } = await db
+      .from("notebooks")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", notebookId)
+      .eq("owner_id", userId)
+      .select("id, title")
+      .single();
+    if (error) throw new Error(error.message);
+    return { data, summary: "Lesson note archived." };
+  },
+
+  remove_student_from_class: async ({ supabase }, args) => {
+    const db = supabase as unknown as AnyDb;
+    const classId = need(args, "classId");
+    const studentId = need(args, "studentId");
+    const { error } = await db
+      .from("class_members")
+      .delete()
+      .eq("class_id", classId)
+      .eq("user_id", studentId);
+    if (error) throw new Error(error.message);
+    return { data: { classId, studentId }, summary: "Student removed from the class." };
+  },
+
   teach_lesson: async (_ctx, args) => {
     const script = buildTeachingScript(args["say"], args["lines"], args["title"]);
     return {
@@ -354,6 +381,16 @@ export async function executeAgentTool(
   const run = executors[toolId];
   if (!spec || !run) {
     return { ok: false, toolId, error: `Unknown tool "${toolId}".` };
+  }
+  // Nothing destructive happens on the agent's word alone: the teacher has to
+  // say yes, and only then is the same action repeated with confirmed: true.
+  if (spec.needsConfirmation && args["confirmed"] !== true) {
+    return {
+      ok: false,
+      toolId,
+      error:
+        "This needs the teacher's confirmation. Ask them in one short sentence, and only if they clearly agree, call this again with confirmed: true.",
+    };
   }
   try {
     const { data, summary, navigateTo } = await run(ctx, args);

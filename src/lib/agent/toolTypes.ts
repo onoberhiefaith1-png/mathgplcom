@@ -168,6 +168,29 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     ],
   },
   {
+    id: "archive_lesson_note",
+    domain: "lessonNotes",
+    title: "Archive a lesson note",
+    description:
+      "Move a lesson note out of the teacher's active notes. Destructive: always ask the teacher first, then call again with confirmed set to true.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [p("notebookId", "string", true, "Notebook id from list_lesson_notes.")],
+  },
+  {
+    id: "remove_student_from_class",
+    domain: "classes",
+    title: "Remove a student from a class",
+    description:
+      "Take a student off a class roster. Destructive: always ask the teacher first, then call again with confirmed set to true.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [
+      p("classId", "string", true, "Class id."),
+      p("studentId", "string", true, "Student user id from list_class_students."),
+    ],
+  },
+  {
     id: "teach_lesson",
     domain: "teaching",
     title: "Teach out loud on the board",
@@ -211,7 +234,9 @@ export function agentManifestPrompt(): string {
     const args = t.params
       .map((a) => `${a.name}${a.required ? "" : "?"}: ${a.type} — ${a.description}`)
       .join("; ");
-    return `- ${t.id} (${t.domain}${t.readOnly ? ", read-only" : ""}): ${t.description}${
+    return `- ${t.id} (${t.domain}${t.readOnly ? ", read-only" : ""}${
+      t.needsConfirmation ? ", needs the teacher's confirmation" : ""
+    }): ${t.description}${
       args ? ` Args: ${args}` : " No arguments."
     }`;
   }).join("\n");
