@@ -225,3 +225,68 @@ describe("Game writing-surface layout", () => {
     expect(frame.innerRight - frame.innerLeft).toBeCloseTo(frame.innerWritingWidth);
   });
 });
+describe("Content Margin", () => {
+  const box = (contentMargin: number, measuredWidth = 1.2) =>
+    gameSurfaceBox({
+      text: "2(x + 3) - 4x = 8",
+      fontSize: 90,
+      writingWidth: 18,
+      readOnlyWriting: true,
+      inset: 0.3,
+      measuredWidth,
+      measuredHeight: 0.4,
+      contentMargin,
+      foldInset: 0.1,
+    });
+
+  it("keeps the surface's left edge fixed when the margin moves", () => {
+    const band = gameWritingBand(20);
+    const near = writingSurfaceFrame("a", box(0), band);
+    const far = writingSurfaceFrame("a", box(1.5), band);
+    expect(far.outerLeft).toBe(near.outerLeft);
+    expect(far.innerLeft).toBeGreaterThan(near.innerLeft);
+  });
+
+  it("grows the right edge only by what the content needs", () => {
+    const near = box(0);
+    const far = box(1.5);
+    expect(far.surfaceWidth).toBeGreaterThan(near.surfaceWidth);
+    expect(far.surfaceWidth).toBeCloseTo(near.surfaceWidth + 1.5, 5);
+    expect(far.innerWritingWidth).toBeCloseTo(near.innerWritingWidth, 5);
+  });
+
+  it("gives width back when the content needs less", () => {
+    expect(box(1.5, 0.4).surfaceWidth).toBeLessThan(box(1.5, 3).surfaceWidth);
+  });
+
+  it("never writes on the folded part of the surface", () => {
+    const withFold = box(0);
+    const withoutFold = gameSurfaceBox({
+      text: "2(x + 3) - 4x = 8",
+      fontSize: 90,
+      writingWidth: 18,
+      readOnlyWriting: true,
+      inset: 0.3,
+      measuredWidth: 1.2,
+      measuredHeight: 0.4,
+    });
+    expect(withFold.padX).toBeCloseTo(withoutFold.padX + 0.1, 5);
+  });
+
+  it("clamps the margin so a writing area always remains", () => {
+    const tight = gameSurfaceBox({
+      text: "x",
+      fontSize: 90,
+      writingWidth: 1.6,
+      readOnlyWriting: true,
+      inset: 0.3,
+      contentMargin: 5,
+    });
+    expect(tight.innerWritingWidth).toBeGreaterThanOrEqual(0.4);
+    expect(tight.surfaceWidth).toBeLessThanOrEqual(1.6);
+  });
+
+  it("is repeatable: the same inputs give the same box", () => {
+    expect(box(0.8)).toEqual(box(0.8));
+  });
+});
