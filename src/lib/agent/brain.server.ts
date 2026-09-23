@@ -301,7 +301,6 @@ async function startTurn(
       messages,
       tools: buildTools(ctx, steps, full ? undefined : { only: CALL_TOOL_IDS }),
       stopWhen: stepCountIs(full ? 50 : 6),
-      providerOptions: CALL_RESPONSES_OPTIONS as never,
     });
     return { result, steps };
   }
@@ -313,7 +312,6 @@ async function startTurn(
     messages,
     tools: buildTools(ctx, steps),
     stopWhen: stepCountIs(50),
-    providerOptions: RESPONSES_OPTIONS as never,
   });
 
   return { result, steps };
@@ -373,7 +371,6 @@ export async function runAgentGreeting(ctx: AgentToolContext): Promise<{ greetin
     model: lovable.chat(AGENT_MODEL),
     system: buildAgentSystemPrompt(),
     prompt: `${AGENT_GREETING_INSTRUCTION}\n\nSNAPSHOT:\n${JSON.stringify(snapshot.data)}`,
-    providerOptions: RESPONSES_OPTIONS as never,
   });
 
   const greeting = (await result.text).trim();

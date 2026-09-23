@@ -13,7 +13,6 @@ import { streamText, stepCountIs, tool, jsonSchema, type ModelMessage } from "ai
 
 import {
   AGENT_MODEL,
-  RESPONSES_OPTIONS,
   apiKey,
   buildTools,
   provider,
@@ -338,7 +337,6 @@ export async function runStudyStep(ctx: AgentToolContext, input: StudyStep): Pro
       extra: missionTools(state, steps),
     }),
     stopWhen: stepCountIs(16),
-    providerOptions: RESPONSES_OPTIONS as never,
   });
 
   const say = (await result.text).trim();
