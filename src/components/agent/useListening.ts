@@ -278,7 +278,9 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
         listener.stop();
         transcriber.current = null;
         fallback.current = true;
-        if (wanted.current !== "off") restart.current = window.setTimeout(begin, 200);
+        if (wanted.current !== "off") {
+          restart.current = window.setTimeout(() => beginRef.current?.(), 200);
+        }
       },
     });
     transcriber.current = listener;
