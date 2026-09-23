@@ -257,6 +257,15 @@ export class VoiceSession {
   }
 
   private closeTurn(heard: string): VoiceEffect[] {
+    // A short "mm-hm" straight after she finished is agreement, not a question.
+    if (this.justSpoke && isAcknowledgement(heard)) {
+      this.state = "waiting";
+      this.resetTurn();
+      return [];
+    }
+    // She learns their rhythm: each clean turn shortens the pause a little.
+    this.pauseMs = Math.max(this.tuning.minEndOfTurnMs, this.pauseMs - this.tuning.rhythmStepMs);
+    this.justSpoke = false;
     this.state = "thinking";
     this.resetTurn();
     return [{ kind: "turn", text: heard }];
