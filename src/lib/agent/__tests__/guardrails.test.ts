@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // Phase 6 — the guardrails: nothing destructive without a yes, and a daily ceiling.
 
 import { beforeEach, describe, expect, it } from "vitest";
