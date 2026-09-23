@@ -721,6 +721,13 @@ export function AuraProvider({ children }: { children: ReactNode }) {
 
       listening,
       toggleRecorder,
+      voice: {
+        state: voiceState,
+        active: voiceState !== "idle",
+        statusLabel: describeVoiceState(voiceState),
+        start: startVoice,
+        end: endVoice,
+      },
       teaching,
       stopTeaching,
       usageNote: describeUsage(usage),
@@ -729,7 +736,11 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     }),
     [
       clear,
+      endVoice,
+      startVoice,
+      voiceState,
       listening,
+
       micPermission,
       micPromptOpen,
       micRequesting,
