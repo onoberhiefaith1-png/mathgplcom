@@ -358,6 +358,20 @@ const executors: Record<string, Executor> = {
     };
   },
 
+  explain_workflow: async (_ctx, args) => {
+    const id = need(args, "workflow").trim();
+    const node = findKnowledge(id);
+    if (!node) {
+      throw new Error(
+        `There is no MathGPL workflow called "${id}". Known workflows: ${KNOWLEDGE_IDS.join(", ")}.`,
+      );
+    }
+    return {
+      data: node as unknown,
+      summary: `Checked how ${node.title} works in MathGPL.`,
+    };
+  },
+
   navigate: async (_ctx, args) => {
     const path = need(args, "path");
     if (!path.startsWith("/") || path.startsWith("//")) {
