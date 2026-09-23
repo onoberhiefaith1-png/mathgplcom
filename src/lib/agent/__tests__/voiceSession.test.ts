@@ -82,7 +82,7 @@ describe("voice session", () => {
     const session = new VoiceSession();
     session.begin();
     session.replyStarted();
-    const { effects } = play(session, [{ level: 0.5 }, { level: 0.5 }, { level: 0.5 }]);
+    const { effects } = play(session, Array.from({ length: 8 }, () => ({ level: 0.5 })));
     expect(effects).toEqual([{ kind: "cut" }]);
     expect(session.state).toBe("interrupted");
   });
@@ -91,7 +91,7 @@ describe("voice session", () => {
     const session = new VoiceSession();
     session.begin();
     session.replyStarted();
-    const { now } = play(session, [{ level: 0.5 }, { level: 0.5 }, { level: 0.5 }]);
+    const { now } = play(session, Array.from({ length: 8 }, () => ({ level: 0.5 })));
     const { effects } = play(
       session,
       [...loud(10, "I meant the other part"), ...quiet(30, "I meant the other part")],
