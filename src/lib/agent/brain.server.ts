@@ -229,7 +229,7 @@ async function callBriefing(
   hint: AgentSnapshotHint | undefined,
   context: AuraPlatformContext | null | undefined,
 ): Promise<string> {
-  const key = `${ctx.userId}|${context?.route ?? ""}`;
+  const key = `${ctx.userId}|${context?.path ?? ""}`;
   const cached = briefings.get(key);
   const now = Date.now();
   if (cached && now - cached.at < BRIEFING_LIFE_MS) return cached.system;
