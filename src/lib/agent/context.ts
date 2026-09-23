@@ -156,3 +156,25 @@ export function knowledgePrompt(context?: AuraPlatformContext | null): string {
   cannot operate, name the screen and the first thing to do there.`,
   ].join("\n");
 }
+
+// ── WHAT THE OPEN SCREEN REPORTS ────────────────────────────────────────────
+// The address tells Aura which page and which record. Anything only the screen
+// itself knows — the class name, the section open, the line being worked on, the
+// Floating Numbers picked up — is reported here and merged on every turn.
+
+let screenContext: AuraPlatformContext = {};
+const listeners = new Set<() => void>();
+
+export function readAuraScreenContext(): AuraPlatformContext {
+  return screenContext;
+}
+
+export function setAuraScreenContext(next: AuraPlatformContext | null): void {
+  screenContext = next ?? {};
+  listeners.forEach((fn) => fn());
+}
+
+export function subscribeAuraScreenContext(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
