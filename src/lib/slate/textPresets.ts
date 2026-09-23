@@ -214,6 +214,35 @@ export interface ResolvedTextStyle extends TextPalette {
   sunk: boolean;
 }
 
+export interface TextVisualInsets {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * World-space room needed by visible text effects around the typographic box.
+ * Surface layout and containment both use this same value, so shadows, glow,
+ * bevels and physical depth cannot escape the owning writing surface.
+ */
+export const textVisualInsets = (style: ResolvedTextStyle, fontSize: number): TextVisualInsets => {
+  const shadowX = style.shadowOpacity > 0 ? style.shadowOffset[0] * fontSize : 0;
+  const shadowY = style.shadowOpacity > 0 ? style.shadowOffset[1] * fontSize : 0;
+  const shadowSpread = style.shadowOpacity > 0 ? style.shadowBlur * fontSize : 0;
+  const glow = style.glowOpacity > 0 ? style.glowRadius * fontSize : 0;
+  const outline = Math.max(style.outlineWidth, style.bevel) * fontSize;
+  const extrude = style.extrude * fontSize;
+  const physicalSide = extrude * 0.18;
+  const spread = shadowSpread + glow + outline + physicalSide;
+  return {
+    left: spread + Math.max(0, -shadowX),
+    right: spread + Math.max(0, shadowX),
+    top: spread + Math.max(0, shadowY) + extrude * 0.18,
+    bottom: spread + Math.max(0, -shadowY),
+  };
+};
+
 type Base = Omit<ResolvedTextStyle, keyof TextPalette | "preset">;
 
 const BASES: Record<TextPresetId, Base> = {
