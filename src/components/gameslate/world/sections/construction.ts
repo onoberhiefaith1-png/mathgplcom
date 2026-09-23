@@ -122,6 +122,14 @@ const FALLBACK: Construction = {
 export const getConstruction = (surfaceId: string): Construction =>
   CONSTRUCTION[surfaceId] ?? FALLBACK;
 
+/**
+ * The decorative rolled / folded / bevelled border of a surface. Writing is
+ * never allowed on it, so this much of each side is removed from the content
+ * region before text is laid out.
+ */
+export const surfaceFoldInset = (build: Construction): number =>
+  Math.max(0, build.inset * 0.35 + build.bevel * 0.5);
+
 /** Deterministic per-section pseudo random, so a section always looks itself. */
 export const seeded = (index: number, salt: number): number => {
   const v = Math.sin(index * 12.9898 + salt * 78.233) * 43758.5453;
