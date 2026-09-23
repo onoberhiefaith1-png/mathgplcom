@@ -212,6 +212,9 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const callStream = useRef<AbortController | null>(null);
   const callStartedAt = useRef(0);
   const lastVoiceAt = useRef(0);
+  /** Honest measurements of how long each spoken turn actually took. */
+  const metrics = useRef(new CallMetrics());
+  const [timing, setTiming] = useState<string | null>(null);
 
   const stopSpeaking = useCallback(() => {
     voice.current?.abort();
