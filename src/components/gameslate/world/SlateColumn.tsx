@@ -11,6 +11,7 @@ import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
 import { PlainText } from "@/components/slate/text3d/PlainText";
 
 import { defaultTextSettings, responsiveTextSize } from "@/lib/slate/text3d";
+import { normalizeTextConfig, textSettingsFromConfig } from "@/lib/slate/textConfig";
 import type { TextBounds } from "@/lib/slate/text3d";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -106,6 +107,8 @@ interface Props {
   onFocusSlot?: (slotId: string) => void;
   /** Game Play: the mathematics comes from Floating Numbers, not the keyboard. */
   readOnlyWriting?: boolean;
+  /** Restore: bumped to force every text back to its saved configuration. */
+  restoreKey?: number;
   onReady?: () => void;
 }
 
@@ -726,6 +729,7 @@ export function SlateColumn({
   focusSlotId = null,
   onFocusSlot,
   readOnlyWriting = false,
+  restoreKey = 0,
   onReady,
 }: Props) {
   const surface = getSurface(game.surfaceId);
@@ -733,12 +737,26 @@ export function SlateColumn({
   const { rewards: rewardSettings, effects } = game.settings;
   const savedTextSettings = game.settings.text ?? defaultTextSettings();
   const breakpoint = useBreakpoint();
+  const viewportKind = breakpoint === "phone" ? "mobile" : breakpoint;
   const textSettings = useMemo(
     () => ({
       ...savedTextSettings,
-      size: responsiveTextSize(savedTextSettings, breakpoint === "phone" ? "mobile" : breakpoint),
+      size: responsiveTextSize(savedTextSettings, viewportKind),
     }),
-    [breakpoint, savedTextSettings],
+    [viewportKind, savedTextSettings],
+  );
+  /**
+   * Each surface's text renders from ITS OWN saved master configuration: the
+   * Game's shared visual identity, with this text's saved size for this
+   * device, alignment, colour and spacing on top.
+   */
+  const configFor = useCallback(
+    (slot: Slot) => normalizeTextConfig(slot.textConfig, savedTextSettings),
+    [savedTextSettings],
+  );
+  const settingsFor = useCallback(
+    (slot: Slot) => textSettingsFromConfig(textSettings, configFor(slot), viewportKind),
+    [configFor, textSettings, viewportKind],
   );
   const numberSettings = game.settings.numbers ?? defaultNumberSettings();
   // authoring = arranging the world (edit mode only). Writing is always live:
@@ -820,7 +838,6 @@ export function SlateColumn({
   // Play uses the teacher's saved alignment too. The panel is positioned from
   // these same rendered bounds below, so left/centre/right can never separate
   // the writing from its physical surface.
-  const renderedTextSettings = textSettings;
   const viewport = useThree((state) => state.viewport);
   const camera = useThree((state) => state.camera);
   const visibleAtSlate = viewport.getCurrentViewport(camera, new THREE.Vector3(0, 0, SLATE_Z));
@@ -848,11 +865,12 @@ export function SlateColumn({
       const lineSurface = slot.surfaceId ? getSurface(slot.surfaceId) : surface;
       const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
       const bounds = textBounds[slot.id];
+      const lineText = settingsFor(slot);
       boxes[slot.id] = gameSurfaceBox({
         text: slot.text,
         hiddenContent: slot.hiddenContent,
-        fontSize: textSettings.size,
-        lineSpacing: textSettings.lineSpacing,
+        fontSize: lineText.size,
+        lineSpacing: lineText.lineSpacing,
         writingWidth,
         readOnlyWriting: true,
         inset: lineBuild.inset,
@@ -861,7 +879,7 @@ export function SlateColumn({
       });
     });
     return boxes;
-  }, [game.slots, surface, build, textBounds, textSettings.size, textSettings.lineSpacing, writingWidth]);
+  }, [game.slots, surface, build, textBounds, settingsFor, writingWidth]);
 
   const layout = useMemo(
     () => buildLayout(
@@ -1312,11 +1330,13 @@ export function SlateColumn({
           const lineRecipe = lineSurface.id === surface.id ? recipe : surfaceMaterial(lineSurface.id);
           const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
           const bounds = textBounds[slot.id];
+          const lineTextConfig = configFor(slot);
+          const lineTextSettings = settingsFor(slot);
           const surfaceBox = surfaceBoxes[slot.id] ?? gameSurfaceBox({
             text: slot.text,
             hiddenContent: slot.hiddenContent,
-            fontSize: textSettings.size,
-            lineSpacing: textSettings.lineSpacing,
+            fontSize: lineTextSettings.size,
+            lineSpacing: lineTextSettings.lineSpacing,
             writingWidth,
             readOnlyWriting: true,
             inset: lineBuild.inset,
@@ -1385,7 +1405,7 @@ export function SlateColumn({
                         text={slot.text}
                         width={innerWritingWidth}
                         surface={lineSurface}
-                        settings={renderedTextSettings}
+                        settings={lineTextSettings}
                       />
                     </group>
                   )}
@@ -1400,7 +1420,9 @@ export function SlateColumn({
                        Edit and Play, just proud of the physical face. */
                     z={PLAY_TEXT_Z}
                     surface={lineSurface}
-                    settings={renderedTextSettings}
+                    settings={lineTextSettings}
+                    textConfig={lineTextConfig}
+                    restoreKey={restoreKey}
                     testDisplay={testDisplay}
                     editable={!readOnlyWriting}
                     active={selection.kind === "slot" && selection.slotId === slot.id}

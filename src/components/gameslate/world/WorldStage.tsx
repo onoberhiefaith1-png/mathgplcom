@@ -46,6 +46,8 @@ interface Props {
   onFocusSlot?: (slotId: string) => void;
   /** Game Play: writing comes from Floating Numbers, not the keyboard. */
   readOnlyWriting?: boolean;
+  /** Restore: bumped to put every text back to its saved configuration. */
+  restoreKey?: number;
   /** Fires only after the real saved surfaces have mounted and painted. */
   onReadyChange?: (ready: boolean) => void;
   /** Reports completed startup milestones to the full-screen loader. */

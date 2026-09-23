@@ -8,6 +8,7 @@ import type { Game } from "./types";
 import { defaultScene } from "./environments";
 import { roomForSurface } from "./rooms";
 import { defaultTextSettings } from "./text3d";
+import { normalizeTextConfig } from "./textConfig";
 import { normalizeLineConfig } from "./lineSurfaces";
 import { normalizeConversion } from "./conversion";
 import { normalizeSoundSettings } from "./sound";
@@ -92,6 +93,12 @@ export const normalizeGame = (game: Game): Game => ({
   ]).map((slot, index) => ({
     ...slot,
     scene: { ...defaultScene(index), ...(slot.scene ?? {}) },
+    // Every text owns a master configuration. Older saves gain one here, from
+    // the Game's own text settings, so nothing the teacher did is lost.
+    textConfig: normalizeTextConfig(slot.textConfig, {
+      ...defaultTextSettings(),
+      ...(game.settings?.text ?? {}),
+    }),
     rewards: (slot.rewards ?? []).map((reward) => ({
       z: 0, scale: 1, rotation: 0, lighting: 1, animation: 1,
       effectIntensity: 1, material: "metal" as const, colour: "natural" as const,

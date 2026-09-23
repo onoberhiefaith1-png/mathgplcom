@@ -41,15 +41,22 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
 
   if (math.rows.length === 0 && !note) return null;
 
+  const surfacePx = Math.max(24, width * PX_PER_UNIT);
+  const fontSize = Math.max(8, Math.min(settings.size, surfacePx * 0.9));
+
   return (
     <Html transform position={[0, 0, 0.025]} scale={40 / PX_PER_UNIT} zIndexRange={[4, 0]} pointerEvents="none" style={{ pointerEvents: "none" }}>
       <div
         ref={host}
         data-game-structured-math
         style={{
-          width: Math.round(width * PX_PER_UNIT),
+          width: Math.round(surfacePx),
+          maxWidth: Math.round(surfacePx),
+          overflow: "hidden",
           color: style.face,
-          fontSize: Math.min(72, settings.size),
+          // The teacher's saved size for THIS device, never a fixed cap, and
+          // never larger than the surface it has to sit inside.
+          fontSize,
           lineHeight: settings.lineSpacing,
           letterSpacing: `${settings.letterSpacing}em`,
           textAlign: settings.align,
