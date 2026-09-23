@@ -140,15 +140,34 @@ export default function AuraCockpit() {
         <img src={auraMark} alt="" width={28} height={28} className="size-7 rounded-full" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold leading-tight">Aura</p>
-          <p className="truncate text-xs text-muted-foreground">Your teaching assistant</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {speaking ? "Speaking…" : wakeEnabled ? 'Listening for "Aura"' : "Your teaching assistant"}
+          </p>
         </div>
+        {speaking ? (
+          <Button variant="ghost" size="icon-sm" aria-label="Stop speaking" onClick={stopSpeaking}>
+            <Square className="size-4" />
+          </Button>
+        ) : null}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={wakeEnabled ? 'Stop listening for "Aura"' : 'Listen for "Aura"'}
+          onClick={() => setWakeEnabled(!wakeEnabled)}
+        >
+          {wakeEnabled ? (
+            <Ear className="size-4 text-primary" />
+          ) : (
+            <EarOff className="size-4" />
+          )}
+        </Button>
         <Button
           variant="ghost"
           size="icon-sm"
           aria-label={speakReplies ? "Turn off spoken replies" : "Turn on spoken replies"}
           onClick={() => setSpeakReplies(!speakReplies)}
         >
-          {speakReplies ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+          {speakReplies ? <Volume2 className="size-4 text-primary" /> : <VolumeX className="size-4" />}
         </Button>
         <Button variant="ghost" size="icon-sm" aria-label="Start a new conversation" onClick={clear}>
           <Trash2 className="size-4" />
