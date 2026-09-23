@@ -108,12 +108,12 @@ export function readSpend(now = new Date()): DaySpend {
   }
 }
 
-export function recordSpend(pence: number, now = new Date()): DaySpend {
+export function recordSpend(pence: number, now = new Date(), countTurn = true): DaySpend {
   const current = readSpend(now);
   const next: DaySpend = {
     day: current.day,
     pence: current.pence + Math.max(0, pence),
-    turns: current.turns + 1,
+    turns: current.turns + (countTurn ? 1 : 0),
   };
   if (typeof window !== "undefined") {
     try {
