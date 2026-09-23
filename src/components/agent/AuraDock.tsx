@@ -9,6 +9,7 @@ import { AuraProvider, useAura } from "@/lib/agent/AuraProvider";
 
 import AuraCockpit from "./AuraCockpit";
 import AuraLauncher from "./AuraLauncher";
+import AuraMicPermission from "./AuraMicPermission";
 import AuraWakeWord from "./AuraWakeWord";
 
 function DockShell({ children }: { children: ReactNode }) {
@@ -27,6 +28,7 @@ function DockShell({ children }: { children: ReactNode }) {
       <AuraCockpit />
       <AuraLauncher />
       <AuraWakeWord />
+      <AuraMicPermission />
     </>
   );
 }
