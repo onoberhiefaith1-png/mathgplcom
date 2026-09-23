@@ -33,6 +33,7 @@ import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdventureIndexRouteImport } from './routes/adventure/index'
 import { Route as ApiAuraSpeechRouteImport } from './routes/api/aura-speech'
+import { Route as ApiAuraTurnRouteImport } from './routes/api/aura-turn'
 import { Route as ApiCourseBackgroundRouteImport } from './routes/api/course-background'
 import { Route as AssetsIndexRouteImport } from './routes/assets/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
@@ -452,6 +453,11 @@ const AdventureIndexRoute = AdventureIndexRouteImport.update({
 const ApiAuraSpeechRoute = ApiAuraSpeechRouteImport.update({
   id: '/api/aura-speech',
   path: '/api/aura-speech',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuraTurnRoute = ApiAuraTurnRouteImport.update({
+  id: '/api/aura-turn',
+  path: '/api/aura-turn',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCourseBackgroundRoute = ApiCourseBackgroundRouteImport.update({
@@ -2130,6 +2136,7 @@ export interface FileRoutesByFullPath {
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
   '/api/aura-speech': typeof ApiAuraSpeechRoute
+  '/api/aura-turn': typeof ApiAuraTurnRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2444,6 +2451,7 @@ export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
   '/api/aura-speech': typeof ApiAuraSpeechRoute
+  '/api/aura-turn': typeof ApiAuraTurnRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -2771,6 +2779,7 @@ export interface FileRoutesById {
   '/welcome': typeof WelcomeRoute
   '/academy/edit': typeof AcademyEditRoute
   '/api/aura-speech': typeof ApiAuraSpeechRoute
+  '/api/aura-turn': typeof ApiAuraTurnRoute
   '/api/course-background': typeof ApiCourseBackgroundRoute
   '/auth/accept-invite': typeof AuthAcceptInviteRoute
   '/auth/admin': typeof AuthAdminRoute
@@ -3099,6 +3108,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/academy/edit'
     | '/api/aura-speech'
+    | '/api/aura-turn'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3413,6 +3423,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/academy/edit'
     | '/api/aura-speech'
+    | '/api/aura-turn'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -3739,6 +3750,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/academy/edit'
     | '/api/aura-speech'
+    | '/api/aura-turn'
     | '/api/course-background'
     | '/auth/accept-invite'
     | '/auth/admin'
@@ -4066,6 +4078,7 @@ export interface RootRouteChildren {
   WelcomeRoute: typeof WelcomeRoute
   AcademyEditRoute: typeof AcademyEditRoute
   ApiAuraSpeechRoute: typeof ApiAuraSpeechRoute
+  ApiAuraTurnRoute: typeof ApiAuraTurnRoute
   ApiCourseBackgroundRoute: typeof ApiCourseBackgroundRoute
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthAdminRoute: typeof AuthAdminRoute
@@ -4362,6 +4375,13 @@ declare module '@tanstack/react-router' {
       path: '/api/aura-speech'
       fullPath: '/api/aura-speech'
       preLoaderRoute: typeof ApiAuraSpeechRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/aura-turn': {
+      id: '/api/aura-turn'
+      path: '/api/aura-turn'
+      fullPath: '/api/aura-turn'
+      preLoaderRoute: typeof ApiAuraTurnRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/course-background': {
@@ -7040,6 +7060,7 @@ const rootRouteChildren: RootRouteChildren = {
   WelcomeRoute: WelcomeRoute,
   AcademyEditRoute: AcademyEditRoute,
   ApiAuraSpeechRoute: ApiAuraSpeechRoute,
+  ApiAuraTurnRoute: ApiAuraTurnRoute,
   ApiCourseBackgroundRoute: ApiCourseBackgroundRoute,
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthAdminRoute: AuthAdminRoute,

@@ -1,10 +1,14 @@
-// Phase 4 — plays Aura's streamed voice in the browser, chunk by chunk, so she
-// starts speaking as soon as the first audio arrives.
+// Aura's voice in the browser, chunk by chunk, so she starts speaking as soon
+// as the first audio arrives.
+//
+// The audio device is shared and long-lived (see sharedAudio.ts): opening and
+// closing one per sentence is what clipped her first words on phones.
 
 import { createParser } from "eventsource-parser";
 
+import { SPEECH_SAMPLE_RATE, sharedAudioContext, unlockSharedAudio } from "./sharedAudio";
+
 const SPEECH_ENDPOINT = "/api/aura-speech";
-const SAMPLE_RATE = 24000;
 
 function decodePCM(pending: Uint8Array, incoming: Uint8Array) {
   const bytes = new Uint8Array(pending.length + incoming.length);
@@ -17,66 +21,104 @@ function decodePCM(pending: Uint8Array, incoming: Uint8Array) {
   return { samples, pending: bytes.slice(usable) };
 }
 
-export async function streamSpeech(text: string, signal?: AbortSignal): Promise<void> {
+/**
+ * Fetches one piece of speech and hands over each decoded block of sound the
+ * moment it arrives. Nothing is played here — the caller schedules it, so many
+ * pieces can be fetched ahead of the one being heard.
+ */
+export async function fetchSpeechChunks(
+  text: string,
+  onChunk: (samples: Float32Array<ArrayBuffer>) => void,
+  signal?: AbortSignal,
+): Promise<void> {
   signal?.throwIfAborted();
-  const context = new AudioContext({ sampleRate: SAMPLE_RATE });
-  const sources = new Set<AudioBufferSourceNode>();
-  let playhead = 0;
+  const response = await fetch(SPEECH_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+    ...(signal ? { signal } : {}),
+  });
+  if (!response.ok || !response.body) {
+    throw new Error(`Speech failed: ${response.status} ${await response.text().catch(() => "")}`);
+  }
+
   let pending = new Uint8Array(0);
   let completed = false;
-  let samplesPlayed = 0;
+  let heard = 0;
+
+  const parser = createParser({
+    onEvent(event) {
+      const payload = JSON.parse(event.data) as { type?: string; audio?: string; error?: unknown };
+      if (payload.type === "error" || payload.error) throw new Error(`Speech failed: ${event.data}`);
+      if (payload.type === "speech.audio.done") {
+        completed = true;
+        return;
+      }
+      if (payload.type !== "speech.audio.delta") return;
+      if (completed || !payload.audio) throw new Error("Invalid speech audio event");
+
+      const decoded = decodePCM(
+        pending,
+        Uint8Array.from(atob(payload.audio), (character) => character.charCodeAt(0)),
+      );
+      pending = new Uint8Array(decoded.pending);
+      if (!decoded.samples.length) return;
+      heard += decoded.samples.length;
+      onChunk(decoded.samples);
+    },
+  });
+
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) break;
+      parser.feed(next.value);
+    }
+    parser.reset({ consume: true });
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (!completed || !heard || pending.length) throw new Error("Incomplete speech stream");
+}
+
+/**
+ * Speaks one piece of text on the shared device and resolves when it has been
+ * heard. Used by the recorder and the teaching voice; a call uses the queue.
+ */
+export async function streamSpeech(text: string, signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
+  const context = await unlockSharedAudio();
+  if (!context) throw new Error("No audio device");
+
+  const sources = new Set<AudioBufferSourceNode>();
+  let playhead = 0;
+  let last: Promise<void> = Promise.resolve();
   const controller = new AbortController();
   const abort = () => {
     controller.abort();
-    for (const source of sources) source.stop();
+    for (const source of sources) {
+      try {
+        source.stop();
+      } catch {
+        /* already finished */
+      }
+    }
   };
   signal?.addEventListener("abort", abort, { once: true });
-  let playback: Promise<void> = Promise.resolve();
 
   try {
-    if (context.state === "suspended") await context.resume();
-    const response = await fetch(SPEECH_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-      signal: controller.signal,
-    });
-    if (!response.ok || !response.body) {
-      throw new Error(`Speech failed: ${response.status} ${await response.text()}`);
-    }
-
-    const parser = createParser({
-      onEvent(event) {
-        const payload = JSON.parse(event.data) as {
-          type?: string;
-          audio?: string;
-          error?: unknown;
-        };
-        if (payload.type === "error" || payload.error) {
-          throw new Error(`Speech failed: ${event.data}`);
-        }
-        if (payload.type === "speech.audio.done") {
-          completed = true;
-          return;
-        }
-        if (payload.type !== "speech.audio.delta") return;
-        if (completed || !payload.audio) throw new Error("Invalid speech audio event");
-
-        const decoded = decodePCM(
-          pending,
-          Uint8Array.from(atob(payload.audio), (character) => character.charCodeAt(0)),
-        );
-        pending = new Uint8Array(decoded.pending);
-        if (!decoded.samples.length) return;
-        samplesPlayed += decoded.samples.length;
-
-        const buffer = context.createBuffer(1, decoded.samples.length, SAMPLE_RATE);
-        buffer.copyToChannel(decoded.samples, 0);
+    await fetchSpeechChunks(
+      text,
+      (samples) => {
+        const buffer = context.createBuffer(1, samples.length, SPEECH_SAMPLE_RATE);
+        buffer.copyToChannel(samples, 0);
         const source = context.createBufferSource();
         source.buffer = buffer;
         source.connect(context.destination);
         sources.add(source);
-        playback = new Promise<void>((resolve) => {
+        last = new Promise<void>((resolve) => {
           source.onended = () => {
             sources.delete(source);
             resolve();
@@ -87,30 +129,17 @@ export async function streamSpeech(text: string, signal?: AbortSignal): Promise<
         source.start(playhead);
         playhead += buffer.duration;
       },
-    });
-
-    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-    try {
-      while (true) {
-        const next = await reader.read();
-        if (next.done) break;
-        parser.feed(next.value);
-      }
-      parser.reset({ consume: true });
-    } finally {
-      reader.releaseLock();
-    }
-
-    if (!completed || !samplesPlayed || pending.length) throw new Error("Incomplete speech stream");
-    await playback;
+      controller.signal,
+    );
+    await last;
     signal?.throwIfAborted();
   } finally {
     signal?.removeEventListener("abort", abort);
     controller.abort();
-    for (const source of sources) source.stop();
-    await context.close();
   }
 }
+
+export { sharedAudioContext };
 
 /** Last resort so a reply is never silent when streamed speech is unavailable. */
 export function speakWithBrowserVoice(text: string) {

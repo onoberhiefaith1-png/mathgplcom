@@ -143,6 +143,53 @@ function buildTools(ctx: AgentToolContext, steps: AgentStep[]) {
   return tools;
 }
 
+/**
+ * On a call she is speaking, not writing: short warm turns that sound natural
+ * out loud. Her platform abilities and the mathematics rules are unchanged.
+ */
+const CALL_INSTRUCTION = `
+LIVE CALL
+You are on a live voice call with the teacher right now. Everything you say is spoken aloud.
+- Answer in one or two short spoken sentences. Never use headings, bullet points, asterisks or numbered lists.
+- Say numbers and symbols the way a teacher says them out loud.
+- When you do something on the platform, confirm it in a single sentence and stop.
+- If a task needs a long explanation, say the short version and offer to put the detail on screen.
+`;
+
+function turnFrom(reply: string, steps: AgentStep[]): AgentTurn {
+  const navigations = steps.filter((s) => s.ok && s.navigateTo);
+  const last = navigations[navigations.length - 1];
+  return {
+    reply: reply.trim() || steps.filter((s) => s.ok).map((s) => s.summary).join(" ") || "Done.",
+    steps,
+    ...(last?.navigateTo ? { navigateTo: last.navigateTo } : {}),
+  };
+}
+
+async function startTurn(
+  ctx: AgentToolContext,
+  messages: ModelMessage[],
+  options: { call?: boolean },
+  hint?: AgentSnapshotHint,
+  context?: AuraPlatformContext | null,
+) {
+  const steps: AgentStep[] = [];
+  const lovable = provider(apiKey());
+  const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
+  const system = `${buildAgentSystemPrompt(hint, context, learned)}${options.call ? CALL_INSTRUCTION : ""}`;
+
+  const result = streamText({
+    model: lovable.responses(AGENT_MODEL),
+    system,
+    messages,
+    tools: buildTools(ctx, steps),
+    stopWhen: stepCountIs(50),
+    providerOptions: RESPONSES_OPTIONS as never,
+  });
+
+  return { result, steps };
+}
+
 /** One conversational turn: the agent plans, acts and answers. */
 export async function runAgentTurn(
   ctx: AgentToolContext,
@@ -150,28 +197,33 @@ export async function runAgentTurn(
   hint?: AgentSnapshotHint,
   context?: AuraPlatformContext | null,
 ): Promise<AgentTurn> {
-  const steps: AgentStep[] = [];
-  const lovable = provider(apiKey());
-  const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
+  const { result, steps } = await startTurn(ctx, messages, {}, hint, context);
+  return turnFrom(await result.text, steps);
+}
 
-  const result = streamText({
-    model: lovable.responses(AGENT_MODEL),
-    system: buildAgentSystemPrompt(hint, context, learned),
+export type AgentTurnStream = {
+  /** Her answer as it is written, so the first clause can be spoken at once. */
+  text: AsyncIterable<string>;
+  /** The finished turn, including everything she did. */
+  finish: () => Promise<AgentTurn>;
+  abort: () => void;
+};
 
-    messages,
-    tools: buildTools(ctx, steps),
-    stopWhen: stepCountIs(50),
-    providerOptions: RESPONSES_OPTIONS as never,
-  });
-
-  const reply = (await result.text).trim();
-  const navigations = steps.filter((s) => s.ok && s.navigateTo);
-  const last = navigations[navigations.length - 1];
-
+/** The same turn, streamed — used by the call so she talks while she thinks. */
+export async function streamAgentTurn(
+  ctx: AgentToolContext,
+  messages: ModelMessage[],
+  options: { call?: boolean } = {},
+  hint?: AgentSnapshotHint,
+  context?: AuraPlatformContext | null,
+): Promise<AgentTurnStream> {
+  const { result, steps } = await startTurn(ctx, messages, options, hint, context);
   return {
-    reply: reply || steps.filter((s) => s.ok).map((s) => s.summary).join(" ") || "Done.",
-    steps,
-    ...(last?.navigateTo ? { navigateTo: last.navigateTo } : {}),
+    text: result.textStream,
+    finish: async () => turnFrom(await result.text, steps),
+    abort: () => {
+      /* the reply is abandoned by dropping the stream */
+    },
   };
 }
 

@@ -27,6 +27,16 @@ export type VoiceTuning = {
   bargeLevel: number;
   /** And only when it lasts this long — a cough never cuts her off. */
   bargeMs: number;
+  /** Speech must stand this far above the room's own noise. */
+  speechOverNoise: number;
+  /** Quiet is anything within this much of the room's own noise. */
+  silenceOverNoise: number;
+  /** Talking over her must stand this far above her own voice. */
+  bargeOverSelf: number;
+  /** How long a turn may wait for the last words before closing anyway. */
+  finalWaitMs: number;
+  /** No single turn may run longer than this. */
+  maxTurnMs: number;
 };
 
 export const VOICE_TUNING: VoiceTuning = {
@@ -36,6 +46,11 @@ export const VOICE_TUNING: VoiceTuning = {
   minSpeechMs: 350,
   bargeLevel: 0.22,
   bargeMs: 240,
+  speechOverNoise: 2.6,
+  silenceOverNoise: 1.5,
+  bargeOverSelf: 1.45,
+  finalWaitMs: 1800,
+  maxTurnMs: 30000,
 };
 
 export type VoiceSample = {
@@ -44,6 +59,10 @@ export type VoiceSample = {
   level: number;
   /** Everything heard in this turn so far, final words and live guess. */
   transcript: string;
+  /** How loud Aura's own voice is right now, so she never cuts herself off. */
+  selfLevel?: number;
+  /** True while the listening engine still owes us the final words. */
+  finalPending?: boolean;
 };
 
 export type VoiceEffect =
@@ -67,6 +86,8 @@ export class VoiceSession {
   /** When the person started talking over her, or null. */
   private overSince: number | null = null;
   private lastNow = 0;
+  /** The room's own background noise, learned continuously. */
+  private noiseFloor = 0.015;
 
   constructor(tuning: VoiceTuning = VOICE_TUNING) {
     this.tuning = tuning;
@@ -76,6 +97,7 @@ export class VoiceSession {
   begin(now = 0): void {
     this.state = "listening";
     this.lastNow = now;
+    this.noiseFloor = 0.015;
     this.resetTurn();
   }
 
@@ -104,6 +126,21 @@ export class VoiceSession {
     return LISTENING_STATES.includes(this.state);
   }
 
+  /** The room's own noise as currently measured — for diagnostics only. */
+  get roomNoise(): number {
+    return this.noiseFloor;
+  }
+
+  /** Loud enough to be a voice in this particular room. */
+  private speechThreshold(): number {
+    return Math.max(this.tuning.speechLevel, this.noiseFloor * this.tuning.speechOverNoise);
+  }
+
+  /** Quiet enough to count as the end of a sentence in this room. */
+  private silenceThreshold(): number {
+    return Math.max(this.tuning.silenceLevel, this.noiseFloor * this.tuning.silenceOverNoise);
+  }
+
   private resetTurn() {
     this.speechStart = null;
     this.spokenMs = 0;
@@ -118,8 +155,17 @@ export class VoiceSession {
     this.lastNow = now;
     if (this.state === "idle" || this.state === "thinking") return [];
 
+    // Learn the room: drop to a new quiet floor quickly, rise very slowly, so
+    // speech can never train the floor up to its own level.
+    if (level < this.noiseFloor) this.noiseFloor = this.noiseFloor * 0.7 + level * 0.3;
+    else this.noiseFloor = Math.min(0.25, this.noiseFloor * 0.995 + level * 0.005);
+
     if (this.state === "speaking") {
-      if (level >= this.tuning.bargeLevel) {
+      // Her own voice comes back through the loudspeaker; only speech clearly
+      // above what she is producing counts as talking over her.
+      const overSelf = (sample.selfLevel ?? 0) * this.tuning.bargeOverSelf;
+      const threshold = Math.max(this.tuning.bargeLevel, this.speechThreshold(), overSelf);
+      if (level >= threshold) {
         this.overSince ??= now;
         if (now - this.overSince >= this.tuning.bargeMs) {
           this.state = "interrupted";
@@ -135,33 +181,42 @@ export class VoiceSession {
     }
 
     // Listening, waiting, or just interrupted: build the turn.
-    if (level >= this.tuning.speechLevel) {
+    const heard = sample.transcript.trim();
+
+    if (level >= this.speechThreshold()) {
       this.speechStart ??= now;
       this.spokenMs += elapsed;
       this.quietSince = null;
       if (this.state !== "listening") this.state = "listening";
-      return [];
+      return this.overrunTurn(now, heard);
     }
 
-    if (level <= this.tuning.silenceLevel) {
+    if (level <= this.silenceThreshold()) {
       if (this.speechStart === null) return [];
       this.quietSince ??= now;
       const quietFor = now - this.quietSince;
-      const heard = sample.transcript.trim();
-      if (
-        quietFor >= this.tuning.endOfTurnMs &&
-        this.spokenMs >= this.tuning.minSpeechMs &&
-        heard.length > 0
-      ) {
-        this.state = "thinking";
-        this.resetTurn();
-        return [{ kind: "turn", text: heard }];
-      }
-      return [];
+      const ready = quietFor >= this.tuning.endOfTurnMs && this.spokenMs >= this.tuning.minSpeechMs;
+      // Never close on the timer alone while the last words are still coming.
+      const stillListening = (sample.finalPending ?? false) && quietFor < this.tuning.finalWaitMs;
+      if (ready && !stillListening && heard.length > 0) return this.closeTurn(heard);
+      return this.overrunTurn(now, heard);
     }
 
     // Between the two thresholds: a breath, not the end of a sentence.
-    return [];
+    return this.overrunTurn(now, heard);
+  }
+
+  /** A turn that has run far too long closes on whatever was heard. */
+  private overrunTurn(now: number, heard: string): VoiceEffect[] {
+    if (this.speechStart === null || heard.length === 0) return [];
+    if (now - this.speechStart < this.tuning.maxTurnMs) return [];
+    return this.closeTurn(heard);
+  }
+
+  private closeTurn(heard: string): VoiceEffect[] {
+    this.state = "thinking";
+    this.resetTurn();
+    return [{ kind: "turn", text: heard }];
   }
 }
 
