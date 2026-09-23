@@ -857,7 +857,9 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           // Between clauses of a reply still being written she is not finished.
           if (callWriting.current) return;
           setSpeaking(false);
+          settleSpeech();
           metrics.current.mark("speechEnd", performance.now());
+
           setTiming(describeCallTiming(metrics.current.summary()));
           if (session.current?.state === "speaking") {
             session.current.replyEnded();
