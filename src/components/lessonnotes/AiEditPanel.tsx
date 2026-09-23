@@ -402,6 +402,8 @@ export function AiEditPanel({
               maxRows={12}
               className="w-full text-sm leading-relaxed bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40"
             />
+            </div>
+
 
             {images.length > 0 && (
               <div className="flex flex-wrap gap-2">
