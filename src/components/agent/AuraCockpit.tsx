@@ -35,7 +35,7 @@ import {
 } from "@/lib/agent/AuraProvider";
 
 import { AuraStepCard } from "./AuraStepCard";
-import { useDictation } from "./useDictation";
+import AuraWaveform from "./AuraWaveform";
 
 const SUGGESTIONS = [
   "What should I prepare for my next class?",
