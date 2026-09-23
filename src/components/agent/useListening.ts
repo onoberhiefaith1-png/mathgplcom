@@ -412,6 +412,7 @@ export function useListening({ onWake, paused }: ListeningOptions) {
     start,
     stop,
     clearTranscript,
+    editTranscript,
     finalPending,
     clearError,
   };
