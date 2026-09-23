@@ -53,6 +53,10 @@ export default function AuraCockpit() {
     status,
     speakReplies,
     setSpeakReplies,
+    speaking,
+    stopSpeaking,
+    wakeEnabled,
+    setWakeEnabled,
     send,
     clear,
   } = useAura();
