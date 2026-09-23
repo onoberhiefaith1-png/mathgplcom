@@ -50,6 +50,8 @@ import {
 } from "@/lib/agent/AuraProvider";
 
 import { AURA_FILE_TYPES, uploadAuraAttachment } from "@/lib/agent/attachments";
+import { describeTurnCredits } from "@/lib/agent/spend";
+
 
 import { AuraStepCard } from "./AuraStepCard";
 import AuraWaveform from "./AuraWaveform";
