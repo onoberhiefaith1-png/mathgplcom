@@ -190,6 +190,11 @@ async function writeBlocks(
   solutionObjects: SolutionObject[] = [],
   problemObjects: SolutionObject[] = [],
 ): Promise<void> {
+  // The page prints its own "Problem" and "Solution" headings, so a label can
+  // never be stored as content. Without this, every save re-read the labels out
+  // of the document and stacked another one on top.
+  const cleanProblem = cleanNoteLines(problem).join("\n");
+  const cleanSolution = cleanNoteLines(solution).join("\n");
   await supabase.from("notebook_blocks").delete().eq("subsection_id", subsectionId);
   await supabase.from("notebook_blocks").insert([
     {
@@ -197,7 +202,7 @@ async function writeBlocks(
       subsection_id: subsectionId,
       kind: "problem" as any,
       order_index: 0,
-      content_ascii: problem,
+      content_ascii: cleanProblem,
       // Objects that belong to the QUESTION (tables, diagrams, charts, 3D).
       content_json: (problemObjects.length ? { objects: problemObjects } : null) as any,
     },
