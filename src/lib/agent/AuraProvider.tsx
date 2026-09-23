@@ -12,7 +12,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 
 import {
@@ -34,6 +34,7 @@ import {
 import { useListening, type ListeningEngine } from "@/components/agent/useListening";
 
 import { agentChat, agentGreeting } from "./brain.functions";
+import { contextFromPath, mergeContext, readAuraScreenContext } from "./context";
 import type { AgentStep } from "./brain.server";
 import { publishTeaching } from "./teachingBus";
 import {
