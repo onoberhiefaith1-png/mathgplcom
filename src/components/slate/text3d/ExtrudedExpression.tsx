@@ -69,9 +69,16 @@ export function ExtrudedExpression({ boxes, fontUrl, fontSize, style, opacity }:
         style.preset,
         q(style.bevel, 4),
         q(style.extrude, 4),
+        q(style.shadowOpacity, 4),
+        q(style.shadowBlur, 4),
+        q(style.glowOpacity, 4),
+        q(style.glowRadius, 4),
+        q(style.faceOpacity, 4),
+        q(style.highlight, 4),
+        q(style.outlineWidth, 4),
         boxes.map((b) => `${b.char}${q(b.x)},${q(b.y)},${q(b.w)},${q(b.h)}`).join("|"),
       ].join("~"),
-    [boxes, fontSize, fontUrl, style.bevel, style.extrude, style.preset],
+    [boxes, fontSize, fontUrl, style.bevel, style.extrude, style.faceOpacity, style.glowOpacity, style.glowRadius, style.highlight, style.outlineWidth, style.preset, style.shadowBlur, style.shadowOpacity],
   );
 
   const geometry = useMemo(() => {
@@ -95,10 +102,10 @@ function buildExpression(
     const pieces: THREE.BufferGeometry[] = [];
     const materialGroups: { start: number; count: number; materialIndex: number }[] = [];
     let vertexOffset = 0;
-    const physicalDepth = Math.max(fontSize * 0.11, style.extrude * fontSize);
+    const physicalDepth = Math.max(0.001, style.extrude * fontSize);
     // The bevel is only the transition from face to side. Keeping it narrow
     // prevents the depth colour from swallowing the dominant front face.
-    const bevelSize = Math.min(fontSize * 0.035, Math.max(0.001, style.bevel * fontSize * 0.55));
+    const bevelSize = Math.min(fontSize * 0.035, Math.max(0, style.bevel * fontSize * 0.55));
 
     for (const box of boxes) {
       // Cached per character: the same glyph solid is never extruded twice.
@@ -178,6 +185,11 @@ function ExpressionMesh({ geometry, style, fontSize, opacity }: {
           style.face,
           style.side,
           style.glow,
+          style.shadow,
+          style.contact,
+          q(style.faceOpacity, 2),
+          q(style.glowOpacity, 2),
+          q(style.highlight, 2),
           q(fontSize),
           q(opacity, 2),
         ].join("~"),
@@ -186,7 +198,7 @@ function ExpressionMesh({ geometry, style, fontSize, opacity }: {
             color: style.face,
             side: THREE.DoubleSide,
             transparent: opacity < 1 || crystal,
-            opacity: crystal ? opacity * 0.78 : opacity,
+            opacity: (crystal ? 0.78 : 1) * opacity * style.faceOpacity,
             roughness: stone ? 0.82 : bubble ? 0.24 : crystal ? 0.12 : 0.28,
             metalness: stone || crystal || bubble ? 0.04 : 0.12,
             clearcoat: stone ? 0 : 0.75,
@@ -194,7 +206,7 @@ function ExpressionMesh({ geometry, style, fontSize, opacity }: {
             transmission: crystal ? 0.22 : 0,
             thickness: crystal ? fontSize * 0.12 : 0,
             emissive: new THREE.Color(neon ? style.glow : style.face),
-            emissiveIntensity: neon ? 0.55 : crystal ? 0.22 : stone ? 0.16 : 0.3,
+            emissiveIntensity: (neon ? 0.55 : crystal ? 0.22 : stone ? 0.16 : 0.3) * Math.max(0, style.highlight),
           });
           const side = new THREE.MeshPhysicalMaterial({
             color: style.side,
@@ -206,7 +218,7 @@ function ExpressionMesh({ geometry, style, fontSize, opacity }: {
             clearcoat: stone ? 0 : 0.68,
             clearcoatRoughness: 0.16,
             emissive: new THREE.Color(neon ? style.side : "#000000"),
-            emissiveIntensity: neon ? 0.28 : 0,
+            emissiveIntensity: neon ? 0.28 * Math.max(0, style.highlight) : 0,
           });
           return [face, side];
         },
