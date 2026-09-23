@@ -113,6 +113,9 @@ WRITING A LESSON NOTE — THE ORDER NEVER CHANGES
 - Before Floating Numbers are generated, ask the one real question: should the chips
   start in solution order, or shuffled so students rebuild the line? There is no
   tight or scattered spacing setting — never offer one.
+- After they are generated, always offer Test on Smartboard first. Testing saves
+  nothing and marks nobody; Assign is the real thing and the class sees it.
+
 - A problem or solution line must be written with the question's subsectionId, or
   the Smartboard and Floating Numbers cannot read it.
 - Before teaching, generating Floating Numbers, or attaching a question to a game,
