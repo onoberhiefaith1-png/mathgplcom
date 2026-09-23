@@ -90,15 +90,22 @@ describe("a noisy room and her own voice", () => {
 
 describe("her reply is cut where a person would breathe", () => {
   it("speaks the first clause before the sentence has finished", () => {
-    const first = takeClauses("Right, let me open that lesson for you now and");
-    expect(first.clauses).toEqual(["Right, let me open that lesson for you now and".slice(0, 6)]);
-    expect(first.rest.trim().startsWith("let me")).toBe(true);
+    const first = takeClauses("Let me open that lesson for you, and then we can");
+    expect(first.clauses).toEqual(["Let me open that lesson for you,"]);
+    expect(first.rest.trim()).toBe("and then we can");
+  });
+
+  it("never speaks a scrap of a word on its own", () => {
+    const { clauses, rest } = takeClauses("Right, I'm on it");
+    expect(clauses).toEqual([]);
+    expect(rest).toBe("Right, I'm on it");
   });
 
   it("keeps decimals and short fragments together", () => {
     const { clauses, rest } = takeClauses("The answer is 3.5 so we halve it, then add two. ");
-    expect(clauses).toEqual(["The answer is 3.5 so we halve it,", "then add two."]);
-    expect(rest.trim()).toBe("");
+    // The decimal point is not a boundary; the short tail waits for more words.
+    expect(clauses).toEqual(["The answer is 3.5 so we halve it,"]);
+    expect(rest.trim()).toBe("then add two.");
   });
 
   it("gives up the last fragment only when the reply has finished", () => {
