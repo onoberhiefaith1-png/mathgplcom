@@ -230,6 +230,8 @@ export class VoiceSession {
       this.speechStart ??= now;
       this.spokenMs += elapsed;
       this.quietSince = null;
+      // Speaking again inside the grace window simply continues the same turn.
+      this.pendingSince = null;
       if (this.state !== "listening") this.state = "listening";
       return this.overrunTurn(now, heard);
     }
