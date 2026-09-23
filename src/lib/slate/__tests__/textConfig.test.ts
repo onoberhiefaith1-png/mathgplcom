@@ -17,7 +17,7 @@ const gameWithText = () => {
     subtopic: "Linear equations",
     surfaceId: "whiteboard",
     lines: 1,
-    background: "day",
+    background: { src: null, kind: "image", scale: 1, x: 0, y: 0, opacity: 1 },
   });
   return { ...game, slots: [{ ...makeSlot(0), text: "x + 7 = 12" }] };
 };
