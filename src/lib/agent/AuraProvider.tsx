@@ -563,6 +563,85 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     listening.start("capture");
   }, [ensureMic, listening, micPermission, wakeEnabled]);
 
+  // ── THE OPEN SESSION ─────────────────────────────────────────────────────
+  // The blue button opens this and nothing closes it but the teacher. A reading
+  // of the microphone every 60ms is all the state machine needs.
+  useEffect(() => {
+    levelRef.current = listening.level;
+    heardRef.current = listening.transcript;
+  }, [listening.level, listening.transcript]);
+
+  const endVoice = useCallback(() => {
+    voiceLive.current = false;
+    session.current?.end();
+    session.current = null;
+    setVoiceState("idle");
+    voice.current?.abort();
+    voice.current = null;
+    stopBrowserVoice();
+    setSpeaking(false);
+    if (wakeEnabledRef.current) listening.start("wake");
+    else listening.stop();
+  }, [listening]);
+
+  const startVoice = useCallback(() => {
+    const open = () => {
+      setOpen(true);
+      listening.clearError();
+      listening.start("capture", granted.current);
+      const machine = new VoiceSession();
+      machine.begin(performance.now());
+      session.current = machine;
+      voiceLive.current = true;
+      setVoiceState(machine.state);
+    };
+    if (micPermission !== "granted") {
+      void ensureMic().then((allowed) => {
+        if (allowed) open();
+      });
+      return;
+    }
+    open();
+  }, [ensureMic, listening, micPermission, setOpen]);
+
+  useEffect(() => {
+    if (voiceState === "idle") return;
+    const timer = window.setInterval(() => {
+      const machine = session.current;
+      if (!machine) return;
+      const effects = machine.feed({
+        now: performance.now(),
+        level: levelRef.current,
+        transcript: heardRef.current,
+      });
+      for (const effect of effects) {
+        if (effect.kind === "cut") {
+          voice.current?.abort();
+          voice.current = null;
+          stopBrowserVoice();
+          setSpeaking(false);
+          listening.clearTranscript();
+          heardRef.current = "";
+        }
+        if (effect.kind === "turn") {
+          listening.clearTranscript();
+          heardRef.current = "";
+          sendRef.current(effect.text, { spoken: true });
+        }
+      }
+      setVoiceState(machine.state);
+    }, 60);
+    return () => window.clearInterval(timer);
+  }, [listening, voiceState]);
+
+  // Leaving the page must never leave the microphone open.
+  useEffect(() => () => {
+    session.current?.end();
+    session.current = null;
+    voiceLive.current = false;
+  }, []);
+
+
   const clear = useCallback(() => {
     setMessages([]);
     setLiveSteps([]);
