@@ -142,3 +142,45 @@ describe("the system prompt keeps its non-negotiables", () => {
     expect(bare).toContain("HOW MATHGPL WORKS — EVERY WORKFLOW");
   });
 });
+
+describe("Aura knows how a lesson note is really built", () => {
+  it("treats every question as a session the board can step through", () => {
+    const sections = findKnowledge("lesson-sections")!;
+    expect(sections.purpose.toLowerCase()).toContain("session");
+    expect(sections.pitfalls.join(" ").toLowerCase()).toContain("own session");
+    expect(NAMING_TRUTHS.toLowerCase()).toContain("session by session");
+    expect(AGENT_TOOL_IDS).toContain("add_lesson_session");
+  });
+
+  it("carries both Floating Number stages and the dry run", () => {
+    const prep = findKnowledge("floating-preparation")!;
+    expect(prep.entryPath).toContain("floating-prep");
+    expect(prep.firstStep.toLowerCase()).toContain("floating");
+    const gen = findKnowledge("floating-numbers")!;
+    expect(gen.actions.join(" ")).toContain("Generate");
+    expect(gen.actions.join(" ")).toContain("Shuffle");
+    const test = findKnowledge("floating-test")!;
+    expect(test.entryPath).toContain("/test");
+    expect(test.onSave.toLowerCase()).toContain("nothing is saved");
+  });
+
+  it("never offers a spacing setting that does not exist", () => {
+    const all = KNOWLEDGE_NODES.flatMap((n) => [...n.actions, ...n.inputs]).join(" ").toLowerCase();
+    expect(all).not.toContain("scattered");
+    expect(all).not.toContain("tight");
+    expect(NAMING_TRUTHS.toLowerCase()).toContain('no "tight" or "scattered"');
+  });
+
+  it("selects the right workflows on each floating page", () => {
+    expect(knowledgeForPath("/lesson-notes/a/floating-prep/b")).toContain("floating-preparation");
+    expect(knowledgeForPath("/lesson-notes/a/floating/b")).toContain("floating-numbers");
+    expect(knowledgeForPath("/lesson-notes/a/floating/b/test")).toContain("floating-test");
+  });
+
+  it("puts the authoring order into the system prompt", () => {
+    const prompt = buildAgentSystemPrompt(undefined, { path: "/lesson-notes/1" });
+    expect(prompt).toContain("WRITING A LESSON NOTE — THE ORDER NEVER CHANGES");
+    expect(prompt).toContain("Test on Smartboard");
+    expect(prompt).toContain("TEACHING OUT LOUD");
+  });
+});
