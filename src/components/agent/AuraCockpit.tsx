@@ -61,7 +61,12 @@ const SUGGESTIONS = [
   "Create a class called Grade 9 Algebra and give me the join code.",
 ];
 
-export default function AuraCockpit() {
+/**
+ * "panel" is the side panel that follows the teacher around the platform.
+ * "page" is the same conversation given a whole screen as the front door.
+ */
+export default function AuraCockpit({ variant = "panel" }: { variant?: "panel" | "page" } = {}) {
+  const page = variant === "page";
   const {
     open,
     setOpen,
