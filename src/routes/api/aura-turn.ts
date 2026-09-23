@@ -72,13 +72,16 @@ export const Route = createFileRoute("/api/aura-turn")({
               }
 
               const { streamAgentTurn } = await import("@/lib/agent/brain.server");
+              // The line she has already spoken is carried as her own words, so
+              // she continues the same sentence instead of starting again.
               const carried = quick
                 ? [
-                    ...messages,
+                    ...messages.slice(0, -1),
                     {
-                      role: "system" as const,
-                      content: `You have already said out loud: "${quick}". Carry straight on with the result in one or two short spoken sentences. Never repeat that line, never greet again.`,
+                      role: "assistant" as const,
+                      content: `(to myself: I have just said out loud "${quick}" — carry straight on with the real result in one or two short spoken sentences, never repeat that line and never greet again.)`,
                     },
+                    last,
                   ]
                 : messages;
               const stream = await streamAgentTurn(
