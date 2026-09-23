@@ -489,6 +489,9 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       callWriting.current = true;
       callMuted.current = false;
       let buffer = "";
+      /** True until her first clause has gone to her voice in this reply. */
+      let opening = true;
+      speech?.beginReply();
 
       const say = (clause: string) => {
         if (callMuted.current || !speech) return;
@@ -502,9 +505,14 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         context: mergeContext(contextFromPath(pathnameRef.current), readAuraScreenContext()),
         signal: controller.signal,
         onDelta: (delta) => {
+          metrics.current.mark("firstToken", performance.now());
+          setTiming(describeCallTiming(metrics.current.summary()));
           buffer += delta;
-          const { clauses, rest } = takeClauses(buffer);
+          // Her first clause is cut short so her voice starts almost at once;
+          // everything after it is cut at ordinary speaking lengths.
+          const { clauses, rest } = takeClauses(buffer, { first: opening });
           buffer = rest;
+          if (clauses.length) opening = false;
           for (const clause of clauses) say(clause);
         },
       })
