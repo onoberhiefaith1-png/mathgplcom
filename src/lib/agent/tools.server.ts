@@ -224,18 +224,27 @@ const executors: Record<string, Executor> = {
   append_lesson_lines: async ({ supabase }, args) => {
     const db = supabase as unknown as AnyDb;
     const sectionId = need(args, "sectionId");
+    // A question's own lines must sit inside the question, or the Smartboard and
+    // Floating Numbers cannot read them.
+    const subsectionId = str(args, "subsectionId") ?? null;
     const content = lines(args, "lines");
     const kindArg = str(args, "kind") ?? "text";
     const kind = (BLOCK_KINDS as readonly string[]).includes(kindArg) ? kindArg : "text";
-    const { data: existing } = await db
+    if ((kind === "problem" || kind === "solution") && !subsectionId) {
+      throw new Error(
+        `A ${kind} line belongs inside a question. Create the question with add_lesson_question first, then pass its subsectionId.`,
+      );
+    }
+    let tail = db
       .from("notebook_blocks")
       .select("order_index")
-      .eq("section_id", sectionId)
-      .order("order_index", { ascending: false })
-      .limit(1);
+      .eq("section_id", sectionId);
+    tail = subsectionId ? tail.eq("subsection_id", subsectionId) : tail.is("subsection_id", null);
+    const { data: existing } = await tail.order("order_index", { ascending: false }).limit(1);
     let order = (((existing ?? []) as { order_index: number }[])[0]?.order_index ?? -1) + 1;
     const rows = content.map((text) => ({
       section_id: sectionId,
+      subsection_id: subsectionId,
       kind,
       content_ascii: text,
       order_index: order++,
@@ -243,10 +252,11 @@ const executors: Record<string, Executor> = {
     const { error } = await db.from("notebook_blocks").insert(rows);
     if (error) throw new Error(error.message);
     return {
-      data: { sectionId, added: rows.length, kind },
+      data: { sectionId, subsectionId, added: rows.length, kind },
       summary: `Wrote ${rows.length} ${kind} line${rows.length === 1 ? "" : "s"} into the lesson note.`,
     };
   },
+
 
   add_lesson_session: async ({ supabase }, args) => {
     const db = supabase as unknown as AnyDb;

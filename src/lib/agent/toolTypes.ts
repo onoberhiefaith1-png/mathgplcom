@@ -117,6 +117,12 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
       p("sectionId", "string", true, "Section id from create_lesson_note or read_lesson_note."),
       p("lines", "string[]", true, "Lines to append, in order."),
       p(
+        "subsectionId",
+        "string",
+        false,
+        "The question these lines belong to. Required for problem and solution lines, so the Smartboard and Floating Numbers can read them.",
+      ),
+      p(
         "kind",
         "string",
         false,
@@ -124,6 +130,94 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
       ),
     ],
   },
+  {
+    id: "edit_lesson_line",
+    domain: "lessonNotes",
+    title: "Rewrite one line of a lesson note",
+    description:
+      "Replace the text of one existing line. Use this to correct a step rather than writing a second version of it.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("blockId", "string", true, "Line id from read_lesson_note or inspect_lesson_structure."),
+      p("text", "string", true, "The line as it should now read."),
+    ],
+  },
+  {
+    id: "insert_lesson_lines",
+    domain: "lessonNotes",
+    title: "Insert lines in the middle of a lesson note",
+    description:
+      "Write one or more lines into the middle of a session or a question, pushing the lines below it down. Use this when a micro-step was skipped.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("lines", "string[]", true, "Lines to insert, in order."),
+      p("afterBlockId", "string", false, "Insert directly after this line."),
+      p("sectionId", "string", false, "Session to insert into, when there is no afterBlockId."),
+      p("subsectionId", "string", false, "Question to insert into, when there is no afterBlockId."),
+      p("atPosition", "number", false, "Position to insert at, counting from 0. Default the top."),
+      p("kind", "string", false, "problem, solution, reasoning or text. Default text."),
+    ],
+  },
+  {
+    id: "move_lesson_line",
+    domain: "lessonNotes",
+    title: "Move a line up or down",
+    description:
+      "Move one line to another position within the same session or question, and read the new order back.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("blockId", "string", true, "Line id."),
+      p("toPosition", "number", true, "New position, counting from 1."),
+    ],
+  },
+  {
+    id: "preview_lesson_removal",
+    domain: "lessonNotes",
+    title: "Show exactly what a removal would delete",
+    description:
+      "Before deleting anything, list the exact lines that would go, any Floating Numbers that would go with them, and any game that is using that question. Read this to the teacher first — deleting cannot be undone.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [
+      p("blockIds", "string[]", false, "Specific lines."),
+      p("subsectionId", "string", false, "A whole question."),
+      p("sectionId", "string", false, "A whole session."),
+    ],
+  },
+  {
+    id: "remove_lesson_lines",
+    domain: "lessonNotes",
+    title: "Delete lines from a lesson note",
+    description:
+      "Delete lines for good. Always call preview_lesson_removal first, read it out, and wait for a clear yes; then call this with confirmed set to true.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [p("blockIds", "string[]", true, "Lines to delete.")],
+  },
+  {
+    id: "inspect_lesson_structure",
+    domain: "lessonNotes",
+    title: "Check a lesson note is built properly",
+    description:
+      "Walk a whole lesson note and report its sessions, the questions inside each, their Floating Numbers, any lines left loose outside a question, and any question typed as plain prose instead of being given its own session. Use this before teaching, generating Floating Numbers, or attaching a question to a game.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [p("notebookId", "string", true, "Lesson-note id.")],
+  },
+  {
+    id: "repair_lesson_structure",
+    domain: "lessonNotes",
+    title: "Straighten a session whose question is loose",
+    description:
+      "Give a question session a proper question if it has none, and move its loose question and solution lines inside it. Lines are moved, never copied, so no duplicate appears.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [p("sectionId", "string", true, "Session id from inspect_lesson_structure.")],
+  },
+
   {
     id: "add_lesson_session",
     domain: "lessonNotes",
