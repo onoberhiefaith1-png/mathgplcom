@@ -32,6 +32,44 @@ export function turnCost(model: string, input: number, output: number): TurnUsag
   };
 }
 
+// ------------------------------------------------------------------ her voice
+//
+// Speech is billed by the sound produced, so it is measured from the audio that
+// was actually played. Gemini TTS bills audio output at $10 per million audio
+// tokens, and a second of speech is about 25 of those tokens — the figure is
+// therefore close but, unlike the text figures, not exact.
+export const TTS_USD_PER_SECOND = (10 / 1_000_000) * 25;
+
+/** The cost of sound she has actually made, in pence. */
+export function audioCost(seconds: number): number {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+  return seconds * TTS_USD_PER_SECOND * USD_TO_PENCE;
+}
+
+// ---------------------------------------------------------------- credits view
+//
+// A credit is the unit the teacher's account is kept in. One credit is 30p, so
+// every measured cost can be shown the same way Lovable shows it per message.
+export const CREDIT_PENCE = 30;
+
+export const creditsOf = (pence: number): number =>
+  Math.max(0, pence) / CREDIT_PENCE;
+
+/**
+ * "0.00042" — a tiny turn must never round away to nothing, and a free turn is
+ * plainly "0.0" rather than a misleading small number.
+ */
+export function formatCredits(credits: number): string {
+  if (!Number.isFinite(credits) || credits <= 0) return "0.0";
+  if (credits < 0.00001) return "<0.00001";
+  if (credits < 1) return credits.toFixed(5).replace(/0+$/, "").replace(/\.$/, ".0");
+  return credits.toFixed(3).replace(/0+$/, "").replace(/\.$/, ".0");
+}
+
+/** The line under a finished reply: what that one completion cost. */
+export const describeTurnCredits = (pence: number): string =>
+  `${formatCredits(creditsOf(pence))} credits`;
+
 /** "0.04p" — small amounts stay readable instead of rounding to zero. */
 export function formatPence(pence: number): string {
   if (pence <= 0) return "0p";
@@ -40,6 +78,7 @@ export function formatPence(pence: number): string {
   if (pence < 100) return `${pence.toFixed(1)}p`;
   return `£${(pence / 100).toFixed(2)}`;
 }
+
 
 // ---------------------------------------------------------------- daily ledger
 
