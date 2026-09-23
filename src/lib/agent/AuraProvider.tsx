@@ -461,8 +461,13 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       micRequesting,
       micPromptOpen,
       setMicPromptOpen,
-      micStatus: micStatusLabel(micPermission, micRequesting, listening.mode !== "off"),
-      micTone: micStatusTone(micPermission, micRequesting, listening.mode !== "off"),
+      micStatus: listening.errorMessage
+        ? listening.errorMessage
+        : micStatusLabel(micPermission, micRequesting, listening.mode !== "off"),
+      micTone: listening.error
+        ? "error"
+        : micStatusTone(micPermission, micRequesting, listening.mode !== "off"),
+
       requestMic,
 
       listening,
