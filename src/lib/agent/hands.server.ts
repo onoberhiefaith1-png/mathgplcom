@@ -117,7 +117,240 @@ type Executor = (
   args: Args,
 ) => Promise<{ data: unknown; summary: string; navigateTo?: string }>;
 
+const SECTION_KINDS = [
+  "introduction",
+  "explanation",
+  "example",
+  "exercise",
+  "classwork",
+  "homework",
+  "summary",
+];
+const BLOCK_KINDS = ["problem", "solution", "reasoning", "text"];
+
+type SectionPlace = {
+  sectionId: string;
+  notebookId: string;
+  sectionKind: string;
+  subject: string;
+  topic: string;
+  subtopic: string;
+};
+
+/** Where a section sits, and what the lesson note around it is about. */
+async function readSection(ctx: Ctx, sectionId: string): Promise<SectionPlace> {
+  const db = ctx.supabase as unknown as AnyDb;
+  const { data: section, error } = await db
+    .from("notebook_sections")
+    .select("id, kind, notebook_id")
+    .eq("id", sectionId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!section) throw new Error("That session was not found. Check the sectionId.");
+  const { data: nb } = await db
+    .from("notebooks")
+    .select("id, title, subject, subtopic")
+    .eq("id", section.notebook_id)
+    .maybeSingle();
+  return {
+    sectionId: String(section.id),
+    notebookId: String(section.notebook_id),
+    sectionKind: String(section.kind ?? "example"),
+    subject: String(nb?.subject ?? "Mathematics"),
+    topic: String(nb?.title ?? ""),
+    subtopic: String(nb?.subtopic ?? ""),
+  };
+}
+
+/** The lesson so far, so the generator never repeats itself. */
+async function readLessonSoFar(ctx: Ctx, notebookId: string) {
+  const db = ctx.supabase as unknown as AnyDb;
+  const { data: sections } = await db
+    .from("notebook_sections")
+    .select("id, kind, title, order_index")
+    .eq("notebook_id", notebookId)
+    .order("order_index", { ascending: true });
+  const rows = (sections ?? []) as { id: string; kind: string; title: string | null }[];
+  const explanations: string[] = [];
+  const examples: { label: string; problem: string }[] = [];
+  let introduction = "";
+  for (const s of rows) {
+    const { data: blocks } = await db
+      .from("notebook_blocks")
+      .select("kind, content_ascii, order_index")
+      .eq("section_id", s.id)
+      .order("order_index", { ascending: true });
+    const text = ((blocks ?? []) as { kind: string; content_ascii: string | null }[])
+      .map((b) => ({ kind: b.kind, text: String(b.content_ascii ?? "").trim() }))
+      .filter((b) => b.text);
+    if (!text.length) continue;
+    const joined = text.map((b) => b.text).join("\n");
+    if (s.kind === "introduction") introduction ||= joined;
+    else if (s.kind === "explanation") explanations.push(joined);
+    else {
+      const problem = text.filter((b) => b.kind === "problem").map((b) => b.text).join(" / ");
+      if (problem) examples.push({ label: s.title || s.kind, problem });
+    }
+  }
+  return { introduction, explanations, examples };
+}
+
+/** One call into the platform's own notebook generator. */
+async function callNotebookAi(ctx: Ctx, body: Record<string, unknown>) {
+  const db = ctx.supabase as unknown as AnyDb;
+  const { data, error } = await db.functions.invoke("notebook-ai", { body });
+  if (error) {
+    // The generator answers refusals as structured 4xx bodies; surface them.
+    const detail =
+      (error as any)?.context?.body?.detail ??
+      (error as any)?.context?.body?.error ??
+      error.message ??
+      "The lesson-note generator did not answer.";
+    throw new Error(String(detail));
+  }
+  const bad = (data as any)?.error;
+  if (bad) throw new Error(String((data as any)?.detail ?? bad));
+  return data as any;
+}
+
 export const handsExecutors: Record<string, Executor> = {
+  plan_lesson_note: async (ctx, args) => {
+    const sectionKind = (str(args, "sectionKind") ?? "example").toLowerCase();
+    const notebookId = str(args, "notebookId");
+    const place = notebookId
+      ? await (async () => {
+          const db = ctx.supabase as unknown as AnyDb;
+          const { data: nb } = await db
+            .from("notebooks")
+            .select("title, subject, subtopic")
+            .eq("id", notebookId)
+            .maybeSingle();
+          return {
+            topic: String(nb?.title ?? str(args, "topic") ?? ""),
+            subtopic: String(nb?.subtopic ?? str(args, "subtopic") ?? ""),
+          };
+        })()
+      : { topic: str(args, "topic") ?? "", subtopic: str(args, "subtopic") ?? "" };
+
+    const blueprint = await callNotebookAi(ctx, {
+      mode: "blueprint",
+      sectionKind,
+      topic: place.topic,
+      subtopic: place.subtopic,
+      level: str(args, "level"),
+      difficulty: str(args, "difficulty"),
+      material: { text: str(args, "instruction") ?? "" },
+      materialSource: "teacher instruction",
+      sessionContext: str(args, "sessionContext") ?? "",
+    });
+    return {
+      data: blueprint,
+      summary: `Planned the ${sectionKind} with the lesson-note generator's own analysis stage.`,
+    };
+  },
+
+  generate_lesson_content: async (ctx, args) => {
+    const db = ctx.supabase as unknown as AnyDb;
+    const sectionId = need(args, "sectionId");
+    const subsectionId = str(args, "subsectionId") ?? null;
+    const blockKindArg = (str(args, "blockKind") ?? "text").toLowerCase();
+    const blockKind = BLOCK_KINDS.includes(blockKindArg) ? blockKindArg : "text";
+    const place = await readSection(ctx, sectionId);
+    const sectionKindArg = (str(args, "sectionKind") ?? place.sectionKind).toLowerCase();
+    const sectionKind = SECTION_KINDS.includes(sectionKindArg) ? sectionKindArg : place.sectionKind;
+
+    if ((blockKind === "problem" || blockKind === "solution") && !subsectionId) {
+      throw new Error(
+        `A ${blockKind} belongs inside a question. Create the session with add_lesson_session first, then pass its subsectionId.`,
+      );
+    }
+
+    // A solution is always generated with its own question — never without one.
+    let activeQuestion = str(args, "activeQuestion") ?? "";
+    if (blockKind === "solution") {
+      if (!activeQuestion && subsectionId) {
+        activeQuestion = (await readQuestion(ctx, subsectionId)).problem;
+      }
+      if (!activeQuestion) {
+        throw new Error(
+          "There is no question written above this solution yet. Write the question first, then generate its solution.",
+        );
+      }
+    }
+
+    const soFar = await readLessonSoFar(ctx, place.notebookId);
+    const out = await callNotebookAi(ctx, {
+      mode: "generate",
+      sectionKind,
+      blockKind,
+      subject: place.subject,
+      topic: place.topic,
+      subtopic: place.subtopic,
+      teacherPrompt: str(args, "instruction") ?? "",
+      currentContent: str(args, "currentContent") ?? "",
+      activeQuestion: activeQuestion || undefined,
+      inheritedContext: blockKind === "solution" ? true : undefined,
+      lessonContext: {
+        level: str(args, "level"),
+        objectives: str(args, "objectives"),
+        introduction: soFar.introduction,
+        explanations: soFar.explanations,
+        examples: soFar.examples,
+      },
+    });
+
+    const content = String(out?.content ?? "").trim();
+    if (!content) throw new Error("The generator returned nothing, so nothing was written into the note.");
+    const written = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+
+    let tail = db.from("notebook_blocks").select("order_index").eq("section_id", sectionId);
+    tail = subsectionId ? tail.eq("subsection_id", subsectionId) : tail.is("subsection_id", null);
+    const { data: existing } = await tail.order("order_index", { ascending: false }).limit(1);
+    let order = (((existing ?? []) as { order_index: number }[])[0]?.order_index ?? -1) + 1;
+    const rows = written.map((text) => ({
+      section_id: sectionId,
+      subsection_id: subsectionId,
+      kind: blockKind,
+      content_ascii: text,
+      order_index: order++,
+    }));
+    const { error } = await db.from("notebook_blocks").insert(rows);
+    if (error) throw new Error(error.message);
+
+    return {
+      data: {
+        sectionId,
+        subsectionId,
+        blockKind,
+        sectionKind,
+        lines: written,
+        warnings: out?.warnings ?? null,
+        nextStep: blockKind === "solution" ? "review_lesson_section" : undefined,
+      },
+      summary: `Wrote the ${sectionKind} ${blockKind} with the lesson-note generator — ${written.length} line${written.length === 1 ? "" : "s"}.`,
+    };
+  },
+
+  review_lesson_section: async (ctx, args) => {
+    const subsectionId = need(args, "subsectionId");
+    const q = await readQuestion(ctx, subsectionId);
+    const verdict = await callNotebookAi(ctx, {
+      mode: "review",
+      heading: q.sectionKind,
+      questionText: q.problem,
+      existingSolution: q.solution,
+      instruction: str(args, "instruction") ?? "",
+      requestedMethod: str(args, "method") ?? "",
+    });
+    const ok = verdict?.ok !== false;
+    return {
+      data: { subsectionId, ok, issue: verdict?.issue ?? null },
+      summary: ok
+        ? "The question and its solution passed the lesson-note check."
+        : `The check found a problem: ${verdict?.issue?.detail ?? verdict?.issue?.type ?? "see the issue"}.`,
+    };
+  },
+
   highlight_solution: async (ctx, args) => {
     const db = ctx.supabase as unknown as AnyDb;
     const subsectionId = need(args, "subsectionId");
