@@ -1,30 +1,29 @@
 // Which mode owns the lesson workspace. Exactly one is ever active.
 //
-//  • "manual"     — DEFAULT. The teacher builds the lesson: type, paste,
-//    upload, draw, tables, equations. NO AI generation affordances at all.
-//    AI Edit (selection and diagram) stays available, because it edits what
-//    the teacher already wrote — it never creates the lesson.
-//  • "mathengine" — AI Builder: the per-section AI tools are available again,
-//    and every one of them goes through the Engine service.
-//  • "copilot"    — MathGPL Co-Pilot: the assistant dock.
+//  • "manual"  — DEFAULT. The teacher builds the lesson. AI Edit (highlight or
+//    the top-bar button) stays available: it structures content the teacher
+//    brings, it never builds the lesson on its own.
+//  • "copilot" — MathGPL Co-Pilot: the assistant dock PLUS every former
+//    AI Builder tool (per-section AI buttons). Builder is no longer a mode.
 //
 // Kept in a tiny external store (not React context) because ProseMirror node
-// views render outside the page's React tree, so they can't read a provider
-// mounted by the editor page.
+// views render outside the page's React tree.
 
 import { useSyncExternalStore } from "react";
 
-export type LessonAiMode = "manual" | "copilot" | "mathengine";
+export type LessonAiMode = "manual" | "copilot";
 
-// v2: Manual is the new default, so the old key is deliberately abandoned —
-// every teacher starts in Manual mode regardless of what they used before.
 const KEY = "mathgpl.lessonMode.v2";
 const listeners = new Set<() => void>();
 
+/** Old saved "mathengine" (AI Builder) now opens as Co-Pilot. */
+export function normalizeLessonMode(v: string | null | undefined): LessonAiMode {
+  return v === "copilot" || v === "mathengine" ? "copilot" : "manual";
+}
+
 const read = (): LessonAiMode => {
   if (typeof window === "undefined") return "manual";
-  const v = window.localStorage.getItem(KEY);
-  return v === "copilot" || v === "mathengine" ? v : "manual";
+  return normalizeLessonMode(window.localStorage.getItem(KEY));
 };
 
 let current: LessonAiMode = "manual";
@@ -55,27 +54,23 @@ function subscribe(fn: () => void) {
   return () => listeners.delete(fn);
 }
 
-/** Live mode. SSR renders Manual mode so hydration always matches. */
 export function useLessonAiMode(): LessonAiMode {
   return useSyncExternalStore(subscribe, snapshot, () => "manual");
 }
 
 /** True when the per-section AI GENERATION controls should be visible. */
 export function useSectionAiVisible(): boolean {
-  return useLessonAiMode() === "mathengine";
+  return useLessonAiMode() === "copilot";
 }
 
-/** Legacy alias — same meaning as useSectionAiVisible(). */
 export const useBuilderAiVisible = useSectionAiVisible;
 
 export const LESSON_MODE_LABELS: Record<LessonAiMode, string> = {
   manual: "Manual",
-  mathengine: "AI Builder",
   copilot: "MathGPL Co-Pilot",
 };
 
 export const LESSON_MODE_NOTES: Record<LessonAiMode, string> = {
-  manual: "Manual — you build the lesson; AI only edits what you select.",
-  mathengine: "AI Builder — section AI tools are available.",
-  copilot: "Co-Pilot active — section AI tools are hidden.",
+  manual: "Manual — you build the lesson; AI Edit structures what you bring.",
+  copilot: "Co-Pilot — full lesson generation and every section AI tool.",
 };
