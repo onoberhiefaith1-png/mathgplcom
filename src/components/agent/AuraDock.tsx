@@ -5,6 +5,11 @@
 import type { ReactNode } from "react";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useAccount } from "@/lib/accounts/useAccount";
+import { useArchivedFeature } from "@/hooks/useArchivedFeature";
+
+/** The Application Archive key that retires Aura from the teaching side. */
+export const AURA_FEATURE_KEY = "aura_assistant";
 import { AuraProvider, useAura } from "@/lib/agent/AuraProvider";
 
 import AuraCockpit from "./AuraCockpit";
