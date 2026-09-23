@@ -236,23 +236,50 @@ export default function AuraCockpit() {
       </Conversation>
 
       <div className="border-t border-border p-3">
+        {listening.errorMessage ? (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs">
+            <span className="min-w-0 flex-1">{listening.errorMessage}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                listening.clearError();
+                listening.start(wakeEnabled ? "wake" : "capture");
+              }}
+            >
+              Try again
+            </Button>
+          </div>
+        ) : null}
+
+        {recording ? (
+          <div className="mb-2 flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
+            <AuraWaveform level={listening.level} className="w-28 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              {listening.transcript || "Listening…"}
+            </span>
+          </div>
+        ) : null}
+
         <PromptInput onSubmit={submit}>
           <PromptInputTextarea
             value={draft}
             onChange={(event) => setDraft(event.currentTarget.value)}
-            placeholder={dictation.listening ? "Listening…" : "Ask Aura to set something up…"}
+            placeholder={recording ? "Listening…" : "Ask Aura to set something up…"}
           />
           <PromptInputFooter>
             <PromptInputTools>
-              {dictation.supported ? (
+              {listening.supported ? (
                 <Button
                   type="button"
-                  variant={dictation.listening ? "default" : "ghost"}
+                  variant={recording ? "default" : "ghost"}
                   size="icon-sm"
-                  aria-label={dictation.listening ? "Stop dictating" : "Dictate a message"}
-                  onClick={dictation.toggle}
+                  aria-label={recording ? "Stop recording" : "Record a message"}
+                  onClick={toggleRecorder}
                 >
-                  {dictation.listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+                  {recording ? <Square className="size-4" /> : <Mic className="size-4" />}
                 </Button>
               ) : null}
             </PromptInputTools>
