@@ -46,7 +46,7 @@ describe("measuring a call turn", () => {
 describe("cutting her reply for speaking", () => {
   it("starts speaking on the opener alone", () => {
     const { clauses } = takeClauses("So, we subtract five from both sides", { first: true });
-    expect(clauses[0]).toBe("So");
+    expect(clauses[0]).toBe("So,");
   });
 
   it("cuts the first clause very short, later clauses longer", () => {
@@ -57,7 +57,7 @@ describe("cutting her reply for speaking", () => {
 
   it("still keeps an unfinished clause back", () => {
     const { clauses, rest } = takeClauses("So, we subtract five and then we", { first: true });
-    expect(clauses).toContain("So");
+    expect(clauses).toContain("So,");
     expect(rest.endsWith("we")).toBe(true);
   });
 
