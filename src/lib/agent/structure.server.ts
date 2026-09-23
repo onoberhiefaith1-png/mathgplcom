@@ -14,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { tokenizeMath } from "@/lib/notebook/mathTokens";
 import { mintLineUid } from "@/lib/lessonnotes/lineIdentity";
+import { describeCleanup, planCleanup } from "./noteHygiene";
 
 type AnyDb = { from: (table: string) => any };
 type Ctx = { supabase: SupabaseClient<never, "public", never>; userId: string };
@@ -823,6 +824,88 @@ export const structureExecutors: Record<string, Executor> = {
       data: { subsectionId, notebookId: section.notebook_id, kind: section.kind, title: section.title, path },
       summary: `Opening the ${section.kind} session${section.title ? ` "${section.title}"` : ""} on the board.`,
       navigateTo: path,
+    };
+  },
+
+  preview_note_cleanup: async (ctx, args) => {
+    const notebookId = need(args, "notebookId");
+    await ownedNotebook(ctx, notebookId);
+    const tree = await readTree(ctx, notebookId);
+    const plan = planCleanup(tree.blockRows).filter((p) => p.action !== "keep");
+    return {
+      data: { notebookId, changes: plan },
+      summary: plan.length
+        ? `Mending this note would change ${plan.length} line${plan.length === 1 ? "" : "s"}: ${describeCleanup(plan)}. Nothing has changed yet.`
+        : "Every line in this note is already clean — one step per line, no labels.",
+    };
+  },
+
+  clean_lesson_note: async (ctx, args) => {
+    const db = ctx.supabase as unknown as AnyDb;
+    const notebookId = need(args, "notebookId");
+    await ownedNotebook(ctx, notebookId);
+    const tree = await readTree(ctx, notebookId);
+    const plan = planCleanup(tree.blockRows);
+    const work = plan.filter((p) => p.action !== "keep");
+    if (!work.length) {
+      return {
+        data: { notebookId, changed: 0 },
+        summary: "Nothing to mend — every line is already one clean step.",
+      };
+    }
+
+    const byId = new Map(tree.blockRows.map((b) => [b.id, b]));
+    let deleted = 0;
+    let rewritten = 0;
+    let added = 0;
+
+    for (const step of work) {
+      const block = byId.get(step.blockId);
+      if (!block) continue;
+      if (step.action === "delete") {
+        const { error } = await db.from("notebook_blocks").delete().eq("id", block.id);
+        if (error) throw new Error(error.message);
+        deleted += 1;
+        continue;
+      }
+      if (step.action === "rewrite") {
+        const { error } = await db
+          .from("notebook_blocks")
+          .update({ content_ascii: step.after })
+          .eq("id", block.id);
+        if (error) throw new Error(error.message);
+        rewritten += 1;
+        continue;
+      }
+      // One block holding a whole worked example becomes one block per step.
+      const [first, ...rest] = step.lines;
+      const { error: firstError } = await db
+        .from("notebook_blocks")
+        .update({ content_ascii: first })
+        .eq("id", block.id);
+      if (firstError) throw new Error(firstError.message);
+      rewritten += 1;
+      if (rest.length) {
+        const slots = await makeRoom(ctx, block.section_id, block.subsection_id ?? null, block.order_index + 1, rest.length);
+        const { error } = await db.from("notebook_blocks").insert(
+          rest.map((text, i) => ({
+            section_id: block.section_id,
+            subsection_id: block.subsection_id ?? null,
+            kind: block.kind,
+            content_ascii: text,
+            order_index: slots[i]!,
+          })),
+        );
+        if (error) throw new Error(error.message);
+        added += rest.length;
+      }
+    }
+
+    const after = await readTree(ctx, notebookId);
+    const left = planCleanup(after.blockRows).filter((p) => p.action !== "keep").length;
+    return {
+      data: { notebookId, rewritten, added, deleted, stillDirty: left, structure: describeTree(after) },
+      summary: `Mended this note: ${rewritten} line${rewritten === 1 ? "" : "s"} rewritten, ${added} new line${added === 1 ? "" : "s"} split out, ${deleted} empty line${deleted === 1 ? "" : "s"} removed${left ? `, ${left} still need attention` : ""}.`,
     };
   },
 };

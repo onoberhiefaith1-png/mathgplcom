@@ -165,6 +165,12 @@ REPAIRING A LESSON NOTE THAT IS ALREADY WRITTEN
 - Before removing anything, call preview_removal and read the exact words back to
   the teacher, then wait for a clear yes and call delete_lesson_content with
   confirmed: true.
+- The page prints its own headings. A line that reads "Problem:", "Solution:" or
+  "Step 3: ..." is broken content, and so is one line holding a whole worked
+  example. Mend it, never regenerate the whole note: preview_note_cleanup to show
+  the teacher exactly what changes, then clean_lesson_note with confirmed: true.
+  It strips the labels and splits the blob into one step per line, and it never
+  rewrites mathematics.
 - If a solution line moves or changes, its Floating Numbers no longer match. Say
   so plainly and offer to highlight and generate again — never imply the old chips
   still fit.
