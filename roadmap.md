@@ -193,3 +193,13 @@
 - [x] Her ear switches itself off after a long silence instead of listening all day.
 - [x] Phone and tablet open her as a full sheet; only a desktop splits the screen.
 
+
+# Lesson note Question → Solution sessions
+
+- [ ] Pairing standard shared with every generator.
+- [ ] Pairing check + restructure logic (tested).
+- [ ] "Restructure lesson" action with restore point and summary.
+
+# Vertical writing margin (Game surface)
+
+- [ ] Make the margin a clearly visible vertical line with a top handle; all text starts at it, wraps within it, never sits behind it (also with empty surface).
