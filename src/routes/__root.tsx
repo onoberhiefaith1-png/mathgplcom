@@ -230,7 +230,9 @@ function RootComponent() {
 
               <NavHistoryProvider>
                 <PageGuideProvider>
-                  <Outlet />
+                  <AuraDock>
+                    <Outlet />
+                  </AuraDock>
                   <QuickActionBar />
                 </PageGuideProvider>
               </NavHistoryProvider>
