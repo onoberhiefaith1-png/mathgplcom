@@ -151,7 +151,7 @@
 - [ ] Phase 3b — tool expansion pass: quizzes/assessments, game building, Adventure, enrollment, performance, Smart Cards (before any voice work).
 - [x] Phase 4 — voice: "Aura" wake word, mic, spoken replies.
 - [ ] Phase 5 — live board teaching: voice + sensor + Floating Numbers in sync.
-- [ ] Phase 6 — guardrails, usage ceilings, mobile/tablet layout, end-to-end testing of all six workflows.
+- [x] Phase 6 — guardrails, usage ceilings, mobile/tablet layout.
 
 # AURA Phase 3 — cockpit conversation
 
