@@ -5,6 +5,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 import type { AgentStep, AgentTurn } from "./brain.server";
+import type { AuraPlatformContext } from "./context";
 
 export type AgentChatMessage = { role: "user" | "assistant"; content: string };
 export type { AgentStep, AgentTurn };
