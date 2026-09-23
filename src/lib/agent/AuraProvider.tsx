@@ -72,8 +72,12 @@ type AuraValue = {
   micRequesting: boolean;
   micPromptOpen: boolean;
   setMicPromptOpen: (open: boolean) => void;
+  /** Plain words and a colour for the status light in her panel. */
+  micStatus: string;
+  micTone: MicTone;
   /** Shows the browser's own permission prompt; resolves with the answer. */
   requestMic: () => Promise<MicPermission>;
+
   /** The one shared microphone: wake word and recorder both use it. */
   listening: ListeningEngine;
   /** Turn the recorder on or off; while on, the wave moves with the voice. */
