@@ -148,8 +148,91 @@ interface Props {
   readOnlyWriting?: boolean;
   /** Restore: bumped to force every text back to its saved configuration. */
   restoreKey?: number;
+  /**
+   * The Content Margin handle was dragged: where the writing now begins, as a
+   * share of the writing band. The surface itself is never moved by this.
+   */
+  onContentMarginChange?: (fraction: number) => void;
   onReady?: () => void;
 }
+
+/**
+ * THE CONTENT MARGIN HANDLE.
+ *
+ * A small grip at the top of the writing surface. Its vertical guide is
+ * invisible in normal use and appears only while the handle is being moved.
+ * Moving it moves where the writing starts; it never moves the surface.
+ */
+function MarginHandle({
+  x,
+  y,
+  height,
+  onMoveTo,
+  onNudge,
+}: {
+  x: number;
+  y: number;
+  height: number;
+  onMoveTo: (worldX: number) => void;
+  onNudge: (direction: number) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "ArrowLeft") onNudge(-1);
+      else if (event.key === "ArrowRight") onNudge(1);
+      else return;
+      event.preventDefault();
+    };
+    if (!dragging) return;
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dragging, onNudge]);
+  return (
+    <group position={[x, y, 0.22]}>
+      {dragging ? (
+        <mesh position={[0, -height / 2, 0]}>
+          <planeGeometry args={[0.014, height]} />
+          <meshBasicMaterial color="#ffd27d" transparent opacity={0.4} depthWrite={false} />
+        </mesh>
+      ) : null}
+      <mesh
+        onPointerDown={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          setDragging(true);
+          (event.target as unknown as { setPointerCapture?: (id: number) => void })
+            .setPointerCapture?.(event.pointerId);
+        }}
+        onPointerMove={(event: ThreeEvent<PointerEvent>) => {
+          if (!dragging) return;
+          event.stopPropagation();
+          onMoveTo(event.point.x);
+        }}
+        onPointerUp={(event: ThreeEvent<PointerEvent>) => {
+          event.stopPropagation();
+          setDragging(false);
+          (event.target as unknown as { releasePointerCapture?: (id: number) => void })
+            .releasePointerCapture?.(event.pointerId);
+        }}
+        onPointerOver={() => {
+          document.body.style.cursor = "ew-resize";
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = "";
+        }}
+      >
+        <planeGeometry args={[0.2, 0.16]} />
+        <meshBasicMaterial
+          color={dragging ? "#ffe9bd" : "#d8b578"}
+          transparent
+          opacity={dragging ? 0.95 : 0.75}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  );
+}
+
 
 interface ActiveEffect {
   profile: string;
