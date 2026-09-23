@@ -110,6 +110,11 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
   const finalText = useRef("");
   /** True while a live guess is on screen but its finished words have not landed. */
   const awaitingFinal = useRef(false);
+  /** The recording ear, while it is running. */
+  const transcriber = useRef<TranscriptionListener | null>(null);
+  const transcribeFails = useRef(0);
+  /** Set once transcription has proved unavailable, so the browser ear is used. */
+  const fallback = useRef(false);
 
   const stream = useRef<MediaStream | null>(null);
   const audio = useRef<AudioContext | null>(null);
