@@ -240,6 +240,36 @@ export function DimensionalText({
 
 
       <group ref={livingGroup} position={[0, 0, 0]}>
+      {r.contactOpacity > 0 && text ? (
+        <Text
+          {...shared}
+          position={[r.shadowOffset[0] * fontSize * 0.45, r.shadowOffset[1] * fontSize * 0.45, -0.006]}
+          color={r.contact}
+          fillOpacity={r.contactOpacity * fade}
+          outlineWidth={fontSize * Math.max(0.006, r.outlineWidth)}
+          outlineBlur={fontSize * Math.max(0.01, r.shadowBlur)}
+          outlineColor={r.contact}
+          outlineOpacity={r.contactOpacity * fade}
+          renderOrder={10}
+        >
+          {text}
+        </Text>
+      ) : null}
+      {r.shadowOpacity > 0 && text ? (
+        <Text
+          {...shared}
+          position={[r.shadowOffset[0] * fontSize, r.shadowOffset[1] * fontSize, -0.004]}
+          color={r.shadow}
+          fillOpacity={r.shadowOpacity * fade}
+          outlineWidth={fontSize * Math.max(0.004, r.shadowBlur)}
+          outlineBlur={fontSize * Math.max(0.01, r.shadowBlur)}
+          outlineColor={r.shadow}
+          outlineOpacity={r.shadowOpacity * fade}
+          renderOrder={11}
+        >
+          {text}
+        </Text>
+      ) : null}
       <group position={[pivotX, pivotY, 0]}>
       <group position={[-pivotX, -pivotY, 0]}>
       {drawExtrusion ? (
@@ -257,6 +287,21 @@ export function DimensionalText({
         <Text {...shared} position={[0, 0, 0.003]} renderOrder={18}>
           {text}
           <meshBasicMaterial color={r.face} transparent opacity={fade} toneMapped={false} />
+        </Text>
+      ) : null}
+      {r.glowOpacity > 0 && text ? (
+        <Text
+          {...shared}
+          position={[0, 0, 0.006]}
+          color={r.glow}
+          fillOpacity={r.glowOpacity * fade}
+          outlineWidth={fontSize * Math.max(0.01, r.outlineWidth)}
+          outlineBlur={fontSize * Math.max(0.02, r.glowRadius)}
+          outlineColor={r.glow}
+          outlineOpacity={r.glowOpacity * fade}
+          renderOrder={19}
+        >
+          {text}
         </Text>
       ) : null}
       </group>
