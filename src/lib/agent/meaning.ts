@@ -34,12 +34,21 @@ const WORK =
   /\b(creat|make|add|writ|build|set up|setup|assign|attach|highlight|generate|publish|test|link|remove|delete|archive|move|edit|insert|repair|reorder|place|configure|approve|propose|upload|solve|work out|explain|research|search|find out|look up|study|plan|design|fix|check)/i;
 
 /**
+ * The real things in a teacher's workspace. Naming any of them means the answer
+ * has to come from the workspace itself, never from the fast line — she must not
+ * say "I can help with that" and leave the question unanswered.
+ */
+const REAL_THINGS =
+  /\b(class(?:es)?|student|pupil|lesson note|note|notebook|assignment|homework|game|adventure|session|question|solution|smartboard|floating numbers|worksheet|test|assessment|mark|score|progress|workspace|quest|level|vault|curriculum|topic)/i;
+
+/**
  * True when the turn needs the deep worker. A plain exchange — a greeting, a
- * yes, a small question about what is on screen — is answered by the fast brain
- * alone, which is both instant and almost free.
+ * yes, a thank you — is answered by the fast brain alone, which is both instant
+ * and almost free. Anything that touches real work or real workspace data goes
+ * to the worker that can actually look.
  */
 export function looksLikeWork(text: string): boolean {
-  return WORK.test(text);
+  return WORK.test(text) || REAL_THINGS.test(text);
 }
 
 export type FastTurn = {
