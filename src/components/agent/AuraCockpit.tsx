@@ -97,7 +97,9 @@ export default function AuraCockpit() {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
     root.style.setProperty("--aura-width", open ? `${width}px` : "0px");
-    return () => root.style.removeProperty("--aura-width");
+    return () => {
+      root.style.removeProperty("--aura-width");
+    };
   }, [open, width]);
 
   if (!open) return null;
