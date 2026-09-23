@@ -35,6 +35,8 @@ import { useListening, type ListeningEngine } from "@/components/agent/useListen
 
 import { agentChat, agentGreeting } from "./brain.functions";
 import type { AgentStep } from "./brain.server";
+import { publishTeaching } from "./teachingBus";
+import type { TeachingScript } from "./teachingScript";
 
 export type AuraRole = "user" | "assistant";
 
@@ -49,6 +51,15 @@ export type AuraMessage = {
 };
 
 export type AuraStatus = "idle" | "submitted" | "error";
+
+/** A lesson Aura is performing right now: what she is saying and where she is. */
+export type AuraTeaching = {
+  title: string;
+  index: number;
+  total: number;
+  say: string;
+  line: number | null;
+};
 
 type AuraValue = {
   open: boolean;
@@ -82,6 +93,9 @@ type AuraValue = {
   listening: ListeningEngine;
   /** Turn the recorder on or off; while on, the wave moves with the voice. */
   toggleRecorder: () => void;
+  /** The lesson she is teaching aloud right now, or null. */
+  teaching: AuraTeaching | null;
+  stopTeaching: () => void;
   send: (text: string, options?: { spoken?: boolean }) => void;
   clear: () => void;
 };
@@ -152,24 +166,64 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   // Aura's own voice: streamed natural speech, with the browser voice as a
   // last resort so a reply is never silent.
   const speak = useCallback(
-    (text: string) => {
+    async (text: string) => {
       const said = text.trim();
       if (!said) return;
       voice.current?.abort();
       const controller = new AbortController();
       voice.current = controller;
       setSpeaking(true);
-      void streamSpeech(said, controller.signal)
-        .catch(() => {
-          if (!controller.signal.aborted) speakWithBrowserVoice(said);
-        })
-        .finally(() => {
-          if (voice.current === controller) voice.current = null;
-          setSpeaking(false);
-        });
+      try {
+        await streamSpeech(said, controller.signal);
+      } catch {
+        if (!controller.signal.aborted) await speakWithBrowserVoice(said);
+      } finally {
+        if (voice.current === controller) voice.current = null;
+        setSpeaking(false);
+      }
     },
     [],
   );
+
+  // ── TEACHING OUT LOUD ────────────────────────────────────────────────────
+  // She says one micro-step, the board moves to that line, then the next. Any
+  // new lesson (or Stop) cancels the one running: only one voice teaches.
+  const [teaching, setTeaching] = useState<AuraTeaching | null>(null);
+  const teachRun = useRef(0);
+
+  const stopTeaching = useCallback(() => {
+    teachRun.current += 1;
+    setTeaching(null);
+    publishTeaching({ kind: "end" });
+    stopSpeaking();
+  }, [stopSpeaking]);
+
+  const teach = useCallback(
+    async (script: TeachingScript) => {
+      teachRun.current += 1;
+      const run = teachRun.current;
+      const total = script.steps.length;
+      for (let index = 0; index < total; index += 1) {
+        if (teachRun.current !== run) return;
+        const step = script.steps[index]!;
+        setTeaching({ title: script.title, index, total, say: step.say, line: step.line });
+        if (step.line) publishTeaching({ kind: "focus", line: step.line });
+        await speak(step.say);
+        if (teachRun.current !== run) return;
+        // A breath between steps, the way a teacher pauses at the board.
+        await new Promise((resolve) => window.setTimeout(resolve, 260));
+      }
+      if (teachRun.current !== run) return;
+      setTeaching(null);
+      publishTeaching({ kind: "end" });
+    },
+    [speak],
+  );
+
+  const teachRef = useRef(teach);
+  useEffect(() => {
+    teachRef.current = teach;
+  }, [teach]);
 
   // Browser storage is read after hydration so the server and the first client
   // render agree on an empty, closed cockpit.
@@ -241,7 +295,9 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           ]);
           setLiveSteps([]);
           setStatus("idle");
-          if (speakReplies) speak(turn.reply);
+          const lesson = turn.steps?.find((step) => step.teach)?.teach;
+          if (lesson) void teachRef.current(lesson);
+          else if (speakReplies) void speak(turn.reply);
           if (turn.navigateTo) {
             void navigate({ to: turn.navigateTo as never }).catch(() => {
               /* a page that refuses to open is reported by the agent itself */
@@ -422,7 +478,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       .then(({ greeting }) => {
         setMessages([{ id: newId(), role: "assistant", content: greeting }]);
         setStatus("idle");
-        if (speakReplies) speak(greeting);
+        if (speakReplies) void speak(greeting);
       })
       .catch(() => {
         setMessages([
@@ -472,6 +528,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
 
       listening,
       toggleRecorder,
+      teaching,
+      stopTeaching,
       send,
       clear,
     }),
@@ -496,6 +554,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       speaking,
       status,
       stopSpeaking,
+      stopTeaching,
+      teaching,
       toggle,
       wakeEnabled,
       width,
