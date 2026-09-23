@@ -25,8 +25,14 @@ export default function AuraMicPermission() {
     micPermission === "no-microphone" ||
     micPermission === "unsupported";
 
+  // Closing counts as answering, so nobody is nagged on every visit.
+  const close = (open: boolean) => {
+    if (!open) rememberAsked();
+    setMicPromptOpen(open);
+  };
+
   return (
-    <Dialog open={micPromptOpen} onOpenChange={setMicPromptOpen}>
+    <Dialog open={micPromptOpen} onOpenChange={close}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <div className="mb-2 flex items-center gap-3">
