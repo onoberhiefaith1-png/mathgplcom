@@ -12,7 +12,7 @@ import { listGames, loadGame, saveGameResult } from "@/lib/slate/storage";
 import { makeGame, makeSlot, uid } from "@/lib/slate/defaults";
 import { ROOMS, NO_ROOM_ID, roomForSurface, getRoom } from "@/lib/slate/rooms";
 import { REWARDS, PLACEABLE_REWARDS } from "@/lib/slate/rewards";
-import { clampConversion } from "@/lib/slate/conversion";
+import { normalizeConversion } from "@/lib/slate/conversion";
 import {
   assignQuestion,
   listGameQuestions,
@@ -295,13 +295,14 @@ export const slateGameExecutors: Record<string, Executor> = {
       glow: clamp01(maybeNum(args, "glow") ?? game.settings.rewards.glow),
       scale: Math.min(3, Math.max(0.2, maybeNum(args, "scale") ?? game.settings.rewards.scale)),
     };
-    const conversion = clampConversion({
+    const conversion = normalizeConversion({
       ...game.settings.conversion,
       hourglassToTime: maybeNum(args, "hourglassToTime") ?? game.settings.conversion.hourglassToTime,
       lifeToTime: maybeNum(args, "lifeToTime") ?? game.settings.conversion.lifeToTime,
       vaultToLife: maybeNum(args, "vaultToLife") ?? game.settings.conversion.vaultToLife,
       completionToLife: maybeNum(args, "completionToLife") ?? game.settings.conversion.completionToLife,
     });
+
     const next: Game = {
       ...game,
       settings: {
