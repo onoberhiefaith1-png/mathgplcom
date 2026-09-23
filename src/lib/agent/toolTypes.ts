@@ -675,6 +675,8 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     params: [
       p("feature", "string", true, "The feature or area, in the app's real words."),
       p("scope", "string", false, "What this entry covers, and what it does not."),
+      p("page", "string", false, "The page this rule applies to, as the teacher names it."),
+      p("control", "string", false, "The exact control on that page, by its visible label."),
       p("roles", "string[]", false, "Who may do this."),
       p("preconditions", "string[]", false, "What must already exist first."),
       p("steps", "string[]", true, "The steps, in order, as observed."),

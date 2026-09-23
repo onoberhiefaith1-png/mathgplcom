@@ -602,6 +602,8 @@ export const handsExecutors: Record<string, Executor> = {
       author_id: ctx.userId,
       feature: need(args, "feature"),
       scope: str(args, "scope") ?? null,
+      page: str(args, "page") ?? null,
+      control: str(args, "control") ?? null,
       roles: list("roles"),
       preconditions: list("preconditions"),
       steps: list("steps"),
