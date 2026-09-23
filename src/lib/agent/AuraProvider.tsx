@@ -128,6 +128,9 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const [speakReplies, setSpeakRepliesState] = useState(false);
   const [wakeEnabled, setWakeEnabledState] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [micPermission, setMicPermission] = useState<MicPermission>("unknown");
+  const [micRequesting, setMicRequesting] = useState(false);
+  const [micPromptOpen, setMicPromptOpen] = useState(false);
   const greetedRef = useRef(false);
   const voice = useRef<AbortController | null>(null);
 
