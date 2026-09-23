@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { type SectionKind } from "@/lib/lessonnotes/sectionKinds";
 import { buildLessonOutline, ownerQuestionSegment, renderSegmentBody, segmentHome, segmentKey } from "@/lib/lessonnotes/lessonOutline";
 import { type SolutionObject } from "@/lib/floating/solutionItems";
+import { cleanNoteLines } from "@/lib/agent/noteHygiene";
 
 type Node = any;
 
