@@ -13,10 +13,11 @@ describe("microphone failures the teacher can act on", () => {
     expect(mapRecognitionError("aborted")).toBeNull();
   });
 
-  it("reports a missing microphone and an unavailable service apart", () => {
-    expect(mapRecognitionError("audio-capture")).toBe("no-microphone");
+  it("never blames a missing microphone for lost audio, and names an unavailable service", () => {
+    expect(mapRecognitionError("audio-capture")).toBe("failed");
     expect(mapRecognitionError("service-not-allowed")).toBe("unavailable");
   });
+
 
   it("falls back to a plain retry message for anything unknown", () => {
     expect(mapRecognitionError("network")).toBe("failed");
