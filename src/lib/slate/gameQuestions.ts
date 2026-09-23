@@ -40,7 +40,7 @@ interface QuestionRow {
 }
 
 const questionTextFor = async (subsectionId: string): Promise<string> => {
-  const { data } = await supabase
+  const { data } = await db()
     .from("notebook_blocks")
     .select("content_ascii, kind, order_index")
     .eq("subsection_id", subsectionId)
@@ -59,7 +59,7 @@ export const listGameQuestions = async (
   gameId: string,
   classId?: string | null,
 ): Promise<GameQuestion[]> => {
-  let query = supabase
+  let query = db()
     .from("slate_game_questions")
     .select("id, game_id, class_id, position, notebook_id, subsection_id")
     .eq("game_id", gameId);
@@ -70,7 +70,7 @@ export const listGameQuestions = async (
   const rows = data as unknown as QuestionRow[];
   return Promise.all(
     rows.map(async (row) => {
-      const { data: sub } = await supabase
+      const { data: sub } = await db()
         .from("notebook_subsections")
         .select("floating_lines, floating_scoring")
         .eq("id", row.subsection_id)
@@ -106,7 +106,7 @@ export const assignQuestion = async (
   subsectionId: string,
   classId?: string | null,
 ): Promise<boolean> => {
-  let countQuery = supabase
+  let countQuery = db()
     .from("slate_game_questions")
     .select("id", { count: "exact", head: true })
     .eq("game_id", gameId);
@@ -149,7 +149,7 @@ export interface PickableQuestion {
 
 /** Every question of the teacher's notebooks that has saved Floating Numbers. */
 export const listPickableQuestions = async (): Promise<PickableQuestion[]> => {
-  const { data: notebooks } = await supabase
+  const { data: notebooks } = await db()
     .from("notebooks")
     .select("id, title")
     .order("updated_at", { ascending: false })
@@ -158,13 +158,13 @@ export const listPickableQuestions = async (): Promise<PickableQuestion[]> => {
 
   const out: PickableQuestion[] = [];
   for (const nb of notebooks as { id: string; title: string }[]) {
-    const { data: sections } = await supabase
+    const { data: sections } = await db()
       .from("notebook_sections")
       .select("id")
       .eq("notebook_id", nb.id);
     const sectionIds = (sections ?? []).map((s) => (s as { id: string }).id);
     if (!sectionIds.length) continue;
-    const { data: subs } = await supabase
+    const { data: subs } = await db()
       .from("notebook_subsections")
       .select("id, order_index, floating_lines, section_id")
       .in("section_id", sectionIds)

@@ -79,7 +79,7 @@ export interface GameClassOption {
 /** The classes this Game is linked to — the Select Class list before Play. */
 export const listGameClasses = async (gameId: string): Promise<GameClassOption[]> => {
   if (!gameId) return [];
-  const { data } = await supabase
+  const { data } = await db()
     .from("slate_game_assignments")
     .select("id, class_id, classes(name)")
     .eq("game_id", gameId)
@@ -102,7 +102,7 @@ export const loadGameAssignmentState = async (
 ): Promise<Map<string, GameAssignment>> => {
   const byClass = new Map<string, GameAssignment>();
   if (!gameId) return byClass;
-  const { data } = await supabase
+  const { data } = await db()
     .from("slate_game_assignments")
     .select(SELECT)
     .eq("game_id", gameId)
@@ -124,7 +124,7 @@ export const assignGameToClass = async (params: {
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
 
-  const { data: existing } = await supabase
+  const { data: existing } = await db()
     .from("slate_game_assignments")
     .select(SELECT)
     .eq("game_id", params.gameId)
@@ -133,7 +133,7 @@ export const assignGameToClass = async (params: {
 
   if (existing) {
     const row = existing as unknown as Row;
-    await supabase
+    await db()
       .from("slate_game_assignments")
       .update({
         unassigned_at: null,
@@ -144,7 +144,7 @@ export const assignGameToClass = async (params: {
     return row.id;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("slate_game_assignments")
     .insert({
       game_id: params.gameId,
@@ -161,7 +161,7 @@ export const assignGameToClass = async (params: {
 
 /** Soft removal — student results are preserved. */
 export const unassignGame = async (assignmentId: string): Promise<void> => {
-  await supabase
+  await db()
     .from("slate_game_assignments")
     .update({ unassigned_at: new Date().toISOString() } as never)
     .eq("id", assignmentId);
@@ -208,7 +208,7 @@ export interface StudentGameAssignment extends GameAssignment {
 export const listStudentGameAssignments = async (
   classId: string,
 ): Promise<StudentGameAssignment[]> => {
-  const { data } = await supabase
+  const { data } = await db()
     .from("slate_game_assignments")
     .select(`${SELECT}, slate_games(name, topic, subtopic)`)
     .eq("class_id", classId)
@@ -224,12 +224,12 @@ export const listStudentGameAssignments = async (
   const uid = userData.user?.id ?? "";
 
   const [{ data: results }, { data: progressRows }] = await Promise.all([
-    supabase
+    db()
       .from("slate_game_results")
       .select("assignment_id, marks_earned, best_marks_earned, marks_total, completed_at")
       .in("assignment_id", rows.map((r) => r.id))
       .eq("student_id", uid),
-    supabase
+    db()
       .from("slate_game_progress")
       .select("assignment_id, question_index, status")
       .in("assignment_id", rows.map((r) => r.id))
@@ -302,7 +302,7 @@ export const saveGameQuestionResult = async (params: {
   const uid = userData.user?.id;
   if (!uid) return;
 
-  const { data: existing } = await supabase
+  const { data: existing } = await db()
     .from("slate_game_results")
     .select("best_marks_earned, marks_earned, completed_at")
     .eq("assignment_id", params.assignmentId)

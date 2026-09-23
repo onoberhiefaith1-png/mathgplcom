@@ -158,7 +158,7 @@ const toRow = (game: Game) => ({
 });
 
 export const listGames = async (): Promise<Game[]> => {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from("slate_games")
     .select("*")
     .order("updated_at", { ascending: false });
