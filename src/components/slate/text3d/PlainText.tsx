@@ -2,7 +2,7 @@ import { Html } from "@react-three/drei";
 import type { SurfaceDef } from "@/lib/slate/surfaces";
 import type { TextSettings } from "@/lib/slate/text3d";
 import { PX_PER_UNIT } from "@/lib/slate/layout";
-import { resolveTextStyle } from "@/lib/slate/textPresets";
+import { cssTextEffects, resolveTextStyle } from "@/lib/slate/textPresets";
 
 interface Props {
   text: string;
@@ -21,6 +21,7 @@ interface Props {
 export function PlainText({ text, width, surface, settings }: Props) {
   if (!text) return null;
   const style = resolveTextStyle(surface, settings);
+  const textShadow = cssTextEffects(style, settings.size);
   return (
     <Html
       transform
@@ -37,13 +38,15 @@ export function PlainText({ text, width, surface, settings }: Props) {
           transform: "translate(50%, 50%)",
           transformOrigin: "center",
           color: style.face,
-          fontSize: Math.min(72, settings.size),
+          opacity: Math.max(0, Math.min(1, settings.opacity)),
+          fontSize: Math.max(1, settings.size),
           lineHeight: settings.lineSpacing,
           letterSpacing: `${settings.letterSpacing}em`,
           textAlign: settings.align,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
-          textShadow: `0 1px 2px ${style.side}`,
+          overflow: "hidden",
+          textShadow: textShadow || undefined,
         }}
       >
         {text}
