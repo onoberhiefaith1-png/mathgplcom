@@ -11,7 +11,10 @@ export type ModelRate = { input: number; output: number };
 
 /** US dollars per token. */
 export const MODEL_RATES: Record<string, ModelRate> = {
-  // Aura's everyday brain: $0.05 / million in, $0.40 / million out.
+  // Aura's everyday brain: $0.30 / million in, $2.50 / million out.
+  "google/gemini-2.5-flash": { input: 0.3 / 1_000_000, output: 2.5 / 1_000_000 },
+  // The fast front of her voice: $0.10 / million in, $0.40 / million out.
+  "google/gemini-2.5-flash-lite": { input: 0.1 / 1_000_000, output: 0.4 / 1_000_000 },
   "openai/gpt-5-nano": { input: 0.05 / 1_000_000, output: 0.4 / 1_000_000 },
   // The heavy reasoning engine, kept for mathematics work only.
   "openai/gpt-6-astra": { input: 1.25 / 1_000_000, output: 10 / 1_000_000 },
@@ -20,7 +23,7 @@ export const MODEL_RATES: Record<string, ModelRate> = {
 export type TurnUsage = { input: number; output: number; pence: number };
 
 export function turnCost(model: string, input: number, output: number): TurnUsage {
-  const rate = MODEL_RATES[model] ?? MODEL_RATES["openai/gpt-5-nano"]!;
+  const rate = MODEL_RATES[model] ?? MODEL_RATES["google/gemini-2.5-flash"]!;
   const usd = input * rate.input + output * rate.output;
   return {
     input: Math.max(0, Math.round(input)),

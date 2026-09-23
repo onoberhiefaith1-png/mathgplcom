@@ -13,6 +13,8 @@ export type CallTurnRequest = {
   messages: { role: "user" | "assistant"; content: string }[];
   context: AuraPlatformContext | null;
   onDelta: (text: string) => void;
+  /** What she understood the teacher to mean, once the fast brain has read it. */
+  onMeaning?: (text: string) => void;
   signal?: AbortSignal;
 };
 
@@ -20,6 +22,7 @@ export async function streamCallTurn({
   messages,
   context,
   onDelta,
+  onMeaning,
   signal,
 }: CallTurnRequest): Promise<AgentTurn> {
   const { data } = await supabase.auth.getSession();
@@ -51,6 +54,7 @@ export async function streamCallTurn({
         turn?: AgentTurn;
       };
       if (payload.type === "delta" && payload.text) onDelta(payload.text);
+      else if (payload.type === "meaning" && payload.text) onMeaning?.(payload.text);
       else if (payload.type === "done" && payload.turn) turn = payload.turn;
       else if (payload.type === "error") failure = payload.message ?? "Something went wrong.";
     },

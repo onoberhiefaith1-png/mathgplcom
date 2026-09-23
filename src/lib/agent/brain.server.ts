@@ -8,7 +8,12 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, tool, jsonSchema, stepCountIs, type ModelMessage } from "ai";
 
 import { AGENT_TOOL_MANIFEST, type AgentToolParam, type AgentToolResult } from "./toolTypes";
-import { buildAgentSystemPrompt, AGENT_GREETING_INSTRUCTION, type AgentSnapshotHint } from "./systemPrompt";
+import {
+  buildAgentSystemPrompt,
+  buildCallSystemPrompt,
+  AGENT_GREETING_INSTRUCTION,
+  type AgentSnapshotHint,
+} from "./systemPrompt";
 import { executeAgentTool, type AgentToolContext } from "./tools.server";
 import { learnedKnowledgePrompt } from "./hands.server";
 
@@ -18,12 +23,19 @@ import type { AuraPlatformContext } from "./context";
 import { parseTeachingScript, type TeachingScript } from "./teachingScript";
 
 /**
- * Aura's everyday brain. The cheapest model on the gateway that passes the
- * lesson-note contract and drives the platform tools, so a teacher's whole day
- * of conversation costs pennies. Heavy mathematics stays with the notebook
- * generator, which is unchanged.
+ * Aura's everyday brain: measured on this gateway as the cheapest model that
+ * both drives the platform tools correctly and answers in about a second. The
+ * previous choice spent its whole reply on hidden thinking and returned no words
+ * at all, which is what made her feel silent and slow. Heavy mathematics stays
+ * with the notebook generator, which is unchanged.
  */
-export const AGENT_MODEL = "openai/gpt-5-nano";
+export const AGENT_MODEL = "google/gemini-2.5-flash";
+
+/**
+ * The fast front of her voice: answers in well under a second, so she speaks the
+ * moment the teacher stops while the brain above is still working.
+ */
+export const FAST_MODEL = "google/gemini-2.5-flash-lite";
 
 export type AgentStep = {
   toolId: string;
@@ -86,17 +98,11 @@ export function provider(apiKey: string) {
 }
 
 /**
- * No hidden thinking tokens are bought on an ordinary turn: nothing is
- * summarised, nothing is returned encrypted. That removed both the long wait
- * before she answered and the great majority of what she used to cost.
- * `store: false` stays because the gateway keeps no conversation state.
+ * No hidden thinking is bought on an ordinary turn: every reply she pays for is
+ * words the teacher actually hears. The gateway keeps no conversation state, so
+ * the short running brief in the prompt is her whole memory of the call.
  */
-export const RESPONSES_OPTIONS = {
-  openai: { store: false },
-} as const;
 
-/** A spoken turn uses the same lightweight settings. */
-const CALL_RESPONSES_OPTIONS = RESPONSES_OPTIONS;
 
 /** The everyday abilities a spoken turn almost always needs. */
 const CALL_TOOL_IDS = new Set([
@@ -265,13 +271,19 @@ async function callBriefing(
   ctx: AgentToolContext,
   hint: AgentSnapshotHint | undefined,
   context: AuraPlatformContext | null | undefined,
+  full: boolean,
 ): Promise<string> {
-  const key = `${ctx.userId}|${context?.path ?? ""}`;
+  const key = `${ctx.userId}|${context?.path ?? ""}|${full ? "full" : "short"}`;
   const cached = briefings.get(key);
   const now = Date.now();
   if (cached && now - cached.at < BRIEFING_LIFE_MS) return cached.system;
   const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
-  const system = `${buildAgentSystemPrompt(hint, context, learned)}${CALL_INSTRUCTION}`;
+  // Ordinary talking carries the short briefing; a turn that builds or repairs
+  // something carries everything she was trained on.
+  const base = full
+    ? buildAgentSystemPrompt(hint, context, learned)
+    : buildCallSystemPrompt(hint, context, learned);
+  const system = `${base}${CALL_INSTRUCTION}`;
   briefings.set(key, { system, at: now });
   return system;
 }
@@ -289,24 +301,22 @@ async function startTurn(
   if (options.call) {
     const full = callNeedsFullAbilities(messages);
     const result = streamText({
-      model: lovable.responses(AGENT_MODEL),
-      system: await callBriefing(ctx, hint, context),
+      model: lovable.chat(AGENT_MODEL),
+      system: await callBriefing(ctx, hint, context, full),
       messages,
       tools: buildTools(ctx, steps, full ? undefined : { only: CALL_TOOL_IDS }),
       stopWhen: stepCountIs(full ? 50 : 6),
-      providerOptions: CALL_RESPONSES_OPTIONS as never,
     });
     return { result, steps };
   }
 
   const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
   const result = streamText({
-    model: lovable.responses(AGENT_MODEL),
+    model: lovable.chat(AGENT_MODEL),
     system: buildAgentSystemPrompt(hint, context, learned),
     messages,
     tools: buildTools(ctx, steps),
     stopWhen: stepCountIs(50),
-    providerOptions: RESPONSES_OPTIONS as never,
   });
 
   return { result, steps };
@@ -363,10 +373,9 @@ export async function runAgentGreeting(ctx: AgentToolContext): Promise<{ greetin
 
   const lovable = provider(apiKey());
   const result = streamText({
-    model: lovable.responses(AGENT_MODEL),
+    model: lovable.chat(AGENT_MODEL),
     system: buildAgentSystemPrompt(),
     prompt: `${AGENT_GREETING_INSTRUCTION}\n\nSNAPSHOT:\n${JSON.stringify(snapshot.data)}`,
-    providerOptions: RESPONSES_OPTIONS as never,
   });
 
   const greeting = (await result.text).trim();
