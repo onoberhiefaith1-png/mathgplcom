@@ -1494,7 +1494,10 @@ export function SlateColumn({
               resolveTextStyle(lineSurface, lineTextSettings),
               Math.max(0.001, lineTextSettings.size / PX_PER_UNIT),
             ),
+            contentMargin,
+            foldInset: surfaceFoldInset(lineBuild),
           });
+
           const surfaceWidth = surfaceBox.surfaceWidth;
           const innerWritingWidth = surfaceBox.innerWritingWidth;
           const surfaceHeight = surfaceBox.surfaceHeight;
