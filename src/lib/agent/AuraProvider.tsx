@@ -936,6 +936,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         statusLabel: describeVoiceState(voiceState),
         start: startVoice,
         end: endVoice,
+        timing,
       },
       teaching,
       stopTeaching,
