@@ -18,6 +18,7 @@ import {
 import { withDb } from "@/lib/db/scope";
 import { resolveQuestionRef, assignAssessmentQuestion } from "@/lib/assignments/pipeline";
 import { getNotebookScoreLabel, type AssessmentKind } from "@/lib/assessments/createAssessment";
+import { checkSolution, retryInstruction } from "./solutionContract";
 
 type AnyDb = { from: (table: string) => any; functions: { invoke: (fn: string, opts: any) => any } };
 type Ctx = { supabase: SupabaseClient<never, "public", never>; userId: string };
@@ -279,29 +280,49 @@ export const handsExecutors: Record<string, Executor> = {
     }
 
     const soFar = await readLessonSoFar(ctx, place.notebookId);
-    const out = await callNotebookAi(ctx, {
-      mode: "generate",
-      sectionKind,
-      blockKind,
-      subject: place.subject,
-      topic: place.topic,
-      subtopic: place.subtopic,
-      teacherPrompt: str(args, "instruction") ?? "",
-      currentContent: str(args, "currentContent") ?? "",
-      activeQuestion: activeQuestion || undefined,
-      inheritedContext: blockKind === "solution" ? true : undefined,
-      lessonContext: {
-        level: str(args, "level"),
-        objectives: str(args, "objectives"),
-        introduction: soFar.introduction,
-        explanations: soFar.explanations,
-        examples: soFar.examples,
-      },
-    });
+    const generate = (extra: string) =>
+      callNotebookAi(ctx, {
+        mode: "generate",
+        sectionKind,
+        blockKind,
+        subject: place.subject,
+        topic: place.topic,
+        subtopic: place.subtopic,
+        teacherPrompt: [str(args, "instruction") ?? "", extra].filter(Boolean).join("\n\n"),
+        currentContent: str(args, "currentContent") ?? "",
+        activeQuestion: activeQuestion || undefined,
+        inheritedContext: blockKind === "solution" ? true : undefined,
+        lessonContext: {
+          level: str(args, "level"),
+          objectives: str(args, "objectives"),
+          introduction: soFar.introduction,
+          explanations: soFar.explanations,
+          examples: soFar.examples,
+        },
+      });
 
-    const content = String(out?.content ?? "").trim();
+    let out = await generate("");
+    let content = String(out?.content ?? "").trim();
     if (!content) throw new Error("The generator returned nothing, so nothing was written into the note.");
-    const written = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    let written = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+
+    // A solution must read like a board: the question restated, then one
+    // complete micro-step per line. A failing attempt is rewritten once and, if
+    // it still fails, nothing at all is written into the note.
+    if (blockKind === "solution") {
+      let fault = checkSolution(activeQuestion, written);
+      if (fault) {
+        out = await generate(retryInstruction(fault));
+        content = String(out?.content ?? "").trim();
+        written = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        fault = checkSolution(activeQuestion, written);
+      }
+      if (fault) {
+        throw new Error(
+          `The solution was not written the way a teacher writes on a board — ${fault.reason}. Nothing was saved into the note.`,
+        );
+      }
+    }
 
     let tail = db.from("notebook_blocks").select("order_index").eq("section_id", sectionId);
     tail = subsectionId ? tail.eq("subsection_id", subsectionId) : tail.is("subsection_id", null);

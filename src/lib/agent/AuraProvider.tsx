@@ -51,6 +51,7 @@ import {
   readUsage,
   type AuraUsage,
 } from "./usageLimits";
+import { describeSpend, readSpend, recordSpend, type DaySpend } from "./spend";
 import type { TeachingScript } from "./teachingScript";
 import {
   VoiceSession,
@@ -130,6 +131,8 @@ type AuraValue = {
 
   /** Today's allowance: plain words when it is running low, else null. */
   usageNote: string | null;
+  /** What she has really cost today, measured from every turn's own tokens. */
+  spendNote: string;
   /** The lesson she is teaching aloud right now, or null. */
   teaching: AuraTeaching | null;
   stopTeaching: () => void;
@@ -219,6 +222,12 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const [micRequesting, setMicRequesting] = useState(false);
   const [micPromptOpen, setMicPromptOpen] = useState(false);
   const [usage, setUsage] = useState<AuraUsage>({ day: "", used: 0 });
+  const [spend, setSpend] = useState<DaySpend>({ day: "", pence: 0, turns: 0 });
+  /** Every finished turn adds its own measured cost to today's figure. */
+  const noteSpend = useCallback((turn: { usage?: { pence: number } }) => {
+    if (typeof turn.usage?.pence !== "number") return;
+    setSpend(recordSpend(turn.usage.pence));
+  }, []);
   const lastActiveRef = useRef(Date.now());
   const greetedRef = useRef(false);
   const voice = useRef<AbortController | null>(null);
