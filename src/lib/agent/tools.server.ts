@@ -14,6 +14,7 @@ import { attachmentExecutors } from "./attachments.server";
 import { slateGameExecutors } from "./slateGame.server";
 import { lessonEditExecutors } from "./lessonEdit.server";
 import { structureExecutors } from "./structure.server";
+import { researchExecutors } from "./research.server";
 
 
 
@@ -74,6 +75,7 @@ const executors: Record<string, Executor> = {
   ...(slateGameExecutors as Record<string, Executor>),
   ...(lessonEditExecutors as unknown as Record<string, Executor>),
   ...(structureExecutors as unknown as Record<string, Executor>),
+  ...(researchExecutors as unknown as Record<string, Executor>),
 
 
 
