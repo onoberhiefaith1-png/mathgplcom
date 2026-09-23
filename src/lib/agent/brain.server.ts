@@ -141,10 +141,10 @@ function apiKey(): string {
   return key;
 }
 
-function buildTools(ctx: AgentToolContext, steps: AgentStep[]) {
+function buildTools(ctx: AgentToolContext, steps: AgentStep[], only?: Set<string>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools: Record<string, any> = {};
-  for (const spec of AGENT_TOOL_MANIFEST) {
+  for (const spec of AGENT_TOOL_MANIFEST.filter((entry) => !only || only.has(entry.id))) {
     tools[spec.id] = tool({
       description: spec.description,
       inputSchema: toolSchema(
