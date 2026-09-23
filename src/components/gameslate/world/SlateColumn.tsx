@@ -54,6 +54,7 @@ import {
   SLATE_FRONT,
   SLATE_W,
   SLATE_Z,
+  PX_PER_UNIT,
   
   VIEW_BOTTOM,
   VIEW_H,
@@ -832,15 +833,15 @@ export function SlateColumn({
   // line, text size or surface therefore cannot be laid out inside a panel
   // built for earlier content — the recurring "text outside the surface" cause.
   const boundsKey = useCallback(
-    (slotId: string, text: string) =>
-      `${slotId}|${text}|${textSettings.size}|${textSettings.align}|${textSettings.lineSpacing}`,
-    [textSettings.align, textSettings.lineSpacing, textSettings.size],
+    (slot: Slot) =>
+      `${slot.id}|${slot.text}|${slot.hiddenContent}|${slot.structuredNote ?? ""}|${JSON.stringify(slot.structuredMath ?? null)}|${slot.surfaceId ?? surface.id}|${textAppearanceKey(settingsFor(slot))}`,
+    [settingsFor, surface.id],
   );
   const textBounds = useMemo(() => {
     const out: Record<string, TextBounds> = {};
     game.slots.forEach((slot) => {
       const entry = measuredText[slot.id];
-      if (entry && entry.key === boundsKey(slot.id, slot.text)) out[slot.id] = entry.bounds;
+      if (entry && entry.key === boundsKey(slot)) out[slot.id] = entry.bounds;
     });
     return out;
   }, [boundsKey, game.slots, measuredText]);
@@ -914,6 +915,10 @@ export function SlateColumn({
       const lineBuild = lineSurface.id === surface.id ? build : getConstruction(lineSurface.id);
       const bounds = textBounds[slot.id];
       const lineText = settingsFor(slot);
+      const visualInsets = textVisualInsets(
+        resolveTextStyle(lineSurface, lineText),
+        Math.max(0.001, lineText.size / PX_PER_UNIT),
+      );
       boxes[slot.id] = gameSurfaceBox({
         text: slot.text,
         hiddenContent: slot.hiddenContent,
@@ -924,6 +929,7 @@ export function SlateColumn({
         inset: lineBuild.inset,
         measuredWidth: bounds?.width ?? 0,
         measuredHeight: bounds?.height ?? 0,
+        visualInsets,
       });
     });
     return boxes;
@@ -1390,6 +1396,10 @@ export function SlateColumn({
             inset: lineBuild.inset,
             measuredWidth: bounds?.width ?? 0,
             measuredHeight: bounds?.height ?? 0,
+            visualInsets: textVisualInsets(
+              resolveTextStyle(lineSurface, lineTextSettings),
+              Math.max(0.001, lineTextSettings.size / PX_PER_UNIT),
+            ),
           });
           const surfaceWidth = surfaceBox.surfaceWidth;
           const innerWritingWidth = surfaceBox.innerWritingWidth;
@@ -1480,7 +1490,7 @@ export function SlateColumn({
                     structuredNote={slot.structuredNote}
                     onChange={(text) => onSlotChange(slot.id, { text })}
                     onActivate={() => onSelect({ kind: "slot", slotId: slot.id })}
-                    onMeasure={(nextBounds) => measure(slot.id, nextBounds, boundsKey(slot.id, slot.text))}
+                    onMeasure={(nextBounds) => measure(slot.id, nextBounds, boundsKey(slot))}
                   />
                 </Suspense>
               </group>
