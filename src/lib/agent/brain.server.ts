@@ -18,12 +18,19 @@ import type { AuraPlatformContext } from "./context";
 import { parseTeachingScript, type TeachingScript } from "./teachingScript";
 
 /**
- * Aura's everyday brain. The cheapest model on the gateway that passes the
- * lesson-note contract and drives the platform tools, so a teacher's whole day
- * of conversation costs pennies. Heavy mathematics stays with the notebook
- * generator, which is unchanged.
+ * Aura's everyday brain: measured on this gateway as the cheapest model that
+ * both drives the platform tools correctly and answers in about a second. The
+ * previous choice spent its whole reply on hidden thinking and returned no words
+ * at all, which is what made her feel silent and slow. Heavy mathematics stays
+ * with the notebook generator, which is unchanged.
  */
-export const AGENT_MODEL = "openai/gpt-5-nano";
+export const AGENT_MODEL = "google/gemini-2.5-flash";
+
+/**
+ * The fast front of her voice: answers in well under a second, so she speaks the
+ * moment the teacher stops while the brain above is still working.
+ */
+export const FAST_MODEL = "google/gemini-2.5-flash-lite";
 
 export type AgentStep = {
   toolId: string;
