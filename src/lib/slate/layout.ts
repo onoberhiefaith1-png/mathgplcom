@@ -297,27 +297,38 @@ export const gameSurfaceBox = ({
   measuredWidth = 0,
   measuredHeight = 0,
   visualInsets = { left: 0, right: 0, top: 0, bottom: 0 },
+  contentMargin = 0,
+  foldInset = 0,
 }: GameSurfaceBoxInput): GameSurfaceBox => {
-  const { x: padX, y: padY } = gameSurfacePadding(fontSize);
+  const { x: basePadX, y: padY } = gameSurfacePadding(fontSize);
+  // THE FOLD IS NOT A WRITING AREA. The rolled part of the surface is physical
+  // decoration, so it is removed from the content region before anything is
+  // laid out inside it.
+  const padX = basePadX + Math.max(0, foldInset);
+  const requested = Math.max(0, contentMargin);
   const content = text || hiddenContent || "";
   const emptyWidth = Math.max(0.9, fontSize / 145);
   const minimumWidth = Math.max(inset * 2 + 0.32, emptyWidth);
   const estimatedTextWidth = gameEstimatedTextWidth(
     content,
     fontSize,
-    gameInnerWritingWidth(writingWidth, padX),
+    Math.max(MIN_CONTENT_WIDTH, gameInnerWritingWidth(writingWidth, padX) - requested),
   );
+  // The right edge provides the room the margin plus the real content needs —
+  // it is never widened by the margin movement on its own.
   const contentSurfaceWidth = Math.max(
     minimumWidth,
-    estimatedTextWidth + padX * 2,
-    Math.max(0, measuredWidth) + visualInsets.left + visualInsets.right + padX * 2,
+    requested + estimatedTextWidth + padX * 2,
+    requested + Math.max(0, measuredWidth) + visualInsets.left + visualInsets.right + padX * 2,
   );
   // Edit and Play are deliberately identical here. `readOnlyWriting` remains
   // in the input for saved-call compatibility, but can never open a second,
   // screen-wide text box that escapes the physical surface.
   void readOnlyWriting;
   const surfaceWidth = gameSurfaceWidth(writingWidth, contentSurfaceWidth);
-  const innerWritingWidth = gameInnerWritingWidth(surfaceWidth, padX);
+  const usableWidth = gameInnerWritingWidth(surfaceWidth, padX);
+  const appliedMargin = Math.min(requested, Math.max(0, usableWidth - MIN_CONTENT_WIDTH));
+  const innerWritingWidth = Math.max(MIN_CONTENT_WIDTH, usableWidth - appliedMargin);
   const estimatedTextHeight = gameEstimatedTextHeight(
     content,
     fontSize,
@@ -330,8 +341,16 @@ export const gameSurfaceBox = ({
     Math.max(0, measuredHeight) + visualInsets.top + visualInsets.bottom + padY * 2,
   );
 
-  return { padX, padY, surfaceWidth, innerWritingWidth, surfaceHeight };
+  return {
+    padX,
+    padY,
+    surfaceWidth,
+    innerWritingWidth,
+    surfaceHeight,
+    contentMargin: appliedMargin,
+  };
 };
+
 
 
 const REGION_PAD = 0.36;
