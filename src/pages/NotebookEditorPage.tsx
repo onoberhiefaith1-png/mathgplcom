@@ -6,7 +6,7 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "@/lib/router-compat";
-import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, Presentation, Loader2, Smartphone, Save, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
