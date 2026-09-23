@@ -34,6 +34,8 @@ import {
 import { useListening, type ListeningEngine } from "@/components/agent/useListening";
 
 import { agentChat, agentGreeting } from "./brain.functions";
+import { streamCallTurn } from "./callStream";
+import { SpeechQueue, takeClauses } from "./speechQueue";
 import { contextFromPath, mergeContext, readAuraScreenContext } from "./context";
 import type { AgentStep } from "./brain.server";
 import { publishTeaching } from "./teachingBus";
@@ -141,6 +143,10 @@ export const AURA_MIN_WIDTH = 320;
 export const AURA_MAX_WIDTH = 720;
 const AURA_DEFAULT_WIDTH = 420;
 const MAX_REMEMBERED = 40;
+/** A call with nothing said for this long hangs up itself. */
+const IDLE_CALL_MS = 75_000;
+/** And no single call runs longer than this. */
+const MAX_CALL_MS = 20 * 60_000;
 
 function newId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -194,6 +200,16 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const lastActiveRef = useRef(Date.now());
   const greetedRef = useRef(false);
   const voice = useRef<AbortController | null>(null);
+  /** Her voice during a call: clauses fetched ahead and played gaplessly. */
+  const queue = useRef<SpeechQueue | null>(null);
+  /** True while a call reply is still being written, so her voice can dry up
+   *  between clauses without the turn being declared finished. */
+  const callWriting = useRef(false);
+  /** Set when the teacher talked over her: the rest of that reply is not spoken. */
+  const callMuted = useRef(false);
+  const callStream = useRef<AbortController | null>(null);
+  const callStartedAt = useRef(0);
+  const lastVoiceAt = useRef(0);
 
   const stopSpeaking = useCallback(() => {
     voice.current?.abort();
@@ -206,6 +222,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   // One open session: she hears every word, works out when a sentence has ended,
   // answers out loud, and stops mid-word the moment someone speaks over her.
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  /** Set once endVoice exists, so a turn can hang up before it is defined. */
+  const endVoiceRef = useRef<(() => void) | null>(null);
   const session = useRef<VoiceSession | null>(null);
   const levelRef = useRef(0);
   const heardRef = useRef("");
@@ -425,6 +443,117 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     [chat, messages, navigate, speak, speakReplies, status],
   );
 
+
+  // ── A CALL TURN ──────────────────────────────────────────────────────────
+  // Her answer is spoken as it is written: the first clause goes to her voice
+  // while the rest is still arriving, which is what makes this feel like a call.
+  const sendCall = useCallback(
+    (text: string) => {
+      const content = text.trim();
+      if (!content) return;
+
+      const counted = countRequest();
+      setUsage(counted);
+      lastActiveRef.current = Date.now();
+      if (ceilingReached(counted)) {
+        setMessages((previous) => [
+          ...previous,
+          { id: newId(), role: "user", content, spoken: true },
+          {
+            id: newId(),
+            role: "assistant",
+            content: "That's today's limit for me on this device — I'll be ready again tomorrow.",
+            error: true,
+          },
+        ]);
+        setStatus("idle");
+        endVoiceRef.current?.();
+        return;
+      }
+
+      const history = [...messages, { id: newId(), role: "user" as const, content, spoken: true }];
+      setMessages(history);
+      setStatus("submitted");
+      setLiveSteps([]);
+
+      const speech = queue.current;
+      const controller = new AbortController();
+      callStream.current?.abort();
+      callStream.current = controller;
+      callWriting.current = true;
+      callMuted.current = false;
+      let buffer = "";
+
+      const say = (clause: string) => {
+        if (callMuted.current || !speech) return;
+        speech.say(clause);
+      };
+
+      void streamCallTurn({
+        messages: history
+          .filter((m) => !m.error)
+          .map((m) => ({ role: m.role, content: m.content })),
+        context: mergeContext(contextFromPath(pathnameRef.current), readAuraScreenContext()),
+        signal: controller.signal,
+        onDelta: (delta) => {
+          buffer += delta;
+          const { clauses, rest } = takeClauses(buffer);
+          buffer = rest;
+          for (const clause of clauses) say(clause);
+        },
+      })
+        .then((turn) => {
+          const { clauses } = takeClauses(buffer, true);
+          buffer = "";
+          for (const clause of clauses) say(clause);
+          callWriting.current = false;
+          setMessages((previous) => [
+            ...previous,
+            { id: newId(), role: "assistant", content: turn.reply, steps: turn.steps },
+          ]);
+          setLiveSteps([]);
+          setStatus("idle");
+          const lesson = turn.steps?.find((step) => step.teach)?.teach;
+          if (lesson) void teachRef.current(lesson);
+          // Nothing to say out loud: go straight back to listening.
+          if (!speech?.active && session.current?.state !== "listening") {
+            session.current?.replyEnded();
+            setVoiceState(session.current?.state ?? "idle");
+          }
+          if (turn.navigateTo) {
+            void navigate({ to: turn.navigateTo as never }).catch(() => {
+              /* a page that refuses to open is reported by the agent itself */
+            });
+          }
+        })
+        .catch((error: unknown) => {
+          callWriting.current = false;
+          if (controller.signal.aborted) return;
+          setMessages((previous) => [
+            ...previous,
+            {
+              id: newId(),
+              role: "assistant",
+              content:
+                (error as Error)?.message?.trim() ||
+                "I couldn't finish that just now. Try me again in a moment.",
+              error: true,
+            },
+          ]);
+          setLiveSteps([]);
+          setStatus("error");
+          session.current?.replyEnded();
+          setVoiceState(session.current?.state ?? "idle");
+        });
+    },
+    [messages, navigate],
+  );
+
+  const sendCallRef = useRef(sendCall);
+  useEffect(() => {
+    sendCallRef.current = sendCall;
+  }, [sendCall]);
+
   const sendRef = useRef(send);
   useEffect(() => {
     sendRef.current = send;
@@ -584,6 +713,11 @@ export function AuraProvider({ children }: { children: ReactNode }) {
 
   const endVoice = useCallback(() => {
     voiceLive.current = false;
+    callStream.current?.abort();
+    callStream.current = null;
+    callWriting.current = false;
+    queue.current?.close();
+    queue.current = null;
     session.current?.end();
     session.current = null;
     setVoiceState("idle");
@@ -595,11 +729,41 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     else listening.stop();
   }, [listening]);
 
+  useEffect(() => {
+    endVoiceRef.current = endVoice;
+  }, [endVoice]);
+
   const startVoice = useCallback(() => {
     const open = () => {
       setOpen(true);
       listening.clearError();
       listening.start("capture", granted.current);
+      // The device is opened on this very tap, which is what phones require, and
+      // then kept for the whole call so no sentence is ever clipped.
+      const speech = new SpeechQueue({
+        onSpeaking: (on) => {
+          if (on) {
+            setSpeaking(true);
+            session.current?.replyStarted();
+            setVoiceState(session.current?.state ?? "idle");
+            return;
+          }
+          // Between clauses of a reply still being written she is not finished.
+          if (callWriting.current) return;
+          setSpeaking(false);
+          if (session.current?.state === "speaking") {
+            session.current.replyEnded();
+            setVoiceState(session.current.state);
+          }
+        },
+        onFailed: (said) => {
+          if (!callMuted.current) speakWithBrowserVoice(said);
+        },
+      });
+      void speech.unlock();
+      queue.current = speech;
+      callStartedAt.current = performance.now();
+      lastVoiceAt.current = performance.now();
       const machine = new VoiceSession();
       machine.begin(performance.now());
       session.current = machine;
@@ -620,13 +784,21 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     const timer = window.setInterval(() => {
       const machine = session.current;
       if (!machine) return;
+      const now = performance.now();
       const effects = machine.feed({
-        now: performance.now(),
+        now,
         level: levelRef.current,
         transcript: heardRef.current,
+        // Her own voice comes back through the loudspeaker; only speech above it
+        // counts as talking over her.
+        selfLevel: queue.current?.outputLevel() ?? 0,
+        finalPending: listening.finalPending(),
       });
+      if (machine.state === "listening") lastVoiceAt.current = now;
       for (const effect of effects) {
         if (effect.kind === "cut") {
+          callMuted.current = true;
+          queue.current?.flush();
           voice.current?.abort();
           voice.current = null;
           stopBrowserVoice();
@@ -637,7 +809,28 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         if (effect.kind === "turn") {
           listening.clearTranscript();
           heardRef.current = "";
-          sendRef.current(effect.text, { spoken: true });
+          if (voiceLive.current) sendCallRef.current(effect.text);
+          else sendRef.current(effect.text, { spoken: true });
+        }
+      }
+      // A call left open by accident hangs up itself, and no call runs forever.
+      if (voiceLive.current && machine.state !== "thinking" && machine.state !== "speaking") {
+        const silent = now - lastVoiceAt.current;
+        const total = now - callStartedAt.current;
+        if (silent > IDLE_CALL_MS || total > MAX_CALL_MS) {
+          setMessages((previous) => [
+            ...previous,
+            {
+              id: newId(),
+              role: "assistant",
+              content:
+                silent > IDLE_CALL_MS
+                  ? "I've ended the call for now — tap the call button whenever you want me back."
+                  : "We've been on for a while, so I've ended the call. Tap it again to carry on.",
+            },
+          ]);
+          endVoiceRef.current?.();
+          return;
         }
       }
       setVoiceState(machine.state);
