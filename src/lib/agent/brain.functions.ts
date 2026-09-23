@@ -67,3 +67,23 @@ export const agentGreeting = createServerFn({ method: "POST" })
     const { runAgentGreeting } = await import("./brain.server");
     return runAgentGreeting({ supabase: context.supabase as never, userId: context.userId });
   });
+
+/**
+ * The sound she actually made, reported back by the page that played it, so her
+ * voice is recorded in the account's usage like every other kind of work.
+ */
+export const noteAuraSpeech = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => {
+    const seconds = Number((input as { seconds?: unknown } | null)?.seconds ?? 0);
+    return { seconds: Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 3600) : 0 };
+  })
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    if (data.seconds > 0) {
+      const { meterSpeech } = await import("./auraMeter.server");
+      const { SPEECH_MODEL } = await import("./speech.server");
+      await meterSpeech(context.userId, SPEECH_MODEL, data.seconds).catch(() => undefined);
+    }
+    return { ok: true };
+  });
+
