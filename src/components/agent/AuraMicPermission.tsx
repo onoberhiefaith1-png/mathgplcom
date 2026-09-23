@@ -65,9 +65,7 @@ export default function AuraMicPermission() {
               {blocked ? <MicOff className="size-5" /> : <Mic className="size-5" />}
             </span>
           </div>
-          <DialogTitle>
-            {blocked ? "Aura can't hear you yet" : "Let Aura hear you"}
-          </DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{describeMicPermission(micPermission)}</DialogDescription>
         </DialogHeader>
 
@@ -83,16 +81,13 @@ export default function AuraMicPermission() {
           <Button variant="ghost" onClick={() => close(false)}>
             {blocked ? "Close" : "Not now"}
           </Button>
-          {micPermission === "unsupported" ? null : (
+          {hopeless ? null : (
             <Button onClick={() => void requestMic()} disabled={micRequesting}>
-              {micRequesting
-                ? "Waiting for your browser…"
-                : blocked
-                  ? "Try again"
-                  : "Allow microphone"}
+              {micRequesting ? "Waiting for your browser…" : action}
             </Button>
           )}
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
