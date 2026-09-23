@@ -235,6 +235,55 @@ const executors: Record<string, Executor> = {
     };
   },
 
+  add_lesson_session: async ({ supabase }, args) => {
+    const db = supabase as unknown as AnyDb;
+    const notebookId = need(args, "notebookId");
+    const kindArg = need(args, "kind");
+    const kind = (SECTION_KINDS as readonly string[]).includes(kindArg) ? kindArg : "example";
+    const title = str(args, "title") ?? null;
+    const { data: existing } = await db
+      .from("notebook_sections")
+      .select("order_index")
+      .eq("notebook_id", notebookId)
+      .order("order_index", { ascending: false })
+      .limit(1);
+    const order = (((existing ?? []) as { order_index: number }[])[0]?.order_index ?? -1) + 1;
+    const { data: section, error } = await db
+      .from("notebook_sections")
+      .insert({ notebook_id: notebookId, kind, title, order_index: order })
+      .select("id, kind, title")
+      .single();
+    if (error || !section) throw new Error(error?.message ?? "Could not add the session.");
+
+    let subsectionId: string | null = null;
+    if (["example", "exercise", "classwork", "homework"].includes(kind)) {
+      const { data: sub, error: subError } = await db
+        .from("notebook_subsections")
+        .insert({ section_id: section.id, order_index: 0 })
+        .select("id")
+        .single();
+      if (subError) throw new Error(subError.message);
+      subsectionId = sub?.id ?? null;
+    }
+
+    return {
+      data: {
+        notebookId,
+        sectionId: section.id,
+        sectionKind: kind,
+        title: section.title ?? null,
+        subsectionId,
+        floatingPreparationPath: subsectionId
+          ? `/lesson-notes/${notebookId}/floating-prep/${subsectionId}`
+          : null,
+        floatingNumbersPath: subsectionId
+          ? `/lesson-notes/${notebookId}/floating/${subsectionId}`
+          : null,
+      },
+      summary: `Added a ${kind} session${title ? ` ("${title}")` : ""} to the lesson note.`,
+    };
+  },
+
   read_lesson_note: async ({ supabase }, args) => {
     const db = supabase as unknown as AnyDb;
     const notebookId = need(args, "notebookId");
