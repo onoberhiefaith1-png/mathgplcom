@@ -9,6 +9,7 @@ import { getSurface } from "@/lib/slate/surfaces";
 import { REWARDS, getReward, isWorldInteractionEligible } from "@/lib/slate/rewards";
 import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
 import { PlainText } from "@/components/slate/text3d/PlainText";
+import { resolveTextStyle, textVisualInsets } from "@/lib/slate/textPresets";
 
 import { defaultTextSettings, responsiveTextSize } from "@/lib/slate/text3d";
 import { normalizeTextConfig, textSettingsFromConfig } from "@/lib/slate/textConfig";
@@ -77,6 +78,39 @@ import type {
 // The universal completion object appears on every board, so its image is
 // warmed as soon as this module loads — off the render path.
 preloadTextures(REWARDS.filter((r) => r.id === "mark-seal").map((r) => r.art));
+
+const textAppearanceKey = (settings: ReturnType<typeof defaultTextSettings>) => JSON.stringify({
+  size: settings.size,
+  align: settings.align,
+  lineSpacing: settings.lineSpacing,
+  letterSpacing: settings.letterSpacing,
+  style: settings.style,
+  depth: settings.depth,
+  bevel: settings.bevel,
+  relief: settings.relief,
+  contrast: settings.contrast,
+  shadow: settings.shadow,
+  shadowStrength: settings.shadowStrength,
+  highlight: settings.highlight,
+  glow: settings.glow,
+  glowIntensity: settings.glowIntensity,
+  opacity: settings.opacity,
+  integration: settings.integration,
+  substyle: settings.substyle,
+  preset: settings.preset,
+  colour: settings.colour,
+  baseColour: settings.baseColour,
+  mainTextColourStrength: settings.mainTextColourStrength,
+  depthColour: settings.depthColour,
+  depthColourStrength: settings.depthColourStrength,
+  animate: settings.animate,
+  livingAngle: settings.livingAngle,
+  livingDrift: settings.livingDrift,
+  livingLift: settings.livingLift,
+  livingScale: settings.livingScale,
+  livingDuration: settings.livingDuration,
+  advanced: settings.advanced,
+});
 
 /** Keeps Play writing in front of every premium surface face and ornament. */
 const PLAY_TEXT_Z = 0.16;
