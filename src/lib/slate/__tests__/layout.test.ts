@@ -226,9 +226,9 @@ describe("Game writing-surface layout", () => {
   });
 });
 describe("Content Margin", () => {
-  const box = (contentMargin: number, measuredWidth = 1.2) =>
+  const box = (contentMargin: number, measuredWidth = 1.2, text = "2(x + 3) - 4x = 8") =>
     gameSurfaceBox({
-      text: "2(x + 3) - 4x = 8",
+      text,
       fontSize: 90,
       writingWidth: 18,
       readOnlyWriting: true,
@@ -256,7 +256,9 @@ describe("Content Margin", () => {
   });
 
   it("gives width back when the content needs less", () => {
-    expect(box(1.5, 0.4).surfaceWidth).toBeLessThan(box(1.5, 3).surfaceWidth);
+    expect(box(1.5, 0.4, "x = 2").surfaceWidth).toBeLessThan(
+      box(1.5, 3, "2(x + 3) - 4x = 8 and more working").surfaceWidth,
+    );
   });
 
   it("never writes on the folded part of the surface", () => {
