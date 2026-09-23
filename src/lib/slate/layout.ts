@@ -5,6 +5,7 @@
 // move; this object slides vertically through the fixed viewpoint.
 
 import type { Slot } from "./types";
+import type { TextVisualInsets } from "./textPresets";
 
 /** Slate body width in world units. */
 export const SLATE_W = 6.6;
@@ -144,6 +145,7 @@ export interface GameSurfaceBoxInput {
   inset: number;
   measuredWidth?: number;
   measuredHeight?: number;
+  visualInsets?: TextVisualInsets;
 }
 
 export interface GameSurfaceBox {
@@ -261,6 +263,7 @@ export const gameSurfaceBox = ({
   inset,
   measuredWidth = 0,
   measuredHeight = 0,
+  visualInsets = { left: 0, right: 0, top: 0, bottom: 0 },
 }: GameSurfaceBoxInput): GameSurfaceBox => {
   const { x: padX, y: padY } = gameSurfacePadding(fontSize);
   const content = text || hiddenContent || "";
@@ -274,7 +277,7 @@ export const gameSurfaceBox = ({
   const contentSurfaceWidth = Math.max(
     minimumWidth,
     estimatedTextWidth + padX * 2,
-    Math.max(0, measuredWidth) + padX * 2,
+    Math.max(0, measuredWidth) + visualInsets.left + visualInsets.right + padX * 2,
   );
   // Edit and Play are deliberately identical here. `readOnlyWriting` remains
   // in the input for saved-call compatibility, but can never open a second,
@@ -291,7 +294,7 @@ export const gameSurfaceBox = ({
   const surfaceHeight = Math.max(
     Math.max(0.42, fontSize / 175),
     estimatedTextHeight + padY * 2,
-    Math.max(0, measuredHeight) + padY * 2,
+    Math.max(0, measuredHeight) + visualInsets.top + visualInsets.bottom + padY * 2,
   );
 
   return { padX, padY, surfaceWidth, innerWritingWidth, surfaceHeight };
