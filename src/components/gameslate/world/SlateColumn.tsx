@@ -994,6 +994,11 @@ export function SlateColumn({
 
   const testDisplay = game.settings.testDisplay ?? "threeD";
 
+  // ONE margin for the whole scroll. It is the authoritative place where the
+  // writing of every surface begins; the surfaces' own left edge never moves.
+  const marginFraction = clampContentMargin(game.settings.contentMargin);
+  const contentMargin = contentMarginWorld(marginFraction, writingWidth);
+
   const surfaceBoxes = useMemo(() => {
     const boxes: Record<string, ReturnType<typeof gameSurfaceBox>> = {};
     game.slots.forEach((slot) => {
@@ -1016,10 +1021,13 @@ export function SlateColumn({
         measuredWidth: bounds?.width ?? 0,
         measuredHeight: bounds?.height ?? 0,
         visualInsets,
+        contentMargin,
+        foldInset: surfaceFoldInset(lineBuild),
       });
     });
     return boxes;
-  }, [game.slots, surface, build, textBounds, settingsFor, writingWidth]);
+  }, [game.slots, surface, build, textBounds, settingsFor, writingWidth, contentMargin]);
+
 
   const layout = useMemo(
     () => buildLayout(
