@@ -212,7 +212,7 @@ async function writeBlocks(
       subsection_id: subsectionId,
       kind: "solution" as any,
       order_index: 1,
-      content_ascii: solution,
+      content_ascii: cleanSolution,
       // Tables, diagrams, charts and 3D scenes that live inside the solution.
       content_json: (solutionObjects.length ? { objects: solutionObjects } : null) as any,
     },
