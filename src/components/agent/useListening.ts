@@ -222,7 +222,7 @@ export function useListening({ onWake, paused }: ListeningOptions) {
           setTranscript(command);
           wanted.current = "capture";
           setMode("capture");
-          void startMeter();
+          void startMeter(liveHeld());
           wake.current(command);
           return;
         }
@@ -267,14 +267,17 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   }, [startMeter, stopMeter]);
 
   const start = useCallback(
-    (next: Exclude<ListeningMode, "off">) => {
+    (next: Exclude<ListeningMode, "off">, granted?: MediaStream | null) => {
       setError(null);
       finalText.current = "";
       setTranscript("");
       failures.current = 0;
+      if (granted && granted.getAudioTracks().some((track) => track.readyState === "live")) {
+        held.current = granted;
+      }
       const switching = wanted.current !== "off" && wanted.current !== next;
       wanted.current = next;
-      if (next === "capture") void startMeter();
+      if (next === "capture") void startMeter(liveHeld());
       else stopMeter();
 
       if (restart.current !== null) window.clearTimeout(restart.current);
@@ -295,8 +298,9 @@ export function useListening({ onWake, paused }: ListeningOptions) {
       }
       begin();
     },
-    [begin, startMeter, stopMeter],
+    [begin, liveHeld, startMeter, stopMeter],
   );
+
 
   const stop = useCallback(() => {
     wanted.current = "off";
