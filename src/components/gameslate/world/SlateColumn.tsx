@@ -838,7 +838,6 @@ export function SlateColumn({
   // Play uses the teacher's saved alignment too. The panel is positioned from
   // these same rendered bounds below, so left/centre/right can never separate
   // the writing from its physical surface.
-  const renderedTextSettings = textSettings;
   const viewport = useThree((state) => state.viewport);
   const camera = useThree((state) => state.camera);
   const visibleAtSlate = viewport.getCurrentViewport(camera, new THREE.Vector3(0, 0, SLATE_Z));
