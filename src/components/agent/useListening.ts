@@ -131,10 +131,26 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   }, []);
 
   // The wave is driven by the real voice level, so it moves with the teacher.
-  const startMeter = useCallback(async () => {
+  // A stream that was already granted is reused, never requested a second time.
+  const startMeter = useCallback(async (provided?: MediaStream | null) => {
     if (analyser.current || typeof navigator === "undefined" || !navigator.mediaDevices) return;
+    let media = provided ?? null;
+    if (!media) {
+      const result = await requestMicrophoneAccess();
+      if (!result.stream) {
+        const state = result.state;
+        setError(
+          state === "blocked" || state === "in-use" || state === "no-microphone"
+            ? state
+            : state === "unsupported" || state === "insecure" || state === "framed"
+              ? "unavailable"
+              : "failed",
+        );
+        return;
+      }
+      media = result.stream;
+    }
     try {
-      const media = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.current = media;
       const context = new AudioContext();
       audio.current = context;
@@ -164,10 +180,10 @@ export function useListening({ onWake, paused }: ListeningOptions) {
       };
       meter.current = requestAnimationFrame(tick);
     } catch (cause) {
-      const name = (cause as { name?: string })?.name;
-      setError(name === "NotFoundError" ? "no-microphone" : "blocked");
+      setError((await classifyMicError(cause)) === "blocked" ? "blocked" : "failed");
     }
   }, []);
+
 
   const begin = useCallback(() => {
     const Ctor = recognitionConstructor();
