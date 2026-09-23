@@ -306,15 +306,23 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [hydrated, micPermission]);
 
+  // The one request for the microphone. The stream it returns is kept and handed
+  // straight to the listening engine, so allowing is the last thing she needs.
   const requestMic = useCallback(async () => {
     setMicRequesting(true);
-    const state = await requestMicAccess();
+    const { state, stream } = await requestMicrophoneAccess();
     setMicRequesting(false);
     setMicPermission(state);
-    if (state === "granted") setMicPromptOpen(false);
-    else setMicPromptOpen(true);
+    if (state === "granted") {
+      setMicPromptOpen(false);
+      granted.current = stream ?? null;
+      listening.clearError();
+      listening.start(wakeEnabledRef.current ? "wake" : "capture", stream ?? null);
+    } else {
+      setMicPromptOpen(true);
+    }
     return state;
-  }, []);
+  }, [listening]);
 
   /** Nothing listens until permission is settled; otherwise we ask for it. */
   const ensureMic = useCallback(async () => {
@@ -330,6 +338,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     setMicPromptOpen(true);
     return false;
   }, [micPermission, requestMic]);
+
 
   // Keep the background ear running whenever the teacher has it switched on.
   useEffect(() => {
