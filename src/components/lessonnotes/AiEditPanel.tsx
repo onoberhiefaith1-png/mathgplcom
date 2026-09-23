@@ -362,7 +362,7 @@ export function AiEditPanel({
         {proposed == null ? (
           <div className="flex-1 overflow-auto p-4 space-y-3">
             {compose && (
-              <div className="space-y-1">
+              <div className="space-y-1" onPaste={onPaste}>
                 <p className="text-[10px] uppercase tracking-wider text-foreground/55">
                   Paste or type content (a lesson, question, maths, anything)
                 </p>
