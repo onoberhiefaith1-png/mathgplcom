@@ -46,6 +46,8 @@ export default function GameSlateEditorPage() {
   const worldReadyRef = useRef(false);
   /** Phone only: the board menu holding every control that used to overflow. */
   const [menuOpen, setMenuOpen] = useState(false);
+  /** Bumped on Restore so every surface re-reads its saved record. */
+  const [restoreKey, setRestoreKey] = useState(0);
   const phone = useBreakpoint() === "phone";
   const loadedRef = useRef(false);
   const dirtyRef = useRef(false);
@@ -248,10 +250,6 @@ export default function GameSlateEditorPage() {
     });
     toast.success(`${getReward(typeId).label} placed on slot ${game.slots.indexOf(slot) + 1}`);
   };
-
-
-  /** Bumped on Restore so every surface re-reads its saved record. */
-  const [restoreKey, setRestoreKey] = useState(0);
 
   const save = async () => {
     if (!game || saving) return;
