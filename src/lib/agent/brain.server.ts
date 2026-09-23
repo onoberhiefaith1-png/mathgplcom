@@ -8,7 +8,12 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, tool, jsonSchema, stepCountIs, type ModelMessage } from "ai";
 
 import { AGENT_TOOL_MANIFEST, type AgentToolParam, type AgentToolResult } from "./toolTypes";
-import { buildAgentSystemPrompt, AGENT_GREETING_INSTRUCTION, type AgentSnapshotHint } from "./systemPrompt";
+import {
+  buildAgentSystemPrompt,
+  buildCallSystemPrompt,
+  AGENT_GREETING_INSTRUCTION,
+  type AgentSnapshotHint,
+} from "./systemPrompt";
 import { executeAgentTool, type AgentToolContext } from "./tools.server";
 import { learnedKnowledgePrompt } from "./hands.server";
 
