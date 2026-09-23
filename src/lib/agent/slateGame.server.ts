@@ -10,7 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { withDb } from "@/lib/db/scope";
 import { listGames, loadGame, saveGameResult } from "@/lib/slate/storage";
 import { makeGame, makeSlot, uid } from "@/lib/slate/defaults";
-import { ROOMS, NO_ROOM_ID, roomForSurface, getRoom } from "@/lib/slate/rooms";
+import { ROOMS, NO_ROOM_ID, getRoom } from "@/lib/slate/rooms";
 import { REWARDS, PLACEABLE_REWARDS } from "@/lib/slate/rewards";
 import { normalizeConversion } from "@/lib/slate/conversion";
 import {
