@@ -83,7 +83,10 @@ export function parseFastTurn(raw: string, heard: string): FastTurn {
     const parsed = JSON.parse(block) as Partial<Record<keyof FastTurn, unknown>>;
     const meaning = typeof parsed.meaning === "string" ? repairVocabulary(parsed.meaning) : "";
     const reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";
-    const deep = typeof parsed.deep === "boolean" ? parsed.deep : fallback.deep;
+    // The fast brain may say a turn is small talk when it plainly is not. It is
+    // never allowed to skip the worker for something that needs a real look.
+    const claimed = typeof parsed.deep === "boolean" ? parsed.deep : fallback.deep;
+    const deep = claimed || looksLikeWork(meaning || fallback.meaning);
     return {
       meaning: meaning || fallback.meaning,
       reply,
