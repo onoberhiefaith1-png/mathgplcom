@@ -25,6 +25,8 @@ import {
 } from "./workspaceStandard.ts";
 import { UPSCALING_STANDARD } from "./upscalingStandard.ts";
 import { extractUpscaleReport, upscaleCorrection, verifyUpscale } from "./upscaleVerifier.ts";
+import { SESSION_STRUCTURE_STANDARD } from "./sessionStructureStandard.ts";
+import { sessionStructureCorrection, verifySessionStructure } from "./sessionStructureVerifier.ts";
 import { buildReviewPrompt, parseReviewVerdict } from "./reviewStandard.ts";
 import {
   TABLE_RECOGNITION_STANDARD,
@@ -1631,6 +1633,8 @@ ${WORKSPACE_STANDARD}
 
 ${UPSCALING_STANDARD}
 
+${SESSION_STRUCTURE_STANDARD}
+
 ${EDUCATIONAL_RECONSTRUCTION_STANDARD}
 
 ${workspaceManifestBlock(b.workspaceManifest)}
@@ -1766,33 +1770,39 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
         if (!completeness.ok) warnings = [...warnings, ...completeness.defects];
       }
 
-      // Educational Upscaling: content-preservation + maths check, one retry.
+      // Educational Upscaling + Solution-is-a-Session structure check, one retry.
       let { content: cleaned, report } = extractUpscaleReport(content);
+      const allDefects = (src: string, out: string, rep: typeof report) => {
+        const st = verifySessionStructure(out);
+        return { list: [...verifyUpscale(src, out, rep), ...st.defects], stats: st.stats };
+      };
+      let structure = verifySessionStructure(cleaned).stats;
       {
-        let defects = verifyUpscale(selection, cleaned, report);
+        let { list: defects } = allDefects(selection, cleaned, report);
         if (defects.length) {
           const retry = await generateValidated({
             messages: [
               ...editMessages,
               { role: "assistant", content },
-              { role: "user", content: upscaleCorrection(defects) },
+              { role: "user", content: `${upscaleCorrection(defects)}\n\n${sessionStructureCorrection(defects)}` },
             ],
             kind: validationKind,
           });
           const r = extractUpscaleReport(retry.content);
-          const retryDefects = verifyUpscale(selection, r.content, r.report ?? report);
-          if (retryDefects.length <= defects.length) {
+          const rd = allDefects(selection, r.content, r.report ?? report);
+          if (rd.list.length <= defects.length) {
             cleaned = r.content;
             report = r.report ?? report;
             warnings = retry.warnings;
-            defects = retryDefects;
+            defects = rd.list;
+            structure = rd.stats;
           }
         }
         if (defects.length) warnings = [...warnings, ...defects];
       }
       content = cleaned;
 
-      return new Response(JSON.stringify({ content, warnings, upscale: report }), {
+      return new Response(JSON.stringify({ content, warnings, upscale: report ? { ...report, paired: structure.paired } : report, structure }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
