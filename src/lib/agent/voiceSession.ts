@@ -124,6 +124,12 @@ export class VoiceSession {
   private lastNow = 0;
   /** The room's own background noise, learned continuously. */
   private noiseFloor = 0.015;
+  /** The pause she waits for, shortened as she learns their rhythm. */
+  private pauseMs: number;
+  /** A turn ready to close, held back for one last look. */
+  private pendingSince: number | null = null;
+  /** True while the last thing that happened was her finishing a reply. */
+  private justSpoke = false;
 
   constructor(tuning: VoiceTuning = VOICE_TUNING) {
     this.tuning = tuning;
