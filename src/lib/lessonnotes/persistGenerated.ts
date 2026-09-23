@@ -7,6 +7,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { SectionKind } from "@/lib/lessonnotes/sectionKinds";
+import { cleanNoteLines } from "@/lib/agent/noteHygiene";
 
 const MAP_TO_DB_KIND: Record<SectionKind, string> = {
   introduction: "introduction",
