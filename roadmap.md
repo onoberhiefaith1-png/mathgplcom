@@ -184,5 +184,12 @@
 - [x] Her panel shows what she is teaching, which step she is on, and a Stop button.
 - [x] A new lesson or Stop cancels the one running, so only one voice ever teaches.
 - [ ] Floating Number tokens sliding into place in sync with her words.
-- [ ] Phase 6 — confirmations before destructive actions, tablet/mobile polish, usage ceilings.
+- [x] Phase 6 — confirmations before destructive actions, tablet/mobile polish, usage ceilings.
+
+# AURA Phase 6 — guardrails and polish
+
+- [x] Nothing is removed or archived until the teacher clearly says yes.
+- [x] A daily limit on requests to Aura, with plain warning words near the end.
+- [x] Her ear switches itself off after a long silence instead of listening all day.
+- [x] Phone and tablet open her as a full sheet; only a desktop splits the screen.
 
