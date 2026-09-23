@@ -273,7 +273,10 @@ export function WritingRegion({
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      <group position={[left + shift.x, top + shift.y, z + 0.004]}>
+      <group
+        position={[left + shift.x, top + shift.y, z + 0.004]}
+        rotation={[0, 0, (-saved.rotation * Math.PI) / 180]}
+      >
         {!structuredMath ? (
           surfaceTest ? (
             <InscribedText
