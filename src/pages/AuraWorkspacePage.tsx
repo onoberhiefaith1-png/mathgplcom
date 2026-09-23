@@ -4,12 +4,12 @@
 // given the whole screen. Each thing she does shows as a step the teacher can
 // walk into, so the work is always checkable in the real pages.
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, Building2 } from "lucide-react";
 
 import AuraCockpit from "@/components/agent/AuraCockpit";
-import { useAura } from "@/lib/agent/AuraProvider";
+import { useAuraMaybe } from "@/lib/agent/AuraProvider";
 import { Button } from "@/components/ui/button";
 
 const OPENERS = [
@@ -20,12 +20,30 @@ const OPENERS = [
 ];
 
 export default function AuraWorkspacePage() {
-  const { send, status, messages, spendNote } = useAura();
+  const aura = useAuraMaybe();
   const [showCost, setShowCost] = useState(false);
+
+  // Before anyone signs in there is no assistant to talk to yet.
+  if (!aura) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center">
+        <h1 className="text-lg font-semibold">Sign in to talk to Aura</h1>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          Once you are signed in you can simply tell her what you want — a lesson note, a class, a
+          game — and she builds it while you watch.
+        </p>
+        <Button asChild>
+          <Link to="/auth" search={{ next: "/aura" } as never}>
+            Sign in
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const { send, status, messages, spendNote } = aura;
   const started = messages.length > 0;
   const busy = status === "submitted";
-
-  const openers = useMemo(() => OPENERS, []);
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
@@ -65,7 +83,7 @@ export default function AuraWorkspacePage() {
         <div className="border-b border-border px-4 py-4">
           <p className="mb-2 text-xs font-medium text-muted-foreground">Try one of these</p>
           <div className="flex flex-wrap gap-2">
-            {openers.map((text) => (
+            {OPENERS.map((text) => (
               <Button
                 key={text}
                 type="button"
