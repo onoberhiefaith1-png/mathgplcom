@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { classifyMicError, requestMicrophoneAccess } from "./micPermission";
+import { classifyMicError, heldMicrophone, requestMicrophoneAccess } from "./micPermission";
 
 export type ListeningMode = "off" | "wake" | "capture";
 
