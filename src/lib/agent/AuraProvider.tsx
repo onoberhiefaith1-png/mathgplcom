@@ -351,6 +351,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     setWidthState(readStored<number>(WIDTH_KEY, AURA_DEFAULT_WIDTH));
     setSpeakRepliesState(readStored<boolean>(VOICE_KEY, false));
     setUsage(readUsage());
+    setSpend(readSpend());
     setHydrated(true);
   }, []);
 
