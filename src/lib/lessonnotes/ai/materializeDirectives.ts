@@ -165,6 +165,7 @@ function sampleEquation(expr: string, xMin: number, xMax: number, step: number) 
 }
 
 function graphNode(p: Record<string, string>): TipTapNode {
+  const equation = p.equation || p.expression || p.function || "";
   const xMin = num(p.xMin, -5);
   const xMax = num(p.xMax, 5);
   const step = Math.max(0.1, num(p.step, Math.max(0.25, (xMax - xMin) / 40)));
@@ -175,8 +176,8 @@ function graphNode(p: Record<string, string>): TipTapNode {
       .map((pair) => pair.split(",").map((n) => Number(n.trim())))
       .filter((a) => a.length >= 2 && a.every((n) => Number.isFinite(n)))
       .map(([x, y]) => ({ x, y }));
-  } else if (p.equation) {
-    points = sampleEquation(p.equation, xMin, xMax, step);
+  } else if (equation) {
+    points = sampleEquation(equation, xMin, xMax, step);
   }
   const squaresX = Math.max(10, Math.ceil(xMax - xMin) + 4);
   return {
@@ -187,7 +188,7 @@ function graphNode(p: Record<string, string>): TipTapNode {
       yLabel: p.yLabel || DEFAULT_GRAPH.yLabel,
       squaresX,
       originSquareX: Math.max(0, Math.round(-xMin) + 2),
-      connect: (p.connect as any) || (p.equation ? "smooth" : "straight"),
+      connect: (p.connect as any) || (equation ? "smooth" : "straight"),
       points,
     },
   };
@@ -266,6 +267,54 @@ function solid3dNode(p: Record<string, string>): TipTapNode | null {
   };
 }
 
+/* -------------------------- Drawing plan router --------------------------- */
+
+/**
+ * Structured intermediate representation for AI Edit reconstruction. The AI can
+ * name the intended educational object first, then the materializer routes it to
+ * the existing native node. This keeps the pipeline meaning-first without adding
+ * another visual format teachers cannot edit.
+ */
+function drawingPlanNode(p: Record<string, string>): TipTapNode | null {
+  const kind = String(p.kind || p.type || p.object || p.intent || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]+/g, "");
+  if (!kind) return null;
+
+  if (
+    [
+      "geometry", "diagram", "geometricdiagram", "angle", "angles",
+      "triangle", "circle", "circleangles", "parallel", "transversal",
+      "paralleltransversal", "perpendicular", "polygon", "quadrilateral",
+    ].includes(kind)
+  ) {
+    const layout = p.layout || p.preset || (kind === "parallel" || kind === "transversal" ? "parallelTransversal" : kind);
+    return geometryNode({ ...p, layout });
+  }
+
+  if (["table", "smarttable", "mathtable", "datatable", "frequencytable"].includes(kind)) {
+    return smartTableNode(p);
+  }
+
+  if (["graph", "coordinategraph", "coordinateplane", "function", "plot", "curve"].includes(kind)) {
+    return graphNode(p);
+  }
+
+  if (["matrix", "determinant", "vector", "augmentedmatrix"].includes(kind)) {
+    const matrixParams = kind === "determinant"
+      ? { ...p, kind: "matrix", bracket: p.bracket || "determinant" }
+      : { ...p, kind: "matrix" };
+    return structureNode(matrixParams);
+  }
+
+  if (["set", "sets", "venn", "venndiagram"].includes(kind)) {
+    return assetNode(p.asset || p.query || p.sets || "venn diagram", p.label ? { label: p.label } : undefined);
+  }
+
+  return assetNode(p.asset || p.query || kind);
+}
+
 /* ------------------------------ Calculator ------------------------------- */
 
 function calcNode(p: Record<string, string>): TipTapNode {
@@ -300,6 +349,10 @@ export function materializeDirective(d: Directive): TipTapNode | null {
       case "geometry":
       case "geometry2d":
         return geometryNode(d.params);
+      case "drawingPlan":
+      case "reconstruct":
+      case "reconstruction":
+        return drawingPlanNode(d.params);
       case "asset":
         return assetNode(d.params.query || d.params.id || "");
       case "structure":
@@ -320,6 +373,13 @@ export function materializeDirective(d: Directive): TipTapNode | null {
 }
 
 const FIGURE_TOOLS = new Set(["diagram", "solid3d", "object3d", "geometry", "geometry2d"]);
+
+const isFigureDirective = (d: Directive) => {
+  if (FIGURE_TOOLS.has(d.tool)) return true;
+  if (!["drawingPlan", "reconstruct", "reconstruction"].includes(d.tool)) return false;
+  const kind = String(d.params.kind || d.params.type || d.params.object || d.params.intent || "").toLowerCase();
+  return /geometry|diagram|angle|triangle|circle|parallel|transversal|perpendicular|polygon|quadrilateral/.test(kind);
+};
 
 /** Split raw AI text into plain-text chunks and resolved directive nodes.
  *  `allowFigures: false` (used for Solution generation) forbids directives that
@@ -346,7 +406,7 @@ export function splitDirectives(
       continue;
     }
     const node =
-      opts?.allowFigures === false && FIGURE_TOOLS.has(directive.tool)
+      opts?.allowFigures === false && isFigureDirective(directive)
         ? null
         : materializeDirective(directive);
     if (node) out.push({ kind: "node", node });

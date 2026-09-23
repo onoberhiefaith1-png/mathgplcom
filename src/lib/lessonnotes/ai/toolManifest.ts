@@ -58,6 +58,14 @@ export const NODE_TOOLS: WorkspaceTool[] = [
       '[[tool:geometry points="A 0 4; B -3 0; C 3 0" segments="AB; BC; CA" angles="ABC 60°; BCA x" lengths="BC 6 cm" confidence="high"]]',
   },
   {
+    id: "drawingPlan",
+    label: "Educational Drawing Plan",
+    usage:
+      "Use when pasted/copied lesson content describes the intended object but the source layout is messy or missing. State the object kind and relationships; the platform converts it into the correct native editable object.",
+    example:
+      '[[tool:drawingPlan kind="parallelTransversal" value="110°" unknown="x" confidence="high"]]',
+  },
+  {
     id: "solid3d",
     label: "3D Objects",
     usage:

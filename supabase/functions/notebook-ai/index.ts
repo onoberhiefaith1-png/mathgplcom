@@ -18,6 +18,7 @@ import { sanitizePresentation, residueReport, stripDuplicateHeading } from "./ou
 import { GEOMETRY_STANDARD, GEOMETRY_SCENE_SCHEMA } from "./geometryStandard.ts";
 import {
   WORKSPACE_STANDARD,
+  EDUCATIONAL_RECONSTRUCTION_STANDARD,
   workspaceManifestBlock,
   workspaceViolations,
   workspaceCorrection,
@@ -134,20 +135,10 @@ slot inside a template, use \\square (which renders as the empty box symbol).
 
 const PEDAGOGY_RULES = PEDAGOGY_REFERENCE;
 
-const AI_REQUEST_TIMEOUT_MS = 25_000;
 const VALIDATION_BUDGET_MS = 55_000;
 
 async function fetchAI(init: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
-  try {
-    return await fetch(ENDPOINT, { ...init, signal: controller.signal });
-  } catch (error) {
-    if (controller.signal.aborted) throw new Error("AI request timed out");
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
+  return await fetch(ENDPOINT, init);
 }
 
 async function callAI(messages: any[], model = "google/gemini-2.5-flash") {
@@ -1582,6 +1573,8 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
         lessonContext?: string;
         /** Top-bar AI Edit: pasted/typed NEW content to structure and insert. */
         compose?: boolean;
+        /** Attached screenshots/photos. Read as evidence, never inserted. */
+        images?: string[];
       };
       const selection = String(b.selectionText ?? "").trim();
       const instruction = String(b.instruction ?? "").trim();
@@ -1622,13 +1615,19 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
 
       const sys = `${VALIDATION_DIRECTIVE}
 
-You are a mathematics teacher's assistant performing an INLINE EDIT on a
-fragment the teacher highlighted inside a Lesson Notes document.
+You are MathGPL AI Edit, a mathematics document reconstruction engine. You do
+not copy-and-paste corrupted source layout. You understand the lesson content,
+the question, surrounding text, existing object JSON and any attached sketch,
+then rebuild the required Solmagine native objects cleanly.
 Context — Subject: ${b.subject || "Mathematics"} | Topic: ${b.topic || "—"} | Subtopic: ${b.subtopic || "—"} | Selection kind: ${b.kind}.
 
 ${MATH_MARKUP_RULES}
 
 ${standardBlocks}
+
+${WORKSPACE_STANDARD}
+
+${EDUCATIONAL_RECONSTRUCTION_STANDARD}
 
 ${workspaceManifestBlock(b.workspaceManifest)}
 
@@ -1641,16 +1640,28 @@ lesson-note content that will be INSERTED into the note. This OVERRIDES the
 - Under a worked question: the question on one line, then the solution one
   micro-step per line (the first solution line restates the question). Never
   write the words "Problem:" or "Solution:" as content.
+- Treat the draft as source material, not final layout. If copied diagrams,
+  tables or text are scattered, reconstruct what the content requires.
 - Keep the teacher's mathematics and numbers exactly; fix structure and
   notation only. If only an instruction was given, write that content.
-` : ""}
+` : `INLINE REPLACE MODE — the teacher highlighted existing content. Output only
+the replacement for that selection. Keep its role in the surrounding lesson.
+`}
 EDIT RULES:
-- Rewrite ONLY the selected fragment. Do not add headings, prefaces, or
-  commentary. Output the replacement text exactly as it should appear in
-  the notebook.
+- ${b.compose ? "Output the reconstructed inserted content exactly as it should appear in the notebook." : "Rewrite ONLY the selected fragment. Do not add headings, prefaces, or commentary. Output the replacement text exactly as it should appear in the notebook."}
 - Preserve the teacher's intent. If the instruction asks for structural
   fixes, prefer the rendered template forms (\\frac{a}{b}, \\sqrt{...},
   x^{n}) over slash fractions or inline forms.
+- The question / surrounding lesson text is the authority. A sketch or copied
+  layout is supporting evidence only. If the sketch is messy but the question
+  clearly describes the required object, draw the clean native object.
+- Geometry MUST be emitted as [[tool:geometry …]] when it is described by the
+  content. Include points, segments/lines/rays/circles, angles, lengths,
+  parallel/perpendicular relationships, confidence and unclear fields.
+- Example: "Two parallel lines are crossed by a transversal. One angle is 110°.
+  Find the alternate angle." → a clean [[tool:geometry …]] with two parallel
+  lines, one transversal, 110° and x/unknown angle labels. Do not reproduce a
+  scattered copied sketch.
 - A matrix or vector MUST be emitted as one editable Matrix directive:
   [[tool:structure kind="matrix" rows="2" cols="2" bracket="square" slots="a | b | c | d"]]
   List slots in row-major order. Use bracket="round", "square", "brace", or
@@ -1665,10 +1676,14 @@ EDIT RULES:
 - Keep one micro-step per line when the fragment is a worked solution.`;
 
       const lessonContext = String(b.lessonContext ?? "").trim().slice(0, 8_000);
-      const user = `${lessonContext ? `SURROUNDING LESSON CONTEXT (read it, but edit ONLY the selected fragment):\n${lessonContext}\n\n` : ""}SELECTED FRAGMENT (kind: ${b.kind}):
+      const sourceLabel = b.compose ? "RAW DRAFT TO RECONSTRUCT" : "SELECTED FRAGMENT";
+      const contextRule = b.compose
+        ? "read it as context for the new insertion"
+        : "read it, but edit ONLY the selected fragment";
+      const user = `${lessonContext ? `SURROUNDING LESSON CONTEXT (${contextRule}):\n${lessonContext}\n\n` : ""}${sourceLabel} (kind: ${b.kind}):
 ${selection}
 
-SELECTED DOCUMENT STRUCTURE (authoritative when present):
+DOCUMENT STRUCTURE / EXISTING NATIVE OBJECT JSON (authoritative when present):
 ${selectionJson || "plain text selection"}
 
 TEACHER INSTRUCTION:
@@ -1681,7 +1696,7 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
         .slice(0, 4) as string[];
       const userContent: any = images.length
         ? [
-            { type: "text", text: `${user}\n\nATTACHED PICTURES: rebuild every diagram, table, graph and matrix they show as the native directive. Never refer to "the image".` },
+            { type: "text", text: `${user}\n\nATTACHED PICTURES: use these only as supporting visual evidence. Rebuild every diagram, table, graph, matrix and educational structure as native Solmagine directives. The question and surrounding text are the source of truth; do not reproduce rough copied positions, markup or scattered layout. Never refer to "the image" and never output an image.` },
             ...images.map((url) => ({ type: "image_url", image_url: { url } })),
           ]
         : user;
@@ -1689,10 +1704,39 @@ ${instruction || "Improve the selected fragment while keeping its meaning."}`;
         { role: "system", content: sys },
         { role: "user", content: userContent },
       ];
-      let { content, warnings } = await generateValidated({
+      let { content, warnings, tableIssues } = await generateValidated({
         messages: editMessages,
         kind: validationKind,
       });
+
+      // Native-object guard for AI Edit. If the first draft still describes or
+      // types an object that should be a Solmagine object, force one rewrite.
+      {
+        let rounds = 0;
+        let problems = [...workspaceViolations(content), ...tableIssues];
+        while (problems.length && rounds < 2) {
+          rounds++;
+          const retry = await generateValidated({
+            messages: [
+              ...editMessages,
+              { role: "assistant", content },
+              {
+                role: "user",
+                content: `${workspaceCorrection(problems)}\n\nRemember: question/content is the source of truth; a messy copied sketch is only evidence. Reconstruct the intended native Solmagine object cleanly.`,
+              },
+            ],
+            kind: validationKind,
+          });
+          const retryProblems = [...workspaceViolations(retry.content), ...retry.tableIssues];
+          if (retryProblems.length <= problems.length) {
+            content = retry.content;
+            warnings = retry.warnings;
+            tableIssues = retry.tableIssues;
+            problems = retryProblems;
+          } else break;
+          if (!problems.length) break;
+        }
+      }
 
       // A generated solution must be complete — the same gate Co-Pilot passes.
       if (solutionIntent || b.kind === "solution") {

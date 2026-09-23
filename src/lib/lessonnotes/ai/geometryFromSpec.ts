@@ -11,6 +11,7 @@
 //       angles="ABC 60°; BCA x; ABD 90°"      vertex is the middle letter
 //       lengths="BC 6 cm"
 //       parallel="AB CD" perpendicular="AB BC"
+//       layout="parallelTransversal|triangle|circleAngles" value="110°" unknown="x"
 //       confidence="high|medium|low" unclear="what could not be read"
 //       caption="…"]]
 
@@ -37,10 +38,86 @@ export function pointNames(s: string): string[] {
 
 type P = { x: number; y: number };
 
+const clean = (s?: string) => String(s ?? "").trim();
+const pick = (p: Record<string, string>, ...keys: string[]) => {
+  for (const key of keys) {
+    const value = clean(p[key]);
+    if (value) return value;
+  }
+  return "";
+};
+
+function presetFromMeaning(params: Record<string, string>): Record<string, string> | null {
+  const layout = clean(params.layout || params.preset || params.kind || params.type).toLowerCase().replace(/[-_\s]+/g, "");
+  const text = `${params.question ?? ""} ${params.description ?? ""} ${params.caption ?? ""}`.toLowerCase();
+  const wantsParallelTransversal =
+    layout === "paralleltransversal" ||
+    layout === "parallellinestransversal" ||
+    layout === "transversal" ||
+    (/parallel/.test(text) && /transversal|crossed|intersect/.test(text));
+
+  if (wantsParallelTransversal) {
+    const known = pick(params, "value", "angle", "given", "measure", "measurement", "angle1Label", "angle1") || "";
+    const unknown = pick(params, "unknown", "find", "label", "angle2Label", "angle2") || "x";
+    const usableParallel = pointNames(params.parallel ?? "").length >= 4 ? params.parallel : "AB CD";
+    return {
+      ...params,
+      points: params.points || "A 0 4; B 8 4; C 0 0; D 8 0; E 2 4; F 6 0",
+      segments: params.segments || "AB; CD; EF",
+      parallel: usableParallel,
+      angles: params.angles || [`BEF ${known}`, `EFC ${unknown}`].filter(Boolean).join("; "),
+      confidence: params.confidence || (known ? "high" : "medium"),
+      unclear: params.unclear || (known ? "" : "given angle value not supplied"),
+      caption: params.caption || "Parallel lines crossed by a transversal",
+    };
+  }
+
+  const wantsTriangle =
+    layout === "triangle" ||
+    /triangle\s+[a-z]{3}|triangle/.test(text);
+  if (wantsTriangle && !clean(params.points)) {
+    const angle = pick(params, "angle", "value");
+    const length1 = pick(params, "length", "side", "ab");
+    const length2 = pick(params, "length2", "ac");
+    return {
+      ...params,
+      points: "A 0 0; B 7 0; C 4 4",
+      segments: params.segments || "AB; BC; CA",
+      angles: params.angles || (angle ? `BAC ${angle}` : ""),
+      lengths: params.lengths || [length1 ? `AB ${length1}` : "", length2 ? `AC ${length2}` : ""].filter(Boolean).join("; "),
+      confidence: params.confidence || "medium",
+      unclear: params.unclear || (angle || length1 || length2 ? "diagram layout inferred from question" : "triangle details inferred from text; check labels and measures"),
+      caption: params.caption || "Triangle reconstructed from the question",
+    };
+  }
+
+  const wantsCircle =
+    layout === "circleangles" ||
+    layout === "circle" ||
+    /circle|chord|tangent|diameter|radius|semicircle/.test(text);
+  if (wantsCircle && !clean(params.points)) {
+    const known = pick(params, "value", "angle", "given", "measure", "measurement");
+    const unknown = pick(params, "unknown", "find", "label") || "x";
+    return {
+      ...params,
+      points: "O 0 0; A -3 2; B 3 2; C 2 -3; D -2 -3",
+      circles: params.circles || "O 3.4",
+      segments: params.segments || "AB; AC; BC",
+      angles: params.angles || [`ACB ${known}`, `BAC ${unknown}`].filter(Boolean).join("; "),
+      confidence: params.confidence || "medium",
+      unclear: params.unclear || "circle layout inferred from the question; check exact point placement",
+      caption: params.caption || "Circle theorem diagram reconstructed from the question",
+    };
+  }
+
+  return null;
+}
+
 export function geometryFromSpec(params: Record<string, string>): {
   scene: GeometryScene;
   review: GeometryReconstruction;
 } | null {
+  params = presetFromMeaning(params) ?? params;
   const names: string[] = [];
   const coords = new Map<string, P>();
   const add = (n: string) => { if (n && !names.includes(n)) names.push(n); };
@@ -226,6 +303,7 @@ export function relationsHold(scene: GeometryScene, tol = 0.02): boolean {
     const lu = Math.hypot(u.x, u.y), lv = Math.hypot(v.x, v.y);
     const cross = Math.abs(u.x * v.y - u.y * v.x) / (lu * lv);
     const dot = Math.abs(u.x * v.x + u.y * v.y) / (lu * lv);
+    if (!Number.isFinite(cross) || !Number.isFinite(dot)) return false;
     return r.kind === "parallel" ? cross < tol : dot < tol;
   });
 }
