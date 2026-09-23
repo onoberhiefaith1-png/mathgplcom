@@ -125,6 +125,25 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     ],
   },
   {
+    id: "add_lesson_session",
+    domain: "lessonNotes",
+    title: "Add a session to a lesson note",
+    description:
+      "Add a new session to a lesson note: an Example, Exercise, Classwork or Homework heading with its own solution area, which is the unit the Smartboard steps through. Every question must be written inside a session created this way — never as a plain line of text. Returns sectionId (write the question and solution into it) and subsectionId (the session the Floating Number pages use).",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("notebookId", "string", true, "Notebook id from create_lesson_note or list_lesson_notes."),
+      p(
+        "kind",
+        "string",
+        true,
+        "Session kind: example, exercise, classwork or homework. Also accepts introduction, explanation or summary for a plain section.",
+      ),
+      p("title", "string", false, "Optional title for the session, e.g. 'Example 2'."),
+    ],
+  },
+  {
     id: "read_lesson_note",
     domain: "lessonNotes",
     title: "Read a lesson note",
