@@ -259,13 +259,17 @@ export function useListening({ onWake, paused }: ListeningOptions) {
         }
       };
 
-      // Browsers end long sessions on their own; pick it straight back up.
+      // Browsers end long sessions on their own; pick it straight back up. A
+      // session that ran normally is not a failure — counting those is what made
+      // listening give up and look like lost permission.
+      const startedAt = Date.now();
       instance.onend = () => {
         if (wanted.current === "off") {
           setMode("off");
           return;
         }
-        failures.current += 1;
+        const ranProperly = Date.now() - startedAt > 1000;
+        failures.current = ranProperly ? 0 : failures.current + 1;
         if (failures.current > MAX_CONSECUTIVE_FAILURES) {
           wanted.current = "off";
           setMode("off");
@@ -273,7 +277,7 @@ export function useListening({ onWake, paused }: ListeningOptions) {
           setError((previous) => previous ?? "failed");
           return;
         }
-        restart.current = window.setTimeout(begin, 350 * failures.current);
+        restart.current = window.setTimeout(begin, ranProperly ? 200 : 350 * failures.current);
       };
 
       recognition.current = instance;
