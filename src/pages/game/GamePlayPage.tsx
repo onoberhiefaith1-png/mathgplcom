@@ -435,6 +435,34 @@ const GamePlayPage = () => {
   const fitText = () => setTextFitEpoch((value) => value + 1);
 
   /**
+   * THE CONTENT MARGIN. Moving the handle moves where the writing begins. The
+   * teacher's move is saved on the Game; a student's move is saved as that
+   * student's own preference and never touches the teacher's design.
+   */
+  const changeContentMargin = (contentMargin: number) => {
+    setGame((current) =>
+      current ? { ...current, settings: { ...current.settings, contentMargin } } : current,
+    );
+    if (!gameId) return;
+    if (ownerRef.current) {
+      if (marginTimer.current !== null) window.clearTimeout(marginTimer.current);
+      marginTimer.current = window.setTimeout(() => {
+        setGame((current) => {
+          if (current) void saveGameResult(current);
+          return current;
+        });
+      }, 600);
+      return;
+    }
+    if (!uid) return;
+    if (marginTimer.current !== null) window.clearTimeout(marginTimer.current);
+    marginTimer.current = window.setTimeout(() => {
+      void saveStudentContentMargin(gameId, uid, contentMargin);
+    }, 600);
+  };
+
+
+  /**
    * Play validates the exact same saved pattern record as Edit. Only an
    * authenticated owner may persist an automatic repair; student rendering is
    * contained locally and can never alter a teacher's design.
