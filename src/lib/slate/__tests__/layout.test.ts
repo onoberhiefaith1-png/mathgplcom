@@ -16,6 +16,9 @@ import {
 } from "../layout";
 import { makeSlot } from "../defaults";
 import type { Slot } from "../types";
+import { defaultTextSettings } from "../text3d";
+import { resolveTextStyle, textVisualInsets } from "../textPresets";
+import { getSurface } from "../surfaces";
 
 const slot = (id: string, text: string): Slot => ({ ...makeSlot(), id, text });
 
@@ -147,6 +150,47 @@ describe("Game writing-surface layout", () => {
     expect(box.surfaceWidth).toBeLessThanOrEqual(4);
     expect(box.innerWritingWidth).toBeLessThan(box.surfaceWidth);
     expect(box.surfaceHeight).toBeGreaterThan(1.7);
+  });
+
+  it("grows the writing surface when text effects need more visible room", () => {
+    const surface = getSurface("whiteboard");
+    const plainStyle = resolveTextStyle(surface, {
+      ...defaultTextSettings(),
+      shadow: false,
+      glow: "off",
+      depth: 0,
+      bevel: 0,
+    });
+    const richStyle = resolveTextStyle(surface, {
+      ...defaultTextSettings(),
+      shadow: true,
+      shadowStrength: 2,
+      glow: "medium",
+      glowIntensity: 2,
+      depth: 3,
+      bevel: 2,
+    });
+    const baseInput = {
+      text: "2(x + 3) − 4x = 8",
+      fontSize: 120,
+      writingWidth: 6,
+      readOnlyWriting: true,
+      inset: 0.4,
+      measuredWidth: 2.8,
+      measuredHeight: 0.5,
+    };
+
+    const plain = gameSurfaceBox({
+      ...baseInput,
+      visualInsets: textVisualInsets(plainStyle, baseInput.fontSize / 220),
+    });
+    const rich = gameSurfaceBox({
+      ...baseInput,
+      visualInsets: textVisualInsets(richStyle, baseInput.fontSize / 220),
+    });
+
+    expect(rich.surfaceWidth).toBeGreaterThanOrEqual(plain.surfaceWidth);
+    expect(rich.surfaceHeight).toBeGreaterThan(plain.surfaceHeight);
   });
 
   it("gives editable surfaces the same content-driven box as Play", () => {
