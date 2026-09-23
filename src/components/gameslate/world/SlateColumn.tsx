@@ -1553,6 +1553,9 @@ export function SlateColumn({
                   colour={lineSurface.newKind === "plain" ? game.surfaceColour : undefined}
                   displayNumber={readOnlyWriting ? region.index : region.index + 1}
                 />
+                {/* THE MARGIN MOVES THE WRITING, NOT THE SURFACE. The whole
+                    writing box is shifted inside the same physical panel. */}
+                <group position={[surfaceBox.contentMargin / 2, 0, 0]}>
                 <Suspense
                   fallback={(
                     <group position={[-innerWritingWidth / 2, surfaceHeight / 2 - textInset, PLAY_TEXT_Z]}>
@@ -1590,6 +1593,25 @@ export function SlateColumn({
                     onMeasure={(nextBounds) => measure(slot.id, nextBounds, boundsKey(slot))}
                   />
                 </Suspense>
+                </group>
+                {onContentMarginChange && selected ? (
+                  <MarginHandle
+                    x={-surfaceWidth / 2 + surfaceBox.padX + surfaceBox.contentMargin}
+                    y={surfaceHeight / 2 - surfaceBox.padY * 0.4}
+                    height={Math.max(0.3, surfaceHeight - surfaceBox.padY)}
+                    onMoveTo={(worldX) =>
+                      onContentMarginChange(
+                        clampContentMargin(
+                          (worldX - (frame.outerLeft + surfaceBox.padX)) / Math.max(0.001, writingWidth),
+                        ),
+                      )
+                    }
+                    onNudge={(direction) =>
+                      onContentMarginChange(clampContentMargin(marginFraction + direction * 0.01))
+                    }
+                  />
+                ) : null}
+
               </group>
 
 
