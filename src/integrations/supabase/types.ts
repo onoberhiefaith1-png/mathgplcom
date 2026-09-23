@@ -6003,6 +6003,41 @@ export type Database = {
           },
         ]
       }
+      notebook_restore_points: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          notebook_id: string
+          owner_id: string
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          notebook_id: string
+          owner_id: string
+          snapshot: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          notebook_id?: string
+          owner_id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notebook_restore_points_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notebook_sections: {
         Row: {
           created_at: string
