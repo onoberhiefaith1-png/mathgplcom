@@ -320,6 +320,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       } finally {
         if (voice.current === controller) voice.current = null;
         setSpeaking(false);
+        settleSpeech();
         // A cut has already moved her on; only a finished reply leads to waiting.
         if (session.current?.state === "speaking") {
           session.current.replyEnded();
@@ -327,7 +328,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [],
+    [settleSpeech],
+
   );
 
 
