@@ -46,6 +46,13 @@ import {
   type AuraUsage,
 } from "./usageLimits";
 import type { TeachingScript } from "./teachingScript";
+import {
+  VoiceSession,
+  describeVoiceState,
+  takeSentences,
+  type VoiceState,
+} from "./voiceSession";
+
 
 export type AuraRole = "user" | "assistant";
 
@@ -184,27 +191,54 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     setSpeaking(false);
   }, []);
 
-  // Aura's own voice: streamed natural speech, with the browser voice as a
+  // ── THE LIVE CONVERSATION ────────────────────────────────────────────────
+  // One open session: she hears every word, works out when a sentence has ended,
+  // answers out loud, and stops mid-word the moment someone speaks over her.
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const session = useRef<VoiceSession | null>(null);
+  const levelRef = useRef(0);
+  const heardRef = useRef("");
+  const voiceLive = useRef(false);
+
+  // Aura's own voice: streamed natural speech, one sentence at a time so she
+  // starts talking sooner and can be cut off cleanly. The browser voice is a
   // last resort so a reply is never silent.
   const speak = useCallback(
     async (text: string) => {
       const said = text.trim();
       if (!said) return;
+      const { sentences, rest } = takeSentences(said);
+      const parts = [...sentences, rest.trim()].filter(Boolean);
+      if (parts.length === 0) return;
+
       voice.current?.abort();
       const controller = new AbortController();
       voice.current = controller;
       setSpeaking(true);
+      session.current?.replyStarted();
+      setVoiceState(session.current?.state ?? "idle");
       try {
-        await streamSpeech(said, controller.signal);
-      } catch {
-        if (!controller.signal.aborted) await speakWithBrowserVoice(said);
+        for (const part of parts) {
+          if (controller.signal.aborted) break;
+          try {
+            await streamSpeech(part, controller.signal);
+          } catch {
+            if (!controller.signal.aborted) speakWithBrowserVoice(part);
+          }
+        }
       } finally {
         if (voice.current === controller) voice.current = null;
         setSpeaking(false);
+        // A cut has already moved her on; only a finished reply leads to waiting.
+        if (session.current?.state === "speaking") {
+          session.current.replyEnded();
+          setVoiceState(session.current.state);
+        }
       }
     },
     [],
   );
+
 
   // ── TEACHING OUT LOUD ────────────────────────────────────────────────────
   // She says one micro-step, the board moves to that line, then the next. Any
