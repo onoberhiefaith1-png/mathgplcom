@@ -72,7 +72,7 @@ const isAnswerLine = (line: string): boolean => {
 
 /** The answer may sit on the last line, or just above a closing remark. */
 const hasAnswerLine = (lines: string[]): boolean =>
-  lines.slice(-3).some(isAnswerLine);
+  lines.slice(-5).some(isAnswerLine);
 
 export interface SolutionCompletenessResult {
   ok: boolean;
