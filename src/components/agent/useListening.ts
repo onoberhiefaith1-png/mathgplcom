@@ -108,10 +108,11 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   /** The microphone she was granted, kept so it is never asked for twice. */
   const held = useRef<MediaStream | null>(null);
   const liveHeld = useCallback(() => {
-    const kept = held.current;
-    if (kept && kept.getAudioTracks().some((track) => track.readyState === "live")) return kept;
+    const mine = held.current;
+    if (mine && mine.getAudioTracks().some((track) => track.readyState === "live")) return mine;
     held.current = null;
-    return null;
+    // The page-wide microphone, granted once and kept for the whole visit.
+    return heldMicrophone();
   }, []);
 
 
