@@ -820,6 +820,7 @@ const GamePlayPage = () => {
             }}
             onSlotChange={() => {}}
             onTextConfigCorrection={persistPlayTextCorrection}
+            onContentMarginChange={changeContentMargin}
             onRewardMove={() => {}}
             onRewardActivate={() => {}}
             onRewardConsume={(slotId, rewardId) => {
