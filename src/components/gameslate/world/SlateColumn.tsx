@@ -765,7 +765,18 @@ export function SlateColumn({
 
   /** Real rendered bounds per slot; Game Line layout uses height, material uses all four edges. */
   const [measuredText, setMeasuredText] = useState<Record<string, { key: string; bounds: TextBounds }>>({});
+  // Measuring resizes the surface, which can re-wrap the text and change the
+  // measurement again. Cap the settle passes per slot+content so a ping-pong
+  // between two layouts can never become an infinite render loop.
+  const measurePasses = useRef<Record<string, { key: string; n: number }>>({});
   const measure = useCallback((slotId: string, bounds: TextBounds, key: string) => {
+    const pass = measurePasses.current[slotId];
+    if (pass && pass.key === key) {
+      if (pass.n >= 6) return;
+      pass.n += 1;
+    } else {
+      measurePasses.current[slotId] = { key, n: 1 };
+    }
     setMeasuredText((previous) => {
       const current = previous[slotId];
       if (
