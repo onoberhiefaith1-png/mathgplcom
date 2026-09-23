@@ -132,7 +132,8 @@ export function useListening({ onWake, paused }: ListeningOptions) {
     if (meter.current !== null) cancelAnimationFrame(meter.current);
     meter.current = null;
     analyser.current = null;
-    stream.current?.getTracks().forEach((track) => track.stop());
+    // The microphone itself is deliberately left running. Stopping its tracks is
+    // what made the browser ask for permission again every few seconds.
     stream.current = null;
     void audio.current?.close().catch(() => undefined);
     audio.current = null;
