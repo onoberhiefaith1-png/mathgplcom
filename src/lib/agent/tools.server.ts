@@ -11,6 +11,8 @@ import { buildTeachingScript } from "./teachingScript";
 import { findKnowledge, KNOWLEDGE_IDS } from "./knowledge";
 import { handsExecutors } from "./hands.server";
 import { attachmentExecutors } from "./attachments.server";
+import { slateGameExecutors } from "./slateGame.server";
+
 
 
 
@@ -65,6 +67,15 @@ type Executor = (ctx: AgentToolContext, args: Args) => Promise<{ data: unknown; 
 const executors: Record<string, Executor> = {
   ...(handsExecutors as Record<string, Executor>),
   ...(attachmentExecutors as unknown as Record<string, Executor>),
+  ...(slateGameExecutors as Record<string, Executor>),
+
+  // The real 3D Slate games — the ones the Game editor opens and classes play.
+  list_games: async ({ supabase }) => slateGameExecutors["slate_list_games"]!(
+    { supabase, userId: "" } as never,
+    {},
+  ),
+
+
 
 
   workspace_snapshot: async ({ supabase, userId }) => {
@@ -350,7 +361,7 @@ const executors: Record<string, Executor> = {
     };
   },
 
-  list_games: async ({ supabase, userId }) => {
+  list_teaching_hub_games: async ({ supabase, userId }) => {
     const db = supabase as unknown as AnyDb;
     const { data, error } = await db
       .from("games")
@@ -358,8 +369,38 @@ const executors: Record<string, Executor> = {
       .eq("owner_id", userId)
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return { data: data ?? [], summary: `${(data ?? []).length} games.` };
+    return {
+      data: data ?? [],
+      summary: `${(data ?? []).length} older teaching-hub games (not the 3D Slate games).`,
+    };
   },
+
+  agent_capabilities: async () => {
+    const byDomain: Record<string, unknown[]> = {};
+    for (const spec of AGENT_TOOL_MANIFEST) {
+      (byDomain[spec.domain] ??= []).push({
+        id: spec.id,
+        title: spec.title,
+        writes: !spec.readOnly,
+        needsTeacherConfirmation: spec.needsConfirmation,
+      });
+    }
+    return {
+      data: {
+        canOperate: byDomain,
+        canOnlyGuide: [
+          "Adventures: scenes, checkpoints and group racing — I can explain them but not build one yet.",
+          "Assessments and courses beyond assigning a question.",
+          "Pictures and video for a game: not built yet, so I cannot make or attach one.",
+          "Anything about the program itself — I work on content and settings, never the app.",
+        ],
+        rule: "If a piece of work is not in canOperate, say so plainly and guide the teacher through it instead of claiming it.",
+      },
+      summary: `I can operate ${AGENT_TOOL_MANIFEST.length} things myself; everything else I can only guide.`,
+    };
+  },
+
+
 
   link_game_to_class: async ({ supabase }, args) => {
     const db = supabase as unknown as AnyDb;
