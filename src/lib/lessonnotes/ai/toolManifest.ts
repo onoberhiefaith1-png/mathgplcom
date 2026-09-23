@@ -48,6 +48,16 @@ export const NODE_TOOLS: WorkspaceTool[] = [
     example: '[[tool:diagram asset="triangleRight" label="ABC"]]',
   },
   {
+    id: "geometry",
+    label: "2D Geometry (reconstructed, editable)",
+    usage:
+      "Any geometry figure described, drawn or shown in a picture: triangles, angles, parallel/intersecting lines, circles, polygons, coordinate figures. " +
+      "Give points (name x y, y up), segments/lines/rays as letter pairs, circles as 'centre radius', angles as 'ABC value' (vertex in the middle, value like 60° or x), " +
+      "lengths as 'AB 6 cm', parallel/perpendicular as 'AB CD'. Add confidence=high|medium|low and unclear for anything you could not read. Never invent facts.",
+    example:
+      '[[tool:geometry points="A 0 4; B -3 0; C 3 0" segments="AB; BC; CA" angles="ABC 60°; BCA x" lengths="BC 6 cm" confidence="high"]]',
+  },
+  {
     id: "solid3d",
     label: "3D Objects",
     usage:

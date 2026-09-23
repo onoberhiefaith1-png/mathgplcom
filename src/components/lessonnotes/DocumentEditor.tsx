@@ -8,6 +8,7 @@
 //  • Per-section ✨ button      → generates ONE section, scoped to that heading
 // Both reuse the existing notebook-ai edge function (modes: generate, floating).
 
+import { duplicateProposal, isDuplicateInstruction } from "@/lib/lessonnotes/ai/objectSource";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useParams } from "@/lib/router-compat";
 import { useT } from "@/lib/i18n/LanguageProvider";
@@ -3367,6 +3368,13 @@ function DocumentEditorInner({
   };
 
   const runAiEdit = async (instruction: string, target: AiEditTarget): Promise<string> => {
+    // DUPLICATE of an existing MathGPL object: copy its own data exactly —
+    // no AI, no screenshot. The original stays; an independent copy follows.
+    if (target.mode !== "compose" && isDuplicateInstruction(instruction)) {
+      const dup = duplicateProposal(target.json);
+      if (dup) return dup;
+    }
+    const images = target.images ?? [];
     if (target.mode === "compose") {
       const pasted = (target.text ?? "").trim();
       const ask = instruction.trim();
@@ -3385,13 +3393,14 @@ function DocumentEditorInner({
           workspaceManifest: buildWorkspaceManifest(),
           lessonContext: buildEditContext(),
           forceAllStandards: true,
+          images,
         },
       }), 90_000, "AI editing took too long. Please try again.");
       if (error) throw error;
       return String((data as any)?.content ?? "").trim();
     }
     const selectionText = (target.text ?? "").trim();
-    if (!selectionText) {
+    if (!selectionText && !images.length) {
       toast({ title: "Nothing selected", description: "Highlight some text or a math object first.", variant: "destructive" });
       throw new Error("empty selection");
     }
@@ -3408,8 +3417,9 @@ function DocumentEditorInner({
         workspaceManifest: buildWorkspaceManifest(),
         lessonContext: buildEditContext(),
         forceAllStandards: instructionTriggersStandards(instruction),
+        images,
       },
-    }), 60_000, "AI editing took too long. Please try again.");
+    }), 90_000, "AI editing took too long. Please try again.");
     if (error) throw error;
     return String((data as any)?.content ?? "").trim();
   };

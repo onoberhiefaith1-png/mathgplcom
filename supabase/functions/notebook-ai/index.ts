@@ -1588,7 +1588,7 @@ Omit "proposal" entirely when you are only discussing or asking a question.`;
       const selectionJson = b.selectionJson == null
         ? ""
         : JSON.stringify(b.selectionJson).slice(0, 12_000);
-      if (!selection) {
+      if (!selection && !(Array.isArray((b as any).images) && (b as any).images.length)) {
         return new Response(JSON.stringify({ error: "missing selectionText" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -1674,9 +1674,20 @@ ${selectionJson || "plain text selection"}
 TEACHER INSTRUCTION:
 ${instruction || "Improve the selected fragment while keeping its meaning."}`;
 
+      // Pictures (screenshots of diagrams, tables, whole lessons) are READ by
+      // the model and rebuilt as native objects — never inserted as images.
+      const images = (Array.isArray((b as any).images) ? (b as any).images : [])
+        .filter((u: unknown) => typeof u === "string" && /^data:image\//.test(u as string))
+        .slice(0, 4) as string[];
+      const userContent: any = images.length
+        ? [
+            { type: "text", text: `${user}\n\nATTACHED PICTURES: rebuild every diagram, table, graph and matrix they show as the native directive. Never refer to "the image".` },
+            ...images.map((url) => ({ type: "image_url", image_url: { url } })),
+          ]
+        : user;
       const editMessages = [
         { role: "system", content: sys },
-        { role: "user", content: user },
+        { role: "user", content: userContent },
       ];
       let { content, warnings } = await generateValidated({
         messages: editMessages,

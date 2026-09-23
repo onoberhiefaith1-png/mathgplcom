@@ -10,7 +10,7 @@
 // the smartboard later.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, Loader2, Mic, Square, X, Check, RefreshCw, AlertTriangle } from "lucide-react";
+import { Sparkles, Loader2, Mic, Square, X, Check, RefreshCw, AlertTriangle, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { VoiceWave } from "./VoiceWave";
@@ -30,6 +30,8 @@ export interface AiEditTarget {
   /** "compose" = opened from the top bar with nothing highlighted: the teacher
    *  pastes/types content and Accept INSERTS it. Default "replace". */
   mode?: "replace" | "compose";
+  /** Pictures the AI reads and rebuilds as native objects (never inserted). */
+  images?: string[];
 }
 
 interface Props {
@@ -84,6 +86,20 @@ export function AiEditPanel({
 }: Props) {
   const [instruction, setInstruction] = useState("");
   const [composeText, setComposeText] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const addFiles = (files: FileList | File[] | null) => {
+    for (const f of Array.from(files ?? [])) {
+      if (!f.type.startsWith("image/")) continue;
+      const r = new FileReader();
+      r.onload = () => setImages((prev) => [...prev, String(r.result)].slice(0, 4));
+      r.readAsDataURL(f);
+    }
+  };
+  const onPaste = (e: React.ClipboardEvent) => {
+    const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  };
   const [busy, setBusy] = useState(false);
   const [proposed, setProposed] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -109,6 +125,46 @@ export function AiEditPanel({
           ))}
         </div>
       );
+    }
+    if (child?.type === "geometryDiagram") {
+      const scene = child.attrs?.scene ?? {};
+      const objs: any[] = Array.isArray(scene.objects) ? scene.objects : [];
+      const count = (t: string) => objs.filter((o) => o.type === t && !o.hidden).length;
+      const rec = scene.meta?.reconstruction;
+      const pts = objs.filter((o) => o.type === "point" && !o.hidden);
+      const pos = (id: string) => objs.find((o) => o.id === id);
+      return (
+        <div key={index} className="my-2 rounded-md border border-foreground/20 p-2 text-xs space-y-1">
+          <div className="font-medium">Editable 2D geometry</div>
+          <svg viewBox={`0 0 ${scene.bounds?.width ?? 360} ${scene.bounds?.height ?? 260}`} className="w-full max-h-48 text-foreground">
+            {objs.filter((o) => o.type === "segment" || o.type === "line" || o.type === "ray").map((o) => {
+              const a = pos(o.a), b = pos(o.b);
+              return a && b ? <line key={o.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="currentColor" strokeWidth={1.5} /> : null;
+            })}
+            {objs.filter((o) => o.type === "circle").map((o) => {
+              const c = pos(o.center);
+              return c ? <circle key={o.id} cx={c.x} cy={c.y} r={o.r} fill="none" stroke="currentColor" strokeWidth={1.5} /> : null;
+            })}
+            {pts.map((p) => (
+              <g key={p.id}><circle cx={p.x} cy={p.y} r={2.4} fill="currentColor" />
+                {p.label && <text x={p.x + 5} y={p.y - 5} fontSize={13} fill="currentColor">{p.label}</text>}</g>
+            ))}
+          </svg>
+          <div className="text-foreground/65">
+            {count("point")} points · {count("segment") + count("line") + count("ray")} lines · {count("angle")} angles · {count("circle")} circles
+            {rec?.relations?.length ? ` · ${rec.relations.map((r: any) => `${r.a} ${r.kind === "parallel" ? "∥" : "⊥"} ${r.b}`).join(", ")}` : ""}
+          </div>
+          {rec && (rec.confidence !== "high" || rec.unclear?.length) && (
+            <div className="flex gap-1 items-start rounded bg-destructive/10 text-destructive p-1.5">
+              <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+              <span>Check this diagram ({rec.confidence} confidence){rec.unclear?.length ? `: ${rec.unclear.join("; ")}` : ""}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+    if (child && child.type !== "paragraph" && child.type !== "mathBlock" && child.type !== "text" && child.type !== "mathVisual" && child.type !== "mathStructure") {
+      return <div key={index} className="my-2 rounded-md border border-foreground/20 p-2 text-xs">Editable {child.type} object</div>;
     }
     if (child?.type === "mathVisual" && child.attrs?.family === "smarttable") {
       const attrs = child.attrs.attrs ?? {};
@@ -142,6 +198,7 @@ export function AiEditPanel({
     if (!open) return;
     setInstruction("");
     setComposeText("");
+    setImages([]);
     setProposed(null);
     setShowSuggestions(false);
     setDiag(null);
@@ -166,7 +223,7 @@ export function AiEditPanel({
   const compose = target?.mode === "compose";
   const runWith = async (text: string) => {
     if (!target) return;
-    if (compose && !composeText.trim() && !text) {
+    if (compose && !composeText.trim() && !text && !images.length) {
       setError("Paste or type some content, or write an instruction, first.");
       return;
     }
@@ -179,7 +236,7 @@ export function AiEditPanel({
     setDiag(null);
     setRevealedCount(0);
     try {
-      const result = await onGenerate(text, compose ? { ...target, text: composeText } : target, ctrl.signal);
+      const result = await onGenerate(text, { ...target, ...(compose ? { text: composeText } : {}), images }, ctrl.signal);
       if (ctrl.signal.aborted) return;
       setProposed(result);
       const d = getDiagnostics?.() ?? null;
@@ -305,7 +362,7 @@ export function AiEditPanel({
         {proposed == null ? (
           <div className="flex-1 overflow-auto p-4 space-y-3">
             {compose && (
-              <div className="space-y-1">
+              <div className="space-y-1" onPaste={onPaste}>
                 <p className="text-[10px] uppercase tracking-wider text-foreground/55">
                   Paste or type content (a lesson, question, maths, anything)
                 </p>
@@ -325,6 +382,7 @@ export function AiEditPanel({
             {simpleMode && simpleCaption && (
               <p className="text-xs text-foreground/65 leading-snug">{simpleCaption}</p>
             )}
+            <div onPaste={onPaste}>
             <AutoTextarea
               textareaRef={inputRef}
               value={instruction}
@@ -344,7 +402,23 @@ export function AiEditPanel({
               maxRows={12}
               className="w-full text-sm leading-relaxed bg-transparent border border-foreground/15 rounded-md p-2 outline-hidden focus:border-foreground/40 placeholder:text-foreground/40"
             />
+            </div>
 
+
+            {images.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {images.map((src, i) => (
+                  <div key={i} className="relative">
+                    <img src={src} alt={`Attached picture ${i + 1}`} className="h-14 w-14 object-cover rounded border border-foreground/20" />
+                    <button type="button" onClick={() => setImages((p) => p.filter((_, j) => j !== i))}
+                      className="absolute -top-1.5 -right-1.5 rounded-full bg-background border border-foreground/20 p-0.5" title="Remove">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                <p className="w-full text-[10px] text-foreground/55">Pictures are read and rebuilt as editable objects — they are not pasted into the note.</p>
+              </div>
+            )}
             {(voice.listening || voice.transcribing) && (
               <VoiceWave level={voice.level} seconds={voice.seconds} />
             )}
@@ -360,6 +434,16 @@ export function AiEditPanel({
               >
                 {voice.listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
               </button>
+              {!simpleMode && (
+                <>
+                  <button type="button" onClick={() => fileRef.current?.click()}
+                    className="p-1.5 rounded hover:bg-foreground/5 transition" title="Add a picture (diagram, table, lesson)">
+                    <ImagePlus className="h-4 w-4" />
+                  </button>
+                  <input ref={fileRef} type="file" accept="image/*" multiple hidden
+                    onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+                </>
+              )}
               <span className="text-[10px] uppercase tracking-wider text-foreground/55">
                 {voice.listening
                   ? "recording — tap to stop"

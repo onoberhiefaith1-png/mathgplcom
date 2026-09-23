@@ -22,7 +22,12 @@ import {
   type Solid3DKind,
 } from "@/lib/geometry3d/scene3d";
 
+import { geometryNode } from "./geometryFromSpec";
+import { decodeNative } from "./objectSource";
+
 type TipTapNode = any;
+
+const INLINE_TYPES = new Set(["text", "mathInline", "mathStructure", "hardBreak"]);
 
 export interface Directive {
   tool: string;
@@ -292,6 +297,9 @@ export function materializeDirective(d: Directive): TipTapNode | null {
         return assetNode(d.params.asset || d.params.query || d.params.kind || "", {
           label: d.params.label,
         });
+      case "geometry":
+      case "geometry2d":
+        return geometryNode(d.params);
       case "asset":
         return assetNode(d.params.query || d.params.id || "");
       case "structure":
@@ -311,7 +319,7 @@ export function materializeDirective(d: Directive): TipTapNode | null {
   }
 }
 
-const FIGURE_TOOLS = new Set(["diagram", "solid3d", "object3d"]);
+const FIGURE_TOOLS = new Set(["diagram", "solid3d", "object3d", "geometry", "geometry2d"]);
 
 /** Split raw AI text into plain-text chunks and resolved directive nodes.
  *  `allowFigures: false` (used for Solution generation) forbids directives that
@@ -328,6 +336,15 @@ export function splitDirectives(
   while ((m = re.exec(text))) {
     if (m.index > last) out.push({ kind: "text", text: text.slice(last, m.index) });
     const directive = parseDirective(m[1], m[2] ?? "", m[0]);
+    if (directive.tool === "native") {
+      // An existing MathGPL object carried verbatim (duplicate / keep).
+      const nodes = decodeNative(directive.params) ?? [];
+      const inline = nodes.filter((n: any) => INLINE_TYPES.has(n?.type));
+      if (inline.length) out.push({ kind: "node", node: { type: "paragraph", content: inline } });
+      for (const n of nodes) if (!INLINE_TYPES.has(n?.type)) out.push({ kind: "node", node: n });
+      last = m.index + m[0].length;
+      continue;
+    }
     const node =
       opts?.allowFigures === false && FIGURE_TOOLS.has(directive.tool)
         ? null
