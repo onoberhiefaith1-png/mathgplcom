@@ -83,6 +83,7 @@ export function AiEditPanel({
   simpleMode = false, simpleCaption, generateLabel, renderProposed, getDiagnostics,
 }: Props) {
   const [instruction, setInstruction] = useState("");
+  const [composeText, setComposeText] = useState("");
   const [busy, setBusy] = useState(false);
   const [proposed, setProposed] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
