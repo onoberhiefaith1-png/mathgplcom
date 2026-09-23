@@ -12,6 +12,7 @@ import { findKnowledge, KNOWLEDGE_IDS } from "./knowledge";
 import { handsExecutors } from "./hands.server";
 import { attachmentExecutors } from "./attachments.server";
 import { slateGameExecutors } from "./slateGame.server";
+import { lessonEditExecutors } from "./lessonEdit.server";
 
 
 
@@ -68,6 +69,7 @@ const executors: Record<string, Executor> = {
   ...(handsExecutors as Record<string, Executor>),
   ...(attachmentExecutors as unknown as Record<string, Executor>),
   ...(slateGameExecutors as Record<string, Executor>),
+  ...(lessonEditExecutors as unknown as Record<string, Executor>),
 
 
 
