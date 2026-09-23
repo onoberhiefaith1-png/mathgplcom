@@ -83,7 +83,7 @@ export default function AuraWorkspacePage() {
       ) : null}
 
       <div className="min-h-0 flex-1">
-        <AuraCockpit />
+        <AuraCockpit variant="page" />
       </div>
     </div>
   );

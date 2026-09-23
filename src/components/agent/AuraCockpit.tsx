@@ -265,9 +265,11 @@ export default function AuraCockpit({ variant = "panel" }: { variant?: "panel" |
         <Button variant="ghost" size="icon-sm" aria-label="Start a new conversation" onClick={clear}>
           <Trash2 className="size-4" />
         </Button>
-        <Button variant="ghost" size="icon-sm" aria-label="Close the assistant" onClick={() => setOpen(false)}>
-          <X className="size-4" />
-        </Button>
+        {page ? null : (
+          <Button variant="ghost" size="icon-sm" aria-label="Close the assistant" onClick={() => setOpen(false)}>
+            <X className="size-4" />
+          </Button>
+        )}
       </header>
 
       <Conversation className="min-h-0 flex-1">
