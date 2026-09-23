@@ -133,6 +133,7 @@ export class VoiceSession {
 
   constructor(tuning: VoiceTuning = VOICE_TUNING) {
     this.tuning = tuning;
+    this.pauseMs = tuning.endOfTurnMs;
   }
 
   /** Open the session: she is attentive from this moment. */
