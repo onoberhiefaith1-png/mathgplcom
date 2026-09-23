@@ -169,4 +169,7 @@
 - [x] Stop button while she is speaking.
 - [x] "Aura" wake word listening on every page; the words after her name become the instruction.
 - [x] Her own voice and her working time never re-trigger the wake word.
+- [x] One shared microphone for the wake word and the recorder, so they cannot cancel each other.
+- [x] Live sound wave driven by the real voice level, in the panel and in the floating badge.
+- [x] Words appear as she hears them; blocked or failed microphones say so with a retry.
 - [ ] Phase 5 — Smartboard narration synced with the sensor and Floating Numbers.
