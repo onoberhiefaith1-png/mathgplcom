@@ -141,12 +141,15 @@ export class VoiceSession {
     this.state = "listening";
     this.lastNow = now;
     this.noiseFloor = 0.015;
+    this.pauseMs = this.tuning.endOfTurnMs;
+    this.justSpoke = false;
     this.resetTurn();
   }
 
   /** Close the session entirely. */
   end(): void {
     this.state = "idle";
+    this.justSpoke = false;
     this.resetTurn();
   }
 
@@ -161,7 +164,13 @@ export class VoiceSession {
   replyEnded(): void {
     if (this.state === "idle") return;
     this.state = "waiting";
+    this.justSpoke = true;
     this.resetTurn();
+  }
+
+  /** The pause she is currently waiting for — for diagnostics only. */
+  get endOfTurnPause(): number {
+    return this.pauseMs;
   }
 
   /** True while she is listening for a turn rather than speaking. */
