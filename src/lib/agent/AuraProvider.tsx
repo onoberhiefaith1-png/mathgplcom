@@ -234,7 +234,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           setStatus("error");
         });
     },
-    [chat, messages, navigate, speakReplies, status],
+    [chat, messages, navigate, speak, speakReplies, status],
   );
 
   const clear = useCallback(() => {
