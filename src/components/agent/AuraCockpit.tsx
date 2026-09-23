@@ -48,8 +48,11 @@ import {
   useAura,
 } from "@/lib/agent/AuraProvider";
 
+import { AURA_FILE_TYPES, uploadAuraAttachment } from "@/lib/agent/attachments";
+
 import { AuraStepCard } from "./AuraStepCard";
 import AuraWaveform from "./AuraWaveform";
+
 
 const SUGGESTIONS = [
   "What should I prepare for my next class?",
@@ -87,10 +90,37 @@ export default function AuraCockpit() {
   } = useAura();
 
   const [draft, setDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const filePicker = useRef<HTMLInputElement | null>(null);
   const busy = status === "submitted";
   const dragging = useRef(false);
   // A live conversation uses the same microphone, but it is not a recording.
   const recording = listening.mode === "capture" && !voice.active;
+
+  // A file the teacher hands over is stored privately, then read — never guessed.
+  const attach = useCallback(
+    async (file: File | null | undefined) => {
+      if (!file) return;
+      setUploadError(null);
+      setUploading(true);
+      try {
+        const saved = await uploadAuraAttachment(file);
+        await send(
+          `I've given you a file called "${saved.name}" (id ${saved.id}). Read it with read_attachment and tell me what's in it, then ask me what I want done with it.`,
+        );
+      } catch (error) {
+        setUploadError(
+          (error as Error)?.message?.trim() || "That file wouldn't upload. Try it again.",
+        );
+      } finally {
+        setUploading(false);
+      }
+    },
+    [send],
+  );
+
+
 
 
   // While the recorder runs, the words she hears fill the box as they arrive.
