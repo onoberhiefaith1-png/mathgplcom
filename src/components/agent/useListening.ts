@@ -260,7 +260,8 @@ export function useListening({ onWake, paused, prefer = "transcribe" }: Listenin
       if (!result.stream) return false;
       media = result.stream;
     }
-    if (wanted.current === "off") return true;
+    // Permission may have taken a moment; the teacher could have stopped by now.
+    if ((wanted.current as ListeningMode) === "off") return true;
     const listener = new TranscriptionListener({
       stream: media,
       onHeard: (text) => absorb(text, ""),
