@@ -71,6 +71,8 @@ export type AuraMessage = {
   error?: boolean;
   /** Set when the teacher dictated the message instead of typing it. */
   spoken?: boolean;
+  /** What she understood a spoken turn to mean; the words above stay as heard. */
+  meaning?: string;
 };
 
 export type AuraStatus = "idle" | "submitted" | "error";
@@ -514,7 +516,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const history = [...messages, { id: newId(), role: "user" as const, content, spoken: true }];
+      const spokenId = newId();
+      const history = [...messages, { id: spokenId, role: "user" as const, content, spoken: true }];
       setMessages(history);
       setStatus("submitted");
       setLiveSteps([]);
@@ -536,11 +539,18 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       };
 
       void streamCallTurn({
+        // She carries the meaning of earlier spoken turns, not the raw words the
+        // microphone guessed — the panel keeps those exactly as they arrived.
         messages: history
           .filter((m) => !m.error)
-          .map((m) => ({ role: m.role, content: m.content })),
+          .map((m) => ({ role: m.role, content: m.meaning ?? m.content })),
         context: mergeContext(contextFromPath(pathnameRef.current), readAuraScreenContext()),
         signal: controller.signal,
+        onMeaning: (meaning) => {
+          setMessages((previous) =>
+            previous.map((m) => (m.id === spokenId ? { ...m, meaning } : m)),
+          );
+        },
         onDelta: (delta) => {
           metrics.current.mark("firstToken", performance.now());
           setTiming(describeCallTiming(metrics.current.summary()));
@@ -865,6 +875,13 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           voice.current = null;
           stopBrowserVoice();
           setSpeaking(false);
+          // The work she was doing for the turn they just replaced is dropped, so
+          // a superseded answer can never arrive late and talk over the new one.
+          callStream.current?.abort();
+          callStream.current = null;
+          callWriting.current = false;
+          setLiveSteps([]);
+          setStatus("idle");
           listening.clearTranscript();
           heardRef.current = "";
         }
