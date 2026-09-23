@@ -276,6 +276,41 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     paused: speaking || status === "submitted",
   });
 
+  // Whether this person has allowed the microphone yet. Read from the browser,
+  // and kept in step if they change it in their browser settings later.
+  useEffect(() => {
+    void readMicPermission().then(setMicPermission);
+    return watchMicPermission((state) => {
+      setMicPermission(state);
+      if (state === "granted") setMicPromptOpen(false);
+    });
+  }, []);
+
+  const requestMic = useCallback(async () => {
+    setMicRequesting(true);
+    const state = await requestMicAccess();
+    setMicRequesting(false);
+    setMicPermission(state);
+    if (state === "granted") setMicPromptOpen(false);
+    else setMicPromptOpen(true);
+    return state;
+  }, []);
+
+  /** Nothing listens until permission is settled; otherwise we ask for it. */
+  const ensureMic = useCallback(async () => {
+    if (micPermission === "granted") return true;
+    if (micPermission === "prompt" || micPermission === "unknown") {
+      if (!hasBeenAsked()) {
+        // First time on this device: explain before the browser prompt appears.
+        setMicPromptOpen(true);
+        return false;
+      }
+      return (await requestMic()) === "granted";
+    }
+    setMicPromptOpen(true);
+    return false;
+  }, [micPermission, requestMic]);
+
   // Keep the background ear running whenever the teacher has it switched on.
   useEffect(() => {
     if (!wakeEnabled) {
@@ -286,8 +321,26 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       setWakeEnabledState(false);
       return;
     }
+    if (micPermission !== "granted") return;
     if (listening.mode === "off" && !listening.error) listening.start("wake");
-  }, [listening, wakeEnabled]);
+  }, [listening, micPermission, wakeEnabled]);
+
+  const setWakeEnabledGated = useCallback(
+    (on: boolean) => {
+      if (!on) {
+        setWakeEnabled(false);
+        return;
+      }
+      if (micPermission !== "granted") {
+        void ensureMic().then((allowed) => {
+          if (allowed) setWakeEnabled(true);
+        });
+        return;
+      }
+      setWakeEnabled(true);
+    },
+    [ensureMic, micPermission, setWakeEnabled],
+  );
 
   const toggleRecorder = useCallback(() => {
     if (listening.mode === "capture") {
@@ -296,8 +349,14 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       else listening.stop();
       return;
     }
+    if (micPermission !== "granted") {
+      void ensureMic().then((allowed) => {
+        if (allowed) listening.start("capture");
+      });
+      return;
+    }
     listening.start("capture");
-  }, [listening, wakeEnabled]);
+  }, [ensureMic, listening, micPermission, wakeEnabled]);
 
   const clear = useCallback(() => {
     setMessages([]);
