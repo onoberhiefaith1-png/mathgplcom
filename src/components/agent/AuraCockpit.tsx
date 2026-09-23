@@ -312,6 +312,39 @@ export default function AuraCockpit() {
         ) : null}
 
 
+        {voice.active ? (
+          <div className="mb-2 flex items-center gap-3 rounded-xl border border-primary/50 bg-primary/5 px-3 py-2">
+            <AuraWaveform
+              level={listening.level}
+              mood={
+                voice.state === "listening"
+                  ? "level"
+                  : voice.state === "thinking"
+                    ? "thinking"
+                    : voice.state === "speaking"
+                      ? "speaking"
+                      : "waiting"
+              }
+              className="w-24 shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-primary">{voice.statusLabel}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {listening.transcript || "Talk to me — no need to press anything."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 shrink-0 px-2 text-xs"
+              onClick={voice.end}
+            >
+              End
+            </Button>
+          </div>
+        ) : null}
+
         {recording ? (
           <div className="mb-2 flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
             <AuraWaveform level={listening.level} className="w-28 shrink-0" />
@@ -325,7 +358,13 @@ export default function AuraCockpit() {
           <PromptInputTextarea
             value={draft}
             onChange={(event) => setDraft(event.currentTarget.value)}
-            placeholder={recording ? "Listening…" : "Ask Aura to set something up…"}
+            placeholder={
+              voice.active
+                ? "Talking with Aura…"
+                : recording
+                  ? "Listening…"
+                  : "Ask Aura to set something up…"
+            }
           />
           <PromptInputFooter>
             <PromptInputTools>
@@ -340,7 +379,20 @@ export default function AuraCockpit() {
                   {recording ? <Square className="size-4" /> : <Mic className="size-4" />}
                 </Button>
               ) : null}
+              <Button
+                type="button"
+                size="icon-sm"
+                aria-label={voice.active ? "End the voice conversation" : "Talk with Aura"}
+                onClick={voice.active ? voice.end : voice.start}
+                className={cn(
+                  "rounded-full bg-primary text-primary-foreground hover:bg-primary/90",
+                  voice.active && "ring-2 ring-primary/40 ring-offset-1 ring-offset-background",
+                )}
+              >
+                <AudioLines className="size-4" />
+              </Button>
             </PromptInputTools>
+
             <PromptInputSubmit
               status={busy ? "submitted" : undefined}
               disabled={busy || draft.trim().length === 0}
