@@ -243,6 +243,29 @@ export const textVisualInsets = (style: ResolvedTextStyle, fontSize: number): Te
   };
 };
 
+const rgba = (colour: string, alpha: number) => {
+  const [r, g, b] = rgb(colour);
+  return `rgba(${r}, ${g}, ${b}, ${clamp(alpha)})`;
+};
+
+/** CSS fallback for DOM-rendered mathematics, driven by the same resolved style. */
+export const cssTextEffects = (style: ResolvedTextStyle, fontSizePx: number) => {
+  const shadows: string[] = [];
+  const depthPx = Math.max(0, style.extrude * fontSizePx);
+  if (depthPx > 0) {
+    shadows.push(`${Math.max(1, depthPx * 0.16)}px ${Math.max(1, depthPx * 0.2)}px 0 ${style.side}`);
+  }
+  if (style.shadowOpacity > 0) {
+    shadows.push(
+      `${style.shadowOffset[0] * fontSizePx}px ${-style.shadowOffset[1] * fontSizePx}px ${style.shadowBlur * fontSizePx}px ${rgba(style.shadow, style.shadowOpacity)}`,
+    );
+  }
+  if (style.glowOpacity > 0) {
+    shadows.push(`0 0 ${style.glowRadius * fontSizePx}px ${rgba(style.glow, style.glowOpacity)}`);
+  }
+  return shadows.join(", ");
+};
+
 type Base = Omit<ResolvedTextStyle, keyof TextPalette | "preset">;
 
 const BASES: Record<TextPresetId, Base> = {
