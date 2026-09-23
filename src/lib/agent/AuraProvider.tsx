@@ -34,6 +34,7 @@ import {
 import { useListening, type ListeningEngine } from "@/components/agent/useListening";
 
 import { agentChat, agentGreeting } from "./brain.functions";
+import { CallMetrics, describeCallTiming } from "./callMetrics";
 import { streamCallTurn } from "./callStream";
 import { SpeechQueue, takeClauses } from "./speechQueue";
 import { contextFromPath, mergeContext, readAuraScreenContext } from "./context";
