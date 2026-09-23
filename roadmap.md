@@ -149,7 +149,7 @@
 - [ ] Phase 3 — AURA cockpit: side-by-side drawer, streaming text chat, step badges, live navigate sync.
 - [ ] Phase 3a — persisted conversation memory (resume past sessions).
 - [ ] Phase 3b — tool expansion pass: quizzes/assessments, game building, Adventure, enrollment, performance, Smart Cards (before any voice work).
-- [ ] Phase 4 — voice: "Aura" wake word, mic, spoken replies.
+- [x] Phase 4 — voice: "Aura" wake word, mic, spoken replies.
 - [ ] Phase 5 — live board teaching: voice + sensor + Floating Numbers in sync.
 - [ ] Phase 6 — guardrails, usage ceilings, mobile/tablet layout, end-to-end testing of all six workflows.
 
@@ -161,4 +161,12 @@
 - [x] Action cards showing each platform step Aura took, collapsed by default.
 - [x] Voice notes by dictation and optional spoken replies (browser voice until Phase 4).
 - [ ] Phase 3.5 — expand the tool set so Aura covers all six teaching workflows.
-- [ ] Phase 4 — premium streamed voice and Smartboard action sync.
+- [x] Phase 4 — premium streamed voice and the "Aura" wake word.
+
+# AURA Phase 4 — her voice
+
+- [x] Natural streamed voice for her replies, with the browser voice as a silent-proof fallback.
+- [x] Stop button while she is speaking.
+- [x] "Aura" wake word listening on every page; the words after her name become the instruction.
+- [x] Her own voice and her working time never re-trigger the wake word.
+- [ ] Phase 5 — Smartboard narration synced with the sensor and Floating Numbers.
