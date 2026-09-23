@@ -172,12 +172,18 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     writeStored(WIDTH_KEY, clamped);
   }, []);
 
-  const setSpeakReplies = useCallback((on: boolean) => {
-    setSpeakRepliesState(on);
-    writeStored(VOICE_KEY, on);
-    if (!on && typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
+  const setSpeakReplies = useCallback(
+    (on: boolean) => {
+      setSpeakRepliesState(on);
+      writeStored(VOICE_KEY, on);
+      if (!on) stopSpeaking();
+    },
+    [stopSpeaking],
+  );
+
+  const setWakeEnabled = useCallback((on: boolean) => {
+    setWakeEnabledState(on);
+    writeStored(WAKE_KEY, on);
   }, []);
 
   const send = useCallback(
