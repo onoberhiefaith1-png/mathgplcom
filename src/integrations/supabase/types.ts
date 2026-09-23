@@ -1290,6 +1290,66 @@ export type Database = {
         }
         Relationships: []
       }
+      aura_knowledge: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          author_id: string
+          created_at: string
+          evidence: string | null
+          expected_result: string | null
+          failures: string[]
+          feature: string
+          id: string
+          preconditions: string[]
+          roles: string[]
+          scope: string | null
+          status: string
+          steps: string[]
+          updated_at: string
+          verification: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          author_id: string
+          created_at?: string
+          evidence?: string | null
+          expected_result?: string | null
+          failures?: string[]
+          feature: string
+          id?: string
+          preconditions?: string[]
+          roles?: string[]
+          scope?: string | null
+          status?: string
+          steps?: string[]
+          updated_at?: string
+          verification?: string | null
+          version?: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          author_id?: string
+          created_at?: string
+          evidence?: string | null
+          expected_result?: string | null
+          failures?: string[]
+          feature?: string
+          id?: string
+          preconditions?: string[]
+          roles?: string[]
+          scope?: string | null
+          status?: string
+          steps?: string[]
+          updated_at?: string
+          verification?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       building_assets: {
         Row: {
           config: Json

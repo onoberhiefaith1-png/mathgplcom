@@ -15,7 +15,7 @@
 // afterwards creates a BRAND NEW instance starting from zero progress; the old
 // one is never revived and never overwritten.
 
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db/scope";
 import { freezeTaskResults } from "@/lib/reports/progressChart";
 
 export type AssignmentMode = "assignment" | "adventure";
@@ -37,7 +37,7 @@ export interface LearningAssignment {
   created_at: string;
 }
 
-const table = () => supabase.from("learning_assignments" as never);
+const table = () => db().from("learning_assignments" as never);
 
 const asRow = (r: any): LearningAssignment => ({
   id: r.id,
@@ -133,7 +133,7 @@ export async function ensureAssignment(params: {
   }
 
 
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await db().auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
 
@@ -218,12 +218,12 @@ export async function archiveAssignment(
   }
 
   // Children leave the active dashboards but keep all of their data.
-  await supabase
+  await db()
     .from("assessments")
     .update({ unassigned_at: nowIso } as never)
     .eq("assignment_id" as never, assignmentId as never)
     .is("unassigned_at", null);
-  await supabase
+  await db()
     .from("class_adventure_notes")
     .update({ unassigned_at: nowIso } as never)
     .eq("assignment_id" as never, assignmentId as never)
@@ -249,8 +249,8 @@ export async function autoArchiveExpired(classId: string): Promise<number> {
 
   const ids = rows.map((r) => r.id);
   const [{ data: assessmentDates }, { data: adventureDates }] = await Promise.all([
-    supabase.from("assessments").select("assignment_id, due_at").in("assignment_id" as never, ids as never),
-    supabase.from("class_adventure_notes").select("assignment_id, due_at").in("assignment_id" as never, ids as never),
+    db().from("assessments").select("assignment_id, due_at").in("assignment_id" as never, ids as never),
+    db().from("class_adventure_notes").select("assignment_id, due_at").in("assignment_id" as never, ids as never),
   ]);
   const childDates = new Map<string, number[]>();
   for (const child of [...((assessmentDates ?? []) as any[]), ...((adventureDates ?? []) as any[])]) {
