@@ -266,13 +266,19 @@ async function callBriefing(
   ctx: AgentToolContext,
   hint: AgentSnapshotHint | undefined,
   context: AuraPlatformContext | null | undefined,
+  full: boolean,
 ): Promise<string> {
-  const key = `${ctx.userId}|${context?.path ?? ""}`;
+  const key = `${ctx.userId}|${context?.path ?? ""}|${full ? "full" : "short"}`;
   const cached = briefings.get(key);
   const now = Date.now();
   if (cached && now - cached.at < BRIEFING_LIFE_MS) return cached.system;
   const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
-  const system = `${buildAgentSystemPrompt(hint, context, learned)}${CALL_INSTRUCTION}`;
+  // Ordinary talking carries the short briefing; a turn that builds or repairs
+  // something carries everything she was trained on.
+  const base = full
+    ? buildAgentSystemPrompt(hint, context, learned)
+    : buildCallSystemPrompt(hint, context, learned);
+  const system = `${base}${CALL_INSTRUCTION}`;
   briefings.set(key, { system, at: now });
   return system;
 }
