@@ -96,6 +96,29 @@ export const gameSurfacePadding = (fontSize: number) => ({
   y: Math.max(0.13, Math.min(0.26, fontSize / 650)),
 });
 
+/* ── Content Margin ──────────────────────────────────────────────────────
+ * THE writing surface starts where it starts: its left edge never moves. The
+ * Content Margin is an internal control that decides where the WRITING
+ * begins inside that surface. Moving it moves the text, never the surface.
+ * The right edge is content-driven: it provides exactly the room the margin
+ * plus the actual rendered text plus padding need, and gives it back when
+ * they need less.
+ */
+
+/** Largest share of the writing band the margin may take. */
+export const CONTENT_MARGIN_MAX = 0.5;
+
+/** Smallest writing width left after a margin, in world units. */
+export const MIN_CONTENT_WIDTH = 0.4;
+
+export const clampContentMargin = (fraction: number | undefined) =>
+  Math.min(CONTENT_MARGIN_MAX, Math.max(0, Number.isFinite(fraction) ? (fraction as number) : 0));
+
+/** The margin in world units for a given writing band. */
+export const contentMarginWorld = (fraction: number | undefined, writingWidth: number) =>
+  clampContentMargin(fraction) * Math.max(0, writingWidth);
+
+
 /** Each Play surface follows its own content, capped by the 5%–95% writing band. */
 export const gameSurfaceWidth = (
   writingWidth: number,
