@@ -130,8 +130,10 @@ export const spendCeilingReached = (spend: DaySpend): boolean =>
 
 /** The teacher-only line: today's real cost, and a word when it is used up. */
 export function describeSpend(spend: DaySpend): string {
+  const money = `${formatCredits(creditsOf(spend.pence))} credits (${formatPence(spend.pence)})`;
   if (spendCeilingReached(spend)) {
-    return `Today's Aura allowance is used up (${formatPence(spend.pence)}). She can still talk; bigger jobs resume tomorrow.`;
+    return `Today's Aura allowance is used up — ${money}. She can still talk; bigger jobs resume tomorrow.`;
   }
-  return `Aura today: ${formatPence(spend.pence)} across ${spend.turns} turn${spend.turns === 1 ? "" : "s"}.`;
+  return `Aura today: ${money} across ${spend.turns} turn${spend.turns === 1 ? "" : "s"}.`;
 }
+
