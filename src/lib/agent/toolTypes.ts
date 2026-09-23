@@ -242,6 +242,109 @@ export const AGENT_TOOL_MANIFEST: AgentToolSpec[] = [
     ],
   },
   {
+    id: "highlight_solution",
+    domain: "lessonNotes",
+    title: "Highlight a written solution",
+    description:
+      "Mark every written micro-step of a question's solution as the source of its Floating Numbers. This is stage one: Floating Numbers can only come from a highlighted solution, never from a blank page. Run it after the solution is written, before generating.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("subsectionId", "string", true, "Session (question) id from add_lesson_session or read_lesson_note."),
+    ],
+  },
+  {
+    id: "generate_floating_numbers",
+    domain: "lessonNotes",
+    title: "Generate the Floating Numbers",
+    description:
+      "Stage two: turn each highlighted solution line into its chips, with their fraction, bracket, root, power and matrix shells, and save them where the Smartboard reads them. Ask the teacher first whether the chips should start in solution order or shuffled — that is the one real choice. There is no tight or scattered spacing setting.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("subsectionId", "string", true, "Session (question) id."),
+      p(
+        "order",
+        "string",
+        false,
+        "'solution' to start the chips in solution order, or 'shuffled' so students rebuild the line. Default solution.",
+      ),
+    ],
+  },
+  {
+    id: "read_floating_numbers",
+    domain: "lessonNotes",
+    title: "Read the Floating Numbers back",
+    description:
+      "Read the question, its highlights and its saved Floating Number lines, so you can check your own work before telling the teacher anything.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [p("subsectionId", "string", true, "Session (question) id.")],
+  },
+  {
+    id: "smartboard_test",
+    domain: "lessonNotes",
+    title: "Test the question on the Smartboard",
+    description:
+      "Open the dry run of one question on the real student board. Nothing is saved and nobody is marked. Always offer this before assigning.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [p("subsectionId", "string", true, "Session (question) id.")],
+  },
+  {
+    id: "assign_question",
+    domain: "classes",
+    title: "Assign the question to a class",
+    description:
+      "Put the question in front of a class for real, through the platform's own assignment pipeline. The students see it immediately, so ask the teacher first and only then call again with confirmed set to true.",
+    readOnly: false,
+    needsConfirmation: true,
+    params: [
+      p("subsectionId", "string", true, "Session (question) id."),
+      p("classId", "string", true, "Class id from list_classes."),
+      p("kind", "string", false, "classwork, homework, assessment or practice. Default classwork."),
+      p("title", "string", false, "Title the class sees. Defaults to the question's first line."),
+      p("dueAt", "string", false, "Deadline as an ISO timestamp, or omit for no deadline."),
+    ],
+  },
+  {
+    id: "propose_knowledge",
+    domain: "workspace",
+    title: "Write down what you just learned",
+    description:
+      "Record a workflow you observed or were taught, for the administrator to approve. Write only what you actually saw, keeping observed behaviour separate from intended behaviour — a bug is never a rule. Nothing recorded here is trusted until the administrator approves it.",
+    readOnly: false,
+    needsConfirmation: false,
+    params: [
+      p("feature", "string", true, "The feature or area, in the app's real words."),
+      p("scope", "string", false, "What this entry covers, and what it does not."),
+      p("roles", "string[]", false, "Who may do this."),
+      p("preconditions", "string[]", false, "What must already exist first."),
+      p("steps", "string[]", true, "The steps, in order, as observed."),
+      p("expectedResult", "string", false, "What should happen when the steps are followed."),
+      p("verification", "string", false, "How the result was checked."),
+      p("failures", "string[]", false, "Known failures and how to recover."),
+      p("evidence", "string", false, "What you actually observed, and when."),
+      p(
+        "status",
+        "string",
+        false,
+        "'observed' for behaviour you saw yourself, 'proposed' for a workflow you were told. Default proposed.",
+      ),
+    ],
+  },
+  {
+    id: "recall_knowledge",
+    domain: "workspace",
+    title: "Recall what you have been taught",
+    description:
+      "Read the approved and observed entries the administrator has settled, optionally filtered by feature. Use this before guiding anyone through a workflow you were taught rather than one written into the platform map.",
+    readOnly: true,
+    needsConfirmation: false,
+    params: [p("feature", "string", false, "Filter by feature name.")],
+  },
+  {
+
     id: "navigate",
     domain: "navigation",
     title: "Open a page",

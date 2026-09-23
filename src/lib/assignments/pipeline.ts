@@ -9,7 +9,7 @@
 // duplicates are impossible (a partial unique index enforces this in the
 // database as well).
 
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db/scope";
 import {
   compileSectionQuestions,
   compileQuestionSections,
@@ -26,14 +26,14 @@ export interface QuestionRef {
 /** Resolve the permanent identity of the question a teacher clicked. */
 export async function resolveQuestionRef(subsectionId: string | null): Promise<QuestionRef> {
   if (!subsectionId) return { subsectionId: null, sectionId: null, questionKey: null };
-  const { data: sub } = await supabase
+  const { data: sub } = await db()
     .from("notebook_subsections")
     .select("section_id")
     .eq("id", subsectionId)
     .maybeSingle();
   const sectionId = (sub as any)?.section_id as string | undefined;
   if (!sectionId) return { subsectionId, sectionId: null, questionKey: null };
-  const { data: sec } = await supabase
+  const { data: sec } = await db()
     .from("notebook_sections")
     .select("stable_key")
     .eq("id", sectionId)
@@ -61,7 +61,7 @@ export async function loadAssignmentState(
   }
 
   // Expired children are historical rows, not active checkbox state.
-  const { data: candidateClasses } = await supabase
+  const { data: candidateClasses } = await db()
     .from("assessments")
     .select("class_id")
     .eq("notebook_id", notebookId)
@@ -73,7 +73,7 @@ export async function loadAssignmentState(
     (ref.questionKey && row.question_key === ref.questionKey) ||
     (!row.question_key && ref.sectionId && row.section_id === ref.sectionId);
 
-  const { data: assessments } = await supabase
+  const { data: assessments } = await db()
     .from("assessments")
     .select("id, class_id, kind, section_id, question_key")
     .eq("notebook_id", notebookId)
@@ -89,7 +89,7 @@ export async function loadAssignmentState(
 /** Ids of archived instances for a class — rows under them are history and
  *  must never be revived by a new assignment. */
 async function archivedIds(classId: string): Promise<Set<string>> {
-  const { data } = await (supabase.from("learning_assignments" as never) as any)
+  const { data } = await (db().from("learning_assignments" as never) as any)
     .select("id")
     .eq("class_id", classId)
     .eq("status", "archived");
@@ -104,7 +104,7 @@ async function findAdventureRow(
   ref: QuestionRef,
 ): Promise<{ id: string } | null> {
   const [{ data }, archived] = await Promise.all([
-    supabase
+    db()
       .from("class_adventure_notes")
       .select("id, section_id, question_key, unassigned_at, created_at, assignment_id")
       .eq("class_id", classId)
@@ -129,7 +129,7 @@ export async function assignAdventureQuestion(params: {
   dueAt?: string | null;
 }): Promise<string> {
   const { classId, notebookId, ref } = params;
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await db().auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
   if (!ref.sectionId) throw new Error("no_question");
@@ -145,7 +145,7 @@ export async function assignAdventureQuestion(params: {
 
   const existing = await findAdventureRow(classId, notebookId, ref);
   if (existing) {
-    await supabase
+    await db()
       .from("class_adventure_notes")
       .update({
         unassigned_at: null,
@@ -159,7 +159,7 @@ export async function assignAdventureQuestion(params: {
     return existing.id;
   }
 
-  const { data: created, error } = await supabase
+  const { data: created, error } = await db()
     .from("class_adventure_notes")
     .insert({
       class_id: classId,
@@ -180,12 +180,12 @@ export async function assignAdventureQuestion(params: {
  *  When the row belongs to a learning-assignment instance whose last active
  *  question this was, the whole instance is archived (read-only history). */
 export async function unassignAdventureQuestion(id: string): Promise<void> {
-  const { data: row } = await supabase
+  const { data: row } = await db()
     .from("class_adventure_notes")
     .select("id, assignment_id")
     .eq("id", id)
     .maybeSingle();
-  await supabase
+  await db()
     .from("class_adventure_notes")
     .update({ unassigned_at: new Date().toISOString() } as never)
     .eq("id", id);
@@ -198,7 +198,7 @@ async function archiveIfEmpty(
   childTable: "class_adventure_notes" | "assessments",
 ): Promise<void> {
   if (!assignmentId) return;
-  const { data } = await (supabase.from(childTable) as any)
+  const { data } = await (db().from(childTable) as any)
     .select("id")
     .eq("assignment_id", assignmentId)
     .is("unassigned_at", null)
@@ -222,7 +222,7 @@ export async function assignAssessmentQuestion(params: {
   dueAt?: string | null;
 }): Promise<string> {
   const { classId, notebookId, ref } = params;
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await db().auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new Error("not_authenticated");
   if (!ref.sectionId) throw new Error("no_question");
@@ -241,7 +241,7 @@ export async function assignAssessmentQuestion(params: {
   });
 
   const [{ data }, archived] = await Promise.all([
-    supabase
+    db()
       .from("assessments")
       .select("id, section_id, question_key, created_at, assignment_id")
       .eq("class_id", classId)
@@ -262,12 +262,12 @@ export async function assignAssessmentQuestion(params: {
     const changedQuestion = (hit.question_key ?? null) !== (ref.questionKey ?? null);
     if (changedQuestion) {
       await Promise.all([
-        supabase.from("assessment_question_board_state").delete().eq("assessment_id", hit.id),
-        supabase.from("assessment_board_state").delete().eq("assessment_id", hit.id),
-        supabase.from("assessment_progress").delete().eq("assessment_id", hit.id),
+        db().from("assessment_question_board_state").delete().eq("assessment_id", hit.id),
+        db().from("assessment_board_state").delete().eq("assessment_id", hit.id),
+        db().from("assessment_progress").delete().eq("assessment_id", hit.id),
       ]);
     }
-    await supabase
+    await db()
       .from("assessments")
       .update({
         unassigned_at: null,
@@ -282,15 +282,15 @@ export async function assignAssessmentQuestion(params: {
         ...(params.dueAt !== undefined ? { due_at: params.dueAt } : {}),
       } as never)
       .eq("id", hit.id);
-    await supabase.from("assessment_answer_keys").delete().eq("assessment_id", hit.id);
-    await supabase
+    await db().from("assessment_answer_keys").delete().eq("assessment_id", hit.id);
+    await db()
       .from("assessment_answer_keys")
       .insert({ assessment_id: hit.id, lines: answerKey as never } as never);
     return hit.id as string;
   }
 
 
-  const { data: created, error } = await supabase
+  const { data: created, error } = await db()
     .from("assessments")
     .insert({
       class_id: classId,
@@ -310,11 +310,11 @@ export async function assignAssessmentQuestion(params: {
     .single();
   if (error || !created) throw new Error(error?.message ?? "create_failed");
 
-  const { error: keyErr } = await supabase
+  const { error: keyErr } = await db()
     .from("assessment_answer_keys")
     .insert({ assessment_id: (created as any).id, lines: answerKey as never } as never);
   if (keyErr) {
-    await supabase.from("assessments").delete().eq("id", (created as any).id);
+    await db().from("assessments").delete().eq("id", (created as any).id);
     throw new Error(keyErr.message);
   }
   return (created as any).id as string;
@@ -323,12 +323,12 @@ export async function assignAssessmentQuestion(params: {
 /** Soft-remove an Assignment. Progress rows are kept; the parent instance is
  *  archived once its last active question is removed. */
 export async function unassignAssessmentQuestion(id: string): Promise<void> {
-  const { data: row } = await supabase
+  const { data: row } = await db()
     .from("assessments")
     .select("id, assignment_id")
     .eq("id", id)
     .maybeSingle();
-  await supabase
+  await db()
     .from("assessments")
     .update({ unassigned_at: new Date().toISOString() } as never)
     .eq("id", id);
@@ -340,7 +340,7 @@ export async function unassignAssessmentQuestion(id: string): Promise<void> {
  *  questions that are currently assigned. Never creates a second assessment,
  *  so re-linking or editing the note can't duplicate questions. */
 export async function syncAdventureBoards(classId: string, notebookId: string): Promise<void> {
-  const { data: boards } = await supabase
+  const { data: boards } = await db()
     .from("class_game_boards")
     .select("id, assessment_id, question_keys")
     .eq("class_id", classId)
@@ -348,7 +348,7 @@ export async function syncAdventureBoards(classId: string, notebookId: string): 
   const list = (boards ?? []) as any[];
   if (list.length === 0) return;
 
-  const { data: activeNotes } = await supabase
+  const { data: activeNotes } = await db()
     .from("class_adventure_notes")
     .select("section_id, question_key")
     .eq("class_id", classId)
@@ -364,20 +364,20 @@ export async function syncAdventureBoards(classId: string, notebookId: string): 
     const sectionIds = scoped.map((n) => n.section_id).filter(Boolean) as string[];
     const compiled = await compileQuestionSections(sectionIds);
 
-    await supabase
+    await db()
       .from("assessments")
       .update({
         total_marks: compiled.total,
         questions: compiled.questions as never,
       } as never)
       .eq("id", b.assessment_id);
-    await supabase.from("assessment_answer_keys").delete().eq("assessment_id", b.assessment_id);
+    await db().from("assessment_answer_keys").delete().eq("assessment_id", b.assessment_id);
     if (compiled.answerKey.length) {
-      await supabase
+      await db()
         .from("assessment_answer_keys")
         .insert({ assessment_id: b.assessment_id, lines: compiled.answerKey as never } as never);
     }
-    await supabase
+    await db()
       .from("class_game_boards")
       .update({ required_marks: compiled.total } as never)
       .eq("id", b.id);

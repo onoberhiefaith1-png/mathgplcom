@@ -10,6 +10,8 @@ import { streamText, tool, jsonSchema, stepCountIs, type ModelMessage } from "ai
 import { AGENT_TOOL_MANIFEST, type AgentToolParam, type AgentToolResult } from "./toolTypes";
 import { buildAgentSystemPrompt, AGENT_GREETING_INSTRUCTION, type AgentSnapshotHint } from "./systemPrompt";
 import { executeAgentTool, type AgentToolContext } from "./tools.server";
+import { learnedKnowledgePrompt } from "./hands.server";
+
 import type { AuraPlatformContext } from "./context";
 import { parseTeachingScript, type TeachingScript } from "./teachingScript";
 
@@ -150,10 +152,12 @@ export async function runAgentTurn(
 ): Promise<AgentTurn> {
   const steps: AgentStep[] = [];
   const lovable = provider(apiKey());
+  const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
 
   const result = streamText({
     model: lovable.responses(AGENT_MODEL),
-    system: buildAgentSystemPrompt(hint, context),
+    system: buildAgentSystemPrompt(hint, context, learned),
+
     messages,
     tools: buildTools(ctx, steps),
     stopWhen: stepCountIs(50),
