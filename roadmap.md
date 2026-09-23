@@ -152,3 +152,13 @@
 - [ ] Phase 4 — voice: "Aura" wake word, mic, spoken replies.
 - [ ] Phase 5 — live board teaching: voice + sensor + Floating Numbers in sync.
 - [ ] Phase 6 — guardrails, usage ceilings, mobile/tablet layout, end-to-end testing of all six workflows.
+
+# AURA Phase 3 — cockpit conversation
+
+- [x] Docked, resizable Aura panel available on every signed-in page with keyboard shortcut and launcher.
+- [x] Continuous conversation that survives page changes and is remembered between visits.
+- [x] Proactive greeting from a real workspace snapshot on first open.
+- [x] Action cards showing each platform step Aura took, collapsed by default.
+- [x] Voice notes by dictation and optional spoken replies (browser voice until Phase 4).
+- [ ] Phase 3.5 — expand the tool set so Aura covers all six teaching workflows.
+- [ ] Phase 4 — premium streamed voice and Smartboard action sync.
