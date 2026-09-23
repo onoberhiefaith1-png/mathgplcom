@@ -11,6 +11,7 @@ import { WritingRegion } from "@/components/slate/text3d/WritingRegion";
 import { PlainText } from "@/components/slate/text3d/PlainText";
 
 import { defaultTextSettings, responsiveTextSize } from "@/lib/slate/text3d";
+import { normalizeTextConfig, textSettingsFromConfig } from "@/lib/slate/textConfig";
 import type { TextBounds } from "@/lib/slate/text3d";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -106,6 +107,8 @@ interface Props {
   onFocusSlot?: (slotId: string) => void;
   /** Game Play: the mathematics comes from Floating Numbers, not the keyboard. */
   readOnlyWriting?: boolean;
+  /** Restore: bumped to force every text back to its saved configuration. */
+  restoreKey?: number;
   onReady?: () => void;
 }
 
