@@ -192,27 +192,70 @@ export class SpeechQueue {
   }
 }
 
+/** The first thing she says is cut as short as this, so sound starts at once. */
+const FIRST_MIN = 6;
+/** Later clauses are longer, so she sounds like a person and not a stutter. */
+const CLAUSE_MIN = 18;
+
+/** Openers a person pauses after: "So," "Right —", "Okay". */
+const OPENERS = /^\s*(so|right|okay|ok|well|sure|yes|no|alright|good)\b[\s,—–-]+/i;
+
+export type ClauseOptions = {
+  /** Give up whatever is left, because the reply has finished arriving. */
+  flush?: boolean;
+  /** True while nothing has been said yet in this reply: cut very short. */
+  first?: boolean;
+};
+
 /**
  * Her reply cut at natural speaking boundaries. A clause is enough to start
  * talking, so the first sound comes far sooner than a full sentence would allow.
+ * The very first clause is cut shorter still — at an opener or the first comma —
+ * which is what makes her begin speaking almost as soon as she begins writing.
  */
-export function takeClauses(buffer: string, flush = false): { clauses: string[]; rest: string } {
+export function takeClauses(
+  buffer: string,
+  options: ClauseOptions | boolean = false,
+): { clauses: string[]; rest: string } {
+  const { flush = false, first = false } =
+    typeof options === "boolean" ? { flush: options, first: false } : options;
   const clauses: string[] = [];
   let rest = buffer;
-  const MIN = 18;
+  let opening = first;
 
   while (true) {
     const text = rest;
+    const min = opening ? FIRST_MIN : CLAUSE_MIN;
+
+    // "So, ..." — she can start speaking on the opener alone.
+    if (opening) {
+      const opener = OPENERS.exec(text);
+      if (opener && opener[0].length < text.length) {
+        const piece = opener[0].replace(/[\s—–-]+$/, "").trim();
+        rest = text.slice(opener[0].length);
+        if (piece) {
+          clauses.push(piece);
+          opening = false;
+          continue;
+        }
+      }
+    }
+
     let cut = -1;
     for (let index = 0; index < text.length; index += 1) {
       const character = text[index]!;
       const sentenceEnd = character === "." || character === "!" || character === "?" || character === "…";
-      const clauseEnd = character === "," || character === ";" || character === ":" || character === "\n";
+      const clauseEnd =
+        character === "," ||
+        character === ";" ||
+        character === ":" ||
+        character === "\n" ||
+        (opening && (character === "—" || character === "–"));
       if (!sentenceEnd && !clauseEnd) continue;
       // A decimal point or an abbreviation is not the end of anything.
       if (sentenceEnd && /\d/.test(text[index - 1] ?? "") && /\d/.test(text[index + 1] ?? "")) continue;
       if (index + 1 < text.length && !/[\s\n]/.test(text[index + 1] ?? "")) continue;
-      if (index + 1 >= MIN) {
+      if (index + 1 >= min) {
         cut = index + 1;
         break;
       }
@@ -220,7 +263,10 @@ export function takeClauses(buffer: string, flush = false): { clauses: string[];
     if (cut === -1) break;
     const piece = text.slice(0, cut).trim();
     rest = text.slice(cut);
-    if (piece) clauses.push(piece);
+    if (piece) {
+      clauses.push(piece);
+      opening = false;
+    }
   }
 
   if (flush) {
