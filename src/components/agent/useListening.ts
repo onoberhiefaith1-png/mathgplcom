@@ -198,13 +198,98 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   }, []);
 
 
+  /**
+   * What was heard, wherever it came from. Finished words are added to the end of
+   * the turn and never replace it; a live guess is only ever shown.
+   */
+  const absorb = useCallback(
+    (finalHeard: string, interim: string) => {
+      awaitingFinal.current = interim.trim().length > 0;
+      // Her own voice must never become an instruction, not even a stray word
+      // of it: while she speaks or works, nothing heard is kept.
+      if (pausedRef.current) {
+        finalText.current = "";
+        setTranscript("");
+        return;
+      }
+      // Everything heard in this turn is added together, never replaced, so
+      // "let's go" is still there when "come home" arrives.
+      if (finalHeard) finalText.current = `${finalText.current} ${finalHeard}`.trim();
+      const heard = `${finalText.current} ${interim}`.trim();
+      if (!heard) return;
+
+      if (wanted.current === "wake") {
+        const { woke, command } = extractWakeCommand(heard);
+        if (!woke) {
+          setTranscript(heard.slice(-90));
+          return;
+        }
+        finalText.current = command;
+        setTranscript(command);
+        wanted.current = "capture";
+        setMode("capture");
+        void startMeter(liveHeld());
+        wake.current(command);
+        return;
+      }
+      setTranscript(heard);
+    },
+    [liveHeld, startMeter],
+  );
+
+  /** Listening by recording short slices and transcribing them on the platform. */
+  const beginTranscribe = useCallback(async () => {
+    if (wanted.current === "off") return false;
+    if (transcriber.current?.active) return true;
+    let media = liveHeld();
+    if (!media) {
+      const result = await requestMicrophoneAccess();
+      if (!result.stream) return false;
+      media = result.stream;
+    }
+    if (wanted.current === "off") return true;
+    const listener = new TranscriptionListener({
+      stream: media,
+      onHeard: (text) => absorb(text, ""),
+      onPending: (pending) => {
+        // A slice still out for transcription means the end of the sentence is
+        // still owed, so a turn can never close on the silence timer yet.
+        if (pending) awaitingFinal.current = true;
+        else if (!pending) awaitingFinal.current = false;
+      },
+      onError: () => {
+        transcribeFails.current += 1;
+        if (transcribeFails.current < 3) return;
+        // Transcription is not answering: fall back to the browser's own ear.
+        listener.stop();
+        transcriber.current = null;
+        fallback.current = true;
+        if (wanted.current !== "off") restart.current = window.setTimeout(begin, 200);
+      },
+    });
+    transcriber.current = listener;
+    listener.start();
+    void startMeter(media);
+    setMode(wanted.current);
+    return true;
+  }, [absorb, liveHeld, startMeter]);
+
   const begin = useCallback(() => {
+    if (wanted.current === "off") return;
+    if (!fallback.current && preferTranscribe && transcribeSupported()) {
+      void beginTranscribe().then((ok) => {
+        if (!ok) {
+          fallback.current = true;
+          begin();
+        }
+      });
+      return;
+    }
     const Ctor = recognitionConstructor();
     if (!Ctor) {
       setError("unsupported");
       return;
     }
-    if (wanted.current === "off") return;
     try {
       const instance = new Ctor();
       instance.lang = document.documentElement.lang || "en-US";
@@ -221,40 +306,7 @@ export function useListening({ onWake, paused }: ListeningOptions) {
           else interim += result[0].transcript;
         }
         failures.current = 0;
-        // A live guess means the engine still owes us the finished words; a turn
-        // must never close on the silence timer while that is outstanding.
-        awaitingFinal.current = interim.trim().length > 0;
-        // Her own voice must never become an instruction, not even a stray word
-        // of it: while she speaks or works, nothing heard is kept.
-        if (pausedRef.current) {
-          finalText.current = "";
-          setTranscript("");
-          return;
-        }
-        // Everything heard in this turn is added together, never replaced, so
-        // "let's go" is still there when "come home" arrives.
-        if (finalHeard) finalText.current = `${finalText.current} ${finalHeard}`.trim();
-        const heard = `${finalText.current} ${interim}`.trim();
-        if (!heard) return;
-
-
-
-
-        if (wanted.current === "wake") {
-          const { woke, command } = extractWakeCommand(heard);
-          if (!woke) {
-            setTranscript(heard.slice(-90));
-            return;
-          }
-          finalText.current = command;
-          setTranscript(command);
-          wanted.current = "capture";
-          setMode("capture");
-          void startMeter(liveHeld());
-          wake.current(command);
-          return;
-        }
-        setTranscript(heard);
+        absorb(finalHeard, interim);
       };
 
       instance.onerror = (event) => {
@@ -296,7 +348,7 @@ export function useListening({ onWake, paused }: ListeningOptions) {
       setError("failed");
       setMode("off");
     }
-  }, [liveHeld, startMeter, stopMeter]);
+  }, [absorb, beginTranscribe, preferTranscribe, stopMeter]);
 
   const start = useCallback(
     (next: Exclude<ListeningMode, "off">, granted?: MediaStream | null) => {
