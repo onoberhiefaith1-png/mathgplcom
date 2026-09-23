@@ -1,0 +1,61 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { fill: var(--fg-primary); font-size: 14px; font-weight: 480; }
+    .sm  { fill: var(--fg-secondary); font-size: 12px; }
+    .bx  { fill: none; stroke: var(--fg-secondary); stroke-width: 1; rx: 8; }
+    .zn  { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; rx: 8; }
+    .bar { fill: var(--border-translucent); rx: 3; }
+    .surf { fill: var(--bg-muted); rx: 8; }
+  </style>
+
+  <!-- left: the page as it should look -->
+  <text class="sm" x="0" y="12">what the page looks like</text>
+  <rect class="surf" x="0" y="22" width="300" height="290"/>
+  <rect class="bar" x="16" y="38" width="120" height="9"/>
+  <rect class="bar" x="16" y="56" width="250" height="7"/>
+  <rect class="bar" x="16" y="70" width="220" height="7"/>
+
+  <text class="lbl" x="16" y="104">Example 1</text>
+  <rect class="bar" x="16" y="114" width="240" height="7"/>
+
+  <text class="lbl" x="16" y="146">Solution</text>
+  <rect x="86" y="134" width="108" height="16" rx="8" fill="var(--bg-accent-translucent)"/>
+  <text x="92" y="146" style="fill: var(--fg-accent); font-size: 10px;">Floating Number</text>
+  <rect x="200" y="134" width="48" height="16" rx="8" fill="var(--bg-accent-translucent)"/>
+  <text x="210" y="146" style="fill: var(--fg-accent); font-size: 10px;">Assign</text>
+  <rect class="bar" x="16" y="158" width="150" height="7"/>
+  <rect class="bar" x="16" y="172" width="170" height="7"/>
+  <rect class="bar" x="16" y="186" width="130" height="7"/>
+
+  <text class="lbl" x="16" y="222">Example 2</text>
+  <rect class="bar" x="16" y="232" width="230" height="7"/>
+  <text class="lbl" x="16" y="264">Solution</text>
+  <rect class="bar" x="16" y="276" width="160" height="7"/>
+  <rect class="bar" x="16" y="290" width="140" height="7"/>
+
+  <!-- right: self-study loop -->
+  <text class="sm" x="352" y="12">self-study, live</text>
+  <rect class="zn" x="340" y="22" width="300" height="290"/>
+
+  <rect class="bx" x="360" y="44" width="150" height="34"/>
+  <text class="lbl" x="372" y="65">you name a feature</text>
+
+  <rect class="bx" x="360" y="106" width="200" height="34"/>
+  <text class="lbl" x="372" y="127">she goes in and works</text>
+
+  <rect class="bx" x="360" y="168" width="230" height="34"/>
+  <text class="lbl" x="372" y="189">she talks as it happens</text>
+
+  <rect class="bx" x="360" y="230" width="170" height="34"/>
+  <text class="lbl" x="372" y="251">you correct her</text>
+
+  <rect class="bx" x="360" y="284" width="210" height="28"/>
+  <text class="sm" x="372" y="302">findings wait for your approval</text>
+
+  <line x1="380" y1="78" x2="380" y2="104" stroke="var(--fg-secondary)" stroke-width="1"/>
+  <line x1="380" y1="140" x2="380" y2="166" stroke="var(--fg-secondary)" stroke-width="1"/>
+  <line x1="380" y1="202" x2="380" y2="228" stroke="var(--fg-secondary)" stroke-width="1"/>
+  <line x1="380" y1="264" x2="380" y2="282" stroke="var(--fg-secondary)" stroke-width="1"/>
+  <path d="M556 247 C600 247 600 130 566 123" fill="none" stroke="var(--fg-secondary)" stroke-width="1" stroke-dasharray="4 3"/>
+  <text class="sm" x="576" y="196" style="paint-order: stroke; stroke: var(--bg-primary); stroke-width: 3px;">again</text>
+</svg>

@@ -34,6 +34,8 @@ import {
 import { useListening, type ListeningEngine } from "@/components/agent/useListening";
 
 import { agentChat, agentGreeting } from "./brain.functions";
+import { studyStep } from "./study.functions";
+import { answerQuestion, emptyLedger, type MissionLedger } from "./missionLedger";
 import { CallMetrics, describeCallTiming } from "./callMetrics";
 import { streamCallTurn } from "./callStream";
 import { SpeechQueue, takeClauses } from "./speechQueue";
@@ -130,6 +132,22 @@ type AuraValue = {
   /** The lesson she is teaching aloud right now, or null. */
   teaching: AuraTeaching | null;
   stopTeaching: () => void;
+  /**
+   * Autonomous System Exploration: she is given a mission and explores the
+   * platform herself, keeping her own record and asking without waiting.
+   */
+  mission: {
+    mission: string | null;
+    active: boolean;
+    paused: boolean;
+    ledger: MissionLedger;
+    start: (mission: string) => void;
+    pause: () => void;
+    resume: () => void;
+    end: () => void;
+    /** Answer one of her open questions; she folds it into her next stretch. */
+    answer: (questionId: string, answer: string) => void;
+  };
   send: (text: string, options?: { spoken?: boolean }) => void;
   clear: () => void;
 };
@@ -386,6 +404,10 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         setStatus("idle");
         return;
       }
+
+      // A word from the administrator during a study run is folded into it, so
+      // the correction travels with her next stretch of work.
+      if (studyActive.current) studyNotes.current.push({ role: "user", content });
 
       const history = [...messages, { id: newId(), role: "user" as const, content, spoken: options?.spoken }];
       setMessages(history);
@@ -909,6 +931,140 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     setWakeEnabledState(readStored<boolean>(WAKE_KEY, false));
   }, []);
 
+  // ── AUTONOMOUS SYSTEM EXPLORATION ────────────────────────────────────────
+  // The administrator names a mission; she explores the platform herself, one
+  // stretch at a time, keeping her own record of what she knows and does not
+  // know and reporting in this panel as she goes. Nothing reaches a student.
+  const runStudy = useServerFn(studyStep);
+  const [missionText, setMissionText] = useState<string | null>(null);
+  const [missionLedger, setMissionLedger] = useState<MissionLedger>(() => emptyLedger());
+  const [missionPaused, setMissionPaused] = useState(false);
+  const missionRun = useRef(0);
+  const missionId = useRef<string | null>(null);
+  const studyActive = useRef(false);
+  const studyNotes = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+  const ledgerRef = useRef<MissionLedger>(emptyLedger());
+  const pausedRef = useRef(false);
+
+  const endStudy = useCallback(() => {
+    missionRun.current += 1;
+    studyActive.current = false;
+    pausedRef.current = false;
+    setMissionPaused(false);
+    setMissionText(null);
+    setStatus("idle");
+  }, []);
+
+  const pauseMission = useCallback(() => {
+    pausedRef.current = true;
+    setMissionPaused(true);
+  }, []);
+
+  const resumeMission = useCallback(() => {
+    pausedRef.current = false;
+    setMissionPaused(false);
+  }, []);
+
+  const answerMissionQuestion = useCallback((questionId: string, answer: string) => {
+    const text = answer.trim();
+    if (!text) return;
+    const next = answerQuestion(ledgerRef.current, questionId, text);
+    ledgerRef.current = next;
+    setMissionLedger(next);
+    if (studyActive.current) studyNotes.current.push({ role: "user", content: text });
+  }, []);
+
+  const startStudy = useCallback(
+    (mission: string) => {
+      const goal = mission.trim();
+      if (!goal) return;
+      missionRun.current += 1;
+      const run = missionRun.current;
+      studyActive.current = true;
+      studyNotes.current = [];
+      ledgerRef.current = emptyLedger();
+      missionId.current = newId();
+      pausedRef.current = false;
+      setMissionPaused(false);
+      setMissionLedger(ledgerRef.current);
+      setMissionText(goal);
+      setOpen(true);
+      setMessages((previous) => [
+        ...previous,
+        { id: newId(), role: "user", content: `Mission: ${goal}` },
+      ]);
+
+      void (async () => {
+        for (let round = 0; round < 24; round += 1) {
+          if (missionRun.current !== run) return;
+          // Paused: she holds still until the administrator lets her carry on.
+          while (pausedRef.current && missionRun.current === run) {
+            await new Promise((resolve) => setTimeout(resolve, 800));
+          }
+          if (missionRun.current !== run) return;
+          setStatus("submitted");
+          setLiveSteps([]);
+          try {
+            const turn = await runStudy({
+              data: {
+                subject: goal,
+                transcript: studyNotes.current,
+                ledger: ledgerRef.current,
+                missionId: missionId.current,
+              },
+            });
+            if (missionRun.current !== run) return;
+            if (turn.ledger) {
+              // Answers typed while she was working must survive her own record.
+              const incoming = turn.ledger as MissionLedger;
+              const mine = ledgerRef.current;
+              const merged: MissionLedger = {
+                ...incoming,
+                questions: incoming.questions.map((q) => {
+                  const answered = mine.questions.find((x) => x.id === q.id && x.status === "answered");
+                  return answered ?? q;
+                }),
+                corrections: Array.from(new Set([...mine.corrections, ...incoming.corrections])),
+              };
+              ledgerRef.current = merged;
+              setMissionLedger(merged);
+            }
+            studyNotes.current = [
+              ...studyNotes.current,
+              { role: "assistant" as const, content: turn.say },
+            ].slice(-40);
+            setMessages((previous) => [
+              ...previous,
+              { id: newId(), role: "assistant", content: turn.say, steps: turn.steps },
+            ]);
+            setStatus("idle");
+            if (turn.done) break;
+          } catch (error) {
+            if (missionRun.current !== run) return;
+            setMessages((previous) => [
+              ...previous,
+              {
+                id: newId(),
+                role: "assistant",
+                content:
+                  (error as Error)?.message?.trim() || "The exploration stopped before I could finish.",
+                error: true,
+              },
+            ]);
+            setStatus("error");
+            break;
+          }
+        }
+        if (missionRun.current === run) {
+          studyActive.current = false;
+          setMissionText(null);
+        }
+      })();
+    },
+    [runStudy, setOpen],
+  );
+
+
   const value = useMemo<AuraValue>(
     () => ({
       open,
@@ -951,6 +1107,17 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       teaching,
       stopTeaching,
       usageNote: describeUsage(usage),
+      mission: {
+        mission: missionText,
+        active: missionText !== null,
+        paused: missionPaused,
+        ledger: missionLedger,
+        start: startStudy,
+        pause: pauseMission,
+        resume: resumeMission,
+        end: endStudy,
+        answer: answerMissionQuestion,
+      },
       send,
       clear,
     }),
@@ -981,6 +1148,14 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       stopSpeaking,
       stopTeaching,
       teaching,
+      startStudy,
+      endStudy,
+      missionText,
+      missionLedger,
+      missionPaused,
+      pauseMission,
+      resumeMission,
+      answerMissionQuestion,
       toggle,
       usage,
       wakeEnabled,

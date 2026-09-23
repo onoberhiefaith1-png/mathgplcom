@@ -90,6 +90,10 @@ export const LESSON_NODES: KnowledgeNode[] = [
     connectedTo: ["lesson-notes", "floating-preparation", "floating-numbers", "smartboard", "assessments"],
     pitfalls: [
       "Every question must live in its own session. Never write 'Example:' as a plain line of text — insert the Example section so the board can carry it.",
+      "An Example is a session, not a sentence: heading, the question inside it, and that question's own Solution beneath it. 'Example 1: simplify ... solved' written as prose is not a question at all — nothing can highlight it, no chips can come out of it, and the board cannot step to it.",
+      "Two worked examples are two sessions, each with its own question and its own solution. Never two lines inside one Example.",
+      "The Solution belongs to one question and to no other. That pairing is what lets the Smartboard keep the teacher's board and every student's board on the same question, and what makes assigning hand over question, solution and chips as one thing.",
+      "Floating Numbers are cut out of that question's own solution lines. No solution, no chips. A solution edited after generating leaves stale chips that must be highlighted and generated again.",
       "'Session' means three different things in MathGPL: a section on a lesson-note page, a plain text session label on the notebook itself, and a scheduled MathGPL Live teaching room. Work out which one the teacher means; never invent a fourth.",
       "Example, Exercise, Classwork, Homework and Assessment always come with a Solution area, and the solution is written out for the teacher too.",
       "Never restructure an existing note into an invented outline; insert the sections the teacher asks for.",

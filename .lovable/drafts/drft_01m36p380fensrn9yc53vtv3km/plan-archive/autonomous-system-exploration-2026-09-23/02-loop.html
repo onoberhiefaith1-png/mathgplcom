@@ -1,0 +1,54 @@
+<svg viewBox="0 0 640 430" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <defs>
+    <marker id="ch" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="var(--fg-secondary)" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <!-- mission -->
+  <rect x="20" y="16" width="180" height="44" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text x="110" y="42" text-anchor="middle" fill="var(--fg-primary)" style="font-size:14px;font-weight:480">Mission from you</text>
+
+  <!-- ledger -->
+  <rect x="20" y="110" width="180" height="200" rx="8" fill="var(--bg-secondary)" stroke="var(--fg-secondary)"/>
+  <text x="110" y="134" text-anchor="middle" fill="var(--fg-primary)" style="font-size:14px;font-weight:480">Exploration record</text>
+  <text x="36" y="160" fill="var(--fg-secondary)" style="font-size:12px">known — confirmed myself</text>
+  <text x="36" y="180" fill="var(--fg-secondary)" style="font-size:12px">unknown — still open</text>
+  <text x="36" y="200" fill="var(--fg-secondary)" style="font-size:12px">tested — what I tried</text>
+  <text x="36" y="220" fill="var(--fg-secondary)" style="font-size:12px">failed — what broke</text>
+  <text x="36" y="240" fill="var(--fg-secondary)" style="font-size:12px">questions — waiting on you</text>
+  <text x="36" y="260" fill="var(--fg-secondary)" style="font-size:12px">corrections — your answers</text>
+  <text x="36" y="288" fill="var(--fg-secondary)" style="font-size:12px">read in and written back each stretch</text>
+
+  <line x1="110" y1="60" x2="110" y2="108" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+
+  <!-- loop -->
+  <rect x="248" y="96" width="368" height="228" rx="8" fill="none" stroke="var(--border-translucent)" stroke-dasharray="4 3"/>
+  <text x="264" y="116" fill="var(--fg-secondary)" style="font-size:12px">one stretch of work</text>
+
+  <rect x="272" y="130" width="150" height="40" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text x="347" y="155" text-anchor="middle" fill="var(--fg-primary)" style="font-size:14px;font-weight:480">choose next gap</text>
+
+  <rect x="272" y="192" width="150" height="40" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text x="347" y="217" text-anchor="middle" fill="var(--fg-primary)" style="font-size:14px;font-weight:480">operate &amp; observe</text>
+
+  <rect x="272" y="254" width="150" height="40" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text x="347" y="279" text-anchor="middle" fill="var(--fg-primary)" style="font-size:14px;font-weight:480">update record</text>
+
+  <line x1="347" y1="170" x2="347" y2="190" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+  <line x1="347" y1="232" x2="347" y2="252" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+  <path d="M272 274 L 254 274 L 254 150 L 270 150" fill="none" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+  <line x1="200" y1="210" x2="270" y2="210" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+
+  <!-- ask, non blocking -->
+  <rect x="452" y="192" width="148" height="40" rx="20" fill="var(--bg-accent-translucent)" stroke="none"/>
+  <text x="526" y="217" text-anchor="middle" fill="var(--fg-accent)" style="font-size:14px;font-weight:480">ask, don't wait</text>
+  <line x1="422" y1="212" x2="450" y2="212" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+  <path d="M526 192 L 526 150 L 424 150" fill="none" stroke="var(--fg-secondary)" stroke-dasharray="4 3" marker-end="url(#ch)"/>
+  <text x="470" y="142" fill="var(--fg-secondary)" style="font-size:12px">your answer, whenever it comes</text>
+
+  <!-- findings -->
+  <rect x="248" y="352" width="368" height="44" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text x="432" y="378" text-anchor="middle" fill="var(--fg-primary)" style="font-size:14px;font-weight:480">findings you approve or correct</text>
+  <line x1="432" y1="324" x2="432" y2="350" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+</svg>
