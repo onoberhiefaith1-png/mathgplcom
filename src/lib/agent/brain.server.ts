@@ -245,7 +245,10 @@ function turnFrom(reply: string, steps: AgentStep[], usage?: TurnUsage): AgentTu
 }
 
 /** The tokens the model actually reported, priced honestly. Never guessed. */
-async function measured(result: { usage: PromiseLike<unknown> }): Promise<TurnUsage | undefined> {
+async function measured(
+  result: { usage: PromiseLike<unknown> },
+  userId?: string,
+): Promise<TurnUsage | undefined> {
   try {
     const raw = (await result.usage) as
       | { inputTokens?: number; outputTokens?: number }
@@ -253,11 +256,16 @@ async function measured(result: { usage: PromiseLike<unknown> }): Promise<TurnUs
     const input = raw?.inputTokens;
     const output = raw?.outputTokens;
     if (typeof input !== "number" || typeof output !== "number") return undefined;
+    if (userId) {
+      const { meterTurn } = await import("./auraMeter.server");
+      void meterTurn(userId, AGENT_MODEL, input, output, "aura.turn").catch(() => undefined);
+    }
     return turnCost(AGENT_MODEL, input, output);
   } catch {
     return undefined;
   }
 }
+
 
 /**
  * Her briefing — who she is, what she can do and everything you have approved —
