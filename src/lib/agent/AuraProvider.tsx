@@ -267,7 +267,12 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         ]);
         setStatus("idle");
       });
-  }, [greet, hydrated, messages.length, open, speakReplies]);
+  }, [greet, hydrated, messages.length, open, speak, speakReplies]);
+
+  // Hydrate the wake-word preference alongside the others.
+  useEffect(() => {
+    setWakeEnabledState(readStored<boolean>(WAKE_KEY, false));
+  }, []);
 
   const value = useMemo<AuraValue>(
     () => ({
@@ -281,6 +286,10 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       liveSteps,
       speakReplies,
       setSpeakReplies,
+      speaking,
+      stopSpeaking,
+      wakeEnabled,
+      setWakeEnabled,
       send,
       clear,
     }),
@@ -292,10 +301,14 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       send,
       setOpen,
       setSpeakReplies,
+      setWakeEnabled,
       setWidth,
       speakReplies,
+      speaking,
       status,
+      stopSpeaking,
       toggle,
+      wakeEnabled,
       width,
     ],
   );
