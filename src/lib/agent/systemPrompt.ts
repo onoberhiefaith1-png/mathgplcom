@@ -13,7 +13,10 @@ export type AgentSnapshotHint = {
   noteCount?: number;
 };
 
-export function buildAgentSystemPrompt(hint?: AgentSnapshotHint): string {
+export function buildAgentSystemPrompt(
+  hint?: AgentSnapshotHint,
+  context?: AuraPlatformContext | null,
+): string {
   const who = hint?.displayName ? `The teacher you are working with is ${hint.displayName}.` : "";
   const where = hint?.workspaceName ? `Their active workspace is "${hint.workspaceName}".` : "";
 
