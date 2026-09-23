@@ -52,6 +52,7 @@ import { AURA_FILE_TYPES, uploadAuraAttachment } from "@/lib/agent/attachments";
 
 import { AuraStepCard } from "./AuraStepCard";
 import AuraWaveform from "./AuraWaveform";
+import { CallTranscript } from "./CallTranscript";
 
 
 const SUGGESTIONS = [
@@ -371,10 +372,19 @@ export default function AuraCockpit() {
               className="w-24 shrink-0"
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-primary">{voice.statusLabel}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {listening.transcript || "Talk to me — no need to press anything."}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="truncate text-xs font-medium text-primary">{voice.statusLabel}</p>
+                {voice.timing ? (
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                    {voice.timing}
+                  </span>
+                ) : null}
+              </div>
+              <CallTranscript
+                text={listening.transcript}
+                onEdit={listening.editTranscript}
+                placeholder="Talk to me — no need to press anything."
+              />
             </div>
             <Button
               type="button"

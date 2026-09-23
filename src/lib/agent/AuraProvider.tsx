@@ -34,6 +34,7 @@ import {
 import { useListening, type ListeningEngine } from "@/components/agent/useListening";
 
 import { agentChat, agentGreeting } from "./brain.functions";
+import { CallMetrics, describeCallTiming } from "./callMetrics";
 import { streamCallTurn } from "./callStream";
 import { SpeechQueue, takeClauses } from "./speechQueue";
 import { contextFromPath, mergeContext, readAuraScreenContext } from "./context";
@@ -120,6 +121,8 @@ type AuraValue = {
     start: () => void;
     /** Close it: microphone released, any speech stopped. */
     end: () => void;
+    /** Measured delays for the last turn, for teachers checking the speed. */
+    timing: string | null;
   };
 
   /** Today's allowance: plain words when it is running low, else null. */
@@ -210,6 +213,9 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const callStream = useRef<AbortController | null>(null);
   const callStartedAt = useRef(0);
   const lastVoiceAt = useRef(0);
+  /** Honest measurements of how long each spoken turn actually took. */
+  const metrics = useRef(new CallMetrics());
+  const [timing, setTiming] = useState<string | null>(null);
 
   const stopSpeaking = useCallback(() => {
     voice.current?.abort();
@@ -483,6 +489,9 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       callWriting.current = true;
       callMuted.current = false;
       let buffer = "";
+      /** True until her first clause has gone to her voice in this reply. */
+      let opening = true;
+      speech?.beginReply();
 
       const say = (clause: string) => {
         if (callMuted.current || !speech) return;
@@ -496,9 +505,14 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         context: mergeContext(contextFromPath(pathnameRef.current), readAuraScreenContext()),
         signal: controller.signal,
         onDelta: (delta) => {
+          metrics.current.mark("firstToken", performance.now());
+          setTiming(describeCallTiming(metrics.current.summary()));
           buffer += delta;
-          const { clauses, rest } = takeClauses(buffer);
+          // Her first clause is cut short so her voice starts almost at once;
+          // everything after it is cut at ordinary speaking lengths.
+          const { clauses, rest } = takeClauses(buffer, { first: opening });
           buffer = rest;
+          if (clauses.length) opening = false;
           for (const clause of clauses) say(clause);
         },
       })
@@ -751,6 +765,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           // Between clauses of a reply still being written she is not finished.
           if (callWriting.current) return;
           setSpeaking(false);
+          metrics.current.mark("speechEnd", performance.now());
+          setTiming(describeCallTiming(metrics.current.summary()));
           if (session.current?.state === "speaking") {
             session.current.replyEnded();
             setVoiceState(session.current.state);
@@ -759,9 +775,17 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         onFailed: (said) => {
           if (!callMuted.current) speakWithBrowserVoice(said);
         },
+        onFirstAudio: () => {
+          metrics.current.mark("firstAudio", performance.now());
+          setTiming(describeCallTiming(metrics.current.summary()));
+        },
       });
-      void speech.unlock();
+      // The device and the speech connection are opened now, while the call is
+      // starting, so her very first clause does not pay for either.
+      void speech.warm();
       queue.current = speech;
+      metrics.current.reset();
+      setTiming(null);
       callStartedAt.current = performance.now();
       lastVoiceAt.current = performance.now();
       const machine = new VoiceSession();
@@ -807,6 +831,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           heardRef.current = "";
         }
         if (effect.kind === "turn") {
+          // The clock for this turn starts the moment their words were closed off.
+          metrics.current.mark("turnClosed", now);
           listening.clearTranscript();
           heardRef.current = "";
           if (voiceLive.current) sendCallRef.current(effect.text);
@@ -920,6 +946,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         statusLabel: describeVoiceState(voiceState),
         start: startVoice,
         end: endVoice,
+        timing,
       },
       teaching,
       stopTeaching,

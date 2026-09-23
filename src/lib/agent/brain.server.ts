@@ -85,16 +85,66 @@ const RESPONSES_OPTIONS = {
   },
 } as const;
 
+/**
+ * On a call, her private reasoning notes are not requested at all: nothing is
+ * summarised and nothing is returned encrypted, so the first written word comes
+ * sooner. She still reasons — Astra requires it — at the lightest setting.
+ */
+const CALL_RESPONSES_OPTIONS = {
+  openai: {
+    forceReasoning: true,
+    reasoningEffort: "low",
+    store: false,
+  },
+} as const;
+
+/** The everyday abilities a spoken turn almost always needs. */
+const CALL_TOOL_IDS = new Set([
+  "workspace_snapshot",
+  "list_classes",
+  "list_class_students",
+  "list_lesson_notes",
+  "read_lesson_note",
+  "list_games",
+  "agent_capabilities",
+  "explain_workflow",
+  "recall_knowledge",
+  "teach_lesson",
+  "navigate",
+]);
+
+/** Words that mean this spoken turn is going to change something real. */
+const ACTION_WORDS =
+  /\b(creat|make|add|writ|build|set up|setup|assign|attach|highlight|generate|publish|test|link|remove|delete|archive|move|edit|insert|repair|reorder|place|configure|approve|propose|open|upload|read (the )?(file|document|attachment))/i;
+
+/**
+ * A plain spoken exchange gets the small ability set, which is markedly faster.
+ * Anything that sounds like real work gets every ability, unchanged. Permissions
+ * and confirmation checks are untouched either way.
+ */
+function callNeedsFullAbilities(messages: ModelMessage[]): boolean {
+  const last = [...messages].reverse().find((message) => message.role === "user");
+  const text =
+    typeof last?.content === "string"
+      ? last.content
+      : Array.isArray(last?.content)
+        ? last.content
+            .map((part) => (part.type === "text" ? part.text : ""))
+            .join(" ")
+        : "";
+  return ACTION_WORDS.test(text);
+}
+
 function apiKey(): string {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("The assistant is not configured yet.");
   return key;
 }
 
-function buildTools(ctx: AgentToolContext, steps: AgentStep[]) {
+function buildTools(ctx: AgentToolContext, steps: AgentStep[], only?: Set<string>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools: Record<string, any> = {};
-  for (const spec of AGENT_TOOL_MANIFEST) {
+  for (const spec of AGENT_TOOL_MANIFEST.filter((entry) => !only || only.has(entry.id))) {
     tools[spec.id] = tool({
       description: spec.description,
       inputSchema: toolSchema(
@@ -166,6 +216,29 @@ function turnFrom(reply: string, steps: AgentStep[]): AgentTurn {
   };
 }
 
+/**
+ * Her briefing — who she is, what she can do and everything you have approved —
+ * is identical for every turn of one call, so it is built once and reused for
+ * the life of that call instead of being rebuilt and re-fetched each time.
+ */
+const briefings = new Map<string, { system: string; at: number }>();
+const BRIEFING_LIFE_MS = 15 * 60 * 1000;
+
+async function callBriefing(
+  ctx: AgentToolContext,
+  hint: AgentSnapshotHint | undefined,
+  context: AuraPlatformContext | null | undefined,
+): Promise<string> {
+  const key = `${ctx.userId}|${context?.path ?? ""}`;
+  const cached = briefings.get(key);
+  const now = Date.now();
+  if (cached && now - cached.at < BRIEFING_LIFE_MS) return cached.system;
+  const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
+  const system = `${buildAgentSystemPrompt(hint, context, learned)}${CALL_INSTRUCTION}`;
+  briefings.set(key, { system, at: now });
+  return system;
+}
+
 async function startTurn(
   ctx: AgentToolContext,
   messages: ModelMessage[],
@@ -175,12 +248,24 @@ async function startTurn(
 ) {
   const steps: AgentStep[] = [];
   const lovable = provider(apiKey());
-  const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
-  const system = `${buildAgentSystemPrompt(hint, context, learned)}${options.call ? CALL_INSTRUCTION : ""}`;
 
+  if (options.call) {
+    const full = callNeedsFullAbilities(messages);
+    const result = streamText({
+      model: lovable.responses(AGENT_MODEL),
+      system: await callBriefing(ctx, hint, context),
+      messages,
+      tools: buildTools(ctx, steps, full ? undefined : CALL_TOOL_IDS),
+      stopWhen: stepCountIs(full ? 50 : 6),
+      providerOptions: CALL_RESPONSES_OPTIONS as never,
+    });
+    return { result, steps };
+  }
+
+  const learned = await learnedKnowledgePrompt(ctx).catch(() => null);
   const result = streamText({
     model: lovable.responses(AGENT_MODEL),
-    system,
+    system: buildAgentSystemPrompt(hint, context, learned),
     messages,
     tools: buildTools(ctx, steps),
     stopWhen: stepCountIs(50),

@@ -37,6 +37,12 @@ export type VoiceTuning = {
   finalWaitMs: number;
   /** No single turn may run longer than this. */
   maxTurnMs: number;
+  /** The shortest pause she will ever wait, once she knows their rhythm. */
+  minEndOfTurnMs: number;
+  /** How much the pause shortens after each turn that closed cleanly. */
+  rhythmStepMs: number;
+  /** A last look before answering: speech inside this window cancels the turn. */
+  graceMs: number;
 };
 
 export const VOICE_TUNING: VoiceTuning = {
@@ -51,7 +57,37 @@ export const VOICE_TUNING: VoiceTuning = {
   bargeOverSelf: 1.45,
   finalWaitMs: 1800,
   maxTurnMs: 30000,
+  minEndOfTurnMs: 450,
+  rhythmStepMs: 120,
+  graceMs: 140,
 };
+
+/** Little noises that answer her rather than ask her anything. */
+const ACKNOWLEDGEMENTS = new Set([
+  "ok",
+  "okay",
+  "mm",
+  "mmm",
+  "mhm",
+  "mm-hm",
+  "uh huh",
+  "uh-huh",
+  "yeah",
+  "yep",
+  "yes",
+  "right",
+  "sure",
+  "thanks",
+  "thank you",
+  "got it",
+  "i see",
+]);
+
+/** True for a short noise of agreement said straight after she finished. */
+export function isAcknowledgement(heard: string): boolean {
+  const text = heard.toLowerCase().replace(/[.,!?…]/g, "").replace(/\s+/g, " ").trim();
+  return ACKNOWLEDGEMENTS.has(text);
+}
 
 export type VoiceSample = {
   now: number;
@@ -88,9 +124,16 @@ export class VoiceSession {
   private lastNow = 0;
   /** The room's own background noise, learned continuously. */
   private noiseFloor = 0.015;
+  /** The pause she waits for, shortened as she learns their rhythm. */
+  private pauseMs: number;
+  /** A turn ready to close, held back for one last look. */
+  private pendingSince: number | null = null;
+  /** True while the last thing that happened was her finishing a reply. */
+  private justSpoke = false;
 
   constructor(tuning: VoiceTuning = VOICE_TUNING) {
     this.tuning = tuning;
+    this.pauseMs = tuning.endOfTurnMs;
   }
 
   /** Open the session: she is attentive from this moment. */
@@ -98,12 +141,15 @@ export class VoiceSession {
     this.state = "listening";
     this.lastNow = now;
     this.noiseFloor = 0.015;
+    this.pauseMs = this.tuning.endOfTurnMs;
+    this.justSpoke = false;
     this.resetTurn();
   }
 
   /** Close the session entirely. */
   end(): void {
     this.state = "idle";
+    this.justSpoke = false;
     this.resetTurn();
   }
 
@@ -118,7 +164,13 @@ export class VoiceSession {
   replyEnded(): void {
     if (this.state === "idle") return;
     this.state = "waiting";
+    this.justSpoke = true;
     this.resetTurn();
+  }
+
+  /** The pause she is currently waiting for — for diagnostics only. */
+  get endOfTurnPause(): number {
+    return this.pauseMs;
   }
 
   /** True while she is listening for a turn rather than speaking. */
@@ -146,6 +198,7 @@ export class VoiceSession {
     this.spokenMs = 0;
     this.quietSince = null;
     this.overSince = null;
+    this.pendingSince = null;
   }
 
   /** One microphone reading. Returns whatever must happen because of it. */
@@ -187,6 +240,8 @@ export class VoiceSession {
       this.speechStart ??= now;
       this.spokenMs += elapsed;
       this.quietSince = null;
+      // Speaking again inside the grace window simply continues the same turn.
+      this.pendingSince = null;
       if (this.state !== "listening") this.state = "listening";
       return this.overrunTurn(now, heard);
     }
@@ -195,10 +250,17 @@ export class VoiceSession {
       if (this.speechStart === null) return [];
       this.quietSince ??= now;
       const quietFor = now - this.quietSince;
-      const ready = quietFor >= this.tuning.endOfTurnMs && this.spokenMs >= this.tuning.minSpeechMs;
+      // A noisy room needs the full pause; a quiet, settled one can be quicker.
+      const pause = this.noiseFloor > 0.08 ? this.tuning.endOfTurnMs : this.pauseMs;
+      const ready = quietFor >= pause && this.spokenMs >= this.tuning.minSpeechMs;
       // Never close on the timer alone while the last words are still coming.
       const stillListening = (sample.finalPending ?? false) && quietFor < this.tuning.finalWaitMs;
-      if (ready && !stillListening && heard.length > 0) return this.closeTurn(heard);
+      if (ready && !stillListening && heard.length > 0) {
+        // One last look before she answers, so she never steps on a last syllable.
+        this.pendingSince ??= now;
+        if (now - this.pendingSince >= this.tuning.graceMs) return this.closeTurn(heard);
+        return [];
+      }
       return this.overrunTurn(now, heard);
     }
 
@@ -214,6 +276,15 @@ export class VoiceSession {
   }
 
   private closeTurn(heard: string): VoiceEffect[] {
+    // A short "mm-hm" straight after she finished is agreement, not a question.
+    if (this.justSpoke && isAcknowledgement(heard)) {
+      this.state = "waiting";
+      this.resetTurn();
+      return [];
+    }
+    // She learns their rhythm: each clean turn shortens the pause a little.
+    this.pauseMs = Math.max(this.tuning.minEndOfTurnMs, this.pauseMs - this.tuning.rhythmStepMs);
+    this.justSpoke = false;
     this.state = "thinking";
     this.resetTurn();
     return [{ kind: "turn", text: heard }];

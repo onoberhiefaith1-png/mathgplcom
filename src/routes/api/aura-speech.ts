@@ -6,6 +6,8 @@ import { requestSpeech } from "@/lib/agent/speech.server";
 export const Route = createFileRoute("/api/aura-speech")({
   server: {
     handlers: {
+      // Warm-up from the call: opens the connection before her first clause.
+      HEAD: async () => new Response(null, { status: 204 }),
       POST: async ({ request }) => {
         const body = (await request.json().catch(() => ({}))) as { text?: string };
         const text = (body.text ?? "").toString().slice(0, 1200).trim();
