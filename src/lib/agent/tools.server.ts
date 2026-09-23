@@ -10,6 +10,8 @@ import { AGENT_TOOL_MANIFEST, findAgentTool, type AgentJson, type AgentToolResul
 import { buildTeachingScript } from "./teachingScript";
 import { findKnowledge, KNOWLEDGE_IDS } from "./knowledge";
 import { handsExecutors } from "./hands.server";
+import { attachmentExecutors } from "./attachments.server";
+
 
 
 type Db = SupabaseClient<never, "public", never>;
