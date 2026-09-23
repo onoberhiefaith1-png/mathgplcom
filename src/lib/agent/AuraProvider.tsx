@@ -1123,6 +1123,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
       teaching,
       stopTeaching,
       usageNote: describeUsage(usage),
+      spendNote: describeSpend(spend),
       mission: {
         mission: missionText,
         active: missionText !== null,
