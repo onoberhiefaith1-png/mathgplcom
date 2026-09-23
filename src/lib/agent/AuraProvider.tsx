@@ -152,6 +152,14 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const chat = useServerFn(agentChat);
   const greet = useServerFn(agentGreeting);
 
+  // Aura sees the page the teacher is on, and whatever that page reports about
+  // itself, so "this class" and "this lesson" never need explaining.
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpenState] = useState(false);
   const [width, setWidthState] = useState(AURA_DEFAULT_WIDTH);
