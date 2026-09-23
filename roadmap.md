@@ -196,10 +196,10 @@
 
 # Lesson note Question → Solution sessions
 
-- [ ] Pairing standard shared with every generator.
-- [ ] Pairing check + restructure logic (tested).
-- [ ] "Restructure lesson" action with restore point and summary.
+- [x] Pairing standard shared with every generator.
+- [x] Pairing check + restructure logic (tested).
+- [x] "Restructure lesson" action with restore point and summary.
 
 # Vertical writing margin (Game surface)
 
-- [ ] Make the margin a clearly visible vertical line with a top handle; all text starts at it, wraps within it, never sits behind it (also with empty surface).
+- [x] Make the margin a clearly visible vertical line with a top handle; all text starts at it, wraps within it, never sits behind it (also with empty surface).
