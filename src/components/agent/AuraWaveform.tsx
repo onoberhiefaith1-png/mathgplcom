@@ -36,7 +36,9 @@ export default function AuraWaveform({
         if (!bar) return;
         const weight = WEIGHTS[index] ?? 0.5;
         const jitter = 0.72 + Math.random() * 0.28;
-        const size = Math.max(0.16, Math.min(1, now * weight * jitter * 1.5));
+        // A visible resting pulse, so the wave reads as alive even in a quiet room.
+        const idle = 0.26 + Math.random() * 0.1 * weight;
+        const size = Math.max(idle, Math.min(1, now * weight * jitter * 1.5));
         bar.style.transform = `scaleY(${size})`;
       });
       frame.current = requestAnimationFrame(tick);
