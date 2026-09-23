@@ -56,6 +56,10 @@ type AuraValue = {
   /** Listening for her name anywhere in the platform. */
   wakeEnabled: boolean;
   setWakeEnabled: (on: boolean) => void;
+  /** The one shared microphone: wake word and recorder both use it. */
+  listening: ListeningEngine;
+  /** Turn the recorder on or off; while on, the wave moves with the voice. */
+  toggleRecorder: () => void;
   send: (text: string, options?: { spoken?: boolean }) => void;
   clear: () => void;
 };
