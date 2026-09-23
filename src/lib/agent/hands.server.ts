@@ -669,6 +669,7 @@ export async function learnedKnowledgePrompt(ctx: Ctx): Promise<string | null> {
         items && items.length ? `  ${label}: ${items.join(" | ")}` : "";
       return [
         `## ${r.feature}${r.scope ? ` — ${r.scope}` : ""}`,
+        r.page ? `  Page: ${r.page}${r.control ? ` · control: ${r.control}` : ""}` : "",
         list("Who", r.roles),
         list("Needs first", r.preconditions),
         list("Steps", r.steps),
