@@ -63,6 +63,8 @@ export default function AuraCockpit() {
     micPermission,
     requestMic,
     toggleRecorder,
+    teaching,
+    stopTeaching,
 
     send,
     clear,
@@ -252,6 +254,30 @@ export default function AuraCockpit() {
       </Conversation>
 
       <div className="border-t border-border p-3">
+        {teaching ? (
+          <div className="mb-2 rounded-lg border border-primary/50 bg-primary/5 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-xs font-medium text-primary">
+                Teaching {teaching.title}
+              </span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                Step {teaching.index + 1} of {teaching.total}
+                {teaching.line ? ` · line ${teaching.line}` : ""}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-auto h-7 shrink-0 px-2 text-xs"
+                onClick={stopTeaching}
+              >
+                Stop
+              </Button>
+            </div>
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{teaching.say}</p>
+          </div>
+        ) : null}
+
         {listening.errorMessage ? (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs">
             <span className="min-w-0 flex-1">{listening.errorMessage}</span>
