@@ -22,11 +22,15 @@ import {
 } from "@/components/agent/streamSpeech";
 import {
   hasBeenAsked,
+  micStatusLabel,
+  micStatusTone,
   readMicPermission,
-  requestMicAccess,
+  requestMicrophoneAccess,
   watchMicPermission,
   type MicPermission,
+  type MicTone,
 } from "@/components/agent/micPermission";
+
 import { useListening, type ListeningEngine } from "@/components/agent/useListening";
 
 import { agentChat, agentGreeting } from "./brain.functions";
