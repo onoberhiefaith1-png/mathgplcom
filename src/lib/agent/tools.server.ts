@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { AGENT_TOOL_MANIFEST, findAgentTool, type AgentJson, type AgentToolResult } from "./toolTypes";
 import { buildTeachingScript } from "./teachingScript";
+import { findKnowledge, KNOWLEDGE_IDS } from "./knowledge";
 
 type Db = SupabaseClient<never, "public", never>;
 // The agent bridge writes through loosely typed payloads; generated types stay
