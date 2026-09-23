@@ -105,6 +105,15 @@ export function useListening({ onWake, paused }: ListeningOptions) {
   const audio = useRef<AudioContext | null>(null);
   const analyser = useRef<AnalyserNode | null>(null);
   const meter = useRef<number | null>(null);
+  /** The microphone she was granted, kept so it is never asked for twice. */
+  const held = useRef<MediaStream | null>(null);
+  const liveHeld = useCallback(() => {
+    const kept = held.current;
+    if (kept && kept.getAudioTracks().some((track) => track.readyState === "live")) return kept;
+    held.current = null;
+    return null;
+  }, []);
+
 
   const wake = useRef(onWake);
   const pausedRef = useRef(paused);
