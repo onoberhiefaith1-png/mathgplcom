@@ -1,0 +1,330 @@
+// One microphone for Aura. The wake word and the recorder button both read from
+// this single engine, because a browser only ever allows one listener at a time
+// — two competing listeners is exactly why nothing was being heard.
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+export type ListeningMode = "off" | "wake" | "capture";
+
+export type ListeningError =
+  | "unsupported"
+  | "blocked"
+  | "no-microphone"
+  | "unavailable"
+  | "failed";
+
+type RecognitionResultLike = { 0: { transcript: string }; isFinal: boolean };
+type RecognitionEventLike = { resultIndex: number; results: ArrayLike<RecognitionResultLike> };
+type RecognitionErrorLike = { error?: string };
+type RecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+  onresult: ((event: RecognitionEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: RecognitionErrorLike) => void) | null;
+};
+
+function recognitionConstructor(): (new () => RecognitionLike) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: new () => RecognitionLike;
+    webkitSpeechRecognition?: new () => RecognitionLike;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
+/** Common mishearings of the name, so she still answers in a noisy classroom. */
+const WAKE_WORDS = ["aura", "ora", "aurra", "aurah", "hora", "arrow ah"];
+
+export function extractWakeCommand(heard: string): { woke: boolean; command: string } {
+  const text = heard.toLowerCase().replace(/[.,!?]/g, " ").replace(/\s+/g, " ").trim();
+  for (const word of WAKE_WORDS) {
+    const at = text.indexOf(word);
+    if (at === -1) continue;
+    const before = at === 0 ? "" : text[at - 1];
+    const after = text[at + word.length] ?? "";
+    const standalone = (before === "" || before === " ") && (after === "" || after === " ");
+    if (!standalone) continue;
+    return { woke: true, command: heard.slice(at + word.length).replace(/^[\s,.:;]+/, "").trim() };
+  }
+  return { woke: false, command: "" };
+}
+
+export function describeListeningError(error: ListeningError): string {
+  if (error === "unsupported") return "This browser can't listen. Type to me instead.";
+  if (error === "blocked") return "I need permission to use your microphone.";
+  if (error === "no-microphone") return "I couldn't find a microphone to listen with.";
+  if (error === "unavailable") return "Listening isn't available right now.";
+  return "I lost the microphone. Tap to try again.";
+}
+
+export function mapRecognitionError(code: string | undefined): ListeningError | null {
+  if (code === "not-allowed" || code === "permission-denied") return "blocked";
+  if (code === "audio-capture") return "no-microphone";
+  if (code === "service-not-allowed" || code === "language-not-supported") return "unavailable";
+  // A silence timeout or a deliberate stop is normal, not a failure.
+  if (code === "no-speech" || code === "aborted") return null;
+  return "failed";
+}
+
+type ListeningOptions = {
+  /** Called with the words spoken after her name. Empty string means name only. */
+  onWake: (command: string) => void;
+  /** True while Aura speaks or works, so her own voice can never wake her. */
+  paused: boolean;
+};
+
+const MAX_CONSECUTIVE_FAILURES = 4;
+
+export function useListening({ onWake, paused }: ListeningOptions) {
+  const [supported, setSupported] = useState(false);
+  const [mode, setMode] = useState<ListeningMode>("off");
+  const [level, setLevel] = useState(0);
+  const [transcript, setTranscript] = useState("");
+  const [error, setError] = useState<ListeningError | null>(null);
+
+  const recognition = useRef<RecognitionLike | null>(null);
+  const wanted = useRef<ListeningMode>("off");
+  const failures = useRef(0);
+  const restart = useRef<number | null>(null);
+  const finalText = useRef("");
+
+  const stream = useRef<MediaStream | null>(null);
+  const audio = useRef<AudioContext | null>(null);
+  const analyser = useRef<AnalyserNode | null>(null);
+  const meter = useRef<number | null>(null);
+
+  const wake = useRef(onWake);
+  const pausedRef = useRef(paused);
+  useEffect(() => {
+    wake.current = onWake;
+  }, [onWake]);
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
+  useEffect(() => {
+    setSupported(recognitionConstructor() !== null);
+  }, []);
+
+  const stopMeter = useCallback(() => {
+    if (meter.current !== null) cancelAnimationFrame(meter.current);
+    meter.current = null;
+    analyser.current = null;
+    stream.current?.getTracks().forEach((track) => track.stop());
+    stream.current = null;
+    void audio.current?.close().catch(() => undefined);
+    audio.current = null;
+    setLevel(0);
+  }, []);
+
+  // The wave is driven by the real voice level, so it moves with the teacher.
+  const startMeter = useCallback(async () => {
+    if (analyser.current || typeof navigator === "undefined" || !navigator.mediaDevices) return;
+    try {
+      const media = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.current = media;
+      const context = new AudioContext();
+      audio.current = context;
+      if (context.state === "suspended") await context.resume();
+      const node = context.createAnalyser();
+      node.fftSize = 512;
+      context.createMediaStreamSource(media).connect(node);
+      analyser.current = node;
+
+      const samples = new Float32Array(node.fftSize);
+      const tick = () => {
+        const active = analyser.current;
+        if (!active) return;
+        active.getFloatTimeDomainData(samples);
+        let sum = 0;
+        for (let index = 0; index < samples.length; index += 1) {
+          const sample = samples[index] ?? 0;
+          sum += sample * sample;
+        }
+        const rms = Math.sqrt(sum / samples.length);
+        setLevel((previous) => {
+          const next = Math.min(1, rms * 6);
+          // Rise quickly, fall smoothly, the way a voice meter reads.
+          return next > previous ? next : previous * 0.82 + next * 0.18;
+        });
+        meter.current = requestAnimationFrame(tick);
+      };
+      meter.current = requestAnimationFrame(tick);
+    } catch (cause) {
+      const name = (cause as { name?: string })?.name;
+      setError(name === "NotFoundError" ? "no-microphone" : "blocked");
+    }
+  }, []);
+
+  const begin = useCallback(() => {
+    const Ctor = recognitionConstructor();
+    if (!Ctor) {
+      setError("unsupported");
+      return;
+    }
+    if (wanted.current === "off") return;
+    try {
+      const instance = new Ctor();
+      instance.lang = document.documentElement.lang || "en-US";
+      instance.continuous = true;
+      instance.interimResults = true;
+
+      instance.onresult = (event) => {
+        let interim = "";
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const result = event.results[index];
+          if (!result) continue;
+          if (result.isFinal) finalText.current = `${finalText.current} ${result[0].transcript}`.trim();
+          else interim += result[0].transcript;
+        }
+        const heard = `${finalText.current} ${interim}`.trim();
+        if (!heard) return;
+        failures.current = 0;
+        // Her own voice must never become an instruction.
+        if (pausedRef.current) return;
+
+        if (wanted.current === "wake") {
+          const { woke, command } = extractWakeCommand(heard);
+          if (!woke) {
+            setTranscript(heard.slice(-90));
+            return;
+          }
+          finalText.current = command;
+          setTranscript(command);
+          wanted.current = "capture";
+          setMode("capture");
+          void startMeter();
+          wake.current(command);
+          return;
+        }
+        setTranscript(heard);
+      };
+
+      instance.onerror = (event) => {
+        const mapped = mapRecognitionError(event?.error);
+        if (!mapped) return;
+        setError(mapped);
+        if (mapped === "blocked" || mapped === "no-microphone" || mapped === "unavailable") {
+          wanted.current = "off";
+          setMode("off");
+          stopMeter();
+        }
+      };
+
+      // Browsers end long sessions on their own; pick it straight back up.
+      instance.onend = () => {
+        if (wanted.current === "off") {
+          setMode("off");
+          return;
+        }
+        failures.current += 1;
+        if (failures.current > MAX_CONSECUTIVE_FAILURES) {
+          wanted.current = "off";
+          setMode("off");
+          stopMeter();
+          setError((previous) => previous ?? "failed");
+          return;
+        }
+        restart.current = window.setTimeout(begin, 350 * failures.current);
+      };
+
+      recognition.current = instance;
+      instance.start();
+      setMode(wanted.current);
+    } catch {
+      setError("failed");
+      setMode("off");
+    }
+  }, [startMeter, stopMeter]);
+
+  const start = useCallback(
+    (next: Exclude<ListeningMode, "off">) => {
+      setError(null);
+      finalText.current = "";
+      setTranscript("");
+      failures.current = 0;
+      const switching = wanted.current !== "off" && wanted.current !== next;
+      wanted.current = next;
+      if (next === "capture") void startMeter();
+      else stopMeter();
+
+      if (restart.current !== null) window.clearTimeout(restart.current);
+      restart.current = null;
+
+      if (switching || recognition.current) {
+        // One instance only — restart the existing session in the new mode.
+        try {
+          recognition.current?.abort?.();
+          recognition.current?.stop();
+        } catch {
+          /* already stopped */
+        }
+        recognition.current = null;
+        restart.current = window.setTimeout(begin, 120);
+        setMode(next);
+        return;
+      }
+      begin();
+    },
+    [begin, startMeter, stopMeter],
+  );
+
+  const stop = useCallback(() => {
+    wanted.current = "off";
+    if (restart.current !== null) window.clearTimeout(restart.current);
+    restart.current = null;
+    try {
+      recognition.current?.abort?.();
+      recognition.current?.stop();
+    } catch {
+      /* already stopped */
+    }
+    recognition.current = null;
+    finalText.current = "";
+    setTranscript("");
+    setMode("off");
+    stopMeter();
+  }, [stopMeter]);
+
+  const clearTranscript = useCallback(() => {
+    finalText.current = "";
+    setTranscript("");
+  }, []);
+
+  const clearError = useCallback(() => setError(null), []);
+
+  useEffect(
+    () => () => {
+      wanted.current = "off";
+      if (restart.current !== null) window.clearTimeout(restart.current);
+      try {
+        recognition.current?.abort?.();
+        recognition.current?.stop();
+      } catch {
+        /* nothing to stop */
+      }
+      stopMeter();
+    },
+    [stopMeter],
+  );
+
+  return {
+    supported,
+    mode,
+    level,
+    transcript,
+    error,
+    errorMessage: error ? describeListeningError(error) : null,
+    start,
+    stop,
+    clearTranscript,
+    clearError,
+  };
+}
+
+export type ListeningEngine = ReturnType<typeof useListening>;
