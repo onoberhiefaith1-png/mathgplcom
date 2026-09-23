@@ -85,11 +85,18 @@ type ListeningOptions = {
   onWake: (command: string) => void;
   /** True while Aura speaks or works, so her own voice can never wake her. */
   paused: boolean;
+  /**
+   * Which ear to use. "transcribe" records slices of the held microphone and has
+   * them transcribed on the platform — the only ear that works reliably on a
+   * phone. "recognition" uses the browser's own listener.
+   */
+  prefer?: "transcribe" | "recognition";
 };
 
 const MAX_CONSECUTIVE_FAILURES = 4;
 
-export function useListening({ onWake, paused }: ListeningOptions) {
+export function useListening({ onWake, paused, prefer = "transcribe" }: ListeningOptions) {
+  const preferTranscribe = prefer === "transcribe";
   const [supported, setSupported] = useState(false);
   const [mode, setMode] = useState<ListeningMode>("off");
   const [level, setLevel] = useState(0);
