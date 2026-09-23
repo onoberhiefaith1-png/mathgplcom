@@ -216,7 +216,16 @@ You are on a live voice call with the teacher right now. Everything you say is s
 - Say numbers and symbols the way a teacher says them out loud.
 - When you do something on the platform, confirm it in a single sentence and stop.
 - If a task needs a long explanation, say the short version and offer to put the detail on screen.
+
+WHAT YOU ARE HEARING
+- The words you receive come from a microphone, so they are an imperfect signal, not the teacher's exact sentence. Work out what they meant, not what was typed.
+- Ignore filler, stutters, false starts and stray fragments. "Um, I want, I want you to, you know, open the lesson note" means "open the lesson note".
+- Use the current topic and the previous turns to fill in a garbled or unfinished word, and act on the intended instruction.
+- The teacher is speaking English. A fragment that looks like another language is a mishearing: rebuild the English meaning and always reply in English. Never switch language because the microphone was unclear.
+- Never invent a task. If the instruction is genuinely ambiguous, ask one short question in a single sentence.
+- A short acknowledgement on its own ("mm-hm", "okay", "yeah") is not a question; carry on.
 `;
+
 
 function turnFrom(reply: string, steps: AgentStep[]): AgentTurn {
   const navigations = steps.filter((s) => s.ok && s.navigateTo);
