@@ -52,6 +52,7 @@ import { AURA_FILE_TYPES, uploadAuraAttachment } from "@/lib/agent/attachments";
 
 import { AuraStepCard } from "./AuraStepCard";
 import AuraWaveform from "./AuraWaveform";
+import { CallTranscript } from "./CallTranscript";
 
 
 const SUGGESTIONS = [
