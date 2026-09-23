@@ -273,7 +273,7 @@ export function useListening({ onWake, paused }: ListeningOptions) {
       setError("failed");
       setMode("off");
     }
-  }, [startMeter, stopMeter]);
+  }, [liveHeld, startMeter, stopMeter]);
 
   const start = useCallback(
     (next: Exclude<ListeningMode, "off">, granted?: MediaStream | null) => {
