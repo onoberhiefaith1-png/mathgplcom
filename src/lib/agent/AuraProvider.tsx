@@ -214,7 +214,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     if (!hydrated || !open || greetedRef.current || messages.length > 0) return;
     greetedRef.current = true;
     setStatus("submitted");
-    void greet({ data: {} })
+    void greet({})
       .then(({ greeting }) => {
         setMessages([{ id: newId(), role: "assistant", content: greeting }]);
         setStatus("idle");
