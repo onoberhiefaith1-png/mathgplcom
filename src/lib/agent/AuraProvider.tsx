@@ -919,6 +919,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
           voice.current = null;
           stopBrowserVoice();
           setSpeaking(false);
+          settleSpeech();
+
           // The work she was doing for the turn they just replaced is dropped, so
           // a superseded answer can never arrive late and talk over the new one.
           callStream.current?.abort();
