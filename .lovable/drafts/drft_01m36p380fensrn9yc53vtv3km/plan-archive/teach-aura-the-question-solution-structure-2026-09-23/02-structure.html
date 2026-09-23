@@ -1,0 +1,51 @@
+<svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { fill: var(--fg-primary); font-size: 14px; font-weight: 480 }
+    .note { fill: var(--fg-secondary); font-size: 12px }
+    .tag { fill: var(--border-translucent); font-size: 12px }
+    .bx { fill: none; stroke: var(--fg-secondary); stroke-width: 1 }
+    .zn { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3 }
+    .w { stroke: var(--fg-secondary); stroke-width: 1; fill: none }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="var(--fg-secondary)"/>
+    </marker>
+  </defs>
+
+  <text class="tag" x="8" y="16">what Aura wrote (broken)</text>
+  <rect class="zn" x="8" y="24" width="270" height="150" rx="8"/>
+  <rect class="bx" x="24" y="44" width="238" height="30" rx="8"/>
+  <text class="lbl" x="36" y="63">Example (section)</text>
+  <rect class="bx" x="24" y="86" width="238" height="26" rx="8"/>
+  <text class="note" x="36" y="103">"Example 1: simplify … solved"</text>
+  <rect class="bx" x="24" y="120" width="238" height="26" rx="8"/>
+  <text class="note" x="36" y="137">"Example 2: … solved"</text>
+  <text class="note" x="24" y="164">loose lines · no question · no solution</text>
+
+  <text class="tag" x="362" y="16">the shape the platform needs</text>
+  <rect class="zn" x="362" y="24" width="270" height="222" rx="8"/>
+  <rect class="bx" x="378" y="44" width="238" height="30" rx="8"/>
+  <text class="lbl" x="390" y="63">Example (section)</text>
+  <rect x="378" y="84" width="238" height="150" rx="8" fill="var(--bg-muted)"/>
+  <rect class="bx" x="378" y="84" width="238" height="150" rx="8"/>
+  <text class="tag" x="390" y="102">session (the unit the board steps)</text>
+  <rect class="bx" x="392" y="112" width="210" height="26" rx="8"/>
+  <text class="lbl" x="402" y="129">Question</text>
+  <rect x="392" y="148" width="210" height="72" rx="8" fill="var(--bg-accent-translucent)"/>
+  <text x="402" y="166" style="font-size:14px;font-weight:480;fill:var(--fg-accent)">Solution</text>
+  <text class="note" x="402" y="184">one micro-step per line</text>
+  <text class="note" x="402" y="202">↳ highlighted → Floating Numbers</text>
+
+  <line class="w" x1="286" y1="100" x2="354" y2="100" marker-end="url(#a)"/>
+
+  <circle cx="20" cy="286" r="9" fill="var(--bg-accent-translucent)"/>
+  <text x="20" y="290" text-anchor="middle" style="font-size:12px;fill:var(--fg-accent)">1</text>
+  <text class="note" x="38" y="290">Smartboard walks one session at a time — a loose line has no session, so Next cannot reach it.</text>
+  <circle cx="20" cy="316" r="9" fill="var(--bg-accent-translucent)"/>
+  <text x="20" y="320" text-anchor="middle" style="font-size:12px;fill:var(--fg-accent)">2</text>
+  <text class="note" x="38" y="320">Floating Numbers are cut out of the solution lines of that one question — nothing else.</text>
+  <circle cx="20" cy="346" r="9" fill="var(--bg-accent-translucent)"/>
+  <text x="20" y="350" text-anchor="middle" style="font-size:12px;fill:var(--fg-accent)">3</text>
+  <text class="note" x="38" y="350">Assigning hands over a session: question, solution and its chips travel together.</text>
+</svg>

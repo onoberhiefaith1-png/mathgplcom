@@ -15,7 +15,7 @@ import { learnedKnowledgePrompt } from "./hands.server";
 import type { AuraPlatformContext } from "./context";
 import { parseTeachingScript, type TeachingScript } from "./teachingScript";
 
-const AGENT_MODEL = "openai/gpt-6-astra";
+export const AGENT_MODEL = "openai/gpt-6-astra";
 
 export type AgentStep = {
   toolId: string;
@@ -67,7 +67,7 @@ function toolSchema(params: AgentToolParam[]) {
   } as never);
 }
 
-function provider(apiKey: string) {
+export function provider(apiKey: string) {
   return createOpenAI({
     baseURL: "https://ai.gateway.lovable.dev/v1",
     apiKey,
@@ -75,7 +75,7 @@ function provider(apiKey: string) {
   });
 }
 
-const RESPONSES_OPTIONS = {
+export const RESPONSES_OPTIONS = {
   openai: {
     forceReasoning: true,
     reasoningEffort: "low",
@@ -135,15 +135,27 @@ function callNeedsFullAbilities(messages: ModelMessage[]): boolean {
   return ACTION_WORDS.test(text);
 }
 
-function apiKey(): string {
+export function apiKey(): string {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("The assistant is not configured yet.");
   return key;
 }
 
-function buildTools(ctx: AgentToolContext, steps: AgentStep[], only?: Set<string>) {
+export type ToolGate = (toolId: string, args: Record<string, unknown>) => Promise<string | null> | string | null;
+
+export function buildTools(
+  ctx: AgentToolContext,
+  steps: AgentStep[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tools: Record<string, any> = {};
+  options?: { only?: string[] | Set<string>; gate?: ToolGate; extra?: Record<string, any> },
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tools: Record<string, any> = { ...(options?.extra ?? {}) };
+  const only = options?.only
+    ? options.only instanceof Set
+      ? options.only
+      : new Set(options.only)
+    : null;
   for (const spec of AGENT_TOOL_MANIFEST.filter((entry) => !only || only.has(entry.id))) {
     tools[spec.id] = tool({
       description: spec.description,
@@ -255,7 +267,7 @@ async function startTurn(
       model: lovable.responses(AGENT_MODEL),
       system: await callBriefing(ctx, hint, context),
       messages,
-      tools: buildTools(ctx, steps, full ? undefined : CALL_TOOL_IDS),
+      tools: buildTools(ctx, steps, full ? undefined : { only: CALL_TOOL_IDS }),
       stopWhen: stepCountIs(full ? 50 : 6),
       providerOptions: CALL_RESPONSES_OPTIONS as never,
     });

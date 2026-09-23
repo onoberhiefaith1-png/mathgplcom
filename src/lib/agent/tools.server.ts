@@ -13,6 +13,7 @@ import { handsExecutors } from "./hands.server";
 import { attachmentExecutors } from "./attachments.server";
 import { slateGameExecutors } from "./slateGame.server";
 import { lessonEditExecutors } from "./lessonEdit.server";
+import { structureExecutors } from "./structure.server";
 
 
 
@@ -60,6 +61,8 @@ const SECTION_KINDS = [
   "summary",
 ] as const;
 const BLOCK_KINDS = ["problem", "solution", "reasoning", "text"] as const;
+/** Sections that carry a question with its own solution area beneath it. */
+const QUESTION_SECTION_KINDS: string[] = ["example", "exercise", "classwork", "homework", "assessment"];
 
 const classCode = () => `CLS-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -70,6 +73,7 @@ const executors: Record<string, Executor> = {
   ...(attachmentExecutors as unknown as Record<string, Executor>),
   ...(slateGameExecutors as Record<string, Executor>),
   ...(lessonEditExecutors as unknown as Record<string, Executor>),
+  ...(structureExecutors as unknown as Record<string, Executor>),
 
 
 
@@ -237,6 +241,23 @@ const executors: Record<string, Executor> = {
         `A ${kind} line belongs inside a question. Create the question with add_lesson_question first, then pass its subsectionId.`,
       );
     }
+
+    // A question section is not prose. Loose lines dropped into an Example or
+    // Exercise leave the question with no solution of its own, and Floating
+    // Numbers can never be cut out of them.
+    const { data: sectionRow } = await db
+      .from("notebook_sections")
+      .select("id, kind")
+      .eq("id", sectionId)
+      .maybeSingle();
+    const sectionKind = String((sectionRow as { kind?: string } | null)?.kind ?? "");
+    if (QUESTION_SECTION_KINDS.includes(sectionKind)) {
+      if (!subsectionId || (kind !== "problem" && kind !== "solution")) {
+        throw new Error(
+          `This is a ${sectionKind} session, so every line belongs to a question: the question itself, or its solution beneath it. Use write_question to write the question and its solution together, or pass subsectionId plus kind "problem" or "solution" for a session that already exists.`,
+        );
+      }
+    }
     let tail = db
       .from("notebook_blocks")
       .select("order_index")
@@ -306,6 +327,85 @@ const executors: Record<string, Executor> = {
           : null,
       },
       summary: `Added a ${kind} session${title ? ` ("${title}")` : ""} to the lesson note.`,
+    };
+  },
+
+
+  // One complete question: its own session, the question line, and the worked
+  // solution beneath it — all three belonging to the same session, which is the
+  // unit the Smartboard steps through and the only source Floating Numbers have.
+  write_question: async ({ supabase }, args) => {
+    const db = supabase as unknown as AnyDb;
+    const notebookId = need(args, "notebookId");
+    const kindArg = str(args, "kind") ?? "example";
+    const kind = QUESTION_SECTION_KINDS.includes(kindArg) ? kindArg : "example";
+    const title = str(args, "title") ?? null;
+    const question = need(args, "question");
+    const solution = lines(args, "solution");
+
+    const { data: existing } = await db
+      .from("notebook_sections")
+      .select("order_index")
+      .eq("notebook_id", notebookId)
+      .order("order_index", { ascending: false })
+      .limit(1);
+    const order = (((existing ?? []) as { order_index: number }[])[0]?.order_index ?? -1) + 1;
+
+    const { data: section, error: sectionError } = await db
+      .from("notebook_sections")
+      .insert({ notebook_id: notebookId, kind, title, order_index: order })
+      .select("id")
+      .single();
+    if (sectionError || !section) throw new Error(sectionError?.message ?? "Could not add the session.");
+
+    const { data: sub, error: subError } = await db
+      .from("notebook_subsections")
+      .insert({ section_id: section.id, order_index: 0 })
+      .select("id")
+      .single();
+    if (subError || !sub) throw new Error(subError?.message ?? "Could not create the question inside the session.");
+
+    const rows = [
+      { section_id: section.id, subsection_id: sub.id, kind: "problem", content_ascii: question, order_index: 0 },
+      ...solution.map((text, i) => ({
+        section_id: section.id,
+        subsection_id: sub.id,
+        kind: "solution",
+        content_ascii: text,
+        order_index: i + 1,
+      })),
+    ];
+    const { error: blockError } = await db.from("notebook_blocks").insert(rows);
+    if (blockError) throw new Error(blockError.message);
+
+    // Read it back before reporting anything.
+    const { data: saved } = await db
+      .from("notebook_blocks")
+      .select("kind, content_ascii, order_index")
+      .eq("subsection_id", sub.id)
+      .order("order_index", { ascending: true });
+    const savedRows = (saved ?? []) as { kind: string; content_ascii: string | null }[];
+    const savedProblem = savedRows.find((b) => b.kind === "problem")?.content_ascii ?? "";
+    const savedSolution = savedRows.filter((b) => b.kind === "solution");
+    if (!savedProblem || savedSolution.length === 0) {
+      throw new Error("The question did not save completely. Read the note back and write it again.");
+    }
+
+    return {
+      data: {
+        notebookId,
+        sectionId: section.id,
+        sectionKind: kind,
+        title,
+        subsectionId: sub.id,
+        question: savedProblem,
+        solutionLines: savedSolution.length,
+        floatingHighlighted: false,
+        nextStep: "highlight_solution with this subsectionId, then generate_floating_numbers",
+        floatingPreparationPath: `/lesson-notes/${notebookId}/floating-prep/${sub.id}`,
+        floatingNumbersPath: `/lesson-notes/${notebookId}/floating/${sub.id}`,
+      },
+      summary: `Wrote a ${kind} session${title ? ` ("${title}")` : ""} with its question and a ${savedSolution.length}-step solution.`,
     };
   },
 

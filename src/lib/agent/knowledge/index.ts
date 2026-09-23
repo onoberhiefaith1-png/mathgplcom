@@ -3,16 +3,20 @@
 import { ACCOUNT_NODES } from "./accounts";
 import { CLASS_NODES } from "./classes";
 import { LESSON_NODES } from "./lessonNotes";
+import { EDITOR_NODES } from "./editor";
 import { ACTIVITY_NODES } from "./activities";
 import { nodeIndexLine, nodePrompt, type KnowledgeNode } from "./types";
 
 export type { KnowledgeNode } from "./types";
 export { nodePrompt, nodeIndexLine, REQUIRED_NODE_FIELDS } from "./types";
 
+export { MODEL_LESSON_NOTE } from "./editor";
+
 export const KNOWLEDGE_NODES: KnowledgeNode[] = [
   ...ACCOUNT_NODES,
   ...CLASS_NODES,
   ...LESSON_NODES,
+  ...EDITOR_NODES,
   ...ACTIVITY_NODES,
 ];
 

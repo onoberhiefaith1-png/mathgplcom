@@ -32,6 +32,10 @@ const RULES: { match: RegExp; ids: string[] }[] = [
     match: /^\/lesson-notes/,
     ids: [
       "lesson-notes",
+      "lesson-note-page",
+      "lesson-note-toolbar",
+      "lesson-note-assets",
+      "lesson-note-emojis",
       "lesson-sections",
       "floating-preparation",
       "floating-numbers",
