@@ -78,6 +78,8 @@ export function WritingRegion({
   onReport,
   structuredMath,
   structuredNote,
+  textConfig,
+  restoreKey = 0,
 }: Props) {
   const api = useRef<InscribedTextApi>(null);
   // The selector changes visibility only: the same hidden input, text state,
@@ -93,17 +95,29 @@ export function WritingRegion({
   const measuredBounds = useRef<TextBounds>({
     left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0,
   });
-  /** Live correction that keeps the text body inside its own surface. */
-  const [shift, setShift] = useState({ x: 0, y: 0 });
+  /**
+   * Last-resort guard only. Placement itself comes from the SAVED record
+   * below; this can pull a body that genuinely does not fit back inside its
+   * own surface, and is never persisted.
+   */
+  const [guard, setGuard] = useState({ x: 0, y: 0 });
 
   const top = height / 2 - pad;
   const left = -width / 2;
 
-  // A fresh body (new question, new line, new text size, new surface) starts
-  // from the surface's own geometry, never from an earlier correction.
+  // THE SAVED RECORD IS THE PLACEMENT. It is read before anything is measured,
+  // so there is no frame in which the text can appear anywhere else, on any
+  // device, on a reopen, a refresh, or in a student's copy of the Game.
+  const saved = normalizeTextConfig(textConfig, settings);
+  const innerHeight = Math.max(0, height - pad * 2);
+  const placed = savedTextOffset(saved, width, innerHeight);
+  const shift = { x: placed.x + guard.x, y: placed.y + guard.y };
+
+  // A fresh body (new question, new line, new text size, new surface) and every
+  // Restore start again from the saved record, never from an earlier correction.
   useEffect(() => {
-    setShift({ x: 0, y: 0 });
-  }, [slotId, text, settings.size, settings.align, surface.id, width, height]);
+    setGuard({ x: 0, y: 0 });
+  }, [slotId, text, settings.size, settings.align, surface.id, width, height, restoreKey, saved.ax, saved.ay]);
 
   const syncFromInput = useCallback(() => {
     const el = input.current;
