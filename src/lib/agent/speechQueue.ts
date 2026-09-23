@@ -143,6 +143,7 @@ export class SpeechQueue {
     this.live.clear();
     this.envelope = [];
     this.playhead = 0;
+    this.sounded = false;
     this.setSpeaking(false);
   }
 
@@ -215,6 +216,10 @@ export class SpeechQueue {
       if (this.pieces.length === 0 && this.live.size === 0) this.setSpeaking(false);
     };
     source.start(at);
+    if (!this.sounded) {
+      this.sounded = true;
+      this.options.onFirstAudio?.();
+    }
   }
 }
 
