@@ -26,6 +26,7 @@ function DockShell({ children }: { children: ReactNode }) {
       </div>
       <AuraCockpit />
       <AuraLauncher />
+      <AuraWakeWord />
     </>
   );
 }
