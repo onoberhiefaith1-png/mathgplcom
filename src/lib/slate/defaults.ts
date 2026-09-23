@@ -83,6 +83,7 @@ export const makeSlot = (index = 0): Slot => ({
   contentState: "hidden",
   rewards: [],
   scene: defaultScene(index),
+  textConfig: defaultTextConfig(),
 });
 
 export const makeGame = (input: {
