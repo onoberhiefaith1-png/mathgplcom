@@ -23,9 +23,9 @@ describe("AI Edit rebuilds diagrams as native geometry", () => {
     expect(relationsHold(g.attrs.scene)).toBe(true);
     const copy = aiTextToNodes(duplicateProposal([g])!);
     expect(copy.filter((n) => n.type === "geometryDiagram")).toHaveLength(2);
+    expect(relationsHold(copy[1].attrs.scene)).toBe(true);
     copy[1].attrs.scene.objects[0].x = 999;
     expect(copy[0].attrs.scene.objects[0].x).not.toBe(999);
-    expect(relationsHold(copy[1].attrs.scene)).toBe(true);
   });
 
   it("flags unclear input instead of pretending certainty", () => {
