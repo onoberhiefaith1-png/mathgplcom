@@ -30,6 +30,7 @@ import { SunLight } from "./SunLight";
 import type { ScrollState } from "./SlateColumn";
 import { WorldBoundary } from "./WorldBoundary";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
+import type { SlotTextConfig } from "@/lib/slate/textConfig";
 
 interface Props {
   game: Game;
@@ -37,6 +38,7 @@ interface Props {
   selection: Selection;
   onSelect: (selection: Selection) => void;
   onSlotChange: (slotId: string, patch: Partial<Slot>) => void;
+  onTextConfigCorrection?: (slotId: string, config: SlotTextConfig) => void;
   onRewardMove: (slotId: string, rewardId: string, x: number, y: number) => void;
   onRewardActivate: (slotId: string, rewardId: string, type: string) => void;
   onRewardConsume: (slotId: string, rewardId: string) => void;

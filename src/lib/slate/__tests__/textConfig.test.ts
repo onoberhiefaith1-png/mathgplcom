@@ -4,6 +4,7 @@ import {
   normalizeTextConfig,
   savedTextOffset,
   textConfigFromPlacement,
+  resolveSurfaceTextPlacement,
   configTextSize,
 } from "../textConfig";
 import { captureTextConfigs, fitTextToWritingSurface, restoreTextToSaved } from "../restoreText";
@@ -115,5 +116,35 @@ describe("saved text configuration", () => {
     expect(fixed.slots[0]?.textConfig?.lineSpacing).toBe(1.8);
     expect(fixed.slots[0]?.textConfig?.letterSpacing).toBe(0.05);
     expect(fixed.slots[0]?.textConfig?.colour).toBe("#123456");
+  });
+
+  it("keeps a valid measured placement unchanged", () => {
+    const config = { ...defaultTextConfig(), align: "left" as const, ax: 0.2, ay: 0.1 };
+    const result = resolveSurfaceTextPlacement({
+      config,
+      offset: { x: 1, y: -0.2 },
+      body: { left: -1, right: 1, top: 0.4, bottom: -0.4 },
+      inner: { left: -3, right: 3, top: 1, bottom: -1 },
+      innerWidth: 6,
+      innerHeight: 2,
+    });
+    expect(result.corrected).toBe(false);
+    expect(result.config).toBe(config);
+  });
+
+  it("converts an actual measured correction into the saved surface-relative record", () => {
+    const config = { ...defaultTextConfig(), align: "left" as const, ax: 0, ay: 0 };
+    const result = resolveSurfaceTextPlacement({
+      config,
+      offset: { x: 0, y: 0 },
+      body: { left: -4, right: -1, top: 0.5, bottom: -0.5 },
+      inner: { left: -3, right: 3, top: 1, bottom: -1 },
+      innerWidth: 6,
+      innerHeight: 2,
+    });
+    expect(result.corrected).toBe(true);
+    expect(result.offset.x).toBe(1);
+    expect(result.config.ax).toBeCloseTo(1 / 6);
+    expect(result.config.ay).toBe(0);
   });
 });

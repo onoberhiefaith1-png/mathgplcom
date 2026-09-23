@@ -23,6 +23,8 @@ import { captureTextConfigs, fitTextToWritingSurface, restoreTextToSaved } from 
 import { isMuted, setMuted } from "@/lib/slate/audio";
 import { applyMute, playTrack, stopTrack } from "@/lib/slate/music";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
+import type { SlotTextConfig } from "@/lib/slate/textConfig";
+import { sameTextConfig } from "@/lib/slate/textConfig";
 
 function BoardLoadingShell() {
   return <GameLoadingScreen progress={30} />;
@@ -119,6 +121,22 @@ export default function GameSlateEditorPage() {
         ? { ...g, slots: g.slots.map((s) => (s.id === slotId ? { ...s, ...patch } : s)) }
         : g,
     );
+  }, []);
+
+  const persistMeasuredTextConfig = useCallback((slotId: string, textConfig: SlotTextConfig) => {
+    // Preview slots are temporary views of assigned questions, never saved
+    // teacher objects. Their visible containment is still automatic.
+    if (slotId.startsWith("preview-")) return;
+    setGame((current) => {
+      if (!current) return current;
+      const slot = current.slots.find((item) => item.id === slotId);
+      if (!slot || (slot.textConfig && sameTextConfig(slot.textConfig, textConfig))) return current;
+      dirtyRef.current = true;
+      return {
+        ...current,
+        slots: current.slots.map((item) => item.id === slotId ? { ...item, textConfig } : item),
+      };
+    });
   }, []);
 
   const moveReward = useCallback(
@@ -352,6 +370,7 @@ export default function GameSlateEditorPage() {
               selection={selection}
               onSelect={setSelection}
               onSlotChange={patchSlot}
+              onTextConfigCorrection={persistMeasuredTextConfig}
               onRewardMove={moveReward}
               onRewardActivate={activateReward}
               onRewardConsume={consumeReward}

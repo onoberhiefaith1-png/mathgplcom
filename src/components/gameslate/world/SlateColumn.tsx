@@ -13,6 +13,7 @@ import { PlainText } from "@/components/slate/text3d/PlainText";
 import { defaultTextSettings, responsiveTextSize } from "@/lib/slate/text3d";
 import { normalizeTextConfig, textSettingsFromConfig } from "@/lib/slate/textConfig";
 import type { TextBounds } from "@/lib/slate/text3d";
+import type { SlotTextConfig } from "@/lib/slate/textConfig";
 import { defaultNumberSettings } from "@/lib/slate/defaults";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { surfaceMaterial } from "./materials";
@@ -98,6 +99,7 @@ interface Props {
   scroll: React.MutableRefObject<ScrollState>;
   onSelect: (selection: Selection) => void;
   onSlotChange: (slotId: string, patch: Partial<Slot>) => void;
+  onTextConfigCorrection?: (slotId: string, config: SlotTextConfig) => void;
   onRewardMove: (slotId: string, rewardId: string, x: number, y: number) => void;
   onRewardActivate: (slotId: string, rewardId: string, type: string) => void;
   onRewardConsume: (slotId: string, rewardId: string) => void;
@@ -723,6 +725,7 @@ export function SlateColumn({
   scroll,
   onSelect,
   onSlotChange,
+  onTextConfigCorrection,
   onRewardMove,
   onRewardActivate,
   onRewardConsume,
@@ -1433,6 +1436,7 @@ export function SlateColumn({
                     surface={lineSurface}
                     settings={lineTextSettings}
                     textConfig={lineTextConfig}
+                    onTextConfigCorrection={(config) => onTextConfigCorrection?.(slot.id, config)}
                     restoreKey={restoreKey}
                     testDisplay={testDisplay}
                     editable={!readOnlyWriting}

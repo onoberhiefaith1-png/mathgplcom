@@ -16,6 +16,7 @@
 
 import type { TextAlign, TextSettings, GameTextViewport } from "./text3d";
 import { defaultTextSettings, responsiveTextSize } from "./text3d";
+import { containTextInSurface, textInsideSurface, type TextBox } from "./layout";
 
 export interface SlotTextConfig {
   /** Anchor across the inner writing box (0 = left edge, 1 = right edge). */
@@ -143,6 +144,52 @@ export const textConfigFromPlacement = (
     ...config,
     ax: clamp(alignAnchor(config.align) + offset.x / width, 0, 1, config.ax),
     ay: clamp(-offset.y / height, 0, 1, config.ay),
+  };
+};
+
+export interface SurfaceTextPlacement {
+  offset: { x: number; y: number };
+  config: SlotTextConfig;
+  corrected: boolean;
+  fits: boolean;
+}
+
+/**
+ * The single keep-or-correct rule for saved Game text placement.
+ *
+ * `body` is the measured text box after applying `offset`, in the writing
+ * surface's local coordinates. A valid saved placement is returned untouched;
+ * an invalid one is moved by the smallest possible amount and translated back
+ * into the same surface-relative record used by Save, Preview and Play.
+ */
+export const resolveSurfaceTextPlacement = ({
+  config,
+  offset,
+  body,
+  inner,
+  innerWidth,
+  innerHeight,
+}: {
+  config: SlotTextConfig;
+  offset: { x: number; y: number };
+  body: TextBox;
+  inner: TextBox;
+  innerWidth: number;
+  innerHeight: number;
+}): SurfaceTextPlacement => {
+  if (textInsideSurface(body, inner)) {
+    return { offset, config, corrected: false, fits: true };
+  }
+  const correction = containTextInSurface(body, inner);
+  const correctedOffset = {
+    x: offset.x + correction.dx,
+    y: offset.y + correction.dy,
+  };
+  return {
+    offset: correctedOffset,
+    config: textConfigFromPlacement(config, correctedOffset, innerWidth, innerHeight),
+    corrected: Math.abs(correction.dx) > 0.006 || Math.abs(correction.dy) > 0.006,
+    fits: correction.fits,
   };
 };
 

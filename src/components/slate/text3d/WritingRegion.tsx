@@ -19,7 +19,7 @@ import { visibleTestRenderer } from "./displayMode";
 import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { StructuredMathText } from "./StructuredMathText";
 import type { SlotTextConfig } from "@/lib/slate/textConfig";
-import { normalizeTextConfig, savedTextOffset } from "@/lib/slate/textConfig";
+import { normalizeTextConfig, resolveSurfaceTextPlacement, savedTextOffset } from "@/lib/slate/textConfig";
 
 interface Props {
   slotId: string;
@@ -46,6 +46,8 @@ interface Props {
   structuredNote?: string;
   /** The saved master configuration of this surface's text. */
   textConfig?: SlotTextConfig;
+  /** Reports a measured correction in the same surface-relative format as Save. */
+  onTextConfigCorrection?: (config: SlotTextConfig) => void;
   /** Bumped by Restore: drops any live correction and re-reads the saved record. */
   restoreKey?: number;
 }
@@ -79,6 +81,7 @@ export function WritingRegion({
   structuredMath,
   structuredNote,
   textConfig,
+  onTextConfigCorrection,
   restoreKey = 0,
 }: Props) {
   const api = useRef<InscribedTextApi>(null);
@@ -95,11 +98,7 @@ export function WritingRegion({
   const measuredBounds = useRef<TextBounds>({
     left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0,
   });
-  /**
-   * Last-resort guard only. Placement itself comes from the SAVED record
-   * below; this can pull a body that genuinely does not fit back inside its
-   * own surface, and is never persisted.
-   */
+  /** Immediate render offset while an owner save catches up. */
   const [guard, setGuard] = useState({ x: 0, y: 0 });
 
   const top = height / 2 - pad;
@@ -186,15 +185,16 @@ export function WritingRegion({
   const report = useCallback(
     (bounds: TextBounds) => {
       const originX = settings.align === "left" ? 0 : settings.align === "right" ? width : width / 2;
-      const placed = {
-        left: left + originX + bounds.left + shift.x,
-        right: left + originX + bounds.right + shift.x,
-        top: top + bounds.top + shift.y,
-        bottom: top + bounds.bottom + shift.y,
+      // Always validate from the saved placement, not from a previous guard.
+      // That makes the correction absolute and prevents measurement drift.
+      const placedFromSaved = {
+        left: left + originX + bounds.left + savedOffset.x,
+        right: left + originX + bounds.right + savedOffset.x,
+        top: top + bounds.top + savedOffset.y,
+        bottom: top + bounds.bottom + savedOffset.y,
         width: bounds.width,
         height: bounds.height,
       };
-      measuredBounds.current = placed;
       // TEXT-IN-SURFACE. The surface is the boundary: a body that reports
       // itself outside is corrected to the nearest valid place inside, every
       // time it is created, loaded, reopened or played.
@@ -202,20 +202,45 @@ export function WritingRegion({
       // Raised letters stand above the typographic box (ascenders, bevel and
       // extrusion), so the body is inflated a little before it is compared
       // with the surface. That keeps the physical glyph inside the material.
-      const relief = Math.max(0.02, placed.height * 0.2);
+      const relief = Math.max(0.02, placedFromSaved.height * 0.2);
       const body = {
-        left: placed.left,
-        right: placed.right,
-        top: placed.top + relief,
-        bottom: placed.bottom,
+        left: placedFromSaved.left,
+        right: placedFromSaved.right,
+        top: placedFromSaved.top + relief,
+        bottom: placedFromSaved.bottom,
       };
       const inner = surfaceInnerBox(width, height, pad);
-      if (!textInsideSurface(body, inner)) {
-        const { dx, dy } = containTextInSurface(body, inner);
-        if (Math.abs(dx) > TEXT_INSIDE_TOLERANCE || Math.abs(dy) > TEXT_INSIDE_TOLERANCE) {
-          setGuard((previous) => ({ x: previous.x + dx, y: previous.y + dy }));
-        }
+      const placement = resolveSurfaceTextPlacement({
+        config: saved,
+        offset: savedOffset,
+        body,
+        inner,
+        innerWidth: width,
+        innerHeight,
+      });
+      const nextGuard = {
+        x: placement.offset.x - savedOffset.x,
+        y: placement.offset.y - savedOffset.y,
+      };
+      if (placement.corrected) {
+        setGuard((previous) =>
+          Math.abs(previous.x - nextGuard.x) <= TEXT_INSIDE_TOLERANCE &&
+          Math.abs(previous.y - nextGuard.y) <= TEXT_INSIDE_TOLERANCE
+            ? previous
+            : nextGuard,
+        );
+        onTextConfigCorrection?.(placement.config);
+      } else if (Math.abs(guard.x) > TEXT_INSIDE_TOLERANCE || Math.abs(guard.y) > TEXT_INSIDE_TOLERANCE) {
+        setGuard({ x: 0, y: 0 });
       }
+      const placed = {
+        ...placedFromSaved,
+        left: placedFromSaved.left + nextGuard.x,
+        right: placedFromSaved.right + nextGuard.x,
+        top: placedFromSaved.top + nextGuard.y,
+        bottom: placedFromSaved.bottom + nextGuard.y,
+      };
+      measuredBounds.current = placed;
       onMeasure(placed);
       onReport?.({
         slotId,
@@ -230,7 +255,7 @@ export function WritingRegion({
         style: settings.style,
       });
     },
-    [caret, height, left, onMeasure, onReport, pad, selection, settings.align, settings.style, shift.x, shift.y, slotId, surface.id, text, top, width, z],
+    [caret, guard.x, guard.y, height, innerHeight, left, onMeasure, onReport, onTextConfigCorrection, pad, saved, savedOffset, selection, settings.align, settings.style, slotId, surface.id, text, top, width, z],
   );
 
   const show = text || (!editable ? "" : "");
