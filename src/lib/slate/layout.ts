@@ -169,6 +169,10 @@ export interface GameSurfaceBoxInput {
   measuredWidth?: number;
   measuredHeight?: number;
   visualInsets?: TextVisualInsets;
+  /** Where the writing begins inside the surface, in world units. */
+  contentMargin?: number;
+  /** Decorative rolled/folded part of the surface: never a writing area. */
+  foldInset?: number;
 }
 
 export interface GameSurfaceBox {
@@ -177,6 +181,8 @@ export interface GameSurfaceBox {
   surfaceWidth: number;
   innerWritingWidth: number;
   surfaceHeight: number;
+  /** The margin actually applied after clamping to the usable width. */
+  contentMargin: number;
 }
 
 export interface WritingSurfaceFrame extends GameSurfaceBox {
@@ -201,14 +207,18 @@ export const writingSurfaceFrame = (
     ...box,
     slotId,
     x,
+    // RULE 1. The left edge is fixed: it is the band's left edge, whatever the
+    // margin is. RULE 3. The right edge follows the content.
     outerLeft: band.left,
     outerRight: band.left + box.surfaceWidth,
-    innerLeft: band.left + box.padX,
+    // RULE 2. The margin moves the writing, inside the same surface.
+    innerLeft: band.left + box.padX + box.contentMargin,
     innerRight: band.left + box.surfaceWidth - box.padX,
     innerTop: box.surfaceHeight / 2 - box.padY,
     innerBottom: -box.surfaceHeight / 2 + box.padY,
   };
 };
+
 
 /* ── Text-In-Surface Layout ──────────────────────────────────────────────
  * THE one rule for where mathematical text is allowed to sit. The writing
