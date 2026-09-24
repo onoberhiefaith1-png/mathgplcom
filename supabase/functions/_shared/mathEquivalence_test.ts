@@ -28,3 +28,10 @@ Deno.test("expression targets preserve expression equivalence", async () => {
   assertEquals(hasCompleteEquationShape("x + 7", "7 + x"), true);
   assertEquals(await equivalent("x + 7", "7 + x"), "equal");
 });
+
+Deno.test("quadratic formula substitution with ± and redundant brackets", async () => {
+  const t = "x = (-(-2) ± sqrt(((-2)^2 - 4(5)(-4))))/(2(5))";
+  assertEquals(await equivalent(t, "x = (-(-2) ± √((-2)^2 - 4(5)(-4)))/(2(5))"), "equal");
+  assertEquals(await equivalent(t, "x = (2 ± sqrt(84))/10"), "equal");
+  assertEquals(await equivalent(t, "x = (2 ± sqrt(80))/10"), "not_equal");
+});
