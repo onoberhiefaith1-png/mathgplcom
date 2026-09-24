@@ -1,5 +1,13 @@
 # Junction finishing
 
+# Game surface containment and navigation
+
+- [ ] Keep all wrapped text and tall mathematics inside independently expanding surfaces with equal top/bottom margins.
+- [ ] Add right-side direct surface navigation driven by the existing physical scroll.
+- [ ] Unify Game expected/student/predictive display and board evidence evaluation.
+- [ ] Auto-show only a true note-only first line; keep Floating Number lines interactive.
+- [ ] Verify focused tests, build, and the current Game on desktop and a narrow viewport.
+
 # Game control and reward visuals
 
 - [x] Give the Game sensor controller the supplied gold-and-navy 3D treatment while preserving its four-way mathematics behavior.

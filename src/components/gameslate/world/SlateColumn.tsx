@@ -127,6 +127,13 @@ export interface ScrollState {
   locked: boolean;
 }
 
+export interface SurfaceNavigationItem {
+  slotId: string;
+  label: string;
+  target: number;
+  ratio: number;
+}
+
 interface Props {
   room: RoomDef;
   /** true when the game has no room — wall-only effects are skipped */
@@ -145,6 +152,8 @@ interface Props {
   focusSlotId?: string | null;
   /** Game Play: the region the slate has settled on, reported once per change. */
   onFocusSlot?: (slotId: string) => void;
+  /** Live physical anchors for the right-side surface navigator. */
+  onNavigationChange?: (items: SurfaceNavigationItem[]) => void;
   /** Game Play: the mathematics comes from Floating Numbers, not the keyboard. */
   readOnlyWriting?: boolean;
   /** Restore: bumped to force every text back to its saved configuration. */
@@ -1132,6 +1141,19 @@ export function SlateColumn({
     ),
     [game.slots, textSettings.size, textSettings.lineSpacing, build.gap, textBounds, writingWidth, surfaceBoxes],
   );
+
+  useEffect(() => {
+    if (!onNavigationChange) return;
+    onNavigationChange(layout.regions.map((region, index) => {
+      const target = Math.min(layout.maxScroll, Math.max(0, region.centre - VIEW_H / 2));
+      return {
+        slotId: region.slot.id,
+        label: index === 0 ? "Q" : String(index),
+        target,
+        ratio: layout.maxScroll > 0 ? target / layout.maxScroll : 0,
+      };
+    }));
+  }, [layout, onNavigationChange]);
 
   const group = useRef<THREE.Group>(null);
   const clock = useThree((state) => state.clock);
