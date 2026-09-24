@@ -128,6 +128,8 @@ export const defaultTextConfig = (settings?: TextSettings): SlotTextConfig => {
   return {
     ax: alignAnchor(base.align),
     ay: 0,
+    indent: 0,
+
     widthFrac: 1,
     heightFrac: 1,
     desktopSize: clamp(base.desktopSize, 4, 400, size),
@@ -175,8 +177,12 @@ export const normalizeTextConfig = (
   if (!saved || typeof saved !== "object") return base;
   const align = ALIGNS.includes(saved.align as TextAlign) ? (saved.align as TextAlign) : base.align;
   return {
-    ax: clamp(saved.ax, 0, 1, alignAnchor(align)),
+    // THE MARGIN IS THE START. Legacy sideways nudging is discarded, so every
+    // line snaps to the one margin; only deliberate indentation moves it right.
+    ax: alignAnchor(align),
     ay: clamp(saved.ay, 0, 1, base.ay),
+    indent: clamp(saved.indent, 0, 1, 0),
+
     widthFrac: clamp(saved.widthFrac, 0.05, 1, base.widthFrac),
     heightFrac: clamp(saved.heightFrac, 0.05, 1, base.heightFrac),
     desktopSize: clamp(saved.desktopSize, 4, 400, base.desktopSize),
