@@ -14,10 +14,13 @@ specialised tools. Before producing ANY content you must ask:
 "Is there a platform tool that does this better than typed text?"
 
 Decision order, always:
-  1. Asset Library  — reuse an existing object if one matches.
+  1. Asset Library  — ONLY non-mathematical assets (symbols, structures,
+                      illustrations). Never a mathematical diagram.
   2. Smart Table    — every table of any kind.
   3. Graph          — every plot, curve, coordinate or data chart.
-  4. Diagram / 3D   — every shape, angle, solid, net or geometric figure.
+  4. Diagram Engine — every Venn, tree, flowchart, shape, angle, circle part,
+                      solid or net, CONSTRUCTED from its meaning with
+                      [[tool:diagram type=…]] (see MATHEMATICAL DIAGRAM ENGINE).
   5. Calculator     — every worked numeric/symbolic calculation object.
   6. Structures     — fractions, roots, powers, matrices.
   7. Plain text     — ONLY when nothing above fits (explanations, definitions,
@@ -72,6 +75,36 @@ base conversion, place-value chart, column addition, long multiplication):
   • Structural parts — the division bracket, horizontal rules, minus signs,
     the ladder divider, the "R" remainder labels, column separators — belong
     to the structure and must never be emitted as content.
+`.trim();
+
+export const DIAGRAM_ENGINE_STANDARD = `
+MATHEMATICAL DIAGRAM ENGINE (mandatory)
+
+Think: "I don't need a picture of the object. I understand the object, so I
+construct it." Mathematical diagrams are NEVER picked from the Asset Library
+(no asset="venn2", asset="triangleIso", asset="cube"). Always write the data:
+
+Venn — understand sets → relationships → regions → values/shading:
+  [[tool:diagram type="venn" sets="Mathematics,Science" total="40" A="25" B="18" AB="10" stage="solution"]]
+  The engine calculates A only = 15, both = 10, B only = 8, neither = 7.
+  Or give regions directly: regions="A:15,AB:10,B:8,:7" (empty key = outside).
+  Operations: shade="A∩B" | "A∪B" | "A'" | "A-B"; relation="disjoint" for
+  non-overlapping sets; three sets: sets="A,B,C" regions="A:…,AB:…,ABC:…".
+Tree — understand events → branches → outcomes:
+  [[tool:diagram type="tree" stages="H,T;H,T" probs="1/2,1/2;1/2,1/2" stage="solution"]]
+Flowchart — understand actions and decisions:
+  [[tool:diagram type="flowchart" steps="Start; Input n; ?Is n ÷ 2 a whole number?|Print Even|Print Odd; End"]]
+Geometry — understand the properties first (equal sides, parallel, tangent,
+  radius 5 cm with diameter marked), then [[tool:geometry …]] or [[tool:diagram type="circle" …]].
+3D — [[tool:solid3d kind="cuboid" length="8" width="5" height="3"]].
+
+Intent: overlapping groups / "both" / "neither" → Venn; outcomes of repeated
+events → tree; a process or algorithm → flowchart.
+
+Question vs Solution: the question section carries stage="question" (structure
+and labels; values the student must find are left blank). The matching Solution
+section carries the SAME diagram with stage="solution" and every value the
+worked solution calculated. Diagram values must agree with the solution lines.
 `.trim();
 
 export const EDUCATIONAL_RECONSTRUCTION_STANDARD = `
@@ -133,6 +166,12 @@ export function workspaceViolations(text: string): string[] {
     !/\[\[tool:(geometry|diagram)/.test(text)
   ) {
     out.push("A geometry figure was described or copied as text. Use [[tool:geometry …]] or a native diagram directive instead.");
+  }
+  if (/\[\[tool:(diagram|asset)[^\]]*\b(asset|query)="?(venn|tree|flow|triangle|circle|square|rectangle|cube|cuboid|cylinder|cone|sphere|line|angle|parallel|polygon)/i.test(text)) {
+    out.push("A mathematical diagram was requested from the Asset Library. Construct it with [[tool:diagram type=…]] and its mathematical data instead.");
+  }
+  if (/\b(venn diagram|tree diagram|flow ?chart)\b/i.test(withoutDirectives) && !/\[\[tool:diagram/.test(text)) {
+    out.push("A Venn, tree or flowchart was mentioned but not constructed. Emit [[tool:diagram type=…]] with its data.");
   }
   if (/\[\s*[-+]?\d[^\n\]]+\]\s*\n\s*\[\s*[-+]?\d/i.test(withoutDirectives) && !/\[\[tool:structure[^\]]*kind="matrix"/.test(text)) {
     out.push("A matrix was typed as rows of text. Use [[tool:structure kind=\"matrix\" …]] instead.");
