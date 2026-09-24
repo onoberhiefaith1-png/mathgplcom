@@ -117,7 +117,13 @@ export const RowView = ({
   }
 
   return (
-    <span style={{ display: "inline-flex", alignItems: "baseline" }}>
+    <span
+      style={
+        isRoot
+          ? { display: "inline-flex", alignItems: "baseline", flexWrap: "wrap", rowGap: "0.35em", maxWidth: "100%" }
+          : { display: "inline-flex", alignItems: "baseline" }
+      }
+    >
       {row.map((node, i) => {
         return (
           <span
