@@ -94,6 +94,14 @@ describe("one line, one surface", () => {
       note: "Subtract 7 from both sides.",
       awarded: true,
     })).toBe("x = 5\nSubtract 7 from both sides.");
+    expect(gameLineDisplayText({
+      isQuestion: false,
+      questionText: "x + 7 = 12",
+      working: "",
+      note: "Recall the quadratic formula.",
+      awarded: false,
+      noteOnly: true,
+    })).toBe("Recall the quadratic formula.");
   });
 
   it("creates a surface per line and removes orphans", () => {

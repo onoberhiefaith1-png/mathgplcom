@@ -6,8 +6,6 @@ import type { GameTestDisplay } from "@/lib/slate/types";
 import type { RegionTextData, TextBounds, TextSettings } from "@/lib/slate/text3d";
 import {
   PX_PER_UNIT,
-  TEXT_INSIDE_TOLERANCE,
-  surfaceInnerBox,
 } from "@/lib/slate/layout";
 import type { InscribedTextApi } from "./InscribedText";
 import { InscribedText } from "./InscribedText";
@@ -17,7 +15,7 @@ import { visibleTestRenderer } from "./displayMode";
 import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { StructuredMathText } from "./StructuredMathText";
 import type { SlotTextConfig } from "@/lib/slate/textConfig";
-import { normalizeTextConfig, resolveSurfaceTextPlacement, savedTextOffset } from "@/lib/slate/textConfig";
+import { normalizeTextConfig } from "@/lib/slate/textConfig";
 import { resolveTextStyle, textVisualInsets } from "@/lib/slate/textPresets";
 
 interface Props {
@@ -100,9 +98,6 @@ export function WritingRegion({
   const measuredBounds = useRef<TextBounds>({
     left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0,
   });
-  /** Vertical-only containment while an owner save catches up. */
-  const [guardY, setGuardY] = useState(0);
-
   const top = height / 2 - pad;
   const left = -width / 2;
 
@@ -113,32 +108,14 @@ export function WritingRegion({
     () => normalizeTextConfig(textConfig, settings),
     [settings, textConfig],
   );
-  const innerHeight = Math.max(0, height - pad * 2);
-  const savedOffset = useMemo(
-    () => savedTextOffset(saved, width, innerHeight),
-    [innerHeight, saved, width],
-  );
-  const shift = { x: 0, y: savedOffset.y + guardY };
+  // The physical surface owns vertical placement. Text always begins at the
+  // top margin; measured content grows the panel below it instead of being
+  // shifted after render. This removes the resize -> correction -> resize loop.
+  const shift = { x: 0, y: 0 };
   const visualInsets = useMemo(() => {
     const fontSize = Math.max(0.001, settings.size / PX_PER_UNIT);
     return textVisualInsets(resolveTextStyle(surface, renderSettings), fontSize);
   }, [renderSettings, settings.size, surface]);
-
-  // A fresh body (new question, new line, new text size, new surface) and every
-  // Restore start again from the canonical record. If it is invalid, the same
-  // measured rule immediately derives the correction again; owner Edit then
-  // persists that correction instead of leaving it in this local state.
-  //
-  // The correction is also bounded: after a few passes on the same body it
-  // settles at one coordinate and stops, so measure -> resize -> measure can
-  // never turn into an endless update loop.
-  const settleKey = `${slotId}|${text}|${surface.id}|${width.toFixed(3)}|${height.toFixed(3)}|${restoreKey}`;
-  const settle = useRef({ key: settleKey, passes: 0 });
-  if (settle.current.key !== settleKey) settle.current = { key: settleKey, passes: 0 };
-  useEffect(() => {
-    setGuardY(0);
-  }, [slotId, text, renderSettings, surface.id, width, height, restoreKey, saved.ay]);
-
 
   const syncFromInput = useCallback(() => {
     const el = input.current;
@@ -206,61 +183,13 @@ export function WritingRegion({
 
   const report = useCallback(
     (bounds: TextBounds) => {
-      const originX = 0;
-      // Always validate from the saved placement, not from a previous guard.
-      // That makes the correction absolute and prevents measurement drift.
-      const placedFromSaved = {
-        left: left + originX + bounds.left + savedOffset.x,
-        right: left + originX + bounds.right + savedOffset.x,
-        top: top + bounds.top + savedOffset.y,
-        bottom: top + bounds.bottom + savedOffset.y,
+      const placed = {
+        left: left + bounds.left,
+        right: left + bounds.right,
+        top: top + bounds.top,
+        bottom: top + bounds.bottom,
         width: bounds.width,
         height: bounds.height,
-      };
-      // TEXT-IN-SURFACE. The surface is the boundary: a body that reports
-      // itself outside is corrected to the nearest valid place inside, every
-      // time it is created, loaded, reopened or played.
-      //
-      // Raised letters stand above the typographic box (ascenders, bevel and
-      // extrusion), so the body is inflated a little before it is compared
-      // with the surface. That keeps the physical glyph inside the material.
-      const body = {
-        left: placedFromSaved.left - visualInsets.left,
-        right: placedFromSaved.right + visualInsets.right,
-        top: placedFromSaved.top + visualInsets.top,
-        bottom: placedFromSaved.bottom - visualInsets.bottom,
-      };
-      const inner = surfaceInnerBox(width, height, pad);
-      const placement = resolveSurfaceTextPlacement({
-        config: saved,
-        offset: savedOffset,
-        body,
-        inner,
-        innerWidth: width,
-        innerHeight,
-      });
-      const nextGuard = {
-        y: placement.offset.y - savedOffset.y,
-      };
-      if (placement.corrected && settle.current.passes < 4) {
-        settle.current.passes += 1;
-        setGuardY((previous) =>
-          Math.abs(previous - nextGuard.y) <= TEXT_INSIDE_TOLERANCE ? previous : nextGuard.y,
-        );
-        onTextConfigCorrection?.(placement.config);
-      } else if (
-        !placement.corrected &&
-        Math.abs(guardY) > TEXT_INSIDE_TOLERANCE
-      ) {
-        setGuardY(0);
-      }
-
-      const placed = {
-        ...placedFromSaved,
-        left: placedFromSaved.left,
-        right: placedFromSaved.right,
-        top: placedFromSaved.top + nextGuard.y,
-        bottom: placedFromSaved.bottom + nextGuard.y,
       };
       measuredBounds.current = placed;
       onMeasure(placed);
@@ -277,7 +206,7 @@ export function WritingRegion({
         style: settings.style,
       });
     },
-    [caret, guardY, height, innerHeight, left, onMeasure, onReport, onTextConfigCorrection, pad, saved, savedOffset, selection, settings.style, slotId, surface.id, text, top, visualInsets, width, z],
+    [caret, height, left, onMeasure, onReport, selection, settings.style, slotId, surface.id, text, top, width, z],
   );
 
   const show = text || (!editable ? "" : "");

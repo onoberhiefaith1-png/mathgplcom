@@ -4,7 +4,7 @@
 // never writes to the Game, never grades and never selects a line.
 
 import { Brain, X } from "lucide-react";
-import { ReadableMath } from "@/components/gameslate/ReadableMath";
+import { PresenterMath } from "@/components/smartboard/PresenterMath";
 import { PREDICTIVE_NO_ROUTE_LABEL } from "@/lib/predictive/predictiveLine";
 import { GameClockDisplay } from "@/components/gameslate/GameClockDisplay";
 import {
@@ -125,10 +125,10 @@ export function GameEvaluationPanel({
 
           <div className="flex-1 space-y-3 overflow-y-auto px-3 py-2.5">
             <Field label="Expected line">
-              <ReadableMath src={report?.expected} />
+              <PresenterMath ascii={report?.expected} color="currentColor" />
             </Field>
             <Field label="Student line">
-              <ReadableMath src={report?.student} />
+              <PresenterMath ascii={report?.student} color="currentColor" />
             </Field>
             <Field label="Predictive line">
               {report?.noRoute ? (
@@ -137,10 +137,10 @@ export function GameEvaluationPanel({
                 <span className="text-amber-600">Keep going — {report.structureMissing}.</span>
               ) : report?.predictive ? (
                 <span>
-                  <ReadableMath src={report.predictive} />
+                  <PresenterMath ascii={report.predictive} color="currentColor" />
                   {report.remaining ? (
                     <span className="ml-1 text-xs text-muted-foreground">
-                      (remaining <ReadableMath src={report.remaining} />)
+                       (remaining <PresenterMath ascii={report.remaining} color="currentColor" />)
                     </span>
                   ) : null}
                 </span>

@@ -47,6 +47,10 @@ export interface GameQuestionBoard {
   lineMarks: number[];
   /** Teaching note per line — revealed only after that line's mark. */
   lineNotes: (string | null)[];
+  /** True only for an authored standalone note line with no equation/chips. */
+  lineNoteOnly: boolean[];
+  /** Whether the student has any Floating Numbers to interact with on the line. */
+  lineHasFloatingNumbers: boolean[];
 }
 
 const beatIdFor = (subsectionId: string) => `${subsectionId}-q`;
@@ -172,6 +176,8 @@ export const ensureGameBoards = async (params: {
       ),
       lineMarks: question.lines.map((line) => Number(line.marks) || 0),
       lineNotes: question.lines.map((line) => line.note?.trim() || null),
+      lineNoteOnly: question.lines.map((line) => line.noteOnly === true),
+      lineHasFloatingNumbers: question.lines.map((line) => line.noteOnly !== true && line.chips.length > 0),
     });
   }
 
@@ -234,6 +240,8 @@ export const loadGameBoards = async (params: {
       ),
       lineMarks: question.lines.map((line) => Number(line.marks) || 0),
       lineNotes: question.lines.map((line) => line.note?.trim() || null),
+      lineNoteOnly: question.lines.map((line) => line.noteOnly === true),
+      lineHasFloatingNumbers: question.lines.map((line) => line.noteOnly !== true && line.chips.length > 0),
     });
   }
   return out;

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import * as THREE from "three";
@@ -27,10 +27,11 @@ import { BackgroundLayer } from "./BackgroundLayer";
 import { RoomShell } from "./RoomShell";
 import { SlateColumn } from "./SlateColumn";
 import { SunLight } from "./SunLight";
-import type { ScrollState } from "./SlateColumn";
+import type { ScrollState, SurfaceNavigationItem } from "./SlateColumn";
 import { WorldBoundary } from "./WorldBoundary";
 import type { EditorMode, Game, Selection, Slot } from "@/lib/slate/types";
 import type { SlotTextConfig } from "@/lib/slate/textConfig";
+import { scrollRatio, scrollTargetAtRatio } from "@/lib/slate/layout";
 
 interface Props {
   game: Game;
@@ -83,9 +84,35 @@ export default function WorldStage(props: Props) {
   const [surfacesReady, setSurfacesReady] = useState(false);
   const [paintedReady, setPaintedReady] = useState(false);
   const [deadlineReached, setDeadlineReached] = useState(false);
+  const [navigation, setNavigation] = useState<SurfaceNavigationItem[]>([]);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const navigationKey = useRef("");
+  const receiveNavigation = useCallback((items: SurfaceNavigationItem[]) => {
+    const key = items.map((item) => `${item.slotId}:${item.target.toFixed(3)}`).join("|");
+    if (key === navigationKey.current) return;
+    navigationKey.current = key;
+    setNavigation(items);
+  }, []);
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     setShowPerf(new URLSearchParams(window.location.search).has("perf"));
+  }, []);
+
+  useEffect(() => {
+    let frame = 0;
+    const publish = () => {
+      setScrollPosition((previous) =>
+        Math.abs(previous - scroll.current.current) < 0.002 ? previous : scroll.current.current,
+      );
+      frame = window.requestAnimationFrame(publish);
+    };
+    frame = window.requestAnimationFrame(publish);
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  const moveToRatio = useCallback((ratio: number) => {
+    if (scroll.current.locked) return;
+    scroll.current.target = scrollTargetAtRatio(ratio, scroll.current.max);
   }, []);
 
   useEffect(() => {
@@ -277,10 +304,50 @@ export default function WorldStage(props: Props) {
               scroll={scroll}
               {...props}
               onReady={() => setSurfacesReady(true)}
+              onNavigationChange={receiveNavigation}
             />
           </Suspense>
         </Canvas>
       </WorldBoundary>
+      {navigation.length > 1 && scroll.current.max > 0 ? (
+        <aside
+          data-writable
+          aria-label="Writing surface navigator"
+          className="pointer-events-auto absolute bottom-24 right-3 top-16 z-30 flex w-10 flex-col items-center rounded-md border border-border/70 bg-background/85 py-2 shadow-lg backdrop-blur"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <input
+            aria-label="Scroll through writing surfaces"
+            aria-valuemin={0}
+            aria-valuemax={1000}
+            aria-valuenow={Math.round(scrollRatio(scrollPosition, scroll.current.max) * 1000)}
+            type="range"
+            min={0}
+            max={1000}
+            value={Math.round(scrollRatio(scrollPosition, scroll.current.max) * 1000)}
+            onChange={(event) => moveToRatio(Number(event.currentTarget.value) / 1000)}
+            className="h-full min-h-28 w-4 cursor-pointer accent-primary [writing-mode:vertical-lr] [direction:rtl]"
+          />
+          <div className="absolute inset-y-3 left-0 right-0 pointer-events-none">
+            {navigation.map((item) => (
+              <button
+                key={item.slotId}
+                type="button"
+                title={item.label === "Q" ? "Question surface" : `Writing surface ${item.label}`}
+                aria-label={item.label === "Q" ? "Go to question surface" : `Go to writing surface ${item.label}`}
+                onClick={() => {
+                  scroll.current.target = item.target;
+                  props.onSelect({ kind: "slot", slotId: item.slotId });
+                }}
+                className="pointer-events-auto absolute left-1/2 grid h-4 w-4 -translate-x-1/2 place-items-center rounded-full border border-border bg-background text-[8px] font-semibold text-foreground shadow-sm hover:bg-accent"
+                style={{ top: `${item.ratio * 100}%`, transform: "translate(-50%, -50%)" }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </aside>
+      ) : null}
       {showPerf ? <EffectPerfOverlay /> : null}
     </div>
   );

@@ -96,6 +96,10 @@ export const gameSurfacePadding = (fontSize: number) => ({
   y: Math.max(0.13, Math.min(0.26, fontSize / 650)),
 });
 
+/** Equal visible clearance above the first mark and below the last mark. */
+export const gameVerticalContentMargin = (fontSize: number) =>
+  gameSurfacePadding(fontSize).y;
+
 /* ── Content Margin ──────────────────────────────────────────────────────
  * THE writing surface starts where it starts: its left edge never moves. The
  * Content Margin is an internal control that decides where the WRITING
@@ -327,7 +331,8 @@ export const gameSurfaceBox = ({
   contentStartInset,
   contentGap = 0,
 }: GameSurfaceBoxInput): GameSurfaceBox => {
-  const { x: basePadX, y: padY } = gameSurfacePadding(fontSize);
+  const { x: basePadX } = gameSurfacePadding(fontSize);
+  const padY = gameVerticalContentMargin(fontSize);
   // THE FOLD IS NOT A WRITING AREA. The rolled part of the surface is physical
   // decoration, so it is removed from the content region before anything is
   // laid out inside it.
@@ -395,8 +400,6 @@ export const gameSurfaceBox = ({
 
 
 
-const REGION_PAD = 0.36;
-
 export interface RegionLayout {
   slot: Slot;
   index: number;
@@ -447,7 +450,11 @@ export const buildLayout = (
       ? gameEstimatedTextHeight(slot.text || slot.hiddenContent || "", fontSize, writingWidth, lineSpacing)
       : rowH;
     const real = measured[slot.id];
-    const textHeight = REGION_PAD * 2 + Math.max(rowH, real !== undefined && real > 0 ? real : estimate);
+    // Use the same equal top/bottom margin as the physical writing surface.
+    // The former fixed REGION_PAD was a second height system and could make the
+    // scroll layout disagree with the panel that was actually drawn.
+    const verticalMargin = gameVerticalContentMargin(fontSize);
+    const textHeight = verticalMargin * 2 + Math.max(rowH, real !== undefined && real > 0 ? real : estimate);
     const height = Math.max(textHeight, renderedSurfaceHeights[slot.id] ?? 0);
     const region: RegionLayout = {
       slot,
@@ -465,3 +472,10 @@ export const buildLayout = (
 
 /** World Y of a point measured down from the top of the slate. */
 export const worldY = (down: number, scroll: number) => VIEW_TOP + scroll - down;
+
+/** Pure scrollbar mapping shared by the DOM navigator and its tests. */
+export const scrollRatio = (value: number, maximum: number) =>
+  maximum > 0 ? Math.min(1, Math.max(0, value / maximum)) : 0;
+
+export const scrollTargetAtRatio = (ratio: number, maximum: number) =>
+  Math.min(Math.max(0, maximum), Math.max(0, ratio) * Math.max(0, maximum));
