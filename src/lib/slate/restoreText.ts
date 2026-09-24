@@ -68,7 +68,7 @@ export const captureTextConfigs = (game: Game): Game => {
         ...(shared.advanced ? { advanced: shared.advanced } : {}),
         ax: slot.textConfig ? saved.ax : shared.ax,
         ay: slot.textConfig ? saved.ay : shared.ay,
-        indent: slot.textConfig ? saved.indent : shared.indent,
+        indent: 0,
 
       };
       return { ...slot, textConfig } satisfies Slot;
@@ -144,7 +144,7 @@ export const fitTextToWritingSurface = (game: Game): Game => {
         ...(shared.advanced ? { advanced: shared.advanced } : {}),
         ax: shared.ax,
         ay: shared.ay,
-        indent: shared.indent,
+        indent: 0,
 
       };
       return { ...slot, textConfig } satisfies Slot;

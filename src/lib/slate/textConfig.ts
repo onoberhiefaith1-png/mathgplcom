@@ -181,7 +181,9 @@ export const normalizeTextConfig = (
     // line snaps to the one margin; only deliberate indentation moves it right.
     ax: alignAnchor(align),
     ay: clamp(saved.ay, 0, 1, base.ay),
-    indent: clamp(saved.indent, 0, 1, 0),
+    // Old per-line horizontal positions are deliberately discarded. The Game
+    // has one scroll margin; measurement and reload may never recreate another.
+    indent: 0,
 
     widthFrac: clamp(saved.widthFrac, 0.05, 1, base.widthFrac),
     heightFrac: clamp(saved.heightFrac, 0.05, 1, base.heightFrac),
@@ -281,7 +283,7 @@ export const savedTextOffset = (
 ) => ({
   // Zero indentation means "exactly at the margin". Nothing can be negative,
   // so no line can ever render left of the margin.
-  x: Math.max(0, config.indent) * Math.max(0, innerWidth),
+  x: 0,
   y: -config.ay * Math.max(0, innerHeight),
 });
 
@@ -297,7 +299,7 @@ export const textConfigFromPlacement = (
   return {
     ...config,
     ax: alignAnchor(config.align),
-    indent: clamp(offset.x / width, 0, 1, config.indent),
+    indent: 0,
     ay: clamp(-offset.y / height, 0, 1, config.ay),
   };
 };
@@ -338,13 +340,15 @@ export const resolveSurfaceTextPlacement = ({
   }
   const correction = containTextInSurface(body, inner);
   const correctedOffset = {
-    x: offset.x + correction.dx,
+    // Horizontal placement is structural: margin + one-character gap. A
+    // measurement may resize/wrap the surface, but it may not move or save X.
+    x: 0,
     y: offset.y + correction.dy,
   };
   return {
     offset: correctedOffset,
     config: textConfigFromPlacement(config, correctedOffset, innerWidth, innerHeight),
-    corrected: Math.abs(correction.dx) > 0.006 || Math.abs(correction.dy) > 0.006,
+    corrected: Math.abs(correction.dy) > 0.006,
     fits: correction.fits,
   };
 };

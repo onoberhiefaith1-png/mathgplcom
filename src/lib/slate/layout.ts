@@ -118,6 +118,10 @@ export const clampContentMargin = (fraction: number | undefined) =>
 export const contentMarginWorld = (fraction: number | undefined, writingWidth: number) =>
   clampContentMargin(fraction) * Math.max(0, writingWidth);
 
+/** One ordinary glyph of breathing room after the margin line. */
+export const contentCharacterGap = (fontSize: number) =>
+  Math.max(0.04, (Math.max(1, fontSize) / PX_PER_UNIT) * 0.58);
+
 
 /** Each Play surface follows its own content, capped by the 5%–95% writing band. */
 export const gameSurfaceWidth = (
@@ -175,6 +179,10 @@ export interface GameSurfaceBoxInput {
   foldInset?: number;
   /** Fixed strip at the surface's own start that carries the Line tag. */
   tagGutter?: number;
+  /** Shared distance from the fixed surface start to the straight margin line. */
+  contentStartInset?: number;
+  /** Clear space between the margin line and the first visible glyph. */
+  contentGap?: number;
 }
 
 export interface GameSurfaceBox {
@@ -187,6 +195,10 @@ export interface GameSurfaceBox {
   contentMargin: number;
   /** The tag strip actually reserved at the surface's start. */
   tagGutter: number;
+  /** Shared straight-line position measured from the fixed surface start. */
+  contentStartInset: number;
+  /** Clear space after the margin line. */
+  contentGap: number;
   /**
    * Centre of the content box relative to the surface centre. Renderers place
    * their local writing box here, so the one margin decides the start of every
@@ -223,7 +235,7 @@ export const writingSurfaceFrame = (
     outerRight: band.left + box.surfaceWidth,
     // RULE 2. The margin moves the writing, inside the same surface. The tag
     // strip sits before the margin and never moves with it.
-    innerLeft: band.left + box.padX + box.tagGutter + box.contentMargin,
+    innerLeft: band.left + box.contentStartInset + box.contentMargin + box.contentGap,
     innerRight: band.left + box.surfaceWidth - box.padX,
     innerTop: box.surfaceHeight / 2 - box.padY,
     innerBottom: -box.surfaceHeight / 2 + box.padY,
@@ -312,6 +324,8 @@ export const gameSurfaceBox = ({
   contentMargin = 0,
   foldInset = 0,
   tagGutter = 0,
+  contentStartInset,
+  contentGap = 0,
 }: GameSurfaceBoxInput): GameSurfaceBox => {
   const { x: basePadX, y: padY } = gameSurfacePadding(fontSize);
   // THE FOLD IS NOT A WRITING AREA. The rolled part of the surface is physical
@@ -320,29 +334,33 @@ export const gameSurfaceBox = ({
   const padX = basePadX + Math.max(0, foldInset);
   const requested = Math.max(0, contentMargin);
   const gutter = Math.max(0, tagGutter);
+  const startInset = Math.max(
+    padX + gutter,
+    Number.isFinite(contentStartInset) ? (contentStartInset as number) : padX + gutter,
+  );
+  const gap = Math.max(0, contentGap);
   const content = text || hiddenContent || "";
   const emptyWidth = Math.max(0.9, fontSize / 145);
   const minimumWidth = Math.max(inset * 2 + 0.32, emptyWidth);
   const estimatedTextWidth = gameEstimatedTextWidth(
     content,
     fontSize,
-    Math.max(MIN_CONTENT_WIDTH, gameInnerWritingWidth(writingWidth, padX) - requested - gutter),
+    Math.max(MIN_CONTENT_WIDTH, writingWidth - startInset - requested - gap - padX),
   );
   // The right edge provides the room the tag strip plus the margin plus the
   // real content need — it is never widened by margin movement on its own.
   const contentSurfaceWidth = Math.max(
     minimumWidth,
-    gutter + requested + estimatedTextWidth + padX * 2,
-    gutter + requested + Math.max(0, measuredWidth) + visualInsets.left + visualInsets.right + padX * 2,
+    startInset + requested + gap + estimatedTextWidth + padX,
+    startInset + requested + gap + Math.max(0, measuredWidth) + visualInsets.left + visualInsets.right + padX,
   );
   // Edit and Play are deliberately identical here. `readOnlyWriting` remains
   // in the input for saved-call compatibility, but can never open a second,
   // screen-wide text box that escapes the physical surface.
   void readOnlyWriting;
   const surfaceWidth = gameSurfaceWidth(writingWidth, contentSurfaceWidth);
-  const paddedWidth = gameInnerWritingWidth(surfaceWidth, padX);
-  const appliedGutter = Math.min(gutter, Math.max(0, paddedWidth - MIN_CONTENT_WIDTH));
-  const usableWidth = Math.max(MIN_CONTENT_WIDTH, paddedWidth - appliedGutter);
+  const appliedGutter = Math.min(gutter, Math.max(0, startInset - padX));
+  const usableWidth = Math.max(MIN_CONTENT_WIDTH, surfaceWidth - startInset - gap - padX);
   const appliedMargin = Math.min(requested, Math.max(0, usableWidth - MIN_CONTENT_WIDTH));
   const innerWritingWidth = Math.max(MIN_CONTENT_WIDTH, usableWidth - appliedMargin);
   const estimatedTextHeight = gameEstimatedTextHeight(
@@ -365,10 +383,12 @@ export const gameSurfaceBox = ({
     surfaceHeight,
     contentMargin: appliedMargin,
     tagGutter: appliedGutter,
+    contentStartInset: startInset,
+    contentGap: gap,
     // ONE start coordinate. Everything that draws text inside this surface uses
     // this centre, so no renderer can invent its own left edge.
     contentOffsetX:
-      padX + appliedGutter + appliedMargin + innerWritingWidth / 2 - surfaceWidth / 2,
+      startInset + appliedMargin + gap + innerWritingWidth / 2 - surfaceWidth / 2,
 
   };
 };

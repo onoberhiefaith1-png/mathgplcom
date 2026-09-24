@@ -89,6 +89,9 @@ export function WritingRegion({
   const visibleRenderer = visibleTestRenderer(testDisplay, settings.style);
   const surfaceTest = visibleRenderer === "surface";
   const RaisedRenderer = visibleRenderer === "tiles" ? TileText : DimensionalText;
+  // Game writing has one left origin. Alignment remains saved as a visual
+  // setting, but it cannot create a second horizontal placement system.
+  const renderSettings = useMemo(() => ({ ...settings, align: "left" as const }), [settings]);
   const input = useRef<HTMLTextAreaElement>(null);
   const [caret, setCaret] = useState<number | null>(null);
   const [selection, setSelection] = useState<[number, number] | null>(null);
@@ -118,8 +121,8 @@ export function WritingRegion({
   const shift = { x: savedOffset.x + guard.x, y: savedOffset.y + guard.y };
   const visualInsets = useMemo(() => {
     const fontSize = Math.max(0.001, settings.size / PX_PER_UNIT);
-    return textVisualInsets(resolveTextStyle(surface, settings), fontSize);
-  }, [settings, surface]);
+    return textVisualInsets(resolveTextStyle(surface, renderSettings), fontSize);
+  }, [renderSettings, settings.size, surface]);
 
   // A fresh body (new question, new line, new text size, new surface) and every
   // Restore start again from the canonical record. If it is invalid, the same
@@ -134,7 +137,7 @@ export function WritingRegion({
   if (settle.current.key !== settleKey) settle.current = { key: settleKey, passes: 0 };
   useEffect(() => {
     setGuard({ x: 0, y: 0 });
-  }, [slotId, text, settings, surface.id, width, height, restoreKey, saved.indent, saved.ay]);
+  }, [slotId, text, renderSettings, surface.id, width, height, restoreKey, saved.ay]);
 
 
   const syncFromInput = useCallback(() => {
@@ -203,7 +206,7 @@ export function WritingRegion({
 
   const report = useCallback(
     (bounds: TextBounds) => {
-      const originX = settings.align === "left" ? 0 : settings.align === "right" ? width : width / 2;
+      const originX = 0;
       // Always validate from the saved placement, not from a previous guard.
       // That makes the correction absolute and prevents measurement drift.
       const placedFromSaved = {
@@ -332,7 +335,7 @@ export function WritingRegion({
               text={show}
               width={width}
               surface={surface}
-              settings={settings}
+        settings={renderSettings}
               caret={active ? caret : null}
               selection={active ? selection : null}
               onMeasure={report}
@@ -343,7 +346,7 @@ export function WritingRegion({
               text={show}
               width={width}
               surface={surface}
-              settings={settings}
+               settings={renderSettings}
               caret={active ? caret : null}
               selection={active ? selection : null}
               onMeasure={report}
@@ -356,7 +359,7 @@ export function WritingRegion({
             note={structuredNote}
             width={width}
             surface={surface}
-            settings={settings}
+             settings={renderSettings}
             onMeasure={report}
           />
         )}
@@ -366,7 +369,7 @@ export function WritingRegion({
               text={placeholder}
               width={width}
               surface={surface}
-              settings={settings}
+               settings={renderSettings}
               caret={null}
               selection={null}
               onMeasure={() => {}}
@@ -377,7 +380,7 @@ export function WritingRegion({
               text={placeholder}
               width={width}
               surface={surface}
-              settings={settings}
+             settings={renderSettings}
               caret={null}
               selection={null}
               onMeasure={() => {}}
