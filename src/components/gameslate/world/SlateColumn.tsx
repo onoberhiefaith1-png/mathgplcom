@@ -1066,6 +1066,10 @@ export function SlateColumn({
   // writing of every surface begins; the surfaces' own left edge never moves.
   const marginFraction = clampContentMargin(game.settings.contentMargin);
   const contentMargin = contentMarginWorld(marginFraction, writingWidth);
+  // The Line tag strip is reserved at the surface's own start, before the
+  // margin, so a tag is never pushed about by the margin or by the writing.
+  const tagSize = Math.max(0.05, 0.1 * Math.max(0.3, numberSettings.size));
+  const tagGutter = numberSettings.visible ? lineTagWidth(tagSize) : 0;
 
   const surfaceBoxes = useMemo(() => {
     const boxes: Record<string, ReturnType<typeof gameSurfaceBox>> = {};
@@ -1091,10 +1095,12 @@ export function SlateColumn({
         visualInsets,
         contentMargin,
         foldInset: surfaceFoldInset(lineBuild),
+        tagGutter,
       });
     });
     return boxes;
-  }, [game.slots, surface, build, textBounds, settingsFor, writingWidth, contentMargin]);
+  }, [game.slots, surface, build, textBounds, settingsFor, writingWidth, contentMargin, tagGutter]);
+
 
 
   const layout = useMemo(
