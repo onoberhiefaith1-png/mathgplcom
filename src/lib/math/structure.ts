@@ -32,13 +32,14 @@ export const linearize = (raw: string): string => {
   s = s.replace(/\\left|\\right/g, "").replace(/\\[,;!: ]/g, "");
   s = s.replace(/\\(le|leq)\b/g, "<=").replace(/\\(ge|geq)\b/g, ">=").replace(/\\(ne|neq)\b/g, "!=");
   s = s.replace(/≤/g, "<=").replace(/≥/g, ">=").replace(/≠/g, "!=");
-  s = s.replace(/\\sqrt\[([^\]]*)\]\{/g, "root($1)(").replace(/\\sqrt\{/g, "sqrt(");
-  s = s.replace(/∛/g, "cbrt").replace(/∜/g, "root(4)").replace(/\\pi\b|π/g, "pi");
+  s = s.replace(/\\sqrt\[([^\]]*)\]\{/g, "root#$1#(").replace(/\\sqrt\{/g, "sqrt(");
+  s = s.replace(/∛/g, "cbrt").replace(/∜/g, "root#4#").replace(/\\pi\b|π/g, "pi");
   s = s.replace(/\\(sin|cos|tan|log|ln)\b/g, "$1");
   s = s.replace(/\\(cdot|times)/g, "*").replace(/\\div/g, "/");
   // normEq handles \frac{a}{b}, superscripts, −, ×, ÷, √ and whitespace.
   s = normEq(s);
   s = s.replace(/[{}]/g, (c) => (c === "{" ? "(" : ")"));
+  s = s.replace(/root#([^#]*)#/g, "root($1)");
   return s;
 };
 
