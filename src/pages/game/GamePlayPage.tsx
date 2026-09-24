@@ -607,6 +607,27 @@ const GamePlayPage = () => {
     verdicts, conversion,
   ]);
 
+  // INSTANT AWARD: the moment evaluation proves this line equivalent, pay it —
+  // mark, coin, rewards, note. No need to move to the next line. The runtime
+  // pays each line once, so a later board confirmation is a no-op.
+  const onLineAwardNow = runtime.onLineAward;
+  useEffect(() => {
+    const question = runtime.question;
+    if (!question || !lineReport || lineReport.isQuestion) return;
+    if (lineReport.status !== "equivalent") return;
+    if (runtime.completedLines.includes(lineReport.line)) return;
+    const row = runtime.lines.find((l) => l.line === lineReport.line);
+    const lineId = row?.lineId;
+    const studentAscii = (lineReport.student ?? "").trim();
+    if (!lineId || !studentAscii) return;
+    onLineAwardNow({
+      questionId: question.boardQuestionId,
+      lineId,
+      studentAscii,
+      marks: question.lineMarks[lineReport.line - 1] ?? 0,
+    });
+  }, [lineReport, runtime.question, runtime.completedLines, runtime.lines, onLineAwardNow]);
+
 
   // Live activity. Every entry corresponds to a real change in Game state.
   const lastEventRef = useRef({ line: 0, status: "", vaults: -1, completion: -1, timed: -1 });
