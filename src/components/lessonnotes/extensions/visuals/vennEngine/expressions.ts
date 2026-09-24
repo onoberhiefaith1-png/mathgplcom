@@ -172,7 +172,7 @@ export function semanticKeyToRowId(raw: string, numSets: 2 | 3): string | null {
   if (k === "OUTSIDE" || k === "NEITHER" || k === "NONE") return "outside";
   const difference = k.match(/^([ABC])(?:-|−|\\)([ABC])$/);
   if (difference) return `difference:${difference[1]}${difference[2]}`;
-  const complement = k.match(/^\(?([ABC])(?:(∪|U|UNION|∩|N|AND|INTER)([ABC]))?\)?(?:'|′|C)$/);
+  const complement = k.match(/^\(?([ABC])(?:(∪|U|UNION|∩|N|AND|INTER)([ABC]))?\)?(?:'|′)$/);
   if (complement) {
     const ids = [complement[1], complement[3]].filter(Boolean).sort().join("");
     if (!complement[2]) return `complement:${ids}`;
@@ -188,4 +188,25 @@ export function semanticKeyToRowId(raw: string, numSets: 2 | 3): string | null {
   if (!idsOf) return null;
   if (inter && idsOf.length === 2 && numSets === 3) return `inter:${idsOf}`;
   return idsOf;
+}
+
+/** Resolve either A/B/C notation or the teacher's current set labels. */
+export function semanticExpressionToRowId(
+  raw: string,
+  model: Pick<UCEVennModel, "sets" | "numSets">,
+): string | null {
+  let normalized = raw.trim();
+  const byLongestLabel = [...model.sets]
+    .filter((set) => set.label.trim())
+    .sort((a, b) => b.label.length - a.label.length);
+  for (const set of byLongestLabel) {
+    const escaped = set.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    normalized = normalized.replace(new RegExp(escaped, "gi"), set.id);
+  }
+  normalized = normalized
+    .replace(/\bONLY\b/gi, "_only")
+    .replace(/\bINTERSECTION(?:\s+OF|\s+BETWEEN)?\b/gi, "∩")
+    .replace(/\bUNION(?:\s+OF)?\b/gi, "∪")
+    .replace(/\bAND\b/gi, "∩");
+  return semanticKeyToRowId(normalized, model.numSets);
 }

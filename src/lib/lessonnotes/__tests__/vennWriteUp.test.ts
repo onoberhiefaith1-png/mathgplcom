@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildVennPreset } from "@/components/lessonnotes/extensions/visuals/vennEngine/presets";
 import {
-  generateExpressions, displayLabel, expressionRegions, writeValue, readValue, semanticKeyToRowId, isEmptyInLayout,
+  generateExpressions, displayLabel, expressionRegions, writeValue, readValue, semanticKeyToRowId, isEmptyInLayout, semanticExpressionToRowId,
 } from "@/components/lessonnotes/extensions/visuals/vennEngine/expressions";
 import { layoutWriteUp } from "@/components/lessonnotes/extensions/visuals/vennEngine/placement";
 import { solveLayout } from "@/components/lessonnotes/extensions/visuals/vennEngine/solver";
@@ -16,7 +16,10 @@ const solved = (m: UCEVennModel) => {
 describe("Venn write-up", () => {
   it("two sets generate the short list", () => {
     const m = { ...buildVennPreset("venn2"), universe: { ...buildVennPreset("venn2").universe, show: true } };
-    expect(generateExpressions(m).map((r) => displayLabel(r, m))).toEqual(["A only", "B only", "A ∪ B", "A ∩ B", "U"]);
+    expect(generateExpressions(m).map((r) => displayLabel(r, m))).toEqual([
+      "A only", "B only", "A ∪ B", "A ∩ B", "A′", "B′", "(A ∪ B)′", "(A ∩ B)′",
+      "Outside all sets", "U", "A − B", "B − A",
+    ]);
   });
 
   it("three sets have no duplicates and use labels", () => {
@@ -104,6 +107,10 @@ describe("Venn write-up", () => {
     expect(semanticKeyToRowId("(A ∩ B)'", 3)).toBe("complement:inter:AB");
     expect(semanticKeyToRowId("A-B", 3)).toBe("difference:AB");
     expect(semanticKeyToRowId("outside", 3)).toBe("outside");
+    const named = buildVennPreset("venn3");
+    named.sets = named.sets.map((set, index) => ({ ...set, label: ["Mathematics", "Science", "C"][index] }));
+    expect(semanticExpressionToRowId("Mathematics only", named)).toBe("A");
+    expect(semanticExpressionToRowId("intersection of Mathematics and Science", named)).toBe("inter:AB");
   });
 
   it("keeps teaching focus independent from values and identity colours", () => {
