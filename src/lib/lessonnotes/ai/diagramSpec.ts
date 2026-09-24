@@ -131,13 +131,22 @@ export function buildVennModel(p: P): UCEVennModel {
       const id = semanticKeyToRowId(part.slice(0, i), three ? 3 : 2);
       const v = part.slice(i + 1).trim();
       if (id == null || !v) continue;
-      if (id.includes(":") || id === "universe") expressions[id] = v; else put(id, { text: v });
+       if (id === "outside") put("", { text: v });
+       else if (id.includes(":") || id === "universe") expressions[id] = v;
+       else put(id, { text: v });
     }
     if (Object.keys(expressions).length) model.expressions = expressions;
   }
   const op = p.shade ?? p.operation ?? p.op;
   if (op) {
     for (const k of regionsForOperation(op, three ? 3 : 2)) put(k, { fill: "#f59e0b", fillOpacity: 0.45 });
+  }
+  const focus = p.focus ?? p.highlight ?? p.teach;
+  if (focus) {
+    const normalized = focus.trim().toLowerCase();
+    if (!/^(none|clear|normal|overview|showall|show all)$/.test(normalized)) {
+      model.focusExpression = semanticKeyToRowId(focus, three ? 3 : 2);
+    }
   }
   model.regions = [...regions.values()];
   return model;

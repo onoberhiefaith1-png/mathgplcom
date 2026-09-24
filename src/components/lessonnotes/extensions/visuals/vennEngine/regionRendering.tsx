@@ -42,6 +42,7 @@ export function VennRegionShape({
     includedShape = <rect x={0} y={0} width={width} height={height} fill="white" />;
   } else {
     const first = insideSets[0];
+    if (!first) return null;
     includedShape = <circle cx={first.cx} cy={first.cy} r={first.radius} fill="white" />;
     for (let index = insideSets.length - 1; index >= 1; index -= 1) {
       includedShape = <g clipPath={`url(#${clipIds[index - 1]})`}>{includedShape}</g>;

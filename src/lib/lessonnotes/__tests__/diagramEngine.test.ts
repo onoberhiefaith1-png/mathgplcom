@@ -29,6 +29,13 @@ describe("AI Mathematical Diagram Engine", () => {
     expect(regionsForOperation("A-B", 2)).toEqual(["A"]);
   });
 
+  it("creates semantic teaching focus without changing set colours", () => {
+    const focused = buildVennModel({ sets: "Mathematics,Science,C", focus: "A∩B" });
+    expect(focused.focusExpression).toBe("inter:AB");
+    expect(focused.sets.map((set) => set.colour)).toEqual(["#3B82F6", "#F97316", "#22C55E"]);
+    expect(buildVennModel({ sets: "A,B", focus: "clear" }).focusExpression).toBeUndefined();
+  });
+
   it("keeps disjoint sets apart", () => {
     expect(buildVennModel({ sets: "Cats,Dogs", relation: "disjoint" }).relations.AB).toBe(false);
   });

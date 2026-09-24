@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Eye, EyeOff } from "lucide-react";
 import type { UCEVennModel, VennSet, SetLayout, SetId, RegionOverride } from "./types";
 import { LAYOUT_LABEL, defaultSet } from "./types";
-import { generateExpressions, displayLabel, readValue, writeValue, expressionRegions, isEmptyInLayout } from "./expressions";
+import { generateExpressions, displayLabel, readValue, writeValue, isEmptyInLayout } from "./expressions";
 import { Button } from "@/components/ui/button";
 
 interface Props {

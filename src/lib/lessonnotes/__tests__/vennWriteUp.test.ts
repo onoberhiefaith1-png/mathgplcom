@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildVennPreset } from "@/components/lessonnotes/extensions/visuals/vennEngine/presets";
 import {
-  generateExpressions, displayLabel, expressionRegions, writeValue, readValue, semanticKeyToRowId,
+  generateExpressions, displayLabel, expressionRegions, writeValue, readValue, semanticKeyToRowId, isEmptyInLayout,
 } from "@/components/lessonnotes/extensions/visuals/vennEngine/expressions";
 import { layoutWriteUp } from "@/components/lessonnotes/extensions/visuals/vennEngine/placement";
 import { solveLayout } from "@/components/lessonnotes/extensions/visuals/vennEngine/solver";
@@ -74,5 +74,43 @@ describe("Venn write-up", () => {
     const m = buildVennPreset("venn3");
     delete (m as Partial<UCEVennModel>).expressions;
     expect(() => layoutWriteUp(m, solved(m))).not.toThrow();
+  });
+
+  it("maps complements, differences and outside to physical regions", () => {
+    const m = { ...buildVennPreset("venn3"), universe: { ...buildVennPreset("venn3").universe, show: true } };
+    const rows = generateExpressions(m);
+    const aComplement = rows.find((r) => r.id === "complement:A");
+    const unionComplement = rows.find((r) => r.id === "complement:union:AB");
+    const interComplement = rows.find((r) => r.id === "complement:inter:AB");
+    const difference = rows.find((r) => r.id === "difference:AB");
+    const outside = rows.find((r) => r.id === "outside");
+    expect(aComplement && expressionRegions(aComplement, m).sort()).toEqual(["", "B", "BC", "C"].sort());
+    expect(unionComplement && expressionRegions(unionComplement, m).sort()).toEqual(["", "C"].sort());
+    expect(interComplement && expressionRegions(interComplement, m).sort()).toEqual(["", "A", "AC", "B", "BC", "C"].sort());
+    expect(difference && expressionRegions(difference, m).sort()).toEqual(["A", "AC"].sort());
+    expect(outside && expressionRegions(outside, m)).toEqual([""]);
+  });
+
+  it("returns no focus region for a disjoint intersection", () => {
+    const m = buildVennPreset("vennDisjoint");
+    const intersection = generateExpressions(m).find((r) => r.kind === "inter");
+    expect(intersection && expressionRegions(intersection, m)).toEqual([]);
+    expect(intersection && isEmptyInLayout(intersection, m)).toBe(true);
+  });
+
+  it("parses semantic teaching expressions", () => {
+    expect(semanticKeyToRowId("A'", 3)).toBe("complement:A");
+    expect(semanticKeyToRowId("(A ∪ B)'", 3)).toBe("complement:union:AB");
+    expect(semanticKeyToRowId("(A ∩ B)'", 3)).toBe("complement:inter:AB");
+    expect(semanticKeyToRowId("A-B", 3)).toBe("difference:AB");
+    expect(semanticKeyToRowId("outside", 3)).toBe("outside");
+  });
+
+  it("keeps teaching focus independent from values and identity colours", () => {
+    const original = buildVennPreset("venn3");
+    const focused = { ...original, focusExpression: "inter:AB" };
+    expect(focused.sets).toEqual(original.sets);
+    expect(focused.regions).toEqual(original.regions);
+    expect({ ...focused, focusExpression: null }.sets).toEqual(original.sets);
   });
 });

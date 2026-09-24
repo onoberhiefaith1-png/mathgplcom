@@ -1,7 +1,7 @@
 // SVG renderer + interaction for the Universal Venn Engine.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { UCEVennModel, VennSet, RegionOverride } from "./types";
+import type { UCEVennModel, VennSet } from "./types";
 import { solveLayout } from "./solver";
 import { regionKeyAt } from "./regions";
 import { layoutWriteUp, VALUE_FONT, NOTE_FONT } from "./placement";
