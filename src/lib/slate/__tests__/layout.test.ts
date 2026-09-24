@@ -160,7 +160,10 @@ describe("Game writing-surface layout", () => {
     expect(box.innerWritingWidth).toBeLessThan(box.surfaceWidth);
     expect(box.surfaceHeight).toBeGreaterThan(1.7);
     const frame = writingSurfaceFrame("line", box, gameWritingBand(4));
-    expect(frame.innerTop - 1.7).toBeCloseTo(-frame.innerBottom, 5);
+    expect(frame.surfaceHeight / 2 - frame.innerTop).toBeCloseTo(
+      frame.innerBottom + frame.surfaceHeight / 2,
+      5,
+    );
   });
 
   it("grows the writing surface when text effects need more visible room", () => {

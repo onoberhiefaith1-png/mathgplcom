@@ -929,6 +929,7 @@ export function SlateColumn({
   onRewardConsume,
   focusSlotId = null,
   onFocusSlot,
+  onNavigationChange,
   readOnlyWriting = false,
   restoreKey = 0,
   onContentMarginChange,
