@@ -18,7 +18,7 @@ import { normaliseShortCode } from "./overrides";
 export const LIBRARY_SECTIONS = [
   { id: "symbols", label: "Mathematical Symbols", category: "Symbols" },
   { id: "structures", label: "Elastic Math Structures", category: "Structures" },
-  { id: "diagrams", label: "Parametric Vector Diagrams", category: "Diagrams" },
+  { id: "diagrams", label: "My Diagrams", category: "Diagrams" },
   { id: "tables", label: "Tabular Grids & Data Charts", category: "Tables" },
   { id: "manipulatives", label: "Interactive Manipulatives", category: "Manipulatives" },
 ] as const satisfies readonly { id: string; label: string; category: AssetCategory }[];
@@ -28,7 +28,7 @@ export type LibrarySectionId = (typeof LIBRARY_SECTIONS)[number]["id"];
 export const DEFAULT_SECTION: LibrarySectionId = "diagrams";
 
 export const sectionLabel = (id: string) =>
-  LIBRARY_SECTIONS.find((s) => s.id === id)?.label ?? "Parametric Vector Diagrams";
+  LIBRARY_SECTIONS.find((s) => s.id === id)?.label ?? "My Diagrams";
 
 const sectionCategory = (id: string): AssetCategory =>
   LIBRARY_SECTIONS.find((s) => s.id === id)?.category ?? "Diagrams";
