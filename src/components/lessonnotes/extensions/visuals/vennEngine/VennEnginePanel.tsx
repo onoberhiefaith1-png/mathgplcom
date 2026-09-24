@@ -4,6 +4,7 @@ import { useEffect, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import type { UCEVennModel, VennSet, SetLayout, SetId, RegionOverride } from "./types";
 import { LAYOUT_LABEL, defaultSet } from "./types";
+import { generateExpressions, displayLabel, readValue, writeValue, expressionRegions, isEmptyInLayout } from "./expressions";
 
 interface Props {
   open: boolean;
@@ -15,6 +16,7 @@ interface Props {
   onSelectRegion: (k: string | null) => void;
   onChange: (m: UCEVennModel) => void;
   onDeleteDiagram?: () => void;
+  onHighlight?: (keys: string[] | null) => void;
 }
 
 const COLORS = [
@@ -26,7 +28,7 @@ const COLORS = [
   { value: "#8b5cf6", label: "Purple" },
 ];
 
-export function VennEnginePanel({ open, onClose, model, selectedRegion, selectedSet, onSelectSet, onSelectRegion, onChange, onDeleteDiagram }: Props) {
+export function VennEnginePanel({ open, onClose, model, selectedRegion, selectedSet, onSelectSet, onSelectRegion, onChange, onDeleteDiagram, onHighlight }: Props) {
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
@@ -101,6 +103,7 @@ export function VennEnginePanel({ open, onClose, model, selectedRegion, selected
           model={model} onChange={onChange}
           selectedRegion={selectedRegion} selectedSet={selectedSet}
           onSelectSet={onSelectSet} onSelectRegion={onSelectRegion}
+          onHighlight={onHighlight}
         />
       </div>
     </div>,
@@ -129,7 +132,8 @@ function NumInput({ value, onCommit, step = 1, min }: { value: number; onCommit:
   );
 }
 
-function Body({ model, onChange, selectedRegion, selectedSet, onSelectSet, onSelectRegion }: {
+function Body({ model, onChange, selectedRegion, selectedSet, onSelectSet, onSelectRegion, onHighlight }: {
+  onHighlight?: (keys: string[] | null) => void;
   model: UCEVennModel;
   onChange: (m: UCEVennModel) => void;
   selectedRegion: string | null;
@@ -265,6 +269,8 @@ function Body({ model, onChange, selectedRegion, selectedSet, onSelectSet, onSel
         </>
       )}
 
+      <WriteUp model={model} onChange={onChange} onHighlight={onHighlight} />
+
       <Header>Universal set</Header>
       <Row label="Show">
         <input type="checkbox" checked={model.universe.show}
@@ -338,4 +344,44 @@ function formatRegion(key: string): string {
   if (!key) return "outside";
   if (key.length === 1) return `${key} only`;
   return key.split("").join(" ∩ ");
+}
+
+function WriteUp({ model, onChange, onHighlight }: {
+  model: UCEVennModel;
+  onChange: (m: UCEVennModel) => void;
+  onHighlight?: (keys: string[] | null) => void;
+}) {
+  const rows = generateExpressions(model);
+  return (
+    <>
+      <Header>Mathematical write-up</Header>
+      <p className="text-[10px] text-muted-foreground pb-1">
+        Type a number, word or expression. Empty rows are not shown on the diagram.
+      </p>
+      {rows.map((row) => {
+        const empty = isEmptyInLayout(row, model);
+        const label = displayLabel(row, model);
+        const value = readValue(model, row);
+        return (
+          <div key={row.id} className={`flex items-center gap-2 py-0.5 ${empty ? "opacity-50" : ""}`}>
+            <span className="flex-1 text-[11px] font-medium break-words" title={empty ? "Empty in this layout" : label}>
+              {label}{empty ? " (empty in this layout)" : ""}
+            </span>
+            <input
+              className="input-panel w-32 text-right"
+              aria-label={label}
+              defaultValue={value}
+              key={`${row.id}:${value}`}
+              onFocus={() => onHighlight?.(expressionRegions(row, model.numSets))}
+              onBlur={(e) => {
+                onHighlight?.(null);
+                if (e.target.value !== value) onChange(writeValue(model, row, e.target.value));
+              }}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            />
+          </div>
+        );
+      })}
+    </>
+  );
 }
