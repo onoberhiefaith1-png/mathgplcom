@@ -311,6 +311,7 @@ export const gameSurfaceBox = ({
   visualInsets = { left: 0, right: 0, top: 0, bottom: 0 },
   contentMargin = 0,
   foldInset = 0,
+  tagGutter = 0,
 }: GameSurfaceBoxInput): GameSurfaceBox => {
   const { x: basePadX, y: padY } = gameSurfacePadding(fontSize);
   // THE FOLD IS NOT A WRITING AREA. The rolled part of the surface is physical
@@ -318,27 +319,30 @@ export const gameSurfaceBox = ({
   // laid out inside it.
   const padX = basePadX + Math.max(0, foldInset);
   const requested = Math.max(0, contentMargin);
+  const gutter = Math.max(0, tagGutter);
   const content = text || hiddenContent || "";
   const emptyWidth = Math.max(0.9, fontSize / 145);
   const minimumWidth = Math.max(inset * 2 + 0.32, emptyWidth);
   const estimatedTextWidth = gameEstimatedTextWidth(
     content,
     fontSize,
-    Math.max(MIN_CONTENT_WIDTH, gameInnerWritingWidth(writingWidth, padX) - requested),
+    Math.max(MIN_CONTENT_WIDTH, gameInnerWritingWidth(writingWidth, padX) - requested - gutter),
   );
-  // The right edge provides the room the margin plus the real content needs —
-  // it is never widened by the margin movement on its own.
+  // The right edge provides the room the tag strip plus the margin plus the
+  // real content need — it is never widened by margin movement on its own.
   const contentSurfaceWidth = Math.max(
     minimumWidth,
-    requested + estimatedTextWidth + padX * 2,
-    requested + Math.max(0, measuredWidth) + visualInsets.left + visualInsets.right + padX * 2,
+    gutter + requested + estimatedTextWidth + padX * 2,
+    gutter + requested + Math.max(0, measuredWidth) + visualInsets.left + visualInsets.right + padX * 2,
   );
   // Edit and Play are deliberately identical here. `readOnlyWriting` remains
   // in the input for saved-call compatibility, but can never open a second,
   // screen-wide text box that escapes the physical surface.
   void readOnlyWriting;
   const surfaceWidth = gameSurfaceWidth(writingWidth, contentSurfaceWidth);
-  const usableWidth = gameInnerWritingWidth(surfaceWidth, padX);
+  const paddedWidth = gameInnerWritingWidth(surfaceWidth, padX);
+  const appliedGutter = Math.min(gutter, Math.max(0, paddedWidth - MIN_CONTENT_WIDTH));
+  const usableWidth = Math.max(MIN_CONTENT_WIDTH, paddedWidth - appliedGutter);
   const appliedMargin = Math.min(requested, Math.max(0, usableWidth - MIN_CONTENT_WIDTH));
   const innerWritingWidth = Math.max(MIN_CONTENT_WIDTH, usableWidth - appliedMargin);
   const estimatedTextHeight = gameEstimatedTextHeight(
@@ -360,6 +364,12 @@ export const gameSurfaceBox = ({
     innerWritingWidth,
     surfaceHeight,
     contentMargin: appliedMargin,
+    tagGutter: appliedGutter,
+    // ONE start coordinate. Everything that draws text inside this surface uses
+    // this centre, so no renderer can invent its own left edge.
+    contentOffsetX:
+      padX + appliedGutter + appliedMargin + innerWritingWidth / 2 - surfaceWidth / 2,
+
   };
 };
 
