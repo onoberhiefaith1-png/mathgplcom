@@ -75,7 +75,7 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
         style={{
           width: Math.round(surfacePx),
           maxWidth: Math.round(surfacePx),
-          overflow: "hidden",
+          overflow: "visible",
           // Html's transform wrapper centres its child on the 3D origin.
           // WritingRegion's origin is the surface's top-left, so cancel that
           // centring in CSS: right by half-width, down by half-height.
@@ -96,10 +96,12 @@ export function StructuredMathText({ math, note, width, surface, settings, onMea
             key={entry.sourceRow}
             style={{
               display: "flex",
+              flexWrap: "wrap",
               justifyContent: settings.align === "center" ? "center" : settings.align === "right" ? "flex-end" : "flex-start",
               alignItems: "baseline",
               minHeight: "1em",
-              whiteSpace: "nowrap",
+              whiteSpace: "normal",
+              overflowWrap: "anywhere",
             }}
           >
             <MathTreeRender

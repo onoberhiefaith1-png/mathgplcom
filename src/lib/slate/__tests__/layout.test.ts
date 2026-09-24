@@ -14,6 +14,8 @@ import {
   gameWritingBand,
   contentCharacterGap,
   writingSurfaceFrame,
+  scrollRatio,
+  scrollTargetAtRatio,
 } from "../layout";
 import { makeSlot } from "../defaults";
 import type { Slot } from "../types";
@@ -24,6 +26,12 @@ import { getSurface } from "../surfaces";
 const slot = (id: string, text: string): Slot => ({ ...makeSlot(), id, text });
 
 describe("Game writing-surface layout", () => {
+  it("maps the visible scrollbar to the full physical scroll range", () => {
+    expect(scrollRatio(5, 20)).toBe(0.25);
+    expect(scrollRatio(30, 20)).toBe(1);
+    expect(scrollTargetAtRatio(0.75, 20)).toBe(15);
+    expect(scrollTargetAtRatio(-1, 20)).toBe(0);
+  });
   it("reserves the 5% to 95% writing band", () => {
     expect(GAME_WRITING_WIDTH).toBeCloseTo(6.6 * 0.9);
     expect(gameWritingWidth(4)).toBeCloseTo(3.6);

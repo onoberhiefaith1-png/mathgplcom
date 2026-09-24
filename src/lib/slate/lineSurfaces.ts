@@ -237,15 +237,17 @@ export const gameLineDisplayText = ({
   working,
   note,
   awarded,
+  noteOnly = false,
 }: {
   isQuestion: boolean;
   questionText: string;
   working: string;
   note?: string | null;
   awarded: boolean;
+  noteOnly?: boolean;
 }): string => {
   if (isQuestion) return questionText;
-  return [working, awarded ? note : null].filter(Boolean).join("\n");
+  return [working, awarded || noteOnly ? note : null].filter(Boolean).join("\n");
 };
 
 /**

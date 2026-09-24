@@ -49,7 +49,7 @@ import { GameEvaluationPanel } from "@/components/gameslate/GameEvaluationPanel"
 import GameLevelMap, { type LevelMapNode } from "@/components/gameslate/GameLevelMap";
 import LevelArrangeDialog from "@/components/gameslate/LevelArrangeDialog";
 import SelectClassDialog from "@/components/gameslate/SelectClassDialog";
-import { predict, routeMapFor } from "@/lib/predictive/predictiveLine";
+import { predict, provesEquivalent, routeMapFor } from "@/lib/predictive/predictiveLine";
 import {
   appendEvent,
   buildLineReport,
@@ -65,6 +65,7 @@ import { sameTextConfig } from "@/lib/slate/textConfig";
 import { loadStudentContentMargin, saveStudentContentMargin } from "@/lib/slate/studentMargin";
 import type { GameMathLine } from "@/lib/slate/structuredMath";
 import { latexToTree } from "@/lib/smartboard/mathTreeLatex";
+import { rowToAscii } from "@/lib/smartboard/rowAscii";
 
 
 const GamePlayPage = () => {
@@ -394,12 +395,14 @@ const GamePlayPage = () => {
       // Every other Game Line carries the student's own live working, and its
       // teaching note only once the line has actually earned its marks.
       const working = row.isQuestion ? "" : floatingTextForGameLine(renderedLineText, row.line);
+      const noteOnly = !row.isQuestion && row.line === 1 && question.lineNoteOnly[0] === true;
       const text = gameLineDisplayText({
         isQuestion: row.isQuestion,
         questionText: question.questionText,
         working,
         note: question.lineNotes[row.line - 1],
         awarded: runtime.completedLines.includes(row.line),
+        noteOnly,
       });
       const rewards: RewardInstance[] = row.rewards.map((reward) => {
           const key = `${question.questionRowId}:${row.line}:${reward.id}`;
@@ -421,7 +424,7 @@ const GamePlayPage = () => {
       const structuredMath: GameMathLine | undefined = row.isQuestion
         ? { rows: [{ sourceRow: 0, row: latexToTree(question.questionText), cursor: null }] }
         : structuredLineMath[row.line - 1];
-      const note = !row.isQuestion && runtime.completedLines.includes(row.line)
+      const note = !row.isQuestion && (noteOnly || runtime.completedLines.includes(row.line))
         ? question.lineNotes[row.line - 1] ?? undefined
         : undefined;
       return {
@@ -571,9 +574,22 @@ const GamePlayPage = () => {
     // The Predictive Line comes from the ONE shared engine. The Game never
     // marks with it: it only reports the shortest remaining route.
     const expectedAscii = row.isQuestion ? "" : (lineId ? expectedLines[lineId] ?? "" : "");
-    const studentAscii = row.isQuestion
+    const plainStudentAscii = row.isQuestion
       ? question.questionText
       : floatingTextForGameLine(lineText, row.line);
+    const boardStudentAscii = row.isQuestion
+      ? question.questionText
+      : (structuredLineMath[row.line - 1]?.rows ?? [])
+          .map((entry) => rowToAscii(entry.row))
+          .filter(Boolean)
+          .join(" ")
+          .trim();
+    const evidence = [plainStudentAscii, boardStudentAscii].filter((value, index, all) =>
+      value.trim().length > 0 && all.indexOf(value) === index,
+    );
+    const studentAscii = !row.isQuestion && expectedAscii
+      ? evidence.find((value) => provesEquivalent(expectedAscii, value)) ?? evidence[0] ?? ""
+      : evidence[0] ?? "";
     const prediction = !row.isQuestion && expectedAscii
       ? predict({
           routeMap: routeMapFor({
@@ -604,7 +620,7 @@ const GamePlayPage = () => {
   }, [
     runtime.question, runtime.lines, runtime.currentLine, runtime.completedLines,
     runtime.consumedRewardKeys, runtime.timedLine, lineText, expectedLines, expectedAtoms,
-    verdicts, conversion,
+    verdicts, conversion, structuredLineMath,
   ]);
 
   // INSTANT AWARD: the moment evaluation proves this line equivalent, pay it —

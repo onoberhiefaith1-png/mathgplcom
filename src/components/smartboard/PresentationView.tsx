@@ -5880,12 +5880,14 @@ const PresentationView = ({
     [floatingHost, scrollBoardToRow],
   );
 
-  // FIRST-LINE NOTE BY DEFAULT: the question occupies line 0, so when the
-  // solution's first step is a note it appears on line 1 as soon as the
-  // question opens — no click needed. Same path for both engines.
+  // FIRST-LINE NOTE BY DEFAULT: only a true standalone note line is automatic.
+  // A line carrying Floating Numbers or an equation remains interactive.
   useEffect(() => {
     if (!hasGuidedLines || guidedLines.length === 0) return;
-    const note = noteForLine(guidedLines[0] as { notebook?: string } | undefined);
+    const first = guidedLines[0];
+    const hasFragments = (first?.fragmentEnd ?? 0) > (first?.fragmentStart ?? 0);
+    if (!first?.notebookOnly || hasFragments || String(first.equation ?? "").trim()) return;
+    const note = noteForLine(first as { notebook?: string } | undefined);
     if (!note || shownNotebookIdx.has(0)) return;
     const t = window.setTimeout(() => {
       writeNoteForLine(0, note);
