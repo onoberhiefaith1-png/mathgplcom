@@ -26,10 +26,44 @@ export interface ParsedLine {
 
 const FNS = ["sqrt", "cbrt", "sin", "cos", "tan", "log", "ln", "exp", "root"];
 
+/** Read a balanced {...} group starting at `i` (which must be "{"). */
+const braceGroup = (s: string, i: number): [string, number] | null => {
+  if (s[i] !== "{") return null;
+  let d = 0;
+  for (let j = i; j < s.length; j++) {
+    if (s[j] === "{") d++;
+    else if (s[j] === "}" && --d === 0) return [s.slice(i + 1, j), j + 1];
+  }
+  return null;
+};
+
+/** \frac{a}{b} → ((a)/(b)), handling any nesting depth. */
+const expandFracs = (src: string): string => {
+  let s = src;
+  for (let guard = 0; guard < 50; guard++) {
+    const at = s.search(/\\[dt]?frac\s*\{/);
+    if (at < 0) return s;
+    const open = s.indexOf("{", at);
+    const num = braceGroup(s, open);
+    if (!num) return s;
+    let k = num[1];
+    while (s[k] === " ") k++;
+    const den = braceGroup(s, k);
+    if (!den) return s;
+    s = s.slice(0, at) + "((" + num[0] + ")/(" + den[0] + "))" + s.slice(den[1]);
+  }
+  return s;
+};
+
 /** Convert every supported notation into one plain linear form. */
 export const linearize = (raw: string): string => {
   let s = String(raw ?? "");
   s = s.replace(/\\left|\\right/g, "").replace(/\\[,;!: ]/g, "");
+  s = s.replace(/\\pm\b/g, "±").replace(/\\mp\b/g, "∓").replace(/\+-|\+\/-/g, "±");
+  s = expandFracs(s);
+  // Juxtaposed brackets are multiplication: 4(5) → 4*(5), (5)(-4) → (5)*(-4).
+  // Must happen before normEq strips "(5)" → "5" (which made 4(5) read as 45).
+  s = s.replace(/(\d|\))\s*\(/g, "$1*(");
   s = s.replace(/\\(le|leq)\b/g, "<=").replace(/\\(ge|geq)\b/g, ">=").replace(/\\(ne|neq)\b/g, "!=");
   s = s.replace(/≤/g, "<=").replace(/≥/g, ">=").replace(/≠/g, "!=");
   s = s.replace(/\\sqrt\[([^\]]*)\]\{/g, "root#$1#(").replace(/\\sqrt\{/g, "sqrt(");
