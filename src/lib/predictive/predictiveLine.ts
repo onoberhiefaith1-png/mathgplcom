@@ -98,8 +98,11 @@ export const buildRouteMap = (input: {
 
 /** Whitespace/glyph-only tidy — safe for matching single symbols like `+`. */
 const plain = (value: string): string =>
-  linearize(String(value ?? ""))
-    .replace(/[()]/g, "")
+  String(value ?? "")
+    .replace(/\\d?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "$1/$2")
+    .replace(/\\sqrt\s*\{([^{}]*)\}/g, "√$1")
+    .replace(/[{}]/g, "")
+    .toLowerCase()
     .replace(/\s+/g, "")
     .replace(/−/g, "-")
     .replace(/[×·]/g, "*")
@@ -143,7 +146,8 @@ const searchRoute = (
   // numerator/denominator pair as a single composite step.
   const moves: Array<{ piece: string; uses: number[] }> = pool.map((p, i) => ({ piece: p, uses: [i] }));
   const operand = (a: string) => !/^(=|<|>|≤|≥|\+|-|−|×|÷|\*|\/)$/.test(a.trim());
-  for (let i = 0; i < pool.length && pool.length <= 8; i++)
+  const wantsFractions = /\\frac|\//.test(map.expected);
+  for (let i = 0; wantsFractions && i < pool.length && pool.length <= 6; i++)
     for (let j = 0; j < pool.length; j++)
       if (i !== j && operand(pool[i]) && operand(pool[j]))
         moves.push({ piece: `\\frac{${pool[i]}}{${pool[j]}}`, uses: [i, j] });
