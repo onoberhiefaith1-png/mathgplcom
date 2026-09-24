@@ -10,6 +10,7 @@
 // node (the fallback rule).
 
 import { resolveAsset } from "./toolManifest";
+import { buildFlowModel, buildTreeModel, buildVennModel, classifyDiagram, engineVisualNode } from "./diagramSpec";
 import { normalizeMathSource } from "@/lib/notebook/mathNormalize";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { requiredSlotCount, validateStructure } from "@/lib/lessonnotes/structureValidator";
