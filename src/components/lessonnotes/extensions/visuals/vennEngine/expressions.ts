@@ -9,7 +9,7 @@
 
 import type { UCEVennModel, SetId } from "./types";
 
-export type ExprKind = "only" | "union" | "inter" | "universe";
+export type ExprKind = "only" | "union" | "inter" | "complement" | "difference" | "outside" | "universe";
 
 export interface VennExpressionRow {
   /** Stable id. For kind "only" this is the physical region key. */
@@ -18,6 +18,8 @@ export interface VennExpressionRow {
   sets: SetId[];
   /** True when the value is stored on a physical region. */
   physical: boolean;
+  /** Operation nested inside a complement, e.g. (A∪B)′. */
+  innerKind?: "union" | "inter";
 }
 
 function combos(ids: SetId[], k: number): SetId[][] {
@@ -47,8 +49,27 @@ export function generateExpressions(model: Pick<UCEVennModel, "sets" | "numSets"
     if (k === n) rows.push({ id: c.join(""), kind: "inter", sets: c, physical: true });
     else rows.push({ id: `inter:${c.join("")}`, kind: "inter", sets: c, physical: false });
   }
-  if (model.universe?.show) rows.push({ id: "universe", kind: "universe", sets: [], physical: false });
+  if (model.universe?.show) {
+    for (const id of ids) rows.push({ id: `complement:${id}`, kind: "complement", sets: [id], physical: false });
+    for (const c of combos(ids, 2)) {
+      rows.push({ id: `complement:union:${c.join("")}`, kind: "complement", innerKind: "union", sets: c, physical: false });
+      rows.push({ id: `complement:inter:${c.join("")}`, kind: "complement", innerKind: "inter", sets: c, physical: false });
+    }
+    rows.push({ id: "outside", kind: "outside", sets: [], physical: true });
+    rows.push({ id: "universe", kind: "universe", sets: [], physical: false });
+  }
+  for (const from of ids) for (const remove of ids) {
+    if (from !== remove) rows.push({ id: `difference:${from}${remove}`, kind: "difference", sets: [from, remove], physical: false });
+  }
   return rows;
+}
+
+export function expressionRowById(
+  model: Pick<UCEVennModel, "sets" | "numSets" | "universe">,
+  id: string | null | undefined,
+): VennExpressionRow | null {
+  if (!id) return null;
+  return generateExpressions(model).find((row) => row.id === id) ?? null;
 }
 
 /** Every physical region key present for this number of sets (including outside ""). */
@@ -60,12 +81,33 @@ export function allRegionKeys(n: number): string[] {
 }
 
 /** Physical regions an expression refers to (used for highlighting). */
-export function expressionRegions(row: VennExpressionRow, n: number): string[] {
-  const keys = allRegionKeys(n);
+export function expressionRegions(row: VennExpressionRow, source: number | Pick<UCEVennModel, "numSets" | "layout" | "relations">): string[] {
+  const n = typeof source === "number" ? source : source.numSets;
+  const keys = typeof source === "number" ? allRegionKeys(n) : feasibleRegionKeys(source);
   if (row.kind === "universe") return keys;
+  if (row.kind === "outside") return keys.includes("") ? [""] : [];
   if (row.kind === "only") return [row.id];
   if (row.kind === "union") return keys.filter((k) => row.sets.some((s) => k.includes(s)));
-  return keys.filter((k) => row.sets.every((s) => k.includes(s)));
+  if (row.kind === "inter") return keys.filter((k) => row.sets.every((s) => k.includes(s)));
+  if (row.kind === "difference") {
+    const [from, remove] = row.sets;
+    return keys.filter((k) => k.includes(from) && !k.includes(remove));
+  }
+  const included = row.innerKind === "union"
+    ? keys.filter((k) => row.sets.some((s) => k.includes(s)))
+    : row.innerKind === "inter"
+      ? keys.filter((k) => row.sets.every((s) => k.includes(s)))
+      : keys.filter((k) => k.includes(row.sets[0]));
+  return keys.filter((key) => !included.includes(key));
+}
+
+/** Physical regions that can exist in the selected layout. */
+export function feasibleRegionKeys(model: Pick<UCEVennModel, "numSets" | "layout" | "relations">): string[] {
+  const rel = relationsFor(model);
+  return allRegionKeys(model.numSets).filter((key) => {
+    if (key.length < 2) return true;
+    return combos(key.split("") as SetId[], 2).every(([a, b]) => rel[`${a}${b}` as "AB" | "AC" | "BC"]);
+  });
 }
 
 export function displayLabel(row: VennExpressionRow, model: Pick<UCEVennModel, "sets">): string {
@@ -76,18 +118,21 @@ export function displayLabel(row: VennExpressionRow, model: Pick<UCEVennModel, "
     case "only": return names.length === 1 ? `${names[0]} only` : `${names.join(" ∩ ")} only`;
     case "union": return names.join(" ∪ ");
     case "inter": return names.join(" ∩ ");
+    case "complement": {
+      const inner = names.join(row.innerKind === "union" ? " ∪ " : row.innerKind === "inter" ? " ∩ " : "");
+      return `${row.sets.length > 1 ? `(${inner})` : inner}′`;
+    }
+    case "difference": return `${names[0]} − ${names[1]}`;
+    case "outside": return "Outside all sets";
   }
 }
 
 /** Whether the layout makes this row's regions impossible (e.g. disjoint A∩B). */
 export function isEmptyInLayout(row: VennExpressionRow, model: UCEVennModel): boolean {
-  if (row.kind !== "inter" && !(row.kind === "only" && row.sets.length > 1)) return false;
-  const rel = relationsFor(model);
-  const pairs = combos(row.sets, 2);
-  return pairs.some(([a, b]) => !rel[`${a}${b}` as "AB" | "AC" | "BC"]);
+  return expressionRegions(row, model).length === 0;
 }
 
-function relationsFor(model: UCEVennModel): { AB: boolean; AC: boolean; BC: boolean } {
+function relationsFor(model: Pick<UCEVennModel, "layout" | "relations">): { AB: boolean; AC: boolean; BC: boolean } {
   switch (model.layout) {
     case "twoIntersect": case "threeAll": return { AB: true, AC: true, BC: true };
     case "twoDisjoint": case "threeAllDisjoint": return { AB: false, AC: false, BC: false };
@@ -98,12 +143,12 @@ function relationsFor(model: UCEVennModel): { AB: boolean; AC: boolean; BC: bool
 }
 
 export function readValue(model: UCEVennModel, row: VennExpressionRow): string {
-  if (row.physical) return model.regions.find((r) => r.key === row.id)?.text ?? "";
+  if (row.physical) return model.regions.find((r) => r.key === (row.kind === "outside" ? "" : row.id))?.text ?? "";
   return model.expressions?.[row.id] ?? "";
 }
 
 export function writeValue(model: UCEVennModel, row: VennExpressionRow, value: string): UCEVennModel {
-  if (row.physical) return setRegionText(model, row.id, value);
+  if (row.physical) return setRegionText(model, row.kind === "outside" ? "" : row.id, value);
   const expressions = { ...(model.expressions ?? {}) };
   if (value.trim() === "") delete expressions[row.id]; else expressions[row.id] = value;
   return { ...model, expressions };
@@ -124,7 +169,16 @@ export function setRegionText(model: UCEVennModel, key: string, value: string): 
 export function semanticKeyToRowId(raw: string, numSets: 2 | 3): string | null {
   const k = raw.trim().replace(/\s+/g, "").toUpperCase();
   if (k === "U" || k === "UNIVERSE") return "universe";
-  if (k === "OUTSIDE" || k === "NEITHER" || k === "NONE") return "";
+  if (k === "OUTSIDE" || k === "NEITHER" || k === "NONE") return "outside";
+  const difference = k.match(/^([ABC])(?:-|−|\\)([ABC])$/);
+  if (difference) return `difference:${difference[1]}${difference[2]}`;
+  const complement = k.match(/^\(?([ABC])(?:(∪|U|UNION|∩|N|AND|INTER)([ABC]))?\)?(?:'|′)$/);
+  if (complement) {
+    const ids = [complement[1], complement[3]].filter(Boolean).sort().join("");
+    if (!complement[2]) return `complement:${ids}`;
+    const inner = /∪|U|UNION/.test(complement[2]) ? "union" : "inter";
+    return `complement:${inner}:${ids}`;
+  }
   const only = k.match(/^([ABC]{1,3})_?ONLY$/);
   if (only) return [...only[1]].sort().join("");
   const uni = k.match(/^([ABC])(?:∪|U|UNION)([ABC])(?:(?:∪|U|UNION)([ABC]))?$/);
@@ -134,4 +188,25 @@ export function semanticKeyToRowId(raw: string, numSets: 2 | 3): string | null {
   if (!idsOf) return null;
   if (inter && idsOf.length === 2 && numSets === 3) return `inter:${idsOf}`;
   return idsOf;
+}
+
+/** Resolve either A/B/C notation or the teacher's current set labels. */
+export function semanticExpressionToRowId(
+  raw: string,
+  model: Pick<UCEVennModel, "sets" | "numSets">,
+): string | null {
+  let normalized = raw.trim();
+  const namedOperation = /^\s*(INTERSECTION|UNION)(?:\s+OF|\s+BETWEEN)?\s+/i.exec(normalized)?.[1]?.toUpperCase();
+  normalized = normalized.replace(/^\s*(INTERSECTION|UNION)(?:\s+OF|\s+BETWEEN)?\s+/i, "");
+  const byLongestLabel = [...model.sets]
+    .filter((set) => set.label.trim())
+    .sort((a, b) => b.label.length - a.label.length);
+  for (const set of byLongestLabel) {
+    const escaped = set.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    normalized = normalized.replace(new RegExp(escaped, "gi"), set.id);
+  }
+  normalized = normalized
+    .replace(/\bONLY\b/gi, "_only")
+    .replace(/\bAND\b/gi, namedOperation === "UNION" ? "∪" : "∩");
+  return semanticKeyToRowId(normalized, model.numSets);
 }

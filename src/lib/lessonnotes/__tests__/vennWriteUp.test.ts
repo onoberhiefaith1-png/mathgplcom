@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildVennPreset } from "@/components/lessonnotes/extensions/visuals/vennEngine/presets";
 import {
-  generateExpressions, displayLabel, expressionRegions, writeValue, readValue, semanticKeyToRowId,
+  generateExpressions, displayLabel, expressionRegions, writeValue, readValue, semanticKeyToRowId, isEmptyInLayout, semanticExpressionToRowId,
 } from "@/components/lessonnotes/extensions/visuals/vennEngine/expressions";
 import { layoutWriteUp } from "@/components/lessonnotes/extensions/visuals/vennEngine/placement";
 import { solveLayout } from "@/components/lessonnotes/extensions/visuals/vennEngine/solver";
@@ -16,7 +16,10 @@ const solved = (m: UCEVennModel) => {
 describe("Venn write-up", () => {
   it("two sets generate the short list", () => {
     const m = { ...buildVennPreset("venn2"), universe: { ...buildVennPreset("venn2").universe, show: true } };
-    expect(generateExpressions(m).map((r) => displayLabel(r, m))).toEqual(["A only", "B only", "A ∪ B", "A ∩ B", "U"]);
+    expect(generateExpressions(m).map((r) => displayLabel(r, m))).toEqual([
+      "A only", "B only", "A ∪ B", "A ∩ B", "A′", "B′", "(A ∪ B)′", "(A ∩ B)′",
+      "Outside all sets", "U", "A − B", "B − A",
+    ]);
   });
 
   it("three sets have no duplicates and use labels", () => {
@@ -74,5 +77,47 @@ describe("Venn write-up", () => {
     const m = buildVennPreset("venn3");
     delete (m as Partial<UCEVennModel>).expressions;
     expect(() => layoutWriteUp(m, solved(m))).not.toThrow();
+  });
+
+  it("maps complements, differences and outside to physical regions", () => {
+    const m = { ...buildVennPreset("venn3"), universe: { ...buildVennPreset("venn3").universe, show: true } };
+    const rows = generateExpressions(m);
+    const aComplement = rows.find((r) => r.id === "complement:A");
+    const unionComplement = rows.find((r) => r.id === "complement:union:AB");
+    const interComplement = rows.find((r) => r.id === "complement:inter:AB");
+    const difference = rows.find((r) => r.id === "difference:AB");
+    const outside = rows.find((r) => r.id === "outside");
+    expect(aComplement && expressionRegions(aComplement, m).sort()).toEqual(["", "B", "BC", "C"].sort());
+    expect(unionComplement && expressionRegions(unionComplement, m).sort()).toEqual(["", "C"].sort());
+    expect(interComplement && expressionRegions(interComplement, m).sort()).toEqual(["", "A", "AC", "B", "BC", "C"].sort());
+    expect(difference && expressionRegions(difference, m).sort()).toEqual(["A", "AC"].sort());
+    expect(outside && expressionRegions(outside, m)).toEqual([""]);
+  });
+
+  it("returns no focus region for a disjoint intersection", () => {
+    const m = buildVennPreset("vennDisjoint");
+    const intersection = generateExpressions(m).find((r) => r.kind === "inter");
+    expect(intersection && expressionRegions(intersection, m)).toEqual([]);
+    expect(intersection && isEmptyInLayout(intersection, m)).toBe(true);
+  });
+
+  it("parses semantic teaching expressions", () => {
+    expect(semanticKeyToRowId("A'", 3)).toBe("complement:A");
+    expect(semanticKeyToRowId("(A ∪ B)'", 3)).toBe("complement:union:AB");
+    expect(semanticKeyToRowId("(A ∩ B)'", 3)).toBe("complement:inter:AB");
+    expect(semanticKeyToRowId("A-B", 3)).toBe("difference:AB");
+    expect(semanticKeyToRowId("outside", 3)).toBe("outside");
+    const named = buildVennPreset("venn3");
+    named.sets = named.sets.map((set, index) => ({ ...set, label: ["Mathematics", "Science", "C"][index] }));
+    expect(semanticExpressionToRowId("Mathematics only", named)).toBe("A");
+    expect(semanticExpressionToRowId("intersection of Mathematics and Science", named)).toBe("inter:AB");
+  });
+
+  it("keeps teaching focus independent from values and identity colours", () => {
+    const original = buildVennPreset("venn3");
+    const focused = { ...original, focusExpression: "inter:AB" };
+    expect(focused.sets).toEqual(original.sets);
+    expect(focused.regions).toEqual(original.regions);
+    expect({ ...focused, focusExpression: null }.sets).toEqual(original.sets);
   });
 });

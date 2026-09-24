@@ -27,7 +27,6 @@ export function VennEngineNode({ variant, attrs, selected, editorOpen, onCloseEd
   const [model, setModel] = useState<UCEVennModel>(initial);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedSet, setSelectedSet] = useState<string | null>(null);
-  const [highlight, setHighlight] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (!attrs.model) onChange({ model: initial });
@@ -54,7 +53,6 @@ export function VennEngineNode({ variant, attrs, selected, editorOpen, onCloseEd
           onSelectSet={setSelectedSet}
           onChange={commit}
           editable={selected || editorOpen}
-          highlight={highlight}
         />
       </span>
 
@@ -68,7 +66,6 @@ export function VennEngineNode({ variant, attrs, selected, editorOpen, onCloseEd
         onSelectSet={setSelectedSet}
         onSelectRegion={setSelectedRegion}
         onDeleteDiagram={onDeleteDiagram}
-        onHighlight={setHighlight}
       />
     </span>
   );

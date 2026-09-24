@@ -1,4 +1,4 @@
-import { semanticKeyToRowId } from "@/components/lessonnotes/extensions/visuals/vennEngine/expressions";
+import { expressionRegions, expressionRowById, semanticExpressionToRowId, semanticKeyToRowId } from "@/components/lessonnotes/extensions/visuals/vennEngine/expressions";
 // AI Mathematical Diagram Engine — builds diagrams from mathematical meaning.
 //
 // The AI never asks the Asset Library for a mathematical diagram. It writes a
@@ -82,18 +82,11 @@ export function solveTwoSetVenn(p: P): VennRegions | null {
 
 /** Region keys shaded by a set operation, for a two- or three-set diagram. */
 export function regionsForOperation(op: string, numSets: 2 | 3): string[] {
-  const all = numSets === 2 ? ["A", "B", "AB", ""] : ["A", "B", "C", "AB", "AC", "BC", "ABC", ""];
-  const has = (k: string, s: string) => k.includes(s);
-  const o = (op || "").replace(/\s+/g, "").replace(/∩|\^|n(?=[A-C])/g, "&").replace(/∪|u(?=[A-C])/gi, "|");
-  const m = o.match(/^([A-C])('|c)?(?:([&|\-\\])([A-C])('|c)?)?$/i);
-  if (!m) return [];
-  const [, x, xc, opr, y, yc] = m;
-  const inX = (k: string) => (xc ? !has(k, x.toUpperCase()) : has(k, x.toUpperCase()));
-  const inY = (k: string) => (yc ? !has(k, (y ?? "").toUpperCase()) : has(k, (y ?? "").toUpperCase()));
-  if (!opr) return all.filter(inX);
-  if (opr === "&") return all.filter((k) => inX(k) && inY(k));
-  if (opr === "|") return all.filter((k) => inX(k) || inY(k));
-  return all.filter((k) => inX(k) && !inY(k));
+  const model = buildVennPreset(numSets === 3 ? "venn3" : "venn2");
+  model.universe = { ...model.universe, show: true };
+  const id = semanticKeyToRowId(op, numSets);
+  const row = expressionRowById(model, id);
+  return row ? expressionRegions(row, model) : [];
 }
 
 export function buildVennModel(p: P): UCEVennModel {
@@ -131,13 +124,22 @@ export function buildVennModel(p: P): UCEVennModel {
       const id = semanticKeyToRowId(part.slice(0, i), three ? 3 : 2);
       const v = part.slice(i + 1).trim();
       if (id == null || !v) continue;
-      if (id.includes(":") || id === "universe") expressions[id] = v; else put(id, { text: v });
+       if (id === "outside") put("", { text: v });
+       else if (id.includes(":") || id === "universe") expressions[id] = v;
+       else put(id, { text: v });
     }
     if (Object.keys(expressions).length) model.expressions = expressions;
   }
   const op = p.shade ?? p.operation ?? p.op;
   if (op) {
     for (const k of regionsForOperation(op, three ? 3 : 2)) put(k, { fill: "#f59e0b", fillOpacity: 0.45 });
+  }
+  const focus = p.focus ?? p.highlight ?? p.teach;
+  if (focus) {
+    const normalized = focus.trim().toLowerCase();
+    if (!/^(none|clear|normal|overview|showall|show all)$/.test(normalized)) {
+      model.focusExpression = semanticExpressionToRowId(focus, model);
+    }
   }
   model.regions = [...regions.values()];
   return model;

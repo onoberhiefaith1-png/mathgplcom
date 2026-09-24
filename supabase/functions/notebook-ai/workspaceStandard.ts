@@ -98,6 +98,11 @@ Venn — understand sets → relationships → regions → values/shading:
   To edit an existing Venn ("put 8 in the Maths and Science intersection",
   "rename Mathematics to English"), re-emit the same directive with the
   updated sets=/write= values — never redraw it as a picture.
+  Teaching focus is semantic, never an arbitrary colour edit. Use
+  focus="A_only" | "A∩B" | "AB_only" | "A∪B" | "A'" | "A∩B∩C" to show
+  the exact mathematical regions while preserving set identity colours.
+  "Return to normal colours" means focus="clear". Resolve teacher-facing set
+  names through the order in sets= (first=A, second=B, third=C).
 Tree — understand events → branches → outcomes:
   [[tool:diagram type="tree" stages="H,T;H,T" probs="1/2,1/2;1/2,1/2" stage="solution"]]
 Flowchart — understand actions and decisions:
