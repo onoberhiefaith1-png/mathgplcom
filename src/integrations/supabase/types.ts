@@ -8534,6 +8534,27 @@ export type Database = {
         }
         Relationships: []
       }
+      slate_surface_margins: {
+        Row: {
+          content_margin: number
+          game_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content_margin?: number
+          game_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content_margin?: number
+          game_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       smart_card_attempts: {
         Row: {
           card_id: string
