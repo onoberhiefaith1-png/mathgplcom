@@ -13,8 +13,9 @@
 // only searches the finite space of Floating Numbers the teacher generated.
 
 import { equationsEquivalent, normEq } from "@/lib/smartboard/rowAscii";
+import { linearize, parseLine, structurallyEquivalent } from "@/lib/math/structure";
 
-export type PredictStatus = "empty" | "incomplete" | "complete" | "no_route";
+export type PredictStatus = "empty" | "incomplete" | "complete" | "no_route" | "incomplete_structure";
 
 export interface RouteMap {
   /** The teacher's line, unchanged. */
@@ -37,6 +38,8 @@ export interface Prediction {
   remaining: string[];
   /** True only when the local engine PROVED equivalence. */
   complete: boolean;
+  /** For an unfinished structure: what to finish, in plain words. */
+  missing?: string;
 }
 
 /** Search budget — kept small so a prediction never costs a visible frame. */
@@ -56,9 +59,9 @@ const splitEq = (s: string) => {
  * authoritative marking service enforces.
  */
 export const hasCompleteShape = (expected: string, student: string): boolean => {
-  const target = splitEq(normEq(expected));
+  const target = splitEq(linearize(expected).replace(/<=|>=|!=|<|>/g, "="));
   if (target.rhs === null) return clean(student).length > 0;
-  const written = splitEq(normEq(student));
+  const written = splitEq(linearize(student).replace(/<=|>=|!=|<|>/g, "="));
   return written.rhs !== null && written.lhs.trim().length > 0 && written.rhs.trim().length > 0;
 };
 
@@ -68,7 +71,13 @@ export const provesEquivalent = (expected: string, student: string): boolean => 
   const s = clean(student);
   if (!e || !s) return false;
   if (!hasCompleteShape(e, s)) return false;
-  return equationsEquivalent(e, s);
+  if (parseLine(s).state !== "valid") return false;
+  try {
+    if (equationsEquivalent(e, s)) return true;
+  } catch {
+    /* fall through to structural proof */
+  }
+  return structurallyEquivalent(e, s);
 };
 
 export const buildRouteMap = (input: {
@@ -89,8 +98,8 @@ export const buildRouteMap = (input: {
 
 /** Whitespace/glyph-only tidy — safe for matching single symbols like `+`. */
 const plain = (value: string): string =>
-  String(value ?? "")
-    .toLowerCase()
+  linearize(String(value ?? ""))
+    .replace(/[()]/g, "")
     .replace(/\s+/g, "")
     .replace(/−/g, "-")
     .replace(/[×·]/g, "*")
@@ -130,6 +139,14 @@ const searchRoute = (
   pool: readonly string[],
 ): { route: string[]; predictive: string } | null => {
   if (pool.length === 0) return null;
+  // A fraction is ONE structure built from two Floating Numbers: offer every
+  // numerator/denominator pair as a single composite step.
+  const moves: Array<{ piece: string; uses: number[] }> = pool.map((p, i) => ({ piece: p, uses: [i] }));
+  const operand = (a: string) => !/^(=|<|>|≤|≥|\+|-|−|×|÷|\*|\/)$/.test(a.trim());
+  for (let i = 0; i < pool.length && pool.length <= 8; i++)
+    for (let j = 0; j < pool.length; j++)
+      if (i !== j && operand(pool[i]) && operand(pool[j]))
+        moves.push({ piece: `\\frac{${pool[i]}}{${pool[j]}}`, uses: [i, j] });
   let frontier: Array<{ route: string[]; used: number[] }> = [{ route: [], used: [] }];
   let nodes = 0;
   const depth = Math.min(MAX_ROUTE_ATOMS, pool.length);
@@ -137,10 +154,10 @@ const searchRoute = (
   for (let d = 0; d < depth; d++) {
     const next: Array<{ route: string[]; used: number[] }> = [];
     for (const state of frontier) {
-      for (let i = 0; i < pool.length; i++) {
-        if (state.used.includes(i)) continue;
+      for (const move of moves) {
+        if (move.uses.some((u) => state.used.includes(u))) continue;
         if (++nodes > MAX_NODES) return fallback;
-        const route = [...state.route, pool[i]];
+        const route = [...state.route, move.piece];
         // Preferred: the student keeps writing forward from here.
         const after = joinRoute(student, route);
         if (provesEquivalent(map.expected, after)) return { route, predictive: after };
@@ -148,7 +165,7 @@ const searchRoute = (
           const before = joinRoute(route.join(" "), [student]);
           if (provesEquivalent(map.expected, before)) fallback = { route, predictive: before };
         }
-        next.push({ route, used: [...state.used, i] });
+        next.push({ route, used: [...state.used, ...move.uses] });
       }
     }
     if (next.length === 0) break;
@@ -178,6 +195,10 @@ export const predict = (input: {
     return { status: "empty", predictive: map.expected, remaining: pool, complete: false };
   }
 
+  // Structure first: an unfinished fraction/root/bracket is NOT a dead end.
+  const parsed = parseLine(student);
+  const pending = parsed.state === "incomplete" && !/^[^=<>]*[=<>]$/.test(student.trim());
+
   const found = searchRoute(map, student, pool);
   if (found) {
     return {
@@ -191,6 +212,15 @@ export const predict = (input: {
   // No Floating-Number route survives from here. On a keyboard surface the
   // student may still type their way to an equivalent line, so the expected
   // line stays the destination rather than declaring a dead end.
+  if (pending) {
+    return {
+      status: "incomplete_structure",
+      predictive: map.expected,
+      remaining: [],
+      complete: false,
+      missing: parsed.missing,
+    };
+  }
   if (input.allowFreeInput) {
     return { status: "incomplete", predictive: map.expected, remaining: [], complete: false };
   }
