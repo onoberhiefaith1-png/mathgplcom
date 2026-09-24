@@ -197,9 +197,9 @@ function LineTag({
 
 /** Width the tag strip needs for its longest label, in world units. */
 const lineTagWidth = (size: number) => size * 4.4 + 0.08;
-
-
+/**
   * THE CONTENT MARGIN — a VERTICAL writing boundary.
+
   *
   * A grip sits at the top of a vertical line running down the writing surface.
   * The line is subtle in normal use and bright while the grip is dragged.
