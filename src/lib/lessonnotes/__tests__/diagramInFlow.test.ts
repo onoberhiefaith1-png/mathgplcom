@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import CanvasFrame from "@/components/lessonnotes/extensions/CanvasFrame";
 import { GeometryDiagramNode } from "@/components/lessonnotes/extensions/GeometryDiagram";
+import { CanvasEmbed } from "@/components/lessonnotes/extensions/CanvasEmbed";
 
 /** A diagram is a document block: no object may be positioned over the text. */
 describe("diagrams stay in the document flow", () => {
@@ -22,5 +23,17 @@ describe("diagrams stay in the document flow", () => {
     expect(attrs.height).toBeDefined();
     expect(attrs.height.default).toBe(0);
     expect(attrs.height.renderHTML({ height: 260 })).toEqual({ "data-height": "260" });
+    expect(attrs.zoom.default).toBe(1);
+    expect(attrs.offsetX.default).toBe(0);
+    expect(attrs.offsetY.default).toBe(0);
+    expect(attrs.zoom.renderHTML({ zoom: 5 })).toEqual({ "data-zoom": "5" });
+  });
+
+  it("saves the whole Canvas transform as a proportional document object", () => {
+    const attrs = (CanvasEmbed as any).config.addAttributes.call({}) as Record<string, any>;
+    expect(attrs.zoom.default).toBe(1);
+    expect(attrs.offsetX.default).toBe(0);
+    expect(attrs.offsetY.default).toBe(0);
+    expect(attrs.zoom.renderHTML({ zoom: 3 })).toEqual({ "data-zoom": "3" });
   });
 });

@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useNavigate, useParams, useSearchParams } from "@/lib/router-compat";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RotateCcw, Settings as SettingsIcon,
-  Eraser, Undo2, Redo2, PanelLeftOpen, X as XIcon, Hash, Maximize2, Minimize2,
+  Eraser, Undo2, Redo2, PanelLeftOpen, X as XIcon, Hash, Maximize2, Minimize2, PanelsTopLeft,
 } from "lucide-react";
 import PresenterPreviewPanel from "./PresenterPreviewPanel";
 import AskAssessmentQuestion from "@/components/assessments/AskAssessmentQuestion";
@@ -186,7 +186,7 @@ import { localLiveChannel, publishLocalLive } from "@/lib/smartboard/localLiveBr
 import { extractTermsFromAscii } from "@/lib/smartboard/floatingExtractor";
 import { sanitizePresentation } from "@/lib/lessonnotes/outputHygiene";
 import { Check as CheckIcon, LayoutGrid as LayoutGridIcon } from "lucide-react";
-import { listSlides, type Slide } from "@/lib/lessonnotes/slides";
+import { listCanvases, listCanvasSlides, type Slide, type SlideCanvasRecord } from "@/lib/lessonnotes/slides";
 import { SlidePlayer } from "@/components/lessonnotes/slides/SlidePlayer";
 import { SolutionObjectView } from "@/components/lessonnotes/SolutionObjectView";
 import { BoardRelationshipView } from "@/components/smartboard/BoardRelationshipView";
@@ -1218,13 +1218,26 @@ const PresentationView = ({
   // Slide — presentation only on the board. The slides belong to the lesson
   // note; opening the menu just reads that note's own slide list.
   const [slideMenuOpen, setSlideMenuOpen] = useState(false);
+  const [boardCanvases, setBoardCanvases] = useState<SlideCanvasRecord[]>([]);
+  const [boardCanvasName, setBoardCanvasName] = useState("");
   const [boardSlides, setBoardSlides] = useState<Slide[]>([]);
   const [slideShowIndex, setSlideShowIndex] = useState<number | null>(null);
   const openSlideMenu = useCallback(() => {
     setSlideMenuOpen((v) => !v);
     if (!notebookId) return;
-    listSlides(notebookId).then(setBoardSlides).catch(() => setBoardSlides([]));
+    listCanvases(notebookId).then(setBoardCanvases).catch(() => setBoardCanvases([]));
   }, [notebookId]);
+  const presentCanvas = useCallback(async (canvas: SlideCanvasRecord) => {
+    try {
+      const slides = await listCanvasSlides(canvas.id);
+      setBoardSlides(slides);
+      setBoardCanvasName(canvas.name);
+      setSlideMenuOpen(false);
+      if (slides.length) setSlideShowIndex(0);
+    } catch {
+      setBoardSlides([]);
+    }
+  }, []);
 
 
 
@@ -6640,9 +6653,28 @@ const PresentationView = ({
           >
             Next <ChevronRight className="h-3.5 w-3.5" />
           </button>
-          {/* Diagram / Tables / Graph / Calc / Conversion / Slide are no longer
-              board tools: the companion Lesson Note workspace (right side of the
-              workspace switch) is the full Lesson Note editor and owns them. */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={openSlideMenu}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md"
+              style={{ background: palette.hoverBg, color: palette.chromeFg }}
+              title="Present a Canvas"
+            >
+              <PanelsTopLeft className="h-3.5 w-3.5" /> Canvas
+            </button>
+            {slideMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 min-w-56 rounded-lg border bg-background p-2 text-foreground shadow-xl">
+                <p className="px-2 pb-1 text-[11px] font-semibold text-muted-foreground">Choose one Canvas</p>
+                {boardCanvases.map((canvas) => (
+                  <button key={canvas.id} type="button" onClick={() => void presentCanvas(canvas)} className="block w-full rounded px-2 py-2 text-left text-xs hover:bg-muted">
+                    {canvas.name}
+                  </button>
+                ))}
+                {!boardCanvases.length && <p className="px-2 py-3 text-xs text-muted-foreground">No Canvas presentations yet.</p>}
+              </div>
+            )}
+          </div>
 
           <button
             onClick={() => setSettingsOpen((v) => !v)}
@@ -6661,6 +6693,7 @@ const PresentationView = ({
         <SlidePlayer
           slides={boardSlides}
           startIndex={slideShowIndex}
+          canvasName={boardCanvasName}
           dark
           onExit={() => setSlideShowIndex(null)}
         />

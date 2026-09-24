@@ -21,6 +21,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
 import { CanvasFrame } from "./extensions/CanvasFrame";
+import { CanvasEmbed } from "./extensions/CanvasEmbed";
 import { SessionSpacer } from "./extensions/SessionSpacer";
 import { attachSessionLayout } from "@/lib/lessonnotes/sessionLayout";
 import { startObjectDrag } from "@/lib/lessonnotes/objectDrag";
@@ -1959,6 +1960,7 @@ function DocumentEditorInner({
       MathVisual,
       EmojiMedia,
       CanvasFrame,
+      CanvasEmbed,
       SessionSpacer,
       AtCommand.configure({ onChange: setAtState }),
       MathKeyShortcuts,
@@ -2439,6 +2441,41 @@ function DocumentEditorInner({
   const [matrixPanelOpen, setMatrixPanelOpen] = useState(false);
   const [symbolPanelOpen, setSymbolPanelOpen] = useState(false);
   const [slidePanelOpen, setSlidePanelOpen] = useState(false);
+  const [requestedCanvasId, setRequestedCanvasId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const openCanvas = (event: Event) => {
+      const detail = (event as CustomEvent<{ canvasId?: string | null }>).detail;
+      setRequestedCanvasId(detail?.canvasId ?? null);
+      setSlidePanelOpen(true);
+    };
+    window.addEventListener("mathgpl:open-canvas", openCanvas);
+    return () => window.removeEventListener("mathgpl:open-canvas", openCanvas);
+  }, []);
+
+  // The region chosen in the Canvas panel is the region the Canvas occupies in
+  // the note: full frame there → full note width here.
+  useEffect(() => {
+    const onScale = (event: Event) => {
+      const detail = (event as CustomEvent<{ canvasId?: string; scale?: number }>).detail;
+      const id = detail?.canvasId;
+      const scale = detail?.scale;
+      if (!id || !editor || typeof scale !== "number") return;
+      const tr = editor.state.tr;
+      let changed = false;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== "canvasEmbed") return true;
+        if (node.attrs?.canvasId !== id) return false;
+        if (Math.abs(Number(node.attrs?.scale ?? 1) - scale) < 0.01) return false;
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, scale });
+        changed = true;
+        return false;
+      });
+      if (changed) editor.view.dispatch(tr);
+    };
+    window.addEventListener("mathgpl:canvas-scale", onScale);
+    return () => window.removeEventListener("mathgpl:canvas-scale", onScale);
+  }, [editor]);
 
 
   // Conversion tool.
@@ -2662,7 +2699,7 @@ function DocumentEditorInner({
     const insertAt = insertAtSensor([
       {
         type: "heading",
-        attrs: { level: 2, ...(qid ? { sectionId: qid } : {}) },
+        attrs: { level: 2, sessionKind: kind, ...(qid ? { sectionId: qid } : {}) },
         content: [{ type: "text", text: SECTION_LABELS[kind] }],
       },
       { type: "paragraph" },
@@ -4283,8 +4320,7 @@ function DocumentEditorInner({
         {slidePanelOpen && notebookId && (
           <SlidePanel
             notebookId={notebookId}
-            sheetEl={sheetElRef.current}
-            editor={editor}
+            initialCanvasId={requestedCanvasId}
             onClose={() => setSlidePanelOpen(false)}
           />
         )}

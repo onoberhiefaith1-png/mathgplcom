@@ -2,12 +2,12 @@
 // Every query filters through `notebook_id`, so there is no global gallery by
 // construction: Lesson Note B can never list Lesson Note A's decks.
 import { supabase } from "@/integrations/supabase/client";
+import { clampVisualZoom } from "@/lib/visualTransform";
 
 const BUCKET = "slide-media";
 
-/** The slide page in note pixels (A4 at 96dpi) — the same coordinate space as
- *  the lesson-note sheet, so a captured expression keeps its original size. */
-export const SLIDE_PAGE = { w: 794, h: 1123 } as const;
+/** One landscape coordinate system shared by editing, Preview and Smartboard. */
+export const SLIDE_PAGE = { w: 1600, h: 900 } as const;
 
 export type SlideItemKind = "screenshot" | "image" | "video" | "content";
 
@@ -26,6 +26,8 @@ export interface SlideItem {
   z: number;
   /** Reveal order during Preview / Smartboard presenting. */
   step: number;
+  /** Media scale inside its movable frame. Legacy items default to 100%. */
+  zoom: number;
 }
 
 export interface Slide {
@@ -43,7 +45,8 @@ export interface SlideDeck {
   position: number;
 }
 
-const ITEM_COLS = "id, slide_id, kind, storage_path, content_json, x, y, w, h, z, step";
+const LEGACY_ITEM_COLS = "id, slide_id, kind, storage_path, content_json, x, y, w, h, z, step";
+const ITEM_COLS = `${LEGACY_ITEM_COLS}, zoom`;
 const SLIDE_COLS = "id, notebook_id, deck_id, name, position";
 
 /* ----------------------------------------------------------------- decks -- */
@@ -157,14 +160,23 @@ export const reorderSlides = async (slides: Slide[]): Promise<void> => {
 /* ----------------------------------------------------------------- items -- */
 
 export const listSlideItems = async (slideId: string): Promise<SlideItem[]> => {
-  const { data, error } = await supabase
+  const query = await supabase
     .from("notebook_slide_items")
     .select(ITEM_COLS)
     .eq("slide_id", slideId)
     .order("step", { ascending: true })
     .order("z", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as SlideItem[];
+  if (!query.error) return (query.data ?? []).map((row: any) => ({ ...row, zoom: clampVisualZoom(row.zoom) })) as SlideItem[];
+  // Draft migrations apply only when accepted. Keep existing Canvas playback
+  // working meanwhile, and give legacy rows their compatible 100% default.
+  const legacy = await supabase
+    .from("notebook_slide_items")
+    .select(LEGACY_ITEM_COLS)
+    .eq("slide_id", slideId)
+    .order("step", { ascending: true })
+    .order("z", { ascending: true });
+  if (legacy.error) throw legacy.error;
+  return (legacy.data ?? []).map((row: any) => ({ ...row, zoom: 1 })) as SlideItem[];
 };
 
 export const addSlideItem = async (
@@ -173,19 +185,31 @@ export const addSlideItem = async (
 ): Promise<SlideItem> => {
   const { data, error } = await supabase
     .from("notebook_slide_items")
-    .insert({ slide_id: slideId, content_json: null, ...item } as never)
+    .insert({ slide_id: slideId, content_json: null, ...item, zoom: clampVisualZoom(item.zoom) } as never)
     .select(ITEM_COLS)
     .single();
-  if (error) throw error;
-  return data as SlideItem;
+  if (!error) return { ...(data as any), zoom: clampVisualZoom((data as any)?.zoom) } as SlideItem;
+  const { zoom: _zoom, ...legacyItem } = item;
+  const fallback = await supabase
+    .from("notebook_slide_items")
+    .insert({ slide_id: slideId, content_json: null, ...legacyItem } as never)
+    .select(LEGACY_ITEM_COLS)
+    .single();
+  if (fallback.error) throw fallback.error;
+  return { ...(fallback.data as any), zoom: 1 } as SlideItem;
 };
 
 export const updateSlideItem = async (
   id: string,
-  patch: Partial<Pick<SlideItem, "x" | "y" | "w" | "h" | "z" | "step" | "content_json">>,
+  patch: Partial<Pick<SlideItem, "x" | "y" | "w" | "h" | "z" | "step" | "zoom" | "content_json">>,
 ): Promise<void> => {
   const { error } = await supabase.from("notebook_slide_items").update(patch as never).eq("id", id);
-  if (error) throw error;
+  if (!error) return;
+  if (!("zoom" in patch)) throw error;
+  const { zoom: _zoom, ...legacyPatch } = patch;
+  if (Object.keys(legacyPatch).length === 0) return;
+  const fallback = await supabase.from("notebook_slide_items").update(legacyPatch as never).eq("id", id);
+  if (fallback.error) throw fallback.error;
 };
 
 export const deleteSlideItem = async (id: string): Promise<void> => {

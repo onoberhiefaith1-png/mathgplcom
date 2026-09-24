@@ -4,20 +4,14 @@
 // workspace layout (never an overlay), so every note control stays reachable.
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, Camera, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, FilePlus2,
-  Image as ImageIcon, Monitor, Play, Plus, Trash2, Video, X,
+  ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, FilePlus2, Maximize2, Minimize2,
+  Image as ImageIcon, Play, Plus, Trash2, Video, X,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Editor } from "@tiptap/react";
 import { SlideCanvas } from "./SlideCanvas";
 import { SlidePlayer } from "./SlidePlayer";
-import { SnipOverlay, type SnipResult } from "./SnipOverlay";
 import { ImportSourceDialog, type ImportSource } from "./ImportSourceDialog";
 import { MyGplMediaPicker } from "./MyGplMediaPicker";
-import { ScreenshotOverlay } from "./ScreenshotOverlay";
-import {
-  grabScreenFrame, screenCaptureSupported, ScreenCaptureError, type ScreenFrame,
-} from "@/lib/lessonnotes/screenCapture";
 import {
   addSlideItem, createCanvas, createSlide, deleteCanvas, deleteSlide, deleteSlideItem,
   listCanvases, listCanvasSlides, listSlideItems, renameCanvas, renameSlide, reorderSlides,
@@ -26,16 +20,14 @@ import {
 
 interface Props {
   notebookId: string;
-  /** The note sheet element captures are taken from. */
-  sheetEl: HTMLElement | null;
-  /** The live note editor — captured mathematics stays editable. */
-  editor?: Editor | null;
+  sheetEl?: HTMLElement | null;
   onClose: () => void;
+  initialCanvasId?: string | null;
 }
 
 const MIN_W = 320;
 
-export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Props) {
+export function SlidePanel({ notebookId, initialCanvasId = null, onClose }: Props) {
   const widthKey = `slide-panel-w:${notebookId}`;
   const [width, setWidth] = useState(() => {
     if (typeof window === "undefined") return 520;
@@ -53,7 +45,6 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   const [openId, setOpenId] = useState<string | null>(null);
   const [items, setItems] = useState<SlideItem[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [capturing, setCapturing] = useState(false);
   const [presenting, setPresenting] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -61,8 +52,6 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   // Import Image / Import Video both go through one source menu.
   const [sourceFor, setSourceFor] = useState<"image" | "video" | null>(null);
   const [gplFor, setGplFor] = useState<"image" | "video" | null>(null);
-  // Screenshot (true screen capture) is deliberately separate from Capture.
-  const [screenFrame, setScreenFrame] = useState<ScreenFrame | null>(null);
 
   const canvas = canvases.find((d) => d.id === canvasId) ?? null;
   const openIndex = slides.findIndex((s) => s.id === openId);
@@ -72,7 +61,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       if (!dragging.current) return;
-      const max = Math.max(MIN_W, window.innerWidth * 0.6);
+      const max = Math.max(MIN_W, window.innerWidth * 0.92);
       setWidth(Math.min(max, Math.max(MIN_W, window.innerWidth - e.clientX)));
     };
     const onUp = () => {
@@ -92,6 +81,25 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     if (typeof window !== "undefined") window.sessionStorage.setItem(widthKey, String(width));
   }, [width, widthKey]);
 
+  /** The widest the panel may become — "the full frame". */
+  const fullWidth = () => (typeof window === "undefined" ? 1200 : Math.round(window.innerWidth * 0.92));
+
+  /** Always-available expand / collapse: narrow → default → wide → full. */
+  const cycleWidth = (direction: 1 | -1) => {
+    const steps = [MIN_W, 520, Math.round((typeof window === "undefined" ? 1200 : window.innerWidth) * 0.6), fullWidth()];
+    const i = steps.findIndex((w) => Math.abs(w - width) < 24);
+    const nextIndex = Math.min(steps.length - 1, Math.max(0, (i === -1 ? 1 : i) + direction));
+    setWidth(steps[nextIndex]);
+  };
+
+  // The region the panel occupies IS the region the Canvas takes in the note:
+  // push the panel to the full frame and the Canvas covers the full note width.
+  useEffect(() => {
+    if (!canvasId) return;
+    const scale = Math.min(1, Math.max(0.3, width / fullWidth()));
+    window.dispatchEvent(new CustomEvent("mathgpl:canvas-scale", { detail: { canvasId, scale } }));
+  }, [width, canvasId]);
+
   /* --------------------------------------------------------------- data -- */
 
   const refreshCanvases = useCallback(async () => {
@@ -110,6 +118,11 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
   }, []);
 
   useEffect(() => { void refreshCanvases(); }, [refreshCanvases]);
+  useEffect(() => {
+    if (initialCanvasId) void openCanvas(initialCanvasId);
+  // The requested identity changes only when a Canvas session is selected.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCanvasId]);
   useEffect(() => { if (canvasId) void refreshSlides(canvasId); }, [canvasId, refreshSlides]);
   useEffect(() => { if (openId) void refreshItems(openId); }, [openId, refreshItems]);
 
@@ -127,6 +140,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
       setSlides([first]);
       setCanvasId(created.id);
       setOpenId(first.id);
+      window.dispatchEvent(new CustomEvent("mathgpl:canvas-selected", { detail: { canvasId: created.id, name: created.name } }));
     } catch {
       toast.error("Could not create the canvas");
     }
@@ -134,6 +148,8 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
 
   const openCanvas = async (id: string) => {
     setCanvasId(id);
+    const named = canvases.find((c) => c.id === id) ?? null;
+    window.dispatchEvent(new CustomEvent("mathgpl:canvas-selected", { detail: { canvasId: id, name: named?.name } }));
     try {
       let rows = await listCanvasSlides(id);
       if (!rows.length) rows = [await createSlide(notebookId, id, "Slide 1")];
@@ -213,8 +229,8 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     };
   };
 
-  /** THE single insertion path for every kind of slide media — Capture,
-   *  Screenshot, Import Image, Import Video, MyGPL. Everything becomes a
+  /** THE single insertion path for every kind of slide media — Import Image,
+   *  Import Video and MyGPL. Everything becomes a
    *  normal, selectable, movable, resizable object on the CURRENT slide. */
   const insertSlideObject = useCallback(
     async (
@@ -241,6 +257,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
         ...box,
         z: nextZ(),
         step: nextStep(),
+        zoom: 1,
       });
       setItems((s) => [...s, item]);
       setSelected(item.id);
@@ -281,84 +298,6 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     }
   };
 
-  /* --------------------------------------------------------- screenshot -- */
-
-  const startScreenshot = async () => {
-    if (!openId) { toast.error("Open a slide first"); return; }
-    if (!screenCaptureSupported()) {
-      toast.error("This browser cannot take screenshots. Use Capture for note content.");
-      return;
-    }
-    setBusy(true);
-    try {
-      setScreenFrame(await grabScreenFrame());
-    } catch (err) {
-      const reason = err instanceof ScreenCaptureError ? err.reason : "failed";
-      toast.error(
-        reason === "denied"
-          ? "Screenshot cancelled — screen sharing permission is needed."
-          : "The screenshot could not be taken. Try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const closeScreenshot = () => {
-    setScreenFrame((f) => { if (f) URL.revokeObjectURL(f.url); return null; });
-  };
-
-  const insertScreenshot = async (blob: Blob, pixelWidth: number, pixelHeight: number) => {
-    closeScreenshot();
-    if (!openId) return;
-    setBusy(true);
-    try {
-      if (blob.size < 128) {
-        toast.error("The screenshot came back empty. Try taking it again.");
-        return;
-      }
-      const path = await uploadSlideMedia(notebookId, openId, blob, "png");
-      // Confirm the stored file is actually reachable before telling the
-      // teacher it worked — a blank slide must never be reported as success.
-      const url = await slideMediaUrl(path);
-      if (!url) {
-        toast.error("The screenshot was taken but could not be loaded back. Try again.");
-        return;
-      }
-      const item = await insertSlideObject(
-        { kind: "screenshot", storage_path: path },
-        boxForPixels(pixelWidth, pixelHeight),
-      );
-      if (item) toast.success(`Screenshot added as step ${item.step}`);
-    } catch (err) {
-      console.error("[screenshot] save failed", err);
-      toast.error("Could not save the screenshot");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleCapture = async (result: SnipResult) => {
-    setCapturing(false);
-    if (!openId) return;
-    setBusy(true);
-    try {
-      const geometry = { x: result.x, y: result.y, w: result.w, h: result.h };
-      let item: SlideItem | null = null;
-      if (result.content) {
-        item = await insertSlideObject({ kind: "content", content_json: result.content }, geometry);
-      } else if (result.blob) {
-        const path = await uploadSlideMedia(notebookId, openId, result.blob, "png");
-        item = await insertSlideObject({ kind: "screenshot", storage_path: path }, geometry);
-      }
-      if (item) toast.success(`Captured as step ${item.step}`);
-    } catch (err) {
-      console.error("[capture] save failed", err);
-      toast.error("Could not save the capture");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   /** Insert a MyGPL library asset by reference — no second copy is stored. */
   const insertGplAsset = async (asset: { storage_path: string | null; external_url: string | null; media_type: "image" | "video"; name: string }) => {
@@ -387,7 +326,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
         content_json: src.content_json,
         x: Math.min(0.9, src.x + 0.03),
         y: Math.min(0.9, src.y + 0.03),
-        w: src.w, h: src.h,
+        w: src.w, h: src.h, zoom: src.zoom,
         z: nextZ(), step: nextStep(),
       });
       setItems((s) => [...s, item]);
@@ -409,23 +348,11 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
     try { await deleteSlideItem(id); } catch { toast.error("Could not delete the element"); }
   };
 
-  // While capturing, the panel is hidden so it can never land in the capture.
-  if (capturing) {
-    return (
-      <SnipOverlay
-        sheetEl={sheetEl}
-        editor={editor}
-        onCancel={() => setCapturing(false)}
-        onCapture={handleCapture}
-      />
-    );
-  }
-
   return (
     <div
       data-slide-chrome="true"
       className="relative flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-l bg-background"
-      style={{ width, maxWidth: "60%" }}
+      style={{ width, maxWidth: "92%" }}
     >
       {/* Left-edge resize grip — the note column keeps the remaining width. */}
       <div
@@ -451,6 +378,23 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
         <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
           {canvas ? `Canvas: ${canvas.name}` : "My Canvases"}
         </h2>
+        {/* Expand / shrink is ALWAYS visible — no need to find the thin edge. */}
+        <button
+          type="button"
+          className="rounded p-1.5 hover:bg-muted"
+          onClick={() => cycleWidth(-1)}
+          title="Make the canvas region smaller"
+        >
+          <Minimize2 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="rounded p-1.5 hover:bg-muted"
+          onClick={() => cycleWidth(1)}
+          title="Expand the canvas region (up to the full frame)"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
         {canvas && (
           <button
             type="button"
@@ -545,7 +489,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
               disabled={openIndex <= 0}
               className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted disabled:opacity-40"
             >
-              <ChevronLeft className="h-3.5 w-3.5" /> Previous
+              <ChevronLeft className="h-5 w-5" />
             </button>
             <span className="truncate text-center text-[11px] font-medium tabular-nums text-muted-foreground">
               Slide {openIndex < 0 ? 0 : openIndex + 1} of {slides.length}
@@ -557,8 +501,22 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
                 disabled={openIndex < 0 || openIndex >= slides.length - 1}
                 className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted disabled:opacity-40"
               >
-                Next <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-5 w-5" />
               </button>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold hover:bg-muted"
+                  onClick={async () => {
+                    try {
+                      await Promise.all(items.map((i) => updateSlideItem(i.id, { x: i.x, y: i.y, w: i.w, h: i.h, z: i.z, zoom: i.zoom })));
+                      toast.success("Slide saved");
+                    } catch { toast.error("Could not save the slide"); }
+                  }}
+                >
+                  Save
+                </button>
+              )}
               {slides.length > 0 && (
                 <button
                   type="button"
@@ -572,15 +530,6 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
           </div>
 
           <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-2">
-            <button type="button" disabled={busy || !openId} onClick={() => setCapturing(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
-              <Camera className="h-3.5 w-3.5" /> Capture
-            </button>
-            <button type="button" disabled={busy || !openId} onClick={() => void startScreenshot()}
-              title="Take a real screenshot of any screen, window or tab"
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
-              <Monitor className="h-3.5 w-3.5" /> Screenshot
-            </button>
             <button type="button" disabled={busy || !openId} onClick={() => setSourceFor("image")}
               className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-40">
               <ImageIcon className="h-3.5 w-3.5" /> Import image
@@ -656,8 +605,7 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
                     />
                   </div>
                   <p className="pt-2 text-[11px] leading-snug text-muted-foreground">
-                    Each capture becomes the next reveal step, at its original size. Select an
-                    image or video to drag it, resize it from any handle, or fill the slide.
+                     Select an image or video to drag it, resize it from any handle, or fill the 16:9 Canvas.
                   </p>
                 </>
               ) : (
@@ -683,14 +631,6 @@ export function SlidePanel({ notebookId, sheetEl, editor = null, onClose }: Prop
           kind={gplFor}
           onClose={() => setGplFor(null)}
           onPick={(asset) => void insertGplAsset(asset)}
-        />
-      )}
-
-      {screenFrame && (
-        <ScreenshotOverlay
-          frame={screenFrame}
-          onCancel={closeScreenshot}
-          onInsert={(blob, pw, ph) => void insertScreenshot(blob, pw, ph)}
         />
       )}
 

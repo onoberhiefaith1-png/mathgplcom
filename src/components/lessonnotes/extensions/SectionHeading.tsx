@@ -27,6 +27,7 @@ import { ensureOwnerQuestionId, sectionEndWithin } from "@/lib/lessonnotes/conta
 import { detachIntoFrame, startObjectDrag } from "@/lib/lessonnotes/objectDrag";
 import { syncDocumentToNotebook } from "@/lib/lessonnotes/syncDocumentToNotebook";
 import { useBuilderAiVisible } from "@/lib/lessonnotes/aiMode";
+import { CanvasSessionGateway } from "../slides/CanvasSessionGateway";
 
 
 
@@ -98,10 +99,14 @@ function SectionHeadingView(props: NodeViewProps) {
   // Structural subtopic headings (level 1, custom text) carry NO AI toolbar.
   // Custom sessions (level 2, custom text) behave like a full section.
   const role = level <= 3 ? headingRole(text, level) : null;
+  // A Canvas session is renamed to the Canvas it presents ("clo"), so its
+  // stamped kind — not its text — is what identifies it.
+  const stampedCanvas = (node.attrs as any)?.sessionKind === "canvas";
   const kind: SectionKind | null =
-    role?.role === "section" ? role.kind
-      : role?.role === "custom_session" ? "custom_session"
-        : null;
+    stampedCanvas ? "canvas"
+      : role?.role === "section" ? role.kind
+        : role?.role === "custom_session" ? "custom_session"
+          : null;
 
 
   const computeSection = useCallback(() => {
@@ -538,6 +543,47 @@ function SectionHeadingView(props: NodeViewProps) {
     el.classList.toggle("is-session-grab", kind ? inGrabBand(e) : false);
   }, [inGrabBand, kind]);
 
+  /** Bind a Canvas presentation to this session:
+   *   1. the heading TAKES THE CANVAS NAME ("clo"), keeping its stamped kind,
+   *   2. a `canvasEmbed` block right under the heading shows one slide at a
+   *      time, exactly where a diagram would sit.
+   *  The Canvas name is what the outline and the Smartboard read. */
+  const bindCanvas = useCallback((canvasId: string | null, canvasName: string | null) => {
+    const pos = typeof getPos === "function" ? getPos() : null;
+    if (pos == null) return;
+    const state = editor.state;
+    const heading = state.doc.nodeAt(pos);
+    if (!heading) return;
+    const name = (canvasName || "Canvas").trim() || "Canvas";
+    const tr = state.tr;
+
+    tr.setNodeMarkup(pos, undefined, {
+      ...heading.attrs,
+      sessionKind: "canvas",
+      canvasId,
+      canvasName: canvasName ?? null,
+    });
+    // Rename the heading text to the Canvas name.
+    tr.insertText(name, pos + 1, pos + heading.nodeSize - 1);
+
+    const headingEnd = pos + 2 + name.length;
+    const after = tr.doc.nodeAt(headingEnd);
+    const embedType = state.schema.nodes.canvasEmbed;
+    if (embedType) {
+      if (after?.type?.name === "canvasEmbed") {
+        tr.setNodeMarkup(headingEnd, undefined, {
+          ...after.attrs,
+          canvasId,
+          canvasName: canvasName ?? null,
+        });
+      } else if (canvasId) {
+        tr.insert(headingEnd, embedType.create({ canvasId, canvasName: canvasName ?? null, scale: 1 }));
+      }
+    }
+    editor.view.dispatch(tr);
+  }, [editor, getPos]);
+
+
   return (
     <NodeViewWrapper
       className="section-heading-wrapper group relative"
@@ -549,7 +595,15 @@ function SectionHeadingView(props: NodeViewProps) {
       }
     >
       <NodeViewContent as={`h${level}` as any} />
-      {kind && (
+      {kind === "canvas" && notebookId && (
+        <CanvasSessionGateway
+          notebookId={notebookId}
+          canvasId={(node.attrs as any)?.canvasId ?? null}
+          canvasName={(node.attrs as any)?.canvasName ?? null}
+          onCanvasChange={(canvasId, canvasName) => bindCanvas(canvasId, canvasName)}
+        />
+      )}
+      {kind && kind !== "canvas" && (
         <span
           contentEditable={false}
 
@@ -704,6 +758,11 @@ export const SectionHeading = Heading.extend<SectionHeadingOptions>({
     return {
       ...this.parent?.(),
       /** Stable identity of a question block (Example, Exercise, …). */
+      sessionKind: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-session-kind"),
+        renderHTML: (attrs) => attrs.sessionKind ? { "data-session-kind": attrs.sessionKind } : {},
+      },
       sectionId: {
         default: null,
         parseHTML: (el) => el.getAttribute("data-section-id"),
@@ -717,6 +776,12 @@ export const SectionHeading = Heading.extend<SectionHeadingOptions>({
         parseHTML: (el) => el.getAttribute("data-owner-question-id"),
         renderHTML: (attrs) =>
           attrs.ownerQuestionId ? { "data-owner-question-id": attrs.ownerQuestionId } : {},
+      },
+      /** Presentation selected by this structural Canvas session. */
+      canvasId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-canvas-id"),
+        renderHTML: (attrs) => attrs.canvasId ? { "data-canvas-id": attrs.canvasId } : {},
       },
     };
   },

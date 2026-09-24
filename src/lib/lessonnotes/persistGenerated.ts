@@ -22,6 +22,7 @@ const MAP_TO_DB_KIND: Record<SectionKind, string> = {
   solution: "example",
   game_questions: "exercise",
   custom_session: "example",
+  canvas: "explanation",
 };
 
 /**
