@@ -114,16 +114,19 @@ export interface LineReport {
   predictive: string | null;
   remaining: string | null;
   noRoute: boolean;
+  /** A structure (fraction, root, bracket…) was started but not finished. */
+  structureMissing: string | null;
   /** The shared engine has proved this line complete and equivalent. */
   predictionComplete: boolean;
 }
 
 /** Exactly what the shared Predictive Line Engine reported for this line. */
 export interface InspectPrediction {
-  status: "empty" | "incomplete" | "complete" | "no_route";
+  status: "empty" | "incomplete" | "complete" | "no_route" | "incomplete_structure";
   predictive: string;
   remaining: readonly string[];
   complete: boolean;
+  missing?: string;
 }
 
 const clean = (value: string | null | undefined) => (value ?? "").trim();
@@ -297,6 +300,10 @@ export const buildLineReport = (input: {
       ? null
       : (input.prediction?.remaining?.length ? input.prediction.remaining.join(" ") : null),
     noRoute: !row.isQuestion && input.prediction?.status === "no_route",
+    structureMissing:
+      !row.isQuestion && input.prediction?.status === "incomplete_structure"
+        ? input.prediction.missing ?? "finish the structure"
+        : null,
     predictionComplete: !row.isQuestion && input.prediction?.complete === true,
   };
 };
