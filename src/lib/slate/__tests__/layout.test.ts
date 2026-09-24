@@ -291,4 +291,43 @@ describe("Content Margin", () => {
   it("is repeatable: the same inputs give the same box", () => {
     expect(box(0.8)).toEqual(box(0.8));
   });
+
+  it("starts every line at the one margin, and moving it moves them together", () => {
+    const band = gameWritingBand(20);
+    const near = box(0);
+    const far = box(1.2);
+    const nearFrame = writingSurfaceFrame("a", near, band);
+    const farFrame = writingSurfaceFrame("a", far, band);
+    expect(farFrame.innerLeft - nearFrame.innerLeft).toBeCloseTo(1.2, 5);
+    // the writing box the renderers use follows the same margin
+    expect(far.contentOffsetX - near.contentOffsetX).toBeCloseTo(1.2 / 2, 5);
+  });
+
+  it("keeps the Line tag strip before the margin and never moves it", () => {
+    const tagged = (contentMargin: number) =>
+      gameSurfaceBox({
+        text: "2(x + 3) - 4x = 8",
+        fontSize: 90,
+        writingWidth: 18,
+        readOnlyWriting: true,
+        inset: 0.3,
+        measuredWidth: 1.2,
+        measuredHeight: 0.4,
+        contentMargin,
+        foldInset: 0.1,
+        tagGutter: 0.5,
+      });
+    const near = tagged(0);
+    const far = tagged(1.2);
+    expect(near.tagGutter).toBeCloseTo(0.5, 5);
+    expect(far.tagGutter).toBeCloseTo(0.5, 5);
+    // the strip's own place is padX from the surface start, whatever the margin
+    const band = gameWritingBand(20);
+    expect(writingSurfaceFrame("a", far, band).innerLeft).toBeCloseTo(
+      writingSurfaceFrame("a", near, band).innerLeft + 1.2,
+      5,
+    );
+    expect(far.innerWritingWidth).toBeCloseTo(near.innerWritingWidth, 5);
+  });
 });
+
