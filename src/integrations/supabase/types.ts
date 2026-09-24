@@ -6167,6 +6167,7 @@ export type Database = {
           x: number
           y: number
           z: number
+          zoom: number
         }
         Insert: {
           content_json?: Json | null
@@ -6181,6 +6182,7 @@ export type Database = {
           x?: number
           y?: number
           z?: number
+          zoom?: number
         }
         Update: {
           content_json?: Json | null
@@ -6195,6 +6197,7 @@ export type Database = {
           x?: number
           y?: number
           z?: number
+          zoom?: number
         }
         Relationships: [
           {
