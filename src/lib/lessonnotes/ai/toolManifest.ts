@@ -124,7 +124,7 @@ export function buildWorkspaceManifest(): string {
     "WORKSPACE TOOLS (use these instead of typing content by hand):",
     tools,
     "",
-    "ASSET LIBRARY (ids usable with [[tool:diagram asset=\"…\"]] or [[tool:asset query=\"…\"]]):",
+    "ASSET LIBRARY — non-mathematical assets only (symbols, structures, illustrations); use [[tool:asset query=\"…\"]]. Mathematical diagrams are never assets — use [[tool:diagram type=…]]:",
     assetCatalogForPrompt(),
   ].join("\n");
 }
