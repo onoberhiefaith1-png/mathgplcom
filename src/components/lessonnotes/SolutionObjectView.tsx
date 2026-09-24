@@ -20,6 +20,7 @@ import { MathVisual } from "./extensions/MathVisual";
 import { MathInline } from "./extensions/MathInline";
 import { MathBlock } from "./extensions/MathBlock";
 import { INLINE_OBJECT_TYPES } from "@/lib/floating/solutionItems";
+import { CanvasSlideViewer, clampCanvasScale } from "./slides/CanvasSlideViewer";
 
 interface Props {
   nodeType: string;
@@ -38,6 +39,22 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
   // Set BEFORE the editor is created so the node views read it on first mount.
   if (presentation) setScene3DPresentationMode(true);
 
+  // A Canvas presentation renders as its own inline player — one slide at a
+  // time, with the same chevrons the lesson note shows.
+  if (nodeType === "canvasEmbed" && attrs?.canvasId) {
+    return (
+      <CanvasSlideViewer
+        canvasId={String(attrs.canvasId)}
+        canvasName={attrs?.canvasName ? String(attrs.canvasName) : undefined}
+        scale={clampCanvasScale(attrs?.scale)}
+        authoredZoom={attrs?.zoom}
+        authoredOffsetX={attrs?.offsetX}
+        authoredOffsetY={attrs?.offsetY}
+        presentation={presentation}
+      />
+    );
+  }
+
   const geometryScene = nodeType === "geometryDiagram"
     ? sanitizeScene(attrs?.scene)
     : null;
@@ -52,6 +69,9 @@ export const SolutionObjectView = ({ nodeType, attrs, presentation = false, zoom
           diagramId={String(attrs?.diagramId ?? "")}
           pageLayer={attrs?.pageLayer === true}
           zoom={zoom}
+          authoredZoom={attrs?.zoom}
+          authoredOffsetX={attrs?.offsetX}
+          authoredOffsetY={attrs?.offsetY}
           notebookId={notebookId}
         />
       )

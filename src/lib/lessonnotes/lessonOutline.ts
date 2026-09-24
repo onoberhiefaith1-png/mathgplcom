@@ -111,6 +111,8 @@ export interface LessonSegment {
   /** For a Solution: the durable id of the question it belongs to. Read from
    *  the heading, or from the floating frame the solution was dragged into. */
   ownerQuestionId: string | null;
+  /** Presentation bound to a first-class Canvas session. */
+  canvasId: string | null;
 }
 
 
@@ -133,7 +135,7 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
     level: number,
     explicitNumber: number | null,
     implicit: boolean,
-    ids?: { sectionId?: string | null; ownerQuestionId?: string | null },
+    ids?: { sectionId?: string | null; ownerQuestionId?: string | null; canvasId?: string | null },
   ): LessonSegment => {
     const next = (counters.get(kind) ?? 0) + 1;
     counters.set(kind, next);
@@ -155,6 +157,7 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
       nodes: [],
       sectionId: ids?.sectionId ?? null,
       ownerQuestionId: ids?.ownerQuestionId ?? null,
+      canvasId: ids?.canvasId ?? null,
     };
     current = seg;
     segments.push(seg);
@@ -177,7 +180,10 @@ export function buildLessonOutline(doc: any): LessonSegment[] {
           (typeof node[FRAME_OWNER] === "string" && node[FRAME_OWNER]
             ? (node[FRAME_OWNER] as string)
             : null);
-        open(marker.kind, marker.title, level, marker.number, false, { sectionId, ownerQuestionId });
+        const canvasId = typeof node.attrs?.canvasId === "string" && node.attrs.canvasId
+          ? node.attrs.canvasId as string
+          : null;
+        open(marker.kind, marker.title, level, marker.number, false, { sectionId, ownerQuestionId, canvasId });
         continue;
       }
       // Descriptive heading → ordinary content of the current session.

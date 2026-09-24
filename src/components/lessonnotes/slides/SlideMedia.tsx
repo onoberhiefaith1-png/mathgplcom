@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ImageOff, RefreshCw } from "lucide-react";
 import { slideMediaUrl, type SlideItem } from "@/lib/lessonnotes/slides";
+import { clampVisualZoom } from "@/lib/visualTransform";
 
 export function SlideMedia({ item, muted = false }: { item: SlideItem; muted?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -22,6 +23,12 @@ export function SlideMedia({ item, muted = false }: { item: SlideItem; muted?: b
   }, [item.storage_path, attempt]);
 
   const retry = useCallback(() => setAttempt((a) => a + 1), []);
+  const cover = (item as SlideItem & { cover?: boolean }).cover === true;
+  const fitClass = cover ? "h-full w-full object-cover" : "h-full w-full rounded object-contain";
+  const mediaStyle = cover ? {} : {
+    transform: `scale(${clampVisualZoom(item.zoom)})`,
+    transformOrigin: "center",
+  };
 
   if (failed) {
     return (
@@ -50,8 +57,10 @@ export function SlideMedia({ item, muted = false }: { item: SlideItem; muted?: b
         controls
         muted={muted}
         playsInline
+        preload="metadata"
         onError={() => setFailed(true)}
-        className="h-full w-full rounded object-contain"
+        className={fitClass}
+        style={mediaStyle}
       />
     );
   }
@@ -60,7 +69,8 @@ export function SlideMedia({ item, muted = false }: { item: SlideItem; muted?: b
       src={url}
       alt=""
       onError={() => setFailed(true)}
-      className="h-full w-full rounded object-contain"
+      className={fitClass}
+      style={mediaStyle}
       draggable={false}
     />
   );

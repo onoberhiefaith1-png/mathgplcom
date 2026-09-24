@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { SlideMedia } from "./SlideMedia";
 import { SlideContentBlock } from "./SlideContentBlock";
+import { SlideStage } from "./SlideStage";
 import { listSlideItems, maxStep, SLIDE_PAGE, type Slide, type SlideItem } from "@/lib/lessonnotes/slides";
 
 interface Props {
@@ -19,7 +20,7 @@ interface Props {
   dark?: boolean;
 }
 
-export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark = false }: Props) {
+export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName }: Props) {
   const [index, setIndex] = useState(startIndex);
   const [step, setStep] = useState(1);
   const [items, setItems] = useState<SlideItem[]>([]);
@@ -112,51 +113,37 @@ export function SlidePlayer({ slides, startIndex = 0, onExit, canvasName, dark =
       </div>
 
       <div ref={stageRef} className="absolute inset-0 overflow-hidden bg-white">
-        <div
-          className="absolute left-1/2 top-1/2 bg-white"
+        <SlideStage
+          items={visible}
+          className="absolute left-1/2 top-1/2"
           style={{
-            width: SLIDE_PAGE.w,
-            height: SLIDE_PAGE.h,
             transform: `translate(-50%, -50%) scale(${scale})`,
             transformOrigin: "center center",
           }}
-        >
-          {visible.map((item) => (
-            <div
-              key={item.id}
-              className="absolute"
-              style={{
-                left: `${item.x * 100}%`,
-                top: `${item.y * 100}%`,
-                width: `${item.w * 100}%`,
-                height: `${item.h * 100}%`,
-                zIndex: item.z + 1,
-              }}
-            >
-              {item.kind === "content" ? (
-                <SlideContentBlock nodes={item.content_json} />
-              ) : (
-                <SlideMedia item={item} />
-              )}
-            </div>
-          ))}
-        </div>
+          renderItem={(item) => item.kind === "content"
+            ? <SlideContentBlock nodes={item.content_json} />
+            : <SlideMedia item={item} />}
+        />
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-3 pb-5">
         <button
           type="button"
           onClick={back}
-          className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-slate-900/10 px-4 py-2 text-sm text-slate-700 hover:bg-slate-900/20"
+          disabled={index === 0 && step === 1}
+          aria-label="Previous slide"
+          className="pointer-events-auto grid h-12 w-12 place-items-center rounded-full bg-slate-900/10 text-slate-700 hover:bg-slate-900/20 disabled:opacity-30"
         >
-          <ChevronLeft className="h-4 w-4" /> Previous
+          <ChevronLeft className="h-6 w-6" />
         </button>
         <button
           type="button"
           onClick={next}
-          className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
+          disabled={index === slides.length - 1 && step === total}
+          aria-label="Next slide"
+          className="pointer-events-auto grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-30"
         >
-          Next <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-6 w-6" />
         </button>
       </div>
 

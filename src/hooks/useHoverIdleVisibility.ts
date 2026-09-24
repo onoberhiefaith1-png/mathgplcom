@@ -16,9 +16,12 @@ export function useHoverIdleVisibility(opts?: {
   idleMs?: number;
   /** When true, force-visible regardless of hover/idle (e.g. selected). */
   forceVisible?: boolean;
+  /** Hide after inactivity even while the pointer remains over the asset. */
+  hideWhileInside?: boolean;
 }) {
   const idleMs = opts?.idleMs ?? 10000;
   const force = !!opts?.forceVisible;
+  const hideWhileInside = !!opts?.hideWhileInside;
   const [visible, setVisible] = useState(force);
   const insideRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -29,27 +32,26 @@ export function useHoverIdleVisibility(opts?: {
   const armTimer = useCallback(() => {
     clearTimer();
     timerRef.current = setTimeout(() => {
-      if (!insideRef.current) setVisible(false);
+      if (hideWhileInside || !insideRef.current) setVisible(false);
     }, idleMs);
-  }, [idleMs]);
+  }, [hideWhileInside, idleMs]);
 
   const ping = useCallback(() => {
     setVisible(true);
     clearTimer();
-    // If pointer left, still start countdown; if inside, wait until leave.
-    if (!insideRef.current) armTimer();
+    armTimer();
   }, [armTimer]);
 
   const bind: HoverIdleBind = {
-    onPointerEnter: () => { insideRef.current = true; setVisible(true); clearTimer(); },
-    onPointerMove: () => { setVisible(true); clearTimer(); },
+    onPointerEnter: () => { insideRef.current = true; setVisible(true); clearTimer(); if (hideWhileInside) armTimer(); },
+    onPointerMove: () => { setVisible(true); clearTimer(); if (hideWhileInside) armTimer(); },
     onPointerLeave: () => { insideRef.current = false; armTimer(); },
-    onPointerDown: () => { setVisible(true); clearTimer(); if (!insideRef.current) armTimer(); },
+    onPointerDown: () => { setVisible(true); clearTimer(); if (hideWhileInside || !insideRef.current) armTimer(); },
   };
 
   useEffect(() => {
     if (force) { setVisible(true); clearTimer(); }
-    else if (!insideRef.current) armTimer();
+    else if (!insideRef.current || hideWhileInside) armTimer();
     return clearTimer;
   }, [force, armTimer]);
 

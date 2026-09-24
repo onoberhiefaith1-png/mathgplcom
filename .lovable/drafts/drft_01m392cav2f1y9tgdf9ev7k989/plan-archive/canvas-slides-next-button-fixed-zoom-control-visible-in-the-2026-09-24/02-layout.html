@@ -1,0 +1,42 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-secondary); font-size: 12px; }
+    .lbl { fill: var(--fg-primary); font-size: 14px; font-weight: 480; }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .zone { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+    .acc { fill: var(--bg-accent-translucent); stroke: var(--fg-accent); stroke-width: 1; }
+    .accink { fill: var(--fg-accent); font-size: 12px; }
+    .quiet { fill: var(--bg-muted); stroke: none; }
+  </style>
+
+  <text class="lbl" x="8" y="16">now — controls ride the growing picture</text>
+  <rect class="zone" x="8" y="26" width="290" height="150" rx="8"/>
+  <rect class="quiet" x="46" y="40" width="330" height="120" rx="6"/>
+  <rect class="box" x="46" y="40" width="330" height="120" rx="6"/>
+  <circle class="box" cx="24" cy="100" r="13"/>
+  <text x="19" y="105">&#8249;</text>
+  <circle class="box" cx="396" cy="100" r="13"/>
+  <text x="391" y="105">&#8250;</text>
+  <text x="330" y="196">off screen</text>
+  <text x="14" y="196">note width</text>
+
+  <text class="lbl" x="352" y="16">after — fixed control layer</text>
+  <rect class="zone" x="352" y="26" width="280" height="150" rx="8"/>
+  <rect class="quiet" x="368" y="40" width="330" height="120" rx="6"/>
+  <rect class="box" x="368" y="40" width="248" height="120" rx="6"/>
+  <circle class="acc" cx="368" cy="100" r="13"/>
+  <text class="accink" x="363" y="105">&#8249;</text>
+  <circle class="acc" cx="616" cy="100" r="13"/>
+  <text class="accink" x="611" y="105">&#8250;</text>
+  <rect class="acc" x="540" y="32" width="72" height="20" rx="10"/>
+  <text class="accink" x="551" y="46">&#8722; 200% +</text>
+  <text x="358" y="196">picture may overflow; arrows and zoom stay put</text>
+
+  <line x1="8" y1="230" x2="632" y2="230" stroke="var(--border-translucent)" stroke-width="1"/>
+  <circle cx="18" cy="256" r="9" fill="var(--fg-accent)"/>
+  <text x="14.5" y="260" style="fill: var(--bg-primary); font-size: 11px;">1</text>
+  <text x="34" y="260">arrows and zoom pinned to the note width, never to the zoomed picture</text>
+  <circle cx="18" cy="280" r="9" fill="var(--fg-accent)"/>
+  <text x="14.5" y="284" style="fill: var(--bg-primary); font-size: 11px;">2</text>
+  <text x="34" y="284">same layer used on the Smartboard, larger tap targets</text>
+</svg>

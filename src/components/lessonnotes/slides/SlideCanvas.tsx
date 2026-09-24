@@ -1,14 +1,15 @@
-// The Slide page — one page of a Canvas, in the lesson note's own pixel space
-// (A4 @ 96dpi). The whole page is scaled uniformly to fit its container, so
-// captured mathematics keeps its original size and proportions: nothing is ever
+// The Slide page — one 16:9 page in the shared Canvas coordinate space.
+// The whole page is scaled uniformly to fit its container, so
+// imported media keeps its size and proportions: nothing is ever
 // auto-fitted per object. Every object is selectable, draggable and resizable
 // from eight handles.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Trash2, ArrowUp, ArrowDown, Copy, Maximize2, MoveHorizontal, RotateCcw } from "lucide-react";
+import { Trash2, ArrowUp, ArrowDown, Copy, Maximize2, MoveHorizontal, RotateCcw, Minus, Plus } from "lucide-react";
 import { SlideMedia } from "./SlideMedia";
 import { SlideContentBlock } from "./SlideContentBlock";
 import { SLIDE_PAGE, type SlideItem } from "@/lib/lessonnotes/slides";
 import { cn } from "@/lib/utils";
+import { clampSlideMove, clampVisualZoom, VISUAL_ZOOM_MAX, VISUAL_ZOOM_MIN, VISUAL_ZOOM_STEP } from "@/lib/visualTransform";
 
 interface Props {
   items: SlideItem[];
@@ -33,7 +34,7 @@ const HANDLES: { key: Handle; style: React.CSSProperties; cursor: string }[] = [
 ];
 
 const MIN = 0.03;
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+const MAX_SIZE = 5;
 
 export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete, onDuplicate }: Props) {
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -93,8 +94,8 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete, o
       setLive((s) => ({
         ...s,
         [item.id]: {
-          x: Math.max(0, Math.min(1 - item.w, item.x + dx)),
-          y: Math.max(0, Math.min(1 - item.h, item.y + dy)),
+          x: clampSlideMove(item.x + dx, item.w),
+          y: clampSlideMove(item.y + dy, item.h),
         },
       }));
       return;
@@ -102,23 +103,23 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete, o
 
     let { x, y, w, h } = item;
     const k = m.kind;
-    if (k.includes("e")) w = Math.max(MIN, Math.min(1 - x, item.w + dx));
-    if (k.includes("s")) h = Math.max(MIN, Math.min(1 - y, item.h + dy));
+    if (k.includes("e")) w = Math.max(MIN, Math.min(MAX_SIZE, item.w + dx));
+    if (k.includes("s")) h = Math.max(MIN, Math.min(MAX_SIZE, item.h + dy));
     if (k.includes("w")) {
       const right = item.x + item.w;
-      x = clamp01(Math.min(right - MIN, item.x + dx));
+      x = Math.max(right - MAX_SIZE, Math.min(right - MIN, item.x + dx));
       w = right - x;
     }
     if (k.includes("n")) {
       const bottom = item.y + item.h;
-      y = clamp01(Math.min(bottom - MIN, item.y + dy));
+      y = Math.max(bottom - MAX_SIZE, Math.min(bottom - MIN, item.y + dy));
       h = bottom - y;
     }
     // Corner drags keep the aspect ratio unless Shift is held.
     const corner = k.length === 2;
     if (corner && !e.shiftKey && m.ratio > 0) {
       const targetH = w / m.ratio;
-      if (targetH + y <= 1) {
+      if (targetH <= MAX_SIZE) {
         if (k.includes("n")) y = y + h - targetH;
         h = targetH;
       }
@@ -137,11 +138,15 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete, o
     setLive({});
   };
 
+  const selectedItem = selectedId ? items.find((item) => item.id === selectedId) ?? null : null;
+  const selectedRect = selectedItem ? rectOf(selectedItem) : null;
+  const mediaSelected = !!selectedRect && selectedRect.kind !== "content";
+
   return (
     <div ref={shellRef} className="relative h-full w-full overflow-hidden">
       <div
         ref={pageRef}
-        className="absolute left-1/2 top-0 bg-white shadow"
+        className="absolute left-1/2 top-0 overflow-hidden bg-white shadow"
         style={{
           width: SLIDE_PAGE.w,
           height: SLIDE_PAGE.h,
@@ -152,9 +157,34 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete, o
         onPointerUp={end}
         onPointerDown={() => onSelect(null)}
       >
+        {selectedRect && (
+          <div
+            className="absolute left-1/2 top-3 z-[100] flex -translate-x-1/2 items-center gap-1 rounded-md border bg-background/95 px-2 py-1 shadow-lg"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <span className="px-1 text-[11px] font-medium text-muted-foreground">Step</span>
+            <button type="button" title="Reveal earlier" className="rounded p-1 hover:bg-muted" onClick={() => onChange(selectedRect.id, { step: Math.max(1, selectedRect.step - 1) })}><ArrowUp className="h-3.5 w-3.5" /></button>
+            <span className="w-4 text-center text-[11px] tabular-nums">{selectedRect.step}</span>
+            <button type="button" title="Reveal later" className="rounded p-1 hover:bg-muted" onClick={() => onChange(selectedRect.id, { step: selectedRect.step + 1 })}><ArrowDown className="h-3.5 w-3.5" /></button>
+            {mediaSelected && <span className="mx-1 h-4 w-px bg-border" />}
+            {mediaSelected && (
+              <>
+                <button type="button" title="Zoom image out" disabled={selectedRect.zoom <= VISUAL_ZOOM_MIN} className="rounded p-1 hover:bg-muted disabled:opacity-40" onClick={() => onChange(selectedRect.id, { zoom: clampVisualZoom(selectedRect.zoom - VISUAL_ZOOM_STEP) })}><Minus className="h-3.5 w-3.5" /></button>
+                <button type="button" title="Reset image zoom" className="min-w-12 rounded px-1 text-[11px] font-semibold tabular-nums hover:bg-muted" onClick={() => onChange(selectedRect.id, { zoom: 1 })}>{Math.round(clampVisualZoom(selectedRect.zoom) * 100)}%</button>
+                <button type="button" title="Zoom image in" disabled={selectedRect.zoom >= VISUAL_ZOOM_MAX} className="rounded p-1 hover:bg-muted disabled:opacity-40" onClick={() => onChange(selectedRect.id, { zoom: clampVisualZoom(selectedRect.zoom + VISUAL_ZOOM_STEP) })}><Plus className="h-3.5 w-3.5" /></button>
+              </>
+            )}
+            <span className="mx-1 h-4 w-px bg-border" />
+            <button type="button" title="Fit width" className="rounded p-1 hover:bg-muted" onClick={() => onChange(selectedRect.id, { x: 0, w: 1 })}><MoveHorizontal className="h-3.5 w-3.5" /></button>
+            <button type="button" title="Fill slide" className="rounded p-1 hover:bg-muted" onClick={() => onChange(selectedRect.id, { x: 0, y: 0, w: 1, h: 1, zoom: 1 })}><Maximize2 className="h-3.5 w-3.5" /></button>
+            <button type="button" title="Reset size" className="rounded p-1 hover:bg-muted" onClick={() => onChange(selectedRect.id, { w: 0.5, h: 0.3, zoom: 1 })}><RotateCcw className="h-3.5 w-3.5" /></button>
+            {onDuplicate && <button type="button" title="Duplicate element" className="rounded p-1 hover:bg-muted" onClick={() => onDuplicate(selectedRect.id)}><Copy className="h-3.5 w-3.5" /></button>}
+            <button type="button" title="Delete element" className="rounded p-1 text-destructive hover:bg-destructive/10" onClick={() => onDelete(selectedRect.id)}><Trash2 className="h-3.5 w-3.5" /></button>
+          </div>
+        )}
         {items.length === 0 && (
           <p className="absolute inset-0 grid place-items-center px-10 text-center text-base text-slate-400">
-            Blank slide — capture from the note, take a screenshot, or import an image or video.
+            Blank slide — import an image or video to begin.
           </p>
         )}
         {items.map((raw) => {
@@ -196,72 +226,6 @@ export function SlideCanvas({ items, selectedId, onSelect, onChange, onDelete, o
                       onPointerDown={(e) => begin(e, raw, hd.key)}
                     />
                   ))}
-                  <div
-                    className="absolute -top-9 left-0 flex items-center gap-1 rounded-full bg-white px-2 py-1 shadow"
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    <span className="px-1 text-[11px] font-medium text-slate-500">Step</span>
-                    <button
-                      type="button"
-                      title="Reveal earlier"
-                      className="rounded p-1 hover:bg-slate-100"
-                      onClick={() => onChange(item.id, { step: Math.max(1, item.step - 1) })}
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <span className="w-4 text-center text-[11px] tabular-nums">{item.step}</span>
-                    <button
-                      type="button"
-                      title="Reveal later"
-                      className="rounded p-1 hover:bg-slate-100"
-                      onClick={() => onChange(item.id, { step: item.step + 1 })}
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                    <span className="mx-1 h-4 w-px bg-slate-200" />
-                    <button
-                      type="button"
-                      title="Fit width"
-                      className="rounded p-1 hover:bg-slate-100"
-                      onClick={() => onChange(item.id, { x: 0, w: 1 })}
-                    >
-                      <MoveHorizontal className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Fill slide"
-                      className="rounded p-1 hover:bg-slate-100"
-                      onClick={() => onChange(item.id, { x: 0, y: 0, w: 1, h: 1 })}
-                    >
-                      <Maximize2 className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Reset size"
-                      className="rounded p-1 hover:bg-slate-100"
-                      onClick={() => onChange(item.id, { w: 0.5, h: 0.3 })}
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </button>
-                    {onDuplicate && (
-                      <button
-                        type="button"
-                        title="Duplicate element"
-                        className="rounded p-1 hover:bg-slate-100"
-                        onClick={() => onDuplicate(item.id)}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      title="Delete element"
-                      className="rounded p-1 text-destructive hover:bg-destructive/10"
-                      onClick={() => onDelete(item.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
                 </>
               )}
             </div>
